@@ -66,11 +66,13 @@ impl HandlerInner {
             Err(TryLockError::WouldBlock) => return Ok(vec![]),
         };
 
+        let user = self.user_storage.get()?;
+
         let gb_repo = gb_repository::Repository::open(
             self.local_data_dir.clone(),
             project_id,
             self.project_storage.clone(),
-            self.user_storage.clone(),
+            user.as_ref(),
         )
         .context("failed to open repository")?;
 
@@ -96,7 +98,7 @@ impl HandlerInner {
             .context("failed to get project")?
             .ok_or_else(|| anyhow::anyhow!("project not found"))?;
 
-        let fetch_result = if let Err(error) = gb_repo.fetch() {
+        let fetch_result = if let Err(error) = gb_repo.fetch(user.as_ref()) {
             tracing::error!(project_id, ?error, "failed to fetch gitbutler data");
             projects::FetchResult::Error {
                 attempt: project

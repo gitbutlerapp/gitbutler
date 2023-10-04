@@ -11,7 +11,7 @@ impl super::RunCommand for Flush {
         let app = App::new().context("Failed to create app")?;
         println!("Flushing sessions");
         app.gb_repository()
-            .flush()
+            .flush(app.user())
             .context("failed to flush sessions")?;
         Ok(())
     }

@@ -45,7 +45,7 @@ impl<'reader> DeltasReader<'reader> {
         let mut result = HashMap::new();
         for file_path in files {
             if let Some(paths) = paths.as_ref() {
-                if !paths.into_iter().any(|path| file_path.eq(path)) {
+                if !paths.iter().any(|path| file_path.eq(path)) {
                     continue;
                 }
             }

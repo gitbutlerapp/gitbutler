@@ -62,6 +62,7 @@ impl super::RunCommand for Commit {
             &message,
             None,
             None,
+            app.user(),
         )
         .context("failed to commit")?;
 

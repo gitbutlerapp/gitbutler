@@ -13,23 +13,23 @@ pub struct Storage {
     storage: storage::Storage,
 }
 
-impl From<storage::Storage> for Storage {
-    fn from(storage: storage::Storage) -> Self {
-        Storage { storage }
+impl From<&storage::Storage> for Storage {
+    fn from(storage: &storage::Storage) -> Self {
+        Storage {
+            storage: storage.clone(),
+        }
     }
 }
 
 impl From<&path::PathBuf> for Storage {
     fn from(value: &path::PathBuf) -> Self {
-        Self::from(storage::Storage::from(value))
+        Self::from(&storage::Storage::from(value))
     }
 }
 
 impl From<&AppHandle> for Storage {
     fn from(value: &AppHandle) -> Self {
-        Self {
-            storage: value.state::<storage::Storage>().inner().clone(),
-        }
+        Self::from(value.state::<storage::Storage>().inner())
     }
 }
 

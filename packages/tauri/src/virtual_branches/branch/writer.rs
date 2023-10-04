@@ -106,7 +106,10 @@ impl<'writer> BranchWriter<'writer> {
 mod tests {
     use std::fs;
 
-    use crate::{projects, test_utils, users, virtual_branches::branch};
+    use crate::{
+        test_utils::{Case, Suite},
+        virtual_branches::branch,
+    };
 
     use super::*;
 
@@ -150,22 +153,14 @@ mod tests {
 
     #[test]
     fn test_write_branch() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = test_utils::temp_dir();
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        let Case { gb_repository, .. } = Suite::default().new_case();
 
         let branch = test_branch();
 
-        let writer = BranchWriter::new(&gb_repo);
+        let writer = BranchWriter::new(&gb_repository);
         writer.write(&branch)?;
 
-        let root = gb_repo.root().join("branches").join(&branch.id);
+        let root = gb_repository.root().join("branches").join(&branch.id);
 
         assert_eq!(
             fs::read_to_string(root.join("meta").join("name").to_str().unwrap())
@@ -216,41 +211,25 @@ mod tests {
 
     #[test]
     fn test_should_create_session() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = test_utils::temp_dir();
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        let Case { gb_repository, .. } = Suite::default().new_case();
 
         let branch = test_branch();
 
-        let writer = BranchWriter::new(&gb_repo);
+        let writer = BranchWriter::new(&gb_repository);
         writer.write(&branch)?;
 
-        assert!(gb_repo.get_current_session()?.is_some());
+        assert!(gb_repository.get_current_session()?.is_some());
 
         Ok(())
     }
 
     #[test]
     fn test_should_update() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = test_utils::temp_dir();
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        let Case { gb_repository, .. } = Suite::default().new_case();
 
         let branch = test_branch();
 
-        let writer = BranchWriter::new(&gb_repo);
+        let writer = BranchWriter::new(&gb_repository);
         writer.write(&branch)?;
 
         let updated_branch = Branch {
@@ -265,7 +244,7 @@ mod tests {
 
         writer.write(&updated_branch)?;
 
-        let root = gb_repo.root().join("branches").join(&branch.id);
+        let root = gb_repository.root().join("branches").join(&branch.id);
 
         assert_eq!(
             fs::read_to_string(root.join("meta").join("name").to_str().unwrap())

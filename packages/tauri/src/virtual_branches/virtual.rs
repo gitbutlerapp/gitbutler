@@ -16,7 +16,7 @@ use crate::{
     git::{self, diff},
     keys::{self, Key},
     project_repository::{self, conflicts, LogUntil},
-    reader, sessions,
+    reader, sessions, users,
 };
 
 use super::{
@@ -152,6 +152,7 @@ pub fn apply_branch(
     project_repository: &project_repository::Repository,
     branch_id: &str,
     signing_key: Option<&keys::PrivateKey>,
+    user: Option<&users::User>,
 ) -> Result<()> {
     if conflicts::is_resolving(project_repository) {
         bail!("cannot apply a branch, project is in a conflicted state");
@@ -233,8 +234,7 @@ pub fn apply_branch(
                 .context("failed to find head commit")?;
 
             // commit our new upstream merge
-            let user = gb_repository.user()?;
-            let (author, committer) = project_repository.git_signatures(user.as_ref())?;
+            let (author, committer) = project_repository.git_signatures(user)?;
             let message = "merge upstream";
             // write the merge commit
             let branch_tree_oid = merge_index.write_tree_to(repo)?;
@@ -939,6 +939,7 @@ pub fn merge_virtual_branch_upstream(
     project_repository: &project_repository::Repository,
     branch_id: &str,
     signing_key: Option<&keys::PrivateKey>,
+    user: Option<&users::User>,
 ) -> Result<()> {
     if conflicts::is_conflicting(project_repository, None)? {
         bail!("cannot merge upstream, project is in a conflicted state");
@@ -1043,8 +1044,7 @@ pub fn merge_virtual_branch_upstream(
             .write_tree_to(repo)
             .context("failed to write tree")?;
 
-        let user = gb_repository.user()?;
-        let (author, committer) = project_repository.git_signatures(user.as_ref())?;
+        let (author, committer) = project_repository.git_signatures(user)?;
         let message = "merged from upstream";
 
         let head_commit = repo.find_commit(branch.head)?;
@@ -1288,7 +1288,7 @@ pub fn virtual_hunks_by_filepath(
 // list the virtual branches and their file statuses (statusi?)
 pub fn get_status_by_branch(
     gb_repository: &gb_repository::Repository,
-    project_repository: &project_repository::Repository<'_>,
+    project_repository: &project_repository::Repository,
 ) -> Result<Vec<(branch::Branch, Vec<VirtualBranchFile>)>> {
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -1345,7 +1345,7 @@ pub fn get_status_by_branch(
 //
 // ownerships are not taken into account here, as they are not relevant for non applied branches
 fn get_non_applied_status(
-    project_repository: &project_repository::Repository<'_>,
+    project_repository: &project_repository::Repository,
     default_target: &target::Target,
     virtual_branches: Vec<branch::Branch>,
 ) -> Result<Vec<(branch::Branch, Vec<VirtualBranchFile>)>> {
@@ -1416,7 +1416,7 @@ fn get_non_applied_status(
 // ownerships are updated if nessessary
 fn get_applied_status(
     gb_repository: &gb_repository::Repository,
-    project_repository: &project_repository::Repository<'_>,
+    project_repository: &project_repository::Repository,
     default_target: &target::Target,
     mut virtual_branches: Vec<branch::Branch>,
 ) -> Result<Vec<(branch::Branch, Vec<VirtualBranchFile>)>> {
@@ -1796,6 +1796,7 @@ pub fn commit(
     message: &str,
     ownership: Option<&branch::Ownership>,
     signing_key: Option<&keys::PrivateKey>,
+    user: Option<&users::User>,
 ) -> Result<()> {
     if conflicts::is_conflicting(project_repository, None)? {
         bail!("cannot commit, project is in a conflicted state");
@@ -1862,8 +1863,7 @@ pub fn commit(
         .context(format!("failed to find tree {:?}", tree_oid))?;
 
     // now write a commit, using a merge parent if it exists
-    let user = gb_repository.user()?;
-    let (author, committer) = project_repository.git_signatures(user.as_ref())?;
+    let (author, committer) = project_repository.git_signatures(user)?;
     let extra_merge_parent =
         conflicts::merge_parent(project_repository).context("failed to get merge parent")?;
 

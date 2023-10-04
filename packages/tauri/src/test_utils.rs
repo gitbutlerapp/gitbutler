@@ -1,8 +1,91 @@
-use std::{fs, path};
+use std::{collections::HashMap, fs, path};
 
 use tempfile::tempdir;
 
-use crate::{database, git};
+use crate::{database, gb_repository, git, keys, project_repository, projects, storage, users};
+
+pub struct Suite {
+    pub local_app_data: path::PathBuf,
+    pub user_storage: users::Storage,
+    pub projects_storage: projects::Storage,
+    pub keys_storage: keys::Storage,
+}
+
+impl Default for Suite {
+    fn default() -> Self {
+        let local_app_data = temp_dir();
+        let storage = storage::Storage::from(&local_app_data);
+        let user_storage = users::Storage::from(&storage);
+        let projects_storage = projects::Storage::from(&storage);
+        let keys_storage = keys::Storage::from(&storage);
+        Self {
+            local_app_data,
+            user_storage,
+            projects_storage,
+            keys_storage,
+        }
+    }
+}
+
+impl Suite {
+    pub fn sign_in(&self) -> users::User {
+        let user = users::User {
+            name: "test".to_string(),
+            email: "test@email.com".to_string(),
+            ..Default::default()
+        };
+        self.user_storage.set(&user).expect("failed to add user");
+        user
+    }
+
+    pub fn new_case_with_files(&self, fs: HashMap<path::PathBuf, &str>) -> Case {
+        let repository = test_repository();
+        for (path, contents) in fs {
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(repository.path().parent().unwrap().join(parent))
+                    .expect("failed to create dir");
+            }
+            fs::write(
+                repository.path().parent().unwrap().join(&path),
+                contents.as_bytes(),
+            )
+            .expect("failed to write file");
+        }
+        commit_all(&repository);
+        self.case_from_repository(repository)
+    }
+
+    pub fn new_case(&self) -> Case {
+        self.new_case_with_files(HashMap::new())
+    }
+
+    fn case_from_repository(&self, repository: git::Repository) -> Case {
+        let project = projects::Project::try_from(&repository).expect("failed to create project");
+        self.projects_storage
+            .add_project(&project)
+            .expect("failed to add project");
+        let project_repository = project_repository::Repository::try_from(&project)
+            .expect("failed to create project repository");
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_app_data,
+            &project.id,
+            self.projects_storage.clone(),
+            None,
+        )
+        .expect("failed to open gb repository");
+        Case {
+            project_repository,
+            project,
+            gb_repository,
+        }
+    }
+}
+
+pub struct Case {
+    pub project_repository: project_repository::Repository,
+    pub gb_repository: gb_repository::Repository,
+    pub project: projects::Project,
+}
 
 pub fn test_database() -> database::Database {
     let path = temp_dir().join("test.db");

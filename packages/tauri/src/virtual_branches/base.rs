@@ -8,7 +8,7 @@ use crate::{
     gb_repository,
     git::{self, diff},
     project_repository::{self, LogUntil},
-    reader, sessions,
+    reader, sessions, users,
 };
 
 use super::{branch, delete_branch, iterator, target, RemoteCommit};
@@ -42,6 +42,7 @@ pub fn get_base_branch_data(
 pub fn set_base_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
+    user: Option<&users::User>,
     target_branch: &git::RemoteBranchName,
 ) -> Result<super::BaseBranch> {
     let repo = &project_repository.git_repository;
@@ -109,6 +110,7 @@ pub fn set_base_branch(
             project_repository,
             &head_name,
             Some(true),
+            user,
         )?;
         if branch.ownership.is_empty() && branch.head == target.sha {
             delete_branch(gb_repository, project_repository, &branch.id)?;
@@ -140,6 +142,7 @@ fn set_exclude_decoration(project_repository: &project_repository::Repository) -
 pub fn update_base_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
+    user: Option<&users::User>,
 ) -> Result<()> {
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -223,8 +226,7 @@ pub fn update_base_branch(
         };
         let branch_tree = repo.find_tree(tree_oid)?;
 
-        let user = gb_repository.user()?;
-        let (author, committer) = project_repository.git_signatures(user.as_ref())?;
+        let (author, committer) = project_repository.git_signatures(user)?;
 
         // check for conflicts with this tree
         let mut merge_index = repo
@@ -496,6 +498,7 @@ pub fn create_virtual_branch_from_branch(
     project_repository: &project_repository::Repository,
     upstream: &git::BranchName,
     applied: Option<bool>,
+    user: Option<&users::User>,
 ) -> Result<branch::Branch> {
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -568,8 +571,7 @@ pub fn create_virtual_branch_from_branch(
         if merge_index.has_conflicts() {
             bail!("merge conflict");
         } else {
-            let user = gb_repository.user()?;
-            let (author, committer) = project_repository.git_signatures(user.as_ref())?;
+            let (author, committer) = project_repository.git_signatures(user)?;
             let new_head_tree_oid = merge_index
                 .write_tree_to(repo)
                 .context("failed to write merge tree")?;

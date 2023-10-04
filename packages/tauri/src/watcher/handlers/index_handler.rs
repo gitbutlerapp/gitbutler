@@ -71,11 +71,13 @@ impl Handler {
     }
 
     pub fn reindex(&self, project_id: &str) -> Result<Vec<events::Event>> {
+        let user = self.user_store.get()?;
+
         let gb_repository = gb_repository::Repository::open(
             self.local_data_dir.clone(),
             project_id,
             self.project_store.clone(),
-            self.user_store.clone(),
+            user.as_ref(),
         )
         .context("failed to open repository")?;
 
@@ -92,11 +94,13 @@ impl Handler {
         project_id: &str,
         session: &sessions::Session,
     ) -> Result<Vec<events::Event>> {
+        let user = self.user_store.get()?;
+
         let gb_repository = gb_repository::Repository::open(
             self.local_data_dir.clone(),
             project_id,
             self.project_store.clone(),
-            self.user_store.clone(),
+            user.as_ref(),
         )
         .context("failed to open repository")?;
 

@@ -11,6 +11,7 @@ pub struct App {
     project: projects::Project,
     gb_repository: gb_repository::Repository,
     sessions_db: sessions::Database,
+    user: Option<users::User>,
 }
 
 impl App {
@@ -19,9 +20,9 @@ impl App {
         let local_data_dir = find_local_data_dir().context("could not find local data dir")?;
 
         let storage = storage::Storage::from(&local_data_dir);
-        let users_storage = users::Storage::from(storage.clone());
+        let users_storage = users::Storage::from(&storage);
 
-        let projects_storage = projects::Storage::try_from(storage)?;
+        let projects_storage = projects::Storage::try_from(&storage)?;
         let projects = projects_storage
             .list_projects()
             .context("failed to list projects")?;
@@ -31,11 +32,12 @@ impl App {
             .find(|p| p.path == path)
             .context("failed to find project")?;
 
+        let user = users_storage.get().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &local_data_dir,
             &project.id,
             projects_storage,
-            users_storage,
+            user.as_ref(),
         )
         .context("failed to open repository")?;
 
@@ -49,7 +51,12 @@ impl App {
             project,
             gb_repository,
             sessions_db,
+            user,
         })
+    }
+
+    pub fn user(&self) -> Option<&users::User> {
+        self.user.as_ref()
     }
 
     pub fn path(&self) -> &str {

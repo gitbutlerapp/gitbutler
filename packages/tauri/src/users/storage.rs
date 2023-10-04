@@ -18,21 +18,23 @@ pub enum Error {
     Storage(#[from] storage::Error),
 }
 
-impl From<storage::Storage> for Storage {
-    fn from(storage: storage::Storage) -> Self {
-        Self { storage }
-    }
-}
-
-impl From<&path::PathBuf> for Storage {
-    fn from(path: &path::PathBuf) -> Self {
-        Self::from(storage::Storage::from(path))
+impl From<&storage::Storage> for Storage {
+    fn from(storage: &storage::Storage) -> Self {
+        Self {
+            storage: storage.clone(),
+        }
     }
 }
 
 impl From<&AppHandle> for Storage {
     fn from(value: &AppHandle) -> Self {
-        Self::from(value.state::<storage::Storage>().inner().clone())
+        Self::from(value.state::<storage::Storage>().inner())
+    }
+}
+
+impl From<&path::PathBuf> for Storage {
+    fn from(path: &path::PathBuf) -> Self {
+        Self::from(&storage::Storage::from(path))
     }
 }
 

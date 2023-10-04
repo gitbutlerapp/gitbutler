@@ -85,7 +85,10 @@ impl<'writer> TargetWriter<'writer> {
 mod tests {
     use std::fs;
 
-    use crate::{projects, test_utils, users, virtual_branches::branch};
+    use crate::{
+        test_utils::{Case, Suite},
+        virtual_branches::branch,
+    };
 
     use super::{super::Target, *};
 
@@ -129,15 +132,7 @@ mod tests {
 
     #[test]
     fn test_write() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = test_utils::temp_dir();
-        let local_repo_path = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_repo_path);
-        let project_store = projects::Storage::from(&local_repo_path);
-        project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        let Case { gb_repository, .. } = Suite::default().new_case();
 
         let branch = test_branch();
         let target = Target {
@@ -146,13 +141,13 @@ mod tests {
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };
 
-        let branch_writer = branch::Writer::new(&gb_repo);
+        let branch_writer = branch::Writer::new(&gb_repository);
         branch_writer.write(&branch)?;
 
-        let target_writer = TargetWriter::new(&gb_repo);
+        let target_writer = TargetWriter::new(&gb_repository);
         target_writer.write(&branch.id, &target)?;
 
-        let root = gb_repo.root().join("branches").join(&branch.id);
+        let root = gb_repository.root().join("branches").join(&branch.id);
 
         assert_eq!(
             fs::read_to_string(root.join("meta").join("name").to_str().unwrap())
@@ -220,15 +215,7 @@ mod tests {
 
     #[test]
     fn test_should_update() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = test_utils::temp_dir();
-        let local_repo_path = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_repo_path);
-        let project_store = projects::Storage::from(&local_repo_path);
-        project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        let Case { gb_repository, .. } = Suite::default().new_case();
 
         let branch = test_branch();
         let target = Target {
@@ -237,9 +224,9 @@ mod tests {
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };
 
-        let branch_writer = branch::Writer::new(&gb_repo);
+        let branch_writer = branch::Writer::new(&gb_repository);
         branch_writer.write(&branch)?;
-        let target_writer = TargetWriter::new(&gb_repo);
+        let target_writer = TargetWriter::new(&gb_repository);
         target_writer.write(&branch.id, &target)?;
 
         let updated_target = Target {
@@ -252,7 +239,7 @@ mod tests {
 
         target_writer.write(&branch.id, &updated_target)?;
 
-        let root = gb_repo.root().join("branches").join(&branch.id);
+        let root = gb_repository.root().join("branches").join(&branch.id);
 
         assert_eq!(
             fs::read_to_string(root.join("target").join("branch_name").to_str().unwrap())

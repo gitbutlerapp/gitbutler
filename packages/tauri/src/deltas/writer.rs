@@ -65,26 +65,21 @@ impl<'writer> DeltasWriter<'writer> {
 mod tests {
     use std::vec;
 
-    use crate::{deltas, projects, sessions, test_utils, users};
+    use crate::{
+        deltas, sessions,
+        test_utils::{Case, Suite},
+    };
 
     use super::*;
 
     #[test]
     fn write_no_vbranches() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = test_utils::temp_dir();
-        let local_app_data = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_app_data);
-        let project_store = projects::Storage::from(&local_app_data);
-        project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let deltas_writer = DeltasWriter::new(&gb_repo);
+        let deltas_writer = DeltasWriter::new(&gb_repository);
 
-        let session = gb_repo.get_or_create_current_session()?;
-        let session_reader = sessions::Reader::open(&gb_repo, &session)?;
+        let session = gb_repository.get_or_create_current_session()?;
+        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
         let deltas_reader = deltas::Reader::new(&session_reader);
 
         let path = "test.txt";
