@@ -22,7 +22,7 @@ export class BranchController {
 			await invoke<BaseBranch>('set_base_branch', { projectId: this.projectId, branch });
 			await this.targetBranchStore.reload();
 		} catch (err) {
-			toasts.error('Failed to set target');
+			toasts.error('Failed to set base branch');
 		}
 	}
 

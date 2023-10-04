@@ -108,7 +108,11 @@ export async function getRemoteBranchesData(params: {
 	return branches;
 }
 
-export async function getBaseBranch(params: { projectId: string }): Promise<BaseBranch> {
+export async function getRemoteBranches(projectId: string) {
+	return await invoke<Array<string>>('git_remote_branches', { projectId });
+}
+
+async function getBaseBranch(params: { projectId: string }): Promise<BaseBranch> {
 	const baseBranch = plainToInstance(BaseBranch, await invoke<any>('get_base_branch_data', params));
 	if (baseBranch) {
 		// The rust code performs a fetch when get_base_branch_data is invoked
