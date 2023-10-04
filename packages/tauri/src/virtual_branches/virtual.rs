@@ -1117,7 +1117,6 @@ pub fn update_branch(
             .unwrap(),
             None => bail!("no remote set"),
         };
-        dbg!(&remote_branch);
         branch.upstream = Some(remote_branch);
     };
 
