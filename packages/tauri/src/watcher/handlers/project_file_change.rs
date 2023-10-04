@@ -98,13 +98,9 @@ impl Handler {
 
         let user = self.user_store.get().context("failed to get user")?;
 
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            project_id,
-            self.project_store.clone(),
-            user.as_ref(),
-        )
-        .context("failed to open gb repository")?;
+        let gb_repository =
+            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
+                .context("failed to open gb repository")?;
 
         // If current session's branch is not the same as the project's head, flush it first.
         if let Some(session) = gb_repository

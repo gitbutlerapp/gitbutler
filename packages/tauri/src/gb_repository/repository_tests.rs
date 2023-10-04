@@ -201,7 +201,7 @@ fn test_remote_syncronization() -> Result<()> {
     let user = suite.sign_in();
 
     // create first local project, add files, deltas and flush a session
-    let case_one = suite.new_case_with_files(HashMap::from([(
+    let mut case_one = suite.new_case_with_files(HashMap::from([(
         path::PathBuf::from("test.txt"),
         "Hello World",
     )]));
@@ -212,6 +212,7 @@ fn test_remote_syncronization() -> Result<()> {
             api: Some(api_project.clone()),
             ..Default::default()
         })?;
+    case_one.refresh();
 
     let writer = deltas::Writer::new(&case_one.gb_repository);
     writer.write(
@@ -225,7 +226,7 @@ fn test_remote_syncronization() -> Result<()> {
     case_one.gb_repository.push(Some(&user)).unwrap();
 
     // create second local project, fetch it and make sure session is there
-    let case_two = suite.new_case();
+    let mut case_two = suite.new_case();
     suite
         .projects_storage
         .update_project(&projects::UpdateRequest {
@@ -233,6 +234,7 @@ fn test_remote_syncronization() -> Result<()> {
             api: Some(api_project.clone()),
             ..Default::default()
         })?;
+    case_two.refresh();
 
     case_two.gb_repository.fetch(Some(&user))?;
 
@@ -282,7 +284,7 @@ fn test_remote_sync_order() -> Result<()> {
 
     let suite = Suite::default();
 
-    let case_one = suite.new_case();
+    let mut case_one = suite.new_case();
     suite
         .projects_storage
         .update_project(&projects::UpdateRequest {
@@ -290,8 +292,9 @@ fn test_remote_sync_order() -> Result<()> {
             api: Some(api_project.clone()),
             ..Default::default()
         })?;
+    case_one.refresh();
 
-    let case_two = suite.new_case();
+    let mut case_two = suite.new_case();
     suite
         .projects_storage
         .update_project(&projects::UpdateRequest {
@@ -299,6 +302,7 @@ fn test_remote_sync_order() -> Result<()> {
             api: Some(api_project.clone()),
             ..Default::default()
         })?;
+    case_two.refresh();
 
     let user = suite.sign_in();
 

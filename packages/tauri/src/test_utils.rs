@@ -66,14 +66,10 @@ impl Suite {
             .expect("failed to add project");
         let project_repository = project_repository::Repository::try_from(&project)
             .expect("failed to create project repository");
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_app_data,
-            &project.id,
-            self.projects_storage.clone(),
-            None,
-        )
-        .expect("failed to open gb repository");
+        let gb_repository = gb_repository::Repository::open(&self.local_app_data, &project, None)
+            .expect("failed to open gb repository");
         Case {
+            suite: self,
             project_repository,
             project,
             gb_repository,
@@ -81,10 +77,27 @@ impl Suite {
     }
 }
 
-pub struct Case {
+pub struct Case<'a> {
+    suite: &'a Suite,
     pub project_repository: project_repository::Repository,
     pub gb_repository: gb_repository::Repository,
     pub project: projects::Project,
+}
+
+impl Case<'_> {
+    pub fn refresh(&mut self) {
+        self.project = self
+            .suite
+            .projects_storage
+            .get_project(&self.project.id)
+            .expect("failed to get project")
+            .expect("project not found");
+        self.project_repository = project_repository::Repository::try_from(&self.project)
+            .expect("failed to create project repository");
+        self.gb_repository =
+            gb_repository::Repository::open(&self.suite.local_app_data, &self.project, None)
+                .expect("failed to open gb repository");
+    }
 }
 
 pub fn test_database() -> database::Database {

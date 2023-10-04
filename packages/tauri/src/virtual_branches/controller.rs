@@ -115,7 +115,10 @@ impl Controller {
             .try_into()
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
-        let gb_repository = self.open_gb_repository(project_id, user.as_ref())?;
+        let gb_repository =
+            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
+                .context("failed to open gitbutler repository")
+                .map_err(Error::Other)?;
         super::is_remote_branch_mergeable(&gb_repository, &project_repository, branch_name)
             .map_err(Error::Other)
     }
@@ -135,7 +138,10 @@ impl Controller {
             .try_into()
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
-        let gb_repository = self.open_gb_repository(project_id, user.as_ref())?;
+        let gb_repository =
+            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
+                .context("failed to open gitbutler repository")
+                .map_err(Error::Other)?;
         super::is_virtual_branch_mergeable(&gb_repository, &project_repository, branch_id)
             .map_err(Error::Other)
     }
@@ -229,7 +235,10 @@ impl Controller {
             .try_into()
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
-        let gb_repository = self.open_gb_repository(project_id, user.as_ref())?;
+        let gb_repository =
+            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
+                .context("failed to open gitbutler repository")
+                .map_err(Error::Other)?;
         let base_branch = super::get_base_branch_data(&gb_repository, &project_repository)?;
         if let Some(branch) = base_branch {
             Ok(Some(self.proxy_base_branch(branch).await))
@@ -277,7 +286,10 @@ impl Controller {
 
         let user = self.users_storage.get().context("failed to get user")?;
 
-        let gb_repository = self.open_gb_repository(project_id, user.as_ref())?;
+        let gb_repository =
+            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
+                .context("failed to open gitbutler repository")
+                .map_err(Error::Other)?;
         let target = super::set_base_branch(
             &gb_repository,
             &project_repository,
@@ -484,7 +496,10 @@ impl Controller {
             .try_into()
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
-        let gb_repository = self.open_gb_repository(project_id, user.as_ref())?;
+        let gb_repository =
+            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
+                .context("failed to open gitbutler repository")
+                .map_err(Error::Other)?;
         super::integration::verify_branch(&gb_repository, &project_repository).map_err(
             |e| match e {
                 super::integration::VerifyError::DetachedHead => Error::DetachedHead,
@@ -503,21 +518,6 @@ impl Controller {
             .or_insert_with(|| Semaphore::new(1));
         let _permit = semaphore.acquire().await;
         action()
-    }
-
-    fn open_gb_repository(
-        &self,
-        project_id: &str,
-        user: Option<&users::User>,
-    ) -> Result<gb_repository::Repository, Error> {
-        gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project_id,
-            self.projects_storage.clone(),
-            user,
-        )
-        .context("failed to open repository")
-        .map_err(Error::Other)
     }
 
     async fn proxy_base_branch(&self, target: super::BaseBranch) -> super::BaseBranch {

@@ -23,8 +23,7 @@ use crate::{
 };
 
 pub struct Repository {
-    pub project_id: String,
-    project_store: projects::Storage,
+    pub project: projects::Project,
     pub git_repository: git::Repository,
     lock_file: std::fs::File,
 }
@@ -44,29 +43,19 @@ pub enum Error {
 impl Repository {
     pub fn open<P: AsRef<std::path::Path>>(
         root: P,
-        project_id: &str,
-        project_store: projects::Storage,
+        project: &projects::Project,
         user: Option<&users::User>,
     ) -> Result<Self, Error> {
-        let project = project_store
-            .get_project(project_id)
-            .context("failed to get project")
-            .map_err(Error::Other)?;
-        if project.is_none() {
-            return Err(Error::ProjectNotFound);
-        }
-        let project = project.unwrap();
-
         let project_objects_path = std::path::Path::new(&project.path).join(".git/objects");
         if !project_objects_path.exists() {
             return Err(Error::ProjectPathNotFound(project_objects_path));
         }
 
-        let path = root.as_ref().join("projects").join(project_id.clone());
+        let path = root.as_ref().join("projects").join(&project.id);
         let lock_path = root
             .as_ref()
             .join("projects")
-            .join(format!("{}.lock", project_id));
+            .join(format!("{}.lock", project.id));
         if path.exists() {
             let git_repository = git::Repository::open(path.clone())
                 .with_context(|| format!("{}: failed to open git repository", path.display()))?;
@@ -76,9 +65,8 @@ impl Repository {
                 .map_err(Error::Git)?;
 
             Result::Ok(Self {
-                project_id: project_id.to_string(),
+                project: project.clone(),
                 git_repository,
-                project_store,
                 lock_file: File::create(lock_path).context("failed to create lock file")?,
             })
         } else {
@@ -96,9 +84,8 @@ impl Repository {
                 .context("failed to add disk alternate")?;
 
             let gb_repository = Self {
-                project_id: project_id.to_string(),
+                project: project.clone(),
                 git_repository,
-                project_store,
                 lock_file: File::create(lock_path).context("failed to create lock file")?,
             };
 
@@ -106,7 +93,7 @@ impl Repository {
                 .migrate(&project)
                 .context("failed to migrate")?
             {
-                tracing::info!(project_id = gb_repository.project_id, "repository migrated");
+                tracing::info!(project_id = gb_repository.project.id, "repository migrated");
                 return Result::Ok(gb_repository);
             }
 
@@ -128,17 +115,10 @@ impl Repository {
     }
 
     pub fn get_project_id(&self) -> &str {
-        &self.project_id
+        &self.project.id
     }
 
     fn remote(&self, user: Option<&users::User>) -> Result<Option<(git::Remote, String)>> {
-        let project = self
-            .project_store
-            .get_project(&self.project_id)
-            .context("failed to get project")?
-            .ok_or(anyhow!("project not found"))?;
-        let project = project.as_ref();
-
         // only push if logged in
         let access_token = match user {
             Some(user) => user.access_token.clone(),
@@ -146,7 +126,7 @@ impl Repository {
         };
 
         // only push if project is connected
-        let remote_url = match project.api {
+        let remote_url = match self.project.api {
             Some(ref api) => api.git_url.clone(),
             None => return Ok(None),
         };
@@ -173,7 +153,7 @@ impl Repository {
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.push_update_reference(move |refname, message| {
             tracing::debug!(
-                project_id = self.project_id,
+                project_id = self.project.id,
                 refname,
                 message,
                 "pulling reference"
@@ -182,7 +162,7 @@ impl Repository {
         });
         callbacks.push_transfer_progress(move |one, two, three| {
             tracing::debug!(
-                project_id = self.project_id,
+                project_id = self.project.id,
                 "transferred {}/{}/{} objects",
                 one,
                 two,
@@ -204,7 +184,7 @@ impl Repository {
             ))?;
 
         tracing::info!(
-            project_id = self.project_id,
+            project_id = self.project.id,
             remote = %remote.url()?.unwrap(),
             "gb repo fetched",
         );
@@ -222,7 +202,7 @@ impl Repository {
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.push_update_reference(move |refname, message| {
             tracing::debug!(
-                project_id = self.project_id,
+                project_id = self.project.id,
                 refname,
                 message,
                 "pushing reference"
@@ -231,7 +211,7 @@ impl Repository {
         });
         callbacks.push_transfer_progress(move |one, two, three| {
             tracing::debug!(
-                project_id = self.project_id,
+                project_id = self.project.id,
                 "transferred {}/{}/{} objects",
                 one,
                 two,
@@ -245,7 +225,7 @@ impl Repository {
         let headers = &[auth_header.as_str()];
         push_options.custom_headers(headers);
 
-        let remote_refspec = format!("refs/heads/current:refs/heads/{}", self.project_id);
+        let remote_refspec = format!("refs/heads/current:refs/heads/{}", self.project.id);
 
         // Push to the remote
         remote
@@ -255,7 +235,7 @@ impl Repository {
                 remote.url()?.unwrap()
             ))?;
 
-        tracing::info!(project_id = self.project_id, remote = %remote.url()?.unwrap(), "gb repository pushed");
+        tracing::info!(project_id = self.project.id, remote = %remote.url()?.unwrap(), "gb repository pushed");
 
         Ok(())
     }
@@ -362,7 +342,7 @@ impl Repository {
             .context("failed to write session")?;
 
         tracing::info!(
-            project_id = self.project_id,
+            project_id = self.project.id,
             session_id = session.id,
             "created new session"
         );
@@ -381,15 +361,7 @@ impl Repository {
         match sessions::Session::try_from(reader) {
             Result::Ok(session) => Ok(session),
             Err(sessions::SessionError::NoSession) => {
-                let project = self
-                    .project_store
-                    .get_project(&self.project_id)
-                    .context("failed to get project")?;
-                if project.is_none() {
-                    return Err(anyhow!("project does not exist"));
-                }
-                let project = project.unwrap();
-                let project_repository = project_repository::Repository::open(&project)
+                let project_repository = project_repository::Repository::open(&self.project)
                     .context("failed to open project repository")?;
                 let session = self
                     .create_current_session(&project_repository)
@@ -410,18 +382,9 @@ impl Repository {
             return Ok(None);
         }
 
-        let project = self
-            .project_store
-            .get_project(&self.project_id)
-            .context("failed to get project")?;
-        if project.is_none() {
-            return Err(anyhow!("project not found"));
-        }
-        let project = project.unwrap();
-
         let current_session = current_session.unwrap();
         let current_session = self.flush_session(
-            &project_repository::Repository::open(&project)?,
+            &project_repository::Repository::open(&self.project)?,
             &current_session,
             user,
         )?;
@@ -476,7 +439,7 @@ impl Repository {
             write_gb_commit(tree_id, self, user).context("failed to write gb commit")?;
 
         tracing::info!(
-            project_id = self.project_id,
+            project_id = self.project.id,
             session_id = session.id,
             %commit_oid,
             "flushed session"
@@ -653,7 +616,7 @@ fn build_wd_tree(
                     Result::Ok(reader::Content::UTF8(content)) => content,
                     Result::Ok(reader::Content::Large) => {
                         tracing::error!(
-                            project_id = gb_repository.project_id,
+                            project_id = gb_repository.project.id,
                             path = %abs_path.display(),
                             "large file in session working directory"
                         );
@@ -661,7 +624,7 @@ fn build_wd_tree(
                     }
                     Result::Ok(reader::Content::Binary) => {
                         tracing::error!(
-                            project_id = gb_repository.project_id,
+                            project_id = gb_repository.project.id,
                             path = %abs_path.display(),
                             "binary file in session working directory"
                         );
@@ -669,7 +632,7 @@ fn build_wd_tree(
                     }
                     Err(error) => {
                         tracing::error!(
-                            project_id = gb_repository.project_id,
+                            project_id = gb_repository.project.id,
                             path = %abs_path.display(),
                             ?error,
                             "failed to read file"
@@ -838,7 +801,7 @@ fn add_wd_path(
     // TODO: size limit should be configurable
     let blob = if metadata.len() > 100_000_000 {
         tracing::warn!(
-            project_id = gb_repository.project_id,
+            project_id = gb_repository.project.id,
             path = %file_path.display(),
             "file too big"
         );
