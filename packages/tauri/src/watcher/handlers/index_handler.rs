@@ -72,14 +72,14 @@ impl Handler {
 
     pub fn reindex(&self, project_id: &str) -> Result<Vec<events::Event>> {
         let user = self.user_store.get()?;
+        let project = self
+            .project_store
+            .get_project(project_id)?
+            .context(format!("failed to get project with id {}", project_id))?;
 
-        let gb_repository = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project_id,
-            self.project_store.clone(),
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
+        let gb_repository =
+            gb_repository::Repository::open(self.local_data_dir.clone(), &project, user.as_ref())
+                .context("failed to open repository")?;
 
         let sessions_iter = gb_repository.get_sessions_iterator()?;
         let mut events = vec![];
@@ -95,14 +95,14 @@ impl Handler {
         session: &sessions::Session,
     ) -> Result<Vec<events::Event>> {
         let user = self.user_store.get()?;
+        let project = self
+            .project_store
+            .get_project(project_id)?
+            .context(format!("failed to get project with id {}", project_id))?;
 
-        let gb_repository = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project_id,
-            self.project_store.clone(),
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
+        let gb_repository =
+            gb_repository::Repository::open(self.local_data_dir.clone(), &project, user.as_ref())
+                .context("failed to open repository")?;
 
         // first of all, index session for searching. searhcer keeps it's own state to
         // decide if the actual indexing needed

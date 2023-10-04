@@ -1570,6 +1570,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         project_repository,
         gb_repository,
         project,
+        ..
     } = Suite::default().new_case();
 
     let current_session = gb_repository.get_or_create_current_session()?;
@@ -1972,6 +1973,7 @@ fn test_unapply_ownership_full_file() -> Result<()> {
         project_repository,
         gb_repository,
         project,
+        ..
     } = Suite::default().new_case();
 
     set_test_target(&gb_repository, &project_repository)?;

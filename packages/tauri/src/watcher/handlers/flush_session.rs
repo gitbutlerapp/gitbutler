@@ -44,13 +44,9 @@ impl Handler {
 
         let user = self.user_store.get()?;
 
-        let gb_repo = gb_repository::Repository::open(
-            &self.local_data_dir,
-            project_id,
-            self.project_store.clone(),
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
+        let gb_repo =
+            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
+                .context("failed to open repository")?;
 
         let session = gb_repo
             .flush_session(

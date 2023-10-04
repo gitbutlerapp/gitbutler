@@ -73,16 +73,6 @@ impl HandlerInner {
 
         let user = self.user_storage.get()?;
 
-        let gb_repo = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project_id,
-            self.project_storage.clone(),
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
-
-        let default_target = gb_repo.default_target()?.context("target not set")?;
-
         // mark fetching
         self.project_storage
             .update_project(&projects::UpdateRequest {
@@ -99,6 +89,11 @@ impl HandlerInner {
             .get_project(project_id)
             .context("failed to get project")?
             .ok_or_else(|| anyhow::anyhow!("project not found"))?;
+
+        let gb_repo =
+            gb_repository::Repository::open(self.local_data_dir.clone(), &project, user.as_ref())
+                .context("failed to open repository")?;
+        let default_target = gb_repo.default_target()?.context("target not set")?;
 
         let key = match &project.preferred_key {
             projects::AuthKey::Generated => {

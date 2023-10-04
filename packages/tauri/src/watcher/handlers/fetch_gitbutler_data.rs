@@ -68,19 +68,6 @@ impl HandlerInner {
 
         let user = self.user_storage.get()?;
 
-        let gb_repo = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project_id,
-            self.project_storage.clone(),
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
-
-        let sessions_before_fetch = gb_repo
-            .get_sessions_iterator()?
-            .filter_map(|s| s.ok())
-            .collect::<Vec<_>>();
-
         // mark fetching
         self.project_storage
             .update_project(&projects::UpdateRequest {
@@ -97,6 +84,15 @@ impl HandlerInner {
             .get_project(project_id)
             .context("failed to get project")?
             .ok_or_else(|| anyhow::anyhow!("project not found"))?;
+
+        let gb_repo =
+            gb_repository::Repository::open(self.local_data_dir.clone(), &project, user.as_ref())
+                .context("failed to open repository")?;
+
+        let sessions_before_fetch = gb_repo
+            .get_sessions_iterator()?
+            .filter_map(|s| s.ok())
+            .collect::<Vec<_>>();
 
         let fetch_result = if let Err(error) = gb_repo.fetch(user.as_ref()) {
             tracing::error!(project_id, ?error, "failed to fetch gitbutler data");

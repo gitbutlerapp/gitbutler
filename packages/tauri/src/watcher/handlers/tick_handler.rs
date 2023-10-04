@@ -36,18 +36,14 @@ impl Handler {
     pub fn handle(&self, project_id: &str, now: &time::SystemTime) -> Result<Vec<events::Event>> {
         let user = self.user_store.get()?;
 
-        let gb_repo = gb_repository::Repository::open(
-            &self.local_data_dir,
-            project_id,
-            self.project_store.clone(),
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
-
         let project = match self.project_store.get_project(project_id)? {
             None => return Ok(vec![]),
             Some(project) => project,
         };
+
+        let gb_repo =
+            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
+                .context("failed to open repository")?;
 
         let mut events = vec![];
 

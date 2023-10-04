@@ -25,7 +25,7 @@ impl<'writer> BookmarksWriter<'writer> {
         )?;
 
         tracing::debug!(
-            project_id = self.repository.project_id,
+            project_id = self.repository.project.id,
             timestamp_ms = bookmark.timestamp_ms,
             "wrote bookmark",
         );
