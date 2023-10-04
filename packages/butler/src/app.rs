@@ -33,13 +33,9 @@ impl App {
             .context("failed to find project")?;
 
         let user = users_storage.get().context("failed to get user")?;
-        let gb_repository = gb_repository::Repository::open(
-            &local_data_dir,
-            &project.id,
-            projects_storage,
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
+        let gb_repository =
+            gb_repository::Repository::open(&local_data_dir, &project, user.as_ref())
+                .context("failed to open repository")?;
 
         let db_path = std::path::Path::new(&local_data_dir).join("database.sqlite3");
         let database = database::Database::try_from(&db_path).context("failed to open database")?;
