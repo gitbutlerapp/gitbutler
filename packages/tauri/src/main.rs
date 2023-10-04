@@ -248,19 +248,6 @@ async fn list_deltas(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-async fn git_status(
-    handle: tauri::AppHandle,
-    project_id: &str,
-) -> Result<HashMap<String, project_repository::FileStatus>, Error> {
-    let app = handle.state::<app::App>();
-    let status = app
-        .git_status(project_id)
-        .with_context(|| format!("failed to get git status for project {}", project_id))?;
-    Ok(status)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
 async fn git_wd_diff(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -615,7 +602,6 @@ fn main() {
                     delete_user,
                     get_user,
                     search,
-                    git_status,
                     git_match_paths,
                     git_remote_branches,
                     git_remote_branches_data,
