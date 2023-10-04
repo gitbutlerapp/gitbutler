@@ -46,6 +46,7 @@ pub struct BranchUpdateRequest {
     pub notes: Option<String>,
     pub ownership: Option<Ownership>,
     pub order: Option<usize>,
+    pub upstream: Option<String>, // just the branch name, so not refs/remotes/origin/branchA, just branchA
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

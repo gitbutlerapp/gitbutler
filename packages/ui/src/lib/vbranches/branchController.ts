@@ -65,6 +65,18 @@ export class BranchController {
 		}
 	}
 
+	async updateBranchRemoteName(branchId: string, upstream: string) {
+		try {
+			await invoke<void>('update_virtual_branch', {
+				projectId: this.projectId,
+				branch: { id: branchId, upstream }
+			});
+			await this.virtualBranchStore.reload();
+		} catch (err) {
+			toasts.error('Failed to update branch remote name');
+		}
+	}
+
 	async updateBranchNotes(branchId: string, notes: string) {
 		try {
 			this.virtualBranchStore.updateById(branchId, (branch) => (branch.notes = notes));
