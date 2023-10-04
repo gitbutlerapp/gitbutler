@@ -20,9 +20,9 @@ impl App {
         let local_data_dir = find_local_data_dir().context("could not find local data dir")?;
 
         let storage = storage::Storage::from(&local_data_dir);
-        let users_storage = users::Storage::from(storage.clone());
+        let users_storage = users::Storage::from(&storage);
 
-        let projects_storage = projects::Storage::try_from(storage)?;
+        let projects_storage = projects::Storage::try_from(&storage)?;
         let projects = projects_storage
             .list_projects()
             .context("failed to list projects")?;
