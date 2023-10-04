@@ -22,7 +22,7 @@ impl<'reader> BookmarksReader<'reader> {
     pub fn read(&self) -> Result<Vec<Bookmark>> {
         match self
             .session_reader
-            .read(&path::Path::new("session/bookmarks.jsonl").to_path_buf())
+            .read(path::Path::new("session/bookmarks.jsonl"))
         {
             Ok(reader::Content::UTF8(content)) => {
                 let iter = JsonLinesReader::new(content.as_bytes()).read_all::<Bookmark>();
