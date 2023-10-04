@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::{git, keys, project_repository::activity, projects, reader, users};
+use crate::{git, keys, projects, reader, users};
 
 pub struct Repository {
     pub git_repository: git::Repository,
@@ -70,31 +70,6 @@ impl Repository {
 
     pub fn root(&self) -> &std::path::Path {
         self.git_repository.path().parent().unwrap()
-    }
-
-    pub fn git_activity(&self, start_time_ms: Option<u128>) -> Result<Vec<activity::Activity>> {
-        let head_logs_path = self.git_repository.path().join("logs").join("HEAD");
-
-        if !head_logs_path.exists() {
-            return Ok(Vec::new());
-        }
-
-        let activity = std::fs::read_to_string(head_logs_path)
-            .with_context(|| "failed to read HEAD logs")?
-            .lines()
-            .filter_map(|line| activity::parse_reflog_line(line).ok())
-            .collect::<Vec<activity::Activity>>();
-
-        let activity = if let Some(start_timestamp_ms) = start_time_ms {
-            activity
-                .into_iter()
-                .filter(|activity| activity.timestamp_ms > start_timestamp_ms)
-                .collect::<Vec<activity::Activity>>()
-        } else {
-            activity
-        };
-
-        Ok(activity)
     }
 
     fn unstaged_statuses(&self) -> Result<HashMap<String, FileStatusType>> {
