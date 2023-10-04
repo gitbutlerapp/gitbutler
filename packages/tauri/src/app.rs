@@ -333,17 +333,6 @@ impl App {
             .list_by_project_id_session_id(project_id, session_id, paths)
     }
 
-    pub fn git_activity(
-        &self,
-        project_id: &str,
-        start_time_ms: Option<u128>,
-    ) -> Result<Vec<activity::Activity>> {
-        let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-        project_repository.git_activity(start_time_ms)
-    }
-
     pub fn git_status(
         &self,
         project_id: &str,

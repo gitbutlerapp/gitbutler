@@ -1,4 +1,3 @@
-pub mod activity;
 mod config;
 pub mod conflicts;
 mod repository;
