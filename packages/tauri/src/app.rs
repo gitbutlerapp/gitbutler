@@ -8,7 +8,7 @@ use crate::{
     bookmarks, deltas, gb_repository,
     git::{self, diff},
     keys,
-    project_repository::{self, activity, conflicts},
+    project_repository::{self, conflicts},
     projects, reader, search, sessions, users,
     virtual_branches::{self, target},
     watcher,

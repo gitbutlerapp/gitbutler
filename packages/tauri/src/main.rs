@@ -10,7 +10,7 @@ use tracing::instrument;
 
 use gitbutler::*;
 
-use crate::{error::Error, git, project_repository::activity};
+use crate::{error::Error, git};
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
@@ -244,20 +244,6 @@ async fn list_deltas(
             )
         })?;
     Ok(deltas)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-async fn git_activity(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    start_time_ms: Option<u128>,
-) -> Result<Vec<activity::Activity>, Error> {
-    let app = handle.state::<app::App>();
-    let activity = app
-        .git_activity(project_id, start_time_ms)
-        .with_context(|| format!("failed to get git activity for project {}", project_id))?;
-    Ok(activity)
 }
 
 #[tauri::command(async)]
@@ -630,7 +616,6 @@ fn main() {
                     get_user,
                     search,
                     git_status,
-                    git_activity,
                     git_match_paths,
                     git_remote_branches,
                     git_remote_branches_data,

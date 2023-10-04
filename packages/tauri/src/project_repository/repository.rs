@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::{git, keys, project_repository::activity, projects, reader, users};
+use crate::{git, keys, projects, reader, users};
 
 pub struct Repository {
     pub git_repository: git::Repository,
