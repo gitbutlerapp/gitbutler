@@ -1,6 +1,5 @@
 import { invoke } from '$lib/ipc';
 import { asyncWritable, type WritableLoadable } from '@square/svelte-store';
-import * as activities from './activities';
 import { subscribeToSessions } from '../ipc/sessions';
 
 type Diffs = Partial<Record<string, string>>;
@@ -16,7 +15,6 @@ const stores: Partial<Record<string, WritableLoadable<Diffs>>> = {};
 export function getDiffsStore(params: { projectId: string }) {
 	if (stores[params.projectId]) return stores[params.projectId];
 	const store = asyncWritable([], () => list(params));
-	activities.subscribe(params, ({ projectId }) => list({ projectId }).then(store.set));
 	subscribeToSessions(params.projectId, () => list(params).then(store.set));
 	stores[params.projectId] = store;
 	return store;

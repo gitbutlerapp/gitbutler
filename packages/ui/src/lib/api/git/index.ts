@@ -1,5 +1,3 @@
-export type { Activity } from './activities';
-
 import { invoke } from '$lib/ipc';
 
 export function matchFiles(params: { projectId: string; matchPattern: string }) {
