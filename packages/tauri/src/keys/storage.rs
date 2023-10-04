@@ -71,14 +71,24 @@ impl Storage {
 
 #[cfg(test)]
 mod tests {
+    use std::{fs, os::unix::prelude::PermissionsExt};
+
     use super::*;
 
     #[test]
     fn test_get_or_create() {
         let dir = tempfile::tempdir().unwrap();
         let controller = Storage::from(&dir.path().to_path_buf());
+
         let once = controller.get_or_create().unwrap();
         let twice = controller.get_or_create().unwrap();
         assert_eq!(once, twice);
+
+        // check permissions of the private key
+        let permissions = fs::metadata(dir.path().join("keys/ed25519"))
+            .unwrap()
+            .permissions();
+        let perms = format!("{:o}", permissions.mode());
+        assert_eq!(perms, "100600");
     }
 }
