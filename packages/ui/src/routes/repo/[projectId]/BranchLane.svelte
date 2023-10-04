@@ -23,6 +23,7 @@
 	import IconCloseSmall from '$lib/icons/IconCloseSmall.svelte';
 	import Tabs from './Tabs.svelte';
 	import NotesTabPanel from './NotesTabPanel.svelte';
+	import RemoteNamePanel from './RemoteNamePanel.svelte';
 	import FileTreeTabPanel from './FileTreeTabPanel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
@@ -380,7 +381,7 @@
 					</div>
 					{#if upstreamCommitsShown}
 						<div
-							class="flex w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
+							class="border-light-400 bg-light-300 dark:border-dark-400 dark:bg-dark-800 flex w-full flex-col border-t p-2"
 							id="upstreamCommits"
 						>
 							<div class="bg-light-100">
@@ -402,33 +403,37 @@
 				{/if}
 			</div>
 		</div>
-		{#if branch.files.length !== 0}
-			<Tabs
-				branchId={branch.id}
-				items={[
-					{
-						name: 'files',
-						displayName: 'Changed files (' + branch.files.length + ')',
-						component: FileTreeTabPanel,
-						props: {
-							files: branch.files,
-							selectedOwnership,
-							withCheckboxes: commitDialogShown
-						}
-					},
-					{
-						name: 'notes',
-						displayName: 'Notes',
-						component: NotesTabPanel,
-						props: { notes: branch.notes, branchId: branch.id, branchController }
+		<Tabs
+			branchId={branch.id}
+			items={[
+				{
+					name: 'files',
+					displayName: 'Changed files (' + branch.files.length + ')',
+					component: FileTreeTabPanel,
+					props: {
+						files: branch.files,
+						selectedOwnership,
+						withCheckboxes: commitDialogShown
 					}
-				]}
-			/>
-		{/if}
+				},
+				{
+					name: 'notes',
+					displayName: 'Notes',
+					component: NotesTabPanel,
+					props: { notes: branch.notes, branchId: branch.id, branchController }
+				},
+				{
+					name: 'Remote',
+					displayName: 'Remote',
+					component: RemoteNamePanel,
+					props: { branch: branch.upstream, branchId: branch.id, branchController }
+				}
+			]}
+		/>
 		<div class="relative flex flex-grow overflow-y-hidden">
 			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
 			<div
-				class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+				class="lane-dz-marker outline-light-600 dark:outline-dark-300 absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 dark:bg-blue-900/60"
 			>
 				<div class="hover-text invisible font-semibold">Move here</div>
 			</div>
@@ -504,17 +509,17 @@
 									transition:slide={{ duration: 150 }}
 								>
 									<div
-										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
+										class="dark:form-dark-600 from-light-400 via-light-500 dark:from-dark-600 dark:via-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b via-90%"
 										style={localCommits.length == 0 ? 'height: calc();' : 'height: 100%;'}
 									/>
 
 									<div class="relative flex flex-col gap-2">
 										<div
-											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
+											class="dark:form-dark-600 from-light-400 via-light-400 dark:from-dark-600 dark:via-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r via-10%"
 										/>
 										<div class="ml-10 mr-2 flex items-center py-2">
 											<div
-												class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
+												class="text-dark-300 dark:text-light-300 ml-2 flex-grow font-mono text-sm font-bold"
 											>
 												local
 											</div>
@@ -550,13 +555,13 @@
 							{#if remoteCommits.length > 0}
 								<div class="relative flex-grow">
 									<div
-										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
+										class="dark:form-dark-600 from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b via-90%"
 										style="height: calc(100% - 1rem);"
 									/>
 
 									<div class="relative flex flex-grow flex-col gap-2">
 										<div
-											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
+											class="dark:form-dark-600 from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r via-10%"
 										/>
 
 										<div
@@ -583,7 +588,7 @@
 											>
 												<div class="ml-[0.4rem] mr-1.5">
 													<div
-														class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+														class="border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400 h-3 w-3 rounded-full border-2"
 														class:bg-light-500={commit.isRemote}
 														class:dark:bg-dark-500={commit.isRemote}
 													/>
@@ -598,13 +603,13 @@
 						{#if integratedCommits.length > 0}
 							<div class="relative flex-grow">
 								<div
-									class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
+									class="dark:form-dark-600 from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b via-90%"
 									style="height: calc(100% - 1rem);"
 								/>
 
 								<div class="relative flex flex-grow flex-col gap-2">
 									<div
-										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
+										class="dark:form-dark-600 from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r via-10%"
 									/>
 
 									<div
@@ -629,7 +634,7 @@
 										>
 											<div class="ml-[0.4rem] mr-1.5">
 												<div
-													class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+													class="border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400 h-3 w-3 rounded-full border-2"
 													class:bg-light-500={commit.isRemote}
 													class:dark:bg-dark-500={commit.isRemote}
 												/>
