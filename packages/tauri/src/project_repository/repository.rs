@@ -1,7 +1,6 @@
 use std::path;
 
 use anyhow::{Context, Result};
-use walkdir::WalkDir;
 
 use crate::{git, keys, projects, reader, users};
 
@@ -69,51 +68,6 @@ impl Repository {
 
     pub fn root(&self) -> &std::path::Path {
         self.git_repository.path().parent().unwrap()
-    }
-
-    pub fn git_match_paths(&self, pattern: &str) -> Result<Vec<String>> {
-        let workdir = self
-            .git_repository
-            .workdir()
-            .with_context(|| "failed to get working directory")?;
-
-        let pattern = pattern.to_lowercase();
-        let mut files = vec![];
-        for entry in WalkDir::new(workdir)
-                    .into_iter()
-                    .filter_entry(|entry| {
-                        // need to remove workdir so we're not matching it
-                        let relative_path = entry
-                            .path()
-                            .strip_prefix(workdir)
-                            .unwrap()
-                            .to_str()
-                            .unwrap();
-                        // this is to make it faster, so we dont have to traverse every directory if it is ignored by git
-                        entry.path().to_str() == workdir.to_str()  // but we need to traverse the first one
-                            || ((entry.file_type().is_dir() // traverse all directories if they are not ignored by git
-                                || relative_path.to_lowercase().contains(&pattern)) // but only pass on files that match the regex
-                                && !self.git_repository.is_path_ignored(entry.path()).unwrap_or(true))
-                    })
-                    .filter_map(Result::ok)
-                {
-                    if entry.file_type().is_file() {
-                        // only save the matching files, not the directories
-                        let path = entry.path();
-                        let path = path
-                            .strip_prefix::<&std::path::Path>(workdir.as_ref())
-                            .with_context(|| {
-                                format!(
-                                    "failed to strip prefix from path {}",
-                                    path.to_str().unwrap()
-                                )
-                            })?;
-                        let path = path.to_str().unwrap().to_string();
-                        files.push(path);
-                    }
-                }
-        files.sort();
-        Ok(files)
     }
 
     pub fn git_remote_branches(&self) -> Result<Vec<git::RemoteBranchName>> {

@@ -262,25 +262,6 @@ async fn git_wd_diff(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-async fn git_match_paths(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    match_pattern: &str,
-) -> Result<Vec<String>, Error> {
-    let app = handle.state::<app::App>();
-    let paths = app
-        .git_match_paths(project_id, match_pattern)
-        .with_context(|| {
-            format!(
-                "failed to get git match paths for project {} and pattern {}",
-                project_id, match_pattern
-            )
-        })?;
-    Ok(paths)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
 async fn git_remote_branches(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -602,7 +583,6 @@ fn main() {
                     delete_user,
                     get_user,
                     search,
-                    git_match_paths,
                     git_remote_branches,
                     git_remote_branches_data,
                     git_head,

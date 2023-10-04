@@ -1,5 +1,4 @@
 import type { Project } from '$lib/api/ipc/projects';
-import { matchFiles } from '$lib/api/git';
 import * as events from '$lib/events';
 import {
 	IconFile,
@@ -144,31 +143,6 @@ const navigateGroup = ({ project, input }: { project?: Project; input: string })
 	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
 });
 
-const fileGroup = ({
-	project,
-	input
-}: {
-	project: Project;
-	input: string;
-}): Group | Promise<Group> =>
-	input.length === 0
-		? {
-				title: 'Files',
-				description: 'type part of a file name',
-				commands: []
-		  }
-		: matchFiles({ projectId: project.id, matchPattern: input }).then((files) => ({
-				title: 'Files',
-				description: files.length === 0 ? `no files containing '${input}'` : '',
-				commands: files.map((file) => ({
-					title: file,
-					action: {
-						href: '/'
-					},
-					icon: IconFile
-				}))
-		  }));
-
 const supportGroup = ({ input }: { input: string }): Group => ({
 	title: 'Help & Support',
 	commands: [
@@ -203,7 +177,6 @@ export default (params: { projects: Project[]; project?: Project; input: string 
 	groups.push(commandsGroup({ project, input }));
 	groups.push(navigateGroup({ project, input }));
 	!project && groups.push(projectsGroup({ projects, input }));
-	project && groups.push(fileGroup({ project, input }));
 	groups.push(supportGroup({ input }));
 
 	return groups;

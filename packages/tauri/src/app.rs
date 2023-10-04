@@ -366,13 +366,6 @@ impl App {
         Ok(diff)
     }
 
-    pub fn git_match_paths(&self, project_id: &str, pattern: &str) -> Result<Vec<String>> {
-        let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-        project_repository.git_match_paths(pattern)
-    }
-
     pub fn git_remote_branches(&self, project_id: &str) -> Result<Vec<git::RemoteBranchName>> {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
