@@ -26,15 +26,15 @@ impl From<&storage::Storage> for Storage {
     }
 }
 
-impl From<&path::PathBuf> for Storage {
-    fn from(path: &path::PathBuf) -> Self {
-        Self::from(&storage::Storage::from(path))
-    }
-}
-
 impl From<&AppHandle> for Storage {
     fn from(value: &AppHandle) -> Self {
         Self::from(value.state::<storage::Storage>().inner())
+    }
+}
+
+impl From<&path::PathBuf> for Storage {
+    fn from(path: &path::PathBuf) -> Self {
+        Self::from(&storage::Storage::from(path))
     }
 }
 

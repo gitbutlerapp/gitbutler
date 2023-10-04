@@ -36,7 +36,9 @@ mod tests {
     use anyhow::Result;
 
     use crate::{
-        gb_repository, projects, sessions, test_utils, users, virtual_branches::branch::Ownership,
+        sessions,
+        test_utils::{Case, Suite},
+        virtual_branches::branch::Ownership,
     };
 
     use super::{super::Writer, *};
@@ -80,18 +82,10 @@ mod tests {
 
     #[test]
     fn test_read_not_found() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = test_utils::temp_dir();
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
+        let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let session = gb_repo.get_or_create_current_session()?;
-        let session_reader = sessions::Reader::open(&gb_repo, &session)?;
+        let session = gb_repository.get_or_create_current_session()?;
+        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
         let reader = BranchReader::new(&session_reader);
         let result = reader.read("not found");
@@ -103,23 +97,15 @@ mod tests {
 
     #[test]
     fn test_read_override() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = test_utils::temp_dir();
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
+        let Case { gb_repository, .. } = Suite::default().new_case();
 
         let branch = test_branch();
 
-        let writer = Writer::new(&gb_repo);
+        let writer = Writer::new(&gb_repository);
         writer.write(&branch)?;
 
-        let session = gb_repo.get_current_session()?.unwrap();
-        let session_reader = sessions::Reader::open(&gb_repo, &session)?;
+        let session = gb_repository.get_current_session()?.unwrap();
+        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
         let reader = BranchReader::new(&session_reader);
 

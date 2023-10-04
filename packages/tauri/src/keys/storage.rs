@@ -21,23 +21,23 @@ pub enum Error {
     SSHKey(#[from] ssh_key::Error),
 }
 
-impl From<storage::Storage> for Storage {
-    fn from(storage: storage::Storage) -> Self {
-        Self { storage }
+impl From<&storage::Storage> for Storage {
+    fn from(storage: &storage::Storage) -> Self {
+        Self {
+            storage: storage.clone(),
+        }
     }
 }
 
 impl From<&AppHandle> for Storage {
     fn from(handle: &AppHandle) -> Self {
-        Self {
-            storage: handle.state::<storage::Storage>().inner().clone(),
-        }
+        Self::from(handle.state::<storage::Storage>().inner())
     }
 }
 
 impl From<&path::PathBuf> for Storage {
     fn from(path: &path::PathBuf) -> Self {
-        Self::from(storage::Storage::from(path))
+        Self::from(&storage::Storage::from(path))
     }
 }
 

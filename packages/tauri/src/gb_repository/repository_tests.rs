@@ -1,8 +1,12 @@
-use std::{path, thread, time};
+use std::{collections::HashMap, path, thread, time};
 
-use crate::{deltas, gb_repository, projects, reader, sessions, test_utils, users};
 use anyhow::Result;
 use tempfile::tempdir;
+
+use crate::{
+    deltas, projects, reader, sessions,
+    test_utils::{Case, Suite},
+};
 
 fn remote_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
@@ -12,17 +16,10 @@ fn remote_repository() -> Result<git2::Repository> {
 
 #[test]
 fn test_get_current_session_writer_should_use_existing_session() -> Result<()> {
-    let repository = test_utils::test_repository();
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let local_app_data = tempdir()?.path().to_path_buf();
-    let project_store = projects::Storage::from(&local_app_data);
-    project_store.add_project(&project)?;
-    let user_store = users::Storage::from(&local_app_data);
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
+    let Case { gb_repository, .. } = Suite::default().new_case();
 
-    let current_session_1 = gb_repo.get_or_create_current_session()?;
-    let current_session_2 = gb_repo.get_or_create_current_session()?;
+    let current_session_1 = gb_repository.get_or_create_current_session()?;
+    let current_session_2 = gb_repository.get_or_create_current_session()?;
     assert_eq!(current_session_1.id, current_session_2.id);
 
     Ok(())
@@ -30,18 +27,11 @@ fn test_get_current_session_writer_should_use_existing_session() -> Result<()> {
 
 #[test]
 fn test_must_not_return_init_session() -> Result<()> {
-    let repository = test_utils::test_repository();
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let local_app_data = tempdir()?.path().to_path_buf();
-    let project_store = projects::Storage::from(&local_app_data);
-    project_store.add_project(&project)?;
-    let user_store = users::Storage::from(&local_app_data);
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
+    let Case { gb_repository, .. } = Suite::default().new_case();
 
-    assert!(gb_repo.get_current_session()?.is_none());
+    assert!(gb_repository.get_current_session()?.is_none());
 
-    let iter = gb_repo.get_sessions_iterator()?;
+    let iter = gb_repository.get_sessions_iterator()?;
     assert_eq!(iter.count(), 0);
 
     Ok(())
@@ -49,86 +39,38 @@ fn test_must_not_return_init_session() -> Result<()> {
 
 #[test]
 fn test_must_not_flush_without_current_session() -> Result<()> {
-    let repository = test_utils::test_repository();
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let local_app_data = tempdir()?.path().to_path_buf();
-    let project_store = projects::Storage::from(&local_app_data);
-    project_store.add_project(&project)?;
-    let user_store = users::Storage::from(&local_app_data);
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
+    let Case { gb_repository, .. } = Suite::default().new_case();
 
-    let session = gb_repo.flush(None)?;
+    let session = gb_repository.flush(None)?;
     assert!(session.is_none());
 
-    let iter = gb_repo.get_sessions_iterator()?;
+    let iter = gb_repository.get_sessions_iterator()?;
     assert_eq!(iter.count(), 0);
 
     Ok(())
 }
 
 #[test]
-fn test_init_on_non_empty_repository() -> Result<()> {
-    let repository = test_utils::test_repository();
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let local_app_data = tempdir()?.path().to_path_buf();
-    let project_store = projects::Storage::from(&local_app_data);
-    project_store.add_project(&project)?;
-    let user_store = users::Storage::from(&local_app_data);
+fn test_non_empty_repository() -> Result<()> {
+    let Case { gb_repository, .. } = Suite::default()
+        .new_case_with_files(HashMap::from([(path::PathBuf::from("test.txt"), "test")]));
 
-    std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
-    test_utils::commit_all(&repository);
-
-    gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
-
-    Ok(())
-}
-
-#[test]
-fn test_flush_on_existing_repository() -> Result<()> {
-    let repository = test_utils::test_repository();
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let local_app_data = tempdir()?.path().to_path_buf();
-    let project_store = projects::Storage::from(&local_app_data);
-    project_store.add_project(&project)?;
-    let user_store = users::Storage::from(&local_app_data);
-
-    std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
-    test_utils::commit_all(&repository);
-
-    gb_repository::Repository::open(
-        gb_repo_path.clone(),
-        &project.id,
-        project_store.clone(),
-        None,
-    )?;
-
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
-
-    gb_repo.get_or_create_current_session()?;
-    gb_repo.flush(None)?;
+    gb_repository.get_or_create_current_session()?;
+    gb_repository.flush(None)?;
 
     Ok(())
 }
 
 #[test]
 fn test_must_flush_current_session() -> Result<()> {
-    let repository = test_utils::test_repository();
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let local_app_data = tempdir()?.path().to_path_buf();
-    let project_store = projects::Storage::from(&local_app_data);
-    project_store.add_project(&project)?;
-    let user_store = users::Storage::from(&local_app_data);
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
+    let Case { gb_repository, .. } = Suite::default().new_case();
 
-    gb_repo.get_or_create_current_session()?;
+    gb_repository.get_or_create_current_session()?;
 
-    let session = gb_repo.flush(None)?;
+    let session = gb_repository.flush(None)?;
     assert!(session.is_some());
-    let iter = gb_repo.get_sessions_iterator()?;
+
+    let iter = gb_repository.get_sessions_iterator()?;
     assert_eq!(iter.count(), 1);
 
     Ok(())
@@ -136,17 +78,10 @@ fn test_must_flush_current_session() -> Result<()> {
 
 #[test]
 fn test_list_deltas_from_current_session() -> Result<()> {
-    let repository = test_utils::test_repository();
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let local_app_data = tempdir()?.path().to_path_buf();
-    let project_store = projects::Storage::from(&local_app_data);
-    project_store.add_project(&project)?;
-    let user_store = users::Storage::from(&local_app_data);
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
+    let Case { gb_repository, .. } = Suite::default().new_case();
 
-    let current_session = gb_repo.get_or_create_current_session()?;
-    let writer = deltas::Writer::new(&gb_repo);
+    let current_session = gb_repository.get_or_create_current_session()?;
+    let writer = deltas::Writer::new(&gb_repository);
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
@@ -155,7 +90,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
         }],
     )?;
 
-    let session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+    let session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read(None)?;
 
@@ -176,16 +111,9 @@ fn test_list_deltas_from_current_session() -> Result<()> {
 
 #[test]
 fn test_list_deltas_from_flushed_session() -> Result<()> {
-    let repository = test_utils::test_repository();
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let local_app_data = tempdir()?.path().to_path_buf();
-    let project_store = projects::Storage::from(&local_app_data);
-    project_store.add_project(&project)?;
-    let user_store = users::Storage::from(&local_app_data);
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
+    let Case { gb_repository, .. } = Suite::default().new_case();
 
-    let writer = deltas::Writer::new(&gb_repo);
+    let writer = deltas::Writer::new(&gb_repository);
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
@@ -193,9 +121,9 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
             timestamp_ms: 0,
         }],
     )?;
-    let session = gb_repo.flush(None)?;
+    let session = gb_repository.flush(None)?;
 
-    let session_reader = sessions::Reader::open(&gb_repo, &session.unwrap())?;
+    let session_reader = sessions::Reader::open(&gb_repository, &session.unwrap())?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read(None)?;
 
@@ -216,25 +144,13 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
 
 #[test]
 fn test_list_files_from_current_session() -> Result<()> {
-    let repository = test_utils::test_repository();
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let local_app_data = tempdir()?.path().to_path_buf();
-    let project_store = projects::Storage::from(&local_app_data);
-    project_store.add_project(&project)?;
-    let user_store = users::Storage::from(&local_app_data);
-
-    // files are there before the session is created
-    std::fs::write(
-        repository.path().parent().unwrap().join("test.txt"),
+    let Case { gb_repository, .. } = Suite::default().new_case_with_files(HashMap::from([(
+        path::PathBuf::from("test.txt"),
         "Hello World",
-    )?;
+    )]));
 
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
-
-    let session = gb_repo.get_or_create_current_session()?;
-
-    let reader = sessions::Reader::open(&gb_repo, &session)?;
+    let current = gb_repository.get_or_create_current_session()?;
+    let reader = sessions::Reader::open(&gb_repository, &current)?;
     let files = reader.files(None)?;
 
     assert_eq!(files.len(), 1);
@@ -248,26 +164,14 @@ fn test_list_files_from_current_session() -> Result<()> {
 
 #[test]
 fn test_list_files_from_flushed_session() -> Result<()> {
-    let repository = test_utils::test_repository();
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let local_app_data = tempdir()?.path().to_path_buf();
-    let project_store = projects::Storage::from(&local_app_data);
-    project_store.add_project(&project)?;
-    let user_store = users::Storage::from(&local_app_data);
-
-    // files are there before the session is created
-    std::fs::write(
-        repository.path().parent().unwrap().join("test.txt"),
+    let Case { gb_repository, .. } = Suite::default().new_case_with_files(HashMap::from([(
+        path::PathBuf::from("test.txt"),
         "Hello World",
-    )?;
+    )]));
 
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
-
-    gb_repo.get_or_create_current_session()?;
-    let session = gb_repo.flush(None)?.unwrap();
-
-    let reader = sessions::Reader::open(&gb_repo, &session)?;
+    gb_repository.get_or_create_current_session()?;
+    let session = gb_repository.flush(None)?.unwrap();
+    let reader = sessions::Reader::open(&gb_repository, &session)?;
     let files = reader.files(None)?;
 
     assert_eq!(files.len(), 1);
@@ -293,34 +197,23 @@ fn test_remote_syncronization() -> Result<()> {
         sync: true,
     };
 
-    let local_app_data = tempdir()?.path().to_path_buf();
-    let project_store = projects::Storage::from(&local_app_data);
-    let gb_repos_path = tempdir()?.path().to_str().unwrap().to_string();
-    let user_store = users::Storage::from(&local_app_data);
-    let user = users::User {
-        name: "test".to_string(),
-        email: "test@email.com".to_string(),
-        ..Default::default()
-    };
+    let suite = Suite::default();
+    let user = suite.sign_in();
 
     // create first local project, add files, deltas and flush a session
-    let repository_one = test_utils::test_repository();
-    let project_one = projects::Project::try_from(&repository_one)?;
-    project_store.add_project(&projects::Project {
-        api: Some(api_project.clone()),
-        ..project_one.clone()
-    })?;
-    std::fs::write(
-        repository_one.path().parent().unwrap().join("test.txt"),
+    let case_one = suite.new_case_with_files(HashMap::from([(
+        path::PathBuf::from("test.txt"),
         "Hello World",
-    )?;
-    let gb_repo_one = gb_repository::Repository::open(
-        gb_repos_path.clone(),
-        &project_one.id,
-        project_store.clone(),
-        Some(&user),
-    )?;
-    let writer = deltas::Writer::new(&gb_repo_one);
+    )]));
+    suite
+        .projects_storage
+        .update_project(&projects::UpdateRequest {
+            id: case_one.project.id.clone(),
+            api: Some(api_project.clone()),
+            ..Default::default()
+        })?;
+
+    let writer = deltas::Writer::new(&case_one.gb_repository);
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
@@ -328,32 +221,31 @@ fn test_remote_syncronization() -> Result<()> {
             timestamp_ms: 0,
         }],
     )?;
-    let session_one = gb_repo_one.flush(Some(&user))?.unwrap();
-    gb_repo_one.push(Some(&user)).unwrap();
+    let session_one = case_one.gb_repository.flush(Some(&user))?.unwrap();
+    case_one.gb_repository.push(Some(&user)).unwrap();
 
     // create second local project, fetch it and make sure session is there
-    let repository_two = test_utils::test_repository();
-    let project_two = projects::Project::try_from(&repository_two)?;
-    project_store.add_project(&projects::Project {
-        api: Some(api_project),
-        ..project_two.clone()
-    })?;
-    let gb_repo_two = gb_repository::Repository::open(
-        gb_repos_path,
-        &project_two.id,
-        project_store,
-        Some(&user),
-    )?;
-    gb_repo_two.fetch(Some(&user))?;
+    let case_two = suite.new_case();
+    suite
+        .projects_storage
+        .update_project(&projects::UpdateRequest {
+            id: case_two.project.id.clone(),
+            api: Some(api_project.clone()),
+            ..Default::default()
+        })?;
+
+    case_two.gb_repository.fetch(Some(&user))?;
+
     // now it should have the session from the first local project synced
-    let sessions_two = gb_repo_two
+    let sessions_two = case_two
+        .gb_repository
         .get_sessions_iterator()?
         .map(|s| s.unwrap())
         .collect::<Vec<_>>();
     assert_eq!(sessions_two.len(), 1);
     assert_eq!(sessions_two[0].id, session_one.id);
 
-    let session_reader = sessions::Reader::open(&gb_repo_two, &sessions_two[0])?;
+    let session_reader = sessions::Reader::open(&case_two.gb_repository, &sessions_two[0])?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read(None)?;
     let files = session_reader.files(None)?;
@@ -388,94 +280,64 @@ fn test_remote_sync_order() -> Result<()> {
         sync: true,
     };
 
-    let local_app_data = tempdir()?.path().to_path_buf();
-    let project_store = projects::Storage::from(&local_app_data);
-    let gb_repos_path = tempdir()?.path().to_str().unwrap().to_string();
-    let user_store = users::Storage::from(&local_app_data);
-    let user = users::User {
-        name: "test".to_string(),
-        email: "test@email.com".to_string(),
-        ..Default::default()
-    };
+    let suite = Suite::default();
 
-    // create first project and repo
-    let repository_one = test_utils::test_repository();
-    let project_one = projects::Project::try_from(&repository_one)?;
-    project_store.add_project(&projects::Project {
-        api: Some(api_project.clone()),
-        ..project_one.clone()
-    })?;
-    let gb_repo_one = gb_repository::Repository::open(
-        gb_repos_path.clone(),
-        &project_one.id,
-        project_store.clone(),
-        Some(&user),
-    )?;
+    let case_one = suite.new_case();
+    suite
+        .projects_storage
+        .update_project(&projects::UpdateRequest {
+            id: case_one.project.id.clone(),
+            api: Some(api_project.clone()),
+            ..Default::default()
+        })?;
 
-    // create second project and repo
-    let repository_two = test_utils::test_repository();
-    let project_two = projects::Project::try_from(&repository_two)?;
-    project_store.add_project(&projects::Project {
-        api: Some(api_project),
-        ..project_two.clone()
-    })?;
-    let gb_repo_two = gb_repository::Repository::open(
-        gb_repos_path,
-        &project_two.id,
-        project_store,
-        Some(&user),
-    )?;
+    let case_two = suite.new_case();
+    suite
+        .projects_storage
+        .update_project(&projects::UpdateRequest {
+            id: case_two.project.id.clone(),
+            api: Some(api_project.clone()),
+            ..Default::default()
+        })?;
+
+    let user = suite.sign_in();
 
     // create session in the first project
-    gb_repo_one.get_or_create_current_session()?;
-    std::fs::write(
-        repository_one.path().parent().unwrap().join("test.txt"),
-        "Hello World",
-    )?;
-    let session_one_first = gb_repo_one.flush(Some(&user))?.unwrap();
-    gb_repo_one.push(Some(&user)).unwrap();
+    case_one.gb_repository.get_or_create_current_session()?;
+    let session_one_first = case_one.gb_repository.flush(Some(&user))?.unwrap();
+    case_one.gb_repository.push(Some(&user)).unwrap();
 
     thread::sleep(time::Duration::from_secs(1));
 
     // create session in the second project
-    gb_repo_two.get_or_create_current_session()?;
-    std::fs::write(
-        repository_two.path().parent().unwrap().join("test2.txt"),
-        "Hello World",
-    )?;
-    let session_two_first = gb_repo_two.flush(Some(&user))?.unwrap();
-    gb_repo_two.push(Some(&user)).unwrap();
+    case_two.gb_repository.get_or_create_current_session()?;
+    let session_two_first = case_two.gb_repository.flush(Some(&user))?.unwrap();
+    case_two.gb_repository.push(Some(&user)).unwrap();
 
     thread::sleep(time::Duration::from_secs(1));
 
     // create second session in the first project
-    gb_repo_one.get_or_create_current_session()?;
-    std::fs::write(
-        repository_one.path().parent().unwrap().join("test.txt"),
-        "Hello World again",
-    )?;
-    let session_one_second = gb_repo_one.flush(Some(&user))?.unwrap();
-    gb_repo_one.push(Some(&user)).unwrap();
+    case_one.gb_repository.get_or_create_current_session()?;
+    let session_one_second = case_one.gb_repository.flush(Some(&user))?.unwrap();
+    case_one.gb_repository.push(Some(&user)).unwrap();
 
     thread::sleep(time::Duration::from_secs(1));
 
     // create second session in the second project
-    gb_repo_two.get_or_create_current_session()?;
-    std::fs::write(
-        repository_two.path().parent().unwrap().join("test2.txt"),
-        "Hello World again",
-    )?;
-    let session_two_second = gb_repo_two.flush(Some(&user))?.unwrap();
-    gb_repo_two.push(Some(&user)).unwrap();
+    case_two.gb_repository.get_or_create_current_session()?;
+    let session_two_second = case_two.gb_repository.flush(Some(&user))?.unwrap();
+    case_two.gb_repository.push(Some(&user)).unwrap();
 
-    gb_repo_one.fetch(Some(&user))?;
-    let sessions_one = gb_repo_one
+    case_one.gb_repository.fetch(Some(&user))?;
+    let sessions_one = case_one
+        .gb_repository
         .get_sessions_iterator()?
         .map(|s| s.unwrap())
         .collect::<Vec<_>>();
 
-    gb_repo_two.fetch(Some(&user))?;
-    let sessions_two = gb_repo_two
+    case_two.gb_repository.fetch(Some(&user))?;
+    let sessions_two = case_two
+        .gb_repository
         .get_sessions_iterator()?
         .map(|s| s.unwrap())
         .collect::<Vec<_>>();

@@ -86,12 +86,16 @@ impl App {
         Ok(())
     }
 
-    fn gb_repository(&self, project_id: &str, user: Option<&users::User>) -> Result<gb_repository::Repository> {
+    fn gb_repository(
+        &self,
+        project_id: &str,
+        user: Option<&users::User>,
+    ) -> Result<gb_repository::Repository> {
         gb_repository::Repository::open(
             self.local_data_dir.clone(),
             project_id,
             self.projects_storage.clone(),
-            user
+            user,
         )
         .context("failed to open repository")
     }

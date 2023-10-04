@@ -92,7 +92,7 @@ impl Controller {
                     message,
                     ownership,
                     signing_key.as_ref(),
-                    user
+                    user,
                 )?;
                 Ok(())
             })
@@ -182,7 +182,7 @@ impl Controller {
                     project_repository,
                     branch,
                     None,
-                    user
+                    user,
                 )
                 .map_err(Error::Other)?;
 
@@ -206,7 +206,7 @@ impl Controller {
                     project_repository,
                     &branch.id,
                     signing_key.as_ref(),
-                    user
+                    user,
                 )
                 .map_err(Error::Other)?;
                 Ok(branch.id)
@@ -278,8 +278,13 @@ impl Controller {
         let user = self.users_storage.get().context("failed to get user")?;
 
         let gb_repository = self.open_gb_repository(project_id, user.as_ref())?;
-        let target = super::set_base_branch(&gb_repository, &project_repository, user.as_ref(), target_branch)
-            .map_err(Error::Other)?;
+        let target = super::set_base_branch(
+            &gb_repository,
+            &project_repository,
+            user.as_ref(),
+            target_branch,
+        )
+        .map_err(Error::Other)?;
         let current_session = gb_repository.get_current_session()?;
 
         if let Some(session) = current_session {
@@ -318,7 +323,7 @@ impl Controller {
                     project_repository,
                     branch,
                     signing_key.as_ref(),
-                    user
+                    user,
                 )
                 .map_err(Error::Other)
             })
@@ -329,7 +334,8 @@ impl Controller {
     pub async fn update_base_branch(&self, project_id: &str) -> Result<(), Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
-                super::update_base_branch(gb_repository, project_repository, user).map_err(Error::Other)
+                super::update_base_branch(gb_repository, project_repository, user)
+                    .map_err(Error::Other)
             })
         })
         .await
@@ -388,7 +394,7 @@ impl Controller {
                     project_repository,
                     branch_id,
                     signing_key.as_ref(),
-                    user
+                    user,
                 )
                 .map_err(Error::Other)
             })
@@ -499,7 +505,11 @@ impl Controller {
         action()
     }
 
-    fn open_gb_repository(&self, project_id: &str, user: Option<&users::User>) -> Result<gb_repository::Repository, Error> {
+    fn open_gb_repository(
+        &self,
+        project_id: &str,
+        user: Option<&users::User>,
+    ) -> Result<gb_repository::Repository, Error> {
         gb_repository::Repository::open(
             self.local_data_dir.clone(),
             project_id,

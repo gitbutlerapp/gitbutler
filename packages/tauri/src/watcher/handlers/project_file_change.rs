@@ -193,8 +193,11 @@ impl Handler {
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashMap;
+
     use crate::{
-        deltas, gb_repository, project_repository, projects, sessions, test_utils, users,
+        deltas, sessions,
+        test_utils::{self, Case, Suite},
         virtual_branches::{self, branch},
     };
 
@@ -255,31 +258,19 @@ mod test {
 
     #[test]
     fn test_register_existing_commited_file() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
+        let suite = Suite::default();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = suite.new_case_with_files(HashMap::from([(path::PathBuf::from("test.txt"), "test")]));
+        let listener = Handler::from(&suite.local_app_data);
 
-        let file_path = std::path::Path::new("test.txt");
-        std::fs::write(project_repo.root().join(file_path), "test")?;
-        test_utils::commit_all(&repository);
+        std::fs::write(format!("{}/test.txt", project.path), "test2")?;
+        listener.handle("test.txt", &project.id)?;
 
-        let gb_repo = gb_repository::Repository::open(
-            local_data_dir.clone(),
-            &project.id,
-            project_store.clone(),
-            None,
-        )?;
-        let listener = Handler::from(&local_data_dir);
-
-        std::fs::write(project_repo.root().join(file_path), "test2")?;
-        listener.handle(file_path, &project.id)?;
-
-        let session = gb_repo.get_current_session()?.unwrap();
-        let session_reader = sessions::Reader::open(&gb_repo, &session)?;
+        let session = gb_repository.get_current_session()?.unwrap();
+        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
         let deltas_reader = deltas::Reader::new(&session_reader);
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
         assert_eq!(deltas.len(), 1);
@@ -289,7 +280,7 @@ mod test {
             deltas::Operation::Insert((4, "2".to_string())),
         );
         assert_eq!(
-            std::fs::read_to_string(gb_repo.session_wd_path().join(file_path))?,
+            std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
             "test2"
         );
 
@@ -298,58 +289,40 @@ mod test {
 
     #[test]
     fn test_register_must_init_current_session() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
-        let gb_repo = gb_repository::Repository::open(
-            local_data_dir.clone(),
-            &project.id,
-            project_store.clone(),
-            None,
-        )?;
-        let listener = Handler::from(&local_data_dir);
+        let suite = Suite::default();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = suite.new_case();
+        let listener = Handler::from(&suite.local_app_data);
 
-        let file_path = std::path::Path::new("test.txt");
-        std::fs::write(project_repo.root().join(file_path), "test")?;
+        std::fs::write(format!("{}/test.txt", project.path), "test")?;
+        listener.handle("test.txt", &project.id)?;
 
-        listener.handle(file_path, &project.id)?;
-
-        assert!(gb_repo.get_current_session()?.is_some());
+        assert!(gb_repository.get_current_session()?.is_some());
 
         Ok(())
     }
 
     #[test]
     fn test_register_must_not_override_current_session() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
-        let gb_repo = gb_repository::Repository::open(
-            local_data_dir.clone(),
-            &project.id,
-            project_store.clone(),
-            None,
-        )?;
-        let listener = Handler::from(&local_data_dir);
+        let suite = Suite::default();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = suite.new_case();
+        let listener = Handler::from(&suite.local_app_data);
 
-        let file_path = std::path::Path::new("test.txt");
-        std::fs::write(project_repo.root().join(file_path), "test")?;
-        listener.handle(file_path, &project.id)?;
+        std::fs::write(format!("{}/test.txt", project.path), "test")?;
+        listener.handle("test.txt", &project.id)?;
+        let session1 = gb_repository.get_current_session()?.unwrap();
 
-        let session1 = gb_repo.get_current_session()?.unwrap();
+        std::fs::write(format!("{}/test.txt", project.path), "test2")?;
+        listener.handle("test.txt", &project.id)?;
+        let session2 = gb_repository.get_current_session()?.unwrap();
 
-        std::fs::write(project_repo.root().join(file_path), "test2")?;
-        listener.handle(file_path, &project.id)?;
-
-        let session2 = gb_repo.get_current_session()?.unwrap();
         assert_eq!(session1.id, session2.id);
 
         Ok(())
@@ -357,28 +330,20 @@ mod test {
 
     #[test]
     fn test_register_new_file() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
-        let gb_repo = gb_repository::Repository::open(
-            local_data_dir.clone(),
-            &project.id,
-            project_store.clone(),
-            None,
-        )?;
-        let listener = Handler::from(&local_data_dir);
+        let suite = Suite::default();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = suite.new_case();
+        let listener = Handler::from(&suite.local_app_data);
 
-        let file_path = std::path::Path::new("test.txt");
-        std::fs::write(project_repo.root().join(file_path), "test")?;
+        std::fs::write(format!("{}/test.txt", project.path), "test")?;
 
-        listener.handle(file_path, &project.id)?;
+        listener.handle("test.txt", &project.id)?;
 
-        let session = gb_repo.get_current_session()?.unwrap();
-        let session_reader = sessions::Reader::open(&gb_repo, &session)?;
+        let session = gb_repository.get_current_session()?.unwrap();
+        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
         let deltas_reader = deltas::Reader::new(&session_reader);
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
         assert_eq!(deltas.len(), 1);
@@ -388,7 +353,7 @@ mod test {
             deltas::Operation::Insert((0, "test".to_string())),
         );
         assert_eq!(
-            std::fs::read_to_string(gb_repo.session_wd_path().join(file_path))?,
+            std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
             "test"
         );
 
@@ -397,27 +362,19 @@ mod test {
 
     #[test]
     fn test_register_new_file_twice() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
-        let gb_repo = gb_repository::Repository::open(
-            local_data_dir.clone(),
-            &project.id,
-            project_store.clone(),
-            None,
-        )?;
-        let listener = Handler::from(&local_data_dir);
+        let suite = Suite::default();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = suite.new_case();
+        let listener = Handler::from(&suite.local_app_data);
 
-        let file_path = std::path::Path::new("test.txt");
-        std::fs::write(project_repo.root().join(file_path), "test")?;
-        listener.handle(file_path, &project.id)?;
+        std::fs::write(format!("{}/test.txt", project.path), "test")?;
+        listener.handle("test.txt", &project.id)?;
 
-        let session = gb_repo.get_current_session()?.unwrap();
-        let session_reader = sessions::Reader::open(&gb_repo, &session)?;
+        let session = gb_repository.get_current_session()?.unwrap();
+        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
         let deltas_reader = deltas::Reader::new(&session_reader);
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
         assert_eq!(deltas.len(), 1);
@@ -427,12 +384,12 @@ mod test {
             deltas::Operation::Insert((0, "test".to_string())),
         );
         assert_eq!(
-            std::fs::read_to_string(gb_repo.session_wd_path().join(file_path))?,
+            std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
             "test"
         );
 
-        std::fs::write(project_repo.root().join(file_path), "test2")?;
-        listener.handle(file_path, &project.id)?;
+        std::fs::write(format!("{}/test.txt", project.path), "test2")?;
+        listener.handle("test.txt", &project.id)?;
 
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
         assert_eq!(deltas.len(), 2);
@@ -447,7 +404,7 @@ mod test {
             deltas::Operation::Insert((4, "2".to_string())),
         );
         assert_eq!(
-            std::fs::read_to_string(gb_repo.session_wd_path().join(file_path))?,
+            std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
             "test2"
         );
 
@@ -456,27 +413,19 @@ mod test {
 
     #[test]
     fn test_register_file_deleted() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
-        let gb_repo = gb_repository::Repository::open(
-            local_data_dir.clone(),
-            &project.id,
-            project_store.clone(),
-            None
-        )?;
-        let listener = Handler::from(&local_data_dir);
+        let suite = Suite::default();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = suite.new_case();
+        let listener = Handler::from(&suite.local_app_data);
 
-        let file_path = std::path::Path::new("test.txt");
-        std::fs::write(project_repo.root().join(file_path), "test")?;
-        listener.handle(file_path, &project.id)?;
+        std::fs::write(format!("{}/test.txt", project.path), "test")?;
+        listener.handle("test.txt", &project.id)?;
 
-        let session = gb_repo.get_current_session()?.unwrap();
-        let session_reader = sessions::Reader::open(&gb_repo, &session)?;
+        let session = gb_repository.get_current_session()?.unwrap();
+        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
         let deltas_reader = deltas::Reader::new(&session_reader);
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
         assert_eq!(deltas.len(), 1);
@@ -486,12 +435,12 @@ mod test {
             deltas::Operation::Insert((0, "test".to_string())),
         );
         assert_eq!(
-            std::fs::read_to_string(gb_repo.session_wd_path().join(file_path))?,
+            std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
             "test"
         );
 
-        std::fs::remove_file(project_repo.root().join(file_path))?;
-        listener.handle(file_path, &project.id)?;
+        std::fs::remove_file(format!("{}/test.txt", project.path))?;
+        listener.handle("test.txt", &project.id)?;
 
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
         assert_eq!(deltas.len(), 2);
@@ -508,19 +457,14 @@ mod test {
 
     #[test]
     fn test_flow_with_commits() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
-        let gb_repo = gb_repository::Repository::open(
-            local_data_dir.clone(),
-            &project.id,
-            project_store.clone(),
-            None,
-        )?;
-        let listener = Handler::from(&local_data_dir);
+        let suite = Suite::default();
+        let Case {
+            gb_repository,
+            project,
+            project_repository,
+            ..
+        } = suite.new_case();
+        let listener = Handler::from(&suite.local_app_data);
 
         let size = 10;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -532,13 +476,13 @@ mod test {
                 i.to_string(),
             )?;
 
-            test_utils::commit_all(&repository);
+            test_utils::commit_all(&project_repository.git_repository);
             listener.handle(relative_file_path, &project.id)?;
-            assert!(gb_repo.flush(None)?.is_some());
+            assert!(gb_repository.flush(None)?.is_some());
         }
 
         // get all the created sessions
-        let mut sessions: Vec<sessions::Session> = gb_repo
+        let mut sessions: Vec<sessions::Session> = gb_repository
             .get_sessions_iterator()?
             .map(|s| s.unwrap())
             .collect();
@@ -561,7 +505,7 @@ mod test {
             // collect all operations from sessions in the reverse order
             let mut operations: Vec<deltas::Operation> = vec![];
             sessions_slice.iter().for_each(|session| {
-                let session_reader = sessions::Reader::open(&gb_repo, session).unwrap();
+                let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
                 let deltas_reader = deltas::Reader::new(&session_reader);
                 let deltas_by_filepath = deltas_reader.read(None).unwrap();
                 for deltas in deltas_by_filepath.values() {
@@ -573,7 +517,8 @@ mod test {
                 }
             });
 
-            let reader = sessions::Reader::open(&gb_repo, sessions_slice.first().unwrap()).unwrap();
+            let reader =
+                sessions::Reader::open(&gb_repository, sessions_slice.first().unwrap()).unwrap();
             let files = reader.files(None).unwrap();
 
             if i == 0 {
@@ -599,19 +544,13 @@ mod test {
 
     #[test]
     fn test_flow_no_commits() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
-        let gb_repo = gb_repository::Repository::open(
-            local_data_dir.clone(),
-            &project.id,
-            project_store.clone(),
-            None,
-        )?;
-        let listener = Handler::from(&local_data_dir);
+        let suite = Suite::default();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = suite.new_case();
+        let listener = Handler::from(&suite.local_app_data);
 
         let size = 10;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -624,11 +563,11 @@ mod test {
             )?;
 
             listener.handle(relative_file_path, &project.id)?;
-            assert!(gb_repo.flush(None)?.is_some());
+            assert!(gb_repository.flush(None)?.is_some());
         }
 
         // get all the created sessions
-        let mut sessions: Vec<sessions::Session> = gb_repo
+        let mut sessions: Vec<sessions::Session> = gb_repository
             .get_sessions_iterator()?
             .map(|s| s.unwrap())
             .collect();
@@ -651,7 +590,7 @@ mod test {
             // collect all operations from sessions in the reverse order
             let mut operations: Vec<deltas::Operation> = vec![];
             sessions_slice.iter().for_each(|session| {
-                let session_reader = sessions::Reader::open(&gb_repo, session).unwrap();
+                let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
                 let deltas_reader = deltas::Reader::new(&session_reader);
                 let deltas_by_filepath = deltas_reader.read(None).unwrap();
                 for deltas in deltas_by_filepath.values() {
@@ -663,7 +602,8 @@ mod test {
                 }
             });
 
-            let reader = sessions::Reader::open(&gb_repo, sessions_slice.first().unwrap()).unwrap();
+            let reader =
+                sessions::Reader::open(&gb_repository, sessions_slice.first().unwrap()).unwrap();
             let files = reader.files(None).unwrap();
 
             if i == 0 {
@@ -689,19 +629,13 @@ mod test {
 
     #[test]
     fn test_flow_signle_session() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
-        let gb_repo = gb_repository::Repository::open(
-            local_data_dir.clone(),
-            &project.id,
-            project_store.clone(),
-            None
-        )?;
-        let listener = Handler::from(&local_data_dir);
+        let suite = Suite::default();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = suite.new_case();
+        let listener = Handler::from(&suite.local_app_data);
 
         let size = 10;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -718,8 +652,8 @@ mod test {
 
         // collect all operations from sessions in the reverse order
         let mut operations: Vec<deltas::Operation> = vec![];
-        let session = gb_repo.get_current_session()?.unwrap();
-        let session_reader = sessions::Reader::open(&gb_repo, &session).unwrap();
+        let session = gb_repository.get_current_session()?.unwrap();
+        let session_reader = sessions::Reader::open(&gb_repository, &session).unwrap();
         let deltas_reader = deltas::Reader::new(&session_reader);
         let deltas_by_filepath = deltas_reader.read(None).unwrap();
         for deltas in deltas_by_filepath.values() {
@@ -730,7 +664,7 @@ mod test {
             });
         }
 
-        let reader = sessions::Reader::open(&gb_repo, &session).unwrap();
+        let reader = sessions::Reader::open(&gb_repository, &session).unwrap();
         let files = reader.files(None).unwrap();
 
         let base_file = files.get(&relative_file_path.to_path_buf());
@@ -749,28 +683,19 @@ mod test {
 
     #[test]
     fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
+        let suite = Suite::default();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = suite.new_case_with_files(HashMap::from([(
+            path::PathBuf::from("test.txt"),
+            "hello world",
+        )]));
+        let listener = Handler::from(&suite.local_app_data);
 
-        let file_path = std::path::Path::new("test.txt");
-        std::fs::write(project_repo.root().join(file_path), "hello world")?;
-        test_utils::commit_all(&repository);
-
-        let gb_repo = gb_repository::Repository::open(
-            local_data_dir.clone(),
-            &project.id,
-            project_store.clone(),
-            None
-        )?;
-        let listener = Handler::from(&local_data_dir);
-
-        let branch_writer = virtual_branches::branch::Writer::new(&gb_repo);
-        let target_writer = virtual_branches::target::Writer::new(&gb_repo);
+        let branch_writer = virtual_branches::branch::Writer::new(&gb_repository);
+        let target_writer = virtual_branches::target::Writer::new(&gb_repository);
         let default_target = test_target();
         target_writer.write_default(&default_target)?;
         let vbranch0 = test_branch();
@@ -780,17 +705,17 @@ mod test {
         branch_writer.write(&vbranch1)?;
         target_writer.write(&vbranch1.id, &vbranch1_target)?;
 
-        std::fs::write(project_repo.root().join(file_path), "hello world!").unwrap();
-        listener.handle(file_path, &project.id)?;
+        std::fs::write(format!("{}/test.txt", project.path), "hello world!").unwrap();
+        listener.handle("test.txt", &project.id)?;
 
-        let flushed_session = gb_repo.flush(None).unwrap();
+        let flushed_session = gb_repository.flush(None).unwrap();
 
         // create a new session
-        let session = gb_repo.get_or_create_current_session().unwrap();
+        let session = gb_repository.get_or_create_current_session().unwrap();
         assert_ne!(session.id, flushed_session.unwrap().id);
 
         // ensure that the virtual branch is still there and selected
-        let session_reader = sessions::Reader::open(&gb_repo, &session).unwrap();
+        let session_reader = sessions::Reader::open(&gb_repository, &session).unwrap();
 
         let branches = virtual_branches::Iterator::new(&session_reader)
             .unwrap()
@@ -812,28 +737,19 @@ mod test {
 
     #[test]
     fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_dir);
-        let project_store = projects::Storage::from(&local_data_dir);
-        project_store.add_project(&project)?;
+        let suite = Suite::default();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = suite.new_case_with_files(HashMap::from([(
+            path::PathBuf::from("test.txt"),
+            "hello world",
+        )]));
+        let listener = Handler::from(&suite.local_app_data);
 
-        let file_path = std::path::Path::new("test.txt");
-        std::fs::write(project_repo.root().join(file_path), "hello world")?;
-        test_utils::commit_all(&repository);
-
-        let gb_repo = gb_repository::Repository::open(
-            local_data_dir.clone(),
-            &project.id,
-            project_store.clone(),
-            None
-        )?;
-        let listener = Handler::from(&local_data_dir);
-
-        let branch_writer = virtual_branches::branch::Writer::new(&gb_repo);
-        let target_writer = virtual_branches::target::Writer::new(&gb_repo);
+        let branch_writer = virtual_branches::branch::Writer::new(&gb_repository);
+        let target_writer = virtual_branches::target::Writer::new(&gb_repository);
         let default_target = test_target();
         target_writer.write_default(&default_target)?;
         let vbranch0 = test_branch();
@@ -843,20 +759,20 @@ mod test {
         branch_writer.write(&vbranch1)?;
         target_writer.write(&vbranch1.id, &vbranch1_target)?;
 
-        std::fs::write(project_repo.root().join(file_path), "hello world!").unwrap();
-        listener.handle(file_path, &project.id).unwrap();
+        std::fs::write(format!("{}/test.txt", project.path), "hello world!").unwrap();
+        listener.handle("test.txt", &project.id).unwrap();
 
-        let flushed_session = gb_repo.flush(None).unwrap();
+        let flushed_session = gb_repository.flush(None).unwrap();
 
         // hard delete branches state from disk
-        std::fs::remove_dir_all(gb_repo.root()).unwrap();
+        std::fs::remove_dir_all(gb_repository.root()).unwrap();
 
         // create a new session
-        let session = gb_repo.get_or_create_current_session().unwrap();
+        let session = gb_repository.get_or_create_current_session().unwrap();
         assert_ne!(session.id, flushed_session.unwrap().id);
 
         // ensure that the virtual branch is still there and selected
-        let session_reader = sessions::Reader::open(&gb_repo, &session).unwrap();
+        let session_reader = sessions::Reader::open(&gb_repository, &session).unwrap();
 
         let branches = virtual_branches::Iterator::new(&session_reader)
             .unwrap()

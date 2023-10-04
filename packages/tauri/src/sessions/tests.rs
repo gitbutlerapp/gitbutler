@@ -1,24 +1,15 @@
 use anyhow::Result;
 
 use crate::{
-    gb_repository,
-    projects::{self, Project},
-    sessions, test_utils, users,
+    sessions,
+    test_utils::{Case, Suite},
 };
 
 use super::Writer;
 
 #[test]
 fn test_should_not_write_session_with_hash() -> Result<()> {
-    let repository = test_utils::test_repository();
-    let project = Project::try_from(&repository)?;
-    let gb_repo_path = test_utils::temp_dir();
-    let local_app_data = test_utils::temp_dir();
-    let user_store = users::Storage::from(&local_app_data);
-    let project_store = projects::Storage::from(&local_app_data);
-    project_store.add_project(&project)?;
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
+    let Case { gb_repository, .. } = Suite::default().new_case();
 
     let session = sessions::Session {
         id: "session_id".to_string(),
@@ -31,22 +22,14 @@ fn test_should_not_write_session_with_hash() -> Result<()> {
         },
     };
 
-    assert!(Writer::new(&gb_repo).write(&session).is_err());
+    assert!(Writer::new(&gb_repository).write(&session).is_err());
 
     Ok(())
 }
 
 #[test]
 fn test_should_write_full_session() -> Result<()> {
-    let repository = test_utils::test_repository();
-    let project = Project::try_from(&repository)?;
-    let gb_repo_path = test_utils::temp_dir();
-    let local_app_data = test_utils::temp_dir();
-    let user_store = users::Storage::from(&local_app_data);
-    let project_store = projects::Storage::from(&local_app_data);
-    project_store.add_project(&project)?;
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
+    let Case { gb_repository, .. } = Suite::default().new_case();
 
     let session = sessions::Session {
         id: "session_id".to_string(),
@@ -59,26 +42,26 @@ fn test_should_write_full_session() -> Result<()> {
         },
     };
 
-    Writer::new(&gb_repo).write(&session)?;
+    Writer::new(&gb_repository).write(&session)?;
 
     assert_eq!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/id"))?,
+        std::fs::read_to_string(gb_repository.session_path().join("meta/id"))?,
         "session_id"
     );
     assert_eq!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/commit"))?,
+        std::fs::read_to_string(gb_repository.session_path().join("meta/commit"))?,
         "commit"
     );
     assert_eq!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/branch"))?,
+        std::fs::read_to_string(gb_repository.session_path().join("meta/branch"))?,
         "branch"
     );
     assert_eq!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/start"))?,
+        std::fs::read_to_string(gb_repository.session_path().join("meta/start"))?,
         "0"
     );
     assert_ne!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/last"))?,
+        std::fs::read_to_string(gb_repository.session_path().join("meta/last"))?,
         "1"
     );
 
@@ -87,15 +70,7 @@ fn test_should_write_full_session() -> Result<()> {
 
 #[test]
 fn test_should_write_partial_session() -> Result<()> {
-    let repository = test_utils::test_repository();
-    let project = Project::try_from(&repository)?;
-    let gb_repo_path = test_utils::temp_dir();
-    let local_app_data = test_utils::temp_dir();
-    let user_store = users::Storage::from(&local_app_data);
-    let project_store = projects::Storage::from(&local_app_data);
-    project_store.add_project(&project)?;
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
+    let Case { gb_repository, .. } = Suite::default().new_case();
 
     let session = sessions::Session {
         id: "session_id".to_string(),
@@ -108,20 +83,20 @@ fn test_should_write_partial_session() -> Result<()> {
         },
     };
 
-    Writer::new(&gb_repo).write(&session)?;
+    Writer::new(&gb_repository).write(&session)?;
 
     assert_eq!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/id"))?,
+        std::fs::read_to_string(gb_repository.session_path().join("meta/id"))?,
         "session_id"
     );
-    assert!(!gb_repo.session_path().join("meta/commit").exists());
-    assert!(!gb_repo.session_path().join("meta/branch").exists());
+    assert!(!gb_repository.session_path().join("meta/commit").exists());
+    assert!(!gb_repository.session_path().join("meta/branch").exists());
     assert_eq!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/start"))?,
+        std::fs::read_to_string(gb_repository.session_path().join("meta/start"))?,
         "0"
     );
     assert_ne!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/last"))?,
+        std::fs::read_to_string(gb_repository.session_path().join("meta/last"))?,
         "1"
     );
 

@@ -42,7 +42,8 @@ mod tests {
     use anyhow::Result;
 
     use crate::{
-        gb_repository, projects, sessions, test_utils, users,
+        sessions,
+        test_utils::{Case, Suite},
         virtual_branches::{branch, target::writer::TargetWriter},
     };
 
@@ -88,18 +89,10 @@ mod tests {
 
     #[test]
     fn test_read_not_found() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = test_utils::temp_dir();
-        let local_repo_path = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_repo_path);
-        let project_store = projects::Storage::from(&local_repo_path);
-        project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
+        let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let session = gb_repo.get_or_create_current_session()?;
-        let session_reader = sessions::Reader::open(&gb_repo, &session)?;
+        let session = gb_repository.get_or_create_current_session()?;
+        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
         let reader = TargetReader::new(&session_reader);
         let result = reader.read("not found");
@@ -111,17 +104,9 @@ mod tests {
 
     #[test]
     fn test_read_deprecated_format() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = test_utils::temp_dir();
-        let local_data_path = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_data_path);
-        let project_store = projects::Storage::from(&local_data_path);
-        project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
+        let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let writer = crate::writer::DirWriter::open(gb_repo.root());
+        let writer = crate::writer::DirWriter::open(gb_repository.root());
         writer
             .write_string("branches/target/name", "origin/master")
             .unwrap();
@@ -138,8 +123,8 @@ mod tests {
             )
             .unwrap();
 
-        let session = gb_repo.get_or_create_current_session()?;
-        let session_reader = sessions::Reader::open(&gb_repo, &session)?;
+        let session = gb_repository.get_or_create_current_session()?;
+        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
         let reader = TargetReader::new(&session_reader);
 
         let read = reader.read_default().unwrap();
@@ -159,15 +144,7 @@ mod tests {
 
     #[test]
     fn test_read_override_target() -> Result<()> {
-        let repository = test_utils::test_repository();
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = test_utils::temp_dir();
-        let local_app_data = test_utils::temp_dir();
-        let user_store = users::Storage::from(&local_app_data);
-        let project_store = projects::Storage::from(&local_app_data);
-        project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
+        let Case { gb_repository, .. } = Suite::default().new_case();
 
         let branch = test_branch();
 
@@ -185,13 +162,13 @@ mod tests {
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };
 
-        let branch_writer = branch::Writer::new(&gb_repo);
+        let branch_writer = branch::Writer::new(&gb_repository);
         branch_writer.write(&branch)?;
 
-        let session = gb_repo.get_current_session()?.unwrap();
-        let session_reader = sessions::Reader::open(&gb_repo, &session)?;
+        let session = gb_repository.get_current_session()?.unwrap();
+        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
-        let target_writer = TargetWriter::new(&gb_repo);
+        let target_writer = TargetWriter::new(&gb_repository);
         let reader = TargetReader::new(&session_reader);
 
         target_writer.write_default(&default_target)?;
