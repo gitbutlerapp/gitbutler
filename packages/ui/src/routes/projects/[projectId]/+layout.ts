@@ -1,5 +1,4 @@
 import { getHeadStore } from '$lib/api/git/heads';
-import { getStatusStore } from '$lib/api/git/statuses';
 import { getSessionStore } from '$lib/stores/sessions';
 import { getDiffsStore } from '$lib/api/git/diffs';
 import { error } from '@sveltejs/kit';
@@ -14,7 +13,6 @@ export const load: LayoutLoad = async ({ params }) => {
 	if ((await project.load()) === undefined) throw error(404, new Error('Project not found'));
 	return {
 		head: getHeadStore(params.projectId),
-		statuses: getStatusStore({ projectId: params.projectId }),
 		sessions: getSessionStore(params.projectId),
 		diffs: getDiffsStore({ projectId: params.projectId }),
 		project: project as Loadable<Project> & Pick<typeof project, 'update' | 'delete'>

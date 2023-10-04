@@ -1,7 +1,6 @@
-use std::{collections::HashMap, path};
+use std::path;
 
 use anyhow::{Context, Result};
-use serde::Serialize;
 use walkdir::WalkDir;
 
 use crate::{git, keys, projects, reader, users};
@@ -70,90 +69,6 @@ impl Repository {
 
     pub fn root(&self) -> &std::path::Path {
         self.git_repository.path().parent().unwrap()
-    }
-
-    fn unstaged_statuses(&self) -> Result<HashMap<String, FileStatusType>> {
-        let mut options = git2::StatusOptions::new();
-        options.include_untracked(true);
-        options.recurse_untracked_dirs(true);
-        options.include_ignored(false);
-        options.show(git2::StatusShow::Workdir);
-
-        // get the status of the repository
-        let statuses = self
-            .git_repository
-            .statuses(Some(&mut options))
-            .with_context(|| "failed to get repository status")?;
-
-        let files = statuses
-            .iter()
-            .filter_map(|entry| {
-                entry
-                    .path()
-                    .map(|path| (path.to_string(), FileStatusType::from(entry.status())))
-            })
-            .collect();
-
-        Ok(files)
-    }
-
-    fn staged_statuses(&self) -> Result<HashMap<String, FileStatusType>> {
-        let mut options = git2::StatusOptions::new();
-        options.include_untracked(true);
-        options.include_ignored(false);
-        options.recurse_untracked_dirs(true);
-        options.show(git2::StatusShow::Index);
-
-        // get the status of the repository
-        let statuses = self
-            .git_repository
-            .statuses(Some(&mut options))
-            .with_context(|| "failed to get repository status")?;
-
-        let files = statuses
-            .iter()
-            .filter_map(|entry| {
-                entry
-                    .path()
-                    .map(|path| (path.to_string(), FileStatusType::from(entry.status())))
-            })
-            .collect();
-
-        Ok(files)
-    }
-
-    pub fn git_status(&self) -> Result<HashMap<String, FileStatus>> {
-        let staged_statuses = self.staged_statuses()?;
-        let unstaged_statuses = self.unstaged_statuses()?;
-        let mut statuses = HashMap::new();
-        unstaged_statuses
-            .iter()
-            .for_each(|(path, unstaged_status_type)| {
-                statuses.insert(
-                    path.clone(),
-                    FileStatus {
-                        unstaged: Some(*unstaged_status_type),
-                        staged: None,
-                    },
-                );
-            });
-        staged_statuses
-            .iter()
-            .for_each(|(path, stages_status_type)| {
-                if let Some(status) = statuses.get_mut(path) {
-                    status.staged = Some(*stages_status_type);
-                } else {
-                    statuses.insert(
-                        path.clone(),
-                        FileStatus {
-                            unstaged: None,
-                            staged: Some(*stages_status_type),
-                        },
-                    );
-                }
-            });
-
-        Ok(statuses)
     }
 
     pub fn git_match_paths(&self, pattern: &str) -> Result<Vec<String>> {
@@ -461,42 +376,6 @@ impl Repository {
         );
 
         Ok(())
-    }
-}
-
-#[derive(Serialize, Copy, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct FileStatus {
-    pub staged: Option<FileStatusType>,
-    pub unstaged: Option<FileStatusType>,
-}
-
-#[derive(Serialize, Copy, Clone)]
-#[serde(rename_all = "camelCase")]
-pub enum FileStatusType {
-    Added,
-    Modified,
-    Deleted,
-    Renamed,
-    TypeChange,
-    Other,
-}
-
-impl From<git2::Status> for FileStatusType {
-    fn from(status: git2::Status) -> Self {
-        if status.is_index_new() || status.is_wt_new() {
-            FileStatusType::Added
-        } else if status.is_index_modified() || status.is_wt_modified() {
-            FileStatusType::Modified
-        } else if status.is_index_deleted() || status.is_wt_deleted() {
-            FileStatusType::Deleted
-        } else if status.is_index_renamed() || status.is_wt_renamed() {
-            FileStatusType::Renamed
-        } else if status.is_index_typechange() || status.is_wt_typechange() {
-            FileStatusType::TypeChange
-        } else {
-            FileStatusType::Other
-        }
     }
 }
 

@@ -4,11 +4,11 @@
 	import { IconGitBranch } from '$lib/icons';
 	import { derived } from '@square/svelte-store';
 	import FileSummaries from './FileSummaries.svelte';
-	import { Statuses, Tooltip } from '$lib/components';
+	import { Tooltip } from '$lib/components';
 	import Chat from './Chat.svelte';
 
 	export let data: PageData;
-	const { project, statuses, sessions, head } = data;
+	const { project, sessions, head } = data;
 
 	$: recentSessions = derived(
 		sessions,
@@ -44,9 +44,6 @@
 					</div>
 				</Tooltip>
 			</div>
-			{#await statuses.load() then}
-				<Statuses statuses={$statuses} />
-			{/await}
 		</div>
 
 		<div class="flex flex-auto flex-col overflow-auto">

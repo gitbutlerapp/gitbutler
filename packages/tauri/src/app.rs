@@ -333,16 +333,6 @@ impl App {
             .list_by_project_id_session_id(project_id, session_id, paths)
     }
 
-    pub fn git_status(
-        &self,
-        project_id: &str,
-    ) -> Result<HashMap<String, project_repository::FileStatus>> {
-        let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-        project_repository.git_status()
-    }
-
     pub fn git_wd_diff(
         &self,
         project_id: &str,
