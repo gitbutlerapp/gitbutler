@@ -64,7 +64,7 @@ impl Suite {
         self.projects_storage
             .add_project(&project)
             .expect("failed to add project");
-        let project_repository = project_repository::Repository::try_from(&project)
+        let project_repository = project_repository::Repository::open(&project)
             .expect("failed to create project repository");
         let gb_repository = gb_repository::Repository::open(&self.local_app_data, &project, None)
             .expect("failed to open gb repository");
@@ -92,7 +92,7 @@ impl Case<'_> {
             .get_project(&self.project.id)
             .expect("failed to get project")
             .expect("project not found");
-        self.project_repository = project_repository::Repository::try_from(&self.project)
+        self.project_repository = project_repository::Repository::open(&self.project)
             .expect("failed to create project repository");
         self.gb_repository =
             gb_repository::Repository::open(&self.suite.local_app_data, &self.project, None)

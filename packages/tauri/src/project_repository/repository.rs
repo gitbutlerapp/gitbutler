@@ -9,18 +9,6 @@ pub struct Repository {
     project: projects::Project,
 }
 
-impl TryFrom<&projects::Project> for Repository {
-    type Error = git::Error;
-
-    fn try_from(project: &projects::Project) -> std::result::Result<Self, Self::Error> {
-        let git_repository = git::Repository::open(&project.path)?;
-        Ok(Self {
-            git_repository,
-            project: project.clone(),
-        })
-    }
-}
-
 impl Repository {
     pub fn path(&self) -> &path::Path {
         path::Path::new(&self.project.path)
@@ -37,11 +25,12 @@ impl Repository {
         super::signatures::signatures(self, user).context("failed to get signatures")
     }
 
-    pub fn open(project: &projects::Project) -> Result<Self> {
-        Self::try_from(project).context(format!(
-            "{}: failed to open git repository",
-            project.path.display()
-        ))
+    pub fn open(project: &projects::Project) -> Result<Self, git::Error> {
+        let git_repository = git::Repository::open(&project.path)?;
+        Ok(Self {
+            git_repository,
+            project: project.clone(),
+        })
     }
 
     pub fn project(&self) -> &projects::Project {

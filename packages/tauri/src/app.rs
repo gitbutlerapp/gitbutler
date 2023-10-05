@@ -1,7 +1,6 @@
 use std::{collections::HashMap, ops, path, time};
 
 use anyhow::{Context, Result};
-use futures::executor::block_on;
 use tauri::{AppHandle, Manager};
 
 use crate::{
@@ -59,27 +58,22 @@ impl TryFrom<&AppHandle> for App {
 }
 
 impl App {
-    pub fn init_project(&self, project: &projects::Project) -> Result<()> {
-        block_on(async move {
-            self.watchers
-                .watch(project)
-                .await
-                .with_context(|| {
-                    format!("failed to start watcher for project {}", project.id.clone())
-                })
-                .expect("failed to start watcher");
-        });
+    pub async fn init_project(&self, project: &projects::Project) -> Result<()> {
+        self.watchers.watch(project).await.context(format!(
+            "failed to start watcher for project {}",
+            &project.id
+        ))?;
 
         Ok(())
     }
 
-    pub fn init(&self) -> Result<()> {
+    pub async fn init(&self) -> Result<()> {
         for project in self
             .projects_storage
             .list_projects()
             .with_context(|| "failed to list projects")?
         {
-            if let Err(error) = self.init_project(&project) {
+            if let Err(error) = self.init_project(&project).await {
                 tracing::error!(project.id, ?error, "failed to init project");
             }
         }
@@ -105,7 +99,7 @@ impl App {
         self.users_storage.delete()
     }
 
-    pub fn add_project(&self, path: &path::Path) -> Result<projects::Project, Error> {
+    pub async fn add_project(&self, path: &path::Path) -> Result<projects::Project, Error> {
         let all_projects = self
             .projects_storage
             .list_projects()
@@ -127,27 +121,29 @@ impl App {
             .map_err(Error::Other)?;
 
         self.init_project(&project)
+            .await
             .context("failed to init project")
             .map_err(Error::Other)?;
 
         Ok(project)
     }
 
-    pub fn update_project(&self, project: &projects::UpdateRequest) -> Result<projects::Project> {
+    pub async fn update_project(
+        &self,
+        project: &projects::UpdateRequest,
+    ) -> Result<projects::Project> {
         let updated = self.projects_storage.update_project(project)?;
 
-        block_on(async move {
-            if let Err(error) = self
-                .watchers
-                .post(watcher::Event::FetchGitbutlerData(
-                    project.id.clone(),
-                    time::SystemTime::now(),
-                ))
-                .await
-            {
-                tracing::error!(project_id = &project.id, ?error, "failed to fetch project");
-            }
-        });
+        if let Err(error) = self
+            .watchers
+            .post(watcher::Event::FetchGitbutlerData(
+                project.id.clone(),
+                time::SystemTime::now(),
+            ))
+            .await
+        {
+            tracing::error!(project_id = &project.id, ?error, "failed to fetch project");
+        }
 
         Ok(updated)
     }
@@ -160,7 +156,7 @@ impl App {
         self.projects_storage.list_projects()
     }
 
-    pub fn delete_project(&self, id: &str) -> Result<()> {
+    pub async fn delete_project(&self, id: &str) -> Result<()> {
         match self.projects_storage.get_project(id)? {
             Some(project) => {
                 let gb_repository = match gb_repository::Repository::open(
@@ -173,18 +169,10 @@ impl App {
                     Err(e) => Err(anyhow::anyhow!("failed to open repository: {:#}", e)),
                 }?;
 
-                block_on({
-                    let project_id = project.id.clone();
-                    async move {
-                        if let Err(error) = self.watchers.stop(&project_id).await {
-                            tracing::error!(
-                                project_id,
-                                ?error,
-                                "failed to stop watcher for project",
-                            );
-                        }
-                    }
-                });
+                let project_id = project.id.clone();
+                if let Err(error) = self.watchers.stop(&project_id).await {
+                    tracing::error!(project_id, ?error, "failed to stop watcher for project",);
+                }
 
                 if let Some(gb_repository) = gb_repository {
                     if let Err(error) = gb_repository.purge() {
@@ -254,7 +242,8 @@ impl App {
 
     pub fn fetch_from_target(&self, project_id: &str) -> Result<(), Error> {
         let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
         let user = self.users_storage.get()?;
         let gb_repo =
             gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
@@ -290,26 +279,23 @@ impl App {
             .map_err(Error::FetchError)
     }
 
-    pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
-        let user = self.users_storage.get()?;
-        let project = self.gb_project(&bookmark.project_id)?;
-        let gb_repository =
-            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())?;
-        let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;
-        writer.write(bookmark).context("failed to write bookmark")?;
+    pub async fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
+        {
+            let user = self.users_storage.get()?;
+            let project = self.gb_project(&bookmark.project_id)?;
+            let gb_repository =
+                gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())?;
+            let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;
+            writer.write(bookmark).context("failed to write bookmark")?;
+        }
 
-        block_on({
-            let bookmark = bookmark.clone();
-            async move {
-                if let Err(error) = self
-                    .watchers
-                    .post(watcher::Event::Bookmark(bookmark.clone()))
-                    .await
-                {
-                    tracing::error!(?error, "failed to send session event");
-                }
-            }
-        });
+        if let Err(error) = self
+            .watchers
+            .post(watcher::Event::Bookmark(bookmark.clone()))
+            .await
+        {
+            tracing::error!(?error, "failed to send session event");
+        }
 
         Ok(())
     }
@@ -429,12 +415,13 @@ impl App {
         self.searcher.search(query)
     }
 
-    pub fn delete_all_data(&self) -> Result<()> {
+    pub async fn delete_all_data(&self) -> Result<()> {
         self.searcher
             .delete_all_data()
             .context("failed to delete search data")?;
         for project in self.list_projects()? {
             self.delete_project(&project.id)
+                .await
                 .context("failed to delete project")?;
         }
         Ok(())
