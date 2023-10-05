@@ -60,7 +60,19 @@ impl Suite {
     }
 
     fn case_from_repository(&self, repository: git::Repository) -> Case {
-        let project = projects::Project::try_from(&repository).expect("failed to create project");
+        let project = projects::Project {
+            id: uuid::Uuid::new_v4().to_string(),
+            title: repository
+                .path()
+                .parent()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string(),
+            path: repository.path().parent().unwrap().to_path_buf(),
+            ..Default::default()
+        };
+
         self.projects_storage
             .add(&project)
             .expect("failed to add project");
