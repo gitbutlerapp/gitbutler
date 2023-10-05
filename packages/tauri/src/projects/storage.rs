@@ -45,7 +45,7 @@ pub struct UpdateRequest {
 }
 
 impl Storage {
-    pub fn list_projects(&self) -> Result<Vec<project::Project>> {
+    pub fn list(&self) -> Result<Vec<project::Project>> {
         match self.storage.read(PROJECTS_FILE)? {
             Some(projects) => {
                 let all_projects: Vec<project::Project> = serde_json::from_str(&projects)
@@ -68,14 +68,16 @@ impl Storage {
         }
     }
 
-    pub fn get_project(&self, id: &str) -> Result<Option<project::Project>> {
-        let projects = self.list_projects()?;
-        let project = projects.into_iter().find(|p| p.id == id);
-        Ok(project)
+    pub fn get(&self, id: &str) -> Result<project::Project> {
+        let projects = self.list()?;
+        match projects.into_iter().find(|p| p.id == id) {
+            Some(project) => Ok(project),
+            None => Err(anyhow::anyhow!("{}: project not found", id)),
+        }
     }
 
-    pub fn update_project(&self, update_request: &UpdateRequest) -> Result<project::Project> {
-        let mut projects = self.list_projects()?;
+    pub fn update(&self, update_request: &UpdateRequest) -> Result<project::Project> {
+        let mut projects = self.list()?;
         let project = projects
             .iter_mut()
             .find(|p| p.id == update_request.id)
@@ -118,7 +120,7 @@ impl Storage {
     }
 
     pub fn purge(&self, id: &str) -> Result<()> {
-        let mut projects = self.list_projects()?;
+        let mut projects = self.list()?;
         if let Some(index) = projects.iter().position(|p| p.id == id) {
             projects.remove(index);
             self.storage
@@ -127,8 +129,8 @@ impl Storage {
         Ok(())
     }
 
-    pub fn add_project(&self, project: &project::Project) -> Result<()> {
-        let mut projects = self.list_projects()?;
+    pub fn add(&self, project: &project::Project) -> Result<()> {
+        let mut projects = self.list()?;
         projects.push(project.clone());
         let projects = serde_json::to_string_pretty(&projects)?;
         self.storage.write(PROJECTS_FILE, &projects)?;

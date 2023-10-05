@@ -75,7 +75,7 @@ impl HandlerInner {
 
         // mark fetching
         self.project_storage
-            .update_project(&projects::UpdateRequest {
+            .update(&projects::UpdateRequest {
                 id: project_id.to_string(),
                 project_data_last_fetched: Some(projects::FetchResult::Fetching {
                     timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
@@ -86,9 +86,8 @@ impl HandlerInner {
 
         let project = self
             .project_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project not found"))?;
+            .get(project_id)
+            .context("failed to get project")?;
 
         let gb_repo =
             gb_repository::Repository::open(self.local_data_dir.clone(), &project, user.as_ref())
@@ -132,7 +131,7 @@ impl HandlerInner {
             };
 
         self.project_storage
-            .update_project(&projects::UpdateRequest {
+            .update(&projects::UpdateRequest {
                 id: project_id.to_string(),
                 project_data_last_fetched: Some(fetch_result),
                 ..Default::default()

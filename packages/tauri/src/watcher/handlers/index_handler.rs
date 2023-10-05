@@ -72,10 +72,7 @@ impl Handler {
 
     pub fn reindex(&self, project_id: &str) -> Result<Vec<events::Event>> {
         let user = self.user_store.get()?;
-        let project = self
-            .project_store
-            .get_project(project_id)?
-            .context(format!("failed to get project with id {}", project_id))?;
+        let project = self.project_store.get(project_id)?;
 
         let gb_repository =
             gb_repository::Repository::open(self.local_data_dir.clone(), &project, user.as_ref())
@@ -95,10 +92,7 @@ impl Handler {
         session: &sessions::Session,
     ) -> Result<Vec<events::Event>> {
         let user = self.user_store.get()?;
-        let project = self
-            .project_store
-            .get_project(project_id)?
-            .context(format!("failed to get project with id {}", project_id))?;
+        let project = self.project_store.get(project_id)?;
 
         let gb_repository =
             gb_repository::Repository::open(self.local_data_dir.clone(), &project, user.as_ref())

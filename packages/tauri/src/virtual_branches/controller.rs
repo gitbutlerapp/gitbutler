@@ -107,9 +107,8 @@ impl Controller {
     ) -> Result<bool, Error> {
         let project = self
             .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .context("project not found")?;
+            .get(project_id)
+            .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
@@ -128,9 +127,8 @@ impl Controller {
     ) -> Result<bool, Error> {
         let project = self
             .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .context("project not found")?;
+            .get(project_id)
+            .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
@@ -223,9 +221,8 @@ impl Controller {
     ) -> Result<Option<super::BaseBranch>, Error> {
         let project = self
             .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .context("project not found")?;
+            .get(project_id)
+            .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
@@ -248,9 +245,8 @@ impl Controller {
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = self
             .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .context("project not found")?;
+            .get(project_id)
+            .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let commit = project_repository
@@ -268,9 +264,8 @@ impl Controller {
     ) -> Result<super::BaseBranch, Error> {
         let project = self
             .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .context("project not found")?;
+            .get(project_id)
+            .context("failed to get project")?;
 
         let user = self.users_storage.get().context("failed to get user")?;
 
@@ -479,9 +474,8 @@ impl Controller {
     ) -> Result<T, Error> {
         let project = self
             .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .context("project not found")?;
+            .get(project_id)
+            .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;

@@ -1,6 +1,6 @@
 use std::path;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use tauri::AppHandle;
 
 use crate::{gb_repository, project_repository, projects, sessions, users};
@@ -38,9 +38,8 @@ impl Handler {
     ) -> Result<Vec<events::Event>> {
         let project = self
             .project_store
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow!("project not found"))?;
+            .get(project_id)
+            .context("failed to get project")?;
 
         let user = self.user_store.get()?;
 

@@ -36,10 +36,7 @@ impl Handler {
     pub fn handle(&self, project_id: &str, now: &time::SystemTime) -> Result<Vec<events::Event>> {
         let user = self.user_store.get()?;
 
-        let project = match self.project_store.get_project(project_id)? {
-            None => return Ok(vec![]),
-            Some(project) => project,
-        };
+        let project = self.project_store.get(project_id)?;
 
         let gb_repo =
             gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())

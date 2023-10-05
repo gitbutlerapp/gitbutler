@@ -62,7 +62,7 @@ impl Suite {
     fn case_from_repository(&self, repository: git::Repository) -> Case {
         let project = projects::Project::try_from(&repository).expect("failed to create project");
         self.projects_storage
-            .add_project(&project)
+            .add(&project)
             .expect("failed to add project");
         let project_repository = project_repository::Repository::open(&project)
             .expect("failed to create project repository");
@@ -89,9 +89,8 @@ impl Case<'_> {
         self.project = self
             .suite
             .projects_storage
-            .get_project(&self.project.id)
-            .expect("failed to get project")
-            .expect("project not found");
+            .get(&self.project.id)
+            .expect("failed to get project");
         self.project_repository = project_repository::Repository::open(&self.project)
             .expect("failed to create project repository");
         self.gb_repository =

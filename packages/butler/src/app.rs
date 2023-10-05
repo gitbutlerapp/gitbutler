@@ -24,7 +24,7 @@ impl App {
 
         let projects_storage = projects::Storage::try_from(&storage)?;
         let projects = projects_storage
-            .list_projects()
+            .list()
             .context("failed to list projects")?;
 
         let project = projects
