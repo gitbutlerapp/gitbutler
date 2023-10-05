@@ -45,7 +45,7 @@
 		"@square/svelte-store": "git+https://git@github.com/gitbutlerapp/svelte-store.git#5f54d113be638e5383965907333d50213dd4e05e",
 		"@sveltejs/adapter-static": "^2.0.3",
 		"@sveltejs/kit": "^1.24.1",
-		"@tauri-apps/api": "^1.4.0",
+		"@tauri-apps/api": "^1.5.0",
 		"@types/crypto-js": "^4.1.1",
 		"@types/diff": "^5.0.3",
 		"@types/diff-match-patch": "^1.0.32",
