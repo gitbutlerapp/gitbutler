@@ -172,7 +172,7 @@ pub async fn add_project(
     path: &path::Path,
 ) -> Result<projects::Project, Error> {
     let app = handle.state::<app::App>();
-    let project = app.add_project(path)?;
+    let project = app.add_project(path).await?;
     Ok(project)
 }
 
@@ -202,7 +202,8 @@ pub async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Pro
 pub async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     let app = handle.state::<app::App>();
 
-    app.delete_project(id).await
+    app.delete_project(id)
+        .await
         .context(format!("failed to delete project {}", id))?;
 
     Ok(())
@@ -349,7 +350,9 @@ pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<Stri
 #[instrument(skip(handle))]
 pub async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    app.delete_all_data().await.context("failed to delete all data")?;
+    app.delete_all_data()
+        .await
+        .context("failed to delete all data")?;
     Ok(())
 }
 
@@ -378,6 +381,7 @@ pub async fn upsert_bookmark(
         deleted,
     };
     app.upsert_bookmark(&bookmark)
+        .await
         .context("failed to upsert bookmark")?;
     Ok(())
 }

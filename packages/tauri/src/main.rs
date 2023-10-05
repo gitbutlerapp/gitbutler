@@ -1,4 +1,5 @@
 use anyhow::Context;
+use futures::executor::block_on;
 use tauri::{generate_context, Manager};
 
 use gitbutler::*;
@@ -129,7 +130,7 @@ fn main() {
                         sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())))
                     }
 
-                    app.init().context("failed to init app")?;
+                    block_on(app.init()).context("failed to init app")?;
 
                     app_handle.manage(app);
 
