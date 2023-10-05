@@ -5,7 +5,7 @@ import { PUBLIC_SENTRY_ENVIRONMENT } from '$env/static/public';
 
 init({
 	enabled: !dev,
-	dsn: 'https://9d407634d26b4d30b6a42d57a136d255@o4504644069687296.ingest.sentry.io/4504649768108032',
+	dsn: 'https://a35bbd6688a3a8f76e4956c6871f414a@o4504644069687296.ingest.sentry.io/4505976067129344',
 	environment: PUBLIC_SENTRY_ENVIRONMENT,
 	tracesSampleRate: 1.0
 });
