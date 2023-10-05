@@ -99,8 +99,8 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3
       '@types/diff-match-patch':
-        specifier: ^1.0.32
-        version: 1.0.32
+        specifier: ^1.0.34
+        version: 1.0.34
       '@types/lscache':
         specifier: ^1.3.2
         version: 1.3.2
@@ -1456,8 +1456,8 @@ packages:
     resolution: {integrity: sha512-BG7fQKZ689HIoc5h+6D2Dgq1fABRa0RbBWKBd9SP/MVRVXROflpm5fhwyATX5duFmbStzyzyycPB8qUYKDH3NA==}
     dev: true
 
-  /@types/diff-match-patch@1.0.32:
-    resolution: {integrity: sha512-bPYT5ECFiblzsVzyURaNhljBH2Gh1t9LowgUwciMrNAhFewLkHT2H0Mto07Y4/3KCOGZHRQll3CTtQZ0X11D/A==}
+  /@types/diff-match-patch@1.0.34:
+    resolution: {integrity: sha512-GPT65LkqMpttT0BrYBzSv4FYgiEh7TXYxxFW8ufxn3+d6PhEJKdD4OAS4s0n8reeEku1ki56J2zj5FIPi5unVQ==}
     dev: true
 
   /@types/diff@5.0.3:
