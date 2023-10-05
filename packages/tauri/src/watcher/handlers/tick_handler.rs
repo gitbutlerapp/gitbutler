@@ -84,7 +84,7 @@ impl Handler {
     }
 }
 
-pub(super) fn should_flush(now: &time::SystemTime, session: &sessions::Session) -> Result<bool> {
+fn should_flush(now: &time::SystemTime, session: &sessions::Session) -> Result<bool> {
     Ok(!is_session_active(now, session)? || is_session_too_old(now, session)?)
 }
 
@@ -108,31 +108,40 @@ fn is_session_active(now: &time::SystemTime, session: &sessions::Session) -> Res
 mod tests {
     use super::*;
 
-    const FIVE_MINUTES: time::Duration = time::Duration::new(5 * 60, 0);
-    const ONE_HOUR: time::Duration = time::Duration::new(60 * 60, 0);
+    const ONE_MILLISECOND: time::Duration = time::Duration::from_millis(1);
 
     #[test]
-    fn test_should_flush() -> Result<()> {
+    fn test_should_flush() {
         let now = time::SystemTime::now();
-        let start = now;
-        let last = now;
-
-        let session = sessions::Session {
-            id: "session-id".to_string(),
-            hash: None,
-            meta: sessions::Meta {
-                start_timestamp_ms: start.duration_since(time::UNIX_EPOCH)?.as_millis(),
-                last_timestamp_ms: last.duration_since(time::UNIX_EPOCH)?.as_millis(),
-                branch: None,
-                commit: None,
-            },
-        };
-
-        assert!(!should_flush(&now, &session)?);
-
-        assert!(should_flush(&(start + FIVE_MINUTES), &session)?);
-        assert!(should_flush(&(last + ONE_HOUR), &session)?);
-
-        Ok(())
+        vec![
+            (now, now, false),                // just created
+            (now - FIVE_MINUTES, now, false), // active
+            (
+                now - FIVE_MINUTES - ONE_MILLISECOND,
+                now - FIVE_MINUTES,
+                true,
+            ), // almost not active
+            (
+                now - FIVE_MINUTES - ONE_MILLISECOND,
+                now - FIVE_MINUTES - ONE_MILLISECOND,
+                true,
+            ), // not active
+            (now - ONE_HOUR, now, true),      // almost too old
+            (now - ONE_HOUR - ONE_MILLISECOND, now, true), // too old
+        ]
+        .into_iter()
+        .for_each(|(start, last, expected)| {
+            let session = sessions::Session {
+                id: "session-id".to_string(),
+                hash: None,
+                meta: sessions::Meta {
+                    start_timestamp_ms: start.duration_since(time::UNIX_EPOCH).unwrap().as_millis(),
+                    last_timestamp_ms: last.duration_since(time::UNIX_EPOCH).unwrap().as_millis(),
+                    branch: None,
+                    commit: None,
+                },
+            };
+            assert_eq!(should_flush(&now, &session).unwrap(), expected);
+        });
     }
 }
