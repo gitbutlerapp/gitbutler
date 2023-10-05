@@ -82,7 +82,7 @@ importers:
         version: 7.64.0(@sveltejs/kit@1.24.1)(svelte@4.2.0)
       '@square/svelte-store':
         specifier: git+https://git@github.com/gitbutlerapp/svelte-store.git#5f54d113be638e5383965907333d50213dd4e05e
-        version: github.com/gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e(svelte@4.2.0)
+        version: git@github.com+gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e(svelte@4.2.0)
       '@sveltejs/adapter-static':
         specifier: ^2.0.3
         version: 2.0.3(@sveltejs/kit@1.24.1)
@@ -195,8 +195,8 @@ importers:
         specifier: ^4.2.0
         version: 4.2.0
       svelte-check:
-        specifier: ^3.5.1
-        version: 3.5.1(postcss-load-config@4.0.1)(postcss@8.4.31)(svelte@4.2.0)
+        specifier: ^3.5.2
+        version: 3.5.2(postcss-load-config@4.0.1)(postcss@8.4.31)(svelte@4.2.0)
       svelte-floating-ui:
         specifier: ^1.5.3
         version: 1.5.3
@@ -4672,8 +4672,8 @@ packages:
     engines: {node: '>= 0.4'}
     dev: true
 
-  /svelte-check@3.5.1(postcss-load-config@4.0.1)(postcss@8.4.31)(svelte@4.2.0):
-    resolution: {integrity: sha512-+Zb4iHxAhdUtcUg/WJPRjlS1RJalIsWAe9Mz6G1zyznSs7dDkT7VUBdXc3q7Iwg49O/VrZgyJRvOJkjuBfKjFA==}
+  /svelte-check@3.5.2(postcss-load-config@4.0.1)(postcss@8.4.31)(svelte@4.2.0):
+    resolution: {integrity: sha512-5a/YWbiH4c+AqAUP+0VneiV5bP8YOk9JL3jwvN+k2PEPLgpu85bjQc5eE67+eIZBBwUEJzmO3I92OqKcqbp3fw==}
     hasBin: true
     peerDependencies:
       svelte: ^3.55.0 || ^4.0.0-next.0 || ^4.0.0
@@ -5456,9 +5456,9 @@ packages:
     engines: {node: '>=12.20'}
     dev: true
 
-  github.com/gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e(svelte@4.2.0):
-    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-store/tar.gz/5f54d113be638e5383965907333d50213dd4e05e}
-    id: github.com/gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e
+  git@github.com+gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e(svelte@4.2.0):
+    resolution: {commit: 5f54d113be638e5383965907333d50213dd4e05e, repo: git@github.com:gitbutlerapp/svelte-store.git, type: git}
+    id: git@github.com+gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e
     name: '@square/svelte-store'
     version: 1.0.17
     peerDependencies:

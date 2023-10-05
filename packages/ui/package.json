@@ -80,7 +80,7 @@
 		"prettier-plugin-tailwindcss": "^0.5.4",
 		"reflect-metadata": "^0.1.13",
 		"svelte": "^4.2.0",
-		"svelte-check": "^3.5.1",
+		"svelte-check": "^3.5.2",
 		"svelte-floating-ui": "^1.5.3",
 		"svelte-french-toast": "^1.2.0",
 		"svelte-loadable-store": "^2.0.1",
