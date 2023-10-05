@@ -110,9 +110,7 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = project
-            .as_ref()
-            .try_into()
+        let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
         let gb_repository =
@@ -133,9 +131,7 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = project
-            .as_ref()
-            .try_into()
+        let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
         let gb_repository =
@@ -230,9 +226,7 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = project
-            .as_ref()
-            .try_into()
+        let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
         let gb_repository =
@@ -257,9 +251,7 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository: project_repository::Repository = project
-            .as_ref()
-            .try_into()
+        let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let commit = project_repository
             .git_repository
@@ -279,12 +271,11 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = project
-            .as_ref()
-            .try_into()
-            .context("failed to open project repository")?;
 
         let user = self.users_storage.get().context("failed to get user")?;
+
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
 
         let gb_repository =
             gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
@@ -491,9 +482,7 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = project
-            .as_ref()
-            .try_into()
+        let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
         let gb_repository =

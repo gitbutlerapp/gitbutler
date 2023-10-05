@@ -254,7 +254,9 @@ impl App {
 
     pub fn fetch_from_target(&self, project_id: &str) -> Result<(), Error> {
         let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::Repository::open(&project).context(
+            "failed to open project repository",
+        )?;
         let user = self.users_storage.get()?;
         let gb_repo =
             gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
