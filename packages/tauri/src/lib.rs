@@ -24,6 +24,7 @@ pub mod virtual_branches;
 pub mod watcher;
 pub mod writer;
 pub mod zip;
+pub mod di;
 
 #[cfg(test)]
 pub mod test_utils;

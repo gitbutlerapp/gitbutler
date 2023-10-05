@@ -535,11 +535,11 @@ fn main() {
                     tauri_app.manage(watchers);
 
                     let zipper =
-                        zip::Zipper::try_from(&app_handle).expect("failed to initialize zipper");
+                        di::zipper_from(&app_handle).expect("failed to initialize zipper");
                     tauri_app.manage(zipper);
 
                     let proxy =
-                        assets::Proxy::try_from(&app_handle).expect("failed to initialize proxy");
+                        di::proxy_from(&app_handle).expect("failed to initialize proxy");
                     tauri_app.manage(proxy);
 
                     let database = database::Database::try_from(&app_handle)
