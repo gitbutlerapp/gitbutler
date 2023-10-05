@@ -195,8 +195,8 @@ importers:
         specifier: ^4.2.0
         version: 4.2.0
       svelte-check:
-        specifier: ^3.5.1
-        version: 3.5.1(postcss-load-config@4.0.1)(postcss@8.4.31)(svelte@4.2.0)
+        specifier: ^3.5.2
+        version: 3.5.2(postcss-load-config@4.0.1)(postcss@8.4.31)(svelte@4.2.0)
       svelte-floating-ui:
         specifier: ^1.5.3
         version: 1.5.3
@@ -4668,8 +4668,8 @@ packages:
     engines: {node: '>= 0.4'}
     dev: true
 
-  /svelte-check@3.5.1(postcss-load-config@4.0.1)(postcss@8.4.31)(svelte@4.2.0):
-    resolution: {integrity: sha512-+Zb4iHxAhdUtcUg/WJPRjlS1RJalIsWAe9Mz6G1zyznSs7dDkT7VUBdXc3q7Iwg49O/VrZgyJRvOJkjuBfKjFA==}
+  /svelte-check@3.5.2(postcss-load-config@4.0.1)(postcss@8.4.31)(svelte@4.2.0):
+    resolution: {integrity: sha512-5a/YWbiH4c+AqAUP+0VneiV5bP8YOk9JL3jwvN+k2PEPLgpu85bjQc5eE67+eIZBBwUEJzmO3I92OqKcqbp3fw==}
     hasBin: true
     peerDependencies:
       svelte: ^3.55.0 || ^4.0.0-next.0 || ^4.0.0
