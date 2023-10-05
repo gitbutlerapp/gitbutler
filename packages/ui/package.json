@@ -71,7 +71,7 @@
 		"marked": "^9.0.3",
 		"mm-jsr": "^3.0.2",
 		"nanoevents": "^8.0.0",
-		"nanoid": "^4.0.2",
+		"nanoid": "^5.0.1",
 		"postcss": "^8.4.31",
 		"postcss-load-config": "^4.0.1",
 		"posthog-js": "^1.81.2",

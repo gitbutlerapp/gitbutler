@@ -82,7 +82,7 @@ importers:
         version: 7.64.0(@sveltejs/kit@1.24.1)(svelte@4.2.0)
       '@square/svelte-store':
         specifier: git+https://git@github.com/gitbutlerapp/svelte-store.git#5f54d113be638e5383965907333d50213dd4e05e
-        version: github.com/gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e(svelte@4.2.0)
+        version: git@github.com+gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e(svelte@4.2.0)
       '@sveltejs/adapter-static':
         specifier: ^2.0.3
         version: 2.0.3(@sveltejs/kit@1.24.1)
@@ -168,8 +168,8 @@ importers:
         specifier: ^8.0.0
         version: 8.0.0
       nanoid:
-        specifier: ^4.0.2
-        version: 4.0.2
+        specifier: ^5.0.1
+        version: 5.0.1
       postcss:
         specifier: ^8.4.31
         version: 8.4.31
@@ -3795,9 +3795,9 @@ packages:
     hasBin: true
     dev: true
 
-  /nanoid@4.0.2:
-    resolution: {integrity: sha512-7ZtY5KTCNheRGfEFxnedV5zFiORN1+Y1N6zvPTnHQd8ENUvfaDBeuJDZb2bN/oXwXxu3qkTXDzy57W5vAmDTBw==}
-    engines: {node: ^14 || ^16 || >=18}
+  /nanoid@5.0.1:
+    resolution: {integrity: sha512-vWeVtV5Cw68aML/QaZvqN/3QQXc6fBfIieAlu05m7FZW2Dgb+3f0xc0TTxuJW+7u30t7iSDTV/j3kVI0oJqIfQ==}
+    engines: {node: ^18 || >=20}
     hasBin: true
     dev: true
 
@@ -5456,9 +5456,9 @@ packages:
     engines: {node: '>=12.20'}
     dev: true
 
-  github.com/gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e(svelte@4.2.0):
-    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-store/tar.gz/5f54d113be638e5383965907333d50213dd4e05e}
-    id: github.com/gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e
+  git@github.com+gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e(svelte@4.2.0):
+    resolution: {commit: 5f54d113be638e5383965907333d50213dd4e05e, repo: git@github.com:gitbutlerapp/svelte-store.git, type: git}
+    id: git@github.com+gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e
     name: '@square/svelte-store'
     version: 1.0.17
     peerDependencies:
