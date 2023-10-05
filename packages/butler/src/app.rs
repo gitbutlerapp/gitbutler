@@ -23,9 +23,7 @@ impl App {
         let users_storage = users::Storage::from(&storage);
 
         let projects_storage = projects::Storage::try_from(&storage)?;
-        let projects = projects_storage
-            .list()
-            .context("failed to list projects")?;
+        let projects = projects_storage.list().context("failed to list projects")?;
 
         let project = projects
             .into_iter()
