@@ -158,16 +158,17 @@ impl Handler {
         let new_delta = new_delta.as_ref().unwrap();
 
         let deltas = text_doc.get_deltas();
+
         let writer = deltas::Writer::new(&gb_repository);
         writer
             .write(path, &deltas)
             .with_context(|| "failed to write deltas")?;
 
         if let Some(reader::Content::UTF8(text)) = current_wd_file_content {
-            writer
-                .write_wd_file(path, &text)
-                .with_context(|| "failed to write file")?;
-        }
+            writer.write_wd_file(path, &text)
+        } else {
+            writer.write_wd_file(path, "")
+        }?;
 
         Ok(vec![
             events::Event::SessionFile((
@@ -320,6 +321,38 @@ mod test {
         let session2 = gb_repository.get_current_session()?.unwrap();
 
         assert_eq!(session1.id, session2.id);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_register_binfile() -> Result<()> {
+        let suite = Suite::default();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = suite.new_case();
+        let listener = Handler::from(&suite.local_app_data);
+
+        std::fs::write(
+            format!("{}/test.bin", project.path),
+            [0, 159, 146, 150, 159, 146, 150],
+        )?;
+
+        listener.handle("test.bin", &project.id)?;
+
+        let session = gb_repository.get_current_session()?.unwrap();
+        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+        let deltas_reader = deltas::Reader::new(&session_reader);
+        let deltas = deltas_reader.read_file("test.bin")?.unwrap();
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].operations.len(), 0);
+        assert_eq!(
+            std::fs::read_to_string(gb_repository.session_wd_path().join("test.bin"))?,
+            ""
+        );
 
         Ok(())
     }
