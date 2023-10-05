@@ -1,16 +1,11 @@
 [package]
 name = "gitbutler"
 version = "0.0.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
 edition = "2021"
 rust-version = "1.57"
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "1.4", features = [] }
+tauri-build = { version = "1.5", features = [] }
 
 [dependencies]
 anyhow = "1.0.72"
@@ -47,7 +42,7 @@ sha2 = "0.10.6"
 similar = { version = "2.2.1", features = ["unicode"] }
 ssh-key = { version = "0.6.1", features = [ "alloc", "ed25519" ] }
 tantivy = "0.20.2"
-tauri = { version = "1.4", features = ["dialog-open", "fs-read-file", "path-all", "process-relaunch", "protocol-asset", "shell-open", "system-tray", "window-maximize", "window-start-dragging", "window-unmaximize"] }
+tauri = { version = "1.5", features = ["dialog-open", "fs-read-file", "path-all", "process-relaunch", "protocol-asset", "shell-open", "system-tray", "window-maximize", "window-start-dragging", "window-unmaximize"] }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tempfile = "3.8"
 thiserror = "1.0.44"
