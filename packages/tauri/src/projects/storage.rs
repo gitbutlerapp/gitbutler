@@ -1,6 +1,5 @@
 use std::path;
 
-use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
@@ -44,12 +43,21 @@ pub struct UpdateRequest {
     pub preferred_key: Option<project::AuthKey>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error(transparent)]
+    Storage(#[from] storage::Error),
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
+    #[error("project not found")]
+    NotFound,
+}
+
 impl Storage {
-    pub fn list(&self) -> Result<Vec<project::Project>> {
+    pub fn list(&self) -> Result<Vec<project::Project>, Error> {
         match self.storage.read(PROJECTS_FILE)? {
             Some(projects) => {
-                let all_projects: Vec<project::Project> = serde_json::from_str(&projects)
-                    .with_context(|| format!("Failed to parse projects from {}", PROJECTS_FILE))?;
+                let all_projects: Vec<project::Project> = serde_json::from_str(&projects)?;
                 let all_projects: Vec<project::Project> = all_projects
                     .into_iter()
                     .map(|mut p| {
@@ -68,20 +76,20 @@ impl Storage {
         }
     }
 
-    pub fn get(&self, id: &str) -> Result<project::Project> {
+    pub fn get(&self, id: &str) -> Result<project::Project, Error> {
         let projects = self.list()?;
         match projects.into_iter().find(|p| p.id == id) {
             Some(project) => Ok(project),
-            None => Err(anyhow::anyhow!("{}: project not found", id)),
+            None => Err(Error::NotFound),
         }
     }
 
-    pub fn update(&self, update_request: &UpdateRequest) -> Result<project::Project> {
+    pub fn update(&self, update_request: &UpdateRequest) -> Result<project::Project, Error> {
         let mut projects = self.list()?;
         let project = projects
             .iter_mut()
             .find(|p| p.id == update_request.id)
-            .ok_or_else(|| anyhow::anyhow!("Project not found"))?;
+            .ok_or(Error::NotFound)?;
 
         if let Some(title) = &update_request.title {
             project.title = title.clone();
@@ -119,7 +127,7 @@ impl Storage {
             .clone())
     }
 
-    pub fn purge(&self, id: &str) -> Result<()> {
+    pub fn purge(&self, id: &str) -> Result<(), Error> {
         let mut projects = self.list()?;
         if let Some(index) = projects.iter().position(|p| p.id == id) {
             projects.remove(index);
@@ -129,7 +137,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn add(&self, project: &project::Project) -> Result<()> {
+    pub fn add(&self, project: &project::Project) -> Result<(), Error> {
         let mut projects = self.list()?;
         projects.push(project.clone());
         let projects = serde_json::to_string_pretty(&projects)?;

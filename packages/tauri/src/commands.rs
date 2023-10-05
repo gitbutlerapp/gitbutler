@@ -6,7 +6,7 @@ use tauri::Manager;
 use tracing::instrument;
 
 use crate::{
-    app, assets, bookmarks, deltas, error::Error, git, projects, reader, search, sessions, users,
+    app, assets, bookmarks, deltas, error::Error, git, reader, search, sessions, users,
     virtual_branches, zip,
 };
 
@@ -140,66 +140,6 @@ pub async fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
     app.delete_user().context("failed to delete user")?;
 
     sentry::configure_scope(|scope| scope.set_user(None));
-
-    Ok(())
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn update_project(
-    handle: tauri::AppHandle,
-    project: projects::UpdateRequest,
-) -> Result<projects::Project, Error> {
-    let app = handle.state::<app::App>();
-
-    let project = app
-        .update_project(&project)
-        .await
-        .context(format!("failed to update project {}", project.id))?;
-    if project.api.is_some() {
-        app.git_gb_push(&project.id)
-            .with_context(|| format!("failed to push git branch for project {}", &project.id))?;
-    }
-    Ok(project)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn add_project(
-    handle: tauri::AppHandle,
-    path: &path::Path,
-) -> Result<projects::Project, Error> {
-    let app = handle.state::<app::App>();
-    let project = app.add_project(path).await?;
-    Ok(project)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn get_project(handle: tauri::AppHandle, id: &str) -> Result<projects::Project, Error> {
-    let app = handle.state::<app::App>();
-    let project = app.get_project(id)?;
-    Ok(project)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
-    let app = handle.state::<app::App>();
-
-    let projects = app.list_projects().context("failed to list projects")?;
-
-    Ok(projects)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
-    let app = handle.state::<app::App>();
-
-    app.delete_project(id)
-        .await
-        .context(format!("failed to delete project {}", id))?;
 
     Ok(())
 }

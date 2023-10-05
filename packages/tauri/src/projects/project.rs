@@ -2,9 +2,6 @@ use std::{path, time};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
-
-use crate::git;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -100,61 +97,5 @@ pub struct Project {
 impl AsRef<Project> for Project {
     fn as_ref(&self) -> &Project {
         self
-    }
-}
-
-#[derive(Error, Debug)]
-pub enum CreateError {
-    #[error("{0} does not exist")]
-    PathNotFound(path::PathBuf),
-    #[error("{0} is not a directory")]
-    NotADirectory(path::PathBuf),
-    #[error("{0} is not a git repository")]
-    NotAGitRepository(path::PathBuf),
-}
-
-impl Project {
-    pub fn from_path(path: &path::Path) -> Result<Self, CreateError> {
-        // make sure path exists
-        if !path.exists() {
-            return Err(CreateError::PathNotFound(path.to_path_buf()));
-        }
-
-        // make sure path is a directory
-        if !path.is_dir() {
-            return Err(CreateError::NotADirectory(path.to_path_buf()));
-        }
-
-        // make sure it's a git repository
-        if !path.join(".git").exists() {
-            return Err(CreateError::NotAGitRepository(path.to_path_buf()));
-        };
-
-        let id = uuid::Uuid::new_v4().to_string();
-
-        // title is the base name of the file
-        let title = path
-            .iter()
-            .last()
-            .map(|p| p.to_str().unwrap().to_string())
-            .unwrap_or_else(|| id.clone());
-
-        let project = Project {
-            id: uuid::Uuid::new_v4().to_string(),
-            title,
-            path: path.to_path_buf(),
-            api: None,
-            ..Default::default()
-        };
-
-        Ok(project)
-    }
-}
-
-impl TryFrom<&git::Repository> for Project {
-    type Error = CreateError;
-
-    fn try_from(repository: &git::Repository) -> std::result::Result<Self, Self::Error> {
-        Project::from_path(repository.path().parent().unwrap())
     }
 }

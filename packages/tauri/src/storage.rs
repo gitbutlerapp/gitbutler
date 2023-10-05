@@ -5,7 +5,6 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use anyhow::Result;
 use tauri::AppHandle;
 
 #[derive(Debug, Default, Clone)]
@@ -24,7 +23,7 @@ pub enum Error {
 impl TryFrom<&AppHandle> for Storage {
     type Error = Error;
 
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
         let app_local_data_dir = value
             .path_resolver()
             .app_local_data_dir()

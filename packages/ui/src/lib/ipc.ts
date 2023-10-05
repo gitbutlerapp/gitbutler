@@ -9,7 +9,7 @@ export enum Code {
 	Conflicting = 'errors.conflict',
 	GitAutenticationFailed = 'errors.git.authentication',
 	InvalidHead = 'errors.git.head',
-	ProjectCreateFailed = 'errors.projects.create'
+	Projects = 'errors.projects'
 }
 
 export class UserError extends Error {
