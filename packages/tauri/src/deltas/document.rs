@@ -50,25 +50,26 @@ impl Document {
         };
 
         let operations = operations::get_delta_operations(&self.to_string(), new_text);
-        if operations.is_empty() {
+        let delta = if operations.is_empty() {
             if matches!(value, Some(reader::Content::UTF8(_))) {
                 return Ok(None);
             } else {
-                return Ok(Some(delta::Delta {
+                delta::Delta {
                     operations,
                     timestamp_ms: SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
                         .unwrap()
                         .as_millis(),
-                }));
+                }
             }
-        }
-        let delta = delta::Delta {
-            operations,
-            timestamp_ms: SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_millis(),
+        } else {
+            delta::Delta {
+                operations,
+                timestamp_ms: SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis(),
+            }
         };
         apply_deltas(&mut self.doc, &vec![delta.clone()])?;
         self.deltas.push(delta.clone());
