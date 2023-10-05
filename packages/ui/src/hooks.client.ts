@@ -14,6 +14,4 @@ function myErrorHandler({ error, event }: { error: any; event: NavigationEvent }
 	console.error('An error occurred on the client side:', error, event);
 }
 
-export function handleError() {
-	return handleErrorWithSentry(myErrorHandler);
-}
+export const handleError = handleErrorWithSentry(myErrorHandler);
