@@ -14,7 +14,7 @@ impl super::RunCommand for Info {
         let app = App::new().context("Failed to create app")?;
 
         // just print information for the project
-        println!("path: {}", app.path().yellow());
+        println!("path: {}", app.path().display().to_string().yellow());
         println!(
             "data_dir: {}",
             app.local_data_dir().display().to_string().yellow()
@@ -40,7 +40,10 @@ impl super::RunCommand for Info {
             "  project_gitbutler_data_last_fetched: {:?}",
             app.project().gitbutler_data_last_fetched
         );
-        println!("  path: {}", app.project().path.blue());
+        println!(
+            "  path: {}",
+            app.project().path.display().to_string().blue()
+        );
 
         if let Some(api) = app.project().api.as_ref() {
             println!("  {}:", "api".to_string().red());
