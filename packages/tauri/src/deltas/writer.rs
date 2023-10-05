@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use crate::{
     gb_repository,
@@ -19,9 +19,7 @@ impl<'writer> DeltasWriter<'writer> {
     }
 
     pub fn write<P: AsRef<std::path::Path>>(&self, path: P, deltas: &Vec<Delta>) -> Result<()> {
-        self.repository
-            .get_or_create_current_session()
-            .context("failed to create session")?;
+        self.repository.mark_active_session()?;
 
         let _lock = self.repository.lock();
 
@@ -41,9 +39,7 @@ impl<'writer> DeltasWriter<'writer> {
     }
 
     pub fn write_wd_file<P: AsRef<std::path::Path>>(&self, path: P, contents: &str) -> Result<()> {
-        self.repository
-            .get_or_create_current_session()
-            .context("failed to create session")?;
+        self.repository.mark_active_session()?;
 
         let _lock = self.repository.lock();
 

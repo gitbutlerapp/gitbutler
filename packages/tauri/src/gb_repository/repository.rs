@@ -354,6 +354,29 @@ impl Repository {
         lock::FileLock::lock(&self.lock_file)
     }
 
+    pub fn mark_active_session(&self) -> Result<()> {
+        let current_session = self
+            .get_or_create_current_session()
+            .context("failed to get current session")?;
+
+        let updated_session = sessions::Session {
+            meta: sessions::Meta {
+                last_timestamp_ms: time::SystemTime::now()
+                    .duration_since(time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis(),
+                ..current_session.meta
+            },
+            ..current_session
+        };
+
+        sessions::Writer::new(self)
+            .write(&updated_session)
+            .context("failed to write session")?;
+
+        Ok(())
+    }
+
     pub fn get_or_create_current_session(&self) -> Result<sessions::Session> {
         let _lock = self.lock();
 

@@ -37,7 +37,6 @@ impl Dispatcher {
         let (notify_tx, mut notify_rx) = channel(1);
         let mut watcher = RecommendedWatcher::new(
             {
-                let project_id = project_id.to_string();
                 move |res: notify::Result<notify::Event>| match res {
                     Ok(event) => {
                         if !is_interesting_kind(&event.kind) {
@@ -49,11 +48,6 @@ impl Dispatcher {
                             .filter(|file| is_interesting_file(&repo, file))
                         {
                             block_on(async {
-                                tracing::info!(
-                                    project_id,
-                                    path = %path.display(),
-                                    "file change detected"
-                                );
                                 if let Err(error) = notify_tx.send(path).await {
                                     tracing::error!(?error, "failed to send file change event",);
                                 }
@@ -85,6 +79,11 @@ impl Dispatcher {
                         match file_path.strip_prefix(&path) {
                             Ok(relative_file_path) => {
                                 let event = if relative_file_path.starts_with(".git") {
+                                    tracing::info!(
+                                        project_id,
+                                        file_path = %relative_file_path.display(),
+                                        "git file change",
+                                    );
                                     events::Event::GitFileChange(
                                         project_id.to_string(),
                                         relative_file_path
@@ -93,6 +92,11 @@ impl Dispatcher {
                                             .to_path_buf(),
                                     )
                                 } else {
+                                    tracing::info!(
+                                        project_id,
+                                        file_path = %relative_file_path.display(),
+                                        "project file change",
+                                    );
                                     events::Event::ProjectFileChange(
                                         project_id.to_string(),
                                         relative_file_path.to_path_buf(),

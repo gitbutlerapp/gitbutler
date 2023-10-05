@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use crate::gb_repository;
 
@@ -10,13 +10,12 @@ pub struct BookmarksWriter<'writer> {
 
 impl<'writer> BookmarksWriter<'writer> {
     pub fn new(repository: &'writer gb_repository::Repository) -> Result<Self> {
-        repository
-            .get_or_create_current_session()
-            .context("failed to create session")?;
         Ok(Self { repository })
     }
 
     pub fn write(&self, bookmark: &Bookmark) -> Result<()> {
+        self.repository.mark_active_session()?;
+
         let _lock = self.repository.lock();
 
         serde_jsonlines::append_json_lines(
