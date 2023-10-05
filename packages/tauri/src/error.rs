@@ -10,7 +10,7 @@ pub enum Code {
     FetchFailed,
     PushFailed,
     Conflicting,
-    ProjectCreateFailed,
+    Projects,
     GitAutenticationFailed,
     InvalidHead,
 }
@@ -24,7 +24,7 @@ impl fmt::Display for Code {
             Code::Conflicting => write!(f, "errors.conflict"),
             Code::GitAutenticationFailed => write!(f, "errors.git.authentication"),
             Code::InvalidHead => write!(f, "errors.git.head"),
-            Code::ProjectCreateFailed => write!(f, "errors.projects.create"),
+            Code::Projects => write!(f, "errors.projects"),
         }
     }
 }
@@ -120,10 +120,6 @@ impl From<app::Error> for Error {
                     .to_string(),
             },
             app::Error::FetchError(project_repository::Error::Other(e)) => Error::from(e),
-            app::Error::CreateProjectError(message) => Error::UserError {
-                code: Code::ProjectCreateFailed,
-                message,
-            },
             app::Error::Other(e) => Error::from(e),
         }
     }

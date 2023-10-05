@@ -118,6 +118,10 @@ fn main() {
                         .expect("failed to initialize search");
                     app_handle.manage(search);
 
+                    let projects_controller = projects::Controller::try_from(&app_handle)
+                        .expect("failed to initialize projects controller");
+                    app_handle.manage(projects_controller);
+
                     let vbranch_contoller =
                         virtual_branches::controller::Controller::try_from(&app_handle)
                             .expect("failed to initialize virtual branches controller");
@@ -138,11 +142,6 @@ fn main() {
                 })
                 .plugin(tauri_plugin_window_state::Builder::default().build())
                 .invoke_handler(tauri::generate_handler![
-                    commands::add_project,
-                    commands::get_project,
-                    commands::list_projects,
-                    commands::delete_project,
-                    commands::update_project,
                     commands::list_deltas,
                     commands::list_sessions,
                     commands::list_session_files,
@@ -164,6 +163,11 @@ fn main() {
                     commands::mark_resolved,
                     commands::git_set_global_config,
                     commands::git_get_global_config,
+                    projects::commands::add_project,
+                    projects::commands::get_project,
+                    projects::commands::update_project,
+                    projects::commands::delete_project,
+                    projects::commands::list_projects,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
                     virtual_branches::commands::commit_virtual_branch,
