@@ -89,9 +89,8 @@ impl Handler {
     ) -> Result<Vec<events::Event>> {
         let project = self
             .project_store
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project not found"))?;
+            .get(project_id)
+            .context("failed to get project")?;
 
         let project_repository = project_repository::Repository::open(&project)
             .with_context(|| "failed to open project repository for project")?;

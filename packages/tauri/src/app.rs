@@ -70,7 +70,7 @@ impl App {
     pub async fn init(&self) -> Result<()> {
         for project in self
             .projects_storage
-            .list_projects()
+            .list()
             .with_context(|| "failed to list projects")?
         {
             if let Err(error) = self.init_project(&project).await {
@@ -78,13 +78,6 @@ impl App {
             }
         }
         Ok(())
-    }
-
-    fn gb_project(&self, project_id: &str) -> Result<projects::Project> {
-        self.projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))
     }
 
     pub fn get_user(&self) -> Result<Option<users::User>> {
@@ -100,10 +93,7 @@ impl App {
     }
 
     pub async fn add_project(&self, path: &path::Path) -> Result<projects::Project, Error> {
-        let all_projects = self
-            .projects_storage
-            .list_projects()
-            .map_err(Error::Other)?;
+        let all_projects = self.projects_storage.list().map_err(Error::Other)?;
 
         if all_projects.iter().any(|project| project.path == path) {
             return Err(Error::CreateProjectError(format!(
@@ -116,7 +106,7 @@ impl App {
             .map_err(|err| Error::CreateProjectError(err.to_string()))?;
 
         self.projects_storage
-            .add_project(&project)
+            .add(&project)
             .context("failed to add project")
             .map_err(Error::Other)?;
 
@@ -132,7 +122,7 @@ impl App {
         &self,
         project: &projects::UpdateRequest,
     ) -> Result<projects::Project> {
-        let updated = self.projects_storage.update_project(project)?;
+        let updated = self.projects_storage.update(project)?;
 
         if let Err(error) = self
             .watchers
@@ -148,50 +138,46 @@ impl App {
         Ok(updated)
     }
 
-    pub fn get_project(&self, id: &str) -> Result<Option<projects::Project>> {
-        self.projects_storage.get_project(id)
+    pub fn get_project(&self, id: &str) -> Result<projects::Project> {
+        self.projects_storage.get(id)
     }
 
     pub fn list_projects(&self) -> Result<Vec<projects::Project>> {
-        self.projects_storage.list_projects()
+        self.projects_storage.list()
     }
 
     pub async fn delete_project(&self, id: &str) -> Result<()> {
-        match self.projects_storage.get_project(id)? {
-            Some(project) => {
-                let gb_repository = match gb_repository::Repository::open(
-                    self.local_data_dir.clone(),
-                    &project,
-                    self.users_storage.get()?.as_ref(),
-                ) {
-                    Ok(repo) => Ok(Some(repo)),
-                    Err(gb_repository::Error::ProjectPathNotFound(_)) => Ok(None),
-                    Err(e) => Err(anyhow::anyhow!("failed to open repository: {:#}", e)),
-                }?;
+        let project = self.projects_storage.get(id)?;
+        let gb_repository = match gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            &project,
+            self.users_storage.get()?.as_ref(),
+        ) {
+            Ok(repo) => Ok(Some(repo)),
+            Err(gb_repository::Error::ProjectPathNotFound(_)) => Ok(None),
+            Err(e) => Err(anyhow::anyhow!("failed to open repository: {:#}", e)),
+        }?;
 
-                let project_id = project.id.clone();
-                if let Err(error) = self.watchers.stop(&project_id).await {
-                    tracing::error!(project_id, ?error, "failed to stop watcher for project",);
-                }
-
-                if let Some(gb_repository) = gb_repository {
-                    if let Err(error) = gb_repository.purge() {
-                        tracing::error!(
-                            project_id = project.id,
-                            ?error,
-                            "failed to remove project dir"
-                        );
-                    }
-                }
-
-                self.projects_storage
-                    .purge(&project.id)
-                    .context("failed to purge project")?;
-
-                Ok(())
-            }
-            None => Ok(()),
+        let project_id = project.id.clone();
+        if let Err(error) = self.watchers.stop(&project_id).await {
+            tracing::error!(project_id, ?error, "failed to stop watcher for project",);
         }
+
+        if let Some(gb_repository) = gb_repository {
+            if let Err(error) = gb_repository.purge() {
+                tracing::error!(
+                    project_id = project.id,
+                    ?error,
+                    "failed to remove project dir"
+                );
+            }
+        }
+
+        self.projects_storage
+            .purge(&project.id)
+            .context("failed to purge project")?;
+
+        Ok(())
     }
 
     pub fn list_sessions(
@@ -217,9 +203,8 @@ impl App {
         let user = self.users_storage.get()?;
         let project = self
             .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))?;
+            .get(project_id)
+            .context("failed to get project")?;
 
         let gb_repo =
             gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
@@ -232,7 +217,7 @@ impl App {
     }
 
     pub fn mark_resolved(&self, project_id: &str, path: &str) -> Result<()> {
-        let project = self.gb_project(project_id)?;
+        let project = self.projects_storage.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         // mark file as resolved
@@ -241,7 +226,7 @@ impl App {
     }
 
     pub fn fetch_from_target(&self, project_id: &str) -> Result<(), Error> {
-        let project = self.gb_project(project_id)?;
+        let project = self.projects_storage.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let user = self.users_storage.get()?;
@@ -282,7 +267,7 @@ impl App {
     pub async fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
         {
             let user = self.users_storage.get()?;
-            let project = self.gb_project(&bookmark.project_id)?;
+            let project = self.projects_storage.get(&bookmark.project_id)?;
             let gb_repository =
                 gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())?;
             let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;
@@ -324,7 +309,7 @@ impl App {
         project_id: &str,
         context_lines: u32,
     ) -> Result<HashMap<path::PathBuf, String>> {
-        let project = self.gb_project(project_id)?;
+        let project = self.projects_storage.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
 
@@ -353,7 +338,7 @@ impl App {
     }
 
     pub fn git_remote_branches(&self, project_id: &str) -> Result<Vec<git::RemoteBranchName>> {
-        let project = self.gb_project(project_id)?;
+        let project = self.projects_storage.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_remote_branches()
@@ -364,7 +349,7 @@ impl App {
         project_id: &str,
     ) -> Result<Vec<virtual_branches::RemoteBranch>> {
         let user = self.users_storage.get()?;
-        let project = self.gb_project(project_id)?;
+        let project = self.projects_storage.get(project_id)?;
         let gb_repository =
             gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
                 .context("failed to open gb repo")?;
@@ -374,7 +359,7 @@ impl App {
     }
 
     pub fn git_head(&self, project_id: &str) -> Result<String> {
-        let project = self.gb_project(project_id)?;
+        let project = self.projects_storage.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let head = project_repository.get_head()?;
@@ -404,7 +389,7 @@ impl App {
 
     pub fn git_gb_push(&self, project_id: &str) -> Result<()> {
         let user = self.users_storage.get()?;
-        let project = self.gb_project(project_id)?;
+        let project = self.projects_storage.get(project_id)?;
         let gb_repository =
             gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
                 .context("failed to open gb repo")?;

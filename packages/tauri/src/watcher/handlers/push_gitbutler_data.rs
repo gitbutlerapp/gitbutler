@@ -78,10 +78,7 @@ impl HandlerInner {
         };
 
         let user = self.user_storage.get()?;
-        let project = self
-            .project_storage
-            .get_project(project_id)?
-            .context("project not found")?;
+        let project = self.project_storage.get(project_id)?;
 
         let gb_repo =
             gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())

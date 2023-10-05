@@ -17,9 +17,7 @@ pub async fn get_project_archive_path(
     project_id: &str,
 ) -> Result<String, Error> {
     let app = handle.state::<app::App>();
-    let project = app
-        .get_project(project_id)?
-        .context("failed to get project")?;
+    let project = app.get_project(project_id)?;
 
     let zipper = handle.state::<zip::Zipper>();
     let zipped_logs = zipper.zip(project.path)?;
@@ -178,10 +176,7 @@ pub async fn add_project(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn get_project(
-    handle: tauri::AppHandle,
-    id: &str,
-) -> Result<Option<projects::Project>, Error> {
+pub async fn get_project(handle: tauri::AppHandle, id: &str) -> Result<projects::Project, Error> {
     let app = handle.state::<app::App>();
     let project = app.get_project(id)?;
     Ok(project)

@@ -205,13 +205,11 @@ fn test_remote_syncronization() -> Result<()> {
         path::PathBuf::from("test.txt"),
         "Hello World",
     )]));
-    suite
-        .projects_storage
-        .update_project(&projects::UpdateRequest {
-            id: case_one.project.id.clone(),
-            api: Some(api_project.clone()),
-            ..Default::default()
-        })?;
+    suite.projects_storage.update(&projects::UpdateRequest {
+        id: case_one.project.id.clone(),
+        api: Some(api_project.clone()),
+        ..Default::default()
+    })?;
     case_one.refresh();
 
     let writer = deltas::Writer::new(&case_one.gb_repository);
@@ -227,13 +225,11 @@ fn test_remote_syncronization() -> Result<()> {
 
     // create second local project, fetch it and make sure session is there
     let mut case_two = suite.new_case();
-    suite
-        .projects_storage
-        .update_project(&projects::UpdateRequest {
-            id: case_two.project.id.clone(),
-            api: Some(api_project.clone()),
-            ..Default::default()
-        })?;
+    suite.projects_storage.update(&projects::UpdateRequest {
+        id: case_two.project.id.clone(),
+        api: Some(api_project.clone()),
+        ..Default::default()
+    })?;
     case_two.refresh();
 
     case_two.gb_repository.fetch(Some(&user))?;
@@ -285,23 +281,19 @@ fn test_remote_sync_order() -> Result<()> {
     let suite = Suite::default();
 
     let mut case_one = suite.new_case();
-    suite
-        .projects_storage
-        .update_project(&projects::UpdateRequest {
-            id: case_one.project.id.clone(),
-            api: Some(api_project.clone()),
-            ..Default::default()
-        })?;
+    suite.projects_storage.update(&projects::UpdateRequest {
+        id: case_one.project.id.clone(),
+        api: Some(api_project.clone()),
+        ..Default::default()
+    })?;
     case_one.refresh();
 
     let mut case_two = suite.new_case();
-    suite
-        .projects_storage
-        .update_project(&projects::UpdateRequest {
-            id: case_two.project.id.clone(),
-            api: Some(api_project.clone()),
-            ..Default::default()
-        })?;
+    suite.projects_storage.update(&projects::UpdateRequest {
+        id: case_two.project.id.clone(),
+        api: Some(api_project.clone()),
+        ..Default::default()
+    })?;
     case_two.refresh();
 
     let user = suite.sign_in();
