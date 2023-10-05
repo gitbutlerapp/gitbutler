@@ -156,7 +156,8 @@ pub async fn update_project(
 
     let project = app
         .update_project(&project)
-        .with_context(|| format!("failed to update project {}", project.id))?;
+        .await
+        .context(format!("failed to update project {}", project.id))?;
     if project.api.is_some() {
         app.git_gb_push(&project.id)
             .with_context(|| format!("failed to push git branch for project {}", &project.id))?;
@@ -201,8 +202,8 @@ pub async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Pro
 pub async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     let app = handle.state::<app::App>();
 
-    app.delete_project(id)
-        .with_context(|| format!("failed to delete project {}", id))?;
+    app.delete_project(id).await
+        .context(format!("failed to delete project {}", id))?;
 
     Ok(())
 }
@@ -348,7 +349,7 @@ pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<Stri
 #[instrument(skip(handle))]
 pub async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    app.delete_all_data().context("failed to delete all data")?;
+    app.delete_all_data().await.context("failed to delete all data")?;
     Ok(())
 }
 

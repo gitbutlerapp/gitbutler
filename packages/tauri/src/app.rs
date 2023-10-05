@@ -133,21 +133,22 @@ impl App {
         Ok(project)
     }
 
-    pub fn update_project(&self, project: &projects::UpdateRequest) -> Result<projects::Project> {
+    pub async fn update_project(
+        &self,
+        project: &projects::UpdateRequest,
+    ) -> Result<projects::Project> {
         let updated = self.projects_storage.update_project(project)?;
 
-        block_on(async move {
-            if let Err(error) = self
-                .watchers
-                .post(watcher::Event::FetchGitbutlerData(
-                    project.id.clone(),
-                    time::SystemTime::now(),
-                ))
-                .await
-            {
-                tracing::error!(project_id = &project.id, ?error, "failed to fetch project");
-            }
-        });
+        if let Err(error) = self
+            .watchers
+            .post(watcher::Event::FetchGitbutlerData(
+                project.id.clone(),
+                time::SystemTime::now(),
+            ))
+            .await
+        {
+            tracing::error!(project_id = &project.id, ?error, "failed to fetch project");
+        }
 
         Ok(updated)
     }
@@ -160,7 +161,7 @@ impl App {
         self.projects_storage.list_projects()
     }
 
-    pub fn delete_project(&self, id: &str) -> Result<()> {
+    pub async fn delete_project(&self, id: &str) -> Result<()> {
         match self.projects_storage.get_project(id)? {
             Some(project) => {
                 let gb_repository = match gb_repository::Repository::open(
@@ -173,18 +174,10 @@ impl App {
                     Err(e) => Err(anyhow::anyhow!("failed to open repository: {:#}", e)),
                 }?;
 
-                block_on({
-                    let project_id = project.id.clone();
-                    async move {
-                        if let Err(error) = self.watchers.stop(&project_id).await {
-                            tracing::error!(
-                                project_id,
-                                ?error,
-                                "failed to stop watcher for project",
-                            );
-                        }
-                    }
-                });
+                let project_id = project.id.clone();
+                if let Err(error) = self.watchers.stop(&project_id).await {
+                    tracing::error!(project_id, ?error, "failed to stop watcher for project",);
+                }
 
                 if let Some(gb_repository) = gb_repository {
                     if let Err(error) = gb_repository.purge() {
@@ -430,12 +423,13 @@ impl App {
         self.searcher.search(query)
     }
 
-    pub fn delete_all_data(&self) -> Result<()> {
+    pub async fn delete_all_data(&self) -> Result<()> {
         self.searcher
             .delete_all_data()
             .context("failed to delete search data")?;
         for project in self.list_projects()? {
             self.delete_project(&project.id)
+                .await
                 .context("failed to delete project")?;
         }
         Ok(())
