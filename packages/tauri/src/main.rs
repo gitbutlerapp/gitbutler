@@ -168,7 +168,10 @@ async fn update_project(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-async fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project, Error> {
+async fn add_project(
+    handle: tauri::AppHandle,
+    path: &path::Path,
+) -> Result<projects::Project, Error> {
     let app = handle.state::<app::App>();
     let project = app.add_project(path)?;
     Ok(project)

@@ -38,8 +38,10 @@ impl Repository {
     }
 
     pub fn open(project: &projects::Project) -> Result<Self> {
-        Self::try_from(project)
-            .with_context(|| format!("{}: failed to open git repository", project.path))
+        Self::try_from(project).context(format!(
+            "{}: failed to open git repository",
+            project.path.display()
+        ))
     }
 
     pub fn project(&self) -> &projects::Project {

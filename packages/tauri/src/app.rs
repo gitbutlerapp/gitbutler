@@ -105,7 +105,7 @@ impl App {
         self.users_storage.delete()
     }
 
-    pub fn add_project(&self, path: &str) -> Result<projects::Project, Error> {
+    pub fn add_project(&self, path: &path::Path) -> Result<projects::Project, Error> {
         let all_projects = self
             .projects_storage
             .list_projects()
@@ -114,11 +114,11 @@ impl App {
         if all_projects.iter().any(|project| project.path == path) {
             return Err(Error::CreateProjectError(format!(
                 "project {} already exists",
-                path
+                path.display()
             )));
         }
 
-        let project = projects::Project::from_path(path.to_string())
+        let project = projects::Project::from_path(path)
             .map_err(|err| Error::CreateProjectError(err.to_string()))?;
 
         self.projects_storage

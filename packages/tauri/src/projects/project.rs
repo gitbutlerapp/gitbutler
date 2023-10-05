@@ -87,7 +87,7 @@ pub struct Project {
     pub id: String,
     pub title: String,
     pub description: Option<String>,
-    pub path: String,
+    pub path: path::PathBuf,
     #[serde(default)]
     pub preferred_key: AuthKey,
     pub api: Option<ApiProject>,
@@ -106,29 +106,28 @@ impl AsRef<Project> for Project {
 #[derive(Error, Debug)]
 pub enum CreateError {
     #[error("{0} does not exist")]
-    PathNotFound(String),
+    PathNotFound(path::PathBuf),
     #[error("{0} is not a directory")]
-    NotADirectory(String),
+    NotADirectory(path::PathBuf),
     #[error("{0} is not a git repository")]
-    NotAGitRepository(String),
+    NotAGitRepository(path::PathBuf),
 }
 
 impl Project {
-    pub fn from_path(fpath: String) -> Result<Self, CreateError> {
+    pub fn from_path(path: &path::Path) -> Result<Self, CreateError> {
         // make sure path exists
-        let path = std::path::Path::new(&fpath);
         if !path.exists() {
-            return Err(CreateError::PathNotFound(fpath));
+            return Err(CreateError::PathNotFound(path.to_path_buf()));
         }
 
         // make sure path is a directory
         if !path.is_dir() {
-            return Err(CreateError::NotADirectory(fpath));
+            return Err(CreateError::NotADirectory(path.to_path_buf()));
         }
 
         // make sure it's a git repository
         if !path.join(".git").exists() {
-            return Err(CreateError::NotAGitRepository(fpath));
+            return Err(CreateError::NotAGitRepository(path.to_path_buf()));
         };
 
         let id = uuid::Uuid::new_v4().to_string();
@@ -143,7 +142,7 @@ impl Project {
         let project = Project {
             id: uuid::Uuid::new_v4().to_string(),
             title,
-            path: path.to_str().unwrap().to_string(),
+            path: path.to_path_buf(),
             api: None,
             ..Default::default()
         };
@@ -156,14 +155,6 @@ impl TryFrom<&git::Repository> for Project {
     type Error = CreateError;
 
     fn try_from(repository: &git::Repository) -> std::result::Result<Self, Self::Error> {
-        Project::from_path(
-            repository
-                .path()
-                .parent()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string(),
-        )
+        Project::from_path(repository.path().parent().unwrap())
     }
 }

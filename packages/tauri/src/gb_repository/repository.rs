@@ -90,7 +90,7 @@ impl Repository {
             };
 
             if gb_repository
-                .migrate(&project)
+                .migrate(project)
                 .context("failed to migrate")?
             {
                 tracing::info!(project_id = gb_repository.project.id, "repository migrated");
@@ -99,12 +99,12 @@ impl Repository {
 
             let _lock = gb_repository.lock();
             let session = gb_repository
-                .create_current_session(&project_repository::Repository::open(&project)?)?;
+                .create_current_session(&project_repository::Repository::open(project)?)?;
             drop(_lock);
 
             gb_repository
                 .flush_session(
-                    &project_repository::Repository::open(&project)?,
+                    &project_repository::Repository::open(project)?,
                     &session,
                     user,
                 )
@@ -505,9 +505,7 @@ impl Repository {
         {
             Ok(false)
         } else {
-            let current_session_dir = std::path::Path::new(project.path.as_str())
-                .join(".git")
-                .join(format!("gb-{}", project.id));
+            let current_session_dir = project.path.join(".git").join(format!("gb-{}", project.id));
             if current_session_dir.exists() {
                 std::fs::rename(current_session_dir, self.root())
                     .context("failed to rename current session directory")?;

@@ -6,7 +6,7 @@ use git2::Repository;
 use gitbutler::{database, gb_repository, project_repository, projects, sessions, storage, users};
 
 pub struct App {
-    path: String,
+    path: path::PathBuf,
     local_data_dir: path::PathBuf,
     project: projects::Project,
     gb_repository: gb_repository::Repository,
@@ -55,7 +55,7 @@ impl App {
         self.user.as_ref()
     }
 
-    pub fn path(&self) -> &str {
+    pub fn path(&self) -> &path::PathBuf {
         &self.path
     }
 
@@ -80,16 +80,9 @@ impl App {
     }
 }
 
-fn find_git_directory() -> Option<String> {
+fn find_git_directory() -> Option<path::PathBuf> {
     match Repository::discover("./") {
-        Ok(repo) => {
-            let mut path = repo
-                .workdir()
-                .map(|path| path.to_string_lossy().to_string())
-                .unwrap();
-            path = path.trim_end_matches('/').to_string();
-            Some(path)
-        }
+        Ok(repo) => repo.workdir().map(|p| p.to_path_buf()),
         Err(_) => None,
     }
 }
