@@ -21,18 +21,15 @@ impl<'writer> BranchWriter<'writer> {
     }
 
     pub fn delete(&self, branch: &Branch) -> Result<()> {
-        self.repository
-            .get_or_create_current_session()
-            .context("Failed to get or create current session")?;
+        self.repository.mark_active_session()?;
+
         let _lock = self.repository.lock();
         self.writer.remove(&format!("branches/{}", branch.id))?;
         Ok(())
     }
 
     pub fn write(&self, branch: &Branch) -> Result<()> {
-        self.repository
-            .get_or_create_current_session()
-            .context("Failed to get or create current session")?;
+        self.repository.mark_active_session()?;
 
         let _lock = self.repository.lock();
 

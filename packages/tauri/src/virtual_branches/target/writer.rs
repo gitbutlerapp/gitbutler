@@ -21,9 +21,7 @@ impl<'writer> TargetWriter<'writer> {
     }
 
     pub fn write_default(&self, target: &Target) -> Result<()> {
-        self.repository
-            .get_or_create_current_session()
-            .context("Failed to get or create current session")?;
+        self.repository.mark_active_session()?;
 
         let _lock = self.repository.lock();
 
@@ -47,7 +45,7 @@ impl<'writer> TargetWriter<'writer> {
 
     pub fn write(&self, id: &str, target: &Target) -> Result<()> {
         self.repository
-            .get_or_create_current_session()
+            .mark_active_session()
             .context("Failed to get or create current session")?;
 
         let _lock = self.repository.lock();
