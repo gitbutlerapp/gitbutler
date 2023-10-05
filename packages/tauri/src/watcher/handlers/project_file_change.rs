@@ -263,7 +263,7 @@ mod test {
         } = suite.new_case_with_files(HashMap::from([(path::PathBuf::from("test.txt"), "test")]));
         let listener = Handler::from(&suite.local_app_data);
 
-        std::fs::write(format!("{}/test.txt", project.path), "test2")?;
+        std::fs::write(project.path.join("test.txt"), "test2")?;
         listener.handle("test.txt", &project.id)?;
 
         let session = gb_repository.get_current_session()?.unwrap();
@@ -294,7 +294,7 @@ mod test {
         } = suite.new_case();
         let listener = Handler::from(&suite.local_app_data);
 
-        std::fs::write(format!("{}/test.txt", project.path), "test")?;
+        std::fs::write(project.path.join("test.txt"), "test")?;
         listener.handle("test.txt", &project.id)?;
 
         assert!(gb_repository.get_current_session()?.is_some());
@@ -312,11 +312,11 @@ mod test {
         } = suite.new_case();
         let listener = Handler::from(&suite.local_app_data);
 
-        std::fs::write(format!("{}/test.txt", project.path), "test")?;
+        std::fs::write(project.path.join("test.txt"), "test")?;
         listener.handle("test.txt", &project.id)?;
         let session1 = gb_repository.get_current_session()?.unwrap();
 
-        std::fs::write(format!("{}/test.txt", project.path), "test2")?;
+        std::fs::write(project.path.join("test.txt"), "test2")?;
         listener.handle("test.txt", &project.id)?;
         let session2 = gb_repository.get_current_session()?.unwrap();
 
@@ -336,7 +336,7 @@ mod test {
         let listener = Handler::from(&suite.local_app_data);
 
         std::fs::write(
-            format!("{}/test.bin", project.path),
+            project.path.join("test.bin"),
             [0, 159, 146, 150, 159, 146, 150],
         )?;
 
@@ -367,7 +367,7 @@ mod test {
         } = suite.new_case();
         let listener = Handler::from(&suite.local_app_data);
 
-        std::fs::write(format!("{}/test.txt", project.path), "test")?;
+        std::fs::write(project.path.join("test.txt"), "test")?;
 
         listener.handle("test.txt", &project.id)?;
 
@@ -399,7 +399,7 @@ mod test {
         } = suite.new_case();
         let listener = Handler::from(&suite.local_app_data);
 
-        std::fs::write(format!("{}/test.txt", project.path), "test")?;
+        std::fs::write(project.path.join("test.txt"), "test")?;
         listener.handle("test.txt", &project.id)?;
 
         let session = gb_repository.get_current_session()?.unwrap();
@@ -417,7 +417,7 @@ mod test {
             "test"
         );
 
-        std::fs::write(format!("{}/test.txt", project.path), "test2")?;
+        std::fs::write(project.path.join("test.txt"), "test2")?;
         listener.handle("test.txt", &project.id)?;
 
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
@@ -450,7 +450,7 @@ mod test {
         } = suite.new_case();
         let listener = Handler::from(&suite.local_app_data);
 
-        std::fs::write(format!("{}/test.txt", project.path), "test")?;
+        std::fs::write(project.path.join("test.txt"), "test")?;
         listener.handle("test.txt", &project.id)?;
 
         let session = gb_repository.get_current_session()?.unwrap();
@@ -468,7 +468,7 @@ mod test {
             "test"
         );
 
-        std::fs::remove_file(format!("{}/test.txt", project.path))?;
+        std::fs::remove_file(project.path.join("test.txt"))?;
         listener.handle("test.txt", &project.id)?;
 
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
@@ -734,7 +734,7 @@ mod test {
         branch_writer.write(&vbranch1)?;
         target_writer.write(&vbranch1.id, &vbranch1_target)?;
 
-        std::fs::write(format!("{}/test.txt", project.path), "hello world!").unwrap();
+        std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
         listener.handle("test.txt", &project.id)?;
 
         let flushed_session = gb_repository.flush(None).unwrap();
@@ -788,7 +788,7 @@ mod test {
         branch_writer.write(&vbranch1)?;
         target_writer.write(&vbranch1.id, &vbranch1_target)?;
 
-        std::fs::write(format!("{}/test.txt", project.path), "hello world!").unwrap();
+        std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
         listener.handle("test.txt", &project.id).unwrap();
 
         let flushed_session = gb_repository.flush(None).unwrap();

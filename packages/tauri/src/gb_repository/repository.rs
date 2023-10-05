@@ -505,9 +505,7 @@ impl Repository {
         {
             Ok(false)
         } else {
-            let current_session_dir = std::path::Path::new(project.path.as_str())
-                .join(".git")
-                .join(format!("gb-{}", project.id));
+            let current_session_dir = project.path.join(".git").join(format!("gb-{}", project.id));
             if current_session_dir.exists() {
                 std::fs::rename(current_session_dir, self.root())
                     .context("failed to rename current session directory")?;
