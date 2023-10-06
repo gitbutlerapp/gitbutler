@@ -16,6 +16,8 @@ pub struct Storage {
 pub enum Error {
     #[error(transparent)]
     Storage(#[from] storage::Error),
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
 }
 
 impl From<&storage::Storage> for Storage {
@@ -39,20 +41,20 @@ impl From<&path::PathBuf> for Storage {
 }
 
 impl Storage {
-    pub fn get(&self) -> Result<Option<user::User>> {
+    pub fn get(&self) -> Result<Option<user::User>, Error> {
         match self.storage.read(USER_FILE)? {
             Some(data) => Ok(Some(serde_json::from_str(&data)?)),
             None => Ok(None),
         }
     }
 
-    pub fn set(&self, user: &user::User) -> Result<()> {
+    pub fn set(&self, user: &user::User) -> Result<(), Error> {
         let data = serde_json::to_string(user)?;
         self.storage.write(USER_FILE, &data)?;
         Ok(())
     }
 
-    pub fn delete(&self) -> Result<()> {
+    pub fn delete(&self) -> Result<(), Error> {
         self.storage.delete(USER_FILE)?;
         Ok(())
     }

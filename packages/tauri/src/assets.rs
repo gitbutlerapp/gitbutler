@@ -5,6 +5,8 @@ use tauri::AppHandle;
 use tokio::sync::Semaphore;
 use url::Url;
 
+use crate::users;
+
 #[derive(Clone)]
 pub struct Proxy {
     cache_dir: path::PathBuf,
@@ -39,6 +41,15 @@ impl TryFrom<&AppHandle> for Proxy {
 const ASSET_SCHEME: &str = "asset";
 
 impl Proxy {
+    pub async fn proxy_user(&self, user: &users::User) -> Result<users::User> {
+        let remote_url = Url::parse(&user.picture)?;
+        let local_url = self.proxy(&remote_url).await?;
+        Ok(users::User {
+            picture: local_url.to_string(),
+            ..user.clone()
+        })
+    }
+
     // takes a url of a remote assets, downloads it into cache and returns a url that points to the cached file
     pub async fn proxy(&self, src: &Url) -> Result<Url> {
         if src.scheme() == ASSET_SCHEME {

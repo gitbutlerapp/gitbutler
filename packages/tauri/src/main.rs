@@ -127,12 +127,15 @@ fn main() {
                             .expect("failed to initialize virtual branches controller");
                     app_handle.manage(vbranch_contoller);
 
-                    let app: app::App = app::App::try_from(&tauri_app.app_handle())
-                        .expect("failed to initialize app");
-
-                    if let Some(user) = app.get_user().context("failed to get user")? {
+                    let users_controller = users::Controller::try_from(&app_handle)
+                        .expect("failed to initialize users controller");
+                    if let Some(user) = users_controller.get_user().context("failed to get user")? {
                         sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())))
                     }
+                    app_handle.manage(users_controller);
+
+                    let app: app::App = app::App::try_from(&tauri_app.app_handle())
+                        .expect("failed to initialize app");
 
                     block_on(app.init()).context("failed to init app")?;
 
@@ -145,9 +148,6 @@ fn main() {
                     commands::list_deltas,
                     commands::list_sessions,
                     commands::list_session_files,
-                    commands::set_user,
-                    commands::delete_user,
-                    commands::get_user,
                     commands::search,
                     commands::git_remote_branches,
                     commands::git_remote_branches_data,
@@ -163,6 +163,9 @@ fn main() {
                     commands::mark_resolved,
                     commands::git_set_global_config,
                     commands::git_get_global_config,
+                    users::commands::set_user,
+                    users::commands::delete_user,
+                    users::commands::get_user,
                     projects::commands::add_project,
                     projects::commands::get_project,
                     projects::commands::update_project,

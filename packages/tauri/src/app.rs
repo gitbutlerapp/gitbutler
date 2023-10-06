@@ -83,18 +83,6 @@ impl App {
             .context("failed to get project")
     }
 
-    pub fn get_user(&self) -> Result<Option<users::User>> {
-        self.users_storage.get()
-    }
-
-    pub fn set_user(&self, user: &users::User) -> Result<()> {
-        self.users_storage.set(user)
-    }
-
-    pub fn delete_user(&self) -> Result<()> {
-        self.users_storage.delete()
-    }
-
     pub fn list_sessions(
         &self,
         project_id: &str,
@@ -147,7 +135,7 @@ impl App {
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        let user = self.users_storage.get()?;
+        let user = self.users_storage.get().context("failed to get user")?;
         let gb_repo =
             gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
                 .context("failed to open gb repository")?;
