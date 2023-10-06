@@ -7,48 +7,7 @@ use tracing::instrument;
 
 use crate::{
     app, assets, bookmarks, deltas, error::Error, git, reader, search, sessions, virtual_branches,
-    zip,
 };
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn get_project_archive_path(
-    handle: tauri::AppHandle,
-    project_id: &str,
-) -> Result<String, Error> {
-    let app = handle.state::<app::App>();
-    let project = app.get_project(project_id)?;
-
-    let zipper = handle.state::<zip::Zipper>();
-    let zipped_logs = zipper.zip(project.path)?;
-    Ok(zipped_logs.to_str().unwrap().to_string())
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn get_project_data_archive_path(
-    handle: tauri::AppHandle,
-    project_id: &str,
-) -> Result<String, Error> {
-    let zipper = handle.state::<zip::Zipper>();
-    let zipped_logs = zipper.zip(
-        handle
-            .path_resolver()
-            .app_local_data_dir()
-            .unwrap()
-            .join("projects")
-            .join(project_id),
-    )?;
-    Ok(zipped_logs.to_str().unwrap().to_string())
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn get_logs_archive_path(handle: tauri::AppHandle) -> Result<String, Error> {
-    let zipper = handle.state::<zip::Zipper>();
-    let zipped_logs = zipper.zip(handle.path_resolver().app_log_dir().unwrap())?;
-    Ok(zipped_logs.to_str().unwrap().to_string())
-}
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
