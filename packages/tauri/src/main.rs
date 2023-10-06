@@ -127,6 +127,10 @@ fn main() {
                             .expect("failed to initialize virtual branches controller");
                     app_handle.manage(vbranch_contoller);
 
+                    let keys_controller = keys::Controller::try_from(&app_handle)
+                        .expect("failed to initialize keys controller");
+                    app_handle.manage(keys_controller);
+
                     let users_controller = users::Controller::try_from(&app_handle)
                         .expect("failed to initialize users controller");
                     if let Some(user) = users_controller.get_user().context("failed to get user")? {

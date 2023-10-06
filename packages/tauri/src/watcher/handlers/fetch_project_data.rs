@@ -37,7 +37,7 @@ struct HandlerInner {
     local_data_dir: path::PathBuf,
     project_storage: projects::Storage,
     user_storage: users::Storage,
-    keys_controller: keys::Storage,
+    keys_controller: keys::Controller,
 
     // it's ok to use mutex here, because even though project_id is a paramenter, we create
     // and use a handler per project.
@@ -55,7 +55,7 @@ impl TryFrom<&AppHandle> for HandlerInner {
             .context("failed to get local data dir")?;
         Ok(Self {
             local_data_dir: local_data_dir.to_path_buf(),
-            keys_controller: keys::Storage::try_from(value)?,
+            keys_controller: keys::Controller::try_from(value)?,
             project_storage: projects::Storage::try_from(value)?,
             user_storage: users::Storage::try_from(value)?,
             mutex: Mutex::new(()),

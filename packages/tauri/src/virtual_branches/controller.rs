@@ -18,7 +18,7 @@ pub struct Controller {
 
     projects_storage: projects::Storage,
     users_storage: users::Storage,
-    keys_storage: keys::Storage,
+    keys_controller: keys::Controller,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -52,7 +52,7 @@ impl TryFrom<&AppHandle> for Controller {
             semaphores: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             projects_storage: projects::Storage::from(value),
             users_storage: users::Storage::from(value),
-            keys_storage: keys::Storage::from(value),
+            keys_controller: keys::Controller::from(value),
         })
     }
 }
@@ -73,7 +73,7 @@ impl Controller {
                     .context("failed to get sign commits option")?
                 {
                     Some(
-                        self.keys_storage
+                        self.keys_controller
                             .get_or_create()
                             .context("failed to get private key")?,
                     )
@@ -193,7 +193,7 @@ impl Controller {
                     .context("failed to get sign commits option")?
                 {
                     Some(
-                        self.keys_storage
+                        self.keys_controller
                             .get_or_create()
                             .context("failed to get private key")?,
                     )
@@ -312,7 +312,7 @@ impl Controller {
                     .context("failed to get sign commits option")?
                 {
                     Some(
-                        self.keys_storage
+                        self.keys_controller
                             .get_or_create()
                             .context("failed to get private key")?,
                     )
@@ -383,7 +383,7 @@ impl Controller {
                     .context("failed to get sign commits option")?
                 {
                     Some(
-                        self.keys_storage
+                        self.keys_controller
                             .get_or_create()
                             .context("failed to get private key")?,
                     )
@@ -448,7 +448,7 @@ impl Controller {
                     },
                     projects::AuthKey::Generated => {
                         let private_key = self
-                            .keys_storage
+                            .keys_controller
                             .get_or_create()
                             .context("failed to get or create private key")?;
                         keys::Key::Generated(Box::new(private_key))
