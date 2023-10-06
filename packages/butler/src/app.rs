@@ -19,9 +19,8 @@ impl App {
         let local_data_dir = find_local_data_dir().context("could not find local data dir")?;
 
         let storage = storage::Storage::from(&local_data_dir);
-        let users_storage = users::Storage::from(&storage);
-
-        let projects_storage = projects::Storage::try_from(&storage)?;
+        let users_storage = users::Controller::from(&storage);
+        let projects_storage = projects::Controller::try_from(&local_data_dir)?;
         let projects = projects_storage.list().context("failed to list projects")?;
 
         let project = projects
@@ -29,7 +28,7 @@ impl App {
             .find(|p| p.path == path)
             .context("failed to find project")?;
 
-        let user = users_storage.get().context("failed to get user")?;
+        let user = users_storage.get_user().context("failed to get user")?;
         let db_path = std::path::Path::new(&local_data_dir).join("database.sqlite3");
         let database = database::Database::try_from(&db_path).context("failed to open database")?;
         let sessions_db = sessions::Database::from(database);
