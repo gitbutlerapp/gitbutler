@@ -2,7 +2,7 @@ use anyhow::Context;
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
-use crate::{error::Error, git};
+use crate::{assets, error::Error, git};
 
 use super::{branch::Ownership, controller::Controller, RemoteBranchFile};
 
@@ -83,11 +83,17 @@ pub async fn get_base_branch_data(
     handle: AppHandle,
     project_id: &str,
 ) -> Result<Option<super::BaseBranch>, Error> {
-    handle
+    if let Some(base_branch) = handle
         .state::<Controller>()
         .get_base_branch_data(project_id)
-        .await
-        .map_err(Into::into)
+        .await?
+    {
+        let proxy = handle.state::<assets::Proxy>();
+        let base_branch = proxy.proxy_base_branch(&base_branch).await;
+        Ok(Some(base_branch))
+    } else {
+        Ok(None)
+    }
 }
 
 #[tauri::command(async)]
@@ -100,11 +106,15 @@ pub async fn set_base_branch(
     let branch_name = format!("refs/remotes/{}", branch)
         .parse()
         .context("Invalid branch name")?;
-    handle
+    let base_branch = handle
         .state::<Controller>()
         .set_base_branch(project_id, &branch_name)
-        .await
-        .map_err(Into::into)
+        .await?;
+    let base_branch = handle
+        .state::<assets::Proxy>()
+        .proxy_base_branch(&base_branch)
+        .await;
+    Ok(base_branch)
 }
 
 #[tauri::command(async)]

@@ -13,9 +13,11 @@ impl super::RunCommand for Branches {
     fn run(self) -> Result<()> {
         let app = App::new().context("Failed to create app")?;
 
-        let branches =
-            virtual_branches::list_virtual_branches(app.gb_repository(), &app.project_repository())
-                .context("failed to list branches")?;
+        let branches = virtual_branches::list_virtual_branches(
+            &app.gb_repository(),
+            &app.project_repository(),
+        )
+        .context("failed to list branches")?;
 
         for branch in branches {
             println!("{}", branch.id.red());

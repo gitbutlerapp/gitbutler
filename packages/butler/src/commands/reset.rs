@@ -17,7 +17,8 @@ impl super::RunCommand for Reset {
             .get_or_create_current_session()
             .context("failed to get or create currnt session")?;
 
-        let current_session_reader = sessions::Reader::open(app.gb_repository(), &current_session)
+        let gb_repository = app.gb_repository();
+        let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)
             .context("failed to open current session reader")?;
 
         let virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
@@ -27,7 +28,7 @@ impl super::RunCommand for Reset {
             .into_iter()
             .collect::<Vec<_>>();
 
-        let writer = virtual_branches::branch::Writer::new(app.gb_repository());
+        let writer = virtual_branches::branch::Writer::new(&gb_repository);
         for mut branch in virtual_branches {
             println!("resetting {}", branch.name);
             branch.applied = false;

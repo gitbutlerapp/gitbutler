@@ -88,10 +88,13 @@ impl HandlerInner {
             .project_storage
             .get(project_id)
             .context("failed to get project")?;
-
-        let gb_repo =
-            gb_repository::Repository::open(self.local_data_dir.clone(), &project, user.as_ref())
-                .context("failed to open repository")?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open repository")?;
         let default_target = gb_repo.default_target()?.context("target not set")?;
 
         let key = match &project.preferred_key {
@@ -107,7 +110,6 @@ impl HandlerInner {
                 passphrase: passphrase.clone(),
             },
         };
-        let project_repository = project_repository::Repository::open(&project)?;
 
         let fetch_result =
             if let Err(error) = project_repository.fetch(default_target.branch.remote(), &key) {

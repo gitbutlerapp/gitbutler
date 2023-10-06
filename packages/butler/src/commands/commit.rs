@@ -20,7 +20,8 @@ impl super::RunCommand for Commit {
             .get_or_create_current_session()
             .context("failed to get or create currnt session")?;
 
-        let current_session_reader = sessions::Reader::open(app.gb_repository(), &current_session)
+        let gb_repository = app.gb_repository();
+        let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)
             .context("failed to open current session reader")?;
 
         let virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
@@ -56,7 +57,7 @@ impl super::RunCommand for Commit {
             .context("failed to get commit message")?;
 
         virtual_branches::commit(
-            app.gb_repository(),
+            &gb_repository,
             &app.project_repository(),
             &commit_branch,
             &message,

@@ -13,8 +13,9 @@ impl super::RunCommand for Move {
     fn run(self) -> Result<()> {
         let app = App::new().context("Failed to create app")?;
 
+        let gb_repository = app.gb_repository();
         let all_hunks =
-            virtual_branches::get_status_by_branch(app.gb_repository(), &app.project_repository())
+            virtual_branches::get_status_by_branch(&gb_repository, &app.project_repository())
                 .context("failed to get status files")?
                 .into_iter()
                 .flat_map(|(_branch, files)| {
@@ -44,7 +45,7 @@ impl super::RunCommand for Move {
             .get_or_create_current_session()
             .context("failed to get or create currnt session")?;
 
-        let current_session_reader = sessions::Reader::open(app.gb_repository(), &current_session)
+        let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)
             .context("failed to open current session reader")?;
 
         let virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
@@ -79,7 +80,7 @@ impl super::RunCommand for Move {
         );
 
         virtual_branches::update_branch(
-            app.gb_repository(),
+            &gb_repository,
             &app.project_repository(),
             virtual_branches::branch::BranchUpdateRequest {
                 id: target_branch.id,

@@ -4,7 +4,8 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    bookmarks, deltas, events as app_events, gb_repository, projects, search, sessions, users,
+    bookmarks, deltas, events as app_events, gb_repository, project_repository, projects, search,
+    sessions, users,
 };
 
 use super::events;
@@ -73,10 +74,14 @@ impl Handler {
     pub fn reindex(&self, project_id: &str) -> Result<Vec<events::Event>> {
         let user = self.user_store.get()?;
         let project = self.project_store.get(project_id)?;
-
-        let gb_repository =
-            gb_repository::Repository::open(self.local_data_dir.clone(), &project, user.as_ref())
-                .context("failed to open repository")?;
+        let project_repository =
+            project_repository::Repository::open(&project).context("failed to open repository")?;
+        let gb_repository = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open repository")?;
 
         let sessions_iter = gb_repository.get_sessions_iterator()?;
         let mut events = vec![];
@@ -93,10 +98,14 @@ impl Handler {
     ) -> Result<Vec<events::Event>> {
         let user = self.user_store.get()?;
         let project = self.project_store.get(project_id)?;
-
-        let gb_repository =
-            gb_repository::Repository::open(self.local_data_dir.clone(), &project, user.as_ref())
-                .context("failed to open repository")?;
+        let project_repository =
+            project_repository::Repository::open(&project).context("failed to open repository")?;
+        let gb_repository = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open repository")?;
 
         // first of all, index session for searching. searhcer keeps it's own state to
         // decide if the actual indexing needed

@@ -3,7 +3,7 @@ use std::{path, time};
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
-use crate::{gb_repository, projects, sessions, users};
+use crate::{gb_repository, project_repository, projects, sessions, users};
 
 use super::events;
 
@@ -37,10 +37,14 @@ impl Handler {
         let user = self.user_store.get()?;
 
         let project = self.project_store.get(project_id)?;
-
-        let gb_repo =
-            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
-                .context("failed to open repository")?;
+        let project_repository =
+            project_repository::Repository::open(&project).context("failed to open repository")?;
+        let gb_repo = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open repository")?;
 
         let mut events = vec![];
 

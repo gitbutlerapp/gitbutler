@@ -15,9 +15,10 @@ impl super::RunCommand for Clear {
             .gb_repository()
             .get_or_create_current_session()
             .context("failed to get or create currnt session")?;
-        let session_reader = sessions::Reader::open(app.gb_repository(), &session)
+        let gb_repository = app.gb_repository();
+        let session_reader = sessions::Reader::open(&gb_repository, &session)
             .context("failed to open current session reader")?;
-        let branch_writer = virtual_branches::branch::Writer::new(app.gb_repository());
+        let branch_writer = virtual_branches::branch::Writer::new(&gb_repository);
 
         let iterator =
             virtual_branches::Iterator::new(&session_reader).expect("failed to read branches");

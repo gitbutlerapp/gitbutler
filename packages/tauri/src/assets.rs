@@ -1,9 +1,15 @@
 use std::{collections::HashMap, fs, path, sync};
 
 use anyhow::{Context, Result};
+use futures::future::join_all;
 use tauri::AppHandle;
 use tokio::sync::Semaphore;
 use url::Url;
+
+use crate::{
+    users,
+    virtual_branches::{Author, BaseBranch, RemoteCommit},
+};
 
 #[derive(Clone)]
 pub struct Proxy {
@@ -39,6 +45,67 @@ impl TryFrom<&AppHandle> for Proxy {
 const ASSET_SCHEME: &str = "asset";
 
 impl Proxy {
+    pub async fn proxy_user(&self, user: &users::User) -> Result<users::User> {
+        let remote_url = Url::parse(&user.picture)?;
+        let local_url = self.proxy(&remote_url).await?;
+        Ok(users::User {
+            picture: local_url.to_string(),
+            ..user.clone()
+        })
+    }
+
+    pub async fn proxy_base_branch(&self, base_branch: &BaseBranch) -> BaseBranch {
+        BaseBranch {
+            recent_commits: join_all(
+                base_branch
+                    .clone()
+                    .recent_commits
+                    .into_iter()
+                    .map(|commit| async move {
+                        RemoteCommit {
+                            author: Author {
+                                gravatar_url: self
+                                    .proxy(&commit.author.gravatar_url)
+                                    .await
+                                    .unwrap_or_else(|error| {
+                                        tracing::error!(gravatar_url = %commit.author.gravatar_url, ?error, "failed to proxy gravatar url");
+                                        commit.author.gravatar_url
+                                    }),
+                                ..commit.author
+                            },
+                            ..commit
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .await,
+            upstream_commits: join_all(
+                base_branch
+                    .clone()
+                    .upstream_commits
+                    .into_iter()
+                    .map(|commit| async move {
+                        RemoteCommit {
+                            author: Author {
+                                gravatar_url: self
+                                    .proxy(&commit.author.gravatar_url)
+                                    .await
+                                    .unwrap_or_else(|error| {
+                                        tracing::error!(gravatar_url = %commit.author.gravatar_url, ?error, "failed to proxy gravatar url");
+                                        commit.author.gravatar_url
+                                    }),
+                                ..commit.author
+                            },
+                            ..commit
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .await,
+            ..base_branch.clone()
+        }
+    }
+
     // takes a url of a remote assets, downloads it into cache and returns a url that points to the cached file
     pub async fn proxy(&self, src: &Url) -> Result<Url> {
         if src.scheme() == ASSET_SCHEME {

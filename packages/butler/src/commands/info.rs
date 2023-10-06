@@ -83,7 +83,8 @@ impl super::RunCommand for Info {
             .gb_repository()
             .get_or_create_current_session()
             .context("failed to get or create currnt session")?;
-        let current_session_reader = sessions::Reader::open(app.gb_repository(), &current_session)
+        let gb_repository = app.gb_repository();
+        let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)
             .context("failed to open current session reader")?;
 
         let target_reader = virtual_branches::target::Reader::new(&current_session_reader);

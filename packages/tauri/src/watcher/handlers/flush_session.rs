@@ -42,17 +42,17 @@ impl Handler {
             .context("failed to get project")?;
 
         let user = self.user_store.get()?;
-
-        let gb_repo =
-            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
-                .context("failed to open repository")?;
+        let project_repository =
+            project_repository::Repository::open(&project).context("failed to open repository")?;
+        let gb_repo = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open repository")?;
 
         let session = gb_repo
-            .flush_session(
-                &project_repository::Repository::open(&project)?,
-                session,
-                user.as_ref(),
-            )
+            .flush_session(&project_repository, session, user.as_ref())
             .context("failed to flush session")?;
 
         Ok(vec![

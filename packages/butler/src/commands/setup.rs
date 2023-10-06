@@ -37,7 +37,7 @@ impl super::RunCommand for Setup {
             Some(index) => {
                 println!("Setting target to: {}", items[index].to_string().red());
                 set_base_branch(
-                    app.gb_repository(),
+                    &app.gb_repository(),
                     &app.project_repository(),
                     app.user(),
                     &items[index].branch().parse()?,

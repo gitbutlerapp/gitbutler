@@ -9,7 +9,6 @@ pub struct App {
     path: path::PathBuf,
     local_data_dir: path::PathBuf,
     project: projects::Project,
-    gb_repository: gb_repository::Repository,
     sessions_db: sessions::Database,
     user: Option<users::User>,
 }
@@ -31,10 +30,6 @@ impl App {
             .context("failed to find project")?;
 
         let user = users_storage.get().context("failed to get user")?;
-        let gb_repository =
-            gb_repository::Repository::open(&local_data_dir, &project, user.as_ref())
-                .context("failed to open repository")?;
-
         let db_path = std::path::Path::new(&local_data_dir).join("database.sqlite3");
         let database = database::Database::try_from(&db_path).context("failed to open database")?;
         let sessions_db = sessions::Database::from(database);
@@ -43,7 +38,6 @@ impl App {
             path,
             local_data_dir,
             project,
-            gb_repository,
             sessions_db,
             user,
         })
@@ -73,8 +67,16 @@ impl App {
         project_repository::Repository::open(&self.project).unwrap()
     }
 
-    pub fn gb_repository(&self) -> &gb_repository::Repository {
-        &self.gb_repository
+    pub fn gb_repository(&self) -> gb_repository::Repository {
+        let project_repository = project_repository::Repository::open(&self.project)
+            .expect("failed to open project repository");
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            self.user.as_ref(),
+        )
+        .expect("failed to open repository");
+        gb_repository
     }
 }
 

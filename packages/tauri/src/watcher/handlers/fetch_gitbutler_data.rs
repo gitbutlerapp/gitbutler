@@ -4,7 +4,7 @@ use std::{path, time};
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
-use crate::{gb_repository, projects, users};
+use crate::{gb_repository, project_repository, projects, users};
 
 use super::events;
 
@@ -83,10 +83,14 @@ impl HandlerInner {
             .project_storage
             .get(project_id)
             .context("failed to get project")?;
-
-        let gb_repo =
-            gb_repository::Repository::open(self.local_data_dir.clone(), &project, user.as_ref())
-                .context("failed to open repository")?;
+        let project_repository =
+            project_repository::Repository::open(&project).context("failed to open repository")?;
+        let gb_repo = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open repository")?;
 
         let sessions_before_fetch = gb_repo
             .get_sessions_iterator()?

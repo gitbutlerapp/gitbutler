@@ -96,10 +96,12 @@ impl Handler {
             .with_context(|| "failed to open project repository for project")?;
 
         let user = self.user_store.get().context("failed to get user")?;
-
-        let gb_repository =
-            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
-                .context("failed to open gb repository")?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gb repository")?;
 
         // If current session's branch is not the same as the project's head, flush it first.
         if let Some(session) = gb_repository
@@ -506,7 +508,7 @@ mod test {
 
             test_utils::commit_all(&project_repository.git_repository);
             listener.handle(relative_file_path, &project.id)?;
-            assert!(gb_repository.flush(None)?.is_some());
+            assert!(gb_repository.flush(&project_repository, None)?.is_some());
         }
 
         // get all the created sessions
@@ -576,6 +578,7 @@ mod test {
         let Case {
             gb_repository,
             project,
+            project_repository,
             ..
         } = suite.new_case();
         let listener = Handler::from(&suite.local_app_data);
@@ -591,7 +594,7 @@ mod test {
             )?;
 
             listener.handle(relative_file_path, &project.id)?;
-            assert!(gb_repository.flush(None)?.is_some());
+            assert!(gb_repository.flush(&project_repository, None)?.is_some());
         }
 
         // get all the created sessions
@@ -715,6 +718,7 @@ mod test {
         let Case {
             gb_repository,
             project,
+            project_repository,
             ..
         } = suite.new_case_with_files(HashMap::from([(
             path::PathBuf::from("test.txt"),
@@ -736,7 +740,7 @@ mod test {
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
         listener.handle("test.txt", &project.id)?;
 
-        let flushed_session = gb_repository.flush(None).unwrap();
+        let flushed_session = gb_repository.flush(&project_repository, None).unwrap();
 
         // create a new session
         let session = gb_repository.get_or_create_current_session().unwrap();
@@ -769,6 +773,7 @@ mod test {
         let Case {
             gb_repository,
             project,
+            project_repository,
             ..
         } = suite.new_case_with_files(HashMap::from([(
             path::PathBuf::from("test.txt"),
@@ -790,7 +795,7 @@ mod test {
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
         listener.handle("test.txt", &project.id).unwrap();
 
-        let flushed_session = gb_repository.flush(None).unwrap();
+        let flushed_session = gb_repository.flush(&project_repository, None).unwrap();
 
         // hard delete branches state from disk
         std::fs::remove_dir_all(gb_repository.root()).unwrap();

@@ -23,8 +23,8 @@ use crate::{
 };
 
 pub struct Repository {
-    pub project: projects::Project,
     pub git_repository: git::Repository,
+    project: projects::Project,
     lock_file: std::fs::File,
 }
 
@@ -43,10 +43,11 @@ pub enum Error {
 impl Repository {
     pub fn open<P: AsRef<std::path::Path>>(
         root: P,
-        project: &projects::Project,
+        project_repository: &project_repository::Repository,
         user: Option<&users::User>,
     ) -> Result<Self, Error> {
-        let project_objects_path = std::path::Path::new(&project.path).join(".git/objects");
+        let project = project_repository.project();
+        let project_objects_path = project.path.join(".git/objects");
         if !project_objects_path.exists() {
             return Err(Error::ProjectPathNotFound(project_objects_path));
         }
@@ -65,8 +66,8 @@ impl Repository {
                 .map_err(Error::Git)?;
 
             Result::Ok(Self {
-                project: project.clone(),
                 git_repository,
+                project: project.clone(),
                 lock_file: File::create(lock_path).context("failed to create lock file")?,
             })
         } else {
@@ -84,9 +85,9 @@ impl Repository {
                 .context("failed to add disk alternate")?;
 
             let gb_repository = Self {
-                project: project.clone(),
                 git_repository,
                 lock_file: File::create(lock_path).context("failed to create lock file")?,
+                project: project.clone(),
             };
 
             if gb_repository
@@ -98,16 +99,11 @@ impl Repository {
             }
 
             let _lock = gb_repository.lock();
-            let session = gb_repository
-                .create_current_session(&project_repository::Repository::open(project)?)?;
+            let session = gb_repository.create_current_session(project_repository)?;
             drop(_lock);
 
             gb_repository
-                .flush_session(
-                    &project_repository::Repository::open(project)?,
-                    &session,
-                    user,
-                )
+                .flush_session(project_repository, &session, user)
                 .context("failed to run initial flush")?;
 
             Result::Ok(gb_repository)
@@ -397,7 +393,11 @@ impl Repository {
         }
     }
 
-    pub fn flush(&self, user: Option<&users::User>) -> Result<Option<sessions::Session>> {
+    pub fn flush(
+        &self,
+        project_repository: &project_repository::Repository,
+        user: Option<&users::User>,
+    ) -> Result<Option<sessions::Session>> {
         let current_session = self
             .get_current_session()
             .context("failed to get current session")?;
@@ -406,11 +406,7 @@ impl Repository {
         }
 
         let current_session = current_session.unwrap();
-        let current_session = self.flush_session(
-            &project_repository::Repository::open(&self.project)?,
-            &current_session,
-            user,
-        )?;
+        let current_session = self.flush_session(project_repository, &current_session, user)?;
         Ok(Some(current_session))
     }
 
@@ -595,10 +591,6 @@ impl Repository {
                 Ok(migrated)
             }
         }
-    }
-
-    pub fn purge(&self) -> Result<()> {
-        std::fs::remove_dir_all(self.git_repository.path()).context("failed to remove repository")
     }
 }
 
