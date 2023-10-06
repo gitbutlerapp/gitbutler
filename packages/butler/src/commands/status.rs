@@ -14,7 +14,7 @@ impl super::RunCommand for Status {
         let app = App::new().context("Failed to create app")?;
 
         let statuses =
-            virtual_branches::get_status_by_branch(app.gb_repository(), &app.project_repository())
+            virtual_branches::get_status_by_branch(&app.gb_repository(), &app.project_repository())
                 .context("failed to get status by branch")?;
 
         for (branch, files) in statuses {

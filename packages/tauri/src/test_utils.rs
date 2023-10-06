@@ -38,7 +38,7 @@ impl Suite {
         user
     }
 
-    pub fn new_case_with_files(&self, fs: HashMap<path::PathBuf, &str>) -> Case {
+    fn project(&self, fs: HashMap<path::PathBuf, &str>) -> projects::Project {
         let repository = test_repository();
         for (path, contents) in fs {
             if let Some(parent) = path.parent() {
@@ -52,14 +52,7 @@ impl Suite {
             .expect("failed to write file");
         }
         commit_all(&repository);
-        self.case_from_repository(repository)
-    }
 
-    pub fn new_case(&self) -> Case {
-        self.new_case_with_files(HashMap::new())
-    }
-
-    fn case_from_repository(&self, repository: git::Repository) -> Case {
         let project = projects::Project {
             id: uuid::Uuid::new_v4().to_string(),
             title: repository
@@ -72,42 +65,67 @@ impl Suite {
             path: repository.path().parent().unwrap().to_path_buf(),
             ..Default::default()
         };
-
         self.projects_storage
             .add(&project)
             .expect("failed to add project");
-        let project_repository = project_repository::Repository::open(&project)
-            .expect("failed to create project repository");
-        let gb_repository = gb_repository::Repository::open(&self.local_app_data, &project, None)
-            .expect("failed to open gb repository");
-        Case {
-            suite: self,
-            project_repository,
-            project,
-            gb_repository,
-        }
+        project
+    }
+
+    pub fn new_case_with_files(&self, fs: HashMap<path::PathBuf, &str>) -> Case {
+        let project = self.project(fs);
+        Case::new(self, project)
+    }
+
+    pub fn new_case(&self) -> Case {
+        self.new_case_with_files(HashMap::new())
     }
 }
 
 pub struct Case<'a> {
     suite: &'a Suite,
+    pub project: projects::Project,
     pub project_repository: project_repository::Repository,
     pub gb_repository: gb_repository::Repository,
-    pub project: projects::Project,
 }
 
-impl Case<'_> {
-    pub fn refresh(&mut self) {
-        self.project = self
+impl<'a> Case<'a> {
+    fn new(suite: &'a Suite, project: projects::Project) -> Case<'a> {
+        let project_repository = project_repository::Repository::open(&project)
+            .expect("failed to create project repository");
+        let gb_repository =
+            gb_repository::Repository::open(&suite.local_app_data, &project_repository, None)
+                .expect("failed to open gb repository");
+        Case {
+            suite,
+            project,
+            gb_repository,
+            project_repository,
+        }
+    }
+
+    pub fn refresh(&self) -> Self {
+        let project = self
             .suite
             .projects_storage
             .get(&self.project.id)
             .expect("failed to get project");
-        self.project_repository = project_repository::Repository::open(&self.project)
+        let project_repository = project_repository::Repository::open(&project)
             .expect("failed to create project repository");
-        self.gb_repository =
-            gb_repository::Repository::open(&self.suite.local_app_data, &self.project, None)
-                .expect("failed to open gb repository");
+        Self {
+            suite: self.suite,
+            gb_repository: gb_repository::Repository::open(
+                &self.suite.local_app_data,
+                &project_repository,
+                self.suite
+                    .user_storage
+                    .get()
+                    .expect("failed to get user")
+                    .as_ref(),
+            )
+            .expect("failed to open gb repository"),
+            project_repository,
+            project,
+        }
     }
 }
 

@@ -39,7 +39,7 @@ impl<'writer> SessionWriter<'writer> {
         if current_session_id.is_some() && current_session_id.as_ref() != Some(&session.id) {
             return Err(anyhow!(
                 "{}: can not open writer for {} because a writer for {} is still open",
-                self.repository.project.id,
+                self.repository.get_project_id(),
                 session.id,
                 current_session_id.unwrap()
             ));

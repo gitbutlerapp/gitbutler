@@ -1,14 +1,13 @@
 use std::{collections::HashMap, path, sync::Arc};
 
 use anyhow::Context;
-use futures::future::join_all;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tokio::sync::Semaphore;
 
 use crate::{
-    assets, gb_repository, git, keys,
+    gb_repository, git, keys,
     project_repository::{self, conflicts},
-    projects, users, watcher,
+    projects, users,
 };
 
 use super::{branch::Ownership, RemoteBranchFile};
@@ -17,8 +16,6 @@ pub struct Controller {
     local_data_dir: path::PathBuf,
     semaphores: Arc<tokio::sync::Mutex<HashMap<String, Semaphore>>>,
 
-    watchers: watcher::Watchers,
-    assets_proxy: assets::Proxy,
     projects_storage: projects::Storage,
     users_storage: users::Storage,
     keys_storage: keys::Storage,
@@ -52,9 +49,7 @@ impl TryFrom<&AppHandle> for Controller {
             .context("Failed to get local data dir")?;
         Ok(Self {
             local_data_dir,
-            watchers: value.state::<watcher::Watchers>().inner().clone(),
             semaphores: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
-            assets_proxy: assets::Proxy::try_from(value)?,
             projects_storage: projects::Storage::from(value),
             users_storage: users::Storage::from(value),
             keys_storage: keys::Storage::from(value),
@@ -112,10 +107,13 @@ impl Controller {
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
-        let gb_repository =
-            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
-                .context("failed to open gitbutler repository")
-                .map_err(Error::Other)?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gitbutler repository")
+        .map_err(Error::Other)?;
         super::is_remote_branch_mergeable(&gb_repository, &project_repository, branch_name)
             .map_err(Error::Other)
     }
@@ -132,10 +130,13 @@ impl Controller {
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
-        let gb_repository =
-            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
-                .context("failed to open gitbutler repository")
-                .map_err(Error::Other)?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gitbutler repository")
+        .map_err(Error::Other)?;
         super::is_virtual_branch_mergeable(&gb_repository, &project_repository, branch_id)
             .map_err(Error::Other)
     }
@@ -226,16 +227,15 @@ impl Controller {
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
-        let gb_repository =
-            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
-                .context("failed to open gitbutler repository")
-                .map_err(Error::Other)?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gitbutler repository")
+        .map_err(Error::Other)?;
         let base_branch = super::get_base_branch_data(&gb_repository, &project_repository)?;
-        if let Some(branch) = base_branch {
-            Ok(Some(self.proxy_base_branch(branch).await))
-        } else {
-            Ok(None)
-        }
+        Ok(base_branch)
     }
 
     pub async fn list_remote_commit_files(
@@ -272,10 +272,13 @@ impl Controller {
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
 
-        let gb_repository =
-            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
-                .context("failed to open gitbutler repository")
-                .map_err(Error::Other)?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gitbutler repository")
+        .map_err(Error::Other)?;
         let target = super::set_base_branch(
             &gb_repository,
             &project_repository,
@@ -283,15 +286,15 @@ impl Controller {
             target_branch,
         )
         .map_err(Error::Other)?;
-        let current_session = gb_repository.get_current_session()?;
+        // let current_session = gb_repository.get_current_session()?;
 
-        if let Some(session) = current_session {
-            self.watchers
-                .post(watcher::Event::Session(project_id.to_string(), session))
-                .await?;
-        }
-
-        let target = self.proxy_base_branch(target).await;
+        // {
+        //     if let Some(session) = current_session {
+        //         self.watchers
+        //             .post(watcher::Event::Session(project_id.to_string(), session))
+        //             .await?;
+        //     }
+        // }
 
         Ok(target)
     }
@@ -479,10 +482,13 @@ impl Controller {
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
-        let gb_repository =
-            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
-                .context("failed to open gitbutler repository")
-                .map_err(Error::Other)?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gitbutler repository")
+        .map_err(Error::Other)?;
         super::integration::verify_branch(&gb_repository, &project_repository).map_err(
             |e| match e {
                 super::integration::VerifyError::DetachedHead => Error::DetachedHead,
@@ -501,59 +507,5 @@ impl Controller {
             .or_insert_with(|| Semaphore::new(1));
         let _permit = semaphore.acquire().await;
         action()
-    }
-
-    async fn proxy_base_branch(&self, target: super::BaseBranch) -> super::BaseBranch {
-        super::BaseBranch {
-            recent_commits: join_all(
-                target
-                    .clone()
-                    .recent_commits
-                    .into_iter()
-                    .map(|commit| async move {
-                        super::RemoteCommit {
-                            author: super::Author {
-                                gravatar_url: self
-                                    .assets_proxy
-                                    .proxy(&commit.author.gravatar_url)
-                                    .await
-                                    .unwrap_or_else(|error| {
-                                        tracing::error!(gravatar_url = %commit.author.gravatar_url, ?error, "failed to proxy gravatar url");
-                                        commit.author.gravatar_url
-                                    }),
-                                ..commit.author
-                            },
-                            ..commit
-                        }
-                    })
-                    .collect::<Vec<_>>(),
-            )
-            .await,
-            upstream_commits: join_all(
-                target
-                    .clone()
-                    .upstream_commits
-                    .into_iter()
-                    .map(|commit| async move {
-                        super::RemoteCommit {
-                            author: super::Author {
-                                gravatar_url: self
-                                    .assets_proxy
-                                    .proxy(&commit.author.gravatar_url)
-                                    .await
-                                    .unwrap_or_else(|error| {
-                                        tracing::error!(gravatar_url = %commit.author.gravatar_url, ?error, "failed to proxy gravatar url");
-                                        commit.author.gravatar_url
-                                    }),
-                                ..commit.author
-                            },
-                            ..commit
-                        }
-                    })
-                    .collect::<Vec<_>>(),
-            )
-            .await,
-            ..target
-        }
     }
 }

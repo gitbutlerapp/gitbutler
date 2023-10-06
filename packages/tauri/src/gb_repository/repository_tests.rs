@@ -39,9 +39,13 @@ fn test_must_not_return_init_session() -> Result<()> {
 
 #[test]
 fn test_must_not_flush_without_current_session() -> Result<()> {
-    let Case { gb_repository, .. } = Suite::default().new_case();
+    let Case {
+        gb_repository,
+        project_repository,
+        ..
+    } = Suite::default().new_case();
 
-    let session = gb_repository.flush(None)?;
+    let session = gb_repository.flush(&project_repository, None)?;
     assert!(session.is_none());
 
     let iter = gb_repository.get_sessions_iterator()?;
@@ -52,22 +56,30 @@ fn test_must_not_flush_without_current_session() -> Result<()> {
 
 #[test]
 fn test_non_empty_repository() -> Result<()> {
-    let Case { gb_repository, .. } = Suite::default()
+    let Case {
+        gb_repository,
+        project_repository,
+        ..
+    } = Suite::default()
         .new_case_with_files(HashMap::from([(path::PathBuf::from("test.txt"), "test")]));
 
     gb_repository.get_or_create_current_session()?;
-    gb_repository.flush(None)?;
+    gb_repository.flush(&project_repository, None)?;
 
     Ok(())
 }
 
 #[test]
 fn test_must_flush_current_session() -> Result<()> {
-    let Case { gb_repository, .. } = Suite::default().new_case();
+    let Case {
+        gb_repository,
+        project_repository,
+        ..
+    } = Suite::default().new_case();
 
     gb_repository.get_or_create_current_session()?;
 
-    let session = gb_repository.flush(None)?;
+    let session = gb_repository.flush(&project_repository, None)?;
     assert!(session.is_some());
 
     let iter = gb_repository.get_sessions_iterator()?;
@@ -111,7 +123,11 @@ fn test_list_deltas_from_current_session() -> Result<()> {
 
 #[test]
 fn test_list_deltas_from_flushed_session() -> Result<()> {
-    let Case { gb_repository, .. } = Suite::default().new_case();
+    let Case {
+        gb_repository,
+        project_repository,
+        ..
+    } = Suite::default().new_case();
 
     let writer = deltas::Writer::new(&gb_repository);
     writer.write(
@@ -121,7 +137,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
             timestamp_ms: 0,
         }],
     )?;
-    let session = gb_repository.flush(None)?;
+    let session = gb_repository.flush(&project_repository, None)?;
 
     let session_reader = sessions::Reader::open(&gb_repository, &session.unwrap())?;
     let deltas_reader = deltas::Reader::new(&session_reader);
@@ -164,13 +180,17 @@ fn test_list_files_from_current_session() -> Result<()> {
 
 #[test]
 fn test_list_files_from_flushed_session() -> Result<()> {
-    let Case { gb_repository, .. } = Suite::default().new_case_with_files(HashMap::from([(
+    let Case {
+        gb_repository,
+        project_repository,
+        ..
+    } = Suite::default().new_case_with_files(HashMap::from([(
         path::PathBuf::from("test.txt"),
         "Hello World",
     )]));
 
     gb_repository.get_or_create_current_session()?;
-    let session = gb_repository.flush(None)?.unwrap();
+    let session = gb_repository.flush(&project_repository, None)?.unwrap();
     let reader = sessions::Reader::open(&gb_repository, &session)?;
     let files = reader.files(None)?;
 
@@ -201,7 +221,7 @@ fn test_remote_syncronization() -> Result<()> {
     let user = suite.sign_in();
 
     // create first local project, add files, deltas and flush a session
-    let mut case_one = suite.new_case_with_files(HashMap::from([(
+    let case_one = suite.new_case_with_files(HashMap::from([(
         path::PathBuf::from("test.txt"),
         "Hello World",
     )]));
@@ -210,7 +230,7 @@ fn test_remote_syncronization() -> Result<()> {
         api: Some(api_project.clone()),
         ..Default::default()
     })?;
-    case_one.refresh();
+    let case_one = case_one.refresh();
 
     let writer = deltas::Writer::new(&case_one.gb_repository);
     writer.write(
@@ -220,17 +240,20 @@ fn test_remote_syncronization() -> Result<()> {
             timestamp_ms: 0,
         }],
     )?;
-    let session_one = case_one.gb_repository.flush(Some(&user))?.unwrap();
+    let session_one = case_one
+        .gb_repository
+        .flush(&case_one.project_repository, Some(&user))?
+        .unwrap();
     case_one.gb_repository.push(Some(&user)).unwrap();
 
     // create second local project, fetch it and make sure session is there
-    let mut case_two = suite.new_case();
+    let case_two = suite.new_case();
     suite.projects_storage.update(&projects::UpdateRequest {
         id: case_two.project.id.clone(),
         api: Some(api_project.clone()),
         ..Default::default()
     })?;
-    case_two.refresh();
+    let case_two = case_two.refresh();
 
     case_two.gb_repository.fetch(Some(&user))?;
 
@@ -280,48 +303,60 @@ fn test_remote_sync_order() -> Result<()> {
 
     let suite = Suite::default();
 
-    let mut case_one = suite.new_case();
+    let case_one = suite.new_case();
     suite.projects_storage.update(&projects::UpdateRequest {
         id: case_one.project.id.clone(),
         api: Some(api_project.clone()),
         ..Default::default()
     })?;
-    case_one.refresh();
+    let case_one = case_one.refresh();
 
-    let mut case_two = suite.new_case();
+    let case_two = suite.new_case();
     suite.projects_storage.update(&projects::UpdateRequest {
         id: case_two.project.id.clone(),
         api: Some(api_project.clone()),
         ..Default::default()
     })?;
-    case_two.refresh();
+    let case_two = case_two.refresh();
 
     let user = suite.sign_in();
 
     // create session in the first project
     case_one.gb_repository.get_or_create_current_session()?;
-    let session_one_first = case_one.gb_repository.flush(Some(&user))?.unwrap();
+    let session_one_first = case_one
+        .gb_repository
+        .flush(&case_one.project_repository, Some(&user))?
+        .unwrap();
     case_one.gb_repository.push(Some(&user)).unwrap();
 
     thread::sleep(time::Duration::from_secs(1));
 
     // create session in the second project
     case_two.gb_repository.get_or_create_current_session()?;
-    let session_two_first = case_two.gb_repository.flush(Some(&user))?.unwrap();
+    let session_two_first = case_two
+        .gb_repository
+        .flush(&case_two.project_repository, Some(&user))?
+        .unwrap();
     case_two.gb_repository.push(Some(&user)).unwrap();
 
     thread::sleep(time::Duration::from_secs(1));
 
     // create second session in the first project
     case_one.gb_repository.get_or_create_current_session()?;
-    let session_one_second = case_one.gb_repository.flush(Some(&user))?.unwrap();
+    let session_one_second = case_one
+        .gb_repository
+        .flush(&case_one.project_repository, Some(&user))?
+        .unwrap();
     case_one.gb_repository.push(Some(&user)).unwrap();
 
     thread::sleep(time::Duration::from_secs(1));
 
     // create second session in the second project
     case_two.gb_repository.get_or_create_current_session()?;
-    let session_two_second = case_two.gb_repository.flush(Some(&user))?.unwrap();
+    let session_two_second = case_two
+        .gb_repository
+        .flush(&case_two.project_repository, Some(&user))?
+        .unwrap();
     case_two.gb_repository.push(Some(&user)).unwrap();
 
     case_one.gb_repository.fetch(Some(&user))?;

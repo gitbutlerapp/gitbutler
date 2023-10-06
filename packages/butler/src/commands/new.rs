@@ -19,7 +19,7 @@ impl super::RunCommand for New {
             .context("failed to get branch name")?;
 
         virtual_branches::create_virtual_branch(
-            app.gb_repository(),
+            &app.gb_repository(),
             &virtual_branches::branch::BranchCreateRequest {
                 name: Some(input),
                 ..Default::default()

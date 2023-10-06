@@ -30,7 +30,7 @@ impl<'writer> DeltasWriter<'writer> {
             .write_string(&format!("session/deltas/{}", path.display()), &raw_deltas)?;
 
         tracing::debug!(
-            project_id = self.repository.project.id,
+            project_id = self.repository.get_project_id(),
             path = %path.display(),
             "wrote deltas"
         );
@@ -48,7 +48,7 @@ impl<'writer> DeltasWriter<'writer> {
             .write_string(&format!("session/wd/{}", path.display()), contents)?;
 
         tracing::debug!(
-            project_id = self.repository.project.id,
+            project_id = self.repository.get_project_id(),
             path = %path.display(),
             "wrote session wd file"
         );

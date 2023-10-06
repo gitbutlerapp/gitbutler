@@ -3,7 +3,7 @@ use std::{path, time};
 use anyhow::Context;
 use tauri::{AppHandle, Manager};
 
-use crate::{gb_repository, users, watcher};
+use crate::watcher;
 
 use super::{storage, Project, UpdateRequest};
 
@@ -11,7 +11,6 @@ pub struct Controller {
     local_data_dir: path::PathBuf,
     watchers: watcher::Watchers,
     projects_storage: storage::Storage,
-    users_storage: users::Storage,
 }
 
 impl TryFrom<&AppHandle> for Controller {
@@ -24,7 +23,6 @@ impl TryFrom<&AppHandle> for Controller {
                 .app_local_data_dir()
                 .context("failed to get local data dir")?,
             projects_storage: storage::Storage::try_from(value)?,
-            users_storage: users::Storage::try_from(value)?,
             watchers: value.state::<watcher::Watchers>().inner().clone(),
         })
     }
@@ -144,31 +142,15 @@ impl Controller {
             );
         }
 
-        match gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            &project,
-            self.users_storage
-                .get()
-                .map_err(|error| DeleteError::Other(error.into()))?
-                .as_ref(),
-        ) {
-            Ok(gb_repository) => {
-                if let Err(error) = gb_repository.purge() {
-                    tracing::error!(
-                        project_id = project.id,
-                        ?error,
-                        "failed to remove project dir"
-                    );
-                }
-                Ok(())
-            }
-            Err(gb_repository::Error::ProjectPathNotFound(_)) => Ok(()),
-            Err(error) => Err(DeleteError::Other(error.into())),
-        }?;
-
         self.projects_storage
             .purge(&project.id)
             .map_err(|error| DeleteError::Other(error.into()))?;
+
+        if let Err(error) =
+            std::fs::remove_dir_all(self.local_data_dir.join("projects").join(&project.id))
+        {
+            tracing::error!(project_id = id, ?error, "failed to remove project data",);
+        }
 
         Ok(())
     }

@@ -108,10 +108,14 @@ impl App {
             .projects_controller
             .get_project(project_id)
             .context("failed to get project")?;
-
-        let gb_repo =
-            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
-                .context("failed to open gb repository")?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+        let gb_repo = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gb repository")?;
         let session_reader =
             sessions::Reader::open(&gb_repo, &session).context("failed to open session reader")?;
         session_reader
@@ -136,9 +140,12 @@ impl App {
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let user = self.users_storage.get().context("failed to get user")?;
-        let gb_repo =
-            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
-                .context("failed to open gb repository")?;
+        let gb_repo = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gb repository")?;
         let current_session = gb_repo.get_or_create_current_session()?;
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
         let target_reader = target::Reader::new(&current_session_reader);
@@ -174,8 +181,12 @@ impl App {
         {
             let user = self.users_storage.get()?;
             let project = self.projects_controller.get_project(&bookmark.project_id)?;
-            let gb_repository =
-                gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())?;
+            let project_repository = project_repository::Repository::open(&project)?;
+            let gb_repository = gb_repository::Repository::open(
+                &self.local_data_dir,
+                &project_repository,
+                user.as_ref(),
+            )?;
             let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;
             writer.write(bookmark).context("failed to write bookmark")?;
         }
@@ -256,9 +267,13 @@ impl App {
     ) -> Result<Vec<virtual_branches::RemoteBranch>> {
         let user = self.users_storage.get()?;
         let project = self.projects_controller.get_project(project_id)?;
-        let gb_repository =
-            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
-                .context("failed to open gb repo")?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gb repo")?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         virtual_branches::list_remote_branches(&gb_repository, &project_repository)
@@ -296,9 +311,13 @@ impl App {
     pub fn git_gb_push(&self, project_id: &str) -> Result<()> {
         let user = self.users_storage.get()?;
         let project = self.projects_controller.get_project(project_id)?;
-        let gb_repository =
-            gb_repository::Repository::open(&self.local_data_dir, &project, user.as_ref())
-                .context("failed to open gb repo")?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gb repo")?;
         gb_repository.push(user.as_ref())
     }
 
