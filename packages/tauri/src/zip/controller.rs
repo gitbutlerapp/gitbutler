@@ -37,12 +37,12 @@ impl TryFrom<&AppHandle> for Controller {
 
 impl Controller {
     pub fn archive(&self, project_id: &str) -> Result<path::PathBuf, ArchiveError> {
-        let project = self.projects_controller.get_project(project_id)?;
+        let project = self.projects_controller.get(project_id)?;
         self.zipper.zip(project.path).map_err(Into::into)
     }
 
     pub fn data_archive(&self, project_id: &str) -> Result<path::PathBuf, DataArchiveError> {
-        let project = self.projects_controller.get_project(project_id)?;
+        let project = self.projects_controller.get(project_id)?;
         self.zipper
             .zip(self.local_data_dir.join("projects").join(project.id))
             .map_err(Into::into)

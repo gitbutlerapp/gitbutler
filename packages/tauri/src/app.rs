@@ -67,7 +67,7 @@ impl App {
     pub async fn init(&self) -> Result<()> {
         for project in self
             .projects_controller
-            .list_projects()
+            .list()
             .with_context(|| "failed to list projects")?
         {
             if let Err(error) = self.init_project(&project).await {
@@ -79,7 +79,7 @@ impl App {
 
     pub fn get_project(&self, id: &str) -> Result<projects::Project> {
         self.projects_controller
-            .get_project(id)
+            .get(id)
             .context("failed to get project")
     }
 
@@ -106,7 +106,7 @@ impl App {
         let user = self.users_controller.get_user()?;
         let project = self
             .projects_controller
-            .get_project(project_id)
+            .get(project_id)
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
@@ -124,7 +124,7 @@ impl App {
     }
 
     pub fn mark_resolved(&self, project_id: &str, path: &str) -> Result<()> {
-        let project = self.projects_controller.get_project(project_id)?;
+        let project = self.projects_controller.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         // mark file as resolved
@@ -135,7 +135,7 @@ impl App {
     pub fn fetch_from_target(&self, project_id: &str) -> Result<(), Error> {
         let project = self
             .projects_controller
-            .get_project(project_id)
+            .get(project_id)
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
@@ -183,7 +183,7 @@ impl App {
     pub async fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
         {
             let user = self.users_controller.get_user()?;
-            let project = self.projects_controller.get_project(&bookmark.project_id)?;
+            let project = self.projects_controller.get(&bookmark.project_id)?;
             let project_repository = project_repository::Repository::open(&project)?;
             let gb_repository = gb_repository::Repository::open(
                 &self.local_data_dir,
@@ -229,7 +229,7 @@ impl App {
         project_id: &str,
         context_lines: u32,
     ) -> Result<HashMap<path::PathBuf, String>> {
-        let project = self.projects_controller.get_project(project_id)?;
+        let project = self.projects_controller.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
 
@@ -258,7 +258,7 @@ impl App {
     }
 
     pub fn git_remote_branches(&self, project_id: &str) -> Result<Vec<git::RemoteBranchName>> {
-        let project = self.projects_controller.get_project(project_id)?;
+        let project = self.projects_controller.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_remote_branches()
@@ -269,7 +269,7 @@ impl App {
         project_id: &str,
     ) -> Result<Vec<virtual_branches::RemoteBranch>> {
         let user = self.users_controller.get_user()?;
-        let project = self.projects_controller.get_project(project_id)?;
+        let project = self.projects_controller.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
@@ -283,7 +283,7 @@ impl App {
     }
 
     pub fn git_head(&self, project_id: &str) -> Result<String> {
-        let project = self.projects_controller.get_project(project_id)?;
+        let project = self.projects_controller.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let head = project_repository.get_head()?;
@@ -313,7 +313,7 @@ impl App {
 
     pub fn git_gb_push(&self, project_id: &str) -> Result<()> {
         let user = self.users_controller.get_user()?;
-        let project = self.projects_controller.get_project(project_id)?;
+        let project = self.projects_controller.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
@@ -332,10 +332,9 @@ impl App {
         self.searcher
             .delete_all_data()
             .context("failed to delete search data")?;
-        for project in self.projects_controller.list_projects()? {
+        for project in self.projects_controller.list()? {
             self.projects_controller
-                .delete_project(&project.id)
-                .await
+                .delete(&project.id)
                 .context("failed to delete project")?;
         }
         Ok(())

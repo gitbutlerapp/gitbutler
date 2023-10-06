@@ -8,7 +8,7 @@ pub struct Suite {
     pub local_app_data: path::PathBuf,
     pub storage: storage::Storage,
     pub users: users::Controller,
-    pub projects: projects::Storage,
+    pub projects: projects::Controller,
     pub keys: keys::Controller,
 }
 
@@ -17,7 +17,7 @@ impl Default for Suite {
         let local_app_data = temp_dir();
         let storage = storage::Storage::from(&local_app_data);
         let users = users::Controller::from(&storage);
-        let projects = projects::Storage::from(&storage);
+        let projects = projects::Controller::from(&local_app_data);
         let keys = keys::Controller::from(&storage);
         Self {
             storage,
@@ -55,20 +55,9 @@ impl Suite {
         }
         commit_all(&repository);
 
-        let project = projects::Project {
-            id: uuid::Uuid::new_v4().to_string(),
-            title: repository
-                .path()
-                .parent()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string(),
-            path: repository.path().parent().unwrap().to_path_buf(),
-            ..Default::default()
-        };
-        self.projects.add(&project).expect("failed to add project");
-        project
+        self.projects
+            .add(repository.path().parent().unwrap())
+            .expect("failed to add project")
     }
 
     pub fn new_case_with_files(&self, fs: HashMap<path::PathBuf, &str>) -> Case {

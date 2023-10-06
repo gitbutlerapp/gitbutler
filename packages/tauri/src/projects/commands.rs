@@ -33,8 +33,7 @@ pub async fn update_project(
 ) -> Result<projects::Project, Error> {
     handle
         .state::<Controller>()
-        .update_project(&project)
-        .await
+        .update(&project)
         .map_err(Into::into)
 }
 
@@ -71,11 +70,7 @@ pub async fn add_project(
     handle: tauri::AppHandle,
     path: &path::Path,
 ) -> Result<projects::Project, Error> {
-    handle
-        .state::<Controller>()
-        .add_project(path)
-        .await
-        .map_err(Into::into)
+    handle.state::<Controller>().add(path).map_err(Into::into)
 }
 
 impl From<controller::GetError> for Error {
@@ -96,10 +91,7 @@ impl From<controller::GetError> for Error {
 #[tauri::command(async)]
 #[instrument(skip(handle))]
 pub async fn get_project(handle: tauri::AppHandle, id: &str) -> Result<projects::Project, Error> {
-    handle
-        .state::<Controller>()
-        .get_project(id)
-        .map_err(Into::into)
+    handle.state::<Controller>().get(id).map_err(Into::into)
 }
 
 impl From<controller::ListError> for Error {
@@ -116,10 +108,7 @@ impl From<controller::ListError> for Error {
 #[tauri::command(async)]
 #[instrument(skip(handle))]
 pub async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
-    handle
-        .state::<Controller>()
-        .list_projects()
-        .map_err(Into::into)
+    handle.state::<Controller>().list().map_err(Into::into)
 }
 
 impl From<controller::DeleteError> for Error {
@@ -136,9 +125,5 @@ impl From<controller::DeleteError> for Error {
 #[tauri::command(async)]
 #[instrument(skip(handle))]
 pub async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
-    handle
-        .state::<Controller>()
-        .delete_project(id)
-        .await
-        .map_err(Into::into)
+    handle.state::<Controller>().delete(id).map_err(Into::into)
 }

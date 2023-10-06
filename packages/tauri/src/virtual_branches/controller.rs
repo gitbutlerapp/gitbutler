@@ -16,7 +16,7 @@ pub struct Controller {
     local_data_dir: path::PathBuf,
     semaphores: Arc<tokio::sync::Mutex<HashMap<String, Semaphore>>>,
 
-    projects_storage: projects::Storage,
+    projects: projects::Controller,
     users: users::Controller,
     keys: keys::Controller,
 }
@@ -50,7 +50,7 @@ impl TryFrom<&AppHandle> for Controller {
         Ok(Self {
             local_data_dir,
             semaphores: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
-            projects_storage: projects::Storage::from(value),
+            projects: projects::Controller::try_from(value)?,
             users: users::Controller::from(value),
             keys: keys::Controller::from(value),
         })
@@ -101,7 +101,7 @@ impl Controller {
         branch_name: &git::BranchName,
     ) -> Result<bool, Error> {
         let project = self
-            .projects_storage
+            .projects
             .get(project_id)
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
@@ -124,7 +124,7 @@ impl Controller {
         branch_id: &str,
     ) -> Result<bool, Error> {
         let project = self
-            .projects_storage
+            .projects
             .get(project_id)
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
@@ -221,7 +221,7 @@ impl Controller {
         project_id: &str,
     ) -> Result<Option<super::BaseBranch>, Error> {
         let project = self
-            .projects_storage
+            .projects
             .get(project_id)
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
@@ -244,7 +244,7 @@ impl Controller {
         commit_oid: git::Oid,
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = self
-            .projects_storage
+            .projects
             .get(project_id)
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
@@ -263,7 +263,7 @@ impl Controller {
         target_branch: &git::RemoteBranchName,
     ) -> Result<super::BaseBranch, Error> {
         let project = self
-            .projects_storage
+            .projects
             .get(project_id)
             .context("failed to get project")?;
 
@@ -476,7 +476,7 @@ impl Controller {
         ) -> Result<T, Error>,
     ) -> Result<T, Error> {
         let project = self
-            .projects_storage
+            .projects
             .get(project_id)
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)

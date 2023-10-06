@@ -35,7 +35,7 @@ impl Handler {
 
 struct HandlerInner {
     local_data_dir: path::PathBuf,
-    project_storage: projects::Storage,
+    projects: projects::Controller,
     users: users::Controller,
     keys: keys::Controller,
 
@@ -56,7 +56,7 @@ impl TryFrom<&AppHandle> for HandlerInner {
         Ok(Self {
             local_data_dir: local_data_dir.to_path_buf(),
             keys: keys::Controller::try_from(value)?,
-            project_storage: projects::Storage::try_from(value)?,
+            projects: projects::Controller::try_from(value)?,
             users: users::Controller::try_from(value)?,
             mutex: Mutex::new(()),
         })
@@ -74,7 +74,7 @@ impl HandlerInner {
         let user = self.users.get_user()?;
 
         // mark fetching
-        self.project_storage
+        self.projects
             .update(&projects::UpdateRequest {
                 id: project_id.to_string(),
                 project_data_last_fetched: Some(projects::FetchResult::Fetching {
@@ -85,7 +85,7 @@ impl HandlerInner {
             .context("failed to mark project as fetching")?;
 
         let project = self
-            .project_storage
+            .projects
             .get(project_id)
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)?;
@@ -132,7 +132,7 @@ impl HandlerInner {
                 }
             };
 
-        self.project_storage
+        self.projects
             .update(&projects::UpdateRequest {
                 id: project_id.to_string(),
                 project_data_last_fetched: Some(fetch_result),

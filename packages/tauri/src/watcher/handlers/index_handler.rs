@@ -13,7 +13,7 @@ use super::events;
 #[derive(Clone)]
 pub struct Handler {
     local_data_dir: path::PathBuf,
-    project_store: projects::Storage,
+    projects: projects::Controller,
     users: users::Controller,
     deltas_searcher: search::Searcher,
     sessions_database: sessions::Database,
@@ -31,7 +31,7 @@ impl TryFrom<&AppHandle> for Handler {
             .context("failed to get local data dir")?;
         Ok(Self {
             local_data_dir: local_data_dir.to_path_buf(),
-            project_store: projects::Storage::try_from(value)?,
+            projects: projects::Controller::try_from(value)?,
             users: users::Controller::from(value),
             deltas_searcher: value.state::<search::Searcher>().inner().clone(),
             sessions_database: sessions::Database::try_from(value)?,
@@ -73,7 +73,7 @@ impl Handler {
 
     pub fn reindex(&self, project_id: &str) -> Result<Vec<events::Event>> {
         let user = self.users.get_user()?;
-        let project = self.project_store.get(project_id)?;
+        let project = self.projects.get(project_id)?;
         let project_repository =
             project_repository::Repository::open(&project).context("failed to open repository")?;
         let gb_repository = gb_repository::Repository::open(
@@ -97,7 +97,7 @@ impl Handler {
         session: &sessions::Session,
     ) -> Result<Vec<events::Event>> {
         let user = self.users.get_user()?;
-        let project = self.project_store.get(project_id)?;
+        let project = self.projects.get(project_id)?;
         let project_repository =
             project_repository::Repository::open(&project).context("failed to open repository")?;
         let gb_repository = gb_repository::Repository::open(

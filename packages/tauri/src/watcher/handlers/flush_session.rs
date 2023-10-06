@@ -10,7 +10,7 @@ use super::events;
 #[derive(Clone)]
 pub struct Handler {
     local_data_dir: path::PathBuf,
-    project_store: projects::Storage,
+    project_store: projects::Controller,
     users: users::Controller,
 }
 
@@ -24,7 +24,7 @@ impl TryFrom<&AppHandle> for Handler {
             .context("failed to get local data dir")?;
         Ok(Self {
             local_data_dir: local_data_dir.to_path_buf(),
-            project_store: projects::Storage::try_from(value)?,
+            project_store: projects::Controller::try_from(value)?,
             users: users::Controller::from(value),
         })
     }
