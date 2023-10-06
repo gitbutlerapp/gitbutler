@@ -136,7 +136,7 @@ impl Controller {
             Err(error) => Err(DeleteError::Other(error.into())),
         }?;
 
-        if let Err(error) = self.watchers.stop(&id).await {
+        if let Err(error) = self.watchers.stop(id).await {
             tracing::error!(
                 project_id = id,
                 ?error,

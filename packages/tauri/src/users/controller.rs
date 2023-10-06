@@ -1,3 +1,4 @@
+use anyhow::Context;
 use tauri::AppHandle;
 
 use super::{storage, User};
@@ -18,32 +19,41 @@ impl TryFrom<&AppHandle> for Controller {
 
 impl Controller {
     pub fn get_user(&self) -> Result<Option<User>, GetError> {
-        self.storage.get().map_err(Into::into)
+        self.storage
+            .get()
+            .context("failed to get user")
+            .map_err(Into::into)
     }
 
     pub fn set_user(&self, user: &User) -> Result<(), SetError> {
-        self.storage.set(user).map_err(Into::into)
+        self.storage
+            .set(user)
+            .context("failed to set user")
+            .map_err(Into::into)
     }
 
     pub fn delete_user(&self) -> Result<(), DeleteError> {
-        self.storage.delete().map_err(Into::into)
+        self.storage
+            .delete()
+            .context("failed to delete user")
+            .map_err(Into::into)
     }
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetError {
     #[error(transparent)]
-    Storage(#[from] storage::Error),
+    Other(#[from] anyhow::Error),
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum SetError {
     #[error(transparent)]
-    Storage(#[from] storage::Error),
+    Other(#[from] anyhow::Error),
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeleteError {
     #[error(transparent)]
-    Storage(#[from] storage::Error),
+    Other(#[from] anyhow::Error),
 }

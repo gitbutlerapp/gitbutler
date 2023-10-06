@@ -11,7 +11,7 @@ use super::{
 impl From<GetError> for Error {
     fn from(value: GetError) -> Self {
         match value {
-            GetError::Storage(error) => {
+            GetError::Other(error) => {
                 tracing::error!(?error, "failed to get user");
                 Error::Unknown
             }
@@ -40,7 +40,7 @@ pub async fn get_user(handle: AppHandle) -> Result<Option<User>, Error> {
 impl From<controller::SetError> for Error {
     fn from(value: controller::SetError) -> Self {
         match value {
-            controller::SetError::Storage(error) => {
+            controller::SetError::Other(error) => {
                 tracing::error!(?error, "failed to set user");
                 Error::Unknown
             }
@@ -63,7 +63,7 @@ pub async fn set_user(handle: AppHandle, user: User) -> Result<(), Error> {
 impl From<controller::DeleteError> for Error {
     fn from(value: controller::DeleteError) -> Self {
         match value {
-            controller::DeleteError::Storage(error) => {
+            controller::DeleteError::Other(error) => {
                 tracing::error!(?error, "failed to delete user");
                 Error::Unknown
             }
