@@ -1,16 +1,18 @@
 use std::{path, time};
 
 use anyhow::Context;
+use futures::executor::block_on;
 use tauri::{AppHandle, Manager};
 
 use crate::watcher;
 
-use super::{storage, Project, UpdateRequest};
+use super::{storage, storage::UpdateRequest, Project};
 
+#[derive(Clone)]
 pub struct Controller {
     local_data_dir: path::PathBuf,
-    watchers: watcher::Watchers,
     projects_storage: storage::Storage,
+    watchers: Option<watcher::Watchers>,
 }
 
 impl TryFrom<&AppHandle> for Controller {
@@ -23,13 +25,23 @@ impl TryFrom<&AppHandle> for Controller {
                 .app_local_data_dir()
                 .context("failed to get local data dir")?,
             projects_storage: storage::Storage::try_from(value)?,
-            watchers: value.state::<watcher::Watchers>().inner().clone(),
+            watchers: Some(value.state::<watcher::Watchers>().inner().clone()),
         })
     }
 }
 
+impl From<&path::PathBuf> for Controller {
+    fn from(value: &path::PathBuf) -> Self {
+        Self {
+            local_data_dir: value.to_path_buf(),
+            projects_storage: storage::Storage::from(value),
+            watchers: None,
+        }
+    }
+}
+
 impl Controller {
-    pub async fn add_project(&self, path: &path::Path) -> Result<Project, AddError> {
+    pub fn add(&self, path: &path::Path) -> Result<Project, AddError> {
         let all_projects = self
             .projects_storage
             .list()
@@ -68,78 +80,78 @@ impl Controller {
             .add(&project)
             .map_err(|error| AddError::Other(error.into()))?;
 
-        self.watchers.watch(&project).await?;
+        if let Some(ref watchers) = self.watchers {
+            block_on(watchers.watch(&project))?;
+        }
 
         Ok(project)
     }
 
-    pub async fn update_project(&self, project: &UpdateRequest) -> Result<Project, UpdateError> {
+    pub fn update(&self, project: &UpdateRequest) -> Result<Project, UpdateError> {
         let updated = self
             .projects_storage
             .update(project)
             .map_err(|error| match error {
-                super::StorageError::NotFound => UpdateError::NotFound,
+                super::storage::Error::NotFound => UpdateError::NotFound,
                 error => UpdateError::Other(error.into()),
             })?;
 
-        if let Err(error) = self
-            .watchers
-            .post(watcher::Event::FetchGitbutlerData(
+        if let Some(ref watchers) = self.watchers {
+            if let Err(error) = block_on(watchers.post(watcher::Event::FetchGitbutlerData(
                 project.id.clone(),
                 time::SystemTime::now(),
-            ))
-            .await
-        {
-            tracing::error!(
-                project_id = &project.id,
-                ?error,
-                "failed to post fetch project event"
-            );
-        }
-
-        if project.api.is_some() {
-            if let Err(error) = self
-                .watchers
-                .post(watcher::Event::PushGitbutlerData(project.id.clone()))
-                .await
-            {
+            ))) {
                 tracing::error!(
                     project_id = &project.id,
                     ?error,
-                    "failed to post push project event"
+                    "failed to post fetch project event"
                 );
+            }
+
+            if project.api.is_some() {
+                if let Err(error) =
+                    block_on(watchers.post(watcher::Event::PushGitbutlerData(project.id.clone())))
+                {
+                    tracing::error!(
+                        project_id = &project.id,
+                        ?error,
+                        "failed to post push project event"
+                    );
+                }
             }
         }
 
         Ok(updated)
     }
 
-    pub fn get_project(&self, id: &str) -> Result<Project, GetError> {
+    pub fn get(&self, id: &str) -> Result<Project, GetError> {
         self.projects_storage.get(id).map_err(|error| match error {
-            super::StorageError::NotFound => GetError::NotFound,
+            super::storage::Error::NotFound => GetError::NotFound,
             error => GetError::Other(error.into()),
         })
     }
 
-    pub fn list_projects(&self) -> Result<Vec<Project>, ListError> {
+    pub fn list(&self) -> Result<Vec<Project>, ListError> {
         self.projects_storage
             .list()
             .map_err(|error| ListError::Other(error.into()))
     }
 
-    pub async fn delete_project(&self, id: &str) -> Result<(), DeleteError> {
+    pub fn delete(&self, id: &str) -> Result<(), DeleteError> {
         let project = match self.projects_storage.get(id) {
             Ok(project) => Ok(project),
-            Err(super::StorageError::NotFound) => return Ok(()),
+            Err(super::storage::Error::NotFound) => return Ok(()),
             Err(error) => Err(DeleteError::Other(error.into())),
         }?;
 
-        if let Err(error) = self.watchers.stop(id).await {
-            tracing::error!(
-                project_id = id,
-                ?error,
-                "failed to stop watcher for project",
-            );
+        if let Some(ref watchers) = self.watchers {
+            if let Err(error) = block_on(watchers.stop(id)) {
+                tracing::error!(
+                    project_id = id,
+                    ?error,
+                    "failed to stop watcher for project",
+                );
+            }
         }
 
         self.projects_storage

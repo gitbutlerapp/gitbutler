@@ -2,7 +2,7 @@ use anyhow::Context;
 use futures::executor::block_on;
 use tauri::{generate_context, Manager};
 
-use gitbutler::*;
+use gitbutler::{zip, *};
 
 fn main() {
     let tauri_context = generate_context!();
@@ -98,10 +98,6 @@ fn main() {
                         .expect("failed to initialize watchers");
                     tauri_app.manage(watchers);
 
-                    let zipper =
-                        zip::Zipper::try_from(&app_handle).expect("failed to initialize zipper");
-                    tauri_app.manage(zipper);
-
                     let proxy =
                         assets::Proxy::try_from(&app_handle).expect("failed to initialize proxy");
                     tauri_app.manage(proxy);
@@ -113,6 +109,10 @@ fn main() {
                     let storage = storage::Storage::try_from(&app_handle)
                         .expect("failed to initialize storage");
                     app_handle.manage(storage);
+
+                    let zipper = zip::Controller::try_from(&app_handle)
+                        .expect("failed to initialize zipc controller ");
+                    tauri_app.manage(zipper);
 
                     let search = search::Searcher::try_from(&app_handle)
                         .expect("failed to initialize search");
@@ -126,6 +126,10 @@ fn main() {
                         virtual_branches::controller::Controller::try_from(&app_handle)
                             .expect("failed to initialize virtual branches controller");
                     app_handle.manage(vbranch_contoller);
+
+                    let keys_controller = keys::Controller::try_from(&app_handle)
+                        .expect("failed to initialize keys controller");
+                    app_handle.manage(keys_controller);
 
                     let users_controller = users::Controller::try_from(&app_handle)
                         .expect("failed to initialize users controller");
@@ -154,15 +158,15 @@ fn main() {
                     commands::git_head,
                     commands::git_wd_diff,
                     commands::delete_all_data,
-                    commands::get_logs_archive_path,
-                    commands::get_project_archive_path,
-                    commands::get_project_data_archive_path,
                     commands::upsert_bookmark,
                     commands::list_bookmarks,
                     commands::fetch_from_target,
                     commands::mark_resolved,
                     commands::git_set_global_config,
                     commands::git_get_global_config,
+                    zip::commands::get_logs_archive_path,
+                    zip::commands::get_project_archive_path,
+                    zip::commands::get_project_data_archive_path,
                     users::commands::set_user,
                     users::commands::delete_user,
                     users::commands::get_user,

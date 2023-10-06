@@ -35,9 +35,9 @@ impl Handler {
 
 struct HandlerInner {
     local_data_dir: path::PathBuf,
-    project_storage: projects::Storage,
-    user_storage: users::Storage,
-    keys_controller: keys::Storage,
+    projects: projects::Controller,
+    users: users::Controller,
+    keys: keys::Controller,
 
     // it's ok to use mutex here, because even though project_id is a paramenter, we create
     // and use a handler per project.
@@ -55,9 +55,9 @@ impl TryFrom<&AppHandle> for HandlerInner {
             .context("failed to get local data dir")?;
         Ok(Self {
             local_data_dir: local_data_dir.to_path_buf(),
-            keys_controller: keys::Storage::try_from(value)?,
-            project_storage: projects::Storage::try_from(value)?,
-            user_storage: users::Storage::try_from(value)?,
+            keys: keys::Controller::try_from(value)?,
+            projects: projects::Controller::try_from(value)?,
+            users: users::Controller::try_from(value)?,
             mutex: Mutex::new(()),
         })
     }
@@ -71,10 +71,10 @@ impl HandlerInner {
             Err(TryLockError::WouldBlock) => return Ok(vec![]),
         };
 
-        let user = self.user_storage.get()?;
+        let user = self.users.get_user()?;
 
         // mark fetching
-        self.project_storage
+        self.projects
             .update(&projects::UpdateRequest {
                 id: project_id.to_string(),
                 project_data_last_fetched: Some(projects::FetchResult::Fetching {
@@ -85,7 +85,7 @@ impl HandlerInner {
             .context("failed to mark project as fetching")?;
 
         let project = self
-            .project_storage
+            .projects
             .get(project_id)
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)?;
@@ -99,7 +99,7 @@ impl HandlerInner {
 
         let key = match &project.preferred_key {
             projects::AuthKey::Generated => {
-                let private_key = self.keys_controller.get_or_create()?;
+                let private_key = self.keys.get_or_create()?;
                 keys::Key::Generated(Box::new(private_key))
             }
             projects::AuthKey::Local {
@@ -132,7 +132,7 @@ impl HandlerInner {
                 }
             };
 
-        self.project_storage
+        self.projects
             .update(&projects::UpdateRequest {
                 id: project_id.to_string(),
                 project_data_last_fetched: Some(fetch_result),

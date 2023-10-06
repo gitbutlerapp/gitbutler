@@ -2,7 +2,7 @@ use core::fmt;
 
 use serde::{ser::SerializeMap, Serialize};
 
-use crate::{app, keys, project_repository, virtual_branches};
+use crate::{app, project_repository, virtual_branches};
 
 #[derive(Debug)]
 pub enum Code {
@@ -122,12 +122,6 @@ impl From<app::Error> for Error {
             app::Error::FetchError(project_repository::Error::Other(e)) => Error::from(e),
             app::Error::Other(e) => Error::from(e),
         }
-    }
-}
-
-impl From<keys::Error> for Error {
-    fn from(value: keys::Error) -> Self {
-        anyhow::anyhow!(format!("keys: {0}", value.to_string())).into()
     }
 }
 

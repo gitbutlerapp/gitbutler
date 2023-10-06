@@ -1,19 +1,38 @@
+use std::path;
+
 use anyhow::Context;
 use tauri::AppHandle;
 
-use super::{storage, User};
+use crate::storage;
 
+use super::{storage::Storage, User};
+
+#[derive(Clone)]
 pub struct Controller {
-    storage: storage::Storage,
+    storage: Storage,
 }
 
-impl TryFrom<&AppHandle> for Controller {
-    type Error = anyhow::Error;
+impl From<&path::PathBuf> for Controller {
+    fn from(path: &path::PathBuf) -> Self {
+        Self {
+            storage: Storage::from(path),
+        }
+    }
+}
 
-    fn try_from(app: &AppHandle) -> Result<Self, Self::Error> {
-        Ok(Self {
-            storage: storage::Storage::try_from(app)?,
-        })
+impl From<&storage::Storage> for Controller {
+    fn from(storage: &storage::Storage) -> Self {
+        Self {
+            storage: Storage::from(storage),
+        }
+    }
+}
+
+impl From<&AppHandle> for Controller {
+    fn from(app: &AppHandle) -> Self {
+        Self {
+            storage: Storage::from(app),
+        }
     }
 }
 

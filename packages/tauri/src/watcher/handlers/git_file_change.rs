@@ -7,14 +7,14 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    project_store: projects::Storage,
+    projects: projects::Controller,
 }
 
 impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
         Ok(Self {
-            project_store: projects::Storage::try_from(value)?,
+            projects: projects::Controller::try_from(value)?,
         })
     }
 }
@@ -26,7 +26,7 @@ impl Handler {
         project_id: &str,
     ) -> Result<Vec<events::Event>> {
         let project = self
-            .project_store
+            .projects
             .get(project_id)
             .context("failed to get project")?;
 

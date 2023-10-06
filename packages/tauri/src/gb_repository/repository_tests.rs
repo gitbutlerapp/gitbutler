@@ -225,7 +225,7 @@ fn test_remote_syncronization() -> Result<()> {
         path::PathBuf::from("test.txt"),
         "Hello World",
     )]));
-    suite.projects_storage.update(&projects::UpdateRequest {
+    suite.projects.update(&projects::UpdateRequest {
         id: case_one.project.id.clone(),
         api: Some(api_project.clone()),
         ..Default::default()
@@ -248,7 +248,7 @@ fn test_remote_syncronization() -> Result<()> {
 
     // create second local project, fetch it and make sure session is there
     let case_two = suite.new_case();
-    suite.projects_storage.update(&projects::UpdateRequest {
+    suite.projects.update(&projects::UpdateRequest {
         id: case_two.project.id.clone(),
         api: Some(api_project.clone()),
         ..Default::default()
@@ -304,7 +304,7 @@ fn test_remote_sync_order() -> Result<()> {
     let suite = Suite::default();
 
     let case_one = suite.new_case();
-    suite.projects_storage.update(&projects::UpdateRequest {
+    suite.projects.update(&projects::UpdateRequest {
         id: case_one.project.id.clone(),
         api: Some(api_project.clone()),
         ..Default::default()
@@ -312,7 +312,7 @@ fn test_remote_sync_order() -> Result<()> {
     let case_one = case_one.refresh();
 
     let case_two = suite.new_case();
-    suite.projects_storage.update(&projects::UpdateRequest {
+    suite.projects.update(&projects::UpdateRequest {
         id: case_two.project.id.clone(),
         api: Some(api_project.clone()),
         ..Default::default()

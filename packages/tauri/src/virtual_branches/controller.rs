@@ -16,9 +16,9 @@ pub struct Controller {
     local_data_dir: path::PathBuf,
     semaphores: Arc<tokio::sync::Mutex<HashMap<String, Semaphore>>>,
 
-    projects_storage: projects::Storage,
-    users_storage: users::Storage,
-    keys_storage: keys::Storage,
+    projects: projects::Controller,
+    users: users::Controller,
+    keys: keys::Controller,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -50,9 +50,9 @@ impl TryFrom<&AppHandle> for Controller {
         Ok(Self {
             local_data_dir,
             semaphores: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
-            projects_storage: projects::Storage::from(value),
-            users_storage: users::Storage::from(value),
-            keys_storage: keys::Storage::from(value),
+            projects: projects::Controller::try_from(value)?,
+            users: users::Controller::from(value),
+            keys: keys::Controller::from(value),
         })
     }
 }
@@ -73,7 +73,7 @@ impl Controller {
                     .context("failed to get sign commits option")?
                 {
                     Some(
-                        self.keys_storage
+                        self.keys
                             .get_or_create()
                             .context("failed to get private key")?,
                     )
@@ -101,12 +101,12 @@ impl Controller {
         branch_name: &git::BranchName,
     ) -> Result<bool, Error> {
         let project = self
-            .projects_storage
+            .projects
             .get(project_id)
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        let user = self.users_storage.get().context("failed to get user")?;
+        let user = self.users.get_user().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -124,12 +124,12 @@ impl Controller {
         branch_id: &str,
     ) -> Result<bool, Error> {
         let project = self
-            .projects_storage
+            .projects
             .get(project_id)
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        let user = self.users_storage.get().context("failed to get user")?;
+        let user = self.users.get_user().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -193,7 +193,7 @@ impl Controller {
                     .context("failed to get sign commits option")?
                 {
                     Some(
-                        self.keys_storage
+                        self.keys
                             .get_or_create()
                             .context("failed to get private key")?,
                     )
@@ -221,12 +221,12 @@ impl Controller {
         project_id: &str,
     ) -> Result<Option<super::BaseBranch>, Error> {
         let project = self
-            .projects_storage
+            .projects
             .get(project_id)
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        let user = self.users_storage.get().context("failed to get user")?;
+        let user = self.users.get_user().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -244,7 +244,7 @@ impl Controller {
         commit_oid: git::Oid,
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = self
-            .projects_storage
+            .projects
             .get(project_id)
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
@@ -263,11 +263,11 @@ impl Controller {
         target_branch: &git::RemoteBranchName,
     ) -> Result<super::BaseBranch, Error> {
         let project = self
-            .projects_storage
+            .projects
             .get(project_id)
             .context("failed to get project")?;
 
-        let user = self.users_storage.get().context("failed to get user")?;
+        let user = self.users.get_user().context("failed to get user")?;
 
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
@@ -312,7 +312,7 @@ impl Controller {
                     .context("failed to get sign commits option")?
                 {
                     Some(
-                        self.keys_storage
+                        self.keys
                             .get_or_create()
                             .context("failed to get private key")?,
                     )
@@ -383,7 +383,7 @@ impl Controller {
                     .context("failed to get sign commits option")?
                 {
                     Some(
-                        self.keys_storage
+                        self.keys
                             .get_or_create()
                             .context("failed to get private key")?,
                     )
@@ -448,7 +448,7 @@ impl Controller {
                     },
                     projects::AuthKey::Generated => {
                         let private_key = self
-                            .keys_storage
+                            .keys
                             .get_or_create()
                             .context("failed to get or create private key")?;
                         keys::Key::Generated(Box::new(private_key))
@@ -476,12 +476,12 @@ impl Controller {
         ) -> Result<T, Error>,
     ) -> Result<T, Error> {
         let project = self
-            .projects_storage
+            .projects
             .get(project_id)
             .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        let user = self.users_storage.get().context("failed to get user")?;
+        let user = self.users.get_user().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,

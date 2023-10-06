@@ -10,8 +10,8 @@ use super::events;
 #[derive(Clone)]
 pub struct Handler {
     local_data_dir: path::PathBuf,
-    project_store: projects::Storage,
-    user_store: users::Storage,
+    project_store: projects::Controller,
+    users: users::Controller,
 }
 
 impl TryFrom<&AppHandle> for Handler {
@@ -24,8 +24,8 @@ impl TryFrom<&AppHandle> for Handler {
             .context("failed to get local data dir")?;
         Ok(Self {
             local_data_dir: local_data_dir.to_path_buf(),
-            project_store: projects::Storage::try_from(value)?,
-            user_store: users::Storage::try_from(value)?,
+            project_store: projects::Controller::try_from(value)?,
+            users: users::Controller::from(value),
         })
     }
 }
@@ -41,7 +41,7 @@ impl Handler {
             .get(project_id)
             .context("failed to get project")?;
 
-        let user = self.user_store.get()?;
+        let user = self.users.get_user()?;
         let project_repository =
             project_repository::Repository::open(&project).context("failed to open repository")?;
         let gb_repo = gb_repository::Repository::open(

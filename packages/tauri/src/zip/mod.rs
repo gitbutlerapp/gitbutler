@@ -1,3 +1,7 @@
+pub mod commands;
+mod controller;
+pub use controller::Controller;
+
 use std::{
     fs,
     io::{self, Read, Write},
