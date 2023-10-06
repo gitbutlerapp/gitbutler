@@ -6,23 +6,25 @@ use crate::{database, gb_repository, git, keys, project_repository, projects, st
 
 pub struct Suite {
     pub local_app_data: path::PathBuf,
-    pub user_storage: users::Storage,
-    pub projects_storage: projects::Storage,
-    pub keys_storage: keys::Storage,
+    pub storage: storage::Storage,
+    pub users: users::Controller,
+    pub projects: projects::Storage,
+    pub keys: keys::Controller,
 }
 
 impl Default for Suite {
     fn default() -> Self {
         let local_app_data = temp_dir();
         let storage = storage::Storage::from(&local_app_data);
-        let user_storage = users::Storage::from(&storage);
-        let projects_storage = projects::Storage::from(&storage);
-        let keys_storage = keys::Storage::from(&storage);
+        let users = users::Controller::from(&storage);
+        let projects = projects::Storage::from(&storage);
+        let keys = keys::Controller::from(&storage);
         Self {
+            storage,
             local_app_data,
-            user_storage,
-            projects_storage,
-            keys_storage,
+            users,
+            projects,
+            keys,
         }
     }
 }
@@ -34,7 +36,7 @@ impl Suite {
             email: "test@email.com".to_string(),
             ..Default::default()
         };
-        self.user_storage.set(&user).expect("failed to add user");
+        self.users.set_user(&user).expect("failed to add user");
         user
     }
 
@@ -65,9 +67,7 @@ impl Suite {
             path: repository.path().parent().unwrap().to_path_buf(),
             ..Default::default()
         };
-        self.projects_storage
-            .add(&project)
-            .expect("failed to add project");
+        self.projects.add(&project).expect("failed to add project");
         project
     }
 
@@ -106,7 +106,7 @@ impl<'a> Case<'a> {
     pub fn refresh(&self) -> Self {
         let project = self
             .suite
-            .projects_storage
+            .projects
             .get(&self.project.id)
             .expect("failed to get project");
         let project_repository = project_repository::Repository::open(&project)
@@ -117,8 +117,8 @@ impl<'a> Case<'a> {
                 &self.suite.local_app_data,
                 &project_repository,
                 self.suite
-                    .user_storage
-                    .get()
+                    .users
+                    .get_user()
                     .expect("failed to get user")
                     .as_ref(),
             )

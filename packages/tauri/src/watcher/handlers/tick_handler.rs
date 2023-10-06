@@ -11,7 +11,7 @@ use super::events;
 pub struct Handler {
     local_data_dir: path::PathBuf,
     project_store: projects::Storage,
-    user_store: users::Storage,
+    users_controller: users::Controller,
 }
 
 impl TryFrom<&AppHandle> for Handler {
@@ -23,18 +23,18 @@ impl TryFrom<&AppHandle> for Handler {
             .app_local_data_dir()
             .context("failed to get local data dir")?;
         let project_store = projects::Storage::try_from(value)?;
-        let user_store = users::Storage::try_from(value)?;
+        let user_store = users::Controller::try_from(value)?;
         Ok(Self {
             project_store,
             local_data_dir,
-            user_store,
+            users_controller: user_store,
         })
     }
 }
 
 impl Handler {
     pub fn handle(&self, project_id: &str, now: &time::SystemTime) -> Result<Vec<events::Event>> {
-        let user = self.user_store.get()?;
+        let user = self.users_controller.get_user()?;
 
         let project = self.project_store.get(project_id)?;
         let project_repository =

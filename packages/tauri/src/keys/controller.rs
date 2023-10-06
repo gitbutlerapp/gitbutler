@@ -3,16 +3,26 @@ use std::path;
 use anyhow::Context;
 use tauri::AppHandle;
 
-use super::{storage, PrivateKey};
+use crate::storage;
+
+use super::{storage::Storage, PrivateKey};
 
 pub struct Controller {
-    storage: storage::Storage,
+    storage: Storage,
 }
 
 impl From<&path::PathBuf> for Controller {
     fn from(value: &path::PathBuf) -> Self {
         Self {
-            storage: storage::Storage::from(value),
+            storage: Storage::from(value),
+        }
+    }
+}
+
+impl From<&storage::Storage> for Controller {
+    fn from(value: &storage::Storage) -> Self {
+        Self {
+            storage: Storage::from(value),
         }
     }
 }
@@ -20,7 +30,7 @@ impl From<&path::PathBuf> for Controller {
 impl From<&AppHandle> for Controller {
     fn from(value: &AppHandle) -> Self {
         Self {
-            storage: storage::Storage::from(value),
+            storage: Storage::from(value),
         }
     }
 }

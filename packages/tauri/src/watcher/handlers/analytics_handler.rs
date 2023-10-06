@@ -27,7 +27,7 @@ impl Handler {
 }
 
 struct HandlerInner {
-    user_storage: users::Storage,
+    users: users::Controller,
     client: analytics::Client,
 }
 
@@ -35,14 +35,14 @@ impl From<&AppHandle> for HandlerInner {
     fn from(value: &AppHandle) -> Self {
         Self {
             client: value.state::<analytics::Client>().inner().clone(),
-            user_storage: users::Storage::from(value),
+            users: users::Controller::from(value),
         }
     }
 }
 
 impl HandlerInner {
     pub fn handle(&self, event: &analytics::Event) -> Result<Vec<events::Event>> {
-        if let Some(user) = self.user_storage.get().context("failed to get user")? {
+        if let Some(user) = self.users.get_user().context("failed to get user")? {
             futures::executor::block_on(self.client.send(&user, event))
                 .context("failed to send event")?;
         }

@@ -15,7 +15,7 @@ use super::events;
 pub struct Handler {
     local_data_dir: path::PathBuf,
     project_store: projects::Storage,
-    user_store: users::Storage,
+    user_controller: users::Controller,
 }
 
 impl From<&path::PathBuf> for Handler {
@@ -23,7 +23,7 @@ impl From<&path::PathBuf> for Handler {
         Self {
             local_data_dir: local_data_dir.to_path_buf(),
             project_store: projects::Storage::from(local_data_dir),
-            user_store: users::Storage::from(local_data_dir),
+            user_controller: users::Controller::from(local_data_dir),
         }
     }
 }
@@ -36,12 +36,12 @@ impl TryFrom<&AppHandle> for Handler {
             .path_resolver()
             .app_local_data_dir()
             .context("Failed to get local data dir")?;
-        let user_store = users::Storage::try_from(value).context("Failed to get user store")?;
+        let user_store = users::Controller::try_from(value).context("Failed to get user store")?;
         let project_store = projects::Storage::try_from(value)?;
         Ok(Self {
             project_store,
             local_data_dir,
-            user_store,
+            user_controller: user_store,
         })
     }
 }
@@ -95,7 +95,10 @@ impl Handler {
         let project_repository = project_repository::Repository::open(&project)
             .with_context(|| "failed to open project repository for project")?;
 
-        let user = self.user_store.get().context("failed to get user")?;
+        let user = self
+            .user_controller
+            .get_user()
+            .context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,

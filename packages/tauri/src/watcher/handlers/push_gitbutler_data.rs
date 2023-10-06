@@ -32,7 +32,7 @@ impl Handler {
 struct HandlerInner {
     local_data_dir: path::PathBuf,
     project_storage: projects::Storage,
-    user_storage: users::Storage,
+    user_controller: users::Controller,
 
     // it's ok to use mutex here, because even though project_id is a paramenter, we create
     // and use a handler per project.
@@ -51,7 +51,7 @@ impl TryFrom<&AppHandle> for HandlerInner {
         Ok(Self::new(
             local_data_dir.to_path_buf(),
             projects::Storage::try_from(value)?,
-            users::Storage::try_from(value)?,
+            users::Controller::try_from(value)?,
         ))
     }
 }
@@ -60,12 +60,12 @@ impl HandlerInner {
     fn new(
         local_data_dir: path::PathBuf,
         project_storage: projects::Storage,
-        user_storage: users::Storage,
+        user_storage: users::Controller,
     ) -> Self {
         Self {
             local_data_dir,
             project_storage,
-            user_storage,
+            user_controller: user_storage,
             mutex: Mutex::new(()),
         }
     }
@@ -77,7 +77,7 @@ impl HandlerInner {
             Err(TryLockError::WouldBlock) => return Ok(vec![]),
         };
 
-        let user = self.user_storage.get()?;
+        let user = self.user_controller.get_user()?;
         let project = self.project_storage.get(project_id)?;
         let project_repository =
             project_repository::Repository::open(&project).context("failed to open repository")?;

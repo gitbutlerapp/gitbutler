@@ -159,7 +159,7 @@ fn test_signed_commit() -> Result<()> {
         &branch1_id,
         "test commit",
         None,
-        Some(suite.keys_storage.get_or_create()?).as_ref(),
+        Some(suite.keys.get_or_create()?).as_ref(),
         None,
     )?;
 
@@ -1389,7 +1389,7 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
         &gb_repository,
         &project_repository,
         &branch1.id,
-        Some(suite.keys_storage.get_or_create()?).as_ref(),
+        Some(suite.keys.get_or_create()?).as_ref(),
         None,
     )?;
 
