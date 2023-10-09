@@ -80,6 +80,7 @@ jobs:
             --apple-certificate-password "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" \
             --apple-signing-identity     "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
             --apple-id                   "${{ secrets.APPLE_ID }}" \
+            --apple-team-id              "${{ secrets.APPLE_PROVIDER_SHORT_NAME }}" \
             --apple-password             "${{ secrets.APPLE_PASSWORD }}" \
             --appimage-key-id            "${{ secrets.APPIMAGE_KEY_ID }}" \
             --appimage-key-passphrase    "${{ secrets.APPIMAGE_KEY_PASSPHRASE }}"
