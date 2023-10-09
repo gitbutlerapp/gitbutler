@@ -34,6 +34,7 @@ function help() {
 	echo "  --apple-certificate-password  password for the .p12 certificate." 1>&$to
 	echo "  --apple-signing-identity      the name of the keychain entry that contains the signing certificate." 1>&$to
 	echo "  --apple-id                    the apple id to use for signing." 1>&$to
+	echo "  --apple-team-id               the apple team id to use for signing." 1>&$to
 	echo "  --apple-password              the password for the apple id." 1>&$to
 	echo "  --appimage-key-id             the gpg key id to use for signing the appimage." 1>&$to
 	echo "  --appimage-key-passphrase     the gpg key passphrase to use for signing the appimage." 1>&$to
@@ -137,6 +138,11 @@ while [[ $# -gt 0 ]]; do
 		shift
 		shift
 		;;
+	--apple-team-id)
+		APPLE_TEAM_ID="$2"
+		shift
+		shift
+		;;
 	--apple-password)
 		APPLE_PASSWORD="$2"
 		shift
@@ -185,11 +191,13 @@ if [ "$DO_SIGN" = "true" ]; then
 		[ -z "$APPLE_CERTIFICATE_PASSWORD" ] && error "--apple-certificate-password is not set"
 		[ -z "$APPLE_SIGNING_IDENTITY" ] && error "--apple-signing-identity is not set"
 		[ -z "$APPLE_ID" ] && error "--apple-id is not set"
+		[ -z "$APPLE_TEAM_ID" ] && error "--apple-team-id is not set"
 		[ -z "$APPLE_PASSWORD" ] && error "--apple-password is not set"
 		export APPLE_CERTIFICATE="$APPLE_CERTIFICATE"
 		export APPLE_CERTIFICATE_PASSWORD="$APPLE_CERTIFICATE_PASSWORD"
 		export APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY"
 		export APPLE_ID="$APPLE_ID"
+		export APPLE_TEAM_ID="$APPLE_TEAM_ID"
 		export APPLE_PASSWORD="$APPLE_PASSWORD"
 	elif [ "$OS" == "linux" ]; then
 		[ -z "$APPIMAGE_KEY_ID" ] && error "--appimage-key-id is not set"
