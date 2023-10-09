@@ -27,8 +27,12 @@ pub struct App {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("failed to fetch: {0}")]
-    FetchError(#[from] project_repository::Error),
+    #[error(transparent)]
+    GetProject(#[from] projects::GetError),
+    #[error(transparent)]
+    ProjectRemote(#[from] project_repository::RemoteError),
+    #[error(transparent)]
+    OpenProjectRepository(#[from] project_repository::OpenError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -77,10 +81,8 @@ impl App {
         Ok(())
     }
 
-    pub fn get_project(&self, id: &str) -> Result<projects::Project> {
-        self.projects_controller
-            .get(id)
-            .context("failed to get project")
+    pub fn get_project(&self, id: &str) -> Result<projects::Project, Error> {
+        self.projects_controller.get(id).map_err(Error::GetProject)
     }
 
     pub fn list_sessions(
@@ -97,19 +99,18 @@ impl App {
         project_id: &str,
         session_id: &str,
         paths: Option<Vec<path::PathBuf>>,
-    ) -> Result<HashMap<path::PathBuf, reader::Content>> {
+    ) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
         let session = self
             .sessions_database
             .get_by_project_id_id(project_id, session_id)
             .context("failed to get session")?
             .context("session not found")?;
-        let user = self.users_controller.get_user()?;
-        let project = self
-            .projects_controller
-            .get(project_id)
-            .context("failed to get project")?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
+        let user = self
+            .users_controller
+            .get_user()
+            .context("failed to get user")?;
+        let project = self.projects_controller.get(project_id)?;
+        let project_repository = project_repository::Repository::try_from(&project)?;
         let gb_repo = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -121,24 +122,20 @@ impl App {
         session_reader
             .files(paths)
             .context("failed to read session files")
+            .map_err(Error::Other)
     }
 
-    pub fn mark_resolved(&self, project_id: &str, path: &str) -> Result<()> {
+    pub fn mark_resolved(&self, project_id: &str, path: &str) -> Result<(), Error> {
         let project = self.projects_controller.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
+        let project_repository = project_repository::Repository::try_from(&project)?;
         // mark file as resolved
         conflicts::resolve(&project_repository, path)?;
         Ok(())
     }
 
     pub fn fetch_from_target(&self, project_id: &str) -> Result<(), Error> {
-        let project = self
-            .projects_controller
-            .get(project_id)
-            .context("failed to get project")?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
+        let project = self.projects_controller.get(project_id)?;
+        let project_repository = project_repository::Repository::try_from(&project)?;
         let user = self
             .users_controller
             .get_user()
@@ -175,21 +172,25 @@ impl App {
             }
         };
 
-        project_repository
-            .fetch(default_target.branch.remote(), &key)
-            .map_err(Error::FetchError)
+        project_repository.fetch(default_target.branch.remote(), &key)?;
+
+        Ok(())
     }
 
-    pub async fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
+    pub async fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<(), Error> {
         {
-            let user = self.users_controller.get_user()?;
             let project = self.projects_controller.get(&bookmark.project_id)?;
-            let project_repository = project_repository::Repository::open(&project)?;
+            let project_repository = project_repository::Repository::try_from(&project)?;
+            let user = self
+                .users_controller
+                .get_user()
+                .context("failed to get user")?;
             let gb_repository = gb_repository::Repository::open(
                 &self.local_data_dir,
                 &project_repository,
                 user.as_ref(),
-            )?;
+            )
+            .context("failed to open gb repository")?;
             let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;
             writer.write(bookmark).context("failed to write bookmark")?;
         }
@@ -209,9 +210,10 @@ impl App {
         &self,
         project_id: &str,
         range: Option<ops::Range<u128>>,
-    ) -> Result<Vec<bookmarks::Bookmark>> {
+    ) -> Result<Vec<bookmarks::Bookmark>, Error> {
         self.bookmarks_database
             .list_by_project_id(project_id, range)
+            .map_err(Error::Other)
     }
 
     pub fn list_session_deltas(
@@ -219,23 +221,28 @@ impl App {
         project_id: &str,
         session_id: &str,
         paths: Option<Vec<&str>>,
-    ) -> Result<HashMap<String, Vec<deltas::Delta>>> {
+    ) -> Result<HashMap<String, Vec<deltas::Delta>>, Error> {
         self.deltas_database
             .list_by_project_id_session_id(project_id, session_id, paths)
+            .map_err(Error::Other)
     }
 
     pub fn git_wd_diff(
         &self,
         project_id: &str,
         context_lines: u32,
-    ) -> Result<HashMap<path::PathBuf, String>> {
+    ) -> Result<HashMap<path::PathBuf, String>, Error> {
         let project = self.projects_controller.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
+        let project_repository = project_repository::Repository::try_from(&project)?;
 
         let diff = diff::workdir(
             &project_repository.git_repository,
-            &project_repository.get_head()?.peel_to_commit()?.id(),
+            &project_repository
+                .get_head()
+                .context("failed to get project head")?
+                .peel_to_commit()
+                .context("failed to peel head to commit")?
+                .id(),
             &diff::Options { context_lines },
         )
         .context("failed to diff")?;
@@ -257,36 +264,43 @@ impl App {
         Ok(diff)
     }
 
-    pub fn git_remote_branches(&self, project_id: &str) -> Result<Vec<git::RemoteBranchName>> {
+    pub fn git_remote_branches(
+        &self,
+        project_id: &str,
+    ) -> Result<Vec<git::RemoteBranchName>, Error> {
         let project = self.projects_controller.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-        project_repository.git_remote_branches()
+        let project_repository = project_repository::Repository::try_from(&project)?;
+        project_repository
+            .git_remote_branches()
+            .map_err(Error::Other)
     }
 
     pub fn git_remote_branches_data(
         &self,
         project_id: &str,
-    ) -> Result<Vec<virtual_branches::RemoteBranch>> {
-        let user = self.users_controller.get_user()?;
+    ) -> Result<Vec<virtual_branches::RemoteBranch>, Error> {
         let project = self.projects_controller.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::Repository::try_from(&project)?;
+        let user = self
+            .users_controller
+            .get_user()
+            .context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
             user.as_ref(),
         )
         .context("failed to open gb repo")?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
         virtual_branches::list_remote_branches(&gb_repository, &project_repository)
+            .map_err(Error::Other)
     }
 
-    pub fn git_head(&self, project_id: &str) -> Result<String> {
+    pub fn git_head(&self, project_id: &str) -> Result<String, Error> {
         let project = self.projects_controller.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-        let head = project_repository.get_head()?;
+        let project_repository = project_repository::Repository::try_from(&project)?;
+        let head = project_repository
+            .get_head()
+            .context("failed to get repository head")?;
         Ok(head.name().unwrap().to_string())
     }
 
@@ -311,28 +325,35 @@ impl App {
         }
     }
 
-    pub fn git_gb_push(&self, project_id: &str) -> Result<()> {
-        let user = self.users_controller.get_user()?;
+    pub fn git_gb_push(&self, project_id: &str) -> Result<(), Error> {
+        let user = self
+            .users_controller
+            .get_user()
+            .context("failed to get user")?;
         let project = self.projects_controller.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::Repository::try_from(&project)?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
             user.as_ref(),
         )
         .context("failed to open gb repo")?;
-        gb_repository.push(user.as_ref())
+        gb_repository.push(user.as_ref()).map_err(Error::Other)
     }
 
-    pub fn search(&self, query: &search::Query) -> Result<search::Results> {
-        self.searcher.search(query)
+    pub fn search(&self, query: &search::Query) -> Result<search::Results, Error> {
+        self.searcher.search(query).map_err(Error::Other)
     }
 
-    pub async fn delete_all_data(&self) -> Result<()> {
+    pub async fn delete_all_data(&self) -> Result<(), Error> {
         self.searcher
             .delete_all_data()
             .context("failed to delete search data")?;
-        for project in self.projects_controller.list()? {
+        for project in self
+            .projects_controller
+            .list()
+            .context("failed to list projects")?
+        {
             self.projects_controller
                 .delete(&project.id)
                 .context("failed to delete project")?;

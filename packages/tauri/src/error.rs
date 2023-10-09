@@ -2,29 +2,25 @@ use core::fmt;
 
 use serde::{ser::SerializeMap, Serialize};
 
-use crate::{app, project_repository, virtual_branches};
-
 #[derive(Debug)]
 pub enum Code {
     Unknown,
-    FetchFailed,
-    PushFailed,
-    Conflicting,
     Projects,
-    GitAutenticationFailed,
-    InvalidHead,
+    ProjectGitAuth,
+    ProjectGitRemote,
+    ProjectConflict,
+    ProjectHead,
 }
 
 impl fmt::Display for Code {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Code::Unknown => write!(f, "errors.unknown"),
-            Code::PushFailed => write!(f, "errors.push"),
-            Code::FetchFailed => write!(f, "errors.fetch"),
-            Code::Conflicting => write!(f, "errors.conflict"),
-            Code::GitAutenticationFailed => write!(f, "errors.git.authentication"),
-            Code::InvalidHead => write!(f, "errors.git.head"),
             Code::Projects => write!(f, "errors.projects"),
+            Code::ProjectGitAuth => write!(f, "errors.projects.git.auth"),
+            Code::ProjectGitRemote => write!(f, "errors.projects.git.remote"),
+            Code::ProjectHead => write!(f, "errors.projects.head"),
+            Code::ProjectConflict => write!(f, "errors.projects.conflict"),
         }
     }
 }
@@ -54,74 +50,6 @@ impl Serialize for Error {
         map.serialize_entry("code", &code)?;
         map.serialize_entry("message", &message)?;
         map.end()
-    }
-}
-
-impl From<virtual_branches::controller::Error> for Error {
-    fn from(e: virtual_branches::controller::Error) -> Self {
-        match e {
-            virtual_branches::controller::Error::PushError(
-                project_repository::Error::AuthError,
-            ) => Error::UserError {
-                code: Code::GitAutenticationFailed,
-                message: "Git authentication failed. Add your GitButler key to your provider and try again."
-                    .to_string(),
-            },
-            virtual_branches::controller::Error::PushError(project_repository::Error::NoUrl) => Error::UserError {
-                code: Code::PushFailed,
-                message: "Project URL not found. Please check your project's git config and try again."
-                    .to_string(),
-            },
-            virtual_branches::controller::Error::PushError(project_repository::Error::NonSSHUrl(_)) => Error::UserError {
-                code: Code::PushFailed,
-                message: "Project URL is not supported. Please set it to either ssh or https and try again."
-                    .to_string(),
-            },
-            virtual_branches::controller::Error::PushError(project_repository::Error::Other(e)) => Error::from(e),
-            virtual_branches::controller::Error::Conflicting => Error::UserError {
-                code: Code::Conflicting,
-                message: "Project is in conflicting state. Resolve all conflicts and try again."
-                    .to_string(),
-            },
-            virtual_branches::controller::Error::DetachedHead => Error::UserError {
-                code: Code::InvalidHead,
-                message: format!("Project in detached head state. Please checkout {0} to continue.", virtual_branches::GITBUTLER_INTEGRATION_BRANCH_NAME),
-            },
-            virtual_branches::controller::Error::InvalidHead(head_name) => Error::UserError {
-                code: Code::InvalidHead,
-                message: format!("Project is on {0}. Please checkout {1} to continue.", head_name.replace("refs/heads/", ""), virtual_branches::GITBUTLER_INTEGRATION_BRANCH_NAME),
-            },
-            virtual_branches::controller::Error::NoIntegrationCommit => Error::UserError {
-                code: Code::InvalidHead,
-                message: "GibButler's integration commit not found on head.".to_string(),
-            },
-            virtual_branches::controller::Error::LockError(e) => Error::from(anyhow::anyhow!(e)),
-            virtual_branches::controller::Error::Other(e) => Error::from(e),
-        }
-    }
-}
-
-impl From<app::Error> for Error {
-    fn from(e: app::Error) -> Self {
-        match e {
-            app::Error::FetchError(project_repository::Error::AuthError) => Error::UserError {
-                code: Code::GitAutenticationFailed,
-                message: "Git authentication failed. Add your GitButler key to your provider and try again."
-                    .to_string(),
-            },
-            app::Error::FetchError(project_repository::Error::NoUrl) => Error::UserError {
-                code: Code::FetchFailed,
-                message: "Project URL not found. Please check your project's git config and try again."
-                    .to_string(),
-            },
-            app::Error::FetchError(project_repository::Error::NonSSHUrl(_)) => Error::UserError {
-                code: Code::FetchFailed,
-                message: "Project URL is not supported. Please set it to either ssh or https and try again."
-                    .to_string(),
-            },
-            app::Error::FetchError(project_repository::Error::Other(e)) => Error::from(e),
-            app::Error::Other(e) => Error::from(e),
-        }
     }
 }
 

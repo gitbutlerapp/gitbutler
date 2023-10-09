@@ -380,7 +380,7 @@ impl Repository {
         match sessions::Session::try_from(reader) {
             Result::Ok(session) => Ok(session),
             Err(sessions::SessionError::NoSession) => {
-                let project_repository = project_repository::Repository::open(&self.project)
+                let project_repository = project_repository::Repository::try_from(&self.project)
                     .context("failed to open project repository")?;
                 let session = self
                     .create_current_session(&project_repository)

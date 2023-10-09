@@ -79,7 +79,7 @@ pub struct Case<'a> {
 
 impl<'a> Case<'a> {
     fn new(suite: &'a Suite, project: projects::Project) -> Case<'a> {
-        let project_repository = project_repository::Repository::open(&project)
+        let project_repository = project_repository::Repository::try_from(&project)
             .expect("failed to create project repository");
         let gb_repository =
             gb_repository::Repository::open(&suite.local_app_data, &project_repository, None)
@@ -98,7 +98,7 @@ impl<'a> Case<'a> {
             .projects
             .get(&self.project.id)
             .expect("failed to get project");
-        let project_repository = project_repository::Repository::open(&project)
+        let project_repository = project_repository::Repository::try_from(&project)
             .expect("failed to create project repository");
         Self {
             suite: self.suite,

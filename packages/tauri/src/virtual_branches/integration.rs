@@ -203,6 +203,35 @@ pub enum VerifyError {
     Other(#[from] anyhow::Error),
 }
 
+impl From<VerifyError> for crate::error::Error {
+    fn from(value: VerifyError) -> Self {
+        match value {
+            VerifyError::DetachedHead => crate::error::Error::UserError {
+                code: crate::error::Code::ProjectHead,
+                message: format!(
+                    "Project in detached head state. Please checkout {0} to continue.",
+                    GITBUTLER_INTEGRATION_BRANCH_NAME
+                ),
+            },
+            VerifyError::InvalidHead(head) => crate::error::Error::UserError {
+                code: crate::error::Code::ProjectHead,
+                message: format!(
+                    "Project is on {}. Please checkout {} to continue.",
+                    head, GITBUTLER_INTEGRATION_BRANCH_NAME
+                ),
+            },
+            VerifyError::NoIntegrationCommit => crate::error::Error::UserError {
+                code: crate::error::Code::ProjectHead,
+                message: "GibButler's integration commit not found on head.".to_string(),
+            },
+            VerifyError::Other(error) => {
+                tracing::error!(?error);
+                crate::error::Error::Unknown
+            }
+        }
+    }
+}
+
 pub fn verify_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,

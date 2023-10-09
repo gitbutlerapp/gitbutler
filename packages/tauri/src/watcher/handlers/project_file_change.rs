@@ -92,7 +92,7 @@ impl Handler {
             .get(project_id)
             .context("failed to get project")?;
 
-        let project_repository = project_repository::Repository::open(&project)
+        let project_repository = project_repository::Repository::try_from(&project)
             .with_context(|| "failed to open project repository for project")?;
 
         let user = self
