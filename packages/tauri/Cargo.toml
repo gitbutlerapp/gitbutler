@@ -7,6 +7,9 @@ rust-version = "1.57"
 [build-dependencies]
 tauri-build = { version = "1.5", features = [] }
 
+[dev-dependencies]
+pretty_assertions = "1.4"
+
 [dependencies]
 anyhow = "1.0.72"
 async-trait = "0.1.73"
