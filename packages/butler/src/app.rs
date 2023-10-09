@@ -63,11 +63,11 @@ impl App {
     }
 
     pub fn project_repository(&self) -> project_repository::Repository {
-        project_repository::Repository::open(&self.project).unwrap()
+        project_repository::Repository::try_from(&self.project).unwrap()
     }
 
     pub fn gb_repository(&self) -> gb_repository::Repository {
-        let project_repository = project_repository::Repository::open(&self.project)
+        let project_repository = project_repository::Repository::try_from(&self.project)
             .expect("failed to open project repository");
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
