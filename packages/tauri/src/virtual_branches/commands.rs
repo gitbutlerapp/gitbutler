@@ -4,7 +4,30 @@ use tracing::instrument;
 
 use crate::{assets, error::Error, git};
 
-use super::{branch::Ownership, controller::Controller, RemoteBranchFile};
+use super::{
+    branch::Ownership,
+    controller::{self, Controller},
+    RemoteBranchFile,
+};
+
+impl From<controller::Error> for Error {
+    fn from(value: controller::Error) -> Self {
+        match value {
+            controller::Error::GetProject(error) => Error::from(error),
+            controller::Error::ProjectRemote(error) => Error::from(error),
+            controller::Error::OpenProjectRepository(error) => Error::from(error),
+            controller::Error::Verify(error) => Error::from(error),
+            controller::Error::Conflicting => Error::UserError {
+                code: crate::error::Code::ProjectConflict,
+                message: "Project is in a conflicting state".to_string(),
+            },
+            controller::Error::Other(error) => {
+                tracing::error!(?error);
+                Error::Unknown
+            }
+        }
+    }
+}
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]

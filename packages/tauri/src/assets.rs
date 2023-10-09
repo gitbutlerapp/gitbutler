@@ -8,7 +8,7 @@ use url::Url;
 
 use crate::{
     users,
-    virtual_branches::{Author, BaseBranch, RemoteCommit},
+    virtual_branches::{Author, BaseBranch, RemoteBranch, RemoteCommit},
 };
 
 #[derive(Clone)]
@@ -54,28 +54,54 @@ impl Proxy {
         })
     }
 
+    pub async fn proxy_remote_branches(&self, branches: &[RemoteBranch]) -> Vec<RemoteBranch> {
+        join_all(
+            branches
+                .iter()
+                .map(|branch| self.proxy_remote_branch(branch))
+                .collect::<Vec<_>>(),
+        )
+        .await
+    }
+
+    pub async fn proxy_remote_branch(&self, branch: &RemoteBranch) -> RemoteBranch {
+        RemoteBranch {
+            commits: join_all(
+                branch
+                    .commits
+                    .iter()
+                    .map(|commit| self.proxy_remote_commit(commit))
+                    .collect::<Vec<_>>(),
+            )
+            .await,
+            ..branch.clone()
+        }
+    }
+
+    async fn proxy_remote_commit(&self, commit: &RemoteCommit) -> RemoteCommit {
+        RemoteCommit {
+            author: Author {
+                gravatar_url: self
+                    .proxy(&commit.author.gravatar_url)
+                    .await
+                    .unwrap_or_else(|error| {
+                        tracing::error!(gravatar_url = %commit.author.gravatar_url, ?error, "failed to proxy gravatar url");
+                        commit.author.gravatar_url.clone()
+                    }),
+                ..commit.author.clone()
+            },
+            ..commit.clone()
+        }
+    }
+
     pub async fn proxy_base_branch(&self, base_branch: &BaseBranch) -> BaseBranch {
         BaseBranch {
             recent_commits: join_all(
                 base_branch
                     .clone()
                     .recent_commits
-                    .into_iter()
-                    .map(|commit| async move {
-                        RemoteCommit {
-                            author: Author {
-                                gravatar_url: self
-                                    .proxy(&commit.author.gravatar_url)
-                                    .await
-                                    .unwrap_or_else(|error| {
-                                        tracing::error!(gravatar_url = %commit.author.gravatar_url, ?error, "failed to proxy gravatar url");
-                                        commit.author.gravatar_url
-                                    }),
-                                ..commit.author
-                            },
-                            ..commit
-                        }
-                    })
+                    .iter()
+                    .map(|commit| self.proxy_remote_commit(commit))
                     .collect::<Vec<_>>(),
             )
             .await,
@@ -83,22 +109,8 @@ impl Proxy {
                 base_branch
                     .clone()
                     .upstream_commits
-                    .into_iter()
-                    .map(|commit| async move {
-                        RemoteCommit {
-                            author: Author {
-                                gravatar_url: self
-                                    .proxy(&commit.author.gravatar_url)
-                                    .await
-                                    .unwrap_or_else(|error| {
-                                        tracing::error!(gravatar_url = %commit.author.gravatar_url, ?error, "failed to proxy gravatar url");
-                                        commit.author.gravatar_url
-                                    }),
-                                ..commit.author
-                            },
-                            ..commit
-                        }
-                    })
+                    .iter()
+                    .map(|commit| self.proxy_remote_commit(commit))
                     .collect::<Vec<_>>(),
             )
             .await,

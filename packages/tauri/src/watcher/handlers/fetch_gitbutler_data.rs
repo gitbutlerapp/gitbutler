@@ -83,8 +83,8 @@ impl HandlerInner {
             .projects
             .get(project_id)
             .context("failed to get project")?;
-        let project_repository =
-            project_repository::Repository::open(&project).context("failed to open repository")?;
+        let project_repository = project_repository::Repository::try_from(&project)
+            .context("failed to open repository")?;
         let gb_repo = gb_repository::Repository::open(
             self.local_data_dir.clone(),
             &project_repository,

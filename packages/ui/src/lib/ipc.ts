@@ -4,12 +4,11 @@ import { listen as listenTauri } from '@tauri-apps/api/event';
 
 export enum Code {
 	Unknown = 'errors.unknown',
-	PushFailed = 'errors.push',
-	FetchFailed = 'errors.fetch',
-	Conflicting = 'errors.conflict',
-	GitAutenticationFailed = 'errors.git.authentication',
-	InvalidHead = 'errors.git.head',
-	Projects = 'errors.projects'
+	Projects = 'errors.projects',
+	ProjectsGitAuth = 'errors.projects.git.auth',
+	ProjectsGitRemote = 'errors.projects.git.remote',
+	ProjectHead = 'errors.projects.head',
+	ProjectConflict = 'errors.projects.conflict'
 }
 
 export class UserError extends Error {

@@ -1,13 +1,26 @@
 use std::{collections::HashMap, ops, path, time};
 
 use anyhow::Context;
-use futures::future::join_all;
 use tauri::Manager;
 use tracing::instrument;
 
 use crate::{
     app, assets, bookmarks, deltas, error::Error, git, reader, search, sessions, virtual_branches,
 };
+
+impl From<app::Error> for Error {
+    fn from(value: app::Error) -> Self {
+        match value {
+            app::Error::GetProject(error) => Error::from(error),
+            app::Error::ProjectRemote(error) => Error::from(error),
+            app::Error::OpenProjectRepository(error) => Error::from(error),
+            app::Error::Other(error) => {
+                tracing::error!(?error);
+                Error::Unknown
+            }
+        }
+    }
+}
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
@@ -19,21 +32,13 @@ pub async fn search(
     offset: Option<usize>,
 ) -> Result<search::Results, Error> {
     let app = handle.state::<app::App>();
-
     let query = search::Query {
         project_id: project_id.to_string(),
         q: query.to_string(),
         limit: limit.unwrap_or(100),
         offset,
     };
-
-    let results = app.search(&query).with_context(|| {
-        format!(
-            "failed to search for query {} in project {}",
-            query.q, query.project_id
-        )
-    })?;
-
+    let results = app.search(&query)?;
     Ok(results)
 }
 
@@ -45,9 +50,7 @@ pub async fn list_sessions(
     earliest_timestamp_ms: Option<u128>,
 ) -> Result<Vec<sessions::Session>, Error> {
     let app = handle.state::<app::App>();
-    let sessions = app
-        .list_sessions(project_id, earliest_timestamp_ms)
-        .with_context(|| format!("failed to list sessions for project {}", project_id))?;
+    let sessions = app.list_sessions(project_id, earliest_timestamp_ms)?;
     Ok(sessions)
 }
 
@@ -60,14 +63,7 @@ pub async fn list_session_files(
     paths: Option<Vec<path::PathBuf>>,
 ) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
     let app = handle.state::<app::App>();
-    let files = app
-        .list_session_files(project_id, session_id, paths)
-        .with_context(|| {
-            format!(
-                "failed to list files for session {} in project {}",
-                session_id, project_id
-            )
-        })?;
+    let files = app.list_session_files(project_id, session_id, paths)?;
     Ok(files)
 }
 
@@ -80,14 +76,7 @@ pub async fn list_deltas(
     paths: Option<Vec<&str>>,
 ) -> Result<HashMap<String, Vec<deltas::Delta>>, Error> {
     let app = handle.state::<app::App>();
-    let deltas = app
-        .list_session_deltas(project_id, session_id, paths)
-        .with_context(|| {
-            format!(
-                "failed to list deltas for session {} in project {}",
-                session_id, project_id
-            )
-        })?;
+    let deltas = app.list_session_deltas(project_id, session_id, paths)?;
     Ok(deltas)
 }
 
@@ -99,9 +88,7 @@ pub async fn git_wd_diff(
     context_lines: u32,
 ) -> Result<HashMap<path::PathBuf, String>, Error> {
     let app = handle.state::<app::App>();
-    let diff = app
-        .git_wd_diff(project_id, context_lines)
-        .with_context(|| format!("failed to get git wd diff for project {}", project_id))?;
+    let diff = app.git_wd_diff(project_id, context_lines)?;
     Ok(diff)
 }
 
@@ -112,12 +99,7 @@ pub async fn git_remote_branches(
     project_id: &str,
 ) -> Result<Vec<git::RemoteBranchName>, Error> {
     let app = handle.state::<app::App>();
-    let branches = app.git_remote_branches(project_id).with_context(|| {
-        format!(
-            "failed to get remote git branches for project {}",
-            project_id
-        )
-    })?;
+    let branches = app.git_remote_branches(project_id)?;
     Ok(branches)
 }
 
@@ -128,53 +110,11 @@ pub async fn git_remote_branches_data(
     project_id: &str,
 ) -> Result<Vec<virtual_branches::RemoteBranch>, Error> {
     let app = handle.state::<app::App>();
-    let branches = app
-        .git_remote_branches_data(project_id)
-        .with_context(|| format!("failed to get git branches for project {}", project_id))?;
-
-    let branches = join_all(
-        branches
-            .into_iter()
-            .map(|branch| {
-                let proxy = handle.state::<assets::Proxy>();
-                async move {
-                    virtual_branches::RemoteBranch {
-                        commits: join_all(
-                            branch
-                                .commits
-                                .into_iter()
-                                .map(|commit| {
-                                    let proxy = proxy.clone();
-                                    async move {
-                                        virtual_branches::RemoteCommit {
-                                            author: virtual_branches::Author {
-                                                gravatar_url: proxy
-                                                    .proxy(&commit.author.gravatar_url)
-                                                    .await
-                                                    .unwrap_or_else(|e| {
-                                                        tracing::error!(
-                                                            "failed to proxy gravatar url {}: {:#}",
-                                                            commit.author.gravatar_url,
-                                                            e
-                                                        );
-                                                        commit.author.gravatar_url.clone()
-                                                    }),
-                                                ..commit.author.clone()
-                                            },
-                                            ..commit.clone()
-                                        }
-                                    }
-                                })
-                                .collect::<Vec<_>>(),
-                        )
-                        .await,
-                        ..branch
-                    }
-                }
-            })
-            .collect::<Vec<_>>(),
-    )
-    .await;
+    let branches = app.git_remote_branches_data(project_id)?;
+    let branches = handle
+        .state::<assets::Proxy>()
+        .proxy_remote_branches(&branches)
+        .await;
     Ok(branches)
 }
 
@@ -182,9 +122,7 @@ pub async fn git_remote_branches_data(
 #[instrument(skip(handle))]
 pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let app = handle.state::<app::App>();
-    let head = app
-        .git_head(project_id)
-        .with_context(|| format!("failed to get git head for project {}", project_id))?;
+    let head = app.git_head(project_id)?;
     Ok(head)
 }
 
@@ -192,9 +130,7 @@ pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<Stri
 #[instrument(skip(handle))]
 pub async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    app.delete_all_data()
-        .await
-        .context("failed to delete all data")?;
+    app.delete_all_data().await?;
     Ok(())
 }
 
@@ -222,9 +158,7 @@ pub async fn upsert_bookmark(
         note,
         deleted,
     };
-    app.upsert_bookmark(&bookmark)
-        .await
-        .context("failed to upsert bookmark")?;
+    app.upsert_bookmark(&bookmark).await?;
     Ok(())
 }
 
@@ -236,9 +170,7 @@ pub async fn list_bookmarks(
     range: Option<ops::Range<u128>>,
 ) -> Result<Vec<bookmarks::Bookmark>, Error> {
     let app = handle.state::<app::App>();
-    let bookmarks = app
-        .list_bookmarks(project_id, range)
-        .context("failed to list bookmarks")?;
+    let bookmarks = app.list_bookmarks(project_id, range)?;
     Ok(bookmarks)
 }
 

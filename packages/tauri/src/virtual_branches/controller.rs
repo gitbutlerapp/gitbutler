@@ -23,18 +23,16 @@ pub struct Controller {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("detached head detected, go back to gitbutler/integration to continue")]
-    DetachedHead,
-    #[error("unexpected head {0}, go back to gitbutler/integration to continue")]
-    InvalidHead(String),
-    #[error("integration commit not found")]
-    NoIntegrationCommit,
-    #[error("failed to open project repository")]
-    PushError(#[from] project_repository::Error),
+    #[error("detached head")]
+    GetProject(#[from] projects::GetError),
+    #[error(transparent)]
+    OpenProjectRepository(#[from] project_repository::OpenError),
+    #[error(transparent)]
+    Verify(#[from] super::integration::VerifyError),
+    #[error(transparent)]
+    ProjectRemote(#[from] project_repository::RemoteError),
     #[error("project is in a conflicted state")]
     Conflicting,
-    #[error(transparent)]
-    LockError(#[from] tokio::sync::AcquireError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -67,6 +65,12 @@ impl Controller {
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+                if conflicts::is_conflicting(project_repository, None)
+                    .context("failed to check for conflicts")?
+                {
+                    return Err(Error::Conflicting);
+                }
+
                 let signing_key = if project_repository
                     .config()
                     .sign_commits()
@@ -100,20 +104,15 @@ impl Controller {
         project_id: &str,
         branch_name: &git::BranchName,
     ) -> Result<bool, Error> {
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::try_from(&project)?;
         let user = self.users.get_user().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
             user.as_ref(),
         )
-        .context("failed to open gitbutler repository")
-        .map_err(Error::Other)?;
+        .context("failed to open gitbutler repository")?;
         super::is_remote_branch_mergeable(&gb_repository, &project_repository, branch_name)
             .map_err(Error::Other)
     }
@@ -123,20 +122,15 @@ impl Controller {
         project_id: &str,
         branch_id: &str,
     ) -> Result<bool, Error> {
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::try_from(&project)?;
         let user = self.users.get_user().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
             user.as_ref(),
         )
-        .context("failed to open gitbutler repository")
-        .map_err(Error::Other)?;
+        .context("failed to open gitbutler repository")?;
         super::is_virtual_branch_mergeable(&gb_repository, &project_repository, branch_id)
             .map_err(Error::Other)
     }
@@ -220,12 +214,8 @@ impl Controller {
         &self,
         project_id: &str,
     ) -> Result<Option<super::BaseBranch>, Error> {
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::try_from(&project)?;
         let user = self.users.get_user().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
@@ -243,12 +233,8 @@ impl Controller {
         project_id: &str,
         commit_oid: git::Oid,
     ) -> Result<Vec<RemoteBranchFile>, Error> {
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::try_from(&project)?;
         let commit = project_repository
             .git_repository
             .find_commit(commit_oid)
@@ -262,39 +248,25 @@ impl Controller {
         project_id: &str,
         target_branch: &git::RemoteBranchName,
     ) -> Result<super::BaseBranch, Error> {
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
+        let project = self.projects.get(project_id)?;
 
         let user = self.users.get_user().context("failed to get user")?;
 
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
+        let project_repository = project_repository::Repository::try_from(&project)?;
 
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
             user.as_ref(),
         )
-        .context("failed to open gitbutler repository")
-        .map_err(Error::Other)?;
+        .context("failed to open gitbutler repository")?;
+
         let target = super::set_base_branch(
             &gb_repository,
             &project_repository,
             user.as_ref(),
             target_branch,
-        )
-        .map_err(Error::Other)?;
-        // let current_session = gb_repository.get_current_session()?;
-
-        // {
-        //     if let Some(session) = current_session {
-        //         self.watchers
-        //             .post(watcher::Event::Session(project_id.to_string(), session))
-        //             .await?;
-        //     }
-        // }
+        )?;
 
         Ok(target)
     }
@@ -306,6 +278,12 @@ impl Controller {
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+                if conflicts::is_conflicting(project_repository, None)
+                    .context("failed to check for conflicts")?
+                {
+                    return Err(Error::Conflicting);
+                }
+
                 let signing_key = if project_repository
                     .config()
                     .sign_commits()
@@ -457,8 +435,8 @@ impl Controller {
 
                 super::push(project_repository, gb_repository, branch_id, &private_key).map_err(
                     |e| match e {
-                        super::PushError::Repository(e) => Error::PushError(e),
-                        super::PushError::Other(e) => Error::Other(e),
+                        super::PushError::Remote(error) => Error::ProjectRemote(error),
+                        other => Error::Other(anyhow::Error::from(other)),
                     },
                 )
             })
@@ -475,12 +453,8 @@ impl Controller {
             Option<&users::User>,
         ) -> Result<T, Error>,
     ) -> Result<T, Error> {
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::try_from(&project)?;
         let user = self.users.get_user().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
@@ -489,14 +463,7 @@ impl Controller {
         )
         .context("failed to open gitbutler repository")
         .map_err(Error::Other)?;
-        super::integration::verify_branch(&gb_repository, &project_repository).map_err(
-            |e| match e {
-                super::integration::VerifyError::DetachedHead => Error::DetachedHead,
-                super::integration::VerifyError::InvalidHead(head) => Error::InvalidHead(head),
-                super::integration::VerifyError::NoIntegrationCommit => Error::NoIntegrationCommit,
-                e => Error::Other(anyhow::Error::from(e)),
-            },
-        )?;
+        super::integration::verify_branch(&gb_repository, &project_repository)?;
         action(&gb_repository, &project_repository, user.as_ref())
     }
 

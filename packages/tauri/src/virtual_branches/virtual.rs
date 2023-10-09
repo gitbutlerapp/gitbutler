@@ -1941,7 +1941,7 @@ pub fn name_to_branch(name: &str) -> String {
 #[derive(Debug, thiserror::Error)]
 pub enum PushError {
     #[error(transparent)]
-    Repository(#[from] project_repository::Error),
+    Remote(#[from] project_repository::RemoteError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

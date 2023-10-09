@@ -23,7 +23,7 @@ use super::{branch, get_default_target, iterator::BranchIterator as Iterator, Au
 // an array of them can be requested from the frontend to show in the sidebar
 // Tray and should only contain branches that have not been converted into
 // virtual branches yet (ie, we have no `Branch` struct persisted in our data.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranch {
     pub sha: String,

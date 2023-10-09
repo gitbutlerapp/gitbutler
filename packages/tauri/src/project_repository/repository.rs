@@ -9,6 +9,52 @@ pub struct Repository {
     project: projects::Project,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum OpenError {
+    #[error("repository not found at {0}")]
+    NotFound(path::PathBuf),
+    #[error(transparent)]
+    Other(anyhow::Error),
+}
+
+impl From<OpenError> for crate::error::Error {
+    fn from(value: OpenError) -> Self {
+        match value {
+            OpenError::NotFound(path) => crate::error::Error::UserError {
+                code: crate::error::Code::Projects,
+                message: format!("{} not found", path.display()),
+            },
+            OpenError::Other(error) => {
+                tracing::error!(?error);
+                crate::error::Error::Unknown
+            }
+        }
+    }
+}
+
+impl TryFrom<projects::Project> for Repository {
+    type Error = OpenError;
+
+    fn try_from(project: projects::Project) -> Result<Self, Self::Error> {
+        let git_repository = git::Repository::open(&project.path).map_err(|error| match error {
+            git::Error::NotFound(_) => OpenError::NotFound(project.path.clone()),
+            other => OpenError::Other(other.into()),
+        })?;
+        Ok(Self {
+            git_repository,
+            project,
+        })
+    }
+}
+
+impl TryFrom<&projects::Project> for Repository {
+    type Error = OpenError;
+
+    fn try_from(project: &projects::Project) -> Result<Self, Self::Error> {
+        Self::try_from(project.clone())
+    }
+}
+
 impl Repository {
     pub fn path(&self) -> &path::Path {
         path::Path::new(&self.project.path)
@@ -23,14 +69,6 @@ impl Repository {
         user: Option<&users::User>,
     ) -> Result<(git::Signature<'a>, git::Signature<'a>)> {
         super::signatures::signatures(self, user).context("failed to get signatures")
-    }
-
-    pub fn open(project: &projects::Project) -> Result<Self, git::Error> {
-        let git_repository = git::Repository::open(&project.path)?;
-        Ok(Self {
-            git_repository,
-            project: project.clone(),
-        })
     }
 
     pub fn project(&self) -> &projects::Project {
@@ -161,12 +199,12 @@ impl Repository {
 
     // returns a remote and makes sure that the push url is an ssh url
     // if url is already ssh, or not set at all, then it returns the remote as is.
-    fn get_remote(&self, name: &str) -> Result<git::Remote, Error> {
+    fn get_remote(&self, name: &str) -> Result<git::Remote, RemoteError> {
         let remote = self
             .git_repository
             .find_remote(name)
             .context("failed to find remote")
-            .map_err(Error::Other)?;
+            .map_err(RemoteError::Other)?;
 
         if let Ok(Some(url)) = remote.url() {
             match url.as_ssh() {
@@ -174,11 +212,11 @@ impl Repository {
                     .git_repository
                     .remote_anonymous(ssh_url)
                     .context("failed to get anonymous")
-                    .map_err(Error::Other)?),
-                Err(_) => Err(Error::NonSSHUrl(url.to_string())),
+                    .map_err(RemoteError::Other)?),
+                Err(_) => Err(RemoteError::NonSSHUrl(url.to_string())),
             }
         } else {
-            Err(Error::NoUrl)
+            Err(RemoteError::NoUrl)
         }
     }
 
@@ -187,7 +225,7 @@ impl Repository {
         head: &git::Oid,
         branch: &git::RemoteBranchName,
         key: &keys::Key,
-    ) -> Result<(), Error> {
+    ) -> Result<(), RemoteError> {
         let mut remote = self.get_remote(branch.remote())?;
 
         for credential_callback in git::credentials::for_key(key) {
@@ -215,10 +253,10 @@ impl Repository {
             }
         }
 
-        Err(Error::AuthError)
+        Err(RemoteError::AuthError)
     }
 
-    pub fn fetch(&self, remote_name: &str, key: &keys::Key) -> Result<(), Error> {
+    pub fn fetch(&self, remote_name: &str, key: &keys::Key) -> Result<(), RemoteError> {
         let mut remote = self.get_remote(remote_name)?;
 
         for credential_callback in git::credentials::for_key(key) {
@@ -279,7 +317,7 @@ impl Repository {
             }
         }
 
-        Err(Error::AuthError)
+        Err(RemoteError::AuthError)
     }
 
     pub fn git_commit(&self, message: &str) -> Result<()> {
@@ -325,7 +363,7 @@ impl Repository {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum RemoteError {
     #[error("git url is empty")]
     NoUrl,
     #[error("git url is not ssh: {0}")]
@@ -334,6 +372,29 @@ pub enum Error {
     AuthError,
     #[error(transparent)]
     Other(anyhow::Error),
+}
+
+impl From<RemoteError> for crate::error::Error {
+    fn from(value: RemoteError) -> Self {
+        match value {
+            RemoteError::AuthError => crate::error::Error::UserError {
+                code: crate::error::Code::ProjectGitAuth,
+                message: "Project remote authentication error".to_string(),
+            },
+            RemoteError::NonSSHUrl(url) => crate::error::Error::UserError {
+                code: crate::error::Code::ProjectGitRemote,
+                message: format!("Project has non-ssh remote url: {}", url),
+            },
+            RemoteError::NoUrl => crate::error::Error::UserError {
+                code: crate::error::Code::ProjectGitRemote,
+                message: "Project has no remote url".to_string(),
+            },
+            RemoteError::Other(error) => {
+                tracing::error!(?error);
+                crate::error::Error::Unknown
+            }
+        }
+    }
 }
 
 type OidFilter = dyn Fn(&git::Commit) -> Result<bool>;
