@@ -913,6 +913,7 @@ pub fn create_virtual_branch(
         notes: "".to_string(),
         applied: true,
         upstream: None,
+        upstream_head: None,
         tree: tree.id(),
         head: default_target.sha,
         created_timestamp_ms: now,
@@ -2043,6 +2044,7 @@ pub fn push(
     project_repository.push(&vbranch.head, &remote_branch, key)?;
 
     vbranch.upstream = Some(remote_branch.clone());
+    vbranch.upstream_head = Some(vbranch.head);
     branch_writer
         .write(&vbranch)
         .context("failed to write target branch after push")?;
