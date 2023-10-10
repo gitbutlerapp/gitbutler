@@ -11,6 +11,7 @@ pub mod events;
 pub mod fs;
 pub mod gb_repository;
 pub mod git;
+pub mod github;
 pub mod keys;
 pub mod lock;
 pub mod logs;
@@ -26,7 +27,6 @@ pub mod virtual_branches;
 pub mod watcher;
 pub mod writer;
 pub mod zip;
-pub mod github;
 
 #[cfg(test)]
 pub mod test_utils;
