@@ -344,7 +344,7 @@ impl Repository {
             "created new session"
         );
 
-        self.flush_gitbutler_file(&session.id, &project_repository)?;
+        self.flush_gitbutler_file(&session.id)?;
 
         Ok(session)
     }
@@ -596,24 +596,21 @@ impl Repository {
         }
     }
 
-    fn flush_gitbutler_file(
-        &self,
-        session_id: &str,
-        project_repository: &project_repository::Repository,
-    ) -> Result<()> {
-        let gb_path = project_repository.gb_path();
-        let project_id = project_repository.project().id.as_str();
+    fn flush_gitbutler_file(&self, session_id: &str) -> Result<()> {
+        let gb_path = self.git_repository.path();
+        let project_id = self.project.id.as_str();
 
         let gb_file_content = serde_json::json!({
             "sessionId": session_id,
             "repositoryId": project_id,
             "gbPath": gb_path,
+            "api": self.project.api,
         });
 
-        let gb_file_path = project_repository.path().join(".git/gitbutler.json");
+        let gb_file_path = self.project.path.join(".git/gitbutler.json");
         std::fs::write(&gb_file_path, gb_file_content.to_string())?;
 
-        tracing::info!("gitbutler file updated: {:?}", gb_file_path);
+        tracing::debug!("gitbutler file updated: {:?}", gb_file_path);
 
         Ok(())
     }

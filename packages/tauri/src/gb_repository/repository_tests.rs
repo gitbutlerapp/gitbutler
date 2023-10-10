@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path, thread, time};
 
 use anyhow::Result;
+use pretty_assertions::assert_eq;
 use tempfile::tempdir;
 
 use crate::{
@@ -381,6 +382,31 @@ fn test_remote_sync_order() -> Result<()> {
     assert_eq!(sessions_one[1].id, session_one_second.id);
     assert_eq!(sessions_one[2].id, session_two_first.id);
     assert_eq!(sessions_one[3].id, session_one_first.id);
+
+    Ok(())
+}
+
+#[test]
+fn test_gitbutler_file() -> Result<()> {
+    let Case {
+        gb_repository,
+        project_repository,
+        ..
+    } = Suite::default().new_case();
+
+    let session = gb_repository.get_or_create_current_session()?;
+
+    let gitbutler_file_path = project_repository.path().join(".git/gitbutler.json");
+    assert!(gitbutler_file_path.exists());
+
+    let file_content: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&gitbutler_file_path)?)?;
+
+    assert_eq!(file_content["sessionId"], session.id);
+    assert_eq!(
+        file_content["repositoryId"],
+        project_repository.project().id
+    );
 
     Ok(())
 }
