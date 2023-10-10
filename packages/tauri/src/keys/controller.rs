@@ -1,9 +1,7 @@
-use std::path;
-
 use anyhow::Context;
 use tauri::AppHandle;
 
-use crate::storage;
+use crate::{paths::DataDir, storage};
 
 use super::{storage::Storage, PrivateKey};
 
@@ -11,8 +9,8 @@ pub struct Controller {
     storage: Storage,
 }
 
-impl From<&path::PathBuf> for Controller {
-    fn from(value: &path::PathBuf) -> Self {
+impl From<&DataDir> for Controller {
+    fn from(value: &DataDir) -> Self {
         Self {
             storage: Storage::from(value),
         }
@@ -58,19 +56,21 @@ pub enum GetOrCreateError {
 mod tests {
     use std::{fs, os::unix::prelude::PermissionsExt};
 
+    use crate::test_utils::Suite;
+
     use super::*;
 
     #[test]
     fn test_get_or_create() {
-        let dir = tempfile::tempdir().unwrap();
-        let controller = Controller::from(&dir.path().to_path_buf());
+        let suite = Suite::default();
+        let controller = Controller::from(&suite.local_app_data);
 
         let once = controller.get_or_create().unwrap();
         let twice = controller.get_or_create().unwrap();
         assert_eq!(once, twice);
 
         // check permissions of the private key
-        let permissions = fs::metadata(dir.path().join("keys/ed25519"))
+        let permissions = fs::metadata(suite.local_app_data.to_path_buf().join("keys/ed25519"))
             .unwrap()
             .permissions();
         let perms = format!("{:o}", permissions.mode());

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Context;
 use tauri::AppHandle;
@@ -6,6 +6,7 @@ use tokio::sync::Semaphore;
 
 use crate::{
     gb_repository, git, keys,
+    paths::DataDir,
     project_repository::{self, conflicts},
     projects, users,
 };
@@ -13,7 +14,7 @@ use crate::{
 use super::{branch::Ownership, RemoteBranchFile};
 
 pub struct Controller {
-    local_data_dir: path::PathBuf,
+    local_data_dir: DataDir,
     semaphores: Arc<tokio::sync::Mutex<HashMap<String, Semaphore>>>,
 
     projects: projects::Controller,
@@ -41,10 +42,7 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        let local_data_dir = value
-            .path_resolver()
-            .app_local_data_dir()
-            .context("Failed to get local data dir")?;
+        let local_data_dir = DataDir::try_from(value)?;
         Ok(Self {
             local_data_dir,
             semaphores: Arc::new(tokio::sync::Mutex::new(HashMap::new())),

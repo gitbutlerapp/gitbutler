@@ -4,18 +4,17 @@ use anyhow::Result;
 
 use crate::{
     bookmarks, deltas,
-    test_utils::{self, Case, Suite},
+    test_utils::{Case, Suite},
 };
 
 #[test]
 fn test_sorted_by_timestamp() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project_repository,
         ..
-    } = Suite::default().new_case();
-
-    let index_path = test_utils::temp_dir();
+    } = suite.new_case();
 
     let writer = deltas::Writer::new(&gb_repository);
     writer.write(
@@ -33,7 +32,7 @@ fn test_sorted_by_timestamp() -> Result<()> {
     )?;
     let session = gb_repository.flush(&project_repository, None)?;
 
-    let searcher = super::Searcher::try_from(&index_path).unwrap();
+    let searcher = super::Searcher::try_from(&suite.local_app_data).unwrap();
 
     let write_result = searcher.index_session(&gb_repository, &session.unwrap());
     assert!(write_result.is_ok());
@@ -55,13 +54,12 @@ fn test_sorted_by_timestamp() -> Result<()> {
 
 #[test]
 fn search_by_bookmark_note() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project_repository,
         ..
-    } = Suite::default().new_case();
-
-    let index_path = test_utils::temp_dir();
+    } = suite.new_case();
 
     let writer = deltas::Writer::new(&gb_repository);
     writer.write(
@@ -73,7 +71,7 @@ fn search_by_bookmark_note() -> Result<()> {
     )?;
     let session = gb_repository.flush(&project_repository, None)?.unwrap();
 
-    let searcher = super::Searcher::try_from(&index_path).unwrap();
+    let searcher = super::Searcher::try_from(&suite.local_app_data).unwrap();
 
     // first we index bookmark
     searcher.index_bookmark(&bookmarks::Bookmark {
@@ -147,13 +145,12 @@ fn search_by_bookmark_note() -> Result<()> {
 
 #[test]
 fn search_by_full_match() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project_repository,
         ..
-    } = Suite::default().new_case();
-
-    let index_path = test_utils::temp_dir();
+    } = suite.new_case();
 
     let writer = deltas::Writer::new(&gb_repository);
     writer.write(
@@ -166,7 +163,7 @@ fn search_by_full_match() -> Result<()> {
     let session = gb_repository.flush(&project_repository, None)?;
     let session = session.unwrap();
 
-    let searcher = super::Searcher::try_from(&index_path).unwrap();
+    let searcher = super::Searcher::try_from(&suite.local_app_data).unwrap();
 
     let write_result = searcher.index_session(&gb_repository, &session);
     assert!(write_result.is_ok());
@@ -184,13 +181,12 @@ fn search_by_full_match() -> Result<()> {
 
 #[test]
 fn search_by_diff() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project_repository,
         ..
-    } = Suite::default().new_case();
-
-    let index_path = test_utils::temp_dir();
+    } = suite.new_case();
 
     let writer = deltas::Writer::new(&gb_repository);
     writer.write(
@@ -209,7 +205,7 @@ fn search_by_diff() -> Result<()> {
     let session = gb_repository.flush(&project_repository, None)?;
     let session = session.unwrap();
 
-    let searcher = super::Searcher::try_from(&index_path).unwrap();
+    let searcher = super::Searcher::try_from(&suite.local_app_data).unwrap();
 
     let write_result = searcher.index_session(&gb_repository, &session);
     assert!(write_result.is_ok());
@@ -231,8 +227,8 @@ fn search_by_diff() -> Result<()> {
 
 #[test]
 fn should_index_bookmark_once() -> Result<()> {
-    let index_path = test_utils::temp_dir();
-    let searcher = super::Searcher::try_from(&index_path).unwrap();
+    let suite = Suite::default();
+    let searcher = super::Searcher::try_from(&suite.local_app_data).unwrap();
 
     // should not index deleted non-existing bookmark
     assert!(searcher
@@ -299,13 +295,12 @@ fn should_index_bookmark_once() -> Result<()> {
 
 #[test]
 fn test_delete_all() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project_repository,
         ..
-    } = Suite::default().new_case();
-
-    let index_path = test_utils::temp_dir();
+    } = suite.new_case();
 
     let writer = deltas::Writer::new(&gb_repository);
     writer.write(
@@ -326,10 +321,10 @@ fn test_delete_all() -> Result<()> {
         ],
     )?;
     let session = gb_repository.flush(&project_repository, None)?;
-    let searcher = super::Searcher::try_from(&index_path).unwrap();
+    let searcher = super::Searcher::try_from(&suite.local_app_data).unwrap();
     searcher.index_session(&gb_repository, &session.unwrap())?;
 
-    searcher.delete_all_data()?;
+    searcher.delete_all_data().unwrap();
 
     let search_result_from = searcher.search(&super::Query {
         project_id: gb_repository.get_project_id().to_string(),
@@ -344,13 +339,12 @@ fn test_delete_all() -> Result<()> {
 
 #[test]
 fn search_bookmark_by_phrase() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project_repository,
         ..
-    } = Suite::default().new_case();
-
-    let index_path = test_utils::temp_dir();
+    } = suite.new_case();
 
     let writer = deltas::Writer::new(&gb_repository);
     writer.write(
@@ -363,7 +357,7 @@ fn search_bookmark_by_phrase() -> Result<()> {
     let session = gb_repository.flush(&project_repository, None)?;
     let session = session.unwrap();
 
-    let searcher = super::Searcher::try_from(&index_path).unwrap();
+    let searcher = super::Searcher::try_from(&suite.local_app_data).unwrap();
 
     searcher.index_session(&gb_repository, &session)?;
     searcher.index_bookmark(&bookmarks::Bookmark {
@@ -396,13 +390,12 @@ fn search_bookmark_by_phrase() -> Result<()> {
 
 #[test]
 fn search_by_filename() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project_repository,
         ..
-    } = Suite::default().new_case();
-
-    let index_path = test_utils::temp_dir();
+    } = suite.new_case();
 
     let writer = deltas::Writer::new(&gb_repository);
     writer.write(
@@ -421,7 +414,7 @@ fn search_by_filename() -> Result<()> {
     let session = gb_repository.flush(&project_repository, None)?;
     let session = session.unwrap();
 
-    let searcher = super::Searcher::try_from(&index_path).unwrap();
+    let searcher = super::Searcher::try_from(&suite.local_app_data).unwrap();
 
     searcher.index_session(&gb_repository, &session)?;
 

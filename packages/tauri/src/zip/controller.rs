@@ -1,15 +1,17 @@
 use std::path;
 
-use anyhow::Context;
 use tauri::AppHandle;
 
-use crate::projects;
+use crate::{
+    paths::{DataDir, LogsDir},
+    projects,
+};
 
 use super::Zipper;
 
 pub struct Controller {
-    local_data_dir: path::PathBuf,
-    logs_dir: path::PathBuf,
+    local_data_dir: DataDir,
+    logs_dir: LogsDir,
     zipper: Zipper,
     projects_controller: projects::Controller,
 }
@@ -18,14 +20,8 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        let local_data_dir = value
-            .path_resolver()
-            .app_local_data_dir()
-            .context("failed to get local data dir")?;
-        let logs_dir = value
-            .path_resolver()
-            .app_log_dir()
-            .context("failed to get log dir")?;
+        let local_data_dir = DataDir::try_from(value)?;
+        let logs_dir = LogsDir::try_from(value)?;
         Ok(Self {
             local_data_dir,
             logs_dir,
@@ -44,12 +40,19 @@ impl Controller {
     pub fn data_archive(&self, project_id: &str) -> Result<path::PathBuf, DataArchiveError> {
         let project = self.projects_controller.get(project_id)?;
         self.zipper
-            .zip(self.local_data_dir.join("projects").join(project.id))
+            .zip(
+                self.local_data_dir
+                    .to_path_buf()
+                    .join("projects")
+                    .join(project.id),
+            )
             .map_err(Into::into)
     }
 
     pub fn logs_archive(&self) -> Result<path::PathBuf, LogsArchiveError> {
-        self.zipper.zip(&self.logs_dir).map_err(Into::into)
+        self.zipper
+            .zip(self.logs_dir.to_path_buf())
+            .map_err(Into::into)
     }
 }
 

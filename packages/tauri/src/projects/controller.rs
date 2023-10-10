@@ -1,16 +1,15 @@
 use std::{path, time};
 
-use anyhow::Context;
 use futures::executor::block_on;
 use tauri::{AppHandle, Manager};
 
-use crate::watcher;
+use crate::{paths::DataDir, watcher};
 
 use super::{storage, storage::UpdateRequest, Project};
 
 #[derive(Clone)]
 pub struct Controller {
-    local_data_dir: path::PathBuf,
+    local_data_dir: DataDir,
     projects_storage: storage::Storage,
     watchers: Option<watcher::Watchers>,
 }
@@ -20,20 +19,17 @@ impl TryFrom<&AppHandle> for Controller {
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
         Ok(Self {
-            local_data_dir: value
-                .path_resolver()
-                .app_local_data_dir()
-                .context("failed to get local data dir")?,
+            local_data_dir: DataDir::try_from(value)?,
             projects_storage: storage::Storage::try_from(value)?,
             watchers: Some(value.state::<watcher::Watchers>().inner().clone()),
         })
     }
 }
 
-impl From<&path::PathBuf> for Controller {
-    fn from(value: &path::PathBuf) -> Self {
+impl From<&DataDir> for Controller {
+    fn from(value: &DataDir) -> Self {
         Self {
-            local_data_dir: value.to_path_buf(),
+            local_data_dir: value.clone(),
             projects_storage: storage::Storage::from(value),
             watchers: None,
         }
@@ -158,9 +154,12 @@ impl Controller {
             .purge(&project.id)
             .map_err(|error| DeleteError::Other(error.into()))?;
 
-        if let Err(error) =
-            std::fs::remove_dir_all(self.local_data_dir.join("projects").join(&project.id))
-        {
+        if let Err(error) = std::fs::remove_dir_all(
+            self.local_data_dir
+                .to_path_buf()
+                .join("projects")
+                .join(&project.id),
+        ) {
             tracing::error!(project_id = id, ?error, "failed to remove project data",);
         }
 

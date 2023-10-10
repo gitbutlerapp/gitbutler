@@ -12,7 +12,9 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::{
-    fs, git, lock, projects, users,
+    fs, git, lock,
+    paths::DataDir,
+    projects, users,
     virtual_branches::{self, target},
 };
 
@@ -41,8 +43,8 @@ pub enum Error {
 }
 
 impl Repository {
-    pub fn open<P: AsRef<std::path::Path>>(
-        root: P,
+    pub fn open(
+        root: &DataDir,
         project_repository: &project_repository::Repository,
         user: Option<&users::User>,
     ) -> Result<Self, Error> {
@@ -52,11 +54,10 @@ impl Repository {
             return Err(Error::ProjectPathNotFound(project_objects_path));
         }
 
-        let path = root.as_ref().join("projects").join(&project.id);
-        let lock_path = root
-            .as_ref()
-            .join("projects")
-            .join(format!("{}.lock", project.id));
+        let projects_dir = root.to_path_buf().join("projects");
+
+        let path = projects_dir.join(&project.id);
+        let lock_path = projects_dir.join(format!("{}.lock", project.id));
         if path.exists() {
             let git_repository = git::Repository::open(path.clone())
                 .with_context(|| format!("{}: failed to open git repository", path.display()))?;

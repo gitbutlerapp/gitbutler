@@ -4,7 +4,9 @@ use anyhow::{Context, Result};
 use tauri::AppHandle;
 
 use crate::{
-    deltas, gb_repository, project_repository, projects,
+    deltas, gb_repository,
+    paths::DataDir,
+    project_repository, projects,
     reader::{self, Reader},
     sessions, users,
 };
@@ -13,17 +15,17 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    local_data_dir: path::PathBuf,
-    project_store: projects::Controller,
-    user_controller: users::Controller,
+    local_data_dir: DataDir,
+    projects: projects::Controller,
+    users: users::Controller,
 }
 
-impl From<&path::PathBuf> for Handler {
-    fn from(local_data_dir: &path::PathBuf) -> Self {
+impl From<&DataDir> for Handler {
+    fn from(value: &DataDir) -> Self {
         Self {
-            local_data_dir: local_data_dir.to_path_buf(),
-            project_store: projects::Controller::from(local_data_dir),
-            user_controller: users::Controller::from(local_data_dir),
+            local_data_dir: value.clone(),
+            projects: projects::Controller::from(value),
+            users: users::Controller::from(value),
         }
     }
 }
@@ -32,16 +34,10 @@ impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        let local_data_dir = value
-            .path_resolver()
-            .app_local_data_dir()
-            .context("Failed to get local data dir")?;
-        let user_store = users::Controller::try_from(value).context("Failed to get user store")?;
-        let project_store = projects::Controller::try_from(value)?;
         Ok(Self {
-            project_store,
-            local_data_dir,
-            user_controller: user_store,
+            local_data_dir: DataDir::try_from(value)?,
+            projects: projects::Controller::try_from(value)?,
+            users: users::Controller::try_from(value)?,
         })
     }
 }
@@ -88,17 +84,14 @@ impl Handler {
         project_id: &str,
     ) -> Result<Vec<events::Event>> {
         let project = self
-            .project_store
+            .projects
             .get(project_id)
             .context("failed to get project")?;
 
         let project_repository = project_repository::Repository::try_from(&project)
             .with_context(|| "failed to open project repository for project")?;
 
-        let user = self
-            .user_controller
-            .get_user()
-            .context("failed to get user")?;
+        let user = self.users.get_user().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,

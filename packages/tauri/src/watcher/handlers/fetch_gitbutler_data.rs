@@ -1,9 +1,12 @@
-use std::sync::{Arc, Mutex, TryLockError};
-use std::{path, time};
+use std::{
+    sync::{Arc, Mutex, TryLockError},
+    time,
+};
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
+use crate::paths::DataDir;
 use crate::{gb_repository, project_repository, projects, users};
 
 use super::events;
@@ -31,7 +34,7 @@ impl Handler {
 }
 
 struct HandlerInner {
-    local_data_dir: path::PathBuf,
+    local_data_dir: DataDir,
     projects: projects::Controller,
     users: users::Controller,
 
@@ -45,12 +48,9 @@ impl TryFrom<&AppHandle> for HandlerInner {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let local_data_dir = value
-            .path_resolver()
-            .app_local_data_dir()
-            .context("failed to get local data dir")?;
+        let local_data_dir = DataDir::try_from(value)?;
         Ok(Self {
-            local_data_dir: local_data_dir.to_path_buf(),
+            local_data_dir,
             projects: projects::Controller::try_from(value)?,
             users: users::Controller::try_from(value)?,
             mutex: Mutex::new(()),
@@ -86,7 +86,7 @@ impl HandlerInner {
         let project_repository = project_repository::Repository::try_from(&project)
             .context("failed to open repository")?;
         let gb_repo = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
+            &self.local_data_dir,
             &project_repository,
             user.as_ref(),
         )

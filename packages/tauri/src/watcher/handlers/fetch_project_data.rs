@@ -1,5 +1,4 @@
 use std::{
-    path,
     sync::{Arc, Mutex, TryLockError},
     time,
 };
@@ -7,7 +6,7 @@ use std::{
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
-use crate::{gb_repository, keys, project_repository, projects, users};
+use crate::{gb_repository, keys, paths::DataDir, project_repository, projects, users};
 
 use super::events;
 
@@ -34,7 +33,7 @@ impl Handler {
 }
 
 struct HandlerInner {
-    local_data_dir: path::PathBuf,
+    local_data_dir: DataDir,
     projects: projects::Controller,
     users: users::Controller,
     keys: keys::Controller,
@@ -49,12 +48,8 @@ impl TryFrom<&AppHandle> for HandlerInner {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let local_data_dir = value
-            .path_resolver()
-            .app_local_data_dir()
-            .context("failed to get local data dir")?;
         Ok(Self {
-            local_data_dir: local_data_dir.to_path_buf(),
+            local_data_dir: DataDir::try_from(value)?,
             keys: keys::Controller::try_from(value)?,
             projects: projects::Controller::try_from(value)?,
             users: users::Controller::try_from(value)?,
@@ -91,7 +86,7 @@ impl HandlerInner {
         let project_repository = project_repository::Repository::try_from(&project)
             .context("failed to open repository. Make sure the project is configured correctly.")?;
         let gb_repo = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
+            &self.local_data_dir,
             &project_repository,
             user.as_ref(),
         )
