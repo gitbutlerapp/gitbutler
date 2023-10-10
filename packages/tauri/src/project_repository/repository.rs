@@ -99,6 +99,10 @@ impl Repository {
         self.git_repository.path().parent().unwrap()
     }
 
+    pub fn gb_path(&self) -> &std::path::Path {
+        self.git_repository.path()
+    }
+
     pub fn git_remote_branches(&self) -> Result<Vec<git::RemoteBranchName>> {
         self.git_repository
             .branches(Some(git2::BranchType::Remote))?
