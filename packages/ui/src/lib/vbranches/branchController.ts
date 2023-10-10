@@ -26,6 +26,15 @@ export class BranchController {
 		}
 	}
 
+	async resetBranch(params: { branchId: string; projectId: string; targetCommitOid: string }) {
+		try {
+			await invoke<void>('reset_virtual_branch', params);
+			await this.virtualBranchStore.reload();
+		} catch (err) {
+			toasts.error('Failed to reset branch');
+		}
+	}
+
 	async createBranch(branch: { name?: string; ownership?: string; order?: number }) {
 		try {
 			await invoke<void>('create_virtual_branch', { projectId: this.projectId, branch });

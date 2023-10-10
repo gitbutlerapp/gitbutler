@@ -272,6 +272,8 @@ pub async fn list_remote_commit_files(
         .map_err(Into::into)
 }
 
+#[tauri::command(async)]
+#[instrument(skip(handle))]
 pub async fn reset_virtual_branch(
     handle: AppHandle,
     project_id: &str,
