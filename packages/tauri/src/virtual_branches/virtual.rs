@@ -1645,6 +1645,53 @@ fn virtual_hunks_to_virtual_files(
         .collect::<Vec<_>>()
 }
 
+// reset virtual branch to a specific commit
+pub fn reset_branch(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &str,
+    target_commit_oid: git::Oid,
+) -> Result<()> {
+    let current_session = gb_repository.get_or_create_current_session()?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
+
+    let default_target =
+        get_default_target(&current_session_reader)?.context("no default target")?;
+
+    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch = branch_reader.read(branch_id)?;
+
+    if branch.head == target_commit_oid {
+        // nothing to do
+        return Ok(());
+    }
+
+    if default_target.sha != target_commit_oid
+        && !project_repository
+            .l(branch.head, LogUntil::Commit(default_target.sha))?
+            .contains(&target_commit_oid)
+    {
+        bail!(
+            "commit {} is not in branch {}",
+            target_commit_oid,
+            branch.name
+        );
+    }
+
+    let branch_writer = branch::Writer::new(gb_repository);
+    branch_writer
+        .write(&branch::Branch {
+            head: target_commit_oid,
+            ..branch
+        })
+        .context("failed to write branch")?;
+
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)
+        .context("failed to update gitbutler integration")?;
+
+    Ok(())
+}
+
 fn group_virtual_hunks(
     project_repository: &project_repository::Repository,
     hunks_by_branch: &[(branch::Branch, Vec<VirtualBranchHunk>)],
