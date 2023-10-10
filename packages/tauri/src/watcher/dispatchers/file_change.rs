@@ -139,6 +139,7 @@ fn is_interesting_file(git_repo: &git::Repository, file_path: &path::Path) -> bo
         check_file_path.ends_with("FETCH_HEAD")
             || check_file_path.eq(path::Path::new("logs/HEAD"))
             || check_file_path.eq(path::Path::new("HEAD"))
+            || check_file_path.eq(path::Path::new("GB_FLUSH"))
             || check_file_path.eq(path::Path::new("index"))
     } else {
         !git_repo.is_path_ignored(file_path).unwrap_or(false)
