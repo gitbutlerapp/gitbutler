@@ -21,7 +21,7 @@ pub struct Proxy {
 impl From<&path::PathBuf> for Proxy {
     fn from(value: &path::PathBuf) -> Self {
         Self {
-            cache_dir: value.to_path_buf(),
+            cache_dir: value.clone(),
             semaphores: sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
         }
     }
@@ -48,14 +48,13 @@ impl Proxy {
     pub async fn proxy_user(&self, user: &users::User) -> users::User {
         match Url::parse(&user.picture) {
             Ok(picture) => users::User {
-                picture: self
-                    .proxy(&picture)
-                    .await
-                    .map(|url| url.to_string())
-                    .unwrap_or_else(|error| {
+                picture: self.proxy(&picture).await.map_or_else(
+                    |error| {
                         tracing::error!(?error, "failed to proxy user picture");
                         user.picture.to_string()
-                    }),
+                    },
+                    |url| url.to_string(),
+                ),
                 ..user.clone()
             },
             Err(_) => user.clone(),
@@ -136,8 +135,7 @@ impl Proxy {
         let path = path::Path::new(src.path());
         let ext = path
             .extension()
-            .map(|ext| ext.to_str().unwrap_or("jpg"))
-            .unwrap_or("jpg");
+            .map_or("jpg", |ext| ext.to_str().unwrap_or("jpg"));
         let save_to = self.cache_dir.join(format!("{:X}.{}", hash, ext));
 
         if save_to.exists() {

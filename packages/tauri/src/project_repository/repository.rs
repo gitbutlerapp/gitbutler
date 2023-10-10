@@ -126,7 +126,7 @@ impl Repository {
                     .hide(oid.into())
                     .context(format!("failed to push {}", oid))?;
                 revwalk
-                    .map(|oid| oid.map(|oid| oid.into()))
+                    .map(|oid| oid.map(Into::into))
                     .collect::<Result<Vec<_>, _>>()
             }
             LogUntil::Take(n) => {
@@ -139,7 +139,7 @@ impl Repository {
                     .context(format!("failed to push {}", from))?;
                 revwalk
                     .take(n)
-                    .map(|oid| oid.map(|oid| oid.into()))
+                    .map(|oid| oid.map(Into::into))
                     .collect::<Result<Vec<_>, _>>()
             }
             LogUntil::When(cond) => {
@@ -175,7 +175,7 @@ impl Repository {
                     .push(from.into())
                     .context(format!("failed to push {}", from))?;
                 revwalk
-                    .map(|oid| oid.map(|oid| oid.into()))
+                    .map(|oid| oid.map(Into::into))
                     .collect::<Result<Vec<_>, _>>()
             }
         }

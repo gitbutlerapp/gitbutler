@@ -61,8 +61,7 @@ impl Controller {
         let title = path
             .iter()
             .last()
-            .map(|p| p.to_str().unwrap().to_string())
-            .unwrap_or_else(|| id.clone());
+            .map_or_else(|| id.clone(), |p| p.to_str().unwrap().to_string());
 
         let project = Project {
             id: uuid::Uuid::new_v4().to_string(),

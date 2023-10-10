@@ -19,7 +19,7 @@ impl FromStr for FileOwnership {
         for part in value.split(':').rev() {
             match part
                 .split(',')
-                .map(|h| h.parse())
+                .map(str::parse)
                 .collect::<Result<Vec<Hunk>>>()
             {
                 Ok(rr) => ranges.extend(rr),
@@ -37,7 +37,7 @@ impl FromStr for FileOwnership {
                     .join(":")
                     .parse()
                     .context(format!("failed to parse file path from {}", value))?,
-                hunks: ranges.to_vec(),
+                hunks: ranges.clone(),
             })
         }
     }
@@ -148,7 +148,7 @@ impl fmt::Display for FileOwnership {
                 self.file_path.display(),
                 self.hunks
                     .iter()
-                    .map(|r| r.to_string())
+                    .map(ToString::to_string)
                     .collect::<Vec<String>>()
                     .join(",")
             )

@@ -544,7 +544,7 @@ pub fn create_virtual_branch_from_branch(
     let mut branch = branch::Branch {
         id: branch_id.clone(),
         name: upstream.branch().to_string(),
-        notes: "".to_string(),
+        notes: String::new(),
         applied: applied.unwrap_or(false),
         upstream: upstream_branch,
         tree: tree.id(),
