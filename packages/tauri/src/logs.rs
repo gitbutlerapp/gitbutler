@@ -4,11 +4,12 @@ use tauri::{AppHandle, Manager};
 use tracing::{metadata::LevelFilter, subscriber::set_global_default};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, Layer};
 
+use crate::paths::LogsDir;
+
 pub fn init(app_handle: &AppHandle) {
-    let logs_dir = app_handle
-        .path_resolver()
-        .app_log_dir()
-        .expect("failed to get app log dir");
+    let logs_dir = LogsDir::try_from(app_handle)
+        .expect("failed to get logs dir")
+        .to_path_buf();
     fs::create_dir_all(&logs_dir).expect("failed to create logs dir");
 
     let file_appender = tracing_appender::rolling::daily(&logs_dir, "GitButler.log");

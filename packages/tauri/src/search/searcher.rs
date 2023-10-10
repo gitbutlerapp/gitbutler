@@ -14,7 +14,7 @@ use tantivy::{query::QueryParser, Term};
 use tantivy::{schema::IndexRecordOption, tokenizer};
 use tauri::AppHandle;
 
-use crate::{bookmarks, deltas, gb_repository, reader, sessions};
+use crate::{bookmarks, deltas, gb_repository, paths::DataDir, reader, sessions};
 
 use super::{index, meta};
 
@@ -33,12 +33,12 @@ impl TryFrom<&AppHandle> for Searcher {
     }
 }
 
-impl TryFrom<&path::PathBuf> for Searcher {
+impl TryFrom<&DataDir> for Searcher {
     type Error = anyhow::Error;
 
-    fn try_from(path: &path::PathBuf) -> Result<Self> {
+    fn try_from(value: &DataDir) -> Result<Self> {
         Ok(Self {
-            inner: Arc::new(SearcherInner::try_from(path)?),
+            inner: Arc::new(SearcherInner::try_from(value)?),
         })
     }
 }
@@ -80,26 +80,23 @@ impl TryFrom<&AppHandle> for SearcherInner {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self> {
-        let local_data_dir = value
-            .path_resolver()
-            .app_local_data_dir()
-            .context("Failed to get local data dir")?;
-        Self::from_path(local_data_dir)
+        let data_dir = DataDir::try_from(value)?;
+        Self::open(&data_dir)
     }
 }
 
-impl TryFrom<&path::PathBuf> for SearcherInner {
+impl TryFrom<&DataDir> for SearcherInner {
     type Error = anyhow::Error;
 
-    fn try_from(path: &path::PathBuf) -> Result<Self> {
-        Self::from_path(path)
+    fn try_from(path: &DataDir) -> Result<Self> {
+        Self::open(path)
     }
 }
 
 impl SearcherInner {
-    fn from_path<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
-        let path = path.as_ref().to_path_buf();
-        let dir = path
+    fn open(value: &DataDir) -> Result<Self> {
+        let dir = value
+            .to_path_buf()
             .join("indexes")
             .join(format!("v{}", index::VERSION))
             .join("deltas");
@@ -125,7 +122,7 @@ impl SearcherInner {
         let writer = index.writer_with_num_threads(1, WRITE_BUFFER_SIZE)?;
 
         Ok(Self {
-            meta_storage: meta::Storage::new(path),
+            meta_storage: meta::Storage::from(value),
             reader,
             writer: Arc::new(RwLock::new(writer)),
             index,

@@ -1,9 +1,7 @@
-use std::path;
-
 use anyhow::Result;
 use tauri::{AppHandle, Manager};
 
-use crate::{storage, users::user};
+use crate::{paths::DataDir, storage, users::user};
 
 const USER_FILE: &str = "user.json";
 
@@ -34,9 +32,9 @@ impl From<&AppHandle> for Storage {
     }
 }
 
-impl From<&path::PathBuf> for Storage {
-    fn from(path: &path::PathBuf) -> Self {
-        Self::from(&storage::Storage::from(path))
+impl From<&DataDir> for Storage {
+    fn from(value: &DataDir) -> Self {
+        Self::from(&storage::Storage::from(value))
     }
 }
 

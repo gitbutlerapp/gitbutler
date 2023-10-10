@@ -1,9 +1,7 @@
-use std::path;
-
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-use crate::{projects::project, storage};
+use crate::{paths::DataDir, projects::project, storage};
 
 const PROJECTS_FILE: &str = "projects.json";
 
@@ -20,8 +18,8 @@ impl From<&storage::Storage> for Storage {
     }
 }
 
-impl From<&path::PathBuf> for Storage {
-    fn from(value: &path::PathBuf) -> Self {
+impl From<&DataDir> for Storage {
+    fn from(value: &DataDir) -> Self {
         Self::from(&storage::Storage::from(value))
     }
 }

@@ -1,8 +1,8 @@
-use std::{fs, path};
+use std::path;
 
 use anyhow::Result;
 
-use crate::storage;
+use crate::{paths::DataDir, storage};
 
 use super::index;
 
@@ -11,21 +11,21 @@ pub struct Storage {
     storage: storage::Storage,
 }
 
-impl Storage {
-    pub fn new(base_path: path::PathBuf) -> Self {
+impl From<&DataDir> for Storage {
+    fn from(value: &DataDir) -> Self {
         Self {
-            storage: storage::Storage::from(&base_path),
+            storage: storage::Storage::from(value),
         }
     }
+}
 
+impl Storage {
     pub fn delete_all(&self) -> Result<()> {
-        let filepath = self
-            .storage
-            .local_data_dir()
-            .join("indexes")
-            .join(format!("v{}", index::VERSION))
-            .join("meta");
-        fs::remove_dir_all(filepath)?;
+        self.storage.delete(
+            path::Path::new("indexes")
+                .join(format!("v{}", index::VERSION))
+                .join("meta"),
+        )?;
         Ok(())
     }
 
@@ -48,8 +48,7 @@ impl Storage {
             .join("meta")
             .join(project_id)
             .join(session_hash);
-        self.storage
-            .write(filepath.to_str().unwrap(), &version.to_string())?;
+        self.storage.write(filepath, &version.to_string())?;
         Ok(())
     }
 }

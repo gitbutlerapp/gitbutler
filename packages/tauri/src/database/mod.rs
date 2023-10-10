@@ -8,6 +8,8 @@ use refinery::config::Config;
 use rusqlite::Transaction;
 use tauri::AppHandle;
 
+use crate::paths::DataDir;
+
 mod embedded {
     use refinery::embed_migrations;
     embed_migrations!("src/database/migrations");
@@ -18,11 +20,13 @@ pub struct Database {
     pool: Arc<Pool<SqliteConnectionManager>>,
 }
 
-impl TryFrom<&path::PathBuf> for Database {
+impl TryFrom<&DataDir> for Database {
     type Error = anyhow::Error;
 
-    fn try_from(path: &path::PathBuf) -> Result<Self, Self::Error> {
-        Self::open(path)
+    fn try_from(path: &DataDir) -> Result<Self, Self::Error> {
+        let path = path.to_path_buf();
+        fs::create_dir_all(&path).context("Failed to create local data dir")?;
+        Self::open(path.join("database.sqlite3"))
     }
 }
 
@@ -30,12 +34,7 @@ impl TryFrom<&AppHandle> for Database {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        let local_data_dir = value
-            .path_resolver()
-            .app_local_data_dir()
-            .ok_or_else(|| anyhow::anyhow!("Failed to get local data dir"))?;
-        fs::create_dir_all(&local_data_dir).context("Failed to create local data dir")?;
-        Self::try_from(&local_data_dir.join("database.sqlite3"))
+        Self::try_from(&DataDir::try_from(value)?)
     }
 }
 
@@ -74,9 +73,11 @@ mod tests {
     use crate::test_utils;
 
     use super::*;
+
     #[test]
-    fn test_memory() {
-        let db = Database::try_from(&test_utils::temp_dir().join("test.db")).unwrap();
+    fn smoke() {
+        let data_dir = DataDir::from(test_utils::temp_dir());
+        let db = Database::try_from(&data_dir).unwrap();
         db.transaction(|tx| {
             tx.execute("CREATE TABLE test (id INTEGER PRIMARY KEY)", [])
                 .unwrap();

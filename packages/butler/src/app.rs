@@ -3,11 +3,13 @@ use std::path;
 use anyhow::{Context, Result};
 use git2::Repository;
 
-use gitbutler::{database, gb_repository, project_repository, projects, sessions, storage, users};
+use gitbutler::{
+    database, gb_repository, paths::DataDir, project_repository, projects, sessions, storage, users,
+};
 
 pub struct App {
     path: path::PathBuf,
-    local_data_dir: path::PathBuf,
+    local_data_dir: DataDir,
     project: projects::Project,
     sessions_db: sessions::Database,
     user: Option<users::User>,
@@ -29,8 +31,8 @@ impl App {
             .context("failed to find project")?;
 
         let user = users_storage.get_user().context("failed to get user")?;
-        let db_path = std::path::Path::new(&local_data_dir).join("database.sqlite3");
-        let database = database::Database::try_from(&db_path).context("failed to open database")?;
+        let database =
+            database::Database::try_from(&local_data_dir).context("failed to open database")?;
         let sessions_db = sessions::Database::from(database);
 
         Ok(Self {
@@ -50,7 +52,7 @@ impl App {
         &self.path
     }
 
-    pub fn local_data_dir(&self) -> &path::PathBuf {
+    pub fn local_data_dir(&self) -> &DataDir {
         &self.local_data_dir
     }
 
@@ -86,8 +88,8 @@ fn find_git_directory() -> Option<path::PathBuf> {
     }
 }
 
-fn find_local_data_dir() -> Option<path::PathBuf> {
+fn find_local_data_dir() -> Option<DataDir> {
     let mut path = dirs::config_dir().unwrap();
     path.push("com.gitbutler.app.dev");
-    Some(path::PathBuf::from(path.to_string_lossy().to_string()))
+    Some(path::PathBuf::from(path.to_string_lossy().to_string()).into())
 }

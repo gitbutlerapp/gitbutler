@@ -14,6 +14,7 @@ pub mod git;
 pub mod keys;
 pub mod lock;
 pub mod logs;
+pub mod paths;
 pub mod project_repository;
 pub mod projects;
 pub mod reader;
