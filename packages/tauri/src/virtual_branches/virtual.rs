@@ -1350,7 +1350,7 @@ pub fn get_status_by_branch(
 
     Ok(applied_status
         .into_iter()
-        .chain(non_applied_status.into_iter())
+        .chain(non_applied_status)
         .collect())
 }
 
