@@ -6,7 +6,7 @@ export async function get() {
 }
 
 export async function set(params: { user: User }) {
-	invoke<void>('set_user', params);
+	return invoke<User>('set_user', params);
 }
 
 const del = () => invoke<void>('delete_user');
