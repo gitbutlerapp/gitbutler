@@ -2,6 +2,7 @@
 	import { Button, Modal, Login, Link } from '$lib/components';
 	import type { PageData } from './$types';
 	import * as toasts from '$lib/toasts';
+	import { initDeviceOauth, checkAuthStatus } from '$lib/api/ipc/github';
 	import { deleteAllData } from '$lib/api/ipc';
 	import { userStore } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
@@ -45,6 +46,7 @@
 	$: if ($user && !loaded) {
 		loaded = true;
 		cloud.user.get($user?.access_token).then((cloudUser) => {
+			cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
 			$user = cloudUser;
 		});
 		newName = $user?.name || '';
@@ -131,6 +133,25 @@
 			.then(() => deleteConfirmationModal.close())
 			.then(() => goto('/', { replaceState: true, invalidateAll: true }))
 			.finally(() => (isDeleting = false));
+	let userCode = '';
+	let deviceCode = '';
+	function gitHubStartOauth() {
+		initDeviceOauth().then((verification) => {
+			userCode = verification.user_code;
+			deviceCode = verification.device_code;
+			gitHubOauthModal.show();
+		});
+	}
+	let gitHubOauthModal: Modal;
+	function gitHubOauthCheckStatus(deviceCode: string) {
+		checkAuthStatus({ deviceCode }).then((access_token) => {
+			let u = $user;
+			if (u) {
+				u.github_access_token = access_token;
+				$user = u;
+			}
+		});
+	}
 </script>
 
 <div class="mx-auto h-fit w-full max-w-xl py-10">
@@ -231,7 +252,7 @@
 		<div class="flex items-center">
 			<div class="flex-grow">
 				<p>Credit GitButler as the Committer</p>
-				<div class="text-light-700 dark:text-dark-200 space-y-2 pr-8 text-sm">
+				<div class="space-y-2 pr-8 text-sm text-light-700 dark:text-dark-200">
 					<div>
 						By default, everything in the GitButler client is free to use, but we credit ourselves
 						as the committer in your virtual branch commits. Community members and supporters of
@@ -362,7 +383,37 @@
 			<div><ThemeSelector /></div>
 		</div>
 
-		<div class="bg-light-400 dark:bg-dark-700 h-[0.0625rem]" />
+		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+
+		{#if $user}
+			<div>
+				<h2 class="mb-2 text-lg font-medium">Remote Integrations</h2>
+			</div>
+			<div class="flex items-center">
+				<div class="flex-grow">
+					<p>
+						GitHub
+						{#if $user.github_access_token}
+							<span class="text-sm text-green-500">️✅ — already configured</span>
+						{/if}
+					</p>
+					<p class="text-sm text-light-700 dark:text-dark-200">
+						Allows you to view and create Pull Requests from GitButler.
+					</p>
+				</div>
+				<div>
+					<Button kind="filled" color="purple" on:click={gitHubStartOauth}>
+						{#if $user.github_access_token}
+							Reauthenticate
+						{:else}
+							Set up
+						{/if}
+					</Button>
+				</div>
+			</div>
+
+			<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+		{/if}
 
 		<div>
 			<h2 class="mb-2 text-lg font-medium">Need help?</h2>
@@ -405,6 +456,35 @@
 			<svelte:fragment slot="controls" let:close>
 				<Button kind="outlined" on:click={close}>Cancel</Button>
 				<Button color="destructive" loading={isDeleting} on:click={onDeleteClicked}>Delete</Button>
+			</svelte:fragment>
+		</Modal>
+
+		<Modal on:close={() => gitHubOauthCheckStatus(deviceCode)} bind:this={gitHubOauthModal} title="Authenticate with GitHub">
+			<div class="flex flex-col gap-4">
+				<div class="flex items-center gap-2">
+					<span class="flex-grow">1️⃣ Copy the following verification code: </span>
+					<input
+						bind:value={userCode}
+						class="
+						whitespece-pre h-6 w-24 select-all rounded border border-light-200 bg-white font-mono dark:border-dark-400 dark:bg-dark-700"
+					/>
+
+					<Button kind="outlined" color="purple" on:click={() => copyToClipboard(userCode)}>
+						Copy to Clipboard
+					</Button>
+				</div>
+				<div>
+					2️⃣ Navigate to
+					<a class="underline" href="https://github.com/login/device" target="_blank" rel="noreferrer"
+						>https://github.com/login/device</a
+					>
+				</div>
+				<div>3️⃣ Paste the code that you copied and follow the on-screen instructions.</div>
+			</div>
+			<svelte:fragment slot="controls" let:close>
+				<Button color="purple" on:click={close}
+					>Done</Button
+				>
 			</svelte:fragment>
 		</Modal>
 	</div>
