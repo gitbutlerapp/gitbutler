@@ -17,7 +17,11 @@ impl super::RunCommand for Info {
         println!("path: {}", app.path().display().to_string().yellow());
         println!(
             "data_dir: {}",
-            app.local_data_dir().display().to_string().yellow()
+            app.local_data_dir()
+                .to_path_buf()
+                .display()
+                .to_string()
+                .yellow()
         );
 
         // find the project in project storage that matches the cwd
