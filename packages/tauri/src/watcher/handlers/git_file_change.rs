@@ -1,15 +1,16 @@
-use std::path;
-
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
-use crate::{analytics, events as app_events, gb_repository, project_repository, projects, users};
+use crate::{
+    analytics, events as app_events, gb_repository, paths::DataDir, project_repository, projects,
+    users,
+};
 
 use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    local_data_dir: path::PathBuf,
+    data_dir: DataDir,
     projects: projects::Controller,
     users: users::Controller,
 }
@@ -17,15 +18,12 @@ pub struct Handler {
 impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        let local_data_dir = value
-            .path_resolver()
-            .app_local_data_dir()
-            .context("failed to get local data dir")?;
+        let data_dir = DataDir::try_from(value)?;
         let project_store = projects::Controller::try_from(value)?;
         let user_store = users::Controller::try_from(value)?;
         Ok(Self {
             projects: project_store,
-            local_data_dir,
+            data_dir,
             users: user_store,
         })
     }
@@ -55,7 +53,7 @@ impl Handler {
             "GB_FLUSH" => {
                 let user = self.users.get_user()?;
                 let gb_repo = gb_repository::Repository::open(
-                    &self.local_data_dir,
+                    &self.data_dir,
                     &project_repository,
                     user.as_ref(),
                 )
@@ -134,7 +132,7 @@ mod test {
         assert!(gb_repository.get_current_session()?.is_some());
 
         let listener = Handler {
-            local_data_dir: suite.local_app_data,
+            data_dir: suite.local_app_data,
             projects: suite.projects,
             users: suite.users,
         };
@@ -166,7 +164,7 @@ mod test {
         assert!(gb_repository.get_current_session()?.is_some());
 
         let listener = Handler {
-            local_data_dir: suite.local_app_data,
+            data_dir: suite.local_app_data,
             projects: suite.projects,
             users: suite.users,
         };
@@ -193,7 +191,7 @@ mod test {
         let Case { project, .. } = suite.new_case();
 
         let listener = Handler {
-            local_data_dir: suite.local_app_data,
+            data_dir: suite.local_app_data,
             projects: suite.projects,
             users: suite.users,
         };
