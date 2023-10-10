@@ -33,6 +33,9 @@ impl<'reader> BranchReader<'reader> {
 
 #[cfg(test)]
 mod tests {
+    //TODO: use Lazy<AtomicUsize> instead of static + unsafe (see target/reader.rs)
+    #![allow(unsafe_code)]
+
     use anyhow::Result;
 
     use crate::{

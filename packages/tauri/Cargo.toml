@@ -8,6 +8,7 @@ rust-version = "1.57"
 tauri-build = { version = "1.5", features = [] }
 
 [dev-dependencies]
+once_cell = "1.0"
 pretty_assertions = "1.4"
 
 [dependencies]

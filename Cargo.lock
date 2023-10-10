@@ -1748,6 +1748,7 @@ dependencies = [
  "md5",
  "notify",
  "num_cpus",
+ "once_cell",
  "posthog-rs",
  "pretty_assertions",
  "r2d2",

@@ -53,6 +53,9 @@ impl<'iterator> Iterator for BranchIterator<'iterator> {
 
 #[cfg(test)]
 mod tests {
+    //TODO: use AtomicUsize instead of static + unsafe (see reader.rs)
+    #![allow(unsafe_code)]
+
     use anyhow::Result;
 
     use crate::{

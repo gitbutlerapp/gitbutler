@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 pub mod analytics;
 pub mod app;
 pub mod assets;
