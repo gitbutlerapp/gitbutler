@@ -26,13 +26,7 @@ pub async fn get_user(handle: AppHandle) -> Result<Option<User>, Error> {
     let proxy = handle.state::<assets::Proxy>();
 
     match app.get_user()? {
-        Some(user) => {
-            let user = proxy.proxy_user(&user).await.unwrap_or_else(|error| {
-                tracing::error!(?error, "failed to proxy user");
-                user
-            });
-            Ok(Some(user))
-        }
+        Some(user) => Ok(Some(proxy.proxy_user(&user).await)),
         None => Ok(None),
     }
 }
@@ -50,14 +44,15 @@ impl From<controller::SetError> for Error {
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn set_user(handle: AppHandle, user: User) -> Result<(), Error> {
+pub async fn set_user(handle: AppHandle, user: User) -> Result<User, Error> {
     let app = handle.state::<Controller>();
+    let proxy = handle.state::<assets::Proxy>();
 
     app.set_user(&user)?;
 
     sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())));
 
-    Ok(())
+    Ok(proxy.proxy_user(&user).await)
 }
 
 impl From<controller::DeleteError> for Error {

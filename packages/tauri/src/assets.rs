@@ -45,13 +45,21 @@ impl TryFrom<&AppHandle> for Proxy {
 const ASSET_SCHEME: &str = "asset";
 
 impl Proxy {
-    pub async fn proxy_user(&self, user: &users::User) -> Result<users::User> {
-        let remote_url = Url::parse(&user.picture)?;
-        let local_url = self.proxy(&remote_url).await?;
-        Ok(users::User {
-            picture: local_url.to_string(),
-            ..user.clone()
-        })
+    pub async fn proxy_user(&self, user: &users::User) -> users::User {
+        match Url::parse(&user.picture) {
+            Ok(picture) => users::User {
+                picture: self
+                    .proxy(&picture)
+                    .await
+                    .map(|url| url.to_string())
+                    .unwrap_or_else(|error| {
+                        tracing::error!(?error, "failed to proxy user picture");
+                        user.picture.to_string()
+                    }),
+                ..user.clone()
+            },
+            Err(_) => user.clone(),
+        }
     }
 
     pub async fn proxy_remote_branches(&self, branches: &[RemoteBranch]) -> Vec<RemoteBranch> {

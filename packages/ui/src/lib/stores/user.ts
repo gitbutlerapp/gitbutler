@@ -4,8 +4,8 @@ import { asyncWritable } from '@square/svelte-store';
 export const userStore = asyncWritable([], users.get, async (user) => {
 	if (user === null) {
 		await users.delete();
+		return null;
 	} else {
-		await users.set({ user });
+		return await users.set({ user });
 	}
-	return user;
 });
