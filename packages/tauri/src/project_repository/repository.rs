@@ -246,10 +246,11 @@ impl Repository {
                     );
                     return Ok(());
                 }
-                Err(error) => {
+                Err(git::Error::AuthenticationFailed(error)) => {
                     tracing::error!(project_id = self.project.id, ?error, "git push failed",);
-                    continue;
+                    continue
                 }
+                Err(error) => return Err(RemoteError::Other(error.into())),
             }
         }
 
