@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use anyhow::{Result, Context};
 use tracing::instrument;
 
 use crate::error::Error;
@@ -38,7 +38,9 @@ pub async fn init_device_oauth() -> Result<Verification, Error> {
 
     let rsp_body = res.text().await.context("Failed to get response body")?;
 
-    serde_json::from_str(&rsp_body).context("Failed to parse response body").map_err(Into::into)
+    serde_json::from_str(&rsp_body)
+        .context("Failed to parse response body")
+        .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -61,7 +63,8 @@ pub async fn check_auth_status(device_code: &str) -> Result<String, Error> {
         .headers(headers)
         .json(&req_body)
         .send()
-        .await.context("Failed to send request")?;
+        .await
+        .context("Failed to send request")?;
 
     let rsp_body = res.text().await.context("Failed to get response body")?;
 
@@ -70,5 +73,8 @@ pub async fn check_auth_status(device_code: &str) -> Result<String, Error> {
         access_token: String,
     }
 
-    serde_json::from_str::<AccessTokenContainer>(&rsp_body).map(|rsp_body| rsp_body.access_token).context("Failed to parse response body").map_err(Into::into)
+    serde_json::from_str::<AccessTokenContainer>(&rsp_body)
+        .map(|rsp_body| rsp_body.access_token)
+        .context("Failed to parse response body")
+        .map_err(Into::into)
 }
