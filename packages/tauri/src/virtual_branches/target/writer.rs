@@ -110,6 +110,7 @@ mod tests {
                     .parse()
                     .unwrap(),
             ),
+            upstream_head: None,
             updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
             head: format!("0123456789abcdef0123456789abcdef0123456{}", unsafe {
                 TEST_INDEX

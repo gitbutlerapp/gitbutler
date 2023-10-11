@@ -287,7 +287,7 @@ fn verify_head_is_clean(
                 .last()
                 .unwrap()
                 .message()
-                .map(|s| s.to_string()),
+                .map(ToString::to_string),
             ..Default::default()
         },
     )
@@ -370,24 +370,19 @@ fn is_integration_commit_author(commit: &git::Commit) -> bool {
 }
 
 fn is_integration_commit_author_email(commit: &git::Commit) -> bool {
-    commit
-        .author()
-        .email()
-        .map(|email| email == GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL)
-        .unwrap_or(false)
+    commit.author().email().map_or(false, |email| {
+        email == GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL
+    })
 }
 
 fn is_integration_commit_author_name(commit: &git::Commit) -> bool {
-    commit
-        .author()
-        .name()
-        .map(|name| name == GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME)
-        .unwrap_or(false)
+    commit.author().name().map_or(false, |name| {
+        name == GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME
+    })
 }
 
 fn is_integration_commit_message(commit: &git::Commit) -> bool {
-    commit
-        .message()
-        .map(|message| message.starts_with("GitButler Integration Commit"))
-        .unwrap_or(false)
+    commit.message().map_or(false, |message| {
+        message.starts_with("GitButler Integration Commit")
+    })
 }

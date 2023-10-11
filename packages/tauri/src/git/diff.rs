@@ -115,15 +115,12 @@ fn hunks_by_filepath(
 
         let is_path_changed = current_file_path
             .as_ref()
-            .map(|p| !file_path.eq(p))
-            .unwrap_or(false);
-        let is_hunk_changed = current_hunk_id
-            .as_ref()
-            .map(|h| !hunk_id.eq(h))
-            .unwrap_or(false);
+            .map_or(false, |p| !file_path.eq(p));
+
+        let is_hunk_changed = current_hunk_id.as_ref().map_or(false, |h| !hunk_id.eq(h));
 
         if is_hunk_changed || is_path_changed {
-            let file_path = current_file_path.as_ref().unwrap().to_path_buf();
+            let file_path = current_file_path.as_ref().unwrap().clone();
             hunks_by_filepath.entry(file_path).or_default().push(Hunk {
                 old_start: current_old_start.unwrap(),
                 old_lines: current_old_lines.unwrap(),

@@ -9,6 +9,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use git2::TreeWalkResult;
+use pretty_assertions::{assert_eq, assert_ne};
 
 use crate::{
     gb_repository, git, project_repository, reader, sessions,
@@ -3920,4 +3921,196 @@ fn test_verify_branch_not_integration() -> Result<()> {
     );
 
     Ok(())
+}
+
+#[test]
+fn test_reset_to_head_commit() {
+    let Case {
+        project_repository,
+        gb_repository,
+        project,
+        ..
+    } = Suite::default().new_case();
+    set_test_target(&gb_repository, &project_repository).unwrap();
+
+    let current_session = gb_repository.get_or_create_current_session().unwrap();
+    let current_session_reader = sessions::Reader::open(&gb_repository, &current_session).unwrap();
+    let branch_reader = branch::Reader::new(&current_session_reader);
+
+    let branch_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+
+    fs::write(project.path.join("file.txt"), "1").unwrap();
+    commit(
+        &gb_repository,
+        &project_repository,
+        &branch_id,
+        "commit 1",
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    let commit1_oid = branch_reader.read(&branch_id).unwrap().head;
+
+    reset_branch(&gb_repository, &project_repository, &branch_id, commit1_oid).unwrap();
+
+    let current_head = branch_reader.read(&branch_id).unwrap().head;
+    assert_eq!(current_head, commit1_oid);
+
+    assert_eq!(
+        fs::read_to_string(project.path.join("file.txt")).unwrap(),
+        "1"
+    );
+}
+
+#[test]
+fn test_reset_to_existing_commit() {
+    let Case {
+        project_repository,
+        gb_repository,
+        project,
+        ..
+    } = Suite::default().new_case();
+    set_test_target(&gb_repository, &project_repository).unwrap();
+
+    let current_session = gb_repository.get_or_create_current_session().unwrap();
+    let current_session_reader = sessions::Reader::open(&gb_repository, &current_session).unwrap();
+    let branch_reader = branch::Reader::new(&current_session_reader);
+
+    let branch_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+
+    fs::write(project.path.join("file.txt"), "1").unwrap();
+    commit(
+        &gb_repository,
+        &project_repository,
+        &branch_id,
+        "commit 1",
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    let commit1_oid = branch_reader.read(&branch_id).unwrap().head;
+
+    fs::write(project.path.join("file.txt"), "2").unwrap();
+    commit(
+        &gb_repository,
+        &project_repository,
+        &branch_id,
+        "commit 2",
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    let commit2_oid = branch_reader.read(&branch_id).unwrap().head;
+
+    assert_ne!(
+        commit1_oid, commit2_oid,
+        "expected commit to change the head"
+    );
+
+    reset_branch(&gb_repository, &project_repository, &branch_id, commit1_oid).unwrap();
+
+    let current_head = branch_reader.read(&branch_id).unwrap().head;
+    assert_eq!(current_head, commit1_oid);
+
+    assert_eq!(
+        fs::read_to_string(project.path.join("file.txt")).unwrap(),
+        "2"
+    );
+}
+
+#[test]
+fn test_reset_to_non_existing_commit() {
+    let Case {
+        project_repository,
+        gb_repository,
+        ..
+    } = Suite::default().new_case();
+    set_test_target(&gb_repository, &project_repository).unwrap();
+
+    let branch_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+
+    assert!(reset_branch(
+        &gb_repository,
+        &project_repository,
+        &branch_id,
+        "f535ba30d59bc60fc5d162a857b0f1a6475f4700".parse().unwrap(),
+    )
+    .is_err());
+}
+
+#[test]
+fn test_reset_to_target() {
+    let Case {
+        project_repository,
+        gb_repository,
+        project,
+        ..
+    } = Suite::default().new_case();
+    set_test_target(&gb_repository, &project_repository).unwrap();
+
+    let current_session = gb_repository.get_or_create_current_session().unwrap();
+    let current_session_reader = sessions::Reader::open(&gb_repository, &current_session).unwrap();
+    let branch_reader = branch::Reader::new(&current_session_reader);
+
+    let branch_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+
+    fs::write(project.path.join("file.txt"), "1").unwrap();
+    commit(
+        &gb_repository,
+        &project_repository,
+        &branch_id,
+        "commit 1",
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    let commit1_oid = branch_reader.read(&branch_id).unwrap().head;
+
+    fs::write(project.path.join("file.txt"), "2").unwrap();
+    commit(
+        &gb_repository,
+        &project_repository,
+        &branch_id,
+        "commit 2",
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    let commit2_oid = branch_reader.read(&branch_id).unwrap().head;
+
+    assert_ne!(
+        commit1_oid, commit2_oid,
+        "expected commit to change the head"
+    );
+
+    let target_reader = target::Reader::new(&current_session_reader);
+    let default_target = target_reader.read_default().unwrap();
+    reset_branch(
+        &gb_repository,
+        &project_repository,
+        &branch_id,
+        default_target.sha,
+    )
+    .unwrap();
+
+    let current_head = branch_reader.read(&branch_id).unwrap().head;
+    assert_eq!(current_head, default_target.sha);
+
+    assert_eq!(
+        fs::read_to_string(project.path.join("file.txt")).unwrap(),
+        "2"
+    );
 }

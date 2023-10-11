@@ -63,6 +63,14 @@ impl<'writer> BranchWriter<'writer> {
                 )
                 .context("Failed to write branch upstream")?;
         };
+        if let Some(upstream_head) = &branch.upstream_head {
+            self.writer
+                .write_string(
+                    &format!("branches/{}/meta/upstream_head", branch.id),
+                    &upstream_head.to_string(),
+                )
+                .context("Failed to write branch upstream head")?;
+        }
         self.writer
             .write_string(
                 &format!("branches/{}/meta/tree", branch.id),
@@ -129,6 +137,7 @@ mod tests {
                     .parse()
                     .unwrap(),
             ),
+            upstream_head: None,
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
             updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
             head: format!("0123456789abcdef0123456789abcdef0123456{}", unsafe {

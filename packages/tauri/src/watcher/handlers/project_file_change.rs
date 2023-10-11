@@ -107,7 +107,7 @@ impl Handler {
             let project_head = project_repository
                 .get_head()
                 .context("failed to get head")?;
-            if session.meta.branch != project_head.name().map(|s| s.to_string()) {
+            if session.meta.branch != project_head.name().map(ToString::to_string) {
                 gb_repository
                     .flush_session(&project_repository, &session, user.as_ref())
                     .context("failed to flush session")?;
@@ -236,6 +236,7 @@ mod test {
                     .parse()
                     .unwrap(),
             ),
+            upstream_head: None,
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
             updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
             head: format!("0123456789abcdef0123456789abcdef0123456{}", unsafe {

@@ -1,4 +1,11 @@
 #![deny(unsafe_code)]
+#![deny(
+    clippy::redundant_closure_for_method_calls,
+    clippy::manual_string_new,
+    clippy::implicit_clone,
+    clippy::map_unwrap_or,
+    clippy::needless_for_each
+)]
 
 pub mod analytics;
 pub mod app;

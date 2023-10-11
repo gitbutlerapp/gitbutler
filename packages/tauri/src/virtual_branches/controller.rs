@@ -393,6 +393,26 @@ impl Controller {
         .await
     }
 
+    pub async fn reset_virtual_branch(
+        &self,
+        project_id: &str,
+        branch_id: &str,
+        target_commit_oid: git::Oid,
+    ) -> Result<(), Error> {
+        self.with_lock(project_id, || {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
+                super::reset_branch(
+                    gb_repository,
+                    project_repository,
+                    branch_id,
+                    target_commit_oid,
+                )
+                .map_err(Error::Other)
+            })
+        })
+        .await
+    }
+
     pub async fn unapply_virtual_branch(
         &self,
         project_id: &str,

@@ -316,7 +316,7 @@ impl Repository {
             Result::Ok(head) => sessions::Meta {
                 start_timestamp_ms: now_ms,
                 last_timestamp_ms: now_ms,
-                branch: head.name().map(|name| name.to_string()),
+                branch: head.name().map(ToString::to_string),
                 commit: Some(head.peel_to_commit()?.id().to_string()),
             },
             Err(_) => sessions::Meta {

@@ -196,6 +196,18 @@
 		}
 	}
 
+	function resetHeadCommit() {
+		if (branch.commits.length < 2) {
+			return;
+		}
+
+		branchController.resetBranch({
+			projectId,
+			branchId: branch.id,
+			targetCommitOid: branch.commits[1].id
+		});
+	}
+
 	onMount(() => {
 		expandFromCache();
 		laneWidth = lscache.get(laneWidthKey + branch.id) ?? $userSettings.defaultLaneWidth;
@@ -381,7 +393,7 @@
 					</div>
 					{#if upstreamCommitsShown}
 						<div
-							class="border-light-400 bg-light-300 dark:border-dark-400 dark:bg-dark-800 flex w-full flex-col border-t p-2"
+							class="flex w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
 							id="upstreamCommits"
 						>
 							<div class="bg-light-100">
@@ -433,7 +445,7 @@
 		<div class="relative flex flex-grow overflow-y-hidden">
 			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
 			<div
-				class="lane-dz-marker outline-light-600 dark:outline-dark-300 absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 dark:bg-blue-900/60"
+				class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
 			>
 				<div class="hover-text invisible font-semibold">Move here</div>
 			</div>
@@ -509,17 +521,17 @@
 									transition:slide={{ duration: 150 }}
 								>
 									<div
-										class="dark:form-dark-600 from-light-400 via-light-500 dark:from-dark-600 dark:via-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b via-90%"
+										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
 										style={localCommits.length == 0 ? 'height: calc();' : 'height: 100%;'}
 									/>
 
 									<div class="relative flex flex-col gap-2">
 										<div
-											class="dark:form-dark-600 from-light-400 via-light-400 dark:from-dark-600 dark:via-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r via-10%"
+											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
 										/>
 										<div class="ml-10 mr-2 flex items-center py-2">
 											<div
-												class="text-dark-300 dark:text-light-300 ml-2 flex-grow font-mono text-sm font-bold"
+												class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
 											>
 												local
 											</div>
@@ -536,16 +548,29 @@
 											</Button>
 										</div>
 
-										{#each localCommits as commit (commit.id)}
+										{#each localCommits as commit, i (commit.id)}
 											<div
 												class="flex w-full items-center pb-2 pr-1.5"
 												in:receive={{ key: commit.id }}
 												out:send={{ key: commit.id }}
 												animate:flip
 											>
-												<div class="ml-[0.4rem] mr-1.5">
-													<div class="border-color-4 h-3 w-3 rounded-full border-2" />
-												</div>
+												{#if i === 0}
+													<div class="group relative ml-[0.4rem] mr-1.5 h-3 w-3">
+														<div
+															class="insert-0 border-color-4 absolute h-3 w-3 rounded-full border-2 transition-opacity group-hover:opacity-0"
+														/>
+														<IconButton
+															class="insert-0 absolute opacity-0 group-hover:opacity-100"
+															icon={IconCloseSmall}
+															on:click={resetHeadCommit}
+														/>
+													</div>
+												{:else}
+													<div class="ml-[0.4rem] mr-1.5">
+														<div class="border-color-4 h-3 w-3 rounded-full border-2" />
+													</div>
+												{/if}
 												<CommitCard {projectId} {commit} />
 											</div>
 										{/each}
@@ -555,13 +580,13 @@
 							{#if remoteCommits.length > 0}
 								<div class="relative flex-grow">
 									<div
-										class="dark:form-dark-600 from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b via-90%"
+										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
 										style="height: calc(100% - 1rem);"
 									/>
 
 									<div class="relative flex flex-grow flex-col gap-2">
 										<div
-											class="dark:form-dark-600 from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r via-10%"
+											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
 										/>
 
 										<div
@@ -588,7 +613,7 @@
 											>
 												<div class="ml-[0.4rem] mr-1.5">
 													<div
-														class="border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400 h-3 w-3 rounded-full border-2"
+														class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
 														class:bg-light-500={commit.isRemote}
 														class:dark:bg-dark-500={commit.isRemote}
 													/>
@@ -603,13 +628,13 @@
 						{#if integratedCommits.length > 0}
 							<div class="relative flex-grow">
 								<div
-									class="dark:form-dark-600 from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b via-90%"
+									class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
 									style="height: calc(100% - 1rem);"
 								/>
 
 								<div class="relative flex flex-grow flex-col gap-2">
 									<div
-										class="dark:form-dark-600 from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r via-10%"
+										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
 									/>
 
 									<div
@@ -634,7 +659,7 @@
 										>
 											<div class="ml-[0.4rem] mr-1.5">
 												<div
-													class="border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400 h-3 w-3 rounded-full border-2"
+													class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
 													class:bg-light-500={commit.isRemote}
 													class:dark:bg-dark-500={commit.isRemote}
 												/>
