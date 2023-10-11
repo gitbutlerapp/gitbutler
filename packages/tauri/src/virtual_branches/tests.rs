@@ -159,9 +159,7 @@ fn test_signed_commit() -> Result<()> {
 
     let branches = list_virtual_branches(&gb_repository, &project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
-    let commit_obj = project_repository
-        .git_repository
-        .find_commit(commit_id.parse().unwrap())?;
+    let commit_obj = project_repository.git_repository.find_commit(*commit_id)?;
     // check the raw_header contains the string "SSH SIGNATURE"
     assert!(commit_obj.raw_header().unwrap().contains("SSH SIGNATURE"));
 
@@ -248,9 +246,7 @@ fn test_track_binary_files() -> Result<()> {
     // status (no files)
     let branches = list_virtual_branches(&gb_repository, &project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
-    let commit_obj = project_repository
-        .git_repository
-        .find_commit(commit_id.parse().unwrap())?;
+    let commit_obj = project_repository.git_repository.find_commit(*commit_id)?;
     let tree = commit_obj.tree()?;
     let files = tree_to_entry_list(&project_repository.git_repository, &tree);
     assert_eq!(files[0].0, "image.bin");
@@ -279,9 +275,7 @@ fn test_track_binary_files() -> Result<()> {
     let branches = list_virtual_branches(&gb_repository, &project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
     // get tree from commit_id
-    let commit_obj = project_repository
-        .git_repository
-        .find_commit(commit_id.parse().unwrap())?;
+    let commit_obj = project_repository.git_repository.find_commit(*commit_id)?;
     let tree = commit_obj.tree()?;
     let files = tree_to_entry_list(&project_repository.git_repository, &tree);
 
@@ -1033,7 +1027,7 @@ fn test_update_base_branch_base() -> Result<()> {
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.commits.len(), 1); // branch commit, rebased
-    let head_sha = branch.commits[0].id.parse::<git::Oid>()?;
+    let head_sha = branch.commits[0].id;
 
     let head_commit = project_repository.git_repository.find_commit(head_sha)?;
     let parent = head_commit.parent(0)?;
@@ -1403,9 +1397,7 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
 
     // make sure the last commit was signed
     let last_id = &branch1.commits[0].id;
-    let last_commit = project_repository
-        .git_repository
-        .find_commit(last_id.parse::<git::Oid>()?)?;
+    let last_commit = project_repository.git_repository.find_commit(*last_id)?;
     assert!(last_commit.raw_header().unwrap().contains("SSH SIGNATURE"));
 
     Ok(())
@@ -1550,9 +1542,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
 
     // make sure the last commit was a merge commit (2 parents)
     let last_id = &branch1.commits[0].id;
-    let last_commit = project_repository
-        .git_repository
-        .find_commit(last_id.parse::<git::Oid>()?)?;
+    let last_commit = project_repository.git_repository.find_commit(*last_id)?;
     assert_eq!(last_commit.parent_count(), 2);
 
     Ok(())
@@ -3192,12 +3182,9 @@ fn test_commit_partial_by_file() -> Result<()> {
 
     // branch one test.txt has just the 1st and 3rd hunks applied
     let commit2 = &branch1.commits[0].id;
-    let commit2 = commit2
-        .parse::<git::Oid>()
-        .expect("failed to parse commit id");
     let commit2 = project_repository
         .git_repository
-        .find_commit(commit2)
+        .find_commit(*commit2)
         .expect("failed to get commit object");
 
     let tree = commit1.tree().expect("failed to get tree");
@@ -3266,12 +3253,9 @@ fn test_commit_add_and_delete_files() -> Result<()> {
 
     // branch one test.txt has just the 1st and 3rd hunks applied
     let commit2 = &branch1.commits[0].id;
-    let commit2 = commit2
-        .parse::<git::Oid>()
-        .expect("failed to parse commit id");
     let commit2 = project_repository
         .git_repository
-        .find_commit(commit2)
+        .find_commit(*commit2)
         .expect("failed to get commit object");
 
     let tree = commit1.tree().expect("failed to get tree");
@@ -3333,12 +3317,9 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     let commit = &branch1.commits[0].id;
-    let commit = commit
-        .parse::<git::Oid>()
-        .expect("failed to parse commit id");
     let commit = project_repository
         .git_repository
-        .find_commit(commit)
+        .find_commit(*commit)
         .expect("failed to get commit object");
 
     let tree = commit.tree().expect("failed to get tree");
@@ -3778,7 +3759,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
     let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
     let last_commit = branch1.commits.first().unwrap();
-    let last_commit_oid = last_commit.id.parse::<git::Oid>()?;
+    let last_commit_oid = last_commit.id;
     let commit = gb_repository.git_repository.find_commit(last_commit_oid)?;
     assert!(!branch1.conflicted);
     assert_eq!(commit.parent_count(), 2);
@@ -4106,4 +4087,66 @@ fn test_reset_to_target() {
         fs::read_to_string(project.path.join("file.txt")).unwrap(),
         "2"
     );
+}
+
+#[test]
+fn test_requires_force() {
+    let suite = Suite::default();
+    let Case {
+        project_repository,
+        gb_repository,
+        project,
+        ..
+    } = suite.new_case();
+    set_test_target(&gb_repository, &project_repository).unwrap();
+
+    let branch_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+
+    fs::write(project.path.join("file.txt"), "1").unwrap();
+    commit(
+        &gb_repository,
+        &project_repository,
+        &branch_id,
+        "commit 1",
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+
+    fs::write(project.path.join("file.txt"), "2").unwrap();
+    commit(
+        &gb_repository,
+        &project_repository,
+        &branch_id,
+        "commit 2",
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+
+    push(
+        &project_repository,
+        &gb_repository,
+        &branch_id,
+        &keys::Key::from(suite.keys.get_or_create().unwrap()),
+    )
+    .unwrap();
+
+    let statuses = list_virtual_branches(&gb_repository, &project_repository).unwrap();
+    assert!(!statuses[0].requires_force);
+
+    reset_branch(
+        &gb_repository,
+        &project_repository,
+        &branch_id,
+        statuses[0].commits[1].id,
+    )
+    .unwrap();
+
+    let statuses = list_virtual_branches(&gb_repository, &project_repository).unwrap();
+    assert!(statuses[0].requires_force);
 }

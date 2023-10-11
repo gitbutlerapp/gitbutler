@@ -206,14 +206,26 @@ impl Repository {
             .context("failed to find remote")
             .map_err(RemoteError::Other)?;
 
-        if let Ok(Some(url)) = remote.url() {
-            match url.as_ssh() {
-                Ok(ssh_url) => Ok(self
-                    .git_repository
-                    .remote_anonymous(&ssh_url)
-                    .context("failed to get anonymous")
-                    .map_err(RemoteError::Other)?),
-                Err(_) => Err(RemoteError::NonSSHUrl(url.to_string())),
+        let remote_url = remote
+            .url()
+            .context("failed to get remote url")
+            .map_err(RemoteError::Other)?;
+
+        if let Some(url) = remote_url {
+            match url.scheme {
+                #[cfg(test)]
+                git::Scheme::File => Ok(remote),
+                git::Scheme::Ssh => Ok(remote),
+                _ => {
+                    let ssh_url = url
+                        .as_ssh()
+                        .map_err(|_| RemoteError::NonSSHUrl(url.to_string()))?;
+                    Ok(self
+                        .git_repository
+                        .remote_anonymous(&ssh_url)
+                        .context("failed to get anonymous")
+                        .map_err(RemoteError::Other)?)
+                }
             }
         } else {
             Err(RemoteError::NoUrl)
@@ -373,7 +385,7 @@ pub enum RemoteError {
     #[error("authentication failed")]
     AuthError,
     #[error(transparent)]
-    Other(anyhow::Error),
+    Other(#[from] anyhow::Error),
 }
 
 impl From<RemoteError> for crate::error::Error {

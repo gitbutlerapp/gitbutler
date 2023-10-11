@@ -33,6 +33,7 @@ use super::{
 //
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(clippy::struct_excessive_bools)]
 pub struct VirtualBranch {
     pub id: String,
     pub name: String,
@@ -40,6 +41,7 @@ pub struct VirtualBranch {
     pub active: bool,
     pub files: Vec<VirtualBranchFile>,
     pub commits: Vec<VirtualBranchCommit>,
+    pub requires_force: bool, // does this branch require a force push to the upstream?
     pub conflicted: bool, // is this branch currently in a conflicted state (only for applied branches)
     pub order: usize,     // the order in which this branch should be displayed in the UI
     pub upstream: Option<git::RemoteBranchName>, // the name of the upstream branch this branch this pushes to
@@ -59,7 +61,7 @@ pub struct VirtualBranch {
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchCommit {
-    pub id: String,
+    pub id: git::Oid,
     pub description: String,
     pub created_at: u128,
     pub author: Author,
@@ -637,6 +639,16 @@ pub fn list_virtual_branches(
             }
         }
 
+        let requires_force = if let Some(upstream) = &branch.upstream {
+            let upstream_commit = repo
+                .find_commit(repo.refname_to_id(&upstream.to_string())?)
+                .context("failed to find upstream commit")?;
+            let merge_base = repo.merge_base(upstream_commit.id(), branch.head)?;
+            merge_base != upstream_commit.id()
+        } else {
+            false
+        };
+
         let branch = VirtualBranch {
             id: branch.id.to_string(),
             name: branch.name.to_string(),
@@ -645,6 +657,7 @@ pub fn list_virtual_branches(
             files: vfiles,
             order: branch.order,
             commits,
+            requires_force,
             upstream: branch.upstream.clone(),
             conflicted: conflicts::is_resolving(project_repository),
             base_current,
@@ -810,7 +823,6 @@ pub fn commit_to_vbranch_commit(
     let timestamp = commit.time().seconds() as u128;
     let signature = commit.author();
     let message = commit.message().unwrap().to_string();
-    let sha = commit.id().to_string();
 
     let is_remote = match upstream_commits {
         Some(commits) => commits.contains_key(&commit.id()),
@@ -823,7 +835,7 @@ pub fn commit_to_vbranch_commit(
     let is_integrated = is_commit_integrated(repository, target, commit)?;
 
     let commit = VirtualBranchCommit {
-        id: sha,
+        id: commit.id(),
         created_at: timestamp * 1000,
         author: Author::from(signature),
         description: message,
