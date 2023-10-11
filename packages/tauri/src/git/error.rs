@@ -12,6 +12,8 @@ pub enum Error {
     SignError(Box<dyn std::error::Error + Send + Sync>),
     #[error("remote url error: {0}")]
     RemoteUrlError(Box<dyn std::error::Error + Send + Sync>),
+    #[error("io error: {0}")]
+    IoError(#[from] std::io::Error),
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send + Sync>),
 }
