@@ -63,6 +63,12 @@ impl Controller {
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+                if conflicts::is_conflicting(project_repository, None)
+                    .context("failed to check for conflicts")?
+                {
+                    return Err(Error::Conflicting);
+                }
+
                 let signing_key = if project_repository
                     .config()
                     .sign_commits()
