@@ -65,6 +65,7 @@
 	const user = userStore;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
+	$: headCommit = branch.commits[0];
 	$: localCommits = branch.commits.filter((c) => !c.isIntegrated && !c.isRemote);
 	$: remoteCommits = branch.commits.filter((c) => c.isRemote && !c.isIntegrated);
 	$: integratedCommits = branch.commits.filter((c) => c.isIntegrated);
@@ -548,14 +549,14 @@
 											</Button>
 										</div>
 
-										{#each localCommits as commit, i (commit.id)}
+										{#each localCommits as commit (commit.id)}
 											<div
 												class="flex w-full items-center pb-2 pr-1.5"
 												in:receive={{ key: commit.id }}
 												out:send={{ key: commit.id }}
 												animate:flip
 											>
-												{#if i === 0}
+												{#if commit.id === headCommit?.id}
 													<div class="group relative ml-[0.4rem] mr-1.5 h-3 w-3">
 														<div
 															class="insert-0 border-color-4 absolute h-3 w-3 rounded-full border-2 transition-opacity group-hover:opacity-0"
@@ -611,13 +612,28 @@
 												out:send={{ key: commit.id }}
 												animate:flip
 											>
-												<div class="ml-[0.4rem] mr-1.5">
-													<div
-														class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
-														class:bg-light-500={commit.isRemote}
-														class:dark:bg-dark-500={commit.isRemote}
-													/>
-												</div>
+												{#if commit.id === headCommit?.id}
+													<div class="group relative ml-[0.4rem] mr-1.5 h-3 w-3">
+														<div
+															class="insert-0 absolute group-hover:opacity-0 h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+															class:bg-light-500={commit.isRemote}
+															class:dark:bg-dark-500={commit.isRemote}
+														/>
+														<IconButton
+															class="insert-0 absolute opacity-0 group-hover:opacity-100"
+															icon={IconCloseSmall}
+															on:click={resetHeadCommit}
+														/>
+													</div>
+												{:else}
+													<div class="ml-[0.4rem] mr-1.5">
+														<div
+															class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+															class:bg-light-500={commit.isRemote}
+															class:dark:bg-dark-500={commit.isRemote}
+														/>
+													</div>
+												{/if}
 												<CommitCard {projectId} {commit} />
 											</div>
 										{/each}
