@@ -8,7 +8,7 @@
     clippy::pedantic
 )]
 // clippy::restriction (see https://rust-lang.github.io/rust-clippy/master/index.html#/?groups=restriction)
-// it is recommended individually based on style and requirements
+// it is recommended to enable individually based on style and requirements
 #![deny(
     clippy::as_underscore,
     clippy::assertions_on_result_states,
