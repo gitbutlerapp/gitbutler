@@ -91,7 +91,7 @@ impl Controller {
         .await
     }
 
-    pub async fn can_apply_remote_branch(
+    pub fn can_apply_remote_branch(
         &self,
         project_id: &str,
         branch_name: &git::BranchName,
@@ -109,7 +109,7 @@ impl Controller {
             .map_err(Error::Other)
     }
 
-    pub async fn can_apply_virtual_branch(
+    pub fn can_apply_virtual_branch(
         &self,
         project_id: &str,
         branch_id: &str,
@@ -202,7 +202,7 @@ impl Controller {
         .await
     }
 
-    pub async fn get_base_branch_data(
+    pub fn get_base_branch_data(
         &self,
         project_id: &str,
     ) -> Result<Option<super::BaseBranch>, Error> {
@@ -220,7 +220,7 @@ impl Controller {
         Ok(base_branch)
     }
 
-    pub async fn list_remote_commit_files(
+    pub fn list_remote_commit_files(
         &self,
         project_id: &str,
         commit_oid: git::Oid,
@@ -235,7 +235,7 @@ impl Controller {
             .map_err(Error::Other)
     }
 
-    pub async fn set_base_branch(
+    pub fn set_base_branch(
         &self,
         project_id: &str,
         target_branch: &git::RemoteBranchName,

@@ -228,42 +228,42 @@ pub fn apply_branch(
                 Some(default_target.sha),
             )?;
             return Ok(());
-        } else {
-            let head_commit = repo
-                .find_commit(apply_branch.head)
-                .context("failed to find head commit")?;
-
-            // commit our new upstream merge
-            let (author, committer) = project_repository.git_signatures(user)?;
-            let message = "merge upstream";
-            // write the merge commit
-            let branch_tree_oid = merge_index.write_tree_to(repo)?;
-            branch_tree = repo.find_tree(branch_tree_oid)?;
-
-            let new_branch_head = if let Some(key) = signing_key {
-                repo.commit_signed(
-                    &author,
-                    message,
-                    &branch_tree,
-                    &[&head_commit, &target_commit],
-                    key,
-                )
-            } else {
-                repo.commit(
-                    None,
-                    &author,
-                    &committer,
-                    message,
-                    &branch_tree,
-                    &[&head_commit, &target_commit],
-                )
-            }?;
-
-            // ok, update the virtual branch
-            apply_branch.head = new_branch_head;
-            apply_branch.tree = branch_tree_oid;
-            writer.write(&apply_branch)?;
         }
+
+        let head_commit = repo
+            .find_commit(apply_branch.head)
+            .context("failed to find head commit")?;
+
+        // commit our new upstream merge
+        let (author, committer) = project_repository.git_signatures(user)?;
+        let message = "merge upstream";
+        // write the merge commit
+        let branch_tree_oid = merge_index.write_tree_to(repo)?;
+        branch_tree = repo.find_tree(branch_tree_oid)?;
+
+        let new_branch_head = if let Some(key) = signing_key {
+            repo.commit_signed(
+                &author,
+                message,
+                &branch_tree,
+                &[&head_commit, &target_commit],
+                key,
+            )
+        } else {
+            repo.commit(
+                None,
+                &author,
+                &committer,
+                message,
+                &branch_tree,
+                &[&head_commit, &target_commit],
+            )
+        }?;
+
+        // ok, update the virtual branch
+        apply_branch.head = new_branch_head;
+        apply_branch.tree = branch_tree_oid;
+        writer.write(&apply_branch)?;
     }
 
     let wd_tree = project_repository.get_wd_tree()?;
@@ -275,14 +275,14 @@ pub fn apply_branch(
 
     if merge_index.has_conflicts() {
         bail!("vbranch has conflicts with other applied branches, sorry bro.");
-    } else {
-        // apply the branch
-        apply_branch.applied = true;
-        writer.write(&apply_branch)?;
-
-        // checkout the merge index
-        repo.checkout_index(&mut merge_index).force().checkout()?;
     }
+
+    // apply the branch
+    apply_branch.applied = true;
+    writer.write(&apply_branch)?;
+
+    // checkout the merge index
+    repo.checkout_index(&mut merge_index).force().checkout()?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
@@ -337,37 +337,36 @@ pub fn unapply_ownership(
                 let taken_file_ownerships = branch.ownership.take(file_ownership_to_take);
                 if taken_file_ownerships.is_empty() {
                     continue;
-                } else {
-                    branch_writer.write(&branch)?;
-                    branch_files = branch_files
-                        .iter_mut()
-                        .filter_map(|file| {
-                            let hunks = file
-                                .hunks
-                                .clone()
-                                .into_iter()
-                                .filter(|hunk| {
-                                    !taken_file_ownerships.iter().any(|taken| {
-                                        taken.file_path == file.path
-                                            && taken.hunks.iter().any(|taken_hunk| {
-                                                taken_hunk.start == hunk.start
-                                                    && taken_hunk.end == hunk.end
-                                            })
-                                    })
+                }
+                branch_writer.write(&branch)?;
+                branch_files = branch_files
+                    .iter_mut()
+                    .filter_map(|file| {
+                        let hunks = file
+                            .hunks
+                            .clone()
+                            .into_iter()
+                            .filter(|hunk| {
+                                !taken_file_ownerships.iter().any(|taken| {
+                                    taken.file_path == file.path
+                                        && taken.hunks.iter().any(|taken_hunk| {
+                                            taken_hunk.start == hunk.start
+                                                && taken_hunk.end == hunk.end
+                                        })
                                 })
-                                .collect::<Vec<_>>();
+                            })
+                            .collect::<Vec<_>>();
 
-                            if hunks.is_empty() {
-                                None
-                            } else {
-                                Some(VirtualBranchFile {
-                                    hunks,
-                                    ..file.clone()
-                                })
-                            }
-                        })
-                        .collect::<Vec<_>>();
-                };
+                        if hunks.is_empty() {
+                            None
+                        } else {
+                            Some(VirtualBranchFile {
+                                hunks,
+                                ..file.clone()
+                            })
+                        }
+                    })
+                    .collect::<Vec<_>>();
             }
             Ok((branch, branch_files))
         })
@@ -711,7 +710,7 @@ fn calculate_non_commited_files(
         .collect::<HashMap<_, _>>();
 
     let conflicting_files = conflicts::conflicting_files(project_repository)?;
-    let mut vfiles = non_commited_hunks_by_filepath
+    let mut virtual_branch_files = non_commited_hunks_by_filepath
         .into_iter()
         .map(|(file_path, mut non_commited_hunks)| {
             // sort non commited hunks the same way as the real hunks are sorted
@@ -771,9 +770,9 @@ fn calculate_non_commited_files(
         .collect::<Vec<_>>();
 
     // stable files sort using virtual files position
-    vfiles.sort_by_key(|a| files.iter().position(|f| f.id == a.id).unwrap_or(0));
+    virtual_branch_files.sort_by_key(|a| files.iter().position(|f| f.id == a.id).unwrap_or(0));
 
-    Ok(vfiles)
+    Ok(virtual_branch_files)
 }
 
 fn list_virtual_commit_files(
@@ -1238,26 +1237,25 @@ fn set_ownership(
 }
 
 fn get_mtime(cache: &mut HashMap<path::PathBuf, u128>, file_path: &path::PathBuf) -> u128 {
-    match cache.get(file_path) {
-        Some(mtime) => *mtime,
-        None => {
-            let mtime = file_path
-                .metadata()
-                .map_or_else(
-                    |_| time::SystemTime::now(),
-                    |metadata| {
-                        metadata
-                            .modified()
-                            .or(metadata.created())
-                            .unwrap_or_else(|_| time::SystemTime::now())
-                    },
-                )
-                .duration_since(time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis();
-            cache.insert(file_path.clone(), mtime);
-            mtime
-        }
+    if let Some(mtime) = cache.get(file_path) {
+        *mtime
+    } else {
+        let mtime = file_path
+            .metadata()
+            .map_or_else(
+                |_| time::SystemTime::now(),
+                |metadata| {
+                    metadata
+                        .modified()
+                        .or(metadata.created())
+                        .unwrap_or_else(|_| time::SystemTime::now())
+                },
+            )
+            .duration_since(time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        cache.insert(file_path.clone(), mtime);
+        mtime
     }
 }
 
@@ -1406,7 +1404,7 @@ fn get_non_applied_status(
                     .map(|hunk| {
                         let modified_at = timestamp_by_hash
                             .get(&hunk.hash)
-                            .cloned()
+                            .copied()
                             .unwrap_or(hunk.modified_at);
                         VirtualBranchHunk {
                             modified_at,
@@ -1833,7 +1831,7 @@ fn write_tree_onto_commit(
 
 fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
     println!("tree id: {:?}", tree.id());
-    for entry in tree.iter() {
+    for entry in tree {
         println!("  entry: {:?} {:?}", entry.name(), entry.id());
         // get entry contents
         let object = entry.to_object(repo).context("failed to get object")?;

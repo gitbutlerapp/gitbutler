@@ -116,8 +116,8 @@ impl HandlerInner {
                         .as_ref()
                         .map_or(0, |r| match r {
                             projects::FetchResult::Error { attempt, .. } => *attempt + 1,
-                            projects::FetchResult::Fetched { .. } => 0,
-                            projects::FetchResult::Fetching { .. } => 0,
+                            projects::FetchResult::Fetched { .. }
+                            | projects::FetchResult::Fetching { .. } => 0,
                         }),
                     timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
                     error: error.to_string(),

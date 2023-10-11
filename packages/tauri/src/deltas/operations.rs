@@ -103,11 +103,11 @@ pub fn get_delta_operations(initial_text: &str, final_text: &str) -> Vec<Operati
             ChangeTag::Insert => {
                 let text = change.as_str().unwrap();
                 deltas.push(Operation::Insert((offset, text.to_string())));
-                offset = change.new_index().unwrap() + text.chars().count()
+                offset = change.new_index().unwrap() + text.chars().count();
             }
             ChangeTag::Equal => {
                 let text = change.as_str().unwrap();
-                offset = change.new_index().unwrap() + text.chars().count()
+                offset = change.new_index().unwrap() + text.chars().count();
             }
         }
     }

@@ -35,13 +35,12 @@ impl From<&AppHandle> for Controller {
 
 impl Controller {
     pub fn get_or_create(&self) -> Result<PrivateKey, GetOrCreateError> {
-        match self.storage.get().context("failed to get key")? {
-            Some(key) => Ok(key),
-            None => {
-                let key = PrivateKey::generate();
-                self.storage.create(&key).context("failed to save key")?;
-                Ok(key)
-            }
+        if let Some(key) = self.storage.get().context("failed to get key")? {
+            Ok(key)
+        } else {
+            let key = PrivateKey::generate();
+            self.storage.create(&key).context("failed to save key")?;
+            Ok(key)
         }
     }
 }

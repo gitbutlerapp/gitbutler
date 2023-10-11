@@ -210,7 +210,7 @@ impl Repository {
             match url.as_ssh() {
                 Ok(ssh_url) => Ok(self
                     .git_repository
-                    .remote_anonymous(ssh_url)
+                    .remote_anonymous(&ssh_url)
                     .context("failed to get anonymous")
                     .map_err(RemoteError::Other)?),
                 Err(_) => Err(RemoteError::NonSSHUrl(url.to_string())),

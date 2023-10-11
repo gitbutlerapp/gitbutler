@@ -36,14 +36,13 @@ impl<'a> From<&'a str> for Scheme {
 impl Scheme {
     /// Return ourselves parseable name.
     pub fn as_str(&self) -> &str {
-        use Scheme::*;
         match self {
-            File => "file",
-            Git => "git",
-            Ssh => "ssh",
-            Http => "http",
-            Https => "https",
-            Ext(name) => name.as_str(),
+            Self::File => "file",
+            Self::Git => "git",
+            Self::Ssh => "ssh",
+            Self::Http => "http",
+            Self::Https => "https",
+            Self::Ext(name) => name.as_str(),
         }
     }
 }

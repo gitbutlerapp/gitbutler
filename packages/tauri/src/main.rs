@@ -91,7 +91,7 @@ fn main() {
                             posthog_token: Some("phc_yJx46mXv6kA5KTuM2eEQ6IwNTgl5YW3feKV5gi7mfGG"),
                         }
                     };
-                    let analytics_client = analytics::Client::new(&app_handle, analytics_cfg);
+                    let analytics_client = analytics::Client::new(&app_handle, &analytics_cfg);
                     tauri_app.manage(analytics_client);
 
                     let watchers = watcher::Watchers::try_from(&app_handle)

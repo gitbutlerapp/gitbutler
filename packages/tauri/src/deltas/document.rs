@@ -53,14 +53,14 @@ impl Document {
         let delta = if operations.is_empty() {
             if matches!(value, Some(reader::Content::UTF8(_))) {
                 return Ok(None);
-            } else {
-                delta::Delta {
-                    operations,
-                    timestamp_ms: SystemTime::now()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap()
-                        .as_millis(),
-                }
+            }
+
+            delta::Delta {
+                operations,
+                timestamp_ms: SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis(),
             }
         } else {
             delta::Delta {
