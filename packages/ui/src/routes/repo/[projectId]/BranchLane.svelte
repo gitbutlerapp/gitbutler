@@ -545,7 +545,11 @@
 												loading={isPushing}
 												on:click={push}
 											>
-												<span class="purple">Push</span>
+												{#if branch.requiresForce}
+													<span class="purple">Force Push</span>
+												{:else}
+													<span class="purple">Push</span>
+												{/if}
 											</Button>
 										</div>
 
@@ -615,7 +619,7 @@
 												{#if commit.id === headCommit?.id}
 													<div class="group relative ml-[0.4rem] mr-1.5 h-3 w-3">
 														<div
-															class="insert-0 absolute group-hover:opacity-0 h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+															class="insert-0 absolute h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 group-hover:opacity-0 dark:border-dark-400 dark:bg-dark-400"
 															class:bg-light-500={commit.isRemote}
 															class:dark:bg-dark-500={commit.isRemote}
 														/>

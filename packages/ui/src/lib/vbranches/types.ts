@@ -37,6 +37,7 @@ export class Branch {
 	files!: File[];
 	@Type(() => Commit)
 	commits!: Commit[];
+	requiresForce!: boolean;
 	description!: string;
 	order!: number;
 	upstream?: string;
