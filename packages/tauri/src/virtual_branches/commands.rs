@@ -271,3 +271,18 @@ pub async fn list_remote_commit_files(
         .await
         .map_err(Into::into)
 }
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn reset_virtual_branch(
+    handle: AppHandle,
+    project_id: &str,
+    branch_id: &str,
+    target_commit_oid: git::Oid,
+) -> Result<(), Error> {
+    handle
+        .state::<Controller>()
+        .reset_virtual_branch(project_id, branch_id, target_commit_oid)
+        .await
+        .map_err(Into::into)
+}

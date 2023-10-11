@@ -17,10 +17,10 @@ pub fn mark(repository: &Repository, paths: &[String], parent: Option<git::Oid>)
     let conflicts_path = repository.git_repository.path().join("conflicts");
     // write all the file paths to a file on disk
     let mut file = std::fs::File::create(conflicts_path)?;
-    paths.iter().for_each(|path| {
+    for path in paths {
         file.write_all(path.as_bytes()).unwrap();
         file.write_all(b"\n").unwrap();
-    });
+    }
 
     if let Some(parent) = parent {
         let merge_path = repository.git_repository.path().join("base_merge_parent");

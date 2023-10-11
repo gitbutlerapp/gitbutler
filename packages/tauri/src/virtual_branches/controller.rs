@@ -63,12 +63,6 @@ impl Controller {
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
-                if conflicts::is_conflicting(project_repository, None)
-                    .context("failed to check for conflicts")?
-                {
-                    return Err(Error::Conflicting);
-                }
-
                 let signing_key = if project_repository
                     .config()
                     .sign_commits()
@@ -388,6 +382,26 @@ impl Controller {
             self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
                 super::unapply_ownership(gb_repository, project_repository, ownership)
                     .map_err(Error::Other)
+            })
+        })
+        .await
+    }
+
+    pub async fn reset_virtual_branch(
+        &self,
+        project_id: &str,
+        branch_id: &str,
+        target_commit_oid: git::Oid,
+    ) -> Result<(), Error> {
+        self.with_lock(project_id, || {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
+                super::reset_branch(
+                    gb_repository,
+                    project_repository,
+                    branch_id,
+                    target_commit_oid,
+                )
+                .map_err(Error::Other)
             })
         })
         .await

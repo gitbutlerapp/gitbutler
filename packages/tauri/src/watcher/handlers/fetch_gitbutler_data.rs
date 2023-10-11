@@ -94,7 +94,7 @@ impl HandlerInner {
 
         let sessions_before_fetch = gb_repo
             .get_sessions_iterator()?
-            .filter_map(|s| s.ok())
+            .filter_map(Result::ok)
             .collect::<Vec<_>>();
 
         let fetch_result = if let Err(error) = gb_repo.fetch(user.as_ref()) {
@@ -127,7 +127,7 @@ impl HandlerInner {
 
         let sessions_after_fetch = gb_repo
             .get_sessions_iterator()?
-            .filter_map(|s| s.ok())
+            .filter_map(Result::ok)
             .collect::<Vec<_>>();
 
         let new_sessions = sessions_after_fetch

@@ -316,7 +316,7 @@ impl Repository {
             Result::Ok(head) => sessions::Meta {
                 start_timestamp_ms: now_ms,
                 last_timestamp_ms: now_ms,
-                branch: head.name().map(|name| name.to_string()),
+                branch: head.name().map(ToString::to_string),
                 commit: Some(head.peel_to_commit()?.id().to_string()),
             },
             Err(_) => sessions::Meta {
@@ -343,6 +343,8 @@ impl Repository {
             session_id = session.id,
             "created new session"
         );
+
+        self.flush_gitbutler_file(&session.id)?;
 
         Ok(session)
     }
@@ -592,6 +594,25 @@ impl Repository {
                 Ok(migrated)
             }
         }
+    }
+
+    fn flush_gitbutler_file(&self, session_id: &str) -> Result<()> {
+        let gb_path = self.git_repository.path();
+        let project_id = self.project.id.as_str();
+
+        let gb_file_content = serde_json::json!({
+            "sessionId": session_id,
+            "repositoryId": project_id,
+            "gbPath": gb_path,
+            "api": self.project.api,
+        });
+
+        let gb_file_path = self.project.path.join(".git/gitbutler.json");
+        std::fs::write(&gb_file_path, gb_file_content.to_string())?;
+
+        tracing::debug!("gitbutler file updated: {:?}", gb_file_path);
+
+        Ok(())
     }
 }
 

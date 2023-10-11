@@ -60,6 +60,13 @@ mod tests {
                     .parse()
                     .unwrap(),
             ),
+            upstream_head: Some(
+                format!("0123456789abcdef0123456789abcdef0123456{}", unsafe {
+                    TEST_INDEX
+                })
+                .parse()
+                .unwrap(),
+            ),
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
             updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
             head: format!("0123456789abcdef0123456789abcdef0123456{}", unsafe {
