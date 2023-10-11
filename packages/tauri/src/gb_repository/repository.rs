@@ -123,8 +123,8 @@ impl Repository {
         };
 
         // only push if project is connected
-        let remote_url = match self.project.api {
-            Some(ref api) => api.git_url.clone(),
+        let remote_url = match &self.project.api {
+            Some(api) => api.git_url.clone(),
             None => return Ok(None),
         };
 

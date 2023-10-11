@@ -46,7 +46,7 @@ impl Dispatcher {
                         }
                         if let Err(error) = tx
                             .send(events::Event::Tick(
-                                project_id.to_string(),
+                                project_id.clone(),
                                 time::SystemTime::now(),
                             ))
                             .await

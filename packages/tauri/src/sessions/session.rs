@@ -66,11 +66,11 @@ impl TryFrom<&dyn reader::Reader> for Session {
             .context("failed to parse session last timestamp")
             .map_err(SessionError::Err)?;
         let branch = match reader.read(path::Path::new("session/meta/branch")) {
-            Ok(reader::Content::UTF8(branch)) => Some(branch.to_string()),
+            Ok(reader::Content::UTF8(branch)) => Some(branch.clone()),
             _ => None,
         };
         let commit = match reader.read(path::Path::new("session/meta/commit")) {
-            Ok(reader::Content::UTF8(commit)) => Some(commit.to_string()),
+            Ok(reader::Content::UTF8(commit)) => Some(commit.clone()),
             _ => None,
         };
 

@@ -30,7 +30,7 @@ impl FromStr for FileOwnership {
         }
 
         if ranges.is_empty() {
-            Err(anyhow::anyhow!("ownership ranges cannot be empty"))?
+            Err(anyhow::anyhow!("ownership ranges cannot be empty"))
         } else {
             Ok(Self {
                 file_path: file_path_parts

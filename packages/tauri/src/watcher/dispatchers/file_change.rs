@@ -84,7 +84,7 @@ impl Dispatcher {
                                         "git file change",
                                     );
                                     events::Event::GitFileChange(
-                                        project_id.to_string(),
+                                        project_id.clone(),
                                         relative_file_path
                                             .strip_prefix(".git")
                                             .unwrap()
@@ -97,7 +97,7 @@ impl Dispatcher {
                                         "project file change",
                                     );
                                     events::Event::ProjectFileChange(
-                                        project_id.to_string(),
+                                        project_id.clone(),
                                         relative_file_path.to_path_buf(),
                                     )
                                 };

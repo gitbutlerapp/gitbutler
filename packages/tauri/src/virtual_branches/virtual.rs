@@ -592,7 +592,7 @@ pub fn list_virtual_branches(
         // find upstream commits if we found an upstream reference
         let mut upstream_commits = vec![];
         let mut pushed_commits = HashMap::new();
-        if let Some(ref upstream) = upstream_commit {
+        if let Some(upstream) = &upstream_commit {
             let merge_base =
                 repo.merge_base(upstream.id(), default_target.sha)
                     .context(format!(
@@ -638,9 +638,9 @@ pub fn list_virtual_branches(
         }
 
         let branch = VirtualBranch {
-            id: branch.id.to_string(),
-            name: branch.name.to_string(),
-            notes: branch.notes.to_string(),
+            id: branch.id.clone(),
+            name: branch.name.clone(),
+            notes: branch.notes.clone(),
             active: branch.applied,
             files: vfiles,
             order: branch.order,

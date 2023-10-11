@@ -100,15 +100,15 @@ pub fn list_remote_branches(
                 git::BranchName::try_from(&branch).context("could not get branch name")?;
 
             // skip the default target branch (both local and remote)
-            match branch_name {
-                git::BranchName::Remote(ref remote_branch_name) => {
-                    if *remote_branch_name == default_target.branch {
+            match &branch_name {
+                git::BranchName::Remote(remote_branch_name) => {
+                    if remote_branch_name == &default_target.branch {
                         continue;
                     }
                 }
-                git::BranchName::Local(ref local_branch_name) => {
+                git::BranchName::Local(local_branch_name) => {
                     if let Some(upstream_branch_name) = local_branch_name.remote() {
-                        if *upstream_branch_name == default_target.branch {
+                        if upstream_branch_name == &default_target.branch {
                             continue;
                         }
                     }

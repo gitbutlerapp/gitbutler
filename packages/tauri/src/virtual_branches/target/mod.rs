@@ -51,7 +51,7 @@ fn read_remote_name_branch_name(
         Ok(branch) => {
             let branch: String = branch.try_into()?;
             let parts = branch.split('/').collect::<Vec<_>>();
-            Ok((parts[0].to_string(), branch.to_string()))
+            Ok((parts[0].to_string(), branch.clone()))
         }
         Err(crate::reader::Error::NotFound) => {
             // fallback to the old format

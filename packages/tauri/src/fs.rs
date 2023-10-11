@@ -12,7 +12,7 @@ pub fn list_files<P: AsRef<Path>>(dir_path: P) -> Result<Vec<PathBuf>> {
     }
     for entry in WalkDir::new(dir_path) {
         let entry = entry?;
-        if entry.file_type().is_file() {
+        if !entry.file_type().is_dir() {
             let path = entry.path();
             let path = path.strip_prefix(dir_path)?;
             let path = path.to_path_buf();
