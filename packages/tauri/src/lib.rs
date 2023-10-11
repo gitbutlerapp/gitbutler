@@ -1,4 +1,4 @@
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 #![deny(
     clippy::redundant_closure_for_method_calls,
     clippy::manual_string_new,
