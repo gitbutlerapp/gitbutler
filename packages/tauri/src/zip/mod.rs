@@ -21,7 +21,7 @@ pub struct Zipper {
 impl From<&path::PathBuf> for Zipper {
     fn from(value: &path::PathBuf) -> Self {
         Self {
-            cache: value.to_path_buf(),
+            cache: value.clone(),
         }
     }
 }
@@ -76,7 +76,7 @@ fn doit<P: AsRef<path::Path>>(
     let walkdir = WalkDir::new(src);
     let it = walkdir.into_iter();
 
-    zip_dir(&mut it.filter_map(|e| e.ok()), src, file, method)?;
+    zip_dir(&mut it.filter_map(Result::ok), src, file, method)?;
 
     Ok(())
 }

@@ -1,4 +1,11 @@
 #![deny(unsafe_code)]
+#![deny(
+    clippy::redundant_closure_for_method_calls,
+    clippy::manual_string_new,
+    clippy::implicit_clone,
+    clippy::map_unwrap_or,
+    clippy::needless_for_each
+)]
 
 pub mod analytics;
 pub mod app;
@@ -13,6 +20,7 @@ pub mod events;
 pub mod fs;
 pub mod gb_repository;
 pub mod git;
+pub mod github;
 pub mod keys;
 pub mod lock;
 pub mod logs;

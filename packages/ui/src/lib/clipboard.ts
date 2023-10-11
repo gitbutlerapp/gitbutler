@@ -7,10 +7,10 @@ export function copyToClipboard(text: string) {
 		navigator.clipboard
 			.writeText(text)
 			.then(function () {
-				toasts.success('SSH key copied to cliboard');
+				toasts.success('Copied to cliboard');
 			})
 			.catch(function () {
-				toasts.error('Failed to copy SSH key');
+				toasts.error('Failed to copy');
 			});
 	}
 }

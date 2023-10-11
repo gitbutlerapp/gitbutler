@@ -29,6 +29,8 @@ pub struct Branch {
     pub notes: String,
     pub applied: bool,
     pub upstream: Option<git::RemoteBranchName>,
+    // upstream_head is the last commit on we've pushed to the upstream branch
+    pub upstream_head: Option<git::Oid>,
     pub created_timestamp_ms: u128,
     pub updated_timestamp_ms: u128,
     // tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
@@ -65,7 +67,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
 
         let notes: String = match reader.read(&path::PathBuf::from("meta/notes")) {
             Ok(notes) => Ok(notes.try_into()?),
-            Err(crate::reader::Error::NotFound) => Ok("".to_string()),
+            Err(crate::reader::Error::NotFound) => Ok(String::new()),
             Err(e) => Err(e),
         }?;
 
@@ -78,6 +80,20 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
         let order: usize = match reader.read(&path::PathBuf::from("meta/order")) {
             Ok(order) => Ok(order.try_into()?),
             Err(crate::reader::Error::NotFound) => Ok(0),
+            Err(e) => Err(e),
+        }?;
+
+        let upstream_head = match reader.read(&path::PathBuf::from("meta/upstream_head")) {
+            Ok(crate::reader::Content::UTF8(upstream_head)) => {
+                upstream_head.parse().map(Some).map_err(|e| {
+                    crate::reader::Error::Io(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("meta/upstream_head: {}", e),
+                    ))
+                })
+            }
+            Ok(_) => Ok(None),
+            Err(crate::reader::Error::NotFound) => Ok(None),
             Err(e) => Err(e),
         }?;
 
@@ -127,6 +143,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
             notes,
             applied,
             upstream,
+            upstream_head,
             tree: tree.parse().map_err(|e| {
                 crate::reader::Error::Io(std::io::Error::new(
                     std::io::ErrorKind::Other,

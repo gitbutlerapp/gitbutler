@@ -70,6 +70,7 @@ mod tests {
                 .parse()
                 .unwrap(),
             ),
+            upstream_head: None,
             created_timestamp_ms: TEST_INDEX.load(Ordering::Relaxed) as u128,
             updated_timestamp_ms: (TEST_INDEX.load(Ordering::Relaxed) + 100) as u128,
             head: format!(

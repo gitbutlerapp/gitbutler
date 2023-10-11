@@ -37,6 +37,7 @@ export type User = {
 	updated_at: string;
 	access_token: string;
 	supporter: boolean;
+	github_access_token: string | undefined;
 };
 
 export type Project = {
