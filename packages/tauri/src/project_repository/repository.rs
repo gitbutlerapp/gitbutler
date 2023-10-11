@@ -248,7 +248,7 @@ impl Repository {
                 }
                 Err(git::Error::AuthenticationFailed(error)) => {
                     tracing::error!(project_id = self.project.id, ?error, "git push failed",);
-                    continue
+                    continue;
                 }
                 Err(error) => return Err(RemoteError::Other(error.into())),
             }
@@ -311,10 +311,11 @@ impl Repository {
                     tracing::info!(project_id = self.project.id, %refspec, "git fetched");
                     return Ok(());
                 }
-                Err(error) => {
+                Err(git::Error::AuthenticationFailed(error)) => {
                     tracing::error!(project_id = self.project.id, ?error, "fetch failed");
                     continue;
                 }
+                Err(error) => return Err(RemoteError::Other(error.into())),
             }
         }
 
