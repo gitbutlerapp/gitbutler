@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use tauri::{AppHandle, Manager};
 
-use crate::error::Error;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
+
+use crate::error::Error;
 
 const GITHUB_CLIENT_ID: &str = "cd51880daa675d9e6452";
 
