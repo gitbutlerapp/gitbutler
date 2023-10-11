@@ -12,8 +12,8 @@ use git2::TreeWalkResult;
 use pretty_assertions::{assert_eq, assert_ne};
 
 use crate::{
-    gb_repository, git, project_repository, reader, sessions,
-    test_utils::{self, Case, Suite},
+    gb_repository, git, keys, project_repository, reader, sessions,
+    test_utils::{self, empty_bare_repository, Case, Suite},
 };
 
 use super::*;
@@ -23,31 +23,27 @@ fn set_test_target(
     gb_repo: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<()> {
-    target::Writer::new(gb_repo).write_default(&target::Target {
-        branch: "refs/remotes/origin/master".parse().unwrap(),
-        remote_url: "origin".to_string(),
-        sha: project_repository
-            .git_repository
-            .head()
-            .unwrap()
-            .target()
-            .unwrap(),
-    })?;
-    project_repository.git_repository.reference(
-        "refs/remotes/origin/master",
-        project_repository
-            .git_repository
-            .head()
-            .unwrap()
-            .target()
-            .unwrap(),
-        true,
-        "update target",
-    )?;
-    project_repository
+    let remote_repo = empty_bare_repository();
+    let mut remote = project_repository
         .git_repository
-        .remote("origin", "http://origin.com/project")?;
-    super::integration::update_gitbutler_integration(gb_repo, project_repository)?;
+        .remote("origin", remote_repo.path().to_str().unwrap())
+        .expect("failed to add remote");
+    remote
+        .fetch(&["+refs/heads/*:refs/remotes/{}/*"], None)
+        .expect("failed to fetch remote");
+    remote.push(&["refs/heads/master:refs/heads/master"], None)?;
+
+    target::Writer::new(gb_repo)
+        .write_default(&target::Target {
+            branch: "refs/remotes/origin/master".parse().unwrap(),
+            remote_url: remote_repo.path().to_str().unwrap().parse().unwrap(),
+            sha: remote_repo.head().unwrap().target().unwrap(),
+        })
+        .expect("failed to write target");
+
+    super::integration::update_gitbutler_integration(gb_repo, project_repository)
+        .expect("failed to update integration");
+
     Ok(())
 }
 
