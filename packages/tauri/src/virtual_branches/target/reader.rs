@@ -38,53 +38,60 @@ impl<'reader> TargetReader<'reader> {
 
 #[cfg(test)]
 mod tests {
-    use crate::writer::Writer;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     use anyhow::Result;
+    use once_cell::sync::Lazy;
 
     use crate::{
         sessions,
         test_utils::{Case, Suite},
         virtual_branches::{branch, target::writer::TargetWriter},
+        writer::Writer,
     };
 
     use super::*;
 
-    static mut TEST_INDEX: usize = 0;
+    static TEST_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 
     fn test_branch() -> branch::Branch {
-        unsafe {
-            TEST_INDEX += 1;
-        }
+        TEST_INDEX.fetch_add(1, Ordering::Relaxed);
+
         branch::Branch {
-            id: format!("branch_{}", unsafe { TEST_INDEX }),
-            name: format!("branch_name_{}", unsafe { TEST_INDEX }),
+            id: format!("branch_{}", TEST_INDEX.load(Ordering::Relaxed)),
+            name: format!("branch_name_{}", TEST_INDEX.load(Ordering::Relaxed)),
             notes: "".to_string(),
             applied: true,
             upstream: Some(
-                format!("refs/remotes/origin/upstream_{}", unsafe { TEST_INDEX })
-                    .parse()
-                    .unwrap(),
+                format!(
+                    "refs/remotes/origin/upstream_{}",
+                    TEST_INDEX.load(Ordering::Relaxed)
+                )
+                .parse()
+                .unwrap(),
             ),
             upstream_head: None,
-            created_timestamp_ms: unsafe { TEST_INDEX } as u128,
-            updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
-            head: format!("0123456789abcdef0123456789abcdef0123456{}", unsafe {
-                TEST_INDEX
-            })
+            created_timestamp_ms: TEST_INDEX.load(Ordering::Relaxed) as u128,
+            updated_timestamp_ms: (TEST_INDEX.load(Ordering::Relaxed) + 100) as u128,
+            head: format!(
+                "0123456789abcdef0123456789abcdef0123456{}",
+                TEST_INDEX.load(Ordering::Relaxed)
+            )
             .parse()
             .unwrap(),
-            tree: format!("0123456789abcdef0123456789abcdef012345{}", unsafe {
-                TEST_INDEX + 10
-            })
+            tree: format!(
+                "0123456789abcdef0123456789abcdef012345{}",
+                (TEST_INDEX.load(Ordering::Relaxed) + 10)
+            )
             .parse()
             .unwrap(),
             ownership: branch::Ownership {
                 files: vec![branch::FileOwnership {
-                    file_path: format!("file/{}", unsafe { TEST_INDEX }).into(),
+                    file_path: format!("file/{}", TEST_INDEX.load(Ordering::Relaxed)).into(),
                     hunks: vec![],
                 }],
             },
-            order: unsafe { TEST_INDEX },
+            order: TEST_INDEX.load(Ordering::Relaxed),
         }
     }
 
