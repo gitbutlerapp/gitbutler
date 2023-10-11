@@ -65,7 +65,7 @@
 	const user = userStore;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
-	$: localCommits = branch.commits.filter((c) => !c.isRemote);
+	$: localCommits = branch.commits.filter((c) => !c.isIntegrated && !c.isRemote);
 	$: remoteCommits = branch.commits.filter((c) => c.isRemote && !c.isIntegrated);
 	$: integratedCommits = branch.commits.filter((c) => c.isIntegrated);
 
@@ -512,7 +512,7 @@
 							{/if}
 						{/if}
 					</div>
-					{#if localCommits.length > 0 || remoteCommits.length > 0}
+					{#if branch.commits.length > 0}
 						<div class="flex w-full flex-grow flex-col gap-2">
 							{#if localCommits.length > 0}
 								<div
