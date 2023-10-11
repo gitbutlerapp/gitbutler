@@ -67,7 +67,7 @@ impl FetchResult {
                 if *attempt > 9 {
                     return Ok(last_fetch + TEN_MINUTES < *now);
                 }
-                Ok(last_fetch + time::Duration::new(2u64.pow(*attempt), 0) < *now)
+                Ok(last_fetch + time::Duration::new(2_u64.pow(*attempt), 0) < *now)
             }
             FetchResult::Fetched { timestamp_ms } => {
                 // if last fetch was successful, wait 10 minutes

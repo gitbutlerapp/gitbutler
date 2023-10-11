@@ -72,6 +72,8 @@ fn hunks_by_filepath(
     repository: &Repository,
     diff: &git2::Diff,
 ) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
+    use std::fmt::Write as _;
+
     // find all the hunks
     let mut hunks_by_filepath: HashMap<path::PathBuf, Vec<Hunk>> = HashMap::new();
     let mut current_diff = String::new();
@@ -134,7 +136,7 @@ fn hunks_by_filepath(
 
         match line.origin() {
             '+' | '-' | ' ' => {
-                current_diff.push_str(&format!("{}", line.origin()));
+                let _ = write!(current_diff, "{}", line.origin());
                 current_diff.push_str(
                     str::from_utf8(line.content())
                         .map_err(|error| tracing::error!(?error, ?file_path))
@@ -149,7 +151,7 @@ fn hunks_by_filepath(
                     // the binary file wasnt deleted
                     repository.blob_path(full_path.as_path()).unwrap();
                 }
-                current_diff.push_str(&format!("{}", delta.new_file().id()));
+                let _ = write!(current_diff, "{}", delta.new_file().id());
                 current_binary = true;
             }
             _ => {

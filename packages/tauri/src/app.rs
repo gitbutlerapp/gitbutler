@@ -243,7 +243,7 @@ impl App {
                     file_path,
                     hunks
                         .iter()
-                        .map(|hunk| hunk.diff.to_string())
+                        .map(|hunk| hunk.diff.clone())
                         .collect::<Vec<_>>()
                         .join("\n"),
                 )

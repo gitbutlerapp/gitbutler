@@ -75,7 +75,7 @@ impl Controller {
             .add(&project)
             .map_err(|error| AddError::Other(error.into()))?;
 
-        if let Some(ref watchers) = self.watchers {
+        if let Some(watchers) = &self.watchers {
             block_on(watchers.watch(&project))?;
         }
 
@@ -91,7 +91,7 @@ impl Controller {
                 error => UpdateError::Other(error.into()),
             })?;
 
-        if let Some(ref watchers) = self.watchers {
+        if let Some(watchers) = &self.watchers {
             if let Err(error) = block_on(watchers.post(watcher::Event::FetchGitbutlerData(
                 project.id.clone(),
                 time::SystemTime::now(),
@@ -139,7 +139,7 @@ impl Controller {
             Err(error) => Err(DeleteError::Other(error.into())),
         }?;
 
-        if let Some(ref watchers) = self.watchers {
+        if let Some(watchers) = &self.watchers {
             if let Err(error) = block_on(watchers.stop(id)) {
                 tracing::error!(
                     project_id = id,

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use tracing::instrument;
 
 #[derive(Default)]
-pub struct Client {}
+pub struct Client;
 
 #[async_trait]
 impl super::Client for Client {

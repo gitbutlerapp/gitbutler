@@ -51,7 +51,7 @@ impl Proxy {
                 picture: self.proxy(&picture).await.map_or_else(
                     |error| {
                         tracing::error!(?error, "failed to proxy user picture");
-                        user.picture.to_string()
+                        user.picture.clone()
                     },
                     |url| url.to_string(),
                 ),

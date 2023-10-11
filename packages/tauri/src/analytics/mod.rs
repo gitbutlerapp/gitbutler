@@ -52,7 +52,7 @@ impl Client {
             if let Some(posthog_token) = config.posthog_token {
                 Box::new(posthog::real::Client::new(posthog::real::ClientOptions {
                     api_key: posthog_token.to_string(),
-                    app_name: app_handle.package_info().name.to_string(),
+                    app_name: app_handle.package_info().name.clone(),
                     app_version: app_handle.package_info().version.to_string(),
                 }))
             } else {
