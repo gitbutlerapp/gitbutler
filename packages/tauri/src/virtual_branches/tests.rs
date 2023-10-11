@@ -12,8 +12,8 @@ use git2::TreeWalkResult;
 use pretty_assertions::{assert_eq, assert_ne};
 
 use crate::{
-    gb_repository, git, keys, project_repository, reader, sessions,
-    test_utils::{self, empty_bare_repository, Case, Suite},
+    gb_repository, git, project_repository, reader, sessions,
+    test_utils::{self, Case, Suite},
 };
 
 use super::*;
@@ -28,9 +28,6 @@ fn set_test_target(
         .git_repository
         .remote("origin", remote_repo.path().to_str().unwrap())
         .expect("failed to add remote");
-    remote
-        .fetch(&["+refs/heads/*:refs/remotes/{}/*"], None)
-        .expect("failed to fetch remote");
     remote.push(&["refs/heads/master:refs/heads/master"], None)?;
 
     target::Writer::new(gb_repo)
