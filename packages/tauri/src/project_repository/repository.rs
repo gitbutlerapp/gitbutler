@@ -236,16 +236,23 @@ impl Repository {
         &self,
         head: &git::Oid,
         branch: &git::RemoteBranchName,
+        with_force: bool,
         key: &keys::Key,
     ) -> Result<(), RemoteError> {
         let mut remote = self.get_remote(branch.remote())?;
+
+        let refspec = if with_force {
+            format!("+{}:refs/heads/{}", head, branch.branch())
+        } else {
+            format!("{}:refs/heads/{}", head, branch.branch())
+        };
 
         for credential_callback in git::credentials::for_key(key) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
             remote_callbacks.credentials(credential_callback);
 
             match remote.push(
-                &[&format!("{}:refs/heads/{}", head, branch.branch())],
+                &[refspec.as_str()],
                 Some(&mut git2::PushOptions::new().remote_callbacks(remote_callbacks)),
             ) {
                 Ok(()) => {

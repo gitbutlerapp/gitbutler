@@ -4090,7 +4090,7 @@ fn test_reset_to_target() {
 }
 
 #[test]
-fn test_requires_force() {
+fn test_force_push() {
     let suite = Suite::default();
     let Case {
         project_repository,
@@ -4132,6 +4132,7 @@ fn test_requires_force() {
         &project_repository,
         &gb_repository,
         &branch_id,
+        false,
         &keys::Key::from(suite.keys.get_or_create().unwrap()),
     )
     .unwrap();
@@ -4149,4 +4150,22 @@ fn test_requires_force() {
 
     let statuses = list_virtual_branches(&gb_repository, &project_repository).unwrap();
     assert!(statuses[0].requires_force);
+
+    assert!(push(
+        &project_repository,
+        &gb_repository,
+        &branch_id,
+        false,
+        &keys::Key::from(suite.keys.get_or_create().unwrap()),
+    )
+    .is_err());
+
+    assert!(push(
+        &project_repository,
+        &gb_repository,
+        &branch_id,
+        true,
+        &keys::Key::from(suite.keys.get_or_create().unwrap()),
+    )
+    .is_ok());
 }

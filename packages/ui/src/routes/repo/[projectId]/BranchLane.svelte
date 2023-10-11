@@ -86,7 +86,9 @@
 	function push() {
 		if (localCommits[0]?.id) {
 			isPushing = true;
-			branchController.pushBranch(branch.id).finally(() => (isPushing = false));
+			branchController
+				.pushBranch({ branchId: branch.id, withForce: branch.requiresForce })
+				.finally(() => (isPushing = false));
 		}
 	}
 

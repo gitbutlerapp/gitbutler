@@ -2004,6 +2004,7 @@ pub fn push(
     project_repository: &project_repository::Repository,
     gb_repository: &gb_repository::Repository,
     branch_id: &str,
+    with_force: bool,
     key: &Key,
 ) -> Result<(), PushError> {
     let current_session = gb_repository
@@ -2048,7 +2049,7 @@ pub fn push(
         )))
     };
 
-    project_repository.push(&vbranch.head, &remote_branch, key)?;
+    project_repository.push(&vbranch.head, &remote_branch, with_force, key)?;
 
     vbranch.upstream = Some(remote_branch.clone());
     vbranch.upstream_head = Some(vbranch.head);
