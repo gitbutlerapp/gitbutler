@@ -12,7 +12,7 @@ use git2::TreeWalkResult;
 use pretty_assertions::{assert_eq, assert_ne};
 
 use crate::{
-    gb_repository, git, keys, project_repository, reader, sessions,
+    gb_repository, git, project_repository, reader, sessions,
     test_utils::{self, empty_bare_repository, Case, Suite},
 };
 

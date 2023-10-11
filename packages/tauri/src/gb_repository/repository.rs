@@ -1094,3 +1094,37 @@ fn write_gb_commit(
         Err(e) => Err(e.into()),
     }
 }
+
+#[cfg(test)]
+mod test {
+    use anyhow::Result;
+    use pretty_assertions::assert_eq;
+
+    use crate::test_utils::{Case, Suite};
+
+    #[test]
+    fn test_alternates_file_being_set() -> Result<()> {
+        let Case {
+            gb_repository,
+            project_repository,
+            ..
+        } = Suite::default().new_case();
+
+        let file_content = std::fs::read_to_string(
+            gb_repository
+                .git_repository
+                .path()
+                .join("objects/info/alternates"),
+        )?;
+
+        assert_eq!(
+            file_content.as_str(),
+            format!(
+                "{}/.git/objects\n",
+                project_repository.path().to_str().unwrap()
+            )
+        );
+
+        Ok(())
+    }
+}

@@ -44,7 +44,13 @@ impl Repository {
         self.0
             .odb()
             .and_then(|odb| odb.add_disk_alternate(path))
-            .map_err(Into::into)
+            .map_err(Into::<git2::Error>::into)?;
+
+        let alternatives_file = self.0.path().join("objects/info/alternates");
+
+        std::fs::write(alternatives_file, format!("{path}\n"))?;
+
+        Ok(())
     }
 
     pub fn find_annotated_commit(&self, id: Oid) -> Result<AnnotatedCommit<'_>> {
