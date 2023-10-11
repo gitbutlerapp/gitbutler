@@ -547,6 +547,7 @@ pub fn create_virtual_branch_from_branch(
         notes: String::new(),
         applied: applied.unwrap_or(false),
         upstream: upstream_branch,
+        upstream_head: None,
         tree: tree.id(),
         head: head_commit.id(),
         created_timestamp_ms: now,
