@@ -107,7 +107,7 @@ impl Handler {
             let project_head = project_repository
                 .get_head()
                 .context("failed to get head")?;
-            if session.meta.branch != project_head.name().map(|s| s.to_string()) {
+            if session.meta.branch != project_head.name().map(ToString::to_string) {
                 gb_repository
                     .flush_session(&project_repository, &session, user.as_ref())
                     .context("failed to flush session")?;

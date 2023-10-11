@@ -16,7 +16,7 @@ pub fn for_key(key: &keys::Key) -> Vec<CredentialsCallback<'_>> {
             passphrase,
         } => {
             credentials.push(from_keypath(
-                private_key_path.to_path_buf(),
+                private_key_path.clone(),
                 passphrase.as_deref(),
             ));
         }
@@ -26,17 +26,17 @@ pub fn for_key(key: &keys::Key) -> Vec<CredentialsCallback<'_>> {
 
                 let id_rsa_path = home_path.join(".ssh").join("id_rsa");
                 if id_rsa_path.exists() {
-                    credentials.push(from_keypath(id_rsa_path.to_path_buf(), None));
+                    credentials.push(from_keypath(id_rsa_path.clone(), None));
                 }
 
                 let id_ed25519_path = home_path.join(".ssh").join("id_ed25519");
                 if id_ed25519_path.exists() {
-                    credentials.push(from_keypath(id_ed25519_path.to_path_buf(), None));
+                    credentials.push(from_keypath(id_ed25519_path.clone(), None));
                 }
 
                 let id_ecdsa_path = home_path.join(".ssh").join("id_ecdsa");
                 if id_ecdsa_path.exists() {
-                    credentials.push(from_keypath(id_ecdsa_path.to_path_buf(), None));
+                    credentials.push(from_keypath(id_ecdsa_path.clone(), None));
                 }
             }
             credentials.push(from_key(private_key));

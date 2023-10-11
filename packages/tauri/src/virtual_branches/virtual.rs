@@ -13,7 +13,7 @@ use uuid::Uuid;
 use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
-    git::{self, diff},
+    git::{self, diff, RemoteBranchName},
     keys::{self, Key},
     project_repository::{self, conflicts, LogUntil},
     reader, sessions, users,
@@ -716,16 +716,13 @@ fn calculate_non_commited_files(
         .map(|(file_path, mut non_commited_hunks)| {
             // sort non commited hunks the same way as the real hunks are sorted
             non_commited_hunks.sort_by_key(|h| {
-                file_hunks
-                    .get(&file_path)
-                    .map(|hunks| {
-                        hunks.iter().position(|h2| {
-                            let h_range = [h.start..=h.end];
-                            let h2_range = [h2.start..=h2.end];
-                            h2_range.iter().any(|line| h_range.contains(line))
-                        })
+                file_hunks.get(&file_path).map_or(Some(0), |hunks| {
+                    hunks.iter().position(|h2| {
+                        let h_range = [h.start..=h.end];
+                        let h2_range = [h2.start..=h2.end];
+                        h2_range.iter().any(|line| h_range.contains(line))
                     })
-                    .unwrap_or(Some(0))
+                })
             });
 
             let mut conflicted = false;
@@ -764,8 +761,7 @@ fn calculate_non_commited_files(
                         // branches just yet.
                         locked: file_hunk_hashes
                             .get(&file_path)
-                            .map(|h| !h.contains(&hunk.hash))
-                            .unwrap_or(false),
+                            .map_or(false, |h| !h.contains(&hunk.hash)),
                         ..hunk
                     })
                     .collect::<Vec<_>>(),
@@ -893,11 +889,8 @@ pub fn create_virtual_branch(
         .context("failed to get elapsed time")?
         .as_millis();
 
-    let name: String = create
-        .name
-        .as_ref()
-        .map(|name| name.to_string())
-        .unwrap_or_else(|| {
+    let name: String = create.name.as_ref().map_or_else(
+        || {
             dedup(
                 &all_virtual_branches
                     .iter()
@@ -905,12 +898,14 @@ pub fn create_virtual_branch(
                     .collect::<Vec<_>>(),
                 "Virtual branch",
             )
-        });
+        },
+        ToString::to_string,
+    );
 
     let mut branch = Branch {
         id: Uuid::new_v4().to_string(),
         name,
-        notes: "".to_string(),
+        notes: String::new(),
         applied: true,
         upstream: None,
         tree: tree.id(),
@@ -1247,17 +1242,19 @@ fn get_mtime(cache: &mut HashMap<path::PathBuf, u128>, file_path: &path::PathBuf
         None => {
             let mtime = file_path
                 .metadata()
-                .map(|metadata| {
-                    metadata
-                        .modified()
-                        .or(metadata.created())
-                        .unwrap_or_else(|_| time::SystemTime::now())
-                })
-                .unwrap_or_else(|_| time::SystemTime::now())
+                .map_or_else(
+                    |_| time::SystemTime::now(),
+                    |metadata| {
+                        metadata
+                            .modified()
+                            .or(metadata.created())
+                            .unwrap_or_else(|_| time::SystemTime::now())
+                    },
+                )
                 .duration_since(time::UNIX_EPOCH)
                 .unwrap()
                 .as_millis();
-            cache.insert(file_path.to_path_buf(), mtime);
+            cache.insert(file_path.clone(), mtime);
             mtime
         }
     }
@@ -1751,7 +1748,7 @@ fn write_tree_onto_commit(
                     // get the contents
                     let mut blob_contents = blob.content().to_vec();
 
-                    let mut hunks = file.hunks.to_vec();
+                    let mut hunks = file.hunks.clone();
                     hunks.sort_by_key(|hunk| hunk.start);
                     for hunk in hunks {
                         let patch = format!("--- original\n+++ modified\n{}", hunk.diff);
@@ -1844,12 +1841,11 @@ pub fn commit(
                             .files
                             .iter()
                             .find(|f| f.file_path == file.path)
-                            .map(|f| {
+                            .map_or(false, |f| {
                                 f.hunks
                                     .iter()
                                     .any(|h| h.start == hunk.start && h.end == hunk.end)
                             })
-                            .unwrap_or(false)
                     })
                     .cloned()
                     .collect::<Vec<_>>();
@@ -1981,10 +1977,11 @@ pub fn push(
             .unwrap(),
             None => return Err(PushError::Other(anyhow::anyhow!("no default target set"))),
         };
+
         let remote_branches = project_repository.git_remote_branches()?;
         let existing_branches = remote_branches
             .iter()
-            .map(|name| name.branch())
+            .map(RemoteBranchName::branch)
             .collect::<Vec<_>>();
         remote_branch.with_branch(&name_to_branch(&dedup_fmt(
             &existing_branches,

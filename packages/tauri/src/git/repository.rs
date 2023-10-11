@@ -57,9 +57,9 @@ impl Repository {
     ) -> Result<git2::Rebase<'_>> {
         self.0
             .rebase(
-                branch.map(|commit| commit.into()),
-                upstream.map(|commit| commit.into()),
-                onto.map(|commit| commit.into()),
+                branch.map(Into::into),
+                upstream.map(Into::into),
+                onto.map(Into::into),
                 opts,
             )
             .map_err(Into::into)
@@ -96,11 +96,7 @@ impl Repository {
         opts: Option<&mut git2::DiffOptions>,
     ) -> Result<git2::Diff<'_>> {
         self.0
-            .diff_tree_to_tree(
-                old_tree.map(|tree| tree.into()),
-                new_tree.map(|tree| tree.into()),
-                opts,
-            )
+            .diff_tree_to_tree(old_tree.map(Into::into), new_tree.map(Into::into), opts)
             .map_err(Into::into)
     }
 
@@ -110,7 +106,7 @@ impl Repository {
         opts: Option<&mut git2::DiffOptions>,
     ) -> Result<git2::Diff<'_>> {
         self.0
-            .diff_tree_to_workdir(old_tree.map(|tree| tree.into()), opts)
+            .diff_tree_to_workdir(old_tree.map(Into::into), opts)
             .map_err(Into::into)
     }
 

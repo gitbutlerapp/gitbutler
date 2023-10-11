@@ -65,7 +65,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
 
         let notes: String = match reader.read(&path::PathBuf::from("meta/notes")) {
             Ok(notes) => Ok(notes.try_into()?),
-            Err(crate::reader::Error::NotFound) => Ok("".to_string()),
+            Err(crate::reader::Error::NotFound) => Ok(String::new()),
             Err(e) => Err(e),
         }?;
 

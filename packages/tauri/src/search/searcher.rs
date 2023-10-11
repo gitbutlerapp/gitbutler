@@ -327,7 +327,7 @@ fn index_session(
         return Ok(());
     }
     let files = session_reader
-        .files(Some(deltas.keys().map(|s| s.to_path_buf()).collect()))
+        .files(Some(deltas.keys().map(Clone::clone).collect()))
         .context("could not list files for session")?;
     // index every file
     for (file_path, deltas) in deltas.into_iter() {
@@ -433,7 +433,7 @@ fn index_delta(
             ChangeTag::Insert => change.as_str(),
             ChangeTag::Equal => None,
         })
-        .map(|s| s.trim())
+        .map(str::trim)
         .filter(|s| !s.is_empty())
         .collect::<Vec<&str>>()
         .join(" ");
