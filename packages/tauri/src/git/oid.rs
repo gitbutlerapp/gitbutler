@@ -1,10 +1,19 @@
 use std::{fmt, str::FromStr};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Copy, Clone, Hash, Eq)]
 pub struct Oid {
     oid: git2::Oid,
+}
+
+impl Serialize for Oid {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.oid.to_string().serialize(serializer)
+    }
 }
 
 impl<'de> Deserialize<'de> for Oid {

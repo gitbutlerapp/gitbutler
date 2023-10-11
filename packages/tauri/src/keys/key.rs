@@ -14,6 +14,12 @@ pub enum Key {
     },
 }
 
+impl From<PrivateKey> for Key {
+    fn from(value: PrivateKey) -> Self {
+        Self::Generated(Box::new(value))
+    }
+}
+
 #[derive(Debug)]
 pub struct PrivateKey(ssh_key::PrivateKey);
 

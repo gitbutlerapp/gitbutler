@@ -154,9 +154,9 @@ export class BranchController {
 		await this.virtualBranchStore.reload();
 	}
 
-	async pushBranch(branchId: string) {
+	async pushBranch(params: { branchId: string; withForce: boolean }) {
 		try {
-			await invoke<void>('push_virtual_branch', { projectId: this.projectId, branchId });
+			await invoke<void>('push_virtual_branch', { projectId: this.projectId, ...params });
 			await this.virtualBranchStore.reload();
 		} catch (err: any) {
 			if (err.code === 'errors.git.authentication') {

@@ -206,14 +206,26 @@ impl Repository {
             .context("failed to find remote")
             .map_err(RemoteError::Other)?;
 
-        if let Ok(Some(url)) = remote.url() {
-            match url.as_ssh() {
-                Ok(ssh_url) => Ok(self
-                    .git_repository
-                    .remote_anonymous(&ssh_url)
-                    .context("failed to get anonymous")
-                    .map_err(RemoteError::Other)?),
-                Err(_) => Err(RemoteError::NonSSHUrl(url.to_string())),
+        let remote_url = remote
+            .url()
+            .context("failed to get remote url")
+            .map_err(RemoteError::Other)?;
+
+        if let Some(url) = remote_url {
+            match url.scheme {
+                #[cfg(test)]
+                git::Scheme::File => Ok(remote),
+                git::Scheme::Ssh => Ok(remote),
+                _ => {
+                    let ssh_url = url
+                        .as_ssh()
+                        .map_err(|_| RemoteError::NonSSHUrl(url.to_string()))?;
+                    Ok(self
+                        .git_repository
+                        .remote_anonymous(&ssh_url)
+                        .context("failed to get anonymous")
+                        .map_err(RemoteError::Other)?)
+                }
             }
         } else {
             Err(RemoteError::NoUrl)
@@ -224,16 +236,23 @@ impl Repository {
         &self,
         head: &git::Oid,
         branch: &git::RemoteBranchName,
+        with_force: bool,
         key: &keys::Key,
     ) -> Result<(), RemoteError> {
         let mut remote = self.get_remote(branch.remote())?;
+
+        let refspec = if with_force {
+            format!("+{}:refs/heads/{}", head, branch.branch())
+        } else {
+            format!("{}:refs/heads/{}", head, branch.branch())
+        };
 
         for credential_callback in git::credentials::for_key(key) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
             remote_callbacks.credentials(credential_callback);
 
             match remote.push(
-                &[&format!("{}:refs/heads/{}", head, branch.branch())],
+                &[refspec.as_str()],
                 Some(&mut git2::PushOptions::new().remote_callbacks(remote_callbacks)),
             ) {
                 Ok(()) => {
@@ -246,10 +265,11 @@ impl Repository {
                     );
                     return Ok(());
                 }
-                Err(error) => {
+                Err(git::Error::AuthenticationFailed(error)) => {
                     tracing::error!(project_id = self.project.id, ?error, "git push failed",);
                     continue;
                 }
+                Err(error) => return Err(RemoteError::Other(error.into())),
             }
         }
 
@@ -310,10 +330,11 @@ impl Repository {
                     tracing::info!(project_id = self.project.id, %refspec, "git fetched");
                     return Ok(());
                 }
-                Err(error) => {
+                Err(git::Error::AuthenticationFailed(error)) => {
                     tracing::error!(project_id = self.project.id, ?error, "fetch failed");
                     continue;
                 }
+                Err(error) => return Err(RemoteError::Other(error.into())),
             }
         }
 
@@ -371,7 +392,7 @@ pub enum RemoteError {
     #[error("authentication failed")]
     AuthError,
     #[error(transparent)]
-    Other(anyhow::Error),
+    Other(#[from] anyhow::Error),
 }
 
 impl From<RemoteError> for crate::error::Error {

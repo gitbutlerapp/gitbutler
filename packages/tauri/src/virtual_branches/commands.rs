@@ -220,10 +220,11 @@ pub async fn push_virtual_branch(
     handle: AppHandle,
     project_id: &str,
     branch_id: &str,
+    with_force: bool,
 ) -> Result<(), Error> {
     handle
         .state::<Controller>()
-        .push_virtual_branch(project_id, branch_id)
+        .push_virtual_branch(project_id, branch_id, with_force)
         .await
         .map_err(Into::into)
 }

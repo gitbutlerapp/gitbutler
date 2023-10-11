@@ -431,6 +431,7 @@ impl Controller {
         &self,
         project_id: &str,
         branch_id: &str,
+        with_force: bool,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
@@ -451,12 +452,17 @@ impl Controller {
                     }
                 };
 
-                super::push(project_repository, gb_repository, branch_id, &private_key).map_err(
-                    |e| match e {
-                        super::PushError::Remote(error) => Error::ProjectRemote(error),
-                        other => Error::Other(anyhow::Error::from(other)),
-                    },
+                super::push(
+                    project_repository,
+                    gb_repository,
+                    branch_id,
+                    with_force,
+                    &private_key,
                 )
+                .map_err(|e| match e {
+                    super::PushError::Remote(error) => Error::ProjectRemote(error),
+                    other => Error::Other(anyhow::Error::from(other)),
+                })
             })
         })
         .await
