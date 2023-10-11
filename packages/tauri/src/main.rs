@@ -194,6 +194,8 @@ fn main() {
                     virtual_branches::commands::list_remote_commit_files,
                     virtual_branches::commands::reset_virtual_branch,
                     keys::commands::get_public_key,
+                    github::commands::init_device_oauth,
+                    github::commands::check_auth_status,
                 ])
                 .build(tauri_context)
                 .expect("Failed to build tauri app")
