@@ -17,7 +17,7 @@ impl From<&AppHandle> for Sender {
 }
 
 impl Sender {
-    pub fn send(&self, event: Event) -> Result<()> {
+    pub fn send(&self, event: &Event) -> Result<()> {
         self.app_handle
             .emit_all(&event.name, Some(&event.payload))
             .context("emit event")?;

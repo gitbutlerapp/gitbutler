@@ -75,7 +75,7 @@ impl Watchers {
 
     pub async fn stop(&self, project_id: &str) -> Result<()> {
         if let Some((_, watcher)) = self.watchers.lock().await.remove_entry(project_id) {
-            watcher.stop()?;
+            watcher.stop();
         };
         Ok(())
     }
@@ -97,8 +97,8 @@ impl TryFrom<&AppHandle> for Watcher {
 }
 
 impl Watcher {
-    pub fn stop(&self) -> Result<()> {
-        self.inner.stop()
+    pub fn stop(&self) {
+        self.inner.stop();
     }
 
     pub async fn post(&self, event: Event) -> Result<()> {
@@ -132,9 +132,8 @@ impl TryFrom<&AppHandle> for WatcherInner {
 }
 
 impl WatcherInner {
-    pub fn stop(&self) -> Result<()> {
+    pub fn stop(&self) {
         self.cancellation_token.cancel();
-        Ok(())
     }
 
     pub async fn post(&self, event: Event) -> Result<()> {
@@ -205,10 +204,8 @@ impl WatcherInner {
             tokio::select! {
                 Some(event) = dispatcher_rx.recv() => handle_event(&event)?,
                 Some(event) = proxy_rx.recv() => handle_event(&event)?,
-                _ = self.cancellation_token.cancelled() => {
-                    if let Err(error) = self.dispatcher.stop() {
-                        tracing::error!(project_id, %error, "failed to stop dispatcher");
-                    }
+                () = self.cancellation_token.cancelled() => {
+                    self.dispatcher.stop();
                     break;
                 }
             }

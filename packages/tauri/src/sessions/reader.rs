@@ -83,7 +83,7 @@ impl<'reader> SessionReader<'reader> {
 
     pub fn files(
         &self,
-        paths: Option<Vec<path::PathBuf>>,
+        paths: &Option<Vec<path::PathBuf>>,
     ) -> Result<HashMap<path::PathBuf, reader::Content>> {
         let files = self.previous_reader.list_files(path::Path::new("wd"))?;
         let mut files_with_content = HashMap::new();

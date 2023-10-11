@@ -571,26 +571,26 @@ pub fn create_virtual_branch_from_branch(
 
         if merge_index.has_conflicts() {
             bail!("merge conflict");
-        } else {
-            let (author, committer) = project_repository.git_signatures(user)?;
-            let new_head_tree_oid = merge_index
-                .write_tree_to(repo)
-                .context("failed to write merge tree")?;
-            let new_head_tree = repo
-                .find_tree(new_head_tree_oid)
-                .context("failed to find tree")?;
-
-            let new_branch_head = repo.commit(
-                None,
-                &author,
-                &committer,
-                "merged upstream",
-                &new_head_tree,
-                &[&head_commit, &target_commit],
-            )?;
-            branch.head = new_branch_head;
-            branch.tree = new_head_tree_oid
         }
+
+        let (author, committer) = project_repository.git_signatures(user)?;
+        let new_head_tree_oid = merge_index
+            .write_tree_to(repo)
+            .context("failed to write merge tree")?;
+        let new_head_tree = repo
+            .find_tree(new_head_tree_oid)
+            .context("failed to find tree")?;
+
+        let new_branch_head = repo.commit(
+            None,
+            &author,
+            &committer,
+            "merged upstream",
+            &new_head_tree,
+            &[&head_commit, &target_commit],
+        )?;
+        branch.head = new_branch_head;
+        branch.tree = new_head_tree_oid;
     }
 
     // do a diff between the head of this branch and the target base

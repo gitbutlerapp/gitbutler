@@ -58,9 +58,9 @@ fn has_no_explicit_protocol(url: &[u8]) -> bool {
     url.find(b"://").is_none()
 }
 
-fn to_owned_url(url: url::Url) -> Result<Url, Error> {
+fn to_owned_url(url: &url::Url) -> Url {
     let password = url.password();
-    Ok(Url {
+    Url {
         serialize_alternative_form: false,
         scheme: str_to_protocol(url.scheme()),
         password: password.map(ToOwned::to_owned),
@@ -72,7 +72,7 @@ fn to_owned_url(url: url::Url) -> Result<Url, Error> {
         host: url.host_str().map(Into::into),
         port: url.port(),
         path: url.path().into(),
-    })
+    }
 }
 
 /// Parse the given `bytes` as git url.
@@ -138,7 +138,7 @@ pub fn parse(input: &BStr) -> Result<Url, Error> {
         return Err(Error::RelativeUrl { url: url.into() });
     }
 
-    let mut url = to_owned_url(url)?;
+    let mut url = to_owned_url(&url);
     if let Some(path) = scp_path {
         url.path = path.into();
         url.serialize_alternative_form = true;

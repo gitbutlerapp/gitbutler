@@ -84,15 +84,15 @@ impl Display for Event {
             }
             Event::Session(pid, session) => write!(f, "Session({}, {})", pid, session.id),
             Event::Bookmark(b) => write!(f, "Bookmark({})", b.project_id),
-            Event::SessionFile((pid, sid, path, _)) => {
-                write!(f, "File({}, {}, {})", pid, sid, path.display())
+            Event::SessionFile((pid, session_id, path, _)) => {
+                write!(f, "File({}, {}, {})", pid, session_id, path.display())
             }
-            Event::SessionDelta((pid, sid, path, delta)) => {
+            Event::SessionDelta((pid, session_id, path, delta)) => {
                 write!(
                     f,
                     "Deltas({}, {}, {}, {})",
                     pid,
-                    sid,
+                    session_id,
                     path.display(),
                     delta.timestamp_ms
                 )

@@ -321,16 +321,16 @@ fn index_session(
         .with_context(|| "could not get session reader")?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader
-        .read(None)
+        .read(&None)
         .with_context(|| "could not list deltas for session")?;
     if deltas.is_empty() {
         return Ok(());
     }
     let files = session_reader
-        .files(Some(deltas.keys().map(Clone::clone).collect()))
+        .files(&Some(deltas.keys().map(Clone::clone).collect()))
         .context("could not list files for session")?;
     // index every file
-    for (file_path, deltas) in deltas.into_iter() {
+    for (file_path, deltas) in deltas {
         // keep the state of the file after each delta operation
         // we need it to calculate diff for delete operations
         let mut file_text: Vec<char> = files

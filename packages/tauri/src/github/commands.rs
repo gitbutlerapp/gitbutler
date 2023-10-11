@@ -46,6 +46,11 @@ pub async fn init_device_oauth() -> Result<Verification, Error> {
 #[tauri::command(async)]
 #[instrument]
 pub async fn check_auth_status(device_code: &str) -> Result<String, Error> {
+    #[derive(Debug, Deserialize, Serialize, Clone, Default)]
+    struct AccessTokenContainer {
+        access_token: String,
+    }
+
     let mut req_body = HashMap::new();
     req_body.insert("client_id", GITHUB_CLIENT_ID);
     req_body.insert("device_code", device_code);
@@ -67,11 +72,6 @@ pub async fn check_auth_status(device_code: &str) -> Result<String, Error> {
         .context("Failed to send request")?;
 
     let rsp_body = res.text().await.context("Failed to get response body")?;
-
-    #[derive(Debug, Deserialize, Serialize, Clone, Default)]
-    struct AccessTokenContainer {
-        access_token: String,
-    }
 
     serde_json::from_str::<AccessTokenContainer>(&rsp_body)
         .map(|rsp_body| rsp_body.access_token)

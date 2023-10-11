@@ -57,13 +57,13 @@ impl Writer for DirWriter {
         let file_path = self.root.join(path);
         if file_path.is_dir() {
             match std::fs::remove_dir_all(file_path) {
-                Ok(_) => Ok(()),
+                Ok(()) => Ok(()),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
                 Err(e) => Err(e.into()),
             }
         } else {
             match std::fs::remove_file(file_path) {
-                Ok(_) => Ok(()),
+                Ok(()) => Ok(()),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
                 Err(e) => Err(e.into()),
             }

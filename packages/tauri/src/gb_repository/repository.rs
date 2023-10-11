@@ -130,7 +130,7 @@ impl Repository {
 
         let remote = self
             .git_repository
-            .remote_anonymous(remote_url.parse().unwrap())
+            .remote_anonymous(&remote_url.parse().unwrap())
             .with_context(|| {
                 format!(
                     "failed to create anonymous remote for {}",
@@ -588,7 +588,7 @@ impl Repository {
                         }
                     };
 
-                    migrated = true
+                    migrated = true;
                 }
 
                 Ok(migrated)

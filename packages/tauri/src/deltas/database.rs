@@ -57,7 +57,7 @@ impl Database {
         &self,
         project_id: &str,
         session_id: &str,
-        file_path_filter: Option<Vec<&str>>,
+        file_path_filter: &Option<Vec<&str>>,
     ) -> Result<HashMap<String, Vec<delta::Delta>>> {
         self.database
             .transaction(|tx| -> Result<HashMap<String, Vec<delta::Delta>>> {
@@ -153,7 +153,7 @@ mod tests {
         database.insert(project_id, session_id, &file_path, &deltas)?;
 
         assert_eq!(
-            database.list_by_project_id_session_id(project_id, session_id, None)?,
+            database.list_by_project_id_session_id(project_id, session_id, &None)?,
             vec![(file_path.display().to_string(), vec![delta1])]
                 .into_iter()
                 .collect()
@@ -186,7 +186,7 @@ mod tests {
         database.insert(project_id, session_id, &file_path, &vec![delta2.clone()])?;
 
         assert_eq!(
-            database.list_by_project_id_session_id(project_id, session_id, None)?,
+            database.list_by_project_id_session_id(project_id, session_id, &None)?,
             vec![(file_path.display().to_string(), vec![delta2])]
                 .into_iter()
                 .collect()
@@ -221,7 +221,7 @@ mod tests {
         database.insert(project_id, session_id, &file_path2, &vec![delta2.clone()])?;
 
         assert_eq!(
-            database.list_by_project_id_session_id(project_id, session_id, None)?,
+            database.list_by_project_id_session_id(project_id, session_id, &None)?,
             vec![
                 (file_path1.display().to_string(), vec![delta1.clone()]),
                 (file_path2.display().to_string(), vec![delta1, delta2])

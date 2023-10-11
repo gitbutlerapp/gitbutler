@@ -21,9 +21,8 @@ impl Dispatcher {
         }
     }
 
-    pub fn stop(&self) -> Result<()> {
+    pub fn stop(&self) {
         self.cancellation_token.cancel();
-        Ok(())
     }
 
     pub fn run(
@@ -76,7 +75,7 @@ mod tests {
 
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(50)).await;
-            dispatcher.stop().unwrap();
+            dispatcher.stop();
         });
 
         let mut count = 0;
