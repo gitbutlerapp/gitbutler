@@ -32,7 +32,6 @@
 	import CommitDialog from './CommitDialog.svelte';
 	import { writable } from 'svelte/store';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
-	import { invoke } from '$lib/ipc';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -198,6 +197,10 @@
 	}
 
 	function resetHeadCommit() {
+		if (branch.commits.length < 2) {
+			return;
+		}
+
 		branchController.resetBranch({
 			projectId,
 			branchId: branch.id,
@@ -517,8 +520,6 @@
 									class:flex-grow={remoteCommits.length == 0}
 									transition:slide={{ duration: 150 }}
 								>
-									<button on:click={resetHeadCommit}>reset head~1</button>
-
 									<div
 										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
 										style={localCommits.length == 0 ? 'height: calc();' : 'height: 100%;'}
@@ -547,16 +548,29 @@
 											</Button>
 										</div>
 
-										{#each localCommits as commit (commit.id)}
+										{#each localCommits as commit, i (commit.id)}
 											<div
 												class="flex w-full items-center pb-2 pr-1.5"
 												in:receive={{ key: commit.id }}
 												out:send={{ key: commit.id }}
 												animate:flip
 											>
-												<div class="ml-[0.4rem] mr-1.5">
-													<div class="border-color-4 h-3 w-3 rounded-full border-2" />
-												</div>
+												{#if i === 0}
+													<div class="group relative ml-[0.4rem] mr-1.5 h-3 w-3">
+														<div
+															class="insert-0 border-color-4 absolute h-3 w-3 rounded-full border-2 transition-opacity group-hover:opacity-0"
+														/>
+														<IconButton
+															class="insert-0 absolute opacity-0 group-hover:opacity-100"
+															icon={IconCloseSmall}
+															on:click={resetHeadCommit}
+														/>
+													</div>
+												{:else}
+													<div class="ml-[0.4rem] mr-1.5">
+														<div class="border-color-4 h-3 w-3 rounded-full border-2" />
+													</div>
+												{/if}
 												<CommitCard {projectId} {commit} />
 											</div>
 										{/each}
