@@ -25,9 +25,8 @@ impl Dispatcher {
         }
     }
 
-    pub fn stop(&self) -> Result<()> {
+    pub fn stop(&self) {
         self.watcher.lock().unwrap().take();
-        Ok(())
     }
 
     pub fn run(self, project_id: &str, path: &path::Path) -> Result<Receiver<events::Event>> {
@@ -39,7 +38,7 @@ impl Dispatcher {
             {
                 move |res: notify::Result<notify::Event>| match res {
                     Ok(event) => {
-                        if !is_interesting_kind(&event.kind) {
+                        if !is_interesting_kind(event.kind) {
                             return;
                         }
                         for path in event
@@ -111,7 +110,7 @@ impl Dispatcher {
                                 }
                             }
                             Err(error) => {
-                                tracing::error!(project_id, ?error, "failed to strip prefix")
+                                tracing::error!(project_id, ?error, "failed to strip prefix");
                             }
                         }
                     }
@@ -123,7 +122,7 @@ impl Dispatcher {
     }
 }
 
-fn is_interesting_kind(kind: &notify::EventKind) -> bool {
+fn is_interesting_kind(kind: notify::EventKind) -> bool {
     matches!(
         kind,
         notify::EventKind::Create(notify::event::CreateKind::File)

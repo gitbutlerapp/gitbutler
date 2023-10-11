@@ -38,7 +38,7 @@ impl<'reader> DeltasReader<'reader> {
 
     pub fn read(
         &self,
-        paths: Option<Vec<&path::Path>>,
+        paths: &Option<Vec<&path::Path>>,
     ) -> Result<HashMap<path::PathBuf, Vec<Delta>>> {
         let deltas_dir = path::Path::new("session/deltas");
         let files = self.reader.list_files(deltas_dir)?;

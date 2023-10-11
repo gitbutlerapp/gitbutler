@@ -130,7 +130,7 @@ impl Handler {
 
             events::Event::Emit(event) => {
                 self.events_sender
-                    .send(event.clone())
+                    .send(event)
                     .context("failed to send event")?;
                 Ok(vec![])
             }

@@ -37,7 +37,7 @@ impl Properties {
     fn new<S: Into<String>>(distinct_id: S) -> Self {
         Self {
             distinct_id: distinct_id.into(),
-            props: Default::default(),
+            props: HashMap::default(),
         }
     }
 

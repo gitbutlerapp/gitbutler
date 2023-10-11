@@ -45,7 +45,6 @@ impl TryFrom<&AppHandle> for Handler {
 impl Handler {
     // Returns Some(file_content) or None if the file is ignored.
     fn get_current_file(
-        &self,
         project_repository: &project_repository::Repository,
         path: &std::path::Path,
     ) -> Result<reader::Content, reader::Error> {
@@ -60,7 +59,6 @@ impl Handler {
 
     // returns deltas for the file that are already part of the current session (if any)
     fn get_current_deltas(
-        &self,
         gb_repo: &gb_repository::Repository,
         path: &path::Path,
     ) -> Result<Option<Vec<deltas::Delta>>> {
@@ -116,7 +114,7 @@ impl Handler {
 
         let path = path.as_ref();
 
-        let current_wd_file_content = match self.get_current_file(&project_repository, path) {
+        let current_wd_file_content = match Self::get_current_file(&project_repository, path) {
             Ok(content) => Some(content),
             Err(reader::Error::NotFound) => None,
             Err(err) => Err(err).context("failed to get file content")?,
@@ -135,8 +133,7 @@ impl Handler {
             Err(err) => Err(err).context("failed to get file content")?,
         };
 
-        let current_deltas = self
-            .get_current_deltas(&gb_repository, path)
+        let current_deltas = Self::get_current_deltas(&gb_repository, path)
             .with_context(|| "failed to get current deltas")?;
 
         let mut text_doc = deltas::Document::new(
@@ -544,7 +541,7 @@ mod test {
             sessions_slice.iter().for_each(|session| {
                 let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
                 let deltas_reader = deltas::Reader::new(&session_reader);
-                let deltas_by_filepath = deltas_reader.read(None).unwrap();
+                let deltas_by_filepath = deltas_reader.read(&None).unwrap();
                 for deltas in deltas_by_filepath.values() {
                     deltas.iter().for_each(|delta| {
                         delta.operations.iter().for_each(|operation| {
@@ -556,7 +553,7 @@ mod test {
 
             let reader =
                 sessions::Reader::open(&gb_repository, sessions_slice.first().unwrap()).unwrap();
-            let files = reader.files(None).unwrap();
+            let files = reader.files(&None).unwrap();
 
             if i == 0 {
                 assert_eq!(files.len(), 0);
@@ -630,7 +627,7 @@ mod test {
             sessions_slice.iter().for_each(|session| {
                 let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
                 let deltas_reader = deltas::Reader::new(&session_reader);
-                let deltas_by_filepath = deltas_reader.read(None).unwrap();
+                let deltas_by_filepath = deltas_reader.read(&None).unwrap();
                 for deltas in deltas_by_filepath.values() {
                     deltas.iter().for_each(|delta| {
                         delta.operations.iter().for_each(|operation| {
@@ -642,7 +639,7 @@ mod test {
 
             let reader =
                 sessions::Reader::open(&gb_repository, sessions_slice.first().unwrap()).unwrap();
-            let files = reader.files(None).unwrap();
+            let files = reader.files(&None).unwrap();
 
             if i == 0 {
                 assert_eq!(files.len(), 0);
@@ -693,7 +690,7 @@ mod test {
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session).unwrap();
         let deltas_reader = deltas::Reader::new(&session_reader);
-        let deltas_by_filepath = deltas_reader.read(None).unwrap();
+        let deltas_by_filepath = deltas_reader.read(&None).unwrap();
         for deltas in deltas_by_filepath.values() {
             deltas.iter().for_each(|delta| {
                 delta.operations.iter().for_each(|operation| {
@@ -703,7 +700,7 @@ mod test {
         }
 
         let reader = sessions::Reader::open(&gb_repository, &session).unwrap();
-        let files = reader.files(None).unwrap();
+        let files = reader.files(&None).unwrap();
 
         let base_file = files.get(&relative_file_path.to_path_buf());
         let mut text: Vec<char> = match base_file {

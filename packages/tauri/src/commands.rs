@@ -63,7 +63,7 @@ pub async fn list_session_files(
     paths: Option<Vec<path::PathBuf>>,
 ) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
     let app = handle.state::<app::App>();
-    let files = app.list_session_files(project_id, session_id, paths)?;
+    let files = app.list_session_files(project_id, session_id, &paths)?;
     Ok(files)
 }
 
@@ -76,7 +76,7 @@ pub async fn list_deltas(
     paths: Option<Vec<&str>>,
 ) -> Result<HashMap<String, Vec<deltas::Delta>>, Error> {
     let app = handle.state::<app::App>();
-    let deltas = app.list_session_deltas(project_id, session_id, paths)?;
+    let deltas = app.list_session_deltas(project_id, session_id, &paths)?;
     Ok(deltas)
 }
 
@@ -130,7 +130,7 @@ pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<Stri
 #[instrument(skip(handle))]
 pub async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    app.delete_all_data().await?;
+    app.delete_all_data()?;
     Ok(())
 }
 

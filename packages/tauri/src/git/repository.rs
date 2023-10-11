@@ -17,6 +17,12 @@ impl<'a> From<&'a Repository> for &'a git2::Repository {
 }
 
 impl Repository {
+    #[cfg(test)]
+    pub fn init_bare<P: AsRef<path::Path>>(path: P) -> Result<Self> {
+        let inner = git2::Repository::init_bare(path)?;
+        Ok(Repository(inner))
+    }
+
     pub fn init<P: AsRef<path::Path>>(path: P) -> Result<Self> {
         let inner = git2::Repository::init(path)?;
         Ok(Repository(inner))
@@ -289,7 +295,7 @@ impl Repository {
         self.0.statuses(options).map_err(Into::into)
     }
 
-    pub fn remote_anonymous(&self, url: super::Url) -> Result<Remote> {
+    pub fn remote_anonymous(&self, url: &super::Url) -> Result<Remote> {
         self.0
             .remote_anonymous(&url.to_string())
             .map(Into::into)

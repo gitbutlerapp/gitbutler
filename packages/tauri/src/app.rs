@@ -96,7 +96,7 @@ impl App {
         &self,
         project_id: &str,
         session_id: &str,
-        paths: Option<Vec<path::PathBuf>>,
+        paths: &Option<Vec<path::PathBuf>>,
     ) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
         let session = self
             .sessions_database
@@ -209,7 +209,7 @@ impl App {
         &self,
         project_id: &str,
         session_id: &str,
-        paths: Option<Vec<&str>>,
+        paths: &Option<Vec<&str>>,
     ) -> Result<HashMap<String, Vec<deltas::Delta>>, Error> {
         self.deltas_database
             .list_by_project_id_session_id(project_id, session_id, paths)
@@ -328,7 +328,7 @@ impl App {
         self.searcher.search(query).map_err(Error::Other)
     }
 
-    pub async fn delete_all_data(&self) -> Result<(), Error> {
+    pub fn delete_all_data(&self) -> Result<(), Error> {
         self.searcher
             .delete_all_data()
             .context("failed to delete search data")?;

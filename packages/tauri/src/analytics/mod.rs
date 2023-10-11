@@ -47,7 +47,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(app_handle: &AppHandle, config: Config) -> Self {
+    pub fn new(app_handle: &AppHandle, config: &Config) -> Self {
         let client: Box<dyn posthog::Client + Sync + Send> =
             if let Some(posthog_token) = config.posthog_token {
                 Box::new(posthog::real::Client::new(posthog::real::ClientOptions {

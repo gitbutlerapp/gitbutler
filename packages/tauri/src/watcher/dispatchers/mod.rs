@@ -29,15 +29,9 @@ impl Dispatcher {
         }
     }
 
-    pub fn stop(&self) -> Result<()> {
-        if let Err(error) = self.tick_dispatcher.stop() {
-            tracing::error!(?error, "failed to stop ticker");
-        }
-
-        if let Err(error) = self.file_change_dispatcher.stop() {
-            tracing::error!(?error, "failed to stop file change dispatcher");
-        }
-        Ok(())
+    pub fn stop(&self) {
+        self.tick_dispatcher.stop();
+        self.file_change_dispatcher.stop();
     }
 
     pub fn run<P: AsRef<path::Path>>(
@@ -67,7 +61,7 @@ impl Dispatcher {
             .spawn(async move {
                 loop {
                     select! {
-                        _ = self.cancellation_token.cancelled() => {
+                        () = self.cancellation_token.cancelled() => {
                             break;
                         }
                         Some(event) = tick_rx.recv() => {

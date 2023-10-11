@@ -1,10 +1,31 @@
 #![forbid(unsafe_code)]
 #![deny(
-    clippy::redundant_closure_for_method_calls,
-    clippy::manual_string_new,
-    clippy::implicit_clone,
-    clippy::map_unwrap_or,
-    clippy::needless_for_each
+    clippy::all,
+    clippy::perf,
+    clippy::correctness,
+    clippy::complexity,
+    clippy::style,
+    clippy::pedantic
+)]
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::used_underscore_binding,
+    clippy::must_use_candidate,
+    clippy::module_name_repetitions,
+    clippy::missing_panics_doc,
+    clippy::too_many_lines,
+    clippy::implicit_hasher,
+    clippy::if_not_else,
+    clippy::return_self_not_must_use,
+    clippy::inconsistent_struct_constructor,
+    clippy::match_wildcard_for_single_variants,
+    clippy::unnested_or_patterns,
+    //TODO: should probably be cleaned up as any of these could lead to panics or unexpected behaviour (the cast-ones)
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_lossless,
+    clippy::match_same_arms,
+    clippy::similar_names
 )]
 
 pub mod analytics;
