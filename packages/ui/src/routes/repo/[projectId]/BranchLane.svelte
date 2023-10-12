@@ -200,15 +200,19 @@
 	}
 
 	function resetHeadCommit() {
-		if (branch.commits.length < 2) {
-			return;
+		if (branch.commits.length > 1) {
+			branchController.resetBranch({
+				projectId,
+				branchId: branch.id,
+				targetCommitOid: branch.commits[1].id
+			});
+		} else if (branch.commits.length === 1 && base) {
+			branchController.resetBranch({
+				projectId,
+				branchId: branch.id,
+				targetCommitOid: base?.baseSha
+			});
 		}
-
-		branchController.resetBranch({
-			projectId,
-			branchId: branch.id,
-			targetCommitOid: branch.commits[1].id
-		});
 	}
 
 	onMount(() => {
