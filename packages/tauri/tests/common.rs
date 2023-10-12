@@ -32,8 +32,13 @@ impl Default for TestProject {
             .expect("failed to commit");
 
         let remote_path = temp_dir();
-        let remote_repository =
-            git::Repository::init_bare(remote_path).expect("failed to init repository");
+        let remote_repository = git::Repository::init_opts(
+            remote_path,
+            git2::RepositoryInitOptions::new()
+                .bare(true)
+                .external_template(false),
+        )
+        .expect("failed to init repository");
 
         {
             let mut remote = local_repository
