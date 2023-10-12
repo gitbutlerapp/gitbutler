@@ -8,7 +8,6 @@ pub fn temp_dir() -> std::path::PathBuf {
 
 pub struct TestProject {
     local_repository: git::Repository,
-    remote_repository: git::Repository,
 }
 
 impl Default for TestProject {
@@ -51,23 +50,13 @@ impl Default for TestProject {
                 .expect("failed to push");
         }
 
-        Self {
-            local_repository,
-            remote_repository,
-        }
+        Self { local_repository }
     }
 }
 
 impl TestProject {
     pub fn path(&self) -> &std::path::Path {
         self.local_repository.workdir().unwrap()
-    }
-
-    pub fn fetch(&self) {
-        let mut origin = self.local_repository.find_remote("origin").unwrap();
-        origin
-            .fetch(&["+refs/heads/*:refs/remotes/origin/*"], None)
-            .unwrap();
     }
 
     pub fn push(&self) {
@@ -82,6 +71,10 @@ impl TestProject {
         self.local_repository
             .reset(&commit, git2::ResetType::Hard, None)
             .unwrap();
+    }
+
+    pub fn find_commit(&self, oid: git::Oid) -> Result<git::Commit, git::Error> {
+        self.local_repository.find_commit(oid)
     }
 
     pub fn commit_all(&self, message: &str) -> git::Oid {

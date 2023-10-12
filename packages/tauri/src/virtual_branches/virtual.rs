@@ -1889,7 +1889,7 @@ pub fn commit(
     ownership: Option<&branch::Ownership>,
     signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
-) -> Result<(), CommitError> {
+) -> Result<git::Oid, CommitError> {
     let default_target = gb_repository
         .default_target()
         .context("failed to get default target")?
@@ -2005,7 +2005,7 @@ pub fn commit(
     super::integration::update_gitbutler_integration(gb_repository, project_repository)
         .context("failed to update gitbutler integration")?;
 
-    Ok(())
+    Ok(commit_oid)
 }
 
 pub fn name_to_branch(name: &str) -> String {

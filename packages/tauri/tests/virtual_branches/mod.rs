@@ -126,8 +126,6 @@ mod conflicts {
     }
 
     mod remote {
-        use futures::TryFutureExt;
-
         use super::*;
 
         #[tokio::test]
@@ -211,10 +209,13 @@ mod conflicts {
             {
                 // fixing the conflict removes conflicted mark
                 fs::write(repository.path().join("file.txt"), "resolved").unwrap();
-                controller
+                let commit_oid = controller
                     .create_commit(&project_id, &branch1_id, "resolution", None)
                     .await
                     .unwrap();
+
+                let commit = repository.find_commit(commit_oid).unwrap();
+                assert_eq!(commit.parent_count(), 2);
 
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);

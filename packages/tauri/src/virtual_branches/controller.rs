@@ -88,7 +88,7 @@ impl Controller {
         branch: &str,
         message: &str,
         ownership: Option<&Ownership>,
-    ) -> Result<(), Error> {
+    ) -> Result<git::Oid, Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
                 let signing_key = if project_repository
@@ -116,8 +116,7 @@ impl Controller {
                 .map_err(|error| match error {
                     super::CommitError::Conflicted => Error::Conflicting,
                     super::CommitError::Other(error) => Error::Other(error),
-                })?;
-                Ok(())
+                })
             })
         })
         .await
