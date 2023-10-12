@@ -94,7 +94,7 @@
 
 <Modal bind:this={deleteConfirmationModal} title="Delete {$project?.title}?">
 	<p>
-		Are you sure you want to delete the project,
+		Are you sure you want to delete
 		<span class="font-bold">{$project?.title}</span>? This can’t be undone.
 	</p>
 
