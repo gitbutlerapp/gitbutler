@@ -63,12 +63,13 @@ mod set_base_branch {
                 ..
             } = Test::default();
 
-            assert!(controller
-                .set_base_branch(
+            assert!(matches!(
+                controller.set_base_branch(
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/missing").unwrap(),
-                )
-                .is_err());
+                ),
+                Err(ControllerError::Other(_))
+            ));
         }
     }
 }
