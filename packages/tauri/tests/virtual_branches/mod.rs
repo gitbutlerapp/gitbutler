@@ -124,4 +124,104 @@ mod conflicts {
             ));
         }
     }
+
+    mod remote {
+        use futures::TryFutureExt;
+
+        use super::*;
+
+        #[tokio::test]
+        async fn detect_and_fix() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+            } = Test::default();
+
+            // make sure we have an undiscovered commit in the remote branch
+            fs::write(repository.path().join("file.txt"), "first").unwrap();
+            let first_commit_oid = repository.commit_all("first");
+            fs::write(repository.path().join("file.txt"), "second").unwrap();
+            repository.commit_all("second");
+            repository.push();
+            repository.reset_hard(first_commit_oid);
+
+            controller
+                .set_base_branch(
+                    &project_id,
+                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+                )
+                .unwrap();
+
+            // make a branch that conflicts with the remote branch, but doesn't know about it yet
+            let branch1_id = controller
+                .create_virtual_branch(&project_id, &BranchCreateRequest::default())
+                .await
+                .unwrap();
+            fs::write(repository.path().join("file.txt"), "conflict").unwrap();
+
+            {
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch1_id);
+                assert!(branches[0].active);
+            }
+
+            {
+                // fetch remote
+                controller.update_base_branch(&project_id).await.unwrap();
+
+                // there is a conflict now, so the branch should be inactive
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch1_id);
+                assert!(!branches[0].active);
+            }
+
+            {
+                // when we apply conflicted branch, it has conflict
+                controller
+                    .apply_virtual_branch(&project_id, &branch1_id)
+                    .await
+                    .unwrap();
+
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch1_id);
+                assert!(branches[0].active);
+                assert!(branches[0].conflicted);
+
+                // and the conflict markers are in the file
+                assert_eq!(
+                    fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
+                );
+            }
+
+            {
+                // can't commit conflicts
+                assert!(matches!(
+                    controller
+                        .create_commit(&project_id, &branch1_id, "commit conflicts", None)
+                        .await,
+                    Err(ControllerError::Conflicting)
+                ));
+            }
+
+            {
+                // fixing the conflict removes conflicted mark
+                fs::write(repository.path().join("file.txt"), "resolved").unwrap();
+                controller
+                    .create_commit(&project_id, &branch1_id, "resolution", None)
+                    .await
+                    .unwrap();
+
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch1_id);
+                assert!(branches[0].active);
+                assert!(!branches[0].conflicted);
+            }
+        }
+    }
 }
