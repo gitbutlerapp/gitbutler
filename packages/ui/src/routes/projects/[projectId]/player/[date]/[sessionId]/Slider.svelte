@@ -1,20 +1,19 @@
 <script lang="ts">
 	import type { Delta } from '$lib/api/ipc/deltas';
 	import type { Bookmark } from '$lib/api/ipc/bookmarks';
-	import { derived, Loaded, type Loadable } from 'svelte-loadable-store';
-	import type { Readable } from '@square/svelte-store';
 	import { ModuleChapters, ModuleMarkers, type Marker } from './slider';
 	import { JSR, ModuleSlider } from 'mm-jsr';
+	import { asyncDerived, type Loadable } from '@square/svelte-store';
 
-	export let sessions: Readable<Loadable<[string, Delta][][]>>;
+	export let sessions: [string, Delta][][];
 	export let value: number;
-	export let bookmarks: Readable<Loadable<Bookmark[]>>;
+	export let bookmarks: Loadable<Bookmark[]>;
 
-	$: bookmarkedTimestamps = derived(bookmarks, (bookmarks) =>
+	$: bookmarkedTimestamps = asyncDerived(bookmarks, async (bookmarks) =>
 		bookmarks.filter(({ deleted }) => !deleted).map((bookmark) => bookmark.timestampMs)
 	);
 
-	$: markers = derived([sessions, bookmarkedTimestamps], ([sessions, bookmarkedTimestamps]) =>
+	$: markers = asyncDerived([bookmarkedTimestamps], async ([bookmarkedTimestamps]) =>
 		sessions.flatMap((session, index, all) => {
 			const from = all.slice(0, index).reduce((acc, deltas) => acc + deltas.length, 0);
 			return session
@@ -27,17 +26,13 @@
 		})
 	);
 
-	$: totalDeltas = derived(sessions, (sessions) =>
-		sessions.reduce((acc, deltas) => acc + deltas.length, 0)
-	);
+	$: totalDeltas = sessions?.reduce((acc, deltas) => acc + deltas.length, 0);
 
-	$: chapters = derived(sessions, (sessions) =>
-		sessions.map((session, index, all) => {
-			const from = all.slice(0, index).reduce((acc, deltas) => acc + deltas.length, 0);
-			const to = from + session.length;
-			return [from, to] as [number, number];
-		})
-	);
+	$: chapters = sessions?.map((session, index, all) => {
+		const from = all.slice(0, index).reduce((acc, deltas) => acc + deltas.length, 0);
+		const to = from + session.length;
+		return [from, to] as [number, number];
+	});
 
 	type Config = {
 		min: number;
@@ -90,14 +85,15 @@
 	};
 </script>
 
-{#if !$totalDeltas.isLoading && Loaded.isValue($totalDeltas) && !$chapters.isLoading && Loaded.isValue($chapters) && !$markers.isLoading && Loaded.isValue($markers)}
+{#if totalDeltas && chapters && $markers}
 	<div
+		class="bg-color-1 rounded"
 		use:jsrSlider={{
 			min: 0,
-			max: $totalDeltas.value,
+			max: totalDeltas,
 			initialValue: value,
-			chapters: $chapters.value,
-			markers: $markers.value
+			chapters: chapters,
+			markers: $markers
 		}}
 	>
 		<style>

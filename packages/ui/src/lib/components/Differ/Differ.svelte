@@ -199,7 +199,7 @@
 
 <div
 	id="content"
-	class="grid h-full w-full flex-auto select-text whitespace-pre font-mono"
+	class="border-color-4 grid h-full w-full flex-auto select-text whitespace-pre border-t font-mono"
 	style:grid-template-columns="minmax(auto, max-content) minmax(auto, max-content) 1fr"
 >
 	{#each rows as row}
@@ -211,24 +211,20 @@
 			row.type === RowType.Equal || row.type === RowType.Addition
 				? String(row.currentLineNumber)
 				: ''}
-		<span
-			class="select-none border-r border-light-200 bg-light-800 text-dark-300 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"
-		>
+		<span class="bg-color-3 border-color-4 text-color-1 select-none border-l border-r">
 			<div class="mx-1.5 text-right">
 				{baseNumber}
 			</div>
 		</span>
 
-		<span
-			class="mr-1 select-none border-r border-light-200 bg-light-800 text-dark-300 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"
-		>
+		<span class="bg-color-3 border-color-4 text-color-1 select-none border-r">
 			<div class="mx-1.5 text-right">
 				{curNumber}
 			</div>
 		</span>
 
 		<span
-			class="diff-line-{row.type} cursor-text overflow-hidden whitespace-pre-wrap"
+			class="diff-line-{row.type} bg-color-5 cursor-text overflow-hidden whitespace-pre-wrap"
 			class:line-changed={row.type === RowType.Addition || row.type === RowType.Deletion}
 		>
 			{#each row.render.html as content}
