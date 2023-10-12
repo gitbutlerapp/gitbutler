@@ -10,6 +10,7 @@ tauri-build = { version = "1.5", features = [] }
 [dev-dependencies]
 once_cell = "1.0"
 pretty_assertions = "1.4"
+tempfile = "3.8"
 
 [dependencies]
 anyhow = "1.0.72"
@@ -48,7 +49,6 @@ ssh-key = { version = "0.6.1", features = [ "alloc", "ed25519" ] }
 tantivy = "0.20.2"
 tauri = { version = "1.5", features = ["dialog-open", "fs-read-file", "path-all", "process-relaunch", "protocol-asset", "shell-open", "system-tray", "window-maximize", "window-start-dragging", "window-unmaximize"] }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
-tempfile = "3.8"
 thiserror = "1.0.44"
 tokio = { version = "1.29.1", features = [ "full", "sync", "tracing" ] }
 tokio-util = "0.7.8"
