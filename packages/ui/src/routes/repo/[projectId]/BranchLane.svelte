@@ -674,7 +674,7 @@
 											href={baseUrl(base)}
 											class="inline-block max-w-full truncate text-sm font-bold"
 										>
-											{base?.branchName}
+											integrated to {base?.branchName}
 										</Link>
 									</div>
 
