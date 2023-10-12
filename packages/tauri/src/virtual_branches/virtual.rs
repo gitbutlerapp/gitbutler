@@ -639,15 +639,7 @@ pub fn list_virtual_branches(
             }
         }
 
-        let requires_force = if let Some(upstream) = &branch.upstream {
-            let upstream_commit = repo
-                .find_commit(repo.refname_to_id(&upstream.to_string())?)
-                .context("failed to find upstream commit")?;
-            let merge_base = repo.merge_base(upstream_commit.id(), branch.head)?;
-            merge_base != upstream_commit.id()
-        } else {
-            false
-        };
+        let requires_force = is_requires_force(project_repository, branch)?;
 
         let branch = VirtualBranch {
             id: branch.id.clone(),
@@ -668,6 +660,37 @@ pub fn list_virtual_branches(
     }
     branches.sort_by(|a, b| a.order.cmp(&b.order));
     Ok(branches)
+}
+
+fn is_requires_force(
+    project_repository: &project_repository::Repository,
+    branch: &branch::Branch,
+) -> Result<bool> {
+    let upstream = if let Some(upstream) = &branch.upstream {
+        upstream
+    } else {
+        return Ok(false);
+    };
+
+    let reference = match project_repository
+        .git_repository
+        .refname_to_id(&upstream.to_string())
+    {
+        Ok(reference) => reference,
+        Err(git::Error::NotFound(_)) => return Ok(false),
+        Err(other) => return Err(other).context("failed to find upstream reference"),
+    };
+
+    let upstream_commit = project_repository
+        .git_repository
+        .find_commit(reference)
+        .context("failed to find upstream commit")?;
+
+    let merge_base = project_repository
+        .git_repository
+        .merge_base(upstream_commit.id(), branch.head)?;
+
+    Ok(merge_base != upstream_commit.id())
 }
 
 // given a virtual branch and it's files that are calculated off of a default target,
