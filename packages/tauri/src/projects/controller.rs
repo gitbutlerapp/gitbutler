@@ -93,18 +93,20 @@ impl Controller {
             })?;
 
         if let Some(watchers) = &self.watchers {
-            if let Err(error) = block_on(watchers.post(watcher::Event::FetchGitbutlerData(
-                project.id.clone(),
-                time::SystemTime::now(),
-            ))) {
-                tracing::error!(
-                    project_id = &project.id,
-                    ?error,
-                    "failed to post fetch project event"
-                );
-            }
+            if let Some(api) = &project.api {
+                if api.sync {
+                    if let Err(error) = block_on(watchers.post(watcher::Event::FetchGitbutlerData(
+                        project.id.clone(),
+                        time::SystemTime::now(),
+                    ))) {
+                        tracing::error!(
+                            project_id = &project.id,
+                            ?error,
+                            "failed to post fetch project event"
+                        );
+                    }
+                }
 
-            if project.api.is_some() {
                 if let Err(error) =
                     block_on(watchers.post(watcher::Event::PushGitbutlerData(project.id.clone())))
                 {

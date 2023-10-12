@@ -22,7 +22,6 @@ pub struct ApiProject {
     pub git_url: String,
     pub created_at: String,
     pub updated_at: String,
-
     pub sync: bool,
 }
 

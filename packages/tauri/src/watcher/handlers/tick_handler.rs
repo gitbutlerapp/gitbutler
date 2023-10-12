@@ -42,11 +42,14 @@ impl Handler {
 
         let mut events = vec![];
 
-        if project
-            .gitbutler_data_last_fetched
-            .as_ref()
-            .map_or(Ok(true), |f| f.should_fetch(now))
-            .context("failed to check if gitbutler data should be fetched")?
+        let is_sync = project.api.as_ref().map(|api| api.sync).unwrap_or_default();
+
+        if is_sync
+            && project
+                .gitbutler_data_last_fetched
+                .as_ref()
+                .map_or(Ok(true), |f| f.should_fetch(now))
+                .context("failed to check if gitbutler data should be fetched")?
         {
             events.push(events::Event::FetchGitbutlerData(
                 project_id.to_string(),
@@ -141,5 +144,81 @@ mod tests {
             };
             assert_eq!(should_flush(&now, &session).unwrap(), expected);
         });
+    }
+}
+
+#[cfg(test)]
+mod test_handler {
+    use std::time::SystemTime;
+
+    // use pretty_assertions::assert_eq;
+    use tempfile::tempdir;
+
+    use crate::test_utils::{Case, Suite};
+
+    use super::*;
+
+    fn remote_repository() -> Result<git2::Repository> {
+        let path = tempdir()?.path().to_str().unwrap().to_string();
+        let repository = git2::Repository::init_bare(path)?;
+        Ok(repository)
+    }
+
+    #[test]
+    fn test_fetch_triggered() -> Result<()> {
+        let suite = Suite::default();
+        let Case { project, .. } = suite.new_case();
+
+        let cloud = remote_repository()?;
+
+        let api_project = projects::ApiProject {
+            name: "test-sync".to_string(),
+            description: None,
+            repository_id: "123".to_string(),
+            git_url: cloud.path().to_str().unwrap().to_string(),
+            created_at: 0.to_string(),
+            updated_at: 0.to_string(),
+            sync: true,
+        };
+
+        suite.projects.update(&projects::UpdateRequest {
+            id: project.id.clone(),
+            api: Some(api_project.clone()),
+            ..Default::default()
+        })?;
+
+        let listener = Handler {
+            local_data_dir: suite.local_app_data,
+            projects: suite.projects,
+            users: suite.users,
+        };
+
+        let result = listener.handle(&project.id, &SystemTime::now()).unwrap();
+
+        assert!(result
+            .iter()
+            .any(|ev| matches!(ev, events::Event::FetchGitbutlerData(_, _))));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_fetch_triggered() -> Result<()> {
+        let suite = Suite::default();
+        let Case { project, .. } = suite.new_case();
+
+        let listener = Handler {
+            local_data_dir: suite.local_app_data,
+            projects: suite.projects,
+            users: suite.users,
+        };
+
+        let result = listener.handle(&project.id, &SystemTime::now()).unwrap();
+
+        assert!(!result
+            .iter()
+            .any(|ev| matches!(ev, events::Event::FetchGitbutlerData(_, _))));
+
+        Ok(())
     }
 }
