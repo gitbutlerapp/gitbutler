@@ -22,14 +22,18 @@ mod add {
     }
 
     mod error {
+        use gitbutler::projects::AddError;
+
         use super::*;
 
         #[test]
         fn missing() {
             let controller = new();
             let path = tempfile::tempdir().unwrap().into_path();
-            let result = controller.add(&path.join("missing"));
-            assert_eq!(result.unwrap_err().to_string(), "path not found");
+            assert!(matches!(
+                controller.add(&path.join("missing")),
+                Err(AddError::PathNotFound)
+            ));
         }
 
         #[test]
@@ -37,16 +41,20 @@ mod add {
             let controller = new();
             let path = tempfile::tempdir().unwrap().into_path();
             std::fs::write(path.join("file.txt"), "hello world").unwrap();
-            let result = controller.add(&path);
-            assert_eq!(result.unwrap_err().to_string(), "not a git repository");
+            assert!(matches!(
+                controller.add(&path),
+                Err(AddError::NotAGitRepository)
+            ));
         }
 
         #[test]
         fn empty() {
             let controller = new();
             let path = tempfile::tempdir().unwrap().into_path();
-            let result = controller.add(&path);
-            assert_eq!(result.unwrap_err().to_string(), "not a git repository");
+            assert!(matches!(
+                controller.add(&path),
+                Err(AddError::NotAGitRepository)
+            ));
         }
 
         #[test]
@@ -55,8 +63,7 @@ mod add {
             let repository = common::git_repository();
             let path = repository.workdir().unwrap();
             controller.add(path).unwrap();
-            let result = controller.add(path);
-            assert_eq!(result.unwrap_err().to_string(), "project already exists");
+            assert!(matches!(controller.add(path), Err(AddError::AlreadyExists)));
         }
     }
 }
