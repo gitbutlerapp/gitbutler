@@ -37,7 +37,7 @@ pub async fn commit_virtual_branch(
     branch: &str,
     message: &str,
     ownership: Option<Ownership>,
-) -> Result<(), Error> {
+) -> Result<git::Oid, Error> {
     handle
         .state::<Controller>()
         .create_commit(project_id, branch, message, ownership.as_ref())
@@ -64,7 +64,7 @@ pub async fn create_virtual_branch(
     handle: AppHandle,
     project_id: &str,
     branch: super::branch::BranchCreateRequest,
-) -> Result<(), Error> {
+) -> Result<String, Error> {
     handle
         .state::<Controller>()
         .create_virtual_branch(project_id, &branch)

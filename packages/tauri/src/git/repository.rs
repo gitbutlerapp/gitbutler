@@ -32,6 +32,7 @@ impl Repository {
         let inner = git2::Repository::open(path)?;
         Ok(Repository(inner))
     }
+
     pub fn init_opts<P: AsRef<path::Path>>(
         path: P,
         opts: &git2::RepositoryInitOptions,
@@ -381,7 +382,6 @@ impl Repository {
         self.0.find_tree(oid).map(Into::into).map_err(Into::into)
     }
 
-    #[cfg(test)]
     pub fn remote(&self, name: &str, url: &str) -> Result<Remote> {
         self.0.remote(name, url).map(Into::into).map_err(Into::into)
     }
