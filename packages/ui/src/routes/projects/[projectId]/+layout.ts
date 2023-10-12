@@ -3,7 +3,6 @@ import { getSessionStore } from '$lib/stores/sessions';
 import { getDiffsStore } from '$lib/api/git/diffs';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
-import type { Loadable } from '@square/svelte-store';
 import { getProjectStore, type Project } from '$lib/api/ipc/projects';
 
 export const prerender = false;
@@ -15,6 +14,6 @@ export const load: LayoutLoad = async ({ params }) => {
 		head: getHeadStore(params.projectId),
 		sessions: getSessionStore(params.projectId),
 		diffs: getDiffsStore({ projectId: params.projectId }),
-		project: project as Loadable<Project> & Pick<typeof project, 'update' | 'delete'>
+		project: project
 	};
 };

@@ -63,7 +63,7 @@
 				<li>
 					<Tooltip label="Replay">
 						<Button
-							on:click={() => goto(`/projects/${$project.id}/player`)}
+							on:click={() => goto(`/projects/${$project?.id}/player`)}
 							kind="plain"
 							icon={IconRewind}
 						/>
@@ -72,7 +72,7 @@
 				<li>
 					<Tooltip label="Project settings">
 						<Button
-							on:click={() => goto(`/projects/${$project.id}/settings`)}
+							on:click={() => goto(`/projects/${$project?.id}/settings`)}
 							kind="plain"
 							icon={IconSettings}
 						/>

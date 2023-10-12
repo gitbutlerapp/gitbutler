@@ -3,12 +3,11 @@
 	import { isInsert, type Delta, isDelete } from '$lib/api/ipc/deltas';
 	import { page } from '$app/stores';
 	import { collapse } from '$lib/paths';
-	import { derived } from '@square/svelte-store';
+	import { asyncDerived } from '@square/svelte-store';
 	import { getBookmarksStore } from '$lib/stores/bookmarks';
 	import { IconBookmarkFilled } from '$lib/icons';
 	import { line } from '$lib/diff';
 	import { Stats } from '$lib/components';
-	import { Loaded } from 'svelte-loadable-store';
 
 	export let isCurrent: boolean;
 	export let session: Session;
@@ -54,18 +53,19 @@
 		})
 		.reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]);
 
-	$: bookmarksStore = derived(getBookmarksStore({ projectId: session.projectId }), (bookmarks) => {
-		if (bookmarks.isLoading) return [];
-		if (Loaded.isError(bookmarks)) return [];
-		const timestamps = Object.values(deltas ?? {}).flatMap((deltas) =>
-			(deltas || []).map((d) => d.timestampMs)
-		);
-		const start = Math.min(...timestamps);
-		const end = Math.max(...timestamps);
-		return bookmarks.value
-			.filter((bookmark) => !bookmark.deleted)
-			.filter((bookmark) => bookmark.timestampMs >= start && bookmark.timestampMs < end);
-	});
+	$: bookmarksStore = asyncDerived(
+		getBookmarksStore({ projectId: session.projectId }),
+		async (bookmarks) => {
+			const timestamps = Object.values(deltas ?? {}).flatMap((deltas) =>
+				(deltas || []).map((d) => d.timestampMs)
+			);
+			const start = Math.min(...timestamps);
+			const end = Math.max(...timestamps);
+			return bookmarks
+				.filter((bookmark) => !bookmark.deleted)
+				.filter((bookmark) => bookmark.timestampMs >= start && bookmark.timestampMs < end);
+		}
+	);
 
 	const unique = (value: any, index: number, self: any[]) => self.indexOf(value) === index;
 	const lexically = (a: string, b: string) => a.localeCompare(b);
@@ -110,8 +110,8 @@
 <li
 	bind:this={card}
 	id={isCurrent ? 'current-session' : ''}
-	class:bg-card-active={isCurrent}
-	class="session-card relative rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md transition-colors duration-200 ease-in-out hover:bg-card-active"
+	class:bg-color-4={isCurrent}
+	class="session-card border-color-2 text-color-2 hover:bg-color-4 relative rounded border-[0.5px] shadow-md transition-colors duration-200 ease-in-out"
 >
 	{#await bookmarksStore.load() then}
 		{#if $bookmarksStore?.length > 0}
@@ -136,14 +136,13 @@
 
 		{#if isCurrent}
 			<ul
-				class="list-disk list-none overflow-hidden rounded-bl rounded-br bg-zinc-800 py-1 pl-0 pr-2"
-				style:list-style="disc"
+				class="list-disk bg-color-2 list-none overflow-hidden rounded-bl rounded-br py-1 pl-0 pr-2"
 			>
 				{#each changedFiles.sort(lexically) as filename}
 					<li
 						class:text-zinc-100={currentFilepath === filename}
 						class:bg-[#3356C2]={currentFilepath === filename}
-						class="mx-5 ml-1 w-full list-none rounded p-1 text-zinc-500"
+						class="text-color-3 mx-5 ml-1 w-full list-none rounded p-1"
 					>
 						{collapse(filename)}
 					</li>

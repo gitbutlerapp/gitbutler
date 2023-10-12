@@ -2,24 +2,18 @@
 	import { getTime, subDays } from 'date-fns';
 	import type { PageData } from './$types';
 	import { IconGitBranch } from '$lib/icons';
-	import { derived } from '@square/svelte-store';
+	import { asyncDerived } from '@square/svelte-store';
 	import FileSummaries from './FileSummaries.svelte';
 	import { Tooltip } from '$lib/components';
-	import Chat from './Chat.svelte';
 
 	export let data: PageData;
 	const { project, sessions, head } = data;
 
-	$: recentSessions = derived(
+	$: recentSessions = asyncDerived(
 		sessions,
-		(item) => {
-			const lastFourDaysOfSessions = item?.filter(
-				(result) => result.meta.startTimestampMs >= getTime(subDays(new Date(), 4))
-			);
-			if (lastFourDaysOfSessions?.length >= 4) return lastFourDaysOfSessions;
-			return item?.slice(0, 4).sort((a, b) => b.meta.startTimestampMs - a.meta.startTimestampMs);
-		},
-		[]
+		async (item) =>
+			item?.filter((result) => result.meta.startTimestampMs >= getTime(subDays(new Date(), 4))),
+		{ trackState: true }
 	);
 </script>
 
@@ -46,9 +40,9 @@
 			</div>
 		</div>
 
-		<div class="flex flex-auto flex-col overflow-auto">
+		<!-- <div class="flex flex-auto flex-col overflow-auto">
 			<Chat project={$project} />
-		</div>
+		</div> -->
 	</div>
 
 	<div class="main-content-container flex w-2/3 flex-auto flex-col">
