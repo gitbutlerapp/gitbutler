@@ -68,6 +68,16 @@ impl HandlerInner {
 
         let user = self.users.get_user()?;
 
+        let project = self
+            .projects
+            .get(project_id)
+            .context("failed to get project")?;
+
+        if !project.api.as_ref().map(|api| api.sync).unwrap_or_default() {
+            tracing::debug!(project_id, "sync disabled",);
+            return Ok(vec![]);
+        }
+
         // mark fetching
         self.projects
             .update(&projects::UpdateRequest {
@@ -79,10 +89,6 @@ impl HandlerInner {
             })
             .context("failed to mark project as fetching")?;
 
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
         let project_repository = project_repository::Repository::try_from(&project)
             .context("failed to open repository")?;
         let gb_repo = gb_repository::Repository::open(
