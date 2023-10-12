@@ -7,10 +7,12 @@
 	let arrowRef = writable({} as HTMLElement);
 
 	export let label: string;
+	type Placement = 'top' | 'right' | 'bottom' | 'left';
+	export let placement: Placement = 'bottom';
 
 	const [floatingRef, floatingContent] = createFloatingActions({
 		strategy: 'absolute',
-		placement: 'bottom',
+		placement: placement,
 		middleware: [offset(8), flip(), shift(), arrow({ element: arrowRef })],
 		onComputed({ placement, middlewareData }) {
 			if (!middlewareData.arrow) return;

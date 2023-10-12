@@ -1889,11 +1889,7 @@ pub fn commit(
     ownership: Option<&branch::Ownership>,
     signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
-) -> Result<()> {
-    if conflicts::is_conflicting(project_repository, None)? {
-        bail!("cannot commit, project is in a conflicted state");
-    }
-
+) -> Result<git::Oid, CommitError> {
     let default_target = gb_repository
         .default_target()
         .context("failed to get default target")?
@@ -1909,6 +1905,9 @@ pub fn commit(
         .ok_or_else(|| anyhow!("branch {} not found", branch_id))?;
 
     let files = calculate_non_commited_files(project_repository, branch, &default_target, files)?;
+    if conflicts::is_conflicting(project_repository, None)? {
+        return Err(CommitError::Conflicted);
+    }
 
     let tree_oid = if let Some(ownership) = ownership {
         let files = files
@@ -1980,17 +1979,17 @@ pub fn commit(
                     &tree,
                     &[&parent_commit, &merge_parent],
                 )
-            }?;
+            }
+            .context("failed to commit")?;
             conflicts::clear(project_repository).context("failed to clear conflicts")?;
             commit_oid
         }
-        None => {
-            if let Some(key) = signing_key {
-                git_repository.commit_signed(&author, message, &tree, &[&parent_commit], key)
-            } else {
-                git_repository.commit(None, &author, &committer, message, &tree, &[&parent_commit])
-            }?
+        None => if let Some(key) = signing_key {
+            git_repository.commit_signed(&author, message, &tree, &[&parent_commit], key)
+        } else {
+            git_repository.commit(None, &author, &committer, message, &tree, &[&parent_commit])
         }
+        .context("failed to commit")?,
     };
 
     // update the virtual branch head
@@ -2006,13 +2005,21 @@ pub fn commit(
     super::integration::update_gitbutler_integration(gb_repository, project_repository)
         .context("failed to update gitbutler integration")?;
 
-    Ok(())
+    Ok(commit_oid)
 }
 
 pub fn name_to_branch(name: &str) -> String {
     name.chars()
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
         .collect::<String>()
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CommitError {
+    #[error("will not commit conflicted files")]
+    Conflicted,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
 }
 
 #[derive(Debug, thiserror::Error)]
