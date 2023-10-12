@@ -42,11 +42,14 @@ impl Handler {
 
         let mut events = vec![];
 
-        if project
-            .gitbutler_data_last_fetched
-            .as_ref()
-            .map_or(Ok(true), |f| f.should_fetch(now))
-            .context("failed to check if gitbutler data should be fetched")?
+        let is_sync = project.api.as_ref().map(|api| api.sync).unwrap_or_default();
+
+        if is_sync
+            && project
+                .gitbutler_data_last_fetched
+                .as_ref()
+                .map_or(Ok(true), |f| f.should_fetch(now))
+                .context("failed to check if gitbutler data should be fetched")?
         {
             events.push(events::Event::FetchGitbutlerData(
                 project_id.to_string(),

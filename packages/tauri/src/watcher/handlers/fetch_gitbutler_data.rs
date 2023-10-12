@@ -74,8 +74,7 @@ impl HandlerInner {
             .context("failed to get project")?;
 
         if !project.api.as_ref().map(|api| api.sync).unwrap_or_default() {
-            tracing::debug!(project_id, "sync disabled",);
-            return Ok(vec![]);
+            anyhow::bail!("sync disabled");
         }
 
         // mark fetching
