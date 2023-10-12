@@ -42,18 +42,46 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        let local_data_dir = DataDir::try_from(value)?;
-        Ok(Self {
-            local_data_dir,
-            semaphores: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
-            projects: projects::Controller::try_from(value)?,
-            users: users::Controller::from(value),
-            keys: keys::Controller::from(value),
-        })
+        DataDir::try_from(value)
+            .map(|data_dir| {
+                Self::new(
+                    &data_dir,
+                    &projects::Controller::from(&data_dir),
+                    &users::Controller::from(&data_dir),
+                    &keys::Controller::from(&data_dir),
+                )
+            })
+            .map_err(Error::Other)
+    }
+}
+
+impl From<&DataDir> for Controller {
+    fn from(value: &DataDir) -> Self {
+        Self::new(
+            value,
+            &projects::Controller::from(value),
+            &users::Controller::from(value),
+            &keys::Controller::from(value),
+        )
     }
 }
 
 impl Controller {
+    pub fn new(
+        data_dir: &DataDir,
+        projects: &projects::Controller,
+        users: &users::Controller,
+        keys: &keys::Controller,
+    ) -> Self {
+        Self {
+            local_data_dir: data_dir.clone(),
+            semaphores: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+            projects: projects.clone(),
+            users: users.clone(),
+            keys: keys.clone(),
+        }
+    }
+
     pub async fn create_commit(
         &self,
         project_id: &str,
@@ -150,14 +178,16 @@ impl Controller {
         &self,
         project_id: &str,
         create: &super::branch::BranchCreateRequest,
-    ) -> Result<(), Error> {
+    ) -> Result<String, Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
                 if conflicts::is_resolving(project_repository) {
                     return Err(Error::Conflicting);
                 }
-                super::create_virtual_branch(gb_repository, create).map_err(Error::Other)?;
-                Ok(())
+                let branch_id = super::create_virtual_branch(gb_repository, create)
+                    .map_err(Error::Other)?
+                    .id;
+                Ok(branch_id)
             })
         })
         .await

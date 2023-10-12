@@ -12,6 +12,7 @@ mod base;
 pub use base::*;
 
 pub mod controller;
+pub use controller::{Controller, Error as ControllerError};
 
 pub mod commands;
 

@@ -64,7 +64,7 @@ pub async fn create_virtual_branch(
     handle: AppHandle,
     project_id: &str,
     branch: super::branch::BranchCreateRequest,
-) -> Result<(), Error> {
+) -> Result<String, Error> {
     handle
         .state::<Controller>()
         .create_virtual_branch(project_id, &branch)

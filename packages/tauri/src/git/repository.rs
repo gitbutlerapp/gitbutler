@@ -17,7 +17,6 @@ impl<'a> From<&'a Repository> for &'a git2::Repository {
 }
 
 impl Repository {
-    #[cfg(test)]
     pub fn init_bare<P: AsRef<path::Path>>(path: P) -> Result<Self> {
         let inner = git2::Repository::init_bare(path)?;
         Ok(Repository(inner))
@@ -381,7 +380,6 @@ impl Repository {
         self.0.find_tree(oid).map(Into::into).map_err(Into::into)
     }
 
-    #[cfg(test)]
     pub fn remote(&self, name: &str, url: &str) -> Result<Remote> {
         self.0.remote(name, url).map(Into::into).map_err(Into::into)
     }

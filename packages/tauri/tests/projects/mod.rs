@@ -13,8 +13,8 @@ mod add {
     #[test]
     fn success() {
         let controller = new();
-        let repository = common::git_repository();
-        let path = repository.workdir().unwrap();
+        let repository = common::TestProject::default();
+        let path = repository.path();
         let project = controller.add(path).unwrap();
         assert_eq!(project.path, path);
         assert_eq!(project.title, path.iter().last().unwrap().to_str().unwrap());
@@ -60,8 +60,8 @@ mod add {
         #[test]
         fn twice() {
             let controller = new();
-            let repository = common::git_repository();
-            let path = repository.workdir().unwrap();
+            let repository = common::TestProject::default();
+            let path = repository.path();
             controller.add(path).unwrap();
             assert!(matches!(controller.add(path), Err(AddError::AlreadyExists)));
         }

@@ -5,6 +5,7 @@ use crate::{paths::DataDir, storage};
 
 use super::{storage::Storage, PrivateKey};
 
+#[derive(Clone)]
 pub struct Controller {
     storage: Storage,
 }
@@ -34,6 +35,12 @@ impl From<&AppHandle> for Controller {
 }
 
 impl Controller {
+    pub fn new(storage: &Storage) -> Self {
+        Self {
+            storage: storage.clone(),
+        }
+    }
+
     pub fn get_or_create(&self) -> Result<PrivateKey, GetOrCreateError> {
         if let Some(key) = self.storage.get().context("failed to get key")? {
             Ok(key)
