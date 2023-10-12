@@ -1,5 +1,6 @@
 use std::{path, time};
 
+use anyhow::Context;
 use futures::executor::block_on;
 use tauri::{AppHandle, Manager};
 
@@ -41,7 +42,7 @@ impl Controller {
         let all_projects = self
             .projects_storage
             .list()
-            .map_err(|error| AddError::Other(error.into()))?;
+            .context("failed to list projects from storage")?;
         if all_projects.iter().any(|project| project.path == path) {
             return Err(AddError::AlreadyExists);
         }
@@ -73,7 +74,7 @@ impl Controller {
 
         self.projects_storage
             .add(&project)
-            .map_err(|error| AddError::Other(error.into()))?;
+            .context("failed to add project to storage")?;
 
         if let Some(watchers) = &self.watchers {
             block_on(watchers.watch(&project))?;
@@ -200,7 +201,7 @@ pub enum AddError {
     NotADirectory,
     #[error("not a git repository")]
     NotAGitRepository,
-    #[error("failed to create project")]
+    #[error("path not found")]
     PathNotFound,
     #[error("project already exists")]
     AlreadyExists,
