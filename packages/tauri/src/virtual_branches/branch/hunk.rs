@@ -144,7 +144,7 @@ mod tests {
 
     #[test]
     fn parse_invalid() {
-        assert!("3-2".parse::<Hunk>().is_err());
+        "3-2".parse::<Hunk>().unwrap_err();
     }
 
     #[test]
@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn parse_invalid_2() {
-        assert!("3-2".parse::<Hunk>().is_err());
+        "3-2".parse::<Hunk>().unwrap_err();
     }
 
     #[test]
@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn test_eq() {
-        vec![
+        for (a, b, expected) in vec![
             (
                 "1-2".parse::<Hunk>().unwrap(),
                 "1-2".parse::<Hunk>().unwrap(),
@@ -219,10 +219,8 @@ mod tests {
                 "2-3-bcd".parse::<Hunk>().unwrap(),
                 false,
             ),
-        ]
-        .iter()
-        .for_each(|(a, b, expected)| {
-            assert_eq!(a == b, *expected, "comapring {} and {}", a, b);
-        });
+        ] {
+            assert_eq!(a == b, expected, "comapring {} and {}", a, b);
+        }
     }
 }

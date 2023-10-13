@@ -223,7 +223,7 @@ mod tests {
 
     #[test]
     fn test_equal() {
-        vec![
+        for (a, b, expected) in vec![
             (
                 "src/main.rs:100-200".parse::<Ownership>().unwrap(),
                 "src/main.rs:100-200".parse::<Ownership>().unwrap(),
@@ -254,10 +254,8 @@ mod tests {
                     .unwrap(),
                 false,
             ),
-        ]
-        .into_iter()
-        .for_each(|(a, b, expected)| {
+        ] {
             assert_eq!(a == b, expected, "{:#?} == {:#?}", a, b);
-        });
+        }
     }
 }

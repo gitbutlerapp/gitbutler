@@ -188,13 +188,13 @@ mod test {
             description: None,
             repository_id: "123".to_string(),
             git_url: cloud.path().to_str().unwrap().to_string(),
-            created_at: 0.to_string(),
-            updated_at: 0.to_string(),
+            created_at: 0_i32.to_string(),
+            updated_at: 0_i32.to_string(),
             sync: true,
         };
 
         suite.projects.update(&projects::UpdateRequest {
-            id: project.id.clone(),
+            id: project.id,
             api: Some(api_project.clone()),
             ..Default::default()
         })?;
@@ -212,7 +212,7 @@ mod test {
     }
 
     #[test]
-    fn test_fetch_fail_no_sync() -> Result<()> {
+    fn test_fetch_fail_no_sync() {
         let suite = Suite::default();
         let Case { project, .. } = suite.new_case();
 
@@ -226,7 +226,5 @@ mod test {
         let res = listener.handle(&project.id, &SystemTime::now());
 
         assert_eq!(&res.unwrap_err().to_string(), "sync disabled");
-
-        Ok(())
     }
 }

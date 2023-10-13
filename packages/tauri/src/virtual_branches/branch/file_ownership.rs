@@ -184,7 +184,7 @@ mod tests {
 
     #[test]
     fn parse_ownership_no_ranges() {
-        assert!("foo/bar.rs".parse::<FileOwnership>().is_err());
+        "foo/bar.rs".parse::<FileOwnership>().unwrap_err();
     }
 
     #[test]

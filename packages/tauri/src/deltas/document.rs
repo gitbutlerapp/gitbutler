@@ -342,10 +342,10 @@ mod tests {
 
     #[test]
     fn test_unicode() {
-        let latest = reader::Content::UTF8("🌚".to_string());
-        let current = reader::Content::UTF8("🌝".to_string());
+        let latest = reader::Content::UTF8("\u{1f31a}".to_string());
+        let current = reader::Content::UTF8("\u{1f31d}".to_string());
         let mut document = Document::new(Some(&latest), vec![]).unwrap();
         document.update(Some(&current)).unwrap();
-        assert_eq!(document.to_string(), "🌝");
+        assert_eq!(document.to_string(), "\u{1f31d}");
     }
 }

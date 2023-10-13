@@ -212,7 +212,7 @@ mod tests {
 
         let zipper_cache = tempdir().unwrap();
         let zipper = Zipper::from(&zipper_cache.path().to_path_buf());
-        assert!(zipper.zip(file_path).is_err());
+        zipper.zip(file_path).unwrap_err();
     }
 
     #[test]

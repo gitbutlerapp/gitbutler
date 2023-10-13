@@ -30,7 +30,7 @@ pub fn dedup_fmt(existing: &[&str], new: &str, separator: &str) -> String {
 
 #[test]
 fn test_dedup() {
-    vec![
+    for (existing, new, expected) in [
         (vec!["foo", "foo 2"], "foo", "foo 1"),
         (vec!["foo", "foo 1", "foo 2"], "foo", "foo 3"),
         (vec!["foo", "foo 1", "foo 2"], "foo 1", "foo 1 1"),
@@ -38,10 +38,7 @@ fn test_dedup() {
         (vec!["foo", "foo 1", "foo 2"], "foo 3", "foo 3"),
         (vec!["foo 2"], "foo", "foo"),
         (vec!["foo", "foo 1", "foo 2", "foo 4"], "foo", "foo 3"),
-    ]
-    .iter()
-    .enumerate()
-    .for_each(|(i, (existing, new, expected))| {
-        assert_eq!(dedup(existing, new), expected.to_string(), "test {}", i + 1);
-    });
+    ] {
+        assert_eq!(dedup(&existing, new), expected.to_string());
+    }
 }

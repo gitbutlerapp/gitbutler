@@ -35,17 +35,18 @@ fn test_sorted_by_timestamp() -> Result<()> {
 
     let searcher = super::Searcher::try_from(&suite.local_app_data).unwrap();
 
-    let write_result = searcher.index_session(&gb_repository, &session.unwrap());
-    assert!(write_result.is_ok());
+    searcher
+        .index_session(&gb_repository, &session.unwrap())
+        .unwrap();
 
-    let search_result = searcher.search(&super::Query {
-        project_id: gb_repository.get_project_id().to_string(),
-        q: "hello".to_string(),
-        limit: 10,
-        offset: None,
-    });
-    assert!(search_result.is_ok());
-    let search_result = search_result.unwrap();
+    let search_result = searcher
+        .search(&super::Query {
+            project_id: gb_repository.get_project_id().to_string(),
+            q: "hello".to_string(),
+            limit: 10,
+            offset: None,
+        })
+        .unwrap();
     assert_eq!(search_result.total, 2);
     assert_eq!(search_result.page[0].index, 1);
     assert_eq!(search_result.page[1].index, 0);
@@ -166,8 +167,7 @@ fn search_by_full_match() -> Result<()> {
 
     let searcher = super::Searcher::try_from(&suite.local_app_data).unwrap();
 
-    let write_result = searcher.index_session(&gb_repository, &session);
-    assert!(write_result.is_ok());
+    searcher.index_session(&gb_repository, &session).unwrap();
 
     let result = searcher.search(&super::Query {
         project_id: gb_repository.get_project_id().to_string(),
@@ -208,8 +208,7 @@ fn search_by_diff() -> Result<()> {
 
     let searcher = super::Searcher::try_from(&suite.local_app_data).unwrap();
 
-    let write_result = searcher.index_session(&gb_repository, &session);
-    assert!(write_result.is_ok());
+    searcher.index_session(&gb_repository, &session)?;
 
     let result = searcher.search(&super::Query {
         project_id: gb_repository.get_project_id().to_string(),

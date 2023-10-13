@@ -330,7 +330,7 @@ mod tests {
     fn test_directory_reader_is_dir() -> Result<()> {
         let dir = test_utils::temp_dir();
         let reader = DirReader::open(dir.clone());
-        std::fs::create_dir(dir.join("dir"))?;
+        std::fs::create_dir_all(dir.join("dir"))?;
         std::fs::write(dir.join("dir/test.txt"), "test")?;
         assert!(reader.is_dir(path::Path::new(".")));
         assert!(reader.is_dir(path::Path::new("dir")));
@@ -346,7 +346,7 @@ mod tests {
         let file_path = path::Path::new("test.txt");
         std::fs::write(dir.join(file_path), "test")?;
 
-        let reader = DirReader::open(dir.to_path_buf());
+        let reader = DirReader::open(dir.clone());
         assert_eq!(reader.read(file_path)?, Content::UTF8("test".to_string()));
 
         Ok(())
@@ -356,7 +356,7 @@ mod tests {
     fn test_commit_reader_is_dir() -> Result<()> {
         let repository = test_utils::test_repository();
 
-        std::fs::create_dir(repository.path().parent().unwrap().join("dir"))?;
+        std::fs::create_dir_all(repository.path().parent().unwrap().join("dir"))?;
         std::fs::write(
             repository.path().parent().unwrap().join("dir/test.txt"),
             "test",
@@ -392,10 +392,10 @@ mod tests {
         let dir = test_utils::temp_dir();
 
         std::fs::write(dir.join("test1.txt"), "test")?;
-        std::fs::create_dir(dir.join("dir"))?;
+        std::fs::create_dir_all(dir.join("dir"))?;
         std::fs::write(dir.join("dir").join("test.txt"), "test")?;
 
-        let reader = DirReader::open(dir.to_path_buf());
+        let reader = DirReader::open(dir.clone());
         let files = reader.list_files(path::Path::new("dir"))?;
         assert_eq!(files.len(), 1);
         assert!(files.contains(&path::Path::new("test.txt").to_path_buf()));
@@ -408,10 +408,10 @@ mod tests {
         let dir = test_utils::temp_dir();
 
         std::fs::write(dir.join("test.txt"), "test")?;
-        std::fs::create_dir(dir.join("dir"))?;
+        std::fs::create_dir_all(dir.join("dir"))?;
         std::fs::write(dir.join("dir").join("test.txt"), "test")?;
 
-        let reader = DirReader::open(dir.to_path_buf());
+        let reader = DirReader::open(dir.clone());
         let files = reader.list_files(path::Path::new(""))?;
         assert_eq!(files.len(), 2);
         assert!(files.contains(&path::Path::new("test.txt").to_path_buf()));
@@ -428,7 +428,7 @@ mod tests {
             repository.path().parent().unwrap().join("test1.txt"),
             "test",
         )?;
-        std::fs::create_dir(repository.path().parent().unwrap().join("dir"))?;
+        std::fs::create_dir_all(repository.path().parent().unwrap().join("dir"))?;
         std::fs::write(
             repository
                 .path()
@@ -456,7 +456,7 @@ mod tests {
         let repository = test_utils::test_repository();
 
         std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
-        std::fs::create_dir(repository.path().parent().unwrap().join("dir"))?;
+        std::fs::create_dir_all(repository.path().parent().unwrap().join("dir"))?;
         std::fs::write(
             repository
                 .path()
@@ -486,7 +486,7 @@ mod tests {
 
         std::fs::write(dir.join("test.txt"), "test")?;
 
-        let reader = DirReader::open(dir.to_path_buf());
+        let reader = DirReader::open(dir.clone());
         assert!(reader.exists(path::Path::new("test.txt")));
         assert!(!reader.exists(path::Path::new("test2.txt")));
 
@@ -512,29 +512,25 @@ mod tests {
 
     #[test]
     fn test_from_bytes() {
-        vec![
+        for (bytes, expected) in [
             ("test".as_bytes(), Content::UTF8("test".to_string())),
             (&[0, 159, 146, 150, 159, 146, 150], Content::Binary),
-        ]
-        .into_iter()
-        .for_each(|(bytes, expected)| {
+        ] {
             assert_eq!(Content::from(bytes), expected);
-        });
+        }
     }
 
     #[test]
     fn test_serialize_content() {
-        vec![
+        for (content, expected) in [
             (
                 Content::UTF8("test".to_string()),
                 r#"{"type":"utf8","value":"test"}"#,
             ),
             (Content::Binary, r#"{"type":"binary"}"#),
             (Content::Large, r#"{"type":"large"}"#),
-        ]
-        .into_iter()
-        .for_each(|(content, expected)| {
+        ] {
             assert_eq!(serde_json::to_string(&content).unwrap(), expected);
-        });
+        }
     }
 }

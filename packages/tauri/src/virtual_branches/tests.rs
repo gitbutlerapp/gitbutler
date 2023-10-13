@@ -75,7 +75,6 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches[0];
-    dbg!(&branch);
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.commits.len(), 0);
 
@@ -327,7 +326,7 @@ fn test_create_branch_with_ownership() -> Result<()> {
 
     let files_by_branch_id = statuses
         .iter()
-        .map(|(branch, files)| (branch.id.clone(), files))
+        .map(|(branch, files)| (branch.id, files))
         .collect::<HashMap<_, _>>();
 
     assert_eq!(files_by_branch_id.len(), 2);
@@ -434,7 +433,7 @@ fn test_name_to_branch() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch1_id.clone(),
+            id: branch1_id,
             name: Some("branch1".to_string()),
             order: Some(1),
             ..Default::default()
@@ -444,18 +443,18 @@ fn test_name_to_branch() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch2_id.clone(),
+            id: branch2_id,
             name: Some("branch1".to_string()),
             order: Some(0),
             ..Default::default()
         },
     );
-    assert!(result.is_err());
+    result.unwrap_err();
     update_branch(
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch2_id.clone(),
+            id: branch2_id,
             name: Some("branch2".to_string()),
             order: Some(0),
             ..Default::default()
@@ -501,7 +500,7 @@ fn test_hunk_expantion() -> Result<()> {
 
     let files_by_branch_id = statuses
         .iter()
-        .map(|(branch, files)| (branch.id.clone(), files))
+        .map(|(branch, files)| (branch.id, files))
         .collect::<HashMap<_, _>>();
 
     assert_eq!(files_by_branch_id.len(), 2);
@@ -513,7 +512,7 @@ fn test_hunk_expantion() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch1_id.clone(),
+            id: branch1_id,
             order: Some(1),
             ..Default::default()
         },
@@ -522,7 +521,7 @@ fn test_hunk_expantion() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch2_id.clone(),
+            id: branch2_id,
             order: Some(0),
             ..Default::default()
         },
@@ -538,7 +537,7 @@ fn test_hunk_expantion() -> Result<()> {
         get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
     let files_by_branch_id = statuses
         .iter()
-        .map(|(branch, files)| (branch.id.clone(), files))
+        .map(|(branch, files)| (branch.id, files))
         .collect::<HashMap<_, _>>();
 
     assert_eq!(files_by_branch_id.len(), 2);
@@ -594,7 +593,7 @@ fn test_get_status_files_by_branch() -> Result<()> {
         get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
     let files_by_branch_id = statuses
         .iter()
-        .map(|(branch, files)| (branch.id.clone(), files))
+        .map(|(branch, files)| (branch.id, files))
         .collect::<HashMap<_, _>>();
 
     assert_eq!(files_by_branch_id.len(), 2);
@@ -754,7 +753,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
 
     let files_by_branch_id = statuses
         .iter()
-        .map(|(branch, files)| (branch.id.clone(), files))
+        .map(|(branch, files)| (branch.id, files))
         .collect::<HashMap<_, _>>();
 
     assert_eq!(files_by_branch_id.len(), 3);
@@ -768,7 +767,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch3_id.clone(),
+            id: branch3_id,
             ownership: Some("test.txt:1-5,11-15".parse()?),
             ..Default::default()
         },
@@ -779,7 +778,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
 
     let files_by_branch_id = statuses
         .iter()
-        .map(|(branch, files)| (branch.id.clone(), files))
+        .map(|(branch, files)| (branch.id, files))
         .collect::<HashMap<_, _>>();
 
     assert_eq!(files_by_branch_id.len(), 3);
@@ -828,7 +827,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
         get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
     let files_by_branch_id = statuses
         .iter()
-        .map(|(branch, files)| (branch.id.clone(), files))
+        .map(|(branch, files)| (branch.id, files))
         .collect::<HashMap<_, _>>();
 
     assert_eq!(files_by_branch_id.len(), 2);
@@ -840,7 +839,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch2_id.clone(),
+            id: branch2_id,
             ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
         },
@@ -851,7 +850,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
 
     let files_by_branch_id = statuses
         .iter()
-        .map(|(branch, files)| (branch.id.clone(), files))
+        .map(|(branch, files)| (branch.id, files))
         .collect::<HashMap<_, _>>();
 
     assert_eq!(files_by_branch_id.len(), 2);
@@ -908,7 +907,6 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
 
     let statuses =
         get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
-    dbg!(&statuses);
     assert!(statuses[0].1[0].hunks[0]
         .id
         .starts_with("12-17-b5850d4f66182e6630ed9683dbbc2f0b-"));
@@ -1534,7 +1532,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch7_id.clone(),
+            id: branch7_id,
             name: Some("Situation 7".to_string()),
             ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
@@ -1567,7 +1565,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch1_id.clone(),
+            id: branch1_id,
             name: Some("Situation 1".to_string()),
             ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
@@ -1585,7 +1583,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch2_id.clone(),
+            id: branch2_id,
             name: Some("Situation 2".to_string()),
             ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
@@ -1608,7 +1606,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch2_id.clone(),
+            id: branch2_id,
             ownership: Some("test.txt:1-6".parse()?),
             ..Default::default()
         },
@@ -1628,7 +1626,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch3_id.clone(),
+            id: branch3_id,
             name: Some("Situation 3".to_string()),
             ownership: Some("test2.txt:1-5".parse()?),
             ..Default::default()
@@ -1645,7 +1643,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch5_id.clone(),
+            id: branch5_id,
             name: Some("Situation 5".to_string()),
             ownership: Some("test3.txt:1-4".parse()?),
             ..Default::default()
@@ -1668,7 +1666,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch5_id.clone(),
+            id: branch5_id,
             ownership: Some("test3.txt:1-5".parse()?),
             ..Default::default()
         },
@@ -1683,7 +1681,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch4_id.clone(),
+            id: branch4_id,
             name: Some("Situation 4".to_string()),
             ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
@@ -1699,7 +1697,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch6_id.clone(),
+            id: branch6_id,
             name: Some("Situation 6".to_string()),
             ownership: Some("test2.txt:1-5".parse()?),
             ..Default::default()
@@ -1749,7 +1747,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     // 7. applied branch with commits but everything is upstream, delete it
     // branch7 was integrated and deleted
     let branch7 = branch_reader.read(&branch7_id);
-    assert!(branch7.is_err());
+    branch7.unwrap_err();
 
     Ok(())
 }
@@ -1986,7 +1984,7 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch2_id.clone(),
+            id: branch2_id,
             ownership: Some("test2.txt:0-0".parse()?),
             ..Default::default()
         },
@@ -1995,7 +1993,7 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch3_id.clone(),
+            id: branch3_id,
             ownership: Some("test3.txt:1-2".parse()?),
             ..Default::default()
         },
@@ -2071,7 +2069,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch2_id.clone(),
+            id: branch2_id,
             ownership: Some("test4.txt:1-3".parse()?),
             ..Default::default()
         },
@@ -2651,7 +2649,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch1_id.clone(),
+            id: branch1_id,
             name: Some("integrated".to_string()),
             ownership: Some("test.txt:1-2".parse()?),
             ..Default::default()
@@ -2662,7 +2660,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch2_id.clone(),
+            id: branch2_id,
             name: Some("not integrated".to_string()),
             ownership: Some("test2.txt:1-2".parse()?),
             ..Default::default()
@@ -2673,7 +2671,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         &gb_repository,
         &project_repository,
         branch::BranchUpdateRequest {
-            id: branch3_id.clone(),
+            id: branch3_id,
             name: Some("not committed".to_string()),
             ownership: Some("test3.txt:1-2".parse()?),
             ..Default::default()
@@ -3197,12 +3195,8 @@ fn tree_to_file_list(repository: &git::Repository, tree: &git::Tree) -> Vec<Stri
     let mut file_list = Vec::new();
     tree.walk(git2::TreeWalkMode::PreOrder, |_, entry| {
         let path = entry.name().unwrap();
-        let entry = tree
-            .get_path(std::path::Path::new(path))
-            .unwrap_or_else(|_| panic!("failed to get tree entry for path {}", path));
-        let object = entry
-            .to_object(repository)
-            .unwrap_or_else(|_| panic!("failed to get object for tree entry {}", path));
+        let entry = tree.get_path(std::path::Path::new(path)).unwrap();
+        let object = entry.to_object(repository).unwrap();
         if object.kind() == Some(git2::ObjectType::Blob) {
             file_list.push(path.to_string());
         }
@@ -3219,12 +3213,8 @@ fn tree_to_entry_list(
     let mut file_list = Vec::new();
     tree.walk(git2::TreeWalkMode::PreOrder, |_root, entry| {
         let path = entry.name().unwrap();
-        let entry = tree
-            .get_path(std::path::Path::new(path))
-            .unwrap_or_else(|_| panic!("failed to get tree entry for path {}", path));
-        let object = entry
-            .to_object(repository)
-            .unwrap_or_else(|_| panic!("failed to get object for tree entry {}", path));
+        let entry = tree.get_path(std::path::Path::new(path)).unwrap();
+        let object = entry.to_object(repository).unwrap();
         let blob = object.as_blob().expect("failed to get blob");
         // convert content to string
         let octal_mode = format!("{:o}", entry.filemode());
@@ -3583,7 +3573,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
         None,
         None,
     );
-    assert!(result.is_err());
+    result.unwrap_err();
 
     // fix the conflict and commit it
     std::fs::write(
@@ -3633,7 +3623,7 @@ fn test_verify_branch_commits_to_integration() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    assert!(integration::verify_branch(&gb_repository, &project_repository).is_ok());
+    integration::verify_branch(&gb_repository, &project_repository).unwrap();
 
     //  write two commits
     let file_path2 = std::path::Path::new("test2.txt");
@@ -3646,7 +3636,7 @@ fn test_verify_branch_commits_to_integration() -> Result<()> {
     test_utils::commit_all(&project_repository.git_repository);
 
     // verify puts commits onto the virtual branch
-    assert!(integration::verify_branch(&gb_repository, &project_repository).is_ok());
+    integration::verify_branch(&gb_repository, &project_repository).unwrap();
 
     // one virtual branch with two commits was created
     let virtual_branches = list_virtual_branches(&gb_repository, &project_repository)?;
@@ -3669,7 +3659,7 @@ fn test_verify_branch_not_integration() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    assert!(integration::verify_branch(&gb_repository, &project_repository).is_ok());
+    integration::verify_branch(&gb_repository, &project_repository).unwrap();
 
     project_repository
         .git_repository
@@ -3948,12 +3938,12 @@ fn test_force_push() {
     )
     .is_err());
 
-    assert!(push(
+    push(
         &project_repository,
         &gb_repository,
         &branch_id,
         true,
         &keys::Key::from(suite.keys.get_or_create().unwrap()),
     )
-    .is_ok());
+    .unwrap();
 }

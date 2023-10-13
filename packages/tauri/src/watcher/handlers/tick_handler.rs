@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn test_should_flush() {
         let now = time::SystemTime::now();
-        vec![
+        for (start, last, expected) in vec![
             (now, now, false),                // just created
             (now - FIVE_MINUTES, now, false), // active
             (
@@ -132,9 +132,7 @@ mod tests {
             ), // not active
             (now - ONE_HOUR, now, true),      // almost too old
             (now - ONE_HOUR - ONE_MILLISECOND, now, true), // too old
-        ]
-        .into_iter()
-        .for_each(|(start, last, expected)| {
+        ] {
             let session = sessions::Session {
                 id: SessionId::generate(),
                 hash: None,
@@ -146,7 +144,7 @@ mod tests {
                 },
             };
             assert_eq!(should_flush(&now, &session).unwrap(), expected);
-        });
+        }
     }
 }
 
@@ -179,13 +177,13 @@ mod test_handler {
             description: None,
             repository_id: "123".to_string(),
             git_url: cloud.path().to_str().unwrap().to_string(),
-            created_at: 0.to_string(),
-            updated_at: 0.to_string(),
+            created_at: 0_i32.to_string(),
+            updated_at: 0_i32.to_string(),
             sync: true,
         };
 
         suite.projects.update(&projects::UpdateRequest {
-            id: project.id.clone(),
+            id: project.id,
             api: Some(api_project.clone()),
             ..Default::default()
         })?;
@@ -206,7 +204,7 @@ mod test_handler {
     }
 
     #[test]
-    fn test_no_fetch_triggered() -> Result<()> {
+    fn test_no_fetch_triggered() {
         let suite = Suite::default();
         let Case { project, .. } = suite.new_case();
 
@@ -221,7 +219,5 @@ mod test_handler {
         assert!(!result
             .iter()
             .any(|ev| matches!(ev, events::Event::FetchGitbutlerData(_, _))));
-
-        Ok(())
     }
 }
