@@ -3,6 +3,7 @@ members = [
     "packages/butler",
     "packages/tauri",
 ]
+resolver = "2"
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
