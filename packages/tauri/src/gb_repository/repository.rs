@@ -9,12 +9,13 @@ use std::{
 use anyhow::{anyhow, Context, Ok, Result};
 use filetime::FileTime;
 use sha2::{Digest, Sha256};
-use uuid::Uuid;
 
 use crate::{
     fs, git, lock,
     paths::DataDir,
-    projects, users,
+    projects,
+    sessions::SessionId,
+    users,
     virtual_branches::{self, target},
 };
 
@@ -328,7 +329,7 @@ impl Repository {
         };
 
         let session = sessions::Session {
-            id: Uuid::new_v4().to_string(),
+            id: SessionId::generate(),
             hash: None,
             meta,
         };
@@ -340,7 +341,7 @@ impl Repository {
 
         tracing::info!(
             project_id = self.project.id,
-            session_id = session.id,
+            session_id = %session.id,
             "created new session"
         );
 
@@ -462,7 +463,7 @@ impl Repository {
 
         tracing::info!(
             project_id = self.project.id,
-            session_id = session.id,
+            session_id = %session.id,
             %commit_oid,
             "flushed session"
         );
@@ -596,7 +597,7 @@ impl Repository {
         }
     }
 
-    fn flush_gitbutler_file(&self, session_id: &str) -> Result<()> {
+    fn flush_gitbutler_file(&self, session_id: &SessionId) -> Result<()> {
         let gb_path = self.git_repository.path();
         let project_id = self.project.id.as_str();
 

@@ -5,7 +5,11 @@ use tauri::Manager;
 use tracing::instrument;
 
 use crate::{
-    app, assets, bookmarks, deltas, error::Error, git, reader, search, sessions, virtual_branches,
+    app, assets, bookmarks, deltas,
+    error::{Code, Error},
+    git, reader, search,
+    sessions::{self, SessionId},
+    virtual_branches,
 };
 
 impl From<app::Error> for Error {
@@ -63,7 +67,11 @@ pub async fn list_session_files(
     paths: Option<Vec<path::PathBuf>>,
 ) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
     let app = handle.state::<app::App>();
-    let files = app.list_session_files(project_id, session_id, &paths)?;
+    let session_id: SessionId = session_id.parse().map_err(|_| Error::UserError {
+        message: "Malformed session id".to_string(),
+        code: Code::Sessions,
+    })?;
+    let files = app.list_session_files(project_id, &session_id, &paths)?;
     Ok(files)
 }
 
@@ -76,7 +84,11 @@ pub async fn list_deltas(
     paths: Option<Vec<&str>>,
 ) -> Result<HashMap<String, Vec<deltas::Delta>>, Error> {
     let app = handle.state::<app::App>();
-    let deltas = app.list_session_deltas(project_id, session_id, &paths)?;
+    let session_id = session_id.parse().map_err(|_| Error::UserError {
+        message: "Malformed session id".to_string(),
+        code: Code::Sessions,
+    })?;
+    let deltas = app.list_session_deltas(project_id, &session_id, &paths)?;
     Ok(deltas)
 }
 

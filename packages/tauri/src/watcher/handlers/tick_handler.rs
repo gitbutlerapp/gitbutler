@@ -104,6 +104,8 @@ fn is_session_active(now: &time::SystemTime, session: &sessions::Session) -> Res
 
 #[cfg(test)]
 mod tests {
+    use crate::sessions::SessionId;
+
     use super::*;
 
     const ONE_MILLISECOND: time::Duration = time::Duration::from_millis(1);
@@ -130,7 +132,7 @@ mod tests {
         .into_iter()
         .for_each(|(start, last, expected)| {
             let session = sessions::Session {
-                id: "session-id".to_string(),
+                id: SessionId::generate(),
                 hash: None,
                 meta: sessions::Meta {
                     start_timestamp_ms: start.duration_since(time::UNIX_EPOCH).unwrap().as_millis(),

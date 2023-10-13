@@ -4,8 +4,11 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    bookmarks, deltas, events as app_events, gb_repository, paths::DataDir, project_repository,
-    projects, search, sessions, users,
+    bookmarks, deltas, events as app_events, gb_repository,
+    paths::DataDir,
+    project_repository, projects, search,
+    sessions::{self, SessionId},
+    users,
 };
 
 use super::events;
@@ -41,7 +44,7 @@ impl Handler {
     pub fn index_deltas(
         &self,
         project_id: &str,
-        session_id: &str,
+        session_id: &SessionId,
         file_path: &path::Path,
         deltas: &Vec<deltas::Delta>,
     ) -> Result<Vec<events::Event>> {

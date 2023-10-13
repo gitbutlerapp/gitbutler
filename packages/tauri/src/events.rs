@@ -1,7 +1,10 @@
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
-use crate::{bookmarks, deltas, reader, sessions};
+use crate::{
+    bookmarks, deltas, reader,
+    sessions::{self, SessionId},
+};
 
 #[derive(Clone)]
 pub struct Sender {
@@ -76,7 +79,7 @@ impl Event {
 
     pub fn file(
         project_id: &str,
-        session_id: &str,
+        session_id: &SessionId,
         file_path: &str,
         contents: Option<&reader::Content>,
     ) -> Self {
@@ -108,7 +111,7 @@ impl Event {
 
     pub fn deltas(
         project_id: &str,
-        session_id: &str,
+        session_id: &SessionId,
         deltas: &Vec<deltas::Delta>,
         relative_file_path: &std::path::Path,
     ) -> Self {

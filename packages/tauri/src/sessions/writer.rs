@@ -36,7 +36,9 @@ impl<'writer> SessionWriter<'writer> {
             None
         };
 
-        if current_session_id.is_some() && current_session_id.as_ref() != Some(&session.id) {
+        if current_session_id.is_some()
+            && current_session_id.as_ref() != Some(&session.id.to_string())
+        {
             return Err(anyhow!(
                 "{}: can not open writer for {} because a writer for {} is still open",
                 self.repository.get_project_id(),
@@ -57,7 +59,9 @@ impl<'writer> SessionWriter<'writer> {
             )
             .context("failed to write last timestamp")?;
 
-        if current_session_id.is_some() && current_session_id.as_ref() == Some(&session.id) {
+        if current_session_id.is_some()
+            && current_session_id.as_ref() == Some(&session.id.to_string())
+        {
             return Ok(());
         }
 
@@ -69,7 +73,7 @@ impl<'writer> SessionWriter<'writer> {
                     .join("id")
                     .to_str()
                     .unwrap(),
-                session.id.as_str(),
+                &session.id.to_string(),
             )
             .context("failed to write id")?;
 

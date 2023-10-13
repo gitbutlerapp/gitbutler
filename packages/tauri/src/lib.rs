@@ -98,6 +98,7 @@ pub mod fs;
 pub mod gb_repository;
 pub mod git;
 pub mod github;
+pub mod id;
 pub mod keys;
 pub mod lock;
 pub mod logs;

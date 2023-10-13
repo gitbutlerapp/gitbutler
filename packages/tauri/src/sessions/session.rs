@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::reader;
+use crate::{id::Id, reader};
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -19,10 +19,12 @@ pub struct Meta {
     pub commit: Option<String>,
 }
 
+pub type SessionId = Id<Session>;
+
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Session {
-    pub id: String,
+    pub id: SessionId,
     // if hash is not set, the session is not saved aka current
     pub hash: Option<String>,
     pub meta: Meta,
@@ -51,6 +53,11 @@ impl TryFrom<&dyn reader::Reader> for Session {
             .try_into()
             .context("failed to parse session id")
             .map_err(SessionError::Err)?;
+        let id: SessionId = id
+            .parse()
+            .context("failed to parse session id")
+            .map_err(SessionError::Err)?;
+
         let start_timestamp_ms = reader
             .read(path::Path::new("session/meta/start"))
             .context("failed to read session start timestamp")

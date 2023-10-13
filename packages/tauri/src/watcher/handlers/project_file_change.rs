@@ -167,14 +167,14 @@ impl Handler {
         Ok(vec![
             events::Event::SessionFile((
                 project_id.to_string(),
-                current_session.id.clone(),
+                current_session.id,
                 path.to_path_buf(),
                 latest_file_content,
             )),
             events::Event::Session(project_id.to_string(), current_session.clone()),
             events::Event::SessionDelta((
                 project_id.to_string(),
-                current_session.id.clone(),
+                current_session.id,
                 path.to_path_buf(),
                 new_delta.clone(),
             )),

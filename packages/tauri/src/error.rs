@@ -5,6 +5,7 @@ use serde::{ser::SerializeMap, Serialize};
 #[derive(Debug)]
 pub enum Code {
     Unknown,
+    Sessions,
     Projects,
     ProjectGitAuth,
     ProjectGitRemote,
@@ -16,6 +17,7 @@ impl fmt::Display for Code {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Code::Unknown => write!(f, "errors.unknown"),
+            Code::Sessions => write!(f, "errors.sessions"),
             Code::Projects => write!(f, "errors.projects"),
             Code::ProjectGitAuth => write!(f, "errors.projects.git.auth"),
             Code::ProjectGitRemote => write!(f, "errors.projects.git.remote"),

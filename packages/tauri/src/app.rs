@@ -9,7 +9,9 @@ use crate::{
     keys,
     paths::DataDir,
     project_repository::{self, conflicts},
-    projects, reader, search, sessions, users,
+    projects, reader, search,
+    sessions::{self, SessionId},
+    users,
     virtual_branches::{self, target},
     watcher,
 };
@@ -95,7 +97,7 @@ impl App {
     pub fn list_session_files(
         &self,
         project_id: &str,
-        session_id: &str,
+        session_id: &SessionId,
         paths: &Option<Vec<path::PathBuf>>,
     ) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
         let session = self
@@ -208,7 +210,7 @@ impl App {
     pub fn list_session_deltas(
         &self,
         project_id: &str,
-        session_id: &str,
+        session_id: &SessionId,
         paths: &Option<Vec<&str>>,
     ) -> Result<HashMap<String, Vec<deltas::Delta>>, Error> {
         self.deltas_database

@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     fs, path,
     sync::{Arc, RwLock},
     time, vec,
@@ -7,14 +8,18 @@ use std::{
 use anyhow::{Context, Result};
 use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
-use std::cmp::Ordering;
 use tantivy::query::TermQuery;
 use tantivy::{collector, directory::MmapDirectory, IndexWriter};
 use tantivy::{query::QueryParser, Term};
 use tantivy::{schema::IndexRecordOption, tokenizer};
 use tauri::AppHandle;
 
-use crate::{bookmarks, deltas, gb_repository, paths::DataDir, reader, sessions};
+use crate::{
+    bookmarks, deltas, gb_repository,
+    paths::DataDir,
+    reader,
+    sessions::{self, SessionId},
+};
 
 use super::{index, meta};
 
@@ -280,7 +285,7 @@ impl SearcherInner {
 
         tracing::debug!(
             project_id = repository.get_project_id(),
-            session_id = session.id,
+            session_id = %session.id,
             "session added to search",
         );
 
@@ -298,7 +303,7 @@ const WRITE_BUFFER_SIZE: usize = 10_000_000; // 10MB
 #[serde(rename_all = "camelCase")]
 pub struct SearchResult {
     pub project_id: String,
-    pub session_id: String,
+    pub session_id: SessionId,
     pub file_path: String,
     pub index: u64,
 }
@@ -389,7 +394,7 @@ fn index_delta(
     index: &tantivy::Index,
     writer: &mut IndexWriter,
     reader: &tantivy::IndexReader,
-    session_id: &str,
+    session_id: &SessionId,
     project_id: &str,
     file_text: &mut Vec<char>,
     file_path: &path::Path,
@@ -439,7 +444,7 @@ fn index_delta(
         .join(" ");
 
     doc.index = Some(i.try_into()?);
-    doc.session_id = Some(session_id.to_string());
+    doc.session_id = Some(*session_id);
     doc.file_path = Some(file_path.display().to_string());
     doc.project_id = Some(project_id.to_string());
     doc.timestamp_ms = Some(delta.timestamp_ms.try_into()?);

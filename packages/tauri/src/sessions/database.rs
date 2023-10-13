@@ -3,7 +3,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::database;
 
-use super::session;
+use super::session::{self, SessionId};
 
 #[derive(Clone)]
 pub struct Database {
@@ -82,7 +82,7 @@ impl Database {
     pub fn get_by_project_id_id(
         &self,
         project_id: &str,
-        id: &str,
+        id: &SessionId,
     ) -> Result<Option<session::Session>> {
         self.database.transaction(|tx| {
             let mut stmt = get_by_project_id_id_stmt(tx)
@@ -104,7 +104,7 @@ impl Database {
         })
     }
 
-    pub fn get_by_id(&self, id: &str) -> Result<Option<session::Session>> {
+    pub fn get_by_id(&self, id: &SessionId) -> Result<Option<session::Session>> {
         self.database.transaction(|tx| {
             let mut stmt = get_by_id_stmt(tx).context("Failed to prepare get_by_id statement")?;
             let mut rows = stmt
@@ -201,7 +201,7 @@ mod tests {
 
         let project_id = "project_id";
         let session1 = session::Session {
-            id: "id1".to_string(),
+            id: SessionId::generate(),
             hash: None,
             meta: session::Meta {
                 branch: None,
@@ -211,7 +211,7 @@ mod tests {
             },
         };
         let session2 = session::Session {
-            id: "id2".to_string(),
+            id: SessionId::generate(),
             hash: Some("hash2".to_string()),
             meta: session::Meta {
                 branch: Some("branch2".to_string()),
@@ -228,9 +228,9 @@ mod tests {
             database.list_by_project_id(project_id, None)?,
             vec![session2.clone(), session1.clone()]
         );
-        assert_eq!(database.get_by_id("id1")?.unwrap(), session1);
-        assert_eq!(database.get_by_id("id2")?.unwrap(), session2);
-        assert_eq!(database.get_by_id("id3")?, None);
+        assert_eq!(database.get_by_id(&session1.id)?.unwrap(), session1);
+        assert_eq!(database.get_by_id(&session2.id)?.unwrap(), session2);
+        assert_eq!(database.get_by_id(&SessionId::generate())?, None);
 
         Ok(())
     }
@@ -241,8 +241,8 @@ mod tests {
         let database = Database::from(db);
 
         let project_id = "project_id";
-        let session1 = session::Session {
-            id: "id1".to_string(),
+        let session = session::Session {
+            id: SessionId::generate(),
             hash: None,
             meta: session::Meta {
                 branch: None,
@@ -252,7 +252,7 @@ mod tests {
             },
         };
         let session_updated = session::Session {
-            id: "id1".to_string(),
+            id: session.id,
             hash: Some("hash2".to_string()),
             meta: session::Meta {
                 branch: Some("branch2".to_string()),
@@ -261,14 +261,14 @@ mod tests {
                 last_timestamp_ms: 4,
             },
         };
-        database.insert(project_id, &[&session1])?;
+        database.insert(project_id, &[&session])?;
         database.insert(project_id, &[&session_updated])?;
 
         assert_eq!(
             database.list_by_project_id(project_id, None)?,
             vec![session_updated.clone()]
         );
-        assert_eq!(database.get_by_id("id1")?.unwrap(), session_updated);
+        assert_eq!(database.get_by_id(&session.id)?.unwrap(), session_updated);
 
         Ok(())
     }

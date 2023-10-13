@@ -66,7 +66,7 @@ fn search_by_bookmark_note() -> Result<()> {
         Path::new("test.txt"),
         &vec![deltas::Delta {
             operations: vec![deltas::Operation::Insert((0, "Hello".to_string()))],
-            timestamp_ms: 123456,
+            timestamp_ms: 123_456,
         }],
     )?;
     let session = gb_repository.flush(&project_repository, None)?.unwrap();
@@ -76,7 +76,7 @@ fn search_by_bookmark_note() -> Result<()> {
     // first we index bookmark
     searcher.index_bookmark(&bookmarks::Bookmark {
         project_id: gb_repository.get_project_id().to_string(),
-        timestamp_ms: 123456,
+        timestamp_ms: 123_456,
         created_timestamp_ms: 0,
         updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
         note: "bookmark note".to_string(),
@@ -115,7 +115,7 @@ fn search_by_bookmark_note() -> Result<()> {
     // then update the note
     searcher.index_bookmark(&bookmarks::Bookmark {
         project_id: gb_repository.get_project_id().to_string(),
-        timestamp_ms: 123456,
+        timestamp_ms: 123_456,
         created_timestamp_ms: 0,
         updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
         note: "updated bookmark note".to_string(),
