@@ -4,8 +4,13 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    bookmarks, deltas, events as app_events, gb_repository, paths::DataDir, project_repository,
-    projects, search, sessions, users,
+    bookmarks, deltas, events as app_events, gb_repository,
+    paths::DataDir,
+    project_repository,
+    projects::{self, ProjectId},
+    search,
+    sessions::{self, SessionId},
+    users,
 };
 
 use super::events;
@@ -40,8 +45,8 @@ impl TryFrom<&AppHandle> for Handler {
 impl Handler {
     pub fn index_deltas(
         &self,
-        project_id: &str,
-        session_id: &str,
+        project_id: &ProjectId,
+        session_id: &SessionId,
         file_path: &path::Path,
         deltas: &Vec<deltas::Delta>,
     ) -> Result<Vec<events::Event>> {
@@ -53,7 +58,7 @@ impl Handler {
 
     pub fn index_bookmark(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         bookmark: &bookmarks::Bookmark,
     ) -> Result<Vec<events::Event>> {
         let updated = self.bookmarks_database.upsert(bookmark)?;
@@ -67,7 +72,7 @@ impl Handler {
         }
     }
 
-    pub fn reindex(&self, project_id: &str) -> Result<Vec<events::Event>> {
+    pub fn reindex(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         let user = self.users.get_user()?;
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::try_from(&project)
@@ -89,7 +94,7 @@ impl Handler {
 
     pub fn index_session(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         session: &sessions::Session,
     ) -> Result<Vec<events::Event>> {
         let user = self.users.get_user()?;

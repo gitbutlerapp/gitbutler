@@ -4,7 +4,7 @@ use tauri::AppHandle;
 
 use crate::{
     paths::{DataDir, LogsDir},
-    projects,
+    projects::{self, ProjectId},
 };
 
 use super::Zipper;
@@ -32,19 +32,19 @@ impl TryFrom<&AppHandle> for Controller {
 }
 
 impl Controller {
-    pub fn archive(&self, project_id: &str) -> Result<path::PathBuf, ArchiveError> {
+    pub fn archive(&self, project_id: &ProjectId) -> Result<path::PathBuf, ArchiveError> {
         let project = self.projects_controller.get(project_id)?;
         self.zipper.zip(project.path).map_err(Into::into)
     }
 
-    pub fn data_archive(&self, project_id: &str) -> Result<path::PathBuf, DataArchiveError> {
+    pub fn data_archive(&self, project_id: &ProjectId) -> Result<path::PathBuf, DataArchiveError> {
         let project = self.projects_controller.get(project_id)?;
         self.zipper
             .zip(
                 self.local_data_dir
                     .to_path_buf()
                     .join("projects")
-                    .join(project.id),
+                    .join(project.id.to_string()),
             )
             .map_err(Into::into)
     }

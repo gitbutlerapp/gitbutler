@@ -2,7 +2,11 @@ use anyhow::{Context, Result};
 use tauri::AppHandle;
 
 use crate::{
-    gb_repository, paths::DataDir, project_repository, projects, sessions, users, virtual_branches,
+    gb_repository,
+    paths::DataDir,
+    project_repository,
+    projects::{self, ProjectId},
+    sessions, users,
 };
 
 use super::events;
@@ -29,7 +33,7 @@ impl TryFrom<&AppHandle> for Handler {
 impl Handler {
     pub fn handle(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         session: &sessions::Session,
     ) -> Result<Vec<events::Event>> {
         let project = self
@@ -47,22 +51,23 @@ impl Handler {
         )
         .context("failed to open repository")?;
 
-        if let Some(branch_id) = &session.meta.branch {
-            virtual_branches::flush_vbranch_as_tree(
-                &gb_repo,
-                &project_repository,
-                branch_id,
-                true,
-            )?;
-        }
+        // TODO: fixme
+        // if let Some(branch_id) = &session.meta.branch {
+        //     virtual_branches::flush_vbranch_as_tree(
+        //         &gb_repo,
+        //         &project_repository,
+        //         branch_id,
+        //         true,
+        //     )?;
+        // }
 
         let session = gb_repo
             .flush_session(&project_repository, session, user.as_ref())
             .context("failed to flush session")?;
 
         Ok(vec![
-            events::Event::Session(project_id.to_string(), session),
-            events::Event::PushGitbutlerData(project_id.to_string()),
+            events::Event::Session(*project_id, session),
+            events::Event::PushGitbutlerData(*project_id),
         ])
     }
 }

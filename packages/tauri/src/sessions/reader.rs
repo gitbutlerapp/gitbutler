@@ -41,7 +41,7 @@ impl<'reader> SessionReader<'reader> {
         if let Ok(reader::Content::UTF8(current_session_id)) =
             wd_reader.read(&repository.session_path().join("meta").join("id"))
         {
-            if current_session_id == session.id {
+            if current_session_id == session.id.to_string() {
                 let head_commit = repository.git_repository.head()?.peel_to_commit()?;
                 return Ok(SessionReader {
                     reader: Box::new(wd_reader),

@@ -11,7 +11,7 @@ use tokio::{
     task,
 };
 
-use crate::{git, watcher::events};
+use crate::{git, projects::ProjectId, watcher::events};
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
@@ -29,7 +29,7 @@ impl Dispatcher {
         self.watcher.lock().unwrap().take();
     }
 
-    pub fn run(self, project_id: &str, path: &path::Path) -> Result<Receiver<events::Event>> {
+    pub fn run(self, project_id: &ProjectId, path: &path::Path) -> Result<Receiver<events::Event>> {
         let repo = git::Repository::open(path)
             .with_context(|| format!("failed to open project repository: {}", path.display()))?;
 
@@ -64,27 +64,26 @@ impl Dispatcher {
             .with_context(|| format!("failed to watch project path: {}", path.display()))?;
         self.watcher.lock().unwrap().replace(watcher);
 
-        tracing::debug!(project_id, "file watcher started");
+        tracing::debug!(%project_id, "file watcher started");
 
         let (tx, rx) = channel(1);
-        let project_id = project_id.to_string();
         task::Builder::new()
             .name(&format!("{} file watcher", project_id))
             .spawn({
                 let path = path.to_path_buf();
-                let project_id = project_id.clone();
+                let project_id = *project_id;
                 async move {
                     while let Some(file_path) = notify_rx.recv().await {
                         match file_path.strip_prefix(&path) {
                             Ok(relative_file_path) => {
                                 let event = if relative_file_path.starts_with(".git") {
                                     tracing::info!(
-                                        project_id,
+                                        %project_id,
                                         file_path = %relative_file_path.display(),
                                         "git file change",
                                     );
                                     events::Event::GitFileChange(
-                                        project_id.clone(),
+                                        project_id,
                                         relative_file_path
                                             .strip_prefix(".git")
                                             .unwrap()
@@ -92,29 +91,29 @@ impl Dispatcher {
                                     )
                                 } else {
                                     tracing::info!(
-                                        project_id,
+                                        %project_id,
                                         file_path = %relative_file_path.display(),
                                         "project file change",
                                     );
                                     events::Event::ProjectFileChange(
-                                        project_id.clone(),
+                                        project_id,
                                         relative_file_path.to_path_buf(),
                                     )
                                 };
                                 if let Err(error) = tx.send(event).await {
                                     tracing::error!(
-                                        project_id,
+                                        %project_id,
                                         ?error,
                                         "failed to send file change event",
                                     );
                                 }
                             }
                             Err(error) => {
-                                tracing::error!(project_id, ?error, "failed to strip prefix");
+                                tracing::error!(%project_id, ?error, "failed to strip prefix");
                             }
                         }
                     }
-                    tracing::debug!(project_id, "file watcher stopped");
+                    tracing::debug!(%project_id, "file watcher stopped");
                 }
             })?;
 

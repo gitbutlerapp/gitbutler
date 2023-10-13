@@ -3,7 +3,13 @@ use std::time;
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
-use crate::{gb_repository, paths::DataDir, project_repository, projects, sessions, users};
+use crate::{
+    gb_repository,
+    paths::DataDir,
+    project_repository,
+    projects::{self, ProjectId},
+    sessions, users,
+};
 
 use super::events;
 
@@ -27,7 +33,11 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    pub fn handle(&self, project_id: &str, now: &time::SystemTime) -> Result<Vec<events::Event>> {
+    pub fn handle(
+        &self,
+        project_id: &ProjectId,
+        now: &time::SystemTime,
+    ) -> Result<Vec<events::Event>> {
         let user = self.users.get_user()?;
 
         let project = self.projects.get(project_id)?;
@@ -51,10 +61,7 @@ impl Handler {
                 .map_or(Ok(true), |f| f.should_fetch(now))
                 .context("failed to check if gitbutler data should be fetched")?
         {
-            events.push(events::Event::FetchGitbutlerData(
-                project_id.to_string(),
-                *now,
-            ));
+            events.push(events::Event::FetchGitbutlerData(*project_id, *now));
         }
 
         if project
@@ -63,10 +70,7 @@ impl Handler {
             .map_or(Ok(true), |f| f.should_fetch(now))
             .context("failed to check if project data should be fetched")?
         {
-            events.push(events::Event::FetchProjectData(
-                project_id.to_string(),
-                *now,
-            ));
+            events.push(events::Event::FetchProjectData(*project_id, *now));
         }
 
         if let Some(current_session) = gb_repo
@@ -74,10 +78,7 @@ impl Handler {
             .context("failed to get current session")?
         {
             if should_flush(now, &current_session)? {
-                events.push(events::Event::Flush(
-                    project_id.to_string(),
-                    current_session,
-                ));
+                events.push(events::Event::Flush(*project_id, current_session));
             }
         }
 
@@ -107,6 +108,8 @@ fn is_session_active(now: &time::SystemTime, session: &sessions::Session) -> Res
 
 #[cfg(test)]
 mod tests {
+    use crate::sessions::SessionId;
+
     use super::*;
 
     const ONE_MILLISECOND: time::Duration = time::Duration::from_millis(1);
@@ -133,7 +136,7 @@ mod tests {
         .into_iter()
         .for_each(|(start, last, expected)| {
             let session = sessions::Session {
-                id: "session-id".to_string(),
+                id: SessionId::generate(),
                 hash: None,
                 meta: sessions::Meta {
                     start_timestamp_ms: start.duration_since(time::UNIX_EPOCH).unwrap().as_millis(),

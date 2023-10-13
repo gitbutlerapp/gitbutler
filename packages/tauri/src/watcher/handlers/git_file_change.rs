@@ -2,7 +2,10 @@ use anyhow::{Context, Result};
 use tauri::AppHandle;
 
 use crate::{
-    analytics, events as app_events, gb_repository, paths::DataDir, project_repository, projects,
+    analytics, events as app_events, gb_repository,
+    paths::DataDir,
+    project_repository,
+    projects::{self, ProjectId},
     users,
 };
 
@@ -31,7 +34,7 @@ impl Handler {
     pub fn handle<P: AsRef<std::path::Path>>(
         &self,
         path: P,
-        project_id: &str,
+        project_id: &ProjectId,
     ) -> Result<Vec<events::Event>> {
         let project = self
             .projects
@@ -61,17 +64,14 @@ impl Handler {
 
                 if file_path.exists() {
                     if let Err(e) = std::fs::remove_file(&file_path) {
-                        tracing::error!(project_id, path = %file_path.display(), "GB_FLUSH file delete error: {}", e);
+                        tracing::error!(%project_id, path = %file_path.display(), "GB_FLUSH file delete error: {}", e);
                     }
 
                     if let Some(current_session) = gb_repo
                         .get_current_session()
                         .context("failed to get current session")?
                     {
-                        return Ok(vec![events::Event::Flush(
-                            project.id.clone(),
-                            current_session,
-                        )]);
+                        return Ok(vec![events::Event::Flush(project.id, current_session)]);
                     }
                 }
 
@@ -85,7 +85,7 @@ impl Handler {
                 if let Some(head) = head_ref.name() {
                     Ok(vec![
                         events::Event::Analytics(analytics::Event::HeadChange {
-                            project_id: project.id.clone(),
+                            project_id: project.id,
                             reference_name: head_ref_name.to_string(),
                         }),
                         events::Event::Emit(app_events::Event::git_head(&project.id, head)),

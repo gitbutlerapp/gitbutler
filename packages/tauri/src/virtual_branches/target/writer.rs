@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 
 use crate::{
     gb_repository,
+    virtual_branches::BranchId,
     writer::{self, Writer},
 };
 
@@ -43,7 +44,7 @@ impl<'writer> TargetWriter<'writer> {
         Ok(())
     }
 
-    pub fn write(&self, id: &str, target: &Target) -> Result<()> {
+    pub fn write(&self, id: &BranchId, target: &Target) -> Result<()> {
         self.repository
             .mark_active_session()
             .context("Failed to get or create current session")?;
@@ -101,7 +102,7 @@ mod tests {
         TEST_INDEX.fetch_add(1, Ordering::Relaxed);
 
         branch::Branch {
-            id: format!("branch_{}", TEST_INDEX.load(Ordering::Relaxed)),
+            id: BranchId::generate(),
             name: format!("branch_name_{}", TEST_INDEX.load(Ordering::Relaxed)),
             notes: format!("branch_notes_{}", TEST_INDEX.load(Ordering::Relaxed)),
             applied: true,
@@ -155,7 +156,10 @@ mod tests {
         let target_writer = TargetWriter::new(&gb_repository);
         target_writer.write(&branch.id, &target)?;
 
-        let root = gb_repository.root().join("branches").join(&branch.id);
+        let root = gb_repository
+            .root()
+            .join("branches")
+            .join(branch.id.to_string());
 
         assert_eq!(
             fs::read_to_string(root.join("meta").join("name").to_str().unwrap())
@@ -247,7 +251,10 @@ mod tests {
 
         target_writer.write(&branch.id, &updated_target)?;
 
-        let root = gb_repository.root().join("branches").join(&branch.id);
+        let root = gb_repository
+            .root()
+            .join("branches")
+            .join(branch.id.to_string());
 
         assert_eq!(
             fs::read_to_string(root.join("target").join("branch_name").to_str().unwrap())

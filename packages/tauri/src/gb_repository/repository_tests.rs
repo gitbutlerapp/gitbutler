@@ -5,7 +5,10 @@ use pretty_assertions::assert_eq;
 use tempfile::tempdir;
 
 use crate::{
-    deltas, projects, reader, sessions,
+    deltas,
+    projects::{self, ProjectId},
+    reader,
+    sessions::{self, SessionId},
     test_utils::{Case, Suite},
 };
 
@@ -109,13 +112,11 @@ fn test_list_deltas_from_current_session() -> Result<()> {
 
     assert_eq!(deltas.len(), 1);
     assert_eq!(
-        deltas.get(&path::PathBuf::from("test.txt")).unwrap()[0]
-            .operations
-            .len(),
+        deltas[&path::PathBuf::from("test.txt")][0].operations.len(),
         1
     );
     assert_eq!(
-        deltas.get(&path::PathBuf::from("test.txt")).unwrap()[0].operations[0],
+        deltas[&path::PathBuf::from("test.txt")][0].operations[0],
         deltas::Operation::Insert((0, "Hello World".to_string()))
     );
 
@@ -146,13 +147,11 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
 
     assert_eq!(deltas.len(), 1);
     assert_eq!(
-        deltas.get(&path::PathBuf::from("test.txt")).unwrap()[0]
-            .operations
-            .len(),
+        deltas[&path::PathBuf::from("test.txt")][0].operations.len(),
         1
     );
     assert_eq!(
-        deltas.get(&path::PathBuf::from("test.txt")).unwrap()[0].operations[0],
+        deltas[&path::PathBuf::from("test.txt")][0].operations[0],
         deltas::Operation::Insert((0, "Hello World".to_string()))
     );
 
@@ -172,8 +171,8 @@ fn test_list_files_from_current_session() -> Result<()> {
 
     assert_eq!(files.len(), 1);
     assert_eq!(
-        files.get(&path::PathBuf::from("test.txt")).unwrap(),
-        &reader::Content::UTF8("Hello World".to_string())
+        files[&path::PathBuf::from("test.txt")],
+        reader::Content::UTF8("Hello World".to_string())
     );
 
     Ok(())
@@ -197,8 +196,8 @@ fn test_list_files_from_flushed_session() -> Result<()> {
 
     assert_eq!(files.len(), 1);
     assert_eq!(
-        files.get(&path::PathBuf::from("test.txt")).unwrap(),
-        &reader::Content::UTF8("Hello World".to_string())
+        files[&path::PathBuf::from("test.txt")],
+        reader::Content::UTF8("Hello World".to_string())
     );
 
     Ok(())
@@ -213,8 +212,8 @@ fn test_remote_syncronization() -> Result<()> {
         description: None,
         repository_id: "123".to_string(),
         git_url: cloud.path().to_str().unwrap().to_string(),
-        created_at: 0.to_string(),
-        updated_at: 0.to_string(),
+        created_at: 0_i32.to_string(),
+        updated_at: 0_i32.to_string(),
         sync: true,
     };
 
@@ -227,7 +226,7 @@ fn test_remote_syncronization() -> Result<()> {
         "Hello World",
     )]));
     suite.projects.update(&projects::UpdateRequest {
-        id: case_one.project.id.clone(),
+        id: case_one.project.id,
         api: Some(api_project.clone()),
         ..Default::default()
     })?;
@@ -250,7 +249,7 @@ fn test_remote_syncronization() -> Result<()> {
     // create second local project, fetch it and make sure session is there
     let case_two = suite.new_case();
     suite.projects.update(&projects::UpdateRequest {
-        id: case_two.project.id.clone(),
+        id: case_two.project.id,
         api: Some(api_project.clone()),
         ..Default::default()
     })?;
@@ -262,7 +261,7 @@ fn test_remote_syncronization() -> Result<()> {
     let sessions_two = case_two
         .gb_repository
         .get_sessions_iterator()?
-        .map(|s| s.unwrap())
+        .map(Result::unwrap)
         .collect::<Vec<_>>();
     assert_eq!(sessions_two.len(), 1);
     assert_eq!(sessions_two[0].id, session_one.id);
@@ -274,12 +273,12 @@ fn test_remote_syncronization() -> Result<()> {
     assert_eq!(deltas.len(), 1);
     assert_eq!(files.len(), 1);
     assert_eq!(
-        files.get(&path::PathBuf::from("test.txt")).unwrap(),
-        &reader::Content::UTF8("Hello World".to_string())
+        files[&path::PathBuf::from("test.txt")],
+        reader::Content::UTF8("Hello World".to_string())
     );
     assert_eq!(
-        deltas.get(&path::PathBuf::from("test.txt")).unwrap(),
-        &vec![deltas::Delta {
+        deltas[&path::PathBuf::from("test.txt")],
+        vec![deltas::Delta {
             operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
             timestamp_ms: 0,
         }]
@@ -297,8 +296,8 @@ fn test_remote_sync_order() -> Result<()> {
         description: None,
         repository_id: "123".to_string(),
         git_url: cloud.path().to_str().unwrap().to_string(),
-        created_at: 0.to_string(),
-        updated_at: 0.to_string(),
+        created_at: 0_i32.to_string(),
+        updated_at: 0_i32.to_string(),
         sync: true,
     };
 
@@ -306,7 +305,7 @@ fn test_remote_sync_order() -> Result<()> {
 
     let case_one = suite.new_case();
     suite.projects.update(&projects::UpdateRequest {
-        id: case_one.project.id.clone(),
+        id: case_one.project.id,
         api: Some(api_project.clone()),
         ..Default::default()
     })?;
@@ -314,7 +313,7 @@ fn test_remote_sync_order() -> Result<()> {
 
     let case_two = suite.new_case();
     suite.projects.update(&projects::UpdateRequest {
-        id: case_two.project.id.clone(),
+        id: case_two.project.id,
         api: Some(api_project.clone()),
         ..Default::default()
     })?;
@@ -364,14 +363,14 @@ fn test_remote_sync_order() -> Result<()> {
     let sessions_one = case_one
         .gb_repository
         .get_sessions_iterator()?
-        .map(|s| s.unwrap())
+        .map(Result::unwrap)
         .collect::<Vec<_>>();
 
     case_two.gb_repository.fetch(Some(&user))?;
     let sessions_two = case_two
         .gb_repository
         .get_sessions_iterator()?
-        .map(|s| s.unwrap())
+        .map(Result::unwrap)
         .collect::<Vec<_>>();
 
     // make sure the sessions are the same on both repos
@@ -401,12 +400,11 @@ fn test_gitbutler_file() -> Result<()> {
 
     let file_content: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&gitbutler_file_path)?)?;
+    let sid: SessionId = file_content["sessionId"].as_str().unwrap().parse()?;
+    assert_eq!(sid, session.id);
 
-    assert_eq!(file_content["sessionId"], session.id);
-    assert_eq!(
-        file_content["repositoryId"],
-        project_repository.project().id
-    );
+    let pid: ProjectId = file_content["repositoryId"].as_str().unwrap().parse()?;
+    assert_eq!(pid, project_repository.project().id);
 
     Ok(())
 }

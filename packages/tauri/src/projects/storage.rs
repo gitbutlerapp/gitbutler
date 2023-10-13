@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-use crate::{paths::DataDir, projects::project, storage};
+use crate::{
+    paths::DataDir,
+    projects::{project, ProjectId},
+    storage,
+};
 
 const PROJECTS_FILE: &str = "projects.json";
 
@@ -32,7 +36,7 @@ impl From<&AppHandle> for Storage {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateRequest {
-    pub id: String,
+    pub id: ProjectId,
     pub title: Option<String>,
     pub description: Option<String>,
     pub api: Option<project::ApiProject>,
@@ -74,9 +78,9 @@ impl Storage {
         }
     }
 
-    pub fn get(&self, id: &str) -> Result<project::Project, Error> {
+    pub fn get(&self, id: &ProjectId) -> Result<project::Project, Error> {
         let projects = self.list()?;
-        match projects.into_iter().find(|p| p.id == id) {
+        match projects.into_iter().find(|p| p.id == *id) {
             Some(project) => Ok(project),
             None => Err(Error::NotFound),
         }
@@ -125,9 +129,9 @@ impl Storage {
             .clone())
     }
 
-    pub fn purge(&self, id: &str) -> Result<(), Error> {
+    pub fn purge(&self, id: &ProjectId) -> Result<(), Error> {
         let mut projects = self.list()?;
-        if let Some(index) = projects.iter().position(|p| p.id == id) {
+        if let Some(index) = projects.iter().position(|p| p.id == *id) {
             projects.remove(index);
             self.storage
                 .write(PROJECTS_FILE, &serde_json::to_string_pretty(&projects)?)?;

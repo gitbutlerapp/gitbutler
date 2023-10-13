@@ -3,14 +3,16 @@ use tantivy::{
     Document,
 };
 
+use crate::{projects::ProjectId, sessions::SessionId};
+
 #[derive(Debug, Default)]
 pub struct IndexDocument {
     pub version: u64,
     pub timestamp_ms: Option<u64>,
     pub index: Option<u64>,
     pub id: String,
-    pub project_id: Option<String>,
-    pub session_id: Option<String>,
+    pub project_id: Option<ProjectId>,
+    pub session_id: Option<SessionId>,
     pub file_path: Option<String>,
     pub diff: Option<String>,
     pub note: Option<String>,
@@ -67,10 +69,10 @@ impl IndexDocument {
             .to_string();
         let project_id = doc
             .get_first(schema.get_field("project_id").unwrap())
-            .map(|v| v.as_text().unwrap().to_string());
+            .map(|v| v.as_text().unwrap().parse().unwrap());
         let session_id = doc
             .get_first(schema.get_field("session_id").unwrap())
-            .map(|v| v.as_text().unwrap().to_string());
+            .map(|v| v.as_text().unwrap().parse().unwrap());
         let file_path = doc
             .get_first(schema.get_field("file_path").unwrap())
             .map(|v| v.as_text().unwrap().to_string());

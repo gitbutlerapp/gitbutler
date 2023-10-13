@@ -18,7 +18,6 @@ mod add {
         let project = controller.add(path).unwrap();
         assert_eq!(project.path, path);
         assert_eq!(project.title, path.iter().last().unwrap().to_str().unwrap());
-        assert_eq!(project.id.len(), 36);
     }
 
     mod error {

@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     fs, path,
     sync::{Arc, RwLock},
     time, vec,
@@ -7,14 +8,19 @@ use std::{
 use anyhow::{Context, Result};
 use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
-use std::cmp::Ordering;
 use tantivy::query::TermQuery;
 use tantivy::{collector, directory::MmapDirectory, IndexWriter};
 use tantivy::{query::QueryParser, Term};
 use tantivy::{schema::IndexRecordOption, tokenizer};
 use tauri::AppHandle;
 
-use crate::{bookmarks, deltas, gb_repository, paths::DataDir, reader, sessions};
+use crate::{
+    bookmarks, deltas, gb_repository,
+    paths::DataDir,
+    projects::ProjectId,
+    reader,
+    sessions::{self, SessionId},
+};
 
 use super::{index, meta};
 
@@ -241,7 +247,7 @@ impl SearcherInner {
         self.reader.reload()?;
 
         tracing::debug!(
-            project_id = bookmark.project_id,
+            project_id = %bookmark.project_id,
             timestamp_ms = bookmark.timestamp_ms,
             "bookmark added to search",
         );
@@ -279,8 +285,8 @@ impl SearcherInner {
             .set(repository.get_project_id(), &session.id, index::VERSION)?;
 
         tracing::debug!(
-            project_id = repository.get_project_id(),
-            session_id = session.id,
+            project_id = %repository.get_project_id(),
+            session_id = %session.id,
             "session added to search",
         );
 
@@ -288,7 +294,7 @@ impl SearcherInner {
     }
 }
 
-fn build_id(project_id: &str, timestamp_ms: &u128) -> String {
+fn build_id(project_id: &ProjectId, timestamp_ms: &u128) -> String {
     format!("{}-{}-{}", index::VERSION, project_id, timestamp_ms)
 }
 
@@ -297,8 +303,8 @@ const WRITE_BUFFER_SIZE: usize = 10_000_000; // 10MB
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResult {
-    pub project_id: String,
-    pub session_id: String,
+    pub project_id: ProjectId,
+    pub session_id: SessionId,
     pub file_path: String,
     pub index: u64,
 }
@@ -389,8 +395,8 @@ fn index_delta(
     index: &tantivy::Index,
     writer: &mut IndexWriter,
     reader: &tantivy::IndexReader,
-    session_id: &str,
-    project_id: &str,
+    session_id: &SessionId,
+    project_id: &ProjectId,
     file_text: &mut Vec<char>,
     file_path: &path::Path,
     i: usize,
@@ -439,9 +445,9 @@ fn index_delta(
         .join(" ");
 
     doc.index = Some(i.try_into()?);
-    doc.session_id = Some(session_id.to_string());
+    doc.session_id = Some(*session_id);
     doc.file_path = Some(file_path.display().to_string());
-    doc.project_id = Some(project_id.to_string());
+    doc.project_id = Some(*project_id);
     doc.timestamp_ms = Some(delta.timestamp_ms.try_into()?);
     doc.diff = Some(changes);
 

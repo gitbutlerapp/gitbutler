@@ -20,7 +20,7 @@ impl super::RunCommand for Branches {
         .context("failed to list branches")?;
 
         for branch in branches {
-            println!("{}", branch.id.red());
+            println!("{}", branch.id.to_string().red());
             println!("{}", branch.name.red());
             for file in branch.files {
                 println!("  {}", file.path.display().to_string().blue());

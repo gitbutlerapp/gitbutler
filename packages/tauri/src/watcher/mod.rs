@@ -17,12 +17,12 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::projects;
+use crate::projects::{self, ProjectId};
 
 #[derive(Clone)]
 pub struct Watchers {
     app_handle: AppHandle,
-    watchers: Arc<Mutex<HashMap<String, Watcher>>>,
+    watchers: Arc<Mutex<HashMap<ProjectId, Watcher>>>,
 }
 
 impl TryFrom<&AppHandle> for Watchers {
@@ -41,22 +41,22 @@ impl Watchers {
         let watcher = Watcher::try_from(&self.app_handle)?;
 
         let c_watcher = watcher.clone();
-        let project_id = project.id.clone();
+        let project_id = project.id;
         let project_path = project.path.clone();
 
         task::Builder::new()
             .name(&format!("{} watcher", project_id))
             .spawn(async move {
                 if let Err(error) = c_watcher.run(&project_path, &project_id).await {
-                    tracing::error!(?error, project_id, "watcher error");
+                    tracing::error!(?error, %project_id, "watcher error");
                 }
-                tracing::debug!(project_id, "watcher stopped");
+                tracing::debug!(%project_id, "watcher stopped");
             })?;
 
         self.watchers
             .lock()
             .await
-            .insert(project.id.clone(), watcher.clone());
+            .insert(project.id, watcher.clone());
 
         Ok(())
     }
@@ -73,7 +73,7 @@ impl Watchers {
         }
     }
 
-    pub async fn stop(&self, project_id: &str) -> Result<()> {
+    pub async fn stop(&self, project_id: &ProjectId) -> Result<()> {
         if let Some((_, watcher)) = self.watchers.lock().await.remove_entry(project_id) {
             watcher.stop();
         };
@@ -105,7 +105,7 @@ impl Watcher {
         self.inner.post(event).await
     }
 
-    pub async fn run<P: AsRef<path::Path>>(&self, path: P, project_id: &str) -> Result<()> {
+    pub async fn run<P: AsRef<path::Path>>(&self, path: P, project_id: &ProjectId) -> Result<()> {
         self.inner.run(path, project_id).await
     }
 }
@@ -149,7 +149,7 @@ impl WatcherInner {
         }
     }
 
-    pub async fn run<P: AsRef<path::Path>>(&self, path: P, project_id: &str) -> Result<()> {
+    pub async fn run<P: AsRef<path::Path>>(&self, path: P, project_id: &ProjectId) -> Result<()> {
         let (proxy_tx, mut proxy_rx) = unbounded_channel();
         self.proxy_tx.lock().await.replace(proxy_tx.clone());
 
@@ -159,7 +159,7 @@ impl WatcherInner {
             .context("failed to run dispatcher")?;
 
         proxy_tx
-            .send(Event::IndexAll(project_id.to_string()))
+            .send(Event::IndexAll(*project_id))
             .context("failed to send event")?;
 
         let handle_event = |event: &Event| -> Result<()> {

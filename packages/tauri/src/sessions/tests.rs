@@ -1,18 +1,18 @@
 use anyhow::Result;
 
 use crate::{
-    sessions,
+    sessions::{self, session::SessionId},
     test_utils::{Case, Suite},
 };
 
 use super::Writer;
 
 #[test]
-fn test_should_not_write_session_with_hash() -> Result<()> {
+fn test_should_not_write_session_with_hash() {
     let Case { gb_repository, .. } = Suite::default().new_case();
 
     let session = sessions::Session {
-        id: "session_id".to_string(),
+        id: SessionId::generate(),
         hash: Some("hash".to_string()),
         meta: sessions::Meta {
             start_timestamp_ms: 0,
@@ -23,8 +23,6 @@ fn test_should_not_write_session_with_hash() -> Result<()> {
     };
 
     assert!(Writer::new(&gb_repository).write(&session).is_err());
-
-    Ok(())
 }
 
 #[test]
@@ -32,7 +30,7 @@ fn test_should_write_full_session() -> Result<()> {
     let Case { gb_repository, .. } = Suite::default().new_case();
 
     let session = sessions::Session {
-        id: "session_id".to_string(),
+        id: SessionId::generate(),
         hash: None,
         meta: sessions::Meta {
             start_timestamp_ms: 0,
@@ -46,7 +44,7 @@ fn test_should_write_full_session() -> Result<()> {
 
     assert_eq!(
         std::fs::read_to_string(gb_repository.session_path().join("meta/id"))?,
-        "session_id"
+        session.id.to_string()
     );
     assert_eq!(
         std::fs::read_to_string(gb_repository.session_path().join("meta/commit"))?,
@@ -73,7 +71,7 @@ fn test_should_write_partial_session() -> Result<()> {
     let Case { gb_repository, .. } = Suite::default().new_case();
 
     let session = sessions::Session {
-        id: "session_id".to_string(),
+        id: SessionId::generate(),
         hash: None,
         meta: sessions::Meta {
             start_timestamp_ms: 0,
@@ -87,7 +85,7 @@ fn test_should_write_partial_session() -> Result<()> {
 
     assert_eq!(
         std::fs::read_to_string(gb_repository.session_path().join("meta/id"))?,
-        "session_id"
+        session.id.to_string()
     );
     assert!(!gb_repository.session_path().join("meta/commit").exists());
     assert!(!gb_repository.session_path().join("meta/branch").exists());

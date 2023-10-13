@@ -11,6 +11,8 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
+use crate::projects::ProjectId;
+
 use super::events;
 
 #[derive(Clone)]
@@ -36,7 +38,7 @@ impl Dispatcher {
 
     pub fn run<P: AsRef<path::Path>>(
         self,
-        project_id: &str,
+        project_id: &ProjectId,
         path: P,
     ) -> Result<Receiver<events::Event>> {
         let path = path.as_ref();
@@ -55,7 +57,7 @@ impl Dispatcher {
                 ))?;
 
         let (tx, rx) = channel(1);
-        let project_id = project_id.to_owned();
+        let project_id = *project_id;
         task::Builder::new()
             .name(&format!("{} dispatcher", project_id))
             .spawn(async move {
@@ -66,17 +68,17 @@ impl Dispatcher {
                         }
                         Some(event) = tick_rx.recv() => {
                             if let Err(error) = tx.send(event).await {
-                                tracing::error!(project_id, ?error,"failed to send tick");
+                                tracing::error!(%project_id, ?error,"failed to send tick");
                             }
                         }
                         Some(event) = file_change_rx.recv() => {
                             if let Err(error) = tx.send(event).await {
-                                tracing::error!( project_id, ?error,"failed to send file change");
+                                tracing::error!(%project_id, ?error,"failed to send file change");
                             }
                         }
                     }
                 }
-                tracing::debug!(project_id, "dispatcher stopped");
+                tracing::debug!(%project_id, "dispatcher stopped");
             })?;
 
         Ok(rx)

@@ -2,7 +2,7 @@ use std::{str, sync::Arc};
 
 use tauri::AppHandle;
 
-use crate::users::User;
+use crate::{projects::ProjectId, users::User};
 
 mod posthog;
 
@@ -13,13 +13,13 @@ pub struct Config<'c> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
     HeadChange {
-        project_id: String,
+        project_id: ProjectId,
         reference_name: String,
     },
 }
 
 impl Event {
-    pub fn project_id(&self) -> &str {
+    pub fn project_id(&self) -> &ProjectId {
         match self {
             Event::HeadChange { project_id, .. } => project_id,
         }

@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use tauri::AppHandle;
 
 use crate::paths::DataDir;
+use crate::projects::ProjectId;
 use crate::{gb_repository, project_repository, projects, users};
 
 use super::events;
@@ -24,7 +25,7 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    pub fn handle(&self, project_id: &str) -> Result<Vec<events::Event>> {
+    pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         self.inner.handle(project_id)
     }
 }
@@ -66,7 +67,7 @@ impl HandlerInner {
         }
     }
 
-    pub fn handle(&self, project_id: &str) -> Result<Vec<events::Event>> {
+    pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         let _lock = match self.mutex.try_lock() {
             Ok(lock) => lock,
             Err(TryLockError::Poisoned(_)) => return Err(anyhow::anyhow!("mutex poisoned")),

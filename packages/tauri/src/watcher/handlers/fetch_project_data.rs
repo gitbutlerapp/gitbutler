@@ -6,7 +6,13 @@ use std::{
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
-use crate::{gb_repository, keys, paths::DataDir, project_repository, projects, users};
+use crate::{
+    gb_repository, keys,
+    paths::DataDir,
+    project_repository,
+    projects::{self, ProjectId},
+    users,
+};
 
 use super::events;
 
@@ -27,7 +33,11 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    pub fn handle(&self, project_id: &str, now: &time::SystemTime) -> Result<Vec<events::Event>> {
+    pub fn handle(
+        &self,
+        project_id: &ProjectId,
+        now: &time::SystemTime,
+    ) -> Result<Vec<events::Event>> {
         self.inner.handle(project_id, now)
     }
 }
@@ -59,7 +69,11 @@ impl TryFrom<&AppHandle> for HandlerInner {
 }
 
 impl HandlerInner {
-    pub fn handle(&self, project_id: &str, now: &time::SystemTime) -> Result<Vec<events::Event>> {
+    pub fn handle(
+        &self,
+        project_id: &ProjectId,
+        now: &time::SystemTime,
+    ) -> Result<Vec<events::Event>> {
         let _lock = match self.mutex.try_lock() {
             Ok(lock) => lock,
             Err(TryLockError::Poisoned(_)) => return Err(anyhow::anyhow!("mutex poisoned")),
@@ -71,7 +85,7 @@ impl HandlerInner {
         // mark fetching
         self.projects
             .update(&projects::UpdateRequest {
-                id: project_id.to_string(),
+                id: *project_id,
                 project_data_last_fetched: Some(projects::FetchResult::Fetching {
                     timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
                 }),
@@ -109,7 +123,7 @@ impl HandlerInner {
 
         let fetch_result =
             if let Err(error) = project_repository.fetch(default_target.branch.remote(), &key) {
-                tracing::error!(project_id, ?error, "failed to fetch project data");
+                tracing::error!(%project_id, ?error, "failed to fetch project data");
                 projects::FetchResult::Error {
                     attempt: project
                         .project_data_last_fetched
@@ -130,7 +144,7 @@ impl HandlerInner {
 
         self.projects
             .update(&projects::UpdateRequest {
-                id: project_id.to_string(),
+                id: *project_id,
                 project_data_last_fetched: Some(fetch_result),
                 ..Default::default()
             })

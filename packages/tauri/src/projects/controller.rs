@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::{paths::DataDir, watcher};
 
-use super::{storage, storage::UpdateRequest, Project};
+use super::{storage, storage::UpdateRequest, Project, ProjectId};
 
 #[derive(Clone)]
 pub struct Controller {
@@ -65,7 +65,7 @@ impl Controller {
             .map_or_else(|| id.clone(), |p| p.to_str().unwrap().to_string());
 
         let project = Project {
-            id: uuid::Uuid::new_v4().to_string(),
+            id: ProjectId::generate(),
             title,
             path: path.to_path_buf(),
             api: None,
@@ -96,11 +96,11 @@ impl Controller {
             if let Some(api) = &project.api {
                 if api.sync {
                     if let Err(error) = block_on(watchers.post(watcher::Event::FetchGitbutlerData(
-                        project.id.clone(),
+                        project.id,
                         time::SystemTime::now(),
                     ))) {
                         tracing::error!(
-                            project_id = &project.id,
+                            project_id = %project.id,
                             ?error,
                             "failed to post fetch project event"
                         );
@@ -108,10 +108,10 @@ impl Controller {
                 }
 
                 if let Err(error) =
-                    block_on(watchers.post(watcher::Event::PushGitbutlerData(project.id.clone())))
+                    block_on(watchers.post(watcher::Event::PushGitbutlerData(project.id)))
                 {
                     tracing::error!(
-                        project_id = &project.id,
+                        project_id = %project.id,
                         ?error,
                         "failed to post push project event"
                     );
@@ -122,7 +122,7 @@ impl Controller {
         Ok(updated)
     }
 
-    pub fn get(&self, id: &str) -> Result<Project, GetError> {
+    pub fn get(&self, id: &ProjectId) -> Result<Project, GetError> {
         self.projects_storage.get(id).map_err(|error| match error {
             super::storage::Error::NotFound => GetError::NotFound,
             error => GetError::Other(error.into()),
@@ -135,7 +135,7 @@ impl Controller {
             .map_err(|error| ListError::Other(error.into()))
     }
 
-    pub fn delete(&self, id: &str) -> Result<(), DeleteError> {
+    pub fn delete(&self, id: &ProjectId) -> Result<(), DeleteError> {
         let project = match self.projects_storage.get(id) {
             Ok(project) => Ok(project),
             Err(super::storage::Error::NotFound) => return Ok(()),
@@ -145,7 +145,7 @@ impl Controller {
         if let Some(watchers) = &self.watchers {
             if let Err(error) = block_on(watchers.stop(id)) {
                 tracing::error!(
-                    project_id = id,
+                    project_id = %id,
                     ?error,
                     "failed to stop watcher for project",
                 );
@@ -160,9 +160,9 @@ impl Controller {
             self.local_data_dir
                 .to_path_buf()
                 .join("projects")
-                .join(&project.id),
+                .join(project.id.to_string()),
         ) {
-            tracing::error!(project_id = id, ?error, "failed to remove project data",);
+            tracing::error!(project_id = %id, ?error, "failed to remove project data",);
         }
 
         Ok(())

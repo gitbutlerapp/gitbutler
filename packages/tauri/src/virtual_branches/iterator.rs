@@ -4,11 +4,11 @@ use anyhow::Result;
 
 use crate::reader;
 
-use super::branch;
+use super::branch::{self, BranchId};
 
 pub struct BranchIterator<'iterator> {
     branch_reader: branch::Reader<'iterator>,
-    ids: Vec<String>,
+    ids: Vec<BranchId>,
 }
 
 impl<'iterator> BranchIterator<'iterator> {
@@ -28,7 +28,11 @@ impl<'iterator> BranchIterator<'iterator> {
             .filter(|file_path| file_path != "selected")
             .filter(|file_path| file_path != "target");
         let unique_ids: HashSet<String> = ids_itarator.collect();
-        let mut ids: Vec<String> = unique_ids.into_iter().collect();
+        let mut ids: Vec<BranchId> = unique_ids
+            .into_iter()
+            .map(|id| id.parse())
+            .filter_map(Result::ok)
+            .collect();
         ids.sort();
         Ok(Self {
             branch_reader: branch::Reader::new(reader),
@@ -72,9 +76,9 @@ mod tests {
         TEST_INDEX.fetch_add(1, Ordering::Relaxed);
 
         branch::Branch {
-            id: format!("branch_{}", TEST_INDEX.load(Ordering::Relaxed)),
+            id: BranchId::generate(),
             name: format!("branch_name_{}", TEST_INDEX.load(Ordering::Relaxed)),
-            notes: "".to_string(),
+            notes: String::new(),
             applied: true,
             upstream: Some(
                 format!(
@@ -157,10 +161,12 @@ mod tests {
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
-        let mut iter = BranchIterator::new(&session_reader)?;
-        assert_eq!(iter.next().unwrap().unwrap(), branch_1);
-        assert_eq!(iter.next().unwrap().unwrap(), branch_2);
-        assert_eq!(iter.next().unwrap().unwrap(), branch_3);
+        let iter =
+            BranchIterator::new(&session_reader)?.collect::<Result<Vec<_>, reader::Error>>()?;
+        assert_eq!(iter.len(), 3);
+        assert!(iter.contains(&branch_1));
+        assert!(iter.contains(&branch_2));
+        assert!(iter.contains(&branch_3));
 
         Ok(())
     }
