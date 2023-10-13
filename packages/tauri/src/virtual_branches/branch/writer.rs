@@ -227,7 +227,7 @@ mod tests {
         );
 
         writer.delete(&branch)?;
-        fs::read_dir(root).unwrap();
+        fs::read_dir(root).unwrap_err();
 
         Ok(())
     }
