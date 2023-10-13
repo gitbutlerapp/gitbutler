@@ -64,7 +64,7 @@ impl Repository {
 
             git_repository
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
-                .map_err(Error::Git)?;
+                .context("failed to add disk alternate")?;
 
             Result::Ok(Self {
                 git_repository,
