@@ -19,3 +19,8 @@ export function projectCommitGenerationUseEmojis(projectId: string): Persisted<b
 	const key = 'projectCommitGenerationUseEmojis_';
 	return persisted(false, key + projectId);
 }
+
+export function projectCreatePullRequestInsteadOfPush(projectId: string): Persisted<boolean> {
+	const key = 'projectCreatePullRequestInsteadOfPush_';
+	return persisted(false, key + projectId);
+}

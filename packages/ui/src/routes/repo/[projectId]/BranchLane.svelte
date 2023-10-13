@@ -17,6 +17,7 @@
 	import type { getCloudApiClient } from '$lib/api/cloud/api';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import IconNewBadge from '$lib/icons/IconNewBadge.svelte';
+	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import lscache from 'lscache';
@@ -32,6 +33,9 @@
 	import CommitDialog from './CommitDialog.svelte';
 	import { writable } from 'svelte/store';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
+	import { getPullRequestByBranch, createPullRequest } from '$lib/github/pullrequest';
+	import type { GitHubIntegrationContext } from '$lib/github/types';
+	import PushButton from './PushButton.svelte';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -83,10 +87,50 @@
 	const dzType = 'text/hunk';
 	const laneWidthKey = 'laneWidth:';
 
+	function getIntegrationContext(): GitHubIntegrationContext | undefined {
+		const remoteUrl = base?.remoteUrl;
+		if (!remoteUrl) return undefined;
+		const [owner, repo] = remoteUrl.split('.git')[0].split(/\/|:/).slice(-2);
+		const authToken = $user?.github_access_token;
+		if (!authToken) return undefined;
+		return {
+			authToken,
+			owner,
+			repo
+		};
+	}
+
+	$: githubContext = getIntegrationContext();
+	$: pullRequestPromise =
+		githubContext && branch.upstream
+			? getPullRequestByBranch(githubContext, branch.upstream.split('/').slice(-1)[0])
+			: undefined;
+
+	let shouldCreatePr = false;
+	$: branchName = branch.upstream?.split('/').slice(-1)[0];
+	$: if (shouldCreatePr && branchName && githubContext) {
+		createPR();
+		shouldCreatePr = false;
+	}
+
+	function createPR() {
+		if (githubContext && base?.branchName && branchName) {
+			createPullRequest(
+				githubContext,
+				branchName,
+				base.branchName.split('/').slice(-1)[0],
+				branch.name,
+				branch.notes
+			).then((pr) => {
+				pullRequestPromise = Promise.resolve(pr);
+			});
+		}
+	}
+
 	function push() {
 		if (localCommits[0]?.id) {
 			isPushing = true;
-			branchController
+			return branchController
 				.pushBranch({ branchId: branch.id, withForce: branch.requiresForce })
 				.finally(() => (isPushing = false));
 		}
@@ -536,27 +580,40 @@
 										<div
 											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
 										/>
-										<div class="ml-10 mr-2 flex items-center py-2">
+										<div class="relative ml-10 mr-2 flex justify-end py-2">
 											<div
 												class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
 											>
 												local
 											</div>
-											<Button
-												class="w-20"
-												height="small"
-												kind="outlined"
-												color="purple"
-												id="push-commits"
-												loading={isPushing}
-												on:click={push}
-											>
-												{#if branch.requiresForce}
-													<span class="purple">Force Push</span>
-												{:else}
-													<span class="purple">Push</span>
-												{/if}
-											</Button>
+											{#if githubContext && !pullRequestPromise}
+												<PushButton
+													isLoading={isPushing}
+													{projectId}
+													{githubContext}
+													on:trigger={(e) => {
+														push()?.finally(() => {
+															shouldCreatePr = e.detail.with_pr;
+														});
+													}}
+												/>
+											{:else}
+												<Button
+													class="w-20"
+													height="small"
+													kind="outlined"
+													color="purple"
+													id="push-commits"
+													loading={isPushing}
+													on:click={push}
+												>
+													{#if branch.requiresForce}
+														<span class="purple">Force Push</span>
+													{:else}
+														<span class="purple">Push</span>
+													{/if}
+												</Button>
+											{/if}
 										</div>
 
 										{#each localCommits as commit (commit.id)}
@@ -604,14 +661,34 @@
 											class="relative max-w-full flex-grow overflow-hidden py-2 pl-12 pr-2 font-mono text-sm"
 										>
 											{#if branch.upstream}
-												<Link
-													target="_blank"
-													rel="noreferrer"
-													href={branchUrl(base, branch.upstream)}
-													class="inline-block max-w-full truncate text-sm font-bold"
-												>
-													{branch.upstream.split('refs/remotes/')[1]}
-												</Link>
+												<div class="flex gap-2">
+													<Link
+														target="_blank"
+														rel="noreferrer"
+														href={branchUrl(base, branch.upstream)}
+														class="inline-block max-w-full truncate text-sm font-bold"
+													>
+														{branch.upstream.split('refs/remotes/')[1]}
+													</Link>
+													{#await pullRequestPromise then pr}
+														{#if githubContext && pr}
+															<a target="_blank" rel="noreferrer" href={pr.html_url}>
+																<Tooltip label="&nbsp; Go to Pull Request &nbsp;" placement="right">
+																	<IconGithub class="text-color-5 h-4 w-4"></IconGithub>
+																</Tooltip>
+															</a>
+														{:else if githubContext}
+															<button class="text-color-4" on:click={createPR}>
+																<Tooltip
+																	label="&nbsp; Create Pull Request &nbsp;"
+																	placement="right"
+																>
+																	<IconGithub class="h-4 w-4"></IconGithub>
+																</Tooltip>
+															</button>
+														{/if}
+													{/await}
+												</div>
 											{/if}
 										</div>
 
