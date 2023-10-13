@@ -8,8 +8,6 @@ use anyhow::{anyhow, bail, Context, Result};
 use diffy::{apply_bytes, Patch};
 use serde::Serialize;
 
-use uuid::Uuid;
-
 use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
@@ -20,7 +18,7 @@ use crate::{
 };
 
 use super::{
-    branch::{self, Branch, BranchCreateRequest, FileOwnership, Hunk, Ownership},
+    branch::{self, Branch, BranchCreateRequest, BranchId, FileOwnership, Hunk, Ownership},
     target, Iterator,
 };
 
@@ -35,7 +33,7 @@ use super::{
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VirtualBranch {
-    pub id: String,
+    pub id: BranchId,
     pub name: String,
     pub notes: String,
     pub active: bool,
@@ -152,7 +150,7 @@ pub fn get_default_target(
 pub fn apply_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    branch_id: &str,
+    branch_id: &BranchId,
     signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
 ) -> Result<()> {
@@ -411,7 +409,7 @@ pub fn unapply_ownership(
 pub fn unapply_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    branch_id: &str,
+    branch_id: &BranchId,
 ) -> Result<()> {
     if conflicts::is_resolving(project_repository) {
         bail!("cannot unapply, project is in a conflicted state");
@@ -458,7 +456,7 @@ pub fn unapply_branch(
 
     let status = applied_statuses
         .iter()
-        .find(|(s, _)| s.id == branch_id)
+        .find(|(s, _)| s.id == *branch_id)
         .context("failed to find status for branch");
 
     let repo = &project_repository.git_repository;
@@ -482,7 +480,7 @@ pub fn unapply_branch(
     // then check that out into the working directory
     let final_tree = applied_statuses
         .into_iter()
-        .filter(|(branch, _)| branch.id != branch_id)
+        .filter(|(branch, _)| branch.id != *branch_id)
         .fold(
             target_commit.tree().context("failed to get target tree"),
             |final_tree, status| {
@@ -642,7 +640,7 @@ pub fn list_virtual_branches(
         let requires_force = is_requires_force(project_repository, branch)?;
 
         let branch = VirtualBranch {
-            id: branch.id.clone(),
+            id: branch.id,
             name: branch.name.clone(),
             notes: branch.notes.clone(),
             active: branch.applied,
@@ -937,7 +935,7 @@ pub fn create_virtual_branch(
     );
 
     let mut branch = Branch {
-        id: Uuid::new_v4().to_string(),
+        id: BranchId::generate(),
         name,
         notes: String::new(),
         applied: true,
@@ -967,7 +965,7 @@ pub fn create_virtual_branch(
 pub fn merge_virtual_branch_upstream(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    branch_id: &str,
+    branch_id: &BranchId,
     signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
 ) -> Result<()> {
@@ -1023,7 +1021,7 @@ pub fn merge_virtual_branch_upstream(
         .context("failed to read virtual branches")?
         .into_iter()
         .filter(|b| b.applied)
-        .filter(|b| b.id != branch_id)
+        .filter(|b| b.id != *branch_id)
         .collect::<Vec<_>>();
 
     // unapply all other branches
@@ -1201,7 +1199,7 @@ pub fn update_branch(
 pub fn delete_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    branch_id: &str,
+    branch_id: &BranchId,
 ) -> Result<branch::Branch> {
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -1491,9 +1489,9 @@ fn get_applied_status(
     // - update shifted hunks
     // - remove non existent hunks
 
-    let mut hunks_by_branch_id: HashMap<String, Vec<VirtualBranchHunk>> = virtual_branches
+    let mut hunks_by_branch_id: HashMap<BranchId, Vec<VirtualBranchHunk>> = virtual_branches
         .iter()
-        .map(|branch| (branch.id.clone(), vec![]))
+        .map(|branch| (branch.id, vec![]))
         .collect();
 
     for branch in &mut virtual_branches {
@@ -1680,7 +1678,7 @@ fn virtual_hunks_to_virtual_files(
 pub fn reset_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    branch_id: &str,
+    branch_id: &BranchId,
     target_commit_oid: git::Oid,
 ) -> Result<()> {
     let current_session = gb_repository.get_or_create_current_session()?;
@@ -1884,7 +1882,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 pub fn commit(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    branch_id: &str,
+    branch_id: &BranchId,
     message: &str,
     ownership: Option<&branch::Ownership>,
     signing_key: Option<&keys::PrivateKey>,
@@ -1901,7 +1899,7 @@ pub fn commit(
 
     let (branch, files) = statuses
         .iter()
-        .find(|(branch, _)| branch.id == branch_id)
+        .find(|(branch, _)| branch.id == *branch_id)
         .ok_or_else(|| anyhow!("branch {} not found", branch_id))?;
 
     let files = calculate_non_commited_files(project_repository, branch, &default_target, files)?;
@@ -2033,7 +2031,7 @@ pub enum PushError {
 pub fn push(
     project_repository: &project_repository::Repository,
     gb_repository: &gb_repository::Repository,
-    branch_id: &str,
+    branch_id: &BranchId,
     with_force: bool,
     key: &Key,
 ) -> Result<(), PushError> {
@@ -2220,7 +2218,7 @@ pub fn is_remote_branch_mergeable(
 pub fn is_virtual_branch_mergeable(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    branch_id: &str,
+    branch_id: &BranchId,
 ) -> Result<bool> {
     let current_session = gb_repository
         .get_or_create_current_session()

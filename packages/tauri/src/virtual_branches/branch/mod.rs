@@ -16,7 +16,9 @@ use serde::{Deserialize, Serialize};
 
 use anyhow::Result;
 
-use crate::git;
+use crate::{git, id::Id};
+
+pub type BranchId = Id<Branch>;
 
 // this is the struct for the virtual branch data that is stored in our data
 // store. it is more or less equivalent to a git branch reference, but it is not
@@ -24,7 +26,7 @@ use crate::git;
 // session storage under the branches/ directory.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Branch {
-    pub id: String,
+    pub id: BranchId,
     pub name: String,
     pub notes: String,
     pub applied: bool,
@@ -43,7 +45,7 @@ pub struct Branch {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct BranchUpdateRequest {
-    pub id: String,
+    pub id: BranchId,
     pub name: Option<String>,
     pub notes: Option<String>,
     pub ownership: Option<Ownership>,
@@ -63,6 +65,12 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
 
     fn try_from(reader: &dyn crate::reader::Reader) -> Result<Self, Self::Error> {
         let id: String = reader.read(&path::PathBuf::from("id"))?.try_into()?;
+        let id: BranchId = id.parse().map_err(|e| {
+            crate::reader::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("id: {}", e),
+            ))
+        })?;
         let name: String = reader.read(&path::PathBuf::from("meta/name"))?.try_into()?;
 
         let notes: String = match reader.read(&path::PathBuf::from("meta/notes")) {

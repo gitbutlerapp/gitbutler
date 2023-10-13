@@ -2,7 +2,6 @@ use std::time;
 
 use anyhow::{bail, Context, Result};
 use serde::Serialize;
-use uuid::Uuid;
 
 use crate::{
     gb_repository,
@@ -11,7 +10,7 @@ use crate::{
     reader, sessions, users,
 };
 
-use super::{branch, delete_branch, iterator, target, RemoteCommit};
+use super::{branch, delete_branch, iterator, target, BranchId, RemoteCommit};
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -540,9 +539,8 @@ pub fn create_virtual_branch_from_branch(
         }
     };
 
-    let branch_id = Uuid::new_v4().to_string();
     let mut branch = branch::Branch {
-        id: branch_id.clone(),
+        id: BranchId::generate(),
         name: upstream.branch().to_string(),
         notes: String::new(),
         applied: applied.unwrap_or(false),

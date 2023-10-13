@@ -22,7 +22,7 @@ impl super::RunCommand for Status {
                 println!(" branch: {}", branch.name.blue());
                 println!("   head: {}", branch.head.to_string().green());
                 println!("   tree: {}", branch.tree.to_string().green());
-                println!("     id: {}", branch.id.green());
+                println!("     id: {}", branch.id.to_string().green());
                 println!("applied: {}", branch.applied.to_string().green());
                 println!(" files:");
                 for file in files {

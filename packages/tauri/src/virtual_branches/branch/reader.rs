@@ -2,7 +2,7 @@ use std::path;
 
 use crate::reader::{self, Reader, SubReader};
 
-use super::Branch;
+use super::{Branch, BranchId};
 
 pub struct BranchReader<'reader> {
     reader: &'reader dyn reader::Reader,
@@ -17,7 +17,7 @@ impl<'reader> BranchReader<'reader> {
         self.reader
     }
 
-    pub fn read(&self, id: &str) -> Result<Branch, reader::Error> {
+    pub fn read(&self, id: &BranchId) -> Result<Branch, reader::Error> {
         if !self
             .reader
             .exists(&path::PathBuf::from(format!("branches/{}", id)))
@@ -52,7 +52,7 @@ mod tests {
         TEST_INDEX.fetch_add(1, Ordering::Relaxed);
 
         Branch {
-            id: format!("branch_{}", TEST_INDEX.load(Ordering::Relaxed)),
+            id: BranchId::generate(),
             name: format!("branch_name_{}", TEST_INDEX.load(Ordering::Relaxed)),
             notes: "".to_string(),
             applied: true,
@@ -103,7 +103,7 @@ mod tests {
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
         let reader = BranchReader::new(&session_reader);
-        let result = reader.read("not found");
+        let result = reader.read(&BranchId::generate());
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "file not found");
 

@@ -48,7 +48,10 @@ impl super::RunCommand for Commit {
         };
 
         let commit_branch = ids[selection].clone();
-        println!("Committing virtual branch {}", commit_branch.red());
+        println!(
+            "Committing virtual branch {}",
+            commit_branch.to_string().red()
+        );
 
         // get the commit message
         let message: String = Input::with_theme(&ColorfulTheme::default())

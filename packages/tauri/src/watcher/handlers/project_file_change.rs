@@ -198,6 +198,8 @@ mod test {
         virtual_branches::{self, branch},
     };
 
+    use self::branch::BranchId;
+
     use super::*;
 
     static TEST_TARGET_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
@@ -227,7 +229,7 @@ mod test {
         TEST_INDEX.fetch_add(1, Ordering::Relaxed);
 
         virtual_branches::branch::Branch {
-            id: format!("branch_{}", TEST_INDEX.load(Ordering::Relaxed)),
+            id: BranchId::generate(),
             name: format!("branch_name_{}", TEST_INDEX.load(Ordering::Relaxed)),
             notes: format!("branch_notes_{}", TEST_INDEX.load(Ordering::Relaxed)),
             applied: true,
@@ -519,7 +521,7 @@ mod test {
         // get all the created sessions
         let mut sessions: Vec<sessions::Session> = gb_repository
             .get_sessions_iterator()?
-            .map(|s| s.unwrap())
+            .map(Result::unwrap)
             .collect();
         assert_eq!(sessions.len(), size);
         // verify sessions order is correct
@@ -534,23 +536,23 @@ mod test {
 
         sessions.reverse();
         // try to reconstruct file state from operations for every session slice
-        for i in 0..=sessions.len() - 1 {
+        for i in 0..sessions.len() {
             let sessions_slice = &mut sessions[i..];
 
             // collect all operations from sessions in the reverse order
             let mut operations: Vec<deltas::Operation> = vec![];
-            sessions_slice.iter().for_each(|session| {
+            for session in &mut *sessions_slice {
                 let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
                 let deltas_reader = deltas::Reader::new(&session_reader);
                 let deltas_by_filepath = deltas_reader.read(&None).unwrap();
                 for deltas in deltas_by_filepath.values() {
-                    deltas.iter().for_each(|delta| {
+                    for delta in deltas {
                         delta.operations.iter().for_each(|operation| {
                             operations.push(operation.clone());
                         });
-                    });
+                    }
                 }
-            });
+            }
 
             let reader =
                 sessions::Reader::open(&gb_repository, sessions_slice.first().unwrap()).unwrap();
@@ -605,7 +607,7 @@ mod test {
         // get all the created sessions
         let mut sessions: Vec<sessions::Session> = gb_repository
             .get_sessions_iterator()?
-            .map(|s| s.unwrap())
+            .map(Result::unwrap)
             .collect();
         assert_eq!(sessions.len(), size);
         // verify sessions order is correct
@@ -620,23 +622,23 @@ mod test {
 
         sessions.reverse();
         // try to reconstruct file state from operations for every session slice
-        for i in 0..=sessions.len() - 1 {
+        for i in 0..sessions.len() {
             let sessions_slice = &mut sessions[i..];
 
             // collect all operations from sessions in the reverse order
             let mut operations: Vec<deltas::Operation> = vec![];
-            sessions_slice.iter().for_each(|session| {
+            for session in &mut *sessions_slice {
                 let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
                 let deltas_reader = deltas::Reader::new(&session_reader);
                 let deltas_by_filepath = deltas_reader.read(&None).unwrap();
                 for deltas in deltas_by_filepath.values() {
-                    deltas.iter().for_each(|delta| {
+                    for delta in deltas {
                         delta.operations.iter().for_each(|operation| {
                             operations.push(operation.clone());
                         });
-                    });
+                    }
                 }
-            });
+            }
 
             let reader =
                 sessions::Reader::open(&gb_repository, sessions_slice.first().unwrap()).unwrap();
@@ -673,9 +675,9 @@ mod test {
         } = suite.new_case();
         let listener = Handler::from(&suite.local_app_data);
 
-        let size = 10;
+        let size = 10_i32;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
-        for i in 1..=size {
+        for i in 1_i32..=size {
             std::fs::create_dir_all(std::path::Path::new(&project.path).join("one/two"))?;
             // create a session with a single file change and flush it
             std::fs::write(
@@ -693,11 +695,11 @@ mod test {
         let deltas_reader = deltas::Reader::new(&session_reader);
         let deltas_by_filepath = deltas_reader.read(&None).unwrap();
         for deltas in deltas_by_filepath.values() {
-            deltas.iter().for_each(|delta| {
+            for delta in deltas {
                 delta.operations.iter().for_each(|operation| {
                     operations.push(operation.clone());
                 });
-            });
+            }
         }
 
         let reader = sessions::Reader::open(&gb_repository, &session).unwrap();

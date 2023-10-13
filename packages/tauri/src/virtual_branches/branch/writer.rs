@@ -34,7 +34,10 @@ impl<'writer> BranchWriter<'writer> {
         let _lock = self.repository.lock();
 
         self.writer
-            .write_string(&format!("branches/{}/id", branch.id), &branch.id)
+            .write_string(
+                &format!("branches/{}/id", branch.id),
+                &branch.id.to_string(),
+            )
             .context("Failed to write branch id")?;
 
         self.writer
@@ -121,6 +124,8 @@ mod tests {
         virtual_branches::branch,
     };
 
+    use self::branch::BranchId;
+
     use super::*;
 
     static TEST_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
@@ -129,7 +134,7 @@ mod tests {
         TEST_INDEX.fetch_add(1, Ordering::Relaxed);
 
         Branch {
-            id: format!("branch_{}", TEST_INDEX.load(Ordering::Relaxed)),
+            id: BranchId::generate(),
             name: format!("branch_name_{}", TEST_INDEX.load(Ordering::Relaxed)),
             notes: "".to_string(),
             applied: true,
@@ -175,7 +180,10 @@ mod tests {
         let writer = BranchWriter::new(&gb_repository);
         writer.write(&branch)?;
 
-        let root = gb_repository.root().join("branches").join(&branch.id);
+        let root = gb_repository
+            .root()
+            .join("branches")
+            .join(branch.id.to_string());
 
         assert_eq!(
             fs::read_to_string(root.join("meta").join("name").to_str().unwrap())
@@ -259,7 +267,10 @@ mod tests {
 
         writer.write(&updated_branch)?;
 
-        let root = gb_repository.root().join("branches").join(&branch.id);
+        let root = gb_repository
+            .root()
+            .join("branches")
+            .join(branch.id.to_string());
 
         assert_eq!(
             fs::read_to_string(root.join("meta").join("name").to_str().unwrap())

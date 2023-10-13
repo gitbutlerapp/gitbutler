@@ -1,5 +1,5 @@
 pub mod branch;
-pub use branch::Branch;
+pub use branch::{Branch, BranchId};
 pub mod target;
 
 mod files;
