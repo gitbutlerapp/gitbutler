@@ -1,7 +1,9 @@
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
-use crate::{gb_repository, paths::DataDir, project_repository, projects, sessions, users};
+use crate::{
+    gb_repository, paths::DataDir, project_repository, projects, sessions, users, virtual_branches,
+};
 
 use super::events;
 
@@ -44,6 +46,15 @@ impl Handler {
             user.as_ref(),
         )
         .context("failed to open repository")?;
+
+        if let Some(branch_id) = &session.meta.branch {
+            virtual_branches::flush_vbranch_as_tree(
+                &gb_repo,
+                &project_repository,
+                branch_id,
+                true,
+            )?;
+        }
 
         let session = gb_repo
             .flush_session(&project_repository, session, user.as_ref())

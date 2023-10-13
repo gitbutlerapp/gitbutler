@@ -24,6 +24,8 @@ use super::{
     target, Iterator,
 };
 
+type AppliedStatuses = Vec<(branch::Branch, Vec<VirtualBranchFile>)>;
+
 // this struct is a mapping to the view `Branch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
 // it holds a materialized view for presentation purposes of the Branch struct in Rust
@@ -416,64 +418,20 @@ pub fn unapply_branch(
     if conflicts::is_resolving(project_repository) {
         bail!("cannot unapply, project is in a conflicted state");
     }
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
 
-    let default_target = match get_default_target(&current_session_reader)
-        .context("failed to get default target")?
+    let (default_target, applied_statuses) = if let Some(result) =
+        flush_vbranch_as_tree(gb_repository, project_repository, branch_id, false)?
     {
-        Some(target) => target,
-        None => return Ok(()),
+        result
+    } else {
+        return Ok(());
     };
-
-    let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch_writer = branch::Writer::new(gb_repository);
-
-    let mut target_branch = branch_reader
-        .read(branch_id)
-        .context("failed to read branch")?;
-
-    if !target_branch.applied {
-        bail!("branch is not applied");
-    }
-
-    let applied_branches = Iterator::new(&current_session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|b| b.applied)
-        .collect::<Vec<_>>();
-
-    let applied_statuses = get_applied_status(
-        gb_repository,
-        project_repository,
-        &default_target,
-        applied_branches,
-    )
-    .context("failed to get status by branch")?;
-
-    let status = applied_statuses
-        .iter()
-        .find(|(s, _)| s.id == branch_id)
-        .context("failed to find status for branch");
 
     let repo = &project_repository.git_repository;
 
     let target_commit = repo
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
-
-    if let Ok((_, files)) = status {
-        let tree = write_tree(project_repository, &default_target, files)?;
-
-        target_branch.tree = tree;
-        target_branch.applied = false;
-        branch_writer.write(&target_branch)?;
-    }
 
     // ok, update the wd with the union of the rest of the branches
     let base_tree = target_commit.tree()?;
@@ -505,6 +463,69 @@ pub fn unapply_branch(
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     Ok(())
+}
+
+pub fn flush_vbranch_as_tree(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &str,
+    applied: bool,
+) -> Result<Option<(target::Target, AppliedStatuses)>> {
+    let session = &gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+
+    let current_session_reader =
+        sessions::Reader::open(gb_repository, session).context("failed to open current session")?;
+
+    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch_writer = branch::Writer::new(gb_repository);
+
+    let mut target_branch = branch_reader
+        .read(branch_id)
+        .context("failed to read branch")?;
+
+    let default_target = match get_default_target(&current_session_reader)
+        .context("failed to get default target")?
+    {
+        Some(target) => target,
+        None => return Ok(None),
+    };
+
+    if !target_branch.applied {
+        bail!("branch is not applied");
+    }
+
+    let applied_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
+
+    let applied_statuses = get_applied_status(
+        gb_repository,
+        project_repository,
+        &default_target,
+        applied_branches,
+    )
+    .context("failed to get status by branch")?;
+
+    let status = applied_statuses
+        .iter()
+        .find(|(s, _)| s.id == branch_id)
+        .context("failed to find status for branch");
+
+    if let Ok((_, files)) = status {
+        let tree = write_tree(project_repository, &default_target, files)?;
+
+        target_branch.tree = tree;
+        target_branch.applied = applied;
+        branch_writer.write(&target_branch)?;
+    }
+
+    Ok(Some((default_target, applied_statuses)))
 }
 
 fn unapply_all_branches(
@@ -1464,7 +1485,7 @@ fn get_applied_status(
     project_repository: &project_repository::Repository,
     default_target: &target::Target,
     mut virtual_branches: Vec<branch::Branch>,
-) -> Result<Vec<(branch::Branch, Vec<VirtualBranchFile>)>> {
+) -> Result<AppliedStatuses> {
     let diff = diff::workdir(
         &project_repository.git_repository,
         &default_target.sha,
