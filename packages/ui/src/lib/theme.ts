@@ -1,4 +1,5 @@
 import { writable, type Writable } from '@square/svelte-store';
+//
 import { appWindow, type Theme } from '@tauri-apps/api/window';
 import type { SettingsStore } from './userSettings';
 
