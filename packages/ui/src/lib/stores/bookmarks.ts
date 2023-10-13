@@ -1,36 +1,29 @@
-import { writable, type Loadable, derived, Loaded } from 'svelte-loadable-store';
 import * as bookmarks from '$lib/api/ipc/bookmarks';
-import { get as getValue, type Readable } from '@square/svelte-store';
+import { type Loadable, asyncWritable, asyncDerived } from '@square/svelte-store';
 
-const stores: Partial<Record<string, Readable<Loadable<bookmarks.Bookmark[]>>>> = {};
-
-export function getBookmarksStore(params: {
-	projectId: string;
-}): Readable<Loadable<bookmarks.Bookmark[]>> {
-	const cached = stores[params.projectId];
-	if (cached) return cached;
-
-	const store = writable(bookmarks.list(params), (set) => {
-		const unsubscribe = bookmarks.subscribe(params, (bookmark) => {
-			const oldValue = getValue(store);
-			if (oldValue.isLoading) {
-				bookmarks.list(params).then(set);
-			} else if (Loaded.isError(oldValue)) {
-				bookmarks.list(params).then(set);
-			} else {
-				set(oldValue.value.filter((b) => b.timestampMs !== bookmark.timestampMs).concat(bookmark));
-			}
-		});
-		return () => {
-			Promise.resolve(unsubscribe).then((unsubscribe) => unsubscribe());
-		};
-	});
-	stores[params.projectId] = store;
-	return store as Readable<Loadable<bookmarks.Bookmark[]>>;
+export function getBookmarksStore(params: { projectId: string }): Loadable<bookmarks.Bookmark[]> {
+	return asyncWritable(
+		[],
+		async () => await bookmarks.list(params),
+		undefined,
+		{ trackState: true },
+		(set, update) => {
+			const unsubscribe = bookmarks.subscribe(params, (bookmark) => {
+				update((oldValue) =>
+					oldValue.filter((b) => b.timestampMs !== bookmark.timestampMs).concat(bookmark)
+				);
+			});
+			return () => {
+				Promise.resolve(unsubscribe).then((unsubscribe) => unsubscribe());
+			};
+		}
+	);
 }
 
 export function getBookmark(params: { projectId: string; timestampMs: number }) {
-	return derived(getBookmarksStore({ projectId: params.projectId }), (bookmarks) =>
-		bookmarks.find((b) => b.timestampMs === params.timestampMs)
+	return asyncDerived(
+		getBookmarksStore({ projectId: params.projectId }),
+		async (bookmarks) => bookmarks.find((b) => b.timestampMs === params.timestampMs),
+		{ trackState: true }
 	);
 }

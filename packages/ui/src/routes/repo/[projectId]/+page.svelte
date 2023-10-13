@@ -4,7 +4,7 @@
 	import type { PageData } from './$types';
 	import { Button, Link } from '$lib/components';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { IconExternalLink } from '$lib/icons';
 	import {
@@ -24,6 +24,8 @@
 	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
 	import { goto } from '$app/navigation';
 	import BaseBranchSelect from './BaseBranchSelect.svelte';
+	import { unsubscribe } from '$lib/utils';
+	import * as hotkeys from '$lib/hotkeys';
 
 	export let data: PageData;
 	let { projectId, project, cloud } = data;
@@ -31,7 +33,7 @@
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	const fetchStore = getFetchesStore(projectId);
-	const deltasStore = getDeltasStore(projectId);
+	const deltasStore = getDeltasStore(projectId, undefined, true);
 	const headStore = getHeadsStore(projectId);
 	const sessionsStore = getSessionStore(projectId);
 	const baseBranchStore = getBaseBranchStore(projectId, fetchStore, headStore);
@@ -71,6 +73,14 @@
 	function updateDeltasStore(sid: string | undefined) {
 		if (sid) deltasStore.setSessionId(sid);
 	}
+
+	onMount(() =>
+		unsubscribe(
+			hotkeys.on('Meta+Shift+R', () =>
+				goto(location.href.replace('/repo/', '/projects/') + '/player')
+			)
+		)
+	);
 </script>
 
 {#if $baseBranchesState.isLoading}

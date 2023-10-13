@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import { page } from '$app/stores';
-	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
 	import * as hotkeys from '$lib/hotkeys';
 	import * as events from '$lib/events';
@@ -10,55 +9,21 @@
 	import SessionsList from './SessionsList.svelte';
 	import SessionNavigations from './SessionNavigations.svelte';
 	import { IconLoading } from '$lib/icons';
-	import { getSessionStore } from '$lib/stores/sessions';
-	import { getDeltasStore } from '$lib/stores/deltas';
-	import { getFilesStore } from '$lib/stores/files';
 	import * as bookmarks from '$lib/api/ipc/bookmarks';
-	import { asyncDerived } from '@square/svelte-store';
-	import { derived } from 'svelte/store';
+	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
-	const { currentFilepath, currentTimestamp } = data;
+	const {
+		currentSession,
+		richSessions,
+		richSessions2,
+		currentSessionId,
+		currentFilepath,
+		currentTimestamp
+	} = data;
 
-	const filter = derived(page, (page) => page.url.searchParams.get('file'));
-	const projectId = derived(page, (page) => page.params.projectId);
-
-	$: sessions = getSessionStore($page.params.projectId);
-	$: dateSessions = asyncDerived([sessions, page], async ([sessions, page]) =>
-		sessions
-			.filter((session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === page.params.date)
-			.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs)
-	);
-
-	$: richSessions = asyncDerived(
-		[dateSessions, projectId, filter],
-		async ([sessions, projectId, filter]) =>
-			sessions.map((session) => ({
-				...session,
-				deltas: asyncDerived(getDeltasStore(projectId, session.id), async (deltas) =>
-					Object.fromEntries(
-						Object.entries(deltas).filter(([path]) => (filter ? path === filter : true))
-					)
-				),
-				files: asyncDerived(
-					getFilesStore({ projectId: projectId, sessionId: session.id }),
-					async (files) =>
-						Object.fromEntries(
-							Object.entries(files).filter(([path]) => (filter ? path === filter : true))
-						)
-				)
-			}))
-	);
 	$: richSessionsState = richSessions.state;
-
-	$: currentSession = asyncDerived(
-		[page, richSessions, data.currentSessionId],
-		async ([page, sessions, currentSessionId]) =>
-			sessions.find((s) => s.id === currentSessionId) ??
-			sessions.find((s) => s.id === page.params.sessionId),
-		{ trackState: true }
-	);
-	$: currentSessionsState = sessions.state;
+	$: currentSessionsState = currentSession.state;
 
 	let bookmarkModal: BookmarkModal;
 
@@ -66,6 +31,9 @@
 		unsubscribe(
 			events.on('openBookmarkModal', () => bookmarkModal?.show($currentTimestamp)),
 			hotkeys.on('Meta+Shift+D', () => bookmarkModal?.show($currentTimestamp)),
+			hotkeys.on('Meta+Shift+R', () =>
+				goto(location.href.replace('/projects/', '/repo/').replace(/\/player.*/, ''))
+			),
 			hotkeys.on('D', async () => {
 				const existing = await bookmarks.list({
 					projectId: $page.params.projectId,
@@ -104,15 +72,15 @@
 		</div>
 	{:else}
 		<SessionsList
-			sessions={$richSessions}
-			currentSession={$currentSession}
+			sessions={$richSessions2}
+			currentSessionId={$currentSessionId}
 			currentFilepath={$currentFilepath}
 		/>
 	{/if}
 </article>
 
 <div id="player" class="card relative my-2 flex flex-auto flex-col overflow-auto">
-	<header class="flex items-center gap-3 bg-card-active px-3 py-2">
+	<header class="bg-color-3 flex items-center gap-3 px-3 py-2">
 		{#if $currentSessionsState?.isLoading || $richSessionsState?.isLoading}
 			<span>Loading...</span>
 		{:else if $currentSessionsState?.isError || $richSessionsState?.isError}
@@ -120,7 +88,7 @@
 		{:else if !$currentSession}
 			<span>No session found</span>
 		{:else}
-			<SessionNavigations currentSession={$currentSession} sessions={$richSessions} />
+			<SessionNavigations currentSession={$currentSession} sessions={$richSessions2} />
 		{/if}
 	</header>
 

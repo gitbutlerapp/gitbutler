@@ -7,41 +7,37 @@
 	import type { Session } from '$lib/api/ipc/sessions';
 	import type { Delta } from '$lib/api/ipc/deltas';
 	import { unsubscribe } from '$lib/utils';
-	import { derived, type Readable } from '@square/svelte-store';
 	import { onMount } from 'svelte';
 	import { format } from 'date-fns';
 
 	export let sessions: (Session & {
-		deltas: Readable<Partial<Record<string, Delta[]>>>;
+		deltas: Partial<Record<string, Delta[]>>;
 	})[];
 	export let currentSession: Session;
 
-	$: sessionDeltas = derived(
-		sessions.map(({ deltas }) => deltas),
-		(deltas) => deltas
-	);
+	let nextSessionId: string | undefined;
+	let prevSessionId: string | undefined;
 
-	$: nextSessionId = derived(sessionDeltas, (sessionDeltas) => {
-		if (sessions) {
-			const currentIndex = sessions.findIndex((s) => s.id === currentSession.id);
-			if (currentIndex === -1) return undefined;
-			for (let i = currentIndex + 1; i < sessions.length; i++) {
-				if (Object.keys(sessionDeltas[i]).length > 0) return sessions[i].id;
-			}
-			return undefined;
-		}
-	});
+	$: sessionDeltas = sessions.map(({ deltas }) => deltas);
 
-	$: prevSessionId = derived(sessionDeltas, (sessionDeltas) => {
-		if (sessions) {
-			const currentIndex = sessions.findIndex((s) => s.id === currentSession.id);
-			if (currentIndex === -1) return undefined;
-			for (let i = currentIndex - 1; i >= 0; i--) {
-				if (Object.keys(sessionDeltas[i]).length > 0) return sessions[i].id;
+	$: if (sessions && currentSession) {
+		const currentIndex = sessions.findIndex((s) => s.id === currentSession.id);
+		nextSessionId = undefined;
+		for (let i = currentIndex + 1; i < sessions.length; i++) {
+			if (Object.keys(sessionDeltas[i]).length > 0) {
+				nextSessionId = sessions[i].id;
+				break;
 			}
-			return undefined;
 		}
-	});
+
+		prevSessionId = undefined;
+		for (let i = currentIndex - 1; i >= 0; i--) {
+			if (Object.keys(sessionDeltas[i]).length > 0) {
+				prevSessionId = sessions[i].id;
+				break;
+			}
+		}
+	}
 
 	const removeFromSearchParams = (params: URLSearchParams, key: string) => {
 		params.delete(key);
@@ -56,10 +52,10 @@
 	onMount(() =>
 		unsubscribe(
 			hotkeys.on('Shift+ArrowRight', () => {
-				if ($nextSessionId) goto(getSessionURI($nextSessionId));
+				if (nextSessionId) goto(getSessionURI(nextSessionId));
 			}),
 			hotkeys.on('Shift+ArrowLeft', () => {
-				if ($prevSessionId) goto(getSessionURI($prevSessionId));
+				if (prevSessionId) goto(getSessionURI(prevSessionId));
 			})
 		)
 	);
@@ -72,24 +68,22 @@
 </span>
 
 <div class="flex items-center gap-1">
-	{#if $prevSessionId && $nextSessionId}
-		<a
-			href={$prevSessionId && getSessionURI($prevSessionId)}
-			class="rounded border border-zinc-500 bg-zinc-600 p-0.5"
-			class:hover:bg-zinc-500={!!$prevSessionId}
-			class:pointer-events-none={!$prevSessionId}
-			class:text-zinc-500={!$prevSessionId}
-		>
-			<IconChevronLeft class="h-4 w-4" />
-		</a>
-		<a
-			href={$nextSessionId && getSessionURI($nextSessionId)}
-			class="rounded border border-zinc-500 bg-zinc-600 p-0.5"
-			class:hover:bg-zinc-500={!!$nextSessionId}
-			class:pointer-events-none={!$nextSessionId}
-			class:text-zinc-500={!$nextSessionId}
-		>
-			<IconChevronRight class="h-4 w-4" />
-		</a>
-	{/if}
+	<a
+		href={prevSessionId && getSessionURI(prevSessionId)}
+		class="bg-color-4 rounded border p-0.5"
+		class:hover:bg-color-5={!!prevSessionId}
+		class:pointer-events-none={!prevSessionId}
+		class:text-color-4={!prevSessionId}
+	>
+		<IconChevronLeft class="h-4 w-4" />
+	</a>
+	<a
+		href={nextSessionId && getSessionURI(nextSessionId)}
+		class="bg-color-4 rounded border p-0.5"
+		class:hover:bg-color-5={!!nextSessionId}
+		class:pointer-events-none={!nextSessionId}
+		class:text-color-4={!nextSessionId}
+	>
+		<IconChevronRight class="h-4 w-4" />
+	</a>
 </div>
