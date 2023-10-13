@@ -7,7 +7,7 @@ pub struct Id<T>(Uuid, PhantomData<T>);
 
 impl<T> Hash for Id<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
+        self.0.hash(state);
     }
 }
 
@@ -71,7 +71,7 @@ impl<T> Serialize for Id<T> {
 
 impl<T> Clone for Id<T> {
     fn clone(&self) -> Self {
-        Self(self.0, PhantomData)
+        *self
     }
 }
 

@@ -71,10 +71,7 @@ impl Handler {
                         .get_current_session()
                         .context("failed to get current session")?
                     {
-                        return Ok(vec![events::Event::Flush(
-                            project.id.clone(),
-                            current_session,
-                        )]);
+                        return Ok(vec![events::Event::Flush(project.id, current_session)]);
                     }
                 }
 

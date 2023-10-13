@@ -41,7 +41,7 @@ impl Watchers {
         let watcher = Watcher::try_from(&self.app_handle)?;
 
         let c_watcher = watcher.clone();
-        let project_id = project.id.clone();
+        let project_id = project.id;
         let project_path = project.path.clone();
 
         task::Builder::new()

@@ -71,7 +71,7 @@ impl Dispatcher {
             .name(&format!("{} file watcher", project_id))
             .spawn({
                 let path = path.to_path_buf();
-                let project_id = project_id.clone();
+                let project_id = *project_id;
                 async move {
                     while let Some(file_path) = notify_rx.recv().await {
                         match file_path.strip_prefix(&path) {

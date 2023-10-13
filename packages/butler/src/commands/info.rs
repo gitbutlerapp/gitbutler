@@ -26,7 +26,7 @@ impl super::RunCommand for Info {
 
         // find the project in project storage that matches the cwd
         println!("{}", "project:".to_string().red());
-        println!("  id: {}", app.project().id.blue());
+        println!("  id: {}", app.project().id.to_string().blue());
         println!("  title: {}", app.project().title.blue());
         println!(
             "  description: {}",
@@ -77,7 +77,7 @@ impl super::RunCommand for Info {
             .unwrap();
         //list the sessions
         for session in &sessions {
-            println!("  id: {}", session.id.blue());
+            println!("  id: {}", session.id.to_string().blue());
         }
 
         // gitbutler repo stuff

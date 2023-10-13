@@ -57,7 +57,7 @@ impl Dispatcher {
                 ))?;
 
         let (tx, rx) = channel(1);
-        let project_id = project_id.to_owned();
+        let project_id = *project_id;
         task::Builder::new()
             .name(&format!("{} dispatcher", project_id))
             .spawn(async move {
