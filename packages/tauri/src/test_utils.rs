@@ -135,8 +135,7 @@ pub fn temp_dir() -> path::PathBuf {
 
 pub fn empty_bare_repository() -> git::Repository {
     let path = temp_dir();
-    let repository = git::Repository::init_bare(path).expect("failed to init repository");
-    repository
+    git::Repository::init_bare(path).expect("failed to init repository")
 }
 
 pub fn test_repository() -> git::Repository {

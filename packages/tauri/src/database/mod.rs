@@ -86,7 +86,7 @@ mod tests {
             let mut rows = stmt.query([]).unwrap();
             let row = rows.next().unwrap().unwrap();
             let id: i32 = row.get(0).unwrap();
-            assert_eq!(id, 1);
+            assert_eq!(id, 1_i32);
             Ok(())
         })
         .unwrap();

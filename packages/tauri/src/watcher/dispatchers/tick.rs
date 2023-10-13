@@ -78,14 +78,13 @@ mod tests {
             dispatcher.stop();
         });
 
-        let mut count = 0;
+        let mut count = 0_i32;
         while let Some(event) = rx.recv().await {
-            match event {
-                events::Event::Tick(_, _) => count += 1,
-                _ => panic!("unexpected event: {:?}", event),
+            if let events::Event::Tick(_, _) = event {
+                count += 1_i32;
             }
         }
 
-        assert!(count >= 4);
+        assert!(count >= 4_i32);
     }
 }

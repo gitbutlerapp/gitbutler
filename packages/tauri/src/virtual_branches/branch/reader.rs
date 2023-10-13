@@ -54,7 +54,7 @@ mod tests {
         Branch {
             id: BranchId::generate(),
             name: format!("branch_name_{}", TEST_INDEX.load(Ordering::Relaxed)),
-            notes: "".to_string(),
+            notes: String::new(),
             applied: true,
             order: TEST_INDEX.load(Ordering::Relaxed),
             upstream: Some(
