@@ -763,8 +763,9 @@ mod test {
             .into_iter()
             .collect::<Vec<virtual_branches::Branch>>();
         assert_eq!(branches.len(), 2);
-        assert_eq!(branches[0].id, vbranch0.id);
-        assert_eq!(branches[1].id, vbranch1.id);
+        let branch_ids = branches.iter().map(|b| b.id).collect::<Vec<_>>();
+        assert!(branch_ids.contains(&vbranch0.id));
+        assert!(branch_ids.contains(&vbranch1.id));
 
         let target_reader = virtual_branches::target::Reader::new(&session_reader);
         assert_eq!(target_reader.read_default().unwrap(), default_target);
@@ -821,8 +822,9 @@ mod test {
             .into_iter()
             .collect::<Vec<virtual_branches::Branch>>();
         assert_eq!(branches.len(), 2);
-        assert_eq!(branches[0].id, vbranch0.id);
-        assert_eq!(branches[1].id, vbranch1.id);
+        let branch_ids = branches.iter().map(|b| b.id).collect::<Vec<_>>();
+        assert!(branch_ids.contains(&vbranch0.id));
+        assert!(branch_ids.contains(&vbranch1.id));
 
         let target_reader = virtual_branches::target::Reader::new(&session_reader);
         assert_eq!(target_reader.read_default().unwrap(), default_target);

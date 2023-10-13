@@ -51,6 +51,16 @@ impl Handler {
         )
         .context("failed to open repository")?;
 
+        // TODO: fixme
+        // if let Some(branch_id) = &session.meta.branch {
+        //     virtual_branches::flush_vbranch_as_tree(
+        //         &gb_repo,
+        //         &project_repository,
+        //         branch_id,
+        //         true,
+        //     )?;
+        // }
+
         let session = gb_repo
             .flush_session(&project_repository, session, user.as_ref())
             .context("failed to flush session")?;

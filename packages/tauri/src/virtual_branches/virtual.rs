@@ -22,6 +22,8 @@ use super::{
     target, Iterator,
 };
 
+type AppliedStatuses = Vec<(branch::Branch, Vec<VirtualBranchFile>)>;
+
 // this struct is a mapping to the view `Branch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
 // it holds a materialized view for presentation purposes of the Branch struct in Rust
@@ -414,18 +416,65 @@ pub fn unapply_branch(
     if conflicts::is_resolving(project_repository) {
         bail!("cannot unapply, project is in a conflicted state");
     }
-    let current_session = gb_repository
+
+    let (default_target, applied_statuses) = if let Some(result) =
+        flush_vbranch_as_tree(gb_repository, project_repository, branch_id, false)?
+    {
+        result
+    } else {
+        return Ok(());
+    };
+
+    let repo = &project_repository.git_repository;
+
+    let target_commit = repo
+        .find_commit(default_target.sha)
+        .context("failed to find target commit")?;
+
+    // ok, update the wd with the union of the rest of the branches
+    let base_tree = target_commit.tree()?;
+
+    // go through the other applied branches and merge them into the final tree
+    // then check that out into the working directory
+    let final_tree = applied_statuses
+        .into_iter()
+        .filter(|(branch, _)| &branch.id != branch_id)
+        .fold(
+            target_commit.tree().context("failed to get target tree"),
+            |final_tree, status| {
+                let final_tree = final_tree?;
+                let tree_oid = write_tree(project_repository, &default_target, &status.1)?;
+                let branch_tree = repo.find_tree(tree_oid)?;
+                let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
+                let final_tree_oid = result.write_tree_to(repo)?;
+                repo.find_tree(final_tree_oid)
+                    .context("failed to find tree")
+            },
+        )?;
+
+    // checkout final_tree into the working directory
+    repo.checkout_tree(&final_tree)
+        .force()
+        .remove_untracked()
+        .checkout()?;
+
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
+    Ok(())
+}
+
+pub fn flush_vbranch_as_tree(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    applied: bool,
+) -> Result<Option<(target::Target, AppliedStatuses)>> {
+    let session = &gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
 
-    let default_target = match get_default_target(&current_session_reader)
-        .context("failed to get default target")?
-    {
-        Some(target) => target,
-        None => return Ok(()),
-    };
+    let current_session_reader =
+        sessions::Reader::open(gb_repository, session).context("failed to open current session")?;
 
     let branch_reader = branch::Reader::new(&current_session_reader);
     let branch_writer = branch::Writer::new(gb_repository);
@@ -433,6 +482,13 @@ pub fn unapply_branch(
     let mut target_branch = branch_reader
         .read(branch_id)
         .context("failed to read branch")?;
+
+    let default_target = match get_default_target(&current_session_reader)
+        .context("failed to get default target")?
+    {
+        Some(target) => target,
+        None => return Ok(None),
+    };
 
     if !target_branch.applied {
         bail!("branch is not applied");
@@ -459,50 +515,15 @@ pub fn unapply_branch(
         .find(|(s, _)| s.id == *branch_id)
         .context("failed to find status for branch");
 
-    let repo = &project_repository.git_repository;
-
-    let target_commit = repo
-        .find_commit(default_target.sha)
-        .context("failed to find target commit")?;
-
     if let Ok((_, files)) = status {
         let tree = write_tree(project_repository, &default_target, files)?;
 
         target_branch.tree = tree;
-        target_branch.applied = false;
+        target_branch.applied = applied;
         branch_writer.write(&target_branch)?;
     }
 
-    // ok, update the wd with the union of the rest of the branches
-    let base_tree = target_commit.tree()?;
-
-    // go through the other applied branches and merge them into the final tree
-    // then check that out into the working directory
-    let final_tree = applied_statuses
-        .into_iter()
-        .filter(|(branch, _)| branch.id != *branch_id)
-        .fold(
-            target_commit.tree().context("failed to get target tree"),
-            |final_tree, status| {
-                let final_tree = final_tree?;
-                let tree_oid = write_tree(project_repository, &default_target, &status.1)?;
-                let branch_tree = repo.find_tree(tree_oid)?;
-                let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
-                let final_tree_oid = result.write_tree_to(repo)?;
-                repo.find_tree(final_tree_oid)
-                    .context("failed to find tree")
-            },
-        )?;
-
-    // checkout final_tree into the working directory
-    repo.checkout_tree(&final_tree)
-        .force()
-        .remove_untracked()
-        .checkout()?;
-
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
-
-    Ok(())
+    Ok(Some((default_target, applied_statuses)))
 }
 
 fn unapply_all_branches(
@@ -1462,7 +1483,7 @@ fn get_applied_status(
     project_repository: &project_repository::Repository,
     default_target: &target::Target,
     mut virtual_branches: Vec<branch::Branch>,
-) -> Result<Vec<(branch::Branch, Vec<VirtualBranchFile>)>> {
+) -> Result<AppliedStatuses> {
     let diff = diff::workdir(
         &project_repository.git_repository,
         &default_target.sha,
