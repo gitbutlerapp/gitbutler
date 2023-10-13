@@ -3,6 +3,8 @@ use std::{path, time};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+use crate::id::Id;
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AuthKey {
@@ -79,9 +81,11 @@ impl FetchResult {
     }
 }
 
+pub type ProjectId = Id<Project>;
+
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Project {
-    pub id: String,
+    pub id: ProjectId,
     pub title: String,
     pub description: Option<String>,
     pub path: path::PathBuf,

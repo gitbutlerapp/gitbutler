@@ -4,6 +4,7 @@ use anyhow::Result;
 
 use crate::{
     bookmarks, deltas,
+    projects::ProjectId,
     test_utils::{Case, Suite},
 };
 
@@ -75,7 +76,7 @@ fn search_by_bookmark_note() -> Result<()> {
 
     // first we index bookmark
     searcher.index_bookmark(&bookmarks::Bookmark {
-        project_id: gb_repository.get_project_id().to_string(),
+        project_id: *gb_repository.get_project_id(),
         timestamp_ms: 123_456,
         created_timestamp_ms: 0,
         updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
@@ -114,7 +115,7 @@ fn search_by_bookmark_note() -> Result<()> {
 
     // then update the note
     searcher.index_bookmark(&bookmarks::Bookmark {
-        project_id: gb_repository.get_project_id().to_string(),
+        project_id: *gb_repository.get_project_id(),
         timestamp_ms: 123_456,
         created_timestamp_ms: 0,
         updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
@@ -218,7 +219,7 @@ fn search_by_diff() -> Result<()> {
     })?;
     assert_eq!(result.total, 1);
     assert_eq!(result.page[0].session_id, session.id);
-    assert_eq!(result.page[0].project_id, gb_repository.get_project_id());
+    assert_eq!(result.page[0].project_id, *gb_repository.get_project_id());
     assert_eq!(result.page[0].file_path, "test.txt");
     assert_eq!(result.page[0].index, 1);
 
@@ -229,11 +230,12 @@ fn search_by_diff() -> Result<()> {
 fn should_index_bookmark_once() -> Result<()> {
     let suite = Suite::default();
     let searcher = super::Searcher::try_from(&suite.local_app_data).unwrap();
+    let project_id = ProjectId::generate();
 
     // should not index deleted non-existing bookmark
     assert!(searcher
         .index_bookmark(&bookmarks::Bookmark {
-            project_id: "test".to_string(),
+            project_id,
             timestamp_ms: 0,
             created_timestamp_ms: 0,
             updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
@@ -245,7 +247,7 @@ fn should_index_bookmark_once() -> Result<()> {
     // should index new non deleted bookmark
     assert!(searcher
         .index_bookmark(&bookmarks::Bookmark {
-            project_id: "test".to_string(),
+            project_id,
             timestamp_ms: 0,
             created_timestamp_ms: 0,
             updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
@@ -257,7 +259,7 @@ fn should_index_bookmark_once() -> Result<()> {
     // should not index existing non deleted bookmark
     assert!(searcher
         .index_bookmark(&bookmarks::Bookmark {
-            project_id: "test".to_string(),
+            project_id,
             timestamp_ms: 0,
             created_timestamp_ms: 0,
             updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
@@ -269,7 +271,7 @@ fn should_index_bookmark_once() -> Result<()> {
     // should index existing deleted bookmark
     assert!(searcher
         .index_bookmark(&bookmarks::Bookmark {
-            project_id: "test".to_string(),
+            project_id,
             timestamp_ms: 0,
             created_timestamp_ms: 0,
             updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
@@ -281,7 +283,7 @@ fn should_index_bookmark_once() -> Result<()> {
     // should not index existing deleted bookmark
     assert!(searcher
         .index_bookmark(&bookmarks::Bookmark {
-            project_id: "test".to_string(),
+            project_id,
             timestamp_ms: 0,
             created_timestamp_ms: 0,
             updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
@@ -361,7 +363,7 @@ fn search_bookmark_by_phrase() -> Result<()> {
 
     searcher.index_session(&gb_repository, &session)?;
     searcher.index_bookmark(&bookmarks::Bookmark {
-        project_id: gb_repository.get_project_id().to_string(),
+        project_id: *gb_repository.get_project_id(),
         timestamp_ms: 0,
         created_timestamp_ms: 0,
         updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
@@ -428,7 +430,7 @@ fn search_by_filename() -> Result<()> {
         .page;
     assert_eq!(found_result.len(), 2);
     assert_eq!(found_result[0].session_id, session.id);
-    assert_eq!(found_result[0].project_id, gb_repository.get_project_id());
+    assert_eq!(found_result[0].project_id, *gb_repository.get_project_id());
     assert_eq!(found_result[0].file_path, "test.txt");
 
     let not_found_result = searcher.search(&super::Query {

@@ -1,13 +1,25 @@
-use std::{fmt, marker::PhantomData, str};
+use std::{fmt, hash::Hash, marker::PhantomData, str};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
 pub struct Id<T>(Uuid, PhantomData<T>);
 
+impl<T> Hash for Id<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
+}
+
 impl<T> Id<T> {
     pub fn generate() -> Self {
         Id(Uuid::new_v4(), PhantomData)
+    }
+}
+
+impl<T> Default for Id<T> {
+    fn default() -> Self {
+        Self::generate()
     }
 }
 
@@ -30,6 +42,8 @@ impl<T> PartialEq for Id<T> {
         self.0.eq(&other.0)
     }
 }
+
+impl<T> Eq for Id<T> {}
 
 impl<T> From<Uuid> for Id<T> {
     fn from(value: Uuid) -> Self {

@@ -257,7 +257,7 @@ impl Repository {
             ) {
                 Ok(()) => {
                     tracing::info!(
-                        project_id = self.project.id,
+                        project_id = %self.project.id,
                         remote = %branch.remote(),
                         %head,
                         branch = branch.branch(),
@@ -266,7 +266,7 @@ impl Repository {
                     return Ok(());
                 }
                 Err(git::Error::AuthenticationFailed(error)) => {
-                    tracing::error!(project_id = self.project.id, ?error, "git push failed",);
+                    tracing::error!(project_id = %self.project.id, ?error, "git push failed",);
                     continue;
                 }
                 Err(error) => return Err(RemoteError::Other(error.into())),
@@ -285,7 +285,7 @@ impl Repository {
             remote_callbacks.push_update_reference(|refname, message| {
                 if let Some(msg) = message {
                     tracing::debug!(
-                        project_id = self.project.id,
+                        project_id = %self.project.id,
                         refname,
                         msg,
                         "push update reference",
@@ -295,7 +295,7 @@ impl Repository {
             });
             remote_callbacks.push_negotiation(|proposals| {
                 tracing::debug!(
-                    project_id = self.project.id,
+                    project_id = %self.project.id,
                     proposals = proposals
                         .iter()
                         .map(|p| format!(
@@ -311,7 +311,7 @@ impl Repository {
             });
             remote_callbacks.push_transfer_progress(|one, two, three| {
                 tracing::debug!(
-                    project_id = self.project.id,
+                    project_id = %self.project.id,
                     "push transfer progress: {}/{}/{}",
                     one,
                     two,
@@ -327,11 +327,11 @@ impl Repository {
 
             match remote.fetch(&[refspec], Some(&mut fetch_opts)) {
                 Ok(()) => {
-                    tracing::info!(project_id = self.project.id, %refspec, "git fetched");
+                    tracing::info!(project_id = %self.project.id, %refspec, "git fetched");
                     return Ok(());
                 }
                 Err(git::Error::AuthenticationFailed(error)) => {
-                    tracing::error!(project_id = self.project.id, ?error, "fetch failed");
+                    tracing::error!(project_id = %self.project.id, ?error, "fetch failed");
                     continue;
                 }
                 Err(error) => return Err(RemoteError::Other(error.into())),
@@ -373,7 +373,7 @@ impl Repository {
         )?;
 
         tracing::info!(
-            project_id = self.project.id,
+            project_id = %self.project.id,
             %commit_oid,
             message,
             "created commit"

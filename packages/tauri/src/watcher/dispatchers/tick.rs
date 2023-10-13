@@ -7,7 +7,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::watcher::events;
+use crate::{projects::ProjectId, watcher::events};
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
@@ -27,7 +27,7 @@ impl Dispatcher {
 
     pub fn run(
         self,
-        project_id: &str,
+        project_id: &ProjectId,
         interval: time::Duration,
     ) -> Result<Receiver<events::Event>> {
         let (tx, rx) = channel(1);
@@ -36,25 +36,22 @@ impl Dispatcher {
         task::Builder::new()
             .name(&format!("{} ticker", project_id))
             .spawn({
-                let project_id = project_id.to_string();
+                let project_id = *project_id;
                 async move {
-                    tracing::debug!(project_id, "ticker started");
+                    tracing::debug!(%project_id, "ticker started");
                     loop {
                         ticker.tick().await;
                         if self.cancellation_token.is_cancelled() {
                             break;
                         }
                         if let Err(error) = tx
-                            .send(events::Event::Tick(
-                                project_id.clone(),
-                                time::SystemTime::now(),
-                            ))
+                            .send(events::Event::Tick(project_id, time::SystemTime::now()))
                             .await
                         {
-                            tracing::error!(project_id, ?error, "failed to send tick");
+                            tracing::error!(%project_id, ?error, "failed to send tick");
                         }
                     }
-                    tracing::debug!(project_id, "ticker stopped");
+                    tracing::debug!(%project_id, "ticker stopped");
                 }
             })?;
 
@@ -64,14 +61,17 @@ impl Dispatcher {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::time::Duration;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_ticker() {
         let dispatcher = Dispatcher::new();
         let dispatcher2 = dispatcher.clone();
-        let mut rx = dispatcher2.run("test", Duration::from_millis(10)).unwrap();
+        let mut rx = dispatcher2
+            .run(&ProjectId::generate(), Duration::from_millis(10))
+            .unwrap();
 
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(50)).await;

@@ -9,7 +9,8 @@ use crate::{
     keys,
     paths::DataDir,
     project_repository::{self, conflicts},
-    projects, reader, search,
+    projects::{self, ProjectId},
+    reader, search,
     sessions::{self, SessionId},
     users,
     virtual_branches::{self, target},
@@ -75,19 +76,19 @@ impl App {
             .with_context(|| "failed to list projects")?
         {
             if let Err(error) = self.init_project(&project).await {
-                tracing::error!(project.id, ?error, "failed to init project");
+                tracing::error!(%project.id, ?error, "failed to init project");
             }
         }
         Ok(())
     }
 
-    pub fn get_project(&self, id: &str) -> Result<projects::Project, Error> {
+    pub fn get_project(&self, id: &ProjectId) -> Result<projects::Project, Error> {
         self.projects.get(id).map_err(Error::GetProject)
     }
 
     pub fn list_sessions(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         earliest_timestamp_ms: Option<u128>,
     ) -> Result<Vec<sessions::Session>> {
         self.sessions_database
@@ -96,7 +97,7 @@ impl App {
 
     pub fn list_session_files(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         session_id: &SessionId,
         paths: &Option<Vec<path::PathBuf>>,
     ) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
@@ -122,7 +123,7 @@ impl App {
             .map_err(Error::Other)
     }
 
-    pub fn mark_resolved(&self, project_id: &str, path: &str) -> Result<(), Error> {
+    pub fn mark_resolved(&self, project_id: &ProjectId, path: &str) -> Result<(), Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::try_from(&project)?;
         // mark file as resolved
@@ -130,7 +131,7 @@ impl App {
         Ok(())
     }
 
-    pub fn fetch_from_target(&self, project_id: &str) -> Result<(), Error> {
+    pub fn fetch_from_target(&self, project_id: &ProjectId) -> Result<(), Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::try_from(&project)?;
         let user = self.users.get_user().context("failed to get user")?;
@@ -199,7 +200,7 @@ impl App {
 
     pub fn list_bookmarks(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         range: Option<ops::Range<u128>>,
     ) -> Result<Vec<bookmarks::Bookmark>, Error> {
         self.bookmarks_database
@@ -209,7 +210,7 @@ impl App {
 
     pub fn list_session_deltas(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         session_id: &SessionId,
         paths: &Option<Vec<&str>>,
     ) -> Result<HashMap<String, Vec<deltas::Delta>>, Error> {
@@ -220,7 +221,7 @@ impl App {
 
     pub fn git_wd_diff(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         context_lines: u32,
     ) -> Result<HashMap<path::PathBuf, String>, Error> {
         let project = self.projects.get(project_id)?;
@@ -257,7 +258,7 @@ impl App {
 
     pub fn git_remote_branches(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
     ) -> Result<Vec<git::RemoteBranchName>, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::try_from(&project)?;
@@ -268,7 +269,7 @@ impl App {
 
     pub fn git_remote_branches_data(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
     ) -> Result<Vec<virtual_branches::RemoteBranch>, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::try_from(&project)?;
@@ -283,7 +284,7 @@ impl App {
             .map_err(Error::Other)
     }
 
-    pub fn git_head(&self, project_id: &str) -> Result<String, Error> {
+    pub fn git_head(&self, project_id: &ProjectId) -> Result<String, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::try_from(&project)?;
         let head = project_repository
@@ -313,7 +314,7 @@ impl App {
         }
     }
 
-    pub fn git_gb_push(&self, project_id: &str) -> Result<(), Error> {
+    pub fn git_gb_push(&self, project_id: &ProjectId) -> Result<(), Error> {
         let user = self.users.get_user().context("failed to get user")?;
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::try_from(&project)?;

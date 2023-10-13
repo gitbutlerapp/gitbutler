@@ -3,7 +3,7 @@ use std::ops;
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
-use crate::database;
+use crate::{database, projects::ProjectId};
 
 use super::Bookmark;
 
@@ -27,7 +27,7 @@ impl From<&AppHandle> for Database {
 impl Database {
     fn get_by_project_id_timestamp_ms(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         timestamp_ms: &u128,
     ) -> Result<Option<Bookmark>> {
         self.database.transaction(|tx| {
@@ -98,7 +98,7 @@ impl Database {
 
     fn list_by_project_id_range(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         range: ops::Range<u128>,
     ) -> Result<Vec<Bookmark>> {
         self.database.transaction(|tx| {
@@ -119,7 +119,7 @@ impl Database {
         })
     }
 
-    fn list_by_project_id_all(&self, project_id: &str) -> Result<Vec<Bookmark>> {
+    fn list_by_project_id_all(&self, project_id: &ProjectId) -> Result<Vec<Bookmark>> {
         self.database.transaction(|tx| {
             let mut stmt = list_by_project_id_stmt(tx)
                 .context("Failed to prepare list_by_project_id statement")?;
@@ -136,7 +136,7 @@ impl Database {
 
     pub fn list_by_project_id(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         range: Option<ops::Range<u128>>,
     ) -> Result<Vec<Bookmark>> {
         if let Some(range) = range {
@@ -250,7 +250,7 @@ mod tests {
         let database = Database::from(db);
 
         let bookmark = Bookmark {
-            project_id: "project_id".to_string(),
+            project_id: ProjectId::generate(),
             timestamp_ms: 123,
             created_timestamp_ms: 0,
             updated_timestamp_ms: 0,
@@ -274,7 +274,7 @@ mod tests {
         let database = Database::from(db);
 
         let bookmark_one = Bookmark {
-            project_id: "project_id".to_string(),
+            project_id: ProjectId::generate(),
             timestamp_ms: 123,
             created_timestamp_ms: 0,
             updated_timestamp_ms: 0,
@@ -284,7 +284,7 @@ mod tests {
         database.upsert(&bookmark_one)?;
 
         let bookmark_two = Bookmark {
-            project_id: "project_id".to_string(),
+            project_id: ProjectId::generate(),
             timestamp_ms: 456,
             created_timestamp_ms: 0,
             updated_timestamp_ms: 1,
@@ -309,7 +309,7 @@ mod tests {
         let database = Database::from(db);
 
         let bookmark = Bookmark {
-            project_id: "project_id".to_string(),
+            project_id: ProjectId::generate(),
             timestamp_ms: 123,
             created_timestamp_ms: 0,
             updated_timestamp_ms: 0,

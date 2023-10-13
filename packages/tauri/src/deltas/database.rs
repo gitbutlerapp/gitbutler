@@ -3,7 +3,7 @@ use std::{collections::HashMap, path};
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
-use crate::{database, sessions::SessionId};
+use crate::{database, projects::ProjectId, sessions::SessionId};
 
 use super::{delta, operations};
 
@@ -27,7 +27,7 @@ impl From<&AppHandle> for Database {
 impl Database {
     pub fn insert(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         session_id: &SessionId,
         file_path: &path::Path,
         deltas: &Vec<delta::Delta>,
@@ -55,7 +55,7 @@ impl Database {
 
     pub fn list_by_project_id_session_id(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         session_id: &SessionId,
         file_path_filter: &Option<Vec<&str>>,
     ) -> Result<HashMap<String, Vec<delta::Delta>>> {
@@ -141,7 +141,7 @@ mod tests {
         let db = test_utils::test_database();
         let database = Database::from(db);
 
-        let project_id = "project_id";
+        let project_id = ProjectId::generate();
         let session_id = SessionId::generate();
         let file_path = path::PathBuf::from("file_path");
         let delta1 = delta::Delta {
@@ -150,10 +150,10 @@ mod tests {
         };
         let deltas = vec![delta1.clone()];
 
-        database.insert(project_id, &session_id, &file_path, &deltas)?;
+        database.insert(&project_id, &session_id, &file_path, &deltas)?;
 
         assert_eq!(
-            database.list_by_project_id_session_id(project_id, &session_id, &None)?,
+            database.list_by_project_id_session_id(&project_id, &session_id, &None)?,
             vec![(file_path.display().to_string(), vec![delta1])]
                 .into_iter()
                 .collect()
@@ -167,7 +167,7 @@ mod tests {
         let db = test_utils::test_database();
         let database = Database::from(db);
 
-        let project_id = "project_id";
+        let project_id = ProjectId::generate();
         let session_id = SessionId::generate();
         let file_path = path::PathBuf::from("file_path");
         let delta1 = delta::Delta {
@@ -182,11 +182,11 @@ mod tests {
             ))],
         };
 
-        database.insert(project_id, &session_id, &file_path, &vec![delta1])?;
-        database.insert(project_id, &session_id, &file_path, &vec![delta2.clone()])?;
+        database.insert(&project_id, &session_id, &file_path, &vec![delta1])?;
+        database.insert(&project_id, &session_id, &file_path, &vec![delta2.clone()])?;
 
         assert_eq!(
-            database.list_by_project_id_session_id(project_id, &session_id, &None)?,
+            database.list_by_project_id_session_id(&project_id, &session_id, &None)?,
             vec![(file_path.display().to_string(), vec![delta2])]
                 .into_iter()
                 .collect()
@@ -200,7 +200,7 @@ mod tests {
         let db = test_utils::test_database();
         let database = Database::from(db);
 
-        let project_id = "project_id";
+        let project_id = ProjectId::generate();
         let session_id = SessionId::generate();
         let file_path1 = path::PathBuf::from("file_path1");
         let file_path2 = path::PathBuf::from("file_path2");
@@ -216,12 +216,12 @@ mod tests {
             ))],
         };
 
-        database.insert(project_id, &session_id, &file_path1, &vec![delta1.clone()])?;
-        database.insert(project_id, &session_id, &file_path2, &vec![delta1.clone()])?;
-        database.insert(project_id, &session_id, &file_path2, &vec![delta2.clone()])?;
+        database.insert(&project_id, &session_id, &file_path1, &vec![delta1.clone()])?;
+        database.insert(&project_id, &session_id, &file_path2, &vec![delta1.clone()])?;
+        database.insert(&project_id, &session_id, &file_path2, &vec![delta2.clone()])?;
 
         assert_eq!(
-            database.list_by_project_id_session_id(project_id, &session_id, &None)?,
+            database.list_by_project_id_session_id(&project_id, &session_id, &None)?,
             vec![
                 (file_path1.display().to_string(), vec![delta1.clone()]),
                 (file_path2.display().to_string(), vec![delta1, delta2])

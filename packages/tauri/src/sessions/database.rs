@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
-use crate::database;
+use crate::{database, projects::ProjectId};
 
 use super::session::{self, SessionId};
 
@@ -25,7 +25,7 @@ impl From<&AppHandle> for Database {
 }
 
 impl Database {
-    pub fn insert(&self, project_id: &str, sessions: &[&session::Session]) -> Result<()> {
+    pub fn insert(&self, project_id: &ProjectId, sessions: &[&session::Session]) -> Result<()> {
         self.database.transaction(|tx| -> Result<()> {
             let mut stmt = insert_stmt(tx).context("Failed to prepare insert statement")?;
             for session in sessions {
@@ -48,7 +48,7 @@ impl Database {
 
     pub fn list_by_project_id(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         earliest_timestamp_ms: Option<u128>,
     ) -> Result<Vec<session::Session>> {
         self.database.transaction(|tx| {
@@ -81,7 +81,7 @@ impl Database {
 
     pub fn get_by_project_id_id(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         id: &SessionId,
     ) -> Result<Option<session::Session>> {
         self.database.transaction(|tx| {
@@ -199,7 +199,7 @@ mod tests {
         let db = test_utils::test_database();
         let database = Database::from(db);
 
-        let project_id = "project_id";
+        let project_id = ProjectId::generate();
         let session1 = session::Session {
             id: SessionId::generate(),
             hash: None,
@@ -222,10 +222,10 @@ mod tests {
         };
         let sessions = vec![&session1, &session2];
 
-        database.insert(project_id, &sessions)?;
+        database.insert(&project_id, &sessions)?;
 
         assert_eq!(
-            database.list_by_project_id(project_id, None)?,
+            database.list_by_project_id(&project_id, None)?,
             vec![session2.clone(), session1.clone()]
         );
         assert_eq!(database.get_by_id(&session1.id)?.unwrap(), session1);
@@ -240,7 +240,7 @@ mod tests {
         let db = test_utils::test_database();
         let database = Database::from(db);
 
-        let project_id = "project_id";
+        let project_id = ProjectId::generate();
         let session = session::Session {
             id: SessionId::generate(),
             hash: None,
@@ -261,11 +261,11 @@ mod tests {
                 last_timestamp_ms: 4,
             },
         };
-        database.insert(project_id, &[&session])?;
-        database.insert(project_id, &[&session_updated])?;
+        database.insert(&project_id, &[&session])?;
+        database.insert(&project_id, &[&session_updated])?;
 
         assert_eq!(
-            database.list_by_project_id(project_id, None)?,
+            database.list_by_project_id(&project_id, None)?,
             vec![session_updated.clone()]
         );
         assert_eq!(database.get_by_id(&session.id)?.unwrap(), session_updated);

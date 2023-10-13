@@ -1,36 +1,38 @@
 use std::{fmt::Display, path, time};
 
 use crate::{
-    analytics, bookmarks, deltas, events, reader,
+    analytics, bookmarks, deltas, events,
+    projects::ProjectId,
+    reader,
     sessions::{self, SessionId},
 };
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Event {
-    Tick(String, time::SystemTime),
-    Flush(String, sessions::Session),
+    Tick(ProjectId, time::SystemTime),
+    Flush(ProjectId, sessions::Session),
 
-    FetchGitbutlerData(String, time::SystemTime),
-    PushGitbutlerData(String),
-    FetchProjectData(String, time::SystemTime),
+    FetchGitbutlerData(ProjectId, time::SystemTime),
+    PushGitbutlerData(ProjectId),
+    FetchProjectData(ProjectId, time::SystemTime),
 
-    GitFileChange(String, path::PathBuf),
+    GitFileChange(ProjectId, path::PathBuf),
 
-    ProjectFileChange(String, path::PathBuf),
+    ProjectFileChange(ProjectId, path::PathBuf),
 
-    Session(String, sessions::Session),
-    SessionFile((String, SessionId, path::PathBuf, Option<reader::Content>)),
-    SessionDelta((String, SessionId, path::PathBuf, deltas::Delta)),
+    Session(ProjectId, sessions::Session),
+    SessionFile((ProjectId, SessionId, path::PathBuf, Option<reader::Content>)),
+    SessionDelta((ProjectId, SessionId, path::PathBuf, deltas::Delta)),
     Bookmark(bookmarks::Bookmark),
 
-    IndexAll(String),
+    IndexAll(ProjectId),
 
     Emit(events::Event),
     Analytics(analytics::Event),
 }
 
 impl Event {
-    pub fn project_id(&self) -> &str {
+    pub fn project_id(&self) -> &ProjectId {
         match self {
             Event::Analytics(event) => event.project_id(),
             Event::Emit(event) => event.project_id(),

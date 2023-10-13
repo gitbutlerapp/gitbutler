@@ -3,7 +3,7 @@ use std::path;
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
-use crate::error::Error;
+use crate::error::{Code, Error};
 
 use super::controller;
 
@@ -25,9 +25,13 @@ pub async fn get_project_archive_path(
     handle: AppHandle,
     project_id: &str,
 ) -> Result<path::PathBuf, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".into(),
+    })?;
     handle
         .state::<controller::Controller>()
-        .archive(project_id)
+        .archive(&project_id)
         .map_err(Into::into)
 }
 
@@ -49,9 +53,13 @@ pub async fn get_project_data_archive_path(
     handle: AppHandle,
     project_id: &str,
 ) -> Result<path::PathBuf, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".into(),
+    })?;
     handle
         .state::<controller::Controller>()
-        .data_archive(project_id)
+        .data_archive(&project_id)
         .map_err(Into::into)
 }
 

@@ -13,7 +13,7 @@ use sha2::{Digest, Sha256};
 use crate::{
     fs, git, lock,
     paths::DataDir,
-    projects,
+    projects::{self, ProjectId},
     sessions::SessionId,
     users,
     virtual_branches::{self, target},
@@ -57,7 +57,7 @@ impl Repository {
 
         let projects_dir = root.to_path_buf().join("projects");
 
-        let path = projects_dir.join(&project.id);
+        let path = projects_dir.join(project.id.to_string());
         let lock_path = projects_dir.join(format!("{}.lock", project.id));
         if path.exists() {
             let git_repository = git::Repository::open(path.clone())
@@ -96,7 +96,7 @@ impl Repository {
                 .migrate(project)
                 .context("failed to migrate")?
             {
-                tracing::info!(project_id = gb_repository.project.id, "repository migrated");
+                tracing::info!(project_id = %gb_repository.project.id, "repository migrated");
                 return Result::Ok(gb_repository);
             }
 
@@ -112,7 +112,7 @@ impl Repository {
         }
     }
 
-    pub fn get_project_id(&self) -> &str {
+    pub fn get_project_id(&self) -> &ProjectId {
         &self.project.id
     }
 
@@ -151,7 +151,7 @@ impl Repository {
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.push_update_reference(move |refname, message| {
             tracing::debug!(
-                project_id = self.project.id,
+                project_id = %self.project.id,
                 refname,
                 message,
                 "pulling reference"
@@ -160,7 +160,7 @@ impl Repository {
         });
         callbacks.push_transfer_progress(move |one, two, three| {
             tracing::debug!(
-                project_id = self.project.id,
+                project_id = %self.project.id,
                 "transferred {}/{}/{} objects",
                 one,
                 two,
@@ -182,7 +182,7 @@ impl Repository {
             ))?;
 
         tracing::info!(
-            project_id = self.project.id,
+            project_id = %self.project.id,
             remote = %remote.url()?.unwrap(),
             "gb repo fetched",
         );
@@ -200,7 +200,7 @@ impl Repository {
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.push_update_reference(move |refname, message| {
             tracing::debug!(
-                project_id = self.project.id,
+                project_id = %self.project.id,
                 refname,
                 message,
                 "pushing reference"
@@ -209,7 +209,7 @@ impl Repository {
         });
         callbacks.push_transfer_progress(move |one, two, three| {
             tracing::debug!(
-                project_id = self.project.id,
+                project_id = %self.project.id,
                 "transferred {}/{}/{} objects",
                 one,
                 two,
@@ -233,7 +233,7 @@ impl Repository {
                 remote.url()?.unwrap()
             ))?;
 
-        tracing::info!(project_id = self.project.id, remote = %remote.url()?.unwrap(), "gb repository pushed");
+        tracing::info!(project_id = %self.project.id, remote = %remote.url()?.unwrap(), "gb repository pushed");
 
         Ok(())
     }
@@ -340,7 +340,7 @@ impl Repository {
             .context("failed to write session")?;
 
         tracing::info!(
-            project_id = self.project.id,
+            project_id = %self.project.id,
             session_id = %session.id,
             "created new session"
         );
@@ -462,7 +462,7 @@ impl Repository {
             write_gb_commit(tree_id, self, user).context("failed to write gb commit")?;
 
         tracing::info!(
-            project_id = self.project.id,
+            project_id = %self.project.id,
             session_id = %session.id,
             %commit_oid,
             "flushed session"
@@ -544,7 +544,7 @@ impl Repository {
         match reference {
             Err(git::Error::NotFound(_)) => {
                 tracing::debug!(
-                    project_id = project.id,
+                    project_id = %project.id,
                     refname,
                     "reference not found, no migration"
                 );
@@ -599,8 +599,7 @@ impl Repository {
 
     fn flush_gitbutler_file(&self, session_id: &SessionId) -> Result<()> {
         let gb_path = self.git_repository.path();
-        let project_id = self.project.id.as_str();
-
+        let project_id = self.project.id.to_string();
         let gb_file_content = serde_json::json!({
             "sessionId": session_id,
             "repositoryId": project_id,
@@ -652,7 +651,7 @@ fn build_wd_tree(
                     Result::Ok(reader::Content::UTF8(content)) => content,
                     Result::Ok(reader::Content::Large) => {
                         tracing::error!(
-                            project_id = gb_repository.project.id,
+                            project_id = %gb_repository.project.id,
                             path = %abs_path.display(),
                             "large file in session working directory"
                         );
@@ -660,7 +659,7 @@ fn build_wd_tree(
                     }
                     Result::Ok(reader::Content::Binary) => {
                         tracing::error!(
-                            project_id = gb_repository.project.id,
+                            project_id = %gb_repository.project.id,
                             path = %abs_path.display(),
                             "binary file in session working directory"
                         );
@@ -668,7 +667,7 @@ fn build_wd_tree(
                     }
                     Err(error) => {
                         tracing::error!(
-                            project_id = gb_repository.project.id,
+                            project_id = %gb_repository.project.id,
                             path = %abs_path.display(),
                             ?error,
                             "failed to read file"
@@ -837,7 +836,7 @@ fn add_wd_path(
     // TODO: size limit should be configurable
     let blob = if metadata.len() > 100_000_000 {
         tracing::warn!(
-            project_id = gb_repository.project.id,
+            project_id = %gb_repository.project.id,
             path = %file_path.display(),
             "file too big"
         );

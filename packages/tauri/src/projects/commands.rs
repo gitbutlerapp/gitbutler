@@ -91,7 +91,11 @@ impl From<controller::GetError> for Error {
 #[tauri::command(async)]
 #[instrument(skip(handle))]
 pub async fn get_project(handle: tauri::AppHandle, id: &str) -> Result<projects::Project, Error> {
-    handle.state::<Controller>().get(id).map_err(Into::into)
+    let id = id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".into(),
+    })?;
+    handle.state::<Controller>().get(&id).map_err(Into::into)
 }
 
 impl From<controller::ListError> for Error {
@@ -125,5 +129,9 @@ impl From<controller::DeleteError> for Error {
 #[tauri::command(async)]
 #[instrument(skip(handle))]
 pub async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
-    handle.state::<Controller>().delete(id).map_err(Into::into)
+    let id = id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".into(),
+    })?;
+    handle.state::<Controller>().delete(&id).map_err(Into::into)
 }

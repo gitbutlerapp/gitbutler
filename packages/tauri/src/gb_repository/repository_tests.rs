@@ -5,7 +5,9 @@ use pretty_assertions::assert_eq;
 use tempfile::tempdir;
 
 use crate::{
-    deltas, projects, reader,
+    deltas,
+    projects::{self, ProjectId},
+    reader,
     sessions::{self, SessionId},
     test_utils::{Case, Suite},
 };
@@ -224,7 +226,7 @@ fn test_remote_syncronization() -> Result<()> {
         "Hello World",
     )]));
     suite.projects.update(&projects::UpdateRequest {
-        id: case_one.project.id.clone(),
+        id: case_one.project.id,
         api: Some(api_project.clone()),
         ..Default::default()
     })?;
@@ -247,7 +249,7 @@ fn test_remote_syncronization() -> Result<()> {
     // create second local project, fetch it and make sure session is there
     let case_two = suite.new_case();
     suite.projects.update(&projects::UpdateRequest {
-        id: case_two.project.id.clone(),
+        id: case_two.project.id,
         api: Some(api_project.clone()),
         ..Default::default()
     })?;
@@ -303,7 +305,7 @@ fn test_remote_sync_order() -> Result<()> {
 
     let case_one = suite.new_case();
     suite.projects.update(&projects::UpdateRequest {
-        id: case_one.project.id.clone(),
+        id: case_one.project.id,
         api: Some(api_project.clone()),
         ..Default::default()
     })?;
@@ -311,7 +313,7 @@ fn test_remote_sync_order() -> Result<()> {
 
     let case_two = suite.new_case();
     suite.projects.update(&projects::UpdateRequest {
-        id: case_two.project.id.clone(),
+        id: case_two.project.id,
         api: Some(api_project.clone()),
         ..Default::default()
     })?;
@@ -400,10 +402,9 @@ fn test_gitbutler_file() -> Result<()> {
         serde_json::from_str(&std::fs::read_to_string(&gitbutler_file_path)?)?;
     let sid: SessionId = file_content["sessionId"].as_str().unwrap().parse()?;
     assert_eq!(sid, session.id);
-    assert_eq!(
-        file_content["repositoryId"],
-        project_repository.project().id
-    );
+
+    let pid: ProjectId = file_content["repositoryId"].as_str().unwrap().parse()?;
+    assert_eq!(pid, project_repository.project().id);
 
     Ok(())
 }

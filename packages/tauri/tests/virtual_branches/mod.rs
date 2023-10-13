@@ -1,7 +1,9 @@
 use std::{fs, str::FromStr};
 
 use gitbutler::{
-    git, keys, projects, users,
+    git, keys,
+    projects::{self, ProjectId},
+    users,
     virtual_branches::{Controller, ControllerError},
 };
 
@@ -9,7 +11,7 @@ use crate::{common::TestProject, paths};
 
 struct Test {
     repository: TestProject,
-    project_id: String,
+    project_id: ProjectId,
     controller: Controller,
 }
 

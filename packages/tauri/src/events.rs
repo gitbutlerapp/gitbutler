@@ -2,7 +2,9 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    bookmarks, deltas, reader,
+    bookmarks, deltas,
+    projects::ProjectId,
+    reader,
     sessions::{self, SessionId},
 };
 
@@ -33,7 +35,7 @@ impl Sender {
 pub struct Event {
     name: String,
     payload: serde_json::Value,
-    project_id: String,
+    project_id: ProjectId,
 }
 
 impl Event {
@@ -41,44 +43,44 @@ impl Event {
         &self.name
     }
 
-    pub fn project_id(&self) -> &str {
+    pub fn project_id(&self) -> &ProjectId {
         &self.project_id
     }
 
-    pub fn git_index(project_id: &str) -> Self {
+    pub fn git_index(project_id: &ProjectId) -> Self {
         Event {
             name: format!("project://{}/git/index", project_id),
             payload: serde_json::json!({}),
-            project_id: project_id.to_string(),
+            project_id: *project_id,
         }
     }
 
-    pub fn git_fetch(project_id: &str) -> Self {
+    pub fn git_fetch(project_id: &ProjectId) -> Self {
         Event {
             name: format!("project://{}/git/fetch", project_id),
             payload: serde_json::json!({}),
-            project_id: project_id.to_string(),
+            project_id: *project_id,
         }
     }
 
-    pub fn git_head(project_id: &str, head: &str) -> Self {
+    pub fn git_head(project_id: &ProjectId, head: &str) -> Self {
         Event {
             name: format!("project://{}/git/head", project_id),
             payload: serde_json::json!({ "head": head }),
-            project_id: project_id.to_string(),
+            project_id: *project_id,
         }
     }
 
-    pub fn git_activity(project_id: &str) -> Self {
+    pub fn git_activity(project_id: &ProjectId) -> Self {
         Event {
             name: format!("project://{}/git/activity", project_id),
             payload: serde_json::json!({}),
-            project_id: project_id.to_string(),
+            project_id: *project_id,
         }
     }
 
     pub fn file(
-        project_id: &str,
+        project_id: &ProjectId,
         session_id: &SessionId,
         file_path: &str,
         contents: Option<&reader::Content>,
@@ -89,28 +91,28 @@ impl Event {
                 "filePath": file_path,
                 "contents": contents,
             }),
-            project_id: project_id.to_string(),
+            project_id: *project_id,
         }
     }
 
-    pub fn session(project_id: &str, session: &sessions::Session) -> Self {
+    pub fn session(project_id: &ProjectId, session: &sessions::Session) -> Self {
         Event {
             name: format!("project://{}/sessions", project_id),
             payload: serde_json::to_value(session).unwrap(),
-            project_id: project_id.to_string(),
+            project_id: *project_id,
         }
     }
 
-    pub fn bookmark(project_id: &str, bookmark: &bookmarks::Bookmark) -> Self {
+    pub fn bookmark(project_id: &ProjectId, bookmark: &bookmarks::Bookmark) -> Self {
         Event {
             name: format!("project://{}/bookmarks", project_id),
             payload: serde_json::to_value(bookmark).unwrap(),
-            project_id: project_id.to_string(),
+            project_id: *project_id,
         }
     }
 
     pub fn deltas(
-        project_id: &str,
+        project_id: &ProjectId,
         session_id: &SessionId,
         deltas: &Vec<deltas::Delta>,
         relative_file_path: &std::path::Path,
@@ -121,7 +123,7 @@ impl Event {
                 "deltas": deltas,
                 "filePath": relative_file_path,
             }),
-            project_id: project_id.to_string(),
+            project_id: *project_id,
         }
     }
 }

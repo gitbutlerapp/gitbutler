@@ -6,7 +6,8 @@ use tauri::AppHandle;
 use crate::{
     deltas, gb_repository,
     paths::DataDir,
-    project_repository, projects,
+    project_repository,
+    projects::{self, ProjectId},
     reader::{self, Reader},
     sessions, users,
 };
@@ -79,7 +80,7 @@ impl Handler {
     pub fn handle<P: AsRef<std::path::Path>>(
         &self,
         path: P,
-        project_id: &str,
+        project_id: &ProjectId,
     ) -> Result<Vec<events::Event>> {
         let project = self
             .projects
@@ -146,7 +147,7 @@ impl Handler {
             .context("failed to calculate new deltas")?;
 
         if new_delta.is_none() {
-            tracing::debug!(project_id, path = %path.display(), "no new deltas, ignoring");
+            tracing::debug!(%project_id, path = %path.display(), "no new deltas, ignoring");
             return Ok(vec![]);
         }
         let new_delta = new_delta.as_ref().unwrap();
@@ -166,14 +167,14 @@ impl Handler {
 
         Ok(vec![
             events::Event::SessionFile((
-                project_id.to_string(),
+                *project_id,
                 current_session.id,
                 path.to_path_buf(),
                 latest_file_content,
             )),
-            events::Event::Session(project_id.to_string(), current_session.clone()),
+            events::Event::Session(*project_id, current_session.clone()),
             events::Event::SessionDelta((
-                project_id.to_string(),
+                *project_id,
                 current_session.id,
                 path.to_path_buf(),
                 new_delta.clone(),

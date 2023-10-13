@@ -6,8 +6,8 @@ use std::{
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
-use crate::paths::DataDir;
 use crate::{gb_repository, project_repository, projects, users};
+use crate::{paths::DataDir, projects::ProjectId};
 
 use super::events;
 
@@ -28,7 +28,11 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    pub fn handle(&self, project_id: &str, now: &time::SystemTime) -> Result<Vec<events::Event>> {
+    pub fn handle(
+        &self,
+        project_id: &ProjectId,
+        now: &time::SystemTime,
+    ) -> Result<Vec<events::Event>> {
         self.inner.handle(project_id, now)
     }
 }
@@ -59,7 +63,11 @@ impl TryFrom<&AppHandle> for HandlerInner {
 }
 
 impl HandlerInner {
-    pub fn handle(&self, project_id: &str, now: &time::SystemTime) -> Result<Vec<events::Event>> {
+    pub fn handle(
+        &self,
+        project_id: &ProjectId,
+        now: &time::SystemTime,
+    ) -> Result<Vec<events::Event>> {
         let _lock = match self.mutex.try_lock() {
             Ok(lock) => lock,
             Err(TryLockError::Poisoned(_)) => return Err(anyhow::anyhow!("mutex poisoned")),
@@ -71,7 +79,7 @@ impl HandlerInner {
         // mark fetching
         self.projects
             .update(&projects::UpdateRequest {
-                id: project_id.to_string(),
+                id: *project_id,
                 gitbutler_data_last_fetched: Some(projects::FetchResult::Fetching {
                     timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
                 }),
@@ -98,7 +106,7 @@ impl HandlerInner {
             .collect::<Vec<_>>();
 
         let fetch_result = if let Err(error) = gb_repo.fetch(user.as_ref()) {
-            tracing::error!(project_id, ?error, "failed to fetch gitbutler data");
+            tracing::error!(%project_id, ?error, "failed to fetch gitbutler data");
             projects::FetchResult::Error {
                 attempt: project
                     .gitbutler_data_last_fetched
@@ -119,7 +127,7 @@ impl HandlerInner {
 
         self.projects
             .update(&projects::UpdateRequest {
-                id: project_id.to_string(),
+                id: *project_id,
                 gitbutler_data_last_fetched: Some(fetch_result),
                 ..Default::default()
             })
@@ -138,7 +146,7 @@ impl HandlerInner {
         let events = new_sessions
             .into_iter()
             .cloned()
-            .map(|session| events::Event::Session(project_id.to_string(), session))
+            .map(|session| events::Event::Session(*project_id, session))
             .collect::<Vec<_>>();
 
         Ok(events)

@@ -1,7 +1,13 @@
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
-use crate::{gb_repository, paths::DataDir, project_repository, projects, sessions, users};
+use crate::{
+    gb_repository,
+    paths::DataDir,
+    project_repository,
+    projects::{self, ProjectId},
+    sessions, users,
+};
 
 use super::events;
 
@@ -27,7 +33,7 @@ impl TryFrom<&AppHandle> for Handler {
 impl Handler {
     pub fn handle(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         session: &sessions::Session,
     ) -> Result<Vec<events::Event>> {
         let project = self
@@ -50,8 +56,8 @@ impl Handler {
             .context("failed to flush session")?;
 
         Ok(vec![
-            events::Event::Session(project_id.to_string(), session),
-            events::Event::PushGitbutlerData(project_id.to_string()),
+            events::Event::Session(*project_id, session),
+            events::Event::PushGitbutlerData(*project_id),
         ])
     }
 }

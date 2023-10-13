@@ -2,7 +2,11 @@ use anyhow::Context;
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
-use crate::{assets, error::Error, git};
+use crate::{
+    assets,
+    error::{Code, Error},
+    git,
+};
 
 use super::{
     branch::Ownership,
@@ -38,9 +42,13 @@ pub async fn commit_virtual_branch(
     message: &str,
     ownership: Option<Ownership>,
 ) -> Result<git::Oid, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .create_commit(project_id, branch, message, ownership.as_ref())
+        .create_commit(&project_id, branch, message, ownership.as_ref())
         .await
         .map_err(Into::into)
 }
@@ -51,9 +59,13 @@ pub async fn list_virtual_branches(
     handle: AppHandle,
     project_id: &str,
 ) -> Result<Vec<super::VirtualBranch>, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .list_virtual_branches(project_id)
+        .list_virtual_branches(&project_id)
         .await
         .map_err(Into::into)
 }
@@ -65,9 +77,13 @@ pub async fn create_virtual_branch(
     project_id: &str,
     branch: super::branch::BranchCreateRequest,
 ) -> Result<String, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .create_virtual_branch(project_id, &branch)
+        .create_virtual_branch(&project_id, &branch)
         .await
         .map_err(Into::into)
 }
@@ -79,9 +95,13 @@ pub async fn create_virtual_branch_from_branch(
     project_id: &str,
     branch: git::BranchName,
 ) -> Result<String, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .create_virtual_branch_from_branch(project_id, &branch)
+        .create_virtual_branch_from_branch(&project_id, &branch)
         .await
         .map_err(Into::into)
 }
@@ -93,9 +113,13 @@ pub async fn merge_virtual_branch_upstream(
     project_id: &str,
     branch: &str,
 ) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .merge_virtual_branch_upstream(project_id, branch)
+        .merge_virtual_branch_upstream(&project_id, branch)
         .await
         .map_err(Into::into)
 }
@@ -106,9 +130,13 @@ pub async fn get_base_branch_data(
     handle: AppHandle,
     project_id: &str,
 ) -> Result<Option<super::BaseBranch>, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     if let Some(base_branch) = handle
         .state::<Controller>()
-        .get_base_branch_data(project_id)?
+        .get_base_branch_data(&project_id)?
     {
         let proxy = handle.state::<assets::Proxy>();
         let base_branch = proxy.proxy_base_branch(&base_branch).await;
@@ -125,12 +153,16 @@ pub async fn set_base_branch(
     project_id: &str,
     branch: &str,
 ) -> Result<super::BaseBranch, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     let branch_name = format!("refs/remotes/{}", branch)
         .parse()
         .context("Invalid branch name")?;
     let base_branch = handle
         .state::<Controller>()
-        .set_base_branch(project_id, &branch_name)?;
+        .set_base_branch(&project_id, &branch_name)?;
     let base_branch = handle
         .state::<assets::Proxy>()
         .proxy_base_branch(&base_branch)
@@ -141,9 +173,13 @@ pub async fn set_base_branch(
 #[tauri::command(async)]
 #[instrument(skip(handle))]
 pub async fn update_base_branch(handle: AppHandle, project_id: &str) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".into(),
+    })?;
     handle
         .state::<Controller>()
-        .update_base_branch(project_id)
+        .update_base_branch(&project_id)
         .await
         .map_err(Into::into)
 }
@@ -155,9 +191,13 @@ pub async fn update_virtual_branch(
     project_id: &str,
     branch: super::branch::BranchUpdateRequest,
 ) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .update_virtual_branch(project_id, branch)
+        .update_virtual_branch(&project_id, branch)
         .await
         .map_err(Into::into)
 }
@@ -169,9 +209,13 @@ pub async fn delete_virtual_branch(
     project_id: &str,
     branch_id: &str,
 ) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .delete_virtual_branch(project_id, branch_id)
+        .delete_virtual_branch(&project_id, branch_id)
         .await
         .map_err(Into::into)
 }
@@ -179,9 +223,13 @@ pub async fn delete_virtual_branch(
 #[tauri::command(async)]
 #[instrument(skip(handle))]
 pub async fn apply_branch(handle: AppHandle, project_id: &str, branch: &str) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .apply_virtual_branch(project_id, branch)
+        .apply_virtual_branch(&project_id, branch)
         .await
         .map_err(Into::into)
 }
@@ -193,9 +241,13 @@ pub async fn unapply_branch(
     project_id: &str,
     branch: &str,
 ) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .unapply_virtual_branch(project_id, branch)
+        .unapply_virtual_branch(&project_id, branch)
         .await
         .map_err(Into::into)
 }
@@ -207,9 +259,13 @@ pub async fn unapply_ownership(
     project_id: &str,
     ownership: Ownership,
 ) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .unapply_ownership(project_id, &ownership)
+        .unapply_ownership(&project_id, &ownership)
         .await
         .map_err(Into::into)
 }
@@ -222,9 +278,13 @@ pub async fn push_virtual_branch(
     branch_id: &str,
     with_force: bool,
 ) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .push_virtual_branch(project_id, branch_id, with_force)
+        .push_virtual_branch(&project_id, branch_id, with_force)
         .await
         .map_err(Into::into)
 }
@@ -236,9 +296,13 @@ pub async fn can_apply_virtual_branch(
     project_id: &str,
     branch_id: &str,
 ) -> Result<bool, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .can_apply_virtual_branch(project_id, branch_id)
+        .can_apply_virtual_branch(&project_id, branch_id)
         .map_err(Into::into)
 }
 
@@ -249,9 +313,13 @@ pub async fn can_apply_remote_branch(
     project_id: &str,
     branch: git::BranchName,
 ) -> Result<bool, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .can_apply_remote_branch(project_id, &branch)
+        .can_apply_remote_branch(&project_id, &branch)
         .map_err(Into::into)
 }
 
@@ -262,9 +330,13 @@ pub async fn list_remote_commit_files(
     project_id: &str,
     commit_oid: git::Oid,
 ) -> Result<Vec<RemoteBranchFile>, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .list_remote_commit_files(project_id, commit_oid)
+        .list_remote_commit_files(&project_id, commit_oid)
         .map_err(Into::into)
 }
 
@@ -276,9 +348,13 @@ pub async fn reset_virtual_branch(
     branch_id: &str,
     target_commit_oid: git::Oid,
 ) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Projects,
+        message: "Malformed project id".to_string(),
+    })?;
     handle
         .state::<Controller>()
-        .reset_virtual_branch(project_id, branch_id, target_commit_oid)
+        .reset_virtual_branch(&project_id, branch_id, target_commit_oid)
         .await
         .map_err(Into::into)
 }

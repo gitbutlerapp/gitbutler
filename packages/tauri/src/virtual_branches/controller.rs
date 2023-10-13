@@ -8,7 +8,8 @@ use crate::{
     gb_repository, git, keys,
     paths::DataDir,
     project_repository::{self, conflicts},
-    projects, users,
+    projects::{self, ProjectId},
+    users,
 };
 
 use super::{branch::Ownership, RemoteBranchFile};
@@ -84,7 +85,7 @@ impl Controller {
 
     pub async fn create_commit(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         branch: &str,
         message: &str,
         ownership: Option<&Ownership>,
@@ -124,7 +125,7 @@ impl Controller {
 
     pub fn can_apply_remote_branch(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         branch_name: &git::BranchName,
     ) -> Result<bool, Error> {
         let project = self.projects.get(project_id)?;
@@ -142,7 +143,7 @@ impl Controller {
 
     pub fn can_apply_virtual_branch(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         branch_id: &str,
     ) -> Result<bool, Error> {
         let project = self.projects.get(project_id)?;
@@ -160,7 +161,7 @@ impl Controller {
 
     pub async fn list_virtual_branches(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
     ) -> Result<Vec<super::VirtualBranch>, Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
@@ -173,7 +174,7 @@ impl Controller {
 
     pub async fn create_virtual_branch(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         create: &super::branch::BranchCreateRequest,
     ) -> Result<String, Error> {
         self.with_lock(project_id, || {
@@ -192,7 +193,7 @@ impl Controller {
 
     pub async fn create_virtual_branch_from_branch(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         branch: &git::BranchName,
     ) -> Result<String, Error> {
         self.with_lock::<Result<String, Error>>(project_id, || {
@@ -237,7 +238,7 @@ impl Controller {
 
     pub fn get_base_branch_data(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
     ) -> Result<Option<super::BaseBranch>, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::try_from(&project)?;
@@ -255,7 +256,7 @@ impl Controller {
 
     pub fn list_remote_commit_files(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         commit_oid: git::Oid,
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = self.projects.get(project_id)?;
@@ -270,7 +271,7 @@ impl Controller {
 
     pub fn set_base_branch(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         target_branch: &git::RemoteBranchName,
     ) -> Result<super::BaseBranch, Error> {
         let project = self.projects.get(project_id)?;
@@ -298,7 +299,7 @@ impl Controller {
 
     pub async fn merge_virtual_branch_upstream(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         branch: &str,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
@@ -335,7 +336,7 @@ impl Controller {
         .await
     }
 
-    pub async fn update_base_branch(&self, project_id: &str) -> Result<(), Error> {
+    pub async fn update_base_branch(&self, project_id: &ProjectId) -> Result<(), Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
                 super::update_base_branch(gb_repository, project_repository, user)
@@ -347,7 +348,7 @@ impl Controller {
 
     pub async fn update_virtual_branch(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         branch_update: super::branch::BranchUpdateRequest,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
@@ -361,7 +362,7 @@ impl Controller {
 
     pub async fn delete_virtual_branch(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         branch_id: &str,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
@@ -375,7 +376,7 @@ impl Controller {
 
     pub async fn apply_virtual_branch(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         branch_id: &str,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
@@ -408,7 +409,7 @@ impl Controller {
 
     pub async fn unapply_ownership(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         ownership: &Ownership,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
@@ -422,7 +423,7 @@ impl Controller {
 
     pub async fn reset_virtual_branch(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         branch_id: &str,
         target_commit_oid: git::Oid,
     ) -> Result<(), Error> {
@@ -442,7 +443,7 @@ impl Controller {
 
     pub async fn unapply_virtual_branch(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         branch_id: &str,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
@@ -456,7 +457,7 @@ impl Controller {
 
     pub async fn push_virtual_branch(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         branch_id: &str,
         with_force: bool,
     ) -> Result<(), Error> {
@@ -497,7 +498,7 @@ impl Controller {
 
     fn with_verify_branch<T>(
         &self,
-        project_id: &str,
+        project_id: &ProjectId,
         action: impl FnOnce(
             &gb_repository::Repository,
             &project_repository::Repository,
@@ -518,7 +519,7 @@ impl Controller {
         action(&gb_repository, &project_repository, user.as_ref())
     }
 
-    async fn with_lock<T>(&self, project_id: &str, action: impl FnOnce() -> T) -> T {
+    async fn with_lock<T>(&self, project_id: &ProjectId, action: impl FnOnce() -> T) -> T {
         let mut semaphores = self.semaphores.lock().await;
         let semaphore = semaphores
             .entry(project_id.to_string())
