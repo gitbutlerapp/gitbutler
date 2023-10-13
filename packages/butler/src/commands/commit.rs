@@ -47,7 +47,7 @@ impl super::RunCommand for Commit {
             None => return Ok(()),
         };
 
-        let commit_branch = ids[selection].clone();
+        let commit_branch = ids[selection];
         println!(
             "Committing virtual branch {}",
             commit_branch.to_string().red()

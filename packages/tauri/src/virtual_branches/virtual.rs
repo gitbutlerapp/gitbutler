@@ -1533,14 +1533,13 @@ fn get_applied_status(
                                         .unwrap_or(current_hunk.modified_at);
 
                                     // push hunk to the end of the list, preserving the order
-                                    hunks_by_branch_id
-                                        .entry(branch.id.clone())
-                                        .or_default()
-                                        .push(VirtualBranchHunk {
+                                    hunks_by_branch_id.entry(branch.id).or_default().push(
+                                        VirtualBranchHunk {
                                             id: ch.with_timestamp(timestamp).to_string(),
                                             modified_at: timestamp,
                                             ..current_hunk.clone()
-                                        });
+                                        },
+                                    );
 
                                     // remove the hunk from the current hunks because each hunk can
                                     // only be owned once
@@ -1550,16 +1549,13 @@ fn get_applied_status(
                                 } else if owned_hunk.intersects(&ch) {
                                     // if it's an intersection, push the hunk to the beginning,
                                     // indicating the the hunk has been updated
-                                    hunks_by_branch_id
-                                        .entry(branch.id.clone())
-                                        .or_default()
-                                        .insert(
-                                            0,
-                                            VirtualBranchHunk {
-                                                id: ch.to_string(),
-                                                ..current_hunk.clone()
-                                            },
-                                        );
+                                    hunks_by_branch_id.entry(branch.id).or_default().insert(
+                                        0,
+                                        VirtualBranchHunk {
+                                            id: ch.to_string(),
+                                            ..current_hunk.clone()
+                                        },
+                                    );
 
                                     // track updated hunks to bubble them up later
                                     updated.push(FileOwnership {
@@ -1613,7 +1609,7 @@ fn get_applied_status(
             .unwrap(),
         );
         hunks_by_branch_id
-            .entry(virtual_branches[0].id.clone())
+            .entry(virtual_branches[0].id)
             .or_default()
             .push(hunk.clone());
     }
