@@ -1,6 +1,5 @@
-import { asyncWritable, isReloadable } from '@square/svelte-store';
+import { asyncWritable, isReloadable, type AsyncWritable, type Stores } from '@square/svelte-store';
 import { subscribeToDeltas, type Delta, listDeltas } from '$lib/api/ipc/deltas';
-import type { Stores, Writable } from 'svelte/store';
 
 /**
  * We have a special situation here where we use deltas to know when to re-run
@@ -10,20 +9,23 @@ import type { Stores, Writable } from 'svelte/store';
  */
 export function getDeltasStore(
 	projectId: string,
-	sessionId: string | undefined = undefined
-): Writable<Partial<Record<string, Delta[]>>> & { setSessionId: (sid: string) => void } {
+	sessionId: string | undefined = undefined,
+	subscribe = false
+): AsyncWritable<Partial<Record<string, Delta[]>>> & { setSessionId: (sid: string) => void } {
 	let unsubscribe: () => void;
 	const store = asyncWritable<Stores, Partial<Record<string, Delta[]>>>(
 		[],
 		async () => {
 			if (!sessionId) return {};
 			if (unsubscribe) unsubscribe();
-			unsubscribe = subscribeToDeltas(projectId, sessionId, ({ filePath, deltas }) => {
-				store.update((storeValue) => {
-					storeValue[filePath] = [...(storeValue[filePath] || []), ...deltas];
-					return storeValue;
+			if (subscribe) {
+				unsubscribe = subscribeToDeltas(projectId, sessionId, ({ filePath, deltas }) => {
+					store.update((storeValue) => {
+						storeValue[filePath] = [...(storeValue[filePath] || []), ...deltas];
+						return storeValue;
+					});
 				});
-			});
+			}
 			return await listDeltas({ projectId, sessionId });
 		},
 		undefined,

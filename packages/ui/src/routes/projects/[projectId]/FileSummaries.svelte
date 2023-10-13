@@ -2,7 +2,6 @@
 	import { format, startOfDay } from 'date-fns';
 	import type { Delta } from '$lib/api/ipc/deltas';
 	import { generateBuckets } from './histogram';
-	import { derived, Loaded } from 'svelte-loadable-store';
 	import FileActivity from './FileActivity.svelte';
 	import { page } from '$app/stores';
 	import { Link } from '$lib/components';
@@ -10,13 +9,14 @@
 	import { collapse } from '$lib/paths';
 	import type { Session } from '$lib/api/ipc/sessions';
 	import { getDeltasStore } from '$lib/stores/deltas';
+	import { asyncDerived } from '@square/svelte-store';
 
 	export let sessions: Session[];
 
 	$: sessionDeltas = (sessions ?? []).map(({ id, projectId }) => getDeltasStore(projectId, id));
 
-	$: deltasByDate = derived(sessionDeltas, (sessionDeltas) =>
-		sessionDeltas.reduce(
+	$: deltasByDate = asyncDerived(sessionDeltas, async (sessionDeltas) => {
+		return sessionDeltas.reduce(
 			(acc, sessionDelta) => {
 				Object.entries(sessionDelta).forEach(([filepath, deltas]) => {
 					if (!deltas) return;
@@ -28,10 +28,11 @@
 				return acc;
 			},
 			{} as Record<string, Record<string, Delta[]>>
-		)
-	);
+		);
+	});
+	$: deltasByDateState = deltasByDate?.state;
 
-	$: buckets = derived(sessionDeltas, (sessionDeltas) => {
+	$: buckets = asyncDerived(sessionDeltas, async (sessionDeltas) => {
 		const deltas = sessionDeltas.flatMap((deltas) => Object.values(deltas).flat() as Delta[]);
 		const timestamps = deltas.map((delta) => delta.timestampMs);
 		return generateBuckets(timestamps, 18);
@@ -39,14 +40,14 @@
 </script>
 
 <ul class="mr-1 flex flex-1 flex-col space-y-4 overflow-y-auto px-8 pb-8">
-	{#if $deltasByDate.isLoading || $buckets.isLoading}
+	{#if $deltasByDate?.isLoading}
 		<li class="flex flex-1 space-y-4 rounded-lg border border-dashed border-zinc-400">
 			<div class="flex flex-1 flex-col items-center justify-center gap-4">
 				<IconLoading class="h-16 w-16 animate-spin text-zinc-400 " />
 				<h2 class="text-2xl font-bold text-zinc-400">Loading file changes...</h2>
 			</div>
 		</li>
-	{:else if Loaded.isError($deltasByDate) || Loaded.isError($buckets)}
+	{:else if $deltasByDateState?.isError}
 		<li class="flex flex-1 space-y-4 rounded-lg border border-dashed border-zinc-400">
 			<div class="flex flex-1 flex-col items-center justify-center gap-4">
 				<IconSparkle class="h-16 w-16 text-zinc-400 " />
@@ -54,14 +55,14 @@
 				<p class="text-zinc-400">We couldn't load your file changes. Please try again later.</p>
 			</div>
 		</li>
-	{:else}
-		{#each Object.entries($deltasByDate.value) as [ts, fileDeltas]}
+	{:else if $deltasByDate}
+		{#each Object.entries($deltasByDate) as [ts, fileDeltas]}
 			{@const date = new Date(ts)}
 			<li class="card changed-day-card flex flex-col">
 				<header
-					class="header flex flex-row justify-between gap-2 rounded-tl rounded-tr border-b-gb-700 bg-card-active px-3 py-2"
+					class="header border-color-2 bg-color-2 flex flex-row justify-between gap-2 rounded-tl rounded-tr border-b px-3 py-2"
 				>
-					<div class="text-zinc-300">
+					<div class="text-color-3">
 						{date.toLocaleDateString('en-us', {
 							weekday: 'long',
 							year: 'numeric',
@@ -78,7 +79,7 @@
 				</header>
 				<ul class="all-files-changed flex flex-col rounded pl-3">
 					{#each Object.entries(fileDeltas) as [filepath, deltas]}
-						<li class="changed-file flex items-center justify-between gap-4 bg-[#212121]">
+						<li class="changed-file bg-color-1 flex items-center justify-between gap-4">
 							<a
 								class="file-name max-w- flex w-full max-w-[360px] overflow-auto py-2 font-mono hover:underline"
 								href="/projects/{$page.params.projectId}/player/{format(
@@ -90,19 +91,17 @@
 									{collapse(filepath)}
 								</span>
 							</a>
-							<FileActivity {deltas} buckets={$buckets.value} />
+							<FileActivity {deltas} buckets={$buckets} />
 						</li>
 					{/each}
 				</ul>
 			</li>
 		{:else}
 			<div
-				class="replay-no-changes text-center space-y-4 border dark:border-dark-300 px-10 py-12 mb-6 rounded-lg h-full flex justify-around items-center dark:text-light-400 border-light-200 text-dark-300"
+				class="replay-no-changes text-center space-y-4 border px-10 py-12 mb-6 rounded-lg h-full flex justify-around items-center border-color-2 text-color-2"
 			>
 				<div class="max-w-[360px] m-auto">
-					<h3 class="mb-6 text-3xl font-semibold dark:text-light-200 text-dark-400">
-						Waiting for file changes...
-					</h3>
+					<h3 class="mb-6 text-3xl font-semibold text-color-1">Waiting for file changes...</h3>
 					<p class="mt-1">
 						GitButler is now watching your project directory for file changes. As long as GitButler
 						is running, changes to any text files in this directory will automatically be recorded.

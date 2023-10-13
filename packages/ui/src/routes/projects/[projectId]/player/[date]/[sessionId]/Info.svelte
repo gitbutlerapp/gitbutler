@@ -4,7 +4,6 @@
 	import { IconBookmark, IconBookmarkFilled } from '$lib/icons';
 	import { format } from 'date-fns';
 	import { page } from '$app/stores';
-	import { Loaded } from 'svelte-loadable-store';
 	import * as bookmarks from '$lib/api/ipc/bookmarks';
 	import { getBookmark } from '$lib/stores/bookmarks';
 
@@ -12,12 +11,13 @@
 	export let filename: string;
 
 	$: bookmark = getBookmark({ projectId: $page.params.projectId, timestampMs });
+	$: bookmarkState = bookmark.state;
 
 	const toggleBookmark = () => {
-		if ($bookmark.isLoading) return;
-		if (Loaded.isError($bookmark)) return;
+		if ($bookmarkState?.isLoading) return;
+		if ($bookmarkState?.isError) return;
 		bookmarks.upsert(
-			!$bookmark.value
+			!$bookmark
 				? {
 						projectId: $page.params.projectId,
 						timestampMs,
@@ -25,14 +25,14 @@
 						deleted: false
 				  }
 				: {
-						...$bookmark.value,
-						deleted: !$bookmark.value.deleted
+						...$bookmark,
+						deleted: !$bookmark.deleted
 				  }
 		);
 	};
 </script>
 
-{#if !$bookmark.isLoading && !Loaded.isError($bookmark)}
+{#if !$bookmarkState?.isLoading && !$bookmarkState?.isError}
 	<div
 		class="flex max-w-[357px] flex-col gap-2 rounded-[18px] px-4 py-2 shadow"
 		style="border: 0.5px solid rgba(63, 63, 70, 0.5);
@@ -45,9 +45,9 @@
 				{collapse(filename)}
 			</span>
 			<button on:click={toggleBookmark} class="z-1">
-				{#if $bookmark.value?.deleted}
+				{#if $bookmark?.deleted}
 					<IconBookmark class="h-4 w-4 text-zinc-700" />
-				{:else if !$bookmark.value}
+				{:else if !$bookmark}
 					<IconBookmark class="h-4 w-4 text-zinc-700" />
 				{:else}
 					<IconBookmarkFilled class="h-4 w-4 text-bookmark-selected" />
@@ -55,7 +55,7 @@
 			</button>
 		</header>
 
-		{#if $bookmark.value && $bookmark.value.note.length && !$bookmark.value.deleted}
+		{#if $bookmark && $bookmark.note.length && !$bookmark.deleted}
 			<div
 				role="button"
 				tabindex="0"
@@ -64,11 +64,11 @@
 				on:keydown={() => events.emit('openBookmarkModal')}
 			>
 				<main class="max-h-[7ch] overflow-auto text-text-subdued">
-					{$bookmark.value.note}
+					{$bookmark.note}
 				</main>
 
 				<footer class="text-right text-sm text-text-subdued">
-					{format(new Date($bookmark.value.updatedTimestampMs), 'E d MMM  yyyy')}
+					{format(new Date($bookmark.updatedTimestampMs), 'E d MMM  yyyy')}
 				</footer>
 			</div>
 		{/if}

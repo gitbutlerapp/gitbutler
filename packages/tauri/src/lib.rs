@@ -1,4 +1,4 @@
-#![forbid(unsafe_code)]
+#![forbid(unsafe_code, dead_code)]
 #![deny(
     clippy::all,
     clippy::perf,

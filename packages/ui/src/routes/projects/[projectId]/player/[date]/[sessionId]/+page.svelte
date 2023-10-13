@@ -2,77 +2,26 @@
 	import Slider from './Slider.svelte';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
-	import { get, writable } from '@square/svelte-store';
-	import { derived, Loaded } from 'svelte-loadable-store';
-	import { format } from 'date-fns';
+	import { writable } from '@square/svelte-store';
 	import Playback from './Playback.svelte';
 	import type { Frame as FrameType } from './frame';
 	import Frame from './Frame.svelte';
 	import Info from './Info.svelte';
-	import type { Delta } from '$lib/api/ipc/deltas';
-	import { getSessionStore } from '$lib/stores/sessions';
-	import { getDeltasStore } from '$lib/stores/deltas';
-	import { getFilesStore } from '$lib/stores/files';
 	import { getBookmarksStore } from '$lib/stores/bookmarks';
 
 	export let data: PageData;
-	const { currentFilepath, currentTimestamp, currentSessionId } = data;
+	const { currentFilepath, currentTimestamp, richSessions, currentSessionId } = data;
 
 	let fullContext = true;
 	let context = 8;
 
-	page.subscribe((page) => {
-		currentDeltaIndex = parseInt(page.url.searchParams.get('delta') || '0');
-		currentSessionId.set(page.params.sessionId);
-	});
-
-	const filter = derived(page, (page) => page.url.searchParams.get('file'));
-	const projectId = derived(page, (page) => page.params.projectId);
-
 	$: bookmarks = getBookmarksStore({ projectId: $page.params.projectId });
-	$: sessions = getSessionStore($page.params.projectId);
-	$: dateSessions = derived([sessions, page], async ([sessions, page]) =>
-		sessions?.filter(
-			(session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === page.params.date
-		)
-	);
-	$: richSessions = derived([dateSessions, filter, projectId], ([sessions, filter, projectId]) =>
-		sessions.map((session) => ({
-			...session,
-			deltas: derived(getDeltasStore(projectId, session.id), (deltas) =>
-				Object.entries(deltas)
-					.filter(([path]) => (filter ? path === filter : true))
-					.flatMap(([path, deltas]) =>
-						(deltas || []).map((delta) => [path, delta] as [string, Delta])
-					)
-					.sort((a, b) => a[1].timestampMs - b[1].timestampMs)
-			),
-			files: derived(getFilesStore({ projectId, sessionId: session.id }), (files) =>
-				Object.fromEntries(
-					Object.entries(files)
-						.filter(([path]) => (filter ? path === filter : true))
-						.map(([path, file]) => {
-							if (file?.type === 'utf8') {
-								return [path, file.value];
-							} else {
-								return [path, undefined];
-							}
-						})
-				)
-			)
-		}))
-	);
+	$: richSessionsState = richSessions?.state;
 
 	$: currentDeltaIndex = parseInt($page.url.searchParams.get('delta') || '0');
-
-	richSessions?.subscribe((sessions) => {
-		if (sessions.isLoading) return;
-		if (Loaded.isError(sessions)) return;
-		if (sessions.value.length === 0) return;
-		if (!sessions.value.some((s) => s.id === $currentSessionId)) {
-			$currentSessionId = sessions.value[0].id;
-		}
-	});
+	$: if ($page.params.sessionId) {
+		currentSessionId.set($page.params.sessionId);
+	}
 
 	let frame: FrameType | null = null;
 
@@ -84,35 +33,28 @@
 
 	const value = writable(0);
 
-	$: {
+	$: if ($richSessions) {
 		// this hook updates player value if current page url has changed
-		if (!$richSessions.isLoading && Loaded.isValue($richSessions)) {
-			const currentSessionIndex = $richSessions.value.findIndex(
-				(s) => s.id === $page.params.sessionId
-			);
-			$value =
-				$richSessions.value
-					.filter((_, index) => index < currentSessionIndex)
-					.reduce((acc, s) => {
-						const deltas = get(s.deltas);
-						if (!deltas.isLoading && Loaded.isValue(deltas)) {
-							return acc + deltas.value.length;
-						} else {
-							return acc;
-						}
-					}, 0) + currentDeltaIndex;
-		}
+		const currentSessionIndex = $richSessions.findIndex((s) => {
+			return s.id == $page.params.sessionId;
+		});
+		$value =
+			$richSessions
+				.filter((_, index) => index < currentSessionIndex)
+				.reduce((acc, s) => {
+					return acc + s.deltas.length;
+				}, 0) + currentDeltaIndex;
 	}
 </script>
 
-{#if $richSessions.isLoading}
+{#if $richSessionsState?.isLoading}
 	<div class="flex h-full flex-col items-center justify-center">
 		<div
 			class="loader border-gray-200 mb-4 h-12 w-12 rounded-full border-4 border-t-4 ease-linear"
 		/>
 		<h2 class="text-center text-2xl font-medium text-gray-500">Loading...</h2>
 	</div>
-{:else if Loaded.isError($richSessions)}
+{:else if $richSessionsState?.isError}
 	<div class="flex h-full flex-col items-center justify-center">
 		<h2 class="text-center text-2xl font-medium text-gray-500">Something went wrong</h2>
 	</div>
@@ -120,15 +62,9 @@
 	<Frame
 		{context}
 		{fullContext}
-		sessions={$richSessions.value}
-		deltas={derived(
-			$richSessions.value.map(({ deltas }) => deltas),
-			(deltas) => deltas
-		)}
-		files={derived(
-			$richSessions.value.map(({ files }) => files),
-			(files) => files
-		)}
+		sessions={$richSessions}
+		deltas={$richSessions?.map((s) => s.deltas)}
+		files={$richSessions?.map((s) => s.files)}
 		bind:frame
 		value={$value}
 	/>
@@ -139,30 +75,14 @@
 		</div>
 	{/if}
 
+	<div class="flex-shrink flex-grow"></div>
 	<div
 		id="controls"
-		class="absolute bottom-0 flex w-full flex-col gap-4 overflow-hidden rounded-bl rounded-br border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
-		style="
-            border-width: 0.5px;
-            -webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
-            backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
-            background-color: rgba(24, 24, 27, 0.60);
-            border: 0.5px solid rgba(63, 63, 70, 0.50);
-        "
+		class="border-color-4 bg-color-3 bottom-0 flex w-full flex-col gap-4 rounded-bl rounded-br border-t p-2 pt-4"
 	>
-		<Slider
-			sessions={derived(
-				$richSessions.value.map(({ deltas }) => deltas),
-				(deltas) => deltas
-			)}
-			{bookmarks}
-			bind:value={$value}
-		/>
+		<Slider sessions={$richSessions?.map(({ deltas }) => deltas)} {bookmarks} bind:value={$value} />
 		<Playback
-			deltas={derived(
-				$richSessions.value.map(({ deltas }) => deltas),
-				(deltas) => deltas
-			)}
+			deltas={$richSessions?.map(({ deltas }) => deltas)}
 			bind:value={$value}
 			bind:context
 			bind:fullContext

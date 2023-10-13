@@ -93,20 +93,22 @@ impl Controller {
             })?;
 
         if let Some(watchers) = &self.watchers {
-            if let Err(error) = block_on(watchers.post(watcher::Event::FetchGitbutlerData(
-                project.id.clone(),
-                time::SystemTime::now(),
-            ))) {
-                tracing::error!(
-                    project_id = %project.id,
-                    ?error,
-                    "failed to post fetch project event"
-                );
-            }
+            if let Some(api) = &project.api {
+                if api.sync {
+                    if let Err(error) = block_on(watchers.post(watcher::Event::FetchGitbutlerData(
+                        project.id,
+                        time::SystemTime::now(),
+                    ))) {
+                        tracing::error!(
+                            project_id = %project.id,
+                            ?error,
+                            "failed to post fetch project event"
+                        );
+                    }
+                }
 
-            if project.api.is_some() {
                 if let Err(error) =
-                    block_on(watchers.post(watcher::Event::PushGitbutlerData(project.id.clone())))
+                    block_on(watchers.post(watcher::Event::PushGitbutlerData(project.id)))
                 {
                     tracing::error!(
                         project_id = %project.id,
@@ -158,7 +160,7 @@ impl Controller {
             self.local_data_dir
                 .to_path_buf()
                 .join("projects")
-                .join(&project.id.to_string()),
+                .join(project.id.to_string()),
         ) {
             tracing::error!(project_id = %id, ?error, "failed to remove project data",);
         }
