@@ -535,29 +535,25 @@ impl Controller {
 
     pub fn flush_vbranches(&self, project_id: ProjectId) -> Result<(), Error> {
         block_on(async {
-            let _ = self
-                .with_lock(&project_id, || {
-                    self.with_verify_branch(&project_id, |gb_repository, project_repository, _| {
-                        let vbranches =
-                            super::list_virtual_branches(gb_repository, project_repository)
-                                .map_err(Error::Other)?;
+            self.with_lock(&project_id, || {
+                self.with_verify_branch(&project_id, |gb_repository, project_repository, _| {
+                    let vbranches = super::list_virtual_branches(gb_repository, project_repository)
+                        .map_err(Error::Other)?;
 
-                        for b in &vbranches {
-                            super::flush_vbranch_as_tree(
-                                gb_repository,
-                                project_repository,
-                                &b.id,
-                                true,
-                            )
-                            .map_err(Error::Other)?;
-                        }
+                    for b in &vbranches {
+                        super::flush_vbranch_as_tree(
+                            gb_repository,
+                            project_repository,
+                            &b.id,
+                            true,
+                        )
+                        .map_err(Error::Other)?;
+                    }
 
-                        Ok(())
-                    })
+                    Ok(())
                 })
-                .await;
-        });
-
-        Ok(())
+            })
+            .await
+        })
     }
 }
