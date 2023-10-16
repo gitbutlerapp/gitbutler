@@ -624,9 +624,12 @@
 												animate:flip
 											>
 												{#if commit.id === headCommit?.id}
-													<div class="group relative ml-[0.4rem] mr-1.5 h-3 w-3">
+													<div
+														class="group relative ml-[0.4rem] mr-1.5 h-3 w-3"
+														title="Reset this commit"
+													>
 														<div
-															class="insert-0 border-color-4 absolute h-3 w-3 rounded-full border-2 transition-opacity group-hover:opacity-0"
+															class="insert-0 border-color-4 bg-color-3 absolute h-3 w-3 rounded-full border-2 transition-opacity group-hover:opacity-0"
 														/>
 														<IconButton
 															class="insert-0 absolute opacity-0 group-hover:opacity-100"
