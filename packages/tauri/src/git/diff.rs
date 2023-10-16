@@ -94,6 +94,10 @@ fn hunks_by_filepath(
                 .expect("failed to get file name from diff")
         });
 
+        if current_file_path.is_none() {
+            current_file_path = Some(file_path.to_path_buf());
+        }
+
         let (hunk_id, new_start, new_lines, old_start, old_lines) = if let Some(hunk) = hunk {
             (
                 format!(
@@ -177,10 +181,10 @@ fn hunks_by_filepath(
     // push the last hunk
     if let Some(file_path) = current_file_path {
         hunks_by_filepath.entry(file_path).or_default().push(Hunk {
-            old_start: current_old_start.unwrap(),
-            old_lines: current_old_lines.unwrap(),
-            new_start: current_new_start.unwrap(),
-            new_lines: current_new_lines.unwrap(),
+            old_start: current_old_start.unwrap_or_default(),
+            old_lines: current_old_lines.unwrap_or_default(),
+            new_start: current_new_start.unwrap_or_default(),
+            new_lines: current_new_lines.unwrap_or_default(),
             diff: current_diff,
             binary: current_binary,
         });

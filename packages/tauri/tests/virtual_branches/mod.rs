@@ -294,7 +294,7 @@ mod conflicts {
                     .create_virtual_branch(&project_id, &BranchCreateRequest::default())
                     .await
                     .unwrap();
-                fs::write(repository.path().join("another_file.txt"), "virtual").unwrap();
+                fs::write(repository.path().join("another_file.txt"), "").unwrap();
 
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
