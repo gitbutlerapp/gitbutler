@@ -430,32 +430,29 @@ impl Repository {
 
         let _lock = self.lock();
 
-        let git_repository = git::Repository::open(self.git_repository.path())?;
-
         // update last timestamp
         sessions::Writer::new(self).write(session)?;
 
-        let mut tree_builder = git_repository.treebuilder(None);
+        let mut tree_builder = self.git_repository.treebuilder(None);
         tree_builder.upsert(
             "session",
-            build_session_tree(&git_repository).context("failed to build session tree")?,
+            build_session_tree(self).context("failed to build session tree")?,
             git::FileMode::Tree,
         );
         tree_builder.upsert(
             "wd",
-            build_wd_tree(&git_repository, project_repository)
+            build_wd_tree(self, project_repository)
                 .context("failed to build working directory tree")?,
             git::FileMode::Tree,
         );
         tree_builder.upsert(
             "logs",
-            build_log_tree(&git_repository, project_repository)
-                .context("failed to build logs tree")?,
+            build_log_tree(self, project_repository).context("failed to build logs tree")?,
             git::FileMode::Tree,
         );
         tree_builder.upsert(
             "branches",
-            build_branches_tree(&git_repository).context("failed to build branches tree")?,
+            build_branches_tree(self).context("failed to build branches tree")?,
             git::FileMode::Tree,
         );
 
@@ -502,6 +499,10 @@ impl Repository {
 
     pub(crate) fn session_path(&self) -> std::path::PathBuf {
         self.root().join("session")
+    }
+
+    pub(crate) fn session_wd_path(&self) -> std::path::PathBuf {
+        self.session_path().join("wd")
     }
 
     pub fn default_target(&self) -> Result<Option<target::Target>> {
@@ -616,29 +617,27 @@ impl Repository {
 }
 
 fn build_wd_tree(
-    git_repository: &git::Repository,
+    gb_repository: &Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<git::Oid> {
-    match git_repository.find_reference("refs/heads/current") {
+    match gb_repository
+        .git_repository
+        .find_reference("refs/heads/current")
+    {
         Result::Ok(reference) => {
             // build the working directory tree from the current commit
             // and the session files
             let tree = reference.peel_to_tree()?;
             let wd_tree_entry = tree.get_name("wd").unwrap();
-            let wd_tree = git_repository.find_tree(wd_tree_entry.id())?;
+            let wd_tree = gb_repository.git_repository.find_tree(wd_tree_entry.id())?;
             let mut index = git::Index::try_from(wd_tree)?;
 
-            let session_wd_path = git_repository
-                .path()
-                .join("gitbutler")
-                .join("session")
-                .join("wd");
-            let session_wd_reader = reader::DirReader::open(session_wd_path.clone());
+            let session_wd_reader = reader::DirReader::open(gb_repository.session_wd_path());
             let session_wd_files = session_wd_reader
                 .list_files(&path::PathBuf::from("."))
                 .context("failed to read session wd files")?;
             for file_path in session_wd_files {
-                let abs_path = session_wd_path.join(&file_path);
+                let abs_path = gb_repository.session_wd_path().join(&file_path);
                 let metadata = abs_path.metadata().with_context(|| {
                     format!("failed to get metadata for {}", abs_path.display())
                 })?;
@@ -652,7 +651,7 @@ fn build_wd_tree(
                     Result::Ok(reader::Content::UTF8(content)) => content,
                     Result::Ok(reader::Content::Large) => {
                         tracing::error!(
-                            project_id = %project_repository.project().id,
+                            project_id = %gb_repository.project.id,
                             path = %abs_path.display(),
                             "large file in session working directory"
                         );
@@ -660,7 +659,7 @@ fn build_wd_tree(
                     }
                     Result::Ok(reader::Content::Binary) => {
                         tracing::error!(
-                            project_id = %project_repository.project().id,
+                            project_id = %gb_repository.project.id,
                             path = %abs_path.display(),
                             "binary file in session working directory"
                         );
@@ -668,7 +667,7 @@ fn build_wd_tree(
                     }
                     Err(error) => {
                         tracing::error!(
-                            project_id = %project_repository.project().id,
+                            project_id = %gb_repository.project.id,
                             path = %abs_path.display(),
                             ?error,
                             "failed to read file"
@@ -690,7 +689,7 @@ fn build_wd_tree(
                         flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
                         flags_extended: 0, // no extended flags
                         path: file_path.display().to_string().into(),
-                        id: git_repository.blob(file_content.as_bytes())?,
+                        id: gb_repository.git_repository.blob(file_content.as_bytes())?,
                     })
                     .with_context(|| {
                         format!("failed to add index entry for {}", file_path.display())
@@ -698,11 +697,11 @@ fn build_wd_tree(
             }
 
             let wd_tree_oid = index
-                .write_tree_to(git_repository)
+                .write_tree_to(&gb_repository.git_repository)
                 .context("failed to write wd tree")?;
             Ok(wd_tree_oid)
         }
-        Err(git::Error::NotFound(_)) => build_wd_tree_from_repo(git_repository, project_repository)
+        Err(git::Error::NotFound(_)) => build_wd_tree_from_repo(gb_repository, project_repository)
             .context("failed to build wd index"),
         Err(e) => Err(e.into()),
     }
@@ -711,15 +710,9 @@ fn build_wd_tree(
 // build wd index from the working directory files new session wd files
 // this is important because we want to make sure session files are in sync with session deltas
 fn build_wd_tree_from_repo(
-    git_repository: &git::Repository,
+    gb_repository: &Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<git::Oid> {
-    let session_wd_path = git_repository
-        .path()
-        .join("gitbutler")
-        .join("session")
-        .join("wd");
-
     let mut index = git::Index::new()?;
 
     // create a new in-memory git2 index and open the working one so we can cheat if none of the metadata of an entry has changed
@@ -732,10 +725,12 @@ fn build_wd_tree_from_repo(
 
     // first, add session/wd files. session/wd are written at the same time as deltas, so it's important to add them first
     // to make sure they are in sync with the deltas
-    for file_path in fs::list_files(&session_wd_path).context(format!(
-        "failed to session working directory files list files in {}",
-        session_wd_path.display()
-    ))? {
+    for file_path in fs::list_files(gb_repository.session_wd_path()).with_context(|| {
+        format!(
+            "failed to session working directory files list files in {}",
+            gb_repository.session_wd_path().display()
+        )
+    })? {
         let file_path = std::path::Path::new(&file_path);
         if project_repository
             .git_repository
@@ -748,9 +743,9 @@ fn build_wd_tree_from_repo(
         add_wd_path(
             &mut index,
             repo_index,
-            &session_wd_path,
+            &gb_repository.session_wd_path(),
             file_path,
-            git_repository,
+            gb_repository,
         )
         .with_context(|| {
             format!(
@@ -787,7 +782,7 @@ fn build_wd_tree_from_repo(
             repo_index,
             project_repository.root(),
             file_path,
-            git_repository,
+            gb_repository,
         )
         .with_context(|| {
             format!(
@@ -798,7 +793,7 @@ fn build_wd_tree_from_repo(
     }
 
     let tree_oid = index
-        .write_tree_to(git_repository)
+        .write_tree_to(&gb_repository.git_repository)
         .context("failed to write tree to repo")?;
     Ok(tree_oid)
 }
@@ -812,7 +807,7 @@ fn add_wd_path(
     repo_index: &mut git::Index,
     dir: &std::path::Path,
     rel_file_path: &std::path::Path,
-    git_repository: &git::Repository,
+    gb_repository: &Repository,
 ) -> Result<()> {
     let file_path = dir.join(rel_file_path);
 
@@ -840,6 +835,12 @@ fn add_wd_path(
     // insert a pointer as the blob content instead
     // TODO: size limit should be configurable
     let blob = if metadata.len() > 100_000_000 {
+        tracing::warn!(
+            project_id = %gb_repository.project.id,
+            path = %file_path.display(),
+            "file too big"
+        );
+
         // get a sha256 hash of the file first
         let sha = sha256_digest(&file_path)?;
 
@@ -854,15 +855,18 @@ fn add_wd_path(
 
         // write the file to the .git/lfs/objects directory
         // create the directory recursively if it doesn't exist
-        let lfs_objects_dir = git_repository.path().join("lfs/objects");
+        let lfs_objects_dir = gb_repository.git_repository.path().join("lfs/objects");
         std::fs::create_dir_all(lfs_objects_dir.clone())?;
         let lfs_path = lfs_objects_dir.join(sha);
         std::fs::copy(file_path, lfs_path)?;
 
-        git_repository.blob(lfs_pointer.as_bytes()).unwrap()
+        gb_repository
+            .git_repository
+            .blob(lfs_pointer.as_bytes())
+            .unwrap()
     } else {
         // read the file into a blob, get the object id
-        git_repository.blob_path(&file_path)?
+        gb_repository.git_repository.blob_path(&file_path)?
     };
 
     // create a new IndexEntry from the file metadata
@@ -907,14 +911,14 @@ fn sha256_digest(path: &std::path::Path) -> Result<String> {
     Ok(format!("{:X}", digest))
 }
 
-fn build_branches_tree(git_repository: &git::Repository) -> Result<git::Oid> {
+fn build_branches_tree(gb_repository: &Repository) -> Result<git::Oid> {
     let mut index = git::Index::new()?;
 
-    let branches_dir = git_repository.path().join("gitbutler").join("branches");
+    let branches_dir = gb_repository.root().join("branches");
     for file_path in fs::list_files(&branches_dir).context("failed to find branches directory")? {
         let file_path = std::path::Path::new(&file_path);
         add_file_to_index(
-            git_repository,
+            gb_repository,
             &mut index,
             file_path,
             &branches_dir.join(file_path),
@@ -923,14 +927,14 @@ fn build_branches_tree(git_repository: &git::Repository) -> Result<git::Oid> {
     }
 
     let tree_oid = index
-        .write_tree_to(git_repository)
+        .write_tree_to(&gb_repository.git_repository)
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
 }
 
 fn build_log_tree(
-    git_repository: &git::Repository,
+    gb_repository: &Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<git::Oid> {
     let mut index = git::Index::new()?;
@@ -940,14 +944,14 @@ fn build_log_tree(
         add_log_path(
             std::path::Path::new(&file_path),
             &mut index,
-            git_repository,
+            gb_repository,
             project_repository,
         )
         .with_context(|| format!("failed to add log file to index: {}", file_path.display()))?;
     }
 
     let tree_oid = index
-        .write_tree_to(git_repository)
+        .write_tree_to(&gb_repository.git_repository)
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
@@ -956,7 +960,7 @@ fn build_log_tree(
 fn add_log_path(
     rel_file_path: &std::path::Path,
     index: &mut git::Index,
-    gb_repository: &git::Repository,
+    gb_repository: &Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<()> {
     let file_path = project_repository
@@ -980,33 +984,34 @@ fn add_log_path(
         flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
         flags_extended: 0, // no extended flags
         path: rel_file_path.to_str().unwrap().to_string().into(),
-        id: gb_repository.blob_path(&file_path)?,
+        id: gb_repository.git_repository.blob_path(&file_path)?,
     })?;
 
     Ok(())
 }
 
-fn build_session_tree(git_repository: &git::Repository) -> Result<git::Oid> {
+fn build_session_tree(gb_repository: &Repository) -> Result<git::Oid> {
     let mut index = git::Index::new()?;
-    let session_path = git_repository.path().join("gitbutler").join("session");
 
     // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
-    for file_path in fs::list_files(&session_path).context("failed to list session files")? {
+    for file_path in
+        fs::list_files(&gb_repository.session_path()).context("failed to list session files")?
+    {
         let file_path = std::path::Path::new(&file_path);
         if file_path.starts_with("wd/") {
             continue;
         }
         add_file_to_index(
-            git_repository,
+            gb_repository,
             &mut index,
             file_path,
-            &session_path.join(file_path),
+            &gb_repository.session_path().join(file_path),
         )
         .with_context(|| format!("failed to add session file: {}", file_path.display()))?;
     }
 
     let tree_oid = index
-        .write_tree_to(git_repository)
+        .write_tree_to(&gb_repository.git_repository)
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
@@ -1014,12 +1019,12 @@ fn build_session_tree(git_repository: &git::Repository) -> Result<git::Oid> {
 
 // this is a helper function for build_gb_tree that takes paths under .git/gb/session and adds them to the in-memory index
 fn add_file_to_index(
-    git_repository: &git::Repository,
+    gb_repository: &Repository,
     index: &mut git::Index,
     rel_file_path: &std::path::Path,
     abs_file_path: &std::path::Path,
 ) -> Result<()> {
-    let blob = git_repository.blob_path(abs_file_path)?;
+    let blob = gb_repository.git_repository.blob_path(abs_file_path)?;
     let metadata = abs_file_path.metadata()?;
     let mtime = FileTime::from_last_modification_time(&metadata);
     let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);

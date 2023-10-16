@@ -285,15 +285,7 @@ mod test {
             deltas::Operation::Insert((4, "2".to_string())),
         );
         assert_eq!(
-            std::fs::read_to_string(
-                gb_repository
-                    .git_repository
-                    .path()
-                    .join("gitbutler")
-                    .join("session")
-                    .join("wd")
-                    .join("test.txt")
-            )?,
+            std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
             "test2"
         );
 
@@ -366,15 +358,7 @@ mod test {
         assert_eq!(deltas.len(), 1);
         assert_eq!(deltas[0].operations.len(), 0);
         assert_eq!(
-            std::fs::read_to_string(
-                gb_repository
-                    .git_repository
-                    .path()
-                    .join("gitbutler")
-                    .join("session")
-                    .join("wd")
-                    .join("test.bin")
-            )?,
+            std::fs::read_to_string(gb_repository.session_wd_path().join("test.bin"))?,
             ""
         );
 
@@ -406,15 +390,7 @@ mod test {
             deltas::Operation::Insert((0, "test".to_string())),
         );
         assert_eq!(
-            std::fs::read_to_string(
-                gb_repository
-                    .git_repository
-                    .path()
-                    .join("gitbutler")
-                    .join("session")
-                    .join("wd")
-                    .join("test.txt")
-            )?,
+            std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
             "test"
         );
 
@@ -445,15 +421,7 @@ mod test {
             deltas::Operation::Insert((0, "test".to_string())),
         );
         assert_eq!(
-            std::fs::read_to_string(
-                gb_repository
-                    .git_repository
-                    .path()
-                    .join("gitbutler")
-                    .join("session")
-                    .join("wd")
-                    .join("test.txt")
-            )?,
+            std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
             "test"
         );
 
@@ -473,15 +441,7 @@ mod test {
             deltas::Operation::Insert((4, "2".to_string())),
         );
         assert_eq!(
-            std::fs::read_to_string(
-                gb_repository
-                    .git_repository
-                    .path()
-                    .join("gitbutler")
-                    .join("session")
-                    .join("wd")
-                    .join("test.txt")
-            )?,
+            std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
             "test2"
         );
 
@@ -512,15 +472,7 @@ mod test {
             deltas::Operation::Insert((0, "test".to_string())),
         );
         assert_eq!(
-            std::fs::read_to_string(
-                gb_repository
-                    .git_repository
-                    .path()
-                    .join("gitbutler")
-                    .join("session")
-                    .join("wd")
-                    .join("test.txt")
-            )?,
+            std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
             "test"
         );
 
