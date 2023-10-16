@@ -56,8 +56,11 @@ impl Handler {
         )
         .context("failed to open repository")?;
 
-        self.vbrach_controller
-            .flush_vbranches(project_repository.project().id)?;
+        futures::executor::block_on(async {
+            self.vbrach_controller
+                .flush_vbranches(project_repository.project().id)
+                .await
+        })?;
 
         let session = gb_repo
             .flush_session(&project_repository, session, user.as_ref())
