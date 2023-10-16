@@ -715,12 +715,6 @@ fn build_wd_tree_from_repo(
 ) -> Result<git::Oid> {
     let mut index = git::Index::new()?;
 
-    // create a new in-memory git2 index and open the working one so we can cheat if none of the metadata of an entry has changed
-    let repo_index = &mut project_repository
-        .git_repository
-        .index()
-        .with_context(|| "failed to open repo index".to_string())?;
-
     let mut added: HashMap<String, bool> = HashMap::new();
 
     // first, add session/wd files. session/wd are written at the same time as deltas, so it's important to add them first
@@ -742,7 +736,6 @@ fn build_wd_tree_from_repo(
 
         add_wd_path(
             &mut index,
-            repo_index,
             &gb_repository.session_wd_path(),
             file_path,
             gb_repository,
@@ -779,7 +772,6 @@ fn build_wd_tree_from_repo(
 
         add_wd_path(
             &mut index,
-            repo_index,
             project_repository.root(),
             file_path,
             gb_repository,
@@ -804,7 +796,6 @@ fn build_wd_tree_from_repo(
 // TODO: actually upload the file to LFS
 fn add_wd_path(
     index: &mut git::Index,
-    repo_index: &mut git::Index,
     dir: &std::path::Path,
     rel_file_path: &std::path::Path,
     gb_repository: &Repository,
@@ -816,20 +807,6 @@ fn add_wd_path(
         .with_context(|| "failed to get metadata for".to_string())?;
     let mtime = FileTime::from_last_modification_time(&metadata);
     let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
-
-    if let Some(entry) = repo_index.get_path(rel_file_path, 0) {
-        // if we find the entry and the metadata of the file has not changed, we can just use the existing entry
-        if entry.mtime == mtime
-            && entry.file_size == u32::try_from(metadata.len())?
-            && entry.mode == metadata.mode()
-        // TODO: we need to normalize this mode to an acceptable git mode
-        {
-            index.add(&entry).unwrap();
-            return Ok(());
-        }
-    }
-
-    // something is different, or not found, so we need to create a new entry
 
     // look for files that are bigger than 4GB, which are not supported by git
     // insert a pointer as the blob content instead
