@@ -1,12 +1,12 @@
 use anyhow::{Context, Result};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::{
     gb_repository,
     paths::DataDir,
     project_repository,
     projects::{self, ProjectId},
-    sessions, users,
+    sessions, users, virtual_branches,
 };
 
 use super::events;
@@ -15,6 +15,7 @@ use super::events;
 pub struct Handler {
     local_data_dir: DataDir,
     project_store: projects::Controller,
+    vbrach_controller: virtual_branches::Controller,
     users: users::Controller,
 }
 
@@ -25,6 +26,10 @@ impl TryFrom<&AppHandle> for Handler {
         Ok(Self {
             local_data_dir: DataDir::try_from(value)?,
             project_store: projects::Controller::try_from(value)?,
+            vbrach_controller: value
+                .state::<virtual_branches::Controller>()
+                .inner()
+                .clone(),
             users: users::Controller::from(value),
         })
     }
@@ -51,15 +56,11 @@ impl Handler {
         )
         .context("failed to open repository")?;
 
-        // TODO: fixme
-        // if let Some(branch_id) = &session.meta.branch {
-        //     virtual_branches::flush_vbranch_as_tree(
-        //         &gb_repo,
-        //         &project_repository,
-        //         branch_id,
-        //         true,
-        //     )?;
-        // }
+        futures::executor::block_on(async {
+            self.vbrach_controller
+                .flush_vbranches(project_repository.project().id)
+                .await
+        })?;
 
         let session = gb_repo
             .flush_session(&project_repository, session, user.as_ref())
