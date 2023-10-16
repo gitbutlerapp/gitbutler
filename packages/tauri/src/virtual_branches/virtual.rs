@@ -593,12 +593,10 @@ pub fn list_virtual_branches(
 
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
     for (branch, files) in &statuses {
-        dbg!(&files);
         // check if head tree does not match target tree
         // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
         let vfiles =
             calculate_non_commited_files(project_repository, branch, &default_target, files)?;
-        dbg!(&vfiles);
 
         let repo = &project_repository.git_repository;
 
@@ -1516,8 +1514,6 @@ fn get_applied_status(
         .iter()
         .map(|branch| (branch.id, vec![]))
         .collect();
-
-    dbg!(&hunks_by_filepath);
 
     for branch in &mut virtual_branches {
         if !branch.applied {
