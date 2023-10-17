@@ -20,7 +20,7 @@ pub struct BaseBranch {
     pub remote_url: String,
     pub base_sha: String,
     pub current_sha: String,
-    pub behind: u32,
+    pub behind: usize,
     pub upstream_commits: Vec<RemoteCommit>,
     pub recent_commits: Vec<RemoteCommit>,
 }
@@ -485,7 +485,7 @@ pub fn target_to_base_branch(
         remote_url: target.remote_url.clone(),
         base_sha: target.sha.to_string(),
         current_sha: oid.to_string(),
-        behind: upstream_commits.len() as u32,
+        behind: upstream_commits.len(),
         upstream_commits,
         recent_commits,
     };

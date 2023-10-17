@@ -77,7 +77,6 @@
 )]
 //TODO: should probably be cleaned up as any of these could lead to panics or unexpected behaviour (the cast-ones)
 #![allow(
-    clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::cast_lossless,
     clippy::match_same_arms,

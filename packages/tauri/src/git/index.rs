@@ -138,8 +138,14 @@ impl From<git2::IndexEntry> for IndexEntry {
 impl From<IndexEntry> for git2::IndexEntry {
     fn from(entry: IndexEntry) -> Self {
         Self {
-            ctime: git2::IndexTime::new(entry.ctime.seconds() as i32, entry.ctime.nanoseconds()),
-            mtime: git2::IndexTime::new(entry.mtime.seconds() as i32, entry.mtime.nanoseconds()),
+            ctime: git2::IndexTime::new(
+                i32::try_from(entry.ctime.seconds()).unwrap(),
+                entry.ctime.nanoseconds(),
+            ),
+            mtime: git2::IndexTime::new(
+                i32::try_from(entry.mtime.seconds()).unwrap(),
+                entry.mtime.nanoseconds(),
+            ),
             dev: entry.dev,
             ino: entry.ino,
             mode: entry.mode,
