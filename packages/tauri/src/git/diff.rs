@@ -9,10 +9,10 @@ use super::Repository;
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct Hunk {
-    pub old_start: usize,
-    pub old_lines: usize,
-    pub new_start: usize,
-    pub new_lines: usize,
+    pub old_start: u32,
+    pub old_lines: u32,
+    pub new_start: u32,
+    pub new_lines: u32,
     pub diff: String,
     pub binary: bool,
 }
@@ -72,19 +72,8 @@ fn hunks_by_filepath(
     repository: &Repository,
     diff: &git2::Diff,
 ) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
-    use std::fmt::Write as _;
-
     // find all the hunks
     let mut hunks_by_filepath: HashMap<path::PathBuf, Vec<Hunk>> = HashMap::new();
-    let mut current_diff = String::new();
-
-    let mut current_file_path: Option<path::PathBuf> = None;
-    let mut current_hunk_id: Option<String> = None;
-    let mut current_new_start: Option<usize> = None;
-    let mut current_new_lines: Option<usize> = None;
-    let mut current_old_start: Option<usize> = None;
-    let mut current_old_lines: Option<usize> = None;
-    let mut current_binary = false;
 
     diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
         let file_path = delta.new_file().path().unwrap_or_else(|| {
@@ -94,60 +83,26 @@ fn hunks_by_filepath(
                 .expect("failed to get file name from diff")
         });
 
-        if current_file_path.is_none() {
-            current_file_path = Some(file_path.to_path_buf());
-        }
+        hunks_by_filepath
+            .entry(file_path.to_path_buf())
+            .or_default();
 
-        let (hunk_id, new_start, new_lines, old_start, old_lines) = if let Some(hunk) = hunk {
-            (
+        let new_start = hunk.as_ref().map_or(0, git2::DiffHunk::new_start);
+        let new_lines = hunk.as_ref().map_or(0, git2::DiffHunk::new_lines);
+        let old_start = hunk.as_ref().map_or(0, git2::DiffHunk::old_start);
+        let old_lines = hunk.as_ref().map_or(0, git2::DiffHunk::old_lines);
+
+        if let Some((line, is_binary)) = match line.origin() {
+            '+' | '-' | ' ' => Some((
                 format!(
-                    "{}-{} {}-{}",
-                    hunk.new_start(),
-                    hunk.new_lines(),
-                    hunk.old_start(),
-                    hunk.old_lines(),
-                ),
-                hunk.new_start(),
-                hunk.new_lines(),
-                hunk.old_start(),
-                hunk.old_lines(),
-            )
-        } else if line.origin() == 'B' {
-            let hunk_id = format!("{:?}:{}", file_path.as_os_str(), delta.new_file().id());
-            (hunk_id.clone(), 0, 0, 0, 0)
-        } else {
-            return true;
-        };
-
-        let is_path_changed = current_file_path
-            .as_ref()
-            .map_or(false, |p| !file_path.eq(p));
-
-        let is_hunk_changed = current_hunk_id.as_ref().map_or(false, |h| !hunk_id.eq(h));
-
-        if is_hunk_changed || is_path_changed {
-            let file_path = current_file_path.as_ref().unwrap().clone();
-            hunks_by_filepath.entry(file_path).or_default().push(Hunk {
-                old_start: current_old_start.unwrap(),
-                old_lines: current_old_lines.unwrap(),
-                new_start: current_new_start.unwrap(),
-                new_lines: current_new_lines.unwrap(),
-                diff: current_diff.clone(),
-                binary: current_binary,
-            });
-            current_diff = String::new();
-        }
-
-        match line.origin() {
-            '+' | '-' | ' ' => {
-                let _ = write!(current_diff, "{}", line.origin());
-                current_diff.push_str(
+                    "{}{}",
+                    line.origin(),
                     str::from_utf8(line.content())
                         .map_err(|error| tracing::error!(?error, ?file_path))
-                        .unwrap_or_default(),
-                );
-                current_binary = false;
-            }
+                        .unwrap_or_default()
+                ),
+                false,
+            )),
             'B' => {
                 let full_path = repository.workdir().unwrap().join(file_path);
                 // save the file_path to the odb
@@ -155,40 +110,188 @@ fn hunks_by_filepath(
                     // the binary file wasnt deleted
                     repository.blob_path(full_path.as_path()).unwrap();
                 }
-                let _ = write!(current_diff, "{}", delta.new_file().id());
-                current_binary = true;
+                Some((delta.new_file().id().to_string(), true))
             }
-            _ => {
-                current_diff.push_str(
-                    str::from_utf8(line.content())
-                        .map_err(|error| tracing::error!(?error, ?file_path))
-                        .unwrap_or_default(),
-                );
+            'F' => None,
+            _ => Some((
+                str::from_utf8(line.content())
+                    .map_err(|error| tracing::error!(?error, ?file_path))
+                    .unwrap_or_default()
+                    .to_string(),
+                false,
+            )),
+        } {
+            let hunks = hunks_by_filepath
+                .entry(file_path.to_path_buf())
+                .or_default();
+
+            if let Some(hunk) = hunks.last_mut() {
+                if hunk.old_start == old_start
+                    && hunk.old_lines == old_lines
+                    && hunk.new_start == new_start
+                    && hunk.new_lines == new_lines
+                {
+                    hunk.diff.push_str(&line);
+                    hunk.binary |= is_binary;
+                } else {
+                    hunks.push(Hunk {
+                        old_start,
+                        old_lines,
+                        new_start,
+                        new_lines,
+                        diff: line,
+                        binary: is_binary,
+                    });
+                }
+            } else {
+                hunks.push(Hunk {
+                    old_start,
+                    old_lines,
+                    new_start,
+                    new_lines,
+                    diff: line,
+                    binary: is_binary,
+                });
             }
         }
-
-        current_file_path = Some(file_path.to_path_buf());
-        current_hunk_id = Some(hunk_id);
-        current_new_start = Some(new_start as usize);
-        current_new_lines = Some(new_lines as usize);
-        current_old_start = Some(old_start as usize);
-        current_old_lines = Some(old_lines as usize);
 
         true
     })
     .context("failed to print diff")?;
 
-    // push the last hunk
-    if let Some(file_path) = current_file_path {
-        hunks_by_filepath.entry(file_path).or_default().push(Hunk {
-            old_start: current_old_start.unwrap_or_default(),
-            old_lines: current_old_lines.unwrap_or_default(),
-            new_start: current_new_start.unwrap_or_default(),
-            new_lines: current_new_lines.unwrap_or_default(),
-            diff: current_diff,
-            binary: current_binary,
-        });
+    Ok(hunks_by_filepath
+        .into_iter()
+        .map(|(k, v)| {
+            if v.is_empty() {
+                (
+                    k,
+                    vec![Hunk {
+                        old_start: 0,
+                        old_lines: 0,
+                        new_start: 0,
+                        new_lines: 0,
+                        diff: String::new(),
+                        binary: false,
+                    }],
+                )
+            } else {
+                (k, v)
+            }
+        })
+        .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_utils;
+
+    use super::*;
+
+    #[test]
+    fn diff_simple_text() {
+        let repository = test_utils::test_repository();
+        std::fs::write(repository.workdir().unwrap().join("file"), "hello").unwrap();
+
+        let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
+
+        let diff = workdir(&repository, &head_commit_id, &Options::default()).unwrap();
+        assert_eq!(diff.len(), 1);
+        assert_eq!(
+            diff[&path::PathBuf::from("file")],
+            vec![Hunk {
+                old_start: 0,
+                old_lines: 0,
+                new_start: 1,
+                new_lines: 1,
+                diff: "@@ -0,0 +1 @@\n+hello\n\\ No newline at end of file\n".to_string(),
+                binary: false,
+            }]
+        );
     }
 
-    Ok(hunks_by_filepath)
+    #[test]
+    fn diff_empty_file() {
+        let repository = test_utils::test_repository();
+        std::fs::write(repository.workdir().unwrap().join("first"), "").unwrap();
+
+        let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
+
+        let diff = workdir(&repository, &head_commit_id, &Options::default()).unwrap();
+        assert_eq!(diff.len(), 1);
+        assert_eq!(
+            diff[&path::PathBuf::from("first")],
+            vec![Hunk {
+                old_start: 0,
+                old_lines: 0,
+                new_start: 0,
+                new_lines: 0,
+                diff: String::new(),
+                binary: false,
+            }]
+        );
+    }
+
+    #[test]
+    fn diff_multiple_empty_files() {
+        let repository = test_utils::test_repository();
+        std::fs::write(repository.workdir().unwrap().join("first"), "").unwrap();
+        std::fs::write(repository.workdir().unwrap().join("second"), "").unwrap();
+
+        let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
+
+        let diff = workdir(&repository, &head_commit_id, &Options::default()).unwrap();
+        assert_eq!(diff.len(), 2);
+        assert_eq!(
+            diff[&path::PathBuf::from("first")],
+            vec![Hunk {
+                old_start: 0,
+                old_lines: 0,
+                new_start: 0,
+                new_lines: 0,
+                diff: String::new(),
+                binary: false,
+            }]
+        );
+        assert_eq!(
+            diff[&path::PathBuf::from("second")],
+            vec![Hunk {
+                old_start: 0,
+                old_lines: 0,
+                new_start: 0,
+                new_lines: 0,
+                diff: String::new(),
+                binary: false,
+            }]
+        );
+    }
+
+    #[test]
+    fn diff_binary() {
+        let repository = test_utils::test_repository();
+        std::fs::write(
+            repository.workdir().unwrap().join("image"),
+            [
+                255, 0, 0, // Red pixel
+                0, 0, 255, // Blue pixel
+                255, 255, 0, // Yellow pixel
+                0, 255, 0, // Green pixel
+            ],
+        )
+        .unwrap();
+
+        let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
+
+        let diff = workdir(&repository, &head_commit_id, &Options::default()).unwrap();
+        assert_eq!(
+            diff[&path::PathBuf::from("image")],
+            vec![Hunk {
+                old_start: 0,
+                old_lines: 0,
+                new_start: 0,
+                new_lines: 0,
+                diff: "71ae6e216f38164b6633e25d35abb043c3785af6".to_string(),
+                binary: true,
+            }]
+        );
+    }
 }

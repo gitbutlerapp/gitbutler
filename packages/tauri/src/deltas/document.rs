@@ -51,8 +51,10 @@ impl Document {
 
         let operations = operations::get_delta_operations(&self.to_string(), new_text);
         let delta = if operations.is_empty() {
-            if matches!(value, Some(reader::Content::UTF8(_))) {
-                return Ok(None);
+            if let Some(reader::Content::UTF8(value)) = value {
+                if !value.is_empty() {
+                    return Ok(None);
+                }
             }
 
             delta::Delta {

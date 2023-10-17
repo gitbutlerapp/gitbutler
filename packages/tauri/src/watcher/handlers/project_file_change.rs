@@ -366,6 +366,34 @@ mod test {
     }
 
     #[test]
+    fn test_register_empty_new_file() -> Result<()> {
+        let suite = Suite::default();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = suite.new_case();
+        let listener = Handler::from(&suite.local_app_data);
+
+        std::fs::write(project.path.join("test.txt"), "")?;
+
+        listener.handle("test.txt", &project.id)?;
+
+        let session = gb_repository.get_current_session()?.unwrap();
+        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+        let deltas_reader = deltas::Reader::new(&session_reader);
+        let deltas = deltas_reader.read_file("test.txt")?.unwrap();
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].operations.len(), 0);
+        assert_eq!(
+            std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
+            ""
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn test_register_new_file() -> Result<()> {
         let suite = Suite::default();
         let Case {
