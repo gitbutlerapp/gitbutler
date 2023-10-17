@@ -80,7 +80,6 @@ impl Url {
     pub fn as_https(&self) -> Result<Self, ConvertError> {
         convert::to_https_url(self)
     }
-
 }
 
 impl FromStr for Url {
