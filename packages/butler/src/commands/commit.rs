@@ -3,7 +3,10 @@ use clap::Args;
 use colored::Colorize;
 use dialoguer::{console::Term, theme::ColorfulTheme, Input, Select};
 
-use gitbutler::{reader, sessions, virtual_branches};
+use gitbutler::{
+    reader, sessions,
+    virtual_branches::{self, Branch, BranchId},
+};
 
 use crate::app::App;
 
@@ -24,19 +27,15 @@ impl super::RunCommand for Commit {
         let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)
             .context("failed to open current session reader")?;
 
-        let virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
-            .context("failed to read virtual branches")?
-            .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
-            .context("failed to read virtual branches")?
-            .into_iter()
-            .collect::<Vec<_>>();
+        let (ids, names): (Vec<BranchId>, Vec<String>) =
+            virtual_branches::Iterator::new(&current_session_reader)
+                .context("failed to read virtual branches")?
+                .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
+                .context("failed to read virtual branches")?
+                .into_iter()
+                .map(|b| (b.id, b.name))
+                .unzip();
 
-        let mut ids = Vec::new();
-        let mut names = Vec::new();
-        for branch in virtual_branches {
-            ids.push(branch.id);
-            names.push(branch.name);
-        }
         let selection = match Select::with_theme(&ColorfulTheme::default())
             .items(&names)
             .default(0)
