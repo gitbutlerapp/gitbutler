@@ -6,8 +6,8 @@ use anyhow::{anyhow, Context, Result};
 pub struct Hunk {
     pub hash: Option<String>,
     pub timestamp_ms: Option<u128>,
-    pub start: usize,
-    pub end: usize,
+    pub start: u32,
+    pub end: u32,
 }
 
 impl PartialEq for Hunk {
@@ -20,8 +20,8 @@ impl PartialEq for Hunk {
     }
 }
 
-impl From<RangeInclusive<usize>> for Hunk {
-    fn from(range: RangeInclusive<usize>) -> Self {
+impl From<RangeInclusive<u32>> for Hunk {
+    fn from(range: RangeInclusive<u32>) -> Self {
         Hunk {
             start: *range.start(),
             end: *range.end(),
@@ -38,7 +38,7 @@ impl FromStr for Hunk {
         let mut range = s.split('-');
         let start = if let Some(raw_start) = range.next() {
             raw_start
-                .parse::<usize>()
+                .parse::<u32>()
                 .context(format!("failed to parse start of range: {}", s))
         } else {
             Err(anyhow!("invalid range: {}", s))
@@ -46,7 +46,7 @@ impl FromStr for Hunk {
 
         let end = if let Some(raw_end) = range.next() {
             raw_end
-                .parse::<usize>()
+                .parse::<u32>()
                 .context(format!("failed to parse end of range: {}", s))
         } else {
             Err(anyhow!("invalid range: {}", s))
@@ -90,8 +90,8 @@ impl Display for Hunk {
 
 impl Hunk {
     pub fn new(
-        start: usize,
-        end: usize,
+        start: u32,
+        end: u32,
         hash: Option<String>,
         timestamp_ms: Option<u128>,
     ) -> Result<Self> {
@@ -120,7 +120,7 @@ impl Hunk {
         self.timestamp_ms
     }
 
-    pub fn contains(&self, line: &usize) -> bool {
+    pub fn contains(&self, line: &u32) -> bool {
         self.start <= *line && self.end >= *line
     }
 

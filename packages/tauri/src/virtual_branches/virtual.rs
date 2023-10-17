@@ -105,8 +105,8 @@ pub struct VirtualBranchHunk {
     pub modified_at: u128,
     pub file_path: path::PathBuf,
     pub hash: String,
-    pub start: usize,
-    pub end: usize,
+    pub start: u32,
+    pub end: u32,
     pub binary: bool,
     pub locked: bool,
 }
