@@ -101,7 +101,6 @@ fn from_key(key: &keys::PrivateKey) -> CredentialsCallback {
 fn from_token(token: &str) -> CredentialsCallback {
     Box::new(move |url, _username_from_url, _allowed_types| {
         tracing::debug!("authenticating with {} using github token", url);
-        dbg!(token, url);
         git2::Cred::userpass_plaintext("git", token)
     })
 }

@@ -468,7 +468,7 @@ impl Controller {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
                 let credentials = git::credentials::Factory::new(
-                    &project_repository.project(),
+                    project_repository.project(),
                     self.keys
                         .get_or_create()
                         .context("failed to get or create private key")?,
