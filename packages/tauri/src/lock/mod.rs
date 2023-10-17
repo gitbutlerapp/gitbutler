@@ -78,7 +78,7 @@ mod tests {
             }
         });
         let mut data_file = OpenOptions::new().read(true).open(data_path).unwrap();
-        let value = data_file.read_u64::<LittleEndian>().unwrap();
-        assert_eq!(value, u64::try_from(num_threads).unwrap());
+        let value = data_file.read_u32::<LittleEndian>().unwrap();
+        assert_eq!(value, u32::try_from(num_threads).unwrap());
     }
 }
