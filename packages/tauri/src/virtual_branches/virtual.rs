@@ -463,11 +463,11 @@ pub fn unapply_branch(
     Ok(())
 }
 
-pub fn flush_vbranch_as_tree(
+fn flush_vbranch_as_tree(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
-    applied: bool,
+    applied: bool, // set `Branch.applied` before writing
 ) -> Result<Option<(target::Target, AppliedStatuses)>> {
     let session = &gb_repository
         .get_or_create_current_session()
@@ -530,19 +530,7 @@ fn unapply_all_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<()> {
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
-
-    let applied_virtual_branches = Iterator::new(&current_session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|branch| branch.applied)
-        .collect::<Vec<_>>();
+    let applied_virtual_branches = list_applied_vbranches(gb_repository)?;
 
     for branch in applied_virtual_branches {
         let branch_id = branch.id;
@@ -551,6 +539,39 @@ fn unapply_all_branches(
     }
 
     Ok(())
+}
+
+pub fn flush_applied_vbranches(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+) -> Result<()> {
+    let vbranches = list_applied_vbranches(gb_repository)?;
+
+    for b in &vbranches {
+        if b.applied {
+            flush_vbranch_as_tree(gb_repository, project_repository, &b.id, true)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn list_applied_vbranches(
+    gb_repository: &gb_repository::Repository,
+) -> Result<Vec<Branch>, anyhow::Error> {
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+    let applied_virtual_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|branch| branch.applied)
+        .collect::<Vec<_>>();
+    Ok(applied_virtual_branches)
 }
 
 fn find_base_tree<'a>(
