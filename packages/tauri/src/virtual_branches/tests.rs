@@ -12,7 +12,7 @@ use git2::TreeWalkResult;
 use pretty_assertions::{assert_eq, assert_ne};
 
 use crate::{
-    gb_repository, git, keys, project_repository, reader, sessions,
+    gb_repository, git, project_repository, reader, sessions,
     test_utils::{self, empty_bare_repository, Case, Suite},
 };
 
@@ -3606,6 +3606,7 @@ fn test_force_push() {
         project_repository,
         gb_repository,
         project,
+        credentials,
         ..
     } = suite.new_case();
     set_test_target(&gb_repository, &project_repository).unwrap();
@@ -3643,7 +3644,7 @@ fn test_force_push() {
         &gb_repository,
         &branch_id,
         false,
-        &keys::Key::from(suite.keys.get_or_create().unwrap()),
+        &credentials,
     )
     .unwrap();
 
@@ -3666,7 +3667,7 @@ fn test_force_push() {
         &gb_repository,
         &branch_id,
         false,
-        &keys::Key::from(suite.keys.get_or_create().unwrap()),
+        &credentials,
     )
     .is_err());
 
@@ -3675,7 +3676,7 @@ fn test_force_push() {
         &gb_repository,
         &branch_id,
         true,
-        &keys::Key::from(suite.keys.get_or_create().unwrap()),
+        &credentials,
     )
     .unwrap();
 }

@@ -4,4 +4,4 @@ mod key;
 mod storage;
 
 pub use controller::*;
-pub use key::{Key, PrivateKey, PublicKey, SignError};
+pub use key::{PrivateKey, PublicKey, SignError};

@@ -78,6 +78,7 @@ pub struct Case<'a> {
     pub project: projects::Project,
     pub project_repository: project_repository::Repository,
     pub gb_repository: gb_repository::Repository,
+    pub credentials: git::credentials::Factory,
 }
 
 impl<'a> Case<'a> {
@@ -87,11 +88,17 @@ impl<'a> Case<'a> {
         let gb_repository =
             gb_repository::Repository::open(&suite.local_app_data, &project_repository, None)
                 .expect("failed to open gb repository");
+        let credentials = git::credentials::Factory::new(
+            &project,
+            suite.keys.get_or_create().expect("failed to get key"),
+            suite.users.get_user().expect("failed to get user").as_ref(),
+        );
         Case {
             suite,
             project,
             gb_repository,
             project_repository,
+            credentials,
         }
     }
 
@@ -103,18 +110,21 @@ impl<'a> Case<'a> {
             .expect("failed to get project");
         let project_repository = project_repository::Repository::try_from(&project)
             .expect("failed to create project repository");
+        let user = self.suite.users.get_user().expect("failed to get user");
+        let credentials = git::credentials::Factory::new(
+            &project,
+            self.suite.keys.get_or_create().expect("failed to get key"),
+            user.as_ref(),
+        );
         Self {
             suite: self.suite,
             gb_repository: gb_repository::Repository::open(
                 &self.suite.local_app_data,
                 &project_repository,
-                self.suite
-                    .users
-                    .get_user()
-                    .expect("failed to get user")
-                    .as_ref(),
+                user.as_ref(),
             )
             .expect("failed to open gb repository"),
+            credentials,
             project_repository,
             project,
         }

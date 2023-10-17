@@ -21,7 +21,7 @@ impl TryFrom<&AppHandle> for Controller {
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
         Ok(Self {
             local_data_dir: DataDir::try_from(value)?,
-            projects_storage: storage::Storage::try_from(value)?,
+            projects_storage: storage::Storage::from(value),
             watchers: Some(value.state::<watcher::Watchers>().inner().clone()),
         })
     }
