@@ -551,15 +551,38 @@ pub fn flush_applied_vbranches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<()> {
-    let vbranches = list_applied_vbranches(gb_repository)?;
+    let applied_branches = list_applied_vbranches(gb_repository)?;
 
     let session = &gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
 
-    for b in vbranches {
+    let current_session_reader =
+        sessions::Reader::open(gb_repository, session).context("failed to open current session")?;
+
+    let default_target = match get_default_target(&current_session_reader)
+        .context("failed to get default target")?
+    {
+        Some(target) => target,
+        None => return Ok(()),
+    };
+
+    let applied_statuses = get_applied_status(
+        gb_repository,
+        project_repository,
+        &default_target,
+        applied_branches,
+    )
+    .context("failed to get status by branch")?;
+
+    let branch_writer = branch::Writer::new(gb_repository);
+
+    for (b, files) in applied_statuses {
         if b.applied {
-            flush_vbranch_as_tree(gb_repository, project_repository, session, b)?;
+            let tree = write_tree(project_repository, &default_target, &files)?;
+            let mut branch = b;
+            branch.tree = tree;
+            branch_writer.write(&branch)?;
         }
     }
 
