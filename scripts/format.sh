@@ -5,15 +5,11 @@ set -o nounset
 set -o pipefail
 
 function rust() {
-	cargo fmt --check
-	cargo sort -c -w
-	cargo clippy --all-features --tests
-	cargo test
+	cargo fmt
 }
 
 function node() {
-	pnpm lint
-	pnpm check
+	pnpm format
 }
 
 if [[ "$#" -eq 0 ]]; then
