@@ -5,7 +5,7 @@ use dialoguer::{console::Term, theme::ColorfulTheme, Input, Select};
 
 use gitbutler::{
     reader, sessions,
-    virtual_branches::{self, Branch, BranchId},
+    virtual_branches::{self, BranchId},
 };
 
 use crate::app::App;
