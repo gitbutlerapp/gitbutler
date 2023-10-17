@@ -2102,7 +2102,9 @@ pub fn push(
         .write(&vbranch)
         .context("failed to write target branch after push")?;
 
-    project_repository.fetch(remote_branch.remote(), key)?;
+    let mut remote = project_repository.get_remote(remote_branch.remote(), false)?;
+    // TODO: use token if available
+    project_repository.fetch(&mut remote, key)?;
 
     Ok(())
 }

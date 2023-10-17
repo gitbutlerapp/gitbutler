@@ -6,12 +6,14 @@ use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use ssh_key;
 
+#[derive(Debug)]
 pub enum Key {
     Generated(Box<PrivateKey>),
     Local {
         private_key_path: path::PathBuf,
         passphrase: Option<String>,
     },
+    Token(Box<String>),
 }
 
 impl From<PrivateKey> for Key {

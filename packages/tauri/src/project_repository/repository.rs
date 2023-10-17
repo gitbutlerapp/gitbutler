@@ -199,7 +199,11 @@ impl Repository {
 
     // returns a remote and makes sure that the push url is an ssh url
     // if url is already ssh, or not set at all, then it returns the remote as is.
-    fn get_remote(&self, name: &str) -> Result<git::Remote, RemoteError> {
+    pub fn get_remote(
+        &self,
+        name: &str,
+        convert_https_to_ssh: bool,
+    ) -> Result<git::Remote, RemoteError> {
         let remote = self
             .git_repository
             .find_remote(name)
@@ -216,20 +220,32 @@ impl Repository {
                 #[cfg(test)]
                 git::Scheme::File => Ok(remote),
                 git::Scheme::Ssh => Ok(remote),
-                _ => {
-                    let ssh_url = url
-                        .as_ssh()
-                        .map_err(|_| RemoteError::NonSSHUrl(url.to_string()))?;
-                    Ok(self
-                        .git_repository
-                        .remote_anonymous(&ssh_url)
-                        .context("failed to get anonymous")
-                        .map_err(RemoteError::Other)?)
+                git::Scheme::Https => {
+                    if convert_https_to_ssh {
+                        self.convert_https_to_ssh(url)
+                    } else {
+                        Ok(remote)
+                    }
                 }
+                _ => self.convert_https_to_ssh(url),
             }
         } else {
             Err(RemoteError::NoUrl)
         }
+    }
+
+    fn convert_https_to_ssh(
+        &self,
+        url: git::Url,
+    ) -> std::result::Result<git::Remote<'_>, RemoteError> {
+        let ssh_url = url
+            .as_ssh()
+            .map_err(|_| RemoteError::NonSSHUrl(url.to_string()))?;
+        Ok(self
+            .git_repository
+            .remote_anonymous(&ssh_url)
+            .context("failed to get anonymous")
+            .map_err(RemoteError::Other)?)
     }
 
     pub fn push(
@@ -239,7 +255,7 @@ impl Repository {
         with_force: bool,
         key: &keys::Key,
     ) -> Result<(), RemoteError> {
-        let mut remote = self.get_remote(branch.remote())?;
+        let mut remote = self.get_remote(branch.remote(), false)?;
 
         let refspec = if with_force {
             format!("+{}:refs/heads/{}", head, branch.branch())
@@ -276,9 +292,7 @@ impl Repository {
         Err(RemoteError::AuthError)
     }
 
-    pub fn fetch(&self, remote_name: &str, key: &keys::Key) -> Result<(), RemoteError> {
-        let mut remote = self.get_remote(remote_name)?;
-
+    pub fn fetch(&self, remote: &mut git::Remote<'_>, key: &keys::Key) -> Result<(), RemoteError> {
         for credential_callback in git::credentials::for_key(key) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
             remote_callbacks.credentials(credential_callback);
@@ -323,7 +337,7 @@ impl Repository {
             fetch_opts.remote_callbacks(remote_callbacks);
             fetch_opts.prune(git2::FetchPrune::On);
 
-            let refspec = &format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
+            let refspec = &format!("+refs/heads/*:refs/remotes/{}/*", remote.name().unwrap());
 
             match remote.fetch(&[refspec], Some(&mut fetch_opts)) {
                 Ok(()) => {

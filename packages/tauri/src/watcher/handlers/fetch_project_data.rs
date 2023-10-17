@@ -120,27 +120,27 @@ impl HandlerInner {
                 passphrase: passphrase.clone(),
             },
         };
-
-        let fetch_result =
-            if let Err(error) = project_repository.fetch(default_target.branch.remote(), &key) {
-                tracing::error!(%project_id, ?error, "failed to fetch project data");
-                projects::FetchResult::Error {
-                    attempt: project
-                        .project_data_last_fetched
-                        .as_ref()
-                        .map_or(0, |r| match r {
-                            projects::FetchResult::Error { attempt, .. } => *attempt + 1,
-                            projects::FetchResult::Fetched { .. }
-                            | projects::FetchResult::Fetching { .. } => 0,
-                        }),
-                    timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
-                    error: error.to_string(),
-                }
-            } else {
-                projects::FetchResult::Fetched {
-                    timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
-                }
-            };
+        let mut remote = project_repository.get_remote(default_target.branch.remote(), false)?;
+        // // TODO: use token if available and if project is https
+        let fetch_result = if let Err(error) = project_repository.fetch(&mut remote, &key) {
+            tracing::error!(%project_id, ?error, "failed to fetch project data");
+            projects::FetchResult::Error {
+                attempt: project
+                    .project_data_last_fetched
+                    .as_ref()
+                    .map_or(0, |r| match r {
+                        projects::FetchResult::Error { attempt, .. } => *attempt + 1,
+                        projects::FetchResult::Fetched { .. }
+                        | projects::FetchResult::Fetching { .. } => 0,
+                    }),
+                timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
+                error: error.to_string(),
+            }
+        } else {
+            projects::FetchResult::Fetched {
+                timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
+            }
+        };
 
         self.projects
             .update(&projects::UpdateRequest {

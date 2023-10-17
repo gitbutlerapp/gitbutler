@@ -167,7 +167,33 @@ impl App {
             }
         };
 
-        project_repository.fetch(default_target.branch.remote(), &key)?;
+        let token_key = user.and_then(|u| {
+            u.github_access_token
+                .map(|token| keys::Key::Token(Box::new(token)))
+        });
+        // if we have a token key, skip the conversion of an https remote to ssh
+        let mut remote =
+            project_repository.get_remote(default_target.branch.remote(), token_key.is_none())?;
+        let remote_scheme = remote
+            .url()
+            .context("failed to get remote url")
+            .context("failed to get remote url")
+            .unwrap()
+            .unwrap()
+            .scheme;
+
+        if remote_scheme == git::Scheme::Https {
+            match token_key {
+                Some(token) => {
+                    project_repository.fetch(&mut remote, &token)?;
+                }
+                None => {
+                    project_repository.fetch(&mut remote, &key)?;
+                }
+            }
+        } else {
+            project_repository.fetch(&mut remote, &key)?;
+        }
 
         Ok(())
     }

@@ -41,6 +41,9 @@ pub fn for_key(key: &keys::Key) -> Vec<CredentialsCallback<'_>> {
             }
             credentials.push(from_key(private_key));
         }
+        keys::Key::Token(token) => {
+            credentials.push(from_token(token));
+        }
     }
     credentials
 }
@@ -57,5 +60,12 @@ fn from_key(key: &keys::PrivateKey) -> CredentialsCallback {
     Box::new(|url, _username_from_url, _allowed_types| {
         tracing::debug!("authenticating with {} using gitbutler's key", url);
         git2::Cred::ssh_key_from_memory("git", None, &key.to_string(), None)
+    })
+}
+
+fn from_token(token: &str) -> CredentialsCallback {
+    Box::new(move |url, _username_from_url, _allowed_types| {
+        tracing::debug!("authenticating with {} using token", url);
+        git2::Cred::userpass_plaintext("git", token)
     })
 }
