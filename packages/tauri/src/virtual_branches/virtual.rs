@@ -12,7 +12,7 @@ use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
     git::{self, diff, RemoteBranchName},
-    keys::{self, Key},
+    keys,
     project_repository::{self, conflicts, LogUntil},
     reader, sessions, users,
 };
@@ -2050,7 +2050,7 @@ pub fn push(
     gb_repository: &gb_repository::Repository,
     branch_id: &BranchId,
     with_force: bool,
-    key: &Key,
+    credentials: &git::credentials::Factory,
 ) -> Result<(), PushError> {
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -2094,7 +2094,7 @@ pub fn push(
         )))
     };
 
-    project_repository.push(&vbranch.head, &remote_branch, with_force, key)?;
+    project_repository.push(&vbranch.head, &remote_branch, with_force, credentials)?;
 
     vbranch.upstream = Some(remote_branch.clone());
     vbranch.upstream_head = Some(vbranch.head);
@@ -2102,7 +2102,7 @@ pub fn push(
         .write(&vbranch)
         .context("failed to write target branch after push")?;
 
-    project_repository.fetch(remote_branch.remote(), key)?;
+    project_repository.fetch(remote_branch.remote(), credentials)?;
 
     Ok(())
 }

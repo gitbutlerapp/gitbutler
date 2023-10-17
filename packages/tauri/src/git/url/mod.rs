@@ -27,6 +27,14 @@ pub struct Url {
     pub path: bstr::BString,
 }
 
+impl Url {
+    pub fn is_github(&self) -> bool {
+        self.host
+            .as_ref()
+            .map_or(false, |host| host.contains("github.com"))
+    }
+}
+
 impl std::fmt::Display for Url {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if !(self.serialize_alternative_form
@@ -67,6 +75,10 @@ impl std::fmt::Display for Url {
 impl Url {
     pub fn as_ssh(&self) -> Result<Self, ConvertError> {
         convert::to_ssh_url(self)
+    }
+
+    pub fn as_https(&self) -> Result<Self, ConvertError> {
+        convert::to_https_url(self)
     }
 }
 

@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use tauri::AppHandle;
 
 use crate::{
-    gb_repository, keys,
+    gb_repository, git, keys,
     paths::DataDir,
     project_repository,
     projects::{self, ProjectId},
@@ -107,40 +107,33 @@ impl HandlerInner {
         .context("failed to open repository")?;
         let default_target = gb_repo.default_target()?.context("target not set")?;
 
-        let key = match &project.preferred_key {
-            projects::AuthKey::Generated => {
-                let private_key = self.keys.get_or_create()?;
-                keys::Key::Generated(Box::new(private_key))
-            }
-            projects::AuthKey::Local {
-                private_key_path,
-                passphrase,
-            } => keys::Key::Local {
-                private_key_path: private_key_path.clone(),
-                passphrase: passphrase.clone(),
-            },
-        };
+        let credentials = git::credentials::Factory::new(
+            &project,
+            self.keys.get_or_create().context("failed to get key")?,
+            user.as_ref(),
+        );
 
-        let fetch_result =
-            if let Err(error) = project_repository.fetch(default_target.branch.remote(), &key) {
-                tracing::error!(%project_id, ?error, "failed to fetch project data");
-                projects::FetchResult::Error {
-                    attempt: project
-                        .project_data_last_fetched
-                        .as_ref()
-                        .map_or(0, |r| match r {
-                            projects::FetchResult::Error { attempt, .. } => *attempt + 1,
-                            projects::FetchResult::Fetched { .. }
-                            | projects::FetchResult::Fetching { .. } => 0,
-                        }),
-                    timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
-                    error: error.to_string(),
-                }
-            } else {
-                projects::FetchResult::Fetched {
-                    timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
-                }
-            };
+        let fetch_result = if let Err(error) =
+            project_repository.fetch(default_target.branch.remote(), &credentials)
+        {
+            tracing::error!(%project_id, ?error, "failed to fetch project data");
+            projects::FetchResult::Error {
+                attempt: project
+                    .project_data_last_fetched
+                    .as_ref()
+                    .map_or(0, |r| match r {
+                        projects::FetchResult::Error { attempt, .. } => *attempt + 1,
+                        projects::FetchResult::Fetched { .. }
+                        | projects::FetchResult::Fetching { .. } => 0,
+                    }),
+                timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
+                error: error.to_string(),
+            }
+        } else {
+            projects::FetchResult::Fetched {
+                timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
+            }
+        };
 
         self.projects
             .update(&projects::UpdateRequest {

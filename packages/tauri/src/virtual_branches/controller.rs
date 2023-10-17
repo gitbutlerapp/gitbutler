@@ -466,30 +466,21 @@ impl Controller {
         with_force: bool,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
-            self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-                let private_key = match &project_repository.project().preferred_key {
-                    projects::AuthKey::Local {
-                        private_key_path,
-                        passphrase,
-                    } => keys::Key::Local {
-                        private_key_path: private_key_path.clone(),
-                        passphrase: passphrase.clone(),
-                    },
-                    projects::AuthKey::Generated => {
-                        let private_key = self
-                            .keys
-                            .get_or_create()
-                            .context("failed to get or create private key")?;
-                        keys::Key::Generated(Box::new(private_key))
-                    }
-                };
+            self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+                let credentials = git::credentials::Factory::new(
+                    project_repository.project(),
+                    self.keys
+                        .get_or_create()
+                        .context("failed to get or create private key")?,
+                    user,
+                );
 
                 super::push(
                     project_repository,
                     gb_repository,
                     branch_id,
                     with_force,
-                    &private_key,
+                    &credentials,
                 )
                 .map_err(|e| match e {
                     super::PushError::Remote(error) => Error::ProjectRemote(error),

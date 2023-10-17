@@ -8,6 +8,31 @@ pub enum ConvertError {
     UnsupportedPair { from: Scheme, to: Scheme },
 }
 
+pub fn to_https_url(url: &Url) -> Result<Url, ConvertError> {
+    match url.scheme {
+        Scheme::Https => Ok(url.clone()),
+        Scheme::Http => Ok(Url {
+            scheme: Scheme::Https,
+            ..url.clone()
+        }),
+        Scheme::Ssh => Ok(Url {
+            scheme: Scheme::Https,
+            user: None,
+            serialize_alternative_form: true,
+            path: if !url.path.starts_with(&[b'/']) {
+                format!("/{}", url.path.to_str().unwrap()).into()
+            } else {
+                url.path.clone()
+            },
+            ..url.clone()
+        }),
+        _ => Err(ConvertError::UnsupportedPair {
+            from: url.scheme.clone(),
+            to: Scheme::Ssh,
+        }),
+    }
+}
+
 pub fn to_ssh_url(url: &Url) -> Result<Url, ConvertError> {
     match url.scheme {
         Scheme::Ssh => Ok(url.clone()),
@@ -32,6 +57,35 @@ pub fn to_ssh_url(url: &Url) -> Result<Url, ConvertError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn to_https_url_test() {
+        vec![
+            (
+                "https://github.com/gitbutlerapp/gitbutler-client.git",
+                "https://github.com/gitbutlerapp/gitbutler-client.git",
+            ),
+            (
+                "http://github.com/gitbutlerapp/gitbutler-client.git",
+                "https://github.com/gitbutlerapp/gitbutler-client.git",
+            ),
+            (
+                "git@github.com:gitbutlerapp/gitbutler-client.git",
+                "https://github.com/gitbutlerapp/gitbutler-client.git",
+            ),
+            (
+                "ssh://git@github.com/gitbutlerapp/gitbutler-client.git",
+                "https://github.com/gitbutlerapp/gitbutler-client.git",
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        .for_each(|(i, (input, expected))| {
+            let url = input.parse().unwrap();
+            let https_url = to_https_url(&url).unwrap();
+            assert_eq!(https_url.to_string(), expected, "test case {}", i);
+        });
+    }
 
     #[test]
     fn to_ssh_url_test() {

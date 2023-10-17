@@ -2,7 +2,7 @@ use std::path;
 
 use anyhow::{Context, Result};
 
-use crate::{git, keys, projects, reader, users};
+use crate::{git, projects, reader, users};
 
 pub struct Repository {
     pub git_repository: git::Repository,
@@ -197,9 +197,56 @@ impl Repository {
         Ok(oids.len().try_into()?)
     }
 
+    // returns a remote and makes sure that the push url is an https url
+    // if url is already https, or not set at all, then it returns the remote as is.
+    fn get_https_remote(&self, name: &str) -> Result<git::Remote, RemoteError> {
+        let remote = self
+            .git_repository
+            .find_remote(name)
+            .context("failed to find remote")
+            .map_err(RemoteError::Other)?;
+
+        let remote_url = remote
+            .url()
+            .context("failed to get remote url")
+            .map_err(RemoteError::Other)?;
+
+        if let Some(url) = remote_url {
+            match url.scheme {
+                #[cfg(test)]
+                git::Scheme::File => Ok(remote),
+                git::Scheme::Https => Ok(remote),
+                _ => {
+                    let https_url = url
+                        .as_https()
+                        .map_err(|_| RemoteError::NonHttpsUrl(url.to_string()))?;
+                    Ok(self
+                        .git_repository
+                        .remote_anonymous(&https_url)
+                        .context("failed to get anonymous")
+                        .map_err(RemoteError::Other)?)
+                }
+            }
+        } else {
+            Err(RemoteError::NoUrl)
+        }
+    }
+
+    fn get_remote(
+        &self,
+        name: &str,
+        credentials: &git::credentials::Factory,
+    ) -> Result<git::Remote, RemoteError> {
+        if credentials.has_github_token() {
+            self.get_https_remote(name)
+        } else {
+            self.get_ssh_remote(name)
+        }
+    }
+
     // returns a remote and makes sure that the push url is an ssh url
     // if url is already ssh, or not set at all, then it returns the remote as is.
-    fn get_remote(&self, name: &str) -> Result<git::Remote, RemoteError> {
+    fn get_ssh_remote(&self, name: &str) -> Result<git::Remote, RemoteError> {
         let remote = self
             .git_repository
             .find_remote(name)
@@ -219,7 +266,7 @@ impl Repository {
                 _ => {
                     let ssh_url = url
                         .as_ssh()
-                        .map_err(|_| RemoteError::NonSSHUrl(url.to_string()))?;
+                        .map_err(|_| RemoteError::NonSshUrl(url.to_string()))?;
                     Ok(self
                         .git_repository
                         .remote_anonymous(&ssh_url)
@@ -237,9 +284,9 @@ impl Repository {
         head: &git::Oid,
         branch: &git::RemoteBranchName,
         with_force: bool,
-        key: &keys::Key,
+        credentials: &git::credentials::Factory,
     ) -> Result<(), RemoteError> {
-        let mut remote = self.get_remote(branch.remote())?;
+        let mut remote = self.get_remote(branch.remote(), credentials)?;
 
         let refspec = if with_force {
             format!("+{}:refs/heads/{}", head, branch.branch())
@@ -247,7 +294,7 @@ impl Repository {
             format!("{}:refs/heads/{}", head, branch.branch())
         };
 
-        for credential_callback in git::credentials::for_key(key) {
+        for credential_callback in credentials.for_remote(&remote) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
             remote_callbacks.credentials(credential_callback);
 
@@ -276,10 +323,14 @@ impl Repository {
         Err(RemoteError::AuthError)
     }
 
-    pub fn fetch(&self, remote_name: &str, key: &keys::Key) -> Result<(), RemoteError> {
-        let mut remote = self.get_remote(remote_name)?;
+    pub fn fetch(
+        &self,
+        remote_name: &str,
+        credentials: &git::credentials::Factory,
+    ) -> Result<(), RemoteError> {
+        let mut remote = self.get_remote(remote_name, credentials)?;
 
-        for credential_callback in git::credentials::for_key(key) {
+        for credential_callback in credentials.for_remote(&remote) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
             remote_callbacks.credentials(credential_callback);
             remote_callbacks.push_update_reference(|refname, message| {
@@ -388,7 +439,9 @@ pub enum RemoteError {
     #[error("git url is empty")]
     NoUrl,
     #[error("git url is not ssh: {0}")]
-    NonSSHUrl(String),
+    NonSshUrl(String),
+    #[error("git url is not https: {0}")]
+    NonHttpsUrl(String),
     #[error("authentication failed")]
     AuthError,
     #[error(transparent)]
@@ -398,11 +451,15 @@ pub enum RemoteError {
 impl From<RemoteError> for crate::error::Error {
     fn from(value: RemoteError) -> Self {
         match value {
+            RemoteError::NonHttpsUrl(url) => crate::error::Error::UserError {
+                code: crate::error::Code::ProjectGitRemote,
+                message: format!("Project has non-https remote url: {}", url),
+            },
             RemoteError::AuthError => crate::error::Error::UserError {
                 code: crate::error::Code::ProjectGitAuth,
                 message: "Project remote authentication error".to_string(),
             },
-            RemoteError::NonSSHUrl(url) => crate::error::Error::UserError {
+            RemoteError::NonSshUrl(url) => crate::error::Error::UserError {
                 code: crate::error::Code::ProjectGitRemote,
                 message: format!("Project has non-ssh remote url: {}", url),
             },
