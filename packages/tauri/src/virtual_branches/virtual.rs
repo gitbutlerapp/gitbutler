@@ -1170,15 +1170,14 @@ pub fn update_branch(
     };
 
     if let Some(name) = branch_update.name {
-        let unique_branch_name = Iterator::new(&current_session_reader)
+        let is_unique_branch_name = !Iterator::new(&current_session_reader)
             .context("failed to create branch iterator")?
             .collect::<Result<Vec<branch::Branch>, reader::Error>>()
             .context("failed to read virtual branches")?
             .into_iter()
-            .filter(|branch| branch.name == name)
-            .collect::<Vec<_>>()
-            .is_empty();
-        if unique_branch_name {
+            .any(|branch| branch.name == name);
+
+        if is_unique_branch_name {
             let old_branch_name = name_to_branch(&branch.name.clone());
             let old_refname = format!("refs/gitbutler/{}", old_branch_name);
 
