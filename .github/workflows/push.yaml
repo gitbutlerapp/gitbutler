@@ -88,8 +88,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Rust Nightly
-        uses: dtolnay/rust-toolchain@nightly
+      - uses: ./.github/actions/init-env-rust
+        with:
+          rust: "nightly"
       - name: Install cargo-udeps
         env:
           UDEPS_VERSION: v0.1.42

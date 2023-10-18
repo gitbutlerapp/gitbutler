@@ -1,13 +1,17 @@
 name: init-rust
 description: prepare runner for rust related tasks
+inputs:
+  rust:
+    description: 'rust version'
+    required: false
+    default: 'stable'
 runs:
   using: "composite"
   steps:
-    - name: Install latest stable rust
-      uses: actions-rs/toolchain@v1
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
       with:
-        override: true
-        toolchain: stable
+        toolchain: ${{ inputs.rust }}
         components: rustfmt, clippy
 
     - name: Cache rust dependencies
