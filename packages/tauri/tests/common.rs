@@ -111,4 +111,12 @@ impl TestProject {
             )
             .expect("failed to commit")
     }
+
+    pub fn references(&self) -> Vec<git::Reference> {
+        self.local_repository
+            .references()
+            .expect("failed to get references")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("failed to read references")
+    }
 }

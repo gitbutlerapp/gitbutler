@@ -8,6 +8,7 @@ pub use file_ownership::FileOwnership;
 pub use hunk::Hunk;
 pub use ownership::Ownership;
 pub use reader::BranchReader as Reader;
+use slug::slugify;
 pub use writer::BranchWriter as Writer;
 
 use std::path;
@@ -41,6 +42,12 @@ pub struct Branch {
     pub ownership: Ownership,
     // order is the number by which UI should sort branches
     pub order: usize,
+}
+
+impl Branch {
+    pub fn refname(&self) -> String {
+        format!("refs/gitbutler/{}", slugify(&self.name))
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
