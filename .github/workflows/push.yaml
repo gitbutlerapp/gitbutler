@@ -101,4 +101,5 @@ jobs:
           mv cargo-udeps ~/.cargo/bin/
           cargo-udeps help
           cargo udeps -V
+      - run: mkdir -p packages/ui/build
       - run: cargo +nightly udeps --all-targets
