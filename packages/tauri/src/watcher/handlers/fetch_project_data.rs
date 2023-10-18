@@ -82,17 +82,6 @@ impl HandlerInner {
 
         let user = self.users.get_user()?;
 
-        // mark fetching
-        self.projects
-            .update(&projects::UpdateRequest {
-                id: *project_id,
-                project_data_last_fetched: Some(projects::FetchResult::Fetching {
-                    timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
-                }),
-                ..Default::default()
-            })
-            .context("failed to mark project as fetching")?;
-
         let project = self
             .projects
             .get(project_id)
@@ -113,26 +102,25 @@ impl HandlerInner {
             user.as_ref(),
         );
 
-        let fetch_result = if let Err(error) =
-            project_repository.fetch(default_target.branch.remote(), &credentials)
-        {
-            tracing::error!(%project_id, ?error, "failed to fetch project data");
+        let policy = backoff::ExponentialBackoffBuilder::new()
+            .with_max_elapsed_time(Some(time::Duration::from_secs(10 * 60)))
+            .build();
+
+        let fetch_result = if let Err(error) = backoff::retry(policy, || {
+            project_repository
+                .fetch(default_target.branch.remote(), &credentials)
+                .map_err(|err| {
+                    tracing::warn!(%project_id, ?err, will_retry = true, "failed to fetch project data");
+                    backoff::Error::transient(err)
+                })
+        }) {
+            tracing::error!(%project_id, ?error, will_retry = false, "failed to fetch project data");
             projects::FetchResult::Error {
-                attempt: project
-                    .project_data_last_fetched
-                    .as_ref()
-                    .map_or(0, |r| match r {
-                        projects::FetchResult::Error { attempt, .. } => *attempt + 1,
-                        projects::FetchResult::Fetched { .. }
-                        | projects::FetchResult::Fetching { .. } => 0,
-                    }),
-                timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
+                timestamp: *now,
                 error: error.to_string(),
             }
         } else {
-            projects::FetchResult::Fetched {
-                timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
-            }
+            projects::FetchResult::Fetched { timestamp: *now }
         };
 
         self.projects

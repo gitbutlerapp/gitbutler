@@ -110,13 +110,13 @@ impl Storage {
         }
 
         if let Some(project_data_last_fetched) = update_request.project_data_last_fetched.as_ref() {
-            project.project_data_last_fetched = Some(project_data_last_fetched.clone());
+            project.project_data_last_fetch = Some(project_data_last_fetched.clone());
         }
 
         if let Some(gitbutler_data_last_fetched) =
             update_request.gitbutler_data_last_fetched.as_ref()
         {
-            project.gitbutler_data_last_fetched = Some(gitbutler_data_last_fetched.clone());
+            project.gitbutler_data_last_fetch = Some(gitbutler_data_last_fetched.clone());
         }
 
         self.storage

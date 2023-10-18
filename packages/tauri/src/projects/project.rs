@@ -1,6 +1,5 @@
 use std::{path, time};
 
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::id::Id;
@@ -30,52 +29,20 @@ pub struct ApiProject {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum FetchResult {
-    Fetching {
-        timestamp_ms: u128,
-    },
     Fetched {
-        timestamp_ms: u128,
+        timestamp: time::SystemTime,
     },
     Error {
-        timestamp_ms: u128,
+        timestamp: time::SystemTime,
         error: String,
-        attempt: u32,
     },
 }
 
-const TEN_MINUTES: time::Duration = time::Duration::new(10 * 60, 0);
-
 impl FetchResult {
-    pub fn should_fetch(&self, now: &time::SystemTime) -> Result<bool> {
+    pub fn timestamp(&self) -> &time::SystemTime {
         match self {
-            FetchResult::Fetching { timestamp_ms } => {
-                // if last fetching hang, wait 10 minutes
-                let last_fetch = time::UNIX_EPOCH
-                    + time::Duration::from_millis(TryInto::<u64>::try_into(*timestamp_ms)?);
-                Ok(last_fetch + TEN_MINUTES < *now)
-            }
-            FetchResult::Error {
-                timestamp_ms,
-                attempt,
-                ..
-            } => {
-                // if last fetch errored, wait 10 seconds * 2^attempt, up to 10 minutes
-                let last_fetch = time::UNIX_EPOCH
-                    + time::Duration::from_millis(TryInto::<u64>::try_into(*timestamp_ms)?);
-                // 10 minutes = 600 seconds
-                // 2^10 = 1024
-                // so, attempts are capped at 10
-                if *attempt > 9 {
-                    return Ok(last_fetch + TEN_MINUTES < *now);
-                }
-                Ok(last_fetch + time::Duration::new(2_u64.pow(*attempt), 0) < *now)
-            }
-            FetchResult::Fetched { timestamp_ms } => {
-                // if last fetch was successful, wait 10 minutes
-                let last_fetch = time::UNIX_EPOCH
-                    + time::Duration::from_millis(TryInto::<u64>::try_into(*timestamp_ms)?);
-                Ok(last_fetch + TEN_MINUTES < *now)
-            }
+            FetchResult::Fetched { timestamp } => timestamp,
+            FetchResult::Error { timestamp, .. } => timestamp,
         }
     }
 }
@@ -92,9 +59,9 @@ pub struct Project {
     pub preferred_key: AuthKey,
     pub api: Option<ApiProject>,
     #[serde(default)]
-    pub project_data_last_fetched: Option<FetchResult>,
+    pub project_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
-    pub gitbutler_data_last_fetched: Option<FetchResult>,
+    pub gitbutler_data_last_fetch: Option<FetchResult>,
 }
 
 impl AsRef<Project> for Project {
