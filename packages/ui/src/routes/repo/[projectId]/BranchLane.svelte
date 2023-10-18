@@ -65,6 +65,7 @@
 	export let branchController: BranchController;
 	export let maximized = false;
 	export let branchCount = 1;
+	export let githubContext: GitHubIntegrationContext | undefined;
 
 	const user = userStore;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
@@ -87,20 +88,6 @@
 	const dzType = 'text/hunk';
 	const laneWidthKey = 'laneWidth:';
 
-	function getIntegrationContext(): GitHubIntegrationContext | undefined {
-		const remoteUrl = base?.remoteUrl;
-		if (!remoteUrl) return undefined;
-		const [owner, repo] = remoteUrl.split('.git')[0].split(/\/|:/).slice(-2);
-		const authToken = $user?.github_access_token;
-		if (!authToken) return undefined;
-		return {
-			authToken,
-			owner,
-			repo
-		};
-	}
-
-	$: githubContext = getIntegrationContext();
 	$: pullRequestPromise =
 		githubContext && branch.upstream
 			? getPullRequestByBranch(githubContext, branch.upstream.split('/').slice(-1)[0])
