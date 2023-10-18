@@ -35,6 +35,187 @@ impl Default for Test {
     }
 }
 
+mod create_virtual_branch {
+    use super::*;
+
+    mod name {
+        use super::*;
+
+        #[tokio::test]
+        async fn simple() {
+            let Test {
+                project_id,
+                controller,
+                ..
+            } = Test::default();
+
+            controller
+                .set_base_branch(
+                    &project_id,
+                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+                )
+                .unwrap();
+
+            let branch_id = controller
+                .create_virtual_branch(&project_id, &Default::default())
+                .await
+                .unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+            assert_eq!(branches[0].id, branch_id);
+        }
+
+        #[tokio::test]
+        async fn duplicate_name() {
+            let Test {
+                project_id,
+                controller,
+                ..
+            } = Test::default();
+
+            controller
+                .set_base_branch(
+                    &project_id,
+                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+                )
+                .unwrap();
+
+            let branch1_id = controller
+                .create_virtual_branch(
+                    &project_id,
+                    &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                        name: Some("name".to_string()),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+
+            let branch2_id = controller
+                .create_virtual_branch(
+                    &project_id,
+                    &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                        name: Some("name".to_string()),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            dbg!(&branches);
+            assert_eq!(branches.len(), 2);
+            assert_eq!(branches[0].id, branch1_id);
+            assert_eq!(branches[0].name, "name");
+            assert_eq!(branches[1].id, branch2_id);
+            assert_eq!(branches[1].name, "name");
+        }
+    }
+}
+
+mod update_virtual_branch {
+    use super::*;
+
+    mod name {
+        use super::*;
+
+        #[tokio::test]
+        async fn simple() {
+            let Test {
+                project_id,
+                controller,
+                ..
+            } = Test::default();
+
+            controller
+                .set_base_branch(
+                    &project_id,
+                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+                )
+                .unwrap();
+
+            let branch_id = controller
+                .create_virtual_branch(&project_id, &Default::default())
+                .await
+                .unwrap();
+
+            controller
+                .update_virtual_branch(
+                    &project_id,
+                    gitbutler::virtual_branches::branch::BranchUpdateRequest {
+                        id: branch_id,
+                        name: Some("new name".to_string()),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+            assert_eq!(branches[0].id, branch_id);
+            assert_eq!(branches[0].name, "new name");
+        }
+
+        #[tokio::test]
+        async fn duplicate_name() {
+            let Test {
+                project_id,
+                controller,
+                ..
+            } = Test::default();
+
+            controller
+                .set_base_branch(
+                    &project_id,
+                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+                )
+                .unwrap();
+
+            let branch1_id = controller
+                .create_virtual_branch(
+                    &project_id,
+                    &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                        name: Some("name".to_string()),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+
+            let branch2_id = controller
+                .create_virtual_branch(
+                    &project_id,
+                    &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+
+            controller
+                .update_virtual_branch(
+                    &project_id,
+                    gitbutler::virtual_branches::branch::BranchUpdateRequest {
+                        id: branch2_id,
+                        name: Some("name".to_string()),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 2);
+            assert_eq!(branches[0].id, branch1_id);
+            assert_eq!(branches[0].name, "name");
+            assert_eq!(branches[1].id, branch2_id);
+            assert_eq!(branches[1].name, "name");
+        }
+    }
+}
+
 mod set_base_branch {
     use super::*;
 

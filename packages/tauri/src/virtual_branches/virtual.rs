@@ -1189,7 +1189,6 @@ pub fn merge_virtual_branch_upstream(
 
 pub fn update_branch(
     gb_repository: &gb_repository::Repository,
-    project_repository: &project_repository::Repository,
     branch_update: branch::BranchUpdateRequest,
 ) -> Result<branch::Branch> {
     let current_session = gb_repository
@@ -1209,6 +1208,10 @@ pub fn update_branch(
             .context("failed to set ownership")?;
     }
 
+    if let Some(name) = branch_update.name {
+        branch.name = name;
+    };
+
     if let Some(upstream_branch_name) = branch_update.upstream {
         let remote_branch = match get_default_target(&current_session_reader)? {
             Some(target) => format!(
@@ -1221,38 +1224,6 @@ pub fn update_branch(
             None => bail!("no remote set"),
         };
         branch.upstream = Some(remote_branch);
-    };
-
-    if let Some(name) = branch_update.name {
-        let is_unique_branch_name = !Iterator::new(&current_session_reader)
-            .context("failed to create branch iterator")?
-            .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-            .context("failed to read virtual branches")?
-            .into_iter()
-            .any(|branch| branch.name == name);
-
-        if is_unique_branch_name {
-            let old_branch_name = name_to_branch(&branch.name.clone());
-            let old_refname = format!("refs/gitbutler/{}", old_branch_name);
-
-            let branch_name = name_to_branch(&name.clone());
-            let refname = format!("refs/gitbutler/{}", branch_name);
-
-            branch.name = name;
-
-            // rename the ref
-            let repo = &project_repository.git_repository;
-            if let Ok(mut reference) = repo
-                .find_reference(&old_refname)
-                .context("failed to find reference")
-            {
-                reference
-                    .rename(&refname, true, "gb")
-                    .context("failed to rename reference")?;
-            }
-        } else {
-            bail!("branch name {} already exists", name);
-        }
     };
 
     if let Some(notes) = branch_update.notes {
