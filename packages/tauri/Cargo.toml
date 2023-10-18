@@ -16,7 +16,7 @@ tempfile = "3.8"
 anyhow = "1.0.72"
 async-trait = "0.1.73"
 backoff = "0.4.0"
-bstr = "1.6.2"
+bstr = "1.7.0"
 byteorder = "1.4.3"
 chrono = { version = "0.4.29", features = ["serde"] }
 console-subscriber = "0.2.0"
@@ -41,16 +41,16 @@ serde = { version = "1.0", features = ["derive"] }
 serde-jsonlines = "0.4.0"
 serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
 sha1 = "0.10.6"
-sha2 = "0.10.6"
+sha2 = "0.10.7"
 similar = { version = "2.2.1", features = ["unicode"] }
 ssh-key = { version = "0.6.1", features = [ "alloc", "ed25519" ] }
 tantivy = "0.20.2"
-tauri = { version = "1.5", features = ["dialog-open", "fs-read-file", "path-all", "process-relaunch", "protocol-asset", "shell-open", "system-tray", "window-maximize", "window-start-dragging", "window-unmaximize"] }
+tauri = { version = "1.5.2", features = ["dialog-open", "fs-read-file", "path-all", "process-relaunch", "protocol-asset", "shell-open", "system-tray", "window-maximize", "window-start-dragging", "window-unmaximize"] }
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 thiserror = "1.0.44"
 tokio = { version = "1.29.1", features = [ "full", "sync", "tracing" ] }
-tokio-util = "0.7.8"
+tokio-util = "0.7.9"
 tracing = "0.1.37"
 tracing-appender = "0.2.2"
 tracing-subscriber = "0.3.17"
