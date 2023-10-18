@@ -356,8 +356,8 @@ impl Controller {
         branch_update: super::branch::BranchUpdateRequest,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
-            self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-                super::update_branch(gb_repository, project_repository, branch_update)?;
+            self.with_verify_branch(project_id, |gb_repository, _, _| {
+                super::update_branch(gb_repository, branch_update)?;
                 Ok(())
             })
         })
