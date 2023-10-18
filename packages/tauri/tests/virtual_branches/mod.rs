@@ -1,3 +1,9 @@
+//TODO:
+#![allow(
+    clippy::redundant_closure_for_method_calls,
+    clippy::rest_pat_in_fully_bound_structs
+)]
+
 use std::{fs, str::FromStr};
 
 use gblib::{
@@ -73,7 +79,7 @@ mod references {
                 .into_iter()
                 .filter_map(|reference| reference.name().map(|name| name.to_string()))
                 .collect::<Vec<_>>();
-            assert!(refnames.contains(&"refs/gitbutler/virtual-branch".to_string()))
+            assert!(refnames.contains(&"refs/gitbutler/virtual-branch".to_string()));
         }
 
         #[tokio::test]
@@ -154,7 +160,7 @@ mod references {
             let branch_id = controller
                 .create_virtual_branch(
                     &project_id,
-                    &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                    &branch::BranchCreateRequest {
                         name: Some("name".to_string()),
                         ..Default::default()
                     },
@@ -165,7 +171,7 @@ mod references {
             controller
                 .update_virtual_branch(
                     &project_id,
-                    gblib::virtual_branches::branch::BranchUpdateRequest {
+                    branch::BranchUpdateRequest {
                         id: branch_id,
                         name: Some("new name".to_string()),
                         ..Default::default()
@@ -207,7 +213,7 @@ mod references {
             let branch1_id = controller
                 .create_virtual_branch(
                     &project_id,
-                    &gblib::virtual_branches::branch::BranchCreateRequest {
+                    &branch::BranchCreateRequest {
                         name: Some("name".to_string()),
                         ..Default::default()
                     },
@@ -218,7 +224,7 @@ mod references {
             let branch2_id = controller
                 .create_virtual_branch(
                     &project_id,
-                    &gblib::virtual_branches::branch::BranchCreateRequest {
+                    &branch::BranchCreateRequest {
                         ..Default::default()
                     },
                 )
@@ -228,7 +234,7 @@ mod references {
             controller
                 .update_virtual_branch(
                     &project_id,
-                    gblib::virtual_branches::branch::BranchUpdateRequest {
+                    branch::BranchUpdateRequest {
                         id: branch2_id,
                         name: Some("name".to_string()),
                         ..Default::default()
@@ -276,7 +282,7 @@ mod references {
             let id = controller
                 .create_virtual_branch(
                     &project_id,
-                    &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                    &branch::BranchCreateRequest {
                         name: Some("name".to_string()),
                         ..Default::default()
                     },
@@ -302,8 +308,6 @@ mod references {
     }
 
     mod push_virtual_branch {
-        use gitbutler::virtual_branches::branch::BranchUpdateRequest;
-
         use super::*;
 
         #[tokio::test]
@@ -325,7 +329,7 @@ mod references {
             let branch1_id = controller
                 .create_virtual_branch(
                     &project_id,
-                    &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                    &branch::BranchCreateRequest {
                         name: Some("name".to_string()),
                         ..Default::default()
                     },
@@ -382,7 +386,7 @@ mod references {
                 let branch1_id = controller
                     .create_virtual_branch(
                         &project_id,
-                        &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                        &branch::BranchCreateRequest {
                             name: Some("name".to_string()),
                             ..Default::default()
                         },
@@ -405,7 +409,7 @@ mod references {
             controller
                 .update_virtual_branch(
                     &project_id,
-                    BranchUpdateRequest {
+                    branch::BranchUpdateRequest {
                         id: branch1_id,
                         name: Some("updated name".to_string()),
                         ..Default::default()
@@ -419,7 +423,7 @@ mod references {
                 let branch2_id = controller
                     .create_virtual_branch(
                         &project_id,
-                        &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                        &branch::BranchCreateRequest {
                             name: Some("name".to_string()),
                             ..Default::default()
                         },
@@ -508,8 +512,6 @@ mod set_base_branch {
 }
 
 mod conflicts {
-    use gblib::virtual_branches::branch::BranchCreateRequest;
-
     use super::*;
 
     mod apply_virtual_branch {
@@ -532,7 +534,7 @@ mod conflicts {
 
             let branch1_id = {
                 let branch1_id = controller
-                    .create_virtual_branch(&project_id, &BranchCreateRequest::default())
+                    .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
                     .await
                     .unwrap();
                 fs::write(repository.path().join("file.txt"), "branch one").unwrap();
@@ -549,7 +551,7 @@ mod conflicts {
             {
                 // create another vbranch that conflicts with the first one
                 controller
-                    .create_virtual_branch(&project_id, &BranchCreateRequest::default())
+                    .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
                     .await
                     .unwrap();
                 fs::write(repository.path().join("file.txt"), "branch two").unwrap();
@@ -599,7 +601,7 @@ mod conflicts {
             let branch1_id = {
                 // create a branch with some commited work
                 let branch1_id = controller
-                    .create_virtual_branch(&project_id, &BranchCreateRequest::default())
+                    .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
                     .await
                     .unwrap();
                 fs::write(repository.path().join("another_file.txt"), "virtual").unwrap();
@@ -722,7 +724,7 @@ mod conflicts {
             let branch1_id = {
                 // make a branch with some work
                 let branch1_id = controller
-                    .create_virtual_branch(&project_id, &BranchCreateRequest::default())
+                    .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
                     .await
                     .unwrap();
                 fs::write(repository.path().join("another_file.txt"), "").unwrap();
@@ -825,7 +827,7 @@ mod conflicts {
             let branch1_id = {
                 // make a branch that conflicts with the remote branch, but doesn't know about it yet
                 let branch1_id = controller
-                    .create_virtual_branch(&project_id, &BranchCreateRequest::default())
+                    .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
                     .await
                     .unwrap();
                 fs::write(repository.path().join("file.txt"), "conflict").unwrap();
@@ -919,7 +921,7 @@ mod reset {
             .unwrap();
 
         let branch1_id = controller
-            .create_virtual_branch(&project_id, &Default::default())
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
 
@@ -982,7 +984,7 @@ mod reset {
             .unwrap();
 
         let branch1_id = controller
-            .create_virtual_branch(&project_id, &Default::default())
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
 
@@ -1042,7 +1044,7 @@ mod reset {
             .unwrap();
 
         let branch1_id = controller
-            .create_virtual_branch(&project_id, &Default::default())
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
 
@@ -1128,7 +1130,7 @@ mod reset {
             .unwrap();
 
         let branch1_id = controller
-            .create_virtual_branch(&project_id, &Default::default())
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
 
