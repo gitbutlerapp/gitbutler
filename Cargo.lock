@@ -1968,7 +1968,6 @@ dependencies = [
  "notify",
  "num_cpus",
  "once_cell",
- "posthog-rs",
  "pretty_assertions",
  "r2d2",
  "r2d2_sqlite",
@@ -3874,18 +3873,6 @@ dependencies = [
  "log",
  "pin-project-lite",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "posthog-rs"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ad1b35ffe50419992615288c40ee90fbf30da4c6faf251414675ea64e1cdfa3"
-dependencies = [
- "chrono",
- "reqwest",
- "serde",
- "serde_json",
 ]
 
 [[package]]

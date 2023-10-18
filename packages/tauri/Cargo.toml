@@ -18,7 +18,7 @@ async-trait = "0.1.73"
 backoff = "0.4.0"
 bstr = "1.6.2"
 byteorder = "1.4.3"
-chrono = "0.4.29"
+chrono = { version = "0.4.29", features = ["serde"] }
 console-subscriber = "0.2.0"
 diffy = "0.3.0"
 filetime = "0.2.22"
@@ -27,7 +27,6 @@ git2 = { version = "0.18.1", features = ["vendored-openssl", "vendored-libgit2"]
 md5 = "0.7.0"
 notify = { version = "6.0.1" }
 num_cpus = "1.16.0"
-posthog-rs = "0.2.2"
 r2d2 = "0.8.10"
 r2d2_sqlite = "0.22.0"
 rand = "0.8.5"
