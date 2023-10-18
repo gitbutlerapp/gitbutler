@@ -48,6 +48,7 @@ similar = { version = "2.2.1", features = ["unicode"] }
 ssh-key = { version = "0.6.1", features = [ "alloc", "ed25519" ] }
 tantivy = "0.20.2"
 tauri = { version = "1.5", features = ["dialog-open", "fs-read-file", "path-all", "process-relaunch", "protocol-asset", "shell-open", "system-tray", "window-maximize", "window-start-dragging", "window-unmaximize"] }
+tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 thiserror = "1.0.44"
 tokio = { version = "1.29.1", features = [ "full", "sync", "tracing" ] }
