@@ -81,3 +81,18 @@ jobs:
       - run: pnpm build
       - run: cargo clippy --all-features --tests
       - run: cargo test --locked
+
+  udeps:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-node
+      - uses: ./.github/actions/init-env-rust
+        with:
+          rust: "nightly"
+      - name: Install cargo udeps
+        run: cargo install cargo-udeps --locked
+      - run: pnpm build
+      - run: cargo +nightly udeps --all-targets
