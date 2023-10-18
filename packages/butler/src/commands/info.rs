@@ -38,11 +38,11 @@ impl super::RunCommand for Info {
         );
         println!(
             "  project_data_last_fetched: {:?}",
-            app.project().project_data_last_fetched
+            app.project().project_data_last_fetch
         );
         println!(
             "  project_gitbutler_data_last_fetched: {:?}",
-            app.project().gitbutler_data_last_fetched
+            app.project().gitbutler_data_last_fetch
         );
         println!(
             "  path: {}",

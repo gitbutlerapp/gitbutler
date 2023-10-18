@@ -7,7 +7,7 @@ use crate::{
     gb_repository,
     paths::DataDir,
     project_repository,
-    projects::{self, ProjectId},
+    projects::{self, FetchResult, ProjectId},
     sessions, users,
 };
 
@@ -32,6 +32,9 @@ impl TryFrom<&AppHandle> for Handler {
     }
 }
 
+const GB_FETCH_INTERVAL: time::Duration = time::Duration::new(15 * 60, 0);
+const PROJECT_FETCH_INTERVAL: time::Duration = time::Duration::new(15 * 60, 0);
+
 impl Handler {
     pub fn handle(
         &self,
@@ -52,25 +55,28 @@ impl Handler {
 
         let mut events = vec![];
 
-        let is_sync = project.api.as_ref().map(|api| api.sync).unwrap_or_default();
+        let project_data_last_fetch = project
+            .project_data_last_fetch
+            .as_ref()
+            .map(FetchResult::timestamp)
+            .copied()
+            .unwrap_or(time::UNIX_EPOCH);
 
-        if is_sync
-            && project
-                .gitbutler_data_last_fetched
-                .as_ref()
-                .map_or(Ok(true), |f| f.should_fetch(now))
-                .context("failed to check if gitbutler data should be fetched")?
-        {
-            events.push(events::Event::FetchGitbutlerData(*project_id, *now));
+        if now.duration_since(project_data_last_fetch)? > PROJECT_FETCH_INTERVAL {
+            events.push(events::Event::FetchProjectData(*project_id, *now));
         }
 
-        if project
-            .project_data_last_fetched
-            .as_ref()
-            .map_or(Ok(true), |f| f.should_fetch(now))
-            .context("failed to check if project data should be fetched")?
-        {
-            events.push(events::Event::FetchProjectData(*project_id, *now));
+        if project.api.as_ref().map(|api| api.sync).unwrap_or_default() {
+            let gb_data_last_fetch = project
+                .gitbutler_data_last_fetch
+                .as_ref()
+                .map(FetchResult::timestamp)
+                .copied()
+                .unwrap_or(time::UNIX_EPOCH);
+
+            if now.duration_since(gb_data_last_fetch)? > GB_FETCH_INTERVAL {
+                events.push(events::Event::FetchGitbutlerData(*project_id, *now));
+            }
         }
 
         if let Some(current_session) = gb_repo
