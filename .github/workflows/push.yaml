@@ -81,3 +81,22 @@ jobs:
       - run: pnpm build
       - run: cargo clippy --all-features --tests
       - run: cargo test --locked
+
+  udeps:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust Nightly
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Install cargo-udeps
+        env:
+          UDEPS_VERSION: v0.1.42
+        run: |
+          wget -qO- https://github.com/est31/cargo-udeps/releases/download/${UDEPS_VERSION}/cargo-udeps-${UDEPS_VERSION}-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
+          cd cargo-udeps-${UDEPS_VERSION}-x86_64-unknown-linux-gnu
+          mv cargo-udeps ~/.cargo/bin/
+          cargo-udeps help
+          cargo udeps -V
+      - run: cargo +nightly udeps --all-targets
