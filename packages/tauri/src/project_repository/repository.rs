@@ -213,9 +213,7 @@ impl Repository {
 
         if let Some(url) = remote_url {
             match url.scheme {
-                #[cfg(test)]
-                git::Scheme::File => Ok(remote),
-                git::Scheme::Https => Ok(remote),
+                git::Scheme::Https | git::Scheme::File => Ok(remote),
                 _ => {
                     let https_url = url
                         .as_https()
@@ -260,9 +258,7 @@ impl Repository {
 
         if let Some(url) = remote_url {
             match url.scheme {
-                #[cfg(test)]
-                git::Scheme::File => Ok(remote),
-                git::Scheme::Ssh => Ok(remote),
+                git::Scheme::Ssh | git::Scheme::File => Ok(remote),
                 _ => {
                     let ssh_url = url
                         .as_ssh()

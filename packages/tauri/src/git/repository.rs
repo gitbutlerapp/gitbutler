@@ -386,7 +386,6 @@ impl Repository {
         self.0.remote(name, url).map(Into::into).map_err(Into::into)
     }
 
-    #[cfg(test)]
     pub fn references(&self) -> Result<impl Iterator<Item = Result<Reference>>> {
         self.0
             .references()
