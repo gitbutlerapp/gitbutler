@@ -51,7 +51,7 @@ deny = [
     "clippy::unnecessary_self_imports",
     "clippy::unneeded_field_pattern",
     "clippy::unseparated_literal_suffix",
-    #TODO:                                                                                                                                                                                                      ║
+    #TODO:
     #clippy::if_then_some_else_none
     #clippy::partial_pub_fields
     #clippy::print_stdout
