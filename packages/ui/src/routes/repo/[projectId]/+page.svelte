@@ -118,6 +118,7 @@
 					bind:peekTrayExpanded
 					{cloud}
 					{projectId}
+					{githubContext}
 				/>
 			</div>
 			<Resizer

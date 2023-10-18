@@ -22,6 +22,7 @@
 	import { slide } from 'svelte/transition';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
 	import RemoteBranches from './RemoteBranches.svelte';
+	import type { GitHubIntegrationContext } from '$lib/github/types';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
@@ -31,6 +32,7 @@
 	export let projectId: string;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let peekTrayExpanded = false;
+	export let githubContext: GitHubIntegrationContext | undefined;
 
 	$: branchesState = branchesWithContentStore?.state;
 
@@ -115,6 +117,7 @@
 	disabled={peekTransitionsDisabled}
 	{cloud}
 	{projectId}
+	{githubContext}
 />
 <div
 	class="bg-color-5 border-color-4 z-30 flex w-80 shrink-0 flex-col border-r"
