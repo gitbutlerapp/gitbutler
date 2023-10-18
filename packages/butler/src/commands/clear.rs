@@ -1,12 +1,12 @@
 use anyhow::{Context, Result};
 use clap::Args;
 
-use gitbutler::{sessions, virtual_branches};
+use gblib::{sessions, virtual_branches};
 
 use crate::app::App;
 
 #[derive(Debug, Args)]
-pub struct Clear {}
+pub struct Clear;
 
 impl super::RunCommand for Clear {
     fn run(self) -> Result<()> {

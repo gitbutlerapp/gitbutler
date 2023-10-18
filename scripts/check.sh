@@ -7,7 +7,7 @@ set -o pipefail
 function rust() {
 	cargo fmt --check
 	cargo sort -c -w
-	cargo clippy --all-features --tests
+	cargo cranky --all-targets --all-features
 	cargo test
 }
 

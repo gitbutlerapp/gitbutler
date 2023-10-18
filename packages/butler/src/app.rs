@@ -1,9 +1,9 @@
-use std::path;
+use std::path::{self, Path};
 
 use anyhow::{Context, Result};
 use git2::Repository;
 
-use gitbutler::{
+use gblib::{
     database, gb_repository, paths::DataDir, project_repository, projects, sessions, storage, users,
 };
 
@@ -18,7 +18,7 @@ pub struct App {
 impl App {
     pub fn new() -> Result<Self> {
         let path = find_git_directory().context("failed to find project directory")?;
-        let local_data_dir = find_local_data_dir().context("could not find local data dir")?;
+        let local_data_dir = find_local_data_dir();
 
         let storage = storage::Storage::from(&local_data_dir);
         let users_storage = users::Controller::from(&storage);
@@ -83,13 +83,13 @@ impl App {
 
 fn find_git_directory() -> Option<path::PathBuf> {
     match Repository::discover("./") {
-        Ok(repo) => repo.workdir().map(|p| p.to_path_buf()),
+        Ok(repo) => repo.workdir().map(Path::to_path_buf),
         Err(_) => None,
     }
 }
 
-fn find_local_data_dir() -> Option<DataDir> {
+fn find_local_data_dir() -> DataDir {
     let mut path = dirs::config_dir().unwrap();
     path.push("com.gitbutler.app.dev");
-    Some(path::PathBuf::from(path.to_string_lossy().to_string()).into())
+    path::PathBuf::from(path.to_string_lossy().to_string()).into()
 }

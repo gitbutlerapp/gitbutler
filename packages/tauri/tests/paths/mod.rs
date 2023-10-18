@@ -1,4 +1,4 @@
-use gitbutler::paths::DataDir;
+use gblib::paths::DataDir;
 
 use crate::common::temp_dir;
 

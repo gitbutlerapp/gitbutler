@@ -1,12 +1,12 @@
 use anyhow::{Context, Result};
 use clap::Args;
 
-use gitbutler::{reader, sessions, virtual_branches};
+use gblib::{reader, sessions, virtual_branches};
 
 use crate::app::App;
 
 #[derive(Debug, Args)]
-pub struct Reset {}
+pub struct Reset;
 
 impl super::RunCommand for Reset {
     fn run(self) -> Result<()> {

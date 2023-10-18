@@ -2,12 +2,12 @@ use anyhow::{Context, Result};
 use clap::Args;
 use colored::Colorize;
 use dialoguer::{console::Term, theme::ColorfulTheme, Select};
-use gitbutler::virtual_branches::set_base_branch;
+use gblib::virtual_branches::set_base_branch;
 
 use crate::app::App;
 
 #[derive(Debug, Args)]
-pub struct Setup {}
+pub struct Setup;
 
 impl super::RunCommand for Setup {
     fn run(self) -> Result<()> {

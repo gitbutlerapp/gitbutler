@@ -1,4 +1,4 @@
-use gitbutler::projects::Controller;
+use gblib::projects::Controller;
 
 use crate::{common, paths};
 
@@ -21,7 +21,7 @@ mod add {
     }
 
     mod error {
-        use gitbutler::projects::AddError;
+        use gblib::projects::AddError;
 
         use super::*;
 

@@ -1,10 +1,10 @@
 use std::{fs, str::FromStr};
 
-use gitbutler::{
+use gblib::{
     git, keys,
     projects::{self, ProjectId},
     users,
-    virtual_branches::{Controller, ControllerError},
+    virtual_branches::{branch, Controller, ControllerError},
 };
 
 use crate::{common::TestProject, paths};
@@ -39,6 +39,7 @@ mod create_virtual_branch {
     use super::*;
 
     mod name {
+
         use super::*;
 
         #[tokio::test]
@@ -57,7 +58,7 @@ mod create_virtual_branch {
                 .unwrap();
 
             let branch_id = controller
-                .create_virtual_branch(&project_id, &Default::default())
+                .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
                 .await
                 .unwrap();
 
@@ -84,7 +85,7 @@ mod create_virtual_branch {
             let branch1_id = controller
                 .create_virtual_branch(
                     &project_id,
-                    &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                    &gblib::virtual_branches::branch::BranchCreateRequest {
                         name: Some("name".to_string()),
                         ..Default::default()
                     },
@@ -95,7 +96,7 @@ mod create_virtual_branch {
             let branch2_id = controller
                 .create_virtual_branch(
                     &project_id,
-                    &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                    &gblib::virtual_branches::branch::BranchCreateRequest {
                         name: Some("name".to_string()),
                         ..Default::default()
                     },
@@ -136,14 +137,14 @@ mod update_virtual_branch {
                 .unwrap();
 
             let branch_id = controller
-                .create_virtual_branch(&project_id, &Default::default())
+                .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
                 .await
                 .unwrap();
 
             controller
                 .update_virtual_branch(
                     &project_id,
-                    gitbutler::virtual_branches::branch::BranchUpdateRequest {
+                    gblib::virtual_branches::branch::BranchUpdateRequest {
                         id: branch_id,
                         name: Some("new name".to_string()),
                         ..Default::default()
@@ -176,7 +177,7 @@ mod update_virtual_branch {
             let branch1_id = controller
                 .create_virtual_branch(
                     &project_id,
-                    &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                    &gblib::virtual_branches::branch::BranchCreateRequest {
                         name: Some("name".to_string()),
                         ..Default::default()
                     },
@@ -187,7 +188,7 @@ mod update_virtual_branch {
             let branch2_id = controller
                 .create_virtual_branch(
                     &project_id,
-                    &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                    &gblib::virtual_branches::branch::BranchCreateRequest {
                         ..Default::default()
                     },
                 )
@@ -197,7 +198,7 @@ mod update_virtual_branch {
             controller
                 .update_virtual_branch(
                     &project_id,
-                    gitbutler::virtual_branches::branch::BranchUpdateRequest {
+                    gblib::virtual_branches::branch::BranchUpdateRequest {
                         id: branch2_id,
                         name: Some("name".to_string()),
                         ..Default::default()
@@ -258,7 +259,7 @@ mod set_base_branch {
 }
 
 mod conflicts {
-    use gitbutler::virtual_branches::branch::BranchCreateRequest;
+    use gblib::virtual_branches::branch::BranchCreateRequest;
 
     use super::*;
 

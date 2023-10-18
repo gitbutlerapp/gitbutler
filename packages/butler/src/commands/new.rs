@@ -2,12 +2,12 @@ use anyhow::{Context, Result};
 use clap::Args;
 use dialoguer::{theme::ColorfulTheme, Input};
 
-use gitbutler::virtual_branches;
+use gblib::virtual_branches;
 
 use crate::app::App;
 
 #[derive(Debug, Args)]
-pub struct New {}
+pub struct New;
 
 impl super::RunCommand for New {
     fn run(self) -> Result<()> {

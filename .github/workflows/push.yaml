@@ -79,7 +79,8 @@ jobs:
       - uses: ./.github/actions/init-env-rust
       - uses: ./.github/actions/init-env-node
       - run: pnpm build
-      - run: cargo clippy --all-features --tests
+      - run: cargo install cargo-cranky
+      - run: cargo cranky --all-targets --all-features
       - run: cargo test --locked
 
   udeps:
