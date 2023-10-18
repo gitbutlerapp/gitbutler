@@ -35,10 +35,10 @@ impl Default for Test {
     }
 }
 
-mod create_virtual_branch {
+mod references {
     use super::*;
 
-    mod name {
+    mod create_virtual_branch {
 
         use super::*;
 
@@ -47,6 +47,7 @@ mod create_virtual_branch {
             let Test {
                 project_id,
                 controller,
+                repository,
                 ..
             } = Test::default();
 
@@ -65,6 +66,14 @@ mod create_virtual_branch {
             let branches = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
+            assert_eq!(branches[0].name, "Virtual branch");
+
+            let refnames = repository
+                .references()
+                .into_iter()
+                .filter_map(|reference| reference.name().map(|name| name.to_string()))
+                .collect::<Vec<_>>();
+            assert!(refnames.contains(&"refs/gitbutler/virtual-branch".to_string()))
         }
 
         #[tokio::test]
@@ -72,6 +81,7 @@ mod create_virtual_branch {
             let Test {
                 project_id,
                 controller,
+                repository,
                 ..
             } = Test::default();
 
@@ -110,15 +120,19 @@ mod create_virtual_branch {
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].name, "name");
             assert_eq!(branches[1].id, branch2_id);
-            assert_eq!(branches[1].name, "name");
+            assert_eq!(branches[1].name, "name 1");
+
+            let refnames = repository
+                .references()
+                .into_iter()
+                .filter_map(|reference| reference.name().map(|name| name.to_string()))
+                .collect::<Vec<_>>();
+            assert!(refnames.contains(&"refs/gitbutler/name".to_string()));
+            assert!(refnames.contains(&"refs/gitbutler/name-1".to_string()));
         }
     }
-}
 
-mod update_virtual_branch {
-    use super::*;
-
-    mod name {
+    mod update_virtual_branch {
         use super::*;
 
         #[tokio::test]
@@ -126,6 +140,7 @@ mod update_virtual_branch {
             let Test {
                 project_id,
                 controller,
+                repository,
                 ..
             } = Test::default();
 
@@ -137,7 +152,13 @@ mod update_virtual_branch {
                 .unwrap();
 
             let branch_id = controller
-                .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+                .create_virtual_branch(
+                    &project_id,
+                    &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                        name: Some("name".to_string()),
+                        ..Default::default()
+                    },
+                )
                 .await
                 .unwrap();
 
@@ -157,6 +178,14 @@ mod update_virtual_branch {
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert_eq!(branches[0].name, "new name");
+
+            let refnames = repository
+                .references()
+                .into_iter()
+                .filter_map(|reference| reference.name().map(|name| name.to_string()))
+                .collect::<Vec<_>>();
+            assert!(!refnames.contains(&"refs/gitbutler/name".to_string()));
+            assert!(refnames.contains(&"refs/gitbutler/new-name".to_string()));
         }
 
         #[tokio::test]
@@ -164,6 +193,7 @@ mod update_virtual_branch {
             let Test {
                 project_id,
                 controller,
+                repository,
                 ..
             } = Test::default();
 
@@ -212,7 +242,226 @@ mod update_virtual_branch {
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].name, "name");
             assert_eq!(branches[1].id, branch2_id);
+            assert_eq!(branches[1].name, "name 1");
+
+            let refnames = repository
+                .references()
+                .into_iter()
+                .filter_map(|reference| reference.name().map(|name| name.to_string()))
+                .collect::<Vec<_>>();
+            assert!(refnames.contains(&"refs/gitbutler/name".to_string()));
+            assert!(refnames.contains(&"refs/gitbutler/name-1".to_string()));
+        }
+    }
+
+    mod delete_virtual_branch {
+        use super::*;
+
+        #[tokio::test]
+        async fn simple() {
+            let Test {
+                project_id,
+                controller,
+                repository,
+                ..
+            } = Test::default();
+
+            controller
+                .set_base_branch(
+                    &project_id,
+                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+                )
+                .unwrap();
+
+            let id = controller
+                .create_virtual_branch(
+                    &project_id,
+                    &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                        name: Some("name".to_string()),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+
+            controller
+                .delete_virtual_branch(&project_id, &id)
+                .await
+                .unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 0);
+
+            let refnames = repository
+                .references()
+                .into_iter()
+                .filter_map(|reference| reference.name().map(|name| name.to_string()))
+                .collect::<Vec<_>>();
+            assert!(!refnames.contains(&"refs/gitbutler/name".to_string()));
+        }
+    }
+
+    mod push_virtual_branch {
+        use gitbutler::virtual_branches::branch::BranchUpdateRequest;
+
+        use super::*;
+
+        #[tokio::test]
+        async fn simple() {
+            let Test {
+                project_id,
+                controller,
+                repository,
+                ..
+            } = Test::default();
+
+            controller
+                .set_base_branch(
+                    &project_id,
+                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+                )
+                .unwrap();
+
+            let branch1_id = controller
+                .create_virtual_branch(
+                    &project_id,
+                    &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                        name: Some("name".to_string()),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+
+            fs::write(repository.path().join("file.txt"), "content").unwrap();
+
+            controller
+                .create_commit(&project_id, &branch1_id, "test", None)
+                .await
+                .unwrap();
+            controller
+                .push_virtual_branch(&project_id, &branch1_id, false)
+                .await
+                .unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+            assert_eq!(branches[0].id, branch1_id);
+            assert_eq!(branches[0].name, "name");
+            assert_eq!(
+                branches[0].upstream,
+                Some("refs/remotes/origin/name".parse().unwrap())
+            );
+
+            let refnames = repository
+                .references()
+                .into_iter()
+                .filter_map(|reference| reference.name().map(|name| name.to_string()))
+                .collect::<Vec<_>>();
+            assert!(refnames.contains(&branches[0].upstream.clone().unwrap().to_string()));
+        }
+
+        #[tokio::test]
+        async fn duplicate_names() {
+            let Test {
+                project_id,
+                controller,
+                repository,
+                ..
+            } = Test::default();
+
+            controller
+                .set_base_branch(
+                    &project_id,
+                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+                )
+                .unwrap();
+
+            let branch1_id = {
+                // create and push branch with some work
+                let branch1_id = controller
+                    .create_virtual_branch(
+                        &project_id,
+                        &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                            name: Some("name".to_string()),
+                            ..Default::default()
+                        },
+                    )
+                    .await
+                    .unwrap();
+                fs::write(repository.path().join("file.txt"), "content").unwrap();
+                controller
+                    .create_commit(&project_id, &branch1_id, "test", None)
+                    .await
+                    .unwrap();
+                controller
+                    .push_virtual_branch(&project_id, &branch1_id, false)
+                    .await
+                    .unwrap();
+                branch1_id
+            };
+
+            // rename first branch
+            controller
+                .update_virtual_branch(
+                    &project_id,
+                    BranchUpdateRequest {
+                        id: branch1_id,
+                        name: Some("updated name".to_string()),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+
+            let branch2_id = {
+                // create another branch with first branch's old name and push it
+                let branch2_id = controller
+                    .create_virtual_branch(
+                        &project_id,
+                        &gitbutler::virtual_branches::branch::BranchCreateRequest {
+                            name: Some("name".to_string()),
+                            ..Default::default()
+                        },
+                    )
+                    .await
+                    .unwrap();
+                fs::write(repository.path().join("file.txt"), "updated content").unwrap();
+                controller
+                    .create_commit(&project_id, &branch2_id, "test", None)
+                    .await
+                    .unwrap();
+                controller
+                    .push_virtual_branch(&project_id, &branch2_id, false)
+                    .await
+                    .unwrap();
+                branch2_id
+            };
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 2);
+            // first branch is pushing to old ref remotely
+            assert_eq!(branches[0].id, branch1_id);
+            assert_eq!(branches[0].name, "updated name");
+            assert_eq!(
+                branches[0].upstream,
+                Some("refs/remotes/origin/name".parse().unwrap())
+            );
+            // new branch is pushing to new ref remotely
+            assert_eq!(branches[1].id, branch2_id);
             assert_eq!(branches[1].name, "name");
+            assert_eq!(
+                branches[1].upstream,
+                Some("refs/remotes/origin/name-1".parse().unwrap())
+            );
+
+            let refnames = repository
+                .references()
+                .into_iter()
+                .filter_map(|reference| reference.name().map(|name| name.to_string()))
+                .collect::<Vec<_>>();
+            assert!(refnames.contains(&branches[0].upstream.clone().unwrap().to_string()));
+            assert!(refnames.contains(&branches[1].upstream.clone().unwrap().to_string()));
         }
     }
 }
@@ -648,5 +897,273 @@ mod conflicts {
                 assert!(!branches[0].conflicted);
             }
         }
+    }
+}
+
+mod reset {
+    use super::*;
+
+    #[tokio::test]
+    async fn to_head() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+        } = Test::default();
+
+        controller
+            .set_base_branch(
+                &project_id,
+                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+            )
+            .unwrap();
+
+        let branch1_id = controller
+            .create_virtual_branch(&project_id, &Default::default())
+            .await
+            .unwrap();
+
+        let oid = {
+            fs::write(repository.path().join("file.txt"), "content").unwrap();
+
+            // commit changes
+            let oid = controller
+                .create_commit(&project_id, &branch1_id, "commit", None)
+                .await
+                .unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+            assert_eq!(branches[0].id, branch1_id);
+            assert_eq!(branches[0].commits.len(), 1);
+            assert_eq!(branches[0].commits[0].id, oid);
+            assert_eq!(branches[0].files.len(), 0);
+            assert_eq!(
+                fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                "content"
+            );
+
+            oid
+        };
+
+        {
+            // reset changes to head
+            controller
+                .reset_virtual_branch(&project_id, &branch1_id, oid)
+                .await
+                .unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+            assert_eq!(branches[0].id, branch1_id);
+            assert_eq!(branches[0].commits.len(), 1);
+            assert_eq!(branches[0].commits[0].id, oid);
+            assert_eq!(branches[0].files.len(), 0);
+            assert_eq!(
+                fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                "content"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn to_target() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+        } = Test::default();
+
+        let base_branch = controller
+            .set_base_branch(
+                &project_id,
+                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+            )
+            .unwrap();
+
+        let branch1_id = controller
+            .create_virtual_branch(&project_id, &Default::default())
+            .await
+            .unwrap();
+
+        {
+            fs::write(repository.path().join("file.txt"), "content").unwrap();
+
+            // commit changes
+            let oid = controller
+                .create_commit(&project_id, &branch1_id, "commit", None)
+                .await
+                .unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+            assert_eq!(branches[0].id, branch1_id);
+            assert_eq!(branches[0].commits.len(), 1);
+            assert_eq!(branches[0].commits[0].id, oid);
+            assert_eq!(branches[0].files.len(), 0);
+            assert_eq!(
+                fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                "content"
+            );
+        }
+
+        {
+            // reset changes to head
+            controller
+                .reset_virtual_branch(&project_id, &branch1_id, base_branch.base_sha)
+                .await
+                .unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+            assert_eq!(branches[0].id, branch1_id);
+            assert_eq!(branches[0].commits.len(), 0);
+            assert_eq!(branches[0].files.len(), 1);
+            assert_eq!(
+                fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                "content"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn to_commit() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+        } = Test::default();
+
+        controller
+            .set_base_branch(
+                &project_id,
+                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+            )
+            .unwrap();
+
+        let branch1_id = controller
+            .create_virtual_branch(&project_id, &Default::default())
+            .await
+            .unwrap();
+
+        let first_commit_oid = {
+            // commit some changes
+
+            fs::write(repository.path().join("file.txt"), "content").unwrap();
+
+            let oid = controller
+                .create_commit(&project_id, &branch1_id, "commit", None)
+                .await
+                .unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+            assert_eq!(branches[0].id, branch1_id);
+            assert_eq!(branches[0].commits.len(), 1);
+            assert_eq!(branches[0].commits[0].id, oid);
+            assert_eq!(branches[0].files.len(), 0);
+            assert_eq!(
+                fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                "content"
+            );
+
+            oid
+        };
+
+        {
+            // commit some more
+            fs::write(repository.path().join("file.txt"), "more content").unwrap();
+
+            let second_commit_oid = controller
+                .create_commit(&project_id, &branch1_id, "commit", None)
+                .await
+                .unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+            assert_eq!(branches[0].id, branch1_id);
+            assert_eq!(branches[0].commits.len(), 2);
+            assert_eq!(branches[0].commits[0].id, second_commit_oid);
+            assert_eq!(branches[0].commits[1].id, first_commit_oid);
+            assert_eq!(branches[0].files.len(), 0);
+            assert_eq!(
+                fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                "more content"
+            );
+        }
+
+        {
+            // reset changes to the first commit
+            controller
+                .reset_virtual_branch(&project_id, &branch1_id, first_commit_oid)
+                .await
+                .unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+            assert_eq!(branches[0].id, branch1_id);
+            assert_eq!(branches[0].commits.len(), 1);
+            assert_eq!(branches[0].commits[0].id, first_commit_oid);
+            assert_eq!(branches[0].files.len(), 1);
+            assert_eq!(
+                fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                "more content"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn to_non_existing() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+        } = Test::default();
+
+        controller
+            .set_base_branch(
+                &project_id,
+                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+            )
+            .unwrap();
+
+        let branch1_id = controller
+            .create_virtual_branch(&project_id, &Default::default())
+            .await
+            .unwrap();
+
+        {
+            fs::write(repository.path().join("file.txt"), "content").unwrap();
+
+            // commit changes
+            let oid = controller
+                .create_commit(&project_id, &branch1_id, "commit", None)
+                .await
+                .unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+            assert_eq!(branches[0].id, branch1_id);
+            assert_eq!(branches[0].commits.len(), 1);
+            assert_eq!(branches[0].commits[0].id, oid);
+            assert_eq!(branches[0].files.len(), 0);
+            assert_eq!(
+                fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                "content"
+            );
+
+            oid
+        };
+
+        assert!(matches!(
+            controller
+                .reset_virtual_branch(
+                    &project_id,
+                    &branch1_id,
+                    "fe14df8c66b73c6276f7bb26102ad91da680afcb".parse().unwrap()
+                )
+                .await,
+            Err(ControllerError::Other(_))
+        ));
     }
 }

@@ -9,6 +9,7 @@
 	import RemoteBranchPeek from './RemoteBranchPeek.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import Lane from './BranchLane.svelte';
+	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { getCloudApiClient } from '$lib/api/cloud/api';
 
 	export let item: Readable<RemoteBranch | Branch | BaseBranch | undefined> | undefined;
@@ -20,6 +21,7 @@
 	export let projectId: string;
 	export let fullHeight = false;
 	export let disabled = false;
+	export let githubContext: GitHubIntegrationContext | undefined;
 
 	let viewport: HTMLElement;
 
@@ -81,6 +83,7 @@
 					cloudEnabled={false}
 					projectPath=""
 					readonly={true}
+					{githubContext}
 				/>
 			{:else if $item instanceof BaseBranch}
 				<BaseBranchPeek {projectId} base={$item} {branchController} />

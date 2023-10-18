@@ -7,6 +7,7 @@ use std::{
 use anyhow::{anyhow, bail, Context, Result};
 use diffy::{apply_bytes, Patch};
 use serde::Serialize;
+use slug::slugify;
 
 use crate::{
     dedup::{dedup, dedup_fmt},
@@ -945,6 +946,7 @@ pub fn commit_to_vbranch_commit(
 
 pub fn create_virtual_branch(
     gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
     create: &BranchCreateRequest,
 ) -> Result<branch::Branch> {
     let current_session = gb_repository
@@ -996,17 +998,15 @@ pub fn create_virtual_branch(
         .context("failed to get elapsed time")?
         .as_millis();
 
-    let name: String = create.name.as_ref().map_or_else(
-        || {
-            dedup(
-                &all_virtual_branches
-                    .iter()
-                    .map(|b| b.name.as_str())
-                    .collect::<Vec<_>>(),
-                "Virtual branch",
-            )
-        },
-        ToString::to_string,
+    let name = dedup(
+        &all_virtual_branches
+            .iter()
+            .map(|b| b.name.as_str())
+            .collect::<Vec<_>>(),
+        create
+            .name
+            .as_ref()
+            .unwrap_or(&"Virtual branch".to_string()),
     );
 
     let mut branch = Branch {
@@ -1033,6 +1033,11 @@ pub fn create_virtual_branch(
     branch_writer
         .write(&branch)
         .context("failed to write branch")?;
+
+    project_repository
+        .git_repository
+        .reference(&branch.refname(), branch.head, false, "new vbranch")
+        .context("failed to create branch reference")?;
 
     Ok(branch)
 }
@@ -1189,6 +1194,7 @@ pub fn merge_virtual_branch_upstream(
 
 pub fn update_branch(
     gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
     branch_update: branch::BranchUpdateRequest,
 ) -> Result<branch::Branch> {
     let current_session = gb_repository
@@ -1209,7 +1215,32 @@ pub fn update_branch(
     }
 
     if let Some(name) = branch_update.name {
-        branch.name = name;
+        let all_virtual_branches = Iterator::new(&current_session_reader)
+            .context("failed to create branch iterator")?
+            .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+            .context("failed to read virtual branches")?;
+
+        if let Ok(ref mut reference) = project_repository
+            .git_repository
+            .find_reference(&branch.refname())
+        {
+            reference
+                .delete()
+                .context("failed to delete old branch reference")?;
+        }
+
+        branch.name = dedup(
+            &all_virtual_branches
+                .iter()
+                .map(|b| b.name.as_str())
+                .collect::<Vec<_>>(),
+            &name,
+        );
+
+        project_repository
+            .git_repository
+            .reference(&branch.refname(), branch.head, false, "new vbranch")
+            .context("failed to create branch reference")?;
     };
 
     if let Some(upstream_branch_name) = branch_update.upstream {
@@ -1217,7 +1248,7 @@ pub fn update_branch(
             Some(target) => format!(
                 "refs/remotes/{}/{}",
                 target.branch.remote(),
-                name_to_branch(&upstream_branch_name)
+                slugify(upstream_branch_name)
             )
             .parse::<git::RemoteBranchName>()
             .unwrap(),
@@ -1264,14 +1295,11 @@ pub fn delete_branch(
 
     // remove refs/butler reference
     let repo = &project_repository.git_repository;
-    let branch_name = name_to_branch(&branch.name);
-    let ref_name = format!("refs/gitbutler/{}", branch_name);
-    println!("deleting ref: {}", ref_name);
-    if let Ok(mut reference) = repo.find_reference(&ref_name) {
-        println!("FOUND {}", ref_name);
+    let refname = branch.refname();
+    if let Ok(mut reference) = repo.find_reference(&refname) {
         reference
             .delete()
-            .context(format!("failed to delete {}", ref_name))?;
+            .context(format!("failed to delete {}", refname))?;
     }
 
     Ok(branch)
@@ -1523,11 +1551,12 @@ fn get_applied_status(
 
     if virtual_branches.is_empty() && !hunks_by_filepath.is_empty() {
         // no virtual branches, but hunks: create default branch
-        virtual_branches =
-            vec![
-                create_virtual_branch(gb_repository, &BranchCreateRequest::default())
-                    .context("failed to default branch")?,
-            ];
+        virtual_branches = vec![create_virtual_branch(
+            gb_repository,
+            project_repository,
+            &BranchCreateRequest::default(),
+        )
+        .context("failed to default branch")?];
     }
 
     // align branch ownership to the real hunks:
@@ -2047,12 +2076,6 @@ pub fn commit(
     Ok(commit_oid)
 }
 
-pub fn name_to_branch(name: &str) -> String {
-    name.chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect::<String>()
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum CommitError {
     #[error("will not commit conflicted files")]
@@ -2099,7 +2122,7 @@ pub fn push(
             Some(target) => format!(
                 "refs/remotes/{}/{}",
                 target.branch.remote(),
-                name_to_branch(&vbranch.name)
+                slugify(&vbranch.name)
             )
             .parse::<git::RemoteBranchName>()
             .unwrap(),
@@ -2111,11 +2134,8 @@ pub fn push(
             .iter()
             .map(RemoteBranchName::branch)
             .collect::<Vec<_>>();
-        remote_branch.with_branch(&name_to_branch(&dedup_fmt(
-            &existing_branches,
-            remote_branch.branch(),
-            "-",
-        )))
+
+        remote_branch.with_branch(&dedup_fmt(&existing_branches, remote_branch.branch(), "-"))
     };
 
     project_repository.push(&vbranch.head, &remote_branch, with_force, credentials)?;

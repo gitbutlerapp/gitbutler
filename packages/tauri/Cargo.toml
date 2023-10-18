@@ -49,8 +49,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde-jsonlines = "0.4.0"
 serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
 sha1 = "0.10.6"
-sha2 = "0.10.7"
+sha2 = "0.10.8"
 similar = { version = "2.2.1", features = ["unicode"] }
+slug = "0.1.4"
 ssh-key = { version = "0.6.1", features = [ "alloc", "ed25519" ] }
 tantivy = "0.20.2"
 tauri = { version = "1.5.2", features = ["dialog-open", "fs-read-file", "path-all", "process-relaunch", "protocol-asset", "shell-open", "system-tray", "window-maximize", "window-start-dragging", "window-unmaximize"] }

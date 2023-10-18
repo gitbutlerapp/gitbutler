@@ -113,8 +113,7 @@ pub fn update_gitbutler_integration(
     for branch in &applied_virtual_branches {
         message.push_str(" - ");
         message.push_str(branch.name.as_str());
-        let branch_name = super::name_to_branch(branch.name.as_str());
-        message.push_str(format!(" (gitbutler/{})", &branch_name).as_str());
+        message.push_str(format!(" ({})", &branch.refname()).as_str());
         message.push('\n');
 
         if branch.head != target.sha {
@@ -183,9 +182,12 @@ pub fn update_gitbutler_integration(
             branch_head = repo.find_commit(branch_head_oid)?;
         }
 
-        let branch_name = super::name_to_branch(branch.name.as_str());
-        let branch_ref = format!("refs/gitbutler/{}", branch_name);
-        repo.reference(&branch_ref, branch_head.id(), true, "update virtual branch")?;
+        repo.reference(
+            &branch.refname(),
+            branch_head.id(),
+            true,
+            "update virtual branch",
+        )?;
     }
 
     Ok(())
@@ -282,6 +284,7 @@ fn verify_head_is_clean(
 
     let new_branch = super::create_virtual_branch(
         gb_repository,
+        project_repository,
         &BranchCreateRequest {
             name: extra_commits
                 .last()

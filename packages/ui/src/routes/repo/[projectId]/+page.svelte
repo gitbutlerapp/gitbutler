@@ -26,6 +26,8 @@
 	import BaseBranchSelect from './BaseBranchSelect.svelte';
 	import { unsubscribe } from '$lib/utils';
 	import * as hotkeys from '$lib/hotkeys';
+	import { userStore } from '$lib/stores/user';
+	import type { GitHubIntegrationContext } from '$lib/github/types';
 
 	export let data: PageData;
 	let { projectId, project, cloud } = data;
@@ -81,6 +83,24 @@
 			)
 		)
 	);
+
+	function getIntegrationContext(
+		remoteUrl: string,
+		githubAuthToken: string
+	): GitHubIntegrationContext | undefined {
+		if (!remoteUrl.includes('github')) return undefined;
+		const [owner, repo] = remoteUrl.split('.git')[0].split(/\/|:/).slice(-2);
+		return {
+			authToken: githubAuthToken,
+			owner,
+			repo
+		};
+	}
+
+	$: githubContext =
+		$baseBranchStore?.remoteUrl && $userStore?.github_access_token
+			? getIntegrationContext($baseBranchStore?.remoteUrl, $userStore?.github_access_token)
+			: undefined;
 </script>
 
 {#if $baseBranchesState.isLoading}
@@ -98,6 +118,7 @@
 					bind:peekTrayExpanded
 					{cloud}
 					{projectId}
+					{githubContext}
 				/>
 			</div>
 			<Resizer
@@ -151,6 +172,7 @@
 						baseBranchState={$baseBranchesState}
 						cloudEnabled={$project?.api?.sync || false}
 						{cloud}
+						{githubContext}
 					/>
 				</div>
 				<!-- <BottomPanel base={$baseBranchStore} {userSettings} /> -->

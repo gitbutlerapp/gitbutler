@@ -20,6 +20,7 @@ impl super::RunCommand for New {
 
         virtual_branches::create_virtual_branch(
             &app.gb_repository(),
+            &app.project_repository(),
             &virtual_branches::branch::BranchCreateRequest {
                 name: Some(input),
                 ..Default::default()

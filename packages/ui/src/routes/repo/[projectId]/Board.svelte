@@ -8,6 +8,7 @@
 	import type { LoadState } from '@square/svelte-store';
 	import { open } from '@tauri-apps/api/shell';
 	import { IconFile, IconTerminal, IconExternalLink } from '$lib/icons';
+	import type { GitHubIntegrationContext } from '$lib/github/types';
 
 	export let projectId: string;
 	export let projectPath: string;
@@ -21,6 +22,8 @@
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
+
+	export let githubContext: GitHubIntegrationContext | undefined
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;
@@ -100,6 +103,7 @@
 				{cloud}
 				{branchController}
 				branchCount={branches.filter((c) => c.active).length}
+				{githubContext}
 			/>
 		{/each}
 

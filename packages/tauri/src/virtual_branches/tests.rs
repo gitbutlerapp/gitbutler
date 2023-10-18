@@ -64,9 +64,13 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     std::fs::write(
         std::path::Path::new(&project.path).join("test.txt"),
@@ -130,9 +134,13 @@ fn test_signed_commit() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     std::fs::write(
         std::path::Path::new(&project.path).join("test.txt"),
@@ -197,9 +205,13 @@ fn test_track_binary_files() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     // test file change
     std::fs::write(
@@ -302,8 +314,12 @@ fn test_create_branch_with_ownership() -> Result<()> {
     )
     .unwrap();
 
-    let branch0 = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch");
+    let branch0 = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch");
 
     get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
 
@@ -314,6 +330,7 @@ fn test_create_branch_with_ownership() -> Result<()> {
 
     let branch1 = create_virtual_branch(
         &gb_repository,
+        &project_repository,
         &BranchCreateRequest {
             ownership: Some(branch0.ownership),
             ..Default::default()
@@ -346,12 +363,21 @@ fn test_create_branch_in_the_middle() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch");
-    create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch");
     create_virtual_branch(
         &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch");
+    create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch");
+    create_virtual_branch(
+        &gb_repository,
+        &project_repository,
         &BranchCreateRequest {
             order: Some(1),
             ..Default::default()
@@ -384,8 +410,12 @@ fn test_create_branch_no_arguments() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch");
+    create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch");
 
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
@@ -419,12 +449,20 @@ fn test_hunk_expantion() -> Result<()> {
         "line1\nline2\n",
     )?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch2_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch2_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     let statuses =
         get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
@@ -441,6 +479,7 @@ fn test_hunk_expantion() -> Result<()> {
     // even though selected branch has changed
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch1_id,
             order: Some(1),
@@ -449,6 +488,7 @@ fn test_hunk_expantion() -> Result<()> {
     )?;
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id,
             order: Some(0),
@@ -511,12 +551,20 @@ fn test_get_status_files_by_branch() -> Result<()> {
         "line1\nline2\n",
     )?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch2_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch2_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     let statuses =
         get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
@@ -550,9 +598,13 @@ fn test_updated_ownership_should_bubble_up() -> Result<()> {
     let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
     let branch_reader = branch::Reader::new(&current_session_reader);
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     // write first file
     std::fs::write(
@@ -643,15 +695,27 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch2_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch3_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch2_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch3_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     std::fs::write(
             std::path::Path::new(&project.path).join("test.txt"),
@@ -694,6 +758,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
 
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch3_id,
             ownership: Some("test.txt:1-5,11-15".parse()?),
@@ -744,12 +809,20 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
             "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\n",
         )?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch2_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch2_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     let statuses =
         get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
@@ -765,6 +838,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
 
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test.txt:1-5".parse()?),
@@ -820,8 +894,12 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
             "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n",
         )?;
 
-    create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch");
+    create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch");
 
     let statuses =
         get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
@@ -892,9 +970,13 @@ fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
 
     // create a vbranch
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     std::fs::write(
         std::path::Path::new(&project.path).join("test.txt"),
@@ -943,9 +1025,13 @@ fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result
     set_test_target(&gb_repository, &project_repository)?;
 
     // create a vbranch
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     std::fs::write(
         std::path::Path::new(&project.path).join("test.txt"),
@@ -1083,8 +1169,12 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
 
     let remote_branch: git::RemoteBranchName = "refs/remotes/origin/master".parse().unwrap();
     let branch_writer = branch::Writer::new(&gb_repository);
-    let mut branch = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch");
+    let mut branch = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
     branch.head = last_push;
     branch_writer
@@ -1207,8 +1297,12 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
 
     let remote_branch: git::RemoteBranchName = "refs/remotes/origin/master".parse().unwrap();
     let branch_writer = branch::Writer::new(&gb_repository);
-    let mut branch = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch");
+    let mut branch = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
     branch.head = last_push;
     branch_writer
@@ -1373,27 +1467,55 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     // 7. applied branch with commits but everything is upstream, delete it
 
     // create a vbranch
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch2_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch3_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch4_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch5_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch6_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch7_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch2_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch3_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch4_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch5_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch6_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch7_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     // situation 7: everything is upstream, delete it
     std::fs::write(
@@ -1402,6 +1524,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch7_id,
             name: Some("Situation 7".to_string()),
@@ -1434,6 +1557,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
 
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch1_id,
             name: Some("Situation 1".to_string()),
@@ -1451,6 +1575,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
 
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id,
             name: Some("Situation 2".to_string()),
@@ -1473,6 +1598,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test.txt:1-6".parse()?),
@@ -1492,6 +1618,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch3_id,
             name: Some("Situation 3".to_string()),
@@ -1508,6 +1635,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch5_id,
             name: Some("Situation 5".to_string()),
@@ -1530,6 +1658,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch5_id,
             ownership: Some("test3.txt:1-5".parse()?),
@@ -1544,6 +1673,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch4_id,
             name: Some("Situation 4".to_string()),
@@ -1559,6 +1689,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch6_id,
             name: Some("Situation 6".to_string()),
@@ -1634,8 +1765,12 @@ fn test_unapply_ownership_partial() -> Result<()> {
         "line1\nline2\nline3\nline4\nbranch1\n",
     )?;
 
-    create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch");
+    create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch");
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
     assert_eq!(branches.len(), 1);
@@ -1684,8 +1819,12 @@ fn test_unapply_ownership_full_file() -> Result<()> {
         "line5\nline6\n",
     )?;
 
-    create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch");
+    create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch");
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
     assert_eq!(branches.len(), 1);
@@ -1745,15 +1884,24 @@ fn test_apply_unapply_branch() -> Result<()> {
         "line5\nline6\n",
     )?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch2_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch2_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test2.txt:1-3".parse()?),
@@ -1835,15 +1983,24 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
         "file3\n",
     )?;
 
-    let branch2_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch3_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch2_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch3_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test2.txt:0-0".parse()?),
@@ -1852,6 +2009,7 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
     )?;
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch3_id,
             ownership: Some("test3.txt:1-2".parse()?),
@@ -1913,12 +2071,20 @@ fn test_detect_mergeable_branch() -> Result<()> {
         "line5\nline6\n",
     )?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch2_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch2_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
@@ -1927,6 +2093,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test4.txt:1-3".parse()?),
@@ -1999,11 +2166,19 @@ fn test_detect_mergeable_branch() -> Result<()> {
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
 
     // create branches that conflict with our earlier branches
-    create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch");
-    let branch4_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch");
+    let branch4_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     // branch3 conflicts with branch1 and remote_branch
     std::fs::write(
@@ -2091,9 +2266,13 @@ fn test_detect_remote_commits() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     // create a commit to push upstream
     std::fs::write(
@@ -2228,9 +2407,13 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
     )?;
 
     // create a default branch. there should not be anything on this
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
     assert_eq!(branches.len(), 1);
@@ -2484,15 +2667,27 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
     super::integration::update_gitbutler_integration(&gb_repository, &project_repository)?;
 
     // create vbranches, one integrated, one not
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch2_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-    let branch3_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch2_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+    let branch3_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     std::fs::write(
         std::path::Path::new(&project.path).join("test2.txt"),
@@ -2506,6 +2701,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch1_id,
             name: Some("integrated".to_string()),
@@ -2516,6 +2712,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id,
             name: Some("not integrated".to_string()),
@@ -2526,6 +2723,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         &gb_repository,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch3_id,
             name: Some("not committed".to_string()),
@@ -2588,9 +2786,13 @@ fn test_commit_same_hunk_twice() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     std::fs::write(
             std::path::Path::new(&project.path).join("test.txt"),
@@ -2683,9 +2885,13 @@ fn test_commit_same_file_twice() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     std::fs::write(
             std::path::Path::new(&project.path).join("test.txt"),
@@ -2778,9 +2984,13 @@ fn test_commit_partial_by_hunk() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     std::fs::write(
             std::path::Path::new(&project.path).join("test.txt"),
@@ -2871,9 +3081,13 @@ fn test_commit_partial_by_file() -> Result<()> {
         "file3\n",
     )?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     // commit
     commit(
@@ -2942,9 +3156,13 @@ fn test_commit_add_and_delete_files() -> Result<()> {
         "file3\n",
     )?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     // commit
     commit(
@@ -3007,9 +3225,13 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
     let new_permissions = Permissions::from_mode(permissions.mode() | 0o111); // Add execute permission
     fs::set_permissions(&exec, new_permissions)?;
 
-    let branch1_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
 
     // commit
     commit(
@@ -3190,8 +3412,12 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
 
-    let mut branch = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch");
+    let mut branch = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch");
 
     branch.head = branch_commit;
     branch.tree = branch_commit_obj.tree()?.id();
@@ -3316,278 +3542,4 @@ fn test_verify_branch_not_integration() -> Result<()> {
     );
 
     Ok(())
-}
-
-#[test]
-fn test_reset_to_head_commit() {
-    let Case {
-        project_repository,
-        gb_repository,
-        project,
-        ..
-    } = Suite::default().new_case();
-    set_test_target(&gb_repository, &project_repository).unwrap();
-
-    let current_session = gb_repository.get_or_create_current_session().unwrap();
-    let current_session_reader = sessions::Reader::open(&gb_repository, &current_session).unwrap();
-    let branch_reader = branch::Reader::new(&current_session_reader);
-
-    let branch_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-
-    fs::write(project.path.join("file.txt"), "1").unwrap();
-    commit(
-        &gb_repository,
-        &project_repository,
-        &branch_id,
-        "commit 1",
-        None,
-        None,
-        None,
-    )
-    .unwrap();
-    let commit1_oid = branch_reader.read(&branch_id).unwrap().head;
-
-    reset_branch(&gb_repository, &project_repository, &branch_id, commit1_oid).unwrap();
-
-    let current_head = branch_reader.read(&branch_id).unwrap().head;
-    assert_eq!(current_head, commit1_oid);
-
-    assert_eq!(
-        fs::read_to_string(project.path.join("file.txt")).unwrap(),
-        "1"
-    );
-}
-
-#[test]
-fn test_reset_to_existing_commit() {
-    let Case {
-        project_repository,
-        gb_repository,
-        project,
-        ..
-    } = Suite::default().new_case();
-    set_test_target(&gb_repository, &project_repository).unwrap();
-
-    let current_session = gb_repository.get_or_create_current_session().unwrap();
-    let current_session_reader = sessions::Reader::open(&gb_repository, &current_session).unwrap();
-    let branch_reader = branch::Reader::new(&current_session_reader);
-
-    let branch_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-
-    fs::write(project.path.join("file.txt"), "1").unwrap();
-    commit(
-        &gb_repository,
-        &project_repository,
-        &branch_id,
-        "commit 1",
-        None,
-        None,
-        None,
-    )
-    .unwrap();
-    let commit1_oid = branch_reader.read(&branch_id).unwrap().head;
-
-    fs::write(project.path.join("file.txt"), "2").unwrap();
-    commit(
-        &gb_repository,
-        &project_repository,
-        &branch_id,
-        "commit 2",
-        None,
-        None,
-        None,
-    )
-    .unwrap();
-    let commit2_oid = branch_reader.read(&branch_id).unwrap().head;
-
-    assert_ne!(
-        commit1_oid, commit2_oid,
-        "expected commit to change the head"
-    );
-
-    reset_branch(&gb_repository, &project_repository, &branch_id, commit1_oid).unwrap();
-
-    let current_head = branch_reader.read(&branch_id).unwrap().head;
-    assert_eq!(current_head, commit1_oid);
-
-    assert_eq!(
-        fs::read_to_string(project.path.join("file.txt")).unwrap(),
-        "2"
-    );
-}
-
-#[test]
-fn test_reset_to_non_existing_commit() {
-    let Case {
-        project_repository,
-        gb_repository,
-        ..
-    } = Suite::default().new_case();
-    set_test_target(&gb_repository, &project_repository).unwrap();
-
-    let branch_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-
-    assert!(reset_branch(
-        &gb_repository,
-        &project_repository,
-        &branch_id,
-        "f535ba30d59bc60fc5d162a857b0f1a6475f4700".parse().unwrap(),
-    )
-    .is_err());
-}
-
-#[test]
-fn test_reset_to_target() {
-    let Case {
-        project_repository,
-        gb_repository,
-        project,
-        ..
-    } = Suite::default().new_case();
-    set_test_target(&gb_repository, &project_repository).unwrap();
-
-    let current_session = gb_repository.get_or_create_current_session().unwrap();
-    let current_session_reader = sessions::Reader::open(&gb_repository, &current_session).unwrap();
-    let branch_reader = branch::Reader::new(&current_session_reader);
-
-    let branch_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-
-    fs::write(project.path.join("file.txt"), "1").unwrap();
-    commit(
-        &gb_repository,
-        &project_repository,
-        &branch_id,
-        "commit 1",
-        None,
-        None,
-        None,
-    )
-    .unwrap();
-    let commit1_oid = branch_reader.read(&branch_id).unwrap().head;
-
-    fs::write(project.path.join("file.txt"), "2").unwrap();
-    commit(
-        &gb_repository,
-        &project_repository,
-        &branch_id,
-        "commit 2",
-        None,
-        None,
-        None,
-    )
-    .unwrap();
-    let commit2_oid = branch_reader.read(&branch_id).unwrap().head;
-
-    assert_ne!(
-        commit1_oid, commit2_oid,
-        "expected commit to change the head"
-    );
-
-    let target_reader = target::Reader::new(&current_session_reader);
-    let default_target = target_reader.read_default().unwrap();
-    reset_branch(
-        &gb_repository,
-        &project_repository,
-        &branch_id,
-        default_target.sha,
-    )
-    .unwrap();
-
-    let current_head = branch_reader.read(&branch_id).unwrap().head;
-    assert_eq!(current_head, default_target.sha);
-
-    assert_eq!(
-        fs::read_to_string(project.path.join("file.txt")).unwrap(),
-        "2"
-    );
-}
-
-#[test]
-fn test_force_push() {
-    let suite = Suite::default();
-    let Case {
-        project_repository,
-        gb_repository,
-        project,
-        credentials,
-        ..
-    } = suite.new_case();
-    set_test_target(&gb_repository, &project_repository).unwrap();
-
-    let branch_id = create_virtual_branch(&gb_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-
-    fs::write(project.path.join("file.txt"), "1").unwrap();
-    commit(
-        &gb_repository,
-        &project_repository,
-        &branch_id,
-        "commit 1",
-        None,
-        None,
-        None,
-    )
-    .unwrap();
-
-    fs::write(project.path.join("file.txt"), "2").unwrap();
-    commit(
-        &gb_repository,
-        &project_repository,
-        &branch_id,
-        "commit 2",
-        None,
-        None,
-        None,
-    )
-    .unwrap();
-
-    push(
-        &project_repository,
-        &gb_repository,
-        &branch_id,
-        false,
-        &credentials,
-    )
-    .unwrap();
-
-    let statuses = list_virtual_branches(&gb_repository, &project_repository).unwrap();
-    assert!(!statuses[0].requires_force);
-
-    reset_branch(
-        &gb_repository,
-        &project_repository,
-        &branch_id,
-        statuses[0].commits[1].id,
-    )
-    .unwrap();
-
-    let statuses = list_virtual_branches(&gb_repository, &project_repository).unwrap();
-    assert!(statuses[0].requires_force);
-
-    assert!(push(
-        &project_repository,
-        &gb_repository,
-        &branch_id,
-        false,
-        &credentials,
-    )
-    .is_err());
-
-    push(
-        &project_repository,
-        &gb_repository,
-        &branch_id,
-        true,
-        &credentials,
-    )
-    .unwrap();
 }
