@@ -92,6 +92,7 @@ jobs:
       - uses: ./.github/actions/init-env-rust
         with:
           rust: "nightly"
-      - run: cargo install cargo-udeps --locked
+      - name: install cargo udeps
+        run: cargo install cargo-udeps --locked
       - run: pnpm build
       - run: cargo +nightly udeps --all-targets
