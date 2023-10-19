@@ -1186,7 +1186,7 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
     let branch1 = &branches[0];
     assert_eq!(branch1.files.len(), 1);
     assert_eq!(branch1.commits.len(), 1);
-    assert_eq!(branch1.upstream_commits.len(), 1);
+    assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
     merge_virtual_branch_upstream(
         &gb_repository,
@@ -1208,7 +1208,7 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
     assert_eq!("file2\n", String::from_utf8(contents)?);
     assert_eq!(branch1.files.len(), 0);
     assert_eq!(branch1.commits.len(), 3);
-    assert_eq!(branch1.upstream_commits.len(), 0);
+    assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 0);
 
     // make sure the last commit was signed
     let last_id = &branch1.commits[0].id;
@@ -1315,7 +1315,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
 
     assert_eq!(branch1.files.len(), 1);
     assert_eq!(branch1.commits.len(), 1);
-    assert_eq!(branch1.upstream_commits.len(), 1);
+    assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
     merge_virtual_branch_upstream(&gb_repository, &project_repository, &branch1.id, None, None)?;
 
@@ -2218,7 +2218,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
         list_remote_branches(&gb_repository, &project_repository).expect("failed to list remotes");
     let remote1 = &remotes
         .iter()
-        .find(|b| b.name == "refs/remotes/origin/remote_branch")
+        .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch")
         .unwrap();
     assert!(!is_remote_branch_mergeable(
         &gb_repository,
@@ -2230,7 +2230,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
     let remote2 = &remotes
         .iter()
-        .find(|b| b.name == "refs/remotes/origin/remote_branch2")
+        .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch2")
         .unwrap();
     assert!(is_remote_branch_mergeable(
         &gb_repository,

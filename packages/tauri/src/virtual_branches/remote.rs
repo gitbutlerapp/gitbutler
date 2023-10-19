@@ -23,13 +23,12 @@ use super::{branch, get_default_target, iterator::BranchIterator as Iterator, Au
 // an array of them can be requested from the frontend to show in the sidebar
 // Tray and should only contain branches that have not been converted into
 // virtual branches yet (ie, we have no `Branch` struct persisted in our data.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranch {
-    pub sha: String,
-    pub name: String,
+    pub sha: git::Oid,
+    pub name: git::BranchName,
     pub behind: u32,
-    pub upstream: Option<git::RemoteBranchName>,
     pub commits: Vec<RemoteCommit>,
 }
 
@@ -166,42 +165,48 @@ pub fn list_remote_branches(
         .collect();
     let top_branches = sorted_branches.into_iter().take(20).collect::<Vec<_>>(); // Take the first 20 entries.
 
-    let mut branches: Vec<RemoteBranch> = Vec::new();
-    for branch in &top_branches {
-        if let Some(branch_oid) = branch.target() {
+    let branches = top_branches
+        .into_iter()
+        .map(|branch| branch_to_remote_branch(project_repository, &branch, main_oid))
+        .collect::<Result<Vec<_>>>()
+        .context("failed to convert branches")?
+        .into_iter()
+        .flatten()
+        .filter(|branch| !branch.commits.is_empty())
+        .collect::<Vec<_>>();
+
+    Ok(branches)
+}
+
+pub fn branch_to_remote_branch(
+    project_repository: &project_repository::Repository,
+    branch: &git::Branch,
+    base: git::Oid,
+) -> Result<Option<RemoteBranch>> {
+    branch
+        .target()
+        .map(|sha| {
             let ahead = project_repository
-                .log(branch_oid, LogUntil::Commit(main_oid))
+                .log(sha, LogUntil::Commit(base))
                 .context("failed to get ahead commits")?;
 
-            if ahead.is_empty() {
-                continue;
-            }
-
-            let branch_name = branch.refname().context("could not get branch name")?;
+            let name = git::BranchName::try_from(branch).context("could not get branch name")?;
 
             let count_behind = project_repository
-                .distance(main_oid, branch_oid)
+                .distance(base, sha)
                 .context("failed to get behind count")?;
 
-            let upstream = branch
-                .upstream()
-                .ok()
-                .map(|upstream_branch| git::RemoteBranchName::try_from(&upstream_branch))
-                .transpose()?;
-
-            branches.push(RemoteBranch {
-                sha: branch_oid.to_string(),
-                name: branch_name.to_string(),
-                upstream,
+            Ok(RemoteBranch {
+                sha,
+                name,
                 behind: count_behind,
                 commits: ahead
                     .into_iter()
                     .map(|commit| commit_to_remote_commit(&commit))
                     .collect::<Result<Vec<_>>>()?,
-            });
-        }
-    }
-    Ok(branches)
+            })
+        })
+        .transpose()
 }
 
 pub fn commit_to_remote_commit(commit: &git::Commit) -> Result<RemoteCommit> {

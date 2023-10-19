@@ -90,11 +90,11 @@
 
 	$: pullRequestPromise =
 		githubContext && branch.upstream
-			? getPullRequestByBranch(githubContext, branch.upstream.split('/').slice(-1)[0])
+			? getPullRequestByBranch(githubContext, branch.upstream?.name.split('/').slice(-1)[0])
 			: undefined;
 
 	let shouldCreatePr = false;
-	$: branchName = branch.upstream?.split('/').slice(-1)[0];
+	$: branchName = branch.upstream?.name.split('/').slice(-1)[0];
 	$: if (shouldCreatePr && branchName && githubContext) {
 		createPR();
 		shouldCreatePr = false;
@@ -184,7 +184,7 @@
 
 	let upstreamCommitsShown = false;
 
-	$: if (upstreamCommitsShown && branch.upstreamCommits.length === 0) {
+	$: if (upstreamCommitsShown && branch.upstream?.commits.length === 0) {
 		upstreamCommitsShown = false;
 	}
 
@@ -405,12 +405,12 @@
 					/>
 				{/if}
 
-				{#if branch.upstreamCommits.length > 0 && !branch.conflicted}
+				{#if branch.upstream?.commits.length && branch.upstream?.commits.length > 0 && !branch.conflicted}
 					<div class="bg-zinc-300 p-2 dark:bg-zinc-800">
 						<div class="flex flex-row justify-between">
 							<div class="p-1 text-purple-700">
-								{branch.upstreamCommits.length}
-								upstream {branch.upstreamCommits.length > 1 ? 'commits' : 'commit'}
+								{branch.upstream.commits.length}
+								upstream {branch.upstream.commits.length > 1 ? 'commits' : 'commit'}
 							</div>
 							<Button
 								class="w-20"
@@ -435,7 +435,7 @@
 							id="upstreamCommits"
 						>
 							<div class="bg-light-100">
-								{#each branch.upstreamCommits as commit}
+								{#each branch.upstream.commits as commit}
 									<CommitCard {commit} {projectId} />
 								{/each}
 							</div>
@@ -655,10 +655,10 @@
 													<Link
 														target="_blank"
 														rel="noreferrer"
-														href={branchUrl(base, branch.upstream)}
+														href={branchUrl(base, branch.upstream?.name)}
 														class="inline-block max-w-full truncate text-sm font-bold"
 													>
-														{branch.upstream.split('refs/remotes/')[1]}
+														{branch.upstream.name.split('refs/remotes/')[1]}
 													</Link>
 													{#await pullRequestPromise then pr}
 														{#if githubContext && pr}

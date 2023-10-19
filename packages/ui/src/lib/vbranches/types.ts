@@ -40,9 +40,8 @@ export class Branch {
 	requiresForce!: boolean;
 	description!: string;
 	order!: number;
-	upstream?: string;
-	@Type(() => Commit)
-	upstreamCommits!: Commit[];
+	@Type(() => RemoteBranch)
+	upstream?: RemoteBranch;
 	conflicted!: boolean;
 	baseCurrent!: boolean;
 	ownership!: string;
