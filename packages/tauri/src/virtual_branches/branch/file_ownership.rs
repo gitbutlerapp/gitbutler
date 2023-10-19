@@ -67,8 +67,8 @@ impl FileOwnership {
         let mut hunks = self
             .hunks
             .iter()
-            .cloned()
             .filter(|hunk| !another.hunks.contains(hunk))
+            .cloned()
             .collect::<Vec<Hunk>>();
 
         another.hunks.iter().for_each(|hunk| {
