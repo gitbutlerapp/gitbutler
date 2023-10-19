@@ -26,7 +26,7 @@ impl Name {
 
 impl Serialize for Name {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.branch)
+        serializer.serialize_str(&self.to_string())
     }
 }
 
