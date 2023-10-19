@@ -662,7 +662,7 @@ pub fn list_virtual_branches(
 
         let upstram_branch_commit = upstream_branch
             .as_ref()
-            .map(|branch| branch.peel_to_commit())
+            .map(git::Branch::peel_to_commit)
             .transpose()?;
 
         // find upstream commits if we found an upstream reference
