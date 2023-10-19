@@ -89,8 +89,8 @@ export class Author {
 export class RemoteBranch {
 	sha!: string;
 	name!: string;
-	behind!: number;
 	upstream?: string;
+	behind!: number;
 	@Type(() => RemoteCommit)
 	commits!: RemoteCommit[];
 	isMergeable!: Promise<boolean>;

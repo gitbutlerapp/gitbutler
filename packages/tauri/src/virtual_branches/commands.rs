@@ -339,11 +339,15 @@ pub async fn can_apply_virtual_branch(
 pub async fn can_apply_remote_branch(
     handle: AppHandle,
     project_id: &str,
-    branch: git::BranchName,
+    branch: &str,
 ) -> Result<bool, Error> {
     let project_id = project_id.parse().map_err(|_| Error::UserError {
         code: Code::Projects,
         message: "Malformed project id".to_string(),
+    })?;
+    let branch = branch.parse().map_err(|_| Error::UserError {
+        code: Code::Branches,
+        message: "Malformed branch name".to_string(),
     })?;
     handle
         .state::<Controller>()

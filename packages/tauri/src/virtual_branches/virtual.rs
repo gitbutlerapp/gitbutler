@@ -654,11 +654,20 @@ pub fn list_virtual_branches(
 
         let repo = &project_repository.git_repository;
 
-        let upstream_branch = branch
+        let upstream_branch = match branch
             .upstream
             .as_ref()
             .map(|name| repo.find_branch(&git::BranchName::from(name.clone())))
-            .transpose()?;
+            .transpose()
+        {
+            Err(git::Error::NotFound(_)) => Ok(None),
+            Err(error) => Err(error),
+            Ok(branch) => Ok(branch),
+        }
+        .context(format!(
+            "failed to find upstream branch for {}",
+            branch.name
+        ))?;
 
         let upstram_branch_commit = upstream_branch
             .as_ref()
