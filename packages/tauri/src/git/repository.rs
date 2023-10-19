@@ -49,7 +49,9 @@ impl Repository {
 
         let alternatives_file = self.0.path().join("objects/info/alternates");
 
-        std::fs::write(alternatives_file, format!("{path}\n"))?;
+        if let Err(error) = std::fs::write(&alternatives_file, format!("{path}\n")) {
+            tracing::warn!(?error, path = %alternatives_file.display(), "failed to write alternates file");
+        }
 
         Ok(())
     }
