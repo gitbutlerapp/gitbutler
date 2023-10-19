@@ -199,7 +199,7 @@ pub fn branch_to_remote_branch(
 
             Ok(RemoteBranch {
                 sha,
-                upstream: if let git::BranchName::Local(ref local_name) = name {
+                upstream: if let git::BranchName::Local(local_name) = &name {
                     local_name.remote().cloned()
                 } else {
                     None
