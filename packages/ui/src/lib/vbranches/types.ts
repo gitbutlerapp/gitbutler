@@ -89,6 +89,7 @@ export class Author {
 export class RemoteBranch {
 	sha!: string;
 	name!: string;
+	upstream?: string;
 	behind!: number;
 	@Type(() => RemoteCommit)
 	commits!: RemoteCommit[];

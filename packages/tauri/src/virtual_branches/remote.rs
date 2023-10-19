@@ -28,6 +28,7 @@ use super::{branch, get_default_target, iterator::BranchIterator as Iterator, Au
 pub struct RemoteBranch {
     pub sha: git::Oid,
     pub name: git::BranchName,
+    pub upstream: Option<git::RemoteBranchName>,
     pub behind: u32,
     pub commits: Vec<RemoteCommit>,
 }
@@ -198,6 +199,11 @@ pub fn branch_to_remote_branch(
 
             Ok(RemoteBranch {
                 sha,
+                upstream: if let git::BranchName::Local(ref local_name) = name {
+                    local_name.remote().cloned()
+                } else {
+                    None
+                },
                 name,
                 behind: count_behind,
                 commits: ahead
