@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { RemoteBranch } from '$lib/vbranches/types';
 
-	export let branch: string;
+	export let branch: RemoteBranch;
 	export let branchController: BranchController;
 	export let branchId: string;
 
@@ -9,7 +10,7 @@
 	let remoteBranchName = '';
 
 	$: if (branch) {
-		let parts = branch.replace('refs/remotes/', '').split('/');
+		let parts = branch.name.replace('refs/remotes/', '').split('/');
 		remoteName = parts[0];
 		// remoteBranchName is the rest
 		let rbn = parts.slice(1).join('/');

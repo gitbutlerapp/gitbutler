@@ -29,7 +29,7 @@
 		<div>
 			<p class="text-lg font-bold" title="name of virtual branch">{branch.name}</p>
 			<p class="text-light-700 dark:text-dark-200" title="upstream target">
-				{branch.upstream?.replace('refs/remotes/', '') || ''}
+				{branch.upstream?.name.replace('refs/remotes/', '') || ''}
 			</p>
 		</div>
 		<div>
