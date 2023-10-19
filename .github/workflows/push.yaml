@@ -70,30 +70,27 @@ jobs:
       - uses: ./.github/actions/init-env-node
       - run: pnpm story:build
 
-  test:
+  test-rust:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-rust
-      - uses: ./.github/actions/init-env-node
-      - run: pnpm build
-      - run: cargo install cargo-cranky
-      - run: cargo cranky --all-targets --all-features
+      - run: mkdir packages/ui/build
       - run: cargo test --locked
 
-  udeps:
+  check-rust:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-node
       - uses: ./.github/actions/init-env-rust
         with:
           rust: "nightly"
-      - name: Install cargo udeps
-        run: cargo install cargo-udeps --locked
-      - run: pnpm build
+      - name: cargo install cargo-udeps --locked
+      - run: mkdir packages/ui/build
+      - run: cargo install cargo-cranky --locked
       - run: cargo +nightly udeps --all-targets
+      - run: cargo cranky --all-targets --all-features
