@@ -2,12 +2,12 @@ use anyhow::{Context, Result};
 use clap::Args;
 use colored::Colorize;
 
-use gitbutler::virtual_branches;
+use gblib::virtual_branches;
 
 use crate::app::App;
 
 #[derive(Debug, Args)]
-pub struct Status {}
+pub struct Status;
 
 impl super::RunCommand for Status {
     fn run(self) -> Result<()> {

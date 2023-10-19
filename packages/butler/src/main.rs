@@ -1,3 +1,5 @@
+#![allow(clippy::print_stderr, clippy::panic)]
+
 use std::process::ExitCode;
 
 use clap::Parser;

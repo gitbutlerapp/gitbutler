@@ -1,8 +1,13 @@
+#![forbid(unsafe_code)]
+
 use anyhow::Context;
 use futures::executor::block_on;
 use tauri::{generate_context, Manager};
 
-use gitbutler::{zip, *};
+use gblib::{
+    analytics, app, assets, commands, database, github, keys, logs, projects, search, storage,
+    users, virtual_branches, watcher, zip,
+};
 
 fn main() {
     let tauri_context = generate_context!();
@@ -45,21 +50,20 @@ fn main() {
                                 tracing::info!("Quitting app");
                                 app_handle.exit(0);
                             }
-                            "toggle" => match get_window(app_handle) {
-                                Some(window) => {
+                            "toggle" => {
+                                if let Some(window) = get_window(app_handle) {
                                     if window.is_visible().unwrap() {
                                         hide_window(app_handle).expect("Failed to hide window");
                                     } else {
                                         show_window(app_handle).expect("Failed to show window");
                                     }
-                                }
-                                None => {
+                                } else {
                                     create_window(app_handle).expect("Failed to create window");
                                     item_handle
                                         .set_title(format!("Hide {}", app_title))
                                         .unwrap();
                                 }
-                            },
+                            }
                             _ => {}
                         }
                     }
@@ -134,7 +138,7 @@ fn main() {
                     let users_controller = users::Controller::try_from(&app_handle)
                         .expect("failed to initialize users controller");
                     if let Some(user) = users_controller.get_user().context("failed to get user")? {
-                        sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())))
+                        sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())));
                     }
                     app_handle.manage(users_controller);
 

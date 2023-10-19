@@ -2,12 +2,12 @@ use anyhow::{Context, Result};
 use clap::Args;
 use dialoguer::{console::Term, theme::ColorfulTheme, MultiSelect, Select};
 
-use gitbutler::{reader, sessions, virtual_branches};
+use gblib::{reader, sessions, virtual_branches};
 
 use crate::app::App;
 
 #[derive(Debug, Args)]
-pub struct Move {}
+pub struct Move;
 
 impl super::RunCommand for Move {
     fn run(self) -> Result<()> {

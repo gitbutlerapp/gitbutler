@@ -1,4 +1,4 @@
-use gitbutler::git;
+use gblib::git;
 
 pub fn temp_dir() -> std::path::PathBuf {
     tempfile::tempdir()

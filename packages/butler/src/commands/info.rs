@@ -2,12 +2,12 @@ use anyhow::{Context, Result};
 use clap::Args;
 use colored::Colorize;
 
-use gitbutler::{reader, sessions, virtual_branches};
+use gblib::{reader, sessions, virtual_branches};
 
 use crate::app::App;
 
 #[derive(Debug, Args)]
-pub struct Info {}
+pub struct Info;
 
 impl super::RunCommand for Info {
     fn run(self) -> Result<()> {

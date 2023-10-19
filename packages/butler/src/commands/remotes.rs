@@ -1,12 +1,12 @@
 use anyhow::{Context, Result};
 use clap::Args;
 
-use gitbutler::virtual_branches;
+use gblib::virtual_branches;
 
 use crate::app::App;
 
 #[derive(Debug, Args)]
-pub struct Remotes {}
+pub struct Remotes;
 
 impl super::RunCommand for Remotes {
     fn run(self) -> Result<()> {

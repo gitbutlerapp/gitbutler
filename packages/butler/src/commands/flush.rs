@@ -4,7 +4,7 @@ use clap::Args;
 use crate::app::App;
 
 #[derive(Debug, Args)]
-pub struct Flush {}
+pub struct Flush;
 
 impl super::RunCommand for Flush {
     fn run(self) -> Result<()> {

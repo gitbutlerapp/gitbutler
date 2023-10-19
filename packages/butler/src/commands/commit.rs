@@ -3,7 +3,7 @@ use clap::Args;
 use colored::Colorize;
 use dialoguer::{console::Term, theme::ColorfulTheme, Input, Select};
 
-use gitbutler::{
+use gblib::{
     reader, sessions,
     virtual_branches::{self, BranchId},
 };
@@ -11,7 +11,7 @@ use gitbutler::{
 use crate::app::App;
 
 #[derive(Debug, Args)]
-pub struct Commit {}
+pub struct Commit;
 
 impl super::RunCommand for Commit {
     fn run(self) -> Result<()> {

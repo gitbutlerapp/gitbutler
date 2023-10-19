@@ -43,7 +43,7 @@ impl Cli {
         };
 
         match output {
-            Ok(_) => ExitCode::SUCCESS,
+            Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("{}: {:#}", "error".red(), e);
                 ExitCode::FAILURE
