@@ -20,7 +20,7 @@ use crate::{
 
 use super::{
     branch::{self, Branch, BranchCreateRequest, BranchId, FileOwnership, Hunk, Ownership},
-    target, Iterator,
+    branch_to_remote_branch, target, Iterator, RemoteBranch,
 };
 
 type AppliedStatuses = Vec<(branch::Branch, Vec<VirtualBranchFile>)>;
@@ -45,10 +45,9 @@ pub struct VirtualBranch {
     pub requires_force: bool, // does this branch require a force push to the upstream?
     pub conflicted: bool, // is this branch currently in a conflicted state (only for applied branches)
     pub order: usize,     // the order in which this branch should be displayed in the UI
-    pub upstream: Option<git::RemoteBranchName>, // the name of the upstream branch this branch this pushes to
+    pub upstream: Option<RemoteBranch>, // the upstream branch where this branch pushes to, if any
     pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
     pub ownership: Ownership,
-    pub upstream_commits: Vec<VirtualBranchCommit>,
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -655,20 +654,20 @@ pub fn list_virtual_branches(
 
         let repo = &project_repository.git_repository;
 
-        // see if we can identify some upstream
-        let mut upstream_commit = None;
-        if let Some(branch_upstream) = &branch.upstream {
-            if let Ok(upstream_oid) = repo.refname_to_id(&branch_upstream.to_string()) {
-                if let Ok(upstream_commit_obj) = repo.find_commit(upstream_oid) {
-                    upstream_commit = Some(upstream_commit_obj);
-                }
-            }
-        }
+        let upstream_branch = branch
+            .upstream
+            .as_ref()
+            .map(|name| repo.find_branch(&git::BranchName::from(name.clone())))
+            .transpose()?;
+
+        let upstram_branch_commit = upstream_branch
+            .as_ref()
+            .map(|branch| branch.peel_to_commit())
+            .transpose()?;
 
         // find upstream commits if we found an upstream reference
-        let mut upstream_commits = vec![];
         let mut pushed_commits = HashMap::new();
-        if let Some(upstream) = &upstream_commit {
+        if let Some(upstream) = &upstram_branch_commit {
             let merge_base =
                 repo.merge_base(upstream.id(), default_target.sha)
                     .context(format!(
@@ -678,13 +677,6 @@ pub fn list_virtual_branches(
                     ))?;
             for oid in project_repository.l(upstream.id(), LogUntil::Commit(merge_base))? {
                 pushed_commits.insert(oid, true);
-            }
-
-            // find any commits on the upstream that aren't in our branch (someone else pushed to our branch)
-            for commit in project_repository.log(upstream.id(), LogUntil::Commit(branch.head))? {
-                let commit =
-                    commit_to_vbranch_commit(project_repository, &default_target, &commit, None)?;
-                upstream_commits.push(commit);
             }
         }
 
@@ -713,8 +705,14 @@ pub fn list_virtual_branches(
             }
         }
 
-        let requires_force = is_requires_force(project_repository, branch)?;
+        let upstream = upstream_branch
+            .map(|upstream_branch| {
+                branch_to_remote_branch(project_repository, &upstream_branch, branch.head)
+            })
+            .transpose()?
+            .flatten();
 
+        let requires_force = is_requires_force(project_repository, branch)?;
         let branch = VirtualBranch {
             id: branch.id,
             name: branch.name.clone(),
@@ -724,11 +722,10 @@ pub fn list_virtual_branches(
             order: branch.order,
             commits,
             requires_force,
-            upstream: branch.upstream.clone(),
+            upstream,
             conflicted: conflicts::is_resolving(project_repository),
             base_current,
             ownership: branch.ownership.clone(),
-            upstream_commits,
         };
         branches.push(branch);
     }

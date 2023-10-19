@@ -23,13 +23,12 @@ use super::{branch, get_default_target, iterator::BranchIterator as Iterator, Au
 // an array of them can be requested from the frontend to show in the sidebar
 // Tray and should only contain branches that have not been converted into
 // virtual branches yet (ie, we have no `Branch` struct persisted in our data.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranch {
-    pub sha: String,
-    pub name: String,
+    pub sha: git::Oid,
+    pub name: git::BranchName,
     pub behind: u32,
-    pub upstream: Option<git::RemoteBranchName>,
     pub commits: Vec<RemoteCommit>,
 }
 
@@ -186,27 +185,20 @@ pub fn branch_to_remote_branch(
 ) -> Result<Option<RemoteBranch>> {
     branch
         .target()
-        .map(|branch_oid| {
+        .map(|sha| {
             let ahead = project_repository
-                .log(branch_oid, LogUntil::Commit(base))
+                .log(sha, LogUntil::Commit(base))
                 .context("failed to get ahead commits")?;
 
-            let branch_name = branch.refname().context("could not get branch name")?;
+            let name = git::BranchName::try_from(branch).context("could not get branch name")?;
 
             let count_behind = project_repository
-                .distance(base, branch_oid)
+                .distance(base, sha)
                 .context("failed to get behind count")?;
 
-            let upstream = branch
-                .upstream()
-                .ok()
-                .map(|upstream_branch| git::RemoteBranchName::try_from(&upstream_branch))
-                .transpose()?;
-
             Ok(RemoteBranch {
-                sha: branch_oid.to_string(),
-                name: branch_name.to_string(),
-                upstream,
+                sha,
+                name,
                 behind: count_behind,
                 commits: ahead
                     .into_iter()

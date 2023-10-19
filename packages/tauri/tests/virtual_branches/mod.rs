@@ -353,8 +353,8 @@ mod references {
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].name, "name");
             assert_eq!(
-                branches[0].upstream,
-                Some("refs/remotes/origin/name".parse().unwrap())
+                branches[0].upstream.as_ref().unwrap().name.to_string(),
+                "refs/remotes/origin/name"
             );
 
             let refnames = repository
@@ -362,7 +362,7 @@ mod references {
                 .into_iter()
                 .filter_map(|reference| reference.name().map(|name| name.to_string()))
                 .collect::<Vec<_>>();
-            assert!(refnames.contains(&branches[0].upstream.clone().unwrap().to_string()));
+            assert!(refnames.contains(&branches[0].upstream.clone().unwrap().name.to_string()));
         }
 
         #[tokio::test]
@@ -448,15 +448,15 @@ mod references {
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].name, "updated name");
             assert_eq!(
-                branches[0].upstream,
-                Some("refs/remotes/origin/name".parse().unwrap())
+                branches[0].upstream.as_ref().unwrap().name,
+                "refs/remotes/origin/name".parse().unwrap()
             );
             // new branch is pushing to new ref remotely
             assert_eq!(branches[1].id, branch2_id);
             assert_eq!(branches[1].name, "name");
             assert_eq!(
-                branches[1].upstream,
-                Some("refs/remotes/origin/name-1".parse().unwrap())
+                branches[1].upstream.as_ref().unwrap().name,
+                "refs/remotes/origin/name-1".parse().unwrap()
             );
 
             let refnames = repository
@@ -464,8 +464,8 @@ mod references {
                 .into_iter()
                 .filter_map(|reference| reference.name().map(|name| name.to_string()))
                 .collect::<Vec<_>>();
-            assert!(refnames.contains(&branches[0].upstream.clone().unwrap().to_string()));
-            assert!(refnames.contains(&branches[1].upstream.clone().unwrap().to_string()));
+            assert!(refnames.contains(&branches[0].upstream.clone().unwrap().name.to_string()));
+            assert!(refnames.contains(&branches[1].upstream.clone().unwrap().name.to_string()));
         }
     }
 }
