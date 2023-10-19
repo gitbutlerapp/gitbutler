@@ -166,21 +166,35 @@ pub fn list_remote_branches(
         .collect();
     let top_branches = sorted_branches.into_iter().take(20).collect::<Vec<_>>(); // Take the first 20 entries.
 
-    let mut branches: Vec<RemoteBranch> = Vec::new();
-    for branch in &top_branches {
-        if let Some(branch_oid) = branch.target() {
-            let ahead = project_repository
-                .log(branch_oid, LogUntil::Commit(main_oid))
-                .context("failed to get ahead commits")?;
+    let branches = top_branches
+        .into_iter()
+        .map(|branch| branch_to_remote_branch(project_repository, &branch, main_oid))
+        .collect::<Result<Vec<_>>>()
+        .context("failed to convert branches")?
+        .into_iter()
+        .flatten()
+        .filter(|branch| !branch.commits.is_empty())
+        .collect::<Vec<_>>();
 
-            if ahead.is_empty() {
-                continue;
-            }
+    Ok(branches)
+}
+
+pub fn branch_to_remote_branch(
+    project_repository: &project_repository::Repository,
+    branch: &git::Branch,
+    base: git::Oid,
+) -> Result<Option<RemoteBranch>> {
+    branch
+        .target()
+        .map(|branch_oid| {
+            let ahead = project_repository
+                .log(branch_oid, LogUntil::Commit(base))
+                .context("failed to get ahead commits")?;
 
             let branch_name = branch.refname().context("could not get branch name")?;
 
             let count_behind = project_repository
-                .distance(main_oid, branch_oid)
+                .distance(base, branch_oid)
                 .context("failed to get behind count")?;
 
             let upstream = branch
@@ -189,7 +203,7 @@ pub fn list_remote_branches(
                 .map(|upstream_branch| git::RemoteBranchName::try_from(&upstream_branch))
                 .transpose()?;
 
-            branches.push(RemoteBranch {
+            Ok(RemoteBranch {
                 sha: branch_oid.to_string(),
                 name: branch_name.to_string(),
                 upstream,
@@ -198,10 +212,9 @@ pub fn list_remote_branches(
                     .into_iter()
                     .map(|commit| commit_to_remote_commit(&commit))
                     .collect::<Result<Vec<_>>>()?,
-            });
-        }
-    }
-    Ok(branches)
+            })
+        })
+        .transpose()
 }
 
 pub fn commit_to_remote_commit(commit: &git::Commit) -> Result<RemoteCommit> {
