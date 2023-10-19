@@ -90,7 +90,6 @@ export class RemoteBranch {
 	sha!: string;
 	name!: string;
 	behind!: number;
-	upstream?: string;
 	@Type(() => RemoteCommit)
 	commits!: RemoteCommit[];
 	isMergeable!: Promise<boolean>;
