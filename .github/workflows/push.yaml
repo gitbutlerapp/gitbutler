@@ -77,7 +77,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-rust
-      - run: mkdir packages/ui/build
       - run: cargo test --locked
 
   check-rust:
@@ -89,8 +88,7 @@ jobs:
       - uses: ./.github/actions/init-env-rust
         with:
           rust: "nightly"
-      - name: cargo install cargo-udeps --locked
-      - run: mkdir packages/ui/build
+      - run: cargo install cargo-udeps --locked
       - run: cargo install cargo-cranky --locked
       - run: cargo +nightly udeps --all-targets
       - run: cargo cranky --all-targets --all-features
