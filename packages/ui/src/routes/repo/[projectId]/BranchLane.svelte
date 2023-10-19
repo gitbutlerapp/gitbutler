@@ -114,13 +114,10 @@
 		}
 	}
 
-	function push() {
-		if (localCommits[0]?.id) {
-			isPushing = true;
-			return branchController
-				.pushBranch({ branchId: branch.id, withForce: branch.requiresForce })
-				.finally(() => (isPushing = false));
-		}
+	async function push() {
+		isPushing = true;
+		await branchController.pushBranch({ branchId: branch.id, withForce: branch.requiresForce });
+		isPushing = false;
 	}
 
 	function merge() {
@@ -552,7 +549,7 @@
 					</div>
 					{#if branch.commits.length > 0}
 						<div class="flex w-full flex-grow flex-col gap-2">
-							{#if localCommits.length > 0}
+							{#if localCommits.length > 0 || (branch.upstream && branch.upstream.commits.length > 0)}
 								<div
 									class="relative"
 									class:flex-grow={remoteCommits.length == 0}
