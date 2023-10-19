@@ -51,13 +51,13 @@ deny = [
     "clippy::unnecessary_self_imports",
     "clippy::unneeded_field_pattern",
     "clippy::unseparated_literal_suffix",
+    "clippy::if_then_some_else_none",
+    "clippy::use_debug"
     #TODO:
-    #clippy::if_then_some_else_none
     #clippy::partial_pub_fields
     #clippy::print_stdout
-    #clippy::unwrap_in_result
     #clippy::unwrap_used
-    #clippy::use_debug
+    #clippy::unwrap_in_result
 ]
 
 allow = [
@@ -74,9 +74,5 @@ allow = [
     "clippy::inconsistent_struct_constructor",
     "clippy::match_wildcard_for_single_variants",
     "clippy::unnested_or_patterns",
-    #TODO: should probably be cleaned up as any of these could lead to panics or unexpected behaviour (the cast-ones)
-    "clippy::cast_sign_loss",
-    "clippy::cast_lossless",
-    "clippy::match_same_arms",
     "clippy::similar_names"
 ]

@@ -396,8 +396,7 @@ pub fn update_base_branch(
                                     )?;
                                 }
                             }
-                            Some(upstream) => {
-                                println!("upstream: {:?}", upstream);
+                            Some(_) => {
                                 // get tree from merge_tree_oid
                                 let merge_tree = repo
                                     .find_tree(merge_tree_oid)
@@ -531,11 +530,8 @@ pub fn create_virtual_branch_from_branch(
         git::BranchName::Remote(remote) => Some(remote.clone()),
         git::BranchName::Local(local) => {
             let remote_name = format!("{}/{}", default_target.branch.remote(), local.branch());
-            if remote_name != default_target.branch.branch() {
-                Some(format!("refs/remotes/{}", remote_name).parse().unwrap())
-            } else {
-                None
-            }
+            (remote_name != default_target.branch.branch())
+                .then(|| format!("refs/remotes/{}", remote_name).parse().unwrap())
         }
     };
 

@@ -435,8 +435,7 @@ fn index_delta(
     let changes = all_changes
         .iter_all_changes()
         .filter_map(|change| match change.tag() {
-            ChangeTag::Delete => change.as_str(),
-            ChangeTag::Insert => change.as_str(),
+            ChangeTag::Delete | ChangeTag::Insert => change.as_str(),
             ChangeTag::Equal => None,
         })
         .map(str::trim)

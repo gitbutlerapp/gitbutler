@@ -63,18 +63,17 @@ impl Handler {
         gb_repo: &gb_repository::Repository,
         path: &path::Path,
     ) -> Result<Option<Vec<deltas::Delta>>> {
-        let current_session = gb_repo.get_current_session()?;
-        if current_session.is_none() {
-            return Ok(None);
+        if let Some(current_session) = gb_repo.get_current_session()? {
+            let session_reader = sessions::Reader::open(gb_repo, &current_session)
+                .context("failed to get session reader")?;
+            let deltas_reader = deltas::Reader::new(&session_reader);
+            let deltas = deltas_reader
+                .read_file(path)
+                .context("failed to get file deltas")?;
+            Ok(deltas)
+        } else {
+            Ok(None)
         }
-        let current_session = current_session.unwrap();
-        let session_reader = sessions::Reader::open(gb_repo, &current_session)
-            .context("failed to get session reader")?;
-        let deltas_reader = deltas::Reader::new(&session_reader);
-        let deltas = deltas_reader
-            .read_file(path)
-            .context("failed to get file deltas")?;
-        Ok(deltas)
     }
 
     pub fn handle<P: AsRef<std::path::Path>>(
@@ -146,40 +145,39 @@ impl Handler {
             .update(current_wd_file_content.as_ref())
             .context("failed to calculate new deltas")?;
 
-        if new_delta.is_none() {
-            tracing::debug!(%project_id, path = %path.display(), "no new deltas, ignoring");
-            return Ok(vec![]);
-        }
-        let new_delta = new_delta.as_ref().unwrap();
+        if let Some(new_delta) = new_delta {
+            let deltas = text_doc.get_deltas();
 
-        let deltas = text_doc.get_deltas();
+            let writer = deltas::Writer::new(&gb_repository);
+            writer
+                .write(path, &deltas)
+                .with_context(|| "failed to write deltas")?;
 
-        let writer = deltas::Writer::new(&gb_repository);
-        writer
-            .write(path, &deltas)
-            .with_context(|| "failed to write deltas")?;
+            if let Some(reader::Content::UTF8(text)) = current_wd_file_content {
+                writer.write_wd_file(path, &text)
+            } else {
+                writer.write_wd_file(path, "")
+            }?;
 
-        if let Some(reader::Content::UTF8(text)) = current_wd_file_content {
-            writer.write_wd_file(path, &text)
+            Ok(vec![
+                events::Event::SessionFile((
+                    *project_id,
+                    current_session.id,
+                    path.to_path_buf(),
+                    latest_file_content,
+                )),
+                events::Event::Session(*project_id, current_session.clone()),
+                events::Event::SessionDelta((
+                    *project_id,
+                    current_session.id,
+                    path.to_path_buf(),
+                    new_delta.clone(),
+                )),
+            ])
         } else {
-            writer.write_wd_file(path, "")
-        }?;
-
-        Ok(vec![
-            events::Event::SessionFile((
-                *project_id,
-                current_session.id,
-                path.to_path_buf(),
-                latest_file_content,
-            )),
-            events::Event::Session(*project_id, current_session.clone()),
-            events::Event::SessionDelta((
-                *project_id,
-                current_session.id,
-                path.to_path_buf(),
-                new_delta.clone(),
-            )),
-        ])
+            tracing::debug!(%project_id, path = %path.display(), "no new deltas, ignoring");
+            Ok(vec![])
+        }
     }
 }
 

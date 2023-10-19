@@ -830,12 +830,14 @@ fn calculate_non_commited_files(
         .into_iter()
         .map(|(file_path, mut non_commited_hunks)| {
             // sort non commited hunks the same way as the real hunks are sorted
-            non_commited_hunks.sort_by_key(|h| {
+            non_commited_hunks.sort_by_key(|hunk| {
                 file_hunks.get(&file_path).map_or(Some(0), |hunks| {
-                    hunks.iter().position(|h2| {
-                        let h_range = [h.start..=h.end];
-                        let h2_range = [h2.start..=h2.end];
-                        h2_range.iter().any(|line| h_range.contains(line))
+                    hunks.iter().position(|another_hunk| {
+                        let hunk_range = [hunk.start..=hunk.end];
+                        let another_hunk_range = [another_hunk.start..=another_hunk.end];
+                        another_hunk_range
+                            .iter()
+                            .any(|line| hunk_range.contains(line))
                     })
                 })
             });
@@ -923,7 +925,7 @@ pub fn commit_to_vbranch_commit(
     commit: &git::Commit,
     upstream_commits: Option<&HashMap<git::Oid, bool>>,
 ) -> Result<VirtualBranchCommit> {
-    let timestamp = commit.time().seconds() as u128;
+    let timestamp = u128::try_from(commit.time().seconds())?;
     let signature = commit.author();
     let message = commit.message().unwrap().to_string();
 
@@ -1939,15 +1941,19 @@ fn write_tree_onto_commit(
 }
 
 fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
-    println!("tree id: {:?}", tree.id());
+    println!("tree id: {}", tree.id());
     for entry in tree {
-        println!("  entry: {:?} {:?}", entry.name(), entry.id());
+        println!(
+            "  entry: {} {}",
+            entry.name().unwrap_or_default(),
+            entry.id()
+        );
         // get entry contents
         let object = entry.to_object(repo).context("failed to get object")?;
         let blob = object.as_blob().context("failed to get blob")?;
         // convert content to string
         if let Ok(content) = std::str::from_utf8(blob.content()) {
-            println!("    blob: {:?}", content);
+            println!("    blob: {}", content);
         } else {
             println!("    blob: BINARY");
         }

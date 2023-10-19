@@ -637,8 +637,8 @@ fn build_wd_tree(
                 let metadata = abs_path.metadata().with_context(|| {
                     format!("failed to get metadata for {}", abs_path.display())
                 })?;
-                let mtime = FileTime::from_last_modification_time(&metadata);
-                let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
+                let modify_time = FileTime::from_last_modification_time(&metadata);
+                let create_time = FileTime::from_creation_time(&metadata).unwrap_or(modify_time);
 
                 let file_content = match session_wd_reader
                     .read(&file_path)
@@ -674,8 +674,8 @@ fn build_wd_tree(
 
                 index
                     .add(&git::IndexEntry {
-                        ctime,
-                        mtime,
+                        ctime: create_time,
+                        mtime: modify_time,
                         dev: metadata.dev().try_into()?,
                         ino: metadata.ino().try_into()?,
                         mode: 33188,
@@ -801,8 +801,8 @@ fn add_wd_path(
     let metadata = file_path
         .metadata()
         .with_context(|| "failed to get metadata for".to_string())?;
-    let mtime = FileTime::from_last_modification_time(&metadata);
-    let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
+    let modify_time = FileTime::from_last_modification_time(&metadata);
+    let create_time = FileTime::from_creation_time(&metadata).unwrap_or(modify_time);
 
     // look for files that are bigger than 4GB, which are not supported by git
     // insert a pointer as the blob content instead
@@ -845,8 +845,8 @@ fn add_wd_path(
     // create a new IndexEntry from the file metadata
     index
         .add(&git::IndexEntry {
-            ctime,
-            mtime,
+            ctime: create_time,
+            mtime: modify_time,
             dev: metadata.dev().try_into()?,
             ino: metadata.ino().try_into()?,
             mode: 33188,
@@ -942,12 +942,12 @@ fn add_log_path(
         .join("logs")
         .join(rel_file_path);
     let metadata = file_path.metadata()?;
-    let mtime = FileTime::from_last_modification_time(&metadata);
-    let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
+    let modify_time = FileTime::from_last_modification_time(&metadata);
+    let create_time = FileTime::from_creation_time(&metadata).unwrap_or(modify_time);
 
     index.add(&git::IndexEntry {
-        ctime,
-        mtime,
+        ctime: create_time,
+        mtime: modify_time,
         dev: metadata.dev().try_into()?,
         ino: metadata.ino().try_into()?,
         mode: 33188,
@@ -999,14 +999,14 @@ fn add_file_to_index(
 ) -> Result<()> {
     let blob = gb_repository.git_repository.blob_path(abs_file_path)?;
     let metadata = abs_file_path.metadata()?;
-    let mtime = FileTime::from_last_modification_time(&metadata);
-    let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
+    let modified_time = FileTime::from_last_modification_time(&metadata);
+    let create_time = FileTime::from_creation_time(&metadata).unwrap_or(modified_time);
 
     // create a new IndexEntry from the file metadata
     index
         .add(&git::IndexEntry {
-            ctime,
-            mtime,
+            ctime: create_time,
+            mtime: modified_time,
             dev: metadata.dev().try_into()?,
             ino: metadata.ino().try_into()?,
             mode: 33188,
