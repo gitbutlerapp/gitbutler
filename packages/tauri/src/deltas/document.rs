@@ -45,8 +45,7 @@ impl Document {
     pub fn update(&mut self, value: Option<&reader::Content>) -> Result<Option<delta::Delta>> {
         let new_text = match value {
             Some(reader::Content::UTF8(value)) => value,
-            Some(_) => "",
-            None => "",
+            Some(_) | None => "",
         };
 
         let operations = operations::get_delta_operations(&self.to_string(), new_text);

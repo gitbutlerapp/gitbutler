@@ -114,11 +114,11 @@ impl From<git2::IndexEntry> for IndexEntry {
     fn from(value: git2::IndexEntry) -> Self {
         Self {
             ctime: FileTime::from_unix_time(
-                value.ctime.seconds() as i64,
+                i64::try_from(value.ctime.seconds()).unwrap(),
                 value.ctime.nanoseconds(),
             ),
             mtime: FileTime::from_unix_time(
-                value.mtime.seconds() as i64,
+                i64::try_from(value.mtime.seconds()).unwrap(),
                 value.mtime.nanoseconds(),
             ),
             dev: value.dev,

@@ -1,3 +1,5 @@
+use std::time::UNIX_EPOCH;
+
 use anyhow::{Context, Result};
 use clap::Args;
 use colored::Colorize;
@@ -36,14 +38,28 @@ impl super::RunCommand for Info {
                 .unwrap_or("none".to_string())
                 .blue()
         );
-        println!(
-            "  project_data_last_fetched: {:?}",
-            app.project().project_data_last_fetch
-        );
-        println!(
-            "  project_gitbutler_data_last_fetched: {:?}",
-            app.project().gitbutler_data_last_fetch
-        );
+        if let Some(last_fetched) = &app.project().project_data_last_fetch {
+            println!(
+                "  project_data_last_fetched: {}",
+                last_fetched
+                    .timestamp()
+                    .duration_since(UNIX_EPOCH)?
+                    .as_secs()
+                    .to_string()
+                    .blue()
+            );
+        }
+        if let Some(last_fetched) = &app.project().gitbutler_data_last_fetch {
+            println!(
+                "  gitbutler_data_last_fetched: {}",
+                last_fetched
+                    .timestamp()
+                    .duration_since(UNIX_EPOCH)?
+                    .as_secs()
+                    .to_string()
+                    .blue()
+            );
+        }
         println!(
             "  path: {}",
             app.project().path.display().to_string().blue()

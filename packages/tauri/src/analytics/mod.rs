@@ -1,4 +1,4 @@
-use std::{str, sync::Arc};
+use std::{fmt, str, sync::Arc};
 
 use tauri::AppHandle;
 
@@ -16,6 +16,21 @@ pub enum Event {
         project_id: ProjectId,
         reference_name: String,
     },
+}
+
+impl fmt::Display for Event {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Event::HeadChange {
+                project_id,
+                reference_name,
+            } => write!(
+                f,
+                "HeadChange(project_id: {}, reference_name: {})",
+                project_id, reference_name
+            ),
+        }
+    }
 }
 
 impl Event {

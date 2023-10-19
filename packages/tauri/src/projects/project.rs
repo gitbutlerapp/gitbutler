@@ -41,8 +41,7 @@ pub enum FetchResult {
 impl FetchResult {
     pub fn timestamp(&self) -> &time::SystemTime {
         match self {
-            FetchResult::Fetched { timestamp } => timestamp,
-            FetchResult::Error { timestamp, .. } => timestamp,
+            FetchResult::Fetched { timestamp } | FetchResult::Error { timestamp, .. } => timestamp,
         }
     }
 }

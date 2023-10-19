@@ -152,9 +152,7 @@ fn main() {
                     Ok(())
                 })
                 .plugin(tauri_plugin_window_state::Builder::default().build())
-                .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
-                    println!("{}, {argv:?}, {cwd}", app.package_info().name);
-                }))
+                .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
                 .invoke_handler(tauri::generate_handler![
                     commands::list_deltas,
                     commands::list_sessions,

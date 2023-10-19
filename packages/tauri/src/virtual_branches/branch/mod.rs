@@ -107,8 +107,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
                     ))
                 })
             }
-            Ok(_) => Ok(None),
-            Err(crate::reader::Error::NotFound) => Ok(None),
+            Ok(_) | Err(crate::reader::Error::NotFound) => Ok(None),
             Err(e) => Err(e),
         }?;
 
@@ -128,8 +127,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
                         })
                 }
             }
-            Ok(_) => Ok(None),
-            Err(crate::reader::Error::NotFound) => Ok(None),
+            Ok(_) | Err(crate::reader::Error::NotFound) => Ok(None),
             Err(e) => Err(e),
         }?;
 

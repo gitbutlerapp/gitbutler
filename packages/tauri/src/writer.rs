@@ -34,7 +34,7 @@ impl DirWriter {
 impl Writer for DirWriter {
     fn write(&self, path: &str, contents: &[u8]) -> Result<()> {
         let file_path = self.root.join(path);
-        let dir_path = file_path.parent().unwrap();
+        let dir_path = file_path.parent().context("failed to get parent")?;
         std::fs::create_dir_all(dir_path).context("failed to create directory")?;
         std::fs::write(file_path, contents)?;
         Ok(())
@@ -42,7 +42,7 @@ impl Writer for DirWriter {
 
     fn append_string(&self, path: &str, contents: &str) -> Result<()> {
         let file_path = self.root.join(path);
-        let dir_path = file_path.parent().unwrap();
+        let dir_path = file_path.parent().context("failed to get parent")?;
         std::fs::create_dir_all(dir_path).context("failed to create directory")?;
         let mut file = std::fs::OpenOptions::new()
             .create(true)
