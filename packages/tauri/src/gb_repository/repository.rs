@@ -968,7 +968,7 @@ fn build_session_tree(gb_repository: &Repository) -> Result<git::Oid> {
 
     // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
     for file_path in
-        fs::list_files(&gb_repository.session_path()).context("failed to list session files")?
+        fs::list_files(gb_repository.session_path()).context("failed to list session files")?
     {
         let file_path = std::path::Path::new(&file_path);
         if file_path.starts_with("wd/") {

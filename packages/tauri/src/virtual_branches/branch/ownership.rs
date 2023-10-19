@@ -56,8 +56,8 @@ impl Ownership {
             .files
             .iter()
             .filter(|o| !o.is_full()) // only consider explicit ownership
-            .cloned()
-            .find(|o| o.file_path == ownership.file_path);
+            .find(|o| o.file_path == ownership.file_path)
+            .cloned();
 
         self.files
             .retain(|o| o.is_full() || o.file_path != ownership.file_path);

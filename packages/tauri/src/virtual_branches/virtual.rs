@@ -2116,7 +2116,7 @@ pub fn push(
     let branch_reader = branch::Reader::new(&current_session_reader);
     let branch_writer = branch::Writer::new(gb_repository);
 
-    let mut vbranch = branch_reader
+    let vbranch = branch_reader
         .read(branch_id)
         .context("failed to read branch")
         .map_err(PushError::Other)?;
@@ -2146,10 +2146,12 @@ pub fn push(
 
     project_repository.push(&vbranch.head, &remote_branch, with_force, credentials)?;
 
-    vbranch.upstream = Some(remote_branch.clone());
-    vbranch.upstream_head = Some(vbranch.head);
     branch_writer
-        .write(&vbranch)
+        .write(&branch::Branch {
+            upstream: Some(remote_branch.clone()),
+            upstream_head: Some(vbranch.head),
+            ..vbranch
+        })
         .context("failed to write target branch after push")?;
 
     project_repository.fetch(remote_branch.remote(), credentials)?;
