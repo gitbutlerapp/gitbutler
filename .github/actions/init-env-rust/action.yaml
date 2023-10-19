@@ -2,9 +2,9 @@ name: init-rust
 description: prepare runner for rust related tasks
 inputs:
   rust:
-    description: 'rust version'
+    description: "rust version"
     required: false
-    default: 'stable'
+    default: "stable"
 runs:
   using: "composite"
   steps:
@@ -15,6 +15,7 @@ runs:
         components: rustfmt, clippy
 
     - name: Cache rust dependencies
+      if: runner.labels != 'self-hosted' # internet in berlin is very slow
       uses: Swatinem/rust-cache@v2
 
     - if: runner.os == 'Linux'
