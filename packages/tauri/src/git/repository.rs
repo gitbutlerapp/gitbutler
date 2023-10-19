@@ -42,16 +42,12 @@ impl Repository {
     }
 
     pub fn add_disk_alternate(&self, path: &str) -> Result<()> {
-        self.0
-            .odb()
-            .and_then(|odb| odb.add_disk_alternate(path))
-            .map_err(Into::<git2::Error>::into)?;
+        std::fs::write(
+            self.0.path().join("objects/info/alternates"),
+            format!("{path}\n"),
+        )?;
 
-        let alternatives_file = self.0.path().join("objects/info/alternates");
-
-        if let Err(error) = std::fs::write(&alternatives_file, format!("{path}\n")) {
-            tracing::warn!(?error, path = %alternatives_file.display(), "failed to write alternates file");
-        }
+        self.0.odb().and_then(|odb| odb.refresh())?;
 
         Ok(())
     }
