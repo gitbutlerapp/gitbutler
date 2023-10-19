@@ -15,7 +15,7 @@ runs:
         components: rustfmt, clippy
 
     - name: Cache rust dependencies
-      if: runner.labels != 'self-hosted' # internet in berlin is very slow
+      if: runner.name != 'ScottsMacStudio' # internet in berlin is very slow
       uses: Swatinem/rust-cache@v2
 
     - if: runner.os == 'Linux'

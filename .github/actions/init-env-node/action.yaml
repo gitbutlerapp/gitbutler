@@ -20,7 +20,7 @@ runs:
       run: echo 'STORE_PATH=$(pnpm store path --silent)' >> $GITHUB_ENV
 
     - uses: actions/cache@v3
-      if: runner.labels != 'self-hosted' # internet in berlin is very slow
+      if: runner.name != 'ScottsMacStudio' # internet in berlin is very slow
       name: Setup pnpm cache
       with:
         path: ${{ env.STORE_PATH }}
