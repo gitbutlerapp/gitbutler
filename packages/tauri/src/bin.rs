@@ -84,7 +84,7 @@ fn main() {
 
                     logs::init(&app_handle);
 
-                    tracing::info!("Starting app");
+                    tracing::info!(version = %app_handle.package_info().version, name = %app_handle.package_info().name, "starting app");
 
                     let analytics_cfg = if cfg!(debug_assertions) {
                         analytics::Config {
