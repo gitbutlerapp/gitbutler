@@ -20,5 +20,5 @@ jobs:
             git push --delete origin 
           fi
 
-          git tag "$TAG_NAME"
+          git tag --force "$TAG_NAME"
           git push --tags
