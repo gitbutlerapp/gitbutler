@@ -431,11 +431,9 @@
 							class="flex w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
 							id="upstreamCommits"
 						>
-							<div class="bg-light-100">
-								{#each branch.upstream.commits as commit}
-									<CommitCard {commit} {projectId} />
-								{/each}
-							</div>
+							{#each branch.upstream.commits as commit}
+								<CommitCard {commit} {projectId} />
+							{/each}
 							<div class="flex justify-end p-2">
 								{#if branchCount > 1}
 									<div class="px-2 text-sm">
