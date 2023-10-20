@@ -5,8 +5,8 @@ use futures::executor::block_on;
 use tauri::{generate_context, Manager};
 
 use gblib::{
-    analytics, app, assets, commands, database, github, keys, logs, projects, search, storage,
-    users, virtual_branches, watcher, zip,
+    analytics, app, assets, commands, database, github, keys, logs, projects, storage, users,
+    virtual_branches, watcher, zip,
 };
 
 fn main() {
@@ -118,10 +118,6 @@ fn main() {
                         .expect("failed to initialize zipc controller ");
                     tauri_app.manage(zipper);
 
-                    let search = search::Searcher::try_from(&app_handle)
-                        .expect("failed to initialize search");
-                    app_handle.manage(search);
-
                     let projects_controller = projects::Controller::try_from(&app_handle)
                         .expect("failed to initialize projects controller");
                     app_handle.manage(projects_controller);
@@ -157,7 +153,6 @@ fn main() {
                     commands::list_deltas,
                     commands::list_sessions,
                     commands::list_session_files,
-                    commands::search,
                     commands::git_remote_branches,
                     commands::git_remote_branches_data,
                     commands::git_head,

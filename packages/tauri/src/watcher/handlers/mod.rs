@@ -3,7 +3,6 @@ mod fetch_gitbutler_data;
 mod fetch_project_data;
 mod flush_session;
 mod git_file_change;
-mod index_handler;
 mod project_file_change;
 mod push_gitbutler_data;
 mod tick_handler;
@@ -25,7 +24,6 @@ pub struct Handler {
     fetch_project_handler: fetch_project_data::Handler,
     fetch_gitbutler_handler: fetch_gitbutler_data::Handler,
     push_gitbutler_handler: push_gitbutler_data::Handler,
-    index_handler: index_handler::Handler,
     analytics_handler: analytics_handler::Handler,
 
     events_sender: app_events::Sender,
@@ -43,7 +41,6 @@ impl TryFrom<&AppHandle> for Handler {
             push_gitbutler_handler: push_gitbutler_data::Handler::try_from(value)?,
             fetch_project_handler: fetch_project_data::Handler::try_from(value)?,
             fetch_gitbutler_handler: fetch_gitbutler_data::Handler::try_from(value)?,
-            index_handler: index_handler::Handler::try_from(value)?,
             analytics_handler: analytics_handler::Handler::try_from(value)?,
         })
     }
@@ -100,33 +97,14 @@ impl Handler {
                 ))])
             }
 
-            events::Event::Session(project_id, session) => self
-                .index_handler
-                .index_session(project_id, session)
-                .context("failed to index session"),
-
             events::Event::SessionDelta((project_id, session_id, path, delta)) => {
-                let mut events = self
-                    .index_handler
-                    .index_deltas(project_id, session_id, path, &vec![delta.clone()])
-                    .context("failed to index deltas")?;
-
-                events.push(events::Event::Emit(app_events::Event::deltas(
+                Ok(vec![events::Event::Emit(app_events::Event::deltas(
                     project_id,
                     session_id,
                     &vec![delta.clone()],
                     path,
-                )));
-
-                Ok(events)
+                ))])
             }
-
-            events::Event::Bookmark(bookmark) => self
-                .index_handler
-                .index_bookmark(&bookmark.project_id, bookmark)
-                .context("failed to index bookmark"),
-
-            events::Event::IndexAll(project_id) => self.index_handler.reindex(project_id),
 
             events::Event::Emit(event) => {
                 self.events_sender
@@ -139,6 +117,8 @@ impl Handler {
                 .analytics_handler
                 .handle(event)
                 .context("failed to handle analytics event"),
+
+            events::Event::Session(_, _) | events::Event::Bookmark(_) => Ok(vec![]),
         }
     }
 }
