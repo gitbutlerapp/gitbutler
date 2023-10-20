@@ -158,10 +158,6 @@ impl WatcherInner {
             .run(project_id, path.as_ref())
             .context("failed to run dispatcher")?;
 
-        proxy_tx
-            .send(Event::IndexAll(*project_id))
-            .context("failed to send event")?;
-
         let handle_event = |event: &Event| -> Result<()> {
             task::Builder::new()
                 .name(&format!("handle {}", event))

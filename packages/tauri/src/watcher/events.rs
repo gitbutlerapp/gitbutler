@@ -25,8 +25,6 @@ pub enum Event {
     SessionDelta((ProjectId, SessionId, path::PathBuf, deltas::Delta)),
     Bookmark(bookmarks::Bookmark),
 
-    IndexAll(ProjectId),
-
     Emit(events::Event),
     Analytics(analytics::Event),
 }
@@ -37,8 +35,7 @@ impl Event {
             Event::Analytics(event) => event.project_id(),
             Event::Emit(event) => event.project_id(),
             Event::Bookmark(bookmark) => &bookmark.project_id,
-            Event::IndexAll(project_id)
-            | Event::Tick(project_id, _)
+            Event::Tick(project_id, _)
             | Event::FetchGitbutlerData(project_id, _)
             | Event::FetchProjectData(project_id, _)
             | Event::Flush(project_id, _)
@@ -57,7 +54,6 @@ impl Display for Event {
         match self {
             Event::Analytics(event) => write!(f, "Analytics({})", event),
             Event::Emit(event) => write!(f, "Emit({})", event.name()),
-            Event::IndexAll(project_id) => write!(f, "IndexAll({})", project_id),
             Event::Tick(project_id, ts) => write!(
                 f,
                 "Tick({}, {})",

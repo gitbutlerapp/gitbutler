@@ -7,7 +7,7 @@ use tracing::instrument;
 use crate::{
     app, assets, bookmarks, deltas,
     error::{Code, Error},
-    git, reader, search,
+    git, reader, 
     sessions::{self, SessionId},
     virtual_branches,
 };
@@ -24,26 +24,6 @@ impl From<app::Error> for Error {
             }
         }
     }
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn search(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    query: &str,
-    limit: Option<usize>,
-    offset: Option<usize>,
-) -> Result<search::Results, Error> {
-    let app = handle.state::<app::App>();
-    let query = search::Query {
-        project_id: project_id.to_string(),
-        q: query.to_string(),
-        limit: limit.unwrap_or(100),
-        offset,
-    };
-    let results = app.search(&query)?;
-    Ok(results)
 }
 
 #[tauri::command(async)]

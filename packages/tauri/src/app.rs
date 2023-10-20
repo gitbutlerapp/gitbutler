@@ -10,7 +10,7 @@ use crate::{
     paths::DataDir,
     project_repository::{self, conflicts},
     projects::{self, ProjectId},
-    reader, search,
+    reader, 
     sessions::{self, SessionId},
     users,
     virtual_branches::{self, target},
@@ -22,7 +22,6 @@ pub struct App {
     projects: projects::Controller,
     users: users::Controller,
     keys: keys::Controller,
-    searcher: search::Searcher,
     watchers: watcher::Watchers,
     sessions_database: sessions::Database,
     deltas_database: deltas::Database,
@@ -50,7 +49,6 @@ impl TryFrom<&AppHandle> for App {
             keys: keys::Controller::try_from(value)?,
             projects: projects::Controller::try_from(value)?,
             users: users::Controller::try_from(value)?,
-            searcher: value.state::<search::Searcher>().inner().clone(),
             watchers: value.state::<watcher::Watchers>().inner().clone(),
             sessions_database: sessions::Database::try_from(value)?,
             deltas_database: deltas::Database::try_from(value)?,
@@ -318,14 +316,7 @@ impl App {
         gb_repository.push(user.as_ref()).map_err(Error::Other)
     }
 
-    pub fn search(&self, query: &search::Query) -> Result<search::Results, Error> {
-        self.searcher.search(query).map_err(Error::Other)
-    }
-
     pub fn delete_all_data(&self) -> Result<(), Error> {
-        self.searcher
-            .delete_all_data()
-            .context("failed to delete search data")?;
         for project in self.projects.list().context("failed to list projects")? {
             self.projects
                 .delete(&project.id)
