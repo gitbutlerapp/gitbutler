@@ -10,7 +10,7 @@ use crate::{
     paths::DataDir,
     project_repository::{self, conflicts},
     projects::{self, ProjectId},
-    reader, 
+    reader,
     sessions::{self, SessionId},
     users,
     virtual_branches::{self, target},

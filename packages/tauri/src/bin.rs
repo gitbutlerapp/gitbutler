@@ -5,8 +5,8 @@ use futures::executor::block_on;
 use tauri::{generate_context, Manager};
 
 use gblib::{
-    analytics, app, assets, commands, database, github, keys, logs, projects,  storage,
-    users, virtual_branches, watcher, zip,
+    analytics, app, assets, commands, database, github, keys, logs, projects, storage, users,
+    virtual_branches, watcher, zip,
 };
 
 fn main() {

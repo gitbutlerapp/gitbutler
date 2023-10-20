@@ -7,7 +7,7 @@ use tracing::instrument;
 use crate::{
     app, assets, bookmarks, deltas,
     error::{Code, Error},
-    git, reader, 
+    git, reader,
     sessions::{self, SessionId},
     virtual_branches,
 };
