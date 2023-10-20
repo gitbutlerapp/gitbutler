@@ -37,11 +37,10 @@ jobs:
           # - [self-hosted, Linux, ARM64] # mac studio in berlin
 
     runs-on: ${{ matrix.platform }}
-    permissions:
-      contents: write # required for tag manipulation
-      workflows: write # required for tag manipulation
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_NGALAIKO }} # custom token here so that we can push tags later
       - uses: ./.github/actions/init-env-rust
       - uses: ./.github/actions/init-env-node
 
