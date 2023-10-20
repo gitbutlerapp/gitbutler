@@ -8,7 +8,9 @@ use url::Url;
 
 use crate::{
     users,
-    virtual_branches::{Author, BaseBranch, RemoteBranch, RemoteCommit},
+    virtual_branches::{
+        Author, BaseBranch, RemoteBranch, RemoteCommit, VirtualBranch, VirtualBranchCommit,
+    },
 };
 
 #[derive(Clone)]
@@ -45,7 +47,7 @@ impl TryFrom<&AppHandle> for Proxy {
 const ASSET_SCHEME: &str = "asset";
 
 impl Proxy {
-    pub async fn proxy_user(&self, user: &users::User) -> users::User {
+    pub async fn proxy_user(&self, user: users::User) -> users::User {
         match Url::parse(&user.picture) {
             Ok(picture) => users::User {
                 picture: self.proxy(&picture).await.map_or_else(
@@ -55,59 +57,97 @@ impl Proxy {
                     },
                     |url| url.to_string(),
                 ),
-                ..user.clone()
+                ..user
             },
-            Err(_) => user.clone(),
+            Err(_) => user,
         }
     }
 
-    pub async fn proxy_remote_branches(&self, branches: &[RemoteBranch]) -> Vec<RemoteBranch> {
+    async fn proxy_virtual_branch_commit(
+        &self,
+        commit: VirtualBranchCommit,
+    ) -> VirtualBranchCommit {
+        VirtualBranchCommit {
+            author: self.proxy_author(commit.author).await,
+            ..commit
+        }
+    }
+
+    pub async fn proxy_virtual_branch(&self, branch: VirtualBranch) -> VirtualBranch {
+        VirtualBranch {
+            commits: join_all(
+                branch
+                    .commits
+                    .iter()
+                    .map(|commit| self.proxy_virtual_branch_commit(commit.clone()))
+                    .collect::<Vec<_>>(),
+            )
+            .await,
+            ..branch
+        }
+    }
+
+    pub async fn proxy_virtual_branches(&self, branches: Vec<VirtualBranch>) -> Vec<VirtualBranch> {
         join_all(
             branches
-                .iter()
+                .into_iter()
+                .map(|branch| self.proxy_virtual_branch(branch))
+                .collect::<Vec<_>>(),
+        )
+        .await
+    }
+
+    pub async fn proxy_remote_branches(&self, branches: Vec<RemoteBranch>) -> Vec<RemoteBranch> {
+        join_all(
+            branches
+                .into_iter()
                 .map(|branch| self.proxy_remote_branch(branch))
                 .collect::<Vec<_>>(),
         )
         .await
     }
 
-    pub async fn proxy_remote_branch(&self, branch: &RemoteBranch) -> RemoteBranch {
+    pub async fn proxy_remote_branch(&self, branch: RemoteBranch) -> RemoteBranch {
         RemoteBranch {
             commits: join_all(
                 branch
                     .commits
-                    .iter()
+                    .into_iter()
                     .map(|commit| self.proxy_remote_commit(commit))
                     .collect::<Vec<_>>(),
             )
             .await,
-            ..branch.clone()
+            ..branch
         }
     }
 
-    async fn proxy_remote_commit(&self, commit: &RemoteCommit) -> RemoteCommit {
-        RemoteCommit {
-            author: Author {
+    async fn proxy_author(&self, author: Author) -> Author {
+        Author {
                 gravatar_url: self
-                    .proxy(&commit.author.gravatar_url)
+                    .proxy(&author.gravatar_url)
                     .await
                     .unwrap_or_else(|error| {
-                        tracing::error!(gravatar_url = %commit.author.gravatar_url, ?error, "failed to proxy gravatar url");
-                        commit.author.gravatar_url.clone()
+                        tracing::error!(gravatar_url = %author.gravatar_url, ?error, "failed to proxy gravatar url");
+                        author.gravatar_url
                     }),
-                ..commit.author.clone()
-            },
-            ..commit.clone()
+                ..author
+            }
+    }
+
+    async fn proxy_remote_commit(&self, commit: RemoteCommit) -> RemoteCommit {
+        RemoteCommit {
+            author: self.proxy_author(commit.author).await,
+            ..commit
         }
     }
 
-    pub async fn proxy_base_branch(&self, base_branch: &BaseBranch) -> BaseBranch {
+    pub async fn proxy_base_branch(&self, base_branch: BaseBranch) -> BaseBranch {
         BaseBranch {
             recent_commits: join_all(
                 base_branch
                     .clone()
                     .recent_commits
-                    .iter()
+                    .into_iter()
                     .map(|commit| self.proxy_remote_commit(commit))
                     .collect::<Vec<_>>(),
             )
@@ -116,7 +156,7 @@ impl Proxy {
                 base_branch
                     .clone()
                     .upstream_commits
-                    .iter()
+                    .into_iter()
                     .map(|commit| self.proxy_remote_commit(commit))
                     .collect::<Vec<_>>(),
             )

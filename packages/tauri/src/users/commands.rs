@@ -26,7 +26,7 @@ pub async fn get_user(handle: AppHandle) -> Result<Option<User>, Error> {
     let proxy = handle.state::<assets::Proxy>();
 
     match app.get_user()? {
-        Some(user) => Ok(Some(proxy.proxy_user(&user).await)),
+        Some(user) => Ok(Some(proxy.proxy_user(user).await)),
         None => Ok(None),
     }
 }
@@ -52,7 +52,7 @@ pub async fn set_user(handle: AppHandle, user: User) -> Result<User, Error> {
 
     sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())));
 
-    Ok(proxy.proxy_user(&user).await)
+    Ok(proxy.proxy_user(user).await)
 }
 
 impl From<controller::DeleteError> for Error {
