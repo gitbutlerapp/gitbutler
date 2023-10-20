@@ -18,7 +18,7 @@ jobs:
           }
 
           if git_tag_exists "$TAG_NAME"; then
-            git push --delete origin 
+            git push --delete origin  "$TAG_NAME"
           fi
 
           git tag --force "$TAG_NAME"
