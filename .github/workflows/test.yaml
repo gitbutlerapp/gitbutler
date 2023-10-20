@@ -9,15 +9,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: |
+      - env:
+          TAG_NAME: test
+        run: |
           function git_tag_exists() {
             git tag --list | grep -q "^$1$"
           }
 
-          if git_tag_exists "test"; then
-            git tag --delete test
-            git push --tags
+          if git_tag_exists "$TAG_NAME"; then
+            git push --delete origin 
           fi
 
-          git tag test
-          git push --tags
+          git tag "$TAG_NAME"
+          git push --tags "$TAG_NAME"
