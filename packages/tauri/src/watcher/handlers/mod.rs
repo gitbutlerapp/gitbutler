@@ -3,6 +3,7 @@ mod fetch_gitbutler_data;
 mod fetch_project_data;
 mod flush_session;
 mod git_file_change;
+mod index_handler;
 mod project_file_change;
 mod push_gitbutler_data;
 mod tick_handler;
@@ -25,6 +26,7 @@ pub struct Handler {
     fetch_gitbutler_handler: fetch_gitbutler_data::Handler,
     push_gitbutler_handler: push_gitbutler_data::Handler,
     analytics_handler: analytics_handler::Handler,
+    index_handler: index_handler::Handler,
 
     events_sender: app_events::Sender,
 }
@@ -37,6 +39,7 @@ impl TryFrom<&AppHandle> for Handler {
             project_file_handler: project_file_change::Handler::try_from(value)?,
             tick_handler: tick_handler::Handler::try_from(value)?,
             git_file_change_handler: git_file_change::Handler::try_from(value)?,
+            index_handler: index_handler::Handler::try_from(value)?,
             flush_session_handler: flush_session::Handler::try_from(value)?,
             push_gitbutler_handler: push_gitbutler_data::Handler::try_from(value)?,
             fetch_project_handler: fetch_project_data::Handler::try_from(value)?,
@@ -98,12 +101,19 @@ impl Handler {
             }
 
             events::Event::SessionDelta((project_id, session_id, path, delta)) => {
-                Ok(vec![events::Event::Emit(app_events::Event::deltas(
+                let mut events = self
+                    .index_handler
+                    .index_deltas(project_id, session_id, path, &vec![delta.clone()])
+                    .context("failed to index deltas")?;
+
+                events.push(events::Event::Emit(app_events::Event::deltas(
                     project_id,
                     session_id,
                     &vec![delta.clone()],
                     path,
-                ))])
+                )));
+
+                Ok(events)
             }
 
             events::Event::Emit(event) => {
@@ -118,7 +128,17 @@ impl Handler {
                 .handle(event)
                 .context("failed to handle analytics event"),
 
-            events::Event::Session(_, _) | events::Event::Bookmark(_) => Ok(vec![]),
+            events::Event::Session(project_id, session) => self
+                .index_handler
+                .index_session(project_id, session)
+                .context("failed to index session"),
+
+            events::Event::Bookmark(bookmark) => self
+                .index_handler
+                .index_bookmark(&bookmark.project_id, bookmark)
+                .context("failed to index bookmark"),
+
+            events::Event::IndexAll(project_id) => self.index_handler.reindex(project_id),
         }
     }
 }
