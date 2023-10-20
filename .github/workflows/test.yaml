@@ -21,4 +21,4 @@ jobs:
           fi
 
           git tag "$TAG_NAME"
-          git push --tags "$TAG_NAME"
+          git push --tags
