@@ -104,3 +104,28 @@ jobs:
             --header 'Content-Type: application/json' \
             --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
             --data '{"channel":"${{ env.channel }}","version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'
+
+      - name: Tag release
+        env:
+          TAG_NAME: "${{ env.channel }}::${{ env.version }}"
+        run: |
+          function tag_exists() {
+            git tag --list | grep -q "^$1$"
+          }
+          function fetch_tag() {
+            git fetch origin "refs/tags/$1:refs/tags/$1"
+          }
+          function delete_tag() {
+            git push --delete origin "$1"
+          }
+          function create_tag() {
+            git tag --force "$1"
+            git push --tags
+          }
+
+          fetch_tag "$TAG_NAME"
+          if tag_exists "$TAG_NAME"; then
+            delete_tag "$TAG_NAME"
+          fi
+          create_tag "$TAG_NAME"
+
