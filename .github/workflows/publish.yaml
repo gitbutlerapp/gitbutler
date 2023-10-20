@@ -123,9 +123,8 @@ jobs:
             git push --tags
           }
 
-          fetch_tag "$TAG_NAME"
+          fetch_tag "$TAG_NAME" || true
           if tag_exists "$TAG_NAME"; then
             delete_tag "$TAG_NAME"
           fi
           create_tag "$TAG_NAME"
-
