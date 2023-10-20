@@ -6,10 +6,18 @@ permissions:
 
 jobs:
   create-tag:
-
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: |
-          git tag --force test
+          function git_tag_exists() {
+            git tag --list | grep -q "^$1$"
+          }
+
+          if git_tag_exists "test"; then
+            git tag --delete test
+            git push --tags
+          fi
+
+          git tag test
           git push --tags
