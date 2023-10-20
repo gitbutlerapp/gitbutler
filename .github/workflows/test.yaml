@@ -9,7 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo test
+        with:
+          fetch-tags: true
       - env:
           TAG_NAME: test
         run: |
