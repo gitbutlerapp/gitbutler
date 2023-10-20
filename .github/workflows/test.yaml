@@ -9,14 +9,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-tags: true
       - env:
           TAG_NAME: test
         run: |
           function git_tag_exists() {
             git tag --list | grep -q "^$1$"
           }
+
+          git fetch origin --tags
 
           if git_tag_exists "$TAG_NAME"; then
             echo "deleting existing '$TAG_NAME' tag"
