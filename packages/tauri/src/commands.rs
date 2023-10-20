@@ -149,7 +149,7 @@ pub async fn git_remote_branches_data(
     let branches = app.git_remote_branches_data(&project_id)?;
     let branches = handle
         .state::<assets::Proxy>()
-        .proxy_remote_branches(&branches)
+        .proxy_remote_branches(branches)
         .await;
     Ok(branches)
 }

@@ -67,11 +67,14 @@ pub async fn list_virtual_branches(
         code: Code::Projects,
         message: "Malformed project id".to_string(),
     })?;
-    handle
+    let branches = handle
         .state::<Controller>()
         .list_virtual_branches(&project_id)
-        .await
-        .map_err(Into::into)
+        .await?;
+
+    let proxy = handle.state::<assets::Proxy>();
+    let branches = proxy.proxy_virtual_branches(branches).await;
+    Ok(branches)
 }
 
 #[tauri::command(async)]
@@ -147,7 +150,7 @@ pub async fn get_base_branch_data(
         .get_base_branch_data(&project_id)?
     {
         let proxy = handle.state::<assets::Proxy>();
-        let base_branch = proxy.proxy_base_branch(&base_branch).await;
+        let base_branch = proxy.proxy_base_branch(base_branch).await;
         Ok(Some(base_branch))
     } else {
         Ok(None)
@@ -173,7 +176,7 @@ pub async fn set_base_branch(
         .set_base_branch(&project_id, &branch_name)?;
     let base_branch = handle
         .state::<assets::Proxy>()
-        .proxy_base_branch(&base_branch)
+        .proxy_base_branch(base_branch)
         .await;
     Ok(base_branch)
 }
