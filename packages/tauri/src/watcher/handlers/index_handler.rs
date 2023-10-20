@@ -83,7 +83,7 @@ impl Handler {
         let sessions_iter = gb_repository.get_sessions_iterator()?;
         let mut events = vec![];
         for session in sessions_iter {
-            events.extend(self.index_session(project_id, &session?)?);
+            events.extend(self.process_session(&gb_repository, &session?)?);
         }
         Ok(events)
     }
@@ -104,10 +104,20 @@ impl Handler {
         )
         .context("failed to open repository")?;
 
+        self.process_session(&gb_repository, session)
+    }
+
+    fn process_session(
+        &self,
+        gb_repository: &gb_repository::Repository,
+        session: &sessions::Session,
+    ) -> Result<Vec<events::Event>> {
+        let project_id = gb_repository.get_project_id();
+
         // index bookmarks right away. bookmarks are stored in the session during which it was
         // created, not in the session that is actually bookmarked. so we want to make sure all of
         // them are indexed at all times
-        let session_reader = sessions::Reader::open(&gb_repository, session)?;
+        let session_reader = sessions::Reader::open(gb_repository, session)?;
         let bookmarks_reader = bookmarks::Reader::new(&session_reader);
         for bookmark in bookmarks_reader.read()? {
             self.index_bookmark(project_id, &bookmark)?;

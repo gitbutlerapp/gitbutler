@@ -33,6 +33,7 @@ pub struct Handler {
 
 impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
+
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
         Ok(Self {
             events_sender: app_events::Sender::from(value),
