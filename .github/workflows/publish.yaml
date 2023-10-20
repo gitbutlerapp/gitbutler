@@ -107,7 +107,7 @@ jobs:
 
       - name: Tag release
         env:
-          TAG_NAME: "${{ env.channel }}::${{ env.version }}"
+          TAG_NAME: "${{ env.channel }}/${{ env.version }}"
         run: |
           function tag_exists() {
             git tag --list | grep -q "^$1$"
