@@ -18,8 +18,11 @@ jobs:
           }
 
           if git_tag_exists "$TAG_NAME"; then
-            git push --delete origin  "$TAG_NAME"
+            echo "deleting existing '$TAG_NAME' tag"
+            git push --delete origin "$TAG_NAME"
           fi
+
+          echo "creating new '$TAG_NAME' tag"
 
           git tag --force "$TAG_NAME"
           git push --tags
