@@ -24,6 +24,9 @@ on:
           - minor
           - major
 
+permissions:
+  contents: write
+
 jobs:
   publish-tauri:
     strategy:
