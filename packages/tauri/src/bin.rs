@@ -3,6 +3,7 @@
 use anyhow::Context;
 use futures::executor::block_on;
 use tauri::{generate_context, Manager};
+use tracing::span;
 
 use gblib::{
     analytics, app, assets, commands, database, github, keys, logs, projects, storage, users,
@@ -11,6 +12,8 @@ use gblib::{
 
 fn main() {
     let tauri_context = generate_context!();
+    let app_version = tauri_context.package_info().version.clone();
+    let app_name = tauri_context.package_info().name.clone();
 
     let _guard = sentry::init(("https://9d407634d26b4d30b6a42d57a136d255@o4504644069687296.ingest.sentry.io/4504649768108032", sentry::ClientOptions {
         release: Some(tauri_context.package_info().version.to_string().into()),
@@ -39,7 +42,7 @@ fn main() {
             let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
             let tray = tauri::SystemTray::new().with_menu(tray_menu);
 
-            tauri::Builder::default()
+            let app = tauri::Builder::default()
                 .system_tray(tray)
                 .on_system_tray_event(|app_handle, event| {
                     if let tauri::SystemTrayEvent::MenuItemClick { id, .. } = event {
@@ -81,7 +84,6 @@ fn main() {
                     window.open_devtools();
 
                     let app_handle = tauri_app.handle();
-
                     logs::init(&app_handle);
 
                     tracing::info!("Starting app");
@@ -198,26 +200,32 @@ fn main() {
                     github::commands::check_auth_status,
                 ])
                 .build(tauri_context)
-                .expect("Failed to build tauri app")
-                .run(|app_handle, event| match event {
-                    tauri::RunEvent::WindowEvent {
-                        event: tauri::WindowEvent::Focused(is_focused),
-                        ..
-                    } => {
-                        if is_focused {
-                            set_toggle_menu_hide(app_handle)
-                                .expect("Failed to set toggle menu hide");
-                        } else {
-                            set_toggle_menu_show(app_handle)
-                                .expect("Failed to set toggle menu show");
-                        }
+                .expect("Failed to build tauri app");
+
+            let app_span = span!(tracing::Level::INFO, "main",
+                version = %app_version,
+                name = &app_name,
+            );
+
+            let _guard = app_span.enter();
+
+            app.run(|app_handle, event| match event {
+                tauri::RunEvent::WindowEvent {
+                    event: tauri::WindowEvent::Focused(is_focused),
+                    ..
+                } => {
+                    if is_focused {
+                        set_toggle_menu_hide(app_handle).expect("Failed to set toggle menu hide");
+                    } else {
+                        set_toggle_menu_show(app_handle).expect("Failed to set toggle menu show");
                     }
-                    tauri::RunEvent::ExitRequested { api, .. } => {
-                        hide_window(app_handle).expect("Failed to hide window");
-                        api.prevent_exit();
-                    }
-                    _ => {}
-                });
+                }
+                tauri::RunEvent::ExitRequested { api, .. } => {
+                    hide_window(app_handle).expect("Failed to hide window");
+                    api.prevent_exit();
+                }
+                _ => {}
+            });
         });
 }
 
