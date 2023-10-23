@@ -22,7 +22,7 @@ tempfile = "3.8"
 
 [dependencies]
 anyhow = "1.0.72"
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 backoff = "0.4.0"
 bstr = "1.7.0"
 byteorder = "1.4.3"
