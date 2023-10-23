@@ -4,6 +4,7 @@ import { listen as listenTauri } from '@tauri-apps/api/event';
 
 export enum Code {
 	Unknown = 'errors.unknown',
+	Validation = 'errors.validation',
 	Projects = 'errors.projects',
 	ProjectsGitAuth = 'errors.projects.git.auth',
 	ProjectsGitRemote = 'errors.projects.git.remote',
