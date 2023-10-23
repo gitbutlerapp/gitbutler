@@ -26,7 +26,7 @@ use crate::{
 };
 
 pub struct Repository {
-    pub git_repository: git::Repository,
+    git_repository: git::Repository,
     project: projects::Project,
     lock_file: std::fs::File,
 }
@@ -609,6 +609,10 @@ impl Repository {
         tracing::debug!("gitbutler file updated: {:?}", gb_file_path);
 
         Ok(())
+    }
+
+    pub fn git_repository(&self) -> &git::Repository {
+        &self.git_repository
     }
 }
 
