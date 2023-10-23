@@ -586,6 +586,8 @@ pub fn flush_applied_vbranches(
         }
     }
 
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
     Ok(())
 }
 
