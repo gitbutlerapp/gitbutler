@@ -26,7 +26,7 @@ pub async fn get_project_archive_path(
     project_id: &str,
 ) -> Result<path::PathBuf, Error> {
     let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".into(),
     })?;
     handle
@@ -54,7 +54,7 @@ pub async fn get_project_data_archive_path(
     project_id: &str,
 ) -> Result<path::PathBuf, Error> {
     let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".into(),
     })?;
     handle

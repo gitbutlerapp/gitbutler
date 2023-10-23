@@ -35,7 +35,7 @@ pub async fn list_sessions(
 ) -> Result<Vec<sessions::Session>, Error> {
     let app = handle.state::<app::App>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
     let sessions = app.list_sessions(&project_id, earliest_timestamp_ms)?;
@@ -53,10 +53,10 @@ pub async fn list_session_files(
     let app = handle.state::<app::App>();
     let session_id: SessionId = session_id.parse().map_err(|_| Error::UserError {
         message: "Malformed session id".to_string(),
-        code: Code::Sessions,
+        code: Code::Validation,
     })?;
     let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
     let files = app.list_session_files(&project_id, &session_id, &paths)?;
@@ -74,10 +74,10 @@ pub async fn list_deltas(
     let app = handle.state::<app::App>();
     let session_id = session_id.parse().map_err(|_| Error::UserError {
         message: "Malformed session id".to_string(),
-        code: Code::Sessions,
+        code: Code::Validation,
     })?;
     let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
     let deltas = app.list_session_deltas(&project_id, &session_id, &paths)?;
@@ -93,7 +93,7 @@ pub async fn git_wd_diff(
 ) -> Result<HashMap<path::PathBuf, String>, Error> {
     let app = handle.state::<app::App>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
     let diff = app.git_wd_diff(&project_id, context_lines)?;
@@ -108,7 +108,7 @@ pub async fn git_remote_branches(
 ) -> Result<Vec<git::RemoteBranchName>, Error> {
     let app = handle.state::<app::App>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
     let branches = app.git_remote_branches(&project_id)?;
@@ -123,7 +123,7 @@ pub async fn git_remote_branches_data(
 ) -> Result<Vec<virtual_branches::RemoteBranch>, Error> {
     let app = handle.state::<app::App>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
     let branches = app.git_remote_branches_data(&project_id)?;
@@ -139,7 +139,7 @@ pub async fn git_remote_branches_data(
 pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let app = handle.state::<app::App>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
     let head = app.git_head(&project_id)?;
@@ -169,7 +169,7 @@ pub async fn upsert_bookmark(
         .context("failed to get time")?
         .as_millis();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
     let bookmark = bookmarks::Bookmark {
@@ -195,7 +195,7 @@ pub async fn list_bookmarks(
 ) -> Result<Vec<bookmarks::Bookmark>, Error> {
     let app = handle.state::<app::App>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
     let bookmarks = app.list_bookmarks(&project_id, range)?;
@@ -207,7 +207,7 @@ pub async fn list_bookmarks(
 pub async fn fetch_from_target(handle: tauri::AppHandle, project_id: &str) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
     app.fetch_from_target(&project_id)?;
@@ -223,7 +223,7 @@ pub async fn mark_resolved(
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
     app.mark_resolved(&project_id, path)?;

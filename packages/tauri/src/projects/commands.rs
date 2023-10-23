@@ -92,7 +92,7 @@ impl From<controller::GetError> for Error {
 #[instrument(skip(handle))]
 pub async fn get_project(handle: tauri::AppHandle, id: &str) -> Result<projects::Project, Error> {
     let id = id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".into(),
     })?;
     handle.state::<Controller>().get(&id).map_err(Into::into)
@@ -130,7 +130,7 @@ impl From<controller::DeleteError> for Error {
 #[instrument(skip(handle))]
 pub async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     let id = id.parse().map_err(|_| Error::UserError {
-        code: Code::Projects,
+        code: Code::Validation,
         message: "Malformed project id".into(),
     })?;
     handle.state::<Controller>().delete(&id).map_err(Into::into)
