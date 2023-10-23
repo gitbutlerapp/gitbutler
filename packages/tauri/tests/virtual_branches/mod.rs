@@ -121,7 +121,6 @@ mod references {
                 .unwrap();
 
             let branches = controller.list_virtual_branches(&project_id).await.unwrap();
-            dbg!(&branches);
             assert_eq!(branches.len(), 2);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].name, "name");
@@ -640,7 +639,6 @@ mod conflicts {
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch1_id);
-                dbg!(&branches[0]);
                 assert_eq!(branches[0].files.len(), 0);
                 assert_eq!(branches[0].commits.len(), 1);
                 assert!(!branches[0].active);
@@ -902,7 +900,7 @@ mod conflicts {
     }
 }
 
-mod reset {
+mod reset_virtual_branch {
     use super::*;
 
     #[tokio::test]
@@ -1238,6 +1236,251 @@ mod upstream {
             assert!(branches[0].commits[1].is_remote);
             assert_eq!(branches[0].commits[2].id, oid1);
             assert!(branches[0].commits[2].is_remote);
+        }
+    }
+}
+
+mod cherry_pick {
+    use super::*;
+
+    mod cleanly {
+        use super::*;
+
+        #[tokio::test]
+        async fn applied() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+            } = Test::default();
+
+            let commit_oid = {
+                let first = repository.commit_all("commit");
+                fs::write(repository.path().join("file.txt"), "content").unwrap();
+                let second = repository.commit_all("commit");
+                repository.push();
+                repository.reset_hard(first);
+                second
+            };
+
+            controller
+                .set_base_branch(
+                    &project_id,
+                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+                )
+                .unwrap();
+
+            let branch_id = controller
+                .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+                .await
+                .unwrap();
+
+            let cherry_picked_commit_oid = controller
+                .cherry_pick(&project_id, &branch_id, commit_oid)
+                .await
+                .unwrap();
+            assert!(cherry_picked_commit_oid.is_some());
+            assert!(repository.path().join("file.txt").exists());
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+            assert_eq!(branches[0].id, branch_id);
+            assert!(branches[0].active);
+            assert_eq!(branches[0].commits.len(), 1);
+            assert_eq!(branches[0].commits[0].id, cherry_picked_commit_oid.unwrap());
+        }
+
+        #[tokio::test]
+        async fn non_applied() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+            } = Test::default();
+
+            controller
+                .set_base_branch(
+                    &project_id,
+                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+                )
+                .unwrap();
+
+            let branch_id = controller
+                .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+                .await
+                .unwrap();
+
+            let commit_one_oid = {
+                fs::write(repository.path().join("file.txt"), "content").unwrap();
+                controller
+                    .create_commit(&project_id, &branch_id, "commit", None)
+                    .await
+                    .unwrap()
+            };
+
+            {
+                fs::write(repository.path().join("file_two.txt"), "content two").unwrap();
+                controller
+                    .create_commit(&project_id, &branch_id, "commit", None)
+                    .await
+                    .unwrap()
+            };
+
+            let commit_three_oid = {
+                fs::write(repository.path().join("file_three.txt"), "content three").unwrap();
+                controller
+                    .create_commit(&project_id, &branch_id, "commit", None)
+                    .await
+                    .unwrap()
+            };
+
+            controller
+                .reset_virtual_branch(&project_id, &branch_id, commit_one_oid)
+                .await
+                .unwrap();
+
+            controller
+                .unapply_virtual_branch(&project_id, &branch_id)
+                .await
+                .unwrap();
+
+            assert!(matches!(
+                controller
+                    .cherry_pick(&project_id, &branch_id, commit_three_oid)
+                    .await,
+                Err(ControllerError::Other(_))
+            ));
+        }
+    }
+
+    mod with_conflicts {
+        use super::*;
+
+        #[tokio::test]
+        async fn applied() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+            } = Test::default();
+
+            let commit_oid = {
+                let first = repository.commit_all("commit");
+                fs::write(repository.path().join("file.txt"), "content").unwrap();
+                let second = repository.commit_all("commit");
+                repository.push();
+                repository.reset_hard(first);
+                second
+            };
+
+            controller
+                .set_base_branch(
+                    &project_id,
+                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+                )
+                .unwrap();
+
+            let branch_id = controller
+                .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+                .await
+                .unwrap();
+
+            // introduce conflict with the remote commit
+            fs::write(repository.path().join("file.txt"), "conflict").unwrap();
+
+            {
+                // cherry picking leads to conflict
+                let cherry_picked_commit_oid = controller
+                    .cherry_pick(&project_id, &branch_id, commit_oid)
+                    .await
+                    .unwrap();
+                assert!(cherry_picked_commit_oid.is_none());
+
+                assert_eq!(
+                    fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "<<<<<<< ours\nconflict\n=======\ncontent\n>>>>>>> theirs\n"
+                );
+
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(branches[0].conflicted);
+                assert_eq!(branches[0].files.len(), 1);
+                assert!(branches[0].files[0].conflicted);
+                assert_eq!(branches[0].commits.len(), 0);
+            }
+
+            {
+                // conflict can be resolved
+                fs::write(repository.path().join("file.txt"), "resolved").unwrap();
+                let commited_oid = controller
+                    .create_commit(&project_id, &branch_id, "resolution", None)
+                    .await
+                    .unwrap();
+
+                let commit = repository.find_commit(commited_oid).unwrap();
+                assert_eq!(commit.parent_count(), 2);
+
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(!branches[0].conflicted);
+                assert_eq!(branches[0].commits.len(), 2);
+                // resolution commit is there
+                assert_eq!(branches[0].commits[0].id, commited_oid);
+                // cherry picked commit is there
+                assert_eq!(
+                    branches[0].commits[1].files[0].hunks[0].diff,
+                    "@@ -0,0 +1 @@\n+content\n\\ No newline at end of file\n"
+                );
+            }
+        }
+
+        #[tokio::test]
+        async fn non_applied() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+            } = Test::default();
+
+            let commit_oid = {
+                let first = repository.commit_all("commit");
+                fs::write(repository.path().join("file.txt"), "content").unwrap();
+                let second = repository.commit_all("commit");
+                repository.push();
+                repository.reset_hard(first);
+                second
+            };
+
+            controller
+                .set_base_branch(
+                    &project_id,
+                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+                )
+                .unwrap();
+
+            let branch_id = controller
+                .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+                .await
+                .unwrap();
+
+            // introduce conflict with the remote commit
+            fs::write(repository.path().join("file.txt"), "conflict").unwrap();
+
+            controller
+                .unapply_virtual_branch(&project_id, &branch_id)
+                .await
+                .unwrap();
+
+            assert!(matches!(
+                controller
+                    .cherry_pick(&project_id, &branch_id, commit_oid)
+                    .await,
+                Err(ControllerError::Other(_))
+            ));
         }
     }
 }
