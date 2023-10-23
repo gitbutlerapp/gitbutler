@@ -52,12 +52,12 @@ deny = [
     "clippy::unneeded_field_pattern",
     "clippy::unseparated_literal_suffix",
     "clippy::if_then_some_else_none",
-    "clippy::use_debug"
+    "clippy::use_debug",
     #TODO:
-    #clippy::partial_pub_fields
-    #clippy::print_stdout
-    #clippy::unwrap_used
-    #clippy::unwrap_in_result
+    # "clippy::partial_pub_fields"
+    # "clippy::print_stdout"
+    # "clippy::unwrap_used"
+    # "clippy::unwrap_in_result"
 ]
 
 allow = [
