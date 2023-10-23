@@ -518,6 +518,9 @@ impl Controller {
     pub async fn flush_vbranches(&self, project_id: ProjectId) -> Result<(), Error> {
         self.with_lock(&project_id, || {
             self.with_verify_branch(&project_id, |gb_repository, project_repository, _| {
+                super::integration::update_gitbutler_integration(gb_repository, project_repository)
+                    .map_err(Error::Other)?;
+
                 super::flush_applied_vbranches(gb_repository, project_repository)
                     .map_err(Error::Other)?;
 
