@@ -51,7 +51,7 @@ pub async fn commit_virtual_branch(
         message: "Malformed branch id".to_string(),
     })?;
     let ownership = ownership
-        .map(|s| s.parse())
+        .map(str::parse)
         .transpose()
         .map_err(|_| Error::UserError {
             code: Code::Validation,
