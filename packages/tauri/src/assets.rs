@@ -75,6 +75,11 @@ impl Proxy {
 
     pub async fn proxy_virtual_branch(&self, branch: VirtualBranch) -> VirtualBranch {
         VirtualBranch {
+            upstream: if let Some(upstream) = branch.upstream {
+                Some(self.proxy_remote_branch(upstream).await)
+            } else {
+                None
+            },
             commits: join_all(
                 branch
                     .commits
