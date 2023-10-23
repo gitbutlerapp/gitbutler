@@ -7,7 +7,8 @@ set -o pipefail
 function rust() {
 	cargo fmt --check
 	cargo sort -c -w
-	cargo cranky --all-targets --all-features
+	# use nightly as long cranky is run in nightly on ci
+	cargo +nightly cranky --all-targets --all-features
 	cargo test
 }
 

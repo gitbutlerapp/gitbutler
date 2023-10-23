@@ -42,11 +42,11 @@ impl<'reader> SessionReader<'reader> {
             wd_reader.read(&repository.session_path().join("meta").join("id"))
         {
             if current_session_id == session.id.to_string() {
-                let head_commit = repository.git_repository.head()?.peel_to_commit()?;
+                let head_commit = repository.git_repository().head()?.peel_to_commit()?;
                 return Ok(SessionReader {
                     reader: Box::new(wd_reader),
                     previous_reader: CommitReader::from_commit(
-                        &repository.git_repository,
+                        repository.git_repository(),
                         &head_commit,
                     )?,
                 });
@@ -67,15 +67,16 @@ impl<'reader> SessionReader<'reader> {
             .context(format!("failed to parse commit hash {}", session_hash))?;
 
         let commit = repository
-            .git_repository
+            .git_repository()
             .find_commit(oid)
             .context("failed to get commit")?;
-        let commit_reader = reader::CommitReader::from_commit(&repository.git_repository, &commit)?;
+        let commit_reader =
+            reader::CommitReader::from_commit(repository.git_repository(), &commit)?;
 
         Ok(SessionReader {
             reader: Box::new(commit_reader),
             previous_reader: reader::CommitReader::from_commit(
-                &repository.git_repository,
+                repository.git_repository(),
                 &commit.parent(0)?,
             )?,
         })

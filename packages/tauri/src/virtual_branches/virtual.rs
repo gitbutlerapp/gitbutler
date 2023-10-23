@@ -968,7 +968,7 @@ pub fn create_virtual_branch(
         .read_default()
         .context("failed to read default")?;
 
-    let repo = &gb_repository.git_repository;
+    let repo = gb_repository.git_repository();
     let commit = repo
         .find_commit(default_target.sha)
         .context("failed to find commit")?;
