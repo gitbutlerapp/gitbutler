@@ -692,19 +692,19 @@ pub fn list_virtual_branches(
         }
 
         // find all commits on head that are not on target.sha
-        let mut commits = vec![];
-        for commit in project_repository
+        let commits = project_repository
             .log(branch.head, LogUntil::Commit(default_target.sha))
             .context(format!("failed to get log for branch {}", branch.name))?
-        {
-            let commit = commit_to_vbranch_commit(
-                project_repository,
-                &default_target,
-                &commit,
-                Some(&pushed_commits),
-            )?;
-            commits.push(commit);
-        }
+            .iter()
+            .map(|commit| {
+                commit_to_vbranch_commit(
+                    project_repository,
+                    &default_target,
+                    commit,
+                    Some(&pushed_commits),
+                )
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         // if the branch is not applied, check to see if it's mergeable and up to date
         let mut base_current = true;
