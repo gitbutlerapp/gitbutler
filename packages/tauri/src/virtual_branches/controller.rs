@@ -526,4 +526,25 @@ impl Controller {
         })
         .await
     }
+
+    pub async fn cherry_pick(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<Option<git::Oid>, Error> {
+        self.with_lock(project_id, || {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
+                if conflicts::is_conflicting(project_repository, None)
+                    .context("failed to check for conflicts")?
+                {
+                    return Err(Error::Conflicting);
+                }
+
+                super::cherry_pick(gb_repository, project_repository, branch_id, commit_oid)
+                    .map_err(Error::Other)
+            })
+        })
+        .await
+    }
 }

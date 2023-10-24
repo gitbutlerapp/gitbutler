@@ -416,3 +416,30 @@ pub async fn reset_virtual_branch(
         .await
         .map_err(Into::into)
 }
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn cherry_pick_onto_virtual_branch(
+    handle: AppHandle,
+    project_id: &str,
+    branch_id: &str,
+    target_commit_oid: &str,
+) -> Result<Option<git::Oid>, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".to_string(),
+    })?;
+    let branch_id = branch_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed branch id".to_string(),
+    })?;
+    let target_commit_oid = target_commit_oid.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed commit oid".to_string(),
+    })?;
+    handle
+        .state::<Controller>()
+        .cherry_pick(&project_id, &branch_id, target_commit_oid)
+        .await
+        .map_err(Into::into)
+}

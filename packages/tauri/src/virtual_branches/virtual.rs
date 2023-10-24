@@ -783,7 +783,7 @@ fn calculate_non_commited_files(
     default_target: &target::Target,
     files: &[VirtualBranchFile],
 ) -> Result<Vec<VirtualBranchFile>> {
-    if default_target.sha == branch.head {
+    if default_target.sha == branch.head && !branch.applied {
         return Ok(files.to_vec());
     };
 
@@ -2354,4 +2354,185 @@ pub fn is_virtual_branch_mergeable(
         .has_conflicts();
 
     Ok(is_mergeable)
+}
+
+pub fn cherry_pick(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    target_commit_oid: git::Oid,
+) -> Result<Option<git::Oid>> {
+    if conflicts::is_conflicting(project_repository, None)? {
+        bail!("cannot cherry pick while conflicted");
+    }
+
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create current session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch = branch_reader
+        .read(branch_id)
+        .context("failed to read branch")?;
+
+    if !branch.applied {
+        // todo?
+        bail!("cannot cherry pick unapplied branch");
+    }
+
+    let target_commit = project_repository
+        .git_repository
+        .find_commit(target_commit_oid)
+        .context("failed to find target commit")?;
+    let target_commit_tree = target_commit
+        .tree()
+        .context("failed to find target commit tree")?;
+
+    let branch_head_commit = project_repository
+        .git_repository
+        .find_commit(branch.head)
+        .context("failed to find branch head commit")?;
+    let branch_tree = project_repository
+        .git_repository
+        .find_tree(branch.tree)
+        .context("failed to find branch tree")?;
+
+    let default_target = get_default_target(&current_session_reader)
+        .context("failed to read default target")?
+        .context("no default target set")?;
+
+    let applied_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
+
+    let applied_statuses = get_applied_status(
+        gb_repository,
+        project_repository,
+        &default_target,
+        applied_branches.clone(),
+    )
+    .context("failed to get status by branch")?;
+
+    let files = applied_statuses
+        .iter()
+        .find_map(|(b, f)| (b.id == *branch_id).then_some(f))
+        .context("branch status not found")?;
+
+    let wip_branch_tree_oid = write_tree_onto_commit(project_repository, branch.head, files)?;
+    let wip_branch_tree = project_repository
+        .git_repository
+        .find_tree(wip_branch_tree_oid)
+        .context("failed to find wip branch tree")?;
+
+    let mut merge_index = project_repository
+        .git_repository
+        .merge_trees(&branch_tree, &wip_branch_tree, &target_commit_tree)
+        .context("failed to merge trees")?;
+
+    let commit_oid = if merge_index.has_conflicts() {
+        // unapply other branches
+        for other_branch in applied_branches.iter().filter(|b| b.id != branch.id) {
+            unapply_branch(gb_repository, project_repository, &other_branch.id)
+                .context("failed to unapply branch")?;
+        }
+
+        // checkout the conflicts
+        project_repository
+            .git_repository
+            .checkout_index(&mut merge_index)
+            .allow_conflicts()
+            .conflict_style_merge()
+            .force()
+            .checkout()?;
+
+        // mark conflicts
+        let conflicts = merge_index.conflicts()?;
+        let mut merge_conflicts = Vec::new();
+        for path in conflicts.flatten() {
+            if let Some(ours) = path.our {
+                let path = std::str::from_utf8(&ours.path)?.to_string();
+                merge_conflicts.push(path);
+            }
+        }
+        conflicts::mark(
+            project_repository,
+            &merge_conflicts,
+            Some(target_commit_oid),
+        )?;
+
+        None
+    } else {
+        let merge_tree_oid = merge_index
+            .write_tree_to(&project_repository.git_repository)
+            .context("failed to write merge tree")?;
+        let merge_tree = project_repository
+            .git_repository
+            .find_tree(merge_tree_oid)
+            .context("failed to find merge tree")?;
+
+        let commit_oid = project_repository
+            .git_repository
+            .commit(
+                None,
+                &target_commit.author(),
+                &target_commit.committer(),
+                target_commit.message().unwrap_or_default(),
+                &merge_tree,
+                &[&branch_head_commit],
+            )
+            .context("failed to create commit")?;
+
+        // go through the other applied branches and merge them into the final tree
+        let final_tree = applied_statuses
+            .into_iter()
+            .filter(|(b, _)| b.id != *branch_id)
+            .fold(
+                target_commit.tree().context("failed to get target tree"),
+                |final_tree, status| {
+                    let final_tree = final_tree?;
+                    let tree_oid = write_tree(project_repository, &default_target, &status.1)?;
+                    let branch_tree = project_repository.git_repository.find_tree(tree_oid)?;
+                    let mut result = project_repository.git_repository.merge_trees(
+                        &target_commit_tree,
+                        &final_tree,
+                        &branch_tree,
+                    )?;
+                    let final_tree_oid =
+                        result.write_tree_to(&project_repository.git_repository)?;
+                    project_repository
+                        .git_repository
+                        .find_tree(final_tree_oid)
+                        .context("failed to find tree")
+                },
+            )?;
+
+        // checkout final_tree into the working directory
+        project_repository
+            .git_repository
+            .checkout_tree(&final_tree)
+            .force()
+            .remove_untracked()
+            .checkout()?;
+
+        // update branch status
+        let writer = branch::Writer::new(gb_repository);
+        writer
+            .write(&Branch {
+                head: commit_oid,
+                ..branch.clone()
+            })
+            .context("failed to write branch")?;
+
+        Some(commit_oid)
+    };
+
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)
+        .context("failed to update gitbutler integration")?;
+
+    Ok(commit_oid)
 }
