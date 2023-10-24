@@ -1284,7 +1284,13 @@ mod upstream {
 
         {
             // merge branch upstream
-            let branch = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == branch1_id).unwrap();
+            let branch = controller
+                .list_virtual_branches(&project_id)
+                .await
+                .unwrap()
+                .into_iter()
+                .find(|b| b.id == branch1_id)
+                .unwrap();
             repository.merge(&branch.upstream.as_ref().unwrap().name);
             repository.fetch()
         }
