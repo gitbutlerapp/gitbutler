@@ -1292,7 +1292,7 @@ mod upstream {
                 .find(|b| b.id == branch1_id)
                 .unwrap();
             repository.merge(&branch.upstream.as_ref().unwrap().name);
-            repository.fetch()
+            repository.fetch();
         }
 
         let oid3 = {

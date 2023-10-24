@@ -87,7 +87,7 @@ impl TestProject {
         let mut remote = self.local_repository.find_remote("origin").unwrap();
         remote
             .fetch(&["+refs/heads/*:refs/remotes/origin/*"], None)
-            .unwrap()
+            .unwrap();
     }
 
     /// works like if we'd open and merge a PR on github. does not update local.
