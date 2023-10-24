@@ -2147,9 +2147,17 @@ pub fn push(
         let existing_branches = remote_branches
             .iter()
             .map(RemoteBranchName::branch)
+            .map(str::to_lowercase) // git is weird about case sensitivity here, assume not case sensitive
             .collect::<Vec<_>>();
 
-        remote_branch.with_branch(&dedup_fmt(&existing_branches, remote_branch.branch(), "-"))
+        remote_branch.with_branch(&dedup_fmt(
+            &existing_branches
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            remote_branch.branch(),
+            "-",
+        ))
     };
 
     project_repository.push(&vbranch.head, &remote_branch, with_force, credentials)?;
