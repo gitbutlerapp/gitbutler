@@ -8,6 +8,7 @@ pub fn temp_dir() -> std::path::PathBuf {
 
 pub struct TestProject {
     local_repository: git::Repository,
+    remote_repository: git::Repository,
 }
 
 impl Default for TestProject {
@@ -55,7 +56,10 @@ impl Default for TestProject {
                 .expect("failed to push");
         }
 
-        Self { local_repository }
+        Self {
+            local_repository,
+            remote_repository,
+        }
     }
 }
 
@@ -78,40 +82,51 @@ impl TestProject {
             .unwrap();
     }
 
-    // works like if we'd open and merge a PR.
+    /// fetch remote into local
+    pub fn fetch(&self) {
+        let mut remote = self.local_repository.find_remote("origin").unwrap();
+        remote
+            .fetch(&["+refs/heads/*:refs/remotes/origin/*"], None)
+            .unwrap()
+    }
+
+    /// works like if we'd open and merge a PR on github. does not update local.
     pub fn merge(&self, branch_name: &git::BranchName) {
-        let branch = self.local_repository.find_branch(branch_name).unwrap();
+        let branch_name: git::BranchName = format!("refs/heads/{}", branch_name.branch())
+            .parse()
+            .unwrap();
+        let branch = self.remote_repository.find_branch(&branch_name).unwrap();
         let branch_commit = branch.peel_to_commit().unwrap();
 
         let master_branch = {
-            let name: git::BranchName = "refs/remotes/origin/master".parse().unwrap();
-            self.local_repository.find_branch(&name).unwrap()
+            let name: git::BranchName = "refs/heads/master".parse().unwrap();
+            self.remote_repository.find_branch(&name).unwrap()
         };
         let master_branch_commit = master_branch.peel_to_commit().unwrap();
 
         let merge_base = {
             let oid = self
-                .local_repository
+                .remote_repository
                 .merge_base(branch_commit.id(), master_branch_commit.id())
                 .unwrap();
-            self.local_repository.find_commit(oid).unwrap()
+            self.remote_repository.find_commit(oid).unwrap()
         };
         let merge_tree = {
             let mut index = self
-                .local_repository
+                .remote_repository
                 .merge_trees(
                     &merge_base.tree().unwrap(),
                     &master_branch.peel_to_tree().unwrap(),
                     &branch.peel_to_tree().unwrap(),
                 )
                 .unwrap();
-            let oid = index.write_tree_to(&self.local_repository).unwrap();
-            self.local_repository.find_tree(oid).unwrap()
+            let oid = index.write_tree_to(&self.remote_repository).unwrap();
+            self.remote_repository.find_tree(oid).unwrap()
         };
 
-        self.local_repository
+        self.remote_repository
             .commit(
-                Some("refs/remotes/origin/master"),
+                Some("refs/heads/master"),
                 &branch_commit.author(),
                 &branch_commit.committer(),
                 &format!("Merge pull request from {}", branch_name),
@@ -125,6 +140,7 @@ impl TestProject {
         self.local_repository.find_commit(oid)
     }
 
+    /// takes all changes in the working directory and commits them into local
     pub fn commit_all(&self, message: &str) -> git::Oid {
         let mut index = self.local_repository.index().expect("failed to get index");
         index
