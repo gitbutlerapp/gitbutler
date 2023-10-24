@@ -2216,8 +2216,12 @@ fn is_commit_integrated(
     }
 
     if upstream_commits.is_empty() {
-        // could not be integrated if there is nothing new upstream.
+        // could not be integrated - there is nothing new upstream.
         return Ok(false);
+    }
+
+    if upstream_commits.contains(&commit.id()) {
+        return Ok(true);
     }
 
     let merge_base = project_repository

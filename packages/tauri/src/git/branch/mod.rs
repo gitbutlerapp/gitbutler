@@ -1,7 +1,7 @@
 mod name;
 pub use name::{LocalName as LocalBranchName, Name as BranchName, RemoteName as RemoteBranchName};
 
-use super::{Commit, Oid, Result};
+use super::{Commit, Oid, Result, Tree};
 
 pub struct Branch<'repo> {
     branch: git2::Branch<'repo>,
@@ -32,6 +32,14 @@ impl<'repo> Branch<'repo> {
 
     pub fn refname_bytes(&self) -> &[u8] {
         self.branch.get().name_bytes()
+    }
+
+    pub fn peel_to_tree(&self) -> Result<Tree<'repo>> {
+        self.branch
+            .get()
+            .peel_to_tree()
+            .map_err(Into::into)
+            .map(Into::into)
     }
 
     pub fn peel_to_commit(&self) -> Result<Commit<'repo>> {
