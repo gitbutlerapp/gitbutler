@@ -78,6 +78,49 @@ impl TestProject {
             .unwrap();
     }
 
+    // works like if we'd open and merge a PR.
+    pub fn merge(&self, branch_name: &git::BranchName) {
+        let branch = self.local_repository.find_branch(branch_name).unwrap();
+        let branch_commit = branch.peel_to_commit().unwrap();
+
+        let master_branch = {
+            let name: git::BranchName = "refs/remotes/origin/master".parse().unwrap();
+            self.local_repository.find_branch(&name).unwrap()
+        };
+        let master_branch_commit = master_branch.peel_to_commit().unwrap();
+
+        let merge_base = {
+            let oid = self
+                .local_repository
+                .merge_base(branch_commit.id(), master_branch_commit.id())
+                .unwrap();
+            self.local_repository.find_commit(oid).unwrap()
+        };
+        let merge_tree = {
+            let mut index = self
+                .local_repository
+                .merge_trees(
+                    &merge_base.tree().unwrap(),
+                    &master_branch.peel_to_tree().unwrap(),
+                    &branch.peel_to_tree().unwrap(),
+                )
+                .unwrap();
+            let oid = index.write_tree_to(&self.local_repository).unwrap();
+            self.local_repository.find_tree(oid).unwrap()
+        };
+
+        self.local_repository
+            .commit(
+                Some("refs/remotes/origin/master"),
+                &branch_commit.author(),
+                &branch_commit.committer(),
+                &format!("Merge pull request from {}", branch_name),
+                &merge_tree,
+                &[&master_branch_commit, &branch_commit],
+            )
+            .unwrap();
+    }
+
     pub fn find_commit(&self, oid: git::Oid) -> Result<git::Commit, git::Error> {
         self.local_repository.find_commit(oid)
     }
