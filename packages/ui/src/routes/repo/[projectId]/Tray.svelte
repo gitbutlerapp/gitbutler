@@ -330,13 +330,6 @@
 			{selectedItem}
 		></RemoteBranches>
 	{/if}
-	<RemoteBranches
-		on:scroll={onScroll}
-		on:selection={(e) => select(e.detail.branch, e.detail.i, e.detail.offset)}
-		{remoteBranchStore}
-		{peekTrayExpanded}
-		{selectedItem}
-	></RemoteBranches>
 </div>
 
 <Modal width="small" bind:this={applyConflictedModal}>
