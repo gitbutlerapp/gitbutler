@@ -9,6 +9,7 @@
 	export let label: string;
 	type Placement = 'top' | 'right' | 'bottom' | 'left';
 	export let placement: Placement = 'bottom';
+	export let timeoutMilliseconds = 1000;
 
 	const [floatingRef, floatingContent] = createFloatingActions({
 		strategy: 'absolute',
@@ -34,7 +35,6 @@
 	});
 
 	let showTooltip = false;
-	const timeoutMilliseconds = 1000;
 	let timeout: ReturnType<typeof setTimeout>;
 </script>
 

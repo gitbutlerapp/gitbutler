@@ -10,6 +10,7 @@
 	import type { CustomStore, RemoteBranch, BaseBranch, Branch } from '$lib/vbranches/types';
 	import type { Readable } from '@square/svelte-store';
 	import { createEventDispatcher } from 'svelte';
+	import type { PullRequest } from '$lib/github/types';
 
 	const dispatch = createEventDispatcher<{
 		selection: {
@@ -24,7 +25,7 @@
 	 let rbContents: HTMLElement;
 	 let rbSection: HTMLElement;
 	export let peekTrayExpanded = false;
-	export let selectedItem: Readable<Branch | RemoteBranch | BaseBranch | undefined> | undefined;
+	export let selectedItem: Readable<Branch | RemoteBranch | BaseBranch | PullRequest | undefined> | undefined;
 
 	$: remoteBranchesState = remoteBranchStore?.state;
 
