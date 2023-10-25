@@ -27,7 +27,7 @@
 		{href}
 		{target}
 		{rel}
-		class="link inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap font-medium hover:underline hover:ease-in {role} {classes}"
+		class="link inline-flex cursor-pointer items-center justify-center gap-1 whitespace-nowrap font-medium hover:underline hover:ease-in {role} {classes}"
 		bind:this={element}
 		class:disabled
 		on:click={() => href && isExternal && open(href)}
@@ -37,7 +37,7 @@
 		</div>
 		<div class="shrink-0">
 			{#if isExternal}
-				<IconExternalLink class="h-4 w-4" />
+				<IconExternalLink class="h-3.5 w-3.5" />
 			{/if}
 		</div>
 	</a>

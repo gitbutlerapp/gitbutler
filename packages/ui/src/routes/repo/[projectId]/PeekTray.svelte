@@ -7,12 +7,16 @@
 	import type { Readable } from '@square/svelte-store';
 	import BaseBranchPeek from './BaseBranchPeek.svelte';
 	import RemoteBranchPeek from './RemoteBranchPeek.svelte';
+	import PullRequestPeek from './github/PullRequestPeek.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import Lane from './BranchLane.svelte';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { getCloudApiClient } from '$lib/api/cloud/api';
+	import { PullRequest } from '$lib/github/types';
 
-	export let item: Readable<RemoteBranch | Branch | BaseBranch | undefined> | undefined;
+	export let item:
+		| Readable<RemoteBranch | Branch | BaseBranch | PullRequest | undefined>
+		| undefined;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let base: BaseBranch | undefined;
 	export let branchController: BranchController;
@@ -87,6 +91,8 @@
 				/>
 			{:else if $item instanceof BaseBranch}
 				<BaseBranchPeek {projectId} base={$item} {branchController} />
+			{:else if $item instanceof PullRequest}
+				<PullRequestPeek {branchController} pullrequest={$item} />
 			{:else}
 				Unknown instance
 			{/if}

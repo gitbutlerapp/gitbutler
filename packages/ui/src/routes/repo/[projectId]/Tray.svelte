@@ -8,7 +8,7 @@
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import { derived, get, type Readable } from '@square/svelte-store';
+	import { derived, get, readable, type Readable } from '@square/svelte-store';
 	import PeekTray from './PeekTray.svelte';
 	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
@@ -23,6 +23,8 @@
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
 	import RemoteBranches from './RemoteBranches.svelte';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
+	import { PullRequest } from '$lib/github/types';
+	import PullRequests from './github/PullRequests.svelte';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
@@ -46,12 +48,14 @@
 	let vbContents: HTMLElement;
 	let baseContents: HTMLElement;
 
-	let selectedItem: Readable<Branch | RemoteBranch | BaseBranch | undefined> | undefined;
+	let selectedItem:
+		| Readable<Branch | RemoteBranch | BaseBranch | PullRequest | undefined>
+		| undefined;
 	let overlayOffsetTop = 0;
 	let fetching = false;
 
 	function select(
-		detail: Branch | RemoteBranch | BaseBranch | undefined,
+		detail: Branch | RemoteBranch | BaseBranch | PullRequest | undefined,
 		i: number,
 		offset?: number
 	): void {
@@ -73,6 +77,9 @@
 		} else if (detail instanceof BaseBranch) {
 			selectedItem = baseBranchStore;
 			overlayOffsetTop = baseContents.offsetTop;
+		} else if (detail instanceof PullRequest) {
+			selectedItem = readable(detail);
+			overlayOffsetTop = offset || overlayOffsetTop;
 		} else if (detail == undefined) {
 			selectedItem = undefined;
 		}
@@ -308,6 +315,21 @@
 	/>
 
 	<!-- Remote branches -->
+	{#if githubContext}
+		<PullRequests
+			on:scroll={onScroll}
+			on:selection={(e) => select(e.detail.pr, e.detail.i, e.detail.offset)}
+			{githubContext}
+		></PullRequests>
+	{:else}
+		<RemoteBranches
+			on:scroll={onScroll}
+			on:selection={(e) => select(e.detail.branch, e.detail.i, e.detail.offset)}
+			{remoteBranchStore}
+			{peekTrayExpanded}
+			{selectedItem}
+		></RemoteBranches>
+	{/if}
 	<RemoteBranches
 		on:scroll={onScroll}
 		on:selection={(e) => select(e.detail.branch, e.detail.i, e.detail.offset)}
