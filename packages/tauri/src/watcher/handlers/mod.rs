@@ -6,6 +6,7 @@ mod git_file_change;
 mod index_handler;
 mod project_file_change;
 mod push_gitbutler_data;
+mod push_project_to_gitbutler;
 mod tick_handler;
 
 use anyhow::{Context, Result};
@@ -27,6 +28,7 @@ pub struct Handler {
     push_gitbutler_handler: push_gitbutler_data::Handler,
     analytics_handler: analytics_handler::Handler,
     index_handler: index_handler::Handler,
+    push_project_to_gitbutler: push_project_to_gitbutler::Handler,
 
     events_sender: app_events::Sender,
 }
@@ -46,6 +48,7 @@ impl TryFrom<&AppHandle> for Handler {
             fetch_project_handler: fetch_project_data::Handler::try_from(value)?,
             fetch_gitbutler_handler: fetch_gitbutler_data::Handler::try_from(value)?,
             analytics_handler: analytics_handler::Handler::try_from(value)?,
+            push_project_to_gitbutler: push_project_to_gitbutler::Handler::try_from(value)?,
         })
     }
 }
@@ -71,6 +74,11 @@ impl Handler {
                 .push_gitbutler_handler
                 .handle(project_id)
                 .context("failed to push gitbutler data"),
+
+            events::Event::PushProjectToGitbutler(project_id) => self
+                .push_project_to_gitbutler
+                .handle(project_id)
+                .context("failed to push project to gitbutler"),
 
             events::Event::FetchGitbutlerData(project_id, tick) => self
                 .fetch_gitbutler_handler
@@ -142,4 +150,12 @@ impl Handler {
             events::Event::IndexAll(project_id) => self.index_handler.reindex(project_id),
         }
     }
+}
+
+#[cfg(test)]
+fn test_remote_repository() -> Result<git2::Repository> {
+    let path = tempfile::tempdir()?.path().to_str().unwrap().to_string();
+    let repo_a = git2::Repository::init_bare(path)?;
+
+    Ok(repo_a)
 }

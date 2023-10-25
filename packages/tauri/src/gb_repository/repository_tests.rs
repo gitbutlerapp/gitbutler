@@ -2,7 +2,6 @@ use std::{collections::HashMap, path, thread, time};
 
 use anyhow::Result;
 use pretty_assertions::assert_eq;
-use tempfile::tempdir;
 
 use crate::{
     deltas,
@@ -12,10 +11,10 @@ use crate::{
     test_utils::{Case, Suite},
 };
 
-fn remote_repository() -> Result<git2::Repository> {
-    let path = tempdir()?.path().to_str().unwrap().to_string();
-    let repository = git2::Repository::init_bare(path)?;
-    Ok(repository)
+fn test_remote_repository() -> Result<git2::Repository> {
+    let path = tempfile::tempdir()?.path().to_str().unwrap().to_string();
+    let repo_a = git2::Repository::init_bare(path)?;
+    Ok(repo_a)
 }
 
 #[test]
@@ -206,12 +205,13 @@ fn test_list_files_from_flushed_session() -> Result<()> {
 #[test]
 fn test_remote_syncronization() -> Result<()> {
     // first, crate a remote, pretending it's a cloud
-    let cloud = remote_repository()?;
+    let cloud = test_remote_repository()?;
     let api_project = projects::ApiProject {
         name: "test-sync".to_string(),
         description: None,
         repository_id: "123".to_string(),
         git_url: cloud.path().to_str().unwrap().to_string(),
+        code_git_url: None,
         created_at: 0_i32.to_string(),
         updated_at: 0_i32.to_string(),
         sync: true,
@@ -290,12 +290,13 @@ fn test_remote_syncronization() -> Result<()> {
 #[test]
 fn test_remote_sync_order() -> Result<()> {
     // first, crate a remote, pretending it's a cloud
-    let cloud = remote_repository()?;
+    let cloud = test_remote_repository()?;
     let api_project = projects::ApiProject {
         name: "test-sync".to_string(),
         description: None,
         repository_id: "123".to_string(),
         git_url: cloud.path().to_str().unwrap().to_string(),
+        code_git_url: None,
         created_at: 0_i32.to_string(),
         updated_at: 0_i32.to_string(),
         sync: true,

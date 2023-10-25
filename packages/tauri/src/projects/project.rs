@@ -21,6 +21,7 @@ pub struct ApiProject {
     pub description: Option<String>,
     pub repository_id: String,
     pub git_url: String,
+    pub code_git_url: Option<String>,
     pub created_at: String,
     pub updated_at: String,
     pub sync: bool,
@@ -66,5 +67,11 @@ pub struct Project {
 impl AsRef<Project> for Project {
     fn as_ref(&self) -> &Project {
         self
+    }
+}
+
+impl Project {
+    pub fn is_sync_enabled(&self) -> bool {
+        self.api.as_ref().map(|api| api.sync).unwrap_or_default()
     }
 }

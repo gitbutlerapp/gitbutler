@@ -66,7 +66,7 @@ impl Handler {
             events.push(events::Event::FetchProjectData(*project_id, *now));
         }
 
-        if project.api.as_ref().map(|api| api.sync).unwrap_or_default() {
+        if project.is_sync_enabled() {
             let gb_data_last_fetch = project
                 .gitbutler_data_last_fetch
                 .as_ref()
@@ -87,6 +87,8 @@ impl Handler {
                 events.push(events::Event::Flush(*project_id, current_session));
             }
         }
+
+        events.push(events::Event::PushProjectToGitbutler(*project_id));
 
         Ok(events)
     }
@@ -158,31 +160,24 @@ mod tests {
 mod test_handler {
     use std::time::SystemTime;
 
-    // use pretty_assertions::assert_eq;
-    use tempfile::tempdir;
-
     use crate::test_utils::{Case, Suite};
 
+    use super::super::test_remote_repository;
     use super::*;
-
-    fn remote_repository() -> Result<git2::Repository> {
-        let path = tempdir()?.path().to_str().unwrap().to_string();
-        let repository = git2::Repository::init_bare(path)?;
-        Ok(repository)
-    }
 
     #[test]
     fn test_fetch_triggered() -> Result<()> {
         let suite = Suite::default();
         let Case { project, .. } = suite.new_case();
 
-        let cloud = remote_repository()?;
+        let cloud = test_remote_repository()?;
 
         let api_project = projects::ApiProject {
             name: "test-sync".to_string(),
             description: None,
             repository_id: "123".to_string(),
             git_url: cloud.path().to_str().unwrap().to_string(),
+            code_git_url: None,
             created_at: 0_i32.to_string(),
             updated_at: 0_i32.to_string(),
             sync: true,

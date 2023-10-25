@@ -14,6 +14,7 @@ pub enum Event {
 
     FetchGitbutlerData(ProjectId, time::SystemTime),
     PushGitbutlerData(ProjectId),
+    PushProjectToGitbutler(ProjectId),
     FetchProjectData(ProjectId, time::SystemTime),
 
     GitFileChange(ProjectId, path::PathBuf),
@@ -47,7 +48,8 @@ impl Event {
             | Event::Session(project_id, _)
             | Event::SessionFile((project_id, _, _, _))
             | Event::SessionDelta((project_id, _, _, _))
-            | Event::PushGitbutlerData(project_id) => project_id,
+            | Event::PushGitbutlerData(project_id)
+            | Event::PushProjectToGitbutler(project_id) => project_id,
         }
     }
 }
@@ -102,6 +104,7 @@ impl Display for Event {
                 )
             }
             Event::PushGitbutlerData(pid) => write!(f, "PushGitbutlerData({})", pid),
+            Event::PushProjectToGitbutler(pid) => write!(f, "PushProjectToGitbutler({})", pid),
             Event::IndexAll(pid) => write!(f, "IndexAll({})", pid),
         }
     }

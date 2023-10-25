@@ -69,6 +69,7 @@ impl Handler {
         Ok(vec![
             events::Event::Session(*project_id, session),
             events::Event::PushGitbutlerData(*project_id),
+            events::Event::PushProjectToGitbutler(*project_id),
         ])
     }
 }

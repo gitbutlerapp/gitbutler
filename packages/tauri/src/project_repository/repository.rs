@@ -2,7 +2,10 @@ use std::path;
 
 use anyhow::{Context, Result};
 
-use crate::{git, projects, reader, users};
+use crate::{
+    git::{self, Url},
+    projects, reader, users,
+};
 
 pub struct Repository {
     pub git_repository: git::Repository,
@@ -273,6 +276,80 @@ impl Repository {
         } else {
             Err(RemoteError::NoUrl)
         }
+    }
+
+    //TODO: do not just push the entire repo in one go. chunk it up
+    pub fn push_to_gitbutler_server(&self, user: Option<&users::User>) -> Result<(), RemoteError> {
+        let head = self
+            .get_head()
+            .map_err(|e| RemoteError::Other(e.into()))?
+            .peel_to_commit()
+            .map_err(|e| RemoteError::Other(e.into()))?
+            .id();
+
+        let access_token = user
+            .map(|user| user.access_token.clone())
+            .ok_or(RemoteError::AuthError)?;
+
+        let url = self
+            .project
+            .api
+            .as_ref()
+            .unwrap()
+            .code_git_url
+            .as_ref()
+            .clone()
+            .unwrap()
+            .as_str()
+            .parse::<Url>()
+            .map_err(|e| RemoteError::Other(e.into()))?;
+
+        // Set the remote's callbacks
+        let mut callbacks = git2::RemoteCallbacks::new();
+        callbacks.push_update_reference(move |refname, message| {
+            tracing::debug!(
+                project_id = %self.project.id,
+                refname,
+                message,
+                "pushing reference"
+            );
+            Result::Ok(())
+        });
+        callbacks.push_transfer_progress(move |current, total, bytes| {
+            tracing::debug!(
+                project_id = %self.project.id,
+                "transferred {}/{}/{} objects",
+                current,
+                total,
+                bytes
+            );
+        });
+
+        let mut push_options = git2::PushOptions::new();
+        push_options.remote_callbacks(callbacks);
+        let auth_header = format!("Authorization: {}", access_token);
+        let headers = &[auth_header.as_str()];
+        push_options.custom_headers(headers);
+
+        let mut remote = self
+            .git_repository
+            .remote_anonymous(&url)
+            .map_err(|e| RemoteError::Other(e.into()))?;
+
+        let refspec = format!("+{}:refs/push-tmp/{}", head, self.project.id);
+
+        remote
+            .push(&[refspec.as_str()], Some(&mut push_options))
+            .map_err(|e| RemoteError::Other(e.into()))?;
+
+        tracing::debug!(
+            project_id = %self.project.id,
+            %head,
+            %url,
+            "pushed to gb repo tmp ref",
+        );
+
+        Ok(())
     }
 
     pub fn push(
