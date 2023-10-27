@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { GitHubIntegrationContext } from '$lib/github/types';
-	import { listPullRequests } from '$lib/github/pullrequest';
+	import { listPullRequestsWithCache } from '$lib/github/pullrequest';
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
 	import { IconPullRequest, IconDraftPullRequest } from '$lib/icons';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
@@ -10,7 +10,8 @@
 	import { createEventDispatcher } from 'svelte';
 
 	export let githubContext: GitHubIntegrationContext;
-	let pullRequestsPromise = listPullRequests(githubContext);
+	let prs = listPullRequestsWithCache(githubContext);
+	$: pullRequestsState = prs.state;
 
 	let rbViewport: HTMLElement;
 	let rbContents: HTMLElement;
@@ -54,61 +55,59 @@
 		class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
 	>
 		<div bind:this={rbContents}>
-			{#await pullRequestsPromise}
+			{#if $pullRequestsState?.isLoading}
 				<span>loading...</span>
-			{:then prs}
-				{#if prs}
-					{#each prs as pr, i}
-						<div
-							role="button"
-							tabindex="0"
-							on:click={() => select(pr, i)}
-							on:keypress={() => select(pr, i)}
-							class="border-color-4 flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b focus:outline-2"
-						>
-							<div class="flex flex-row items-center gap-x-2">
-								<div>
-									{#if pr.draft}
-										<IconDraftPullRequest class="text-color-3 h-3.5 w-3.5"></IconDraftPullRequest>
-									{:else}
-										<IconPullRequest class="h-3.5 w-3.5 text-green-500"></IconPullRequest>
-									{/if}
-								</div>
-								<div class="text-color-2 flex-grow truncate font-semibold" title={pr.title}>
-									{pr.title}
-								</div>
-							</div>
-							<div
-								class="text-color-4 flex flex-row gap-x-1 whitespace-nowrap text-sm first-letter:items-center"
-							>
-								<span>
-									#{pr.number}
-								</span>
-								<span>
-									opened
-									<TimeAgo date={new Date(pr.created_at)} />
-								</span>
-								by
-								<span class="text-color-3 font-semibold">
-									{pr.author?.username}
-								</span>
+			{:else if $pullRequestsState?.isError}
+				<span>something went wrong</span>
+			{:else}
+				{#each $prs as pr, i}
+					<div
+						role="button"
+						tabindex="0"
+						on:click={() => select(pr, i)}
+						on:keypress={() => select(pr, i)}
+						class="border-color-4 flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b focus:outline-2"
+					>
+						<div class="flex flex-row items-center gap-x-2">
+							<div>
 								{#if pr.draft}
-									(draft)
+									<IconDraftPullRequest class="text-color-3 h-3.5 w-3.5"></IconDraftPullRequest>
+								{:else}
+									<IconPullRequest class="h-3.5 w-3.5 text-green-500"></IconPullRequest>
 								{/if}
-								{#if pr.author?.is_bot}
-									<div
-										class="text-color-3 border-color-3 rounded-full border px-1.5 text-xs font-semibold"
-									>
-										bot
-									</div>
-								{/if}
+							</div>
+							<div class="text-color-2 flex-grow truncate font-semibold" title={pr.title}>
+								{pr.title}
 							</div>
 						</div>
-					{/each}
-				{:else}
-					<span>something went wrong</span>
-				{/if}
-			{/await}
+						<div
+							class="text-color-4 flex flex-row gap-x-1 whitespace-nowrap text-sm first-letter:items-center"
+						>
+							<span>
+								#{pr.number}
+							</span>
+							<span>
+								opened
+								<TimeAgo date={new Date(pr.created_at)} />
+							</span>
+							by
+							<span class="text-color-3 font-semibold">
+								{pr.author?.username}
+							</span>
+							{#if pr.draft}
+								(draft)
+							{/if}
+							{#if pr.author?.is_bot}
+								<div
+									class="text-color-3 border-color-3 rounded-full border px-1.5 text-xs font-semibold"
+								>
+									bot
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/each}
+			{/if}
 		</div>
 	</div>
 	<Scrollbar viewport={rbViewport} contents={rbContents} width="0.5rem" />
