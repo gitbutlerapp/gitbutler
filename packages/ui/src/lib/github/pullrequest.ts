@@ -1,6 +1,8 @@
 import { Octokit } from '@octokit/rest';
 import { PullRequest, User, Label, type GitHubIntegrationContext } from '$lib/github/types';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
+import { asyncWritable, type WritableLoadable, type Loadable } from '@square/svelte-store';
+import lscache from 'lscache';
 
 function newClient(ctx: GitHubIntegrationContext) {
 	return new Octokit({
@@ -10,9 +12,27 @@ function newClient(ctx: GitHubIntegrationContext) {
 	});
 }
 
-export async function listPullRequests(
-	ctx: GitHubIntegrationContext
-): Promise<PullRequest[] | undefined> {
+// Uses the cached value as the initial state and also in the event of being offline
+export function listPullRequestsWithCache(ctx: GitHubIntegrationContext): Loadable<PullRequest[]> {
+	const key = ctx.owner + '/' + ctx.repo;
+	const store = asyncWritable(
+		[],
+		async () => lscache.get(key) || [],
+		async (data) => data,
+		{ trackState: true },
+		(set) => {
+			listPullRequests(ctx).then((prs) => {
+				if (prs !== undefined) {
+					lscache.set(key, prs, 1440); // 1 day ttl
+					set(prs);
+				}
+			});
+		}
+	) as WritableLoadable<PullRequest[]>;
+	return store;
+}
+
+async function listPullRequests(ctx: GitHubIntegrationContext): Promise<PullRequest[] | undefined> {
 	const octokit = newClient(ctx);
 	try {
 		const rsp = await octokit.rest.pulls.list({
