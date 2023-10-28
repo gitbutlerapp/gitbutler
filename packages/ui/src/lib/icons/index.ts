@@ -40,3 +40,4 @@ export { default as IconExpandDown } from './IconExpandDown.svelte';
 export { default as IconGithub } from './IconGithub.svelte';
 export { default as IconPullRequest } from './IconPullRequest.svelte';
 export { default as IconDraftPullRequest } from './IconDraftPullRequest.svelte';
+export { default as IconFilter } from './IconFilter.svelte';
