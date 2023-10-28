@@ -4,7 +4,7 @@
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
 	import { IconPullRequest, IconDraftPullRequest } from '$lib/icons';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
+	import { IconTriangleDown } from '$lib/icons';
 	import { accordion } from '../accordion';
 	import type { PullRequest } from '$lib/github/types';
 	import { createEventDispatcher } from 'svelte';
@@ -36,17 +36,12 @@
 	class="bg-color-4 border-color-4 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
 >
 	<div class="flex flex-row place-items-center space-x-2">
-		<div class="text-color-2 font-bold">Pull Requests</div>
-	</div>
-	<div class="flex h-4 w-4 justify-around">
 		<button class="h-full w-full" on:click={() => (open = !open)}>
-			{#if open}
-				<IconTriangleUp />
-			{:else}
-				<IconTriangleDown />
-			{/if}
+			<IconTriangleDown class={!open ? '-rotate-90' : ''} />
 		</button>
+		<div class="text-color-2 whitespace-nowrap font-bold">Pull Requests</div>
 	</div>
+	<div class="flex h-4 w-4 justify-around"></div>
 </div>
 <div bind:this={rbSection} use:accordion={open} class="border-color-5 relative flex-grow border-b">
 	<div

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Branch, BaseBranch, RemoteBranch, type CustomStore } from '$lib/vbranches/types';
 	import { IconBranch } from '$lib/icons';
-	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
+	import { IconTriangleDown } from '$lib/icons';
 	import { accordion } from './accordion';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { getContext } from 'svelte';
@@ -194,16 +194,13 @@
 	<div
 		class="bg-color-4 border-color-4 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
 	>
-		<div class="font-bold">Stashed branches</div>
-		<div class="flex h-4 w-4 justify-around">
-			<IconButton class="h-full w-full" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
-				{#if yourBranchesOpen}
-					<IconTriangleUp />
-				{:else}
-					<IconTriangleDown />
-				{/if}
-			</IconButton>
+		<div class="flex flex-row place-items-center space-x-2">
+			<button class="h-full w-full" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
+				<IconTriangleDown class={!yourBranchesOpen ? '-rotate-90' : ''} />
+			</button>
+			<div class="whitespace-nowrap font-bold">Stashed branches</div>
 		</div>
+		<div class="flex h-4 w-4 justify-around"></div>
 	</div>
 	<div
 		use:accordion={yourBranchesOpen}
