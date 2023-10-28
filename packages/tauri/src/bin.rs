@@ -149,6 +149,7 @@ fn main() {
                 })
                 .plugin(tauri_plugin_window_state::Builder::default().build())
                 .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
+                .plugin(tauri_plugin_context_menu::init())
                 .invoke_handler(tauri::generate_handler![
                     commands::list_deltas,
                     commands::list_sessions,

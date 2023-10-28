@@ -24,3 +24,14 @@ export function projectCreatePullRequestInsteadOfPush(projectId: string): Persis
 	const key = 'projectCreatePullRequestInsteadOfPush_';
 	return persisted(false, key + projectId);
 }
+
+export enum ListPRsFilter {
+	All = 'ALL',
+	ExcludeBots = 'EXCLUDE_BOTS',
+	OnlyYours = 'ONLY_YOURS'
+}
+
+export function projectPullRequestListingFilter(projectId: string): Persisted<string> {
+	const key = 'projectPullRequestListingFilter_';
+	return persisted(ListPRsFilter.All, key + projectId);
+}
