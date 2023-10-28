@@ -317,6 +317,7 @@
 			on:scroll={onScroll}
 			on:selection={(e) => select(e.detail.pr, e.detail.i, e.detail.offset)}
 			{githubContext}
+			{projectId}
 		></PullRequests>
 	{:else}
 		<RemoteBranches
