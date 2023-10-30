@@ -94,7 +94,12 @@ impl HandlerInner {
             user.as_ref(),
         )
         .context("failed to open repository")?;
-        let default_target = gb_repo.default_target()?.context("target not set")?;
+
+        let default_target = if let Some(target) = gb_repo.default_target()? {
+            target
+        } else {
+            return Ok(vec![]);
+        };
 
         let credentials = git::credentials::Factory::new(
             &project,
