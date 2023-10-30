@@ -30,11 +30,9 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - macos-latest
-          - [self-hosted, macOS, ARM64] # mac studio in berlin
-          - ubuntu-20.04
-          # uncomment when this is solved: https://github.com/tauri-apps/tauri/issues/4174
-          # - [self-hosted, Linux, ARM64] # mac studio in berlin
+          - macos-latest # [macOs, x64]
+          - macos-latest-xlarge # [macOs, ARM64]
+          - ubuntu-20.04 # [linux, x64]
 
     runs-on: ${{ matrix.platform }}
     steps:
