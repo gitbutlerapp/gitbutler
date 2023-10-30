@@ -9,7 +9,7 @@ use tauri::AppHandle;
 use crate::{
     gb_repository, git, keys,
     paths::DataDir,
-    project_repository,
+    project_repository::{self, RemoteError},
     projects::{self, ProjectId},
     users,
 };
@@ -106,7 +106,7 @@ impl HandlerInner {
             .with_max_elapsed_time(Some(time::Duration::from_secs(10 * 60)))
             .build();
 
-        let fetch_result = if let Err(error) = backoff::retry(policy, || {
+        let fetch_result = match backoff::retry(policy, || {
             project_repository
                 .fetch(default_target.branch.remote(), &credentials)
                 .map_err(|err| {
@@ -114,13 +114,20 @@ impl HandlerInner {
                     backoff::Error::transient(err)
                 })
         }) {
-            tracing::error!(%project_id, ?error, will_retry = false, "failed to fetch project data");
-            projects::FetchResult::Error {
-                timestamp: *now,
-                error: error.to_string(),
+            Ok(()) => projects::FetchResult::Fetched { timestamp: *now },
+            Err(backoff::Error::Permanent(RemoteError::AuthError)) => {
+                projects::FetchResult::Error {
+                    timestamp: *now,
+                    error: RemoteError::AuthError.to_string(),
+                }
             }
-        } else {
-            projects::FetchResult::Fetched { timestamp: *now }
+            Err(error) => {
+                tracing::error!(%project_id, ?error, will_retry = false, "failed to fetch project data");
+                projects::FetchResult::Error {
+                    timestamp: *now,
+                    error: error.to_string(),
+                }
+            }
         };
 
         self.projects
