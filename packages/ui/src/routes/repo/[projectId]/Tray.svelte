@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { Branch, BaseBranch, RemoteBranch, type CustomStore } from '$lib/vbranches/types';
 	import { IconBranch } from '$lib/icons';
-	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
+	import { IconTriangleDown } from '$lib/icons';
 	import { accordion } from './accordion';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { getContext } from 'svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import { derived, get, type Readable } from '@square/svelte-store';
+	import { derived, get, readable, type Readable } from '@square/svelte-store';
 	import PeekTray from './PeekTray.svelte';
 	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
@@ -23,6 +23,8 @@
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
 	import RemoteBranches from './RemoteBranches.svelte';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
+	import { PullRequest } from '$lib/github/types';
+	import PullRequests from './github/PullRequests.svelte';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
@@ -46,12 +48,14 @@
 	let vbContents: HTMLElement;
 	let baseContents: HTMLElement;
 
-	let selectedItem: Readable<Branch | RemoteBranch | BaseBranch | undefined> | undefined;
+	let selectedItem:
+		| Readable<Branch | RemoteBranch | BaseBranch | PullRequest | undefined>
+		| undefined;
 	let overlayOffsetTop = 0;
 	let fetching = false;
 
 	function select(
-		detail: Branch | RemoteBranch | BaseBranch | undefined,
+		detail: Branch | RemoteBranch | BaseBranch | PullRequest | undefined,
 		i: number,
 		offset?: number
 	): void {
@@ -73,6 +77,9 @@
 		} else if (detail instanceof BaseBranch) {
 			selectedItem = baseBranchStore;
 			overlayOffsetTop = baseContents.offsetTop;
+		} else if (detail instanceof PullRequest) {
+			selectedItem = readable(detail);
+			overlayOffsetTop = offset || overlayOffsetTop;
 		} else if (detail == undefined) {
 			selectedItem = undefined;
 		}
@@ -187,16 +194,13 @@
 	<div
 		class="bg-color-4 border-color-4 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
 	>
-		<div class="font-bold">Stashed branches</div>
-		<div class="flex h-4 w-4 justify-around">
-			<IconButton class="h-full w-full" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
-				{#if yourBranchesOpen}
-					<IconTriangleUp />
-				{:else}
-					<IconTriangleDown />
-				{/if}
-			</IconButton>
+		<div class="flex flex-row place-items-center space-x-2">
+			<button class="h-full w-full" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
+				<IconTriangleDown class={!yourBranchesOpen ? '-rotate-90' : ''} />
+			</button>
+			<div class="whitespace-nowrap font-bold">Stashed branches</div>
 		</div>
+		<div class="flex h-4 w-4 justify-around"></div>
 	</div>
 	<div
 		use:accordion={yourBranchesOpen}
@@ -308,13 +312,22 @@
 	/>
 
 	<!-- Remote branches -->
-	<RemoteBranches
-		on:scroll={onScroll}
-		on:selection={(e) => select(e.detail.branch, e.detail.i, e.detail.offset)}
-		{remoteBranchStore}
-		{peekTrayExpanded}
-		{selectedItem}
-	></RemoteBranches>
+	{#if githubContext}
+		<PullRequests
+			on:scroll={onScroll}
+			on:selection={(e) => select(e.detail.pr, e.detail.i, e.detail.offset)}
+			{githubContext}
+			{projectId}
+		></PullRequests>
+	{:else}
+		<RemoteBranches
+			on:scroll={onScroll}
+			on:selection={(e) => select(e.detail.branch, e.detail.i, e.detail.offset)}
+			{remoteBranchStore}
+			{peekTrayExpanded}
+			{selectedItem}
+		></RemoteBranches>
+	{/if}
 </div>
 
 <Modal width="small" bind:this={applyConflictedModal}>

@@ -38,3 +38,7 @@ export { default as IconExpandUpDown } from './IconExpandUpDown.svelte';
 export { default as IconExpandUp } from './IconExpandUp.svelte';
 export { default as IconExpandDown } from './IconExpandDown.svelte';
 export { default as IconGithub } from './IconGithub.svelte';
+export { default as IconPullRequest } from './IconPullRequest.svelte';
+export { default as IconDraftPullRequest } from './IconDraftPullRequest.svelte';
+export { default as IconFilter } from './IconFilter.svelte';
+export { default as IconFilterFilled } from './IconFilterFilled.svelte';
