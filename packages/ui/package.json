@@ -36,7 +36,7 @@
 		"@codemirror/language": "^6.9.0",
 		"@codemirror/legacy-modes": "^6.3.3",
 		"@codemirror/state": "^6.2.1",
-		"@codemirror/view": "^6.18.0",
+		"@codemirror/view": "^6.21.4",
 		"@histoire/plugin-svelte": "^0.17.0",
 		"@lezer/common": "^1.1.0",
 		"@lezer/highlight": "^1.1.6",
