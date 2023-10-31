@@ -428,7 +428,7 @@
 					</div>
 					{#if upstreamCommitsShown}
 						<div
-							class="flex w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
+							class="flex gap-1 w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
 							id="upstreamCommits"
 						>
 							{#each branch.upstream.commits as commit}
