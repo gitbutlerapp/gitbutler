@@ -3,6 +3,7 @@
 	import type { PageData } from './$types';
 	import * as toasts from '$lib/toasts';
 	import { initDeviceOauth, checkAuthStatus } from '$lib/api/ipc/github';
+	import { getAuthenticated } from '$lib/github/user';
 	import { deleteAllData } from '$lib/api/ipc';
 	import { userStore } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
@@ -144,10 +145,13 @@
 	}
 	let gitHubOauthModal: Modal;
 	function gitHubOauthCheckStatus(deviceCode: string) {
-		checkAuthStatus({ deviceCode }).then((access_token) => {
+		checkAuthStatus({ deviceCode }).then(async (access_token) => {
 			let u = $user;
 			if (u) {
 				u.github_access_token = access_token;
+				u.github_username = await getAuthenticated({ authToken: access_token }).then(
+					(user) => user.username
+				);
 				$user = u;
 			}
 		});
