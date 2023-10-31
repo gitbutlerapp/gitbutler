@@ -217,6 +217,18 @@ export class BranchController {
 		}
 	}
 
+	async cherryPick(params: { branchId: string; targetCommitOid: string }) {
+		try {
+			await invoke<void>('cherry_pick_onto_virtual_branch', {
+				projectId: this.projectId,
+				...params
+			});
+			await this.targetBranchStore.reload();
+		} catch (err: any) {
+			toasts.error(`Failed to cherry-pick commit: ${err.message}`);
+		}
+	}
+
 	async markResolved(projectId: string, path: string) {
 		try {
 			await invoke<void>('mark_resolved', { projectId, path });
