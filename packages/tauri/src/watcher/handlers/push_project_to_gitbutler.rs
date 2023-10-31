@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex, TryLockError};
+
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
@@ -11,11 +13,36 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
+    inner: Arc<Mutex<HandlerInner>>,
+}
+
+impl TryFrom<&AppHandle> for Handler {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+        let inner = HandlerInner::try_from(value)?;
+        Ok(Self {
+            inner: Arc::new(Mutex::new(inner)),
+        })
+    }
+}
+
+impl Handler {
+    pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
+        match self.inner.try_lock() {
+            Ok(inner) => inner.handle(project_id),
+            Err(TryLockError::Poisoned(_)) => Err(anyhow::anyhow!("mutex poisoned")),
+            Err(TryLockError::WouldBlock) => Ok(vec![]),
+        }
+    }
+}
+
+pub struct HandlerInner {
     project_store: projects::Controller,
     users: users::Controller,
 }
 
-impl TryFrom<&AppHandle> for Handler {
+impl TryFrom<&AppHandle> for HandlerInner {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
@@ -26,7 +53,7 @@ impl TryFrom<&AppHandle> for Handler {
     }
 }
 
-impl Handler {
+impl HandlerInner {
     pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         let project = self
             .project_store
@@ -42,7 +69,8 @@ impl Handler {
         {
             project_repository
                 .push_to_gitbutler_server(user.as_ref())
-                .context("failed to push project to gitbutler")?;
+                .context("failed to push project to gitbutler")
+                .expect("");
         } else {
             tracing::debug!(
                 %project_id,
