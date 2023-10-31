@@ -280,6 +280,11 @@ impl Repository {
 
     //TODO: do not just push the entire repo in one go. chunk it up
     pub fn push_to_gitbutler_server(&self, user: Option<&users::User>) -> Result<(), RemoteError> {
+        tracing::debug!(
+            project_id = %self.project.id,
+            "pushing code to gb repo",
+        );
+
         let head = self
             .get_head()
             .map_err(|e| RemoteError::Other(e.into()))?
@@ -291,6 +296,7 @@ impl Repository {
             .map(|user| user.access_token.clone())
             .ok_or(RemoteError::AuthError)?;
 
+        //TODO: remove unwraps
         let url = self
             .project
             .api
@@ -303,6 +309,13 @@ impl Repository {
             .as_str()
             .parse::<Url>()
             .map_err(|e| RemoteError::Other(e.into()))?;
+
+        tracing::debug!(
+            project_id = %self.project.id,
+            %head,
+            %url,
+            "pushing code to gb repo tmp ref",
+        );
 
         // Set the remote's callbacks
         let mut callbacks = git2::RemoteCallbacks::new();

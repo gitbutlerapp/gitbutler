@@ -37,10 +37,17 @@ impl Handler {
         let project_repository = project_repository::Repository::try_from(&project)
             .context("failed to open repository")?;
 
-        if project_repository.project().is_sync_enabled() {
+        if project_repository.project().is_sync_enabled()
+            && project_repository.project().has_code_url()
+        {
             project_repository
                 .push_to_gitbutler_server(user.as_ref())
                 .context("failed to push project to gitbutler")?;
+        } else {
+            tracing::debug!(
+                %project_id,
+                "cannot push code to gb",
+            );
         }
 
         Ok(vec![])

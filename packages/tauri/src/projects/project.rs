@@ -74,4 +74,11 @@ impl Project {
     pub fn is_sync_enabled(&self) -> bool {
         self.api.as_ref().map(|api| api.sync).unwrap_or_default()
     }
+
+    pub fn has_code_url(&self) -> bool {
+        self.api
+            .as_ref()
+            .map(|api| api.code_git_url.is_some())
+            .unwrap_or_default()
+    }
 }
