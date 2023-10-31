@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Board from './Board.svelte';
-	import Tray from './Tray.svelte';
 	import type { PageData } from './$types';
 	import { Button, Link } from '$lib/components';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -29,9 +28,10 @@
 	import { userStore } from '$lib/stores/user';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import { getAuthenticatedWithCache } from '$lib/github/user';
+	import Navigation from './Navigation.svelte';
 
 	export let data: PageData;
-	let { projectId, project, cloud } = data;
+	let { projectId, project, cloud, update } = data;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
@@ -122,7 +122,7 @@
 	{#if !$vbrachesState.isError}
 		<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
 			<div bind:this={trayViewport} class="z-30 flex flex-shrink">
-				<Tray
+				<Navigation
 					branchesWithContentStore={branchesWithContent}
 					{remoteBranchStore}
 					{baseBranchStore}
@@ -132,6 +132,8 @@
 					{cloud}
 					{projectId}
 					{githubContext}
+					user={$userStore}
+					{update}
 				/>
 			</div>
 			<Resizer

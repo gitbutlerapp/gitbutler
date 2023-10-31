@@ -1,35 +1,58 @@
 <script lang="ts">
+	import type { Loadable } from '@square/svelte-store';
+	import { installUpdate, onUpdaterEvent } from '@tauri-apps/api/updater';
 	import * as toasts from '$lib/toasts';
-	import { Button } from '$lib/components';
+	import { onMount } from 'svelte';
+	import { relaunch } from '@tauri-apps/api/process';
 	import type { Update } from '$lib/updater';
-	import { installUpdate } from '@tauri-apps/api/updater';
-	import { getVersion } from '@tauri-apps/api/app';
 
-	export let update: Update;
+	export let update: Loadable<Update>;
 
-	let installing = false;
-	const onUpdateClicked = async () => {
-		installing = true;
-		await installUpdate()
-			.finally(() => {
-				installing = false;
-			})
-			.catch((e) => {
-				toasts.error(e.message);
-			});
+	let updateStatus: {
+		error?: string;
+		status: 'PENDING' | 'DOWNLOADED' | 'ERROR' | 'DONE' | 'UPTODATE';
 	};
+
+	onMount(() => {
+		const unsubscribe = onUpdaterEvent((status) => {
+			updateStatus = status;
+			if (updateStatus.error) {
+				toasts.error(updateStatus.error);
+			}
+		});
+		return () => unsubscribe.then((unsubscribe) => unsubscribe());
+	});
+
+	let updateTimer: ReturnType<typeof setInterval>;
+	onMount(() => {
+		update.load();
+		const tenMinutes = 1000 * 60 * 10;
+		updateTimer = setInterval(() => {
+			update.reload?.();
+		}, tenMinutes);
+		return () => {
+			() => clearInterval(updateTimer);
+		};
+	});
 </script>
 
-{#if update?.enabled}
-	{#if update.shouldUpdate}
-		<Button
-			loading={installing}
-			color="purple"
-			kind="filled"
-			height="small"
-			on:click={onUpdateClicked}>Update to {update.version}</Button
-		>
-	{:else}
-		<Button color="purple" kind="filled" height="small" disabled>Up to date</Button>
-	{/if}
+{#if $update?.enabled && $update?.shouldUpdate}
+	<div class="flex items-center justify-center gap-1">
+		{#if !updateStatus}
+			<div
+				class="mr-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white"
+			>
+				1
+			</div>
+			<button on:click={() => installUpdate()}>
+				version {$update.version} available
+			</button>
+		{:else if updateStatus.status === 'PENDING'}
+			<span>downloading update...</span>
+		{:else if updateStatus.status === 'DOWNLOADED'}
+			<span>installing update...</span>
+		{:else if updateStatus.status === 'DONE'}
+			<button on:click={() => relaunch()}>restart to update</button>
+		{/if}
+	</div>
 {/if}

@@ -9,6 +9,8 @@
 	import * as projects from '$lib/api/ipc/projects';
 	import { projectsStore } from '$lib/api/ipc/projects';
 	import type { PageData } from './$types';
+	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
+	import BackButton from '$lib/components/BackButton.svelte';
 
 	export let data: PageData;
 	const { project, cloud } = data;
@@ -52,7 +54,8 @@
 
 <div class="mx-auto h-fit w-full max-w-xl py-10">
 	<div class="flex flex-col gap-y-8">
-		<div class="flex w-full justify-between">
+		<div class="flex w-full">
+			<BackButton />
 			<h2 class="text-2xl font-medium">Project settings</h2>
 		</div>
 		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />

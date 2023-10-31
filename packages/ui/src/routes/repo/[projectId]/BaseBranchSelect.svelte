@@ -1,5 +1,8 @@
 <script async lang="ts">
+	import { goto } from '$app/navigation';
+	import BackButton from '$lib/components/BackButton.svelte';
 	import Button from '$lib/components/Button/Button.svelte';
+	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
 	import IconExternalLink from '$lib/icons/IconExternalLink.svelte';
 	import IconLoading from '$lib/icons/IconLoading.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -27,7 +30,10 @@
 		id="vb-data"
 		class="bg-color-3 flex h-full flex-col justify-center gap-y-4 self-center p-12 text-lg"
 	>
-		<div class="font-bold">Set your Base Branch</div>
+		<div class="font-bold">
+			<BackButton />
+			Set your Base Branch
+		</div>
 		<p class="text-color-3">
 			You need to set your base branch before you can start working on your project.
 		</p>
