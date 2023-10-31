@@ -124,7 +124,7 @@
 		Promise.resolve()
 			.then(() => (isDeleting = true))
 			.then(() => deleteAllData())
-			.then(() => user.set(null))
+			.then(() => user.set(undefined))
 			.then(() => toasts.success('All data deleted'))
 			.catch((e) => {
 				console.error(e);
@@ -163,7 +163,7 @@
 				<Login />
 			{/if}
 		</div>
-		<div class="bg-light-400 dark:bg-dark-700 h-[0.0625rem]" />
+		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
 
 		<div>
 			<h2 class="mb-2 text-lg font-medium">GitButler Cloud</h2>
@@ -245,7 +245,7 @@
 		{:else}
 			<Login />
 		{/if}
-		<div class="bg-light-400 dark:bg-dark-700 h-[0.0625rem]" />
+		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
 		<div>
 			<h2 class="mb-2 text-lg font-medium">Git Stuff</h2>
 		</div>
@@ -277,7 +277,7 @@
 						class="peer sr-only"
 					/>
 					<div
-						class="peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 peer-disabled:bg-zinc-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800"
+						class="peer-focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800 peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-disabled:bg-zinc-300"
 					/>
 				</label>
 			</div>
@@ -285,7 +285,7 @@
 
 		<div class="flex flex-col space-y-2">
 			<p>SSH Key</p>
-			<div class="text-light-700 dark:text-dark-200 pr-8 text-sm">
+			<div class="pr-8 text-sm text-light-700 dark:text-dark-200">
 				<div>
 					GitButler uses SSH keys to authenticate with your Git provider. Add the following public
 					key to your Git provider to enable GitButler to push code.
@@ -295,7 +295,7 @@
 				<input
 					bind:value={sshKey}
 					class="
-                        whitespece-pre border-light-200 dark:border-dark-400 dark:bg-dark-700 w-full select-all rounded border bg-white p-2 font-mono"
+                        whitespece-pre w-full select-all rounded border border-light-200 bg-white p-2 font-mono dark:border-dark-400 dark:bg-dark-700"
 				/>
 			</div>
 			<div class="flex flex-row justify-end space-x-2">
@@ -315,7 +315,7 @@
 		<div class="flex items-center">
 			<div class="flex-grow">
 				<p>Sign Commits with the above SSH Key</p>
-				<div class="text-light-700 dark:text-dark-200 space-y-2 pr-8 text-sm">
+				<div class="space-y-2 pr-8 text-sm text-light-700 dark:text-dark-200">
 					<div>
 						If you want GitButler to sign your commits with the SSH key we generated, then you can
 						add that key to GitHub as a signing key to have those commits verified.
@@ -338,20 +338,20 @@
 						class="peer sr-only"
 					/>
 					<div
-						class="peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 peer-disabled:bg-zinc-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800"
+						class="peer-focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800 peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-disabled:bg-zinc-300"
 					/>
 				</label>
 			</div>
 		</div>
 
-		<div class="bg-light-400 dark:bg-dark-700 h-[0.0625rem]" />
+		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
 		<div>
 			<h2 class="mb-2 text-lg font-medium">Appearance</h2>
 		</div>
 		<div class="flex items-center">
 			<div class="flex-grow">
 				<p>Generate descriptions for code changes</p>
-				<p class="text-light-700 dark:text-dark-200 text-sm">
+				<p class="text-sm text-light-700 dark:text-dark-200">
 					GitButler Cloud will generate descriptions for code hunks in your virtual branches board.
 				</p>
 			</div>
@@ -368,7 +368,7 @@
 						class="peer sr-only"
 					/>
 					<div
-						class="peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800"
+						class="peer-focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800 peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4"
 					/>
 				</label>
 			</div>
@@ -376,7 +376,7 @@
 		<div class="flex items-center">
 			<div class="flex-grow">
 				<p>Interface theme</p>
-				<p class="text-light-700 dark:text-dark-200 text-sm">
+				<p class="text-sm text-light-700 dark:text-dark-200">
 					Select or customize your interface theme.
 				</p>
 			</div>
@@ -423,7 +423,7 @@
 				href="https://discord.gg/wDKZCPEjXC"
 				target="_blank"
 				rel="noreferrer"
-				class="border-light-200 dark:border-dark-400 dark:bg-dark-700 flex-1 rounded border bg-white p-4"
+				class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
 			>
 				<p class="mb-2 font-medium">Join our Discorder</p>
 				<p class="text-light-700 dark:text-dark-200">
@@ -433,7 +433,7 @@
 			<a
 				href="mailto:hello@gitbutler.com?subject=Feedback or question!"
 				target="_blank"
-				class="border-light-200 dark:border-dark-400 dark:bg-dark-700 flex-1 rounded border bg-white p-4"
+				class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
 			>
 				<p class="mb-2 font-medium">Contact us</p>
 				<p class="text-light-700 dark:text-dark-200">
@@ -442,7 +442,7 @@
 			</a>
 		</div>
 
-		<div class="bg-light-400 dark:bg-dark-700 h-[0.0625rem]" />
+		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
 
 		<div class="flex flex-col gap-4">
 			<Button color="destructive" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
@@ -459,7 +459,11 @@
 			</svelte:fragment>
 		</Modal>
 
-		<Modal on:close={() => gitHubOauthCheckStatus(deviceCode)} bind:this={gitHubOauthModal} title="Authenticate with GitHub">
+		<Modal
+			on:close={() => gitHubOauthCheckStatus(deviceCode)}
+			bind:this={gitHubOauthModal}
+			title="Authenticate with GitHub"
+		>
 			<div class="flex flex-col gap-4">
 				<div class="flex items-center gap-2">
 					<span class="flex-grow">1️⃣ Copy the following verification code: </span>
@@ -475,16 +479,17 @@
 				</div>
 				<div>
 					2️⃣ Navigate to
-					<a class="underline" href="https://github.com/login/device" target="_blank" rel="noreferrer"
-						>https://github.com/login/device</a
+					<a
+						class="underline"
+						href="https://github.com/login/device"
+						target="_blank"
+						rel="noreferrer">https://github.com/login/device</a
 					>
 				</div>
 				<div>3️⃣ Paste the code that you copied and follow the on-screen instructions.</div>
 			</div>
 			<svelte:fragment slot="controls" let:close>
-				<Button color="purple" on:click={close}
-					>Done</Button
-				>
+				<Button color="purple" on:click={close}>Done</Button>
 			</svelte:fragment>
 		</Modal>
 	</div>

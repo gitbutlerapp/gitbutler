@@ -2,7 +2,7 @@ import type { User } from '../cloud/api';
 import { invoke } from '$lib/ipc';
 
 export async function get() {
-	return invoke<User | null>('get_user');
+	return invoke<User | undefined>('get_user');
 }
 
 export async function set(params: { user: User }) {

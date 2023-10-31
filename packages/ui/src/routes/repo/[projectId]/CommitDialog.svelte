@@ -20,7 +20,7 @@
 	export let branch: Branch;
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
-	export let user: User | null;
+	export let user: User | undefined;
 	export let ownership: Ownership;
 
 	const dispatch = createEventDispatcher<{ close: null }>();
@@ -61,7 +61,7 @@
 			.join('\n')
 			.slice(0, 5000);
 
-		if (user === null) return;
+		if (!user) return;
 
 		isGeneratingCommigMessage = true;
 		cloud.summarize

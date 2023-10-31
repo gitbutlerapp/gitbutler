@@ -8,52 +8,21 @@
 	import { Toaster } from 'svelte-french-toast';
 	import { userStore } from '$lib/stores/user';
 	import type { LayoutData } from './$types';
-	import { Link, Tooltip } from '$lib/components';
-	import { IconEmail } from '$lib/icons';
 	import { page } from '$app/stores';
 	import { derived } from '@square/svelte-store';
 	import { onMount, setContext } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { unsubscribe } from '$lib/utils';
 	import LinkProjectModal from './LinkProjectModal.svelte';
-	import Breadcrumbs from './Breadcrumbs.svelte';
 	import ShareIssueModal from './ShareIssueModal.svelte';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/userSettings';
 	import { initTheme } from '$lib/theme';
-	import { install as installUpdate } from '$lib/updater';
-	import { relaunch } from '@tauri-apps/api/process';
 	import { onUpdaterEvent } from '@tauri-apps/api/updater';
+	import Header from './Header.svelte';
+	import Footer from './Footer.svelte';
 
 	export let data: LayoutData;
 	const { posthog, projects, sentry, cloud, update } = data;
-
-	const user = userStore;
-
-	let updateStatus: {
-		error?: string;
-		status: 'PENDING' | 'DOWNLOADED' | 'ERROR' | 'DONE' | 'UPTODATE';
-	};
-	onMount(() => {
-		const unsubscribe = onUpdaterEvent((status) => {
-			updateStatus = status;
-			if (updateStatus.error) {
-				toasts.error(updateStatus.error);
-			}
-		});
-		return () => unsubscribe.then((unsubscribe) => unsubscribe());
-	});
-
-	let updateTimer: ReturnType<typeof setInterval>;
-	onMount(() => {
-		update.load();
-		const tenMinutes = 1000 * 60 * 10;
-		updateTimer = setInterval(() => {
-			update.reload?.();
-		}, tenMinutes);
-		return () => {
-			() => clearInterval(updateTimer);
-		};
-	});
 
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
@@ -104,93 +73,19 @@
 				}));
 			}),
 
-			user.subscribe(posthog.identify),
-			user.subscribe(sentry.identify)
+			userStore.subscribe(posthog.identify),
+			userStore.subscribe(sentry.identify)
 		)
 	);
 </script>
 
 <div class="flex h-full flex-col">
-	<header
-		data-tauri-drag-region
-		class="bg-color-3 border-color-4 flex h-8 flex-shrink-0 flex-row items-center gap-x-6 border-b"
-		style="z-index: 9999;"
-	>
-		<div class="breadcrumb-project-container ml-[80px]">
-			<Breadcrumbs project={$project} />
-		</div>
-		<div class="flex-grow" />
-		<div class="mr-6">
-			{#await user.load() then}
-				<Link href="/user/">
-					{#if $user?.picture}
-						<img class="mr-1 inline-block h-5 w-5 rounded-full" src={$user.picture} alt="Avatar" />
-					{/if}
-					{$user?.name ?? 'Account'}
-				</Link>
-			{/await}
-		</div>
-	</header>
-
+	<Header project={$project} user={$userStore}></Header>
 	<div class="flex flex-grow overflow-y-auto overscroll-none">
 		<slot />
 	</div>
-
 	<Toaster />
-
 	<LinkProjectModal bind:this={linkProjectModal} {cloud} {projects} />
-
-	<ShareIssueModal bind:this={shareIssueModal} user={$user} {cloud} />
-	<footer class="text-color-3 w-full text-sm font-medium">
-		<div
-			class="bg-color-3 border-color-4 flex h-[1.375rem] flex-shrink-0 select-none items-center border-t"
-		>
-			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2 pb-[1px]">
-				<div>
-					{#if $project}
-						<Link href="/repo/{$project?.id}/settings">
-							<div class="flex flex-row items-center space-x-2">
-								{#if $project?.api?.sync}
-									<div class="h-2 w-2 rounded-full bg-green-700" />
-									<span>online</span>
-								{:else}
-									<div class="h-2 w-2 rounded-full bg-red-700" />
-									<span class="text-light-600 dark:text-dark-200">offline</span>
-								{/if}
-							</div>
-						</Link>
-					{/if}
-				</div>
-
-				<div class="flex gap-2">
-					{#if $update?.enabled && $update?.shouldUpdate}
-						<div class="flex items-center gap-1">
-							{#if !updateStatus}
-								<div
-									class="mr-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white"
-								>
-									1
-								</div>
-								<button on:click={() => installUpdate()}>
-									version {$update.version} available
-								</button>
-							{:else if updateStatus.status === 'PENDING'}
-								<span>downloading update...</span>
-							{:else if updateStatus.status === 'DOWNLOADED'}
-								<span>installing update...</span>
-							{:else if updateStatus.status === 'DONE'}
-								<button on:click={() => relaunch()}>restart to update</button>
-							{/if}
-						</div>
-					{/if}
-
-					<div class="flex items-center gap-1">
-						<Tooltip label="Send feedback">
-							<IconEmail class="h-4 w-4" on:click={() => events.emit('openSendIssueModal')} />
-						</Tooltip>
-					</div>
-				</div>
-			</div>
-		</div>
-	</footer>
+	<ShareIssueModal bind:this={shareIssueModal} user={$userStore} {cloud} />
+	<Footer project={$project} {update}></Footer>
 </div>
