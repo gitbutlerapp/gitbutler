@@ -124,7 +124,7 @@
 		Promise.resolve()
 			.then(() => (isDeleting = true))
 			.then(() => deleteAllData())
-			.then(() => user.set(null))
+			.then(() => user.set(undefined))
 			.then(() => toasts.success('All data deleted'))
 			.catch((e) => {
 				console.error(e);
