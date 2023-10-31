@@ -3,7 +3,14 @@
 	export { className as class };
 </script>
 
-<svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg
+	class={className}
+	width="16"
+	height="12"
+	viewBox="0 0 16 12"
+	fill="none"
+	xmlns="http://www.w3.org/2000/svg"
+>
 	<path
 		d="M0 2.35954V10.5C0 11.1627 0.537258 11.7 1.2 11.7H14.8C15.4627 11.7 16 11.1627 16 10.5V2.35947L8.40303 6.79103C8.15394 6.93633 7.84593 6.93633 7.59684 6.79103L0 2.35954Z"
 		fill="currentColor"
