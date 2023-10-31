@@ -44,9 +44,9 @@
 	class="bg-color-4 border-color-4 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
 >
 	<div class="flex flex-row place-items-center space-x-2">
-		<button class="h-full w-full" on:click={() => (open = !open)}>
+		<!-- <button class="h-full w-full" on:click={() => (open = !open)}>
 			<IconTriangleDown class={!open ? '-rotate-90' : ''} />
-		</button>
+		</button> -->
 		<div class="text-color-2 whitespace-nowrap font-bold">Remote Branches</div>
 		<a
 			target="_blank"
@@ -59,7 +59,7 @@
 	<div class="flex h-4 w-4 justify-around"></div>
 </div>
 
-<div bind:this={rbSection} use:accordion={open} class="border-color-5 relative flex-grow border-b">
+<div bind:this={rbSection} use:accordion={open} class="border-color-5 relative flex-grow">
 	<div
 		bind:this={rbViewport}
 		on:scroll
@@ -91,7 +91,7 @@
 						on:click={() => select(branch, i)}
 						on:keypress={() => select(branch, i)}
 						class:bg-color-4={$selectedItem == branch && peekTrayExpanded}
-						class="border-color-4 flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b focus:outline-2"
+						class="border-color-4 flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b-0 focus:outline-2"
 					>
 						<div class="flex flex-row items-center gap-x-2 pr-1">
 							<div class="text-color-3">

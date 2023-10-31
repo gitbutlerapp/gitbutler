@@ -22,7 +22,7 @@
 	import Footer from './Footer.svelte';
 
 	export let data: LayoutData;
-	const { posthog, projects, sentry, cloud, update } = data;
+	const { posthog, projects, sentry, cloud } = data;
 
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
@@ -80,12 +80,10 @@
 </script>
 
 <div class="flex h-full flex-col">
-	<Header project={$project} user={$userStore}></Header>
 	<div class="flex flex-grow overflow-y-auto overscroll-none">
 		<slot />
 	</div>
 	<Toaster />
 	<LinkProjectModal bind:this={linkProjectModal} {cloud} {projects} />
 	<ShareIssueModal bind:this={shareIssueModal} user={$userStore} {cloud} />
-	<Footer project={$project} {update}></Footer>
 </div>

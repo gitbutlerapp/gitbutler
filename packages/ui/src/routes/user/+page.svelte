@@ -12,6 +12,8 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { copyToClipboard } from '$lib/clipboard';
+	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
+	import BackButton from '$lib/components/BackButton.svelte';
 
 	export let data: PageData;
 	const { cloud } = data;
@@ -161,6 +163,7 @@
 <div class="mx-auto h-fit w-full max-w-xl py-10">
 	<div class="flex flex-col gap-y-8">
 		<div class="flex w-full justify-between">
+			<BackButton />
 			<h2 class="text-2xl font-medium">GitButler Settings</h2>
 			{#if $user}
 				<!-- TODO: Separate logout from login button -->
