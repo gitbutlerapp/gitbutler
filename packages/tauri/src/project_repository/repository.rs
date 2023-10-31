@@ -304,7 +304,6 @@ impl Repository {
             .unwrap()
             .code_git_url
             .as_ref()
-            .clone()
             .unwrap()
             .as_str()
             .parse::<Url>()
