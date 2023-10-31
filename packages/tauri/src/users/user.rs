@@ -15,6 +15,8 @@ pub struct User {
     pub updated_at: String,
     pub access_token: String,
     pub github_access_token: Option<String>,
+    #[serde(default)]
+    pub github_username: Option<String>,
 }
 
 impl From<User> for sentry::User {
