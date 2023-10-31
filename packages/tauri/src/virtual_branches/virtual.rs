@@ -2397,23 +2397,17 @@ pub fn cherry_pick(
         .git_repository
         .find_commit(target_commit_oid)
         .context("failed to find target commit")?;
-    let target_commit_tree = target_commit
-        .tree()
-        .context("failed to find target commit tree")?;
 
     let branch_head_commit = project_repository
         .git_repository
         .find_commit(branch.head)
-        .context("failed to find branch head commit")?;
-    let branch_tree = project_repository
-        .git_repository
-        .find_tree(branch.tree)
         .context("failed to find branch tree")?;
 
     let default_target = get_default_target(&current_session_reader)
         .context("failed to read default target")?
         .context("no default target set")?;
 
+    // if any other branches are applied, unapply them
     let applied_branches = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
@@ -2426,44 +2420,58 @@ pub fn cherry_pick(
         gb_repository,
         project_repository,
         &default_target,
-        applied_branches.clone(),
-    )
-    .context("failed to get status by branch")?;
+        applied_branches,
+    )?;
 
-    let files = applied_statuses
+    let branch_files = applied_statuses
         .iter()
-        .find_map(|(b, f)| (b.id == *branch_id).then_some(f))
+        .find(|(b, _)| b.id == *branch_id)
+        .map(|(_, f)| f)
         .context("branch status not found")?;
 
-    let wip_branch_tree_oid = write_tree_onto_commit(project_repository, branch.head, files)?;
-    let wip_branch_tree = project_repository
+    // create a wip commit. we'll use it to offload cherrypick conflicts calculation to libgit.
+    let wip_commit = {
+        let wip_tree_oid = write_tree(project_repository, &default_target, branch_files)?;
+        let wip_tree = project_repository.git_repository.find_tree(wip_tree_oid)?;
+
+        let oid = project_repository.git_repository.commit(
+            None,
+            &git::Signature::now("GitButler", "gitbutler@gitbutler.com")?,
+            &git::Signature::now("GitButler", "gitbutler@gitbutler.com")?,
+            "wip cherry picking commit",
+            &wip_tree,
+            &[&branch_head_commit],
+        )?;
+        project_repository.git_repository.find_commit(oid)?
+    };
+
+    let mut cherrypick_index = project_repository
         .git_repository
-        .find_tree(wip_branch_tree_oid)
-        .context("failed to find wip branch tree")?;
+        .cherry_pick(&wip_commit, &target_commit)
+        .context("failed to cherry pick")?;
 
-    let mut merge_index = project_repository
-        .git_repository
-        .merge_trees(&branch_tree, &wip_branch_tree, &target_commit_tree)
-        .context("failed to merge trees")?;
+    // unapply other branches
+    for other_branch in applied_statuses
+        .iter()
+        .filter(|(b, _)| b.id != branch.id)
+        .map(|(b, _)| b)
+    {
+        unapply_branch(gb_repository, project_repository, &other_branch.id)
+            .context("failed to unapply branch")?;
+    }
 
-    let commit_oid = if merge_index.has_conflicts() {
-        // unapply other branches
-        for other_branch in applied_branches.iter().filter(|b| b.id != branch.id) {
-            unapply_branch(gb_repository, project_repository, &other_branch.id)
-                .context("failed to unapply branch")?;
-        }
-
+    let commit_oid = if cherrypick_index.has_conflicts() {
         // checkout the conflicts
         project_repository
             .git_repository
-            .checkout_index(&mut merge_index)
+            .checkout_index(&mut cherrypick_index)
             .allow_conflicts()
             .conflict_style_merge()
             .force()
             .checkout()?;
 
         // mark conflicts
-        let conflicts = merge_index.conflicts()?;
+        let conflicts = cherrypick_index.conflicts()?;
         let mut merge_conflicts = Vec::new();
         for path in conflicts.flatten() {
             if let Some(ours) = path.our {
@@ -2479,13 +2487,18 @@ pub fn cherry_pick(
 
         None
     } else {
-        let merge_tree_oid = merge_index
+        let merge_tree_oid = cherrypick_index
             .write_tree_to(&project_repository.git_repository)
             .context("failed to write merge tree")?;
         let merge_tree = project_repository
             .git_repository
             .find_tree(merge_tree_oid)
             .context("failed to find merge tree")?;
+
+        let branch_head_commit = project_repository
+            .git_repository
+            .find_commit(branch.head)
+            .context("failed to find branch head commit")?;
 
         let commit_oid = project_repository
             .git_repository
@@ -2499,34 +2512,10 @@ pub fn cherry_pick(
             )
             .context("failed to create commit")?;
 
-        // go through the other applied branches and merge them into the final tree
-        let final_tree = applied_statuses
-            .into_iter()
-            .filter(|(b, _)| b.id != *branch_id)
-            .fold(
-                target_commit.tree().context("failed to get target tree"),
-                |final_tree, status| {
-                    let final_tree = final_tree?;
-                    let tree_oid = write_tree(project_repository, &default_target, &status.1)?;
-                    let branch_tree = project_repository.git_repository.find_tree(tree_oid)?;
-                    let mut result = project_repository.git_repository.merge_trees(
-                        &target_commit_tree,
-                        &final_tree,
-                        &branch_tree,
-                    )?;
-                    let final_tree_oid =
-                        result.write_tree_to(&project_repository.git_repository)?;
-                    project_repository
-                        .git_repository
-                        .find_tree(final_tree_oid)
-                        .context("failed to find tree")
-                },
-            )?;
-
         // checkout final_tree into the working directory
         project_repository
             .git_repository
-            .checkout_tree(&final_tree)
+            .checkout_tree(&merge_tree)
             .force()
             .remove_untracked()
             .checkout()?;

@@ -75,8 +75,23 @@ impl TestProject {
             .unwrap();
     }
 
-    pub fn reset_hard(&self, oid: git::Oid) {
-        let commit = self.local_repository.find_commit(oid).unwrap();
+    /// git add -A
+    /// git reset --hard
+    pub fn reset_hard(&self, oid: Option<git::Oid>) {
+        let mut index = self.local_repository.index().expect("failed to get index");
+        index
+            .add_all(["."], git2::IndexAddOption::DEFAULT, None)
+            .expect("failed to add all");
+        index.write().expect("failed to write index");
+
+        let commit = oid.map_or(
+            self.local_repository
+                .head()
+                .unwrap()
+                .peel_to_commit()
+                .unwrap(),
+            |oid| self.local_repository.find_commit(oid).unwrap(),
+        );
         self.local_repository
             .reset(&commit, git2::ResetType::Hard, None)
             .unwrap();

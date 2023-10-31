@@ -84,18 +84,23 @@ pub fn conflicting_files(repository: &Repository) -> Result<Option<Vec<String>>>
 
 pub fn is_conflicting(repository: &Repository, path: Option<&str>) -> Result<bool> {
     let conflicts_path = repository.git_repository.path().join("conflicts");
+    if !conflicts_path.exists() {
+        return Ok(false);
+    }
+
+    let file = std::fs::File::open(conflicts_path)?;
+    let reader = std::io::BufReader::new(file);
+    let files = reader.lines().flatten().collect::<Vec<_>>();
     if let Some(pathname) = path {
         // check if pathname is one of the lines in conflicts_path file
-        let file = std::fs::File::open(conflicts_path)?;
-        let reader = std::io::BufReader::new(file);
-        for line in reader.lines().flatten() {
+        for line in files {
             if line == pathname {
                 return Ok(true);
             }
         }
         Ok(false)
     } else {
-        Ok(conflicts_path.exists())
+        Ok(!files.is_empty())
     }
 }
 
