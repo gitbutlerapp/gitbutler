@@ -22,7 +22,7 @@ tempfile = "3.8"
 
 [dependencies]
 anyhow = "1.0.72"
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 backoff = "0.4.0"
 bstr = "1.7.0"
 byteorder = "1.4.3"
@@ -52,13 +52,13 @@ sha1 = "0.10.6"
 sha2 = "0.10.8"
 similar = { version = "2.2.1", features = ["unicode"] }
 slug = "0.1.4"
-ssh-key = { version = "0.6.1", features = [ "alloc", "ed25519" ] }
+ssh-key = { version = "0.6.2", features = [ "alloc", "ed25519" ] }
 tauri = { version = "1.5.2", features = ["dialog-open", "fs-read-file", "path-all", "process-relaunch", "protocol-asset", "shell-open", "system-tray", "window-maximize", "window-start-dragging", "window-unmaximize"] }
 tauri-plugin-context-menu = { git = "https://github.com/gitbutlerapp/tauri-plugin-context-menu", branch = "main" }
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 thiserror = "1.0.44"
-tokio = { version = "1.29.1", features = [ "full", "sync", "tracing" ] }
+tokio = { version = "1.33.0", features = [ "full", "sync", "tracing" ] }
 tokio-util = "0.7.9"
 tracing = "0.1.37"
 tracing-appender = "0.2.2"

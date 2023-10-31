@@ -197,6 +197,13 @@ impl Repository {
         self.0.blob_path(path).map(Into::into).map_err(Into::into)
     }
 
+    pub fn cherry_pick(&self, base: &Commit, target: &Commit) -> Result<Index> {
+        self.0
+            .cherrypick_commit(target.into(), base.into(), 0, None)
+            .map(Into::into)
+            .map_err(Into::into)
+    }
+
     pub fn blob(&self, data: &[u8]) -> Result<Oid> {
         self.0.blob(data).map(Into::into).map_err(Into::into)
     }
