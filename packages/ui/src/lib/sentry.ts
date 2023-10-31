@@ -3,7 +3,7 @@ import type { User } from './api/cloud/api';
 
 export default () => {
 	return {
-		identify: (user: User | null) => {
+		identify: (user: User | undefined) => {
 			if (user) {
 				setUser({
 					id: user.id.toString(),

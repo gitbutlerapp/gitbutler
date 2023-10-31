@@ -5,7 +5,7 @@
 	import { page } from '$app/stores';
 	import type { User, getCloudApiClient } from '$lib/api/cloud/api';
 
-	export let user: User | null;
+	export let user: User | undefined;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 
 	export function show() {

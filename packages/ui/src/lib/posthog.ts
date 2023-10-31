@@ -4,7 +4,7 @@ import type { User } from './api/cloud/api';
 import { getVersion, getName } from '@tauri-apps/api/app';
 
 interface PostHogClient {
-	identify: (user: User | null) => void;
+	identify: (user: User | undefined) => void;
 }
 
 export default async function (): Promise<PostHogClient> {
@@ -25,7 +25,7 @@ export default async function (): Promise<PostHogClient> {
 					appVersion
 				});
 				resolve({
-					identify: (user: User | null) => {
+					identify: (user: User | undefined) => {
 						if (user) {
 							instance.identify(`user_${user.id}`, {
 								email: user.email,

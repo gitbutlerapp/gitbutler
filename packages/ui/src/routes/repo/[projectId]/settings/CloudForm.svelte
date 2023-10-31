@@ -24,7 +24,7 @@
 	});
 
 	const onSyncChange = async (event: Event) => {
-		if ($user === null) return;
+		if (!$user) return;
 
 		const target = event.target as HTMLInputElement;
 		const sync = target.checked;

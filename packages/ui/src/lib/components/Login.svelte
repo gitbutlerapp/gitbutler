@@ -46,7 +46,7 @@
 </script>
 
 {#if $user}
-	<Button kind="plain" color="destructive" on:click={() => ($user = null)}>Log out</Button>
+	<Button kind="plain" color="destructive" on:click={() => ($user = undefined)}>Log out</Button>
 {:else if $token !== null}
 	{#await Promise.all([open($token.url), pollForUser($token.token)])}
 		<div class="text-light-700">
