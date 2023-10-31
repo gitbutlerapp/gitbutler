@@ -11,7 +11,7 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    inner: Arc<HandlerInner>,
+    inner: Arc<Mutex<HandlerInner>>,
 }
 
 impl TryFrom<&AppHandle> for Handler {
@@ -19,14 +19,18 @@ impl TryFrom<&AppHandle> for Handler {
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
-            inner: Arc::new(HandlerInner::try_from(value)?),
+            inner: Arc::new(Mutex::new(HandlerInner::try_from(value)?)),
         })
     }
 }
 
 impl Handler {
     pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
-        self.inner.handle(project_id)
+        match self.inner.try_lock() {
+            Ok(inner) => inner.handle(project_id),
+            Err(TryLockError::Poisoned(_)) => Err(anyhow::anyhow!("mutex poisoned")),
+            Err(TryLockError::WouldBlock) => Ok(vec![]),
+        }
     }
 }
 
@@ -34,11 +38,6 @@ struct HandlerInner {
     local_data_dir: DataDir,
     projects: projects::Controller,
     users: users::Controller,
-
-    // it's ok to use mutex here, because even though project_id is a paramenter, we create
-    // and use a handler per project.
-    // if that changes, we'll need to use a more granular locking mechanism
-    mutex: Mutex<()>,
 }
 
 impl TryFrom<&AppHandle> for HandlerInner {
@@ -63,17 +62,10 @@ impl HandlerInner {
             local_data_dir,
             projects,
             users,
-            mutex: Mutex::new(()),
         }
     }
 
     pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
-        let _lock = match self.mutex.try_lock() {
-            Ok(lock) => lock,
-            Err(TryLockError::Poisoned(_)) => return Err(anyhow::anyhow!("mutex poisoned")),
-            Err(TryLockError::WouldBlock) => return Ok(vec![]),
-        };
-
         let user = self.users.get_user()?;
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::try_from(&project)
