@@ -2479,11 +2479,7 @@ pub fn cherry_pick(
                 merge_conflicts.push(path);
             }
         }
-        conflicts::mark(
-            project_repository,
-            &merge_conflicts,
-            Some(target_commit_oid),
-        )?;
+        conflicts::mark(project_repository, &merge_conflicts, Some(branch.head))?;
 
         None
     } else {

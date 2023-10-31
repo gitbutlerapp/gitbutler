@@ -1572,15 +1572,23 @@ mod cherry_pick {
             let commit_one = {
                 fs::write(repository.path().join("file.txt"), "content").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "commit", None)
+                    .create_commit(&project_id, &branch_id, "commit one", None)
                     .await
                     .unwrap()
             };
 
-            let commit_two = {
+            {
                 fs::write(repository.path().join("file_two.txt"), "content two").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "commit", None)
+                    .create_commit(&project_id, &branch_id, "commit two", None)
+                    .await
+                    .unwrap()
+            };
+
+            let commit_three = {
+                fs::write(repository.path().join("file_three.txt"), "content three").unwrap();
+                controller
+                    .create_commit(&project_id, &branch_id, "commit three", None)
                     .await
                     .unwrap()
             };
@@ -1600,22 +1608,23 @@ mod cherry_pick {
                 fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                 "content"
             );
-            assert!(!repository.path().join("file_two.txt").exists(),);
+            assert!(!repository.path().join("file_two.txt").exists());
+            assert!(!repository.path().join("file_three.txt").exists());
 
             // introduce conflict with the remote commit
-            fs::write(repository.path().join("file_two.txt"), "conflict").unwrap();
+            fs::write(repository.path().join("file_three.txt"), "conflict").unwrap();
 
             {
                 // cherry picking leads to conflict
                 let cherry_picked_commit_oid = controller
-                    .cherry_pick(&project_id, &branch_id, commit_two)
+                    .cherry_pick(&project_id, &branch_id, commit_three)
                     .await
                     .unwrap();
                 assert!(cherry_picked_commit_oid.is_none());
 
                 assert_eq!(
-                    fs::read_to_string(repository.path().join("file_two.txt")).unwrap(),
-                    "<<<<<<< ours\nconflict\n=======\ncontent two\n>>>>>>> theirs\n"
+                    fs::read_to_string(repository.path().join("file_three.txt")).unwrap(),
+                    "<<<<<<< ours\nconflict\n=======\ncontent three\n>>>>>>> theirs\n"
                 );
 
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
@@ -1630,7 +1639,7 @@ mod cherry_pick {
 
             {
                 // conflict can be resolved
-                fs::write(repository.path().join("file_two.txt"), "resolved").unwrap();
+                fs::write(repository.path().join("file_three.txt"), "resolved").unwrap();
                 let commited_oid = controller
                     .create_commit(&project_id, &branch_id, "resolution", None)
                     .await
@@ -1643,15 +1652,12 @@ mod cherry_pick {
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
+                assert!(branches[0].requires_force);
                 assert!(!branches[0].conflicted);
-                assert_eq!(branches[0].commits.len(), 3);
+                assert_eq!(branches[0].commits.len(), 2);
                 // resolution commit is there
                 assert_eq!(branches[0].commits[0].id, commited_oid);
-                // cherry picked commit is there
-                assert_eq!(
-                    branches[0].commits[1].files[0].hunks[0].diff,
-                    "@@ -0,0 +1 @@\n+content\n\\ No newline at end of file\n"
-                );
+                assert_eq!(branches[0].commits[1].id, commit_one);
             }
         }
 
