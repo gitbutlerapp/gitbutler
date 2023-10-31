@@ -13,7 +13,7 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    inner: Arc<HandlerInner>,
+    inner: Arc<Mutex<HandlerInner>>,
 }
 
 impl TryFrom<&AppHandle> for Handler {
@@ -22,7 +22,7 @@ impl TryFrom<&AppHandle> for Handler {
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
         let inner = HandlerInner::try_from(value)?;
         Ok(Self {
-            inner: Arc::new(inner),
+            inner: Arc::new(Mutex::new(inner)),
         })
     }
 }
@@ -33,7 +33,11 @@ impl Handler {
         project_id: &ProjectId,
         now: &time::SystemTime,
     ) -> Result<Vec<events::Event>> {
-        self.inner.handle(project_id, now)
+        match self.inner.try_lock() {
+            Ok(inner) => inner.handle(project_id, now),
+            Err(TryLockError::Poisoned(_)) => Err(anyhow::anyhow!("mutex poisoned")),
+            Err(TryLockError::WouldBlock) => Ok(vec![]),
+        }
     }
 }
 
@@ -41,11 +45,6 @@ struct HandlerInner {
     local_data_dir: DataDir,
     projects: projects::Controller,
     users: users::Controller,
-
-    // it's ok to use mutex here, because even though project_id is a paramenter, we create
-    // and use a handler per project.
-    // if that changes, we'll need to use a more granular locking mechanism
-    mutex: Mutex<()>,
 }
 
 impl TryFrom<&AppHandle> for HandlerInner {
@@ -57,7 +56,6 @@ impl TryFrom<&AppHandle> for HandlerInner {
             local_data_dir,
             projects: projects::Controller::try_from(value)?,
             users: users::Controller::try_from(value)?,
-            mutex: Mutex::new(()),
         })
     }
 }
@@ -68,12 +66,6 @@ impl HandlerInner {
         project_id: &ProjectId,
         now: &time::SystemTime,
     ) -> Result<Vec<events::Event>> {
-        let _lock = match self.mutex.try_lock() {
-            Ok(lock) => lock,
-            Err(TryLockError::Poisoned(_)) => return Err(anyhow::anyhow!("mutex poisoned")),
-            Err(TryLockError::WouldBlock) => return Ok(vec![]),
-        };
-
         let user = self.users.get_user()?;
 
         let project = self
@@ -191,7 +183,6 @@ mod test {
             local_data_dir: suite.local_app_data,
             projects: suite.projects,
             users: suite.users,
-            mutex: Mutex::new(()),
         };
 
         listener.handle(&project.id, &SystemTime::now()).unwrap();
@@ -208,7 +199,6 @@ mod test {
             local_data_dir: suite.local_app_data,
             projects: suite.projects,
             users: suite.users,
-            mutex: Mutex::new(()),
         };
 
         let res = listener.handle(&project.id, &SystemTime::now());
