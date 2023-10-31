@@ -58,7 +58,7 @@ tauri-plugin-context-menu = { git = "https://github.com/gitbutlerapp/tauri-plugi
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 thiserror = "1.0.44"
-tokio = { version = "1.29.1", features = [ "full", "sync", "tracing" ] }
+tokio = { version = "1.33.0", features = [ "full", "sync", "tracing" ] }
 tokio-util = "0.7.9"
 tracing = "0.1.37"
 tracing-appender = "0.2.2"
