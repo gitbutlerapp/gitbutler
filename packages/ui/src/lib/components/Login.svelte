@@ -39,10 +39,6 @@
 	};
 	const token = writable<LoginToken | null>(null);
 	const authUrl = derived(token, ($token) => $token?.url as string);
-
-	$: if ($user) {
-		goto('/user/');
-	}
 </script>
 
 {#if $user}

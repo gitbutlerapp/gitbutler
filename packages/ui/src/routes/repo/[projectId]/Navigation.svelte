@@ -8,7 +8,7 @@
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import { derived, get, readable, type Readable } from '@square/svelte-store';
+	import { derived, get, readable, type Loadable, type Readable } from '@square/svelte-store';
 	import PeekTray from './PeekTray.svelte';
 	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
@@ -17,7 +17,7 @@
 	import Modal from '$lib/components/Modal/Modal.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
-	import type { getCloudApiClient } from '$lib/api/cloud/api';
+	import type { User, getCloudApiClient } from '$lib/api/cloud/api';
 	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
 	import { slide } from 'svelte/transition';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
@@ -25,6 +25,11 @@
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import { PullRequest } from '$lib/github/types';
 	import PullRequests from './github/PullRequests.svelte';
+	import IconHome from '$lib/icons/IconHome.svelte';
+	import Link from '$lib/components/Link/Link.svelte';
+	import IconSettings from '$lib/icons/IconSettings.svelte';
+	import UpdateButton from '../../UpdateButton.svelte';
+	import type { Update } from '$lib/updater';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
@@ -35,6 +40,8 @@
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let peekTrayExpanded = false;
 	export let githubContext: GitHubIntegrationContext | undefined;
+	export let user: User | undefined;
+	export let update: Loadable<Update>;
 
 	$: branchesState = branchesWithContentStore?.state;
 
@@ -130,10 +137,11 @@
 	class="bg-color-5 border-color-4 z-30 flex w-80 shrink-0 flex-col border-r"
 	style:width={$userSettings.trayWidth ? `${$userSettings.trayWidth}px` : null}
 	role="menu"
-	on:click|stopPropagation
 	on:keydown|stopPropagation
 	tabindex="0"
 >
+	<!-- Top spacer -->
+	<div class="flex h-5 flex-shrink-0"></div>
 	<!-- Base branch -->
 	<div
 		class="flex flex-col p-2"
@@ -327,6 +335,30 @@
 			{peekTrayExpanded}
 			{selectedItem}
 		></RemoteBranches>
+	{/if}
+	<div class="flex-shrink flex-grow"></div>
+	<!-- Bottom spacer -->
+	<div class="border-color-4 flex flex-shrink-0 justify-between border-t px-4 py-4">
+		<div>
+			<Link href="/">
+				<IconHome class="text-color-3" />
+			</Link>
+			<Link href="/repo/{projectId}/settings" class="p-1">
+				<IconSettings class="text-color-3" />
+			</Link>
+		</div>
+		<Link href="/user/">
+			{#if user?.picture}
+				<img class="mr-1 inline-block h-5 w-5 rounded-full" src={user.picture} alt="Avatar" />
+			{/if}
+			{user?.name ?? 'Account'}
+		</Link>
+	</div>
+	<!-- App Updatesr -->
+	{#if $update?.enabled && $update?.shouldUpdate}
+		<div class="border-color-4 flex-shrink-0 border-t px-4 py-4">
+			<UpdateButton {update} />
+		</div>
 	{/if}
 </div>
 
