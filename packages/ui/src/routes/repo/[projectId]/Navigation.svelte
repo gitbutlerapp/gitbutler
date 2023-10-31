@@ -30,6 +30,8 @@
 	import IconSettings from '$lib/icons/IconSettings.svelte';
 	import UpdateButton from '../../UpdateButton.svelte';
 	import type { Update } from '$lib/updater';
+	import IconEmail from '$lib/icons/IconEmail.svelte';
+	import * as events from '$lib/events';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
@@ -336,16 +338,22 @@
 			{selectedItem}
 		></RemoteBranches>
 	{/if}
-	<div class="flex-shrink flex-grow"></div>
 	<!-- Bottom spacer -->
-	<div class="border-color-4 flex flex-shrink-0 justify-between border-t px-4 py-4">
-		<div>
-			<Link href="/">
-				<IconHome class="text-color-3" />
+	<div
+		class="border-color-4 text-color-3 flex flex-shrink-0 items-center justify-between border-t px-4 py-4"
+	>
+		<div class="flex items-center">
+			<Link href="/" class="p-1">
+				<IconHome />
 			</Link>
 			<Link href="/repo/{projectId}/settings" class="p-1">
-				<IconSettings class="text-color-3" />
+				<IconSettings />
 			</Link>
+			<Tooltip label="Send feedback">
+				<button class="p-1" on:click={() => events.emit('openSendIssueModal')}>
+					<IconEmail />
+				</button>
+			</Tooltip>
 		</div>
 		<Link href="/user/">
 			{#if user?.picture}
