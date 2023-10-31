@@ -7,7 +7,7 @@
 	import IconKebabMenu from '$lib/icons/IconKebabMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
-	import { dzHighlight } from './dropZone';
+	import { dzHighlight, dzTrigger } from './dropZone';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import FileCard from './FileCard.svelte';
 	import { slide } from 'svelte/transition';
@@ -428,11 +428,18 @@
 					</div>
 					{#if upstreamCommitsShown}
 						<div
-							class="flex w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
+							class="flex gap-1 w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
 							id="upstreamCommits"
 						>
 							{#each branch.upstream.commits as commit}
-								<CommitCard {commit} {projectId} />
+								<div
+									role="group"
+									draggable="true"
+									use:dzTrigger={{ type: 'commit/upstream' }}
+									on:dragstart={(e) => e.dataTransfer?.setData('commit/upstream', commit.id)}
+								>
+									<CommitCard {commit} {projectId} />
+								</div>
 							{/each}
 							<div class="flex justify-end p-2">
 								{#if branchCount > 1}
@@ -475,7 +482,35 @@
 				}
 			]}
 		/>
-		<div class="relative flex flex-grow overflow-y-hidden">
+		<div
+			class="relative flex flex-grow overflow-y-hidden"
+			use:dzHighlight={{
+				type: 'commit/upstream',
+				hover: 'cherrypick-dz-hover',
+				active: 'cherrypick-dz-active'
+			}}
+			role="group"
+			on:drop|stopPropagation={(e) => {
+				if (!e.dataTransfer) {
+					return;
+				}
+				const targetCommitOid = e.dataTransfer.getData('commit/upstream');
+				if (!targetCommitOid) {
+					return;
+				}
+				branchController.cherryPick({
+					targetCommitOid,
+					branchId: branch.id
+				});
+			}}
+		>
+			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
+			<div
+				class="cherrypick-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+			>
+				<div class="hover-text invisible font-semibold">Apply here</div>
+			</div>
+
 			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
 			<div
 				class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
@@ -824,10 +859,19 @@
 </Modal>
 
 <style lang="postcss">
+	/* hunks drop zone */
 	:global(.lane-dz-active .lane-dz-marker) {
 		@apply flex;
 	}
 	:global(.lane-dz-hover .hover-text) {
+		@apply visible;
+	}
+
+	/* cherry pick drop zone */
+	:global(.cherrypick-dz-active .cherrypick-dz-marker) {
+		@apply flex;
+	}
+	:global(.cherrypick-dz-hover .hover-text) {
 		@apply visible;
 	}
 </style>
