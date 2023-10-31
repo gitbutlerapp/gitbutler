@@ -28,6 +28,7 @@
 	import * as hotkeys from '$lib/hotkeys';
 	import { userStore } from '$lib/stores/user';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
+	import { getAuthenticatedWithCache } from '$lib/github/user';
 
 	export let data: PageData;
 	let { projectId, project, cloud } = data;
@@ -95,6 +96,18 @@
 			owner,
 			repo
 		};
+	}
+
+	$: githubUser = $userStore?.github_access_token
+		? getAuthenticatedWithCache({ authToken: $userStore.github_access_token })
+		: undefined;
+
+	$: if (
+		$userStore &&
+		$githubUser?.username !== undefined &&
+		$userStore.github_username !== $githubUser.username
+	) {
+		$userStore.github_username = $githubUser.username;
 	}
 
 	$: githubContext =

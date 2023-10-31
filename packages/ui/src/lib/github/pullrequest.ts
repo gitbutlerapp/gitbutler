@@ -1,16 +1,8 @@
-import { Octokit } from '@octokit/rest';
-import { PullRequest, User, Label, type GitHubIntegrationContext } from '$lib/github/types';
-import type { RestEndpointMethodTypes } from '@octokit/rest';
 import { asyncWritable, type WritableLoadable, type Loadable } from '@square/svelte-store';
 import lscache from 'lscache';
 
-function newClient(ctx: GitHubIntegrationContext) {
-	return new Octokit({
-		auth: ctx.authToken,
-		userAgent: 'GitButler Client',
-		baseUrl: 'https://api.github.com'
-	});
-}
+import { PullRequest, type GitHubIntegrationContext } from '$lib/github/types';
+import { newClient } from '$lib/github/client';
 
 // Uses the cached value as the initial state and also in the event of being offline
 export function listPullRequestsWithCache(ctx: GitHubIntegrationContext): Loadable<PullRequest[]> {
@@ -39,7 +31,7 @@ async function listPullRequests(ctx: GitHubIntegrationContext): Promise<PullRequ
 			owner: ctx.owner,
 			repo: ctx.repo
 		});
-		return rsp.data.map(fromApiPullRequest);
+		return rsp.data.map(PullRequest.fromApi);
 	} catch (e) {
 		console.log(e);
 	}
@@ -59,7 +51,7 @@ export async function getPullRequestByBranch(
 		// at most one pull request per head / branch
 		const pr = rsp.data.find((pr) => pr !== undefined);
 		if (pr) {
-			return fromApiPullRequest(pr);
+			return PullRequest.fromApi(pr);
 		}
 	} catch (e) {
 		console.log(e);
@@ -84,34 +76,8 @@ export async function createPullRequest(
 			body
 		});
 		const pr = rsp.data;
-		return fromApiPullRequest(pr);
+		return PullRequest.fromApi(pr);
 	} catch (e) {
 		console.log(e);
 	}
-}
-
-function fromApiPullRequest(
-	pr:
-		| RestEndpointMethodTypes['pulls']['create']['response']['data']
-		| RestEndpointMethodTypes['pulls']['list']['response']['data'][number]
-): PullRequest {
-	const author = pr.user
-		? new User(pr.user.login, pr.user.email || undefined, pr.user.type === 'Bot')
-		: undefined;
-	const labels = pr.labels.map((label) => {
-		return new Label(label.name, label.description || undefined, label.color);
-	});
-
-	return new PullRequest(
-		pr.html_url,
-		pr.number,
-		pr.title,
-		pr.body || undefined,
-		author,
-		labels,
-		pr.draft || false,
-		pr.created_at,
-		pr.head.ref,
-		pr.base.ref
-	);
 }

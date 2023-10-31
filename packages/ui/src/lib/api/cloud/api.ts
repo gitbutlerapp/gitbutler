@@ -38,6 +38,7 @@ export type User = {
 	access_token: string;
 	supporter: boolean;
 	github_access_token: string | undefined;
+	github_username: string | undefined;
 };
 
 export type Project = {
