@@ -77,9 +77,7 @@
 		if (sid) deltasStore.setSessionId(sid);
 	}
 
-	onMount(() =>
-		unsubscribe(hotkeys.on('Meta+Shift+R', () => goto(`/projects/${projectId}/player`)))
-	);
+	onMount(() => unsubscribe(hotkeys.on('Meta+Shift+R', () => goto(`/old/${projectId}/player`))));
 
 	function getIntegrationContext(
 		remoteUrl: string,

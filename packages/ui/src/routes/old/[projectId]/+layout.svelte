@@ -10,8 +10,7 @@
 
 	let query: string;
 
-	const onSearchSubmit = () =>
-		goto(`/projects/${$project?.id}/search?q=${encodeURIComponent(query)}`);
+	const onSearchSubmit = () => goto(`/old/${$project?.id}/search?q=${encodeURIComponent(query)}`);
 
 	$: selection = $page?.route?.id?.split('/')?.[3];
 </script>
@@ -22,7 +21,7 @@
 			class="flex flex-none select-none items-center justify-between space-x-3 border-b border-light-100 px-2 py-1 text-dark-300 dark:border-dark-700 dark:text-light-300"
 		>
 			<div class="flex flex-row items-center space-x-2">
-				<form action="/projects/{$project?.id}/search" method="GET">
+				<form action="/old/{$project?.id}/search" method="GET">
 					<label
 						for="default-search"
 						class="texxt-dark-900 sr-only mb-2 text-sm font-medium dark:text-light-900"
@@ -63,7 +62,7 @@
 				<li>
 					<Tooltip label="Replay">
 						<Button
-							on:click={() => goto(`/projects/${$project?.id}/player`)}
+							on:click={() => goto(`/old/${$project?.id}/player`)}
 							kind="plain"
 							icon={IconRewind}
 						/>
@@ -72,7 +71,7 @@
 				<li>
 					<Tooltip label="Project settings">
 						<Button
-							on:click={() => goto(`/projects/${$project?.id}/settings`)}
+							on:click={() => goto(`/old/${$project?.id}/settings`)}
 							kind="plain"
 							icon={IconSettings}
 						/>

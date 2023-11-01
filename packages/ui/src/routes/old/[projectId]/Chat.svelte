@@ -126,7 +126,7 @@
 								<div class="automated-text">
 									To use this feature, you need to have GitButler Cloud enabled. You can do this in
 									the
-									<a class="cursor-pointer underline" href="/projects/{project?.id}/settings"
+									<a class="cursor-pointer underline" href="/old/{project?.id}/settings"
 										>project settings</a
 									>.
 								</div>

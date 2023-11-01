@@ -43,8 +43,7 @@
 		{:else}
 			{#if fileFilter}
 				<a
-					href="/projects/{$page.params.projectId}/player/{$page.params.date}/{$page.params
-						.sessionId}"
+					href="/old/{$page.params.projectId}/player/{$page.params.date}/{$page.params.sessionId}"
 					class="w-full p-2 text-left font-mono text-lg"
 				>
 					{fileFilter}
@@ -60,7 +59,7 @@
 						{@const isToday = format(new Date(date), 'yyyy-MM-dd') === today}
 						<li class="bg-color-2 text-color-2">
 							<a
-								href="/projects/{$page.params.projectId}/player/{date}{$page.url.search}"
+								href="/old/{$page.params.projectId}/player/{date}{$page.url.search}"
 								class:text-color-1={date == currentDate}
 								class:text-color-2={date != currentDate}
 								class:bg-color-2={date != currentDate}

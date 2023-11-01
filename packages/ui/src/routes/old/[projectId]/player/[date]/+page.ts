@@ -12,6 +12,6 @@ export const load: PageLoad = async ({ params, url }) => {
 	const firstSession = dateSessions[dateSessions.length - 1];
 	throw redirect(
 		302,
-		`/projects/${params.projectId}/player/${params.date}/${firstSession.id}${url.search}`
+		`/old/${params.projectId}/player/${params.date}/${firstSession.id}${url.search}`
 	);
 };
