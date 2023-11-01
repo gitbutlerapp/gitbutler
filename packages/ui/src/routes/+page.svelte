@@ -65,7 +65,7 @@
 				{#each $projects as project}
 					<a
 						class="bg-color-5 text-color-2 dark:border-color-5 w-96 overflow-hidden rounded-lg shadow dark:border dark:shadow-none"
-						href="/repo/{project.id}/"
+						href="/{project.id}/"
 					>
 						<div class="text-color-2 p-4">
 							<h1 class="text-lg">
