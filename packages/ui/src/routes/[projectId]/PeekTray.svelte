@@ -11,7 +11,7 @@
 	import Resizer from '$lib/components/Resizer.svelte';
 	import Lane from './BranchLane.svelte';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
-	import type { getCloudApiClient } from '$lib/api/cloud/api';
+	import type { getCloudApiClient } from '$lib/api/cloud';
 	import { PullRequest } from '$lib/github/types';
 
 	export let item:

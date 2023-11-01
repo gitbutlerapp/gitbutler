@@ -1,4 +1,4 @@
-import { subscribe } from '$lib/api/git/fetches';
+import { subscribe } from '$lib/api/fetches';
 import { writable, type Loadable } from '@square/svelte-store';
 
 export function getFetchesStore(projectId: string): Loadable<any> {

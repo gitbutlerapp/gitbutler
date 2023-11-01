@@ -1,4 +1,4 @@
-import * as users from '$lib/api/ipc/users';
+import * as users from '$lib/api/users';
 import { asyncWritable } from '@square/svelte-store';
 
 export const userStore = asyncWritable([], users.get, async (user) => {

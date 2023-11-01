@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Delta } from '$lib/api/ipc/deltas';
+	import type { Delta } from '$lib/api/deltas';
 	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '$lib/icons';
 	import DiffContext from '$lib/components/DiffContext.svelte';
 	import { unsubscribe } from '$lib/utils';

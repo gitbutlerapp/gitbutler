@@ -2,8 +2,8 @@ import { asyncDerived, derived, writable } from '@square/svelte-store';
 import type { LayoutLoad } from './$types';
 import { format } from 'date-fns';
 import { page } from '$app/stores';
-import { listDeltas, type Delta } from '$lib/api/ipc/deltas';
-import { list } from '$lib/api/ipc/files';
+import { listDeltas, type Delta } from '$lib/api/deltas';
+import { list } from '$lib/api/files';
 
 export const load: LayoutLoad = async ({ parent, params, url }) => {
 	const { sessions } = await parent();

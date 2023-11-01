@@ -1,4 +1,4 @@
-import { Session, listSessions, subscribeToSessions } from '$lib/api/ipc/sessions';
+import { Session, listSessions, subscribeToSessions } from '$lib/api/sessions';
 import { asyncWritable, get, type Loadable, type WritableLoadable } from '@square/svelte-store';
 
 export function getSessionStore(projectId: string): Loadable<Session[]> {

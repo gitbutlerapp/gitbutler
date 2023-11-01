@@ -3,9 +3,9 @@
 	import { asyncDerived } from '@square/svelte-store';
 	import { compareDesc, formatDistanceToNow } from 'date-fns';
 	import { IconFolder, IconLoading } from '$lib/icons';
-	import type { getCloudApiClient } from '$lib/api/cloud/api';
+	import type { getCloudApiClient } from '$lib/api/cloud';
 	import { userStore } from '$lib/stores/user';
-	import { getProjectStore, projectsStore } from '$lib/api/ipc/projects';
+	import { getProjectStore, projectsStore } from '$lib/api/projects';
 	import * as toasts from '$lib/toasts';
 	import IconFolderPlus from '$lib/icons/IconFolderPlus.svelte';
 	import { goto } from '$app/navigation';

@@ -1,6 +1,6 @@
 import { invoke } from '$lib/ipc';
 import { asyncWritable, type WritableLoadable } from '@square/svelte-store';
-import { subscribeToSessions } from '../ipc/sessions';
+import { subscribeToSessions } from './sessions';
 
 type Diffs = Partial<Record<string, string>>;
 

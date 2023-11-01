@@ -4,7 +4,7 @@
 	import { IconBookmark, IconBookmarkFilled } from '$lib/icons';
 	import { format } from 'date-fns';
 	import { page } from '$app/stores';
-	import * as bookmarks from '$lib/api/ipc/bookmarks';
+	import * as bookmarks from '$lib/api/bookmarks';
 	import { getBookmark } from '$lib/stores/bookmarks';
 
 	export let timestampMs: number;
