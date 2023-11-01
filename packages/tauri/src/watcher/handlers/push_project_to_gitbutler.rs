@@ -92,8 +92,7 @@ impl HandlerInner {
             for (idx, id) in ids.iter().enumerate().rev() {
                 project_repository
                     .push_to_gitbutler_server(id, user.as_ref(), "push-tmp/")
-                    .context("failed to push project to gitbutler")
-                    .expect("");
+                    .context("failed to push project to gitbutler")?;
 
                 self.project_store
                     .update(&projects::UpdateRequest {
@@ -111,8 +110,7 @@ impl HandlerInner {
 
             project_repository
                 .push_to_gitbutler_server(&head_id, user.as_ref(), "")
-                .context("failed to push project to gitbutler")
-                .expect("");
+                .context("failed to push project to gitbutler")?;
 
             tracing::debug!(
                 %project_id,
