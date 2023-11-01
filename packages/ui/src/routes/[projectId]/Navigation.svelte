@@ -24,7 +24,7 @@
 	import RemoteBranches from './RemoteBranches.svelte';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import { PullRequest } from '$lib/github/types';
-	import PullRequests from './github/PullRequests.svelte';
+	import PullRequests from './PullRequests.svelte';
 	import IconHome from '$lib/icons/IconHome.svelte';
 	import Link from '$lib/components/Link/Link.svelte';
 	import IconSettings from '$lib/icons/IconSettings.svelte';
