@@ -27,14 +27,6 @@ By default it will not print debug logs to console. If you want debug logs, use 
 $ pnpm tauri dev --features debug
 ```
 
-### Run Stories
-
-Stories is our easy way to view our app components. Running the following command will launch in your default browser.
-
-```bash
-$ pnpm story:dev
-```
-
 ### Lint & format
 
 Javascript:
