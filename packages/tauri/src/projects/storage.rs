@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
 use crate::{
+    git,
     paths::DataDir,
     projects::{project, ProjectId},
     storage,
@@ -43,6 +44,7 @@ pub struct UpdateRequest {
     pub project_data_last_fetched: Option<project::FetchResult>,
     pub gitbutler_data_last_fetched: Option<project::FetchResult>,
     pub preferred_key: Option<project::AuthKey>,
+    pub gitbutler_code_push: Option<git::Oid>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -117,6 +119,10 @@ impl Storage {
             update_request.gitbutler_data_last_fetched.as_ref()
         {
             project.gitbutler_data_last_fetch = Some(gitbutler_data_last_fetched.clone());
+        }
+
+        if let Some(oid) = update_request.gitbutler_code_push {
+            project.gitbutler_code_push = Some(oid);
         }
 
         self.storage

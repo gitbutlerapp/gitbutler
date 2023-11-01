@@ -2,7 +2,7 @@ use std::{path, time};
 
 use serde::{Deserialize, Serialize};
 
-use crate::id::Id;
+use crate::{git, id::Id};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -62,6 +62,8 @@ pub struct Project {
     pub project_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
     pub gitbutler_data_last_fetch: Option<FetchResult>,
+    #[serde(default)]
+    pub gitbutler_code_push: Option<git::Oid>,
 }
 
 impl AsRef<Project> for Project {

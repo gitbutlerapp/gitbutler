@@ -1,6 +1,10 @@
-use std::path;
+use std::{
+    path,
+    sync::{atomic::AtomicUsize, Arc},
+};
 
 use anyhow::{Context, Result};
+use itertools::Itertools;
 
 use crate::{
     git::{self, Url},
@@ -127,10 +131,33 @@ impl Repository {
                     .context(format!("failed to push {}", from))?;
                 revwalk
                     .hide(oid.into())
-                    .context(format!("failed to push {}", oid))?;
+                    .context(format!("failed to hide {}", oid))?;
                 revwalk
                     .map(|oid| oid.map(Into::into))
                     .collect::<Result<Vec<_>, _>>()
+            }
+            LogUntil::EveryNth { n, until_id } => {
+                let mut revwalk = self
+                    .git_repository
+                    .revwalk()
+                    .context("failed to create revwalk")?;
+                revwalk
+                    .push(from.into())
+                    .context(format!("failed to push {}", from))?;
+
+                if let Some(oid) = until_id {
+                    revwalk
+                        .hide(oid.into())
+                        .context(format!("failed to hide {}", oid))?;
+                }
+                let mut oids = Vec::new();
+                for batch in &revwalk.chunks(n) {
+                    if let Some(oid) = batch.last() {
+                        let oid = oid.context("failed to get oid")?;
+                        oids.push(oid.into());
+                    }
+                }
+                Ok(oids)
             }
             LogUntil::Take(n) => {
                 let mut revwalk = self
@@ -278,64 +305,43 @@ impl Repository {
         }
     }
 
-    //TODO: do not just push the entire repo in one go. chunk it up
-    pub fn push_to_gitbutler_server(&self, user: Option<&users::User>) -> Result<(), RemoteError> {
-        tracing::debug!(
-            project_id = %self.project.id,
-            "pushing code to gb repo",
-        );
-
-        let head = self
-            .get_head()
-            .map_err(|e| RemoteError::Other(e.into()))?
-            .peel_to_commit()
-            .map_err(|e| RemoteError::Other(e.into()))?
-            .id();
-
-        let access_token = user
-            .map(|user| user.access_token.clone())
-            .ok_or(RemoteError::AuthError)?;
-
-        //TODO: remove unwraps
+    pub fn push_to_gitbutler_server(
+        &self,
+        oid: &git::Oid,
+        user: Option<&users::User>,
+        ref_prefix: &str,
+    ) -> Result<(), RemoteError> {
         let url = self
             .project
             .api
             .as_ref()
-            .unwrap()
+            .ok_or(RemoteError::Other(anyhow::anyhow!("api not set")))?
             .code_git_url
             .as_ref()
-            .unwrap()
+            .ok_or(RemoteError::Other(anyhow::anyhow!("code_git_url not set")))?
             .as_str()
             .parse::<Url>()
             .map_err(|e| RemoteError::Other(e.into()))?;
 
         tracing::debug!(
             project_id = %self.project.id,
-            %head,
+            %oid,
             %url,
-            "pushing code to gb repo tmp ref",
+            "pushing code to gb repo",
         );
 
-        // Set the remote's callbacks
+        let access_token = user
+            .map(|user| user.access_token.clone())
+            .ok_or(RemoteError::AuthError)?;
+
         let mut callbacks = git2::RemoteCallbacks::new();
-        callbacks.push_update_reference(move |refname, message| {
-            tracing::debug!(
-                project_id = %self.project.id,
-                refname,
-                message,
-                "pushing reference"
-            );
-            Result::Ok(())
-        });
-        callbacks.push_transfer_progress(move |current, total, bytes| {
-            tracing::debug!(
-                project_id = %self.project.id,
-                "transferred {}/{}/{} objects",
-                current,
-                total,
-                bytes
-            );
-        });
+        let bytes_pushed = Arc::new(AtomicUsize::new(0));
+        {
+            let counter = Arc::<AtomicUsize>::clone(&bytes_pushed);
+            callbacks.push_transfer_progress(move |_current, _total, bytes| {
+                counter.store(bytes, std::sync::atomic::Ordering::Relaxed);
+            });
+        }
 
         let mut push_options = git2::PushOptions::new();
         push_options.remote_callbacks(callbacks);
@@ -348,7 +354,7 @@ impl Repository {
             .remote_anonymous(&url)
             .map_err(|e| RemoteError::Other(e.into()))?;
 
-        let refspec = format!("+{}:refs/push-tmp/{}", head, self.project.id);
+        let refspec = format!("+{}:refs/{}{}", oid, ref_prefix, self.project.id);
 
         remote
             .push(&[refspec.as_str()], Some(&mut push_options))
@@ -356,8 +362,8 @@ impl Repository {
 
         tracing::debug!(
             project_id = %self.project.id,
-            %head,
-            %url,
+            %refspec,
+            bytes = bytes_pushed.load(std::sync::atomic::Ordering::Relaxed),
             "pushed to gb repo tmp ref",
         );
 
@@ -564,6 +570,10 @@ type OidFilter = dyn Fn(&git::Commit) -> Result<bool>;
 
 pub enum LogUntil {
     Commit(git::Oid),
+    EveryNth {
+        n: usize,
+        until_id: Option<git::Oid>,
+    },
     Take(usize),
     When(Box<OidFilter>),
     End,

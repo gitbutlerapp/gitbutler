@@ -1931,6 +1931,7 @@ dependencies = [
  "filetime",
  "futures",
  "git2",
+ "itertools",
  "md5",
  "notify",
  "num_cpus",

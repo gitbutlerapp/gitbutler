@@ -55,6 +55,11 @@ impl TryFrom<&AppHandle> for HandlerInner {
 
 impl HandlerInner {
     pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
+        tracing::info!(
+            %project_id,
+            "push_project_to_gb::handle",
+        );
+
         let project = self
             .project_store
             .get(project_id)
@@ -67,10 +72,52 @@ impl HandlerInner {
         if project_repository.project().is_sync_enabled()
             && project_repository.project().has_code_url()
         {
+            let head_id = project_repository.get_head()?.peel_to_commit()?.id();
+            let gb_code_last_commit = project.gitbutler_code_push.as_ref().copied();
+
+            let ids = project_repository.l(
+                head_id,
+                project_repository::LogUntil::EveryNth {
+                    n: 1000,
+                    until_id: gb_code_last_commit,
+                },
+            )?;
+
+            tracing::debug!(
+                %project_id,
+                batches=%ids.len(),
+                "batches collected",
+            );
+
+            for (idx, id) in ids.iter().enumerate().rev() {
+                project_repository
+                    .push_to_gitbutler_server(id, user.as_ref(), "push-tmp/")
+                    .context("failed to push project to gitbutler")
+                    .expect("");
+
+                self.project_store
+                    .update(&projects::UpdateRequest {
+                        id: *project_id,
+                        gitbutler_code_push: Some(*id),
+                        ..Default::default()
+                    })
+                    .context("failed to update last push")?;
+
+                tracing::debug!(
+                    %project_id,
+                    "project batch pushed: {}/{}",ids.len()-idx,ids.len(),
+                );
+            }
+
             project_repository
-                .push_to_gitbutler_server(user.as_ref())
+                .push_to_gitbutler_server(&head_id, user.as_ref(), "")
                 .context("failed to push project to gitbutler")
                 .expect("");
+
+            tracing::debug!(
+                %project_id,
+                "project fully pushed",
+            );
         } else {
             tracing::debug!(
                 %project_id,
