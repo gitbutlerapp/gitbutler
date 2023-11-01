@@ -28,7 +28,7 @@
 	import IconHome from '$lib/icons/IconHome.svelte';
 	import Link from '$lib/components/Link/Link.svelte';
 	import IconSettings from '$lib/icons/IconSettings.svelte';
-	import UpdateButton from '../UpdateButton.svelte';
+	import UpdateButton from './UpdateButton.svelte';
 	import type { Update } from '$lib/updater';
 	import IconEmail from '$lib/icons/IconEmail.svelte';
 	import * as events from '$lib/events';

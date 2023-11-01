@@ -7,12 +7,11 @@
 	import { deleteAllData } from '$lib/api/ipc';
 	import { userStore } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
-	import ThemeSelector from '../ThemeSelector.svelte';
+	import ThemeSelector from './ThemeSelector.svelte';
 	import { getContext } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { copyToClipboard } from '$lib/clipboard';
-	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
 	import BackButton from '$lib/components/BackButton.svelte';
 
 	export let data: PageData;
