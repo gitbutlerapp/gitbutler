@@ -41,6 +41,72 @@ impl Default for Test {
     }
 }
 
+mod create_commit {
+    use super::*;
+
+    #[tokio::test]
+    async fn should_lock_updated_hunks() {
+        let Test {
+            project_id,
+            controller,
+            repository,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(
+                &project_id,
+                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+            )
+            .unwrap();
+
+        let branch_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        {
+            // by default, hunks are not locked
+
+            fs::write(repository.path().join("file.txt"), "content").unwrap();
+
+            let branch = controller
+                .list_virtual_branches(&project_id)
+                .await
+                .unwrap()
+                .into_iter()
+                .find(|b| b.id == branch_id)
+                .unwrap();
+            assert_eq!(branch.files.len(), 1);
+            assert_eq!(branch.files[0].path.display().to_string(), "file.txt");
+            assert_eq!(branch.files[0].hunks.len(), 1);
+            assert!(!branch.files[0].hunks[0].locked);
+        }
+
+        controller
+            .create_commit(&project_id, &branch_id, "test", None)
+            .await
+            .unwrap();
+
+        {
+            // change in the comitted hunks leads to hunk locking
+            fs::write(repository.path().join("file.txt"), "updated content").unwrap();
+
+            let branch = controller
+                .list_virtual_branches(&project_id)
+                .await
+                .unwrap()
+                .into_iter()
+                .find(|b| b.id == branch_id)
+                .unwrap();
+            assert_eq!(branch.files.len(), 1);
+            assert_eq!(branch.files[0].path.display().to_string(), "file.txt");
+            assert_eq!(branch.files[0].hunks.len(), 1);
+            assert!(branch.files[0].hunks[0].locked);
+        }
+    }
+}
+
 mod references {
     use super::*;
 

@@ -1,4 +1,8 @@
-use std::{collections::HashMap, os::unix::fs::PermissionsExt, path, time, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    os::unix::fs::PermissionsExt,
+    path, time, vec,
+};
 
 use anyhow::{anyhow, bail, Context, Result};
 use diffy::{apply_bytes, Patch};
@@ -640,10 +644,20 @@ pub fn list_virtual_branches(
 
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
     for (branch, files) in &statuses {
+        let file_diffs = files
+            .iter()
+            .map(|(filepath, hunks)| {
+                (
+                    filepath,
+                    hunks.iter().map(|hunk| &hunk.diff).collect::<HashSet<_>>(),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
         // check if head tree does not match target tree
         // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
         let files =
-            calculate_non_commited_files(project_repository, branch, &default_target, files)?;
+            calculate_non_commited_diffs(project_repository, branch, &default_target, files)?;
 
         let repo = &project_repository.git_repository;
 
@@ -732,6 +746,18 @@ pub fn list_virtual_branches(
                 )
         });
 
+        // mark locked hunks
+        for file in &mut files {
+            file.hunks.iter_mut().for_each(|hunk| {
+                // we consider a hunk to be locked if it's not seen verbatim
+                // non-commited. reason beging - we can't partialy move hunks between
+                // branches just yet.
+                hunk.locked = file_diffs
+                    .get(&file.path)
+                    .map_or(false, |h| !h.contains(&hunk.diff));
+            });
+        }
+
         let requires_force = is_requires_force(project_repository, branch)?;
         let branch = VirtualBranch {
             id: branch.id,
@@ -786,7 +812,7 @@ fn is_requires_force(
 
 // given a virtual branch and it's files that are calculated off of a default target,
 // return files adjusted to the branch's head commit
-fn calculate_non_commited_files(
+fn calculate_non_commited_diffs(
     project_repository: &project_repository::Repository,
     branch: &branch::Branch,
     default_target: &target::Target,
@@ -1876,7 +1902,7 @@ pub fn commit(
         .find(|(branch, _)| branch.id == *branch_id)
         .ok_or_else(|| anyhow!("branch {} not found", branch_id))?;
 
-    let files = calculate_non_commited_files(project_repository, branch, &default_target, files)?;
+    let files = calculate_non_commited_diffs(project_repository, branch, &default_target, files)?;
     if conflicts::is_conflicting(project_repository, None)? {
         return Err(CommitError::Conflicted);
     }
