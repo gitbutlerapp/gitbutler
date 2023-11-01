@@ -18,8 +18,8 @@
 	import IconExpandUpDownSlim from '$lib/icons/IconExpandUpDownSlim.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { slide } from 'svelte/transition';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
-	import { summarizeHunk } from '$lib/summaries';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import { summarizeHunk } from './summaries';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import IconLock from '$lib/icons/IconLock.svelte';
 	import HunkContextMenu from './HunkContextMenu.svelte';

@@ -6,7 +6,7 @@
 	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import { userStore } from '$lib/stores/user';
 	import { getProjectStore, projectsStore } from '$lib/backend/projects';
-	import * as toasts from '$lib/toasts';
+	import * as toasts from '$lib/utils/toasts';
 	import IconFolderPlus from '$lib/icons/IconFolderPlus.svelte';
 	import { goto } from '$app/navigation';
 	import Modal from '$lib/components/Modal.svelte';

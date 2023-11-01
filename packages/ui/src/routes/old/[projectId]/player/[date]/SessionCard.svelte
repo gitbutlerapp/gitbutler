@@ -2,7 +2,7 @@
 	import type { Session } from '$lib/backend/sessions';
 	import { isInsert, type Delta, isDelete } from '$lib/backend/deltas';
 	import { page } from '$app/stores';
-	import { collapse } from '$lib/paths';
+	import { collapse } from '$lib/utils/paths';
 	import { asyncDerived } from '@square/svelte-store';
 	import { getBookmarksStore } from '$lib/stores/bookmarks';
 	import { IconBookmarkFilled } from '$lib/icons';

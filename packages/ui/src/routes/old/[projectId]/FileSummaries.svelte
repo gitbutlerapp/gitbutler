@@ -6,7 +6,7 @@
 	import { page } from '$app/stores';
 	import Link from '$lib/components/Link.svelte';
 	import { IconRewind, IconPlayerPlayFilled, IconLoading, IconSparkle } from '$lib/icons';
-	import { collapse } from '$lib/paths';
+	import { collapse } from '$lib/utils/paths';
 	import type { Session } from '$lib/backend/sessions';
 	import { getDeltasStore } from '$lib/stores/deltas';
 	import { asyncDerived } from '@square/svelte-store';

@@ -1,4 +1,4 @@
-import { invoke } from '$lib/ipc';
+import { invoke } from '$lib/backend/ipc';
 
 export function logs() {
 	return invoke<string>('get_logs_archive_path');

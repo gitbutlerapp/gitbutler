@@ -1,4 +1,4 @@
-import { invoke, listen } from '$lib/ipc';
+import { invoke, listen } from '$lib/backend/ipc';
 
 export namespace Session {
 	export function within(session: Session | undefined, timestampMs: number) {

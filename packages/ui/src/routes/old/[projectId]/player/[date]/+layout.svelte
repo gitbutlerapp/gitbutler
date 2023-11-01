@@ -2,10 +2,10 @@
 	import type { LayoutData } from './$types';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
-	import * as hotkeys from '$lib/hotkeys';
-	import * as events from '$lib/events';
+	import * as hotkeys from '$lib/utils/hotkeys';
+	import * as events from '$lib/utils/events';
 	import BookmarkModal from './BookmarkModal.svelte';
-	import { unsubscribe } from '$lib/utils';
+	import { unsubscribe } from '$lib/utils/random';
 	import SessionsList from './SessionsList.svelte';
 	import SessionNavigations from './SessionNavigations.svelte';
 	import { IconLoading } from '$lib/icons';

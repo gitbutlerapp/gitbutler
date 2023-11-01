@@ -18,7 +18,7 @@
 	import IconNewBadge from '$lib/icons/IconNewBadge.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import lscache from 'lscache';
 	import IconCloseSmall from '$lib/icons/IconCloseSmall.svelte';
 	import Tabs from './Tabs.svelte';

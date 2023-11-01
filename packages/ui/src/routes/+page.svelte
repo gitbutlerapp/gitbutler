@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import Button from '$lib/components/Button.svelte';
-	import * as events from '$lib/events';
+	import * as events from '$lib/utils/events';
 
 	export let data: LayoutData;
 

@@ -1,4 +1,4 @@
-import { invoke } from '$lib/ipc';
+import { invoke } from '$lib/backend/ipc';
 import type { Project as CloudProject } from '$lib/backend/cloud';
 import { asyncWritable, derived } from '@square/svelte-store';
 
