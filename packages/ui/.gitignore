@@ -19,7 +19,5 @@ package
 !.env.example
 vite.config.ts.timestamp-*
 
-.histoire
-
 # Written to disk when using `act`
 .pnpm-store
