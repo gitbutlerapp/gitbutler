@@ -6,7 +6,7 @@
 	import { open } from '@tauri-apps/api/shell';
 
 	export let file: File;
-	export let projectPath: string;
+	export let projectPath: string | undefined;
 	export let branchController: BranchController;
 	let popupMenu: PopupMenu;
 
@@ -30,7 +30,9 @@
 	{/if}
 	{#if item.lineNumber}
 		<PopupMenuItem
-			on:click={() => open(`vscode://file${projectPath}/${file.path}:${item.lineNumber}`)}
+			disabled={!!projectPath}
+			on:click={() =>
+				projectPath && open(`vscode://file${projectPath}/${file.path}:${item.lineNumber}`)}
 		>
 			Open in Visual Studio Code
 		</PopupMenuItem>

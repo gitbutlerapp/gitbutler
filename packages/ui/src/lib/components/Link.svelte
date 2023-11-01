@@ -30,7 +30,13 @@
 		class="link inline-flex cursor-pointer items-center justify-center gap-1 whitespace-nowrap font-medium hover:underline hover:ease-in {role} {classes}"
 		bind:this={element}
 		class:disabled
-		on:click={() => href && isExternal && open(href)}
+		on:click={(e) => {
+			if (href && isExternal) {
+				open(href);
+				e.preventDefault();
+				e.stopPropagation();
+			}
+		}}
 	>
 		<div class="truncate">
 			<slot />

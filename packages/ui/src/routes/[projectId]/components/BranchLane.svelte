@@ -6,7 +6,7 @@
 	import IconKebabMenu from '$lib/icons/IconKebabMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
-	import { dzHighlight, dzTrigger } from './dropZone';
+	import { dzHighlight, dzTrigger } from '$lib/utils/dropZone';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import FileCard from './FileCard.svelte';
 	import { slide } from 'svelte/transition';
@@ -60,7 +60,7 @@
 
 	export let branch: Branch;
 	export let readonly = false;
-	export let projectPath: string;
+	export let projectPath: string | undefined;
 	export let projectId: string;
 	export let base: BaseBranch | undefined;
 	export let cloudEnabled: boolean;
@@ -431,7 +431,7 @@
 					</div>
 					{#if upstreamCommitsShown}
 						<div
-							class="flex gap-1 w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
+							class="flex w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
 							id="upstreamCommits"
 						>
 							{#each branch.upstream.commits as commit}

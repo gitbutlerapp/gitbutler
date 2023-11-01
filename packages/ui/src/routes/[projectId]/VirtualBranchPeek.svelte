@@ -4,12 +4,12 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Branch } from '$lib/vbranches/types';
-	import CommitCard from './CommitCard.svelte';
+	import CommitCard from './board/CommitCard.svelte';
 	import { filesToFileTree } from '$lib/vbranches/filetree';
-	import FileTree from './FileTree.svelte';
+	import FileTree from './board/FileTree.svelte';
 
 	export let branch: Branch | undefined;
-    export let projectId: string;
+	export let projectId: string;
 	export let branchController: BranchController;
 
 	let applyConflictedModal: Modal;

@@ -2,7 +2,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { RemoteBranch } from '$lib/vbranches/types';
-	import CommitCard from './CommitCard.svelte';
+	import CommitCard from './components/CommitCard.svelte';
 
 	export let branch: RemoteBranch | undefined;
 	export let projectId: string;
