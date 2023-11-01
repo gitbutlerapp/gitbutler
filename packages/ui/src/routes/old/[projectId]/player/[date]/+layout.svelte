@@ -32,7 +32,7 @@
 		unsubscribe(
 			events.on('openBookmarkModal', () => bookmarkModal?.show($currentTimestamp)),
 			hotkeys.on('Meta+Shift+D', () => bookmarkModal?.show($currentTimestamp)),
-			hotkeys.on('Meta+Shift+R', () => goto(`/${projectId}/`)),
+			hotkeys.on('Meta+Shift+R', () => goto(`/${$projectId}/board`)),
 			hotkeys.on('D', async () => {
 				const existing = await bookmarks.list({
 					projectId: $page.params.projectId,

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { dzHighlight } from './dropZone';
+	import { dzHighlight } from '$lib/utils/dropZone';
 	import type { BranchController } from '$lib/vbranches/branchController';
 
 	export let branchController: BranchController;

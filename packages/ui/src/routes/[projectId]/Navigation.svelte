@@ -143,7 +143,7 @@
 	tabindex="0"
 >
 	<!-- Top spacer -->
-	<div class="flex h-5 flex-shrink-0"></div>
+	<div class="flex h-5 flex-shrink-0" data-tauri-drag-region></div>
 	<!-- Base branch -->
 	<div
 		class="flex flex-col p-2"
