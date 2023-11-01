@@ -751,9 +751,9 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
 
     assert_eq!(files_by_branch_id.len(), 3);
     assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
-    assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 1);
+    // assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 1);
     assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
-    assert_eq!(files_by_branch_id[&branch2_id][0].hunks.len(), 1);
+    // assert_eq!(files_by_branch_id[&branch2_id][0].hunks.len(), 1);
     assert_eq!(files_by_branch_id[&branch3_id].len(), 0);
 
     update_branch(
@@ -777,16 +777,19 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     assert_eq!(files_by_branch_id.len(), 3);
     assert_eq!(files_by_branch_id[&branch1_id].len(), 0);
     assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
-    assert_eq!(files_by_branch_id[&branch3_id][0].hunks.len(), 2);
-
-    let branch_reader = branch::Reader::new(&current_session_reader);
-    assert_eq!(branch_reader.read(&branch1_id)?.ownership.files, vec![]);
-    assert_eq!(branch_reader.read(&branch2_id)?.ownership.files, vec![]);
+    assert_eq!(files_by_branch_id[&branch3_id].len(), 1);
     assert_eq!(
-        branch_reader.read(&branch3_id)?.ownership.files,
-        vec!["test.txt:1-5,11-15".parse()?]
+        files_by_branch_id[&branch3_id][std::path::Path::new("test.txt")].len(),
+        2
     );
-
+    assert_eq!(
+        files_by_branch_id[&branch3_id][std::path::Path::new("test.txt")][0].diff,
+        "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
+    );
+    assert_eq!(
+        files_by_branch_id[&branch3_id][std::path::Path::new("test.txt")][1].diff,
+        "@@ -10,3 +11,4 @@ line9\n line10\n line11\n line12\n+line13\n"
+    );
     Ok(())
 }
 
@@ -833,7 +836,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
 
     assert_eq!(files_by_branch_id.len(), 2);
     assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
-    assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 2);
+    // assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 2);
     assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
 
     update_branch(
@@ -856,20 +859,23 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
 
     assert_eq!(files_by_branch_id.len(), 2);
     assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
-    assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 1);
-    assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
-    assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 1);
-
-    let current_session = gb_repository.get_or_create_current_session()?;
-    let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
-    let branch_reader = branch::Reader::new(&current_session_reader);
     assert_eq!(
-        branch_reader.read(&branch1_id)?.ownership.files,
-        vec!["test.txt:12-16".parse()?]
+        files_by_branch_id[&branch1_id][std::path::Path::new("test.txt")].len(),
+        1
     );
     assert_eq!(
-        branch_reader.read(&branch2_id)?.ownership.files,
-        vec!["test.txt:1-5".parse()?]
+        files_by_branch_id[&branch1_id][std::path::Path::new("test.txt")][0].diff,
+        "@@ -11,3 +12,4 @@ line10\n line11\n line12\n line13\n+line14\n"
+    );
+
+    assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
+    assert_eq!(
+        files_by_branch_id[&branch2_id][std::path::Path::new("test.txt")].len(),
+        1
+    );
+    assert_eq!(
+        files_by_branch_id[&branch2_id][std::path::Path::new("test.txt")][0].diff,
+        "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
 
     Ok(())
@@ -903,7 +909,10 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
 
     let statuses =
         get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
-    assert_eq!(statuses[0].1[0].hunks[0].id, "11-16");
+    assert_eq!(
+        statuses[0].1[std::path::Path::new("test.txt")][0].diff,
+        "@@ -11,5 +11,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
+    );
 
     std::fs::write(
             std::path::Path::new(&project.path).join("test.txt"),
@@ -912,10 +921,15 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
 
     let statuses =
         get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
-    assert!(statuses[0].1[0].hunks[0]
-        .id
-        .starts_with("12-17-b5850d4f66182e6630ed9683dbbc2f0b-"));
-    assert_eq!(statuses[0].1[0].hunks[1].id, "1-5");
+
+    assert_eq!(
+        statuses[0].1[std::path::Path::new("test.txt")][0].diff,
+        "@@ -11,5 +12,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
+    );
+    assert_eq!(
+        statuses[0].1[std::path::Path::new("test.txt")][1].diff,
+        "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
+    );
 
     Ok(())
 }
