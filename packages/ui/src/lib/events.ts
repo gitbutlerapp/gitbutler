@@ -2,8 +2,6 @@ import { createNanoEvents } from 'nanoevents';
 
 type Events = {
 	goto: (path: string) => void;
-	openCommandPalette: () => void;
-	closeCommandPalette: () => void;
 	openNewProjectModal: () => void;
 	openSendIssueModal: () => void;
 	openBookmarkModal: () => void;

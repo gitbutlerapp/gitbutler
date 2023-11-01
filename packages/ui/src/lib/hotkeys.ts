@@ -14,7 +14,6 @@ export async function on(combo: string, callback: (event: KeyboardEvent) => void
 				event.preventDefault();
 				event.stopPropagation();
 
-				events.emit('closeCommandPalette');
 				callback(event);
 			}
 		})
