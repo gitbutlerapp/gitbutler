@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, type ComponentType } from 'svelte';
-	import { IconLoading } from '../../icons';
+	import { IconLoading } from '../icons';
 
 	let classes = '';
 	export { classes as class };

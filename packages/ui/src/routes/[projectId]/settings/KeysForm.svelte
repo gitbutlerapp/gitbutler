@@ -1,9 +1,10 @@
 <script lang="ts">
 	import type { Key, Project } from '$lib/api/ipc/projects';
-	import { Button, Link } from '$lib/components';
 	import { invoke } from '$lib/ipc';
 	import { copyToClipboard } from '$lib/clipboard';
 	import { createEventDispatcher } from 'svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Link from '$lib/components/Link.svelte';
 
 	export let project: Project;
 

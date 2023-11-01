@@ -4,7 +4,7 @@
 	import { IconGitBranch } from '$lib/icons';
 	import { asyncDerived } from '@square/svelte-store';
 	import FileSummaries from './FileSummaries.svelte';
-	import { Tooltip } from '$lib/components';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 
 	export let data: PageData;
 	const { project, sessions, head } = data;

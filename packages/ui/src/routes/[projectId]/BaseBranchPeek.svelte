@@ -1,10 +1,12 @@
 <script lang="ts">
-	import { Button, Modal, Tooltip } from '$lib/components';
 	import type { BaseBranch } from '$lib/vbranches/types';
 	import CommitCard from './CommitCard.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
+	import Tooltip from '$lib/components/Tooltip.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	export let base: BaseBranch;
 	export let projectId: string;

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Board from './Board.svelte';
 	import type { PageData } from './$types';
-	import { Button, Link } from '$lib/components';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext, onMount } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
@@ -29,6 +28,8 @@
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import { getAuthenticatedWithCache } from '$lib/github/user';
 	import Navigation from './Navigation.svelte';
+	import Link from '$lib/components/Link.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	export let data: PageData;
 	let { projectId, project, cloud, update } = data;

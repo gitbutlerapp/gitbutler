@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Button from '$lib/components/Button/Button.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { RemoteBranch } from '$lib/vbranches/types';
 	import CommitCard from './CommitCard.svelte';

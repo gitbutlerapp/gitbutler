@@ -1,9 +1,10 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
-	import { Button, Tooltip } from '$lib/components';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { IconRewind, IconSearch, IconSettings } from '$lib/icons';
+	import Tooltip from '$lib/components/Tooltip.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	export let data: LayoutData;
 	const { project } = data;

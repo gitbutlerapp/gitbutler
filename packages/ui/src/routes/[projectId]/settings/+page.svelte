@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Button, Modal } from '$lib/components';
 	import * as toasts from '$lib/toasts';
 	import { userStore } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
@@ -9,8 +8,9 @@
 	import * as projects from '$lib/api/ipc/projects';
 	import { projectsStore } from '$lib/api/ipc/projects';
 	import type { PageData } from './$types';
-	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
 	import BackButton from '$lib/components/BackButton.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	export let data: PageData;
 	const { project, cloud } = data;

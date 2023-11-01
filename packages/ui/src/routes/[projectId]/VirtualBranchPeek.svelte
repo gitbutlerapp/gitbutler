@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Button from '$lib/components/Button/Button.svelte';
-	import Modal from '$lib/components/Modal';
-	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Branch } from '$lib/vbranches/types';
 	import CommitCard from './CommitCard.svelte';

@@ -2,8 +2,7 @@
 	import type { Session } from '$lib/api/ipc/sessions';
 	import type { Delta } from '$lib/api/ipc/deltas';
 	import type { Frame } from './frame';
-	import { DeltasViewer } from '$lib/components';
-	import type { Loadable, Readable } from '@square/svelte-store';
+	import DeltasViewer from '$lib/components/DeltasViewer.svelte';
 
 	export let context: number;
 	export let fullContext: boolean;

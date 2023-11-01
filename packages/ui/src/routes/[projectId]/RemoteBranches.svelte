@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { Link } from '$lib/components';
+	import Link from '$lib/components/Link.svelte';
 	import { IconGitBranch, IconRemote } from '$lib/icons';
 	import IconHelp from '$lib/icons/IconHelp.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { IconTriangleDown } from '$lib/icons';
-	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
+	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { accordion } from './accordion';
 	import type { CustomStore, RemoteBranch, BaseBranch, Branch } from '$lib/vbranches/types';
 	import type { Readable } from '@square/svelte-store';
