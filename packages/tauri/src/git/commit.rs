@@ -41,6 +41,14 @@ impl<'repo> Commit<'repo> {
         self.commit.tree_id().into()
     }
 
+    pub fn parents(&self) -> Result<Vec<Commit<'repo>>> {
+        let mut parents = vec![];
+        for i in 0..self.parent_count() {
+            parents.push(self.parent(i)?);
+        }
+        Ok(parents)
+    }
+
     pub fn parent(&self, n: usize) -> Result<Commit<'repo>> {
         self.commit.parent(n).map(Into::into).map_err(Into::into)
     }

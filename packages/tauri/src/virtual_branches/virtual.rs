@@ -2281,6 +2281,134 @@ pub fn is_virtual_branch_mergeable(
     Ok(is_mergeable)
 }
 
+pub fn amend(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    target_ownership: &Ownership,
+    signing_key: Option<&keys::PrivateKey>,
+) -> Result<git::Oid> {
+    if conflicts::is_conflicting(project_repository, None)? {
+        bail!("cannot amend while conflicted");
+    }
+
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create current session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+
+    let all_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .collect::<Vec<_>>();
+
+    if !all_branches.iter().any(|b| b.id == *branch_id) {
+        bail!("branch not found");
+    }
+
+    let applied_branches = all_branches
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
+
+    if !applied_branches.iter().any(|b| b.id == *branch_id) {
+        bail!("branch not applied");
+    }
+
+    let default_target = get_default_target(&current_session_reader)
+        .context("failed to read default target")?
+        .context("no default target set")?;
+
+    let applied_statuses = get_applied_status(
+        gb_repository,
+        project_repository,
+        &default_target,
+        applied_branches,
+    )?;
+
+    let (target_branch, target_status) = applied_statuses
+        .iter()
+        .find(|(b, _)| b.id == *branch_id)
+        .context("branch not found")?;
+
+    let diffs_to_consider = calculate_non_commited_diffs(
+        project_repository,
+        target_branch,
+        &default_target,
+        target_status,
+    )?;
+
+    let head_commit = project_repository
+        .git_repository
+        .find_commit(target_branch.head)
+        .context("failed to find head commit")?;
+
+    let diffs_to_amend = target_ownership
+        .files
+        .iter()
+        .filter_map(|file_ownership| {
+            let hunks = diffs_to_consider
+                .get(&file_ownership.file_path)
+                .map(|hunks| {
+                    hunks
+                        .iter()
+                        .filter(|hunk| {
+                            file_ownership.hunks.iter().any(|owned_hunk| {
+                                owned_hunk.start == hunk.new_start
+                                    && owned_hunk.end == hunk.new_start + hunk.new_lines
+                            })
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            if hunks.is_empty() {
+                None
+            } else {
+                Some((file_ownership.file_path.clone(), hunks))
+            }
+        })
+        .collect::<HashMap<_, _>>();
+
+    let new_tree_oid =
+        write_tree_onto_commit(project_repository, target_branch.head, &diffs_to_amend)?;
+    let new_tree = project_repository
+        .git_repository
+        .find_tree(new_tree_oid)
+        .context("failed to find new tree")?;
+
+    let parents = head_commit
+        .parents()
+        .context("failed to find head commit parents")?;
+
+    let commit_oid = if let Some(key) = signing_key {
+        project_repository.git_repository.commit_signed(
+            &head_commit.author(),
+            head_commit.message().unwrap_or_default(),
+            &new_tree,
+            &parents.iter().collect::<Vec<_>>(),
+            key,
+        )
+    } else {
+        project_repository.git_repository.commit(
+            None,
+            &head_commit.author(),
+            &head_commit.committer(),
+            head_commit.message().unwrap_or_default(),
+            &new_tree,
+            &parents.iter().collect::<Vec<_>>(),
+        )
+    }
+    .context("failed to create commit")?;
+
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
+    Ok(commit_oid)
+}
+
 pub fn cherry_pick(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
