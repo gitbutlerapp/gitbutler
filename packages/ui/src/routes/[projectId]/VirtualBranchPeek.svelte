@@ -4,9 +4,9 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Branch } from '$lib/vbranches/types';
-	import CommitCard from './board/CommitCard.svelte';
+	import CommitCard from './components/CommitCard.svelte';
 	import { filesToFileTree } from '$lib/vbranches/filetree';
-	import FileTree from './board/FileTree.svelte';
+	import FileTree from './components/FileTree.svelte';
 
 	export let branch: Branch | undefined;
 	export let projectId: string;
