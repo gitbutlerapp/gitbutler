@@ -2334,6 +2334,16 @@ pub fn amend(
         .find(|(b, _)| b.id == *branch_id)
         .context("branch not found")?;
 
+    if project_repository
+        .l(
+            target_branch.head,
+            project_repository::LogUntil::Commit(default_target.sha),
+        )?
+        .is_empty()
+    {
+        bail!("branch doesn't have any commits");
+    }
+
     let diffs_to_consider = calculate_non_commited_diffs(
         project_repository,
         target_branch,
@@ -2403,6 +2413,12 @@ pub fn amend(
         )
     }
     .context("failed to create commit")?;
+
+    let branch_writer = branch::Writer::new(gb_repository);
+    branch_writer.write(&branch::Branch {
+        head: commit_oid,
+        ..target_branch.clone()
+    })?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
