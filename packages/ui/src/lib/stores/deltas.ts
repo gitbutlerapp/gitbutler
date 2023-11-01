@@ -1,5 +1,5 @@
 import { asyncWritable, isReloadable, type AsyncWritable, type Stores } from '@square/svelte-store';
-import { subscribeToDeltas, type Delta, listDeltas } from '$lib/api/deltas';
+import { subscribeToDeltas, type Delta, listDeltas } from '$lib/backend/deltas';
 
 /**
  * We have a special situation here where we use deltas to know when to re-run

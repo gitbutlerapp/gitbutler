@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Button from '$lib/components/Button.svelte';
-	import { getCloudApiClient } from '$lib/api/cloud';
+	import { getCloudApiClient } from '$lib/backend/cloud';
 	import { userStore } from '$lib/stores/user';
-	import type { Project } from '$lib/api/projects';
+	import type { Project } from '$lib/backend/projects';
 	import { marked } from 'marked';
 	import { IconAISparkles } from '$lib/icons';
 	import { onMount } from 'svelte';

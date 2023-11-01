@@ -5,8 +5,8 @@
 	import CloudForm from './CloudForm.svelte';
 	import DetailsForm from './DetailsForm.svelte';
 	import KeysForm from './KeysForm.svelte';
-	import * as projects from '$lib/api/projects';
-	import { projectsStore } from '$lib/api/projects';
+	import * as projects from '$lib/backend/projects';
+	import { projectsStore } from '$lib/backend/projects';
 	import type { PageData } from './$types';
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Modal from '$lib/components/Modal.svelte';

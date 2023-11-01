@@ -1,4 +1,4 @@
-import * as users from '$lib/api/users';
+import * as users from '$lib/backend/users';
 import { asyncWritable } from '@square/svelte-store';
 
 export const userStore = asyncWritable([], users.get, async (user) => {

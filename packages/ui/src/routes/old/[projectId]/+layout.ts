@@ -1,9 +1,9 @@
-import { getHeadStore } from '$lib/api/heads';
+import { getHeadStore } from '$lib/backend/heads';
 import { getSessionStore } from '$lib/stores/sessions';
-import { getDiffsStore } from '$lib/api/diffs';
+import { getDiffsStore } from '$lib/backend/diffs';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
-import { getProjectStore, type Project } from '$lib/api/projects';
+import { getProjectStore, type Project } from '$lib/backend/projects';
 
 export const prerender = false;
 

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { getSessionStore } from '$lib/stores/sessions';
-	import { listDeltas } from '$lib/api/deltas';
+	import { listDeltas } from '$lib/backend/deltas';
 	import { format } from 'date-fns';
 	import { asyncDerived, type Readable } from '@square/svelte-store';
-	import type { Session } from '$lib/api/sessions';
+	import type { Session } from '$lib/backend/sessions';
 
 	const sessions = getSessionStore($page.params.projectId);
 

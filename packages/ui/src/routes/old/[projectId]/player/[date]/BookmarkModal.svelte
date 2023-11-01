@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as toasts from '$lib/toasts';
-	import * as bookmarks from '$lib/api/bookmarks';
+	import * as bookmarks from '$lib/backend/bookmarks';
 	import { IconBookmarkFilled } from '$lib/icons';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Key, Project } from '$lib/api/projects';
+	import type { Key, Project } from '$lib/backend/projects';
 	import { invoke } from '$lib/ipc';
 	import { copyToClipboard } from '$lib/clipboard';
 	import { createEventDispatcher } from 'svelte';

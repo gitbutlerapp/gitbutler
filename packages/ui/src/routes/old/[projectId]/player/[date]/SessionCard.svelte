@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Session } from '$lib/api/sessions';
-	import { isInsert, type Delta, isDelete } from '$lib/api/deltas';
+	import type { Session } from '$lib/backend/sessions';
+	import { isInsert, type Delta, isDelete } from '$lib/backend/deltas';
 	import { page } from '$app/stores';
 	import { collapse } from '$lib/paths';
 	import { asyncDerived } from '@square/svelte-store';

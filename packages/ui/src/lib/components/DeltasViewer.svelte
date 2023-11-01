@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { isInsert, type Delta, isDelete } from '$lib/api/deltas';
+	import { isInsert, type Delta, isDelete } from '$lib/backend/deltas';
 	import Differ from './Differ';
 	import { line } from '$lib/diff';
 

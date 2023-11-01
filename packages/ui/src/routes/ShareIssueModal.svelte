@@ -1,8 +1,8 @@
 <script lang="ts">
 	import * as toasts from '$lib/toasts';
-	import * as zip from '$lib/api/zip';
+	import * as zip from '$lib/backend/zip';
 	import { page } from '$app/stores';
-	import type { User, getCloudApiClient } from '$lib/api/cloud';
+	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import Modal from '$lib/components/Modal.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import Button from '$lib/components/Button.svelte';
