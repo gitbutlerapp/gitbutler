@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { Delta } from '$lib/api/ipc/deltas';
+	import type { Delta } from '$lib/backend/deltas';
 	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '$lib/icons';
 	import DiffContext from '$lib/components/DiffContext.svelte';
-	import { unsubscribe } from '$lib/utils';
+	import { unsubscribe } from '$lib/utils/random';
 	import { onMount } from 'svelte';
-	import * as hotkeys from '$lib/hotkeys';
+	import * as hotkeys from '$lib/utils/hotkeys';
 
 	export let value: number;
 	export let context: number;

@@ -2,11 +2,11 @@
 	import { goto } from '$app/navigation';
 	import { IconChevronLeft, IconChevronRight } from '$lib/icons';
 	import { page } from '$app/stores';
-	import * as hotkeys from '$lib/hotkeys';
+	import * as hotkeys from '$lib/utils/hotkeys';
 
-	import type { Session } from '$lib/api/ipc/sessions';
-	import type { Delta } from '$lib/api/ipc/deltas';
-	import { unsubscribe } from '$lib/utils';
+	import type { Session } from '$lib/backend/sessions';
+	import type { Delta } from '$lib/backend/deltas';
+	import { unsubscribe } from '$lib/utils/random';
 	import { onMount } from 'svelte';
 	import { format } from 'date-fns';
 

@@ -2,7 +2,7 @@
 	import { slide } from 'svelte/transition';
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
 	import type { BaseBranch } from '$lib/vbranches/types';
-	import type { SettingsStore } from '$lib/userSettings';
+	import type { SettingsStore } from '$lib/settings/userSettings';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 

@@ -1,5 +1,5 @@
-import { invoke } from '$lib/ipc';
-import type { Project as CloudProject } from '$lib/api/cloud';
+import { invoke } from '$lib/backend/ipc';
+import type { Project as CloudProject } from '$lib/backend/cloud';
 import { asyncWritable, derived } from '@square/svelte-store';
 
 export type Key =

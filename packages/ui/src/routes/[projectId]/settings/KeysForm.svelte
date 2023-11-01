@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Key, Project } from '$lib/api/ipc/projects';
-	import { invoke } from '$lib/ipc';
-	import { copyToClipboard } from '$lib/clipboard';
+	import type { Key, Project } from '$lib/backend/projects';
+	import { invoke } from '$lib/backend/ipc';
+	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { createEventDispatcher } from 'svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';

@@ -3,7 +3,7 @@
 	import { IconBranch } from '$lib/icons';
 	import { IconTriangleDown } from '$lib/icons';
 	import { accordion } from './accordion';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { getContext } from 'svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import Tooltip from '$lib/components/Tooltip.svelte';
@@ -17,7 +17,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
-	import type { User, getCloudApiClient } from '$lib/api/cloud/api';
+	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
 	import { slide } from 'svelte/transition';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
@@ -29,9 +29,9 @@
 	import Link from '$lib/components/Link.svelte';
 	import IconSettings from '$lib/icons/IconSettings.svelte';
 	import UpdateButton from './UpdateButton.svelte';
-	import type { Update } from '$lib/updater';
+	import type { Update } from '../updater';
 	import IconEmail from '$lib/icons/IconEmail.svelte';
-	import * as events from '$lib/events';
+	import * as events from '$lib/utils/events';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;

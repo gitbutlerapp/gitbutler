@@ -1,11 +1,11 @@
 <script lang="ts">
-	import * as toasts from '$lib/toasts';
+	import * as toasts from '$lib/utils/toasts';
 	import { slide } from 'svelte/transition';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Branch, File } from '$lib/vbranches/types';
-	import type { getCloudApiClient } from '$lib/api/cloud/api';
-	import type { User } from '$lib/api/cloud';
+	import type { getCloudApiClient } from '$lib/backend/cloud';
+	import type { User } from '$lib/backend/cloud';
 	import { IconAISparkles, IconLoading, IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import {
 		projectCommitGenerationExtraConcise,

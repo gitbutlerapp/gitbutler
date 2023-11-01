@@ -4,7 +4,7 @@
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { getCloudApiClient } from '$lib/api/cloud/api';
+	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import type { LoadState } from '@square/svelte-store';
 	import { open } from '@tauri-apps/api/shell';
 	import { IconFile, IconTerminal, IconExternalLink } from '$lib/icons';

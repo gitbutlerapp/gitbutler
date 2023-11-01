@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Delta } from '$lib/api/ipc/deltas';
-	import type { Bookmark } from '$lib/api/ipc/bookmarks';
+	import type { Delta } from '$lib/backend/deltas';
+	import type { Bookmark } from '$lib/backend/bookmarks';
 	import { ModuleChapters, ModuleMarkers, type Marker } from './slider';
 	import { JSR, ModuleSlider } from 'mm-jsr';
 	import { asyncDerived, type Loadable } from '@square/svelte-store';

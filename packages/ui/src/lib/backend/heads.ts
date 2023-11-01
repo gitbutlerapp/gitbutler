@@ -1,4 +1,4 @@
-import { invoke, listen } from '$lib/ipc';
+import { invoke, listen } from '$lib/backend/ipc';
 import { asyncWritable, type WritableLoadable } from '@square/svelte-store';
 
 export async function getHead(projectId: string) {

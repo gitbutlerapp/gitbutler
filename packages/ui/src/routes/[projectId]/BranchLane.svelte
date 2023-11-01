@@ -13,12 +13,12 @@
 	import { quintOut } from 'svelte/easing';
 	import { crossfade, fade } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
-	import type { getCloudApiClient } from '$lib/api/cloud/api';
+	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import IconNewBadge from '$lib/icons/IconNewBadge.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import lscache from 'lscache';
 	import IconCloseSmall from '$lib/icons/IconCloseSmall.svelte';
 	import Tabs from './Tabs.svelte';

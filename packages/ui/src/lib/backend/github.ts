@@ -1,4 +1,4 @@
-import { invoke } from '$lib/ipc';
+import { invoke } from '$lib/backend/ipc';
 
 export type Verification = {
 	user_code: string;

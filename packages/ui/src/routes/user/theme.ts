@@ -1,6 +1,6 @@
+import type { SettingsStore } from '$lib/settings/userSettings';
 import { writable, type Writable } from '@square/svelte-store';
 import { appWindow, type Theme } from '@tauri-apps/api/window';
-import type { SettingsStore } from './userSettings';
 
 export const theme: Writable<string> = writable('dark');
 

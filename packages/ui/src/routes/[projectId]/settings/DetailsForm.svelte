@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Project } from '$lib/api/ipc/projects';
-	import { debounce } from '$lib/utils';
+	import type { Project } from '$lib/backend/projects';
+	import { debounce } from '$lib/utils/random';
 	import { createEventDispatcher } from 'svelte';
 
 	export let project: Project;

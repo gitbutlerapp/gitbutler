@@ -3,7 +3,7 @@
 	import type { PageData } from './$types';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext, onMount } from 'svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { IconExternalLink } from '$lib/icons';
 	import {
 		getBaseBranchStore,
@@ -15,15 +15,15 @@
 	import { getSessionStore } from '$lib/stores/sessions';
 	import { getDeltasStore } from '$lib/stores/deltas';
 	import { getFetchesStore } from '$lib/stores/fetches';
-	import { Code } from '$lib/ipc';
+	import { Code } from '$lib/backend/ipc';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
 	import { goto } from '$app/navigation';
 	import BaseBranchSelect from './BaseBranchSelect.svelte';
-	import { unsubscribe } from '$lib/utils';
-	import * as hotkeys from '$lib/hotkeys';
+	import { unsubscribe } from '$lib/utils/random';
+	import * as hotkeys from '$lib/utils/hotkeys';
 	import { userStore } from '$lib/stores/user';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import { getAuthenticatedWithCache } from '$lib/github/user';

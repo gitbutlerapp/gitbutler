@@ -1,10 +1,10 @@
 import type { LayoutLoad } from './$types';
-import { getCloudApiClient } from '$lib/api/cloud/api';
-import { projectsStore } from '$lib/api/ipc/projects';
-import Posthog from '$lib/posthog';
-import Sentry from '$lib/sentry';
+import { getCloudApiClient } from '$lib/backend/cloud';
+import { projectsStore } from '$lib/backend/projects';
+import Posthog from '$lib/analytics/posthog';
+import Sentry from '$lib/analytics/sentry';
 import lscache from 'lscache';
-import { newUpdateStore } from '$lib/updater';
+import { newUpdateStore } from './updater';
 
 // call on startup so we don't accumulate old items
 lscache.flushExpired();
