@@ -9,7 +9,7 @@
 	import RemoteBranchPeek from './RemoteBranchPeek.svelte';
 	import PullRequestPeek from './PullRequestPeek.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import Lane from './BranchLane.svelte';
+	import Lane from './components/BranchLane.svelte';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import { PullRequest } from '$lib/github/types';

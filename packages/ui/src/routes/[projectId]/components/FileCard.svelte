@@ -14,7 +14,7 @@
 	} from '$lib/icons';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from 'svelte';
-	import { dzTrigger } from './dropZone';
+	import { dzTrigger } from '$lib/utils/dropZone';
 	import IconExpandUpDownSlim from '$lib/icons/IconExpandUpDownSlim.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { slide } from 'svelte/transition';
@@ -28,7 +28,7 @@
 	export let conflicted: boolean;
 	export let projectId: string;
 	export let dzType: string;
-	export let projectPath: string;
+	export let projectPath: string | undefined;
 	export let expanded: boolean | undefined;
 	export let branchController: BranchController;
 	export let readonly = false;

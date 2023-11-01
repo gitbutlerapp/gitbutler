@@ -1,8 +1,8 @@
 <script lang="ts" async="true">
-	import Lane from './BranchLane.svelte';
+	import Lane from '../components/BranchLane.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
-	import { dzHighlight } from './dropZone';
+	import { dzHighlight } from '$lib/utils/dropZone';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import type { LoadState } from '@square/svelte-store';
@@ -11,7 +11,7 @@
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 
 	export let projectId: string;
-	export let projectPath: string;
+	export let projectPath: string | undefined;
 
 	export let branches: Branch[] | undefined;
 	export let branchesState: LoadState;
@@ -23,7 +23,7 @@
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
 
-	export let githubContext: GitHubIntegrationContext | undefined
+	export let githubContext: GitHubIntegrationContext | undefined;
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;

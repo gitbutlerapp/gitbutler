@@ -1,20 +1,8 @@
 <script lang="ts">
-	import Board from './Board.svelte';
-	import type { PageData } from './$types';
-	import { BranchController } from '$lib/vbranches/branchController';
+	import type { LayoutData } from './$types';
 	import { getContext, onMount } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { IconExternalLink } from '$lib/icons';
-	import {
-		getBaseBranchStore,
-		getRemoteBranchStore,
-		getVirtualBranchStore,
-		getWithContentStore
-	} from '$lib/vbranches/branchStoresCache';
-	import { getHeadsStore } from '$lib/stores/head';
-	import { getSessionStore } from '$lib/stores/sessions';
-	import { getDeltasStore } from '$lib/stores/deltas';
-	import { getFetchesStore } from '$lib/stores/fetches';
 	import { Code } from '$lib/backend/ipc';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
@@ -25,42 +13,27 @@
 	import { unsubscribe } from '$lib/utils/random';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { userStore } from '$lib/stores/user';
-	import type { GitHubIntegrationContext } from '$lib/github/types';
-	import { getAuthenticatedWithCache } from '$lib/github/user';
 	import Navigation from './Navigation.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Button from '$lib/components/Button.svelte';
 
-	export let data: PageData;
-	let { projectId, project, cloud, update } = data;
+	export let data: LayoutData;
+	let {
+		projectId,
+		cloud,
+		update,
+		sessionsStore,
+		deltasStore,
+		baseBranchStore,
+		baseBranchesState,
+		vbranchesState,
+		branchController,
+		branchesWithContent,
+		remoteBranchStore,
+		githubContextStore
+	} = data;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-
-	const fetchStore = getFetchesStore(projectId);
-	const deltasStore = getDeltasStore(projectId, undefined, true);
-	const headStore = getHeadsStore(projectId);
-	const sessionsStore = getSessionStore(projectId);
-	const baseBranchStore = getBaseBranchStore(projectId, fetchStore, headStore);
-	const remoteBranchStore = getRemoteBranchStore(projectId, fetchStore, headStore, baseBranchStore);
-	const vbranchStore = getVirtualBranchStore(
-		projectId,
-		deltasStore,
-		sessionsStore,
-		headStore,
-		baseBranchStore
-	);
-	const branchesWithContent = getWithContentStore(projectId, sessionsStore, vbranchStore);
-
-	const vbrachesState = vbranchStore.state;
-	const branchesState = branchesWithContent.state;
-	const baseBranchesState = baseBranchStore.state;
-
-	const branchController = new BranchController(
-		projectId,
-		vbranchStore,
-		remoteBranchStore,
-		baseBranchStore
-	);
 
 	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(projectId);
 
@@ -79,42 +52,12 @@
 	}
 
 	onMount(() => unsubscribe(hotkeys.on('Meta+Shift+R', () => goto(`/old/${projectId}/player`))));
-
-	function getIntegrationContext(
-		remoteUrl: string,
-		githubAuthToken: string
-	): GitHubIntegrationContext | undefined {
-		if (!remoteUrl.includes('github')) return undefined;
-		const [owner, repo] = remoteUrl.split('.git')[0].split(/\/|:/).slice(-2);
-		return {
-			authToken: githubAuthToken,
-			owner,
-			repo
-		};
-	}
-
-	$: githubUser = $userStore?.github_access_token
-		? getAuthenticatedWithCache({ authToken: $userStore.github_access_token })
-		: undefined;
-
-	$: if (
-		$userStore &&
-		$githubUser?.username !== undefined &&
-		$userStore.github_username !== $githubUser.username
-	) {
-		$userStore.github_username = $githubUser.username;
-	}
-
-	$: githubContext =
-		$baseBranchStore?.remoteUrl && $userStore?.github_access_token
-			? getIntegrationContext($baseBranchStore?.remoteUrl, $userStore?.github_access_token)
-			: undefined;
 </script>
 
 {#if $baseBranchesState.isLoading}
 	Loading...
 {:else if $baseBranchStore}
-	{#if !$vbrachesState.isError}
+	{#if !$vbranchesState.isError}
 		<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
 			<div bind:this={trayViewport} class="z-30 flex flex-shrink">
 				<Navigation
@@ -126,7 +69,7 @@
 					bind:peekTrayExpanded
 					{cloud}
 					{projectId}
-					{githubContext}
+					githubContext={$githubContextStore}
 					user={$userStore}
 					{update}
 				/>
@@ -172,25 +115,13 @@
 					class="lane-scroll flex flex-grow gap-1 overflow-x-auto overflow-y-hidden overscroll-none transition-opacity duration-300"
 					style:opacity={peekTrayExpanded ? '0.5' : undefined}
 				>
-					<Board
-						branches={$branchesWithContent}
-						branchesState={$branchesState}
-						{branchController}
-						{projectId}
-						projectPath={$project?.path}
-						base={$baseBranchStore}
-						baseBranchState={$baseBranchesState}
-						cloudEnabled={$project?.api?.sync || false}
-						{cloud}
-						{githubContext}
-					/>
+					<slot />
 				</div>
-				<!-- <BottomPanel base={$baseBranchStore} {userSettings} /> -->
 			</div>
 		</div>
 	{:else}
 		<div class="text-color-3 flex h-full w-full items-center justify-center">
-			{#if $vbrachesState.error.code === Code.ProjectHead}
+			{#if $vbranchesState.error.code === Code.ProjectHead}
 				<div class="flex max-w-xl flex-col justify-center gap-y-3 p-4 text-center">
 					<h2 class="text-lg font-semibold">
 						Looks like you've switched from gitbutler/integration
@@ -222,7 +153,7 @@
 					<IconButton icon={IconChevronLeft} on:click={() => goto('/')}></IconButton>
 					<div>
 						<h1 class="text-lg font-semibold">There was a problem loading this repo</h1>
-						<p>{$vbrachesState.error.message}</p>
+						<p>{$vbranchesState.error.message}</p>
 					</div>
 				</div>
 			{/if}
