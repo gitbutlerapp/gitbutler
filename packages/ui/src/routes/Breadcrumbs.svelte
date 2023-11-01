@@ -9,7 +9,7 @@
 <div class="text-color-2 flex flex-row items-stretch gap-1 font-bold">
 	<button class="p-1" on:click={() => goto('/')}><IconHome /></button>
 	{#if project}
-		<a class="button flex items-center px-3" href="/repo/{project.id}" title="{project.title} home">
+		<a class="button flex items-center px-3" href="/{project.id}" title="{project.title} home">
 			{project.title}
 		</a>
 	{/if}

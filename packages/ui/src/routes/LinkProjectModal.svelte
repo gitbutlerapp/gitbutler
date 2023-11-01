@@ -52,7 +52,7 @@
 					await project
 						.update({ api: { ...cloudProject, sync: true } })
 						.then(() => toasts.success(`Project linked`));
-					goto(`/repo/${$project.id}/`);
+					goto(`/${$project.id}/`);
 				}
 				modal.close();
 			})

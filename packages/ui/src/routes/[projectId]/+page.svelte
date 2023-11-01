@@ -78,11 +78,7 @@
 	}
 
 	onMount(() =>
-		unsubscribe(
-			hotkeys.on('Meta+Shift+R', () =>
-				goto(location.href.replace('/repo/', '/projects/') + '/player')
-			)
-		)
+		unsubscribe(hotkeys.on('Meta+Shift+R', () => goto(`/projects/${projectId}/player`)))
 	);
 
 	function getIntegrationContext(

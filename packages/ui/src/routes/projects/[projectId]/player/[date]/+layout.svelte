@@ -19,7 +19,8 @@
 		richSessions2,
 		currentSessionId,
 		currentFilepath,
-		currentTimestamp
+		currentTimestamp,
+		projectId
 	} = data;
 
 	$: richSessionsState = richSessions.state;
@@ -31,9 +32,7 @@
 		unsubscribe(
 			events.on('openBookmarkModal', () => bookmarkModal?.show($currentTimestamp)),
 			hotkeys.on('Meta+Shift+D', () => bookmarkModal?.show($currentTimestamp)),
-			hotkeys.on('Meta+Shift+R', () =>
-				goto(location.href.replace('/projects/', '/repo/').replace(/\/player.*/, ''))
-			),
+			hotkeys.on('Meta+Shift+R', () => goto(`/${projectId}/`)),
 			hotkeys.on('D', async () => {
 				const existing = await bookmarks.list({
 					projectId: $page.params.projectId,

@@ -48,7 +48,7 @@
 		<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2 pb-[1px]">
 			<div>
 				{#if project}
-					<Link href="/repo/{project?.id}/settings">
+					<Link href="/{project?.id}/settings">
 						<div class="flex flex-row items-center space-x-2">
 							{#if project?.api?.sync}
 								<div class="h-2 w-2 rounded-full bg-green-700" />
