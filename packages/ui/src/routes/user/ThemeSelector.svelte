@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { getContext } from 'svelte';
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);

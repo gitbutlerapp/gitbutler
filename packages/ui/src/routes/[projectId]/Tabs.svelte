@@ -3,7 +3,7 @@
 	import IconTriangleDown from '$lib/icons/IconTriangleDown.svelte';
 	import { type ComponentType, getContext } from 'svelte';
 	import lscache from 'lscache';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { slide } from 'svelte/transition';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';

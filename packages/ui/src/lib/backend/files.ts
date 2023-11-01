@@ -1,4 +1,4 @@
-import { invoke, listen } from '$lib/ipc';
+import { invoke, listen } from '$lib/backend/ipc';
 
 export type FileContent = { type: 'utf8'; value: string } | { type: 'binary' } | { type: 'large' };
 

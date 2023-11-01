@@ -5,7 +5,7 @@
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
 	import RenderedLine from './RenderedLine.svelte';
 	import { IconExpandUpDown, IconExpandUp, IconExpandDown } from '$lib/icons';
-	import { invoke } from '$lib/ipc';
+	import { invoke } from '$lib/backend/ipc';
 	import { plainToInstance } from 'class-transformer';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';

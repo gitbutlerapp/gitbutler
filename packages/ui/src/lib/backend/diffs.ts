@@ -1,4 +1,4 @@
-import { invoke } from '$lib/ipc';
+import { invoke } from '$lib/backend/ipc';
 import { asyncWritable, type WritableLoadable } from '@square/svelte-store';
 import { subscribeToSessions } from './sessions';
 

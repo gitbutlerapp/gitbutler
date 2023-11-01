@@ -7,7 +7,7 @@ import {
 	type VirtualBranchStore
 } from './types';
 import { plainToInstance } from 'class-transformer';
-import { invoke } from '$lib/ipc';
+import { invoke } from '$lib/backend/ipc';
 import { isDelete, isInsert, type Delta } from '$lib/backend/deltas';
 import type { Session } from '$lib/backend/sessions';
 import { get } from 'svelte/store';

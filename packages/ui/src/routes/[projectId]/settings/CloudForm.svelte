@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as toasts from '$lib/toasts';
+	import * as toasts from '$lib/utils/toasts';
 	import { getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import { userStore } from '$lib/stores/user';

@@ -1,4 +1,4 @@
-import { listen } from '$lib/ipc';
+import { listen } from '$lib/backend/ipc';
 
 export function subscribe(
 	params: { projectId: string },

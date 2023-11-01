@@ -2,19 +2,19 @@
 	import '../styles/main.postcss';
 
 	import { open } from '@tauri-apps/api/dialog';
-	import * as toasts from '$lib/toasts';
-	import * as hotkeys from '$lib/hotkeys';
-	import * as events from '$lib/events';
+	import * as toasts from '$lib/utils/toasts';
+	import * as hotkeys from '$lib/utils/hotkeys';
+	import * as events from '$lib/utils/events';
 	import { Toaster } from 'svelte-french-toast';
 	import { userStore } from '$lib/stores/user';
 	import type { LayoutData } from './$types';
 	import { onMount, setContext } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { unsubscribe } from '$lib/utils';
+	import { unsubscribe } from '$lib/utils/random';
 	import LinkProjectModal from './LinkProjectModal.svelte';
 	import ShareIssueModal from './ShareIssueModal.svelte';
-	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/userSettings';
-	import { initTheme } from '$lib/theme';
+	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
+	import { initTheme } from './user/theme';
 
 	export let data: LayoutData;
 	const { posthog, projects, sentry, cloud } = data;

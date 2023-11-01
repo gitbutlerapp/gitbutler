@@ -1,6 +1,6 @@
 <script lang="ts">
 	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch, Branch, RemoteBranch } from '$lib/vbranches/types';
 	import { getContext } from 'svelte';

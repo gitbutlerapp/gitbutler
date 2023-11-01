@@ -1,10 +1,10 @@
 <script lang="ts">
 	import type { Loadable } from '@square/svelte-store';
 	import { installUpdate, onUpdaterEvent } from '@tauri-apps/api/updater';
-	import * as toasts from '$lib/toasts';
+	import * as toasts from '$lib/utils/toasts';
 	import { onMount } from 'svelte';
 	import { relaunch } from '@tauri-apps/api/process';
-	import type { Update } from '$lib/updater';
+	import type { Update } from '../updater';
 
 	export let update: Loadable<Update>;
 

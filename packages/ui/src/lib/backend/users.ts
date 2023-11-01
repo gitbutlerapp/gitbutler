@@ -1,5 +1,5 @@
 import type { User } from './cloud';
-import { invoke } from '$lib/ipc';
+import { invoke } from '$lib/backend/ipc';
 
 export async function get() {
 	return invoke<User | undefined>('get_user');

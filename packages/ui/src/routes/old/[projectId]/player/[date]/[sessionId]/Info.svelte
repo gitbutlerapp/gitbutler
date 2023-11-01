@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as events from '$lib/events';
-	import { collapse } from '$lib/paths';
+	import * as events from '$lib/utils/events';
+	import { collapse } from '$lib/utils/paths';
 	import { IconBookmark, IconBookmarkFilled } from '$lib/icons';
 	import { format } from 'date-fns';
 	import { page } from '$app/stores';

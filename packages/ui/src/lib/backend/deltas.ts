@@ -1,4 +1,4 @@
-import { invoke, listen } from '$lib/ipc';
+import { invoke, listen } from '$lib/backend/ipc';
 
 export type OperationDelete = { delete: [number, number] };
 export type OperationInsert = { insert: [number, string] };

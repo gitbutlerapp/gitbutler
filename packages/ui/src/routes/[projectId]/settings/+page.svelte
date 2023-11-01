@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as toasts from '$lib/toasts';
+	import * as toasts from '$lib/utils/toasts';
 	import { userStore } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
 	import CloudForm from './CloudForm.svelte';
