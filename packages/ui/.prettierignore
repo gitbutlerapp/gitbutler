@@ -18,7 +18,5 @@ yarn.lock
 /.vscode
 /src-tauri
 
-/.histoire
-
 # Written to disk when using `act`
 .pnpm-store

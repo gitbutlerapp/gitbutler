@@ -1,9 +1,11 @@
 <script lang="ts">
 	import * as toasts from '$lib/toasts';
 	import * as zip from '$lib/api/ipc/zip';
-	import { Button, Checkbox, Modal } from '$lib/components';
 	import { page } from '$app/stores';
 	import type { User, getCloudApiClient } from '$lib/api/cloud/api';
+	import Modal from '$lib/components/Modal.svelte';
+	import Checkbox from '$lib/components/Checkbox.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	export let user: User | undefined;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
@@ -77,7 +79,7 @@
 	};
 </script>
 
-<Modal bind:this={modal} title="Share with GitButler team for review" on:close={onClose}>
+<Modal bind:this={modal} title="Share debug data with GitButler team for review" on:close={onClose}>
 	<div class="flex flex-col gap-4">
 		<p class="text-color-3">
 			If you are having trouble, please share your project and logs with the Gitbutler team. We will

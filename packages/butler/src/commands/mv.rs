@@ -21,10 +21,17 @@ impl super::RunCommand for Move {
                 .flat_map(|(_branch, files)| {
                     files
                         .into_iter()
-                        .flat_map(|file| {
-                            file.hunks
+                        .flat_map(|(filepath, hunks)| {
+                            hunks
                                 .into_iter()
-                                .map(|hunk| hunk.id)
+                                .map(|hunk| {
+                                    format!(
+                                        "{}:{}-{}",
+                                        filepath.display(),
+                                        hunk.new_start,
+                                        hunk.new_start + hunk.new_lines
+                                    )
+                                })
                                 .collect::<Vec<_>>()
                         })
                         .collect::<Vec<_>>()

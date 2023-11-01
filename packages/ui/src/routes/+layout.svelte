@@ -17,9 +17,6 @@
 	import ShareIssueModal from './ShareIssueModal.svelte';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/userSettings';
 	import { initTheme } from '$lib/theme';
-	import { onUpdaterEvent } from '@tauri-apps/api/updater';
-	import Header from './Header.svelte';
-	import Footer from './Footer.svelte';
 
 	export let data: LayoutData;
 	const { posthog, projects, sentry, cloud } = data;
@@ -27,10 +24,6 @@
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
 	setContext(SETTINGS_CONTEXT, userSettings);
-
-	const project = derived([page, projects], ([page, projects]) =>
-		projects?.find((project) => project.id === page.params.projectId)
-	);
 
 	let linkProjectModal: LinkProjectModal;
 	let shareIssueModal: ShareIssueModal;
@@ -53,7 +46,7 @@
 						if (!project) return;
 						toasts.success(`Project ${project.title} created`);
 						linkProjectModal?.show(project.id);
-						goto(`/repo/${project.id}/`);
+						goto(`/${project.id}/`);
 					})
 					.catch((e: any) => toasts.error(e.message))
 			),

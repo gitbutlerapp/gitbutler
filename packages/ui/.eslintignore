@@ -18,11 +18,8 @@ yarn.lock
 /.vscode
 /src-tauri
 
-/.histoire
 /.eslintrc.cjs
 /svelte.config.js
-/histoire.setup.ts
-/histoire.config.ts
 /postcss.config.cjs
 /tailwind.config.cjs
 

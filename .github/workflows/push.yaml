@@ -61,15 +61,6 @@ jobs:
       - run: cargo install cargo-sort
       - run: cargo sort --check --workspace
 
-  story:
-    needs: changes
-    if: ${{ needs.changes.outputs.node == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-node
-      - run: pnpm story:build
-
   test-rust:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}

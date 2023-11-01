@@ -25,10 +25,14 @@ impl super::RunCommand for Status {
                 println!("     id: {}", branch.id.to_string().green());
                 println!("applied: {}", branch.applied.to_string().green());
                 println!(" files:");
-                for file in files {
-                    println!("        {}", file.path.display().to_string().yellow());
-                    for hunk in file.hunks {
-                        println!("          {}", hunk.id);
+                for (filepath, hunks) in files {
+                    println!("        {}", filepath.display().to_string().yellow());
+                    for hunk in hunks {
+                        println!(
+                            "          {}-{}",
+                            hunk.new_lines,
+                            hunk.new_start + hunk.new_lines
+                        );
                     }
                 }
             } else {

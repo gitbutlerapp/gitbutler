@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Button, Modal, Login, Link } from '$lib/components';
 	import type { PageData } from './$types';
 	import * as toasts from '$lib/toasts';
 	import { initDeviceOauth, checkAuthStatus } from '$lib/api/ipc/github';
@@ -7,13 +6,16 @@
 	import { deleteAllData } from '$lib/api/ipc';
 	import { userStore } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
-	import ThemeSelector from '../ThemeSelector.svelte';
+	import ThemeSelector from './ThemeSelector.svelte';
 	import { getContext } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { copyToClipboard } from '$lib/clipboard';
-	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
 	import BackButton from '$lib/components/BackButton.svelte';
+	import Link from '$lib/components/Link.svelte';
+	import Login from '$lib/components/Login.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	export let data: PageData;
 	const { cloud } = data;
