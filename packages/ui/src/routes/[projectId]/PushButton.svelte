@@ -7,7 +7,7 @@
 		IconTriangleUp
 	} from '$lib/icons';
 	import { projectCreatePullRequestInsteadOfPush } from '$lib/config/config';
-	import { Tooltip } from '$lib/components';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import { createEventDispatcher } from 'svelte';
 

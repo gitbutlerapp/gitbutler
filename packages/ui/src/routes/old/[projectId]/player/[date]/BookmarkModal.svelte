@@ -1,8 +1,9 @@
 <script lang="ts">
 	import * as toasts from '$lib/toasts';
 	import * as bookmarks from '$lib/api/ipc/bookmarks';
-	import { Button, Modal } from '$lib/components';
 	import { IconBookmarkFilled } from '$lib/icons';
+	import Modal from '$lib/components/Modal.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	export let projectId: string;
 

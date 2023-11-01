@@ -6,7 +6,6 @@
 	import type { Branch, File } from '$lib/vbranches/types';
 	import type { getCloudApiClient } from '$lib/api/cloud/api';
 	import type { User } from '$lib/api/cloud';
-	import { Button, Tooltip } from '$lib/components';
 	import { IconAISparkles, IconLoading, IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import {
 		projectCommitGenerationExtraConcise,
@@ -14,6 +13,8 @@
 	} from '$lib/config/config';
 	import { createEventDispatcher } from 'svelte';
 	import type { Ownership } from '$lib/vbranches/ownership';
+	import Tooltip from '$lib/components/Tooltip.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	export let projectId: string;
 	export let branchController: BranchController;

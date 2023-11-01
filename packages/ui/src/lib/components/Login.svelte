@@ -4,8 +4,7 @@
 	import { userStore } from '$lib/stores/user';
 	import { derived, writable } from '@square/svelte-store';
 	import { open } from '@tauri-apps/api/shell';
-	import Button from './Button';
-	import { goto } from '$app/navigation';
+	import Button from './Button.svelte';
 
 	const cloud = getCloudApiClient();
 	const user = userStore;

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
-	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
+	import PopupMenu from '$lib/components/PopupMenu.svelte';
+	import PopupMenuItem from '$lib/components/PopupMenuItem.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { File } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';

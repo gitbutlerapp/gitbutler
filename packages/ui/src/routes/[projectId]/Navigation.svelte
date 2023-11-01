@@ -6,15 +6,15 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { getContext } from 'svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { derived, get, readable, type Loadable, type Readable } from '@square/svelte-store';
 	import PeekTray from './PeekTray.svelte';
 	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
-	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
-	import Button from '$lib/components/Button/Button.svelte';
-	import Modal from '$lib/components/Modal/Modal.svelte';
+	import TimeAgo from '$lib/components/TimeAgo.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import type { User, getCloudApiClient } from '$lib/api/cloud/api';
@@ -26,7 +26,7 @@
 	import { PullRequest } from '$lib/github/types';
 	import PullRequests from './PullRequests.svelte';
 	import IconHome from '$lib/icons/IconHome.svelte';
-	import Link from '$lib/components/Link/Link.svelte';
+	import Link from '$lib/components/Link.svelte';
 	import IconSettings from '$lib/icons/IconSettings.svelte';
 	import UpdateButton from './UpdateButton.svelte';
 	import type { Update } from '$lib/updater';

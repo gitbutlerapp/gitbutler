@@ -1,7 +1,7 @@
 <script async lang="ts">
 	import { goto } from '$app/navigation';
 	import BackButton from '$lib/components/BackButton.svelte';
-	import Button from '$lib/components/Button/Button.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
 	import IconExternalLink from '$lib/icons/IconExternalLink.svelte';
 	import IconLoading from '$lib/icons/IconLoading.svelte';

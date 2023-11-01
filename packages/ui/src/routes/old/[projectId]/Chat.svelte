@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button } from '$lib/components';
+	import Button from '$lib/components/Button.svelte';
 	import { getCloudApiClient } from '$lib/api/cloud/api';
 	import { userStore } from '$lib/stores/user';
 	import type { Project } from '$lib/api/ipc/projects';

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { IconExternalLink } from '../../icons';
+	import { IconExternalLink } from '../icons';
 	import { open } from '@tauri-apps/api/shell';
 
 	let classes = '';

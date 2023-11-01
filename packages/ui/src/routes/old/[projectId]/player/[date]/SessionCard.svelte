@@ -7,7 +7,7 @@
 	import { getBookmarksStore } from '$lib/stores/bookmarks';
 	import { IconBookmarkFilled } from '$lib/icons';
 	import { line } from '$lib/diff';
-	import { Stats } from '$lib/components';
+	import Stats from '$lib/components/Stats.svelte';
 
 	export let isCurrent: boolean;
 	export let session: Session;

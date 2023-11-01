@@ -1,6 +1,5 @@
 <script lang="ts">
 	import leven from 'leven';
-	import { Button, Modal } from '$lib/components';
 	import { asyncDerived } from '@square/svelte-store';
 	import { compareDesc, formatDistanceToNow } from 'date-fns';
 	import { IconFolder, IconLoading } from '$lib/icons';
@@ -10,6 +9,8 @@
 	import * as toasts from '$lib/toasts';
 	import IconFolderPlus from '$lib/icons/IconFolderPlus.svelte';
 	import { goto } from '$app/navigation';
+	import Modal from '$lib/components/Modal.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	export let projects: typeof projectsStore;
 	export let cloud: ReturnType<typeof getCloudApiClient>;

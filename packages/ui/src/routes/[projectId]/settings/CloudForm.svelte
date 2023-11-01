@@ -3,8 +3,9 @@
 	import { getCloudApiClient } from '$lib/api/cloud/api';
 	import type { Project } from '$lib/api/ipc/projects';
 	import { userStore } from '$lib/stores/user';
-	import { Login, Checkbox } from '$lib/components';
 	import { createEventDispatcher, onMount } from 'svelte';
+	import Checkbox from '$lib/components/Checkbox.svelte';
+	import Login from '$lib/components/Login.svelte';
 
 	export let project: Project;
 	const user = userStore;

@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { RemoteFile, type RemoteCommit } from '$lib/vbranches/types';
-	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
+	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
 	import RenderedLine from './RenderedLine.svelte';
 	import { IconExpandUpDown, IconExpandUp, IconExpandDown } from '$lib/icons';
-	import { Button, Modal } from '$lib/components';
 	import { invoke } from '$lib/ipc';
 	import { plainToInstance } from 'class-transformer';
+	import Modal from '$lib/components/Modal.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	export let commit: RemoteCommit;
 	export let projectId: string;

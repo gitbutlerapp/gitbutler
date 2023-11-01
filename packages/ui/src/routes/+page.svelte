@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
-	import { Button } from '$lib/components';
+	import Button from '$lib/components/Button.svelte';
 	import * as events from '$lib/events';
 
 	export let data: LayoutData;

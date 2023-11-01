@@ -3,9 +3,9 @@
 </script>
 
 <script lang="ts">
-	import { Checkbox } from '$lib/components';
+	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { writable } from 'svelte/store';
-	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
+	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import IconChevronDownSmall from '$lib/icons/IconChevronDownSmall.svelte';
 	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
 	import IconFile from '$lib/icons/IconFile.svelte';

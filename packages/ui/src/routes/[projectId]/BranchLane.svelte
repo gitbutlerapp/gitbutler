@@ -3,7 +3,6 @@
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { getContext, onDestroy, onMount } from 'svelte';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { Button, Link, Modal, Tooltip } from '$lib/components';
 	import IconKebabMenu from '$lib/icons/IconKebabMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
@@ -36,6 +35,10 @@
 	import { getPullRequestByBranch, createPullRequest } from '$lib/github/pullrequest';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import PushButton from './PushButton.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Link from '$lib/components/Link.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Delta } from '$lib/api/ipc/deltas';
 	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '$lib/icons';
-	import { DiffContext } from '$lib/components';
+	import DiffContext from '$lib/components/DiffContext.svelte';
 	import { unsubscribe } from '$lib/utils';
 	import { onMount } from 'svelte';
 	import * as hotkeys from '$lib/hotkeys';

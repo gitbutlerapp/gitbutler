@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import { listPullRequestsWithCache } from '$lib/github/pullrequest';
-	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
+	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { IconPullRequest, IconDraftPullRequest, IconFilter, IconFilterFilled } from '$lib/icons';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { accordion } from './accordion';
