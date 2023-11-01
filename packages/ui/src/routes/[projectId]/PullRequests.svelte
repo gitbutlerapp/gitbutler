@@ -4,7 +4,7 @@
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
 	import { IconPullRequest, IconDraftPullRequest, IconFilter, IconFilterFilled } from '$lib/icons';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import { accordion } from '../accordion';
+	import { accordion } from './accordion';
 	import type { PullRequest } from '$lib/github/types';
 	import { createEventDispatcher } from 'svelte';
 	import { showMenu } from 'tauri-plugin-context-menu';
