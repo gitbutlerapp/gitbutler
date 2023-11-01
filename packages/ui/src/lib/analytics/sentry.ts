@@ -1,5 +1,5 @@
 import { setUser } from '@sentry/sveltekit';
-import type { User } from './backend/cloud';
+import type { User } from '../backend/cloud';
 
 export default () => {
 	return {
