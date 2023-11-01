@@ -8,8 +8,6 @@
 	import { Toaster } from 'svelte-french-toast';
 	import { userStore } from '$lib/stores/user';
 	import type { LayoutData } from './$types';
-	import { page } from '$app/stores';
-	import { derived } from '@square/svelte-store';
 	import { onMount, setContext } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { unsubscribe } from '$lib/utils';

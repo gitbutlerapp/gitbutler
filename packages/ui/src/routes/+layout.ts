@@ -1,8 +1,8 @@
 import type { LayoutLoad } from './$types';
 import { getCloudApiClient } from '$lib/backend/cloud';
 import { projectsStore } from '$lib/backend/projects';
-import Posthog from '$lib/posthog';
-import Sentry from '$lib/sentry';
+import Posthog from '$lib/analytics/posthog';
+import Sentry from '$lib/analytics/sentry';
 import lscache from 'lscache';
 import { newUpdateStore } from '$lib/updater';
 
