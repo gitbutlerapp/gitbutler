@@ -12,6 +12,6 @@ export const load: PageLoad = async ({ url, params, parent }) => {
 	if (!latestDate) throw error(404, 'No sessions found');
 	throw redirect(
 		302,
-		`/projects/${params.projectId}/player/${format(latestDate, 'yyyy-MM-dd')}/${url.search}`
+		`/old/${params.projectId}/player/${format(latestDate, 'yyyy-MM-dd')}/${url.search}`
 	);
 };

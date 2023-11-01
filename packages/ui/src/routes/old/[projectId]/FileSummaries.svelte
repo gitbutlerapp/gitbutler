@@ -71,7 +71,7 @@
 						})}
 					</div>
 					<Link
-						href="/projects/{$page.params.projectId}/player/{format(date, 'yyyy-MM-dd')}"
+						href="/old/{$page.params.projectId}/player/{format(date, 'yyyy-MM-dd')}"
 						role="primary"
 					>
 						Replay Changes
@@ -82,7 +82,7 @@
 						<li class="changed-file bg-color-1 flex items-center justify-between gap-4">
 							<a
 								class="file-name max-w- flex w-full max-w-[360px] overflow-auto py-2 font-mono hover:underline"
-								href="/projects/{$page.params.projectId}/player/{format(
+								href="/old/{$page.params.projectId}/player/{format(
 									date,
 									'yyyy-MM-dd'
 								)}?file={encodeURIComponent(filepath)}"

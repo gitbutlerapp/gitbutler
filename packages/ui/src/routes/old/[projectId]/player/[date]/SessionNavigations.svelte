@@ -45,7 +45,7 @@
 	};
 
 	const getSessionURI = (sessionId: string) =>
-		`/projects/${$page.params.projectId}/player/${
+		`/old/${$page.params.projectId}/player/${
 			$page.params.date
 		}/${sessionId}?${removeFromSearchParams($page.url.searchParams, 'delta').toString()}`;
 
