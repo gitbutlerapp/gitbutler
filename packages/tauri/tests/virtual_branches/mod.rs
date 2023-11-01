@@ -1773,3 +1773,36 @@ mod cherry_pick {
         }
     }
 }
+
+mod amend {
+    use super::*;
+
+    mod to_same_branch {
+        use super::*;
+
+        #[tokio::test]
+        async fn non_locked_hunk() {
+            todo!()
+        }
+
+        #[tokio::test]
+        async fn locked_hunk() {
+            todo!()
+        }
+    }
+
+    mod to_another_branch {
+        use super::*;
+
+        #[tokio::test]
+        async fn non_locked_hunk() {
+            todo!()
+        }
+
+        #[tokio::test]
+        async fn locked_hunk() {
+            todo!()
+        }
+    }
+
+}
