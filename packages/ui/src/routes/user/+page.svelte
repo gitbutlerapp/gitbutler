@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import * as toasts from '$lib/toasts';
-	import { initDeviceOauth, checkAuthStatus } from '$lib/api/github';
+	import { initDeviceOauth, checkAuthStatus } from '$lib/backend/github';
 	import { getAuthenticated } from '$lib/github/user';
-	import { deleteAllData } from '$lib/api/data';
+	import { deleteAllData } from '$lib/backend/data';
 	import { userStore } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
 	import ThemeSelector from './ThemeSelector.svelte';

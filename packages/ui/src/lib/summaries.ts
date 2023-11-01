@@ -1,4 +1,4 @@
-import { getCloudApiClient } from './api/cloud';
+import { getCloudApiClient } from './backend/cloud';
 import lscache from 'lscache';
 
 const cloud = getCloudApiClient();
