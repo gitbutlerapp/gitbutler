@@ -1,6 +1,6 @@
 import type { LayoutLoad } from './$types';
-import { getCloudApiClient } from '$lib/api/cloud/api';
-import { projectsStore } from '$lib/api/ipc/projects';
+import { getCloudApiClient } from '$lib/api/cloud';
+import { projectsStore } from '$lib/api/projects';
 import Posthog from '$lib/posthog';
 import Sentry from '$lib/sentry';
 import lscache from 'lscache';

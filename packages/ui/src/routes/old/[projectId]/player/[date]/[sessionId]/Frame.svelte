@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Session } from '$lib/api/ipc/sessions';
-	import type { Delta } from '$lib/api/ipc/deltas';
+	import type { Session } from '$lib/api/sessions';
+	import type { Delta } from '$lib/api/deltas';
 	import type { Frame } from './frame';
 	import DeltasViewer from '$lib/components/DeltasViewer.svelte';
 

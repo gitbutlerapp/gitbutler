@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getCloudApiClient, type LoginToken } from '$lib/api/cloud/api';
+	import { getCloudApiClient, type LoginToken } from '$lib/api/cloud';
 	import * as toasts from '$lib/toasts';
 	import { userStore } from '$lib/stores/user';
 	import { derived, writable } from '@square/svelte-store';

@@ -1,4 +1,4 @@
-import * as bookmarks from '$lib/api/ipc/bookmarks';
+import * as bookmarks from '$lib/api/bookmarks';
 import { type Loadable, asyncWritable, asyncDerived } from '@square/svelte-store';
 
 export function getBookmarksStore(params: { projectId: string }): Loadable<bookmarks.Bookmark[]> {

@@ -9,7 +9,7 @@
 	import SessionsList from './SessionsList.svelte';
 	import SessionNavigations from './SessionNavigations.svelte';
 	import { IconLoading } from '$lib/icons';
-	import * as bookmarks from '$lib/api/ipc/bookmarks';
+	import * as bookmarks from '$lib/api/bookmarks';
 	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;

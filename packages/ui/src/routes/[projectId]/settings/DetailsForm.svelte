@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Project } from '$lib/api/ipc/projects';
+	import type { Project } from '$lib/api/projects';
 	import { debounce } from '$lib/utils';
 	import { createEventDispatcher } from 'svelte';
 

@@ -1,4 +1,4 @@
-import type { User } from '../cloud/api';
+import type { User } from './cloud';
 import { invoke } from '$lib/ipc';
 
 export async function get() {

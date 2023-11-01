@@ -4,8 +4,8 @@
 	import { page } from '$app/stores';
 	import * as hotkeys from '$lib/hotkeys';
 
-	import type { Session } from '$lib/api/ipc/sessions';
-	import type { Delta } from '$lib/api/ipc/deltas';
+	import type { Session } from '$lib/api/sessions';
+	import type { Delta } from '$lib/api/deltas';
 	import { unsubscribe } from '$lib/utils';
 	import { onMount } from 'svelte';
 	import { format } from 'date-fns';

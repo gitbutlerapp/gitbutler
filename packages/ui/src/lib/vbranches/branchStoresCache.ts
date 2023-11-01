@@ -8,10 +8,10 @@ import {
 } from './types';
 import { plainToInstance } from 'class-transformer';
 import { invoke } from '$lib/ipc';
-import { isDelete, isInsert, type Delta } from '$lib/api/ipc/deltas';
-import type { Session } from '$lib/api/ipc/sessions';
+import { isDelete, isInsert, type Delta } from '$lib/api/deltas';
+import type { Session } from '$lib/api/sessions';
 import { get } from 'svelte/store';
-import type { FileContent } from '$lib/api/ipc/files';
+import type { FileContent } from '$lib/api/files';
 
 export function getVirtualBranchStore(
 	projectId: string,

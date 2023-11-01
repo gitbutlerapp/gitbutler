@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { format, startOfDay } from 'date-fns';
-	import type { Delta } from '$lib/api/ipc/deltas';
+	import type { Delta } from '$lib/api/deltas';
 	import { generateBuckets } from './histogram';
 	import FileActivity from './FileActivity.svelte';
 	import { page } from '$app/stores';
 	import Link from '$lib/components/Link.svelte';
 	import { IconRewind, IconPlayerPlayFilled, IconLoading, IconSparkle } from '$lib/icons';
 	import { collapse } from '$lib/paths';
-	import type { Session } from '$lib/api/ipc/sessions';
+	import type { Session } from '$lib/api/sessions';
 	import { getDeltasStore } from '$lib/stores/deltas';
 	import { asyncDerived } from '@square/svelte-store';
 

@@ -17,7 +17,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
-	import type { User, getCloudApiClient } from '$lib/api/cloud/api';
+	import type { User, getCloudApiClient } from '$lib/api/cloud';
 	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
 	import { slide } from 'svelte/transition';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';

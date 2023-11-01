@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as toasts from '$lib/toasts';
-	import { getCloudApiClient } from '$lib/api/cloud/api';
-	import type { Project } from '$lib/api/ipc/projects';
+	import { getCloudApiClient } from '$lib/api/cloud';
+	import type { Project } from '$lib/api/projects';
 	import { userStore } from '$lib/stores/user';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
