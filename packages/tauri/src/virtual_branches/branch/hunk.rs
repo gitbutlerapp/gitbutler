@@ -2,12 +2,25 @@ use std::{fmt::Display, ops::RangeInclusive, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
 
+use crate::git::diff;
+
 #[derive(Debug, Eq, Clone)]
 pub struct Hunk {
     pub hash: Option<String>,
     pub timestamp_ms: Option<u128>,
     pub start: u32,
     pub end: u32,
+}
+
+impl From<&diff::Hunk> for Hunk {
+    fn from(hunk: &diff::Hunk) -> Self {
+        Hunk {
+            start: hunk.new_start,
+            end: hunk.new_start + hunk.new_lines,
+            hash: None,
+            timestamp_ms: None,
+        }
+    }
 }
 
 impl PartialEq for Hunk {
@@ -104,6 +117,15 @@ impl Hunk {
                 hash,
                 timestamp_ms,
             })
+        }
+    }
+
+    pub fn with_hash(&self, hash: &str) -> Self {
+        Hunk {
+            start: self.start,
+            end: self.end,
+            hash: Some(hash.to_string()),
+            timestamp_ms: self.timestamp_ms,
         }
     }
 
