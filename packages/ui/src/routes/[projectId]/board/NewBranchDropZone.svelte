@@ -8,13 +8,18 @@
 <div
 	class="group h-full flex-grow p-2 font-semibold"
 	role="group"
-	use:dzHighlight={{ type: 'text/hunk', hover: 'new-dz-hover', active: 'new-dz-active' }}
-	on:drop|stopPropagation={(e) => {
-		if (!e.dataTransfer) {
-			return;
-		}
-		const ownership = e.dataTransfer.getData('text/hunk');
-		branchController.createBranch({ ownership });
+	use:dzHighlight={{
+		handlers: {
+			'text/hunk': (e) => {
+				if (!e.dataTransfer) {
+					return;
+				}
+				const ownership = e.dataTransfer.getData('text/hunk');
+				branchController.createBranch({ ownership });
+			}
+		},
+		hover: 'new-dz-hover',
+		active: 'new-dz-active'
 	}}
 >
 	<div

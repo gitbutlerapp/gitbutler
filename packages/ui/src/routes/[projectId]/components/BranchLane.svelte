@@ -271,25 +271,27 @@
 <div
 	class="flex h-full shrink-0 snap-center"
 	style:width={maximized ? '100%' : `${laneWidth}px`}
-	draggable={!readonly}
 	role="group"
-	use:dzHighlight={{ type: dzType, hover: 'lane-dz-hover', active: 'lane-dz-active' }}
+	use:dzTrigger={{ data: { 'text/branch': branch.id } }}
 	on:dragstart
 	on:dragend
-	on:drop|stopPropagation={(e) => {
-		if (!e.dataTransfer) {
-			return;
-		}
-		const data = e.dataTransfer.getData(dzType);
-		const [newFileId, newHunks] = data.split(':');
-		const existingHunkIds =
-			branch.files.find((f) => f.id === newFileId)?.hunks.map((h) => h.id) || [];
-		const newHunkIds = newHunks.split(',').filter((h) => !existingHunkIds.includes(h));
-		if (newHunkIds.length == 0) {
-			// don't allow dropping hunk to the line where it already is
-			return;
-		}
-		branchController.updateBranchOwnership(branch.id, (data + '\n' + branch.ownership).trim());
+	use:dzHighlight={{
+		handlers: {
+			'text/hunk': (data) => {
+				if (!data) return;
+				const [newFileId, newHunks] = data.split(':');
+				const existingHunkIds =
+					branch.files.find((f) => f.id === newFileId)?.hunks.map((h) => h.id) || [];
+				const newHunkIds = newHunks.split(',').filter((h) => !existingHunkIds.includes(h));
+				if (newHunkIds.length == 0) {
+					// don't allow dropping hunk to the line where it already is
+					return;
+				}
+				branchController.updateBranchOwnership(branch.id, (data + '\n' + branch.ownership).trim());
+			}
+		},
+		hover: 'lane-dz-hover',
+		active: 'lane-dz-active'
 	}}
 >
 	<div
@@ -431,16 +433,11 @@
 					</div>
 					{#if upstreamCommitsShown}
 						<div
-							class="flex w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
+							class="flex w-full flex-col gap-1 border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
 							id="upstreamCommits"
 						>
 							{#each branch.upstream.commits as commit}
-								<div
-									role="group"
-									draggable="true"
-									use:dzTrigger={{ type: 'commit/upstream' }}
-									on:dragstart={(e) => e.dataTransfer?.setData('commit/upstream', commit.id)}
-								>
+								<div role="group" use:dzTrigger={{ data: { 'commit/upstream': commit.id } }}>
 									<CommitCard {commit} {projectId} />
 								</div>
 							{/each}
@@ -488,24 +485,25 @@
 		<div
 			class="relative flex flex-grow overflow-y-hidden"
 			use:dzHighlight={{
-				type: 'commit/upstream',
+				handlers: {
+					'commit/upstream': (e) => {
+						if (!e.dataTransfer) {
+							return;
+						}
+						const targetCommitOid = e.dataTransfer.getData('commit/absolute upstream');
+						if (!targetCommitOid) {
+							return;
+						}
+						branchController.cherryPick({
+							targetCommitOid,
+							branchId: branch.id
+						});
+					}
+				},
 				hover: 'cherrypick-dz-hover',
 				active: 'cherrypick-dz-active'
 			}}
 			role="group"
-			on:drop|stopPropagation={(e) => {
-				if (!e.dataTransfer) {
-					return;
-				}
-				const targetCommitOid = e.dataTransfer.getData('commit/upstream');
-				if (!targetCommitOid) {
-					return;
-				}
-				branchController.cherryPick({
-					targetCommitOid,
-					branchId: branch.id
-				});
-			}}
 		>
 			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
 			<div

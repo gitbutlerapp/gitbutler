@@ -1,31 +1,28 @@
 const zoneMap = new Map<string, Set<HTMLElement>>();
-const optionsMap = new Map<HTMLElement, DzOptions>();
+const hightlightOptionsMap = new Map<HTMLElement, HighlightOptions>();
 
-export interface DzOptions {
-	type: string;
-	hover: string;
-	active: string;
-}
-
-const defaultOptions: DzOptions = {
-	hover: 'drop-zone-hover',
-	active: 'drop-zone-active',
-	type: 'default'
-};
-
-function inactivateZones(zones: Set<HTMLElement>) {
-	zones?.forEach((zone) => {
-		const opts = optionsMap.get(zone);
-		opts && zone.classList.remove(opts.active);
+function inactivateZones(types: string[]) {
+	types.forEach((type) => {
+		getZones(type).forEach((zone) => {
+			const opts = hightlightOptionsMap.get(zone);
+			if (opts && Object.keys(opts.handlers).includes(type)) {
+				zone.classList.remove(opts.active);
+			}
+		});
 	});
 }
 
-function activateZones(zones: Set<HTMLElement>, activeZone: HTMLElement) {
-	zones?.forEach((zone) => {
-		if (zone !== activeZone && !isChildOf(activeZone, zone)) {
-			const opts = optionsMap.get(zone);
-			opts && zone.classList.add(opts.active);
-		}
+function activateZones(trigger: HTMLElement, types: string[]) {
+	types.forEach((type) => {
+		getZones(type).forEach((zone) => {
+			if (zone === trigger) return;
+			if (isChildOf(trigger, zone)) return;
+
+			const opts = hightlightOptionsMap.get(zone);
+			if (opts && Object.keys(opts.handlers).includes(type)) {
+				zone.classList.add(opts.active);
+			}
+		});
 	});
 }
 
@@ -45,9 +42,21 @@ function isChildOf(child: any, parent: HTMLElement): boolean {
 	return isChildOf(child.parentElement, parent);
 }
 
-export function dzTrigger(node: HTMLElement, opts: Partial<DzOptions> | undefined) {
-	const options = { ...defaultOptions, ...opts };
-	const zones = getZones(options.type);
+export type TriggerOptions = {
+	disabled: boolean;
+	data: Record<string, any>;
+};
+
+const defaultTriggerOptions: TriggerOptions = {
+	disabled: false,
+	data: { default: {} }
+};
+
+export function dzTrigger(node: HTMLElement, opts: Partial<TriggerOptions> | undefined) {
+	const options = { ...defaultTriggerOptions, ...opts };
+	if (options.disabled) return;
+
+	node.draggable = true;
 
 	let clone: HTMLElement;
 
@@ -75,7 +84,13 @@ export function dzTrigger(node: HTMLElement, opts: Partial<DzOptions> | undefine
 		node.style.opacity = '0.6';
 
 		e.dataTransfer?.setDragImage(clone, e.offsetX + 30, e.offsetY + 30); // Adds the padding
-		activateZones(zones, node);
+
+		Object.entries(options.data).forEach(([type, data]) => {
+			e.dataTransfer?.setData(type, data);
+		});
+
+		activateZones(node, Object.keys(options.data));
+
 		e.stopPropagation();
 	}
 
@@ -83,10 +98,11 @@ export function dzTrigger(node: HTMLElement, opts: Partial<DzOptions> | undefine
 		node.style.opacity = '1'; // Undo the dimming from `dragstart`
 		clone.remove(); // Remove temporary ghost element
 
+		inactivateZones(Object.keys(options.data));
 		e.stopPropagation();
-		inactivateZones(zones);
 	}
 
+	node.draggable = true;
 	node.addEventListener('dragstart', handleDragStart);
 	node.addEventListener('dragend', handleDragEnd);
 
@@ -98,61 +114,90 @@ export function dzTrigger(node: HTMLElement, opts: Partial<DzOptions> | undefine
 	};
 }
 
-export function dzHighlight(node: HTMLElement, opts: Partial<DzOptions> | undefined) {
-	const options = { ...defaultOptions, ...opts };
-	const zones = getZones(options.type);
-	zones.add(node);
-	optionsMap.set(node, options);
+export interface HighlightOptions {
+	handlers: Record<string, (data: any) => void>;
+	hover: string;
+	active: string;
+}
+
+const defaultHighlightOptions: HighlightOptions = {
+	hover: 'drop-zone-hover',
+	active: 'drop-zone-active',
+	handlers: { default: () => {} }
+};
+
+export function dzHighlight(node: HTMLElement, opts: Partial<HighlightOptions> | undefined) {
+	const options = { ...defaultHighlightOptions, ...opts };
+
+	// register this node as a drop target for each of the handler types
+	Object.keys(options.handlers).forEach((type) => {
+		const zones = getZones(type);
+		zones.add(node);
+		hightlightOptionsMap.set(node, options);
+	});
 
 	function setHover(value: boolean) {
 		if (value) {
 			// We do this so we can set pointer-events-none on all dropzones from main css file,
 			// without it onMouseLeave fires every time a child container is left.
-			node.classList.add(defaultOptions.hover);
+			node.classList.add(defaultHighlightOptions.hover);
 			node.classList.add(options.hover);
 		} else {
-			node.classList.remove(defaultOptions.hover);
+			node.classList.remove(defaultHighlightOptions.hover);
 			node.classList.remove(options.hover);
 		}
 	}
 
+	function isValidEvent(e: DragEvent): boolean {
+		const validTypes = Object.keys(options.handlers);
+		const eventTypes = e.dataTransfer?.types || [];
+		return eventTypes.some((type) => validTypes.includes(type));
+	}
+
 	function handleDragEnter(e: DragEvent) {
-		if (!e.dataTransfer?.types.includes(options.type)) {
+		if (!isValidEvent(e)) {
 			return;
 		}
+
 		setHover(true);
 		e.stopPropagation();
 	}
 
 	function handleDragLeave(e: DragEvent) {
-		if (!e.dataTransfer?.types.includes(options.type)) {
+		if (!isValidEvent(e)) {
 			return;
 		}
+
 		if (!isChildOf(e.target, node)) {
 			setHover(false);
 		}
+
 		e.stopPropagation();
 	}
 
 	function handleDragEnd(e: DragEvent) {
+		if (!isValidEvent(e)) {
+			return;
+		}
+
 		setHover(false);
-		inactivateZones(zones);
 		e.stopPropagation();
 	}
 
 	function handleDrop(e: DragEvent) {
-		if (!e.dataTransfer?.types.includes(options.type)) {
+		if (!isValidEvent(e)) {
 			return;
 		}
 		setHover(false);
-		inactivateZones(zones);
 	}
 
 	function handleDragOver(e: DragEvent) {
-		if (!e.dataTransfer?.types.includes(options.type)) {
+		if (!isValidEvent(e)) {
 			e.stopImmediatePropagation(); // Stops event from reaching `on:dragover` on the element
+			return;
 		}
-		if (e.dataTransfer?.types.includes(options.type)) e.preventDefault();
+
+		e.preventDefault();
 	}
 
 	node.addEventListener('dragend', handleDragEnd);
@@ -162,6 +207,16 @@ export function dzHighlight(node: HTMLElement, opts: Partial<DzOptions> | undefi
 	node.addEventListener('drop', handleDrop);
 	node.classList.add('drop-zone');
 
+	node.addEventListener('drop', (e: DragEvent) => {
+		console.log(options);
+		Object.entries(options.handlers).forEach(([type, handler]) => {
+			const data = e.dataTransfer?.getData(type);
+			if (data) {
+				handler(data);
+			}
+		});
+	});
+
 	return {
 		destroy() {
 			node.removeEventListener('dragend', handleDragEnd);
@@ -169,7 +224,13 @@ export function dzHighlight(node: HTMLElement, opts: Partial<DzOptions> | undefi
 			node.removeEventListener('dragleave', handleDragLeave);
 			node.removeEventListener('dragover', handleDragOver);
 			node.removeEventListener('drop', handleDrop);
-			zones?.delete(node);
+
+			// unregister this node as a drop target for each of the handler types
+			Object.keys(options.handlers).forEach((type) => {
+				const zones = getZones(type);
+				zones.delete(node);
+				hightlightOptionsMap.delete(node);
+			});
 		}
 	};
 }

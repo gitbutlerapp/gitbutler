@@ -3,6 +3,7 @@
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
+	import { dzHighlight } from '$lib/utils/dropZone';
 	import RenderedLine from './RenderedLine.svelte';
 	import { IconExpandUpDown, IconExpandUp, IconExpandDown } from '$lib/icons';
 	import { invoke } from '$lib/backend/ipc';
@@ -32,33 +33,53 @@
 	}
 </script>
 
-<div class="text-color-2 bg-color-5 border-color-4 w-full truncate rounded border p-2 text-left">
-	<div class="mb-1 flex justify-between">
-		<div class="truncate">
-			<button
-				on:click={() => {
-					loadEntries();
-					previewCommitModal.show();
-				}}
-			>
-				{commit.description}
-			</button>
-		</div>
+<div
+	use:dzHighlight={{
+		handlers: {
+			'amend/hunk': (ownership) => {
+				console.log('amend', ownership);
+			}
+		},
+		hover: 'amend-dz-hover',
+		active: 'amend-dz-active'
+	}}
+	role="group"
+	class="text-color-2 bg-color-5 border-color-4 border-w relative w-full truncate rounded text-left"
+>
+	<div
+		class="amend-dz-marker bg-green-100/70 absolute hidden h-full w-full items-center justify-center rounded outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-green-900/60 dark:outline-dark-300"
+	>
+		<div class="hover-text invisible font-semibold">Amend</div>
 	</div>
 
-	<div class="text-color-3 flex space-x-1 text-sm">
-		<img
-			class="relative inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
-			title="Gravatar for {commit.author.email}"
-			alt="Gravatar for {commit.author.email}"
-			srcset="{commit.author.gravatarUrl} 2x"
-			width="100"
-			height="100"
-			on:error
-		/>
-		<div class="flex-grow truncate">{commit.author.name}</div>
-		<div class="truncate">
-			<TimeAgo date={commit.createdAt} />
+	<div class="p-2">
+		<div class="mb-1 flex justify-between">
+			<div class="truncate">
+				<button
+					on:click={() => {
+						loadEntries();
+						previewCommitModal.show();
+					}}
+				>
+					{commit.description}
+				</button>
+			</div>
+		</div>
+
+		<div class="text-color-3 flex space-x-1 text-sm">
+			<img
+				class="relative inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
+				title="Gravatar for {commit.author.email}"
+				alt="Gravatar for {commit.author.email}"
+				srcset="{commit.author.gravatarUrl} 2x"
+				width="100"
+				height="100"
+				on:error
+			/>
+			<div class="flex-grow truncate">{commit.author.name}</div>
+			<div class="truncate">
+				<TimeAgo date={commit.createdAt} />
+			</div>
 		</div>
 	</div>
 </div>
@@ -150,3 +171,12 @@
 		</div>
 	</svelte:fragment>
 </Modal>
+
+<style lang="postcss">
+	:global(.amend-dz-active .amend-dz-marker) {
+		@apply flex;
+	}
+	:global(.amend-dz-hover .hover-text) {
+		@apply visible;
+	}
+</style>

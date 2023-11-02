@@ -2,7 +2,7 @@
 	import Lane from '../components/BranchLane.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
-	import { dzHighlight } from '$lib/utils/dropZone';
+	import { dzHighlight, dzTrigger } from '$lib/utils/dropZone';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import type { LoadState } from '@square/svelte-store';
@@ -53,7 +53,11 @@
 		id="branch-lanes"
 		class="bg-color-2 flex flex-shrink flex-grow items-start"
 		role="group"
-		use:dzHighlight={{ type: dzType, active: 'board-dz-active', hover: 'board-dz-hover' }}
+		use:dzHighlight={{
+			handlers: { dzType: () => {} },
+			active: 'board-dz-active',
+			hover: 'board-dz-hover'
+		}}
 		on:dragover={(e) => {
 			const children = [...e.currentTarget.children];
 			dropPosition = 0;

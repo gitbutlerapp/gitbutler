@@ -23,6 +23,7 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import IconLock from '$lib/icons/IconLock.svelte';
 	import HunkContextMenu from './HunkContextMenu.svelte';
+	import { getAll } from '@square/svelte-store';
 
 	export let file: File;
 	export let conflicted: boolean;
@@ -100,9 +101,13 @@
 
 <div
 	id={`file-${file.id}`}
-	draggable={!isFileLocked && !readonly}
-	use:dzTrigger={{ type: dzType }}
-	on:dragstart={(e) => e.dataTransfer?.setData('text/hunk', getAllHunksOwnership())}
+	use:dzTrigger={{
+		disabled: isFileLocked || readonly,
+		data: {
+			'text/hunk': getAllHunksOwnership(),
+			'amend/hunk': getAllHunksOwnership()
+		}
+	}}
 	role="group"
 	class="changed-file inner"
 	class:opacity-80={isFileLocked}
@@ -194,13 +199,13 @@
 								class="bg-6 border-color-3 my-1 flex w-full flex-col overflow-hidden rounded border"
 							>
 								<div
-									draggable={!section.hunk.locked && !readonly}
 									tabindex="0"
 									role="cell"
-									use:dzTrigger={{ type: dzType }}
-									on:dragstart={(e) => {
-										if ('hunk' in section)
-											e.dataTransfer?.setData('text/hunk', file.id + ':' + section.hunk.id);
+									use:dzTrigger={{
+										data: {
+											'text/hunk': file.id + ':' + section.hunk.id,
+											'amend/hunk': file.id + ':' + section.hunk.id
+										}
 									}}
 									on:dblclick
 									class="changed-hunk"
