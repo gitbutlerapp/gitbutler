@@ -203,7 +203,7 @@
 	>
 		<div
 			bind:this={thumb}
-			class="absolute bg-black dark:bg-white"
+			class="absolute z-30 bg-black dark:bg-white"
 			style:width
 			style:opacity
 			style:top={`${thumbTop}px`}

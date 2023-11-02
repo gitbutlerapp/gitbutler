@@ -2,10 +2,8 @@
 	import type { LayoutData } from './$types';
 	import { getContext, onMount } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { IconExternalLink } from '$lib/icons';
 	import { Code } from '$lib/backend/ipc';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
 	import { goto } from '$app/navigation';
@@ -34,8 +32,6 @@
 	} = data;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-
-	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(projectId);
 
 	$: sessionId = $sessionsStore?.length > 0 ? $sessionsStore[0].id : undefined;
 	$: updateDeltasStore(sessionId);
@@ -89,35 +85,7 @@
 					}));
 				}}
 			/>
-			<div class="flex w-full flex-col overflow-hidden">
-				{#if $baseBranchStore?.remoteUrl.startsWith('https') && !$httpsWarningBannerDismissed}
-					<div class="flex items-center bg-yellow-200/70 px-2 py-1 dark:bg-yellow-700/70">
-						<div class="flex flex-grow">
-							HTTPS remote detected. In order to push & fetch, you may need to&nbsp;
-							<a class="font-bold" href="/user"> set up </a>&nbsp;an SSH key (
-							<a
-								target="_blank"
-								rel="noreferrer"
-								class="font-bold"
-								href="https://docs.gitbutler.com/features/virtual-branches/pushing-and-fetching#the-ssh-keys"
-							>
-								docs
-							</a>
-							&nbsp;
-							<IconExternalLink class="h-4 w-4" />
-							).
-						</div>
-
-						<button on:click={() => httpsWarningBannerDismissed.set(true)}>Dismiss</button>
-					</div>
-				{/if}
-				<div
-					class="lane-scroll flex flex-grow gap-1 overflow-x-auto overflow-y-hidden overscroll-none transition-opacity duration-300"
-					style:opacity={peekTrayExpanded ? '0.5' : undefined}
-				>
-					<slot />
-				</div>
-			</div>
+			<slot />
 		</div>
 	{:else}
 		<div class="text-color-3 flex h-full w-full items-center justify-center">
