@@ -443,3 +443,30 @@ pub async fn cherry_pick_onto_virtual_branch(
         .await
         .map_err(Into::into)
 }
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn amend_virtual_branch(
+    handle: AppHandle,
+    project_id: &str,
+    branch_id: &str,
+    ownership: &str,
+) -> Result<git::Oid, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".into(),
+    })?;
+    let branch_id = branch_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed branch id".into(),
+    })?;
+    let ownership = ownership.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed ownership".into(),
+    })?;
+    handle
+        .state::<Controller>()
+        .amend(&project_id, &branch_id, &ownership)
+        .await
+        .map_err(Into::into)
+}
