@@ -51,6 +51,33 @@ impl Ownership {
         self.files.is_empty()
     }
 
+    pub fn contains(&self, another: &Ownership) -> bool {
+        if another.is_empty() {
+            return true;
+        }
+
+        if self.is_empty() {
+            return false;
+        }
+
+        for file_ownership in &another.files {
+            let mut found = false;
+            for self_file_ownership in &self.files {
+                if self_file_ownership.file_path == file_ownership.file_path
+                    && self_file_ownership.contains(file_ownership)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                return false;
+            }
+        }
+
+        true
+    }
+
     pub fn put(&mut self, ownership: &FileOwnership) {
         let target = self
             .files

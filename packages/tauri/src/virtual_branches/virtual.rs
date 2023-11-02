@@ -2330,6 +2330,10 @@ pub fn amend(
         .find(|(b, _)| b.id == *branch_id)
         .context("branch not found")?;
 
+    if !target_branch.ownership.contains(target_ownership) {
+        bail!("ownership not found");
+    }
+
     if project_repository
         .l(
             target_branch.head,
