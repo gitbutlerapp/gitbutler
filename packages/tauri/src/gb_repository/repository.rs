@@ -203,13 +203,13 @@ impl Repository {
             );
             Result::Ok(())
         });
-        callbacks.push_transfer_progress(move |one, two, three| {
+        callbacks.push_transfer_progress(move |current, total, bytes| {
             tracing::debug!(
                 project_id = %self.project.id,
                 "transferred {}/{}/{} objects",
-                one,
-                two,
-                three
+                current,
+                total,
+                bytes
             );
         });
 

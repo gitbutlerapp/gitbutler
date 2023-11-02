@@ -2,7 +2,7 @@ use std::{path, time};
 
 use serde::{Deserialize, Serialize};
 
-use crate::id::Id;
+use crate::{git, id::Id};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,6 +21,7 @@ pub struct ApiProject {
     pub description: Option<String>,
     pub repository_id: String,
     pub git_url: String,
+    pub code_git_url: Option<String>,
     pub created_at: String,
     pub updated_at: String,
     pub sync: bool,
@@ -61,10 +62,25 @@ pub struct Project {
     pub project_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
     pub gitbutler_data_last_fetch: Option<FetchResult>,
+    #[serde(default)]
+    pub gitbutler_code_push: Option<git::Oid>,
 }
 
 impl AsRef<Project> for Project {
     fn as_ref(&self) -> &Project {
         self
+    }
+}
+
+impl Project {
+    pub fn is_sync_enabled(&self) -> bool {
+        self.api.as_ref().map(|api| api.sync).unwrap_or_default()
+    }
+
+    pub fn has_code_url(&self) -> bool {
+        self.api
+            .as_ref()
+            .map(|api| api.code_git_url.is_some())
+            .unwrap_or_default()
     }
 }

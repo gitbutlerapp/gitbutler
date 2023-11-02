@@ -1,8 +1,15 @@
-use std::path;
+use std::{
+    path,
+    sync::{atomic::AtomicUsize, Arc},
+};
 
 use anyhow::{Context, Result};
+use itertools::Itertools;
 
-use crate::{git, projects, reader, users};
+use crate::{
+    git::{self, Url},
+    projects, reader, users,
+};
 
 pub struct Repository {
     pub git_repository: git::Repository,
@@ -124,10 +131,33 @@ impl Repository {
                     .context(format!("failed to push {}", from))?;
                 revwalk
                     .hide(oid.into())
-                    .context(format!("failed to push {}", oid))?;
+                    .context(format!("failed to hide {}", oid))?;
                 revwalk
                     .map(|oid| oid.map(Into::into))
                     .collect::<Result<Vec<_>, _>>()
+            }
+            LogUntil::EveryNth { n, until_id } => {
+                let mut revwalk = self
+                    .git_repository
+                    .revwalk()
+                    .context("failed to create revwalk")?;
+                revwalk
+                    .push(from.into())
+                    .context(format!("failed to push {}", from))?;
+
+                if let Some(oid) = until_id {
+                    revwalk
+                        .hide(oid.into())
+                        .context(format!("failed to hide {}", oid))?;
+                }
+                let mut oids = Vec::new();
+                for batch in &revwalk.chunks(n) {
+                    if let Some(oid) = batch.last() {
+                        let oid = oid.context("failed to get oid")?;
+                        oids.push(oid.into());
+                    }
+                }
+                Ok(oids)
             }
             LogUntil::Take(n) => {
                 let mut revwalk = self
@@ -273,6 +303,71 @@ impl Repository {
         } else {
             Err(RemoteError::NoUrl)
         }
+    }
+
+    pub fn push_to_gitbutler_server(
+        &self,
+        oid: &git::Oid,
+        user: Option<&users::User>,
+        ref_prefix: &str,
+    ) -> Result<(), RemoteError> {
+        let url = self
+            .project
+            .api
+            .as_ref()
+            .ok_or(RemoteError::Other(anyhow::anyhow!("api not set")))?
+            .code_git_url
+            .as_ref()
+            .ok_or(RemoteError::Other(anyhow::anyhow!("code_git_url not set")))?
+            .as_str()
+            .parse::<Url>()
+            .map_err(|e| RemoteError::Other(e.into()))?;
+
+        tracing::debug!(
+            project_id = %self.project.id,
+            %oid,
+            %url,
+            "pushing code to gb repo",
+        );
+
+        let access_token = user
+            .map(|user| user.access_token.clone())
+            .ok_or(RemoteError::AuthError)?;
+
+        let mut callbacks = git2::RemoteCallbacks::new();
+        let bytes_pushed = Arc::new(AtomicUsize::new(0));
+        {
+            let counter = Arc::<AtomicUsize>::clone(&bytes_pushed);
+            callbacks.push_transfer_progress(move |_current, _total, bytes| {
+                counter.store(bytes, std::sync::atomic::Ordering::Relaxed);
+            });
+        }
+
+        let mut push_options = git2::PushOptions::new();
+        push_options.remote_callbacks(callbacks);
+        let auth_header = format!("Authorization: {}", access_token);
+        let headers = &[auth_header.as_str()];
+        push_options.custom_headers(headers);
+
+        let mut remote = self
+            .git_repository
+            .remote_anonymous(&url)
+            .map_err(|e| RemoteError::Other(e.into()))?;
+
+        let refspec = format!("+{}:refs/{}{}", oid, ref_prefix, self.project.id);
+
+        remote
+            .push(&[refspec.as_str()], Some(&mut push_options))
+            .map_err(|e| RemoteError::Other(e.into()))?;
+
+        tracing::debug!(
+            project_id = %self.project.id,
+            %refspec,
+            bytes = bytes_pushed.load(std::sync::atomic::Ordering::Relaxed),
+            "pushed to gb repo tmp ref",
+        );
+
+        Ok(())
     }
 
     pub fn push(
@@ -475,6 +570,10 @@ type OidFilter = dyn Fn(&git::Commit) -> Result<bool>;
 
 pub enum LogUntil {
     Commit(git::Oid),
+    EveryNth {
+        n: usize,
+        until_id: Option<git::Oid>,
+    },
     Take(usize),
     When(Box<OidFilter>),
     End,
