@@ -3,6 +3,7 @@
 	import type { PageData } from './$types';
 	import IconExternalLink from '$lib/icons/IconExternalLink.svelte';
 	import Board from './Board.svelte';
+	import ProjectHeader from './ProjectHeader.svelte';
 
 	export let data: PageData;
 	let {
@@ -21,6 +22,11 @@
 </script>
 
 <div class="flex h-full w-full flex-grow flex-col overflow-hidden">
+	<ProjectHeader
+		{projectId}
+		projectTitle={$project?.title || ''}
+		isGitHub={$githubContextStore !== undefined}
+	></ProjectHeader>
 	{#if $baseBranchStore?.remoteUrl.startsWith('https') && !$httpsWarningBannerDismissed}
 		<div class="w-full bg-yellow-200/70 px-2 py-1 dark:bg-yellow-700/70">
 			HTTPS remote detected. In order to push & fetch, you may need to&nbsp;
