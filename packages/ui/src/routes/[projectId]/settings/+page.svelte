@@ -52,18 +52,20 @@
 	};
 </script>
 
-<div class="mx-auto h-fit w-full max-w-xl py-10">
-	<div class="flex flex-col gap-y-8">
+<div class="h-full flex-grow overflow-y-auto overscroll-none">
+	<div class="mx-auto flex min-w-min max-w-xl flex-col gap-y-6 overflow-visible p-8">
 		<div class="flex w-full">
 			<BackButton />
 			<h2 class="text-2xl font-medium">Project settings</h2>
 		</div>
-		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+		<div class="bg-color-1 h-[0.0625rem] shrink-0" />
 		<CloudForm project={$project} on:updated={onCloudUpdated} />
+		<div class="bg-color-1 h-[0.0625rem] shrink-0" />
 		<DetailsForm project={$project} on:updated={onDetailsUpdated} />
+		<div class="bg-color-1 h-[0.0625rem] shrink-0" />
 		<KeysForm project={$project} on:updated={onKeysUpdated} />
 
-		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+		<div class="bg-color-1 h-[0.0625rem] shrink-0" />
 		<div class="flex gap-x-4">
 			<a
 				href="https://discord.gg/wDKZCPEjXC"
@@ -88,7 +90,7 @@
 			</a>
 		</div>
 
-		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+		<div class="bg-color-1 h-[0.0625rem] shrink-0" />
 		<Button color="destructive" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
 			Delete project
 		</Button>

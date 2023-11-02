@@ -522,7 +522,7 @@
 			</div>
 			<div
 				bind:this={viewport}
-				class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll pb-8"
+				class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none pb-8"
 			>
 				<div bind:this={contents}>
 					{#if branch.conflicted}
