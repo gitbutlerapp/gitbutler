@@ -89,9 +89,13 @@ impl HandlerInner {
                 "batches collected",
             );
 
+            let id_count = ids.len();
+
             for (idx, id) in ids.iter().enumerate().rev() {
+                let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
+
                 project_repository
-                    .push_to_gitbutler_server(id, user.as_ref(), "push-tmp/")
+                    .push_to_gitbutler_server(user.as_ref(), &refspec)
                     .context("failed to push project to gitbutler")?;
 
                 self.project_store
@@ -104,13 +108,24 @@ impl HandlerInner {
 
                 tracing::debug!(
                     %project_id,
-                    "project batch pushed: {}/{}",ids.len()-idx,ids.len(),
+                    "project batch pushed: {}/{}",id_count.saturating_sub(idx),id_count,
                 );
             }
 
+            // push refs/{project_id}
             project_repository
-                .push_to_gitbutler_server(&head_id, user.as_ref(), "")
+                .push_to_gitbutler_server(
+                    user.as_ref(),
+                    &format!("+{}:refs/{}", head_id, project_id),
+                )
                 .context("failed to push project to gitbutler")?;
+
+            // push all gitbutler refs
+            project_repository
+                .push_to_gitbutler_server(user.as_ref(), "+refs/gitbutler/*:refs/gitbutler/*")
+                .context("failed to push project to gitbutler")?;
+
+            //TODO: remove push-tmp ref
 
             tracing::debug!(
                 %project_id,

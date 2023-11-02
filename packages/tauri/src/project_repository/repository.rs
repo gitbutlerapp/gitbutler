@@ -307,9 +307,8 @@ impl Repository {
 
     pub fn push_to_gitbutler_server(
         &self,
-        oid: &git::Oid,
         user: Option<&users::User>,
-        ref_prefix: &str,
+        ref_spec: &str,
     ) -> Result<(), RemoteError> {
         let url = self
             .project
@@ -325,7 +324,6 @@ impl Repository {
 
         tracing::debug!(
             project_id = %self.project.id,
-            %oid,
             %url,
             "pushing code to gb repo",
         );
@@ -354,15 +352,13 @@ impl Repository {
             .remote_anonymous(&url)
             .map_err(|e| RemoteError::Other(e.into()))?;
 
-        let refspec = format!("+{}:refs/{}{}", oid, ref_prefix, self.project.id);
-
         remote
-            .push(&[refspec.as_str()], Some(&mut push_options))
+            .push(&[ref_spec], Some(&mut push_options))
             .map_err(|e| RemoteError::Other(e.into()))?;
 
         tracing::debug!(
             project_id = %self.project.id,
-            %refspec,
+            %ref_spec,
             bytes = bytes_pushed.load(std::sync::atomic::Ordering::Relaxed),
             "pushed to gb repo tmp ref",
         );
