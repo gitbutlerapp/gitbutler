@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    os::unix::fs::PermissionsExt,
+    os::unix::{fs::PermissionsExt, prelude::OsStrExt},
     path, time, vec,
 };
 
@@ -1800,11 +1800,7 @@ fn write_tree_onto_commit(
                     .strip_prefix(project_repository.path())
                     .unwrap_or(&link_target);
 
-                // bytes dance
-                let path_str = link_target.to_str().unwrap();
-                let bytes: &[u8] = path_str.as_bytes();
-
-                let blob_oid = git_repository.blob(bytes)?;
+                let blob_oid = git_repository.blob(link_target.as_os_str().as_bytes())?;
                 builder.upsert(rel_path, blob_oid, filemode);
             } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
                 if hunks.len() == 1 && hunks[0].binary {

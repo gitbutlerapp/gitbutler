@@ -1,4 +1,4 @@
-import { getHead, subscribeToHead } from '$lib/api/git/heads';
+import { getHead, subscribeToHead } from '$lib/backend/heads';
 import { asyncWritable, type Loadable } from '@square/svelte-store';
 
 export function getHeadsStore(projectId: string): Loadable<string> {

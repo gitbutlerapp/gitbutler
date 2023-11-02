@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Session } from '$lib/api/ipc/sessions';
-	import type { Delta } from '$lib/api/ipc/deltas';
+	import type { Session } from '$lib/backend/sessions';
+	import type { Delta } from '$lib/backend/deltas';
 	import SessionCard from './SessionCard.svelte';
 
 	export let sessions: (Session & {

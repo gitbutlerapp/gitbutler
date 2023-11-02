@@ -3,10 +3,10 @@
 	import { asyncDerived } from '@square/svelte-store';
 	import { compareDesc, formatDistanceToNow } from 'date-fns';
 	import { IconFolder, IconLoading } from '$lib/icons';
-	import type { getCloudApiClient } from '$lib/api/cloud/api';
+	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import { userStore } from '$lib/stores/user';
-	import { getProjectStore, projectsStore } from '$lib/api/ipc/projects';
-	import * as toasts from '$lib/toasts';
+	import { getProjectStore, projectsStore } from '$lib/backend/projects';
+	import * as toasts from '$lib/utils/toasts';
 	import IconFolderPlus from '$lib/icons/IconFolderPlus.svelte';
 	import { goto } from '$app/navigation';
 	import Modal from '$lib/components/Modal.svelte';

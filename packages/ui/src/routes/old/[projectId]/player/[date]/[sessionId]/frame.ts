@@ -1,4 +1,4 @@
-import type { Delta } from '$lib/api/ipc/deltas';
+import type { Delta } from '$lib/backend/deltas';
 
 export type Frame = {
 	sessionId: string;

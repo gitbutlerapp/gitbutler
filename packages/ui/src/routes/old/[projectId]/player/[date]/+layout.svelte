@@ -2,14 +2,14 @@
 	import type { LayoutData } from './$types';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
-	import * as hotkeys from '$lib/hotkeys';
-	import * as events from '$lib/events';
+	import * as hotkeys from '$lib/utils/hotkeys';
+	import * as events from '$lib/utils/events';
 	import BookmarkModal from './BookmarkModal.svelte';
-	import { unsubscribe } from '$lib/utils';
+	import { unsubscribe } from '$lib/utils/random';
 	import SessionsList from './SessionsList.svelte';
 	import SessionNavigations from './SessionNavigations.svelte';
 	import { IconLoading } from '$lib/icons';
-	import * as bookmarks from '$lib/api/ipc/bookmarks';
+	import * as bookmarks from '$lib/backend/bookmarks';
 	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
@@ -32,7 +32,7 @@
 		unsubscribe(
 			events.on('openBookmarkModal', () => bookmarkModal?.show($currentTimestamp)),
 			hotkeys.on('Meta+Shift+D', () => bookmarkModal?.show($currentTimestamp)),
-			hotkeys.on('Meta+Shift+R', () => goto(`/${projectId}/`)),
+			hotkeys.on('Meta+Shift+R', () => goto(`/${$projectId}/board`)),
 			hotkeys.on('D', async () => {
 				const existing = await bookmarks.list({
 					projectId: $page.params.projectId,

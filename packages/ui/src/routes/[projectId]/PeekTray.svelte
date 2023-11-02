@@ -1,6 +1,6 @@
 <script lang="ts">
 	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch, Branch, RemoteBranch } from '$lib/vbranches/types';
 	import { getContext } from 'svelte';
@@ -9,9 +9,9 @@
 	import RemoteBranchPeek from './RemoteBranchPeek.svelte';
 	import PullRequestPeek from './PullRequestPeek.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import Lane from './BranchLane.svelte';
+	import Lane from './components/BranchLane.svelte';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
-	import type { getCloudApiClient } from '$lib/api/cloud/api';
+	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import { PullRequest } from '$lib/github/types';
 
 	export let item:

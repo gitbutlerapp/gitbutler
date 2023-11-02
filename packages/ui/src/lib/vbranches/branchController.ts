@@ -6,8 +6,8 @@ import type {
 	Hunk,
 	VirtualBranchStore
 } from './types';
-import * as toasts from '$lib/toasts';
-import { invoke } from '$lib/ipc';
+import * as toasts from '$lib/utils/toasts';
+import { invoke } from '$lib/backend/ipc';
 
 export class BranchController {
 	constructor(

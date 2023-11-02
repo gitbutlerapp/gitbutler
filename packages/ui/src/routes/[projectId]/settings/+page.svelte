@@ -1,12 +1,12 @@
 <script lang="ts">
-	import * as toasts from '$lib/toasts';
+	import * as toasts from '$lib/utils/toasts';
 	import { userStore } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
 	import CloudForm from './CloudForm.svelte';
 	import DetailsForm from './DetailsForm.svelte';
 	import KeysForm from './KeysForm.svelte';
-	import * as projects from '$lib/api/ipc/projects';
-	import { projectsStore } from '$lib/api/ipc/projects';
+	import * as projects from '$lib/backend/projects';
+	import { projectsStore } from '$lib/backend/projects';
 	import type { PageData } from './$types';
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Modal from '$lib/components/Modal.svelte';

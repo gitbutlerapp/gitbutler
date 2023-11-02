@@ -1,16 +1,16 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import * as toasts from '$lib/toasts';
-	import { initDeviceOauth, checkAuthStatus } from '$lib/api/ipc/github';
+	import * as toasts from '$lib/utils/toasts';
+	import { initDeviceOauth, checkAuthStatus } from '$lib/backend/github';
 	import { getAuthenticated } from '$lib/github/user';
-	import { deleteAllData } from '$lib/api/ipc';
+	import { deleteAllData } from '$lib/backend/data';
 	import { userStore } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
 	import ThemeSelector from './ThemeSelector.svelte';
 	import { getContext } from 'svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { invoke } from '@tauri-apps/api/tauri';
-	import { copyToClipboard } from '$lib/clipboard';
+	import { copyToClipboard } from '$lib/utils/clipboard';
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Login from '$lib/components/Login.svelte';
