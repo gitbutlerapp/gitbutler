@@ -44,6 +44,32 @@ mod init {
 
         gb_repository::Repository::open(&data_dir, &project_repository, None).unwrap();
     }
+
+    #[test]
+    fn handle_dir_symlink_symlink() {
+        let test_project = TestProject::default();
+
+        let data_dir = paths::data_dir();
+        let projects = projects::Controller::from(&data_dir);
+
+        let project = projects
+            .add(test_project.path())
+            .expect("failed to add project");
+
+        std::fs::create_dir(project.path.join("dir")).unwrap();
+        std::fs::write(project.path.join("dir/file"), "content").unwrap();
+        std::os::unix::fs::symlink(project.path.join("dir"), project.path.join("dir_link"))
+            .unwrap();
+        std::os::unix::fs::symlink(
+            project.path.join("dir_link"),
+            project.path.join("link_link"),
+        )
+        .unwrap();
+
+        let project_repository = project_repository::Repository::try_from(project).unwrap();
+
+        gb_repository::Repository::open(&data_dir, &project_repository, None).unwrap();
+    }
 }
 
 mod flush {
