@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{BufReader, Read},
-    os::unix::prelude::MetadataExt,
+    os::unix::prelude::{MetadataExt, OsStrExt},
     path, time,
 };
 
@@ -814,11 +814,9 @@ fn add_wd_path(
         let link_target = std::fs::read_link(&file_path)?;
         // if the link target is inside the project repository, make it relative
         let link_target = link_target.strip_prefix(dir).unwrap_or(&link_target);
-        // bytes dance
-        let path_str = link_target.to_str().unwrap();
-        let bytes: &[u8] = path_str.as_bytes();
-
-        gb_repository.git_repository.blob(bytes)?
+        gb_repository
+            .git_repository
+            .blob(link_target.as_os_str().as_bytes())?
     } else if metadata.len() > 100_000_000 {
         tracing::warn!(
             project_id = %gb_repository.project.id,
