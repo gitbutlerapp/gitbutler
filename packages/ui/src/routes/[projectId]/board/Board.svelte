@@ -1,5 +1,5 @@
 <script lang="ts" async="true">
-	import Lane from '../components/BranchLane.svelte';
+	import BranchLane from '../components/BranchLane.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { dzHighlight } from '$lib/utils/dropZone';
@@ -87,7 +87,7 @@
 		}}
 	>
 		{#each branches.filter((c) => c.active) as branch (branch.id)}
-			<Lane
+			<BranchLane
 				on:dragstart={(e) => {
 					if (!e.dataTransfer) return;
 					e.dataTransfer.setData(dzType, branch.id);
