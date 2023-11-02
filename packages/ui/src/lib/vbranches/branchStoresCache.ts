@@ -98,13 +98,6 @@ export async function getRemoteBranchesData(params: {
 		await invoke<any[]>('git_remote_branches_data', params)
 	);
 
-	branches.forEach((branch) => {
-		branch.isMergeable = invoke<boolean>('can_apply_remote_branch', {
-			projectId: params.projectId,
-			branch: branch.name
-		});
-	});
-
 	return branches;
 }
 

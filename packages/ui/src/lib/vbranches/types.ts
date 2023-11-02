@@ -93,7 +93,7 @@ export class RemoteBranch {
 	behind!: number;
 	@Type(() => RemoteCommit)
 	commits!: RemoteCommit[];
-	isMergeable!: Promise<boolean>;
+	isMergeable!: boolean | undefined;
 
 	ahead(): number {
 		return this.commits.length;

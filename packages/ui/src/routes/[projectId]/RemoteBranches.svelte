@@ -125,11 +125,9 @@
 										{branch.ahead()} / {branch.behind}
 									</div>
 								</Tooltip>
-								{#await branch.isMergeable then isMergeable}
-									{#if !isMergeable}
-										<div class="font-bold text-red-500" title="Can't be merged">!</div>
-									{/if}
-								{/await}
+								{#if !branch.isMergeable}
+									<div class="font-bold text-red-500" title="Can't be merged">!</div>
+								{/if}
 							</div>
 							<div
 								class="isolate flex flex-grow justify-end -space-x-2 overflow-hidden transition duration-300 ease-in-out hover:space-x-1 hover:transition hover:ease-in"
