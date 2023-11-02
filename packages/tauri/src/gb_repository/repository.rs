@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{BufReader, Read},
-    os::unix::prelude::MetadataExt,
+    os::unix::prelude::{MetadataExt, OsStrExt},
     path, time,
 };
 
@@ -802,16 +802,22 @@ fn add_wd_path(
 ) -> Result<()> {
     let file_path = dir.join(rel_file_path);
 
-    let metadata = file_path
-        .metadata()
-        .with_context(|| "failed to get metadata for".to_string())?;
+    let metadata = std::fs::symlink_metadata(&file_path).context("failed to get metadata for")?;
     let modify_time = FileTime::from_last_modification_time(&metadata);
     let create_time = FileTime::from_creation_time(&metadata).unwrap_or(modify_time);
 
     // look for files that are bigger than 4GB, which are not supported by git
     // insert a pointer as the blob content instead
     // TODO: size limit should be configurable
-    let blob = if metadata.len() > 100_000_000 {
+    let blob = if metadata.is_symlink() {
+        // it's a symlink, make the content the path of the link
+        let link_target = std::fs::read_link(&file_path)?;
+        // if the link target is inside the project repository, make it relative
+        let link_target = link_target.strip_prefix(dir).unwrap_or(&link_target);
+        gb_repository
+            .git_repository
+            .blob(link_target.as_os_str().as_bytes())?
+    } else if metadata.len() > 100_000_000 {
         tracing::warn!(
             project_id = %gb_repository.project.id,
             path = %file_path.display(),
@@ -837,10 +843,7 @@ fn add_wd_path(
         let lfs_path = lfs_objects_dir.join(sha);
         std::fs::copy(file_path, lfs_path)?;
 
-        gb_repository
-            .git_repository
-            .blob(lfs_pointer.as_bytes())
-            .unwrap()
+        gb_repository.git_repository.blob(lfs_pointer.as_bytes())?
     } else {
         // read the file into a blob, get the object id
         gb_repository.git_repository.blob_path(&file_path)?
