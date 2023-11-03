@@ -21,6 +21,8 @@ export class BranchController {
 		try {
 			await invoke<BaseBranch>('set_base_branch', { projectId: this.projectId, branch });
 			await this.targetBranchStore.reload();
+			// TODO: Reloading seems to trigger 4 invocations of `list_virtual_branches`
+			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to set base branch');
 		}
