@@ -8,20 +8,24 @@ import type {
 } from './types';
 import * as toasts from '$lib/utils/toasts';
 import { invoke } from '$lib/backend/ipc';
+import type { Session } from '$lib/backend/sessions';
 
 export class BranchController {
 	constructor(
 		readonly projectId: string,
 		readonly virtualBranchStore: VirtualBranchStore<Branch>,
 		readonly remoteBranchStore: CustomStore<RemoteBranch[] | undefined>,
-		readonly targetBranchStore: CustomStore<BaseBranch | undefined>
+		readonly targetBranchStore: CustomStore<BaseBranch | undefined>,
+		readonly sessionsStore: CustomStore<Session[] | undefined>
 	) {}
 
 	async setTarget(branch: string) {
 		try {
 			await invoke<BaseBranch>('set_base_branch', { projectId: this.projectId, branch });
+			await this.sessionsStore.reload();
 			await this.targetBranchStore.reload();
 		} catch (err) {
+			console.error(err);
 			toasts.error('Failed to set base branch');
 		}
 	}

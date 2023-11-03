@@ -1,12 +1,13 @@
 import { Session, listSessions, subscribeToSessions } from '$lib/backend/sessions';
-import { asyncWritable, get, type Loadable, type WritableLoadable } from '@square/svelte-store';
+import type { CustomStore } from '$lib/vbranches/types';
+import { asyncWritable, get } from '@square/svelte-store';
 
-export function getSessionStore(projectId: string): Loadable<Session[]> {
+export function getSessionStore(projectId: string): CustomStore<Session[]> {
 	const store = asyncWritable(
 		[],
 		async () => await listSessions(projectId),
 		async (data) => data,
-		{ trackState: true },
+		{ reloadable: true, trackState: true },
 		(set) => {
 			const unsubscribe = subscribeToSessions(projectId, (session) => {
 				const oldValue = get(store)?.filter((b) => b.id != session.id);
@@ -21,6 +22,6 @@ export function getSessionStore(projectId: string): Loadable<Session[]> {
 			});
 			return () => unsubscribe();
 		}
-	) as WritableLoadable<Session[]>;
+	) as CustomStore<Session[]>;
 	return store;
 }
