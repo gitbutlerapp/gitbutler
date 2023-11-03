@@ -604,5 +604,11 @@ pub fn create_virtual_branch_from_branch(
 
     let writer = branch::Writer::new(gb_repository);
     writer.write(&branch).context("failed to write branch")?;
+
+    project_repository
+        .git_repository
+        .reference(&branch.refname(), branch.head, false, "new vbranch")
+        .context("failed to create branch reference")?;
+
     Ok(branch)
 }
