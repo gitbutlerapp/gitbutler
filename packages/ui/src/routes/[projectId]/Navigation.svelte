@@ -161,9 +161,10 @@
 				<Tooltip label="Fetch from upstream">
 					<IconButton
 						class="items-center justify-center align-top hover:bg-light-150 dark:hover:bg-dark-700"
-						on:click={() => {
+						on:click={(e) => {
 							fetching = true;
 							branchController.fetchFromTarget().finally(() => (fetching = false));
+							e.preventDefault();
 						}}
 					>
 						<div class:animate-spin={fetching}>
