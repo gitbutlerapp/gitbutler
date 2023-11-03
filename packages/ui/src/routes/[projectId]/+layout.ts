@@ -41,7 +41,8 @@ export const load: LayoutLoad = async ({ params }) => {
 		projectId,
 		vbranchStore,
 		remoteBranchStore,
-		baseBranchStore
+		baseBranchStore,
+		sessionsStore
 	);
 
 	const githubContextStore = getGitHubContextStore(userStore, baseBranchStore);
