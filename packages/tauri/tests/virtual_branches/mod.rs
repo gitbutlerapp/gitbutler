@@ -2001,3 +2001,31 @@ mod amend {
         }
     }
 }
+
+mod init {
+    use super::*;
+
+    #[tokio::test]
+    async fn dirty() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        fs::write(repository.path().join("file.txt"), "content").unwrap();
+
+        controller
+            .set_base_branch(
+                &project_id,
+                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+            )
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 1);
+        assert_eq!(branches[0].files.len(), 1);
+        assert_eq!(branches[0].files[0].hunks.len(), 1);
+    }
+}
