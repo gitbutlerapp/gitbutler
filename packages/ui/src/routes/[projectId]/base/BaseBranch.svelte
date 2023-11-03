@@ -1,12 +1,13 @@
 <script lang="ts">
 	import type { BaseBranch } from '$lib/vbranches/types';
-	import CommitCard from './components/CommitCard.svelte';
+	import CommitCard from '../components/CommitCard.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import BackButton from '$lib/components/BackButton.svelte';
 
 	export let base: BaseBranch;
 	export let projectId: string;
@@ -23,63 +24,60 @@
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0 : false;
 </script>
 
-<div class="relative h-full max-h-full">
-	<div
-		bind:this={viewport}
-		class="hide-native-scrollbar bg-color-3 flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
-	>
-		<div bind:this={contents} class="flex flex-col gap-y-4 p-4">
-			<h1 class="font-bold text-light-700 dark:text-dark-100">Upstream</h1>
-			<div class="rounded-sm text-sm text-light-700 dark:text-dark-200">
-				There {multiple ? 'are' : 'is'}
-				{base.upstreamCommits.length} unmerged upstream
-				{multiple ? 'commits' : 'commit'}
-			</div>
-			{#if base.upstreamCommits?.length > 0}
-				<div>
-					<Tooltip
-						label={'Merges the commits from ' +
-							base.branchName +
-							' into the base of all applied virtual branches'}
+<div bind:this={viewport} class="flex max-h-full flex-col overflow-y-scroll overscroll-none">
+	<div bind:this={contents} class="flex flex-col gap-y-4">
+		<h1 class="font-bold text-light-700 dark:text-dark-100">
+			<BackButton class="align-bottom"></BackButton>
+			Upstream
+		</h1>
+		<div class="rounded-sm text-sm text-light-700 dark:text-dark-200">
+			There {multiple ? 'are' : 'is'}
+			{base.upstreamCommits.length} unmerged upstream
+			{multiple ? 'commits' : 'commit'}
+		</div>
+		{#if base.upstreamCommits?.length > 0}
+			<div>
+				<Tooltip
+					label={'Merges the commits from ' +
+						base.branchName +
+						' into the base of all applied virtual branches'}
+				>
+					<Button
+						width="full-width"
+						height="small"
+						color="purple"
+						on:click={() => {
+							if ($mergeUpstreamWarningDismissed) {
+								branchController.updateBaseBranch();
+							} else {
+								updateTargetModal.show();
+							}
+						}}
 					>
-						<Button
-							width="full-width"
-							height="small"
-							color="purple"
-							on:click={() => {
-								if ($mergeUpstreamWarningDismissed) {
-									branchController.updateBaseBranch();
-								} else {
-									updateTargetModal.show();
-								}
-							}}
-						>
-							Merge into common base
-						</Button>
-					</Tooltip>
-				</div>
-				<div class="flex h-full">
-					<div class="z-20 flex w-full flex-col gap-2">
-						{#each base.upstreamCommits as commit}
-							<CommitCard {commit} {projectId} />
-						{/each}
-					</div>
-				</div>
-				<div
-					class="h-px w-full border-none bg-gradient-to-r from-transparent via-light-500 to-transparent dark:via-dark-400"
-				/>
-			{/if}
-			<Tooltip label="This is the current base for your virtual branches.">
-				<h1 class="font-bold text-light-700 dark:text-dark-100">Local</h1>
-			</Tooltip>
-			<div class="flex flex-col gap-y-2">
-				{#each base.recentCommits as commit}
-					<CommitCard {commit} {projectId} />
-				{/each}
+						Merge into common base
+					</Button>
+				</Tooltip>
 			</div>
+			<div class="flex h-full">
+				<div class="z-20 flex w-full flex-col gap-2">
+					{#each base.upstreamCommits as commit}
+						<CommitCard {commit} {projectId} />
+					{/each}
+				</div>
+			</div>
+			<div
+				class="h-px w-full border-none bg-gradient-to-r from-transparent via-light-500 to-transparent dark:via-dark-400"
+			/>
+		{/if}
+		<Tooltip label="This is the current base for your virtual branches.">
+			<h1 class="font-bold text-light-700 dark:text-dark-100">Local</h1>
+		</Tooltip>
+		<div class="flex flex-col gap-y-2">
+			{#each base.recentCommits as commit}
+				<CommitCard {commit} {projectId} />
+			{/each}
 		</div>
 	</div>
-	<Scrollbar {viewport} {contents} width="0.5rem" />
 </div>
 <!-- Confirm target update modal -->
 

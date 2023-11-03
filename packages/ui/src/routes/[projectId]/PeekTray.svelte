@@ -5,11 +5,11 @@
 	import { BaseBranch, Branch, RemoteBranch } from '$lib/vbranches/types';
 	import { getContext } from 'svelte';
 	import type { Readable } from '@square/svelte-store';
-	import BaseBranchPeek from './BaseBranchPeek.svelte';
+	import BaseBranchPeek from './base/BaseBranch.svelte';
 	import RemoteBranchPeek from './RemoteBranchPeek.svelte';
 	import PullRequestPeek from './PullRequestPeek.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import Lane from './components/BranchLane.svelte';
+	import BranchLane from './components/BranchLane.svelte';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import { PullRequest } from '$lib/github/types';
@@ -77,7 +77,7 @@
 			{#if $item instanceof RemoteBranch}
 				<RemoteBranchPeek {projectId} {branchController} branch={$item} />
 			{:else if $item instanceof Branch}
-				<Lane
+				<BranchLane
 					branch={$item}
 					{branchController}
 					{base}
