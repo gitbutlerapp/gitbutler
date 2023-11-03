@@ -276,7 +276,7 @@
 	use:dzHighlight={{ type: dzType, hover: 'lane-dz-hover', active: 'lane-dz-active' }}
 	on:dragstart
 	on:dragend
-	on:drop|stopPropagation={(e) => {
+	on:drop={(e) => {
 		if (!e.dataTransfer) {
 			return;
 		}
@@ -286,9 +286,10 @@
 			branch.files.find((f) => f.id === newFileId)?.hunks.map((h) => h.id) || [];
 		const newHunkIds = newHunks.split(',').filter((h) => !existingHunkIds.includes(h));
 		if (newHunkIds.length == 0) {
-			// don't allow dropping hunk to the line where it already is
+			// don't allow dropping hunk to the lane where it already is
 			return;
 		}
+		e.stopPropagation();
 		branchController.updateBranchOwnership(branch.id, (data + '\n' + branch.ownership).trim());
 	}}
 >
@@ -493,7 +494,7 @@
 				active: 'cherrypick-dz-active'
 			}}
 			role="group"
-			on:drop|stopPropagation={(e) => {
+			on:drop={(e) => {
 				if (!e.dataTransfer) {
 					return;
 				}
@@ -501,6 +502,7 @@
 				if (!targetCommitOid) {
 					return;
 				}
+				e.stopPropagation();
 				branchController.cherryPick({
 					targetCommitOid,
 					branchId: branch.id
