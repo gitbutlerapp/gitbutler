@@ -17,7 +17,7 @@
 	export let grow = true;
 
 	// Width of resize handle when horizontal
-	export let width = 2;
+	export let width = 1;
 
 	// Height of resize handle when vertical
 	export let height = 1;

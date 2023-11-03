@@ -32,6 +32,7 @@
 	import type { Update } from '../updater';
 	import IconEmail from '$lib/icons/IconEmail.svelte';
 	import * as events from '$lib/utils/events';
+	import { goto } from '$app/navigation';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
@@ -83,9 +84,6 @@
 				branches?.find((remoteBranch) => remoteBranch.sha == detail.sha)
 			);
 			overlayOffsetTop = offset || overlayOffsetTop;
-		} else if (detail instanceof BaseBranch) {
-			selectedItem = baseBranchStore;
-			overlayOffsetTop = baseContents.offsetTop;
 		} else if (detail instanceof PullRequest) {
 			selectedItem = readable(detail);
 			overlayOffsetTop = offset || overlayOffsetTop;
@@ -145,14 +143,7 @@
 	<!-- Top spacer -->
 	<div class="flex h-5 flex-shrink-0" data-tauri-drag-region></div>
 	<!-- Base branch -->
-	<div
-		class="flex flex-col p-2"
-		tabindex="0"
-		role="button"
-		bind:this={baseContents}
-		on:click={() => select($baseBranchStore, 0)}
-		on:keypress|capture={() => select($baseBranchStore, 0)}
-	>
+	<a href="base" class="flex flex-col p-2" tabindex="0" bind:this={baseContents}>
 		<div class="flex flex-grow items-center">
 			<div class="flex flex-grow items-center gap-1">
 				<span class="font-bold">Trunk</span>
@@ -199,7 +190,7 @@
 				</Tooltip>
 			</div>
 		</div>
-	</div>
+	</a>
 	<!-- Your branches -->
 	<div
 		class="bg-color-4 border-color-4 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
