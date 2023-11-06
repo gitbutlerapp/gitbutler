@@ -24,6 +24,11 @@
 
 	export let githubContext: GitHubIntegrationContext | undefined;
 
+	let dragged: any;
+	let dropZone: HTMLDivElement;
+	let priorPosition = 0;
+	let dropPosition = 0;
+
 	function handleEmpty() {
 		const emptyIndex = branches?.findIndex((item) => !item.files || item.files.length == 0);
 		if (emptyIndex && emptyIndex != -1) {
@@ -40,20 +45,74 @@
 {:else if branchesState.isError || baseBranchState.isError}
 	<div class="p-4">Something went wrong...</div>
 {:else if branches}
-	<div id="branch-lanes" class="bg-color-2 flex h-full flex-shrink flex-grow items-start">
+	<div
+		id="branch-lanes"
+		class="bg-color-2 flex h-full flex-shrink flex-grow items-start"
+		role="group"
+		bind:this={dropZone}
+		on:dragover={(e) => {
+			if (!dragged) return;
+
+			e.preventDefault();
+			const children = [...e.currentTarget.children];
+			dropPosition = 0;
+			// We account for the NewBranchDropZone by subtracting 2
+			for (let i = 0; i < children.length - 2; i++) {
+				const pos = children[i].getBoundingClientRect();
+				if (e.clientX > pos.left + pos.width) {
+					dropPosition = i + 1; // Note that this is declared in the <script>
+				} else {
+					break;
+				}
+			}
+			const idx = children.indexOf(dragged);
+			if (idx != dropPosition) {
+				idx >= dropPosition
+					? children[dropPosition].before(dragged)
+					: children[dropPosition].after(dragged);
+			}
+		}}
+		on:drop={(e) => {
+			if (!dragged) return;
+			if (!branches) return;
+			e.preventDefault();
+			if (priorPosition != dropPosition) {
+				const el = branches.splice(priorPosition, 1);
+				branches.splice(dropPosition, 0, ...el);
+				branches.forEach((branch, i) => {
+					if (branch.order !== i) {
+						branchController.updateBranchOrder(branch.id, i);
+					}
+				});
+			}
+		}}
+	>
 		{#each branches.filter((c) => c.active) as branch (branch.id)}
-			<BranchLane
-				on:empty={handleEmpty}
-				{branch}
-				{projectId}
-				{projectPath}
-				{base}
-				{cloudEnabled}
-				{cloud}
-				{branchController}
-				branchCount={branches.filter((c) => c.active).length}
-				{githubContext}
-			/>
+			<div
+				class="h-full"
+				role="group"
+				draggable="true"
+				on:dragstart={(e) => {
+					dragged = e.currentTarget;
+					priorPosition = Array.from(dropZone.children).indexOf(dragged);
+				}}
+				on:dragend={() => {
+					dragged = undefined;
+				}}
+			>
+				<BranchLane
+					on:empty={handleEmpty}
+					{branch}
+					{projectId}
+					{projectPath}
+					{base}
+					{cloudEnabled}
+					{cloud}
+					{branchController}
+					branchCount={branches.filter((c) => c.active).length}
+					{githubContext}
+				/>
+			</div>
 		{/each}
 
 		{#if !activeBranches || activeBranches.length == 0}
