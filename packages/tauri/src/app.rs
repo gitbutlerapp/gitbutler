@@ -46,13 +46,13 @@ impl TryFrom<&AppHandle> for App {
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
             local_data_dir: DataDir::try_from(value)?,
-            keys: keys::Controller::try_from(value)?,
+            keys: keys::Controller::from(value),
             projects: projects::Controller::try_from(value)?,
-            users: users::Controller::try_from(value)?,
+            users: users::Controller::from(value),
             watchers: value.state::<watcher::Watchers>().inner().clone(),
-            sessions_database: sessions::Database::try_from(value)?,
-            deltas_database: deltas::Database::try_from(value)?,
-            bookmarks_database: bookmarks::Database::try_from(value)?,
+            sessions_database: sessions::Database::from(value),
+            deltas_database: deltas::Database::from(value),
+            bookmarks_database: bookmarks::Database::from(value),
         })
     }
 }

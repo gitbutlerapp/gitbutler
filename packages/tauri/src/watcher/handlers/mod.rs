@@ -47,7 +47,7 @@ impl TryFrom<&AppHandle> for Handler {
             push_gitbutler_handler: push_gitbutler_data::Handler::try_from(value)?,
             fetch_project_handler: fetch_project_data::Handler::try_from(value)?,
             fetch_gitbutler_handler: fetch_gitbutler_data::Handler::try_from(value)?,
-            analytics_handler: analytics_handler::Handler::try_from(value)?,
+            analytics_handler: analytics_handler::Handler::from(value),
             push_project_to_gitbutler: push_project_to_gitbutler::Handler::try_from(value)?,
         })
     }

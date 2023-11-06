@@ -22,7 +22,7 @@ impl App {
 
         let storage = storage::Storage::from(&local_data_dir);
         let users_storage = users::Controller::from(&storage);
-        let projects_storage = projects::Controller::try_from(&local_data_dir)?;
+        let projects_storage = projects::Controller::from(&local_data_dir);
         let projects = projects_storage.list().context("failed to list projects")?;
 
         let project = projects

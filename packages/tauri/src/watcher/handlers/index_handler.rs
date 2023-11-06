@@ -32,9 +32,9 @@ impl TryFrom<&AppHandle> for Handler {
             local_data_dir: DataDir::try_from(value)?,
             projects: projects::Controller::try_from(value)?,
             users: users::Controller::from(value),
-            sessions_database: sessions::Database::try_from(value)?,
-            deltas_database: deltas::Database::try_from(value)?,
-            bookmarks_database: bookmarks::Database::try_from(value)?,
+            sessions_database: sessions::Database::from(value),
+            deltas_database: deltas::Database::from(value),
+            bookmarks_database: bookmarks::Database::from(value),
         })
     }
 }

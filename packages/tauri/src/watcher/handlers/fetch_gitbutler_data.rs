@@ -55,7 +55,7 @@ impl TryFrom<&AppHandle> for HandlerInner {
         Ok(Self {
             local_data_dir,
             projects: projects::Controller::try_from(value)?,
-            users: users::Controller::try_from(value)?,
+            users: users::Controller::from(value),
         })
     }
 }
