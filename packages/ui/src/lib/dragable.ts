@@ -121,22 +121,24 @@ export function dragable(node: HTMLElement, opts: Partial<Dragable> | undefined)
 		// activate destination zones
 		registry
 			.filter(([_node, dz]) => dz.accepts(options.data))
-			.forEach(([node, dz]) => {
+			.forEach(([target, dz]) => {
 				const onDrop = (e: DragEvent) => {
 					e.preventDefault();
 					dz.onDrop(options.data);
 				};
 
 				// keep track of listeners so that we can remove them later
-				if (onDropListeners.has(node)) {
-					onDropListeners.get(node)!.push(onDrop);
+				if (onDropListeners.has(target)) {
+					onDropListeners.get(target)!.push(onDrop);
 				} else {
-					onDropListeners.set(node, [onDrop]);
+					onDropListeners.set(target, [onDrop]);
 				}
 
-				node.classList.add(dz.active);
-				node.addEventListener('drop', onDrop);
-				activeZones.add(node);
+				// https://stackoverflow.com/questions/14203734/dragend-dragenter-and-dragleave-firing-off-immediately-when-i-drag
+				setTimeout(() => target.classList.add(dz.active), 10);
+
+				target.addEventListener('drop', onDrop);
+				activeZones.add(target);
 			});
 
 		e.dataTransfer?.setDragImage(clone, e.offsetX + 30, e.offsetY + 30); // Adds the padding
