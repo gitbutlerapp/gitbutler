@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { userStore } from '$lib/stores/user';
-	import type { BaseBranch, Branch, File, Hunk } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, File, Hunk, RemoteCommit } from '$lib/vbranches/types';
 	import { getContext, onDestroy, onMount } from 'svelte';
-	import { dropzone } from '$lib/dragable';
+	import { dragable, dropzone } from '$lib/dragable';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import IconKebabMenu from '$lib/icons/IconKebabMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
@@ -267,9 +267,20 @@
 	const selectedOwnership = writable(Ownership.fromBranch(branch));
 	$: if (commitDialogShown) selectedOwnership.set(Ownership.fromBranch(branch));
 
+	function acceptCherrypick(data: { branchId: string; commit: RemoteCommit }) {
+		return data.branchId === branch.id;
+	}
+
+	function onCherrypicked(data: { branchId: string; commit: RemoteCommit }) {
+		branchController.cherryPick({
+			targetCommitOid: data.commit.id,
+			branchId: branch.id
+		});
+	}
+
 	function acceptBranchDrop(data: { branchId: string; file?: File; hunk?: Hunk }) {
 		if (data.branchId === branch.id) return false;
-		return true;
+		return !!data.file || !!data.hunk;
 	}
 
 	function onBranchDrop(data: { file?: File; hunk?: Hunk }) {
@@ -429,11 +440,13 @@
 					</div>
 					{#if upstreamCommitsShown}
 						<div
-							class="flex w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
+							class="flex w-full flex-col gap-1 border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
 							id="upstreamCommits"
 						>
 							{#each branch.upstream.commits as commit (commit.id)}
-								<CommitCard {commit} {projectId} />
+								<div use:dragable={{ data: { branchId: branch.id, commit } }}>
+									<CommitCard {commit} {projectId} />
+								</div>
 							{/each}
 							<div class="flex justify-end p-2">
 								{#if branchCount > 1}
@@ -478,6 +491,12 @@
 		/>
 		<div
 			class="relative flex flex-grow overflow-y-hidden"
+			use:dropzone={{
+				hover: 'cherrypick-dz-hover',
+				active: 'cherrypick-dz-active',
+				accepts: acceptCherrypick,
+				onDrop: onCherrypicked
+			}}
 			use:dropzone={{
 				hover: 'lane-dz-hover',
 				active: 'lane-dz-active',

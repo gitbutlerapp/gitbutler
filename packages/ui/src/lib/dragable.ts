@@ -80,7 +80,7 @@ export interface Dragable {
 }
 
 const defaultDragableOptions: Dragable = {
-	data: {},
+	data: 'default',
 	disabled: false
 };
 
