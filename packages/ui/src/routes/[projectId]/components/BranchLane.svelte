@@ -2,7 +2,7 @@
 	import { userStore } from '$lib/stores/user';
 	import type { BaseBranch, Branch, File, Hunk, RemoteCommit } from '$lib/vbranches/types';
 	import { getContext, onDestroy, onMount } from 'svelte';
-	import { dragable, dropzone } from '$lib/utils/dragable';
+	import { draggable, dropzone } from '$lib/utils/draggable';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import IconKebabMenu from '$lib/icons/IconKebabMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
@@ -444,7 +444,7 @@
 							id="upstreamCommits"
 						>
 							{#each branch.upstream.commits as commit (commit.id)}
-								<div use:dragable={{ data: { branchId: branch.id, commit } }}>
+								<div use:draggable={{ data: { branchId: branch.id, commit } }}>
 									<CommitCard {commit} {projectId} />
 								</div>
 							{/each}

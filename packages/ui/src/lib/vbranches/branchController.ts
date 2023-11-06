@@ -244,11 +244,12 @@ export class BranchController {
 		}
 	}
 
-	async amendBranch(params: { branchId: string; ownership: string }) {
+	async amendBranch({ branchId, ownership }: { branchId: string; ownership: string }) {
 		try {
 			await invoke<void>('amend_virtual_branch', {
 				projectId: this.projectId,
-				...params
+				branchId,
+				ownership
 			});
 			await this.targetBranchStore.reload();
 		} catch (err: any) {

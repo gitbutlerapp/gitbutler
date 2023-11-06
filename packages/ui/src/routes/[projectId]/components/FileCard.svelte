@@ -2,7 +2,7 @@
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
 	import { createEventDispatcher, onDestroy } from 'svelte';
 	import type { File, Hunk } from '$lib/vbranches/types';
-	import { dragable } from '$lib/utils/dragable';
+	import { draggable } from '$lib/utils/draggable';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Writable } from 'svelte/store';
 	import RenderedLine from './RenderedLine.svelte';
@@ -96,7 +96,7 @@
 
 <div
 	id={`file-${file.id}`}
-	use:dragable={{
+	use:draggable={{
 		data: { branchId, file },
 		disabled: isFileLocked || readonly
 	}}
@@ -192,7 +192,7 @@
 								<div
 									tabindex="0"
 									role="cell"
-									use:dragable={{
+									use:draggable={{
 										data: {
 											branchId,
 											hunk: section.hunk

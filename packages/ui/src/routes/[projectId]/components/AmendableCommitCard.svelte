@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { dropzone } from '$lib/utils/dragable';
+	import { dropzone } from '$lib/utils/draggable';
 	import type { Hunk, File, RemoteCommit } from '$lib/vbranches/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import CommitCard from './CommitCard.svelte';

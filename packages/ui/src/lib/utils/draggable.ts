@@ -1,5 +1,3 @@
-//
-
 export interface Dropzone {
 	disabled: boolean;
 	active: string;
@@ -12,7 +10,7 @@ const defaultDropzoneOptions: Dropzone = {
 	disabled: false,
 	active: 'dropzone-active',
 	hover: 'dropzone-hover',
-	accepts: (data) => data === 'default',
+	accepts: (data) => data == 'default',
 	onDrop: () => {}
 };
 
@@ -57,8 +55,6 @@ export function dropzone(node: HTMLElement, opts: Partial<Dropzone> | undefined)
 	};
 }
 
-//
-
 const registry: [HTMLElement, Dropzone][] = [];
 
 const activeZones = new Set<HTMLElement>();
@@ -68,24 +64,22 @@ function register(node: HTMLElement, dropzone: Dropzone) {
 }
 
 function unregister(dropzone: Dropzone) {
-	const index = registry.findIndex(([, dz]) => dz === dropzone);
+	const index = registry.findIndex(([, dz]) => dz == dropzone);
 	if (index >= 0) registry.splice(index, 1);
 }
 
-//
-
-export interface Dragable {
+export interface Draggable {
 	data: any;
 	disabled: boolean;
 }
 
-const defaultDragableOptions: Dragable = {
+const defaultDraggableOptions: Draggable = {
 	data: 'default',
 	disabled: false
 };
 
-export function dragable(node: HTMLElement, opts: Partial<Dragable> | undefined) {
-	const options = { ...defaultDragableOptions, ...opts };
+export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefined) {
+	const options = { ...defaultDraggableOptions, ...opts };
 
 	if (options.disabled) return;
 

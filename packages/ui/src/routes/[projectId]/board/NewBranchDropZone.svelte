@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { dropzone } from '$lib/utils/dragable';
+	import { dropzone } from '$lib/utils/draggable';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { File, Hunk } from '$lib/vbranches/types';
 
