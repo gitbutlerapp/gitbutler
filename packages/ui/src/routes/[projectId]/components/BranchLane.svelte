@@ -279,8 +279,10 @@
 	}
 
 	function acceptBranchDrop(data: { branchId: string; file?: File; hunk?: Hunk }) {
-		if (data.branchId === branch.id) return false;
-		return !!data.file || !!data.hunk;
+		if (data.branchId === branch.id) return false; // can't drag to the same branch
+		if (data.hunk !== undefined && !data.hunk.locked) return true; // can only drag not locked hunks
+		if (data.file !== undefined && data.file.hunks.some((hunk) => !hunk.locked)) return true; // can only draged non fully locked files
+		return false;
 	}
 
 	function onBranchDrop(data: { file?: File; hunk?: Hunk }) {

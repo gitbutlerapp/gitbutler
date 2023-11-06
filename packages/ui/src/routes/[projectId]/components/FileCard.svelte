@@ -98,7 +98,7 @@
 	id={`file-${file.id}`}
 	use:draggable={{
 		data: { branchId, file },
-		disabled: isFileLocked || readonly
+		disabled: readonly
 	}}
 	class="changed-file inner"
 	class:opacity-80={isFileLocked}
@@ -197,7 +197,7 @@
 											branchId,
 											hunk: section.hunk
 										},
-										disabled: section.hunk.locked || readonly
+										disabled: readonly
 									}}
 									on:dblclick
 									class="changed-hunk"
