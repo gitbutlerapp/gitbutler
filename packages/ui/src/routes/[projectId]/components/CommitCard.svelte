@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { Hunk, File, RemoteFile, type RemoteCommit } from '$lib/vbranches/types';
+	import { RemoteFile, type RemoteCommit } from '$lib/vbranches/types';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
-	import { dropzone } from '$lib/dragable';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
 	import RenderedLine from './RenderedLine.svelte';
@@ -11,8 +10,6 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
 
-	export let branchId: string | undefined = undefined;
-	export let amendable = false;
 	export let commit: RemoteCommit;
 	export let projectId: string;
 
@@ -33,67 +30,37 @@
 			.sort((a, b) => a[0].localeCompare(b[0]));
 		isLoading = false;
 	}
-
-	function acceptBranchDrop(data: { branchId: string; file?: File; hunk?: Hunk }) {
-		if (data.branchId !== branchId) return false;
-		return !!data.file || !!data.hunk;
-	}
-
-	function onDrop(data: { file?: File; hunk?: Hunk }) {
-		if (data.hunk) {
-			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
-			console.log(newOwnership);
-		} else if (data.file) {
-			const newOwnership = `${data.file.path}:${data.file.hunks.map(({ id }) => id).join(',')}`;
-			console.log(newOwnership);
-		}
-	}
 </script>
 
 <div
-	use:dropzone={{
-		disabled: !amendable,
-		active: 'amend-dz-active',
-		hover: 'amend-dz-hover',
-		accepts: acceptBranchDrop,
-		onDrop: onDrop
-	}}
-	class="text-color-2 bg-color-5 border-color-4 relative w-full truncate rounded border text-left"
+	class="text-color-2 bg-color-5 border-color-4 relative w-full truncate rounded border p-2 text-left"
 >
-	<div
-		class="amend-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
-	>
-		<div class="hover-text font-semibold">Amend</div>
+	<div class="mb-1 flex justify-between">
+		<div class="truncate">
+			<button
+				on:click={() => {
+					loadEntries();
+					previewCommitModal.show();
+				}}
+			>
+				{commit.description}
+			</button>
+		</div>
 	</div>
 
-	<div class="p-2">
-		<div class="mb-1 flex justify-between">
-			<div class="truncate">
-				<button
-					on:click={() => {
-						loadEntries();
-						previewCommitModal.show();
-					}}
-				>
-					{commit.description}
-				</button>
-			</div>
-		</div>
-
-		<div class="text-color-3 flex space-x-1 text-sm">
-			<img
-				class="relative inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
-				title="Gravatar for {commit.author.email}"
-				alt="Gravatar for {commit.author.email}"
-				srcset="{commit.author.gravatarUrl} 2x"
-				width="100"
-				height="100"
-				on:error
-			/>
-			<div class="flex-grow truncate">{commit.author.name}</div>
-			<div class="truncate">
-				<TimeAgo date={commit.createdAt} />
-			</div>
+	<div class="text-color-3 flex space-x-1 text-sm">
+		<img
+			class="relative inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
+			title="Gravatar for {commit.author.email}"
+			alt="Gravatar for {commit.author.email}"
+			srcset="{commit.author.gravatarUrl} 2x"
+			width="100"
+			height="100"
+			on:error
+		/>
+		<div class="flex-grow truncate">{commit.author.name}</div>
+		<div class="truncate">
+			<TimeAgo date={commit.createdAt} />
 		</div>
 	</div>
 </div>

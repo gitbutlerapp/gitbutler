@@ -243,4 +243,16 @@ export class BranchController {
 			toasts.error(`Failed to mark file resolved`);
 		}
 	}
+
+	async amendBranch(params: { branchId: string; ownership: string }) {
+		try {
+			await invoke<void>('amend_virtual_branch', {
+				projectId: this.projectId,
+				...params
+			});
+			await this.targetBranchStore.reload();
+		} catch (err: any) {
+			toasts.error(`Failed to amend commit: ${err.message}`);
+		}
+	}
 }

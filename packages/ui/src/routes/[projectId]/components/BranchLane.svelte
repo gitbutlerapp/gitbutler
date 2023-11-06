@@ -39,6 +39,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import AmendableCommitCard from './AmendableCommitCard.svelte';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -431,8 +432,8 @@
 							class="flex w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
 							id="upstreamCommits"
 						>
-							{#each branch.upstream.commits as commit}
-								<CommitCard branchId={branch.id} {commit} {projectId} />
+							{#each branch.upstream.commits as commit (commit.id)}
+								<CommitCard {commit} {projectId} />
 							{/each}
 							<div class="flex justify-end p-2">
 								{#if branchCount > 1}
@@ -639,12 +640,16 @@
 														<div class="border-color-4 h-3 w-3 rounded-full border-2" />
 													</div>
 												{/if}
-												<CommitCard
-													branchId={branch.id}
-													{projectId}
-													{commit}
-													amendable={branch.commits.at(0)?.id === commit.id}
-												/>
+												{#if branch.commits.at(0)?.id === commit.id}
+													<AmendableCommitCard
+														{branchController}
+														branchId={branch.id}
+														{commit}
+														{projectId}
+													/>
+												{:else}
+													<CommitCard {commit} {projectId} />
+												{/if}
 											</div>
 										{/each}
 									</div>
@@ -731,12 +736,16 @@
 														/>
 													</div>
 												{/if}
-												<CommitCard
-													branchId={branch.id}
-													{projectId}
-													{commit}
-													amendable={branch.commits.at(0)?.id === commit.id}
-												/>
+												{#if branch.commits.at(0)?.id === commit.id}
+													<AmendableCommitCard
+														{branchController}
+														branchId={branch.id}
+														{commit}
+														{projectId}
+													/>
+												{:else}
+													<CommitCard {commit} {projectId} />
+												{/if}
 											</div>
 										{/each}
 									</div>
@@ -782,7 +791,7 @@
 													class:dark:bg-dark-500={commit.isRemote}
 												/>
 											</div>
-											<CommitCard branchId={branch.id} {projectId} {commit} />
+											<CommitCard {projectId} {commit} />
 										</div>
 									{/each}
 								</div>
