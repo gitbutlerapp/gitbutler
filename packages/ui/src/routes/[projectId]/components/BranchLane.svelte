@@ -267,8 +267,8 @@
 	const selectedOwnership = writable(Ownership.fromBranch(branch));
 	$: if (commitDialogShown) selectedOwnership.set(Ownership.fromBranch(branch));
 
-	function acceptCherrypick(data: { branchId: string; commit: RemoteCommit }) {
-		return data.branchId === branch.id;
+	function acceptCherrypick(data: { branchId?: string; commit?: RemoteCommit }) {
+		return data?.branchId === branch.id && data.commit !== undefined;
 	}
 
 	function onCherrypicked(data: { branchId: string; commit: RemoteCommit }) {
