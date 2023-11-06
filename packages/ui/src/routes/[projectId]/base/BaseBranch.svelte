@@ -7,7 +7,6 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import BackButton from '$lib/components/BackButton.svelte';
 
 	export let base: BaseBranch;
 	export let projectId: string;
@@ -26,10 +25,6 @@
 
 <div bind:this={viewport} class="flex max-h-full flex-col overflow-y-scroll overscroll-none">
 	<div bind:this={contents} class="flex flex-col gap-y-4">
-		<h1 class="font-bold text-light-700 dark:text-dark-100">
-			<BackButton class="align-bottom"></BackButton>
-			Upstream
-		</h1>
 		<div class="rounded-sm text-sm text-light-700 dark:text-dark-200">
 			There {multiple ? 'are' : 'is'}
 			{base.upstreamCommits.length} unmerged upstream
