@@ -2,7 +2,7 @@
 	import { userStore } from '$lib/stores/user';
 	import type { BaseBranch, Branch, File, Hunk, RemoteCommit } from '$lib/vbranches/types';
 	import { getContext, onDestroy, onMount } from 'svelte';
-	import { dragable, dropzone } from '$lib/dragable';
+	import { dragable, dropzone } from '$lib/utils/dragable';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import IconKebabMenu from '$lib/icons/IconKebabMenu.svelte';
 	import CommitCard from './CommitCard.svelte';

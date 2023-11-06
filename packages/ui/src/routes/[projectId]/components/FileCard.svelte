@@ -2,7 +2,7 @@
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
 	import { createEventDispatcher, onDestroy } from 'svelte';
 	import type { File, Hunk } from '$lib/vbranches/types';
-	import { dragable } from '$lib/dragable';
+	import { dragable } from '$lib/utils/dragable';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Writable } from 'svelte/store';
 	import RenderedLine from './RenderedLine.svelte';

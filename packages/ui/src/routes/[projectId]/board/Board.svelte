@@ -2,7 +2,6 @@
 	import BranchLane from '../components/BranchLane.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
-	import { dzHighlight } from '$lib/utils/dropZone';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import type { LoadState } from '@square/svelte-store';
@@ -25,13 +24,6 @@
 
 	export let githubContext: GitHubIntegrationContext | undefined;
 
-	let dragged: any;
-	let dropZone: HTMLDivElement;
-	let priorPosition = 0;
-	let dropPosition = 0;
-
-	const dzType = 'text/branch';
-
 	function handleEmpty() {
 		const emptyIndex = branches?.findIndex((item) => !item.files || item.files.length == 0);
 		if (emptyIndex && emptyIndex != -1) {
@@ -48,52 +40,9 @@
 {:else if branchesState.isError || baseBranchState.isError}
 	<div class="p-4">Something went wrong...</div>
 {:else if branches}
-	<div
-		bind:this={dropZone}
-		id="branch-lanes"
-		class="bg-color-2 flex h-full flex-shrink flex-grow items-start"
-		role="group"
-		use:dzHighlight={{ type: dzType, active: 'board-dz-active', hover: 'board-dz-hover' }}
-		on:dragover={(e) => {
-			const children = [...e.currentTarget.children];
-			dropPosition = 0;
-			// We account for the NewBranchDropZone by subtracting 2
-			for (let i = 0; i < children.length - 2; i++) {
-				const pos = children[i].getBoundingClientRect();
-				if (e.clientX > pos.left + pos.width) {
-					dropPosition = i + 1; // Note that this is declared in the <script>
-				} else {
-					break;
-				}
-			}
-			const idx = children.indexOf(dragged);
-			if (idx != dropPosition) {
-				idx >= dropPosition
-					? children[dropPosition].before(dragged)
-					: children[dropPosition].after(dragged);
-			}
-		}}
-		on:drop={() => {
-			if (!branches) return;
-			if (priorPosition != dropPosition) {
-				const el = branches.splice(priorPosition, 1);
-				branches.splice(dropPosition, 0, ...el);
-				branches.forEach((branch, i) => {
-					if (branch.order !== i) {
-						branchController.updateBranchOrder(branch.id, i);
-					}
-				});
-			}
-		}}
-	>
+	<div id="branch-lanes" class="bg-color-2 flex h-full flex-shrink flex-grow items-start">
 		{#each branches.filter((c) => c.active) as branch (branch.id)}
 			<BranchLane
-				on:dragstart={(e) => {
-					if (!e.dataTransfer) return;
-					e.dataTransfer.setData(dzType, branch.id);
-					dragged = e.currentTarget;
-					priorPosition = Array.from(dropZone.children).indexOf(dragged);
-				}}
 				on:empty={handleEmpty}
 				{branch}
 				{projectId}
