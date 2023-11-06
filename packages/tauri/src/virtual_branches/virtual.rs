@@ -1016,10 +1016,7 @@ pub fn create_virtual_branch(
         .write(&branch)
         .context("failed to write branch")?;
 
-    project_repository
-        .git_repository
-        .reference(&branch.refname(), branch.head, false, "new vbranch")
-        .context("failed to create branch reference")?;
+    project_repository.add_branch_reference(&branch)?;
 
     Ok(branch)
 }
@@ -1202,14 +1199,7 @@ pub fn update_branch(
             .collect::<Result<Vec<branch::Branch>, reader::Error>>()
             .context("failed to read virtual branches")?;
 
-        if let Ok(ref mut reference) = project_repository
-            .git_repository
-            .find_reference(&branch.refname())
-        {
-            reference
-                .delete()
-                .context("failed to delete old branch reference")?;
-        }
+        project_repository.delete_branch_reference(&branch)?;
 
         branch.name = dedup(
             &all_virtual_branches
@@ -1219,10 +1209,7 @@ pub fn update_branch(
             &name,
         );
 
-        project_repository
-            .git_repository
-            .reference(&branch.refname(), branch.head, false, "new vbranch")
-            .context("failed to create branch reference")?;
+        project_repository.add_branch_reference(&branch)?;
     };
 
     if let Some(upstream_branch_name) = branch_update.upstream {
@@ -1275,15 +1262,7 @@ pub fn delete_branch(
         .delete(&branch)
         .context("Failed to remove branch")?;
 
-    // remove refs/butler reference
-    let repo = &project_repository.git_repository;
-    let refname = branch.refname();
-    if let Ok(mut reference) = repo.find_reference(&refname) {
-        reference
-            .delete()
-            .context(format!("failed to delete {}", refname))?;
-    }
-
+    project_repository.delete_branch_reference(&branch)?;
     Ok(branch)
 }
 

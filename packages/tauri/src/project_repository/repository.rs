@@ -9,6 +9,7 @@ use itertools::Itertools;
 use crate::{
     git::{self, Url},
     projects, reader, users,
+    virtual_branches::Branch,
 };
 
 pub struct Repository {
@@ -116,6 +117,42 @@ impl Repository {
                     .context("failed to convert branch to remote name")
             })
             .collect::<Result<Vec<_>>>()
+    }
+
+    pub fn add_branch_reference(&self, branch: &Branch) -> Result<()> {
+        let (should_write, with_force) =
+            match self.git_repository.find_reference(&branch.refname()) {
+                Ok(reference) => match reference.target() {
+                    Some(head_oid) => Ok((head_oid != branch.head, true)),
+                    None => Ok((true, true)),
+                },
+                Err(git::Error::NotFound(_)) => Ok((true, false)),
+                Err(error) => Err(error),
+            }
+            .context("failed to lookup reference")?;
+
+        if should_write {
+            self.git_repository
+                .reference(&branch.refname(), branch.head, with_force, "new vbranch")
+                .context("failed to create branch reference")?;
+            Ok(())
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn delete_branch_reference(&self, branch: &Branch) -> Result<()> {
+        match self.git_repository.find_reference(&branch.refname()) {
+            Ok(mut reference) => {
+                reference
+                    .delete()
+                    .context("failed to delete branch reference")?;
+                Ok(())
+            }
+            Err(git::Error::NotFound(_)) => Ok(()),
+            Err(error) => Err(error),
+        }
+        .context("failed to lookup reference")
     }
 
     // returns a list of commit oids from the first oid to the second oid
