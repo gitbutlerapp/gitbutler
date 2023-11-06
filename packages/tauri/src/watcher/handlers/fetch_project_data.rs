@@ -59,9 +59,9 @@ impl TryFrom<&AppHandle> for HandlerInner {
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
             local_data_dir: DataDir::try_from(value)?,
-            keys: keys::Controller::try_from(value)?,
+            keys: keys::Controller::from(value),
             projects: projects::Controller::try_from(value)?,
-            users: users::Controller::try_from(value)?,
+            users: users::Controller::from(value),
         })
     }
 }

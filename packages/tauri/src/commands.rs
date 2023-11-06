@@ -174,9 +174,7 @@ pub async fn upsert_bookmark(
     })?;
     let bookmark = bookmarks::Bookmark {
         project_id,
-        timestamp_ms: timestamp_ms
-            .try_into()
-            .context("failed to convert timestamp")?,
+        timestamp_ms: timestamp_ms.into(),
         created_timestamp_ms: now,
         updated_timestamp_ms: now,
         note,
