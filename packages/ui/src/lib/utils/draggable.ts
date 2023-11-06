@@ -15,22 +15,18 @@ const defaultDropzoneOptions: Dropzone = {
 };
 
 export function dropzone(node: HTMLElement, opts: Partial<Dropzone> | undefined) {
-	const options = { ...defaultDropzoneOptions, ...opts };
-
-	if (options.disabled) return;
-
-	register(node, options);
+	let currentOptions = { ...defaultDropzoneOptions, ...opts };
 
 	function handleDragEnter(e: DragEvent) {
 		if (activeZones.has(node)) {
-			node.classList.add(options.hover);
+			node.classList.add(currentOptions.hover);
 			e.preventDefault();
 		}
 	}
 
 	function handleDragLeave(_e: DragEvent) {
 		if (activeZones.has(node)) {
-			node.classList.remove(options.hover);
+			node.classList.remove(currentOptions.hover);
 		}
 	}
 
@@ -40,17 +36,34 @@ export function dropzone(node: HTMLElement, opts: Partial<Dropzone> | undefined)
 		}
 	}
 
-	node.addEventListener('dragenter', handleDragEnter);
-	node.addEventListener('dragleave', handleDragLeave);
-	node.addEventListener('dragover', handleDragOver);
+	function setup(opts: Partial<Dropzone> | undefined) {
+		currentOptions = { ...defaultDropzoneOptions, ...opts };
+		if (currentOptions.disabled) return;
+
+		register(node, currentOptions);
+
+		node.addEventListener('dragenter', handleDragEnter);
+		node.addEventListener('dragleave', handleDragLeave);
+		node.addEventListener('dragover', handleDragOver);
+	}
+
+	function clean() {
+		unregister(currentOptions);
+
+		node.removeEventListener('dragenter', handleDragEnter);
+		node.removeEventListener('dragleave', handleDragLeave);
+		node.removeEventListener('dragover', handleDragOver);
+	}
+
+	setup(opts);
 
 	return {
+		update(opts: Partial<Dropzone> | undefined) {
+			clean();
+			setup(opts);
+		},
 		destroy() {
-			unregister(options);
-
-			node.removeEventListener('dragenter', handleDragEnter);
-			node.removeEventListener('dragleave', handleDragLeave);
-			node.removeEventListener('dragover', handleDragOver);
+			clean();
 		}
 	};
 }
@@ -79,12 +92,7 @@ const defaultDraggableOptions: Draggable = {
 };
 
 export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefined) {
-	const options = { ...defaultDraggableOptions, ...opts };
-
-	if (options.disabled) return;
-
-	node.draggable = true;
-
+	let currentOptions = { ...defaultDraggableOptions, ...opts };
 	let clone: HTMLElement;
 
 	const onDropListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
@@ -114,11 +122,11 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 
 		// activate destination zones
 		registry
-			.filter(([_node, dz]) => dz.accepts(options.data))
+			.filter(([_node, dz]) => dz.accepts(currentOptions.data))
 			.forEach(([target, dz]) => {
 				const onDrop = (e: DragEvent) => {
 					e.preventDefault();
-					dz.onDrop(options.data);
+					dz.onDrop(currentOptions.data);
 				};
 
 				// keep track of listeners so that we can remove them later
@@ -145,7 +153,7 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 
 		// deactivate destination zones
 		registry
-			.filter(([_node, dz]) => dz.accepts(options.data))
+			.filter(([_node, dz]) => dz.accepts(currentOptions.data))
 			.forEach(([node, dz]) => {
 				// remove all listeners
 				const onDrop = onDropListeners.get(node);
@@ -162,13 +170,32 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 		e.stopPropagation();
 	}
 
-	node.addEventListener('dragstart', handleDragStart);
-	node.addEventListener('dragend', handleDragEnd);
+	function setup(opts: Partial<Draggable> | undefined) {
+		currentOptions = { ...defaultDraggableOptions, ...opts };
+
+		if (currentOptions.disabled) return;
+
+		node.draggable = true;
+
+		node.addEventListener('dragstart', handleDragStart);
+		node.addEventListener('dragend', handleDragEnd);
+	}
+
+	function clean() {
+		node.draggable = false;
+		node.removeEventListener('dragstart', handleDragStart);
+		node.removeEventListener('dragend', handleDragEnd);
+	}
+
+	setup(opts);
 
 	return {
+		update(opts: Partial<Draggable> | undefined) {
+			clean();
+			setup(opts);
+		},
 		destroy() {
-			node.removeEventListener('dragstart', handleDragStart);
-			node.removeEventListener('dragend', handleDragEnd);
+			clean();
 		}
 	};
 }
