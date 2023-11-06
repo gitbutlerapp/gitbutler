@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { userStore } from '$lib/stores/user';
-	import type { BaseBranch, Branch } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, File, Hunk } from '$lib/vbranches/types';
 	import { getContext, onDestroy, onMount } from 'svelte';
+	import { dropzone } from '$lib/dragable';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import IconKebabMenu from '$lib/icons/IconKebabMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
-	import { dzHighlight, dzTrigger } from '$lib/utils/dropZone';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import FileCard from './FileCard.svelte';
 	import { slide } from 'svelte/transition';
@@ -88,7 +88,6 @@
 	let deleteBranchModal: Modal;
 	let applyConflictedModal: Modal;
 
-	const dzType = 'text/hunk';
 	const laneWidthKey = 'laneWidth:';
 
 	$: pullRequestPromise =
@@ -266,33 +265,30 @@
 
 	const selectedOwnership = writable(Ownership.fromBranch(branch));
 	$: if (commitDialogShown) selectedOwnership.set(Ownership.fromBranch(branch));
+
+	function acceptBranchDrop(data: { branchId: string; file?: File; hunk?: Hunk }) {
+		if (data.branchId === branch.id) return false;
+		return true;
+	}
+
+	function onBranchDrop(data: { file?: File; hunk?: Hunk }) {
+		if (data.hunk) {
+			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
+			branchController.updateBranchOwnership(
+				branch.id,
+				(newOwnership + '\n' + branch.ownership).trim()
+			);
+		} else if (data.file) {
+			const newOwnership = `${data.file.path}:${data.file.hunks.map(({ id }) => id).join(',')}`;
+			branchController.updateBranchOwnership(
+				branch.id,
+				(newOwnership + '\n' + branch.ownership).trim()
+			);
+		}
+	}
 </script>
 
-<div
-	class="flex h-full shrink-0 snap-center"
-	style:width={maximized ? '100%' : `${laneWidth}px`}
-	draggable={!readonly}
-	role="group"
-	use:dzHighlight={{ type: dzType, hover: 'lane-dz-hover', active: 'lane-dz-active' }}
-	on:dragstart
-	on:dragend
-	on:drop={(e) => {
-		if (!e.dataTransfer) {
-			return;
-		}
-		const data = e.dataTransfer.getData(dzType);
-		const [newFileId, newHunks] = data.split(':');
-		const existingHunkIds =
-			branch.files.find((f) => f.id === newFileId)?.hunks.map((h) => h.id) || [];
-		const newHunkIds = newHunks.split(',').filter((h) => !existingHunkIds.includes(h));
-		if (newHunkIds.length == 0) {
-			// don't allow dropping hunk to the lane where it already is
-			return;
-		}
-		e.stopPropagation();
-		branchController.updateBranchOwnership(branch.id, (data + '\n' + branch.ownership).trim());
-	}}
->
+<div class="flex h-full shrink-0 snap-center" style:width={maximized ? '100%' : `${laneWidth}px`}>
 	<div
 		bind:this={rsViewport}
 		class="bg-color-3 border-color-4 flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r"
@@ -436,14 +432,7 @@
 							id="upstreamCommits"
 						>
 							{#each branch.upstream.commits as commit}
-								<div
-									role="group"
-									draggable="true"
-									use:dzTrigger={{ type: 'commit/upstream' }}
-									on:dragstart={(e) => e.dataTransfer?.setData('commit/upstream', commit.id)}
-								>
-									<CommitCard {commit} {projectId} />
-								</div>
+								<CommitCard branchId={branch.id} {commit} {projectId} />
 							{/each}
 							<div class="flex justify-end p-2">
 								{#if branchCount > 1}
@@ -488,25 +477,11 @@
 		/>
 		<div
 			class="relative flex flex-grow overflow-y-hidden"
-			use:dzHighlight={{
-				type: 'commit/upstream',
-				hover: 'cherrypick-dz-hover',
-				active: 'cherrypick-dz-active'
-			}}
-			role="group"
-			on:drop={(e) => {
-				if (!e.dataTransfer) {
-					return;
-				}
-				const targetCommitOid = e.dataTransfer.getData('commit/upstream');
-				if (!targetCommitOid) {
-					return;
-				}
-				e.stopPropagation();
-				branchController.cherryPick({
-					targetCommitOid,
-					branchId: branch.id
-				});
+			use:dropzone={{
+				hover: 'lane-dz-hover',
+				active: 'lane-dz-active',
+				accepts: acceptBranchDrop,
+				onDrop: onBranchDrop
 			}}
 		>
 			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
@@ -550,8 +525,8 @@
 										expanded={file.expanded}
 										conflicted={file.conflicted}
 										{selectedOwnership}
+										branchId={branch.id}
 										{file}
-										{dzType}
 										{projectId}
 										{projectPath}
 										{branchController}
@@ -664,7 +639,12 @@
 														<div class="border-color-4 h-3 w-3 rounded-full border-2" />
 													</div>
 												{/if}
-												<CommitCard {projectId} {commit} />
+												<CommitCard
+													branchId={branch.id}
+													{projectId}
+													{commit}
+													amendable={branch.commits.at(0)?.id === commit.id}
+												/>
 											</div>
 										{/each}
 									</div>
@@ -751,7 +731,12 @@
 														/>
 													</div>
 												{/if}
-												<CommitCard {projectId} {commit} />
+												<CommitCard
+													branchId={branch.id}
+													{projectId}
+													{commit}
+													amendable={branch.commits.at(0)?.id === commit.id}
+												/>
 											</div>
 										{/each}
 									</div>
@@ -797,7 +782,7 @@
 													class:dark:bg-dark-500={commit.isRemote}
 												/>
 											</div>
-											<CommitCard {projectId} {commit} />
+											<CommitCard branchId={branch.id} {projectId} {commit} />
 										</div>
 									{/each}
 								</div>
