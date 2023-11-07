@@ -8,6 +8,7 @@
 	export let branchId: string;
 	export let commit: RemoteCommit;
 	export let projectId: string;
+	export let commitUrl: string | undefined = undefined;
 
 	function acceptBranchDrop(data: { branchId: string; file?: File; hunk?: Hunk }) {
 		if (data.branchId !== branchId) return false;
@@ -40,5 +41,5 @@
 		<div class="hover-text font-semibold">Amend</div>
 	</div>
 
-	<CommitCard {commit} {projectId} />
+	<CommitCard {commit} {projectId} {commitUrl} />
 </div>
