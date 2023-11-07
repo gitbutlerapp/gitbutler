@@ -345,7 +345,7 @@ impl Repository {
     pub fn push_to_gitbutler_server(
         &self,
         user: Option<&users::User>,
-        ref_spec: &str,
+        ref_specs: &[&str],
     ) -> Result<(), RemoteError> {
         let url = self
             .project
@@ -390,12 +390,12 @@ impl Repository {
             .map_err(|e| RemoteError::Other(e.into()))?;
 
         remote
-            .push(&[ref_spec], Some(&mut push_options))
+            .push(ref_specs, Some(&mut push_options))
             .map_err(|e| RemoteError::Other(e.into()))?;
 
         tracing::debug!(
             project_id = %self.project.id,
-            %ref_spec,
+            ref_spec = ref_specs.join(" "),
             bytes = bytes_pushed.load(std::sync::atomic::Ordering::Relaxed),
             "pushed to gb repo tmp ref",
         );

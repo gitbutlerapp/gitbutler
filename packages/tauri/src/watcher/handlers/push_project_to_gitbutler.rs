@@ -95,7 +95,7 @@ impl HandlerInner {
                 let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
 
                 project_repository
-                    .push_to_gitbutler_server(user.as_ref(), &refspec)
+                    .push_to_gitbutler_server(user.as_ref(), &[&refspec])
                     .context("failed to push project to gitbutler")?;
 
                 self.project_store
@@ -116,14 +116,23 @@ impl HandlerInner {
             project_repository
                 .push_to_gitbutler_server(
                     user.as_ref(),
-                    &format!("+{}:refs/{}", head_id, project_id),
+                    &[&format!("+{}:refs/{}", head_id, project_id)],
                 )
-                .context("failed to push project to gitbutler")?;
+                .context("failed to push project (head) to gitbutler")?;
+
+            let refs = gb_refs(&project_repository)?;
+
+            let all_refs = refs
+                .iter()
+                .map(|r| format!("+{}:{}", r, r))
+                .collect::<Vec<_>>();
+
+            let all_refs = all_refs.iter().map(String::as_str).collect::<Vec<_>>();
 
             // push all gitbutler refs
             project_repository
-                .push_to_gitbutler_server(user.as_ref(), "+refs/gitbutler/*:refs/gitbutler/*")
-                .context("failed to push project to gitbutler")?;
+                .push_to_gitbutler_server(user.as_ref(), all_refs.as_slice())
+                .context("failed to push project (all refs) to gitbutler")?;
 
             //TODO: remove push-tmp ref
 
@@ -140,4 +149,13 @@ impl HandlerInner {
 
         Ok(vec![])
     }
+}
+
+fn gb_refs(project_repository: &project_repository::Repository) -> anyhow::Result<Vec<String>> {
+    Ok(project_repository
+        .git_repository
+        .references_glob("refs/gitbutler/*")?
+        .flatten()
+        .filter_map(|r| r.name().map(ToString::to_string))
+        .collect::<Vec<_>>())
 }

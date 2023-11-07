@@ -397,6 +397,13 @@ impl Repository {
             .map(|iter| iter.map(|reference| reference.map(Into::into).map_err(Into::into)))
             .map_err(Into::into)
     }
+
+    pub fn references_glob(&self, glob: &str) -> Result<impl Iterator<Item = Result<Reference>>> {
+        self.0
+            .references_glob(glob)
+            .map(|iter| iter.map(|reference| reference.map(Into::into).map_err(Into::into)))
+            .map_err(Into::into)
+    }
 }
 
 pub struct CheckoutTreeBuidler<'a> {
