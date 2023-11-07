@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { userStore } from '$lib/stores/user';
-	import type { BaseBranch, Branch } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, File, Hunk, RemoteCommit } from '$lib/vbranches/types';
 	import { getContext, onDestroy, onMount } from 'svelte';
+	import { draggable, dropzone } from '$lib/utils/draggable';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import IconKebabMenu from '$lib/icons/IconKebabMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
-	import { dzHighlight, dzTrigger } from '$lib/utils/dropZone';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import FileCard from './FileCard.svelte';
 	import { slide } from 'svelte/transition';
@@ -39,6 +39,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import AmendableCommitCard from './AmendableCommitCard.svelte';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -88,7 +89,6 @@
 	let deleteBranchModal: Modal;
 	let applyConflictedModal: Modal;
 
-	const dzType = 'text/hunk';
 	const laneWidthKey = 'laneWidth:';
 
 	$: pullRequestPromise =
@@ -119,7 +119,7 @@
 
 	async function push() {
 		isPushing = true;
-		await branchController.pushBranch({ branchId: branch.id, withForce: branch.requiresForce });
+		await branchController.pushBranch(branch.id, branch.requiresForce);
 		isPushing = false;
 	}
 
@@ -232,17 +232,9 @@
 
 	function resetHeadCommit() {
 		if (branch.commits.length > 1) {
-			branchController.resetBranch({
-				projectId,
-				branchId: branch.id,
-				targetCommitOid: branch.commits[1].id
-			});
+			branchController.resetBranch(branch.id, branch.commits[1].id);
 		} else if (branch.commits.length === 1 && base) {
-			branchController.resetBranch({
-				projectId,
-				branchId: branch.id,
-				targetCommitOid: base?.baseSha
-			});
+			branchController.resetBranch(branch.id, base.baseSha);
 		}
 	}
 
@@ -266,33 +258,40 @@
 
 	const selectedOwnership = writable(Ownership.fromBranch(branch));
 	$: if (commitDialogShown) selectedOwnership.set(Ownership.fromBranch(branch));
+
+	function acceptCherrypick(data: { branchId?: string; commit?: RemoteCommit }) {
+		return data?.branchId === branch.id && data.commit !== undefined;
+	}
+
+	function onCherrypicked(data: { branchId: string; commit: RemoteCommit }) {
+		branchController.cherryPick(branch.id, data.commit.id);
+	}
+
+	function acceptBranchDrop(data: { branchId: string; file?: File; hunk?: Hunk }) {
+		if (data.branchId === branch.id) return false; // can't drag to the same branch
+		if (data.hunk !== undefined && !data.hunk.locked) return true; // can only drag not locked hunks
+		if (data.file !== undefined && data.file.hunks.some((hunk) => !hunk.locked)) return true; // can only draged non fully locked files
+		return false;
+	}
+
+	function onBranchDrop(data: { file?: File; hunk?: Hunk }) {
+		if (data.hunk) {
+			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
+			branchController.updateBranchOwnership(
+				branch.id,
+				(newOwnership + '\n' + branch.ownership).trim()
+			);
+		} else if (data.file) {
+			const newOwnership = `${data.file.path}:${data.file.hunks.map(({ id }) => id).join(',')}`;
+			branchController.updateBranchOwnership(
+				branch.id,
+				(newOwnership + '\n' + branch.ownership).trim()
+			);
+		}
+	}
 </script>
 
-<div
-	class="flex h-full shrink-0 snap-center"
-	style:width={maximized ? '100%' : `${laneWidth}px`}
-	draggable={!readonly}
-	role="group"
-	use:dzHighlight={{ type: dzType, hover: 'lane-dz-hover', active: 'lane-dz-active' }}
-	on:dragstart
-	on:dragend
-	on:drop={(e) => {
-		if (!e.dataTransfer) {
-			return;
-		}
-		const data = e.dataTransfer.getData(dzType);
-		const [newFileId, newHunks] = data.split(':');
-		const existingHunkIds =
-			branch.files.find((f) => f.id === newFileId)?.hunks.map((h) => h.id) || [];
-		const newHunkIds = newHunks.split(',').filter((h) => !existingHunkIds.includes(h));
-		if (newHunkIds.length == 0) {
-			// don't allow dropping hunk to the lane where it already is
-			return;
-		}
-		e.stopPropagation();
-		branchController.updateBranchOwnership(branch.id, (data + '\n' + branch.ownership).trim());
-	}}
->
+<div class="flex h-full shrink-0 snap-center" style:width={maximized ? '100%' : `${laneWidth}px`}>
 	<div
 		bind:this={rsViewport}
 		class="bg-color-3 border-color-4 flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r"
@@ -432,16 +431,11 @@
 					</div>
 					{#if upstreamCommitsShown}
 						<div
-							class="flex w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
+							class="flex w-full flex-col gap-1 border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
 							id="upstreamCommits"
 						>
-							{#each branch.upstream.commits as commit}
-								<div
-									role="group"
-									draggable="true"
-									use:dzTrigger={{ type: 'commit/upstream' }}
-									on:dragstart={(e) => e.dataTransfer?.setData('commit/upstream', commit.id)}
-								>
+							{#each branch.upstream.commits as commit (commit.id)}
+								<div use:draggable={{ data: { branchId: branch.id, commit } }}>
 									<CommitCard {commit} {projectId} />
 								</div>
 							{/each}
@@ -488,25 +482,17 @@
 		/>
 		<div
 			class="relative flex flex-grow overflow-y-hidden"
-			use:dzHighlight={{
-				type: 'commit/upstream',
+			use:dropzone={{
 				hover: 'cherrypick-dz-hover',
-				active: 'cherrypick-dz-active'
+				active: 'cherrypick-dz-active',
+				accepts: acceptCherrypick,
+				onDrop: onCherrypicked
 			}}
-			role="group"
-			on:drop={(e) => {
-				if (!e.dataTransfer) {
-					return;
-				}
-				const targetCommitOid = e.dataTransfer.getData('commit/upstream');
-				if (!targetCommitOid) {
-					return;
-				}
-				e.stopPropagation();
-				branchController.cherryPick({
-					targetCommitOid,
-					branchId: branch.id
-				});
+			use:dropzone={{
+				hover: 'lane-dz-hover',
+				active: 'lane-dz-active',
+				accepts: acceptBranchDrop,
+				onDrop: onBranchDrop
 			}}
 		>
 			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
@@ -550,9 +536,8 @@
 										expanded={file.expanded}
 										conflicted={file.conflicted}
 										{selectedOwnership}
+										branchId={branch.id}
 										{file}
-										{dzType}
-										{projectId}
 										{projectPath}
 										{branchController}
 										selectable={commitDialogShown}
@@ -664,7 +649,16 @@
 														<div class="border-color-4 h-3 w-3 rounded-full border-2" />
 													</div>
 												{/if}
-												<CommitCard {projectId} {commit} />
+												{#if branch.commits.at(0)?.id === commit.id}
+													<AmendableCommitCard
+														{branchController}
+														branchId={branch.id}
+														{commit}
+														{projectId}
+													/>
+												{:else}
+													<CommitCard {commit} {projectId} />
+												{/if}
 											</div>
 										{/each}
 									</div>
@@ -751,7 +745,16 @@
 														/>
 													</div>
 												{/if}
-												<CommitCard {projectId} {commit} />
+												{#if branch.commits.at(0)?.id === commit.id}
+													<AmendableCommitCard
+														{branchController}
+														branchId={branch.id}
+														{commit}
+														{projectId}
+													/>
+												{:else}
+													<CommitCard {commit} {projectId} />
+												{/if}
 											</div>
 										{/each}
 									</div>

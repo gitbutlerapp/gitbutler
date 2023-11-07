@@ -2,7 +2,6 @@
 	import BranchLane from '../components/BranchLane.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
-	import { dzHighlight } from '$lib/utils/dropZone';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import type { LoadState } from '@square/svelte-store';
@@ -30,8 +29,6 @@
 	let priorPosition = 0;
 	let dropPosition = 0;
 
-	const dzType = 'text/branch';
-
 	function handleEmpty() {
 		const emptyIndex = branches?.findIndex((item) => !item.files || item.files.length == 0);
 		if (emptyIndex && emptyIndex != -1) {
@@ -49,12 +46,14 @@
 	<div class="p-4">Something went wrong...</div>
 {:else if branches}
 	<div
-		bind:this={dropZone}
 		id="branch-lanes"
 		class="bg-color-2 flex h-full flex-shrink flex-grow items-start"
 		role="group"
-		use:dzHighlight={{ type: dzType, active: 'board-dz-active', hover: 'board-dz-hover' }}
+		bind:this={dropZone}
 		on:dragover={(e) => {
+			if (!dragged) return;
+
+			e.preventDefault();
 			const children = [...e.currentTarget.children];
 			dropPosition = 0;
 			// We account for the NewBranchDropZone by subtracting 2
@@ -73,8 +72,10 @@
 					: children[dropPosition].after(dragged);
 			}
 		}}
-		on:drop={() => {
+		on:drop={(e) => {
+			if (!dragged) return;
 			if (!branches) return;
+			e.preventDefault();
 			if (priorPosition != dropPosition) {
 				const el = branches.splice(priorPosition, 1);
 				branches.splice(dropPosition, 0, ...el);
@@ -87,24 +88,31 @@
 		}}
 	>
 		{#each branches.filter((c) => c.active) as branch (branch.id)}
-			<BranchLane
+			<div
+				class="h-full"
+				role="group"
+				draggable="true"
 				on:dragstart={(e) => {
-					if (!e.dataTransfer) return;
-					e.dataTransfer.setData(dzType, branch.id);
 					dragged = e.currentTarget;
 					priorPosition = Array.from(dropZone.children).indexOf(dragged);
 				}}
-				on:empty={handleEmpty}
-				{branch}
-				{projectId}
-				{projectPath}
-				{base}
-				{cloudEnabled}
-				{cloud}
-				{branchController}
-				branchCount={branches.filter((c) => c.active).length}
-				{githubContext}
-			/>
+				on:dragend={() => {
+					dragged = undefined;
+				}}
+			>
+				<BranchLane
+					on:empty={handleEmpty}
+					{branch}
+					{projectId}
+					{projectPath}
+					{base}
+					{cloudEnabled}
+					{cloud}
+					{branchController}
+					branchCount={branches.filter((c) => c.active).length}
+					{githubContext}
+				/>
+			</div>
 		{/each}
 
 		{#if !activeBranches || activeBranches.length == 0}

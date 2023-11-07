@@ -2,6 +2,7 @@
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
 	import { createEventDispatcher, onDestroy } from 'svelte';
 	import type { File, Hunk } from '$lib/vbranches/types';
+	import { draggable } from '$lib/utils/draggable';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Writable } from 'svelte/store';
 	import RenderedLine from './RenderedLine.svelte';
@@ -14,7 +15,6 @@
 	} from '$lib/icons';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from 'svelte';
-	import { dzTrigger } from '$lib/utils/dropZone';
 	import IconExpandUpDownSlim from '$lib/icons/IconExpandUpDownSlim.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { slide } from 'svelte/transition';
@@ -24,10 +24,9 @@
 	import IconLock from '$lib/icons/IconLock.svelte';
 	import HunkContextMenu from './HunkContextMenu.svelte';
 
+	export let branchId: string;
 	export let file: File;
 	export let conflicted: boolean;
-	export let projectId: string;
-	export let dzType: string;
 	export let projectPath: string | undefined;
 	export let expanded: boolean | undefined;
 	export let branchController: BranchController;
@@ -77,10 +76,6 @@
 
 	$: minWidth = getGutterMinWidth(maxLineNumber);
 
-	function getAllHunksOwnership(): string {
-		return file.id + ':' + file.hunks.map((h) => h.id).join(',');
-	}
-
 	$: isFileLocked = sections
 		.filter((section): section is HunkSection => section instanceof HunkSection)
 		.some((section) => section.hunk.locked);
@@ -100,10 +95,10 @@
 
 <div
 	id={`file-${file.id}`}
-	draggable={!isFileLocked && !readonly}
-	use:dzTrigger={{ type: dzType }}
-	on:dragstart={(e) => e.dataTransfer?.setData('text/hunk', getAllHunksOwnership())}
-	role="group"
+	use:draggable={{
+		data: { branchId, file },
+		disabled: readonly
+	}}
 	class="changed-file inner"
 	class:opacity-80={isFileLocked}
 >
@@ -164,7 +159,7 @@
 			<div class="mb-2 bg-red-500 px-2 py-0 font-bold text-white">
 				<button
 					class="font-bold text-white"
-					on:click={() => branchController.markResolved(projectId, file.path)}
+					on:click={() => branchController.markResolved(file.path)}
 				>
 					Mark resolved
 				</button>
@@ -194,13 +189,14 @@
 								class="bg-6 border-color-3 my-1 flex w-full flex-col overflow-hidden rounded border"
 							>
 								<div
-									draggable={!section.hunk.locked && !readonly}
 									tabindex="0"
 									role="cell"
-									use:dzTrigger={{ type: dzType }}
-									on:dragstart={(e) => {
-										if ('hunk' in section)
-											e.dataTransfer?.setData('text/hunk', file.id + ':' + section.hunk.id);
+									use:draggable={{
+										data: {
+											branchId,
+											hunk: section.hunk
+										},
+										disabled: readonly
 									}}
 									on:dblclick
 									class="changed-hunk"

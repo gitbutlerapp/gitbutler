@@ -32,7 +32,9 @@
 	}
 </script>
 
-<div class="text-color-2 bg-color-5 border-color-4 w-full truncate rounded border p-2 text-left">
+<div
+	class="text-color-2 bg-color-5 border-color-4 relative w-full truncate rounded border p-2 text-left"
+>
 	<div class="mb-1 flex justify-between">
 		<div class="truncate">
 			<button
@@ -150,3 +152,13 @@
 		</div>
 	</svelte:fragment>
 </Modal>
+
+<style lang="postcss">
+	/* amend drop zone */
+	:global(.amend-dz-active .amend-dz-marker) {
+		@apply flex;
+	}
+	:global(.amend-dz-hover .hover-text) {
+		@apply visible;
+	}
+</style>

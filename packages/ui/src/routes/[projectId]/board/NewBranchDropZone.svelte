@@ -1,20 +1,34 @@
 <script lang="ts">
-	import { dzHighlight } from '$lib/utils/dropZone';
+	import { dropzone } from '$lib/utils/draggable';
 	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { File, Hunk } from '$lib/vbranches/types';
 
 	export let branchController: BranchController;
+
+	function accepts(data: { hunk?: Hunk; file?: File }) {
+		if (data.hunk !== undefined) return true;
+		if (data.file !== undefined) return true;
+		return false;
+	}
+
+	function onDrop(data: { hunk?: Hunk; file?: File }) {
+		if (data.hunk) {
+			const ownership = `${data.hunk.filePath}:${data.hunk.id}`;
+			branchController.createBranch({ ownership });
+		} else if (data.file) {
+			const ownership = `${data.file.path}:${data.file.hunks.map(({ id }) => id).join(',')}`;
+			branchController.createBranch({ ownership });
+		}
+	}
 </script>
 
 <div
 	class="group h-full flex-grow p-2 font-semibold"
-	role="group"
-	use:dzHighlight={{ type: 'text/hunk', hover: 'new-dz-hover', active: 'new-dz-active' }}
-	on:drop|stopPropagation={(e) => {
-		if (!e.dataTransfer) {
-			return;
-		}
-		const ownership = e.dataTransfer.getData('text/hunk');
-		branchController.createBranch({ ownership });
+	use:dropzone={{
+		active: 'new-dz-active',
+		hover: 'new-dz-hover',
+		onDrop,
+		accepts
 	}}
 >
 	<div

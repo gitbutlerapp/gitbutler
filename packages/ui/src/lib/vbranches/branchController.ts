@@ -32,9 +32,13 @@ export class BranchController {
 		}
 	}
 
-	async resetBranch(params: { branchId: string; projectId: string; targetCommitOid: string }) {
+	async resetBranch(branchId: string, targetCommitOid: string) {
 		try {
-			await invoke<void>('reset_virtual_branch', params);
+			await invoke<void>('reset_virtual_branch', {
+				branchId,
+				projectId: this.projectId,
+				targetCommitOid
+			});
 			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to reset branch');
@@ -50,9 +54,14 @@ export class BranchController {
 		}
 	}
 
-	async commitBranch(params: { branch: string; message: string; ownership?: string }) {
+	async commitBranch(branch: string, message: string, ownership: string | undefined = undefined) {
 		try {
-			await invoke<void>('commit_virtual_branch', { projectId: this.projectId, ...params });
+			await invoke<void>('commit_virtual_branch', {
+				projectId: this.projectId,
+				branch,
+				message,
+				ownership
+			});
 			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to commit branch');
@@ -160,9 +169,9 @@ export class BranchController {
 		await this.virtualBranchStore.reload();
 	}
 
-	async pushBranch(params: { branchId: string; withForce: boolean }) {
+	async pushBranch(branchId: string, withForce: boolean) {
 		try {
-			await invoke<void>('push_virtual_branch', { projectId: this.projectId, ...params });
+			await invoke<void>('push_virtual_branch', { projectId: this.projectId, branchId, withForce });
 			await this.virtualBranchStore.reload();
 		} catch (err: any) {
 			if (err.code === 'errors.git.authentication') {
@@ -223,11 +232,12 @@ export class BranchController {
 		}
 	}
 
-	async cherryPick(params: { branchId: string; targetCommitOid: string }) {
+	async cherryPick(branchId: string, targetCommitOid: string) {
 		try {
 			await invoke<void>('cherry_pick_onto_virtual_branch', {
 				projectId: this.projectId,
-				...params
+				branchId,
+				targetCommitOid
 			});
 			await this.targetBranchStore.reload();
 		} catch (err: any) {
@@ -235,12 +245,25 @@ export class BranchController {
 		}
 	}
 
-	async markResolved(projectId: string, path: string) {
+	async markResolved(path: string) {
 		try {
-			await invoke<void>('mark_resolved', { projectId, path });
+			await invoke<void>('mark_resolved', { projectId: this.projectId, path });
 			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error(`Failed to mark file resolved`);
+		}
+	}
+
+	async amendBranch(branchId: string, ownership: string) {
+		try {
+			await invoke<void>('amend_virtual_branch', {
+				projectId: this.projectId,
+				branchId,
+				ownership
+			});
+			await this.targetBranchStore.reload();
+		} catch (err: any) {
+			toasts.error(`Failed to amend commit: ${err.message}`);
 		}
 	}
 }

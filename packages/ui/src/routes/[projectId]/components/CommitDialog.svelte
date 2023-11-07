@@ -31,11 +31,7 @@
 		Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10) + 2;
 
 	function commit() {
-		branchController.commitBranch({
-			branch: branch.id,
-			message: commitMessage,
-			ownership: ownership.toString()
-		});
+		branchController.commitBranch(branch.id, commitMessage, ownership.toString());
 	}
 
 	export function git_get_config(params: { key: string }) {
