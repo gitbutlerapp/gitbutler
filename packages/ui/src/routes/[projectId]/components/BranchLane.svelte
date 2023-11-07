@@ -436,7 +436,7 @@
 						>
 							{#each branch.upstream.commits as commit (commit.id)}
 								<div use:draggable={{ data: { branchId: branch.id, commit } }}>
-									<CommitCard {commit} {projectId} />
+									<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
 								</div>
 							{/each}
 							<div class="flex justify-end p-2">
@@ -655,9 +655,10 @@
 														branchId={branch.id}
 														{commit}
 														{projectId}
+														commitUrl={base?.commitUrl(commit.id)}
 													/>
 												{:else}
-													<CommitCard {commit} {projectId} />
+													<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
 												{/if}
 											</div>
 										{/each}
@@ -751,9 +752,10 @@
 														branchId={branch.id}
 														{commit}
 														{projectId}
+														commitUrl={base?.commitUrl(commit.id)}
 													/>
 												{:else}
-													<CommitCard {commit} {projectId} />
+													<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
 												{/if}
 											</div>
 										{/each}
@@ -800,7 +802,7 @@
 													class:dark:bg-dark-500={commit.isRemote}
 												/>
 											</div>
-											<CommitCard {projectId} {commit} />
+											<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
 										</div>
 									{/each}
 								</div>
