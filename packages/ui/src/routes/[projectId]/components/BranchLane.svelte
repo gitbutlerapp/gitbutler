@@ -294,7 +294,7 @@
 <div class="flex h-full shrink-0 snap-center" style:width={maximized ? '100%' : `${laneWidth}px`}>
 	<div
 		bind:this={rsViewport}
-		class="bg-color-3 border-color-4 flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r"
+		class="bg-color-3 border-color-4 flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r border-t"
 	>
 		<div class="flex">
 			<div class="bg-color-4 border-color-4 flex flex-grow flex-col border-b">

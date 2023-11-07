@@ -9,7 +9,7 @@
 </script>
 
 <!-- data-tauri-drag-region needs to be on all elements recursively https://github.com/tauri-apps/tauri/issues/1656#issuecomment-1178574760 -->
-<div class="flex h-8 items-center justify-center gap-x-1" data-tauri-drag-region>
+<div class="flex items-center justify-center gap-x-1 py-2" data-tauri-drag-region>
 	<div class="relative flex items-center gap-x-1" data-tauri-drag-region>
 		{#if isGitHub}
 			<IconGithub class="h-4 w-4" data-tauri-drag-region></IconGithub>
@@ -18,7 +18,7 @@
 			{projectTitle}</a
 		>
 		<!-- Center only the project title to avoid content shift during navigatin -->
-		<div class="absolute left-full flex items-center" data-tauri-drag-region>
+		<div class="absolute left-full flex items-center whitespace-nowrap" data-tauri-drag-region>
 			{#if pageTitle}
 				<IconChevronRight class="h-4 w-4" data-tauri-drag-region></IconChevronRight>
 				{pageTitle}
