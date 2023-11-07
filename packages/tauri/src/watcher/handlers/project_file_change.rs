@@ -153,10 +153,10 @@ impl Handler {
                 .write(path, &deltas)
                 .with_context(|| "failed to write deltas")?;
 
-            if let Some(reader::Content::UTF8(text)) = current_wd_file_content {
-                writer.write_wd_file(path, &text)
-            } else {
-                writer.write_wd_file(path, "")
+            match &current_wd_file_content {
+                Some(reader::Content::UTF8(text)) => writer.write_wd_file(path, text),
+                Some(_) => writer.write_wd_file(path, ""),
+                None => writer.remove_wd_file(path),
             }?;
 
             Ok(vec![
@@ -479,41 +479,76 @@ mod test {
         let suite = Suite::default();
         let Case {
             gb_repository,
+            project_repository,
             project,
             ..
         } = suite.new_case();
         let listener = Handler::from(&suite.local_app_data);
 
-        std::fs::write(project.path.join("test.txt"), "test")?;
-        listener.handle("test.txt", &project.id)?;
+        {
+            // write file
+            std::fs::write(project.path.join("test.txt"), "test")?;
+            listener.handle("test.txt", &project.id)?;
+        }
 
-        let session = gb_repository.get_current_session()?.unwrap();
-        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
-        let deltas_reader = deltas::Reader::new(&session_reader);
-        let deltas = deltas_reader.read_file("test.txt")?.unwrap();
-        assert_eq!(deltas.len(), 1);
-        assert_eq!(deltas[0].operations.len(), 1);
-        assert_eq!(
-            deltas[0].operations[0],
-            deltas::Operation::Insert((0, "test".to_string())),
-        );
-        assert_eq!(
-            std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
-            "test"
-        );
+        {
+            // current session must have the deltas, but not the file (it didn't exist)
+            let session = gb_repository.get_current_session()?.unwrap();
+            let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+            let deltas_reader = deltas::Reader::new(&session_reader);
+            let deltas = deltas_reader.read_file("test.txt")?.unwrap();
+            assert_eq!(deltas.len(), 1);
+            assert_eq!(deltas[0].operations.len(), 1);
+            assert_eq!(
+                deltas[0].operations[0],
+                deltas::Operation::Insert((0, "test".to_string())),
+            );
+            assert_eq!(
+                std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
+                "test"
+            );
 
-        std::fs::remove_file(project.path.join("test.txt"))?;
-        listener.handle("test.txt", &project.id)?;
+            let files = session_reader.files(None).unwrap();
+            assert!(files.is_empty());
+        }
 
-        let deltas = deltas_reader.read_file("test.txt")?.unwrap();
-        assert_eq!(deltas.len(), 2);
-        assert_eq!(deltas[0].operations.len(), 1);
-        assert_eq!(
-            deltas[0].operations[0],
-            deltas::Operation::Insert((0, "test".to_string())),
-        );
-        assert_eq!(deltas[1].operations.len(), 1);
-        assert_eq!(deltas[1].operations[0], deltas::Operation::Delete((0, 4)),);
+        gb_repository.flush(&project_repository, None)?;
+
+        {
+            // file should be available in the next session, but not deltas just yet.
+            let session = gb_repository.get_or_create_current_session()?;
+            let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+            let files = session_reader.files(None).unwrap();
+            assert_eq!(files.len(), 1);
+            assert_eq!(
+                files[std::path::Path::new("test.txt")],
+                reader::Content::UTF8("test".to_string())
+            );
+
+            let deltas_reader = deltas::Reader::new(&session_reader);
+            let deltas = deltas_reader.read(None)?;
+            assert!(deltas.is_empty());
+
+            // removing the file
+            std::fs::remove_file(project.path.join("test.txt"))?;
+            listener.handle("test.txt", &project.id)?;
+
+            // deltas are recorded
+            let deltas = deltas_reader.read_file("test.txt")?.unwrap();
+            assert_eq!(deltas.len(), 1);
+            assert_eq!(deltas[0].operations.len(), 1);
+            assert_eq!(deltas[0].operations[0], deltas::Operation::Delete((0, 4)),);
+        }
+
+        gb_repository.flush(&project_repository, None)?;
+
+        {
+            // since file was deleted in the previous session, it should not exist in the new one.
+            let session = gb_repository.get_or_create_current_session()?;
+            let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+            let files = session_reader.files(None).unwrap();
+            assert!(files.is_empty());
+        }
 
         Ok(())
     }

@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Ok, Result};
 use filetime::FileTime;
+use git2::TreeWalkResult;
 use sha2::{Digest, Sha256};
 
 use crate::{
@@ -626,18 +627,19 @@ fn build_wd_tree(
     {
         Result::Ok(reference) => {
             // build the working directory tree from the current commit
-            // and the session files
             let tree = reference.peel_to_tree()?;
             let wd_tree_entry = tree.get_name("wd").unwrap();
             let wd_tree = gb_repository.git_repository.find_tree(wd_tree_entry.id())?;
-            let mut index = git::Index::try_from(wd_tree)?;
+            let mut index = git::Index::try_from(&wd_tree)?;
 
             let session_wd_reader = reader::DirReader::open(gb_repository.session_wd_path());
             let session_wd_files = session_wd_reader
                 .list_files(&path::PathBuf::from("."))
                 .context("failed to read session wd files")?;
-            for file_path in session_wd_files {
-                let abs_path = gb_repository.session_wd_path().join(&file_path);
+
+            // the session files on top of it
+            for file_path in &session_wd_files {
+                let abs_path = gb_repository.session_wd_path().join(file_path);
                 let metadata = abs_path.metadata().with_context(|| {
                     format!("failed to get metadata for {}", abs_path.display())
                 })?;
@@ -645,7 +647,7 @@ fn build_wd_tree(
                 let create_time = FileTime::from_creation_time(&metadata).unwrap_or(modify_time);
 
                 let file_content = match session_wd_reader
-                    .read(&file_path)
+                    .read(file_path)
                     .context("failed to read file")
                 {
                     Result::Ok(reader::Content::UTF8(content)) => content,
@@ -695,6 +697,18 @@ fn build_wd_tree(
                         format!("failed to add index entry for {}", file_path.display())
                     })?;
             }
+
+            // remove deleted files from the index
+            wd_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+                if let Some(name) = &entry.name() {
+                    let full_path = path::Path::new(root).join(name);
+                    let exists = session_wd_files.contains(&full_path);
+                    if !exists && index.remove_path(&full_path).is_err() {
+                        return TreeWalkResult::Abort;
+                    }
+                }
+                TreeWalkResult::Ok
+            })?;
 
             let wd_tree_oid = index
                 .write_tree_to(&gb_repository.git_repository)

@@ -38,6 +38,24 @@ impl<'writer> DeltasWriter<'writer> {
         Ok(())
     }
 
+    pub fn remove_wd_file<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
+        self.repository.mark_active_session()?;
+
+        let _lock = self.repository.lock();
+
+        let path = path.as_ref();
+        self.writer
+            .remove(&format!("session/wd/{}", path.display()))?;
+
+        tracing::debug!(
+            project_id = %self.repository.get_project_id(),
+            path = %path.display(),
+            "deleted session wd file"
+        );
+
+        Ok(())
+    }
+
     pub fn write_wd_file<P: AsRef<std::path::Path>>(&self, path: P, contents: &str) -> Result<()> {
         self.repository.mark_active_session()?;
 

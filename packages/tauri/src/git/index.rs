@@ -11,9 +11,17 @@ pub struct Index {
 impl TryFrom<Tree<'_>> for Index {
     type Error = Error;
 
-    fn try_from(value: Tree) -> Result<Self> {
+    fn try_from(value: Tree<'_>) -> std::result::Result<Self, Self::Error> {
+        Self::try_from(&value)
+    }
+}
+
+impl TryFrom<&Tree<'_>> for Index {
+    type Error = Error;
+
+    fn try_from(value: &Tree) -> Result<Self> {
         let mut empty_index = Self::new()?;
-        empty_index.read_tree(&value)?;
+        empty_index.read_tree(value)?;
         Ok(empty_index)
     }
 }
