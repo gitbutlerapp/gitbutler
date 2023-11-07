@@ -32,7 +32,7 @@
 	import type { Update } from '../updater';
 	import IconEmail from '$lib/icons/IconEmail.svelte';
 	import * as events from '$lib/utils/events';
-	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
@@ -143,7 +143,7 @@
 	<!-- Top spacer -->
 	<div class="flex h-5 flex-shrink-0" data-tauri-drag-region></div>
 	<!-- Base branch -->
-	<a href="base" class="flex flex-col p-2" tabindex="0" bind:this={baseContents}>
+	<a href="/{projectId}/base" class="flex flex-col p-2" tabindex="0" bind:this={baseContents}>
 		<div class="flex flex-grow items-center">
 			<div class="flex flex-grow items-center gap-1">
 				<span class="font-bold">Trunk</span>
@@ -227,15 +227,12 @@
 					{#each $branchesWithContentStore.filter((b) => !b.active) as branch, i (branch.id)}
 						{@const { added, removed } = sumBranchLinesAddedRemoved(branch)}
 						{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
-						<div
-							role="button"
-							tabindex="0"
-							on:click={() => select(branch, i)}
-							on:keypress|capture={() => select(branch, i)}
+						<a
+							href={`/${projectId}/stashed/${branch.id}`}
 							transition:slide={{ duration: 250 }}
-							class="border-color-4 group border-b p-2 pr-0 -outline-offset-2 outline-blue-200 last:border-b focus-within:outline-2"
-							class:bg-light-50={$selectedItem == branch && peekTrayExpanded}
-							class:dark:bg-zinc-700={$selectedItem == branch && peekTrayExpanded}
+							class="border-color-4 group block border-b p-2 pr-0 -outline-offset-2 outline-blue-200 last:border-b focus-within:outline-2"
+							class:bg-light-50={$page.url.pathname.includes(branch.id)}
+							class:dark:bg-zinc-700={$page.url.pathname.includes(branch.id)}
 						>
 							<div class="relative flex max-w-full flex-row">
 								<div class="flex flex-shrink flex-grow flex-col gap-y-2 overflow-hidden">
@@ -292,7 +289,7 @@
 									</IconButton>
 								</div>
 							</div>
-						</div>
+						</a>
 					{/each}
 				{/if}
 			</div>
