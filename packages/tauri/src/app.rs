@@ -105,7 +105,10 @@ impl App {
         // this is a hack to account for a case when we have a session created, but fs was never
         // touched, so the wathcer never picked up the session
         let current_session = gb_repository.get_current_session()?;
-        let have_to_index = matches!((current_session.as_ref(), sessions.first()), (Some(_), None));
+        let have_to_index = matches!(
+            (current_session.as_ref(), sessions.first()),
+            (Some(_), None)
+        );
         if !have_to_index {
             return Ok(sessions);
         }
