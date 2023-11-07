@@ -59,7 +59,7 @@ pub async fn list_session_files(
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
-    let files = app.list_session_files(&project_id, &session_id, &paths)?;
+    let files = app.list_session_files(&project_id, &session_id, paths.as_deref())?;
     Ok(files)
 }
 

@@ -129,7 +129,7 @@ impl App {
         &self,
         project_id: &ProjectId,
         session_id: &SessionId,
-        paths: &Option<Vec<path::PathBuf>>,
+        paths: Option<&[path::PathBuf]>,
     ) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
         let session = self
             .sessions_database

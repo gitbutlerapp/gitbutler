@@ -570,7 +570,7 @@ mod test {
             for session in &mut *sessions_slice {
                 let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
                 let deltas_reader = deltas::Reader::new(&session_reader);
-                let deltas_by_filepath = deltas_reader.read(&None).unwrap();
+                let deltas_by_filepath = deltas_reader.read(None).unwrap();
                 for deltas in deltas_by_filepath.values() {
                     for delta in deltas {
                         delta.operations.iter().for_each(|operation| {
@@ -582,7 +582,7 @@ mod test {
 
             let reader =
                 sessions::Reader::open(&gb_repository, sessions_slice.first().unwrap()).unwrap();
-            let files = reader.files(&None).unwrap();
+            let files = reader.files(None).unwrap();
 
             if i == 0 {
                 assert_eq!(files.len(), 0);
@@ -656,7 +656,7 @@ mod test {
             for session in &mut *sessions_slice {
                 let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
                 let deltas_reader = deltas::Reader::new(&session_reader);
-                let deltas_by_filepath = deltas_reader.read(&None).unwrap();
+                let deltas_by_filepath = deltas_reader.read(None).unwrap();
                 for deltas in deltas_by_filepath.values() {
                     for delta in deltas {
                         delta.operations.iter().for_each(|operation| {
@@ -668,7 +668,7 @@ mod test {
 
             let reader =
                 sessions::Reader::open(&gb_repository, sessions_slice.first().unwrap()).unwrap();
-            let files = reader.files(&None).unwrap();
+            let files = reader.files(None).unwrap();
 
             if i == 0 {
                 assert_eq!(files.len(), 0);
@@ -719,7 +719,7 @@ mod test {
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session).unwrap();
         let deltas_reader = deltas::Reader::new(&session_reader);
-        let deltas_by_filepath = deltas_reader.read(&None).unwrap();
+        let deltas_by_filepath = deltas_reader.read(None).unwrap();
         for deltas in deltas_by_filepath.values() {
             for delta in deltas {
                 delta.operations.iter().for_each(|operation| {
@@ -729,7 +729,7 @@ mod test {
         }
 
         let reader = sessions::Reader::open(&gb_repository, &session).unwrap();
-        let files = reader.files(&None).unwrap();
+        let files = reader.files(None).unwrap();
 
         let base_file = files.get(&relative_file_path.to_path_buf());
         let mut text: Vec<char> = match base_file {
