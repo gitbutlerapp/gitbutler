@@ -17,10 +17,10 @@
 	function onDrop(data: { file?: File; hunk?: Hunk }) {
 		if (data.hunk) {
 			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
-			branchController.amendBranch({ branchId, ownership: newOwnership });
+			branchController.amendBranch(branchId, newOwnership);
 		} else if (data.file) {
 			const newOwnership = `${data.file.path}:${data.file.hunks.map(({ id }) => id).join(',')}`;
-			branchController.amendBranch({ branchId, ownership: newOwnership });
+			branchController.amendBranch(branchId, newOwnership);
 		}
 	}
 </script>

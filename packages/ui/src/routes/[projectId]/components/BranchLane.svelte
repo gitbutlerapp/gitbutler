@@ -119,7 +119,7 @@
 
 	async function push() {
 		isPushing = true;
-		await branchController.pushBranch({ branchId: branch.id, withForce: branch.requiresForce });
+		await branchController.pushBranch(branch.id, branch.requiresForce);
 		isPushing = false;
 	}
 
@@ -232,17 +232,9 @@
 
 	function resetHeadCommit() {
 		if (branch.commits.length > 1) {
-			branchController.resetBranch({
-				projectId,
-				branchId: branch.id,
-				targetCommitOid: branch.commits[1].id
-			});
+			branchController.resetBranch(branch.id, branch.commits[1].id);
 		} else if (branch.commits.length === 1 && base) {
-			branchController.resetBranch({
-				projectId,
-				branchId: branch.id,
-				targetCommitOid: base?.baseSha
-			});
+			branchController.resetBranch(branch.id, base.baseSha);
 		}
 	}
 
@@ -272,10 +264,7 @@
 	}
 
 	function onCherrypicked(data: { branchId: string; commit: RemoteCommit }) {
-		branchController.cherryPick({
-			targetCommitOid: data.commit.id,
-			branchId: branch.id
-		});
+		branchController.cherryPick(branch.id, data.commit.id);
 	}
 
 	function acceptBranchDrop(data: { branchId: string; file?: File; hunk?: Hunk }) {
@@ -549,7 +538,6 @@
 										{selectedOwnership}
 										branchId={branch.id}
 										{file}
-										{projectId}
 										{projectPath}
 										{branchController}
 										selectable={commitDialogShown}

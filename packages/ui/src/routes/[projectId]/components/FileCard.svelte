@@ -27,7 +27,6 @@
 	export let branchId: string;
 	export let file: File;
 	export let conflicted: boolean;
-	export let projectId: string;
 	export let projectPath: string | undefined;
 	export let expanded: boolean | undefined;
 	export let branchController: BranchController;
@@ -160,7 +159,7 @@
 			<div class="mb-2 bg-red-500 px-2 py-0 font-bold text-white">
 				<button
 					class="font-bold text-white"
-					on:click={() => branchController.markResolved(projectId, file.path)}
+					on:click={() => branchController.markResolved(file.path)}
 				>
 					Mark resolved
 				</button>
