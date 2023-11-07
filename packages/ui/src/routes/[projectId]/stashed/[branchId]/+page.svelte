@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { PageData } from '../$types';
+	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 	import ProjectHeader from '../../ProjectHeader.svelte';
 	import BranchLane from '../../components/BranchLane.svelte';
