@@ -10,10 +10,10 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    projects: projects::Controller,
     local_data_dir: DataDir,
+    project_store: projects::Controller,
+    vbrach_controller: virtual_branches::Controller,
     users: users::Controller,
-    vbranches_controller: virtual_branches::Controller,
 }
 
 impl TryFrom<&AppHandle> for Handler {
@@ -21,10 +21,10 @@ impl TryFrom<&AppHandle> for Handler {
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
-            projects: projects::Controller::try_from(value)?,
             local_data_dir: DataDir::try_from(value)?,
+            project_store: projects::Controller::try_from(value)?,
+            vbrach_controller: virtual_branches::Controller::try_from(value)?,
             users: users::Controller::from(value),
-            vbranches_controller: virtual_branches::Controller::try_from(value)?,
         })
     }
 }
@@ -36,7 +36,7 @@ impl Handler {
         session: &sessions::Session,
     ) -> Result<Vec<events::Event>> {
         let project = self
-            .projects
+            .project_store
             .get(project_id)
             .context("failed to get project")?;
 
@@ -51,7 +51,7 @@ impl Handler {
         .context("failed to open repository")?;
 
         futures::executor::block_on(async {
-            self.vbranches_controller
+            self.vbrach_controller
                 .flush_vbranches(project_repository.project().id)
                 .await
         })?;

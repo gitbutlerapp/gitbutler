@@ -9,10 +9,10 @@ use crate::{
 
 use super::{Database, Session};
 
-#[derive(Clone)]
 pub struct Controller {
     local_data_dir: paths::DataDir,
     sessions_database: Database,
+
     projects: projects::Controller,
     users: users::Controller,
 }
