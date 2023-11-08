@@ -11,11 +11,11 @@ export function listPullRequestsWithCache(
 ): CustomStore<PullRequest[] | undefined> {
 	const store = asyncWritable(
 		ghContextStore,
-		async (ctx) => {
+		async (ctx, set) => {
 			if (!ctx) return [];
 			const key = ctx.owner + '/' + ctx.repo;
 			const cachedValue = lscache.get(key);
-			if (cachedValue) return cachedValue;
+			if (cachedValue) set(cachedValue);
 			const prs = await listPullRequests(ctx);
 			if (prs) {
 				lscache.set(key, prs, 1440); // 1 day ttl
@@ -24,7 +24,7 @@ export function listPullRequestsWithCache(
 		},
 		undefined,
 		{ trackState: true }
-	) as CustomStore<PullRequest[]>;
+	) as CustomStore<PullRequest[] | undefined>;
 	return store;
 }
 
