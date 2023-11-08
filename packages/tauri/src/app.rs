@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    bookmarks, deltas, gb_repository,
+    bookmarks, gb_repository,
     git::{self, diff},
     keys,
     paths::DataDir,
@@ -24,7 +24,6 @@ pub struct App {
     keys: keys::Controller,
     watchers: watcher::Watchers,
     sessions_database: sessions::Database,
-    deltas_database: deltas::Database,
     bookmarks_database: bookmarks::Database,
 }
 
@@ -51,7 +50,6 @@ impl TryFrom<&AppHandle> for App {
             users: users::Controller::from(value),
             watchers: value.state::<watcher::Watchers>().inner().clone(),
             sessions_database: sessions::Database::from(value),
-            deltas_database: deltas::Database::from(value),
             bookmarks_database: bookmarks::Database::from(value),
         })
     }
@@ -221,17 +219,6 @@ impl App {
     ) -> Result<Vec<bookmarks::Bookmark>, Error> {
         self.bookmarks_database
             .list_by_project_id(project_id, range)
-            .map_err(Error::Other)
-    }
-
-    pub fn list_session_deltas(
-        &self,
-        project_id: &ProjectId,
-        session_id: &SessionId,
-        paths: &Option<Vec<&str>>,
-    ) -> Result<HashMap<String, Vec<deltas::Delta>>, Error> {
-        self.deltas_database
-            .list_by_project_id_session_id(project_id, session_id, paths)
             .map_err(Error::Other)
     }
 
