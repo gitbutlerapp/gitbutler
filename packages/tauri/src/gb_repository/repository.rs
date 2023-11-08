@@ -626,7 +626,7 @@ fn build_wd_tree(
         .find_reference("refs/heads/current")
     {
         Result::Ok(reference) => {
-            // build the working directory tree from the current commit
+            // re-use the last tree as a base to copy non changed entries
             let tree = reference.peel_to_tree()?;
             let wd_tree_entry = tree.get_name("wd").unwrap();
             let wd_tree = gb_repository.git_repository.find_tree(wd_tree_entry.id())?;
@@ -637,7 +637,7 @@ fn build_wd_tree(
                 .list_files(&path::PathBuf::from("."))
                 .context("failed to read session wd files")?;
 
-            // the session files on top of it
+            // write the session files on top of the last tree
             for file_path in &session_wd_files {
                 let abs_path = gb_repository.session_wd_path().join(file_path);
                 let metadata = abs_path.metadata().with_context(|| {
@@ -698,12 +698,12 @@ fn build_wd_tree(
                     })?;
             }
 
-            // remove deleted files from the index
+            // remove deleted files from the last tree
             wd_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
                 if let Some(name) = &entry.name() {
-                    let full_path = path::Path::new(root).join(name);
-                    let exists = session_wd_files.contains(&full_path);
-                    if !exists && index.remove_path(&full_path).is_err() {
+                    let rel_path = path::Path::new(root).join(name);
+                    let full_path = project_repository.path().join(&rel_path);
+                    if !full_path.exists() && index.remove_path(&rel_path).is_err() {
                         return TreeWalkResult::Abort;
                     }
                 }
