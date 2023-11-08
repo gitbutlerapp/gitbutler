@@ -39,7 +39,7 @@
 		expanded: boolean;
 	}>();
 
-	let popupMenu = new HunkContextMenu({
+	const popupMenu = new HunkContextMenu({
 		target: document.body,
 		props: { projectPath, file, branchController }
 	});
