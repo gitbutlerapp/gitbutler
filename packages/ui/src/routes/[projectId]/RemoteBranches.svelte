@@ -6,37 +6,18 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { accordion } from './accordion';
-	import type { CustomStore, RemoteBranch, BaseBranch, Branch } from '$lib/vbranches/types';
-	import type { Readable } from '@square/svelte-store';
-	import { createEventDispatcher } from 'svelte';
-	import type { PullRequest } from '$lib/github/types';
-
-	const dispatch = createEventDispatcher<{
-		selection: {
-			branch: RemoteBranch;
-			i: number;
-			offset: number;
-		};
-	}>();
+	import type { CustomStore, RemoteBranch } from '$lib/vbranches/types';
+	import { page } from '$app/stores';
 
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
+	export let projectId: string;
+
 	let rbViewport: HTMLElement;
 	let rbContents: HTMLElement;
 	let rbSection: HTMLElement;
-	export let peekTrayExpanded = false;
-	export let selectedItem:
-		| Readable<Branch | RemoteBranch | BaseBranch | PullRequest | undefined>
-		| undefined;
-
 	$: remoteBranchesState = remoteBranchStore?.state;
 
 	let open = false;
-
-	function select(branch: RemoteBranch, i: number) {
-		const element = rbContents.children[i] as HTMLDivElement;
-		const offset = element.offsetTop + rbSection.offsetTop - rbViewport.scrollTop;
-		dispatch('selection', { branch, i, offset });
-	}
 </script>
 
 <div
@@ -83,13 +64,10 @@
 					</Link>
 				</div>
 			{:else if $remoteBranchStore}
-				{#each $remoteBranchStore as branch, i}
-					<div
-						role="button"
-						tabindex="0"
-						on:click={() => select(branch, i)}
-						on:keypress={() => select(branch, i)}
-						class:bg-color-4={$selectedItem == branch && peekTrayExpanded}
+				{#each $remoteBranchStore as branch}
+					<a
+						href="/{projectId}/remote/{branch.sha}"
+						class:bg-color-4={$page.url.pathname.includes(branch.sha)}
 						class="border-color-4 flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b-0 focus:outline-2"
 					>
 						<div class="flex flex-row items-center gap-x-2 pr-1">
@@ -145,7 +123,7 @@
 								{/each}
 							</div>
 						</div>
-					</div>
+					</a>
 				{/each}
 			{/if}
 		</div>

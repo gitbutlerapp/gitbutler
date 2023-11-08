@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Branch, BaseBranch, RemoteBranch, type CustomStore } from '$lib/vbranches/types';
+	import type { Branch, BaseBranch, RemoteBranch, CustomStore } from '$lib/vbranches/types';
 	import { IconBranch } from '$lib/icons';
 	import { IconTriangleDown } from '$lib/icons';
 	import { accordion } from './accordion';
@@ -8,8 +8,7 @@
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import { derived, get, type Loadable, type Readable } from '@square/svelte-store';
-	import PeekTray from './PeekTray.svelte';
+	import type { Loadable } from '@square/svelte-store';
 	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
@@ -38,9 +37,7 @@
 	export let baseBranchStore: CustomStore<BaseBranch | undefined>;
 	export let pullRequestsStore: CustomStore<PullRequest[] | undefined>;
 	export let branchController: BranchController;
-	export let peekTransitionsDisabled = false;
 	export let projectId: string;
-	export let peekTrayExpanded = false;
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
 	export let update: Loadable<Update>;
@@ -57,38 +54,7 @@
 	let vbContents: HTMLElement;
 	let baseContents: HTMLElement;
 
-	let selectedItem: Readable<RemoteBranch | undefined> | undefined;
-	let overlayOffsetTop = 0;
 	let fetching = false;
-
-	function select(
-		detail: Branch | RemoteBranch | BaseBranch | PullRequest | undefined,
-		i: number,
-		offset?: number
-	): void {
-		if (peekTrayExpanded && selectedItem && detail == get(selectedItem)) {
-			peekTrayExpanded = false;
-			return;
-		}
-		if (detail instanceof RemoteBranch) {
-			selectedItem = derived(remoteBranchStore, (branches) =>
-				branches?.find((remoteBranch) => remoteBranch.sha == detail.sha)
-			);
-			overlayOffsetTop = offset || overlayOffsetTop;
-		} else if (detail == undefined) {
-			selectedItem = undefined;
-		}
-
-		// Skip animation frame so vertical movement happens before transition
-		// property is set to include `top`. This way, the box moves smoothly
-		// up and down while expanded, but doesn't come flying in at an angle
-		// when expanding.
-		requestAnimationFrame(() => (peekTrayExpanded = true));
-	}
-
-	function onScroll() {
-		peekTrayExpanded = false;
-	}
 
 	function sumBranchLinesAddedRemoved(branch: Branch) {
 		const comitted = computedAddedRemoved(...branch.commits.flatMap((c) => c.files));
@@ -109,20 +75,10 @@
 	}
 </script>
 
-<PeekTray
-	{branchController}
-	item={selectedItem}
-	offsetTop={overlayOffsetTop}
-	fullHeight={true}
-	bind:expanded={peekTrayExpanded}
-	disabled={peekTransitionsDisabled}
-	{projectId}
-/>
 <div
 	class="bg-color-5 border-color-4 z-30 flex w-80 shrink-0 flex-col border-r"
 	style:width={$userSettings.trayWidth ? `${$userSettings.trayWidth}px` : null}
 	role="menu"
-	on:keydown|stopPropagation
 	tabindex="0"
 >
 	<!-- Top spacer -->
@@ -196,7 +152,6 @@
 	>
 		<div
 			bind:this={vbViewport}
-			on:scroll={onScroll}
 			class="hide-native-scrollbar flex h-full max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
 		>
 			<div bind:this={vbContents}>
@@ -266,7 +221,6 @@
 										class="text-color-4 hover:text-color-3 flex items-center gap-x-2 p-0 text-sm font-semibold"
 										title="apply branch"
 										on:click={() => {
-											peekTrayExpanded = false;
 											toggleBranch(branch);
 										}}
 									>
@@ -299,13 +253,7 @@
 	{#if githubContext}
 		<PullRequests {pullRequestsStore} {projectId} />
 	{:else}
-		<RemoteBranches
-			on:scroll={onScroll}
-			on:selection={(e) => select(e.detail.branch, e.detail.i, e.detail.offset)}
-			{remoteBranchStore}
-			{peekTrayExpanded}
-			{selectedItem}
-		></RemoteBranches>
+		<RemoteBranches {remoteBranchStore} {projectId}></RemoteBranches>
 	{/if}
 	<!-- Bottom spacer -->
 	<div

@@ -18,7 +18,6 @@
 	export let data: LayoutData;
 	let {
 		projectId,
-		cloud,
 		update,
 		sessionsStore,
 		deltasStore,
@@ -38,10 +37,6 @@
 	$: updateDeltasStore(sessionId);
 
 	let trayViewport: HTMLElement;
-	let peekTrayExpanded: boolean;
-
-	// Used to prevent peek tray from showing while reducing tray size
-	let peekTransitionsDisabled = false;
 
 	// function exists to update the session id as it changes
 	function updateDeltasStore(sid: string | undefined) {
@@ -62,8 +57,6 @@
 					{remoteBranchStore}
 					{baseBranchStore}
 					{branchController}
-					{peekTransitionsDisabled}
-					bind:peekTrayExpanded
 					{projectId}
 					githubContext={$githubContextStore}
 					user={$userStore}
@@ -76,9 +69,6 @@
 				viewport={trayViewport}
 				direction="horizontal"
 				class="z-30"
-				on:resizing={(e) => {
-					peekTransitionsDisabled = e.detail;
-				}}
 				on:width={(e) => {
 					userSettings.update((s) => ({
 						...s,

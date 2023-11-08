@@ -443,11 +443,6 @@ impl Repository {
             git::FileMode::Tree,
         );
         tree_builder.upsert(
-            "logs",
-            build_log_tree(self, project_repository).context("failed to build logs tree")?,
-            git::FileMode::Tree,
-        );
-        tree_builder.upsert(
             "branches",
             build_branches_tree(self).context("failed to build branches tree")?,
             git::FileMode::Tree,
@@ -626,7 +621,7 @@ fn build_wd_tree(
         .find_reference("refs/heads/current")
     {
         Result::Ok(reference) => {
-            // build the working directory tree from the current commit
+            // re-use the last tree as a base to copy non changed entries
             let tree = reference.peel_to_tree()?;
             let wd_tree_entry = tree.get_name("wd").unwrap();
             let wd_tree = gb_repository.git_repository.find_tree(wd_tree_entry.id())?;
@@ -637,7 +632,7 @@ fn build_wd_tree(
                 .list_files(&path::PathBuf::from("."))
                 .context("failed to read session wd files")?;
 
-            // the session files on top of it
+            // write the session files on top of the last tree
             for file_path in &session_wd_files {
                 let abs_path = gb_repository.session_wd_path().join(file_path);
                 let metadata = abs_path.metadata().with_context(|| {
@@ -698,12 +693,12 @@ fn build_wd_tree(
                     })?;
             }
 
-            // remove deleted files from the index
+            // remove deleted files from the last tree
             wd_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
                 if let Some(name) = &entry.name() {
-                    let full_path = path::Path::new(root).join(name);
-                    let exists = session_wd_files.contains(&full_path);
-                    if !exists && index.remove_path(&full_path).is_err() {
+                    let rel_path = path::Path::new(root).join(name);
+                    let full_path = project_repository.path().join(&rel_path);
+                    if !full_path.exists() && index.remove_path(&rel_path).is_err() {
                         return TreeWalkResult::Abort;
                     }
                 }
@@ -925,63 +920,6 @@ fn build_branches_tree(gb_repository: &Repository) -> Result<git::Oid> {
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
-}
-
-fn build_log_tree(
-    gb_repository: &Repository,
-    project_repository: &project_repository::Repository,
-) -> Result<git::Oid> {
-    let mut index = git::Index::new()?;
-
-    let logs_dir = project_repository.git_repository.path().join("logs");
-    for file_path in fs::list_files(logs_dir).context("failed to list log files")? {
-        add_log_path(
-            std::path::Path::new(&file_path),
-            &mut index,
-            gb_repository,
-            project_repository,
-        )
-        .with_context(|| format!("failed to add log file to index: {}", file_path.display()))?;
-    }
-
-    let tree_oid = index
-        .write_tree_to(&gb_repository.git_repository)
-        .context("failed to write index to tree")?;
-
-    Ok(tree_oid)
-}
-
-fn add_log_path(
-    rel_file_path: &std::path::Path,
-    index: &mut git::Index,
-    gb_repository: &Repository,
-    project_repository: &project_repository::Repository,
-) -> Result<()> {
-    let file_path = project_repository
-        .git_repository
-        .path()
-        .join("logs")
-        .join(rel_file_path);
-    let metadata = file_path.metadata()?;
-    let modify_time = FileTime::from_last_modification_time(&metadata);
-    let create_time = FileTime::from_creation_time(&metadata).unwrap_or(modify_time);
-
-    index.add(&git::IndexEntry {
-        ctime: create_time,
-        mtime: modify_time,
-        dev: metadata.dev().try_into()?,
-        ino: metadata.ino().try_into()?,
-        mode: 33188,
-        uid: metadata.uid(),
-        gid: metadata.gid(),
-        file_size: metadata.len().try_into()?,
-        flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
-        flags_extended: 0, // no extended flags
-        path: rel_file_path.to_str().unwrap().to_string().into(),
-        id: gb_repository.git_repository.blob_path(&file_path)?,
-    })?;
-
-    Ok(())
 }
 
 fn build_session_tree(gb_repository: &Repository) -> Result<git::Oid> {

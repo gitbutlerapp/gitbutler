@@ -37,6 +37,7 @@ export const load: LayoutLoad = async ({ params }) => {
 	const vbranchesState = vbranchStore.state;
 	const branchesState = branchesWithContent.state;
 	const baseBranchesState = baseBranchStore.state;
+	const remoteBranchState = remoteBranchStore.state;
 
 	const branchController = new BranchController(
 		projectId,
@@ -64,6 +65,7 @@ export const load: LayoutLoad = async ({ params }) => {
 		deltasStore,
 		baseBranchStore,
 		remoteBranchStore,
+		remoteBranchState,
 		project,
 		githubContextStore,
 		pullRequestsStore,
