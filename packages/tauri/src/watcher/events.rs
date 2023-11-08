@@ -1,4 +1,4 @@
-use std::{fmt::Display, path, time};
+use std::{fmt::Display, path};
 
 use crate::{
     analytics, bookmarks, deltas, events,
@@ -9,13 +9,13 @@ use crate::{
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Event {
-    Tick(ProjectId, time::SystemTime),
+    Tick(ProjectId),
     Flush(ProjectId, sessions::Session),
 
-    FetchGitbutlerData(ProjectId, time::SystemTime),
+    FetchGitbutlerData(ProjectId),
     PushGitbutlerData(ProjectId),
     PushProjectToGitbutler(ProjectId),
-    FetchProjectData(ProjectId, time::SystemTime),
+    FetchProjectData(ProjectId),
 
     GitFileChange(ProjectId, path::PathBuf),
 
@@ -38,10 +38,10 @@ impl Event {
             Event::Analytics(event) => event.project_id(),
             Event::Emit(event) => event.project_id(),
             Event::Bookmark(bookmark) => &bookmark.project_id,
-            Event::Tick(project_id, _)
+            Event::Tick(project_id)
             | Event::IndexAll(project_id)
-            | Event::FetchGitbutlerData(project_id, _)
-            | Event::FetchProjectData(project_id, _)
+            | Event::FetchGitbutlerData(project_id)
+            | Event::FetchProjectData(project_id)
             | Event::Flush(project_id, _)
             | Event::GitFileChange(project_id, _)
             | Event::ProjectFileChange(project_id, _)
@@ -59,27 +59,12 @@ impl Display for Event {
         match self {
             Event::Analytics(event) => write!(f, "Analytics({})", event),
             Event::Emit(event) => write!(f, "Emit({})", event.name()),
-            Event::Tick(project_id, ts) => write!(
-                f,
-                "Tick({}, {})",
-                project_id,
-                ts.duration_since(time::UNIX_EPOCH).unwrap().as_millis()
-            ),
-            Event::FetchGitbutlerData(pid, ts) => {
-                write!(
-                    f,
-                    "FetchGitbutlerData({}, {})",
-                    pid,
-                    ts.duration_since(time::UNIX_EPOCH).unwrap().as_millis()
-                )
+            Event::Tick(project_id) => write!(f, "Tick({})", project_id,),
+            Event::FetchGitbutlerData(pid) => {
+                write!(f, "FetchGitbutlerData({})", pid,)
             }
-            Event::FetchProjectData(pid, ts) => {
-                write!(
-                    f,
-                    "FetchProjectData({}, {})",
-                    pid,
-                    ts.duration_since(time::UNIX_EPOCH).unwrap().as_millis()
-                )
+            Event::FetchProjectData(pid) => {
+                write!(f, "FetchProjectData({})", pid,)
             }
             Event::Flush(project_id, session) => write!(f, "Flush({}, {})", project_id, session.id),
             Event::GitFileChange(project_id, path) => {

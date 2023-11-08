@@ -44,10 +44,7 @@ impl Dispatcher {
                         if self.cancellation_token.is_cancelled() {
                             break;
                         }
-                        if let Err(error) = tx
-                            .send(events::Event::Tick(project_id, time::SystemTime::now()))
-                            .await
-                        {
+                        if let Err(error) = tx.send(events::Event::Tick(project_id)).await {
                             tracing::error!(%project_id, ?error, "failed to send tick");
                         }
                     }
@@ -80,7 +77,7 @@ mod tests {
 
         let mut count = 0_i32;
         while let Some(event) = rx.recv().await {
-            if let events::Event::Tick(_, _) = event {
+            if let events::Event::Tick(_) = event {
                 count += 1_i32;
             }
         }

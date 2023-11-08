@@ -1,11 +1,14 @@
-use std::sync::{Arc, Mutex, TryLockError};
+use std::{
+    sync::{Arc, Mutex, TryLockError},
+    time,
+};
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
 use crate::{
     project_repository,
-    projects::{self, ProjectId},
+    projects::{self, CodePushState, ProjectId},
     users,
 };
 
@@ -28,9 +31,13 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
+    pub fn handle(
+        &self,
+        project_id: &ProjectId,
+        now: &time::SystemTime,
+    ) -> Result<Vec<events::Event>> {
         match self.inner.try_lock() {
-            Ok(inner) => inner.handle(project_id),
+            Ok(inner) => inner.handle(project_id, now),
             Err(TryLockError::Poisoned(_)) => Err(anyhow::anyhow!("mutex poisoned")),
             Err(TryLockError::WouldBlock) => Ok(vec![]),
         }
@@ -54,7 +61,11 @@ impl TryFrom<&AppHandle> for HandlerInner {
 }
 
 impl HandlerInner {
-    pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
+    pub fn handle(
+        &self,
+        project_id: &ProjectId,
+        now: &time::SystemTime,
+    ) -> Result<Vec<events::Event>> {
         tracing::info!(
             %project_id,
             "push_project_to_gb::handle",
@@ -73,7 +84,11 @@ impl HandlerInner {
             && project_repository.project().has_code_url()
         {
             let head_id = project_repository.get_head()?.peel_to_commit()?.id();
-            let gb_code_last_commit = project.gitbutler_code_push.as_ref().copied();
+            let gb_code_last_commit = project
+                .gitbutler_code_push_state
+                .as_ref()
+                .map(|state| &state.id)
+                .copied();
 
             let ids = project_repository.l(
                 head_id,
@@ -101,7 +116,10 @@ impl HandlerInner {
                 self.project_store
                     .update(&projects::UpdateRequest {
                         id: *project_id,
-                        gitbutler_code_push: Some(*id),
+                        gitbutler_code_push_state: Some(CodePushState {
+                            id: *id,
+                            timestamp: *now,
+                        }),
                         ..Default::default()
                     })
                     .context("failed to update last push")?;

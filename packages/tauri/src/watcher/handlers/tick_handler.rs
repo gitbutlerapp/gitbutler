@@ -34,6 +34,7 @@ impl TryFrom<&AppHandle> for Handler {
 
 const GB_FETCH_INTERVAL: time::Duration = time::Duration::new(15 * 60, 0);
 const PROJECT_FETCH_INTERVAL: time::Duration = time::Duration::new(15 * 60, 0);
+const PROJECT_PUSH_INTERVAL: time::Duration = time::Duration::new(15 * 60, 0);
 
 impl Handler {
     pub fn handle(
@@ -63,7 +64,7 @@ impl Handler {
             .unwrap_or(time::UNIX_EPOCH);
 
         if now.duration_since(project_data_last_fetch)? > PROJECT_FETCH_INTERVAL {
-            events.push(events::Event::FetchProjectData(*project_id, *now));
+            events.push(events::Event::FetchProjectData(*project_id));
         }
 
         if project.is_sync_enabled() {
@@ -75,7 +76,7 @@ impl Handler {
                 .unwrap_or(time::UNIX_EPOCH);
 
             if now.duration_since(gb_data_last_fetch)? > GB_FETCH_INTERVAL {
-                events.push(events::Event::FetchGitbutlerData(*project_id, *now));
+                events.push(events::Event::FetchGitbutlerData(*project_id));
             }
         }
 
@@ -88,7 +89,16 @@ impl Handler {
             }
         }
 
-        events.push(events::Event::PushProjectToGitbutler(*project_id));
+        let project_code_last_push = project
+            .gitbutler_code_push_state
+            .as_ref()
+            .map(|state| &state.timestamp)
+            .copied()
+            .unwrap_or(time::UNIX_EPOCH);
+
+        if now.duration_since(project_code_last_push)? > PROJECT_PUSH_INTERVAL {
+            events.push(events::Event::PushProjectToGitbutler(*project_id));
+        }
 
         Ok(events)
     }
@@ -199,7 +209,7 @@ mod test_handler {
 
         assert!(result
             .iter()
-            .any(|ev| matches!(ev, events::Event::FetchGitbutlerData(_, _))));
+            .any(|ev| matches!(ev, events::Event::FetchGitbutlerData(_))));
 
         Ok(())
     }
@@ -219,6 +229,6 @@ mod test_handler {
 
         assert!(!result
             .iter()
-            .any(|ev| matches!(ev, events::Event::FetchGitbutlerData(_, _))));
+            .any(|ev| matches!(ev, events::Event::FetchGitbutlerData(_))));
     }
 }
