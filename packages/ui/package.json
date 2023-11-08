@@ -39,7 +39,7 @@
 		"@octokit/rest": "^20.0.2",
 		"@replit/codemirror-lang-svelte": "^6.0.0",
 		"@sentry/sveltekit": "^7.73.0",
-		"@square/svelte-store": "git+https://git@github.com/gitbutlerapp/svelte-store.git#2eabf922a3f18e4a6c3af2abca5199e82813b734",
+		"@square/svelte-store": "git+https://git@github.com/gitbutlerapp/svelte-store.git#aa299b5b011598bdcf9c20e744988ecaba050d63",
 		"@sveltejs/adapter-static": "^2.0.3",
 		"@sveltejs/kit": "^1.27.3",
 		"@tauri-apps/api": "^1.5.0",
