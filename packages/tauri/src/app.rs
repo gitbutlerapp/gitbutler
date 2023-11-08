@@ -80,10 +80,6 @@ impl App {
         Ok(())
     }
 
-    pub fn get_project(&self, id: &ProjectId) -> Result<projects::Project, Error> {
-        self.projects.get(id).map_err(Error::GetProject)
-    }
-
     pub fn list_sessions(
         &self,
         project_id: &ProjectId,
@@ -332,19 +328,6 @@ impl App {
                 }
             }
         }
-    }
-
-    pub fn git_gb_push(&self, project_id: &ProjectId) -> Result<(), Error> {
-        let user = self.users.get_user().context("failed to get user")?;
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gb repo")?;
-        gb_repository.push(user.as_ref()).map_err(Error::Other)
     }
 
     pub fn delete_all_data(&self) -> Result<(), Error> {
