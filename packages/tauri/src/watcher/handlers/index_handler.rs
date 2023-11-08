@@ -46,11 +46,11 @@ impl Handler {
         session_id: &SessionId,
         file_path: &path::Path,
         deltas: &Vec<deltas::Delta>,
-    ) -> Result<Vec<events::Event>> {
+    ) -> Result<()> {
         self.deltas_database
             .insert(project_id, session_id, file_path, deltas)
             .context("failed to insert deltas into database")?;
-        Ok(vec![])
+        Ok(())
     }
 
     pub fn index_bookmark(
@@ -133,19 +133,16 @@ impl Handler {
             .insert(project_id, &[session])
             .context("failed to insert session into database")?;
 
-        let mut events: Vec<events::Event> = vec![events::Event::Emit(app_events::Event::session(
-            project_id, session,
-        ))];
-
         let deltas_reader = deltas::Reader::new(&session_reader);
         for (file_path, deltas) in deltas_reader
             .read(None)
             .context("could not list deltas for session")?
         {
-            let delta_events = self.index_deltas(project_id, &session.id, &file_path, &deltas)?;
-            events.extend(delta_events);
+            self.index_deltas(project_id, &session.id, &file_path, &deltas)?;
         }
 
-        Ok(events)
+        Ok(vec![events::Event::Emit(app_events::Event::session(
+            project_id, session,
+        ))])
     }
 }
