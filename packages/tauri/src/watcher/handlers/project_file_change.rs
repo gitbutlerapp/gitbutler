@@ -424,6 +424,35 @@ mod test {
     }
 
     #[test]
+    fn test_register_no_changes_saved_thgoughout_flushes() -> Result<()> {
+        let suite = Suite::default();
+        let Case {
+            gb_repository,
+            project_repository,
+            project,
+            ..
+        } = suite.new_case();
+        let listener = Handler::from(&suite.local_app_data);
+
+        // file change, wd and deltas are written
+        std::fs::write(project.path.join("test.txt"), "test")?;
+        listener.handle("test.txt", &project.id)?;
+
+        // make two more sessions.
+        gb_repository.flush(&project_repository, None)?;
+        gb_repository.get_or_create_current_session()?;
+        gb_repository.flush(&project_repository, None)?;
+
+        // after some sessions, files from the first change are still there.
+        let session = gb_repository.get_or_create_current_session()?;
+        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+        let files = session_reader.files(None)?;
+        assert_eq!(files.len(), 1);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_register_new_file_twice() -> Result<()> {
         let suite = Suite::default();
         let Case {
