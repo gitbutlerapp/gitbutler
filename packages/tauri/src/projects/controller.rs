@@ -1,4 +1,4 @@
-use std::{path, time};
+use std::path;
 
 use anyhow::Context;
 use futures::executor::block_on;
@@ -95,10 +95,9 @@ impl Controller {
         if let Some(watchers) = &self.watchers {
             if let Some(api) = &project.api {
                 if api.sync {
-                    if let Err(error) = block_on(watchers.post(watcher::Event::FetchGitbutlerData(
-                        project.id,
-                        time::SystemTime::now(),
-                    ))) {
+                    if let Err(error) =
+                        block_on(watchers.post(watcher::Event::FetchGitbutlerData(project.id)))
+                    {
                         tracing::error!(
                             project_id = %project.id,
                             ?error,

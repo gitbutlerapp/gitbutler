@@ -47,6 +47,12 @@ impl FetchResult {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize, Copy, Clone)]
+pub struct CodePushState {
+    pub id: git::Oid,
+    pub timestamp: time::SystemTime,
+}
+
 pub type ProjectId = Id<Project>;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -63,7 +69,7 @@ pub struct Project {
     #[serde(default)]
     pub gitbutler_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
-    pub gitbutler_code_push: Option<git::Oid>,
+    pub gitbutler_code_push_state: Option<CodePushState>,
 }
 
 impl AsRef<Project> for Project {

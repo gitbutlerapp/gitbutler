@@ -2,7 +2,7 @@ mod dispatchers;
 mod events;
 mod handlers;
 
-use std::{collections::HashMap, path, sync::Arc};
+use std::{collections::HashMap, path, sync::Arc, time};
 
 pub use events::Event;
 
@@ -170,7 +170,7 @@ impl WatcherInner {
                     let handler = self.handler.clone();
                     let tx = proxy_tx.clone();
                     let event = event.clone();
-                    move || match handler.handle(&event) {
+                    move || match handler.handle(&event, time::SystemTime::now()) {
                         Err(error) => tracing::error!(
                             project_id,
                             %event,

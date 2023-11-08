@@ -9,6 +9,8 @@ mod push_gitbutler_data;
 mod push_project_to_gitbutler;
 mod tick_handler;
 
+use std::time;
+
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 use tracing::instrument;
@@ -55,7 +57,11 @@ impl TryFrom<&AppHandle> for Handler {
 
 impl Handler {
     #[instrument(skip(self), fields(event = %event), level = "debug")]
-    pub fn handle(&self, event: &events::Event) -> Result<Vec<events::Event>> {
+    pub fn handle(
+        &self,
+        event: &events::Event,
+        now: time::SystemTime,
+    ) -> Result<Vec<events::Event>> {
         match event {
             events::Event::ProjectFileChange(project_id, path) => self
                 .project_file_handler
@@ -77,22 +83,22 @@ impl Handler {
 
             events::Event::PushProjectToGitbutler(project_id) => self
                 .push_project_to_gitbutler
-                .handle(project_id)
+                .handle(project_id, &now)
                 .context("failed to push project to gitbutler"),
 
-            events::Event::FetchGitbutlerData(project_id, tick) => self
+            events::Event::FetchGitbutlerData(project_id) => self
                 .fetch_gitbutler_handler
-                .handle(project_id, tick)
+                .handle(project_id, &now)
                 .context("failed to fetch gitbutler data"),
 
-            events::Event::FetchProjectData(project_id, tick) => self
+            events::Event::FetchProjectData(project_id) => self
                 .fetch_project_handler
-                .handle(project_id, tick)
+                .handle(project_id, &now)
                 .context("failed to fetch project data"),
 
-            events::Event::Tick(project_id, tick) => self
+            events::Event::Tick(project_id) => self
                 .tick_handler
-                .handle(project_id, tick)
+                .handle(project_id, &now)
                 .context("failed to handle tick"),
 
             events::Event::Flush(project_id, session) => self
