@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::{
     gb_repository, paths::DataDir, project_repository, projects, projects::ProjectId, sessions,
@@ -23,7 +23,10 @@ impl TryFrom<&AppHandle> for Handler {
         Ok(Self {
             local_data_dir: DataDir::try_from(value)?,
             project_store: projects::Controller::try_from(value)?,
-            vbrach_controller: virtual_branches::Controller::try_from(value)?,
+            vbrach_controller: value
+                .state::<virtual_branches::Controller>()
+                .inner()
+                .clone(),
             users: users::Controller::from(value),
         })
     }
