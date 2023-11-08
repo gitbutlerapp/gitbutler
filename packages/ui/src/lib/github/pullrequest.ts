@@ -1,26 +1,30 @@
-import { asyncWritable, type WritableLoadable, type Loadable } from '@square/svelte-store';
+import { asyncWritable, type Loadable } from '@square/svelte-store';
 import lscache from 'lscache';
 
 import { PullRequest, type GitHubIntegrationContext } from '$lib/github/types';
 import { newClient } from '$lib/github/client';
+import type { CustomStore } from '$lib/vbranches/types';
 
 // Uses the cached value as the initial state and also in the event of being offline
-export function listPullRequestsWithCache(ctx: GitHubIntegrationContext): Loadable<PullRequest[]> {
-	const key = ctx.owner + '/' + ctx.repo;
+export function listPullRequestsWithCache(
+	ghContextStore: Loadable<GitHubIntegrationContext | undefined>
+): CustomStore<PullRequest[] | undefined> {
 	const store = asyncWritable(
-		[],
-		async () => lscache.get(key) || [],
-		async (data) => data,
-		{ trackState: true },
-		(set) => {
-			listPullRequests(ctx).then((prs) => {
-				if (prs !== undefined) {
-					lscache.set(key, prs, 1440); // 1 day ttl
-					set(prs);
-				}
-			});
-		}
-	) as WritableLoadable<PullRequest[]>;
+		ghContextStore,
+		async (ctx) => {
+			if (!ctx) return [];
+			const key = ctx.owner + '/' + ctx.repo;
+			const cachedValue = lscache.get(key);
+			if (cachedValue) return cachedValue;
+			const prs = await listPullRequests(ctx);
+			if (prs) {
+				lscache.set(key, prs, 1440); // 1 day ttl
+			}
+			return prs;
+		},
+		undefined,
+		{ trackState: true }
+	) as CustomStore<PullRequest[]>;
 	return store;
 }
 
