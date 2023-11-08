@@ -5,8 +5,8 @@ use futures::executor::block_on;
 use tauri::{generate_context, Manager};
 
 use gblib::{
-    analytics, app, assets, commands, database, github, keys, logs, projects, sessions, storage,
-    users, virtual_branches, watcher, zip,
+    analytics, app, assets, commands, database, deltas, github, keys, logs, projects, sessions,
+    storage, users, virtual_branches, watcher, zip,
 };
 
 fn main() {
@@ -118,6 +118,9 @@ fn main() {
                         .expect("failed to initialize zipc controller ");
                     tauri_app.manage(zipper);
 
+                    let deltas_controller = deltas::Controller::from(&app_handle);
+                    app_handle.manage(deltas_controller);
+
                     let sessions_controller = sessions::Controller::try_from(&app_handle)
                         .expect("failed to initialize sessions controller");
                     app_handle.manage(sessions_controller);
@@ -153,7 +156,6 @@ fn main() {
                 .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
                 .plugin(tauri_plugin_context_menu::init())
                 .invoke_handler(tauri::generate_handler![
-                    commands::list_deltas,
                     commands::list_session_files,
                     commands::git_remote_branches,
                     commands::git_remote_branches_data,
@@ -178,6 +180,7 @@ fn main() {
                     projects::commands::delete_project,
                     projects::commands::list_projects,
                     sessions::commands::list_sessions,
+                    deltas::commands::list_deltas,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
                     virtual_branches::commands::commit_virtual_branch,

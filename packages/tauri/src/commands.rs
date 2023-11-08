@@ -5,7 +5,7 @@ use tauri::Manager;
 use tracing::instrument;
 
 use crate::{
-    app, assets, bookmarks, deltas,
+    app, assets, bookmarks,
     error::{Code, Error},
     git, reader,
     sessions::SessionId,
@@ -45,27 +45,6 @@ pub async fn list_session_files(
     })?;
     let files = app.list_session_files(&project_id, &session_id, paths.as_deref())?;
     Ok(files)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn list_deltas(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    session_id: &str,
-    paths: Option<Vec<&str>>,
-) -> Result<HashMap<String, Vec<deltas::Delta>>, Error> {
-    let app = handle.state::<app::App>();
-    let session_id = session_id.parse().map_err(|_| Error::UserError {
-        message: "Malformed session id".to_string(),
-        code: Code::Validation,
-    })?;
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
-    let deltas = app.list_session_deltas(&project_id, &session_id, &paths)?;
-    Ok(deltas)
 }
 
 #[tauri::command(async)]
