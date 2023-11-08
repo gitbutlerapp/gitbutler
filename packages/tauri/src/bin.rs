@@ -5,8 +5,8 @@ use futures::executor::block_on;
 use tauri::{generate_context, Manager};
 
 use gblib::{
-    analytics, app, assets, commands, database, github, keys, logs, projects, sessions, storage,
-    users, virtual_branches, watcher, zip,
+    analytics, app, assets, commands, database, github, keys, logs, project_repository, projects,
+    sessions, storage, users, virtual_branches, watcher, zip,
 };
 
 fn main() {
@@ -139,6 +139,10 @@ fn main() {
                         sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())));
                     }
                     app_handle.manage(users_controller);
+
+                    let project_repo_controller = project_repository::Controller::try_from(&app_handle)
+                        .expect("failed to initialize project repo controller");
+                    app_handle.manage(project_repo_controller);
 
                     let app: app::App = app::App::try_from(&tauri_app.app_handle())
                         .expect("failed to initialize app");

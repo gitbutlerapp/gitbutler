@@ -10,7 +10,7 @@ pub mod commands;
 #[cfg(test)]
 mod tests;
 
-pub use controller::Controller;
+pub use controller::{Controller, CurrentSessionError, FlushError, ListError};
 pub use database::Database;
 pub use iterator::SessionsIterator;
 pub use reader::SessionReader as Reader;
