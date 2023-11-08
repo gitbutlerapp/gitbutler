@@ -30,7 +30,7 @@
 	{/if}
 	{#if item.lineNumber}
 		<PopupMenuItem
-			disabled={!!projectPath}
+			disabled={!projectPath}
 			on:click={() =>
 				projectPath && open(`vscode://file${projectPath}/${file.path}:${item.lineNumber}`)}
 		>
