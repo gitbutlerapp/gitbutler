@@ -26,7 +26,7 @@ impl Handler {
         project_id: &ProjectId,
         session: &sessions::Session,
     ) -> Result<Vec<events::Event>> {
-        let session = self.session_controller.flush(project_id, session)?;
+        let session = self.session_controller.flush_session(project_id, session)?;
 
         Ok(vec![
             events::Event::Session(*project_id, session),

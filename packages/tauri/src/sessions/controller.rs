@@ -134,27 +134,11 @@ impl Controller {
         Ok(sessions)
     }
 
-    pub fn current_session(
+    pub fn flush_session(
         &self,
         project_id: &ProjectId,
-    ) -> Result<Option<Session>, CurrentSessionError> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)
-            .context("failed to open project repository")?;
-        let user = self.users.get_user()?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gb repository")?;
-
-        let current_session = gb_repository.get_current_session()?;
-
-        Ok(current_session)
-    }
-
-    pub fn flush(&self, project_id: &ProjectId, session: &Session) -> Result<Session, FlushError> {
+        session: &Session,
+    ) -> Result<Session, FlushError> {
         let project = self
             .projects
             .get(project_id)
@@ -178,6 +162,35 @@ impl Controller {
 
         let session = gb_repo
             .flush_session(&project_repository, session, user.as_ref())
+            .context("failed to flush session")?;
+
+        Ok(session)
+    }
+
+    pub fn flush(&self, project_id: &ProjectId) -> Result<Option<Session>, FlushError> {
+        let project = self
+            .projects
+            .get(project_id)
+            .context("failed to get project")?;
+
+        let user = self.users.get_user()?;
+        let project_repository = project_repository::Repository::try_from(&project)
+            .context("failed to open repository")?;
+        let gb_repo = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open repository")?;
+
+        futures::executor::block_on(async {
+            self.vbranches_controller
+                .flush_vbranches(project_repository.project().id)
+                .await
+        })?;
+
+        let session = gb_repo
+            .flush(&project_repository, user.as_ref())
             .context("failed to flush session")?;
 
         Ok(session)
