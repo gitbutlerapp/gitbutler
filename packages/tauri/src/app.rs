@@ -232,23 +232,6 @@ impl App {
             .map_err(Error::Other)
     }
 
-    pub fn git_remote_branches_data(
-        &self,
-        project_id: &ProjectId,
-    ) -> Result<Vec<virtual_branches::RemoteBranch>, Error> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
-        let user = self.users.get_user().context("failed to get user")?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gb repo")?;
-        virtual_branches::list_remote_branches(&gb_repository, &project_repository)
-            .map_err(Error::Other)
-    }
-
     pub fn git_head(&self, project_id: &ProjectId) -> Result<String, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::try_from(&project)?;
