@@ -8,7 +8,7 @@
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import { derived, get, readable, type Loadable, type Readable } from '@square/svelte-store';
+	import { derived, get, type Loadable, type Readable } from '@square/svelte-store';
 	import PeekTray from './PeekTray.svelte';
 	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
@@ -17,13 +17,12 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
-	import type { User, getCloudApiClient } from '$lib/backend/cloud';
+	import type { User } from '$lib/backend/cloud';
 	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
 	import { slide } from 'svelte/transition';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
 	import RemoteBranches from './RemoteBranches.svelte';
-	import type { GitHubIntegrationContext } from '$lib/github/types';
-	import { PullRequest } from '$lib/github/types';
+	import type { GitHubIntegrationContext, PullRequest } from '$lib/github/types';
 	import PullRequests from './PullRequests.svelte';
 	import IconHome from '$lib/icons/IconHome.svelte';
 	import Link from '$lib/components/Link.svelte';
@@ -37,10 +36,10 @@
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
 	export let baseBranchStore: CustomStore<BaseBranch | undefined>;
+	export let pullRequestsStore: CustomStore<PullRequest[] | undefined>;
 	export let branchController: BranchController;
 	export let peekTransitionsDisabled = false;
 	export let projectId: string;
-	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let peekTrayExpanded = false;
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
@@ -58,9 +57,7 @@
 	let vbContents: HTMLElement;
 	let baseContents: HTMLElement;
 
-	let selectedItem:
-		| Readable<Branch | RemoteBranch | BaseBranch | PullRequest | undefined>
-		| undefined;
+	let selectedItem: Readable<RemoteBranch | undefined> | undefined;
 	let overlayOffsetTop = 0;
 	let fetching = false;
 
@@ -73,19 +70,10 @@
 			peekTrayExpanded = false;
 			return;
 		}
-		if (detail instanceof Branch) {
-			selectedItem = derived(branchesWithContentStore, (branches) =>
-				branches?.filter((b) => !b.active).find((branch) => branch.id == detail.id)
-			);
-			const element = vbContents.children[i] as HTMLDivElement;
-			overlayOffsetTop = element.offsetTop + vbViewport.offsetTop - vbViewport.scrollTop;
-		} else if (detail instanceof RemoteBranch) {
+		if (detail instanceof RemoteBranch) {
 			selectedItem = derived(remoteBranchStore, (branches) =>
 				branches?.find((remoteBranch) => remoteBranch.sha == detail.sha)
 			);
-			overlayOffsetTop = offset || overlayOffsetTop;
-		} else if (detail instanceof PullRequest) {
-			selectedItem = readable(detail);
 			overlayOffsetTop = offset || overlayOffsetTop;
 		} else if (detail == undefined) {
 			selectedItem = undefined;
@@ -122,16 +110,13 @@
 </script>
 
 <PeekTray
-	base={$baseBranchStore}
 	{branchController}
 	item={selectedItem}
 	offsetTop={overlayOffsetTop}
 	fullHeight={true}
 	bind:expanded={peekTrayExpanded}
 	disabled={peekTransitionsDisabled}
-	{cloud}
 	{projectId}
-	{githubContext}
 />
 <div
 	class="bg-color-5 border-color-4 z-30 flex w-80 shrink-0 flex-col border-r"
@@ -312,12 +297,7 @@
 
 	<!-- Remote branches -->
 	{#if githubContext}
-		<PullRequests
-			on:scroll={onScroll}
-			on:selection={(e) => select(e.detail.pr, e.detail.i, e.detail.offset)}
-			{githubContext}
-			{projectId}
-		></PullRequests>
+		<PullRequests {pullRequestsStore} {projectId} />
 	{:else}
 		<RemoteBranches
 			on:scroll={onScroll}

@@ -1,37 +1,21 @@
 <script lang="ts">
-	import type { GitHubIntegrationContext } from '$lib/github/types';
-	import { listPullRequestsWithCache } from '$lib/github/pullrequest';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { IconPullRequest, IconDraftPullRequest, IconFilter, IconFilterFilled } from '$lib/icons';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { accordion } from './accordion';
 	import type { PullRequest } from '$lib/github/types';
-	import { createEventDispatcher } from 'svelte';
 	import { showMenu } from 'tauri-plugin-context-menu';
 	import { projectPullRequestListingFilter, ListPRsFilter } from '$lib/config/config';
+	import type { Loadable } from '@square/svelte-store';
 
-	export let githubContext: GitHubIntegrationContext;
 	export let projectId: string;
-	let prs = listPullRequestsWithCache(githubContext);
-	$: pullRequestsState = prs.state;
+	export let pullRequestsStore: Loadable<PullRequest[] | undefined>;
+	$: pullRequestsState = pullRequestsStore?.state;
 
 	let rbViewport: HTMLElement;
 	let rbContents: HTMLElement;
 	let rbSection: HTMLElement;
 	let open = true;
-
-	const dispatch = createEventDispatcher<{
-		selection: {
-			pr: PullRequest;
-			i: number;
-			offset: number;
-		};
-	}>();
-	function select(pr: PullRequest, i: number) {
-		const element = rbContents.children[i] as HTMLDivElement;
-		const offset = element.offsetTop + rbSection.offsetTop - rbViewport.scrollTop;
-		dispatch('selection', { pr, i, offset });
-	}
 
 	const filterChoice = projectPullRequestListingFilter(projectId);
 	function filterPRs(prs: PullRequest[], filter: string): PullRequest[] {
@@ -88,13 +72,10 @@
 				<span>loading...</span>
 			{:else if $pullRequestsState?.isError}
 				<span>something went wrong</span>
-			{:else}
-				{#each filterPRs($prs, $filterChoice) as pr, i}
-					<div
-						role="button"
-						tabindex="0"
-						on:click={() => select(pr, i)}
-						on:keypress={() => select(pr, i)}
+			{:else if $pullRequestsStore}
+				{#each filterPRs($pullRequestsStore, $filterChoice) as pr, i}
+					<a
+						href="/{projectId}/pull/{pr.number}"
 						class="border-color-4 flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b-0 focus:outline-2"
 					>
 						<div class="flex flex-row items-center gap-x-2">
@@ -134,7 +115,7 @@
 								</div>
 							{/if}
 						</div>
-					</div>
+					</a>
 				{/each}
 			{/if}
 		</div>

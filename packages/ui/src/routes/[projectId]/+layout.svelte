@@ -28,7 +28,8 @@
 		branchController,
 		branchesWithContent,
 		remoteBranchStore,
-		githubContextStore
+		githubContextStore,
+		pullRequestsStore
 	} = data;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
@@ -63,11 +64,11 @@
 					{branchController}
 					{peekTransitionsDisabled}
 					bind:peekTrayExpanded
-					{cloud}
 					{projectId}
 					githubContext={$githubContextStore}
 					user={$userStore}
 					{update}
+					{pullRequestsStore}
 				/>
 			</div>
 			<Resizer

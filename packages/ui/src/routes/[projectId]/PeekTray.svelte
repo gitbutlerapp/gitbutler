@@ -2,30 +2,19 @@
 	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranch, Branch, RemoteBranch } from '$lib/vbranches/types';
+	import { RemoteBranch } from '$lib/vbranches/types';
 	import { getContext } from 'svelte';
 	import type { Readable } from '@square/svelte-store';
-	import BaseBranchPeek from './base/BaseBranch.svelte';
 	import RemoteBranchPeek from './RemoteBranchPeek.svelte';
-	import PullRequestPeek from './PullRequestPeek.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import BranchLane from './components/BranchLane.svelte';
-	import type { GitHubIntegrationContext } from '$lib/github/types';
-	import type { getCloudApiClient } from '$lib/backend/cloud';
-	import { PullRequest } from '$lib/github/types';
 
-	export let item:
-		| Readable<RemoteBranch | Branch | BaseBranch | PullRequest | undefined>
-		| undefined;
-	export let cloud: ReturnType<typeof getCloudApiClient>;
-	export let base: BaseBranch | undefined;
+	export let item: Readable<RemoteBranch | undefined> | undefined;
 	export let branchController: BranchController;
 	export let expanded: boolean;
 	export let offsetTop: number;
 	export let projectId: string;
 	export let fullHeight = false;
 	export let disabled = false;
-	export let githubContext: GitHubIntegrationContext | undefined;
 
 	let viewport: HTMLElement;
 
@@ -76,23 +65,6 @@
 		>
 			{#if $item instanceof RemoteBranch}
 				<RemoteBranchPeek {projectId} {branchController} branch={$item} />
-			{:else if $item instanceof Branch}
-				<BranchLane
-					branch={$item}
-					{branchController}
-					{base}
-					{cloud}
-					{projectId}
-					maximized={true}
-					cloudEnabled={false}
-					projectPath=""
-					readonly={true}
-					{githubContext}
-				/>
-			{:else if $item instanceof BaseBranch}
-				<BaseBranchPeek {projectId} base={$item} {branchController} />
-			{:else if $item instanceof PullRequest}
-				<PullRequestPeek {branchController} pullrequest={$item} />
 			{:else}
 				Unknown instance
 			{/if}
