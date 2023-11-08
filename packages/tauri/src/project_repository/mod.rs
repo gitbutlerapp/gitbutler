@@ -1,4 +1,4 @@
-mod commands;
+pub mod commands;
 mod config;
 pub mod conflicts;
 mod controller;

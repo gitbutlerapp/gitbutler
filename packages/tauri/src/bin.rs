@@ -182,6 +182,7 @@ fn main() {
                     projects::commands::delete_project,
                     projects::commands::list_projects,
                     sessions::commands::list_sessions,
+                    project_repository::commands::flush_project,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
                     virtual_branches::commands::commit_virtual_branch,
