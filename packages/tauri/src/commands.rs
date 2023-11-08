@@ -185,8 +185,9 @@ pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Resul
         .flush(&project_repository, user.as_ref())
         .context("failed to flush session")?;
 
+    gb_repo.push(user.as_ref()).context("failed to push")?;
+
     //TODO: events::Event::Session(*project_id, session),
-    //TODO: events::Event::PushGitbutlerData(*project_id),
     //TODO: events::Event::PushProjectToGitbutler(*project_id),
 
     Ok(())
