@@ -2,11 +2,8 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    gb_repository,
-    paths::DataDir,
-    project_repository,
-    projects::{self, ProjectId},
-    sessions, users, virtual_branches,
+    gb_repository, paths::DataDir, project_repository, projects, projects::ProjectId, sessions,
+    users, virtual_branches,
 };
 
 use super::events;

@@ -1,13 +1,17 @@
 use std::{collections::HashMap, path};
 
+use anyhow::Context;
 use tauri::Manager;
 use tracing::instrument;
 
 use crate::{
     app,
     error::{Code, Error},
-    git, reader,
+    gb_repository, git,
+    paths::DataDir,
+    project_repository, projects, reader,
     sessions::SessionId,
+    users, virtual_branches,
 };
 
 impl From<app::Error> for Error {
@@ -145,4 +149,46 @@ pub async fn git_get_global_config(
     let app = handle.state::<app::App>();
     let result = app.git_get_global_config(key)?;
     Ok(result)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
+    let id = id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".into(),
+    })?;
+
+    let users = handle.state::<users::Controller>().inner().clone();
+    let projects = handle.state::<projects::Controller>().inner().clone();
+    let vbranches = handle
+        .state::<virtual_branches::Controller>()
+        .inner()
+        .clone();
+    let local_data_dir = DataDir::try_from(&handle)?;
+
+    let project = projects.get(&id).context("failed to get project")?;
+    let user = users.get_user()?;
+    let project_repository =
+        project_repository::Repository::try_from(&project).context("failed to open repository")?;
+    let gb_repo =
+        gb_repository::Repository::open(&local_data_dir, &project_repository, user.as_ref())
+            .context("failed to open repository")?;
+
+    futures::executor::block_on(async {
+        vbranches
+            .flush_vbranches(project_repository.project().id)
+            .await
+    })?;
+
+    let _session = gb_repo
+        .flush(&project_repository, user.as_ref())
+        .context("failed to flush session")?;
+
+    gb_repo.push(user.as_ref()).context("failed to push")?;
+
+    //TODO: events::Event::Session(*project_id, session),
+    //TODO: events::Event::PushProjectToGitbutler(*project_id),
+
+    Ok(())
 }

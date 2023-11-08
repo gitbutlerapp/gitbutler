@@ -169,6 +169,7 @@ fn main() {
                     commands::mark_resolved,
                     commands::git_set_global_config,
                     commands::git_get_global_config,
+                    commands::project_flush_and_push,
                     bookmarks::commands::upsert_bookmark,
                     bookmarks::commands::list_bookmarks,
                     zip::commands::get_logs_archive_path,
