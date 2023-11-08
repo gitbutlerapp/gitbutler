@@ -443,11 +443,6 @@ impl Repository {
             git::FileMode::Tree,
         );
         tree_builder.upsert(
-            "logs",
-            build_log_tree(self, project_repository).context("failed to build logs tree")?,
-            git::FileMode::Tree,
-        );
-        tree_builder.upsert(
             "branches",
             build_branches_tree(self).context("failed to build branches tree")?,
             git::FileMode::Tree,
@@ -925,63 +920,6 @@ fn build_branches_tree(gb_repository: &Repository) -> Result<git::Oid> {
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
-}
-
-fn build_log_tree(
-    gb_repository: &Repository,
-    project_repository: &project_repository::Repository,
-) -> Result<git::Oid> {
-    let mut index = git::Index::new()?;
-
-    let logs_dir = project_repository.git_repository.path().join("logs");
-    for file_path in fs::list_files(logs_dir).context("failed to list log files")? {
-        add_log_path(
-            std::path::Path::new(&file_path),
-            &mut index,
-            gb_repository,
-            project_repository,
-        )
-        .with_context(|| format!("failed to add log file to index: {}", file_path.display()))?;
-    }
-
-    let tree_oid = index
-        .write_tree_to(&gb_repository.git_repository)
-        .context("failed to write index to tree")?;
-
-    Ok(tree_oid)
-}
-
-fn add_log_path(
-    rel_file_path: &std::path::Path,
-    index: &mut git::Index,
-    gb_repository: &Repository,
-    project_repository: &project_repository::Repository,
-) -> Result<()> {
-    let file_path = project_repository
-        .git_repository
-        .path()
-        .join("logs")
-        .join(rel_file_path);
-    let metadata = file_path.metadata()?;
-    let modify_time = FileTime::from_last_modification_time(&metadata);
-    let create_time = FileTime::from_creation_time(&metadata).unwrap_or(modify_time);
-
-    index.add(&git::IndexEntry {
-        ctime: create_time,
-        mtime: modify_time,
-        dev: metadata.dev().try_into()?,
-        ino: metadata.ino().try_into()?,
-        mode: 33188,
-        uid: metadata.uid(),
-        gid: metadata.gid(),
-        file_size: metadata.len().try_into()?,
-        flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
-        flags_extended: 0, // no extended flags
-        path: rel_file_path.to_str().unwrap().to_string().into(),
-        id: gb_repository.git_repository.blob_path(&file_path)?,
-    })?;
-
-    Ok(())
 }
 
 fn build_session_tree(gb_repository: &Repository) -> Result<git::Oid> {
