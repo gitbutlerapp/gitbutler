@@ -21,9 +21,14 @@ impl Controller {
     pub fn flush(&self, project_id: &ProjectId) -> Result<(), FlushError> {
         let session = self.sessions.current_session(project_id)?;
 
+        //TODO: error if no current session ?
         if let Some(session) = session {
             self.sessions.flush(project_id, &session)?;
         }
+
+        //TODO: events::Event::Session(*project_id, session),
+        //TODO: events::Event::PushGitbutlerData(*project_id),
+        //TODO: events::Event::PushProjectToGitbutler(*project_id),
 
         Ok(())
     }
