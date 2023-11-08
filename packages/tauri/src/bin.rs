@@ -5,8 +5,8 @@ use futures::executor::block_on;
 use tauri::{generate_context, Manager};
 
 use gblib::{
-    analytics, app, assets, commands, database, deltas, github, keys, logs, project_repository,
-    projects, sessions, storage, users, virtual_branches, watcher, zip,
+    analytics, app, assets, commands, database, deltas, github, keys, logs, projects, sessions,
+    storage, users, virtual_branches, watcher, zip,
 };
 
 fn main() {
@@ -143,10 +143,6 @@ fn main() {
                     }
                     app_handle.manage(users_controller);
 
-                    let project_repo_controller = project_repository::Controller::try_from(&app_handle)
-                        .expect("failed to initialize project repo controller");
-                    app_handle.manage(project_repo_controller);
-
                     let app: app::App = app::App::try_from(&tauri_app.app_handle())
                         .expect("failed to initialize app");
 
@@ -172,6 +168,7 @@ fn main() {
                     commands::mark_resolved,
                     commands::git_set_global_config,
                     commands::git_get_global_config,
+                    commands::project_flush_and_push,
                     zip::commands::get_logs_archive_path,
                     zip::commands::get_project_archive_path,
                     zip::commands::get_project_data_archive_path,
@@ -184,7 +181,6 @@ fn main() {
                     projects::commands::delete_project,
                     projects::commands::list_projects,
                     sessions::commands::list_sessions,
-                    project_repository::commands::flush_project,
                     deltas::commands::list_deltas,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,

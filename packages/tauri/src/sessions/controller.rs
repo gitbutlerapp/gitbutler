@@ -2,10 +2,9 @@ use anyhow::Context;
 use tauri::AppHandle;
 
 use crate::{
-    error::Error,
     gb_repository, paths, project_repository,
     projects::{self, ProjectId},
-    users, virtual_branches,
+    users,
 };
 
 use super::{Database, Session};
@@ -15,7 +14,6 @@ pub struct Controller {
     local_data_dir: paths::DataDir,
     sessions_database: Database,
     projects: projects::Controller,
-    vbranches_controller: virtual_branches::Controller,
     users: users::Controller,
 }
 
@@ -28,7 +26,6 @@ impl TryFrom<&AppHandle> for Controller {
             sessions_database: Database::from(value),
             projects: projects::Controller::try_from(value)?,
             users: users::Controller::from(value),
-            vbranches_controller: virtual_branches::Controller::try_from(value)?,
         })
     }
 }
@@ -41,52 +38,6 @@ pub enum ListError {
     UsersError(#[from] users::GetError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum FlushError {
-    #[error(transparent)]
-    VirtualBranchesError(#[from] virtual_branches::controller::Error),
-    #[error(transparent)]
-    UsersError(#[from] users::GetError),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-impl From<FlushError> for Error {
-    fn from(value: FlushError) -> Self {
-        match value {
-            FlushError::VirtualBranchesError(error) => Error::from(error),
-            FlushError::UsersError(error) => Error::from(error),
-            FlushError::Other(error) => {
-                tracing::error!(?error);
-                Error::Unknown
-            }
-        }
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum CurrentSessionError {
-    #[error(transparent)]
-    ProjectsError(#[from] projects::GetError),
-    #[error(transparent)]
-    UsersError(#[from] users::GetError),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-impl From<CurrentSessionError> for Error {
-    fn from(value: CurrentSessionError) -> Self {
-        match value {
-            CurrentSessionError::ProjectsError(error) => Error::from(error),
-            CurrentSessionError::UsersError(error) => Error::from(error),
-            CurrentSessionError::Other(error) => {
-                tracing::error!(?error);
-                Error::Unknown
-            }
-        }
-    }
 }
 
 impl Controller {
@@ -132,67 +83,5 @@ impl Controller {
             sessions.insert(0, session);
         }
         Ok(sessions)
-    }
-
-    pub fn flush_session(
-        &self,
-        project_id: &ProjectId,
-        session: &Session,
-    ) -> Result<Session, FlushError> {
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
-
-        let user = self.users.get_user()?;
-        let project_repository = project_repository::Repository::try_from(&project)
-            .context("failed to open repository")?;
-        let gb_repo = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
-
-        futures::executor::block_on(async {
-            self.vbranches_controller
-                .flush_vbranches(project_repository.project().id)
-                .await
-        })?;
-
-        let session = gb_repo
-            .flush_session(&project_repository, session, user.as_ref())
-            .context("failed to flush session")?;
-
-        Ok(session)
-    }
-
-    pub fn flush(&self, project_id: &ProjectId) -> Result<Option<Session>, FlushError> {
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
-
-        let user = self.users.get_user()?;
-        let project_repository = project_repository::Repository::try_from(&project)
-            .context("failed to open repository")?;
-        let gb_repo = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
-
-        futures::executor::block_on(async {
-            self.vbranches_controller
-                .flush_vbranches(project_repository.project().id)
-                .await
-        })?;
-
-        let session = gb_repo
-            .flush(&project_repository, user.as_ref())
-            .context("failed to flush session")?;
-
-        Ok(session)
     }
 }
