@@ -21,7 +21,7 @@ pub struct Handler {
     users: users::Controller,
     sessions_database: sessions::Database,
     deltas_database: deltas::Database,
-    bookmarks_database: bookmarks::Database,
+    bookmarks: bookmarks::Controller,
 }
 
 impl TryFrom<&AppHandle> for Handler {
@@ -34,7 +34,7 @@ impl TryFrom<&AppHandle> for Handler {
             users: users::Controller::from(value),
             sessions_database: sessions::Database::from(value),
             deltas_database: deltas::Database::from(value),
-            bookmarks_database: bookmarks::Database::from(value),
+            bookmarks: bookmarks::Controller::try_from(value)?,
         })
     }
 }
@@ -58,7 +58,7 @@ impl Handler {
         project_id: &ProjectId,
         bookmark: &bookmarks::Bookmark,
     ) -> Result<Vec<events::Event>> {
-        let updated = self.bookmarks_database.upsert(bookmark)?;
+        let updated = self.bookmarks.upsert(bookmark)?;
         if let Some(updated) = updated {
             Ok(vec![events::Event::Emit(app_events::Event::bookmark(
                 project_id, &updated,

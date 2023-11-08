@@ -5,8 +5,8 @@ use futures::executor::block_on;
 use tauri::{generate_context, Manager};
 
 use gblib::{
-    analytics, app, assets, commands, database, deltas, github, keys, logs, projects, sessions,
-    storage, users, virtual_branches, watcher, zip,
+    analytics, app, assets, bookmarks, commands, database, deltas, github, keys, logs, projects,
+    sessions, storage, users, virtual_branches, watcher, zip,
 };
 
 fn main() {
@@ -121,6 +121,10 @@ fn main() {
                     let deltas_controller = deltas::Controller::from(&app_handle);
                     app_handle.manage(deltas_controller);
 
+                    let bookmarks_controller = bookmarks::Controller::try_from(&app_handle)
+                        .expect("failed to initialize bookmarks controller");
+                    app_handle.manage(bookmarks_controller);
+
                     let sessions_controller = sessions::Controller::try_from(&app_handle)
                         .expect("failed to initialize sessions controller");
                     app_handle.manage(sessions_controller);
@@ -162,12 +166,12 @@ fn main() {
                     commands::git_head,
                     commands::git_wd_diff,
                     commands::delete_all_data,
-                    commands::upsert_bookmark,
-                    commands::list_bookmarks,
                     commands::fetch_from_target,
                     commands::mark_resolved,
                     commands::git_set_global_config,
                     commands::git_get_global_config,
+                    bookmarks::commands::upsert_bookmark,
+                    bookmarks::commands::list_bookmarks,
                     zip::commands::get_logs_archive_path,
                     zip::commands::get_project_archive_path,
                     zip::commands::get_project_data_archive_path,
