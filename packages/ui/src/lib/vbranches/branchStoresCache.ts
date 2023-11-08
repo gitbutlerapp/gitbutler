@@ -95,7 +95,7 @@ export async function getRemoteBranchesData(params: {
 }): Promise<RemoteBranch[]> {
 	const branches = plainToInstance(
 		RemoteBranch,
-		await invoke<any[]>('git_remote_branches_data', params)
+		await invoke<any[]>('list_remote_branches', params)
 	);
 
 	return branches;
