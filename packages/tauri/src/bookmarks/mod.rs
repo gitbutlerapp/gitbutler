@@ -2,6 +2,11 @@ mod database;
 mod reader;
 mod writer;
 
+pub mod commands;
+
+mod controller;
+pub use controller::Controller;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -15,7 +20,6 @@ pub struct Bookmark {
     pub deleted: bool,
 }
 
-pub use database::Database;
 pub use reader::BookmarksReader as Reader;
 pub use writer::BookmarksWriter as Writer;
 

@@ -1,10 +1,10 @@
-use std::{collections::HashMap, ops, path};
+use std::{collections::HashMap, path};
 
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    bookmarks, gb_repository,
+    gb_repository,
     git::{self, diff},
     keys,
     paths::DataDir,
@@ -24,7 +24,6 @@ pub struct App {
     keys: keys::Controller,
     watchers: watcher::Watchers,
     sessions_database: sessions::Database,
-    bookmarks_database: bookmarks::Database,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -50,7 +49,6 @@ impl TryFrom<&AppHandle> for App {
             users: users::Controller::from(value),
             watchers: value.state::<watcher::Watchers>().inner().clone(),
             sessions_database: sessions::Database::from(value),
-            bookmarks_database: bookmarks::Database::from(value),
         })
     }
 }
@@ -184,42 +182,6 @@ impl App {
         project_repository.fetch(default_target.branch.remote(), &credentials)?;
 
         Ok(())
-    }
-
-    pub async fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<(), Error> {
-        {
-            let project = self.projects.get(&bookmark.project_id)?;
-            let project_repository = project_repository::Repository::try_from(&project)?;
-            let user = self.users.get_user().context("failed to get user")?;
-            let gb_repository = gb_repository::Repository::open(
-                &self.local_data_dir,
-                &project_repository,
-                user.as_ref(),
-            )
-            .context("failed to open gb repository")?;
-            let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;
-            writer.write(bookmark).context("failed to write bookmark")?;
-        }
-
-        if let Err(error) = self
-            .watchers
-            .post(watcher::Event::Bookmark(bookmark.clone()))
-            .await
-        {
-            tracing::error!(?error, "failed to send session event");
-        }
-
-        Ok(())
-    }
-
-    pub fn list_bookmarks(
-        &self,
-        project_id: &ProjectId,
-        range: Option<ops::Range<u128>>,
-    ) -> Result<Vec<bookmarks::Bookmark>, Error> {
-        self.bookmarks_database
-            .list_by_project_id(project_id, range)
-            .map_err(Error::Other)
     }
 
     pub fn git_wd_diff(

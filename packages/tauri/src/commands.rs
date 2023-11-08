@@ -1,11 +1,11 @@
-use std::{collections::HashMap, ops, path, time};
+use std::{collections::HashMap, path};
 
 use anyhow::Context;
 use tauri::Manager;
 use tracing::instrument;
 
 use crate::{
-    app, assets, bookmarks,
+    app,
     error::{Code, Error},
     gb_repository, git,
     paths::DataDir,
@@ -82,25 +82,6 @@ pub async fn git_remote_branches(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn git_remote_branches_data(
-    handle: tauri::AppHandle,
-    project_id: &str,
-) -> Result<Vec<virtual_branches::RemoteBranch>, Error> {
-    let app = handle.state::<app::App>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
-    let branches = app.git_remote_branches_data(&project_id)?;
-    let branches = handle
-        .state::<assets::Proxy>()
-        .proxy_remote_branches(branches)
-        .await;
-    Ok(branches)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
 pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let app = handle.state::<app::App>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
@@ -117,52 +98,6 @@ pub async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     app.delete_all_data()?;
     Ok(())
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn upsert_bookmark(
-    handle: tauri::AppHandle,
-    project_id: String,
-    timestamp_ms: u64,
-    note: String,
-    deleted: bool,
-) -> Result<(), Error> {
-    let app = handle.state::<app::App>();
-    let now = time::UNIX_EPOCH
-        .elapsed()
-        .context("failed to get time")?
-        .as_millis();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
-    let bookmark = bookmarks::Bookmark {
-        project_id,
-        timestamp_ms: timestamp_ms.into(),
-        created_timestamp_ms: now,
-        updated_timestamp_ms: now,
-        note,
-        deleted,
-    };
-    app.upsert_bookmark(&bookmark).await?;
-    Ok(())
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn list_bookmarks(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    range: Option<ops::Range<u128>>,
-) -> Result<Vec<bookmarks::Bookmark>, Error> {
-    let app = handle.state::<app::App>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
-    let bookmarks = app.list_bookmarks(&project_id, range)?;
-    Ok(bookmarks)
 }
 
 #[tauri::command(async)]

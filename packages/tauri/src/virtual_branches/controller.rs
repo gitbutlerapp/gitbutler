@@ -585,4 +585,20 @@ impl Controller {
         })
         .await
     }
+
+    pub fn list_remote_branches(
+        &self,
+        project_id: &ProjectId,
+    ) -> Result<Vec<super::RemoteBranch>, Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::try_from(&project)?;
+        let user = self.users.get_user().context("failed to get user")?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gitbutler repository")?;
+        super::list_remote_branches(&gb_repository, &project_repository).map_err(Error::Other)
+    }
 }
