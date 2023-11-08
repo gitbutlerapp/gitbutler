@@ -294,7 +294,7 @@
 <div class="flex h-full shrink-0 snap-center" style:width={maximized ? '100%' : `${laneWidth}px`}>
 	<div
 		bind:this={rsViewport}
-		class="bg-color-3 border-color-4 flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r"
+		class="bg-color-3 border-color-4 flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r border-t"
 	>
 		<div class="flex">
 			<div class="bg-color-4 border-color-4 flex flex-grow flex-col border-b">
@@ -436,7 +436,7 @@
 						>
 							{#each branch.upstream.commits as commit (commit.id)}
 								<div use:draggable={{ data: { branchId: branch.id, commit } }}>
-									<CommitCard {commit} {projectId} />
+									<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
 								</div>
 							{/each}
 							<div class="flex justify-end p-2">
@@ -655,9 +655,10 @@
 														branchId={branch.id}
 														{commit}
 														{projectId}
+														commitUrl={base?.commitUrl(commit.id)}
 													/>
 												{:else}
-													<CommitCard {commit} {projectId} />
+													<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
 												{/if}
 											</div>
 										{/each}
@@ -751,9 +752,10 @@
 														branchId={branch.id}
 														{commit}
 														{projectId}
+														commitUrl={base?.commitUrl(commit.id)}
 													/>
 												{:else}
-													<CommitCard {commit} {projectId} />
+													<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
 												{/if}
 											</div>
 										{/each}
@@ -800,7 +802,7 @@
 													class:dark:bg-dark-500={commit.isRemote}
 												/>
 											</div>
-											<CommitCard {projectId} {commit} />
+											<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
 										</div>
 									{/each}
 								</div>

@@ -8,7 +8,7 @@ use crate::{
     app, assets, bookmarks, deltas,
     error::{Code, Error},
     git, reader,
-    sessions::{self, SessionId},
+    sessions::SessionId,
     virtual_branches,
 };
 
@@ -24,22 +24,6 @@ impl From<app::Error> for Error {
             }
         }
     }
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn list_sessions(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    earliest_timestamp_ms: Option<u128>,
-) -> Result<Vec<sessions::Session>, Error> {
-    let app = handle.state::<app::App>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
-    let sessions = app.list_sessions(&project_id, earliest_timestamp_ms)?;
-    Ok(sessions)
 }
 
 #[tauri::command(async)]

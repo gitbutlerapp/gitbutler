@@ -13,6 +13,7 @@ import {
 } from '$lib/vbranches/branchStoresCache';
 import type { LayoutLoad } from './$types';
 import { userStore } from '$lib/stores/user';
+import { listPullRequestsWithCache } from '$lib/github/pullrequest';
 
 export const prerender = false;
 
@@ -48,6 +49,9 @@ export const load: LayoutLoad = async ({ params }) => {
 	const githubContextStore = getGitHubContextStore(userStore, baseBranchStore);
 	const project = getProjectStore({ id: params.projectId });
 
+	const pullRequestsStore = listPullRequestsWithCache(githubContextStore);
+	const pullRequestsState = pullRequestsStore.state;
+
 	return {
 		projectId,
 		vbranchStore,
@@ -61,6 +65,8 @@ export const load: LayoutLoad = async ({ params }) => {
 		baseBranchStore,
 		remoteBranchStore,
 		project,
-		githubContextStore
+		githubContextStore,
+		pullRequestsStore,
+		pullRequestsState
 	};
 };

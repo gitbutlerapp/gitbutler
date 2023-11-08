@@ -26,7 +26,7 @@ async-trait = "0.1.74"
 backoff = "0.4.0"
 bstr = "1.7.0"
 byteorder = "1.4.3"
-chrono = { version = "0.4.29", features = ["serde"] }
+chrono = { version = "0.4.31", features = ["serde"] }
 console-subscriber = "0.2.0"
 diffy = "0.3.0"
 filetime = "0.2.22"
@@ -58,9 +58,9 @@ tauri = { version = "1.5.2", features = ["dialog-open", "fs-read-file", "path-al
 tauri-plugin-context-menu = { git = "https://github.com/gitbutlerapp/tauri-plugin-context-menu", branch = "main" }
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
-thiserror = "1.0.44"
+thiserror = "1.0.50"
 tokio = { version = "1.33.0", features = [ "full", "sync", "tracing" ] }
-tokio-util = "0.7.9"
+tokio-util = "0.7.10"
 tracing = "0.1.37"
 tracing-appender = "0.2.2"
 tracing-subscriber = "0.3.17"
