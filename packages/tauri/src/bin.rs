@@ -162,7 +162,6 @@ fn main() {
                 .invoke_handler(tauri::generate_handler![
                     commands::list_session_files,
                     commands::git_remote_branches,
-                    commands::git_remote_branches_data,
                     commands::git_head,
                     commands::git_wd_diff,
                     commands::delete_all_data,
@@ -205,6 +204,7 @@ fn main() {
                     virtual_branches::commands::reset_virtual_branch,
                     virtual_branches::commands::cherry_pick_onto_virtual_branch,
                     virtual_branches::commands::amend_virtual_branch,
+                    virtual_branches::commands::list_remote_branches,
                     keys::commands::get_public_key,
                     github::commands::init_device_oauth,
                     github::commands::check_auth_status,

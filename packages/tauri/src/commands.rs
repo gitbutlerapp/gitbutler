@@ -4,11 +4,10 @@ use tauri::Manager;
 use tracing::instrument;
 
 use crate::{
-    app, assets,
+    app,
     error::{Code, Error},
     git, reader,
     sessions::SessionId,
-    virtual_branches,
 };
 
 impl From<app::Error> for Error {
@@ -74,25 +73,6 @@ pub async fn git_remote_branches(
         message: "Malformed project id".to_string(),
     })?;
     let branches = app.git_remote_branches(&project_id)?;
-    Ok(branches)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn git_remote_branches_data(
-    handle: tauri::AppHandle,
-    project_id: &str,
-) -> Result<Vec<virtual_branches::RemoteBranch>, Error> {
-    let app = handle.state::<app::App>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
-    let branches = app.git_remote_branches_data(&project_id)?;
-    let branches = handle
-        .state::<assets::Proxy>()
-        .proxy_remote_branches(branches)
-        .await;
     Ok(branches)
 }
 

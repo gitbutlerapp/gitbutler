@@ -470,3 +470,23 @@ pub async fn amend_virtual_branch(
         .await
         .map_err(Into::into)
 }
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn list_remote_branches(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<Vec<super::RemoteBranch>, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".to_string(),
+    })?;
+    let branches = handle
+        .state::<Controller>()
+        .list_remote_branches(&project_id)?;
+    let branches = handle
+        .state::<assets::Proxy>()
+        .proxy_remote_branches(branches)
+        .await;
+    Ok(branches)
+}
