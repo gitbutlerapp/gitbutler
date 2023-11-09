@@ -601,4 +601,42 @@ impl Controller {
         .context("failed to open gitbutler repository")?;
         super::list_remote_branches(&gb_repository, &project_repository).map_err(Error::Other)
     }
+
+    pub async fn squash(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<(), Error> {
+        self.with_lock(project_id, || {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
+                if conflicts::is_conflicting(project_repository, None)
+                    .context("failed to check for conflicts")?
+                {
+                    return Err(Error::Conflicting);
+                }
+
+                let signing_key = project_repository
+                    .config()
+                    .sign_commits()
+                    .context("failed to get sign commits option")?
+                    .then(|| {
+                        self.keys
+                            .get_or_create()
+                            .context("failed to get private key")
+                    })
+                    .transpose()?;
+
+                super::squash(
+                    gb_repository,
+                    project_repository,
+                    branch_id,
+                    commit_oid,
+                    signing_key.as_ref(),
+                )
+                .map_err(Error::Other)
+            })
+        })
+        .await
+    }
 }

@@ -2569,3 +2569,166 @@ pub fn cherry_pick(
 
     Ok(commit_oid)
 }
+
+/// squashes a commit from a virtual branch into it's parent.
+pub fn squash(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    commit_oid: git::Oid,
+    signing_key: Option<&keys::PrivateKey>,
+) -> Result<()> {
+    if conflicts::is_conflicting(project_repository, None)? {
+        bail!("cannot squash while conflicted");
+    }
+
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create current session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+    let branch_reader = branch::Reader::new(&current_session_reader);
+
+    let default_target = get_default_target(&current_session_reader)
+        .context("failed to read default target")?
+        .context("no default target set")?;
+
+    let branch = branch_reader
+        .read(branch_id)
+        .context("failed to read branch")?;
+
+    let branch_commit_oids = project_repository.l(
+        branch.head,
+        project_repository::LogUntil::Commit(default_target.sha),
+    )?;
+
+    if !branch_commit_oids.contains(&commit_oid) {
+        bail!("commit is not on the branch found");
+    }
+
+    let commit_to_squash = project_repository
+        .git_repository
+        .find_commit(commit_oid)
+        .context("failed to find commit")?;
+
+    let parent_commit = commit_to_squash
+        .parent(0)
+        .context("failed to find parent commit")?;
+
+    if !branch_commit_oids.contains(&parent_commit.id()) {
+        bail!("cannot squash root commit");
+    }
+
+    let ids_to_rebase = {
+        let ids = branch_commit_oids
+            .split(|oid| oid.eq(&commit_oid))
+            .collect::<Vec<_>>();
+        ids.first().copied()
+    };
+
+    // create a commit that:
+    //  * has the tree of the target commit
+    //  * has the message combined of the target commit and parent commit
+    //  * has parents of the parents commit.
+    let parents = parent_commit
+        .parents()
+        .context("failed to find head commit parents")?;
+
+    let new_commit_oid = if let Some(key) = signing_key {
+        project_repository.git_repository.commit_signed(
+            &commit_to_squash.author(),
+            &format!(
+                "{}\n{}",
+                commit_to_squash.message().unwrap_or_default(),
+                parent_commit.message().unwrap_or_default()
+            ),
+            &commit_to_squash.tree()?,
+            &parents.iter().collect::<Vec<_>>(),
+            key,
+        )
+    } else {
+        project_repository.git_repository.commit(
+            None,
+            &commit_to_squash.author(),
+            &commit_to_squash.committer(),
+            &format!(
+                "{}\n{}",
+                commit_to_squash.message().unwrap_or_default(),
+                parent_commit.message().unwrap_or_default()
+            ),
+            &commit_to_squash.tree()?,
+            &parents.iter().collect::<Vec<_>>(),
+        )
+    }?;
+
+    let new_head_id = if let Some(ids_to_rebase) = ids_to_rebase {
+        // now, rebase unchanged commits onto the new commit
+        let commits_to_rebase = ids_to_rebase
+            .iter()
+            .map(|oid| project_repository.git_repository.find_commit(*oid))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        commits_to_rebase
+            .into_iter()
+            .fold(
+                project_repository
+                    .git_repository
+                    .find_commit(new_commit_oid)
+                    .context("failed to find new commit"),
+                |head, to_rebase| {
+                    let head = head?;
+
+                    let mut cherrypick_index = project_repository
+                        .git_repository
+                        .cherry_pick(&head, &to_rebase)
+                        .context("failed to cherry pick")?;
+
+                    if cherrypick_index.has_conflicts() {
+                        bail!("failed to rebase");
+                    }
+
+                    let merge_tree_oid = cherrypick_index
+                        .write_tree_to(&project_repository.git_repository)
+                        .context("failed to write merge tree")?;
+
+                    let merge_tree = project_repository
+                        .git_repository
+                        .find_tree(merge_tree_oid)
+                        .context("failed to find merge tree")?;
+
+                    let commit_oid = project_repository
+                        .git_repository
+                        .commit(
+                            None,
+                            &to_rebase.author(),
+                            &to_rebase.committer(),
+                            to_rebase.message().unwrap_or_default(),
+                            &merge_tree,
+                            &[&head],
+                        )
+                        .context("failed to create commit")?;
+
+                    project_repository
+                        .git_repository
+                        .find_commit(commit_oid)
+                        .context("failed to find commit")
+                },
+            )?
+            .id()
+    } else {
+        new_commit_oid
+    };
+
+    // save new branch head
+    let writer = branch::Writer::new(gb_repository);
+    writer
+        .write(&Branch {
+            head: new_head_id,
+            ..branch.clone()
+        })
+        .context("failed to write branch")?;
+
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
+    Ok(())
+}

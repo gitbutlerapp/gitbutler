@@ -490,3 +490,30 @@ pub async fn list_remote_branches(
         .await;
     Ok(branches)
 }
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn squash(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch_id: &str,
+    target_commit_oid: &str,
+) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".into(),
+    })?;
+    let branch_id = branch_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed branch id".into(),
+    })?;
+    let target_commit_oid = target_commit_oid.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed commit oid".into(),
+    })?;
+    handle
+        .state::<Controller>()
+        .squash(&project_id, &branch_id, target_commit_oid)
+        .await
+        .map_err(Into::into)
+}
