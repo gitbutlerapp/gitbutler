@@ -2029,3 +2029,184 @@ mod init {
         assert_eq!(branches[0].files[0].hunks.len(), 1);
     }
 }
+
+mod squash {
+    use super::*;
+
+    #[tokio::test]
+    async fn head() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(
+                &project_id,
+                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+            )
+            .unwrap();
+
+        let branch_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        let commit_one_oid = {
+            fs::write(repository.path().join("file one.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit one", None)
+                .await
+                .unwrap()
+        };
+
+        let commit_two_oid = {
+            fs::write(repository.path().join("file two.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit two", None)
+                .await
+                .unwrap()
+        };
+
+        let commit_three_oid = {
+            fs::write(repository.path().join("file three.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit three", None)
+                .await
+                .unwrap()
+        };
+
+        controller
+            .squash(&project_id, &branch_id, commit_three_oid)
+            .await
+            .unwrap();
+
+        let branch = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|b| b.id == branch_id)
+            .unwrap();
+
+        assert_eq!(branch.commits.len(), 2);
+        assert_ne!(branch.commits[0].id, commit_three_oid);
+        assert_ne!(branch.commits[0].id, commit_two_oid);
+        assert_eq!(branch.commits[0].description, "commit three\ncommit two");
+        assert_eq!(branch.commits[0].files.len(), 2);
+        assert_eq!(branch.commits[1].id, commit_one_oid);
+    }
+
+    #[tokio::test]
+    async fn middle() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(
+                &project_id,
+                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+            )
+            .unwrap();
+
+        let branch_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        let commit_one_oid = {
+            fs::write(repository.path().join("file one.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit one", None)
+                .await
+                .unwrap()
+        };
+
+        let commit_two_oid = {
+            fs::write(repository.path().join("file two.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit two", None)
+                .await
+                .unwrap()
+        };
+
+        let commit_three_oid = {
+            fs::write(repository.path().join("file three.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit three", None)
+                .await
+                .unwrap()
+        };
+
+        controller
+            .squash(&project_id, &branch_id, commit_two_oid)
+            .await
+            .unwrap();
+
+        let branch = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|b| b.id == branch_id)
+            .unwrap();
+
+        assert_eq!(branch.commits.len(), 2);
+        assert_ne!(branch.commits[0].id, commit_three_oid);
+        assert_ne!(branch.commits[0].id, commit_two_oid);
+        assert_ne!(branch.commits[0].id, commit_one_oid);
+        assert_eq!(branch.commits[0].description, "commit three");
+        assert_eq!(branch.commits[0].files.len(), 1);
+
+        assert_ne!(branch.commits[1].id, commit_three_oid);
+        assert_ne!(branch.commits[1].id, commit_two_oid);
+        assert_ne!(branch.commits[1].id, commit_one_oid);
+        assert_eq!(branch.commits[1].description, "commit two\ncommit one");
+        assert_eq!(branch.commits[1].files.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn root() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(
+                &project_id,
+                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+            )
+            .unwrap();
+
+        let branch_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        let commit_one_oid = {
+            fs::write(repository.path().join("file one.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit one", None)
+                .await
+                .unwrap()
+        };
+
+        assert_eq!(
+            controller
+                .squash(&project_id, &branch_id, commit_one_oid)
+                .await
+                .unwrap_err()
+                .to_string(),
+            "cannot squash root commit"
+        );
+    }
+}
