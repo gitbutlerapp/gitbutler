@@ -79,7 +79,7 @@ jobs:
       - uses: ./.github/actions/init-env-rust
         with:
           rust: "nightly"
-      - run: cargo install cargo-udeps --locked
-      - run: cargo install cargo-cranky --locked
+      - run: cargo install cargo-udeps
+      - run: cargo install cargo-cranky
       - run: cargo +nightly udeps --all-targets
       - run: cargo cranky --all-targets --all-features
