@@ -17,42 +17,15 @@ const defaultDropzoneOptions: Dropzone = {
 export function dropzone(node: HTMLElement, opts: Partial<Dropzone> | undefined) {
 	let currentOptions = { ...defaultDropzoneOptions, ...opts };
 
-	function handleDragEnter(e: DragEvent) {
-		if (activeZones.has(node)) {
-			node.classList.add(currentOptions.hover);
-			e.preventDefault();
-		}
-	}
-
-	function handleDragLeave(_e: DragEvent) {
-		if (activeZones.has(node)) {
-			node.classList.remove(currentOptions.hover);
-		}
-	}
-
-	function handleDragOver(e: DragEvent) {
-		if (activeZones.has(node)) {
-			e.preventDefault();
-		}
-	}
-
 	function setup(opts: Partial<Dropzone> | undefined) {
 		currentOptions = { ...defaultDropzoneOptions, ...opts };
 		if (currentOptions.disabled) return;
 
 		register(node, currentOptions);
-
-		node.addEventListener('dragenter', handleDragEnter);
-		node.addEventListener('dragleave', handleDragLeave);
-		node.addEventListener('dragover', handleDragOver);
 	}
 
 	function clean() {
 		unregister(currentOptions);
-
-		node.removeEventListener('dragenter', handleDragEnter);
-		node.removeEventListener('dragleave', handleDragLeave);
-		node.removeEventListener('dragover', handleDragOver);
 	}
 
 	setup(opts);
@@ -96,6 +69,9 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 	let clone: HTMLElement;
 
 	const onDropListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
+	const onDragLeaveListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
+	const onDragEnterListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
+	const onDragOverListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
 
 	/**
 	 * The problem with the ghost element is that it gets clipped after rotation unless we enclose
@@ -129,6 +105,20 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 					dz.onDrop(currentOptions.data);
 				};
 
+				const onDragEnter = (e: DragEvent) => {
+					e.preventDefault();
+					target.classList.add(dz.hover);
+				};
+
+				const onDragLeave = (e: DragEvent) => {
+					e.preventDefault();
+					target.classList.remove(dz.hover);
+				};
+
+				const onDragOver = (e: DragEvent) => {
+					e.preventDefault();
+				};
+
 				// keep track of listeners so that we can remove them later
 				if (onDropListeners.has(target)) {
 					onDropListeners.get(target)!.push(onDrop);
@@ -136,10 +126,33 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 					onDropListeners.set(target, [onDrop]);
 				}
 
+				if (onDragEnterListeners.has(target)) {
+					onDragEnterListeners.get(target)!.push(onDragEnter);
+				} else {
+					onDragEnterListeners.set(target, [onDragEnter]);
+				}
+
+				if (onDragLeaveListeners.has(target)) {
+					onDragLeaveListeners.get(target)!.push(onDragLeave);
+				} else {
+					onDragLeaveListeners.set(target, [onDragLeave]);
+				}
+
+				if (onDragOverListeners.has(target)) {
+					onDragOverListeners.get(target)!.push(onDragOver);
+				} else {
+					onDragOverListeners.set(target, [onDragOver]);
+				}
+
 				// https://stackoverflow.com/questions/14203734/dragend-dragenter-and-dragleave-firing-off-immediately-when-i-drag
-				setTimeout(() => target.classList.add(dz.active), 10);
+				setTimeout(() => {
+					target.classList.add(dz.active);
+				}, 10);
 
 				target.addEventListener('drop', onDrop);
+				target.addEventListener('dragenter', onDragEnter);
+				target.addEventListener('dragleave', onDragLeave);
+				target.addEventListener('dragover', onDragOver);
 				activeZones.add(target);
 			});
 
@@ -156,14 +169,21 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 			.filter(([_node, dz]) => dz.accepts(currentOptions.data))
 			.forEach(([node, dz]) => {
 				// remove all listeners
-				const onDrop = onDropListeners.get(node);
-				if (onDrop) {
-					onDrop.forEach((listener) => {
-						node.removeEventListener('drop', listener);
-					});
-				}
+				onDropListeners.get(node)?.forEach((listener) => {
+					node.removeEventListener('drop', listener);
+				});
+				onDragEnterListeners.get(node)?.forEach((listener) => {
+					node.removeEventListener('dragenter', listener);
+				});
+				onDragLeaveListeners.get(node)?.forEach((listener) => {
+					node.removeEventListener('dragleave', listener);
+				});
+				onDragOverListeners.get(node)?.forEach((listener) => {
+					node.removeEventListener('dragover', listener);
+				});
 
 				node.classList.remove(dz.active);
+				node.classList.remove(dz.hover);
 				activeZones.delete(node);
 			});
 

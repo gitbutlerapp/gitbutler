@@ -493,7 +493,7 @@ pub async fn list_remote_branches(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn squash(
+pub async fn squash_branch_commit(
     handle: tauri::AppHandle,
     project_id: &str,
     branch_id: &str,

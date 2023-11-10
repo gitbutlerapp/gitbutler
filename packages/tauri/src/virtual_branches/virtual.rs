@@ -12,7 +12,7 @@ use slug::slugify;
 use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
-    git::{self, diff, RemoteBranchName},
+    git::{self, diff, Commit, RemoteBranchName},
     keys,
     project_repository::{self, conflicts, LogUntil},
     reader, sessions, users,
@@ -68,6 +68,8 @@ pub struct VirtualBranchCommit {
     pub is_remote: bool,
     pub files: Vec<VirtualBranchFile>,
     pub is_integrated: bool,
+    pub parent_ids: Vec<git::Oid>,
+    pub branch_id: BranchId,
 }
 
 // this struct is a mapping to the view `File` type in Typescript
@@ -704,6 +706,7 @@ pub fn list_virtual_branches(
             .map(|commit| {
                 commit_to_vbranch_commit(
                     project_repository,
+                    branch,
                     &default_target,
                     commit,
                     Some(&pushed_commits),
@@ -895,6 +898,7 @@ fn list_virtual_commit_files(
 
 pub fn commit_to_vbranch_commit(
     repository: &project_repository::Repository,
+    branch: &branch::Branch,
     target: &target::Target,
     commit: &git::Commit,
     upstream_commits: Option<&HashMap<git::Oid, bool>>,
@@ -913,6 +917,8 @@ pub fn commit_to_vbranch_commit(
 
     let is_integrated = is_commit_integrated(repository, target, commit)?;
 
+    let parent_ids = commit.parents()?.iter().map(Commit::id).collect::<Vec<_>>();
+
     let commit = VirtualBranchCommit {
         id: commit.id(),
         created_at: timestamp * 1000,
@@ -921,6 +927,8 @@ pub fn commit_to_vbranch_commit(
         is_remote,
         files,
         is_integrated,
+        parent_ids,
+        branch_id: branch.id,
     };
 
     Ok(commit)

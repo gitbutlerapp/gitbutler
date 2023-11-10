@@ -254,6 +254,19 @@ export class BranchController {
 		}
 	}
 
+	async squashBranchCommit(branchId: string, targetCommitOid: string) {
+		try {
+			await invoke<void>('squash_branch_commit', {
+				projectId: this.projectId,
+				branchId,
+				targetCommitOid
+			});
+			await this.virtualBranchStore.reload();
+		} catch (err: any) {
+			toasts.error(`Failed to squash commit: ${err.message}`);
+		}
+	}
+
 	async amendBranch(branchId: string, ownership: string) {
 		try {
 			await invoke<void>('amend_virtual_branch', {
