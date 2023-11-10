@@ -431,25 +431,8 @@ impl Controller {
                     return Err(Error::Conflicting);
                 }
 
-                let signing_key = project_repository
-                    .config()
-                    .sign_commits()
-                    .context("failed to get sign commits option")?
-                    .then(|| {
-                        self.keys
-                            .get_or_create()
-                            .context("failed to get private key")
-                    })
-                    .transpose()?;
-
-                super::amend(
-                    gb_repository,
-                    project_repository,
-                    branch_id,
-                    ownership,
-                    signing_key.as_ref(),
-                )
-                .map_err(Error::Other)
+                super::amend(gb_repository, project_repository, branch_id, ownership)
+                    .map_err(Error::Other)
             })
         })
         .await
@@ -616,25 +599,8 @@ impl Controller {
                     return Err(Error::Conflicting);
                 }
 
-                let signing_key = project_repository
-                    .config()
-                    .sign_commits()
-                    .context("failed to get sign commits option")?
-                    .then(|| {
-                        self.keys
-                            .get_or_create()
-                            .context("failed to get private key")
-                    })
-                    .transpose()?;
-
-                super::squash(
-                    gb_repository,
-                    project_repository,
-                    branch_id,
-                    commit_oid,
-                    signing_key.as_ref(),
-                )
-                .map_err(Error::Other)
+                super::squash(gb_repository, project_repository, branch_id, commit_oid)
+                    .map_err(Error::Other)
             })
         })
         .await
