@@ -2647,8 +2647,8 @@ pub fn squash(
             &commit_to_squash.author(),
             &format!(
                 "{}\n{}",
+                parent_commit.message().unwrap_or_default(),
                 commit_to_squash.message().unwrap_or_default(),
-                parent_commit.message().unwrap_or_default()
             ),
             &commit_to_squash.tree()?,
             &parents.iter().collect::<Vec<_>>(),
@@ -2661,8 +2661,8 @@ pub fn squash(
             &commit_to_squash.committer(),
             &format!(
                 "{}\n{}",
+                parent_commit.message().unwrap_or_default(),
                 commit_to_squash.message().unwrap_or_default(),
-                parent_commit.message().unwrap_or_default()
             ),
             &commit_to_squash.tree()?,
             &parents.iter().collect::<Vec<_>>(),
