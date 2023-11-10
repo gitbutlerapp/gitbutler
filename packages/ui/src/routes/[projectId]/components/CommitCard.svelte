@@ -40,10 +40,9 @@
 	use:draggable={commit instanceof Commit
 		? draggableCommit(commit.branchId, commit)
 		: nonDraggable()}
-	class="text-color-2 bg-color-5 border-color-4 truncate rounded border p-2 text-left"
 >
-	<div class="mb-1 flex justify-between">
-		<div class="truncate">
+	<div class="text-color-2 bg-color-5 border-color-4 truncate rounded border p-2 text-left">
+		<div class="mb-1 truncate">
 			<button
 				on:click={() => {
 					loadEntries();
@@ -53,21 +52,21 @@
 				{commit.description}
 			</button>
 		</div>
-	</div>
 
-	<div class="text-color-3 flex space-x-1 text-sm">
-		<img
-			class="relative inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
-			title="Gravatar for {commit.author.email}"
-			alt="Gravatar for {commit.author.email}"
-			srcset="{commit.author.gravatarUrl} 2x"
-			width="100"
-			height="100"
-			on:error
-		/>
-		<div class="flex-grow truncate">{commit.author.name}</div>
-		<div class="truncate">
-			<TimeAgo date={commit.createdAt} />
+		<div class="text-color-3 flex space-x-1 text-sm">
+			<img
+				class="relative inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
+				title="Gravatar for {commit.author.email}"
+				alt="Gravatar for {commit.author.email}"
+				srcset="{commit.author.gravatarUrl} 2x"
+				width="100"
+				height="100"
+				on:error
+			/>
+			<div class="flex-1 truncate">{commit.author.name}</div>
+			<div class="truncate">
+				<TimeAgo date={commit.createdAt} />
+			</div>
 		</div>
 	</div>
 </div>
