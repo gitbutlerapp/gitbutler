@@ -239,30 +239,18 @@ pub fn apply_branch(
             .context("failed to find head commit")?;
 
         // commit our new upstream merge
-        let (author, committer) = project_repository.git_signatures(user)?;
         let message = "merge upstream";
         // write the merge commit
         let branch_tree_oid = merge_index.write_tree_to(repo)?;
         branch_tree = repo.find_tree(branch_tree_oid)?;
 
-        let new_branch_head = if let Some(key) = signing_key {
-            repo.commit_signed(
-                &author,
-                message,
-                &branch_tree,
-                &[&head_commit, &target_commit],
-                key,
-            )
-        } else {
-            repo.commit(
-                None,
-                &author,
-                &committer,
-                message,
-                &branch_tree,
-                &[&head_commit, &target_commit],
-            )
-        }?;
+        let new_branch_head = project_repository.commit(
+            user,
+            message,
+            &branch_tree,
+            &[&head_commit, &target_commit],
+            signing_key,
+        )?;
 
         // ok, update the virtual branch
         apply_branch.head = new_branch_head;
@@ -1139,30 +1127,15 @@ pub fn merge_virtual_branch_upstream(
             .write_tree_to(repo)
             .context("failed to write tree")?;
 
-        let (author, committer) = project_repository.git_signatures(user)?;
-        let message = "merged from upstream";
-
         let head_commit = repo.find_commit(branch.head)?;
         let merge_tree = repo.find_tree(merge_tree_oid)?;
-
-        let new_branch_head = if let Some(key) = signing_key {
-            repo.commit_signed(
-                &author,
-                message,
-                &merge_tree,
-                &[&head_commit, &upstream_commit],
-                key,
-            )
-        } else {
-            repo.commit(
-                None,
-                &author,
-                &committer,
-                message,
-                &merge_tree,
-                &[&head_commit, &upstream_commit],
-            )
-        }?;
+        let new_branch_head = project_repository.commit(
+            user,
+            "merged from upstream",
+            &merge_tree,
+            &[&head_commit, &upstream_commit],
+            signing_key,
+        )?;
 
         // checkout the merge tree
         repo.checkout_tree(&merge_tree).force().checkout()?;
@@ -1931,7 +1904,6 @@ pub fn commit(
         .context(format!("failed to find tree {:?}", tree_oid))?;
 
     // now write a commit, using a merge parent if it exists
-    let (author, committer) = project_repository.git_signatures(user)?;
     let extra_merge_parent =
         conflicts::merge_parent(project_repository).context("failed to get merge parent")?;
 
@@ -1940,34 +1912,17 @@ pub fn commit(
             let merge_parent = git_repository
                 .find_commit(merge_parent)
                 .context(format!("failed to find merge parent {:?}", merge_parent))?;
-            let commit_oid = if let Some(key) = signing_key {
-                git_repository.commit_signed(
-                    &author,
-                    message,
-                    &tree,
-                    &[&parent_commit, &merge_parent],
-                    key,
-                )
-            } else {
-                git_repository.commit(
-                    None,
-                    &author,
-                    &committer,
-                    message,
-                    &tree,
-                    &[&parent_commit, &merge_parent],
-                )
-            }
-            .context("failed to commit")?;
+            let commit_oid = project_repository.commit(
+                user,
+                message,
+                &tree,
+                &[&parent_commit, &merge_parent],
+                signing_key,
+            )?;
             conflicts::clear(project_repository).context("failed to clear conflicts")?;
             commit_oid
         }
-        None => if let Some(key) = signing_key {
-            git_repository.commit_signed(&author, message, &tree, &[&parent_commit], key)
-        } else {
-            git_repository.commit(None, &author, &committer, message, &tree, &[&parent_commit])
-        }
-        .context("failed to commit")?,
+        None => project_repository.commit(user, message, &tree, &[&parent_commit], signing_key)?,
     };
 
     // update the virtual branch head
@@ -2269,7 +2224,6 @@ pub fn amend(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     target_ownership: &Ownership,
-    signing_key: Option<&keys::PrivateKey>,
 ) -> Result<git::Oid> {
     if conflicts::is_conflicting(project_repository, None)? {
         bail!("cannot amend while conflicted");
@@ -2381,16 +2335,9 @@ pub fn amend(
         .parents()
         .context("failed to find head commit parents")?;
 
-    let commit_oid = if let Some(key) = signing_key {
-        project_repository.git_repository.commit_signed(
-            &head_commit.author(),
-            head_commit.message().unwrap_or_default(),
-            &new_tree,
-            &parents.iter().collect::<Vec<_>>(),
-            key,
-        )
-    } else {
-        project_repository.git_repository.commit(
+    let commit_oid = project_repository
+        .git_repository
+        .commit(
             None,
             &head_commit.author(),
             &head_commit.committer(),
@@ -2398,8 +2345,7 @@ pub fn amend(
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
         )
-    }
-    .context("failed to create commit")?;
+        .context("failed to create commit")?;
 
     let branch_writer = branch::Writer::new(gb_repository);
     branch_writer.write(&branch::Branch {
@@ -2584,7 +2530,6 @@ pub fn squash(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     commit_oid: git::Oid,
-    signing_key: Option<&keys::PrivateKey>,
 ) -> Result<()> {
     if conflicts::is_conflicting(project_repository, None)? {
         bail!("cannot squash while conflicted");
@@ -2642,32 +2587,18 @@ pub fn squash(
         .parents()
         .context("failed to find head commit parents")?;
 
-    let new_commit_oid = if let Some(key) = signing_key {
-        project_repository.git_repository.commit_signed(
-            &commit_to_squash.author(),
-            &format!(
-                "{}\n{}",
-                parent_commit.message().unwrap_or_default(),
-                commit_to_squash.message().unwrap_or_default(),
-            ),
-            &commit_to_squash.tree()?,
-            &parents.iter().collect::<Vec<_>>(),
-            key,
-        )
-    } else {
-        project_repository.git_repository.commit(
-            None,
-            &commit_to_squash.author(),
-            &commit_to_squash.committer(),
-            &format!(
-                "{}\n{}",
-                parent_commit.message().unwrap_or_default(),
-                commit_to_squash.message().unwrap_or_default(),
-            ),
-            &commit_to_squash.tree()?,
-            &parents.iter().collect::<Vec<_>>(),
-        )
-    }?;
+    let new_commit_oid = project_repository.git_repository.commit(
+        None,
+        &commit_to_squash.author(),
+        &commit_to_squash.committer(),
+        &format!(
+            "{}\n{}",
+            parent_commit.message().unwrap_or_default(),
+            commit_to_squash.message().unwrap_or_default(),
+        ),
+        &commit_to_squash.tree()?,
+        &parents.iter().collect::<Vec<_>>(),
+    )?;
 
     let new_head_id = if let Some(ids_to_rebase) = ids_to_rebase {
         // now, rebase unchanged commits onto the new commit

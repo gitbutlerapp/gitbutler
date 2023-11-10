@@ -8,7 +8,7 @@ use itertools::Itertools;
 
 use crate::{
     git::{self, Url},
-    projects, reader, users,
+    keys, projects, reader, users,
     virtual_branches::Branch,
 };
 
@@ -339,6 +339,26 @@ impl Repository {
             }
         } else {
             Err(RemoteError::NoUrl)
+        }
+    }
+
+    pub fn commit(
+        &self,
+        user: Option<&users::User>,
+        message: &str,
+        tree: &git::Tree,
+        parents: &[&git::Commit],
+        signing_key: Option<&keys::PrivateKey>,
+    ) -> Result<git::Oid> {
+        let (author, committer) = self.git_signatures(user)?;
+        if let Some(key) = signing_key {
+            self.git_repository
+                .commit_signed(&author, message, tree, parents, key)
+                .context("failed to commit signed")
+        } else {
+            self.git_repository
+                .commit(None, &author, &committer, message, tree, parents)
+                .context("failed to commit")
         }
     }
 
