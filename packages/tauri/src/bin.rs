@@ -206,7 +206,7 @@ fn main() {
                     virtual_branches::commands::cherry_pick_onto_virtual_branch,
                     virtual_branches::commands::amend_virtual_branch,
                     virtual_branches::commands::list_remote_branches,
-                    virtual_branches::commands::squash,
+                    virtual_branches::commands::squash_branch_commit,
                     keys::commands::get_public_key,
                     github::commands::init_device_oauth,
                     github::commands::check_auth_status,

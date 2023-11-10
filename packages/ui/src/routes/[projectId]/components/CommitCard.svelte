@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { RemoteFile, type RemoteCommit } from '$lib/vbranches/types';
+	import { RemoteFile, type RemoteCommit, Commit } from '$lib/vbranches/types';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
@@ -10,8 +10,10 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
+	import { draggableCommit, nonDraggable } from '$lib/draggables';
+	import { draggable } from '$lib/utils/draggable';
 
-	export let commit: RemoteCommit;
+	export let commit: Commit | RemoteCommit;
 	export let projectId: string;
 	export let commitUrl: string | undefined = undefined;
 
@@ -35,7 +37,10 @@
 </script>
 
 <div
-	class="text-color-2 bg-color-5 border-color-4 relative w-full truncate rounded border p-2 text-left"
+	use:draggable={commit instanceof Commit
+		? draggableCommit(commit.branchId, commit)
+		: nonDraggable()}
+	class="text-color-2 bg-color-5 border-color-4 truncate rounded border p-2 text-left"
 >
 	<div class="mb-1 flex justify-between">
 		<div class="truncate">
@@ -77,7 +82,7 @@
 		<div class="overflow-y-scroll">
 			{#if isLoading}
 				<div class="flex w-full justify-center">
-					<div class="h-32 w-32 animate-spin rounded-full border-b-2 border-gray-900" />
+					<div class="border-gray-900 h-32 w-32 animate-spin rounded-full border-b-2" />
 				</div>
 			{:else}
 				{#each entries as [filepath, sections]}

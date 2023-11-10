@@ -1,7 +1,7 @@
 export interface Dropzone {
 	disabled: boolean;
-	active: string;
-	hover: string;
+	active: string | ((data: any) => string);
+	hover: string | ((data: any) => string);
 	accepts: (data: any) => boolean;
 	onDrop: (data: any) => Promise<void> | void;
 }
@@ -17,19 +17,6 @@ const defaultDropzoneOptions: Dropzone = {
 export function dropzone(node: HTMLElement, opts: Partial<Dropzone> | undefined) {
 	let currentOptions = { ...defaultDropzoneOptions, ...opts };
 
-	function handleDragEnter(e: DragEvent) {
-		if (activeZones.has(node)) {
-			node.classList.add(currentOptions.hover);
-			e.preventDefault();
-		}
-	}
-
-	function handleDragLeave(_e: DragEvent) {
-		if (activeZones.has(node)) {
-			node.classList.remove(currentOptions.hover);
-		}
-	}
-
 	function handleDragOver(e: DragEvent) {
 		if (activeZones.has(node)) {
 			e.preventDefault();
@@ -42,16 +29,12 @@ export function dropzone(node: HTMLElement, opts: Partial<Dropzone> | undefined)
 
 		register(node, currentOptions);
 
-		node.addEventListener('dragenter', handleDragEnter);
-		node.addEventListener('dragleave', handleDragLeave);
 		node.addEventListener('dragover', handleDragOver);
 	}
 
 	function clean() {
 		unregister(currentOptions);
 
-		node.removeEventListener('dragenter', handleDragEnter);
-		node.removeEventListener('dragleave', handleDragLeave);
 		node.removeEventListener('dragover', handleDragOver);
 	}
 
@@ -96,6 +79,8 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 	let clone: HTMLElement;
 
 	const onDropListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
+	const onDragLeaveListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
+	const onDragEnterListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
 
 	/**
 	 * The problem with the ghost element is that it gets clipped after rotation unless we enclose
@@ -129,6 +114,18 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 					dz.onDrop(currentOptions.data);
 				};
 
+				const onDragEnter = (e: DragEvent) => {
+					e.preventDefault();
+					const css = typeof dz.hover == 'function' ? dz.hover(currentOptions.data) : dz.hover;
+					target.classList.add(css);
+				};
+
+				const onDragLeave = (e: DragEvent) => {
+					e.preventDefault();
+					const css = typeof dz.hover == 'function' ? dz.hover(currentOptions.data) : dz.hover;
+					target.classList.remove(css);
+				};
+
 				// keep track of listeners so that we can remove them later
 				if (onDropListeners.has(target)) {
 					onDropListeners.get(target)!.push(onDrop);
@@ -136,10 +133,27 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 					onDropListeners.set(target, [onDrop]);
 				}
 
+				if (onDragEnterListeners.has(target)) {
+					onDragEnterListeners.get(target)!.push(onDragEnter);
+				} else {
+					onDragEnterListeners.set(target, [onDragEnter]);
+				}
+
+				if (onDragLeaveListeners.has(target)) {
+					onDragLeaveListeners.get(target)!.push(onDragLeave);
+				} else {
+					onDragLeaveListeners.set(target, [onDragLeave]);
+				}
+
 				// https://stackoverflow.com/questions/14203734/dragend-dragenter-and-dragleave-firing-off-immediately-when-i-drag
-				setTimeout(() => target.classList.add(dz.active), 10);
+				setTimeout(() => {
+					const css = typeof dz.active == 'function' ? dz.active(currentOptions.data) : dz.active;
+					target.classList.add(css);
+				}, 10);
 
 				target.addEventListener('drop', onDrop);
+				target.addEventListener('dragenter', onDragEnter);
+				target.addEventListener('dragleave', onDragLeave);
 				activeZones.add(target);
 			});
 
@@ -156,14 +170,21 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 			.filter(([_node, dz]) => dz.accepts(currentOptions.data))
 			.forEach(([node, dz]) => {
 				// remove all listeners
-				const onDrop = onDropListeners.get(node);
-				if (onDrop) {
-					onDrop.forEach((listener) => {
-						node.removeEventListener('drop', listener);
-					});
-				}
+				onDropListeners.get(node)?.forEach((listener) => {
+					node.removeEventListener('drop', listener);
+				});
+				onDragEnterListeners.get(node)?.forEach((listener) => {
+					node.removeEventListener('dragenter', listener);
+				});
+				onDragLeaveListeners.get(node)?.forEach((listener) => {
+					node.removeEventListener('dragleave', listener);
+				});
 
-				node.classList.remove(dz.active);
+				const hoverCss = typeof dz.hover == 'function' ? dz.hover(currentOptions.data) : dz.hover;
+				const activeCss =
+					typeof dz.active == 'function' ? dz.active(currentOptions.data) : dz.active;
+				node.classList.remove(activeCss);
+				node.classList.remove(hoverCss);
 				activeZones.delete(node);
 			});
 

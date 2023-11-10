@@ -23,6 +23,7 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import IconLock from '$lib/icons/IconLock.svelte';
 	import HunkContextMenu from './HunkContextMenu.svelte';
+	import { draggableFile, draggableHunk } from '$lib/draggables';
 
 	export let branchId: string;
 	export let file: File;
@@ -96,7 +97,7 @@
 <div
 	id={`file-${file.id}`}
 	use:draggable={{
-		data: { branchId, file },
+		...draggableFile(branchId, file),
 		disabled: readonly
 	}}
 	class="changed-file inner"
@@ -192,10 +193,7 @@
 									tabindex="0"
 									role="cell"
 									use:draggable={{
-										data: {
-											branchId,
-											hunk: section.hunk
-										},
+										...draggableHunk(branchId, section.hunk),
 										disabled: readonly
 									}}
 									on:dblclick

@@ -1,8 +1,17 @@
 <script lang="ts">
 	import { userStore } from '$lib/stores/user';
-	import type { BaseBranch, Branch, File, Hunk, RemoteCommit } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
 	import { getContext, onDestroy, onMount } from 'svelte';
 	import { draggable, dropzone } from '$lib/utils/draggable';
+	import {
+		isDraggableHunk,
+		isDraggableFile,
+		isDraggableCommit,
+		type DraggableCommit,
+		type DraggableFile,
+		type DraggableHunk,
+		draggableRemoteCommit
+	} from '$lib/draggables';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import IconKebabMenu from '$lib/icons/IconKebabMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
@@ -39,7 +48,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import AmendableCommitCard from './AmendableCommitCard.svelte';
+	import { isDraggableRemoteCommit, type DraggableRemoteCommit } from '$lib/draggables';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -259,35 +268,91 @@
 	const selectedOwnership = writable(Ownership.fromBranch(branch));
 	$: if (commitDialogShown) selectedOwnership.set(Ownership.fromBranch(branch));
 
-	function acceptCherrypick(data: { branchId?: string; commit?: RemoteCommit }) {
-		return data?.branchId === branch.id && data.commit !== undefined;
+	function acceptCherrypick(data: any) {
+		return isDraggableRemoteCommit(data) && data.branchId == branch.id;
 	}
 
-	function onCherrypicked(data: { branchId: string; commit: RemoteCommit }) {
-		branchController.cherryPick(branch.id, data.commit.id);
+	function onCherrypicked(data: DraggableRemoteCommit) {
+		branchController.cherryPick(branch.id, data.remoteCommit.id);
 	}
 
-	function acceptBranchDrop(data: { branchId: string; file?: File; hunk?: Hunk }) {
-		if (data.branchId === branch.id) return false; // can't drag to the same branch
-		if (data.hunk !== undefined && !data.hunk.locked) return true; // can only drag not locked hunks
-		if (data.file !== undefined && data.file.hunks.some((hunk) => !hunk.locked)) return true; // can only draged non fully locked files
-		return false;
+	function acceptBranchDrop(data: any) {
+		if (isDraggableHunk(data) && data.branchId != branch.id) {
+			return true;
+		} else if (isDraggableFile(data) && data.branchId != branch.id) {
+			return true;
+		} else {
+			return false;
+		}
 	}
 
-	function onBranchDrop(data: { file?: File; hunk?: Hunk }) {
-		if (data.hunk) {
+	function onBranchDrop(data: DraggableHunk | DraggableFile) {
+		if (isDraggableHunk(data)) {
 			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
 			branchController.updateBranchOwnership(
 				branch.id,
 				(newOwnership + '\n' + branch.ownership).trim()
 			);
-		} else if (data.file) {
+		} else if (isDraggableFile(data)) {
 			const newOwnership = `${data.file.path}:${data.file.hunks.map(({ id }) => id).join(',')}`;
 			branchController.updateBranchOwnership(
 				branch.id,
 				(newOwnership + '\n' + branch.ownership).trim()
 			);
 		}
+	}
+
+	function acceptAmend(commit: Commit) {
+		return (data: any) => {
+			if (
+				isDraggableHunk(data) &&
+				data.branchId == branch.id &&
+				commit.id == branch.commits.at(0)?.id
+			) {
+				return true;
+			} else if (
+				isDraggableFile(data) &&
+				data.branchId == branch.id &&
+				commit.id == branch.commits.at(0)?.id
+			) {
+				return true;
+			} else {
+				return false;
+			}
+		};
+	}
+
+	function onAmend(data: DraggableFile | DraggableHunk) {
+		if (isDraggableHunk(data)) {
+			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
+			branchController.amendBranch(branch.id, newOwnership);
+		} else if (isDraggableFile(data)) {
+			const newOwnership = `${data.file.path}:${data.file.hunks.map(({ id }) => id).join(',')}`;
+			branchController.amendBranch(branch.id, newOwnership);
+		}
+	}
+
+	function acceptSquash(commit: Commit) {
+		return (data: any) => {
+			return (
+				isDraggableCommit(data) &&
+				data.branchId == branch.id &&
+				(commit.parentIds.includes(data.commit.id) || data.commit.parentIds.includes(commit.id))
+			);
+		};
+	}
+
+	function onSquash(commit: Commit) {
+		function isParentOf(commit: Commit, other: Commit) {
+			return commit.parentIds.includes(other.id);
+		}
+		return (data: DraggableCommit) => {
+			if (isParentOf(commit, data.commit)) {
+				branchController.squashBranchCommit(data.branchId, commit.id);
+			} else if (isParentOf(data.commit, commit)) {
+				branchController.squashBranchCommit(data.branchId, data.commit.id);
+			}
+		};
 	}
 </script>
 
@@ -435,7 +500,7 @@
 							id="upstreamCommits"
 						>
 							{#each branch.upstream.commits as commit (commit.id)}
-								<div use:draggable={{ data: { branchId: branch.id, commit } }}>
+								<div use:draggable={draggableRemoteCommit(branch.id, commit)}>
 									<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
 								</div>
 							{/each}
@@ -649,17 +714,34 @@
 														<div class="border-color-4 h-3 w-3 rounded-full border-2" />
 													</div>
 												{/if}
-												{#if branch.commits.at(0)?.id === commit.id}
-													<AmendableCommitCard
-														{branchController}
-														branchId={branch.id}
-														{commit}
-														{projectId}
-														commitUrl={base?.commitUrl(commit.id)}
-													/>
-												{:else}
+												<div
+													class="relative h-full w-full"
+													use:dropzone={{
+														active: 'amend-dz-active',
+														hover: 'amend-dz-hover',
+														accepts: acceptAmend(commit),
+														onDrop: onAmend
+													}}
+													use:dropzone={{
+														active: 'squash-dz-active',
+														hover: 'squash-dz-hover',
+														accepts: acceptSquash(commit),
+														onDrop: onSquash(commit)
+													}}
+												>
+													<div
+														class="amend-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+													>
+														<div class="hover-text font-semibold">Amend</div>
+													</div>
+													<div
+														class="squash-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+													>
+														<div class="hover-text font-semibold">Squash</div>
+													</div>
+
 													<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
-												{/if}
+												</div>
 											</div>
 										{/each}
 									</div>
@@ -746,17 +828,35 @@
 														/>
 													</div>
 												{/if}
-												{#if branch.commits.at(0)?.id === commit.id}
-													<AmendableCommitCard
-														{branchController}
-														branchId={branch.id}
-														{commit}
-														{projectId}
-														commitUrl={base?.commitUrl(commit.id)}
-													/>
-												{:else}
+
+												<div
+													class="relative h-full w-full"
+													use:dropzone={{
+														active: 'amend-dz-active',
+														hover: 'amend-dz-hover',
+														accepts: acceptAmend(commit),
+														onDrop: onAmend
+													}}
+													use:dropzone={{
+														active: 'squash-dz-active',
+														hover: 'squash-dz-hover',
+														accepts: acceptSquash(commit),
+														onDrop: onSquash(commit)
+													}}
+												>
+													<div
+														class="amend-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+													>
+														<div class="hover-text font-semibold">Amend</div>
+													</div>
+													<div
+														class="squash-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+													>
+														<div class="hover-text font-semibold">Squash</div>
+													</div>
+
 													<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
-												{/if}
+												</div>
 											</div>
 										{/each}
 									</div>
@@ -882,6 +982,14 @@
 		@apply flex;
 	}
 	:global(.cherrypick-dz-hover .hover-text) {
+		@apply visible;
+	}
+
+	/* squash drop zone */
+	:global(.squash-dz-active .squash-dz-marker) {
+		@apply flex;
+	}
+	:global(.squash-dz-hover .hover-text) {
 		@apply visible;
 	}
 </style>

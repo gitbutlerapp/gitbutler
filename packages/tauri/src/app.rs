@@ -13,7 +13,7 @@ use crate::{
     reader,
     sessions::{self, SessionId},
     users,
-    virtual_branches::{self, target},
+    virtual_branches::target,
     watcher,
 };
 

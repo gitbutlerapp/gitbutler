@@ -58,6 +58,8 @@ export class Commit {
 	isIntegrated!: boolean;
 	@Type(() => File)
 	files!: File[];
+	parentIds!: string[];
+	branchId!: string;
 }
 
 export class RemoteCommit {

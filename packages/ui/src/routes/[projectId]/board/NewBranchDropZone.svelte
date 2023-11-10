@@ -1,21 +1,24 @@
 <script lang="ts">
+	import {
+		isDraggableHunk,
+		isDraggableFile,
+		type DraggableFile,
+		type DraggableHunk
+	} from '$lib/draggables';
 	import { dropzone } from '$lib/utils/draggable';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { File, Hunk } from '$lib/vbranches/types';
 
 	export let branchController: BranchController;
 
-	function accepts(data: { hunk?: Hunk; file?: File }) {
-		if (data.hunk !== undefined) return true;
-		if (data.file !== undefined) return true;
-		return false;
+	function accepts(data: any) {
+		return isDraggableFile(data) || isDraggableHunk(data);
 	}
 
-	function onDrop(data: { hunk?: Hunk; file?: File }) {
-		if (data.hunk) {
+	function onDrop(data: DraggableFile | DraggableHunk) {
+		if (isDraggableHunk(data)) {
 			const ownership = `${data.hunk.filePath}:${data.hunk.id}`;
 			branchController.createBranch({ ownership });
-		} else if (data.file) {
+		} else if (isDraggableFile(data)) {
 			const ownership = `${data.file.path}:${data.file.hunks.map(({ id }) => id).join(',')}`;
 			branchController.createBranch({ ownership });
 		}
