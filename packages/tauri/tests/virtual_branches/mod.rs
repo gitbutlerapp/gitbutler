@@ -2094,7 +2094,7 @@ mod squash {
         assert_eq!(branch.commits.len(), 2);
         assert_ne!(branch.commits[0].id, commit_three_oid);
         assert_ne!(branch.commits[0].id, commit_two_oid);
-        assert_eq!(branch.commits[0].description, "commit three\ncommit two");
+        assert_eq!(branch.commits[0].description, "commit two\ncommit three");
         assert_eq!(branch.commits[0].files.len(), 2);
         assert_eq!(branch.commits[1].id, commit_one_oid);
     }
@@ -2167,7 +2167,7 @@ mod squash {
         assert_ne!(branch.commits[1].id, commit_three_oid);
         assert_ne!(branch.commits[1].id, commit_two_oid);
         assert_ne!(branch.commits[1].id, commit_one_oid);
-        assert_eq!(branch.commits[1].description, "commit two\ncommit one");
+        assert_eq!(branch.commits[1].description, "commit one\ncommit two");
         assert_eq!(branch.commits[1].files.len(), 2);
     }
 
