@@ -89,15 +89,20 @@ impl Handler {
             }
         }
 
-        let project_code_last_push = project
-            .gitbutler_code_push_state
-            .as_ref()
-            .map(|state| &state.timestamp)
-            .copied()
-            .unwrap_or(time::UNIX_EPOCH);
+        let should_push_code = project_repository.project().is_sync_enabled()
+            && project_repository.project().has_code_url();
 
-        if now.duration_since(project_code_last_push)? > PROJECT_PUSH_INTERVAL {
-            events.push(events::Event::PushProjectToGitbutler(*project_id));
+        if should_push_code {
+            let project_code_last_push = project
+                .gitbutler_code_push_state
+                .as_ref()
+                .map(|state| &state.timestamp)
+                .copied()
+                .unwrap_or(time::UNIX_EPOCH);
+
+            if now.duration_since(project_code_last_push)? > PROJECT_PUSH_INTERVAL {
+                events.push(events::Event::PushProjectToGitbutler(*project_id));
+            }
         }
 
         Ok(events)
