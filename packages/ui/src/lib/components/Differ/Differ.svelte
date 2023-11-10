@@ -2,7 +2,6 @@
 	import { create } from './CodeHighlighter';
 	import { buildDiffRows, documentMap, RowType, type Row } from './renderer';
 
-	import './diff.postcss';
 	import type { DiffArray } from '$lib/diff';
 
 	export let filepath: string;
