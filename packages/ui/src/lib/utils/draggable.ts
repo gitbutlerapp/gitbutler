@@ -43,8 +43,6 @@ export function dropzone(node: HTMLElement, opts: Partial<Dropzone> | undefined)
 
 const registry: [HTMLElement, Dropzone][] = [];
 
-const activeZones = new Set<HTMLElement>();
-
 function register(node: HTMLElement, dropzone: Dropzone) {
 	registry.push([node, dropzone]);
 }
@@ -153,7 +151,6 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 				target.addEventListener('dragenter', onDragEnter);
 				target.addEventListener('dragleave', onDragLeave);
 				target.addEventListener('dragover', onDragOver);
-				activeZones.add(target);
 			});
 
 		e.dataTransfer?.setDragImage(clone, e.offsetX + 30, e.offsetY + 30); // Adds the padding
@@ -184,7 +181,6 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 
 				node.classList.remove(dz.active);
 				node.classList.remove(dz.hover);
-				activeZones.delete(node);
 			});
 
 		e.stopPropagation();
