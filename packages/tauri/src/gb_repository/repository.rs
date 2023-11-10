@@ -89,14 +89,6 @@ impl Repository {
                 project: project.clone(),
             };
 
-            if gb_repository
-                .migrate(project)
-                .context("failed to migrate")?
-            {
-                tracing::info!(project_id = %gb_repository.project.id, "repository migrated");
-                return Result::Ok(gb_repository);
-            }
-
             let _lock = gb_repository.lock();
             let session = gb_repository.create_current_session(project_repository)?;
             drop(_lock);
@@ -508,84 +500,6 @@ impl Repository {
             Result::Ok(target) => Ok(Some(target)),
             Err(reader::Error::NotFound) => Ok(None),
             Err(err) => Err(err.into()),
-        }
-    }
-
-    // migrate old data to the new format.
-    // TODO: remove once we think everyone has migrated
-    fn migrate(&self, project: &projects::Project) -> Result<bool> {
-        if !self
-            .migrate_history(project)
-            .context("failed to migrate history")?
-        {
-            Ok(false)
-        } else {
-            let current_session_dir = project.path.join(".git").join(format!("gb-{}", project.id));
-            if current_session_dir.exists() {
-                std::fs::rename(current_session_dir, self.root())
-                    .context("failed to rename current session directory")?;
-            }
-            Ok(true)
-        }
-    }
-
-    fn migrate_history(&self, project: &projects::Project) -> Result<bool> {
-        let refname = format!("refs/gitbutler-{}/current", project.id);
-        let repo = git::Repository::open(&project.path).context("failed to open repository")?;
-        let reference = repo.find_reference(&refname);
-        match reference {
-            Err(git::Error::NotFound(_)) => {
-                tracing::debug!(
-                    project_id = %project.id,
-                    refname,
-                    "reference not found, no migration"
-                );
-                Ok(false)
-            }
-            Err(e) => Err(e.into()),
-            Result::Ok(reference) => {
-                let mut walker = repo.revwalk()?;
-                walker.push(reference.target().unwrap().into())?;
-                walker.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::REVERSE)?;
-
-                let mut migrated = false;
-                for id in walker {
-                    let id = id?;
-                    let commit = repo.find_commit(id.into())?;
-
-                    match self.git_repository.head() {
-                        Result::Ok(head) => {
-                            let parent = head.peel_to_commit()?;
-                            self.git_repository
-                                .commit(
-                                    Some("HEAD"),
-                                    &commit.author(),
-                                    &commit.committer(),
-                                    commit.message().unwrap(),
-                                    &commit.tree()?,
-                                    &[&parent],
-                                )
-                                .context("failed to commit")?;
-                        }
-                        Err(_) => {
-                            self.git_repository
-                                .commit(
-                                    Some("HEAD"),
-                                    &commit.author(),
-                                    &commit.committer(),
-                                    commit.message().unwrap(),
-                                    &commit.tree()?,
-                                    &[],
-                                )
-                                .context("failed to commit")?;
-                        }
-                    };
-
-                    migrated = true;
-                }
-
-                Ok(migrated)
-            }
         }
     }
 
