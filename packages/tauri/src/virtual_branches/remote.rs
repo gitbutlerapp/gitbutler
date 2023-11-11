@@ -69,7 +69,7 @@ pub fn list_remote_branches(
         .context("failed to convert branches")?
         .into_iter()
         .flatten()
-        .filter(|branch| &branch.name.branch() != &default_target.branch.branch())
+        .filter(|branch| branch.name.branch() != default_target.branch.branch())
         .collect::<Vec<_>>();
 
     Ok(remote_branches)
