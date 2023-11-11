@@ -19,8 +19,8 @@
 			<IconHome />
 		</Link>
 		<Tooltip label="Send feedback">
-			<button class="p-1" on:click={() => events.emit('openSendIssueModal')}>
-				<IconEmail />
+			<button class="p-1 align-middle" on:click={() => events.emit('openSendIssueModal')}>
+				<IconEmail class="align-top" />
 			</button>
 		</Tooltip>
 		{#if $isLoading}
