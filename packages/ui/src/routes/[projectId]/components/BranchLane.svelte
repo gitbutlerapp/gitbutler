@@ -359,7 +359,7 @@
 <div class="flex h-full shrink-0 snap-center" style:width={maximized ? '100%' : `${laneWidth}px`}>
 	<div
 		bind:this={rsViewport}
-		class="bg-color-3 border-color-4 flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r border-t"
+		class="bg-color-4 border-color-4 m-2 flex flex-grow cursor-default flex-col overflow-x-hidden rounded-lg border"
 	>
 		<div class="flex">
 			<div class="bg-color-4 border-color-4 flex flex-grow flex-col border-b">
@@ -919,7 +919,7 @@
 			minWidth={330}
 			viewport={rsViewport}
 			direction="horizontal"
-			class="z-30"
+			class="bg-color-1 z-30"
 			on:width={(e) => {
 				laneWidth = e.detail;
 				lscache.set(laneWidthKey + branch.id, e.detail, 7 * 1440); // 7 day ttl
