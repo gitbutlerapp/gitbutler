@@ -1,7 +1,11 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import { getContext, onMount } from 'svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import {
+		SETTINGS_CONTEXT,
+		loadUserSettings,
+		type SettingsStore
+	} from '$lib/settings/userSettings';
 	import { Code } from '$lib/backend/ipc';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
@@ -11,7 +15,7 @@
 	import { unsubscribe } from '$lib/utils/random';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { userStore } from '$lib/stores/user';
-	import Navigation from './Navigation.svelte';
+	import Navigation from './navigation/Navigation.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import { syncToCloud } from '$lib/backend/cloud';
@@ -35,6 +39,7 @@
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	$: sessionId = $sessionsStore?.length > 0 ? $sessionsStore[0].id : undefined;
+	$: projectState = projectStore.state;
 	$: updateDeltasStore(sessionId);
 
 	let trayViewport: HTMLElement;
@@ -130,5 +135,5 @@
 		</div>
 	{/if}
 {:else}
-	<BaseBranchSelect {projectId} {branchController} />
+	<BaseBranchSelect {projectStore} {branchController} />
 {/if}

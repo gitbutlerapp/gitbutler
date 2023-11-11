@@ -48,7 +48,7 @@ export const load: LayoutLoad = async ({ params }) => {
 	);
 
 	const githubContextStore = getGitHubContextStore(userStore, baseBranchStore);
-	const projectStore = getProjectStore({ id: params.projectId });
+	const projectStore = getProjectStore(params.projectId);
 
 	const pullRequestsStore = listPullRequestsWithCache(githubContextStore);
 	const pullRequestsState = pullRequestsStore.state;

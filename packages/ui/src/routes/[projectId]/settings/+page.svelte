@@ -6,7 +6,7 @@
 	import DetailsForm from './DetailsForm.svelte';
 	import KeysForm from './KeysForm.svelte';
 	import * as projects from '$lib/backend/projects';
-	import { projectsStore } from '$lib/backend/projects';
+	import { updateProject } from '$lib/backend/projects';
 	import type { PageData } from './$types';
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -22,20 +22,20 @@
 	const onDeleteClicked = () =>
 		Promise.resolve()
 			.then(() => (isDeleting = true))
-			.then(() => projects.del({ id: $project?.id }))
+			.then(() => projects.deleteProject($project?.id))
 			.then(() => deleteConfirmationModal.close())
 			.catch((e) => {
 				console.error(e);
 				toasts.error('Failed to delete project');
 			})
 			.then(() => goto('/'))
-			.then(() => projectsStore.update((projects) => projects.filter((p) => p.id !== $project?.id)))
 			.then(() => toasts.success('Project deleted'))
 			.finally(() => (isDeleting = false));
 
 	const onKeysUpdated = (e: { detail: { preferred_key: projects.Key } }) =>
-		project.update({ ...e.detail });
-	const onCloudUpdated = (e: { detail: projects.Project }) => project.update({ ...e.detail });
+		updateProject({ ...$project, ...e.detail });
+	const onCloudUpdated = (e: { detail: projects.Project }) =>
+		updateProject({ ...$project, ...e.detail });
 	const onDetailsUpdated = async (e: { detail: projects.Project }) => {
 		const api =
 			$user && e.detail.api
@@ -45,7 +45,7 @@
 				  })
 				: undefined;
 
-		project.update({
+		updateProject({
 			...e.detail,
 			api: api ? { ...api, sync: e.detail.api?.sync || false } : undefined
 		});

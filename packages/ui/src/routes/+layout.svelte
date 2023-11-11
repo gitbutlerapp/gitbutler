@@ -15,6 +15,7 @@
 	import ShareIssueModal from './ShareIssueModal.svelte';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
 	import { initTheme } from './user/theme';
+	import { addProject } from '$lib/backend/projects';
 
 	export let data: LayoutData;
 	const { posthog, projects, sentry, cloud } = data;
@@ -38,7 +39,7 @@
 						if (selectedPath === null) return;
 						if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
 						const projectPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
-						return projects.add({ path: projectPath });
+						return addProject(projectPath);
 					})
 					.then(async (project) => {
 						if (!project) return;
