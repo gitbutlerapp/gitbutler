@@ -32,7 +32,7 @@
 	import * as events from '$lib/utils/events';
 	import { page } from '$app/stores';
 	import IconSpinner from '$lib/icons/IconSpinner.svelte';
-	import { isLoading } from '$lib/backend/ipc';
+	import { isLoading, loadStack } from '$lib/backend/ipc';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
@@ -274,7 +274,9 @@
 				</button>
 			</Tooltip>
 			{#if $isLoading}
-				<IconSpinner class="scale-75" />
+				<Tooltip label={loadStack.join('\n')}>
+					<IconSpinner class="scale-75" />
+				</Tooltip>
 			{/if}
 		</div>
 		<Link href="/user/">
