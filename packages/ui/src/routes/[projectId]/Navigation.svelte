@@ -32,13 +32,14 @@
 	import IconSpinner from '$lib/icons/IconSpinner.svelte';
 	import { isLoading, loadStack } from '$lib/backend/ipc';
 	import BaseBranchCard from './BaseBranchCard.svelte';
+	import type { Project } from '$lib/backend/projects';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
 	export let baseBranchStore: CustomStore<BaseBranch | undefined>;
 	export let pullRequestsStore: CustomStore<PullRequest[] | undefined>;
 	export let branchController: BranchController;
-	export let projectId: string;
+	export let project: Project;
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
 	export let update: Loadable<Update>;
@@ -83,7 +84,8 @@
 	<!-- Top spacer -->
 	<div class="flex h-5 flex-shrink-0" data-tauri-drag-region></div>
 	<!-- Base branch -->
-	<BaseBranchCard {projectId} {branchController} {baseBranchStore} />
+
+	<BaseBranchCard {project} {branchController} {baseBranchStore} />
 	<!-- Your branches -->
 	<div
 		class="bg-color-4 border-color-4 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
@@ -119,7 +121,7 @@
 						{@const { added, removed } = sumBranchLinesAddedRemoved(branch)}
 						{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
 						<a
-							href={`/${projectId}/stashed/${branch.id}`}
+							href={`/${project.id}/stashed/${branch.id}`}
 							transition:slide={{ duration: 250 }}
 							class="border-color-4 group block border-b p-2 pr-0 -outline-offset-2 outline-blue-200 last:border-b focus-within:outline-2"
 							class:bg-light-50={$page.url.pathname.includes(branch.id)}
@@ -202,9 +204,9 @@
 
 	<!-- Remote branches -->
 	{#if githubContext}
-		<PullRequests {pullRequestsStore} {projectId} />
+		<PullRequests {pullRequestsStore} projectId={project.id} />
 	{:else}
-		<RemoteBranches {remoteBranchStore} {projectId}></RemoteBranches>
+		<RemoteBranches {remoteBranchStore} projectId={project.id}></RemoteBranches>
 	{/if}
 	<!-- Bottom spacer -->
 	<div
@@ -214,7 +216,7 @@
 			<Link href="/" class="p-1">
 				<IconHome />
 			</Link>
-			<Link href="/{projectId}/settings" class="p-1">
+			<Link href="/{project.id}/settings" class="p-1">
 				<IconSettings />
 			</Link>
 			<Tooltip label="Send feedback">

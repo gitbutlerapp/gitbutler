@@ -18,7 +18,7 @@
 
 	export let data: LayoutData;
 	let {
-		projectId,
+		projectStore,
 		update,
 		sessionsStore,
 		deltasStore,
@@ -46,8 +46,8 @@
 
 	onMount(() =>
 		unsubscribe(
-			hotkeys.on('Meta+Shift+R', () => goto(`/old/${projectId}/player`)),
-			hotkeys.on('Meta+Shift+S', () => syncToCloud(projectId))
+			hotkeys.on('Meta+Shift+R', () => goto(`/old/${$projectStore?.id}/player`)),
+			hotkeys.on('Meta+Shift+S', () => syncToCloud($projectStore?.id))
 		)
 	);
 </script>
@@ -56,19 +56,24 @@
 	Loading...
 {:else if $baseBranchStore}
 	{#if !$vbranchesState.isError}
+		{@const project = $projectStore}
 		<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
 			<div bind:this={trayViewport} class="z-30 flex flex-shrink">
-				<Navigation
-					branchesWithContentStore={branchesWithContent}
-					{remoteBranchStore}
-					{baseBranchStore}
-					{branchController}
-					{projectId}
-					githubContext={$githubContextStore}
-					user={$userStore}
-					{update}
-					{pullRequestsStore}
-				/>
+				{#if project}
+					<Navigation
+						branchesWithContentStore={branchesWithContent}
+						{remoteBranchStore}
+						{baseBranchStore}
+						{branchController}
+						{project}
+						githubContext={$githubContextStore}
+						user={$userStore}
+						{update}
+						{pullRequestsStore}
+					/>
+				{:else}
+					<p>loading...</p>
+				{/if}
 			</div>
 			<Resizer
 				minWidth={300}
