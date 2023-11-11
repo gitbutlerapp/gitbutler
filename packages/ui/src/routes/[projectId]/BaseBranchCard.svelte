@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Project } from '$lib/backend/projects';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
@@ -8,7 +9,7 @@
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, CustomStore } from '$lib/vbranches/types';
 
-	export let projectId: string;
+	export let project: Project;
 	export let branchController: BranchController;
 	export let baseBranchStore: CustomStore<BaseBranch | undefined>;
 
@@ -16,10 +17,15 @@
 	let fetching = false;
 </script>
 
-<a href="/{projectId}/base" class="flex flex-col p-2" tabindex="0" bind:this={baseContents}>
+<a
+	href="/{project.id}/base"
+	class="bg-color-3 m-4 flex flex-col rounded-lg p-3"
+	tabindex="0"
+	bind:this={baseContents}
+>
 	<div class="flex flex-grow items-center">
 		<div class="flex flex-grow items-center gap-1">
-			<span class="font-bold">Trunk</span>
+			<span class="font-bold">{project.title}</span>
 			{#if ($baseBranchStore?.behind || 0) > 0}
 				<Tooltip label="Unmerged upstream commits">
 					<div

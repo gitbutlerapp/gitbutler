@@ -295,6 +295,6 @@ export function getCloudApiClient(
 	};
 }
 
-export function syncToCloud(projectId: string) {
-	invoke<void>('project_flush_and_push', { id: projectId });
+export function syncToCloud(projectId: string | undefined) {
+	if (projectId) invoke<void>('project_flush_and_push', { id: projectId });
 }
