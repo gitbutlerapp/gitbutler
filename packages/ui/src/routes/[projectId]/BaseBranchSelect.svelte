@@ -31,7 +31,7 @@
 {:else if $projectState?.isError}
 	<p>$projectState.error</p>
 {:else if $projectStore}
-	<div class="grid h-full w-full grid-cols-2 items-center justify-items-stretch">
+	<div class="bg-color-2 grid h-full w-full grid-cols-2 items-center justify-items-stretch">
 		<div
 			id="vb-data"
 			class="bg-color-3 flex h-full flex-col justify-center gap-y-4 self-center p-12 text-lg"

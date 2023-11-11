@@ -47,7 +47,7 @@
 {:else if branches}
 	<div
 		id="branch-lanes"
-		class="bg-color-2 flex h-full flex-shrink flex-grow items-start"
+		class="flex h-full flex-shrink flex-grow items-start"
 		role="group"
 		bind:this={dropZone}
 		on:dragover={(e) => {
