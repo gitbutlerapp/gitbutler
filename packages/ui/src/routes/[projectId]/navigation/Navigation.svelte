@@ -14,6 +14,9 @@
 	import AppUpdater from './AppUpdater.svelte';
 	import type { Loadable } from '@square/svelte-store';
 	import type { Update } from '../../updater';
+	import DomainButton from './DomainButton.svelte';
+	import IconBranch from '$lib/icons/IconBranch.svelte';
+	import IconSettings from '$lib/icons/IconSettings.svelte';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
@@ -34,19 +37,22 @@
 	role="menu"
 	tabindex="0"
 >
-	<!-- Top spacer -->
-	<div class="flex h-7 flex-shrink-0" data-tauri-drag-region></div>
-	<!-- Base branch -->
-	<BaseBranchCard {project} {branchController} {baseBranchStore} />
-	<!-- Your branches -->
+	<div class="flex h-7 flex-shrink-0" data-tauri-drag-region>
+		<!-- Top spacer & drag region -->
+	</div>
+	<div class="mx-4 mb-4 mt-1">
+		<BaseBranchCard {project} {branchController} {baseBranchStore} />
+	</div>
+	<div class="mb-4">
+		<DomainButton href={`/${project.id}/board`} icon={IconBranch}>Active branches</DomainButton>
+		<DomainButton href={`/${project.id}/settings`} icon={IconSettings}>Settings</DomainButton>
+	</div>
 	<YourBranches {project} {branchController} {branchesWithContentStore} />
-	<!-- Remote branches -->
 	{#if githubContext}
 		<PullRequests {pullRequestsStore} projectId={project.id} />
 	{:else}
 		<RemoteBranches {remoteBranchStore} projectId={project.id}></RemoteBranches>
 	{/if}
-	<!-- Bottom spacer -->
-	<Footer {user} {project} />
+	<Footer {user} />
 	<AppUpdater {update} />
 </div>

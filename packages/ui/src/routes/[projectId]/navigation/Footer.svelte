@@ -1,16 +1,13 @@
 <script lang="ts">
 	import type { User } from '$lib/backend/cloud';
 	import { isLoading, loadStack } from '$lib/backend/ipc';
-	import type { Project } from '$lib/backend/projects';
 	import Link from '$lib/components/Link.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import IconEmail from '$lib/icons/IconEmail.svelte';
 	import IconHome from '$lib/icons/IconHome.svelte';
-	import IconSettings from '$lib/icons/IconSettings.svelte';
 	import IconSpinner from '$lib/icons/IconSpinner.svelte';
 	import * as events from '$lib/utils/events';
 
-	export let project: Project;
 	export let user: User | undefined;
 </script>
 
@@ -20,9 +17,6 @@
 	<div class="flex items-center">
 		<Link href="/" class="p-1">
 			<IconHome />
-		</Link>
-		<Link href="/{project.id}/settings" class="p-1">
-			<IconSettings />
 		</Link>
 		<Tooltip label="Send feedback">
 			<button class="p-1" on:click={() => events.emit('openSendIssueModal')}>
