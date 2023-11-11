@@ -51,7 +51,7 @@
 </script>
 
 <div
-	class="bg-color-4 border-color-4 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
+	class="bg-color-3 border-color-4 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
 >
 	<div class="flex flex-row place-items-center space-x-2">
 		<button class="h-full w-full" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>

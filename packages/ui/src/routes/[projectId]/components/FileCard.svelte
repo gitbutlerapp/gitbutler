@@ -100,12 +100,10 @@
 		...draggableFile(branchId, file),
 		disabled: readonly
 	}}
-	class="changed-file inner"
+	class="changed-file inner border-color-3 rounded-lg border p-1"
 	class:opacity-80={isFileLocked}
 >
-	<div
-		class="bg-color-5 border-color-4 flex w-full flex-col justify-center gap-2 border-b border-t py-1"
-	>
+	<div class="bg-color-5 flex w-full flex-col justify-center gap-2 py-1">
 		<div
 			class="flex cursor-default pl-2"
 			role="button"

@@ -356,13 +356,17 @@
 	}
 </script>
 
-<div class="flex h-full shrink-0 snap-center" style:width={maximized ? '100%' : `${laneWidth}px`}>
+<div
+	class="relative flex h-full shrink-0 snap-center"
+	style:width={maximized ? '100%' : `${laneWidth}px`}
+>
+	<div class="absolute h-4 w-full" data-tauri-drag-region></div>
 	<div
 		bind:this={rsViewport}
-		class="bg-color-4 border-color-4 m-2 flex flex-grow cursor-default flex-col overflow-x-hidden rounded-lg border"
+		class="bg-color-5 border-color-4 mx-2 my-4 flex flex-grow cursor-default flex-col overflow-x-hidden rounded-lg border"
 	>
 		<div class="flex">
-			<div class="bg-color-4 border-color-4 flex flex-grow flex-col border-b">
+			<div class="bg-color-5 border-color-4 flex flex-grow flex-col border-b">
 				{#await branch.isMergeable then isMergeable}
 					{#if !isMergeable}
 						<!-- use of relative is for tooltip rendering -->
@@ -589,10 +593,10 @@
 						</div>
 					{/if}
 
-					<div class="flex flex-col py-2">
+					<div class="flex flex-col">
 						{#if branch.files.length > 0}
 							<div
-								class="flex flex-shrink flex-col gap-y-2"
+								class="flex flex-shrink flex-col gap-y-4 p-4"
 								transition:slide={{ duration: readonly ? 0 : 250 }}
 							>
 								<!-- TODO: This is an experiment in file sorting. Accept or reject! -->
@@ -629,7 +633,10 @@
 								</div>
 							{:else}
 								<!-- attention: these markers have custom css at the bottom of thise file -->
-								<div class="no-changes text-color-3 rounded text-center font-mono" data-dnd-ignore>
+								<div
+									class="no-changes text-color-3 rounded py-6 text-center font-mono"
+									data-dnd-ignore
+								>
 									No uncommitted changes on this branch
 								</div>
 							{/if}
@@ -690,7 +697,7 @@
 
 										{#each localCommits as commit (commit.id)}
 											<div
-												class="flex w-full items-center pb-2 pr-1.5"
+												class="flex w-full items-center gap-x-2 pb-2 pr-4"
 												in:receive={{ key: commit.id }}
 												out:send={{ key: commit.id }}
 												animate:flip
@@ -715,7 +722,7 @@
 													</div>
 												{/if}
 												<div
-													class="relative h-full flex-grow overflow-hidden"
+													class="relative h-full flex-grow overflow-hidden px-2"
 													use:dropzone={{
 														active: 'amend-dz-active',
 														hover: 'amend-dz-hover',
@@ -796,7 +803,7 @@
 
 										{#each remoteCommits as commit (commit.id)}
 											<div
-												class="flex w-full items-center pb-2 pr-1.5"
+												class="flex w-full items-center gap-x-2 pb-2 pr-4"
 												in:receive={{ key: commit.id }}
 												out:send={{ key: commit.id }}
 												animate:flip
@@ -890,7 +897,7 @@
 
 									{#each integratedCommits as commit (commit.id)}
 										<div
-											class="flex w-full items-center pb-2 pr-1.5"
+											class="flex w-full items-center gap-x-2 pb-2 pr-4"
 											in:receive={{ key: commit.id }}
 											out:send={{ key: commit.id }}
 											animate:flip
@@ -919,7 +926,7 @@
 			minWidth={330}
 			viewport={rsViewport}
 			direction="horizontal"
-			class="bg-color-1 z-30"
+			class="bg-color-3 z-30"
 			on:width={(e) => {
 				laneWidth = e.detail;
 				lscache.set(laneWidthKey + branch.id, e.detail, 7 * 1440); // 7 day ttl
