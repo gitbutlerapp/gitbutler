@@ -9,7 +9,7 @@
 		branchController,
 		baseBranchStore,
 		baseBranchesState,
-		project,
+		projectStore,
 		githubContextStore
 	} = data;
 </script>
@@ -17,7 +17,7 @@
 <div class="bg-color-3 h-full flex-grow overflow-y-auto overscroll-none">
 	<ProjectHeader
 		{projectId}
-		projectTitle={$project?.title || ''}
+		projectTitle={$projectStore?.title || ''}
 		isGitHub={$githubContextStore !== undefined}
 		pageTitle="Trunk"
 	></ProjectHeader>
