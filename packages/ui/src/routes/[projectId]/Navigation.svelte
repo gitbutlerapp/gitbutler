@@ -9,8 +9,6 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import type { Loadable } from '@square/svelte-store';
-	import IconRefresh from '$lib/icons/IconRefresh.svelte';
-	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -33,6 +31,7 @@
 	import { page } from '$app/stores';
 	import IconSpinner from '$lib/icons/IconSpinner.svelte';
 	import { isLoading, loadStack } from '$lib/backend/ipc';
+	import BaseBranchCard from './BaseBranchCard.svelte';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
@@ -55,8 +54,6 @@
 	let vbViewport: HTMLElement;
 	let vbContents: HTMLElement;
 	let baseContents: HTMLElement;
-
-	let fetching = false;
 
 	function sumBranchLinesAddedRemoved(branch: Branch) {
 		const comitted = computedAddedRemoved(...branch.commits.flatMap((c) => c.files));
@@ -86,55 +83,7 @@
 	<!-- Top spacer -->
 	<div class="flex h-5 flex-shrink-0" data-tauri-drag-region></div>
 	<!-- Base branch -->
-	<a href="/{projectId}/base" class="flex flex-col p-2" tabindex="0" bind:this={baseContents}>
-		<div class="flex flex-grow items-center">
-			<div class="flex flex-grow items-center gap-1">
-				<span class="font-bold">Trunk</span>
-				{#if ($baseBranchStore?.behind || 0) > 0}
-					<Tooltip label="Unmerged upstream commits">
-						<div
-							class="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white"
-						>
-							{$baseBranchStore?.behind}
-						</div>
-					</Tooltip>
-				{/if}
-			</div>
-			<div class="flex">
-				<Tooltip label="Fetch from upstream">
-					<IconButton
-						class="items-center justify-center align-top hover:bg-light-150 dark:hover:bg-dark-700"
-						on:click={(e) => {
-							fetching = true;
-							branchController.fetchFromTarget().finally(() => (fetching = false));
-							e.preventDefault();
-						}}
-					>
-						<div class:animate-spin={fetching}>
-							<IconRefresh class="h-5 w-5" />
-						</div>
-					</IconButton>
-				</Tooltip>
-			</div>
-		</div>
-		<div class="flex flex-grow items-center text-sm">
-			<div class="flex flex-grow items-center gap-1">
-				{#if $baseBranchStore?.remoteUrl.includes('github.com')}
-					<IconGithub class="h-2.5 w-2.5" />
-				{:else}
-					<IconBranch class="h-2.5 w-2.5" />
-				{/if}
-				{$baseBranchStore?.branchName}
-			</div>
-			<div>
-				<Tooltip label="Last fetch from upstream">
-					{#if $baseBranchStore?.fetchedAt}
-						<TimeAgo date={$baseBranchStore.fetchedAt} />
-					{/if}
-				</Tooltip>
-			</div>
-		</div>
-	</a>
+	<BaseBranchCard {projectId} {branchController} {baseBranchStore} />
 	<!-- Your branches -->
 	<div
 		class="bg-color-4 border-color-4 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
