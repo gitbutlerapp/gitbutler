@@ -41,9 +41,10 @@
 		? draggableCommit(commit.branchId, commit)
 		: nonDraggable()}
 >
-	<div class="text-color-2 bg-color-5 border-color-4 truncate rounded border p-2 text-left">
-		<div class="mb-1 truncate">
+	<div class="text-color-2 bg-color-5 border-color-4 rounded border p-2 text-left">
+		<div class="mb-1">
 			<button
+				class="max-w-full overflow-hidden truncate"
 				on:click={() => {
 					loadEntries();
 					previewCommitModal.show();
@@ -72,7 +73,7 @@
 </div>
 
 <Modal width="large" bind:this={previewCommitModal}>
-	<div class="flex w-full flex-col gap-4">
+	<div class="flex w-full flex-col gap-4 overflow-x-hidden">
 		<div>
 			<Link target="_blank" rel="noreferrer" href={commitUrl} class="text-3">
 				{commit.description}

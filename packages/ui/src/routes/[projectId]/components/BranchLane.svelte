@@ -715,7 +715,7 @@
 													</div>
 												{/if}
 												<div
-													class="relative h-full w-full"
+													class="relative h-full flex-grow overflow-hidden"
 													use:dropzone={{
 														active: 'amend-dz-active',
 														hover: 'amend-dz-hover',
@@ -830,7 +830,7 @@
 												{/if}
 
 												<div
-													class="relative h-full w-full"
+													class="relative h-full flex-grow overflow-hidden"
 													use:dropzone={{
 														active: 'amend-dz-active',
 														hover: 'amend-dz-hover',
