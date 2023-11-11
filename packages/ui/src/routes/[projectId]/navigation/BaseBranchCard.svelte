@@ -19,7 +19,7 @@
 
 <a
 	href="/{project.id}/base"
-	class="bg-color-3 m-4 flex flex-col rounded-lg p-3"
+	class="bg-color-3 mx-4 mb-4 mt-1 flex flex-col rounded-lg p-3"
 	tabindex="0"
 	bind:this={baseContents}
 >

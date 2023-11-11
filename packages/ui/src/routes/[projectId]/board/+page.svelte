@@ -15,7 +15,7 @@
 		branchesWithContent,
 		branchesState,
 		githubContextStore,
-		project
+		projectStore
 	} = data;
 
 	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(projectId);
@@ -30,7 +30,7 @@
 <div class="flex h-full w-full flex-grow flex-col overflow-hidden">
 	<ProjectHeader
 		{projectId}
-		projectTitle={$project?.title || ''}
+		projectTitle={$projectStore?.title || ''}
 		isGitHub={$githubContextStore !== undefined}
 	></ProjectHeader>
 	{#if shouldShowHttpsWarning()}
@@ -58,8 +58,8 @@
 			{cloud}
 			base={$baseBranchStore}
 			branches={$branchesWithContent}
-			projectPath={$project?.path}
-			cloudEnabled={$project?.api?.sync || false}
+			projectPath={$projectStore?.path}
+			cloudEnabled={$projectStore?.api?.sync || false}
 			githubContext={$githubContextStore}
 			branchesState={$branchesState}
 			baseBranchState={$baseBranchesState}

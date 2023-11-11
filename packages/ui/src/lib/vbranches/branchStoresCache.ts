@@ -101,7 +101,8 @@ export async function getRemoteBranchesData(params: {
 	return branches;
 }
 
-export async function getRemoteBranches(projectId: string) {
+export async function getRemoteBranches(projectId: string | undefined) {
+	if (!projectId) return [];
 	return await invoke<Array<string>>('git_remote_branches', { projectId });
 }
 
