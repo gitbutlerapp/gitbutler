@@ -8,7 +8,7 @@
 	let {
 		projectId,
 		branchController,
-		project,
+		projectStore,
 		githubContextStore,
 		cloud,
 		vbranchStore,
@@ -22,7 +22,7 @@
 <div class="bg-color-3 flex h-full flex-grow flex-col overflow-y-auto overscroll-none">
 	<ProjectHeader
 		{projectId}
-		projectTitle={$project?.title || ''}
+		projectTitle={$projectStore?.title || ''}
 		isGitHub={!!$githubContextStore}
 		pageTitle={branch?.name}
 	/>

@@ -8,7 +8,7 @@ import { getProjectStore, type Project } from '$lib/backend/projects';
 export const prerender = false;
 
 export const load: LayoutLoad = async ({ params }) => {
-	const project = getProjectStore({ id: params.projectId });
+	const project = getProjectStore(params.projectId);
 	if ((await project.load()) === undefined) throw error(404, new Error('Project not found'));
 	return {
 		head: getHeadStore(params.projectId),

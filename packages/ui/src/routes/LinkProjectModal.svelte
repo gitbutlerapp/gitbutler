@@ -1,18 +1,23 @@
 <script lang="ts">
 	import leven from 'leven';
-	import { asyncDerived } from '@square/svelte-store';
+	import { asyncDerived, type Loadable } from '@square/svelte-store';
 	import { compareDesc, formatDistanceToNow } from 'date-fns';
 	import { IconFolder, IconLoading } from '$lib/icons';
 	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import { userStore } from '$lib/stores/user';
-	import { getProjectStore, projectsStore } from '$lib/backend/projects';
+	import {
+		getProjectStore,
+		projectsStore,
+		updateProject,
+		type Project
+	} from '$lib/backend/projects';
 	import * as toasts from '$lib/utils/toasts';
 	import IconFolderPlus from '$lib/icons/IconFolderPlus.svelte';
 	import { goto } from '$app/navigation';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
 
-	export let projects: typeof projectsStore;
+	export let projects: Loadable<Project[] | undefined>;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 
 	const cloudProjects = asyncDerived(userStore, async (user) =>
@@ -21,45 +26,48 @@
 
 	let selectedRepositoryId: string | null = null;
 
-	let project: ReturnType<typeof getProjectStore> | undefined;
+	let project: Loadable<Project | undefined>;
 
 	export async function show(id: string) {
 		await userStore.load();
 		await cloudProjects.load();
 		if ($userStore === null) return;
-		project = getProjectStore({ id });
+		project = getProjectStore(id);
 		modal.show();
 	}
 
 	let modal: Modal;
 
 	let isLinking = false;
-	const onLinkClicked = () =>
-		Promise.resolve((isLinking = true))
-			.then(async () => {
-				const existingCloudProject = $cloudProjects.find(
-					(project) => project.repository_id === selectedRepositoryId
+	export async function onLinkClicked(project: Project | undefined) {
+		isLinking = true;
+		try {
+			if (!project) return;
+			const existingCloudProject = $cloudProjects.find(
+				(project) => project.repository_id == selectedRepositoryId
+			);
+			if (existingCloudProject !== undefined && project) {
+				await updateProject({ ...project, api: { ...existingCloudProject, sync: true } }).then(() =>
+					toasts.success(`Project linked`)
 				);
-				if (existingCloudProject !== undefined && project) {
-					await project
-						.update({ api: { ...existingCloudProject, sync: true } })
-						.then(() => toasts.success(`Project linked`));
-				} else if (selectedRepositoryId === null && $userStore && project && $project) {
-					const cloudProject = await cloud.projects.create($userStore?.access_token, {
-						name: $project.title,
-						description: $project.description,
-						uid: $project.id
-					});
-					await project
-						.update({ api: { ...cloudProject, sync: true } })
-						.then(() => toasts.success(`Project linked`));
-					goto(`/${$project.id}/`);
-				}
-				modal.close();
-			})
-
-			.catch(() => toasts.error(`Failed to link project`))
-			.finally(() => (isLinking = false));
+			} else if (selectedRepositoryId == null && $userStore && project && $project) {
+				const cloudProject = await cloud.projects.create($userStore?.access_token, {
+					name: $project.title,
+					description: $project.description,
+					uid: $project.id
+				});
+				await updateProject({ ...project, api: { ...cloudProject, sync: true } }).then(() =>
+					toasts.success(`Project linked`)
+				);
+				goto(`/${$project.id}/`);
+			}
+			modal.close();
+		} catch (e) {
+			toasts.error(`Failed to link project`);
+		} finally {
+			isLinking = false;
+		}
+	}
 </script>
 
 <Modal bind:this={modal} title="GitButler Cloud">
@@ -148,7 +156,7 @@
 
 	<svelte:fragment slot="controls" let:close>
 		<Button kind="outlined" on:click={close}>Not Now</Button>
-		<Button color="purple" loading={isLinking} on:click={onLinkClicked}>
+		<Button color="purple" loading={isLinking} on:click={() => onLinkClicked($project)}>
 			{#if selectedRepositoryId === null}
 				Connect
 			{:else}
