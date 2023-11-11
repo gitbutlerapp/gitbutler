@@ -33,7 +33,7 @@ export class UserError extends Error {
 }
 
 const loadingStore = writable(false);
-const loadStack: string[] = [];
+export const loadStack: string[] = [];
 export const isLoading = {
 	...loadingStore,
 	loadStack,
@@ -70,14 +70,15 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 			// 	return value;
 			// })
 			.then((value) => {
-				isLoading.pop();
 				return value;
 			})
 			.catch((reason) => {
-				isLoading.pop();
 				const userError = UserError.fromError(reason);
 				console.error(`ipc->${command}: ${JSON.stringify(params)}`, userError);
 				throw userError;
+			})
+			.finally(() => {
+				isLoading.pop();
 			})
 	);
 }
