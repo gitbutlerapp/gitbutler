@@ -1,5 +1,6 @@
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 import { PUBLIC_CHAIN_API } from '$env/static/public';
+import { invoke } from '$lib/backend/ipc';
 import { nanoid } from 'nanoid';
 import { isLoading } from './ipc';
 
@@ -292,4 +293,8 @@ export function getCloudApiClient(
 				}).then(parseResponseJSON)
 		}
 	};
+}
+
+export function syncToCloud(projectId: string) {
+	invoke<void>('project_flush_and_push', { id: projectId });
 }
