@@ -14,6 +14,7 @@
 	import Navigation from './Navigation.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import { syncToCloud } from '$lib/backend/cloud';
 
 	export let data: LayoutData;
 	let {
@@ -43,7 +44,12 @@
 		if (sid) deltasStore.setSessionId(sid);
 	}
 
-	onMount(() => unsubscribe(hotkeys.on('Meta+Shift+R', () => goto(`/old/${projectId}/player`))));
+	onMount(() =>
+		unsubscribe(
+			hotkeys.on('Meta+Shift+R', () => goto(`/old/${projectId}/player`)),
+			hotkeys.on('Meta+Shift+S', () => syncToCloud(projectId))
+		)
+	);
 </script>
 
 {#if $baseBranchesState.isLoading}
