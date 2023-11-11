@@ -5,25 +5,12 @@
 	import PullRequestPreview from './PullRequestPreview.svelte';
 
 	export let data: PageData;
-	let {
-		projectId,
-		branchController,
-		projectStore,
-		githubContextStore,
-		pullRequestsState,
-		pullRequestsStore
-	} = data;
+	let { branchController, pullRequestsState, pullRequestsStore } = data;
 
 	$: pr = $pullRequestsStore?.find((b) => b.number.toString() == $page.params.number);
 </script>
 
 <div class="bg-color-3 flex h-full flex-grow flex-col overflow-y-auto overscroll-none">
-	<ProjectHeader
-		{projectId}
-		projectTitle={$projectStore?.title || ''}
-		isGitHub={!!$githubContextStore}
-		pageTitle={pr?.title}
-	/>
 	<div class="flex-grow px-8">
 		{#if $pullRequestsState?.isLoading}
 			<p>Loading...</p>

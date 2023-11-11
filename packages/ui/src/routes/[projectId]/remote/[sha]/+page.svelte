@@ -5,25 +5,12 @@
 	import RemoteBranchPreview from './RemoteBranchPreview.svelte';
 
 	export let data: PageData;
-	let {
-		projectId,
-		branchController,
-		projectStore,
-		githubContextStore,
-		remoteBranchStore,
-		remoteBranchState
-	} = data;
+	let { projectId, branchController, remoteBranchStore, remoteBranchState } = data;
 
 	$: branch = $remoteBranchStore?.find((b) => b.sha == $page.params.sha);
 </script>
 
 <div class="bg-color-3 flex h-full flex-grow flex-col overflow-y-auto overscroll-none">
-	<ProjectHeader
-		{projectId}
-		projectTitle={$projectStore?.title || ''}
-		isGitHub={!!$githubContextStore}
-		pageTitle={branch?.name}
-	/>
 	<div class="flex-grow px-8">
 		{#if $remoteBranchState?.isLoading}
 			<p>Loading...</p>
