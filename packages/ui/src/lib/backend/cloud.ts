@@ -1,6 +1,7 @@
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 import { PUBLIC_CHAIN_API } from '$env/static/public';
 import { nanoid } from 'nanoid';
+import { isLoading } from './ipc';
 
 const apiUrl = new URL('/api/', new URL(PUBLIC_API_BASE_URL));
 
@@ -72,16 +73,20 @@ const withRequestId: FetchMiddleware = (fetch) => async (url, options) => {
 		...options?.headers,
 		'X-Request-Id': requestId
 	};
-	return fetch(url, options);
+	const result = fetch(url, options);
+	return result;
 };
 
 const withLog: FetchMiddleware = (fetch) => async (url, options) => {
 	try {
+		isLoading.push(url.toString());
 		const resp = await fetch(url, options);
 		return resp;
 	} catch (e: any) {
 		console.error('fetch', e);
 		throw e;
+	} finally {
+		isLoading.pop();
 	}
 };
 

@@ -31,6 +31,8 @@
 	import IconEmail from '$lib/icons/IconEmail.svelte';
 	import * as events from '$lib/utils/events';
 	import { page } from '$app/stores';
+	import IconSpinner from '$lib/icons/IconSpinner.svelte';
+	import { isLoading } from '$lib/backend/ipc';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
@@ -271,6 +273,9 @@
 					<IconEmail />
 				</button>
 			</Tooltip>
+			{#if $isLoading}
+				<IconSpinner class="scale-75" />
+			{/if}
 		</div>
 		<Link href="/user/">
 			{#if user?.picture}
