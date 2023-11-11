@@ -52,7 +52,6 @@ pub fn list_remote_branches(
         .context("failed to get or create currnt session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
-
     let default_target = match get_default_target(&current_session_reader)
         .context("failed to get default target")?
     {
@@ -60,123 +59,20 @@ pub fn list_remote_branches(
         None => return Ok(vec![]),
     };
 
-    let current_time = time::SystemTime::now();
-    let too_old = time::Duration::from_secs(86_400 * 90); // 90 days (3 months) is too old
-
-    let repo = &project_repository.git_repository;
-
-    let main_oid = default_target.sha;
-
-    let virtual_branches_names = Iterator::new(&current_session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter_map(|branch| branch.upstream)
-        .map(|upstream| upstream.branch().to_string())
-        .collect::<HashSet<_>>();
-    let mut most_recent_branches_by_hash: HashMap<git::Oid, (git::Branch, u64)> = HashMap::new();
-
-    for (branch, _) in repo.branches(None)?.flatten() {
-        if let Some(branch_oid) = branch.target() {
-            // get the branch ref
-            let branch_commit = repo
-                .find_commit(branch_oid)
-                .context("failed to find branch commit")?;
-            let branch_time = branch_commit.time();
-            let seconds = branch_time
-                .seconds()
-                .try_into()
-                .context("failed to convert seconds")?;
-            let branch_time = time::UNIX_EPOCH + time::Duration::from_secs(seconds);
-            let duration = current_time
-                .duration_since(branch_time)
-                .context("failed to get duration")?;
-            if duration > too_old {
-                continue;
-            }
-
-            let branch_name =
-                git::BranchName::try_from(&branch).context("could not get branch name")?;
-
-            // skip the default target branch (both local and remote)
-            match &branch_name {
-                git::BranchName::Remote(remote_branch_name) => {
-                    if remote_branch_name == &default_target.branch {
-                        continue;
-                    }
-                }
-                git::BranchName::Local(local_branch_name) => {
-                    if let Some(upstream_branch_name) = local_branch_name.remote() {
-                        if upstream_branch_name == &default_target.branch {
-                            continue;
-                        }
-                    }
-                }
-            }
-
-            if virtual_branches_names.contains(branch_name.branch()) {
-                continue;
-            }
-            if branch_name.branch().eq("HEAD") {
-                continue;
-            }
-            if branch_name
-                .branch()
-                .eq(super::integration::GITBUTLER_INTEGRATION_BRANCH_NAME)
-            {
-                continue;
-            }
-
-            match most_recent_branches_by_hash.get(&branch_oid) {
-                Some((_, existing_seconds)) => {
-                    let branch_name = branch.refname().context("could not get branch name")?;
-                    if seconds < *existing_seconds {
-                        // this branch is older than the one we already have
-                        continue;
-                    }
-                    if seconds > *existing_seconds {
-                        most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
-                        continue;
-                    }
-                    if branch_name.starts_with("refs/remotes") {
-                        // this branch is a remote branch
-                        // we always prefer the remote branch if it is the same age as the local branch
-                        most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
-                        continue;
-                    }
-                }
-                None => {
-                    // this is the first time we've seen this branch
-                    // so we should add it to the list
-                    most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
-                }
-            }
-        }
-    }
-
-    let mut most_recent_branches: Vec<(git::Branch, u64)> =
-        most_recent_branches_by_hash.into_values().collect();
-
-    // take the most recent 20 branches
-    most_recent_branches.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by timestamp in descending order.
-    let sorted_branches: Vec<git::Branch> = most_recent_branches
-        .into_iter()
+    let remote_branches = project_repository
+        .git_repository
+        .branches(Some(git2::BranchType::Remote))?
+        .flatten()
         .map(|(branch, _)| branch)
-        .collect();
-    let top_branches = sorted_branches.into_iter().take(20).collect::<Vec<_>>(); // Take the first 20 entries.
-
-    let branches = top_branches
-        .into_iter()
-        .map(|branch| branch_to_remote_branch(project_repository, &branch, main_oid))
+        .map(|branch| branch_to_remote_branch(project_repository, &branch, default_target.sha))
         .collect::<Result<Vec<_>>>()
         .context("failed to convert branches")?
         .into_iter()
         .flatten()
-        .filter(|branch| !branch.commits.is_empty())
+        .filter(|branch| branch.name.branch() != default_target.branch.branch())
         .collect::<Vec<_>>();
 
-    Ok(branches)
+    Ok(remote_branches)
 }
 
 pub fn branch_to_remote_branch(
