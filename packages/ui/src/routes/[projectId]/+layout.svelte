@@ -1,11 +1,7 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import { getContext, onMount } from 'svelte';
-	import {
-		SETTINGS_CONTEXT,
-		loadUserSettings,
-		type SettingsStore
-	} from '$lib/settings/userSettings';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { Code } from '$lib/backend/ipc';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
@@ -19,7 +15,6 @@
 	import Link from '$lib/components/Link.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import { syncToCloud } from '$lib/backend/cloud';
-	import BaseBranch from './base/BaseBranch.svelte';
 
 	export let data: LayoutData;
 
@@ -60,7 +55,6 @@
 	Loading...
 {:else if $baseBranchStore}
 	{#if !$vbranchesState.isError}
-		{@const project = $projectStore}
 		<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
 			<div bind:this={trayViewport} class="z-30 flex flex-shrink">
 				{#if $projectStore}

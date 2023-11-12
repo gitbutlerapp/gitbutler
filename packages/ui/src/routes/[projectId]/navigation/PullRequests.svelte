@@ -78,7 +78,7 @@
 			{#if !$pullRequestsStore}
 				<span>loading...</span>
 			{:else}
-				{#each filterPRs($pullRequestsStore, $filterChoice) as pr, i}
+				{#each filterPRs($pullRequestsStore, $filterChoice) as pr}
 					<a
 						href="/{projectId}/pull/{pr.number}"
 						class="border-color-4 flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b-0 focus:outline-2"

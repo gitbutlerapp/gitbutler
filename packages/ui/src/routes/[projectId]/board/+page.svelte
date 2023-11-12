@@ -3,7 +3,6 @@
 	import type { PageData } from './$types';
 	import IconExternalLink from '$lib/icons/IconExternalLink.svelte';
 	import Board from './Board.svelte';
-	import ProjectHeader from '../ProjectHeader.svelte';
 
 	export let data: PageData;
 	let {
