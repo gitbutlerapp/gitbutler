@@ -4,9 +4,9 @@
 	import { getContext } from 'svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { User } from '$lib/backend/cloud';
-	import RemoteBranches from '../RemoteBranches.svelte';
+	import RemoteBranches from './RemoteBranches.svelte';
 	import type { GitHubIntegrationContext, PullRequest } from '$lib/github/types';
-	import PullRequests from '../PullRequests.svelte';
+	import PullRequests from './PullRequests.svelte';
 	import BaseBranchCard from './BaseBranchCard.svelte';
 	import type { Project } from '$lib/backend/projects';
 	import YourBranches from './YourBranches.svelte';

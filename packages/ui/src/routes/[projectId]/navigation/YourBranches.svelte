@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { IconTriangleDown } from '$lib/icons';
-	import { accordion } from '../accordion';
+	import { accordion } from './accordion';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
