@@ -19,27 +19,26 @@
 	import Link from '$lib/components/Link.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import { syncToCloud } from '$lib/backend/cloud';
+	import BaseBranch from './base/BaseBranch.svelte';
 
 	export let data: LayoutData;
-	let {
-		projectStore,
-		update,
-		sessionsStore,
-		deltasStore,
-		baseBranchStore,
-		baseBranchesState,
-		vbranchesState,
-		branchController,
-		branchesWithContent,
-		remoteBranchStore,
-		githubContextStore,
-		pullRequestsStore
-	} = data;
+
+	$: projectStore = data.projectStore;
+	$: sessionsStore = data.sessionsStore;
+	$: baseBranchStore = data.baseBranchStore;
+	$: githubContextStore = data.githubContextStore;
+	$: branchController = data.branchController;
+	$: vbranchesState = data.vbranchesState;
+	$: remoteBranchStore = data.remoteBranchStore;
+	$: pullRequestsStore = data.pullRequestsStore;
+	$: update = data.update;
+	$: deltasStore = data.deltasStore;
+	$: baseBranchesState = data.baseBranchesState;
+	$: branchesWithContent = data.branchesWithContent;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	$: sessionId = $sessionsStore?.length > 0 ? $sessionsStore[0].id : undefined;
-	$: projectState = projectStore.state;
 	$: updateDeltasStore(sessionId);
 
 	let trayViewport: HTMLElement;
@@ -49,12 +48,12 @@
 		if (sid) deltasStore.setSessionId(sid);
 	}
 
-	onMount(() =>
-		unsubscribe(
+	onMount(() => {
+		return unsubscribe(
 			hotkeys.on('Meta+Shift+R', () => goto(`/old/${$projectStore?.id}/player`)),
 			hotkeys.on('Meta+Shift+S', () => syncToCloud($projectStore?.id))
-		)
-	);
+		);
+	});
 </script>
 
 {#if $baseBranchesState.isLoading}
@@ -64,13 +63,13 @@
 		{@const project = $projectStore}
 		<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
 			<div bind:this={trayViewport} class="z-30 flex flex-shrink">
-				{#if project}
+				{#if $projectStore}
 					<Navigation
 						branchesWithContentStore={branchesWithContent}
 						{remoteBranchStore}
 						{baseBranchStore}
 						{branchController}
-						{project}
+						project={$projectStore}
 						githubContext={$githubContextStore}
 						user={$userStore}
 						{update}

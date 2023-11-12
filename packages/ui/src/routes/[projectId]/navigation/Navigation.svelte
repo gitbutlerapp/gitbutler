@@ -43,7 +43,7 @@
 	<div class="flex h-7 flex-shrink-0" data-tauri-drag-region>
 		<!-- Top spacer & drag region -->
 	</div>
-	<div class="mx-4 mb-4 mt-1">
+	<div class="relative mx-4 mb-4 mt-1">
 		<BaseBranchCard {project} {branchController} {baseBranchStore} />
 	</div>
 	<div class="mb-4">

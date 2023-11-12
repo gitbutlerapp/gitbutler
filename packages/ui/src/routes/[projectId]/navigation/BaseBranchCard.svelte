@@ -1,32 +1,34 @@
 <script lang="ts">
-	import type { Project } from '$lib/backend/projects';
+	import { projectsStore, type Project } from '$lib/backend/projects';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import IconBranch from '$lib/icons/IconBranch.svelte';
+	import IconDropDown from '$lib/icons/IconDropDown.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, CustomStore } from '$lib/vbranches/types';
+	import type { Readable } from '@square/svelte-store';
+	import ProjectsPopup from './ProjectsPopup.svelte';
 
 	export let project: Project;
 	export let branchController: BranchController;
 	export let baseBranchStore: CustomStore<BaseBranch | undefined>;
 
+	let popup: ProjectsPopup;
 	let baseContents: HTMLElement;
 	let fetching = false;
 </script>
 
-<a
-	href="/{project.id}/base"
-	class="flex flex-col rounded-lg p-3"
+<div
+	class="relative flex flex-col rounded-lg p-3"
 	style:background-color="var(--bg-card)"
-	tabindex="0"
 	bind:this={baseContents}
 >
 	<div class="flex flex-grow items-center">
 		<div class="flex flex-grow items-center gap-1">
-			<span class="font-bold">{project.title}</span>
+			<a href="/{project.id}/base" class="font-bold">{project.title}</a>
 			{#if ($baseBranchStore?.behind || 0) > 0}
 				<Tooltip label="Unmerged upstream commits">
 					<div
@@ -37,21 +39,25 @@
 				</Tooltip>
 			{/if}
 		</div>
-		<div class="flex">
-			<Tooltip label="Fetch from upstream">
-				<IconButton
-					class="items-center justify-center align-top hover:bg-light-150 dark:hover:bg-dark-700"
-					on:click={(e) => {
-						fetching = true;
-						branchController.fetchFromTarget().finally(() => (fetching = false));
-						e.preventDefault();
-					}}
-				>
-					<div class:animate-spin={fetching}>
-						<IconRefresh class="h-5 w-5" />
-					</div>
-				</IconButton>
-			</Tooltip>
+		<div class="flex gap-x-2">
+			<IconButton
+				class="items-center justify-center align-top "
+				icon={IconDropDown}
+				on:click={(e) => {
+					popup.show();
+				}}
+			/>
+			<IconButton
+				class="items-center justify-center align-top "
+				on:click={(e) => {
+					fetching = true;
+					branchController.fetchFromTarget().finally(() => (fetching = false));
+				}}
+			>
+				<div class:animate-spin={fetching}>
+					<IconRefresh class="h-4 w-4" />
+				</div>
+			</IconButton>
 		</div>
 	</div>
 	<div class="flex flex-grow items-center text-sm">
@@ -71,4 +77,5 @@
 			</Tooltip>
 		</div>
 	</div>
-</a>
+</div>
+<ProjectsPopup bind:this={popup} projects={$projectsStore} />
