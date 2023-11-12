@@ -315,7 +315,7 @@
 				<input
 					bind:value={sshKey}
 					class="
-                        whitespece-pre w-full select-all rounded border border-light-200 bg-white p-2 font-mono dark:border-dark-400 dark:bg-dark-700"
+                        whitespece-pre input w-full select-all p-2 font-mono"
 				/>
 			</div>
 			<div class="flex flex-row justify-end space-x-2">
