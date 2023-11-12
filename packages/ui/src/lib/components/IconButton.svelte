@@ -8,10 +8,10 @@
 </script>
 
 <button
-	on:click|stopPropagation
-	class="{className} text-light-600 outline-blue-200 hover:text-light-800 focus:text-light-800 focus:outline-2 disabled:cursor-not-allowed disabled:text-light-200 dark:text-dark-400 hover:dark:text-dark-100 focus:dark:text-dark-600 dark:disabled:text-dark-400"
+	class="{className} text-color-4 hover:text-color-1 outline-blue-200 focus:text-light-800 focus:outline-2 disabled:cursor-not-allowed disabled:text-light-200 dark:text-dark-400 hover:dark:text-dark-100 focus:dark:text-dark-600 dark:disabled:text-dark-400"
 	{title}
+	on:click
 >
 	<slot />
-	<svelte:component this={icon} />
+	<svelte:component this={icon} class="h-3 w-3" />
 </button>

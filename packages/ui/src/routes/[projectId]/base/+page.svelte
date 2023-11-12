@@ -8,7 +8,7 @@
 
 <div class="h-full flex-grow overflow-y-auto overscroll-none p-3">
 	<div
-		class="flex min-w-min max-w-4xl flex-col gap-y-6 overflow-visible rounded-lg px-5 py-4"
+		class="flex max-w-4xl flex-col gap-y-6 overflow-visible rounded-lg px-5 py-4"
 		style:background-color="var(--bg-surface)"
 		style:border-color="var(--border-surface)"
 	>
