@@ -10,9 +10,10 @@ export function getGitHubContextStore(
 	return asyncWritable([userStore, baseBranchStore], ([user, baseBranch]) => {
 		const remoteUrl = baseBranch?.remoteUrl;
 		const authToken = user?.github_access_token;
+		const username = user?.github_username || '';
 		if (!remoteUrl || !remoteUrl.includes('github') || !authToken) return;
 
 		const [owner, repo] = remoteUrl.split('.git')[0].split(/\/|:/).slice(-2);
-		return { authToken, owner, repo };
+		return { authToken, owner, repo, username };
 	});
 }

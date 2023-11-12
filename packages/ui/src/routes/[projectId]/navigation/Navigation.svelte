@@ -52,7 +52,7 @@
 	</div>
 	<YourBranches {project} {branchController} {branchesWithContentStore} />
 	{#if githubContext}
-		<PullRequests {pullRequestsStore} projectId={project.id} />
+		<PullRequests {pullRequestsStore} {githubContext} projectId={project.id} />
 	{:else}
 		<RemoteBranches {remoteBranchStore} projectId={project.id}></RemoteBranches>
 	{/if}
