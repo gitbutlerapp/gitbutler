@@ -6,11 +6,10 @@
 	import type { PullRequest } from '$lib/github/types';
 	import { showMenu } from 'tauri-plugin-context-menu';
 	import { projectPullRequestListingFilter, ListPRsFilter } from '$lib/config/config';
-	import type { Loadable } from '@square/svelte-store';
+	import type { Observable } from 'rxjs';
 
 	export let projectId: string;
-	export let pullRequestsStore: Loadable<PullRequest[] | undefined>;
-	$: pullRequestsState = pullRequestsStore?.state;
+	export let pullRequestsStore: Observable<PullRequest[]>;
 
 	let rbViewport: HTMLElement;
 	let rbContents: HTMLElement;
@@ -72,11 +71,9 @@
 		class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
 	>
 		<div bind:this={rbContents}>
-			{#if $pullRequestsState?.isLoading}
+			{#if !$pullRequestsStore}
 				<span>loading...</span>
-			{:else if $pullRequestsState?.isError}
-				<span>something went wrong</span>
-			{:else if $pullRequestsStore}
+			{:else}
 				{#each filterPRs($pullRequestsStore, $filterChoice) as pr, i}
 					<a
 						href="/{projectId}/pull/{pr.number}"
