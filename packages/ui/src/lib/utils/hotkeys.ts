@@ -1,5 +1,3 @@
-import * as events from './events';
-
 export async function on(combo: string, callback: (event: KeyboardEvent) => void) {
 	const comboContainsControlKeys =
 		combo.includes('Meta') || combo.includes('Alt') || combo.includes('Ctrl');

@@ -9,7 +9,6 @@
 	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, CustomStore } from '$lib/vbranches/types';
-	import type { Readable } from '@square/svelte-store';
 	import ProjectsPopup from './ProjectsPopup.svelte';
 
 	export let project: Project;
@@ -43,13 +42,13 @@
 			<IconButton
 				class="items-center justify-center align-top "
 				icon={IconDropDown}
-				on:click={(e) => {
+				on:click={() => {
 					popup.show();
 				}}
 			/>
 			<IconButton
 				class="items-center justify-center align-top "
-				on:click={(e) => {
+				on:click={() => {
 					fetching = true;
 					branchController.fetchFromTarget().finally(() => (fetching = false));
 				}}

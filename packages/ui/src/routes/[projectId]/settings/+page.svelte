@@ -8,7 +8,6 @@
 	import * as projects from '$lib/backend/projects';
 	import { updateProject } from '$lib/backend/projects';
 	import type { PageData } from './$types';
-	import BackButton from '$lib/components/BackButton.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Spacer from './Spacer.svelte';

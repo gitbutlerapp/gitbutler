@@ -3,7 +3,7 @@ import { getSessionStore } from '$lib/stores/sessions';
 import { getDiffsStore } from '$lib/backend/diffs';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
-import { getProjectStore, type Project } from '$lib/backend/projects';
+import { getProjectStore } from '$lib/backend/projects';
 
 export const prerender = false;
 

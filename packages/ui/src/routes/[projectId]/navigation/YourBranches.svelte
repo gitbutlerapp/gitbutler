@@ -82,7 +82,7 @@
 			{:else if $branchesWithContentStore.filter((b) => !b.active).length == 0}
 				<div class="text-color-2 p-2">You have no stashed branches</div>
 			{:else}
-				{#each $branchesWithContentStore.filter((b) => !b.active) as branch, i (branch.id)}
+				{#each $branchesWithContentStore.filter((b) => !b.active) as branch}
 					{@const { added, removed } = sumBranchLinesAddedRemoved(branch)}
 					{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
 					<a
