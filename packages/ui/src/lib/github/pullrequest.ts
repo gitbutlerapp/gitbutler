@@ -1,34 +1,41 @@
-import { asyncWritable, type Loadable } from '@square/svelte-store';
+import type { Loadable } from '@square/svelte-store';
 import lscache from 'lscache';
+import { Observable, EMPTY } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
+import { storeToObservable } from '$lib/rxjs/store';
 
 import { PullRequest, type GitHubIntegrationContext } from '$lib/github/types';
 import { newClient } from '$lib/github/client';
-import type { CustomStore } from '$lib/vbranches/types';
 
 // Uses the cached value as the initial state and also in the event of being offline
 export function listPullRequestsWithCache(
 	ghContextStore: Loadable<GitHubIntegrationContext | undefined>
-): CustomStore<PullRequest[] | undefined> {
-	const store = asyncWritable(
-		ghContextStore,
-		async (ctx, set) => {
-			if (!ctx) return [];
-			const key = ctx.owner + '/' + ctx.repo;
-			const cachedValue = lscache.get(key);
-			if (cachedValue) set(cachedValue);
-			const prs = await listPullRequests(ctx);
-			if (prs) {
-				lscache.set(key, prs, 1440); // 1 day ttl
-			}
-			return prs;
-		},
-		undefined,
-		{ trackState: true }
-	) as CustomStore<PullRequest[] | undefined>;
-	return store;
+): Observable<PullRequest[]> {
+	const ghContextObservable = storeToObservable(ghContextStore);
+	const prsObservable = ghContextObservable.pipe(
+		switchMap((ctx) => {
+			if (!ctx) return EMPTY;
+			const obs: Observable<PullRequest[]> = new Observable((observer) => {
+				const key = ctx.owner + '/' + ctx.repo;
+				const cachedPrs = lscache.get(key);
+				if (cachedPrs) {
+					observer.next(cachedPrs);
+				}
+				const request = listPullRequests(ctx);
+				request.then((prs) => {
+					if (prs) {
+						observer.next(prs);
+						lscache.set(key, prs, 1440); // 1 day ttl
+					}
+				});
+			});
+			return obs;
+		})
+	);
+	return prsObservable;
 }
 
-async function listPullRequests(ctx: GitHubIntegrationContext): Promise<PullRequest[] | undefined> {
+async function listPullRequests(ctx: GitHubIntegrationContext): Promise<PullRequest[]> {
 	const octokit = newClient(ctx);
 	try {
 		const rsp = await octokit.rest.pulls.list({
@@ -37,7 +44,8 @@ async function listPullRequests(ctx: GitHubIntegrationContext): Promise<PullRequ
 		});
 		return rsp.data.map(PullRequest.fromApi);
 	} catch (e) {
-		console.log(e);
+		console.error(e);
+		return [];
 	}
 }
 

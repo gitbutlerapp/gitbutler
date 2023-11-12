@@ -17,11 +17,12 @@
 	import DomainButton from './DomainButton.svelte';
 	import IconBranch from '$lib/icons/IconBranch.svelte';
 	import IconSettings from '$lib/icons/IconSettings.svelte';
+	import type { Observable } from 'rxjs';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
 	export let baseBranchStore: CustomStore<BaseBranch | undefined>;
-	export let pullRequestsStore: CustomStore<PullRequest[] | undefined>;
+	export let pullRequestsStore: Observable<PullRequest[]>;
 	export let branchController: BranchController;
 	export let project: Project;
 	export let githubContext: GitHubIntegrationContext | undefined;
