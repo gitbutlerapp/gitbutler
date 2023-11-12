@@ -41,8 +41,11 @@
 	}
 </script>
 
-<div class="bg-color-4">
-	<div class="text-color-3 border-color-4 flex w-full border-b">
+<div style:background-color="var(--bg-surface-highlight)">
+	<div
+		class="text-color-3 border-color-4 flex w-full border-b border-t"
+		style:border-color="var(--border-surface)"
+	>
 		{#each items as item}
 			<button
 				class:text-color-1={activeTabValue == item.name}
@@ -77,7 +80,7 @@
 		</button>
 	</div>
 	{#if expanded}
-		<div class="relative">
+		<div class="relative border-b" style:border-color="var(--border-surface)">
 			<div
 				class="hide-native-scrollbar relative shrink-0 overflow-scroll overscroll-none bg-white dark:bg-dark-1000"
 				transition:slide|local={{ duration: 250 }}

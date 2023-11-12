@@ -51,7 +51,9 @@
 </script>
 
 <div
-	class="bg-color-3 border-color-4 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
+	class="flex items-center justify-between border-b border-t px-2 py-1 pr-1"
+	style:background-color="var(--bg-surface-highlight)"
+	style:border-color="var(--border-surface)"
 >
 	<div class="flex flex-row place-items-center space-x-2">
 		<button class="h-full w-full" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
@@ -86,9 +88,10 @@
 					<a
 						href={`/${project.id}/stashed/${branch.id}`}
 						transition:slide={{ duration: 250 }}
-						class="border-color-4 group block border-b p-2 pr-0 -outline-offset-2 outline-blue-200 last:border-b focus-within:outline-2"
+						class="group block border-b p-2 pr-0 -outline-offset-2 outline-blue-200 last:border-b focus-within:outline-2"
 						class:bg-light-50={$page.url.pathname.includes(branch.id)}
 						class:dark:bg-zinc-700={$page.url.pathname.includes(branch.id)}
+						style:border-color="var(--border-surface)"
 					>
 						<div class="relative flex max-w-full flex-row">
 							<div class="flex flex-shrink flex-grow flex-col gap-y-2 overflow-hidden">

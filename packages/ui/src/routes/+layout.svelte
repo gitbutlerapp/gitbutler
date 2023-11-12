@@ -72,7 +72,7 @@
 </script>
 
 <div class="flex h-full flex-col">
-	<div class="flex flex-grow overflow-y-auto overscroll-none">
+	<div class="flex flex-grow overflow-hidden">
 		<slot />
 	</div>
 	<Toaster />

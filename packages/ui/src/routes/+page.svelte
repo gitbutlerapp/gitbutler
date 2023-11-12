@@ -11,7 +11,11 @@
 {#await projects.load()}
 	Loading...
 {:then}
-	<div class="bg-color-2 flex h-full w-full flex-col p-8">
+	<div
+		class="flex h-full flex-grow flex-col p-8"
+		style:background-color="var(--bg-surface)"
+		style:border-color="var(--border-surface)"
+	>
 		<div class="mb-8 flex flex-row justify-between">
 			<div class="text-color-2">
 				<h1 class="mb-2 text-2xl">Your projects</h1>
@@ -30,9 +34,7 @@
 			{/if}
 		</div>
 		{#if $projects.length == 0}
-			<div
-				class="border-color-3 bg-color-2 mx-auto flex w-full flex-grow items-center justify-center rounded-lg border p-8"
-			>
+			<div class="mx-auto flex w-full flex-grow items-center justify-center rounded-lg border p-8">
 				<div class="inline-flex w-96 flex-col items-center gap-y-4 text-center">
 					<svg
 						width="38"
@@ -61,11 +63,13 @@
 				</div>
 			</div>
 		{:else}
-			<div class="flex flex-wrap gap-4">
+			<div class="flex max-w-xl flex-wrap gap-4">
 				{#each $projects as project}
 					<a
-						class="bg-color-5 text-color-2 dark:border-color-5 w-96 overflow-hidden rounded-lg shadow dark:border dark:shadow-none"
+						class="text-color-2 w-96 overflow-hidden rounded-lg shadow dark:border dark:shadow-none"
+						style:border-color="var(--border-surface)"
 						href="/{project.id}/board"
+						style:background-color="var(--bg-card)"
 					>
 						<div class="text-color-2 p-4">
 							<h1 class="text-lg">
@@ -76,7 +80,10 @@
 							</p>
 						</div>
 
-						<div class="bg-color-4 flex flex-row items-center gap-x-2 px-4 py-2">
+						<div
+							class="flex flex-row items-center gap-x-2 px-4 py-2"
+							style:background-color="var(--bg-card-highlight)"
+						>
 							{#if project.api}
 								<div class="h-2 w-2 rounded-full bg-green-600" />
 								<div>Backed-up</div>

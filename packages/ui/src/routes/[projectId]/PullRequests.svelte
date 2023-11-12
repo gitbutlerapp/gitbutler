@@ -24,7 +24,11 @@
 	}
 </script>
 
-<div class="bg-color-4 border-color-4 flex items-center justify-between border-t px-2 py-1 pr-1">
+<div
+	class="flex items-center justify-between border-t px-2 py-1 pr-1"
+	style:background-color="var(--bg-surface-highlight)"
+	style:border-color="var(--border-surface)"
+>
 	<div class="flex flex-row place-items-center space-x-2">
 		<!-- <button class="h-full w-full" on:click={() => (open = !open)}>
 			<IconTriangleDown class={!open ? '-rotate-90' : ''} />

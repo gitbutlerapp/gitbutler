@@ -21,7 +21,9 @@
 </script>
 
 <div
-	class="bg-color-4 border-color-4 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
+	class="flex items-center justify-between border-b border-t px-2 py-1 pr-1"
+	style:background-color="var(--bg-surface-highlight)"
+	style:border-color="var(--border-surface)"
 >
 	<div class="flex flex-row place-items-center space-x-2">
 		<!-- <button class="h-full w-full" on:click={() => (open = !open)}>
@@ -39,7 +41,7 @@
 	<div class="flex h-4 w-4 justify-around"></div>
 </div>
 
-<div bind:this={rbSection} use:accordion={open} class="border-color-5 relative flex-grow">
+<div bind:this={rbSection} use:accordion={open} class="relative flex-grow">
 	<div
 		bind:this={rbViewport}
 		on:scroll
@@ -68,7 +70,8 @@
 					<a
 						href="/{projectId}/remote/{branch.sha}"
 						class:bg-color-4={$page.url.pathname.includes(branch.sha)}
-						class="border-color-4 flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b-0 focus:outline-2"
+						class="flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b-0 focus:outline-2"
+						style:border-color="var(--border-surface)"
 					>
 						<div class="flex flex-row items-center gap-x-2 pr-1">
 							<div class="text-color-3">

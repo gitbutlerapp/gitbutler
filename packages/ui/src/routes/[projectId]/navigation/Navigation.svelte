@@ -32,7 +32,9 @@
 </script>
 
 <div
-	class="bg-color-5 border-color-4 z-30 flex w-80 shrink-0 flex-col border-r"
+	class="z-30 flex w-80 shrink-0 flex-col border-r"
+	style:background-color="var(--bg-surface)"
+	style:border-color="var(--border-surface)"
 	style:width={$userSettings.trayWidth ? `${$userSettings.trayWidth}px` : null}
 	role="menu"
 	tabindex="0"

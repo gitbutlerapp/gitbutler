@@ -12,7 +12,9 @@
 </script>
 
 <div
-	class="border-color-4 text-color-3 flex flex-shrink-0 items-center justify-between border-t px-4 py-4"
+	class="text-color-3 flex flex-shrink-0 items-center justify-between border-t px-4 py-4"
+	style:background-color="var(--bg-surface-highlight)"
+	style:border-color="var(--border-surface)"
 >
 	<div class="flex items-center">
 		<Link href="/" class="p-1">

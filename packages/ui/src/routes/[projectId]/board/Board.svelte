@@ -47,7 +47,7 @@
 {:else if branches}
 	<div
 		id="branch-lanes"
-		class="flex h-full flex-shrink flex-grow items-start"
+		class="flex h-full flex-shrink flex-grow items-start px-1"
 		role="group"
 		bind:this={dropZone}
 		on:dragover={(e) => {
@@ -117,7 +117,9 @@
 
 		{#if !activeBranches || activeBranches.length == 0}
 			<div
-				class="text-color-2 m-auto mx-10 flex w-full flex-grow items-center justify-center rounded border border-light-400 bg-light-200 p-8 dark:border-dark-500 dark:bg-dark-1000"
+				class="text-color-2 m-auto mx-10 flex w-full flex-grow items-center justify-center rounded border p-8"
+				style:background-color="var(--bg-surface-highlight)"
+				style:border-color="var(--border-surface)"
 			>
 				<div class="inline-flex w-[35rem] flex-col items-center gap-y-4">
 					<h3 class="text-xl font-medium">You are up to date</h3>
