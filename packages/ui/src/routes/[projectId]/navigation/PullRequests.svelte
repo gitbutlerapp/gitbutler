@@ -3,13 +3,14 @@
 	import { IconPullRequest, IconDraftPullRequest, IconFilter, IconFilterFilled } from '$lib/icons';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { accordion } from './accordion';
-	import type { PullRequest } from '$lib/github/types';
+	import type { PullRequest, GitHubIntegrationContext } from '$lib/github/types';
 	import { showMenu } from 'tauri-plugin-context-menu';
 	import { projectPullRequestListingFilter, ListPRsFilter } from '$lib/config/config';
 	import type { Observable } from 'rxjs';
 
 	export let projectId: string;
 	export let pullRequestsStore: Observable<PullRequest[]>;
+	export let githubContext: GitHubIntegrationContext | undefined;
 
 	let rbViewport: HTMLElement;
 	let rbContents: HTMLElement;
@@ -18,7 +19,11 @@
 
 	const filterChoice = projectPullRequestListingFilter(projectId);
 	function filterPRs(prs: PullRequest[], filter: string): PullRequest[] {
-		if (filter === ListPRsFilter.ExcludeBots) return prs.filter((pr) => !pr.author?.is_bot);
+		if (filter === ListPRsFilter.ExcludeBots) {
+			return prs.filter((pr) => !pr.author?.is_bot);
+		} else if (filter === ListPRsFilter.OnlyYours) {
+			return prs.filter((pr) => pr.author?.username === githubContext?.username);
+		}
 		return prs;
 	}
 </script>
@@ -49,7 +54,6 @@
 						},
 						{
 							label: 'Only Yours',
-							disabled: true,
 							event: () => filterChoice.set(ListPRsFilter.OnlyYours)
 						}
 					]

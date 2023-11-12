@@ -4,6 +4,7 @@ export type GitHubIntegrationContext = {
 	authToken: string;
 	owner: string;
 	repo: string;
+	username: string;
 };
 
 export class Label {
