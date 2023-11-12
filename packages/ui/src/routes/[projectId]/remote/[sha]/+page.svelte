@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
-	import ProjectHeader from '../../ProjectHeader.svelte';
 	import RemoteBranchPreview from './RemoteBranchPreview.svelte';
 
 	export let data: PageData;
@@ -10,8 +9,12 @@
 	$: branch = $remoteBranchStore?.find((b) => b.sha == $page.params.sha);
 </script>
 
-<div class="bg-color-3 flex h-full flex-grow flex-col overflow-y-auto overscroll-none">
-	<div class="flex-grow px-8">
+<div class="h-full max-w-xl flex-grow flex-col overflow-y-auto overscroll-none p-4">
+	<div
+		class="rounded-lg border"
+		style:background-color="var(--bg-surface)"
+		style:border-color="var(--border-surface)"
+	>
 		{#if $remoteBranchState?.isLoading}
 			<p>Loading...</p>
 		{:else if $remoteBranchState?.isError}

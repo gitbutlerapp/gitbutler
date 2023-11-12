@@ -6,8 +6,12 @@
 	let { projectId, branchController, baseBranchStore, baseBranchesState } = data;
 </script>
 
-<div class="bg-color-3 h-full flex-grow overflow-y-auto overscroll-none">
-	<div class="mx-auto flex max-w-xl flex-col gap-y-6 overflow-visible p-8">
+<div class="h-full flex-grow overflow-y-auto overscroll-none p-3">
+	<div
+		class="flex min-w-min max-w-4xl flex-col gap-y-6 overflow-visible rounded-lg px-5 py-4"
+		style:background-color="var(--bg-surface)"
+		style:border-color="var(--border-surface)"
+	>
 		{#if $baseBranchesState.isLoading}
 			<p>Loading...</p>
 		{:else if $baseBranchesState.isError}

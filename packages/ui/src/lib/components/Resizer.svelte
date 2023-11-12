@@ -98,8 +98,7 @@
 	tabindex="0"
 	role="slider"
 	aria-valuenow={viewport?.clientHeight}
-	class:bg-orange-300={hovering}
-	class:dark:bg-orange-700={hovering}
+	style:background-color={hovering ? 'var(--resizer-bg-active)' : undefined}
 	class:cursor-ew-resize={hovering && direction == 'horizontal'}
 	class:cursor-ns-resize={hovering && direction == 'vertical'}
 	class:-mt-[2px]={hovering && grow && direction == 'vertical'}

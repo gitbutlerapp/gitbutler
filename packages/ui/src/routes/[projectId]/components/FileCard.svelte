@@ -100,10 +100,12 @@
 		...draggableFile(branchId, file),
 		disabled: readonly
 	}}
-	class="changed-file inner border-color-3 rounded-lg border p-1"
+	class="changed-file inner rounded-lg border p-1"
+	style:background-color="var(--bg-card)"
+	style:border-color="var(--border-card)"
 	class:opacity-80={isFileLocked}
 >
-	<div class="bg-color-5 flex w-full flex-col justify-center gap-2 py-1">
+	<div class="flex w-full flex-col justify-center py-1">
 		<div
 			class="flex cursor-default pl-2"
 			role="button"
@@ -185,7 +187,7 @@
 								{/await}
 							{/if}
 							<div
-								class="bg-6 border-color-3 my-1 flex w-full flex-col overflow-hidden rounded border"
+								class="bg-6 border-color-3 my-2 flex w-full flex-col overflow-hidden rounded border"
 							>
 								<div
 									tabindex="0"
@@ -266,7 +268,7 @@
 						{:else}
 							{#if section.expanded}
 								<div
-									class="border-color-3 bg-color-5 my-1 flex w-full flex-col overflow-hidden rounded border"
+									class="border-color-3 bg-color-5 my-2 flex w-full flex-col overflow-hidden rounded border"
 									role="group"
 									on:dblclick
 								>
@@ -288,7 +290,7 @@
 							{#if !section.expanded}
 								<div style:width={`calc(${2 * minWidth}rem - 1px)`} class="flex justify-center">
 									<button
-										class="text-color-4 hover:text-color-3 px-2 py-1.5 text-sm"
+										class="text-color-4 hover:text-color-3 px-2 text-sm"
 										on:click={() => {
 											if ('expanded' in section) {
 												section.expanded = true;

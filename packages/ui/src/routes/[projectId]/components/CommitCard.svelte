@@ -42,7 +42,11 @@
 		? draggableCommit(commit.branchId, commit)
 		: nonDraggable()}
 >
-	<div class="text-color-2 bg-color-5 border-color-4 rounded border p-2 text-left">
+	<div
+		class="text-color-2 border-color-4 rounded border p-2 text-left"
+		style:background-color="var(--bg-card)"
+		style:border-color="var(--border-card)"
+	>
 		<div class="mb-1">
 			<button
 				class="max-w-full overflow-hidden truncate"

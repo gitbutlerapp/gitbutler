@@ -360,401 +360,535 @@
 	class="relative flex h-full shrink-0 snap-center"
 	style:width={maximized ? '100%' : `${laneWidth}px`}
 >
-	<div class="absolute h-4 w-full" data-tauri-drag-region></div>
+	<div class="absolute h-3 w-full" data-tauri-drag-region></div>
 	<div
 		bind:this={rsViewport}
-		class="bg-color-5 border-color-4 mx-2 my-4 flex flex-grow cursor-default flex-col overflow-x-hidden rounded-lg border"
+		class="flex flex-grow cursor-default flex-col overflow-x-hidden px-1 py-3"
 	>
-		<div class="flex">
-			<div class="bg-color-5 border-color-4 flex flex-grow flex-col border-b">
-				{#await branch.isMergeable then isMergeable}
-					{#if !isMergeable}
-						<!-- use of relative is for tooltip rendering -->
-						<div class="bg-red-500 px-2 py-0.5 text-center font-bold dark:bg-red-700">
-							<Tooltip label="Canflicts with changes in your working directory, cannot be applied">
-								<span class="text-white">cannot be applied</span>
-							</Tooltip>
-						</div>
-					{:else if !branch.baseCurrent}
-						<div class="bg-yellow-500 px-2 py-0.5 font-bold dark:bg-yellow-600">
-							<Tooltip label="Will introduce merge conflicts if applied">
-								<span class="">will cause merge conflicts</span>
-							</Tooltip>
-						</div>
-					{/if}
-				{/await}
-				<div class="flex w-full items-center py-1 pl-1.5">
-					{#if !readonly}
-						<div bind:this={meatballButton}>
-							<IconButton
-								icon={IconKebabMenu}
-								title=""
-								class="flex h-6 w-3 flex-grow-0 scale-90 items-center justify-center"
-								on:click={() => popupMenu.openByElement(meatballButton, branch.id)}
+		<div
+			class="flex h-full flex-col overflow-hidden rounded-lg border"
+			style:background-color="var(--bg-surface)"
+			style:border-color="var(--border-surface)"
+		>
+			<div class="flex">
+				<div class="border-color-4 flex flex-grow flex-col">
+					{#await branch.isMergeable then isMergeable}
+						{#if !isMergeable}
+							<!-- use of relative is for tooltip rendering -->
+							<div class="bg-red-500 px-2 py-0.5 text-center font-bold dark:bg-red-700">
+								<Tooltip
+									label="Canflicts with changes in your working directory, cannot be applied"
+								>
+									<span class="text-white">cannot be applied</span>
+								</Tooltip>
+							</div>
+						{:else if !branch.baseCurrent}
+							<div class="bg-yellow-500 px-2 py-0.5 font-bold dark:bg-yellow-600">
+								<Tooltip label="Will introduce merge conflicts if applied">
+									<span class="">will cause merge conflicts</span>
+								</Tooltip>
+							</div>
+						{/if}
+					{/await}
+					<div class="flex w-full items-center py-1 pl-1.5">
+						{#if !readonly}
+							<div bind:this={meatballButton}>
+								<IconButton
+									icon={IconKebabMenu}
+									title=""
+									class="flex h-6 w-3 flex-grow-0 scale-90 items-center justify-center"
+									on:click={() => popupMenu.openByElement(meatballButton, branch.id)}
+								/>
+							</div>
+						{/if}
+						<div class="flex-grow pr-2">
+							<input
+								type="text"
+								bind:value={branch.name}
+								on:change={handleBranchNameChange}
+								title={branch.name}
+								class="text-color-3 hover:text-color-2 focus:text-color-2 hover:border-color-2 w-full truncate rounded border border-transparent bg-transparent px-1 font-mono font-bold"
+								on:dblclick|stopPropagation
+								on:click={(e) => e.currentTarget.select()}
+								autocomplete="off"
+								autocorrect="off"
+								spellcheck="false"
 							/>
 						</div>
-					{/if}
-					<div class="flex-grow pr-2">
-						<input
-							type="text"
-							bind:value={branch.name}
-							on:change={handleBranchNameChange}
-							title={branch.name}
-							class="text-color-3 hover:text-color-2 focus:text-color-2 hover:border-color-4 w-full truncate rounded border border-transparent bg-transparent px-1 font-mono font-bold"
-							on:dblclick|stopPropagation
-							on:click={(e) => e.currentTarget.select()}
-							autocomplete="off"
-							autocorrect="off"
-							spellcheck="false"
-						/>
-					</div>
-					<div class="flex gap-x-1 px-1" transition:fade={{ duration: 150 }}>
-						{#if !readonly}
-							{#if branch.files.length > 0}
-								<Button
-									class="w-20"
-									height="small"
-									kind="outlined"
-									color="purple"
-									disabled={branch.files.length == 0}
-									on:click={() => (commitDialogShown = !commitDialogShown)}
-								>
-									<span class="purple">
-										{#if !commitDialogShown}
-											Commit
-										{:else}
-											Cancel
-										{/if}
-									</span>
-								</Button>
-							{/if}
-							<button
-								class="text-color-4 hover:text-color-2 scale-90 px-1 py-1"
-								title="Stash this branch"
-								on:click={() => {
-									if (branch.id) branchController.unapplyBranch(branch.id);
-								}}
-							>
-								<IconCloseSmall />
-							</button>
-						{:else}
-							{#await branch.isMergeable then isMergeable}
-								{#if isMergeable}
+						<div class="flex gap-x-1 px-1" transition:fade={{ duration: 150 }}>
+							{#if !readonly}
+								{#if branch.files.length > 0}
 									<Button
 										class="w-20"
 										height="small"
 										kind="outlined"
 										color="purple"
-										on:click={() => toggleBranch(branch)}
+										disabled={branch.files.length == 0}
+										on:click={() => (commitDialogShown = !commitDialogShown)}
 									>
-										<span class="purple"> Apply </span>
+										<span class="purple">
+											{#if !commitDialogShown}
+												Commit
+											{:else}
+												Cancel
+											{/if}
+										</span>
 									</Button>
 								{/if}
-							{/await}
-							<IconButton
-								icon={IconBackspace}
-								class="px-1 py-1 align-middle "
-								title="delete branch"
-								on:click={() => deleteBranchModal.show(branch)}
-							/>
-						{/if}
+								<button
+									class="text-color-4 hover:text-color-2 scale-90 px-1 py-1"
+									title="Stash this branch"
+									on:click={() => {
+										if (branch.id) branchController.unapplyBranch(branch.id);
+									}}
+								>
+									<IconCloseSmall />
+								</button>
+							{:else}
+								{#await branch.isMergeable then isMergeable}
+									{#if isMergeable}
+										<Button
+											class="w-20"
+											height="small"
+											kind="outlined"
+											color="purple"
+											on:click={() => toggleBranch(branch)}
+										>
+											<span class="purple"> Apply </span>
+										</Button>
+									{/if}
+								{/await}
+								<IconButton
+									icon={IconBackspace}
+									class="px-1 py-1 align-middle "
+									title="delete branch"
+									on:click={() => deleteBranchModal.show(branch)}
+								/>
+							{/if}
+						</div>
 					</div>
+
+					{#if commitDialogShown}
+						<CommitDialog
+							on:close={() => (commitDialogShown = false)}
+							{projectId}
+							{branchController}
+							{branch}
+							{cloudEnabled}
+							{cloud}
+							ownership={$selectedOwnership}
+							user={$user}
+						/>
+					{/if}
+
+					{#if branch.upstream?.commits.length && branch.upstream?.commits.length > 0 && !branch.conflicted}
+						<div class="bg-zinc-300 p-2 dark:bg-zinc-800">
+							<div class="flex flex-row justify-between">
+								<div class="p-1 text-purple-700">
+									{branch.upstream.commits.length}
+									upstream {branch.upstream.commits.length > 1 ? 'commits' : 'commit'}
+								</div>
+								<Button
+									class="w-20"
+									height="small"
+									kind="outlined"
+									color="purple"
+									on:click={() => (upstreamCommitsShown = !upstreamCommitsShown)}
+								>
+									<span class="purple">
+										{#if !upstreamCommitsShown}
+											View
+										{:else}
+											Cancel
+										{/if}
+									</span>
+								</Button>
+							</div>
+						</div>
+						{#if upstreamCommitsShown}
+							<div
+								class="flex w-full flex-col gap-1 border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
+								id="upstreamCommits"
+							>
+								{#each branch.upstream.commits as commit (commit.id)}
+									<div use:draggable={draggableRemoteCommit(branch.id, commit)}>
+										<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
+									</div>
+								{/each}
+								<div class="flex justify-end p-2">
+									{#if branchCount > 1}
+										<div class="px-2 text-sm">
+											You have {branchCount} active branches. To merge upstream work, we will unapply
+											all other branches.
+										</div>
+									{/if}
+									<Button class="w-20" height="small" color="purple" on:click={merge}>Merge</Button>
+								</div>
+							</div>
+						{/if}
+					{/if}
+				</div>
+			</div>
+			<Tabs
+				branchId={branch.id}
+				items={[
+					{
+						name: 'files',
+						displayName: 'Changed files (' + branch.files.length + ')',
+						component: FileTreeTabPanel,
+						props: {
+							files: branch.files,
+							selectedOwnership,
+							withCheckboxes: commitDialogShown
+						}
+					},
+					{
+						name: 'notes',
+						displayName: 'Notes',
+						component: NotesTabPanel,
+						props: { notes: branch.notes, branchId: branch.id, branchController }
+					},
+					{
+						name: 'Remote',
+						displayName: 'Remote',
+						component: RemoteNamePanel,
+						props: { branch: branch.upstream, branchId: branch.id, branchController }
+					}
+				]}
+			/>
+			<div
+				class="relative flex flex-grow overflow-y-hidden"
+				use:dropzone={{
+					hover: 'cherrypick-dz-hover',
+					active: 'cherrypick-dz-active',
+					accepts: acceptCherrypick,
+					onDrop: onCherrypicked
+				}}
+				use:dropzone={{
+					hover: 'lane-dz-hover',
+					active: 'lane-dz-active',
+					accepts: acceptBranchDrop,
+					onDrop: onBranchDrop
+				}}
+			>
+				<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
+				<div
+					class="cherrypick-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+				>
+					<div class="hover-text invisible font-semibold">Apply here</div>
 				</div>
 
-				{#if commitDialogShown}
-					<CommitDialog
-						on:close={() => (commitDialogShown = false)}
-						{projectId}
-						{branchController}
-						{branch}
-						{cloudEnabled}
-						{cloud}
-						ownership={$selectedOwnership}
-						user={$user}
-					/>
-				{/if}
-
-				{#if branch.upstream?.commits.length && branch.upstream?.commits.length > 0 && !branch.conflicted}
-					<div class="bg-zinc-300 p-2 dark:bg-zinc-800">
-						<div class="flex flex-row justify-between">
-							<div class="p-1 text-purple-700">
-								{branch.upstream.commits.length}
-								upstream {branch.upstream.commits.length > 1 ? 'commits' : 'commit'}
+				<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
+				<div
+					class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+				>
+					<div class="hover-text invisible font-semibold">Move here</div>
+				</div>
+				<div
+					bind:this={viewport}
+					class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none pb-8"
+				>
+					<div bind:this={contents}>
+						{#if branch.conflicted}
+							<div class="mb-2 bg-red-500 p-2 font-bold text-white">
+								{#if branch.files.some((f) => f.conflicted)}
+									This virtual branch conflicts with upstream changes. Please resolve all conflicts
+									and commit before you can continue.
+								{:else}
+									Please commit your resolved conflicts to continue.
+								{/if}
 							</div>
-							<Button
-								class="w-20"
-								height="small"
-								kind="outlined"
-								color="purple"
-								on:click={() => (upstreamCommitsShown = !upstreamCommitsShown)}
-							>
-								<span class="purple">
-									{#if !upstreamCommitsShown}
-										View
-									{:else}
-										Cancel
-									{/if}
-								</span>
-							</Button>
-						</div>
-					</div>
-					{#if upstreamCommitsShown}
-						<div
-							class="flex w-full flex-col gap-1 border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
-							id="upstreamCommits"
-						>
-							{#each branch.upstream.commits as commit (commit.id)}
-								<div use:draggable={draggableRemoteCommit(branch.id, commit)}>
-									<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
+						{/if}
+
+						<div class="flex flex-col">
+							{#if branch.files.length > 0}
+								<div
+									class="flex flex-shrink flex-col gap-y-4 p-4"
+									transition:slide={{ duration: readonly ? 0 : 250 }}
+								>
+									<!-- TODO: This is an experiment in file sorting. Accept or reject! -->
+									{#each sortLikeFileTree(branch.files) as file (file.id)}
+										<FileCard
+											expanded={file.expanded}
+											conflicted={file.conflicted}
+											{selectedOwnership}
+											branchId={branch.id}
+											{file}
+											{projectPath}
+											{branchController}
+											selectable={commitDialogShown}
+											{readonly}
+											on:expanded={(e) => {
+												setExpandedWithCache(file, e.detail);
+												expandFromCache();
+											}}
+										/>
+									{/each}
 								</div>
-							{/each}
-							<div class="flex justify-end p-2">
-								{#if branchCount > 1}
-									<div class="px-2 text-sm">
-										You have {branchCount} active branches. To merge upstream work, we will unapply all
-										other branches.
+							{/if}
+							{#if branch.files.length == 0}
+								{#if branch.commits.length == 0}
+									<div
+										class="no-changes text-color-3 space-y-6 rounded p-8 text-center"
+										data-dnd-ignore
+									>
+										<p>Nothing on this branch yet.</p>
+										{#if !readonly}
+											<IconNewBadge class="mx-auto mt-4 h-16 w-16 text-blue-400" />
+											<p class="px-12">Get some work done, then throw some files my way!</p>
+										{/if}
+									</div>
+								{:else}
+									<!-- attention: these markers have custom css at the bottom of thise file -->
+									<div
+										class="no-changes text-color-3 rounded py-6 text-center font-mono"
+										data-dnd-ignore
+									>
+										No uncommitted changes on this branch
 									</div>
 								{/if}
-								<Button class="w-20" height="small" color="purple" on:click={merge}>Merge</Button>
-							</div>
-						</div>
-					{/if}
-				{/if}
-			</div>
-		</div>
-		<Tabs
-			branchId={branch.id}
-			items={[
-				{
-					name: 'files',
-					displayName: 'Changed files (' + branch.files.length + ')',
-					component: FileTreeTabPanel,
-					props: {
-						files: branch.files,
-						selectedOwnership,
-						withCheckboxes: commitDialogShown
-					}
-				},
-				{
-					name: 'notes',
-					displayName: 'Notes',
-					component: NotesTabPanel,
-					props: { notes: branch.notes, branchId: branch.id, branchController }
-				},
-				{
-					name: 'Remote',
-					displayName: 'Remote',
-					component: RemoteNamePanel,
-					props: { branch: branch.upstream, branchId: branch.id, branchController }
-				}
-			]}
-		/>
-		<div
-			class="relative flex flex-grow overflow-y-hidden"
-			use:dropzone={{
-				hover: 'cherrypick-dz-hover',
-				active: 'cherrypick-dz-active',
-				accepts: acceptCherrypick,
-				onDrop: onCherrypicked
-			}}
-			use:dropzone={{
-				hover: 'lane-dz-hover',
-				active: 'lane-dz-active',
-				accepts: acceptBranchDrop,
-				onDrop: onBranchDrop
-			}}
-		>
-			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
-			<div
-				class="cherrypick-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
-			>
-				<div class="hover-text invisible font-semibold">Apply here</div>
-			</div>
-
-			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
-			<div
-				class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
-			>
-				<div class="hover-text invisible font-semibold">Move here</div>
-			</div>
-			<div
-				bind:this={viewport}
-				class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none pb-8"
-			>
-				<div bind:this={contents}>
-					{#if branch.conflicted}
-						<div class="mb-2 bg-red-500 p-2 font-bold text-white">
-							{#if branch.files.some((f) => f.conflicted)}
-								This virtual branch conflicts with upstream changes. Please resolve all conflicts
-								and commit before you can continue.
-							{:else}
-								Please commit your resolved conflicts to continue.
 							{/if}
 						</div>
-					{/if}
-
-					<div class="flex flex-col">
-						{#if branch.files.length > 0}
-							<div
-								class="flex flex-shrink flex-col gap-y-4 p-4"
-								transition:slide={{ duration: readonly ? 0 : 250 }}
-							>
-								<!-- TODO: This is an experiment in file sorting. Accept or reject! -->
-								{#each sortLikeFileTree(branch.files) as file (file.id)}
-									<FileCard
-										expanded={file.expanded}
-										conflicted={file.conflicted}
-										{selectedOwnership}
-										branchId={branch.id}
-										{file}
-										{projectPath}
-										{branchController}
-										selectable={commitDialogShown}
-										{readonly}
-										on:expanded={(e) => {
-											setExpandedWithCache(file, e.detail);
-											expandFromCache();
-										}}
-									/>
-								{/each}
-							</div>
-						{/if}
-						{#if branch.files.length == 0}
-							{#if branch.commits.length == 0}
-								<div
-									class="no-changes text-color-3 space-y-6 rounded p-8 text-center"
-									data-dnd-ignore
-								>
-									<p>Nothing on this branch yet.</p>
-									{#if !readonly}
-										<IconNewBadge class="mx-auto mt-4 h-16 w-16 text-blue-400" />
-										<p class="px-12">Get some work done, then throw some files my way!</p>
-									{/if}
-								</div>
-							{:else}
-								<!-- attention: these markers have custom css at the bottom of thise file -->
-								<div
-									class="no-changes text-color-3 rounded py-6 text-center font-mono"
-									data-dnd-ignore
-								>
-									No uncommitted changes on this branch
-								</div>
-							{/if}
-						{/if}
-					</div>
-					{#if branch.commits.length > 0}
-						<div class="flex w-full flex-grow flex-col gap-2">
-							{#if localCommits.length > 0 || (branch.upstream && branch.upstream.commits.length > 0)}
-								<div
-									class="relative"
-									class:flex-grow={remoteCommits.length == 0}
-									transition:slide={{ duration: 150 }}
-								>
+						{#if branch.commits.length > 0}
+							<div class="flex w-full flex-grow flex-col gap-2">
+								{#if localCommits.length > 0 || (branch.upstream && branch.upstream.commits.length > 0)}
 									<div
-										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
-										style={localCommits.length == 0 ? 'height: calc();' : 'height: 100%;'}
-									/>
-
-									<div class="relative flex flex-col gap-2">
+										class="relative"
+										class:flex-grow={remoteCommits.length == 0}
+										transition:slide={{ duration: 150 }}
+									>
 										<div
-											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
+											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
+											style={localCommits.length == 0 ? 'height: calc();' : 'height: 100%;'}
 										/>
-										<div class="relative ml-10 mr-2 flex justify-end py-2">
-											<div
-												class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
-											>
-												local
-											</div>
-											{#if githubContext && !pullRequestPromise}
-												<PushButton
-													isLoading={isPushing}
-													{projectId}
-													{githubContext}
-													on:trigger={(e) => {
-														push()?.finally(() => {
-															shouldCreatePr = e.detail.with_pr;
-														});
-													}}
-												/>
-											{:else}
-												<Button
-													class="w-20"
-													height="small"
-													kind="outlined"
-													color="purple"
-													id="push-commits"
-													loading={isPushing}
-													on:click={push}
-												>
-													{#if branch.requiresForce}
-														<span class="purple">Force Push</span>
-													{:else}
-														<span class="purple">Push</span>
-													{/if}
-												</Button>
-											{/if}
-										</div>
 
-										{#each localCommits as commit (commit.id)}
+										<div class="relative flex flex-col gap-2">
 											<div
-												class="flex w-full items-center gap-x-2 pb-2 pr-4"
-												in:receive={{ key: commit.id }}
-												out:send={{ key: commit.id }}
-												animate:flip
-											>
-												{#if commit.id === headCommit?.id}
+												class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
+											/>
+											<div class="relative ml-10 mr-2 flex justify-end py-2">
+												<div
+													class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
+												>
+													local
+												</div>
+												{#if githubContext && !pullRequestPromise}
+													<PushButton
+														isLoading={isPushing}
+														{projectId}
+														{githubContext}
+														on:trigger={(e) => {
+															push()?.finally(() => {
+																shouldCreatePr = e.detail.with_pr;
+															});
+														}}
+													/>
+												{:else}
+													<Button
+														class="w-20"
+														height="small"
+														kind="outlined"
+														color="purple"
+														id="push-commits"
+														loading={isPushing}
+														on:click={push}
+													>
+														{#if branch.requiresForce}
+															<span class="purple">Force Push</span>
+														{:else}
+															<span class="purple">Push</span>
+														{/if}
+													</Button>
+												{/if}
+											</div>
+
+											{#each localCommits as commit (commit.id)}
+												<div
+													class="flex w-full items-center gap-x-2 pb-2 pr-4"
+													in:receive={{ key: commit.id }}
+													out:send={{ key: commit.id }}
+													animate:flip
+												>
+													{#if commit.id === headCommit?.id}
+														<div
+															class="group relative ml-[0.4rem] mr-1.5 h-3 w-3"
+															title="Reset this commit"
+														>
+															<div
+																class="insert-0 border-color-4 bg-color-3 absolute h-3 w-3 rounded-full border-2 transition-opacity group-hover:opacity-0"
+															/>
+															<IconButton
+																class="insert-0 absolute opacity-0 group-hover:opacity-100"
+																icon={IconCloseSmall}
+																on:click={resetHeadCommit}
+															/>
+														</div>
+													{:else}
+														<div class="ml-[0.4rem] mr-1.5">
+															<div class="border-color-4 h-3 w-3 rounded-full border-2" />
+														</div>
+													{/if}
 													<div
-														class="group relative ml-[0.4rem] mr-1.5 h-3 w-3"
-														title="Reset this commit"
+														class="relative h-full flex-grow overflow-hidden px-2"
+														use:dropzone={{
+															active: 'amend-dz-active',
+															hover: 'amend-dz-hover',
+															accepts: acceptAmend(commit),
+															onDrop: onAmend
+														}}
+														use:dropzone={{
+															active: 'squash-dz-active',
+															hover: 'squash-dz-hover',
+															accepts: acceptSquash(commit),
+															onDrop: onSquash(commit)
+														}}
 													>
 														<div
-															class="insert-0 border-color-4 bg-color-3 absolute h-3 w-3 rounded-full border-2 transition-opacity group-hover:opacity-0"
-														/>
-														<IconButton
-															class="insert-0 absolute opacity-0 group-hover:opacity-100"
-															icon={IconCloseSmall}
-															on:click={resetHeadCommit}
+															class="amend-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+														>
+															<div class="hover-text font-semibold">Amend</div>
+														</div>
+														<div
+															class="squash-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+														>
+															<div class="hover-text font-semibold">Squash</div>
+														</div>
+
+														<CommitCard
+															{commit}
+															{projectId}
+															commitUrl={base?.commitUrl(commit.id)}
 														/>
 													</div>
-												{:else}
-													<div class="ml-[0.4rem] mr-1.5">
-														<div class="border-color-4 h-3 w-3 rounded-full border-2" />
+												</div>
+											{/each}
+										</div>
+									</div>
+								{/if}
+								{#if remoteCommits.length > 0}
+									<div class="relative flex-grow">
+										<div
+											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
+											style="height: calc(100% - 1rem);"
+										/>
+
+										<div class="relative flex flex-grow flex-col gap-2">
+											<div
+												class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
+											/>
+
+											<div
+												class="relative max-w-full flex-grow overflow-hidden py-2 pl-12 pr-2 font-mono text-sm"
+											>
+												{#if branch.upstream}
+													<div class="flex gap-2">
+														<Link
+															target="_blank"
+															rel="noreferrer"
+															href={branchUrl(base, branch.upstream?.name)}
+															class="inline-block max-w-full truncate text-sm font-bold"
+														>
+															{branch.upstream.name.split('refs/remotes/')[1]}
+														</Link>
+														{#await pullRequestPromise then pr}
+															{#if githubContext && pr}
+																<a target="_blank" rel="noreferrer" href={pr.html_url}>
+																	<Tooltip
+																		label="&nbsp; Go to Pull Request &nbsp;"
+																		placement="right"
+																	>
+																		<IconGithub class="text-color-5 h-4 w-4"></IconGithub>
+																	</Tooltip>
+																</a>
+															{:else if githubContext}
+																<button class="text-color-4" on:click={createPR}>
+																	<Tooltip
+																		label="&nbsp; Create Pull Request &nbsp;"
+																		placement="right"
+																	>
+																		<IconGithub class="h-4 w-4"></IconGithub>
+																	</Tooltip>
+																</button>
+															{/if}
+														{/await}
 													</div>
 												{/if}
-												<div
-													class="relative h-full flex-grow overflow-hidden px-2"
-													use:dropzone={{
-														active: 'amend-dz-active',
-														hover: 'amend-dz-hover',
-														accepts: acceptAmend(commit),
-														onDrop: onAmend
-													}}
-													use:dropzone={{
-														active: 'squash-dz-active',
-														hover: 'squash-dz-hover',
-														accepts: acceptSquash(commit),
-														onDrop: onSquash(commit)
-													}}
-												>
-													<div
-														class="amend-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
-													>
-														<div class="hover-text font-semibold">Amend</div>
-													</div>
-													<div
-														class="squash-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
-													>
-														<div class="hover-text font-semibold">Squash</div>
-													</div>
-
-													<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
-												</div>
 											</div>
-										{/each}
+
+											{#each remoteCommits as commit (commit.id)}
+												<div
+													class="flex w-full items-center gap-x-2 pb-2 pr-4"
+													in:receive={{ key: commit.id }}
+													out:send={{ key: commit.id }}
+													animate:flip
+												>
+													{#if commit.id === headCommit?.id}
+														<!-- <Tooltip label="Beware that this will lead to a force push later"> -->
+														<div
+															class="group relative ml-[0.4rem] mr-1.5 h-3 w-3"
+															title="Reset this commit"
+														>
+															<div
+																class="insert-0 absolute h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 group-hover:opacity-0 dark:border-dark-400 dark:bg-dark-400"
+																class:bg-light-500={commit.isRemote}
+																class:dark:bg-dark-500={commit.isRemote}
+															/>
+															<IconButton
+																class="insert-0 absolute opacity-0 group-hover:opacity-100"
+																icon={IconCloseSmall}
+																on:click={resetHeadCommit}
+															/>
+														</div>
+														<!-- </Tooltip> -->
+													{:else}
+														<div class="ml-[0.4rem] mr-1.5">
+															<div
+																class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+																class:bg-light-500={commit.isRemote}
+																class:dark:bg-dark-500={commit.isRemote}
+															/>
+														</div>
+													{/if}
+
+													<div
+														class="relative h-full flex-grow overflow-hidden"
+														use:dropzone={{
+															active: 'amend-dz-active',
+															hover: 'amend-dz-hover',
+															accepts: acceptAmend(commit),
+															onDrop: onAmend
+														}}
+														use:dropzone={{
+															active: 'squash-dz-active',
+															hover: 'squash-dz-hover',
+															accepts: acceptSquash(commit),
+															onDrop: onSquash(commit)
+														}}
+													>
+														<div
+															class="amend-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+														>
+															<div class="hover-text font-semibold">Amend</div>
+														</div>
+														<div
+															class="squash-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+														>
+															<div class="hover-text font-semibold">Squash</div>
+														</div>
+
+														<CommitCard
+															{commit}
+															{projectId}
+															commitUrl={base?.commitUrl(commit.id)}
+														/>
+													</div>
+												</div>
+											{/each}
+										</div>
 									</div>
-								</div>
-							{/if}
-							{#if remoteCommits.length > 0}
+								{/if}
+							</div>
+							{#if integratedCommits.length > 0}
 								<div class="relative flex-grow">
 									<div
 										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
@@ -769,156 +903,41 @@
 										<div
 											class="relative max-w-full flex-grow overflow-hidden py-2 pl-12 pr-2 font-mono text-sm"
 										>
-											{#if branch.upstream}
-												<div class="flex gap-2">
-													<Link
-														target="_blank"
-														rel="noreferrer"
-														href={branchUrl(base, branch.upstream?.name)}
-														class="inline-block max-w-full truncate text-sm font-bold"
-													>
-														{branch.upstream.name.split('refs/remotes/')[1]}
-													</Link>
-													{#await pullRequestPromise then pr}
-														{#if githubContext && pr}
-															<a target="_blank" rel="noreferrer" href={pr.html_url}>
-																<Tooltip label="&nbsp; Go to Pull Request &nbsp;" placement="right">
-																	<IconGithub class="text-color-5 h-4 w-4"></IconGithub>
-																</Tooltip>
-															</a>
-														{:else if githubContext}
-															<button class="text-color-4" on:click={createPR}>
-																<Tooltip
-																	label="&nbsp; Create Pull Request &nbsp;"
-																	placement="right"
-																>
-																	<IconGithub class="h-4 w-4"></IconGithub>
-																</Tooltip>
-															</button>
-														{/if}
-													{/await}
-												</div>
-											{/if}
+											<Link
+												target="_blank"
+												rel="noreferrer"
+												href={baseUrl(base)}
+												class="inline-block max-w-full truncate text-sm font-bold"
+											>
+												integrated to {base?.branchName}
+											</Link>
 										</div>
 
-										{#each remoteCommits as commit (commit.id)}
+										{#each integratedCommits as commit (commit.id)}
 											<div
 												class="flex w-full items-center gap-x-2 pb-2 pr-4"
 												in:receive={{ key: commit.id }}
 												out:send={{ key: commit.id }}
 												animate:flip
 											>
-												{#if commit.id === headCommit?.id}
-													<!-- <Tooltip label="Beware that this will lead to a force push later"> -->
+												<div class="ml-[0.4rem] mr-1.5">
 													<div
-														class="group relative ml-[0.4rem] mr-1.5 h-3 w-3"
-														title="Reset this commit"
-													>
-														<div
-															class="insert-0 absolute h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 group-hover:opacity-0 dark:border-dark-400 dark:bg-dark-400"
-															class:bg-light-500={commit.isRemote}
-															class:dark:bg-dark-500={commit.isRemote}
-														/>
-														<IconButton
-															class="insert-0 absolute opacity-0 group-hover:opacity-100"
-															icon={IconCloseSmall}
-															on:click={resetHeadCommit}
-														/>
-													</div>
-													<!-- </Tooltip> -->
-												{:else}
-													<div class="ml-[0.4rem] mr-1.5">
-														<div
-															class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
-															class:bg-light-500={commit.isRemote}
-															class:dark:bg-dark-500={commit.isRemote}
-														/>
-													</div>
-												{/if}
-
-												<div
-													class="relative h-full flex-grow overflow-hidden"
-													use:dropzone={{
-														active: 'amend-dz-active',
-														hover: 'amend-dz-hover',
-														accepts: acceptAmend(commit),
-														onDrop: onAmend
-													}}
-													use:dropzone={{
-														active: 'squash-dz-active',
-														hover: 'squash-dz-hover',
-														accepts: acceptSquash(commit),
-														onDrop: onSquash(commit)
-													}}
-												>
-													<div
-														class="amend-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
-													>
-														<div class="hover-text font-semibold">Amend</div>
-													</div>
-													<div
-														class="squash-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
-													>
-														<div class="hover-text font-semibold">Squash</div>
-													</div>
-
-													<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
+														class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+														class:bg-light-500={commit.isRemote}
+														class:dark:bg-dark-500={commit.isRemote}
+													/>
 												</div>
+												<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
 											</div>
 										{/each}
 									</div>
 								</div>
 							{/if}
-						</div>
-						{#if integratedCommits.length > 0}
-							<div class="relative flex-grow">
-								<div
-									class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
-									style="height: calc(100% - 1rem);"
-								/>
-
-								<div class="relative flex flex-grow flex-col gap-2">
-									<div
-										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
-									/>
-
-									<div
-										class="relative max-w-full flex-grow overflow-hidden py-2 pl-12 pr-2 font-mono text-sm"
-									>
-										<Link
-											target="_blank"
-											rel="noreferrer"
-											href={baseUrl(base)}
-											class="inline-block max-w-full truncate text-sm font-bold"
-										>
-											integrated to {base?.branchName}
-										</Link>
-									</div>
-
-									{#each integratedCommits as commit (commit.id)}
-										<div
-											class="flex w-full items-center gap-x-2 pb-2 pr-4"
-											in:receive={{ key: commit.id }}
-											out:send={{ key: commit.id }}
-											animate:flip
-										>
-											<div class="ml-[0.4rem] mr-1.5">
-												<div
-													class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
-													class:bg-light-500={commit.isRemote}
-													class:dark:bg-dark-500={commit.isRemote}
-												/>
-											</div>
-											<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
-										</div>
-									{/each}
-								</div>
-							</div>
 						{/if}
-					{/if}
+					</div>
 				</div>
+				<Scrollbar {viewport} {contents} width="0.4rem" />
 			</div>
-			<Scrollbar {viewport} {contents} width="0.4rem" />
 		</div>
 	</div>
 	{#if !maximized}
@@ -926,7 +945,7 @@
 			minWidth={330}
 			viewport={rsViewport}
 			direction="horizontal"
-			class="bg-color-3 z-30"
+			class="z-30"
 			on:width={(e) => {
 				laneWidth = e.detail;
 				lscache.set(laneWidthKey + branch.id, e.detail, 7 * 1440); // 7 day ttl

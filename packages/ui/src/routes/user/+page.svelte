@@ -16,6 +16,7 @@
 	import Login from '$lib/components/Login.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import Spacer from '../[projectId]/settings/Spacer.svelte';
 
 	export let data: PageData;
 	const { cloud } = data;
@@ -162,18 +163,28 @@
 	}
 </script>
 
-<div class="mx-auto h-fit w-full max-w-xl py-10">
-	<div class="flex flex-col gap-y-8">
-		<div class="flex w-full justify-between">
+<div
+	class="flex h-full flex-shrink flex-grow flex-col pb-4"
+	style:background-color="var(--bg-surface)"
+>
+	<div class="h-8" data-tauri-drag-region></div>
+	<div
+		class="flex w-full items-center justify-between border-b px-2 pb-2"
+		style:border-color="var(--border-surface)"
+	>
+		<div class="flex">
 			<BackButton />
-			<h2 class="text-2xl font-medium">GitButler Settings</h2>
-			{#if $user}
-				<!-- TODO: Separate logout from login button -->
-				<Login />
-			{/if}
+			<h2 class="ml-2 text-2xl font-medium">GitButler Settings</h2>
 		</div>
-		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
-
+		{#if $user}
+			<!-- TODO: Separate logout from login button -->
+			<Login />
+		{/if}
+	</div>
+	<div
+		class="flex flex-col gap-y-6 overflow-y-auto overscroll-none border-b px-5 py-4"
+		style:border-color="var(--border-surface)"
+	>
 		<div>
 			<h2 class="mb-2 text-lg font-medium">GitButler Cloud</h2>
 			<p class="">
@@ -254,7 +265,7 @@
 		{:else}
 			<Login />
 		{/if}
-		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+		<Spacer />
 		<div>
 			<h2 class="mb-2 text-lg font-medium">Git Stuff</h2>
 		</div>
@@ -353,7 +364,7 @@
 			</div>
 		</div>
 
-		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+		<Spacer />
 		<div>
 			<h2 class="mb-2 text-lg font-medium">Appearance</h2>
 		</div>
@@ -392,7 +403,7 @@
 			<div><ThemeSelector /></div>
 		</div>
 
-		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+		<Spacer />
 
 		{#if $user}
 			<div>
@@ -420,8 +431,6 @@
 					</Button>
 				</div>
 			</div>
-
-			<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
 		{/if}
 
 		<div>
@@ -451,57 +460,54 @@
 			</a>
 		</div>
 
-		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+		<Spacer />
 
 		<div class="flex flex-col gap-4">
 			<Button color="destructive" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
 				Delete all data
 			</Button>
 		</div>
-
-		<Modal bind:this={deleteConfirmationModal} title="Delete all local data?">
-			<p>Are you sure you want to delete all local data? This can’t be undone.</p>
-
-			<svelte:fragment slot="controls" let:close>
-				<Button kind="outlined" on:click={close}>Cancel</Button>
-				<Button color="destructive" loading={isDeleting} on:click={onDeleteClicked}>Delete</Button>
-			</svelte:fragment>
-		</Modal>
-
-		<Modal
-			on:close={() => gitHubOauthCheckStatus(deviceCode)}
-			bind:this={gitHubOauthModal}
-			title="Authenticate with GitHub"
-		>
-			<div class="flex flex-col gap-4">
-				<div class="flex items-center gap-2">
-					<span class="flex-grow">1️⃣ Copy the following verification code: </span>
-					<input
-						bind:value={userCode}
-						class="
-						whitespece-pre h-6 w-24 select-all rounded border border-light-200 bg-white font-mono dark:border-dark-400 dark:bg-dark-700"
-					/>
-
-					<Button kind="outlined" color="purple" on:click={() => copyToClipboard(userCode)}>
-						Copy to Clipboard
-					</Button>
-				</div>
-				<div>
-					2️⃣ Navigate to
-					<a
-						class="underline"
-						href="https://github.com/login/device"
-						target="_blank"
-						rel="noreferrer">https://github.com/login/device</a
-					>
-				</div>
-				<div>3️⃣ Paste the code that you copied and follow the on-screen instructions.</div>
-			</div>
-			<svelte:fragment slot="controls" let:close>
-				<Button color="purple" on:click={close}>Done</Button>
-			</svelte:fragment>
-		</Modal>
 	</div>
+
+	<Modal bind:this={deleteConfirmationModal} title="Delete all local data?">
+		<p>Are you sure you want to delete all local data? This can’t be undone.</p>
+
+		<svelte:fragment slot="controls" let:close>
+			<Button kind="outlined" on:click={close}>Cancel</Button>
+			<Button color="destructive" loading={isDeleting} on:click={onDeleteClicked}>Delete</Button>
+		</svelte:fragment>
+	</Modal>
+
+	<Modal
+		on:close={() => gitHubOauthCheckStatus(deviceCode)}
+		bind:this={gitHubOauthModal}
+		title="Authenticate with GitHub"
+	>
+		<div class="flex flex-col gap-4">
+			<div class="flex items-center gap-2">
+				<span class="flex-grow">1️⃣ Copy the following verification code: </span>
+				<input
+					bind:value={userCode}
+					class="
+						whitespece-pre h-6 w-24 select-all rounded border border-light-200 bg-white font-mono dark:border-dark-400 dark:bg-dark-700"
+				/>
+
+				<Button kind="outlined" color="purple" on:click={() => copyToClipboard(userCode)}>
+					Copy to Clipboard
+				</Button>
+			</div>
+			<div>
+				2️⃣ Navigate to
+				<a class="underline" href="https://github.com/login/device" target="_blank" rel="noreferrer"
+					>https://github.com/login/device</a
+				>
+			</div>
+			<div>3️⃣ Paste the code that you copied and follow the on-screen instructions.</div>
+		</div>
+		<svelte:fragment slot="controls" let:close>
+			<Button color="purple" on:click={close}>Done</Button>
+		</svelte:fragment>
+	</Modal>
 </div>
 
 <div id="clipboard" />

@@ -11,6 +11,7 @@
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import Spacer from './Spacer.svelte';
 
 	export let data: PageData;
 	const { project, cloud } = data;
@@ -52,20 +53,21 @@
 	};
 </script>
 
-<div class="h-full flex-grow overflow-y-auto overscroll-none">
-	<div class="mx-auto flex min-w-min max-w-xl flex-col gap-y-6 overflow-visible p-8">
-		<div class="flex w-full">
-			<BackButton />
-			<h2 class="text-2xl font-medium">Project settings</h2>
-		</div>
-		<div class="bg-color-1 h-[0.0625rem] shrink-0" />
+<div class="h-full flex-grow overflow-y-auto overscroll-none p-3">
+	<div
+		class="flex min-w-min max-w-4xl flex-col gap-y-6 overflow-visible rounded-lg px-5 py-4"
+		style:background-color="var(--bg-surface)"
+		style:border-color="var(--border-surface)"
+	>
+		<h2 class="text-2xl font-medium">Project settings</h2>
+		<Spacer />
 		<CloudForm project={$project} on:updated={onCloudUpdated} />
-		<div class="bg-color-1 h-[0.0625rem] shrink-0" />
+		<Spacer />
 		<DetailsForm project={$project} on:updated={onDetailsUpdated} />
-		<div class="bg-color-1 h-[0.0625rem] shrink-0" />
+		<Spacer />
 		<KeysForm project={$project} on:updated={onKeysUpdated} />
+		<Spacer />
 
-		<div class="bg-color-1 h-[0.0625rem] shrink-0" />
 		<div class="flex gap-x-4">
 			<a
 				href="https://discord.gg/wDKZCPEjXC"
@@ -90,7 +92,7 @@
 			</a>
 		</div>
 
-		<div class="bg-color-1 h-[0.0625rem] shrink-0" />
+		<Spacer />
 		<Button color="destructive" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
 			Delete project
 		</Button>
