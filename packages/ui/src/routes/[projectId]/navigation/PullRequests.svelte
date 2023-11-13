@@ -32,7 +32,7 @@
 </script>
 
 <div
-	class="flex items-center justify-between border-t px-2 py-1 pr-1"
+	class="flex items-center justify-between border-b border-t px-2 py-1 pr-1"
 	style:background-color="var(--bg-surface-highlight)"
 	style:border-color="var(--border-surface)"
 >
@@ -71,7 +71,7 @@
 		</button>
 	</div>
 </div>
-<div bind:this={rbSection} use:accordion={open} class="border-color-5 relative flex-grow">
+<div bind:this={rbSection} use:accordion={open} class="relative flex-grow">
 	<div
 		bind:this={rbViewport}
 		on:scroll
@@ -86,7 +86,8 @@
 				{#each filterPRs($prs$, $filterChoice) as pr}
 					<a
 						href="/{projectId}/pull/{pr.number}"
-						class="border-color-4 flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b-0 focus:outline-2"
+						class="flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b-0 focus:outline-2"
+						style:border-color="var(--border-surface)"
 					>
 						<div class="flex flex-row items-center gap-x-2">
 							<div>
