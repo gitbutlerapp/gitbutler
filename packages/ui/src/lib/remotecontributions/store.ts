@@ -14,14 +14,14 @@ export function getRemoteContributionsStore(
 		switchMap(
 			([remoteBranches, pullRequests]) =>
 				new Observable<RemoteContribution[]>((observer) => {
-					const contributions = toRemoteContributions(pullRequests, remoteBranches || []);
+					const contributions = mergeBranchesAndPrs(pullRequests, remoteBranches || []);
 					observer.next(contributions);
 				})
 		)
 	);
 }
 
-function toRemoteContributions(
+function mergeBranchesAndPrs(
 	pullRequests: PullRequest[],
 	remoteBranches: RemoteBranch[]
 ): RemoteContribution[] {
