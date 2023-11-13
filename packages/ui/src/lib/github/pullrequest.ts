@@ -1,22 +1,29 @@
 import lscache from 'lscache';
-import { Observable, EMPTY, BehaviorSubject } from 'rxjs';
-import { shareReplay, switchMap, withLatestFrom } from 'rxjs/operators';
+import { Observable, EMPTY, BehaviorSubject, Subject, of } from 'rxjs';
+import { catchError, shareReplay, switchMap, tap, withLatestFrom } from 'rxjs/operators';
 
 import { PullRequest, type GitHubIntegrationContext } from '$lib/github/types';
 import { newClient } from '$lib/github/client';
 
 export class PrService {
-	pullRequests$: Observable<PullRequest[]>;
+	prs$: Observable<PullRequest[]>;
+	error$ = new BehaviorSubject<string | undefined>(undefined);
 	reload$ = new BehaviorSubject<void>(undefined);
 
 	constructor(ghContext$: Observable<GitHubIntegrationContext | undefined>) {
-		this.pullRequests$ = ghContext$.pipe(
+		this.prs$ = ghContext$.pipe(
 			withLatestFrom(this.reload$),
+			tap(() => this.error$.next(undefined)),
 			switchMap(([ctx, _]) => {
 				if (!ctx) return EMPTY;
 				return loadPrs(ctx);
 			}),
-			shareReplay(1)
+			shareReplay(1),
+			catchError((err) => {
+				console.log(err);
+				this.error$.next(err);
+				return of([]);
+			})
 		);
 	}
 
@@ -26,8 +33,8 @@ export class PrService {
 }
 
 function loadPrs(ctx: GitHubIntegrationContext): Observable<PullRequest[]> {
+	// throw 'An ad-hoc error';
 	return new Observable<PullRequest[]>((subscriber) => {
-		console.log(`loading prs for ${ctx.repo}`);
 		const key = ctx.owner + '/' + ctx.repo;
 
 		const cachedPrs = lscache.get(key);

@@ -7,7 +7,7 @@
 	export let data: PageData;
 	let { branchController, prService } = data;
 
-	$: pr = prService.pullRequests$?.pipe(
+	$: pr = prService.prs$?.pipe(
 		map((prs) => prs.find((b) => b.number.toString() == $page.params.number))
 	);
 </script>
