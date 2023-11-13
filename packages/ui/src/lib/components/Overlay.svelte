@@ -22,7 +22,7 @@
 </script>
 
 <dialog
-	class="rounded-lg border p-0 backdrop:bg-white/50 backdrop:dark:bg-black/50"
+	class="rounded-lg border p-0 backdrop:bg-zinc-200/50 backdrop:dark:bg-zinc-700/50"
 	style:background-color="var(--bg-surface)"
 	style:border-color="var(--border-surface)"
 	style="max-height: calc(100vh - 5rem)"
