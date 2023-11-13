@@ -12,7 +12,7 @@
 	export let prService: PrService;
 	export let githubContext: GitHubIntegrationContext | undefined;
 
-	$: prs = prService.prs$;
+	$: prs$ = prService.prs$;
 	$: error$ = prService.error$;
 
 	let rbViewport: HTMLElement;
@@ -80,10 +80,10 @@
 		<div bind:this={rbContents}>
 			{#if $error$}
 				<p class="p-2">{$error$}</p>
-			{:else if !$prs}
+			{:else if !$prs$}
 				<p class="p-2">loading...</p>
 			{:else}
-				{#each filterPRs($prs, $filterChoice) as pr}
+				{#each filterPRs($prs$, $filterChoice) as pr}
 					<a
 						href="/{projectId}/pull/{pr.number}"
 						class="border-color-4 flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b-0 focus:outline-2"
