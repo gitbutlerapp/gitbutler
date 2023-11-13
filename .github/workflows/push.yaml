@@ -77,9 +77,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-rust
-        with:
-          rust: "nightly"
-      - run: cargo install cargo-udeps
       - run: cargo install cargo-cranky
-      - run: cargo +nightly udeps --all-targets
       - run: cargo cranky --all-targets --all-features
