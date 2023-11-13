@@ -18,16 +18,17 @@
 	import IconBranch from '$lib/icons/IconBranch.svelte';
 	import IconSettings from '$lib/icons/IconSettings.svelte';
 	import type { Observable } from 'rxjs';
+	import type { PrService } from '$lib/github/pullrequest';
 
 	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
 	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
 	export let baseBranchStore: CustomStore<BaseBranch | undefined>;
-	export let pullRequestsStore: Observable<PullRequest[]>;
 	export let branchController: BranchController;
 	export let project: Project;
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
 	export let update: Loadable<Update>;
+	export let prService: PrService;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 </script>
@@ -44,7 +45,7 @@
 		<!-- Top spacer & drag region -->
 	</div>
 	<div class="relative mx-4 mb-4 mt-1">
-		<BaseBranchCard {project} {branchController} {baseBranchStore} />
+		<BaseBranchCard {project} {branchController} {baseBranchStore} {prService} />
 	</div>
 	<div class="mb-4">
 		<DomainButton href={`/${project.id}/board`} icon={IconBranch}>Active branches</DomainButton>
@@ -52,7 +53,7 @@
 	</div>
 	<YourBranches {project} {branchController} {branchesWithContentStore} />
 	{#if githubContext}
-		<PullRequests {pullRequestsStore} {githubContext} projectId={project.id} />
+		<PullRequests {prService} {githubContext} projectId={project.id} />
 	{:else}
 		<RemoteBranches {remoteBranchStore} projectId={project.id}></RemoteBranches>
 	{/if}

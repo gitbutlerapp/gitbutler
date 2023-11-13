@@ -1,41 +1,46 @@
-import type { Loadable } from '@square/svelte-store';
 import lscache from 'lscache';
-import { Observable, EMPTY, type UnaryFunction, type OperatorFunction, pipe } from 'rxjs';
-import { filter, shareReplay, skipWhile, switchMap } from 'rxjs/operators';
-import { storeToObservable } from '$lib/rxjs/store';
+import { Observable, EMPTY, BehaviorSubject } from 'rxjs';
+import { shareReplay, switchMap, withLatestFrom } from 'rxjs/operators';
 
 import { PullRequest, type GitHubIntegrationContext } from '$lib/github/types';
 import { newClient } from '$lib/github/client';
 
-function filterNullish<T>(): UnaryFunction<Observable<T | null | undefined>, Observable<T>> {
-	return pipe(filter((x) => x != null) as OperatorFunction<T | null | undefined, T>);
+export class PrService {
+	pullRequests$: Observable<PullRequest[]>;
+	reload$ = new BehaviorSubject<void>(undefined);
+
+	constructor(ghContext$: Observable<GitHubIntegrationContext | undefined>) {
+		this.pullRequests$ = ghContext$.pipe(
+			withLatestFrom(this.reload$),
+			switchMap(([ctx, _]) => {
+				if (!ctx) return EMPTY;
+				return loadPrs(ctx);
+			}),
+			shareReplay(1)
+		);
+	}
+
+	reload(): void {
+		this.reload$.next();
+	}
 }
 
-// Uses the cached value as the initial state and also in the event of being offline
-export function listPullRequestsWithCache(
-	ghContextStore: Loadable<GitHubIntegrationContext | undefined>
-): Observable<PullRequest[]> {
-	const ghContext$ = storeToObservable(ghContextStore);
-	return ghContext$.pipe(
-		filterNullish(),
-		switchMap((ctx) => {
-			return new Observable<PullRequest[]>((observer) => {
-				const key = ctx.owner + '/' + ctx.repo;
-				const cachedPrs = lscache.get(key);
-				if (cachedPrs) {
-					observer.next(cachedPrs);
-				}
-				listPullRequests(ctx).then((prs) => {
-					observer.next(prs);
-					lscache.set(key, prs, 1440); // 1 day ttl
-				});
-			});
-		}),
-		shareReplay(1)
-	);
+function loadPrs(ctx: GitHubIntegrationContext): Observable<PullRequest[]> {
+	return new Observable<PullRequest[]>((subscriber) => {
+		console.log(`loading prs for ${ctx.repo}`);
+		const key = ctx.owner + '/' + ctx.repo;
+
+		const cachedPrs = lscache.get(key);
+		if (cachedPrs) subscriber.next(cachedPrs);
+
+		fetchPrs(ctx).then((prs) => {
+			subscriber.next(prs);
+			lscache.set(key, prs, 1440); // 1 day ttl
+		});
+	});
 }
 
-async function listPullRequests(ctx: GitHubIntegrationContext): Promise<PullRequest[]> {
+async function fetchPrs(ctx: GitHubIntegrationContext): Promise<PullRequest[]> {
 	const octokit = newClient(ctx);
 	try {
 		const rsp = await octokit.rest.pulls.list({
