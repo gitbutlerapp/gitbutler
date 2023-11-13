@@ -13,7 +13,8 @@ import {
 } from '$lib/vbranches/branchStoresCache';
 import type { LayoutLoad } from './$types';
 import { userStore } from '$lib/stores/user';
-import { listPullRequestsWithCache } from '$lib/github/pullrequest';
+import { PrService } from '$lib/github/pullrequest';
+import { storeToObservable } from '$lib/rxjs/store';
 
 export const prerender = false;
 
@@ -50,7 +51,7 @@ export const load: LayoutLoad = async ({ params }) => {
 	const githubContextStore = getGitHubContextStore(userStore, baseBranchStore);
 	const projectStore = getProjectStore(params.projectId);
 
-	const pullRequestsStore = listPullRequestsWithCache(githubContextStore);
+	const prService = new PrService(storeToObservable(githubContextStore));
 
 	return {
 		projectId,
@@ -67,6 +68,6 @@ export const load: LayoutLoad = async ({ params }) => {
 		remoteBranchState,
 		projectStore,
 		githubContextStore,
-		pullRequestsStore
+		prService
 	};
 };

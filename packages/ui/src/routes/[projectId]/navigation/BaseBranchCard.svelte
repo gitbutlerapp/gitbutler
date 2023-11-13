@@ -3,6 +3,7 @@
 	import IconButton from '$lib/components/IconButton.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
+	import type { PrService } from '$lib/github/pullrequest';
 	import IconBranch from '$lib/icons/IconBranch.svelte';
 	import IconDropDown from '$lib/icons/IconDropDown.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
@@ -14,6 +15,7 @@
 	export let project: Project;
 	export let branchController: BranchController;
 	export let baseBranchStore: CustomStore<BaseBranch | undefined>;
+	export let prService: PrService;
 
 	let popup: ProjectsPopup;
 	let baseContents: HTMLElement;
@@ -51,6 +53,7 @@
 				on:click={() => {
 					fetching = true;
 					branchController.fetchFromTarget().finally(() => (fetching = false));
+					prService.reload();
 				}}
 			>
 				<div class:animate-spin={fetching}>

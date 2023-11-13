@@ -25,11 +25,11 @@
 	$: branchController = data.branchController;
 	$: vbranchesState = data.vbranchesState;
 	$: remoteBranchStore = data.remoteBranchStore;
-	$: pullRequestsStore = data.pullRequestsStore;
 	$: update = data.update;
 	$: deltasStore = data.deltasStore;
 	$: baseBranchesState = data.baseBranchesState;
 	$: branchesWithContent = data.branchesWithContent;
+	$: prService = data.prService;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
@@ -67,7 +67,7 @@
 						githubContext={$githubContextStore}
 						user={$userStore}
 						{update}
-						{pullRequestsStore}
+						{prService}
 					/>
 				{:else}
 					<p>loading...</p>

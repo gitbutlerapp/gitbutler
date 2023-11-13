@@ -7,11 +7,13 @@
 	import { showMenu } from 'tauri-plugin-context-menu';
 	import { projectPullRequestListingFilter, ListPRsFilter } from '$lib/config/config';
 	import type { Observable } from 'rxjs';
+	import type { PrService } from '$lib/github/pullrequest';
 
 	export let projectId: string;
-	export let pullRequestsStore: Observable<PullRequest[]>;
+	export let prService: PrService;
 	export let githubContext: GitHubIntegrationContext | undefined;
 
+	$: pullRequests$ = prService.pullRequests$;
 	let rbViewport: HTMLElement;
 	let rbContents: HTMLElement;
 	let rbSection: HTMLElement;
@@ -75,10 +77,10 @@
 		class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
 	>
 		<div bind:this={rbContents}>
-			{#if !$pullRequestsStore}
+			{#await $pullRequests$}
 				<span>loading...</span>
-			{:else}
-				{#each filterPRs($pullRequestsStore, $filterChoice) as pr}
+			{:then prs}
+				{#each filterPRs(prs, $filterChoice) as pr}
 					<a
 						href="/{projectId}/pull/{pr.number}"
 						class="border-color-4 flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b-0 focus:outline-2"
