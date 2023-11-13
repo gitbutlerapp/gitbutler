@@ -11,13 +11,13 @@ export function getRemoteContributionsStore(
 ): Observable<RemoteContribution[]> {
 	const remoteBranchObservable = storeToObservable(remoteBranchStore);
 	return combineLatest([remoteBranchObservable, pullRequestObservable]).pipe(
-		switchMap(([remoteBranches, pullRequests]) => {
-			const obs: Observable<RemoteContribution[]> = new Observable((observer) => {
-				const contributions = toRemoteContributions(pullRequests, remoteBranches || []);
-				observer.next(contributions);
-			});
-			return obs;
-		})
+		switchMap(
+			([remoteBranches, pullRequests]) =>
+				new Observable<RemoteContribution[]>((observer) => {
+					const contributions = toRemoteContributions(pullRequests, remoteBranches || []);
+					observer.next(contributions);
+				})
+		)
 	);
 }
 
