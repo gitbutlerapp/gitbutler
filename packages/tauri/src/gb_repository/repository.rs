@@ -8,7 +8,6 @@ use std::{
 
 use anyhow::{anyhow, Context, Ok, Result};
 use filetime::FileTime;
-use git2::TreeWalkResult;
 use sha2::{Digest, Sha256};
 
 use crate::{
@@ -20,11 +19,7 @@ use crate::{
     virtual_branches::{self, target},
 };
 
-use crate::{
-    project_repository,
-    reader::{self, Reader},
-    sessions,
-};
+use crate::{project_repository, reader, sessions};
 
 pub struct Repository {
     git_repository: git::Repository,
@@ -526,113 +521,9 @@ impl Repository {
     }
 }
 
-fn build_wd_tree(
-    gb_repository: &Repository,
-    project_repository: &project_repository::Repository,
-) -> Result<git::Oid> {
-    match gb_repository
-        .git_repository
-        .find_reference("refs/heads/current")
-    {
-        Result::Ok(reference) => {
-            // re-use the last tree as a base to copy non changed entries
-            let tree = reference.peel_to_tree()?;
-            let wd_tree_entry = tree.get_name("wd").unwrap();
-            let wd_tree = gb_repository.git_repository.find_tree(wd_tree_entry.id())?;
-            let mut index = git::Index::try_from(&wd_tree)?;
-
-            let session_wd_reader = reader::DirReader::open(gb_repository.session_wd_path());
-            let session_wd_files = session_wd_reader
-                .list_files(&path::PathBuf::from("."))
-                .context("failed to read session wd files")?;
-
-            // write the session files on top of the last tree
-            for file_path in &session_wd_files {
-                let abs_path = gb_repository.session_wd_path().join(file_path);
-                let metadata = abs_path.metadata().with_context(|| {
-                    format!("failed to get metadata for {}", abs_path.display())
-                })?;
-                let modify_time = FileTime::from_last_modification_time(&metadata);
-                let create_time = FileTime::from_creation_time(&metadata).unwrap_or(modify_time);
-
-                let file_content = match session_wd_reader
-                    .read(file_path)
-                    .context("failed to read file")
-                {
-                    Result::Ok(reader::Content::UTF8(content)) => content,
-                    Result::Ok(reader::Content::Large) => {
-                        tracing::error!(
-                            project_id = %gb_repository.project.id,
-                            path = %abs_path.display(),
-                            "large file in session working directory"
-                        );
-                        continue;
-                    }
-                    Result::Ok(reader::Content::Binary) => {
-                        tracing::error!(
-                            project_id = %gb_repository.project.id,
-                            path = %abs_path.display(),
-                            "binary file in session working directory"
-                        );
-                        continue;
-                    }
-                    Err(error) => {
-                        tracing::error!(
-                            project_id = %gb_repository.project.id,
-                            path = %abs_path.display(),
-                            ?error,
-                            "failed to read file"
-                        );
-                        continue;
-                    }
-                };
-
-                index
-                    .add(&git::IndexEntry {
-                        ctime: create_time,
-                        mtime: modify_time,
-                        dev: metadata.dev().try_into()?,
-                        ino: metadata.ino().try_into()?,
-                        mode: 33188,
-                        uid: metadata.uid(),
-                        gid: metadata.gid(),
-                        file_size: metadata.len().try_into().unwrap(),
-                        flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
-                        flags_extended: 0, // no extended flags
-                        path: file_path.display().to_string().into(),
-                        id: gb_repository.git_repository.blob(file_content.as_bytes())?,
-                    })
-                    .with_context(|| {
-                        format!("failed to add index entry for {}", file_path.display())
-                    })?;
-            }
-
-            // remove deleted files from the last tree
-            wd_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
-                if let Some(name) = &entry.name() {
-                    let rel_path = path::Path::new(root).join(name);
-                    let full_path = project_repository.path().join(&rel_path);
-                    if !full_path.exists() && index.remove_path(&rel_path).is_err() {
-                        return TreeWalkResult::Abort;
-                    }
-                }
-                TreeWalkResult::Ok
-            })?;
-
-            let wd_tree_oid = index
-                .write_tree_to(&gb_repository.git_repository)
-                .context("failed to write wd tree")?;
-            Ok(wd_tree_oid)
-        }
-        Err(git::Error::NotFound(_)) => build_wd_tree_from_repo(gb_repository, project_repository)
-            .context("failed to build wd index"),
-        Err(e) => Err(e.into()),
-    }
-}
-
 // build wd index from the working directory files new session wd files
 // this is important because we want to make sure session files are in sync with session deltas
-fn build_wd_tree_from_repo(
+fn build_wd_tree(
     gb_repository: &Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<git::Oid> {
