@@ -1,5 +1,12 @@
 use std::sync::Arc;
 
+use governor::{
+    clock::QuantaClock,
+    state::{InMemoryState, NotKeyed},
+    Quota, RateLimiter,
+};
+use nonzero_ext::nonzero;
+use once_cell::sync::OnceCell;
 use sentry::ClientInitGuard;
 use sentry_tracing::SentryLayer;
 use tauri::PackageInfo;
@@ -7,6 +14,9 @@ use tracing::Subscriber;
 use tracing_subscriber::registry::LookupSpan;
 
 use crate::users;
+
+static SENTRY_QUOTA: Quota = Quota::per_second(nonzero!(1_u32)); // 1 per second at most.
+static SENTRY_LIMIT: OnceCell<RateLimiter<NotKeyed, InMemoryState, QuantaClock>> = OnceCell::new();
 
 /// Should be called once on application startup, and the returned guard should be kept alive for
 /// the lifetime of the application.
@@ -19,9 +29,8 @@ pub fn init(package_info: &PackageInfo) -> ClientInitGuard {
             _ => "unknown",
         }.into()),
         release: Some(package_info.version.to_string().into()),
-        before_send: Some(Arc::new(|event| {
-            Some(event)
-        })),
+        before_send: Some({
+            Arc::new(|event| SENTRY_LIMIT.get_or_init(|| RateLimiter::direct(SENTRY_QUOTA)).check().is_ok().then_some(event))}),
         attach_stacktrace: true,
         default_integrations: true,
         ..Default::default()
