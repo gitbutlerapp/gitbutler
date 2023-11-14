@@ -35,6 +35,8 @@ pub enum ListError {
     #[error(transparent)]
     ProjectsError(#[from] projects::GetError),
     #[error(transparent)]
+    ProjectRepositoryError(#[from] project_repository::OpenError),
+    #[error(transparent)]
     UsersError(#[from] users::GetError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
@@ -51,8 +53,7 @@ impl Controller {
             .list_by_project_id(project_id, earliest_timestamp_ms)?;
 
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)
-            .context("failed to open project repository")?;
+        let project_repository = project_repository::Repository::open(&project)?;
         let user = self.users.get_user()?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,

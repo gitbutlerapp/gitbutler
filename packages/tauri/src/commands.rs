@@ -169,8 +169,7 @@ pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Resul
 
     let project = projects.get(&id).context("failed to get project")?;
     let user = users.get_user()?;
-    let project_repository =
-        project_repository::Repository::try_from(&project).context("failed to open repository")?;
+    let project_repository = project_repository::Repository::open(&project)?;
     let gb_repo =
         gb_repository::Repository::open(&local_data_dir, &project_repository, user.as_ref())
             .context("failed to open repository")?;
