@@ -2271,10 +2271,6 @@ pub fn amend(
         .find(|(b, _)| b.id == *branch_id)
         .context("branch not found")?;
 
-    if !target_branch.ownership.contains(target_ownership) {
-        bail!("ownership not found");
-    }
-
     if project_repository
         .l(
             target_branch.head,
@@ -2323,6 +2319,10 @@ pub fn amend(
             }
         })
         .collect::<HashMap<_, _>>();
+
+    if diffs_to_amend.is_empty() {
+        bail!("ownership not found");
+    }
 
     let new_tree_oid =
         write_tree_onto_commit(project_repository, target_branch.head, &diffs_to_amend)?;
