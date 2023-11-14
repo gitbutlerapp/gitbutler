@@ -1,18 +1,13 @@
-use std::{
-    collections::{HashMap, HashSet},
-    time,
-};
-
 use anyhow::{Context, Result};
 use serde::Serialize;
 
 use crate::{
     gb_repository, git,
     project_repository::{self, LogUntil},
-    reader, sessions,
+    sessions,
 };
 
-use super::{branch, get_default_target, iterator::BranchIterator as Iterator, Author};
+use super::{get_default_target, Author};
 
 // this struct is a mapping to the view `RemoteBranch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
