@@ -7,6 +7,9 @@ for the list of software required to build / develope the app.
 
 ### Setup
 
+
+// test
+
 Then, make sure to install app dependencies:
 
 ```bash
@@ -16,6 +19,7 @@ $ pnpm install
 ### Run the app
 
 Now you should be able to run the app in development mode:
+//more
 
 ```bash
 $ pnpm tauri dev
@@ -43,6 +47,7 @@ $ cargo clippy   # see linting errors
 $ cargo fmt      # format code
 ```
 
+// three
 ## Debug
 
 ### Logs
