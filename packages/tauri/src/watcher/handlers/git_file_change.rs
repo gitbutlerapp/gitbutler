@@ -41,7 +41,7 @@ impl Handler {
             .get(project_id)
             .context("failed to get project")?;
 
-        let project_repository = project_repository::Repository::try_from(&project)
+        let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository for project")?;
 
         match path.as_ref().to_str().unwrap() {

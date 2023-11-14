@@ -13,6 +13,7 @@ impl From<ListError> for Error {
         match value {
             ListError::UsersError(error) => Error::from(error),
             ListError::ProjectsError(error) => Error::from(error),
+            ListError::ProjectRepositoryError(error) => Error::from(error),
             ListError::Other(error) => {
                 tracing::error!(?error);
                 Error::Unknown

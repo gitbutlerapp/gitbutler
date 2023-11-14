@@ -40,30 +40,19 @@ impl From<OpenError> for crate::error::Error {
     }
 }
 
-impl TryFrom<projects::Project> for Repository {
-    type Error = OpenError;
-
-    fn try_from(project: projects::Project) -> Result<Self, Self::Error> {
-        let git_repository = git::Repository::open(&project.path).map_err(|error| match error {
-            git::Error::NotFound(_) => OpenError::NotFound(project.path.clone()),
-            other => OpenError::Other(other.into()),
-        })?;
-        Ok(Self {
-            git_repository,
-            project,
-        })
-    }
-}
-
-impl TryFrom<&projects::Project> for Repository {
-    type Error = OpenError;
-
-    fn try_from(project: &projects::Project) -> Result<Self, Self::Error> {
-        Self::try_from(project.clone())
-    }
-}
-
 impl Repository {
+    pub fn open(project: &projects::Project) -> Result<Self, OpenError> {
+        git::Repository::open(&project.path)
+            .map_err(|error| match error {
+                git::Error::NotFound(_) => OpenError::NotFound(project.path.clone()),
+                other => OpenError::Other(other.into()),
+            })
+            .map(|git_repository| Self {
+                git_repository,
+                project: project.clone(),
+            })
+    }
+
     pub fn path(&self) -> &path::Path {
         path::Path::new(&self.project.path)
     }

@@ -45,7 +45,7 @@ impl Handler {
         let user = self.users.get_user()?;
 
         let project = self.projects.get(project_id)?;
-        let project_repository = match project_repository::Repository::try_from(&project) {
+        let project_repository = match project_repository::Repository::open(&project) {
             Ok(project_repository) => Ok(project_repository),
             Err(project_repository::OpenError::NotFound(_)) => return Ok(vec![]),
             Err(error) => Err(error),

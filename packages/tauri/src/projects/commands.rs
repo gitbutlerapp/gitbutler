@@ -48,6 +48,7 @@ impl From<controller::AddError> for Error {
                 code: Code::Projects,
                 message: "Project already exists".to_string(),
             },
+            controller::AddError::OpenProjectRepository(error) => error.into(),
             controller::AddError::NotADirectory => Error::UserError {
                 code: Code::Projects,
                 message: "Not a directory".to_string(),

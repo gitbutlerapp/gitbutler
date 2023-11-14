@@ -68,8 +68,8 @@ impl HandlerInner {
     pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         let user = self.users.get_user()?;
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)
-            .context("failed to open repository")?;
+        let project_repository =
+            project_repository::Repository::open(&project).context("failed to open repository")?;
         let gb_repo = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,

@@ -13,6 +13,7 @@ use super::{
 impl From<UpsertError> for Error {
     fn from(value: UpsertError) -> Self {
         match value {
+            UpsertError::OpenProjectRepository(error) => Error::from(error),
             UpsertError::GetUser(error) => Error::from(error),
             UpsertError::GetProject(error) => Error::from(error),
             UpsertError::Other(error) => {

@@ -77,8 +77,8 @@ impl HandlerInner {
             .context("failed to get project")?;
 
         let user = self.users.get_user()?;
-        let project_repository = project_repository::Repository::try_from(&project)
-            .context("failed to open repository")?;
+        let project_repository =
+            project_repository::Repository::open(&project).context("failed to open repository")?;
 
         if project_repository.project().is_sync_enabled()
             && project_repository.project().has_code_url()

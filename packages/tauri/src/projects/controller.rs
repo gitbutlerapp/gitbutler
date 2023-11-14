@@ -77,8 +77,7 @@ impl Controller {
 
         // create all required directories to avoid racing later
         let user = self.users.get_user()?;
-        let project_repository = project_repository::Repository::try_from(&project)
-            .context("failed to open repository")?;
+        let project_repository = project_repository::Repository::open(&project)?;
         gb_repository::Repository::open(&self.local_data_dir, &project_repository, user.as_ref())
             .context("failed to open repository")?;
 
@@ -218,6 +217,8 @@ pub enum AddError {
     AlreadyExists,
     #[error(transparent)]
     User(#[from] users::GetError),
+    #[error(transparent)]
+    OpenProjectRepository(#[from] project_repository::OpenError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

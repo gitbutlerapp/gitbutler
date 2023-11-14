@@ -78,8 +78,8 @@ impl HandlerInner {
             anyhow::bail!("sync disabled");
         }
 
-        let project_repository = project_repository::Repository::try_from(&project)
-            .context("failed to open repository")?;
+        let project_repository =
+            project_repository::Repository::open(&project).context("failed to open repository")?;
         let gb_repo = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,

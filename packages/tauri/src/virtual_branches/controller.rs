@@ -131,7 +131,7 @@ impl Controller {
         branch_name: &git::BranchName,
     ) -> Result<bool, Error> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
+        let project_repository = project_repository::Repository::open(&project)?;
         let user = self.users.get_user().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
@@ -149,7 +149,7 @@ impl Controller {
         branch_id: &BranchId,
     ) -> Result<bool, Error> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
+        let project_repository = project_repository::Repository::open(&project)?;
         let user = self.users.get_user().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
@@ -241,7 +241,7 @@ impl Controller {
         project_id: &ProjectId,
     ) -> Result<Option<super::BaseBranch>, Error> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
+        let project_repository = project_repository::Repository::open(&project)?;
         let user = self.users.get_user().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
@@ -260,7 +260,7 @@ impl Controller {
         commit_oid: git::Oid,
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
+        let project_repository = project_repository::Repository::open(&project)?;
         let commit = project_repository
             .git_repository
             .find_commit(commit_oid)
@@ -278,7 +278,7 @@ impl Controller {
 
         let user = self.users.get_user().context("failed to get user")?;
 
-        let project_repository = project_repository::Repository::try_from(&project)?;
+        let project_repository = project_repository::Repository::open(&project)?;
 
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
@@ -514,7 +514,7 @@ impl Controller {
         ) -> Result<T, Error>,
     ) -> Result<T, Error> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
+        let project_repository = project_repository::Repository::open(&project)?;
         let user = self.users.get_user().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
@@ -574,7 +574,7 @@ impl Controller {
         project_id: &ProjectId,
     ) -> Result<Vec<super::RemoteBranch>, Error> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
+        let project_repository = project_repository::Repository::open(&project)?;
         let user = self.users.get_user().context("failed to get user")?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,

@@ -19,7 +19,7 @@ mod init {
         std::fs::write(project.path.join("file"), "content").unwrap();
         std::fs::hard_link(project.path.join("file"), project.path.join("link")).unwrap();
 
-        let project_repository = project_repository::Repository::try_from(project).unwrap();
+        let project_repository = project_repository::Repository::open(&project).unwrap();
 
         gb_repository::Repository::open(&data_dir, &project_repository, None).unwrap();
     }
@@ -40,7 +40,7 @@ mod init {
         std::os::unix::fs::symlink(project.path.join("dir"), project.path.join("dir_link"))
             .unwrap();
 
-        let project_repository = project_repository::Repository::try_from(project).unwrap();
+        let project_repository = project_repository::Repository::open(&project).unwrap();
 
         gb_repository::Repository::open(&data_dir, &project_repository, None).unwrap();
     }
@@ -66,7 +66,7 @@ mod init {
         )
         .unwrap();
 
-        let project_repository = project_repository::Repository::try_from(project).unwrap();
+        let project_repository = project_repository::Repository::open(&project).unwrap();
 
         gb_repository::Repository::open(&data_dir, &project_repository, None).unwrap();
     }
@@ -86,7 +86,7 @@ mod flush {
             .add(test_project.path())
             .expect("failed to add project");
 
-        let project_repository = project_repository::Repository::try_from(&project).unwrap();
+        let project_repository = project_repository::Repository::open(&project).unwrap();
 
         let gb_repo =
             gb_repository::Repository::open(&data_dir, &project_repository, None).unwrap();
@@ -108,7 +108,7 @@ mod flush {
             .add(test_project.path())
             .expect("failed to add project");
 
-        let project_repository = project_repository::Repository::try_from(&project).unwrap();
+        let project_repository = project_repository::Repository::open(&project).unwrap();
 
         let gb_repo =
             gb_repository::Repository::open(&data_dir, &project_repository, None).unwrap();

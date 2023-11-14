@@ -76,46 +76,6 @@ impl App {
         Ok(())
     }
 
-    pub fn list_sessions(
-        &self,
-        project_id: &ProjectId,
-        earliest_timestamp_ms: Option<u128>,
-    ) -> Result<Vec<sessions::Session>> {
-        let sessions = self
-            .sessions_database
-            .list_by_project_id(project_id, earliest_timestamp_ms)?;
-
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
-        let user = self.users.get_user().context("failed to get user")?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )?;
-
-        // this is a hack to account for a case when we have a session created, but fs was never
-        // touched, so the wathcer never picked up the session
-        let current_session = gb_repository.get_current_session()?;
-        let have_to_index = matches!(
-            (current_session.as_ref(), sessions.first()),
-            (Some(_), None)
-        );
-        if !have_to_index {
-            return Ok(sessions);
-        }
-
-        let sessions_iter = gb_repository.get_sessions_iterator()?;
-        let mut sessions = sessions_iter.collect::<Result<Vec<_>, _>>()?;
-        self.sessions_database
-            .insert(project_id, &sessions.iter().collect::<Vec<_>>())?;
-        if let Some(session) = current_session {
-            self.sessions_database.insert(project_id, &[&session])?;
-            sessions.insert(0, session);
-        }
-        Ok(sessions)
-    }
-
     pub fn list_session_files(
         &self,
         project_id: &ProjectId,
@@ -129,7 +89,7 @@ impl App {
             .context("session not found")?;
         let user = self.users.get_user().context("failed to get user")?;
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
+        let project_repository = project_repository::Repository::open(&project)?;
         let gb_repo = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -146,7 +106,7 @@ impl App {
 
     pub fn mark_resolved(&self, project_id: &ProjectId, path: &str) -> Result<(), Error> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
+        let project_repository = project_repository::Repository::open(&project)?;
         // mark file as resolved
         conflicts::resolve(&project_repository, path)?;
         Ok(())
@@ -154,7 +114,7 @@ impl App {
 
     pub fn fetch_from_target(&self, project_id: &ProjectId) -> Result<(), Error> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
+        let project_repository = project_repository::Repository::open(&project)?;
         let user = self.users.get_user().context("failed to get user")?;
         let gb_repo = gb_repository::Repository::open(
             &self.local_data_dir,
@@ -190,7 +150,7 @@ impl App {
         context_lines: u32,
     ) -> Result<HashMap<path::PathBuf, String>, Error> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
+        let project_repository = project_repository::Repository::open(&project)?;
 
         let diff = diff::workdir(
             &project_repository.git_repository,
@@ -226,7 +186,7 @@ impl App {
         project_id: &ProjectId,
     ) -> Result<Vec<git::RemoteBranchName>, Error> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
+        let project_repository = project_repository::Repository::open(&project)?;
         project_repository
             .git_remote_branches()
             .map_err(Error::Other)
@@ -234,7 +194,7 @@ impl App {
 
     pub fn git_head(&self, project_id: &ProjectId) -> Result<String, Error> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)?;
+        let project_repository = project_repository::Repository::open(&project)?;
         let head = project_repository
             .get_head()
             .context("failed to get repository head")?;

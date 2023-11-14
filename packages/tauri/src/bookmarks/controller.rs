@@ -42,6 +42,8 @@ pub enum UpsertError {
     #[error(transparent)]
     GetUser(#[from] users::GetError),
     #[error(transparent)]
+    OpenProjectRepository(#[from] project_repository::OpenError),
+    #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
 
@@ -54,8 +56,7 @@ pub enum ListError {
 impl Controller {
     pub fn upsert(&self, bookmark: &Bookmark) -> Result<Option<Bookmark>, UpsertError> {
         let project = self.projects.get(&bookmark.project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)
-            .context("failed to open project repository")?;
+        let project_repository = project_repository::Repository::open(&project)?;
         let user = self.users.get_user()?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
