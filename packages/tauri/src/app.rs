@@ -54,8 +54,8 @@ impl TryFrom<&AppHandle> for App {
 }
 
 impl App {
-    pub async fn init_project(&self, project: &projects::Project) -> Result<()> {
-        self.watchers.watch(project).await.context(format!(
+    pub fn init_project(&self, project: &projects::Project) -> Result<()> {
+        self.watchers.watch(project).context(format!(
             "failed to start watcher for project {}",
             &project.id
         ))?;
@@ -63,13 +63,13 @@ impl App {
         Ok(())
     }
 
-    pub async fn init(&self) -> Result<()> {
+    pub fn init(&self) -> Result<()> {
         for project in self
             .projects
             .list()
             .with_context(|| "failed to list projects")?
         {
-            if let Err(error) = self.init_project(&project).await {
+            if let Err(error) = self.init_project(&project) {
                 tracing::error!(%project.id, ?error, "failed to init project");
             }
         }

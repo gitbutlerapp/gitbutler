@@ -1,7 +1,6 @@
 #![forbid(unsafe_code)]
 
 use anyhow::Context;
-use futures::executor::block_on;
 use tauri::{generate_context, Manager};
 
 use gblib::{
@@ -150,7 +149,7 @@ fn main() {
                     let app: app::App = app::App::try_from(&tauri_app.app_handle())
                         .expect("failed to initialize app");
 
-                    block_on(app.init()).context("failed to init app")?;
+                    app.init().context("failed to init app")?;
 
                     app_handle.manage(app);
 

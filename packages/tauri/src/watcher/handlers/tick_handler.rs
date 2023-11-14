@@ -45,8 +45,13 @@ impl Handler {
         let user = self.users.get_user()?;
 
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::try_from(&project)
-            .context("failed to open repository")?;
+        let project_repository = match project_repository::Repository::try_from(&project) {
+            Ok(project_repository) => Ok(project_repository),
+            Err(project_repository::OpenError::NotFound(_)) => return Ok(vec![]),
+            Err(error) => Err(error),
+        }
+        .context("failed to open project repository")?;
+
         let gb_repo = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,

@@ -1,6 +1,6 @@
 use std::time;
 
-use anyhow::Result;
+use anyhow::Context;
 use tokio::{
     sync::mpsc::{channel, Receiver},
     task,
@@ -12,6 +12,12 @@ use crate::{projects::ProjectId, watcher::events};
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
     cancellation_token: CancellationToken,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RunError {
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
 }
 
 impl Dispatcher {
@@ -29,7 +35,7 @@ impl Dispatcher {
         self,
         project_id: &ProjectId,
         interval: time::Duration,
-    ) -> Result<Receiver<events::Event>> {
+    ) -> Result<Receiver<events::Event>, RunError> {
         let (tx, rx) = channel(1);
         let mut ticker = tokio::time::interval(interval);
 
@@ -50,7 +56,8 @@ impl Dispatcher {
                     }
                     tracing::debug!(%project_id, "ticker stopped");
                 }
-            })?;
+            })
+            .context("failed to spawn ticker task")?;
 
         Ok(rx)
     }

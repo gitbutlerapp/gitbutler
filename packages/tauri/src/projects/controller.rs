@@ -87,7 +87,7 @@ impl Controller {
             .context("failed to add project to storage")?;
 
         if let Some(watchers) = &self.watchers {
-            block_on(watchers.watch(&project))?;
+            watchers.watch(&project)?;
         }
 
         Ok(project)
