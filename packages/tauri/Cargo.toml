@@ -35,6 +35,7 @@ git2 = { version = "0.18.1", features = ["vendored-openssl", "vendored-libgit2"]
 itertools = "0.11"
 md5 = "0.7.0"
 notify = { version = "6.0.1" }
+notify-debouncer-full = "0.3.1"
 num_cpus = "1.16.0"
 r2d2 = "0.8.10"
 r2d2_sqlite = "0.22.0"
