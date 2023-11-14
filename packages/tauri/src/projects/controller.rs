@@ -4,7 +4,7 @@ use anyhow::Context;
 use futures::executor::block_on;
 use tauri::{AppHandle, Manager};
 
-use crate::{paths::DataDir, watcher};
+use crate::{gb_repository, paths::DataDir, project_repository, users, watcher};
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
 
@@ -12,6 +12,7 @@ use super::{storage, storage::UpdateRequest, Project, ProjectId};
 pub struct Controller {
     local_data_dir: DataDir,
     projects_storage: storage::Storage,
+    users: users::Controller,
     watchers: Option<watcher::Watchers>,
 }
 
@@ -22,6 +23,7 @@ impl TryFrom<&AppHandle> for Controller {
         Ok(Self {
             local_data_dir: DataDir::try_from(value)?,
             projects_storage: storage::Storage::from(value),
+            users: users::Controller::from(value),
             watchers: Some(value.state::<watcher::Watchers>().inner().clone()),
         })
     }
@@ -32,6 +34,7 @@ impl From<&DataDir> for Controller {
         Self {
             local_data_dir: value.clone(),
             projects_storage: storage::Storage::from(value),
+            users: users::Controller::from(value),
             watchers: None,
         }
     }
@@ -71,6 +74,13 @@ impl Controller {
             api: None,
             ..Default::default()
         };
+
+        // create all required directories to avoid racing later
+        let user = self.users.get_user()?;
+        let project_repository = project_repository::Repository::try_from(&project)
+            .context("failed to open repository")?;
+        gb_repository::Repository::open(&self.local_data_dir, &project_repository, user.as_ref())
+            .context("failed to open repository")?;
 
         self.projects_storage
             .add(&project)
@@ -206,6 +216,8 @@ pub enum AddError {
     PathNotFound,
     #[error("project already exists")]
     AlreadyExists,
+    #[error(transparent)]
+    User(#[from] users::GetError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

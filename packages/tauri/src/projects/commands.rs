@@ -56,6 +56,7 @@ impl From<controller::AddError> for Error {
                 code: Code::Projects,
                 message: "Path not found".to_string(),
             },
+            controller::AddError::User(error) => error.into(),
             controller::AddError::Other(error) => {
                 tracing::error!(?error, "failed to add project");
                 Error::Unknown

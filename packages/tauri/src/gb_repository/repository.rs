@@ -55,6 +55,7 @@ impl Repository {
 
         let path = projects_dir.join(project.id.to_string());
         let lock_path = projects_dir.join(format!("{}.lock", project.id));
+
         if path.exists() {
             let git_repository = git::Repository::open(path.clone())
                 .with_context(|| format!("{}: failed to open git repository", path.display()))?;
@@ -62,7 +63,7 @@ impl Repository {
             Result::Ok(Self {
                 git_repository,
                 project: project.clone(),
-                lock_file: File::create(lock_path).context("failed to create lock file")?,
+                lock_file: File::create(&lock_path).context("failed to create lock file")?,
             })
         } else {
             let git_repository = git::Repository::init_opts(
@@ -80,8 +81,8 @@ impl Repository {
 
             let gb_repository = Self {
                 git_repository,
-                lock_file: File::create(lock_path).context("failed to create lock file")?,
                 project: project.clone(),
+                lock_file: File::create(&lock_path).context("failed to create lock file")?,
             };
 
             let _lock = gb_repository.lock();
