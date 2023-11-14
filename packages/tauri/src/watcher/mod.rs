@@ -188,7 +188,26 @@ impl WatcherInner {
             .send(Event::IndexAll(*project_id))
             .context("failed to send event")?;
 
-        let handle_event = |event: &Event| -> Result<()> {
+        let mut events_count = 0;
+        // get time in milliseconds
+        let mut start_time = time::SystemTime::now()
+            .duration_since(time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let mut handle_event = |event: &Event| -> Result<()> {
+            events_count += 1;
+            let now = time::SystemTime::now()
+                .duration_since(time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis();
+            let duration_ms = now - start_time;
+            if duration_ms > 1000 {
+                let events_per_sec = events_count as f64 / duration_ms as f64 * 1000 as f64;
+                println!("~~~~~~~~~~~~~~~~ events per second: {}", events_per_sec);
+                events_count = 0;
+                start_time = now;
+            }
+
             task::Builder::new()
                 .name(&format!("handle {}", event))
                 .spawn_blocking({
