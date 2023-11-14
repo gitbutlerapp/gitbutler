@@ -4,7 +4,7 @@ use tauri::{AppHandle, Manager};
 use tracing::{metadata::LevelFilter, subscriber::set_global_default};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, Layer};
 
-use crate::paths::LogsDir;
+use crate::{paths::LogsDir, sentry};
 
 pub fn init(app_handle: &AppHandle) {
     let logs_dir = LogsDir::try_from(app_handle)
@@ -45,7 +45,7 @@ pub fn init(app_handle: &AppHandle) {
                 .with_span_events(FmtSpan::CLOSE)
                 .with_filter(log_level_filter),
         )
-        .with(sentry_tracing::layer())
+        .with(sentry::tracing_layer())
         .with(
             // subscriber that writes spans to a file
             tracing_subscriber::fmt::layer()

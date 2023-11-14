@@ -1,7 +1,7 @@
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
-use crate::{assets, error::Error};
+use crate::{assets, error::Error, sentry};
 
 use super::{
     controller::{self, Controller, GetError},
@@ -50,7 +50,7 @@ pub async fn set_user(handle: AppHandle, user: User) -> Result<User, Error> {
 
     app.set_user(&user)?;
 
-    sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())));
+    sentry::configure_scope(Some(&user));
 
     Ok(proxy.proxy_user(user).await)
 }
@@ -73,7 +73,7 @@ pub async fn delete_user(handle: AppHandle) -> Result<(), Error> {
 
     app.delete_user()?;
 
-    sentry::configure_scope(|scope| scope.set_user(None));
+    sentry::configure_scope(None);
 
     Ok(())
 }
