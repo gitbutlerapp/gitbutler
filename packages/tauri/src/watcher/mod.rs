@@ -37,26 +37,34 @@ impl TryFrom<&AppHandle> for Watchers {
 }
 
 impl Watchers {
-    pub async fn watch(&self, project: &projects::Project) -> Result<()> {
+    pub fn watch(&self, project: &projects::Project) -> Result<()> {
         let watcher = Watcher::try_from(&self.app_handle)?;
 
-        let c_watcher = watcher.clone();
         let project_id = project.id;
         let project_path = project.path.clone();
 
         task::Builder::new()
             .name(&format!("{} watcher", project_id))
-            .spawn(async move {
-                if let Err(error) = c_watcher.run(&project_path, &project_id).await {
-                    tracing::error!(?error, %project_id, "watcher error");
+            .spawn({
+                let watchers = Arc::clone(&self.watchers);
+                let watcher = watcher.clone();
+                async move {
+                    watchers.lock().await.insert(project_id, watcher.clone());
+                    match watcher.run(&project_path, &project_id).await {
+                        Ok(()) => {
+                            tracing::debug!(%project_id, "watcher stopped");
+                        },
+                        Err(RunError::PathNotFound(path)) => {
+                            tracing::warn!(%project_id, path = %path.display(), "watcher stopped: project path not found");
+                            watchers.lock().await.remove(&project_id);
+                        }
+                        Err(error) => {
+                            tracing::error!(?error, %project_id, "watcher error");
+                            watchers.lock().await.remove(&project_id);
+                        }
+                    }
                 }
-                tracing::debug!(%project_id, "watcher stopped");
             })?;
-
-        self.watchers
-            .lock()
-            .await
-            .insert(project.id, watcher.clone());
 
         Ok(())
     }
@@ -96,6 +104,14 @@ impl TryFrom<&AppHandle> for Watcher {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum RunError {
+    #[error("{0} not found")]
+    PathNotFound(path::PathBuf),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
 impl Watcher {
     pub fn stop(&self) {
         self.inner.stop();
@@ -105,7 +121,11 @@ impl Watcher {
         self.inner.post(event).await
     }
 
-    pub async fn run<P: AsRef<path::Path>>(&self, path: P, project_id: &ProjectId) -> Result<()> {
+    pub async fn run<P: AsRef<path::Path>>(
+        &self,
+        path: P,
+        project_id: &ProjectId,
+    ) -> Result<(), RunError> {
         self.inner.run(path, project_id).await
     }
 }
@@ -149,14 +169,20 @@ impl WatcherInner {
         }
     }
 
-    pub async fn run<P: AsRef<path::Path>>(&self, path: P, project_id: &ProjectId) -> Result<()> {
+    pub async fn run<P: AsRef<path::Path>>(
+        &self,
+        path: P,
+        project_id: &ProjectId,
+    ) -> Result<(), RunError> {
         let (proxy_tx, mut proxy_rx) = unbounded_channel();
         self.proxy_tx.lock().await.replace(proxy_tx.clone());
 
         let dispatcher = self.dispatcher.clone();
-        let mut dispatcher_rx = dispatcher
-            .run(project_id, path.as_ref())
-            .context("failed to run dispatcher")?;
+        let mut dispatcher_rx = match dispatcher.run(project_id, path.as_ref()) {
+            Ok(dispatcher_rx) => Ok(dispatcher_rx),
+            Err(dispatchers::RunError::PathNotFound(path)) => Err(RunError::PathNotFound(path)),
+            Err(error) => Err(error).context("failed to run dispatcher")?,
+        }?;
 
         proxy_tx
             .send(Event::IndexAll(*project_id))

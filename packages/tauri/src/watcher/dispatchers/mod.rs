@@ -22,6 +22,14 @@ pub struct Dispatcher {
     cancellation_token: CancellationToken,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum RunError {
+    #[error("{0} not found")]
+    PathNotFound(path::PathBuf),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
 impl Dispatcher {
     pub fn new() -> Self {
         Self {
@@ -40,21 +48,19 @@ impl Dispatcher {
         self,
         project_id: &ProjectId,
         path: P,
-    ) -> Result<Receiver<events::Event>> {
+    ) -> Result<Receiver<events::Event>, RunError> {
         let path = path.as_ref();
+
+        let mut file_change_rx = match self.file_change_dispatcher.run(project_id, path) {
+            Ok(file_change_rx) => Ok(file_change_rx),
+            Err(file_change::RunError::PathNotFound(path)) => Err(RunError::PathNotFound(path)),
+            Err(error) => Err(error).context("failed to run file change dispatcher")?,
+        }?;
 
         let mut tick_rx = self
             .tick_dispatcher
             .run(project_id, time::Duration::from_secs(10))
-            .context(format!("{}: failed to start tick dispatcher", project_id))?;
-
-        let mut file_change_rx =
-            self.file_change_dispatcher
-                .run(project_id, path)
-                .context(format!(
-                    "{}: failed to start file change dispatcher",
-                    project_id
-                ))?;
+            .context("failed to run tick dispatcher")?;
 
         let (tx, rx) = channel(1);
         let project_id = *project_id;
@@ -79,7 +85,8 @@ impl Dispatcher {
                     }
                 }
                 tracing::debug!(%project_id, "dispatcher stopped");
-            })?;
+            })
+            .context("failed to spawn combined dispatcher task")?;
 
         Ok(rx)
     }

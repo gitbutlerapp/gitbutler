@@ -20,6 +20,14 @@ pub struct Dispatcher {
     watcher: Arc<Mutex<Option<Debouncer<RecommendedWatcher, FileIdMap>>>>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum RunError {
+    #[error("{0} not found")]
+    PathNotFound(path::PathBuf),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
 impl Dispatcher {
     pub fn new() -> Self {
         Self {
@@ -31,16 +39,26 @@ impl Dispatcher {
         self.watcher.lock().unwrap().take();
     }
 
-    pub fn run(self, project_id: &ProjectId, path: &path::Path) -> Result<Receiver<events::Event>> {
+    pub fn run(
+        self,
+        project_id: &ProjectId,
+        path: &path::Path,
+    ) -> Result<Receiver<events::Event>, RunError> {
+        if !path.exists() {
+            return Err(RunError::PathNotFound(path.to_path_buf()));
+        }
+
         let repo = git::Repository::open(path)
             .with_context(|| format!("failed to open project repository: {}", path.display()))?;
 
         let (notify_tx, notify_rx) = std::sync::mpsc::channel();
-        let mut debouncer = new_debouncer(Duration::from_millis(100), None, notify_tx)?;
+        let mut debouncer = new_debouncer(Duration::from_millis(100), None, notify_tx)
+            .context("failed to create debouncer")?;
 
         debouncer
             .watcher()
-            .watch(path, notify::RecursiveMode::Recursive)?;
+            .watch(path, notify::RecursiveMode::Recursive)
+            .context("failed to start watcher")?;
         debouncer
             .cache()
             .add_root(path, notify::RecursiveMode::Recursive);
@@ -65,6 +83,7 @@ impl Dispatcher {
                                 let file_paths = events.into_iter().filter(|event| is_interesting_kind(event.kind)).flat_map(|event| event.paths.clone()).filter(|file| is_interesting_file(&repo, file));
                                 for file_path in file_paths {
                                     match file_path.strip_prefix(&path) {
+                                        Ok(relative_file_path) if relative_file_path.display().to_string().is_empty() => { /* noop */ }
                                         Ok(relative_file_path) => {
                                             let event = if relative_file_path.starts_with(".git") {
                                                 tracing::info!(
@@ -109,7 +128,7 @@ impl Dispatcher {
                     tracing::debug!(%project_id, "file watcher stopped");
                 }
 
-            })?;
+            }).context(format!("{}: failed to start file watcher thread", project_id))?;
 
         Ok(rx)
     }
