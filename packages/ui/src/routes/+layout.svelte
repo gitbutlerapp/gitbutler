@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../styles/main.postcss';
 
+	import { homeDir } from '@tauri-apps/api/path';
 	import { open } from '@tauri-apps/api/dialog';
 	import * as toasts from '$lib/utils/toasts';
 	import * as hotkeys from '$lib/utils/hotkeys';
@@ -33,8 +34,8 @@
 
 	onMount(() =>
 		unsubscribe(
-			events.on('openNewProjectModal', () =>
-				open({ directory: true, recursive: true })
+			events.on('openNewProjectModal', async () =>
+				open({ directory: true, recursive: true, defaultPath: await homeDir() })
 					.then((selectedPath) => {
 						if (selectedPath === null) return;
 						if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
