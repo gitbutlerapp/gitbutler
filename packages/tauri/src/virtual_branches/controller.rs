@@ -29,7 +29,7 @@ pub struct Controller {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("detached head")]
+    #[error(transparent)]
     GetProject(#[from] projects::GetError),
     #[error(transparent)]
     OpenProjectRepository(#[from] project_repository::OpenError),
