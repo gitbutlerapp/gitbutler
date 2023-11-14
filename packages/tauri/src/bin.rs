@@ -5,24 +5,13 @@ use tauri::{generate_context, Manager};
 
 use gblib::{
     analytics, app, assets, bookmarks, commands, database, deltas, github, keys, logs, projects,
-    sessions, storage, users, virtual_branches, watcher, zip,
+    sentry, sessions, storage, users, virtual_branches, watcher, zip,
 };
 
 fn main() {
     let tauri_context = generate_context!();
 
-    let _guard = sentry::init(("https://9d407634d26b4d30b6a42d57a136d255@o4504644069687296.ingest.sentry.io/4504649768108032", sentry::ClientOptions {
-        release: Some(tauri_context.package_info().version.to_string().into()),
-        environment: Some(match tauri_context.package_info().name.as_str() {
-            "GitButler" => "production",
-            "GitButler Nightly" => "nightly",
-            "GitButler Dev" => "development",
-            _ => "unknown",
-        }.into()),
-        attach_stacktrace: true,
-        default_integrations: true,
-        ..Default::default()
-    }));
+    let _guard = sentry::init(tauri_context.package_info());
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -141,9 +130,7 @@ fn main() {
                     app_handle.manage(keys_controller);
 
                     let users_controller = users::Controller::from(&app_handle);
-                    if let Some(user) = users_controller.get_user().context("failed to get user")? {
-                        sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())));
-                    }
+                    sentry::configure_scope(users_controller.get_user().context("failed to get user")?.as_ref());
                     app_handle.manage(users_controller);
 
                     let app: app::App = app::App::try_from(&tauri_app.app_handle())

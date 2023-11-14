@@ -19,17 +19,6 @@ pub struct User {
     pub github_username: Option<String>,
 }
 
-impl From<User> for sentry::User {
-    fn from(val: User) -> Self {
-        sentry::User {
-            id: Some(val.id.to_string()),
-            username: Some(val.name),
-            email: Some(val.email),
-            ..Default::default()
-        }
-    }
-}
-
 impl TryFrom<User> for git::Signature<'_> {
     type Error = git::Error;
 

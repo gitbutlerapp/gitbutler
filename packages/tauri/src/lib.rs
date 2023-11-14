@@ -22,6 +22,7 @@ pub mod paths;
 pub mod project_repository;
 pub mod projects;
 pub mod reader;
+pub mod sentry;
 pub mod sessions;
 pub mod storage;
 pub mod users;
