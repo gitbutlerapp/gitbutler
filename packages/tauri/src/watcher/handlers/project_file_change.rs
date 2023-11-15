@@ -108,7 +108,7 @@ impl Handler {
             if session.meta.branch != project_head.name().map(ToString::to_string) {
                 gb_repository
                     .flush_session(&project_repository, &session, user.as_ref())
-                    .context("failed to flush session")?;
+                    .context(format!("failed to flush session {}", session.id))?;
             }
         }
 

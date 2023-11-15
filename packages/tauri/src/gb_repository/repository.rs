@@ -395,7 +395,9 @@ impl Repository {
         }
 
         let current_session = current_session.unwrap();
-        let current_session = self.flush_session(project_repository, &current_session, user)?;
+        let current_session = self
+            .flush_session(project_repository, &current_session, user)
+            .context(format!("failed to flush session {}", current_session.id))?;
         Ok(Some(current_session))
     }
 
