@@ -20,6 +20,10 @@ pub struct Dispatcher {
     watcher: Arc<Mutex<Option<Debouncer<RecommendedWatcher, FileIdMap>>>>,
 }
 
+/// The timeout for debouncing file change events.
+/// This is used to prevent multiple events from being sent for a single file change.
+static DEBOUNCE_TIMEOUT: Duration = Duration::from_millis(10);
+
 #[derive(Debug, thiserror::Error)]
 pub enum RunError {
     #[error("{0} not found")]
@@ -52,7 +56,7 @@ impl Dispatcher {
             .with_context(|| format!("failed to open project repository: {}", path.display()))?;
 
         let (notify_tx, notify_rx) = std::sync::mpsc::channel();
-        let mut debouncer = new_debouncer(Duration::from_millis(100), None, notify_tx)
+        let mut debouncer = new_debouncer(DEBOUNCE_TIMEOUT, None, notify_tx)
             .context("failed to create debouncer")?;
 
         debouncer
