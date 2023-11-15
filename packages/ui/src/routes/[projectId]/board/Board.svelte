@@ -29,6 +29,8 @@
 	let priorPosition = 0;
 	let dropPosition = 0;
 
+	$: activeBranches = branches?.filter((b) => b.active) || [];
+
 	function handleEmpty() {
 		const emptyIndex = branches?.findIndex((item) => !item.files || item.files.length == 0);
 		if (emptyIndex && emptyIndex != -1) {
@@ -36,8 +38,6 @@
 		}
 		branches = branches;
 	}
-
-	$: activeBranches = branches?.filter((b) => b.active);
 </script>
 
 {#if branchesState.isLoading || baseBranchState.isLoading}
@@ -77,9 +77,9 @@
 			if (!branches) return;
 			e.preventDefault();
 			if (priorPosition != dropPosition) {
-				const el = branches.splice(priorPosition, 1);
-				branches.splice(dropPosition, 0, ...el);
-				branches.forEach((branch, i) => {
+				const el = activeBranches.splice(priorPosition, 1);
+				activeBranches.splice(dropPosition, 0, ...el);
+				activeBranches.forEach((branch, i) => {
 					if (branch.order !== i) {
 						branchController.updateBranchOrder(branch.id, i);
 					}
@@ -87,7 +87,7 @@
 			}
 		}}
 	>
-		{#each branches.filter((c) => c.active) as branch (branch.id)}
+		{#each activeBranches.sort((a, b) => a.order - b.order) as branch (branch.id)}
 			<div
 				class="h-full"
 				role="group"
