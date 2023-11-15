@@ -66,7 +66,7 @@ impl Handler {
 
         let session = gb_repo
             .flush_session(&project_repository, session, user.as_ref())
-            .context("failed to flush session")?;
+            .context(format!("failed to flush session {}", session.id))?;
 
         Ok(vec![
             events::Event::Session(*project_id, session),
