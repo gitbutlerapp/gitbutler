@@ -63,7 +63,7 @@ pub async fn commit_virtual_branch(
         .create_commit(&project_id, &branch_id, message, ownership.as_ref())
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
@@ -103,7 +103,7 @@ pub async fn create_virtual_branch(
         .create_virtual_branch(&project_id, &branch)
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
@@ -123,7 +123,7 @@ pub async fn create_virtual_branch_from_branch(
         .create_virtual_branch_from_branch(&project_id, &branch)
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
@@ -147,7 +147,7 @@ pub async fn merge_virtual_branch_upstream(
         .merge_virtual_branch_upstream(&project_id, &branch_id)
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
@@ -194,7 +194,7 @@ pub async fn set_base_branch(
         .state::<assets::Proxy>()
         .proxy_base_branch(base_branch)
         .await;
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     Ok(base_branch)
 }
 
@@ -210,7 +210,7 @@ pub async fn update_base_branch(handle: AppHandle, project_id: &str) -> Result<(
         .update_base_branch(&project_id)
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
@@ -230,7 +230,7 @@ pub async fn update_virtual_branch(
         .update_virtual_branch(&project_id, branch)
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
@@ -254,7 +254,7 @@ pub async fn delete_virtual_branch(
         .delete_virtual_branch(&project_id, &branch_id)
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
@@ -274,7 +274,7 @@ pub async fn apply_branch(handle: AppHandle, project_id: &str, branch: &str) -> 
         .apply_virtual_branch(&project_id, &branch_id)
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
@@ -298,7 +298,7 @@ pub async fn unapply_branch(
         .unapply_virtual_branch(&project_id, &branch_id)
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
@@ -322,7 +322,7 @@ pub async fn unapply_ownership(
         .unapply_ownership(&project_id, &ownership)
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
@@ -347,7 +347,7 @@ pub async fn push_virtual_branch(
         .push_virtual_branch(&project_id, &branch_id, with_force)
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
@@ -439,7 +439,7 @@ pub async fn reset_virtual_branch(
         .reset_virtual_branch(&project_id, &branch_id, target_commit_oid)
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
@@ -468,7 +468,7 @@ pub async fn cherry_pick_onto_virtual_branch(
         .cherry_pick(&project_id, &branch_id, target_commit_oid)
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
@@ -497,7 +497,7 @@ pub async fn amend_virtual_branch(
         .amend(&project_id, &branch_id, &ownership)
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
@@ -546,11 +546,11 @@ pub async fn squash_branch_commit(
         .squash(&project_id, &branch_id, target_commit_oid)
         .await
         .map_err(Into::into);
-    emit_vbranches(handle, &project_id);
+    emit_vbranches(&handle, &project_id);
     result
 }
 
-fn emit_vbranches(handle: AppHandle, project_id: &projects::ProjectId) {
+fn emit_vbranches(handle: &AppHandle, project_id: &projects::ProjectId) {
     match futures::executor::block_on(async {
         handle
             .state::<watcher::Watchers>()
