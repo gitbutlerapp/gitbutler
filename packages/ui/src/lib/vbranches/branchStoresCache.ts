@@ -30,10 +30,7 @@ export class VirtualBranchService {
 		this.branches$ = merge(deltas$, sessionId$, head$, baseBranch$).pipe(
 			debounceTime(100), // TODO: Remove this when we subscribe to vbranches
 			combineLatestWith(this.reload$),
-			switchMap(() => {
-				console.log('reloading branches');
-				return listVirtualBranches({ projectId });
-			}),
+			switchMap(() => listVirtualBranches({ projectId })),
 			catchError((e) => {
 				this.branchesError$.next(e);
 				return of([]);
@@ -47,26 +44,14 @@ export class VirtualBranchService {
 							subscriber.next(branches)
 						);
 					})
-			)
+			),
+			shareReplay(1)
 		);
 	}
 
 	reload() {
-		console.log('force relaod');
 		this.reload$.next();
 	}
-}
-
-export function getRemoteBranchesObs(
-	projectId: string,
-	fetches$: Observable<void>,
-	head$: Observable<any>,
-	baseBranch$: Observable<any>
-) {
-	return merge(fetches$, head$, baseBranch$).pipe(
-		switchMap(() => getRemoteBranchesData({ projectId })),
-		shareReplay(1)
-	);
 }
 
 export class BaseBranchService {
@@ -76,6 +61,7 @@ export class BaseBranchService {
 
 	constructor(projectId: string, fetches$: Observable<void>, head$: Observable<string>) {
 		this.base$ = merge(fetches$, head$, this.reload$).pipe(
+			debounceTime(100),
 			switchMap(() => getBaseBranch({ projectId })),
 			catchError((e) => {
 				this.error$.next(e);
