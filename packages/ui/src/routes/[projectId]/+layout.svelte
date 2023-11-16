@@ -113,7 +113,7 @@
 		/>
 		<slot />
 	</div>
-{:else if $baseBranch$ == null}
+{:else if $baseBranch$ === null}
 	{#if $project$}
 		<BaseBranchSelect projectId={$project$?.id} {project$} {projectService} {branchController} />
 	{/if}
