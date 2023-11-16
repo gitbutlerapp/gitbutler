@@ -3,8 +3,7 @@
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { getCloudApiClient } from '$lib/backend/cloud';
-	import type { LoadState } from '@square/svelte-store';
+	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import { open } from '@tauri-apps/api/shell';
 	import { IconFile, IconTerminal, IconExternalLink } from '$lib/icons';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
@@ -13,16 +12,16 @@
 	export let projectPath: string | undefined;
 
 	export let branches: Branch[] | undefined;
-	export let branchesState: LoadState;
+	export let branchesError: any;
 
-	export let base: BaseBranch | undefined;
-	export let baseBranchState: LoadState;
+	export let base: BaseBranch | undefined | null;
 
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
 
 	export let githubContext: GitHubIntegrationContext | undefined;
+	export let user: User | undefined;
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;
@@ -40,11 +39,11 @@
 	}
 </script>
 
-{#if branchesState.isLoading || baseBranchState.isLoading}
-	<div class="p-4">Loading...</div>
-{:else if branchesState.isError || baseBranchState.isError}
+{#if branchesError}
 	<div class="p-4">Something went wrong...</div>
-{:else if branches}
+{:else if !branches}
+	<div class="p-4">Loading...</div>
+{:else}
 	<div
 		id="branch-lanes"
 		class="flex h-full flex-shrink flex-grow items-start px-1"
@@ -111,6 +110,7 @@
 					{branchController}
 					branchCount={branches.filter((c) => c.active).length}
 					{githubContext}
+					{user}
 				/>
 			</div>
 		{/each}

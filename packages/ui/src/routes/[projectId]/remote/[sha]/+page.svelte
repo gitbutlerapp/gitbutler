@@ -4,9 +4,11 @@
 	import RemoteBranchPreview from './RemoteBranchPreview.svelte';
 
 	export let data: PageData;
-	let { projectId, branchController, remoteBranchStore, remoteBranchState } = data;
+	let { projectId, branchController, remoteBranchService } = data;
+	$: branches$ = remoteBranchService.branches$;
+	$: error$ = remoteBranchService.branchesError$;
 
-	$: branch = $remoteBranchStore?.find((b) => b.sha == $page.params.sha);
+	$: branch = $branches$?.find((b) => b.sha == $page.params.sha);
 </script>
 
 <div class="h-full max-w-xl flex-grow flex-col overflow-y-auto overscroll-none p-4">
@@ -15,10 +17,10 @@
 		style:background-color="var(--bg-surface)"
 		style:border-color="var(--border-surface)"
 	>
-		{#if $remoteBranchState?.isLoading}
-			<p>Loading...</p>
-		{:else if $remoteBranchState?.isError}
+		{#if $error$}
 			<p>Error...</p>
+		{:else if !$branches$}
+			<p>Loading...</p>
 		{:else if branch}
 			<RemoteBranchPreview {projectId} {branchController} {branch} />
 		{:else}

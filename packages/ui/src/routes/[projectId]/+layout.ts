@@ -1,73 +1,64 @@
-import { getProjectStore } from '$lib/backend/projects';
-import { getDeltasStore } from '$lib/stores/deltas';
-import { getFetchesStore } from '$lib/stores/fetches';
-import { getHeadsStore } from '$lib/stores/head';
-import { getSessionStore } from '$lib/stores/sessions';
+import { DeltasService } from '$lib/stores/deltas';
+import { getFetchNotifications } from '$lib/stores/fetches';
+import { getHeads } from '$lib/stores/head';
+import { getSessions } from '$lib/stores/sessions';
 import { BranchController } from '$lib/vbranches/branchController';
-import { getGitHubContextStore } from '$lib/stores/github';
-import {
-	getBaseBranchStore,
-	getRemoteBranchStore,
-	getVirtualBranchStore,
-	getWithContentStore
-} from '$lib/vbranches/branchStoresCache';
+import { getGithubContext } from '$lib/stores/github';
+import { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 import type { LayoutLoad } from './$types';
-import { userStore } from '$lib/stores/user';
 import { PrService } from '$lib/github/pullrequest';
-import { storeToObservable } from '$lib/rxjs/store';
+import { of, shareReplay, switchMap } from 'rxjs';
+import { RemoteBranchService } from '$lib/stores/remoteBranches';
 
 export const prerender = false;
 
-export const load: LayoutLoad = async ({ params }) => {
+export const load: LayoutLoad = async ({ params, parent }) => {
+	const { user$ } = await parent();
 	const projectId = params.projectId;
-	const fetchStore = getFetchesStore(projectId);
-	const deltasStore = getDeltasStore(projectId, undefined, true);
-	const headStore = getHeadsStore(projectId);
-	const sessionsStore = getSessionStore(projectId);
-	const baseBranchStore = getBaseBranchStore(projectId, fetchStore, headStore);
-	const remoteBranchStore = getRemoteBranchStore(projectId, fetchStore, headStore, baseBranchStore);
-	const vbranchStore = getVirtualBranchStore(
+	const fetches$ = getFetchNotifications(projectId);
+	const heads$ = getHeads(projectId);
+	const sessions$ = getSessions(projectId);
+	const baseBranchService = new BaseBranchService(projectId, fetches$, heads$);
+	const remoteBranchService = new RemoteBranchService(
 		projectId,
-		deltasStore,
-		sessionsStore,
-		headStore,
-		baseBranchStore
+		fetches$,
+		heads$,
+		baseBranchService.base$
 	);
-	const branchesWithContent = getWithContentStore(projectId, sessionsStore, vbranchStore);
+	const sessionId$ = sessions$.pipe(
+		switchMap((sessions) => of(sessions[0].id)),
+		shareReplay(1)
+	);
+	const deltaService = new DeltasService(projectId, sessionId$);
 
-	const vbranchesState = vbranchStore.state;
-	const branchesState = branchesWithContent.state;
-	const baseBranchesState = baseBranchStore.state;
-	const remoteBranchState = remoteBranchStore.state;
+	const githubContext$ = getGithubContext(user$, baseBranchService.base$);
+
+	const vbranchService = new VirtualBranchService(
+		projectId,
+		deltaService.deltas$,
+		sessionId$,
+		heads$,
+		baseBranchService.base$
+	);
+
+	const prService = new PrService(githubContext$);
 
 	const branchController = new BranchController(
 		projectId,
-		vbranchStore,
-		remoteBranchStore,
-		baseBranchStore,
-		sessionsStore
+		vbranchService,
+		remoteBranchService,
+		baseBranchService,
+		sessions$
 	);
-
-	const githubContextStore = getGitHubContextStore(userStore, baseBranchStore);
-	const projectStore = getProjectStore(params.projectId);
-
-	const prService = new PrService(storeToObservable(githubContextStore));
 
 	return {
 		projectId,
-		vbranchStore,
-		branchesWithContent,
 		branchController,
-		vbranchesState,
-		branchesState,
-		baseBranchesState,
-		sessionsStore,
-		deltasStore,
-		baseBranchStore,
-		remoteBranchStore,
-		remoteBranchState,
-		projectStore,
-		githubContextStore,
-		prService
+		baseBranchService,
+		prService,
+		vbranchService,
+		githubContext$,
+		remoteBranchService,
+		user$
 	};
 };

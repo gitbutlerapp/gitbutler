@@ -4,7 +4,6 @@
 	import { initDeviceOauth, checkAuthStatus } from '$lib/backend/github';
 	import { getAuthenticated } from '$lib/github/user';
 	import { deleteAllData } from '$lib/backend/data';
-	import { userStore } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
 	import ThemeSelector from './ThemeSelector.svelte';
 	import { getContext } from 'svelte';
@@ -19,14 +18,13 @@
 	import Spacer from '../[projectId]/settings/Spacer.svelte';
 
 	export let data: PageData;
-	const { cloud } = data;
+	const { cloud, user$, userService } = data;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const user = userStore;
 
 	$: saving = false;
 
-	$: userPicture = $user?.picture;
+	$: userPicture = $user$?.picture;
 
 	const fileTypes = ['image/jpeg', 'image/png'];
 
@@ -41,7 +39,7 @@
 		if (file && validFileType(file)) {
 			userPicture = URL.createObjectURL(file);
 		} else {
-			userPicture = $user?.picture;
+			userPicture = $user$?.picture;
 			toasts.error('Please use a valid image file');
 		}
 	};
@@ -49,17 +47,17 @@
 	let newName = '';
 
 	let loaded = false;
-	$: if ($user && !loaded) {
+	$: if ($user$ && !loaded) {
 		loaded = true;
-		cloud.user.get($user?.access_token).then((cloudUser) => {
-			cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
-			$user = cloudUser;
+		cloud.user.get($user$?.access_token).then((cloudUser) => {
+			cloudUser.github_access_token = $user$?.github_access_token; // prevent overwriting with null
+			$user$ = cloudUser;
 		});
-		newName = $user?.name || '';
+		newName = $user$?.name || '';
 	}
 
 	const onSubmit = async (e: SubmitEvent) => {
-		if (!$user) return;
+		if (!$user$) return;
 		saving = true;
 
 		const target = e.target as HTMLFormElement;
@@ -67,7 +65,7 @@
 		const picture = formData.get('picture') as File | undefined;
 
 		try {
-			$user = await cloud.user.update($user.access_token, {
+			$user$ = await cloud.user.update($user$.access_token, {
 				name: newName,
 				picture: picture
 			});
@@ -130,7 +128,8 @@
 		Promise.resolve()
 			.then(() => (isDeleting = true))
 			.then(() => deleteAllData())
-			.then(() => user.set(undefined))
+			// TODO: Delete user from observable!!!
+			.then(() => userService.logout())
 			.then(() => toasts.success('All data deleted'))
 			.catch((e) => {
 				console.error(e);
@@ -151,13 +150,13 @@
 	let gitHubOauthModal: Modal;
 	function gitHubOauthCheckStatus(deviceCode: string) {
 		checkAuthStatus({ deviceCode }).then(async (access_token) => {
-			let u = $user;
+			let u = $user$;
 			if (u) {
 				u.github_access_token = access_token;
 				u.github_username = await getAuthenticated({ authToken: access_token }).then(
 					(user) => user.username
 				);
-				$user = u;
+				userService.set(u);
 			}
 		});
 	}
@@ -176,9 +175,9 @@
 			<BackButton />
 			<h2 class="ml-2 text-2xl font-medium">GitButler Settings</h2>
 		</div>
-		{#if $user}
+		{#if $user$}
 			<!-- TODO: Separate logout from login button -->
-			<Login />
+			<Login user={$user$} {userService} />
 		{/if}
 	</div>
 	<div
@@ -188,7 +187,7 @@
 		<div>
 			<h2 class="mb-2 text-lg font-medium">GitButler Cloud</h2>
 			<p class="">
-				{#if $user}
+				{#if $user$}
 					Your online account details on gitbutler.com
 				{:else}
 					You are not logged into GitButler.
@@ -196,13 +195,13 @@
 			</p>
 		</div>
 
-		{#if $user}
+		{#if $user$}
 			<form
 				on:submit={onSubmit}
 				class="user-form flex flex-row items-start justify-between gap-12 rounded-lg"
 			>
 				<div id="profile-picture" class="relative flex flex-col items-center gap-2 pt-4">
-					{#if $user.picture}
+					{#if $user$.picture}
 						<img
 							class="h-28 w-28 rounded-full border-zinc-300"
 							src={userPicture}
@@ -252,7 +251,7 @@
 							readonly
 							id="email"
 							name="email"
-							bind:value={$user.email}
+							bind:value={$user$.email}
 							type="text"
 							class="input w-full"
 						/>
@@ -263,7 +262,7 @@
 				</div>
 			</form>
 		{:else}
-			<Login />
+			<Login user={$user$} {userService} />
 		{/if}
 		<Spacer />
 		<div>
@@ -291,7 +290,7 @@
 				<label class="relative inline-flex cursor-pointer items-center">
 					<input
 						type="checkbox"
-						disabled={!$user?.supporter}
+						disabled={!$user$?.supporter}
 						checked={annotateCommits}
 						on:change={(e) => setCommitterSetting(!!e.currentTarget?.checked)}
 						class="peer sr-only"
@@ -405,7 +404,7 @@
 
 		<Spacer />
 
-		{#if $user}
+		{#if $user$}
 			<div>
 				<h2 class="mb-2 text-lg font-medium">Remote Integrations</h2>
 			</div>
@@ -413,7 +412,7 @@
 				<div class="flex-grow">
 					<p>
 						GitHub
-						{#if $user.github_access_token}
+						{#if $user$.github_access_token}
 							<span class="text-sm text-green-500">️✅ — already configured</span>
 						{/if}
 					</p>
@@ -423,7 +422,7 @@
 				</div>
 				<div>
 					<Button kind="filled" color="purple" on:click={gitHubStartOauth}>
-						{#if $user.github_access_token}
+						{#if $user$.github_access_token}
 							Reauthenticate
 						{:else}
 							Set up

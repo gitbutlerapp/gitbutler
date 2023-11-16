@@ -1,21 +1,22 @@
 <script async lang="ts">
-	import type { Project } from '$lib/backend/projects';
+	import type { ProjectService } from '$lib/backend/projects';
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import IconExternalLink from '$lib/icons/IconExternalLink.svelte';
 	import IconLoading from '$lib/icons/IconLoading.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
-	import type { Loadable } from '@square/svelte-store';
 
-	export let projectStore: Loadable<Project | undefined>;
+	export let projectId: string;
+	export let projectService: ProjectService;
 	export let branchController: BranchController;
 
 	let targetChoice: string | undefined;
 	let loading = false;
 
-	$: projectState = projectStore.state;
-	$: remoteBranchNames = getRemoteBranches($projectStore?.id);
+	$: projectError = projectService.error$;
+	$: project$ = projectService.getProject(projectId);
+	$: remoteBranchNames = getRemoteBranches(projectId);
 
 	function onSetTargetClick() {
 		if (!targetChoice) {
@@ -26,11 +27,11 @@
 	}
 </script>
 
-{#if $projectState?.isLoading}
+{#if $projectError?.isLoading}
 	<p>loading...</p>
-{:else if $projectState?.isError}
+{:else if $projectError?.isError}
 	<p>$projectState.error</p>
-{:else if $projectStore}
+{:else if $project$}
 	<div class="bg-color-2 grid h-full w-full grid-cols-2 items-center justify-items-stretch">
 		<div
 			id="vb-data"

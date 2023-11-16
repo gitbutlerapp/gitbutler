@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { userStore } from '$lib/stores/user';
 	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
 	import { getContext, onDestroy, onMount } from 'svelte';
 	import { draggable, dropzone } from '$lib/utils/draggable';
@@ -22,7 +21,7 @@
 	import { quintOut } from 'svelte/easing';
 	import { crossfade, fade } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
-	import type { getCloudApiClient } from '$lib/backend/cloud';
+	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import IconNewBadge from '$lib/icons/IconNewBadge.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
@@ -72,15 +71,15 @@
 	export let readonly = false;
 	export let projectPath: string | undefined;
 	export let projectId: string;
-	export let base: BaseBranch | undefined;
+	export let base: BaseBranch | undefined | null;
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
 	export let maximized = false;
 	export let branchCount = 1;
 	export let githubContext: GitHubIntegrationContext | undefined;
+	export let user: User | undefined;
 
-	const user = userStore;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	$: headCommit = branch.commits[0];
@@ -171,13 +170,13 @@
 		branchController.updateBranchName(branch.id, branch.name);
 	}
 
-	function baseUrl(target: BaseBranch | undefined) {
+	function baseUrl(target: BaseBranch | undefined | null) {
 		if (!target) return undefined;
 		const parts = target.branchName.split('/');
 		return `${target.repoBaseUrl}/commits/${parts[parts.length - 1]}`;
 	}
 
-	function branchUrl(target: BaseBranch | undefined, upstreamBranchName: string) {
+	function branchUrl(target: BaseBranch | undefined | null, upstreamBranchName: string) {
 		if (!target) return undefined;
 		const baseBranchName = target.branchName.split('/')[1];
 		const parts = upstreamBranchName.split('/');
@@ -206,8 +205,8 @@
 			.join('\n')
 			.slice(0, 5000);
 
-		if ($user) {
-			cloud.summarize.branch($user.access_token, { diff }).then((result) => {
+		if (user) {
+			cloud.summarize.branch(user.access_token, { diff }).then((result) => {
 				if (result.message && result.message !== branch.name) {
 					branch.name = result.message;
 					handleBranchNameChange();
@@ -477,7 +476,7 @@
 							{cloudEnabled}
 							{cloud}
 							ownership={$selectedOwnership}
-							user={$user}
+							{user}
 						/>
 					{/if}
 

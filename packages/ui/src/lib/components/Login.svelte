@@ -1,20 +1,22 @@
 <script lang="ts">
-	import { getCloudApiClient, type LoginToken } from '$lib/backend/cloud';
+	import { getCloudApiClient, type LoginToken, type User } from '$lib/backend/cloud';
 	import * as toasts from '$lib/utils/toasts';
-	import { userStore } from '$lib/stores/user';
-	import { derived, writable } from '@square/svelte-store';
 	import { open } from '@tauri-apps/api/shell';
 	import Button from './Button.svelte';
+	import type { UserService } from '$lib/stores/user';
+	import { derived, writable } from 'svelte/store';
 
 	const cloud = getCloudApiClient();
-	const user = userStore;
 
+	export let user: User | undefined;
+	export let userService: UserService;
 	export let width: 'basic' | 'full-width' = 'basic';
 
 	const pollForUser = async (token: string) => {
 		const apiUser = await cloud.login.user.get(token).catch(() => null);
 		if (apiUser) {
-			$user = apiUser;
+			user = apiUser;
+			userService.logout;
 			return apiUser;
 		}
 		return new Promise((resolve) => {
@@ -40,9 +42,16 @@
 	const authUrl = derived(token, ($token) => $token?.url as string);
 </script>
 
-{#if $user}
-	<Button kind="plain" color="destructive" on:click={() => ($user = undefined)}>Log out</Button>
-{:else if $token !== null}
+{#if user}
+	<Button
+		kind="plain"
+		color="destructive"
+		on:click={async () => {
+			user = undefined;
+			await userService.logout();
+		}}>Log out</Button
+	>
+{:else if $token}
 	{#await Promise.all([open($token.url), pollForUser($token.token)])}
 		<div class="text-light-700">
 			Your browser should have been opened. Please log into your GitButler account there.

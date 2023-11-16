@@ -1,10 +1,34 @@
+import type { User } from '$lib/backend/cloud';
 import * as users from '$lib/backend/users';
-import { asyncWritable } from '@square/svelte-store';
+import { BehaviorSubject, Observable, merge, shareReplay } from 'rxjs';
 
-export const userStore = asyncWritable([], users.get, async (user) => {
-	if (!user) {
-		await users.delete();
-	} else {
-		return await users.set({ user });
+export class UserService {
+	reset$ = new BehaviorSubject<undefined | User>(undefined);
+	user$ = merge(
+		new Observable<User | undefined>((subscriber) => {
+			users.get().then((user) => {
+				if (user) {
+					subscriber.next(user);
+					this.posthog.then((client) => client.identify(user));
+					this.sentry.identify(user);
+				} else users.delete().then(() => subscriber.next());
+			});
+		}).pipe(shareReplay(1)),
+		this.reset$
+	);
+
+	constructor(
+		private sentry: any,
+		private posthog: Promise<any>
+	) {}
+
+	async set(user: User) {
+		await users.set({ user });
+		this.reset$.next(user);
 	}
-});
+
+	async logout() {
+		await users.delete();
+		this.reset$.next(undefined);
+	}
+}

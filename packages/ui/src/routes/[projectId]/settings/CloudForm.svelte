@@ -1,14 +1,15 @@
 <script lang="ts">
 	import * as toasts from '$lib/utils/toasts';
-	import { getCloudApiClient } from '$lib/backend/cloud';
+	import { getCloudApiClient, type User } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
-	import { userStore } from '$lib/stores/user';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import Login from '$lib/components/Login.svelte';
+	import type { UserService } from '$lib/stores/user';
 
 	export let project: Project;
-	const user = userStore;
+	export let user: User | undefined;
+	export let userService: UserService;
 	const cloud = getCloudApiClient();
 
 	const dispatch = createEventDispatcher<{
@@ -17,15 +18,14 @@
 
 	onMount(async () => {
 		if (!project.api) return;
-		const u = await user.load();
-		if (!u) return;
-		const cloudProject = await cloud.projects.get(u.access_token, project.api.repository_id);
+		if (!user) return;
+		const cloudProject = await cloud.projects.get(user.access_token, project.api.repository_id);
 		if (cloudProject === project.api) return;
 		dispatch('updated', { ...project, api: { ...cloudProject, sync: project.api.sync } });
 	});
 
 	const onSyncChange = async (event: Event) => {
-		if (!$user) return;
+		if (!user) return;
 
 		const target = event.target as HTMLInputElement;
 		const sync = target.checked;
@@ -33,7 +33,7 @@
 		try {
 			const cloudProject =
 				project.api ??
-				(await cloud.projects.create($user.access_token, {
+				(await cloud.projects.create(user.access_token, {
 					name: project.title,
 					description: project.description,
 					uid: project.id
@@ -54,7 +54,7 @@
 		</span>
 	</header>
 
-	{#if $user}
+	{#if user}
 		<div
 			class="flex flex-row items-center justify-between rounded-lg border border-light-400 p-2 dark:border-dark-500"
 		>
@@ -63,7 +63,7 @@
 					<form class="flex items-center gap-1">
 						<Checkbox
 							name="sync"
-							disabled={$user === undefined}
+							disabled={user === undefined}
 							checked={project.api?.sync || false}
 							on:change={onSyncChange}
 						/>
@@ -73,6 +73,6 @@
 			</div>
 		</div>
 	{:else}
-		<Login />
+		<Login {userService} {user} />
 	{/if}
 </section>

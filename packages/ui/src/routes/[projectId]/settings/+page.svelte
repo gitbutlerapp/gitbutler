@@ -1,20 +1,18 @@
 <script lang="ts">
 	import * as toasts from '$lib/utils/toasts';
-	import { userStore } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
 	import CloudForm from './CloudForm.svelte';
 	import DetailsForm from './DetailsForm.svelte';
 	import KeysForm from './KeysForm.svelte';
-	import * as projects from '$lib/backend/projects';
-	import { updateProject } from '$lib/backend/projects';
 	import type { PageData } from './$types';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Spacer from './Spacer.svelte';
+	import type { Key, Project } from '$lib/backend/projects';
 
 	export let data: PageData;
-	const { project, cloud } = data;
-	const user = userStore;
+	const { projectService, cloud, projectId, user$, userService } = data;
+	$: project$ = projectService.getProject(projectId);
 
 	let deleteConfirmationModal: Modal;
 	let isDeleting = false;
@@ -22,7 +20,7 @@
 	const onDeleteClicked = () =>
 		Promise.resolve()
 			.then(() => (isDeleting = true))
-			.then(() => projects.deleteProject($project?.id))
+			.then(() => projectService.deleteProject($project$?.id))
 			.then(() => deleteConfirmationModal.close())
 			.catch((e) => {
 				console.error(e);
@@ -32,20 +30,20 @@
 			.then(() => toasts.success('Project deleted'))
 			.finally(() => (isDeleting = false));
 
-	const onKeysUpdated = (e: { detail: { preferred_key: projects.Key } }) =>
-		updateProject({ ...$project, ...e.detail });
-	const onCloudUpdated = (e: { detail: projects.Project }) =>
-		updateProject({ ...$project, ...e.detail });
-	const onDetailsUpdated = async (e: { detail: projects.Project }) => {
+	const onKeysUpdated = (e: { detail: { preferred_key: Key } }) =>
+		projectService.updateProject({ ...$project$, ...e.detail });
+	const onCloudUpdated = (e: { detail: Project }) =>
+		projectService.updateProject({ ...$project$, ...e.detail });
+	const onDetailsUpdated = async (e: { detail: Project }) => {
 		const api =
-			$user && e.detail.api
-				? await cloud.projects.update($user?.access_token, e.detail.api.repository_id, {
+			$user$ && e.detail.api
+				? await cloud.projects.update($user$?.access_token, e.detail.api.repository_id, {
 						name: e.detail.title,
 						description: e.detail.description
 				  })
 				: undefined;
 
-		updateProject({
+		projectService.updateProject({
 			...e.detail,
 			api: api ? { ...api, sync: e.detail.api?.sync || false } : undefined
 		});
@@ -60,11 +58,11 @@
 	>
 		<h2 class="text-2xl font-medium">Project settings</h2>
 		<Spacer />
-		<CloudForm project={$project} on:updated={onCloudUpdated} />
+		<CloudForm project={$project$} user={$user$} {userService} on:updated={onCloudUpdated} />
 		<Spacer />
-		<DetailsForm project={$project} on:updated={onDetailsUpdated} />
+		<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
 		<Spacer />
-		<KeysForm project={$project} on:updated={onKeysUpdated} />
+		<KeysForm project={$project$} on:updated={onKeysUpdated} />
 		<Spacer />
 
 		<div class="flex gap-x-4">
@@ -98,10 +96,10 @@
 	</div>
 </div>
 
-<Modal bind:this={deleteConfirmationModal} title="Delete {$project?.title}?">
+<Modal bind:this={deleteConfirmationModal} title="Delete {$project$?.title}?">
 	<p>
 		Are you sure you want to delete
-		<span class="font-bold">{$project?.title}</span>? This can’t be undone.
+		<span class="font-bold">{$project$?.title}</span>? This can’t be undone.
 	</p>
 
 	<svelte:fragment slot="controls" let:close>

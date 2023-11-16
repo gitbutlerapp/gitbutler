@@ -1,38 +1,32 @@
 <script lang="ts">
 	import leven from 'leven';
-	import { asyncDerived, type Loadable } from '@square/svelte-store';
 	import { compareDesc, formatDistanceToNow } from 'date-fns';
 	import { IconFolder, IconLoading } from '$lib/icons';
-	import type { getCloudApiClient } from '$lib/backend/cloud';
-	import { userStore } from '$lib/stores/user';
-	import {
-		getProjectStore,
-		projectsStore,
-		updateProject,
-		type Project
-	} from '$lib/backend/projects';
+	import type { User, getCloudApiClient } from '$lib/backend/cloud';
+	import type { Project, ProjectService } from '$lib/backend/projects';
 	import * as toasts from '$lib/utils/toasts';
 	import IconFolderPlus from '$lib/icons/IconFolderPlus.svelte';
 	import { goto } from '$app/navigation';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import type { Observable } from 'rxjs';
 
-	export let projects: Loadable<Project[] | undefined>;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
+	export let projectService: ProjectService;
+	export let user: User | undefined;
 
-	const cloudProjects = asyncDerived(userStore, async (user) =>
-		user ? await cloud.projects.list(user.access_token) : []
-	);
+	$: projects$ = projectService.projects$;
+
+	$: cloudProjects = user ? cloud.projects.list(user.access_token) : Promise.resolve([]);
 
 	let selectedRepositoryId: string | null = null;
 
-	let project: Loadable<Project | undefined>;
+	let project$: Observable<Project | undefined>;
 
 	export async function show(id: string) {
-		await userStore.load();
-		await cloudProjects.load();
-		if ($userStore === null) return;
-		project = getProjectStore(id);
+		await cloudProjects;
+		if (!user) return;
+		project$ = projectService.getProject(id);
 		modal.show();
 	}
 
@@ -41,25 +35,27 @@
 	let isLinking = false;
 	export async function onLinkClicked(project: Project | undefined) {
 		isLinking = true;
+		const projects = await cloudProjects;
+
 		try {
 			if (!project) return;
-			const existingCloudProject = $cloudProjects.find(
+			const existingCloudProject = projects.find(
 				(project) => project.repository_id == selectedRepositoryId
 			);
 			if (existingCloudProject !== undefined && project) {
-				await updateProject({ ...project, api: { ...existingCloudProject, sync: true } }).then(() =>
-					toasts.success(`Project linked`)
-				);
-			} else if (selectedRepositoryId == null && $userStore && project && $project) {
-				const cloudProject = await cloud.projects.create($userStore?.access_token, {
-					name: $project.title,
-					description: $project.description,
-					uid: $project.id
+				await projectService
+					.updateProject({ ...project, api: { ...existingCloudProject, sync: true } })
+					.then(() => toasts.success(`Project linked`));
+			} else if (selectedRepositoryId == null && user && project && $project$) {
+				const cloudProject = await cloud.projects.create(user.access_token, {
+					name: $project$.title,
+					description: $project$.description,
+					uid: $project$.id
 				});
-				await updateProject({ ...project, api: { ...cloudProject, sync: true } }).then(() =>
-					toasts.success(`Project linked`)
-				);
-				goto(`/${$project.id}/`);
+				await projectService
+					.updateProject({ ...project, api: { ...cloudProject, sync: true } })
+					.then(() => toasts.success(`Project linked`));
+				goto(`/${$project$.id}/`);
 			}
 			modal.close();
 		} catch (e) {
@@ -71,7 +67,7 @@
 </script>
 
 <Modal bind:this={modal} title="GitButler Cloud">
-	{#await Promise.all([cloudProjects.load(), projects.load(), project?.load()])}
+	{#await Promise.all([cloudProjects])}
 		<IconLoading class="m-auto animate-spin" />
 	{:then}
 		<div class="-mt-4 flex flex-auto pt-4">
@@ -103,60 +99,64 @@
 				</li>
 			</ul>
 
-			{#if $cloudProjects.length !== 0}
-				<div class="-mb-4 -mr-4 -mt-4 flex w-full flex-col gap-2 bg-[#000000]/20 pb-6 pt-6">
-					<ul class="flex flex-auto flex-col gap-2 overflow-y-scroll px-4 pb-4">
-						<button
-							class="flex w-full items-start gap-[10px] rounded border bg-light-50 p-2 text-left shadow-sm transition-colors duration-200 hover:cursor-pointer hover:border dark:bg-dark-800"
-							class:border-blue-400={selectedRepositoryId === null}
-							class:border-transparent={selectedRepositoryId !== null}
-							on:click={() => (selectedRepositoryId = null)}
-						>
-							<IconFolderPlus class="text-blue-500" />
-							<div class="flex flex-col">
-								<span>Create new project</span>
-								<span class="text-xs text-light-700 dark:text-dark-300">
-									Syncing will begin after first save
-								</span>
-							</div>
-						</button>
-						{#each $cloudProjects
-							// filter out projects that are already linked
-							.map( (project) => ({ ...project, disabled: $projectsStore?.some((p) => p?.api?.repository_id === project.repository_id) }) )
-							// sort by last updated
-							.sort((a, b) => compareDesc(new Date(a.updated_at), new Date(b.updated_at)))
-							// sort by name
-							.sort((a, b) => a.name.localeCompare(b.name))
-							// sort by name distance to linking project title
-							.sort( (a, b) => (!$project ? 0 : leven(a.name.toLowerCase(), $project.title.toLowerCase()) < leven(b.name.toLowerCase(), $project.title.toLowerCase()) ? -1 : 1) )
-							// disbled on the bottom
-							.sort((a, b) => (a.disabled === b.disabled ? 0 : a.disabled ? 1 : -1)) as project}
+			{#await cloudProjects}
+				loading...
+			{:then projects}
+				{#if projects.length !== 0}
+					<div class="-mb-4 -mr-4 -mt-4 flex w-full flex-col gap-2 bg-[#000000]/20 pb-6 pt-6">
+						<ul class="flex flex-auto flex-col gap-2 overflow-y-scroll px-4 pb-4">
 							<button
-								disabled={project.disabled}
 								class="flex w-full items-start gap-[10px] rounded border bg-light-50 p-2 text-left shadow-sm transition-colors duration-200 hover:cursor-pointer hover:border dark:bg-dark-800"
-								class:opacity-40={project.disabled}
-								class:border-blue-400={selectedRepositoryId === project.repository_id}
-								class:border-transparent={selectedRepositoryId !== project.repository_id}
-								on:click={() => (selectedRepositoryId = project.repository_id)}
+								class:border-blue-400={selectedRepositoryId === null}
+								class:border-transparent={selectedRepositoryId !== null}
+								on:click={() => (selectedRepositoryId = null)}
 							>
-								<IconFolder class="text-blue-500" />
+								<IconFolderPlus class="text-blue-500" />
 								<div class="flex flex-col">
-									<span>{project.name}</span>
+									<span>Create new project</span>
 									<span class="text-xs text-light-700 dark:text-dark-300">
-										Last updated: {formatDistanceToNow(new Date(project.updated_at))} ago
+										Syncing will begin after first save
 									</span>
 								</div>
 							</button>
-						{/each}
-					</ul>
-				</div>
-			{/if}
+							{#each projects
+								// filter out projects that are already linked
+								.map( (project) => ({ ...project, disabled: $projects$?.some((p) => p?.api?.repository_id === project.repository_id) }) )
+								// sort by last updated
+								.sort((a, b) => compareDesc(new Date(a.updated_at), new Date(b.updated_at)))
+								// sort by name
+								.sort((a, b) => a.name.localeCompare(b.name))
+								// sort by name distance to linking project title
+								.sort( (a, b) => (!$project$ ? 0 : leven(a.name.toLowerCase(), $project$.title.toLowerCase()) < leven(b.name.toLowerCase(), $project$.title.toLowerCase()) ? -1 : 1) )
+								// disbled on the bottom
+								.sort((a, b) => (a.disabled === b.disabled ? 0 : a.disabled ? 1 : -1)) as project}
+								<button
+									disabled={project.disabled}
+									class="flex w-full items-start gap-[10px] rounded border bg-light-50 p-2 text-left shadow-sm transition-colors duration-200 hover:cursor-pointer hover:border dark:bg-dark-800"
+									class:opacity-40={project.disabled}
+									class:border-blue-400={selectedRepositoryId === project.repository_id}
+									class:border-transparent={selectedRepositoryId !== project.repository_id}
+									on:click={() => (selectedRepositoryId = project.repository_id)}
+								>
+									<IconFolder class="text-blue-500" />
+									<div class="flex flex-col">
+										<span>{project.name}</span>
+										<span class="text-xs text-light-700 dark:text-dark-300">
+											Last updated: {formatDistanceToNow(new Date(project.updated_at))} ago
+										</span>
+									</div>
+								</button>
+							{/each}
+						</ul>
+					</div>
+				{/if}
+			{/await}
 		</div>
 	{/await}
 
 	<svelte:fragment slot="controls" let:close>
 		<Button kind="outlined" on:click={close}>Not Now</Button>
-		<Button color="purple" loading={isLinking} on:click={() => onLinkClicked($project)}>
+		<Button color="purple" loading={isLinking} on:click={() => onLinkClicked($project$)}>
 			{#if selectedRepositoryId === null}
 				Connect
 			{:else}

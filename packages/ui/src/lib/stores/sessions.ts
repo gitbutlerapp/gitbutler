@@ -1,27 +1,13 @@
 import { Session, listSessions, subscribeToSessions } from '$lib/backend/sessions';
-import type { CustomStore } from '$lib/vbranches/types';
-import { asyncWritable, get } from '@square/svelte-store';
+import { Observable, from, concat, shareReplay } from 'rxjs';
 
-export function getSessionStore(projectId: string): CustomStore<Session[]> {
-	const store = asyncWritable(
-		[],
-		async () => await listSessions(projectId),
-		async (data) => data,
-		{ reloadable: true, trackState: true },
-		(set) => {
-			const unsubscribe = subscribeToSessions(projectId, (session) => {
-				const oldValue = get(store)?.filter((b) => b.id != session.id);
-				const newValue = {
-					projectId,
-					...session
-				};
-				// It's possible for a subscription event to happen before the store
-				// has finished loading, and the store value is undefined until then.
-				// TODO: But if that happens, the latest session gets overwritten?
-				set(oldValue ? [newValue, ...oldValue] : [newValue]);
-			});
-			return () => unsubscribe();
-		}
-	) as CustomStore<Session[]>;
-	return store;
+export function getSessions(projectId: string): Observable<Session[]> {
+	return concat(
+		from(listSessions(projectId)),
+		new Observable<Session[]>((subscriber) => {
+			return subscribeToSessions(projectId, (session) =>
+				subscriber.next([{ projectId, ...session }])
+			);
+		})
+	).pipe(shareReplay(1));
 }

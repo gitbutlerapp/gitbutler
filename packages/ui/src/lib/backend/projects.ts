@@ -1,6 +1,6 @@
 import { invoke } from '$lib/backend/ipc';
 import type { Project as CloudProject } from '$lib/backend/cloud';
-import { asyncWritable, derived, type Loadable } from '@square/svelte-store';
+import { BehaviorSubject, catchError, from, switchMap } from 'rxjs';
 
 export type Key =
 	| 'generated'
@@ -17,44 +17,42 @@ export type Project = {
 	preferred_key: Key;
 };
 
-export function list() {
-	return invoke<Project[]>('list_projects');
-}
+export class ProjectService {
+	private reload$ = new BehaviorSubject<void>(undefined);
+	error$ = new BehaviorSubject<any>(undefined);
+	projects$ = this.reload$.pipe(
+		switchMap(() => from(invoke<Project[]>('list_projects'))),
+		catchError((e) => {
+			this.error$.next(e);
+			return [];
+		})
+	);
 
-export function get(params: { id: string }): Promise<Project> {
-	return invoke<Project>('get_project', params);
-}
+	constructor() {}
 
-export function updateProject(params: {
-	id: string;
-	title?: string;
-	api?: CloudProject & { sync: boolean };
-	preferred_key?: Key;
-}) {
-	return invoke<Project>('update_project', { project: params });
-}
+	getProject(projectId: string) {
+		return from(invoke<Project>('get_project', { id: projectId }));
+	}
 
-export async function add(params: { path: string }) {
-	return invoke<Project>('add_project', params);
-}
+	updateProject(params: {
+		id: string;
+		title?: string;
+		api?: CloudProject & { sync: boolean };
+		preferred_key?: Key;
+	}) {
+		return invoke<Project>('update_project', { project: params });
+	}
 
-export async function deleteProject(id: string) {
-	return invoke('delete_project', { id }).then(() => {
-		projectsStore.update((projects) => projects.filter((p) => p.id != id));
-	});
-}
+	async add(path: string) {
+		return await invoke<Project>('add_project', { params: { path } });
+	}
 
-export const projectsStore = asyncWritable([], list);
+	async deleteProject(id: string) {
+		await invoke('delete_project', { id });
+		this.reload();
+	}
 
-export function getProjectStore(id: string): Loadable<Project | undefined> {
-	return {
-		...derived(projectsStore, (projects) => projects?.find((p) => p.id === id))
-	};
-}
-
-export async function addProject(path: string) {
-	return add({ path }).then((project) => {
-		projectsStore.update((projects) => [...projects, project]);
-		return project;
-	});
+	reload() {
+		this.reload$.next();
+	}
 }

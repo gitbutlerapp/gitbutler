@@ -5,14 +5,15 @@
 
 	export let data: LayoutData;
 
-	const { projects } = data;
+	const { projectService } = data;
+	$: projects$ = projectService.projects$;
 </script>
 
-{#await projects.load()}
+{#if !$projects$}
 	Loading...
-{:then}
+{:else}
 	<div
-		class="flex h-full flex-grow flex-col p-8"
+		class="h-fprojectsService: projects-grow flex flex-col p-8"
 		style:background-color="var(--bg-surface)"
 		style:border-color="var(--border-surface)"
 	>
@@ -21,7 +22,7 @@
 				<h1 class="mb-2 text-2xl">Your projects</h1>
 				<p class="text-color-3 text-lg">All the projects tracked by GitButler</p>
 			</div>
-			{#if $projects.length > 0}
+			{#if $projects$.length > 0}
 				<div class="self-start">
 					<Button
 						id="add-new-project"
@@ -33,7 +34,7 @@
 				</div>
 			{/if}
 		</div>
-		{#if $projects.length == 0}
+		{#if $projects$.length == 0}
 			<div class="mx-auto flex w-full flex-grow items-center justify-center rounded-lg border p-8">
 				<div class="inline-flex w-96 flex-col items-center gap-y-4 text-center">
 					<svg
@@ -64,7 +65,7 @@
 			</div>
 		{:else}
 			<div class="flex max-w-xl flex-wrap gap-4">
-				{#each $projects as project}
+				{#each $projects$ as project}
 					<a
 						class="text-color-2 w-96 overflow-hidden rounded-lg shadow dark:border dark:shadow-none"
 						style:border-color="var(--border-surface)"
@@ -97,4 +98,4 @@
 			</div>
 		{/if}
 	</div>
-{/await}
+{/if}
