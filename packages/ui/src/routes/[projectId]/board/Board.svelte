@@ -29,14 +29,6 @@
 	let dropPosition = 0;
 
 	$: activeBranches = branches?.filter((b) => b.active) || [];
-
-	function handleEmpty() {
-		const emptyIndex = branches?.findIndex((item) => !item.files || item.files.length == 0);
-		if (emptyIndex && emptyIndex != -1) {
-			branches?.splice(emptyIndex, 1);
-		}
-		branches = branches;
-	}
 </script>
 
 {#if branchesError}
@@ -100,7 +92,6 @@
 				}}
 			>
 				<BranchLane
-					on:empty={handleEmpty}
 					{branch}
 					{projectId}
 					{projectPath}

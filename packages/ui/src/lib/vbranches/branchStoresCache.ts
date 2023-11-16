@@ -1,6 +1,6 @@
 import { BaseBranch, Branch, RemoteBranch } from './types';
 import { plainToInstance } from 'class-transformer';
-import { invoke } from '$lib/backend/ipc';
+import { invoke, listen } from '$lib/backend/ipc';
 import { isDelete, isInsert, type Delta } from '$lib/backend/deltas';
 import type { FileContent } from '$lib/backend/files';
 import {
@@ -10,31 +10,24 @@ import {
 	shareReplay,
 	catchError,
 	BehaviorSubject,
-	of,
 	debounceTime,
-	combineLatestWith
+	combineLatestWith,
+	concat,
+	from,
+	tap
 } from 'rxjs';
 
 export class VirtualBranchService {
 	branches$: Observable<Branch[]>;
 	branchesError$ = new BehaviorSubject<any>(undefined);
-	private reload$ = new BehaviorSubject<void>(undefined);
 
-	constructor(
-		projectId: string,
-		deltas$: Observable<any>,
-		sessionId$: Observable<string>,
-		head$: Observable<any>,
-		baseBranch$: Observable<any>
-	) {
-		this.branches$ = merge(deltas$, sessionId$, head$, baseBranch$).pipe(
-			debounceTime(100), // TODO: Remove this when we subscribe to vbranches
-			combineLatestWith(this.reload$),
-			switchMap(() => listVirtualBranches({ projectId })),
-			catchError((e) => {
-				this.branchesError$.next(e);
-				return of([]);
-			}),
+	constructor(projectId: string, sessionId$: Observable<string>) {
+		this.branches$ = concat(
+			from(listVirtualBranches({ projectId })),
+			new Observable<Branch[]>((subscriber) => {
+				return subscribeToVirtualBranches(projectId, (branches) => subscriber.next(branches));
+			})
+		).pipe(
 			combineLatestWith(sessionId$),
 			switchMap(
 				([branches, sessionId]) =>
@@ -45,13 +38,24 @@ export class VirtualBranchService {
 						);
 					})
 			),
+			tap((branches) => {
+				branches.forEach((branch) => {
+					branch.files.sort((a) => (a.conflicted ? -1 : 0));
+					branch.isMergeable = invoke<boolean>('can_apply_virtual_branch', {
+						projectId: projectId,
+						branchId: branch.id
+					});
+				});
+			}),
 			shareReplay(1)
 		);
 	}
+}
 
-	reload() {
-		this.reload$.next();
-	}
+function subscribeToVirtualBranches(projectId: string, callback: (branches: Branch[]) => void) {
+	return listen<any[]>(`project://${projectId}/virtual-branches`, (event) =>
+		callback(plainToInstance(Branch, event.payload))
+	);
 }
 
 export class BaseBranchService {
@@ -77,15 +81,7 @@ export class BaseBranchService {
 }
 
 export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
-	const result = plainToInstance(Branch, await invoke<any[]>('list_virtual_branches', params));
-	result.forEach((branch) => {
-		branch.files.sort((a) => (a.conflicted ? -1 : 0));
-		branch.isMergeable = invoke<boolean>('can_apply_virtual_branch', {
-			projectId: params.projectId,
-			branchId: branch.id
-		});
-	});
-	return result;
+	return plainToInstance(Branch, await invoke<any[]>('list_virtual_branches', params));
 }
 
 export async function getRemoteBranchesData(params: {
