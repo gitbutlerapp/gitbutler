@@ -173,6 +173,8 @@ impl Handler {
                     path.to_path_buf(),
                     new_delta.clone(),
                 )),
+                // TODO: extract all the sessions stuff in a separate event handler
+                events::Event::VirtualBranch(*project_id),
             ])
         } else {
             tracing::debug!(%project_id, path = %path.display(), "no new deltas, ignoring");

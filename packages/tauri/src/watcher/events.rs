@@ -30,6 +30,8 @@ pub enum Event {
 
     Emit(events::Event),
     Analytics(analytics::Event),
+
+    VirtualBranch(ProjectId),
 }
 
 impl Event {
@@ -48,6 +50,7 @@ impl Event {
             | Event::Session(project_id, _)
             | Event::SessionFile((project_id, _, _, _))
             | Event::SessionDelta((project_id, _, _, _))
+            | Event::VirtualBranch(project_id)
             | Event::PushGitbutlerData(project_id)
             | Event::PushProjectToGitbutler(project_id) => project_id,
         }
@@ -88,6 +91,7 @@ impl Display for Event {
                     delta.timestamp_ms
                 )
             }
+            Event::VirtualBranch(pid) => write!(f, "VirtualBranch({})", pid),
             Event::PushGitbutlerData(pid) => write!(f, "PushGitbutlerData({})", pid),
             Event::PushProjectToGitbutler(pid) => write!(f, "PushProjectToGitbutler({})", pid),
             Event::IndexAll(pid) => write!(f, "IndexAll({})", pid),
