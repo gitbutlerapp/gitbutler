@@ -11,7 +11,7 @@ export class UserService {
 					subscriber.next(user);
 					this.posthog.then((client) => client.identify(user));
 					this.sentry.identify(user);
-				} else users.delete().then(() => subscriber.next());
+				}
 			});
 		}).pipe(shareReplay(1)),
 		this.reset$
@@ -30,5 +30,6 @@ export class UserService {
 	async logout() {
 		await users.delete();
 		this.reset$.next(undefined);
+		// TODO: Un-identify from sentry and posthog
 	}
 }
