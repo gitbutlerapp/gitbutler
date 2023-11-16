@@ -36,9 +36,7 @@ impl Handler {
         let path = path.as_ref().to_path_buf();
         let mut events = vec![events::Event::SessionProcessing(*project_id, path)];
 
-        let rate_limiter = self
-            .limit
-            .get_or_init(|| RateLimiter::direct(self.quota));
+        let rate_limiter = self.limit.get_or_init(|| RateLimiter::direct(self.quota));
 
         if rate_limiter.check().is_ok() {
             events.push(events::Event::VirtualBranch(*project_id));
