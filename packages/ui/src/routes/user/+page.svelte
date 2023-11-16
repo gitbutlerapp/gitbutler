@@ -51,7 +51,7 @@
 		loaded = true;
 		cloud.user.get($user$?.access_token).then((cloudUser) => {
 			cloudUser.github_access_token = $user$?.github_access_token; // prevent overwriting with null
-			$user$ = cloudUser;
+			userService.set(cloudUser);
 		});
 		newName = $user$?.name || '';
 	}
