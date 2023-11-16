@@ -1,10 +1,6 @@
 import { subscribe } from '$lib/backend/fetches';
-import { writable, type Loadable } from '@square/svelte-store';
+import { Observable } from 'rxjs';
 
-export function getFetchesStore(projectId: string): Loadable<any> {
-	let counter = 0; // Store doesn't emit unless it gets new value
-	return writable<any>([], (set) => {
-		const unsubscribe = subscribe(projectId, () => set(counter++));
-		return () => unsubscribe();
-	});
+export function getFetchNotifications(projectId: string): Observable<void> {
+	return new Observable((observer) => subscribe(projectId, () => observer.next()));
 }

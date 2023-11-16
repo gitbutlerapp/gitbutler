@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { projectsStore, type Project } from '$lib/backend/projects';
+	import type { Project, ProjectService } from '$lib/backend/projects';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
@@ -9,13 +9,18 @@
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, CustomStore } from '$lib/vbranches/types';
+	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import ProjectsPopup from './ProjectsPopup.svelte';
 
 	export let project: Project;
+	export let projectService: ProjectService;
 	export let branchController: BranchController;
-	export let baseBranchStore: CustomStore<BaseBranch | undefined>;
+	export let baseBranchService: BaseBranchService;
 	export let prService: PrService;
+
+	$: base$ = baseBranchService.base$;
+
+	$: projects$ = projectService.projects$;
 
 	let popup: ProjectsPopup;
 	let baseContents: HTMLElement;
@@ -30,12 +35,12 @@
 	<div class="flex flex-grow items-center">
 		<div class="flex flex-grow items-center gap-1">
 			<a href="/{project.id}/base" class="font-bold">{project.title}</a>
-			{#if ($baseBranchStore?.behind || 0) > 0}
+			{#if ($base$?.behind || 0) > 0}
 				<Tooltip label="Unmerged upstream commits">
 					<div
 						class="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white"
 					>
-						{$baseBranchStore?.behind}
+						{$base$?.behind}
 					</div>
 				</Tooltip>
 			{/if}
@@ -64,20 +69,20 @@
 	</div>
 	<div class="flex flex-grow items-center text-sm">
 		<div class="flex flex-grow items-center gap-1">
-			{#if $baseBranchStore?.remoteUrl.includes('github.com')}
+			{#if $base$?.remoteUrl.includes('github.com')}
 				<IconGithub class="h-2.5 w-2.5" />
 			{:else}
 				<IconBranch class="h-2.5 w-2.5" />
 			{/if}
-			{$baseBranchStore?.branchName}
+			{$base$?.branchName}
 		</div>
 		<div>
 			<Tooltip label="Last fetch from upstream">
-				{#if $baseBranchStore?.fetchedAt}
-					<TimeAgo date={$baseBranchStore.fetchedAt} />
+				{#if $base$?.fetchedAt}
+					<TimeAgo date={$base$.fetchedAt} />
 				{/if}
 			</Tooltip>
 		</div>
 	</div>
 </div>
-<ProjectsPopup bind:this={popup} projects={$projectsStore} />
+<ProjectsPopup bind:this={popup} projects={$projects$} />

@@ -6,16 +6,18 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { accordion } from './accordion';
-	import type { CustomStore, RemoteBranch } from '$lib/vbranches/types';
 	import { page } from '$app/stores';
+	import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 
-	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
+	export let remoteBranchService: RemoteBranchService;
 	export let projectId: string;
+
+	$: branches$ = remoteBranchService.branches$;
+	$: error$ = remoteBranchService.branchesError$;
 
 	let rbViewport: HTMLElement;
 	let rbContents: HTMLElement;
 	let rbSection: HTMLElement;
-	$: remoteBranchesState = remoteBranchStore?.state;
 
 	let open = false;
 </script>
@@ -48,11 +50,11 @@
 		class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
 	>
 		<div bind:this={rbContents}>
-			{#if $remoteBranchesState.isLoading}
+			{#if $error$}
 				<div class="px-2 py-1">loading...</div>
-			{:else if $remoteBranchesState.isError}
+			{:else if !$branches$}
 				<div class="px-2 py-1">Something went wrong</div>
-			{:else if !$remoteBranchStore || $remoteBranchStore.length == 0}
+			{:else if $branches$.length == 0}
 				<div class="p-4">
 					<p class="text-color-3 mb-2">
 						There are no local or remote Git branches that can be imported as virtual branches
@@ -65,8 +67,8 @@
 						Learn more
 					</Link>
 				</div>
-			{:else if $remoteBranchStore}
-				{#each $remoteBranchStore as branch}
+			{:else}
+				{#each $branches$ as branch}
 					<a
 						href="/{projectId}/remote/{branch.sha}"
 						class:bg-color-4={$page.url.pathname.includes(branch.sha)}

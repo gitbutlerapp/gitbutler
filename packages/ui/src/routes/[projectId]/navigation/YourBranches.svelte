@@ -9,7 +9,7 @@
 	import { page } from '$app/stores';
 	import { slide } from 'svelte/transition';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
-	import type { Branch, CustomStore } from '$lib/vbranches/types';
+	import type { Branch } from '$lib/vbranches/types';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { getContext } from 'svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
@@ -17,13 +17,16 @@
 	import Button from '$lib/components/Button.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Project } from '$lib/backend/projects';
+	import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
-	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
+	export let vbranchService: VirtualBranchService;
 	export let branchController: BranchController;
 	export let project: Project;
-	$: branchesState = branchesWithContentStore?.state;
+
+	$: branches$ = vbranchService.branches$;
+	$: branchesError$ = vbranchService.branchesError$;
 
 	let yourBranchesOpen = true;
 	let vbViewport: HTMLElement;
@@ -73,16 +76,16 @@
 		class="hide-native-scrollbar flex h-full max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
 	>
 		<div bind:this={vbContents}>
-			{#if $branchesState.isLoading}
-				<div class="px-2 py-1">Loading...</div>
-			{:else if $branchesState.isError}
+			{#if $branchesError$}
 				<div class="px-2 py-1">Something went wrong!</div>
-			{:else if !$branchesWithContentStore || $branchesWithContentStore.length == 0}
+			{:else if !$branches$}
+				<div class="px-2 py-1">Loading...</div>
+			{:else if !$branches$ || $branches$.length == 0}
 				<div class="text-color-2 p-2">You currently have no virtual branches</div>
-			{:else if $branchesWithContentStore.filter((b) => !b.active).length == 0}
+			{:else if $branches$.filter((b) => !b.active).length == 0}
 				<div class="text-color-2 p-2">You have no stashed branches</div>
 			{:else}
-				{#each $branchesWithContentStore.filter((b) => !b.active) as branch}
+				{#each $branches$.filter((b) => !b.active) as branch (branch.id)}
 					{@const { added, removed } = sumBranchLinesAddedRemoved(branch)}
 					{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
 					<a

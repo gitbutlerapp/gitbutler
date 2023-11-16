@@ -3,7 +3,9 @@
 	import BaseBranch from './BaseBranch.svelte';
 
 	export let data: PageData;
-	let { projectId, branchController, baseBranchStore, baseBranchesState } = data;
+	let { projectId, branchController, baseBranchService } = data;
+	$: base$ = baseBranchService.base$;
+	$: error$ = baseBranchService.error$;
 </script>
 
 <div class="h-full flex-grow overflow-y-auto overscroll-none p-3">
@@ -12,12 +14,12 @@
 		style:background-color="var(--bg-surface)"
 		style:border-color="var(--border-surface)"
 	>
-		{#if $baseBranchesState.isLoading}
-			<p>Loading...</p>
-		{:else if $baseBranchesState.isError}
+		{#if $error$}
 			<p>Error...</p>
-		{:else if $baseBranchStore}
-			<BaseBranch {projectId} base={$baseBranchStore} {branchController} />
+		{:else if !$base$}
+			<p>Loading...</p>
+		{:else}
+			<BaseBranch {projectId} base={$base$} {branchController} />
 		{/if}
 	</div>
 </div>

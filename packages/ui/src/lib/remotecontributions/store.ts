@@ -1,16 +1,14 @@
 import type { PullRequest } from '$lib/github/types';
-import type { RemoteBranch, CustomStore } from '$lib/vbranches/types';
+import type { RemoteBranch } from '$lib/vbranches/types';
 import { RemoteContribution } from '$lib/remotecontributions/types';
 import { Observable, combineLatest } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
-import { storeToObservable } from '$lib/rxjs/store';
 
 export function getRemoteContributionsStore(
-	remoteBranchStore: CustomStore<RemoteBranch[] | undefined>,
+	remoteBranches$: Observable<RemoteBranch[]>,
 	pullRequestObservable: Observable<PullRequest[]>
 ): Observable<RemoteContribution[]> {
-	const remoteBranchObservable = storeToObservable(remoteBranchStore);
-	return combineLatest([remoteBranchObservable, pullRequestObservable]).pipe(
+	return combineLatest([remoteBranches$, pullRequestObservable]).pipe(
 		switchMap(
 			([remoteBranches, pullRequests]) =>
 				new Observable<RemoteContribution[]>((observer) => {

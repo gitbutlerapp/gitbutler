@@ -1,6 +1,6 @@
 import lscache from 'lscache';
-import { Observable, EMPTY, BehaviorSubject, Subject, of } from 'rxjs';
-import { catchError, shareReplay, switchMap, tap, withLatestFrom } from 'rxjs/operators';
+import { Observable, EMPTY, BehaviorSubject, of } from 'rxjs';
+import { catchError, combineLatestWith, shareReplay, switchMap, tap } from 'rxjs/operators';
 
 import { PullRequest, type GitHubIntegrationContext } from '$lib/github/types';
 import { newClient } from '$lib/github/client';
@@ -8,11 +8,11 @@ import { newClient } from '$lib/github/client';
 export class PrService {
 	prs$: Observable<PullRequest[]>;
 	error$ = new BehaviorSubject<string | undefined>(undefined);
-	reload$ = new BehaviorSubject<void>(undefined);
+	private reload$ = new BehaviorSubject<void>(undefined);
 
 	constructor(ghContext$: Observable<GitHubIntegrationContext | undefined>) {
 		this.prs$ = ghContext$.pipe(
-			withLatestFrom(this.reload$),
+			combineLatestWith(this.reload$),
 			tap(() => this.error$.next(undefined)),
 			switchMap(([ctx, _]) => {
 				if (!ctx) return EMPTY;

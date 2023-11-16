@@ -8,20 +8,25 @@
 	let {
 		projectId,
 		cloud,
-		baseBranchStore,
-		baseBranchesState,
+		baseBranchService,
 		branchController,
-		branchesWithContent,
-		branchesState,
-		githubContextStore,
-		projectStore
+		githubContext$,
+		projectService,
+		vbranchService,
+		user$
 	} = data;
+
+	$: base$ = baseBranchService.base$;
+
+	$: project$ = projectService.getProject(projectId);
+	$: branches$ = vbranchService.branches$;
+	$: error$ = vbranchService.branchesError$;
 
 	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(projectId);
 	function shouldShowHttpsWarning() {
 		if (httpsWarningBannerDismissed) return false;
-		if (!$baseBranchStore?.remoteUrl.startsWith('https')) return false;
-		if ($baseBranchStore?.remoteUrl.includes('github.com') && $githubContextStore) return false;
+		if (!$base$?.remoteUrl.startsWith('https')) return false;
+		if ($base$?.remoteUrl.includes('github.com') && $githubContext$) return false;
 		return true;
 	}
 </script>
@@ -50,13 +55,13 @@
 			{branchController}
 			{projectId}
 			{cloud}
-			base={$baseBranchStore}
-			branches={$branchesWithContent}
-			projectPath={$projectStore?.path}
-			cloudEnabled={$projectStore?.api?.sync || false}
-			githubContext={$githubContextStore}
-			branchesState={$branchesState}
-			baseBranchState={$baseBranchesState}
+			base={$base$}
+			branches={$branches$}
+			projectPath={$project$?.path}
+			cloudEnabled={$project$?.api?.sync || false}
+			githubContext={$githubContext$}
+			branchesError={$error$}
+			user={$user$}
 		/>
 	</div>
 </div>

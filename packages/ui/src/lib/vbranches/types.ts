@@ -1,7 +1,5 @@
 import 'reflect-metadata';
 import { Type, Transform } from 'class-transformer';
-import type { Readable, WritableLoadable } from '@square/svelte-store';
-import type { LoadState, VisitedMap } from '@square/svelte-store/lib/async-stores/types';
 
 export class Hunk {
 	id!: string;
@@ -138,12 +136,4 @@ export class BaseBranch {
 	commitUrl(commitId: string): string | undefined {
 		return `${this.repoBaseUrl}/commit/${commitId}`;
 	}
-}
-export interface CustomStore<T> extends WritableLoadable<T> {
-	state: Readable<LoadState>;
-	reload(visitedMap?: VisitedMap): Promise<T>;
-}
-
-export interface VirtualBranchStore<T> extends CustomStore<T[] | undefined> {
-	updateById(id: string, updater: (value: T) => void): void;
 }

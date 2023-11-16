@@ -7,7 +7,6 @@
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import * as events from '$lib/utils/events';
 	import { Toaster } from 'svelte-french-toast';
-	import { userStore } from '$lib/stores/user';
 	import type { LayoutData } from './$types';
 	import { onMount, setContext } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -16,10 +15,9 @@
 	import ShareIssueModal from './ShareIssueModal.svelte';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
 	import { initTheme } from './user/theme';
-	import { addProject } from '$lib/backend/projects';
 
 	export let data: LayoutData;
-	const { posthog, projects, sentry, cloud } = data;
+	const { projectService, cloud, user$ } = data;
 
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
@@ -40,7 +38,7 @@
 						if (selectedPath === null) return;
 						if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
 						const projectPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
-						return addProject(projectPath);
+						return projectService.add(projectPath);
 					})
 					.then(async (project) => {
 						if (!project) return;
@@ -64,10 +62,7 @@
 					...s,
 					theme: $userSettings.theme == 'light' ? 'dark' : 'light'
 				}));
-			}),
-
-			userStore.subscribe(posthog.identify),
-			userStore.subscribe(sentry.identify)
+			})
 		)
 	);
 </script>
@@ -77,6 +72,6 @@
 		<slot />
 	</div>
 	<Toaster />
-	<LinkProjectModal bind:this={linkProjectModal} {cloud} {projects} />
-	<ShareIssueModal bind:this={shareIssueModal} user={$userStore} {cloud} />
+	<LinkProjectModal bind:this={linkProjectModal} {cloud} {projectService} user={$user$} />
+	<ShareIssueModal bind:this={shareIssueModal} user={$user$} {cloud} />
 </div>

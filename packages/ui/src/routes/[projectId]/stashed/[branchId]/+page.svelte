@@ -7,37 +7,40 @@
 	let {
 		projectId,
 		branchController,
-		githubContextStore,
+		githubContext$,
 		cloud,
-		vbranchStore,
-		vbranchesState,
-		baseBranchStore
+		baseBranchService,
+		vbranchService,
+		user$
 	} = data;
 
-	$: branch = $vbranchStore?.find((b) => b.id == $page.params.branchId);
+	$: baseBranch$ = baseBranchService.base$;
+
+	$: branches$ = vbranchService.branches$;
+	$: error$ = vbranchService.branchesError$;
+	$: branch = $branches$?.find((b) => b.id == $page.params.branchId);
 </script>
 
 <div class="h-full flex-grow overflow-y-auto overscroll-none p-3">
-	{#if $vbranchesState.isLoading}
-		<p>Loading...</p>
-	{:else if $vbranchesState.isError}
+	{#if $error$}
 		<p>Error...</p>
-	{:else if $vbranchStore}
-		{#if branch}
-			<BranchLane
-				{branch}
-				{branchController}
-				base={$baseBranchStore}
-				{cloud}
-				{projectId}
-				maximized={true}
-				cloudEnabled={false}
-				projectPath=""
-				readonly={true}
-				githubContext={$githubContextStore}
-			/>
-		{:else}
-			<p>Branch no longer exists</p>
-		{/if}
+	{:else if !$branches$}
+		<p>Loading...</p>
+	{:else if branch}
+		<BranchLane
+			{branch}
+			{branchController}
+			base={$baseBranch$}
+			{cloud}
+			{projectId}
+			maximized={true}
+			cloudEnabled={false}
+			projectPath=""
+			readonly={true}
+			githubContext={$githubContext$}
+			user={$user$}
+		/>
+	{:else}
+		<p>Branch no longer exists</p>
 	{/if}
 </div>

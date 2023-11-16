@@ -74,7 +74,7 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 			})
 			.catch((reason) => {
 				const userError = UserError.fromError(reason);
-				console.error(`ipc->${command}: ${JSON.stringify(params)}`, userError);
+				console.error(`ipc->${command}: ${JSON.stringify(params)}`, userError, reason);
 				throw userError;
 			})
 			.finally(() => {

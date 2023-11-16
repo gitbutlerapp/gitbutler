@@ -1,81 +1,93 @@
-import { asyncWritable, type Readable } from '@square/svelte-store';
-import {
-	BaseBranch,
-	Branch,
-	RemoteBranch,
-	type CustomStore,
-	type VirtualBranchStore
-} from './types';
+import { BaseBranch, Branch, RemoteBranch } from './types';
 import { plainToInstance } from 'class-transformer';
 import { invoke } from '$lib/backend/ipc';
 import { isDelete, isInsert, type Delta } from '$lib/backend/deltas';
-import type { Session } from '$lib/backend/sessions';
-import { get } from 'svelte/store';
 import type { FileContent } from '$lib/backend/files';
+import {
+	merge,
+	switchMap,
+	Observable,
+	shareReplay,
+	catchError,
+	BehaviorSubject,
+	of,
+	debounceTime,
+	combineLatestWith
+} from 'rxjs';
 
-export function getVirtualBranchStore(
-	projectId: string,
-	deltasStore: Readable<any>,
-	sessionStore: Readable<any>,
-	headStore: Readable<any>,
-	baseBranchStore: Readable<any>
-): VirtualBranchStore<Branch> {
-	return {
-		...(asyncWritable(
-			[deltasStore, sessionStore, headStore, baseBranchStore],
-			async () => await listVirtualBranches({ projectId }),
-			undefined,
-			{ reloadable: true, trackState: true }
-		) as CustomStore<Branch[] | undefined>),
-		updateById(id: string, updater: (value: Branch) => void): void {
-			const branch = get(this.store)?.find((b) => b.id == id);
-			branch && updater(branch);
-			this.store.update((v) => v);
-		}
-	};
+export class VirtualBranchService {
+	branches$: Observable<Branch[]>;
+	branchesError$ = new BehaviorSubject<any>(undefined);
+	private reload$ = new BehaviorSubject<void>(undefined);
+
+	constructor(
+		projectId: string,
+		deltas$: Observable<any>,
+		sessionId$: Observable<string>,
+		head$: Observable<any>,
+		baseBranch$: Observable<any>
+	) {
+		this.branches$ = merge(deltas$, sessionId$, head$, baseBranch$).pipe(
+			debounceTime(1000),
+			combineLatestWith(this.reload$),
+			switchMap(() => {
+				console.log('reloading branches');
+				return listVirtualBranches({ projectId });
+			}),
+			catchError((e) => {
+				this.branchesError$.next(e);
+				return of([]);
+			}),
+			combineLatestWith(sessionId$),
+			switchMap(
+				([branches, sessionId]) =>
+					new Observable<Branch[]>((subscriber) => {
+						subscriber.next(branches);
+						withFileContent(projectId, sessionId, branches).then((branches) =>
+							subscriber.next(branches)
+						);
+					})
+			)
+		);
+	}
+
+	reload() {
+		console.log('force relaod');
+		this.reload$.next();
+	}
 }
 
-export function getWithContentStore(
+export function getRemoteBranchesObs(
 	projectId: string,
-	sessionStore: Readable<Session[]>,
-	vbranchStore: Readable<Branch[] | undefined>
+	fetches$: Observable<void>,
+	head$: Observable<any>,
+	baseBranch$: Observable<any>
 ) {
-	return asyncWritable(
-		[vbranchStore, sessionStore],
-		async ([branches, sessions]) => {
-			const lastSession = sessions.at(0);
-			return lastSession ? await withFileContent(projectId, lastSession.id, branches) : [];
-		},
-		async (newBranches) => newBranches,
-		{ reloadable: true, trackState: true }
-	) as CustomStore<Branch[] | undefined>;
+	return merge(fetches$, head$, baseBranch$).pipe(
+		switchMap(() => getRemoteBranchesData({ projectId })),
+		shareReplay(1)
+	);
 }
 
-export function getRemoteBranchStore(
-	projectId: string,
-	fetchStore: Readable<any>,
-	headStore: Readable<any>,
-	baseBranchStore: Readable<any>
-) {
-	return asyncWritable(
-		[fetchStore, headStore, baseBranchStore],
-		async () => getRemoteBranchesData({ projectId }),
-		async (newRemotes) => newRemotes,
-		{ reloadable: true, trackState: true }
-	) as CustomStore<RemoteBranch[] | undefined>;
-}
+export class BaseBranchService {
+	base$: Observable<BaseBranch | null>;
+	error$ = new BehaviorSubject<any>(undefined);
+	private reload$ = new BehaviorSubject<void>(undefined);
 
-export function getBaseBranchStore(
-	projectId: string,
-	fetchStore: Readable<any>,
-	headStore: Readable<any>
-) {
-	return asyncWritable(
-		[fetchStore, headStore],
-		async () => getBaseBranch({ projectId }),
-		async (newBaseBranch) => newBaseBranch,
-		{ reloadable: true, trackState: true }
-	) as CustomStore<BaseBranch | undefined>;
+	constructor(projectId: string, fetches$: Observable<void>, head$: Observable<string>) {
+		this.base$ = merge(fetches$, head$, this.reload$).pipe(
+			switchMap(() => getBaseBranch({ projectId })),
+			catchError((e) => {
+				this.error$.next(e);
+				throw e;
+			}),
+			shareReplay(1)
+		);
+	}
+
+	reload() {
+		this.reload$.next();
+	}
 }
 
 export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
@@ -106,13 +118,14 @@ export async function getRemoteBranches(projectId: string | undefined) {
 	return await invoke<Array<string>>('git_remote_branches', { projectId });
 }
 
-async function getBaseBranch(params: { projectId: string }): Promise<BaseBranch> {
+async function getBaseBranch(params: { projectId: string }): Promise<BaseBranch | null> {
 	const baseBranch = plainToInstance(BaseBranch, await invoke<any>('get_base_branch_data', params));
 	if (baseBranch) {
 		// The rust code performs a fetch when get_base_branch_data is invoked
 		baseBranch.fetchedAt = new Date();
+		return baseBranch;
 	}
-	return baseBranch || undefined;
+	return null;
 }
 
 export async function withFileContent(
