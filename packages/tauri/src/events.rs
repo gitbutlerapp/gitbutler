@@ -134,9 +134,7 @@ impl Event {
     ) -> Self {
         Event {
             name: format!("project://{}/virtual-branches", project_id),
-            payload: serde_json::json!({
-                "virtualBranches": virtual_branches,
-            }),
+            payload: serde_json::json!(virtual_branches),
             project_id: *project_id,
         }
     }
