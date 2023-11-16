@@ -19,14 +19,15 @@ pub struct Handler {
 
 impl Handler {
     pub fn new() -> Self {
-        let quota: Quota = Quota::per_second(nonzero!(1_u32)); // 1 per second at most.
+        let quota = Quota::per_second(nonzero!(1_u32)); // 1 per second at most.
         let limit: OnceCell<RateLimiter<NotKeyed, InMemoryState, QuantaClock>> = OnceCell::new();
         Handler {
-            quota: quota,
+            quota,
             limit: limit.into(),
         }
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn handle<P: AsRef<std::path::Path>>(
         &self,
         path: P,
@@ -37,7 +38,7 @@ impl Handler {
 
         let rate_limiter = self
             .limit
-            .get_or_init(|| RateLimiter::direct(self.quota.clone()));
+            .get_or_init(|| RateLimiter::direct(self.quota));
 
         if rate_limiter.check().is_ok() {
             events.push(events::Event::VirtualBranch(*project_id));
