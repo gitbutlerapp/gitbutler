@@ -15,9 +15,8 @@
 	const pollForUser = async (token: string) => {
 		const apiUser = await cloud.login.user.get(token).catch(() => null);
 		if (apiUser) {
-			user = apiUser;
-			userService.logout;
-			return apiUser;
+			userService.set(apiUser);
+			return;
 		}
 		return new Promise((resolve) => {
 			setTimeout(async () => {
