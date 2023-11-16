@@ -176,7 +176,7 @@ mod test {
 
     fn create_new_session_via_new_file(project: &projects::Project, suite: &Suite) {
         fs::write(project.path.join("test.txt"), "test").unwrap();
-        let file_change_listener = handlers::project_file_change::Handler::new();
+        let file_change_listener = handlers::session_handler::Handler::from(&suite.local_app_data);
         file_change_listener
             .handle("test.txt", &project.id)
             .unwrap();
