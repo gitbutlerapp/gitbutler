@@ -39,7 +39,7 @@
 		value={remoteBranchName}
 		on:change={handleUpdateName}
 		name="remoteName"
-		class="text-color-2 block w-full rounded-md border-0 px-2 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+		class="text-color-2 ring-gray-300 focus:ring-indigo-600 block w-full rounded-md border-0 px-2 py-1.5 shadow-sm ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6"
 		placeholder="Remote branch name (optional)"
 	/>
 </div>
