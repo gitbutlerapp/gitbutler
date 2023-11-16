@@ -16,7 +16,6 @@
 	export let user: User | undefined;
 
 	$: projects$ = projectService.projects$;
-
 	$: cloudProjects = user ? cloud.projects.list(user.access_token) : Promise.resolve([]);
 
 	let selectedRepositoryId: string | null = null;

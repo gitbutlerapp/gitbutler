@@ -1,21 +1,22 @@
 <script async lang="ts">
-	import type { ProjectService } from '$lib/backend/projects';
+	import type { Project, ProjectService } from '$lib/backend/projects';
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import IconExternalLink from '$lib/icons/IconExternalLink.svelte';
 	import IconLoading from '$lib/icons/IconLoading.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
+	import type { Observable } from 'rxjs';
 
 	export let projectId: string;
 	export let projectService: ProjectService;
 	export let branchController: BranchController;
+	export let project$: Observable<Project>;
 
 	let targetChoice: string | undefined;
 	let loading = false;
 
 	$: projectError = projectService.error$;
-	$: project$ = projectService.getProject(projectId);
 	$: remoteBranchNames = getRemoteBranches(projectId);
 
 	function onSetTargetClick() {

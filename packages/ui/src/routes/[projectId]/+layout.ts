@@ -13,8 +13,9 @@ import { RemoteBranchService } from '$lib/stores/remoteBranches';
 export const prerender = false;
 
 export const load: LayoutLoad = async ({ params, parent }) => {
-	const { user$ } = await parent();
+	const { user$, projectService } = await parent();
 	const projectId = params.projectId;
+	const project$ = projectService.getProject(projectId);
 	const fetches$ = getFetchNotifications(projectId);
 	const heads$ = getHeads(projectId);
 	const sessions$ = getSessions(projectId);
@@ -59,6 +60,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		vbranchService,
 		githubContext$,
 		remoteBranchService,
-		user$
+		user$,
+		project$
 	};
 };
