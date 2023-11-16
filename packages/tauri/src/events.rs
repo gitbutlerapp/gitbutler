@@ -6,6 +6,7 @@ use crate::{
     projects::ProjectId,
     reader,
     sessions::{self, SessionId},
+    virtual_branches,
 };
 
 #[derive(Clone)]
@@ -122,6 +123,19 @@ impl Event {
             payload: serde_json::json!({
                 "deltas": deltas,
                 "filePath": relative_file_path,
+            }),
+            project_id: *project_id,
+        }
+    }
+
+    pub fn virtual_branches(
+        project_id: &ProjectId,
+        virtual_branches: &Vec<virtual_branches::VirtualBranch>,
+    ) -> Self {
+        Event {
+            name: format!("project://{}/virtual-branches", project_id),
+            payload: serde_json::json!({
+                "virtualBranches": virtual_branches,
             }),
             project_id: *project_id,
         }
