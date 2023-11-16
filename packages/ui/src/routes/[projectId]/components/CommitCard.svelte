@@ -16,7 +16,6 @@
 	export let commit: Commit | RemoteCommit;
 	export let projectId: string;
 	export let commitUrl: string | undefined = undefined;
-	$: console.log(commit);
 
 	let previewCommitModal: Modal;
 	let minWidth = 2;

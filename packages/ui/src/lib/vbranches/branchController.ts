@@ -2,7 +2,7 @@ import type { BaseBranch, Hunk } from './types';
 import * as toasts from '$lib/utils/toasts';
 import { invoke } from '$lib/backend/ipc';
 import type { Session } from '$lib/backend/sessions';
-import type { BaseBranchService, VirtualBranchService } from './branchStoresCache';
+import type { BaseBranchService } from './branchStoresCache';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { Observable } from 'rxjs';
 
