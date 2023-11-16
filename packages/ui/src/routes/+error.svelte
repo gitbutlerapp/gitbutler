@@ -10,8 +10,8 @@
 	$: message = $page.error
 		? $page.error.message
 		: $page.status === 404
-		? 'Page not found'
-		: 'Something went wrong';
+		  ? 'Page not found'
+		  : 'Something went wrong';
 </script>
 
 <div class="flex h-full flex-1">
