@@ -7,6 +7,7 @@ mod index_handler;
 mod project_file_change;
 mod push_gitbutler_data;
 mod push_project_to_gitbutler;
+mod session_handler;
 mod tick_handler;
 mod vbranch_handler;
 
@@ -33,6 +34,7 @@ pub struct Handler {
     index_handler: index_handler::Handler,
     push_project_to_gitbutler: push_project_to_gitbutler::Handler,
     virtual_branch_handler: vbranch_handler::Handler,
+    session_processing_handler: session_handler::Handler,
 
     events_sender: app_events::Sender,
 }
@@ -43,7 +45,7 @@ impl TryFrom<&AppHandle> for Handler {
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
         Ok(Self {
             events_sender: app_events::Sender::from(value),
-            project_file_handler: project_file_change::Handler::try_from(value)?,
+            project_file_handler: project_file_change::Handler::new(),
             tick_handler: tick_handler::Handler::try_from(value)?,
             git_file_change_handler: git_file_change::Handler::try_from(value)?,
             index_handler: index_handler::Handler::try_from(value)?,
@@ -54,6 +56,7 @@ impl TryFrom<&AppHandle> for Handler {
             analytics_handler: analytics_handler::Handler::from(value),
             push_project_to_gitbutler: push_project_to_gitbutler::Handler::try_from(value)?,
             virtual_branch_handler: vbranch_handler::Handler::try_from(value)?,
+            session_processing_handler: session_handler::Handler::try_from(value)?,
         })
     }
 }
@@ -135,6 +138,14 @@ impl Handler {
                 .virtual_branch_handler
                 .handle(project_id)
                 .context("failed to handle virtual branch event"),
+
+            events::Event::SessionProcessing(project_id, path) => self
+                .session_processing_handler
+                .handle(path, project_id)
+                .context(format!(
+                    "failed to handle session processing event: {:?}",
+                    path.display()
+                )),
 
             events::Event::Emit(event) => {
                 self.events_sender

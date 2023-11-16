@@ -32,6 +32,7 @@ pub enum Event {
     Analytics(analytics::Event),
 
     VirtualBranch(ProjectId),
+    SessionProcessing(ProjectId, path::PathBuf),
 }
 
 impl Event {
@@ -51,6 +52,7 @@ impl Event {
             | Event::SessionFile((project_id, _, _, _))
             | Event::SessionDelta((project_id, _, _, _))
             | Event::VirtualBranch(project_id)
+            | Event::SessionProcessing(project_id, _)
             | Event::PushGitbutlerData(project_id)
             | Event::PushProjectToGitbutler(project_id) => project_id,
         }
@@ -92,6 +94,9 @@ impl Display for Event {
                 )
             }
             Event::VirtualBranch(pid) => write!(f, "VirtualBranch({})", pid),
+            Event::SessionProcessing(project_id, path) => {
+                write!(f, "SessionProcessing({}, {})", project_id, path.display())
+            }
             Event::PushGitbutlerData(pid) => write!(f, "PushGitbutlerData({})", pid),
             Event::PushProjectToGitbutler(pid) => write!(f, "PushProjectToGitbutler({})", pid),
             Event::IndexAll(pid) => write!(f, "IndexAll({})", pid),
