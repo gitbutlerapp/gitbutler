@@ -6,9 +6,13 @@ import Sentry from '$lib/analytics/sentry';
 import lscache from 'lscache';
 import { newUpdateStore } from './updater';
 import { UserService } from '$lib/stores/user';
+import { config } from 'rxjs';
 
 // call on startup so we don't accumulate old items
 lscache.flushExpired();
+
+// https://rxjs.dev/api/index/interface/GlobalConfig#properties
+config.onUnhandledError = (err) => console.warn(err);
 
 export const ssr = false;
 export const prerender = false;

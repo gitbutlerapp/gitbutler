@@ -1,4 +1,3 @@
-import { DeltasService } from '$lib/stores/deltas';
 import { getFetchNotifications } from '$lib/stores/fetches';
 import { getHeads } from '$lib/stores/head';
 import { getSessions } from '$lib/stores/sessions';
@@ -19,34 +18,23 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const fetches$ = getFetchNotifications(projectId);
 	const heads$ = getHeads(projectId);
 	const sessions$ = getSessions(projectId);
+	const sessionId$ = sessions$.pipe(
+		switchMap((sessions) => of(sessions[0].id)),
+		shareReplay(1)
+	);
 	const baseBranchService = new BaseBranchService(projectId, fetches$, heads$);
+	const githubContext$ = getGithubContext(user$, baseBranchService.base$);
+	const vbranchService = new VirtualBranchService(projectId, sessionId$);
+	const prService = new PrService(githubContext$);
+
 	const remoteBranchService = new RemoteBranchService(
 		projectId,
 		fetches$,
 		heads$,
 		baseBranchService.base$
 	);
-	const sessionId$ = sessions$.pipe(
-		switchMap((sessions) => of(sessions[0].id)),
-		shareReplay(1)
-	);
-	const deltaService = new DeltasService(projectId, sessionId$);
-
-	const githubContext$ = getGithubContext(user$, baseBranchService.base$);
-
-	const vbranchService = new VirtualBranchService(
-		projectId,
-		deltaService.deltas$,
-		sessionId$,
-		heads$,
-		baseBranchService.base$
-	);
-
-	const prService = new PrService(githubContext$);
-
 	const branchController = new BranchController(
 		projectId,
-		vbranchService,
 		remoteBranchService,
 		baseBranchService,
 		sessions$
