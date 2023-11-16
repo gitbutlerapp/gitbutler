@@ -28,7 +28,7 @@ export class VirtualBranchService {
 		baseBranch$: Observable<any>
 	) {
 		this.branches$ = merge(deltas$, sessionId$, head$, baseBranch$).pipe(
-			debounceTime(1000),
+			debounceTime(100), // TODO: Remove this when we subscribe to vbranches
 			combineLatestWith(this.reload$),
 			switchMap(() => {
 				console.log('reloading branches');
