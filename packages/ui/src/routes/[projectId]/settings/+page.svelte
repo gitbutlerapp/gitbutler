@@ -11,8 +11,7 @@
 	import type { Key, Project } from '$lib/backend/projects';
 
 	export let data: PageData;
-	const { projectService, cloud, projectId, user$, userService } = data;
-	$: project$ = projectService.getProject(projectId);
+	const { projectService, cloud, user$, userService, project$ } = data;
 
 	let deleteConfirmationModal: Modal;
 	let isDeleting = false;
@@ -56,43 +55,47 @@
 		style:background-color="var(--bg-surface)"
 		style:border-color="var(--border-surface)"
 	>
-		<h2 class="text-2xl font-medium">Project settings</h2>
-		<Spacer />
-		<CloudForm project={$project$} user={$user$} {userService} on:updated={onCloudUpdated} />
-		<Spacer />
-		<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
-		<Spacer />
-		<KeysForm project={$project$} on:updated={onKeysUpdated} />
-		<Spacer />
+		{#if !$project$}
+			loading...
+		{:else}
+			<h2 class="text-2xl font-medium">Project settings</h2>
+			<Spacer />
+			<CloudForm project={$project$} user={$user$} {userService} on:updated={onCloudUpdated} />
+			<Spacer />
+			<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
+			<Spacer />
+			<KeysForm project={$project$} on:updated={onKeysUpdated} />
+			<Spacer />
 
-		<div class="flex gap-x-4">
-			<a
-				href="https://discord.gg/wDKZCPEjXC"
-				target="_blank"
-				rel="noreferrer"
-				class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
-			>
-				<p class="mb-2 font-medium">Join our Discorder</p>
-				<p class="text-light-700 dark:text-dark-200">
-					Join our community and share feedback, requests, or ask a question.
-				</p>
-			</a>
-			<a
-				href="mailto:hello@gitbutler.com?subject=Feedback or question!"
-				target="_blank"
-				class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
-			>
-				<p class="mb-2 font-medium">Contact us</p>
-				<p class="text-light-700 dark:text-dark-200">
-					If you have an issue or any questions, contact us.
-				</p>
-			</a>
-		</div>
+			<div class="flex gap-x-4">
+				<a
+					href="https://discord.gg/wDKZCPEjXC"
+					target="_blank"
+					rel="noreferrer"
+					class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
+				>
+					<p class="mb-2 font-medium">Join our Discorder</p>
+					<p class="text-light-700 dark:text-dark-200">
+						Join our community and share feedback, requests, or ask a question.
+					</p>
+				</a>
+				<a
+					href="mailto:hello@gitbutler.com?subject=Feedback or question!"
+					target="_blank"
+					class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
+				>
+					<p class="mb-2 font-medium">Contact us</p>
+					<p class="text-light-700 dark:text-dark-200">
+						If you have an issue or any questions, contact us.
+					</p>
+				</a>
+			</div>
 
-		<Spacer />
-		<Button color="destructive" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
-			Delete project
-		</Button>
+			<Spacer />
+			<Button color="destructive" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
+				Delete project
+			</Button>
+		{/if}
 	</div>
 </div>
 

@@ -9,14 +9,13 @@
 	$: vbranchService = data.vbranchService;
 	$: githubContext$ = data.githubContext$;
 	$: branchController = data.branchController;
-	$: projectService = data.projectService;
 	$: baseBranchService = data.baseBranchService;
 	$: cloud = data.cloud;
 	$: projectId = data.projectId;
 	$: base$ = baseBranchService.base$;
 	$: user$ = data.user$;
 
-	$: project$ = projectService.getProject(projectId);
+	$: project$ = data.project$;
 	$: branches$ = vbranchService.branches$;
 	$: error$ = vbranchService.branchesError$;
 

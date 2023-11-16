@@ -17,7 +17,7 @@
 	}>();
 
 	onMount(async () => {
-		if (!project.api) return;
+		if (!project?.api) return;
 		if (!user) return;
 		const cloudProject = await cloud.projects.get(user.access_token, project.api.repository_id);
 		if (cloudProject === project.api) return;

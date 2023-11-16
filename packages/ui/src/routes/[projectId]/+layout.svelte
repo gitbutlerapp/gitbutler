@@ -24,7 +24,7 @@
 	$: prService = data.prService;
 	$: vbranchService = data.vbranchService;
 	$: branchesError$ = vbranchService.branchesError$;
-	$: project$ = projectService.getProject(data.projectId);
+	$: project$ = data.project$;
 
 	$: baseBranchService = data.baseBranchService;
 	$: baseBranch$ = baseBranchService.base$;
@@ -115,7 +115,7 @@
 	</div>
 {:else if $baseBranch$ == null}
 	{#if $project$}
-		<BaseBranchSelect projectId={$project$?.id} {projectService} {branchController} />
+		<BaseBranchSelect projectId={$project$?.id} {project$} {projectService} {branchController} />
 	{/if}
 {:else}
 	loading...
