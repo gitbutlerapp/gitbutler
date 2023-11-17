@@ -27,7 +27,7 @@
 </script>
 
 <button
-	class={color + ' ' + classes + ' button'}
+	class={color + ' ' + classes + ' button rounded-md px-2 py-0.5'}
 	class:small={height === 'small'}
 	class:full-width={width === 'full-width'}
 	class:pointer-events-none={loading}
@@ -42,8 +42,6 @@
 	class:justify-start={align == 'left'}
 	class:justify-center={align == 'center'}
 	class:justify-end={align == 'right'}
-	class:px-4={!!$$slots.default}
-	class:px-2={!$$slots.default}
 	{tabindex}
 >
 	{#if loading}

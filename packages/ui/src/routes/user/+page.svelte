@@ -167,7 +167,7 @@
 	class="flex h-full flex-shrink flex-grow flex-col pb-4"
 	style:background-color="var(--bg-surface)"
 >
-	<div class="h-8" data-tauri-drag-region></div>
+	<div class="h-16" data-tauri-drag-region></div>
 	<div
 		class="flex w-full items-center justify-between border-b px-2 pb-2"
 		style:border-color="var(--border-surface)"

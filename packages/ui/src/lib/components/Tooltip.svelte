@@ -40,7 +40,7 @@
 
 <div
 	role="tooltip"
-	class="inline-block h-fit overflow-auto align-top"
+	class="inline-block h-fit overflow-auto"
 	on:mouseenter={() => (timeout = setTimeout(() => (showTooltip = true), timeoutMilliseconds))}
 	on:mouseleave={() => {
 		clearTimeout(timeout);

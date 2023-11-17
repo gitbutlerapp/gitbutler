@@ -19,6 +19,7 @@
 	import type { PrService } from '$lib/github/pullrequest';
 	import type { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { RemoteBranchService } from '$lib/stores/remoteBranches';
+	import ProjectSelector from './ProjectSelector.svelte';
 
 	export let vbranchService: VirtualBranchService;
 	export let remoteBranchService: RemoteBranchService;
@@ -42,11 +43,14 @@
 	role="menu"
 	tabindex="0"
 >
-	<div class="flex h-7 flex-shrink-0" data-tauri-drag-region>
+	<div class="flex h-8 flex-shrink-0" data-tauri-drag-region>
 		<!-- Top spacer & drag region -->
 	</div>
 	<div class="relative mx-4 mb-4 mt-1">
-		<BaseBranchCard {project} {branchController} {baseBranchService} {prService} {projectService} />
+		<ProjectSelector {project} {projectService} />
+	</div>
+	<div class="mx-4 mb-4 mt-1">
+		<BaseBranchCard {project} {baseBranchService} {branchController} {prService} />
 	</div>
 	<div class="mb-4">
 		<DomainButton href={`/${project.id}/board`} icon={IconBranch}>Active branches</DomainButton>
