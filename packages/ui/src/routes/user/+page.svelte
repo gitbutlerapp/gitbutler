@@ -65,10 +65,11 @@
 		const picture = formData.get('picture') as File | undefined;
 
 		try {
-			$user$ = await cloud.user.update($user$.access_token, {
+			const updatedUser = await cloud.user.update($user$.access_token, {
 				name: newName,
 				picture: picture
 			});
+			userService.set(updatedUser);
 			toasts.success('Profile updated');
 		} catch (e) {
 			console.error(e);
