@@ -12,6 +12,8 @@ use crate::{
     virtual_branches::Branch,
 };
 
+use super::conflicts;
+
 pub struct Repository {
     pub git_repository: git::Repository,
     project: projects::Project,
@@ -51,6 +53,10 @@ impl Repository {
                 git_repository,
                 project: project.clone(),
             })
+    }
+
+    pub fn is_resolving(&self) -> bool {
+        conflicts::is_resolving(self)
     }
 
     pub fn path(&self) -> &path::Path {
@@ -124,10 +130,9 @@ impl Repository {
             self.git_repository
                 .reference(&branch.refname(), branch.head, with_force, "new vbranch")
                 .context("failed to create branch reference")?;
-            Ok(())
-        } else {
-            Ok(())
         }
+
+        Ok(())
     }
 
     pub fn delete_branch_reference(&self, branch: &Branch) -> Result<()> {

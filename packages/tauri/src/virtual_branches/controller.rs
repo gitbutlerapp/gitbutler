@@ -5,15 +5,17 @@ use tauri::AppHandle;
 use tokio::sync::Semaphore;
 
 use crate::{
+    error::Error,
     gb_repository, git, keys,
     paths::DataDir,
-    project_repository::{self, conflicts},
+    project_repository,
     projects::{self, ProjectId},
     users,
 };
 
 use super::{
     branch::{BranchId, Ownership},
+    errors::{self, GetBaseBranchDataError, IsRemoteBranchMergableError, ListRemoteBranchesError},
     RemoteBranchFile,
 };
 
@@ -27,37 +29,34 @@ pub struct Controller {
     keys: keys::Controller,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)]
-    GetProject(#[from] projects::GetError),
-    #[error(transparent)]
-    OpenProjectRepository(#[from] project_repository::OpenError),
-    #[error(transparent)]
-    Verify(#[from] super::integration::VerifyError),
-    #[error(transparent)]
-    ProjectRemote(#[from] project_repository::RemoteError),
-    #[error("project is in a conflicted state")]
-    Conflicting,
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
 impl TryFrom<&AppHandle> for Controller {
-    type Error = Error;
+    type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        DataDir::try_from(value)
-            .map(|data_dir| {
-                Self::new(
-                    &data_dir,
-                    &projects::Controller::from(&data_dir),
-                    &users::Controller::from(&data_dir),
-                    &keys::Controller::from(&data_dir),
-                )
-            })
-            .map_err(Error::Other)
+        DataDir::try_from(value).map(|data_dir| {
+            Self::new(
+                &data_dir,
+                &projects::Controller::from(&data_dir),
+                &users::Controller::from(&data_dir),
+                &keys::Controller::from(&data_dir),
+            )
+        })
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ControllerError<E>
+where
+    E: Into<Error>,
+{
+    #[error(transparent)]
+    VerifyError(#[from] errors::VerifyError),
+    #[error(transparent)]
+    Action(E),
+    #[error(transparent)]
+    User(#[from] Error),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
 }
 
 impl From<&DataDir> for Controller {
@@ -93,7 +92,7 @@ impl Controller {
         branch_id: &BranchId,
         message: &str,
         ownership: Option<&Ownership>,
-    ) -> Result<git::Oid, Error> {
+    ) -> Result<git::Oid, ControllerError<errors::CommitError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
                 let signing_key = project_repository
@@ -116,10 +115,7 @@ impl Controller {
                     signing_key.as_ref(),
                     user,
                 )
-                .map_err(|error| match error {
-                    super::CommitError::Conflicted => Error::Conflicting,
-                    super::CommitError::Other(error) => Error::Other(error),
-                })
+                .map_err(Into::into)
             })
         })
         .await
@@ -129,10 +125,11 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_name: &git::BranchName,
-    ) -> Result<bool, Error> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
-        let user = self.users.get_user().context("failed to get user")?;
+    ) -> Result<bool, ControllerError<IsRemoteBranchMergableError>> {
+        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let project_repository =
+            project_repository::Repository::open(&project).map_err(Error::from)?;
+        let user = self.users.get_user().map_err(Error::from)?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -140,7 +137,7 @@ impl Controller {
         )
         .context("failed to open gitbutler repository")?;
         super::is_remote_branch_mergeable(&gb_repository, &project_repository, branch_name)
-            .map_err(Error::Other)
+            .map_err(ControllerError::Action)
     }
 
     pub fn can_apply_virtual_branch(
@@ -158,17 +155,16 @@ impl Controller {
         )
         .context("failed to open gitbutler repository")?;
         super::is_virtual_branch_mergeable(&gb_repository, &project_repository, branch_id)
-            .map_err(Error::Other)
+            .map_err(Into::into)
     }
 
     pub async fn list_virtual_branches(
         &self,
         project_id: &ProjectId,
-    ) -> Result<Vec<super::VirtualBranch>, Error> {
+    ) -> Result<Vec<super::VirtualBranch>, ControllerError<errors::ListVirtualBranchesError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-                super::list_virtual_branches(gb_repository, project_repository)
-                    .map_err(Error::Other)
+                super::list_virtual_branches(gb_repository, project_repository).map_err(Into::into)
             })
         })
         .await
@@ -178,16 +174,11 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         create: &super::branch::BranchCreateRequest,
-    ) -> Result<BranchId, Error> {
+    ) -> Result<BranchId, ControllerError<errors::CreateVirtualBranchError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-                if conflicts::is_resolving(project_repository) {
-                    return Err(Error::Conflicting);
-                }
                 let branch_id =
-                    super::create_virtual_branch(gb_repository, project_repository, create)
-                        .map_err(Error::Other)?
-                        .id;
+                    super::create_virtual_branch(gb_repository, project_repository, create)?.id;
                 Ok(branch_id)
             })
         })
@@ -198,7 +189,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch: &git::BranchName,
-    ) -> Result<BranchId, Error> {
+    ) -> Result<BranchId, ControllerError<errors::CreateVirtualBranchFromBranchError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
                 let branch = super::create_virtual_branch_from_branch(
@@ -207,8 +198,7 @@ impl Controller {
                     branch,
                     None,
                     user,
-                )
-                .map_err(Error::Other)?;
+                )?;
 
                 let signing_key = project_repository
                     .config()
@@ -229,7 +219,8 @@ impl Controller {
                     signing_key.as_ref(),
                     user,
                 )
-                .map_err(Error::Other)?;
+                .context("failed to apply branch")?;
+
                 Ok(branch.id)
             })
         })
@@ -239,18 +230,19 @@ impl Controller {
     pub fn get_base_branch_data(
         &self,
         project_id: &ProjectId,
-    ) -> Result<Option<super::BaseBranch>, Error> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
-        let user = self.users.get_user().context("failed to get user")?;
+    ) -> Result<Option<super::BaseBranch>, ControllerError<GetBaseBranchDataError>> {
+        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let project_repository =
+            project_repository::Repository::open(&project).map_err(Error::from)?;
+        let user = self.users.get_user().map_err(Error::from)?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
             user.as_ref(),
         )
-        .context("failed to open gitbutler repository")
-        .map_err(Error::Other)?;
-        let base_branch = super::get_base_branch_data(&gb_repository, &project_repository)?;
+        .context("failed to open gitbutler repository")?;
+        let base_branch = super::get_base_branch_data(&gb_repository, &project_repository)
+            .map_err(ControllerError::Action)?;
         Ok(base_branch)
     }
 
@@ -261,12 +253,9 @@ impl Controller {
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        let commit = project_repository
-            .git_repository
-            .find_commit(commit_oid)
-            .context("failed to find commit")?;
-        super::list_remote_commit_files(&project_repository.git_repository, &commit)
-            .map_err(Error::Other)
+
+        super::list_remote_commit_files(&project_repository.git_repository, commit_oid)
+            .map_err(Into::into)
     }
 
     pub fn set_base_branch(
@@ -275,11 +264,8 @@ impl Controller {
         target_branch: &git::RemoteBranchName,
     ) -> Result<super::BaseBranch, Error> {
         let project = self.projects.get(project_id)?;
-
-        let user = self.users.get_user().context("failed to get user")?;
-
+        let user = self.users.get_user()?;
         let project_repository = project_repository::Repository::open(&project)?;
-
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -301,15 +287,9 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-    ) -> Result<(), Error> {
+    ) -> Result<(), ControllerError<errors::MergeVirtualBranchUpstreamError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
-                if conflicts::is_conflicting(project_repository, None)
-                    .context("failed to check for conflicts")?
-                {
-                    return Err(Error::Conflicting);
-                }
-
                 let signing_key = project_repository
                     .config()
                     .sign_commits()
@@ -328,17 +308,20 @@ impl Controller {
                     signing_key.as_ref(),
                     user,
                 )
-                .map_err(Error::Other)
+                .map_err(Into::into)
             })
         })
         .await
     }
 
-    pub async fn update_base_branch(&self, project_id: &ProjectId) -> Result<(), Error> {
+    pub async fn update_base_branch(
+        &self,
+        project_id: &ProjectId,
+    ) -> Result<(), ControllerError<errors::UpdateBaseBranchError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
                 super::update_base_branch(gb_repository, project_repository, user)
-                    .map_err(Error::Other)
+                    .map_err(Into::into)
             })
         })
         .await
@@ -348,7 +331,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_update: super::branch::BranchUpdateRequest,
-    ) -> Result<(), Error> {
+    ) -> Result<(), ControllerError<errors::UpdateBranchError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
                 super::update_branch(gb_repository, project_repository, branch_update)?;
@@ -362,7 +345,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-    ) -> Result<(), Error> {
+    ) -> Result<(), ControllerError<errors::DeleteBranchError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
                 super::delete_branch(gb_repository, project_repository, branch_id)?;
@@ -376,7 +359,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-    ) -> Result<(), Error> {
+    ) -> Result<(), ControllerError<errors::ApplyBranchError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
                 let signing_key = project_repository
@@ -397,7 +380,7 @@ impl Controller {
                     signing_key.as_ref(),
                     user,
                 )
-                .map_err(Error::Other)
+                .map_err(Into::into)
             })
         })
         .await
@@ -407,11 +390,11 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         ownership: &Ownership,
-    ) -> Result<(), Error> {
+    ) -> Result<(), ControllerError<errors::UnapplyOwnershipError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
                 super::unapply_ownership(gb_repository, project_repository, ownership)
-                    .map_err(Error::Other)
+                    .map_err(Into::into)
             })
         })
         .await
@@ -422,17 +405,11 @@ impl Controller {
         project_id: &ProjectId,
         branch_id: &BranchId,
         ownership: &Ownership,
-    ) -> Result<git::Oid, Error> {
+    ) -> Result<git::Oid, ControllerError<errors::AmendError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-                if conflicts::is_conflicting(project_repository, None)
-                    .context("failed to check for conflicts")?
-                {
-                    return Err(Error::Conflicting);
-                }
-
                 super::amend(gb_repository, project_repository, branch_id, ownership)
-                    .map_err(Error::Other)
+                    .map_err(Into::into)
             })
         })
         .await
@@ -443,7 +420,7 @@ impl Controller {
         project_id: &ProjectId,
         branch_id: &BranchId,
         target_commit_oid: git::Oid,
-    ) -> Result<(), Error> {
+    ) -> Result<(), ControllerError<errors::ResetBranchError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
                 super::reset_branch(
@@ -452,7 +429,7 @@ impl Controller {
                     branch_id,
                     target_commit_oid,
                 )
-                .map_err(Error::Other)
+                .map_err(Into::into)
             })
         })
         .await
@@ -462,11 +439,11 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-    ) -> Result<(), Error> {
+    ) -> Result<(), ControllerError<errors::UnapplyBranchError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
                 super::unapply_branch(gb_repository, project_repository, branch_id)
-                    .map_err(Error::Other)
+                    .map_err(Into::into)
             })
         })
         .await
@@ -477,7 +454,7 @@ impl Controller {
         project_id: &ProjectId,
         branch_id: &BranchId,
         with_force: bool,
-    ) -> Result<(), Error> {
+    ) -> Result<(), ControllerError<errors::PushError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
                 let credentials = git::credentials::Factory::new(
@@ -495,54 +472,20 @@ impl Controller {
                     with_force,
                     &credentials,
                 )
-                .map_err(|e| match e {
-                    super::PushError::Remote(error) => Error::ProjectRemote(error),
-                    other => Error::Other(anyhow::Error::from(other)),
-                })
+                .map_err(Into::into)
             })
         })
         .await
     }
 
-    fn with_verify_branch<T>(
+    pub async fn flush_vbranches(
         &self,
-        project_id: &ProjectId,
-        action: impl FnOnce(
-            &gb_repository::Repository,
-            &project_repository::Repository,
-            Option<&users::User>,
-        ) -> Result<T, Error>,
-    ) -> Result<T, Error> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
-        let user = self.users.get_user().context("failed to get user")?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gitbutler repository")
-        .map_err(Error::Other)?;
-        super::integration::verify_branch(&gb_repository, &project_repository)?;
-        action(&gb_repository, &project_repository, user.as_ref())
-    }
-
-    async fn with_lock<T>(&self, project_id: &ProjectId, action: impl FnOnce() -> T) -> T {
-        let mut semaphores = self.semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await;
-        action()
-    }
-
-    pub async fn flush_vbranches(&self, project_id: ProjectId) -> Result<(), Error> {
+        project_id: ProjectId,
+    ) -> Result<(), ControllerError<errors::FlushAppliedVbranchesError>> {
         self.with_lock(&project_id, || {
             self.with_verify_branch(&project_id, |gb_repository, project_repository, _| {
                 super::flush_applied_vbranches(gb_repository, project_repository)
-                    .map_err(Error::Other)?;
-
-                Ok(())
+                    .map_err(Into::into)
             })
         })
         .await
@@ -553,17 +496,11 @@ impl Controller {
         project_id: &ProjectId,
         branch_id: &BranchId,
         commit_oid: git::Oid,
-    ) -> Result<Option<git::Oid>, Error> {
+    ) -> Result<Option<git::Oid>, ControllerError<errors::CherryPickError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-                if conflicts::is_conflicting(project_repository, None)
-                    .context("failed to check for conflicts")?
-                {
-                    return Err(Error::Conflicting);
-                }
-
                 super::cherry_pick(gb_repository, project_repository, branch_id, commit_oid)
-                    .map_err(Error::Other)
+                    .map_err(Into::into)
             })
         })
         .await
@@ -572,17 +509,19 @@ impl Controller {
     pub fn list_remote_branches(
         &self,
         project_id: &ProjectId,
-    ) -> Result<Vec<super::RemoteBranch>, Error> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
-        let user = self.users.get_user().context("failed to get user")?;
+    ) -> Result<Vec<super::RemoteBranch>, ControllerError<ListRemoteBranchesError>> {
+        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let project_repository =
+            project_repository::Repository::open(&project).map_err(Error::from)?;
+        let user = self.users.get_user().map_err(Error::from)?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
             user.as_ref(),
         )
         .context("failed to open gitbutler repository")?;
-        super::list_remote_branches(&gb_repository, &project_repository).map_err(Error::Other)
+        super::list_remote_branches(&gb_repository, &project_repository)
+            .map_err(ControllerError::Action)
     }
 
     pub async fn squash(
@@ -590,19 +529,47 @@ impl Controller {
         project_id: &ProjectId,
         branch_id: &BranchId,
         commit_oid: git::Oid,
-    ) -> Result<(), Error> {
+    ) -> Result<(), ControllerError<errors::SquashError>> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-                if conflicts::is_conflicting(project_repository, None)
-                    .context("failed to check for conflicts")?
-                {
-                    return Err(Error::Conflicting);
-                }
-
                 super::squash(gb_repository, project_repository, branch_id, commit_oid)
-                    .map_err(Error::Other)
+                    .map_err(Into::into)
             })
         })
         .await
+    }
+}
+
+impl Controller {
+    fn with_verify_branch<T, E: Into<Error>>(
+        &self,
+        project_id: &ProjectId,
+        action: impl FnOnce(
+            &gb_repository::Repository,
+            &project_repository::Repository,
+            Option<&users::User>,
+        ) -> Result<T, E>,
+    ) -> Result<T, ControllerError<E>> {
+        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let project_repository =
+            project_repository::Repository::open(&project).map_err(Error::from)?;
+        let user = self.users.get_user().map_err(Error::from)?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gitbutler repository")?;
+        super::integration::verify_branch(&gb_repository, &project_repository)?;
+        action(&gb_repository, &project_repository, user.as_ref()).map_err(ControllerError::Action)
+    }
+
+    async fn with_lock<T>(&self, project_id: &ProjectId, action: impl FnOnce() -> T) -> T {
+        let mut semaphores = self.semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await;
+        action()
     }
 }

@@ -10,23 +10,18 @@ use crate::{
 
 use super::{
     branch::BranchId,
-    controller::{self, Controller},
+    controller::{Controller, ControllerError},
     RemoteBranchFile,
 };
 
-impl From<controller::Error> for Error {
-    fn from(value: controller::Error) -> Self {
+impl<E: Into<Error>> From<ControllerError<E>> for Error {
+    fn from(value: ControllerError<E>) -> Self {
         match value {
-            controller::Error::GetProject(error) => Error::from(error),
-            controller::Error::ProjectRemote(error) => Error::from(error),
-            controller::Error::OpenProjectRepository(error) => Error::from(error),
-            controller::Error::Verify(error) => Error::from(error),
-            controller::Error::Conflicting => Error::UserError {
-                code: crate::error::Code::ProjectConflict,
-                message: "Project is in a conflicting state".to_string(),
-            },
-            controller::Error::Other(error) => {
-                tracing::error!(?error);
+            ControllerError::User(error) => error,
+            ControllerError::Action(error) => error.into(),
+            ControllerError::VerifyError(error) => error.into(),
+            ControllerError::Other(error) => {
+                tracing::error!(?error, "failed to verify branch");
                 Error::Unknown
             }
         }

@@ -4,7 +4,7 @@ use std::{
     path, time, vec,
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use diffy::{apply_bytes, Patch};
 use serde::Serialize;
 use slug::slugify;
@@ -20,7 +20,7 @@ use crate::{
 
 use super::{
     branch::{self, Branch, BranchCreateRequest, BranchId, FileOwnership, Hunk, Ownership},
-    branch_to_remote_branch, target, Iterator, RemoteBranch,
+    branch_to_remote_branch, errors, target, Iterator, RemoteBranch,
 };
 
 type AppliedStatuses = Vec<(branch::Branch, HashMap<path::PathBuf, Vec<diff::Hunk>>)>;
@@ -142,12 +142,12 @@ impl From<git::Signature<'_>> for Author {
 
 pub fn get_default_target(
     current_session_reader: &sessions::Reader,
-) -> Result<Option<target::Target>> {
+) -> Result<Option<target::Target>, reader::Error> {
     let target_reader = target::Reader::new(current_session_reader);
     match target_reader.read_default() {
         Ok(target) => Ok(Some(target)),
         Err(reader::Error::NotFound) => Ok(None),
-        Err(e) => Err(e).context("failed to read default target"),
+        Err(error) => Err(error),
     }
 }
 
@@ -157,30 +157,42 @@ pub fn apply_branch(
     branch_id: &BranchId,
     signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
-) -> Result<()> {
-    if conflicts::is_resolving(project_repository) {
-        bail!("cannot apply a branch, project is in a conflicted state");
+) -> Result<(), errors::ApplyBranchError> {
+    if project_repository.is_resolving() {
+        return Err(errors::ApplyBranchError::Conflict(
+            errors::ProjectConflictError {
+                project_id: project_repository.project().id,
+            },
+        ));
     }
     let current_session = gb_repository
         .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
+        .context("failed to get or create current session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
     let repo = &project_repository.git_repository;
 
-    let default_target = match get_default_target(&current_session_reader)
+    let default_target = get_default_target(&current_session_reader)
         .context("failed to get default target")?
-    {
-        Some(target) => target,
-        None => return Ok(()),
-    };
+        .ok_or_else(|| {
+            errors::ApplyBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                project_id: project_repository.project().id,
+            })
+        })?;
 
     let writer = branch::Writer::new(gb_repository);
 
-    let mut apply_branch = branch::Reader::new(&current_session_reader)
-        .read(branch_id)
-        .context(format!("failed to read branch {}", branch_id))?;
+    let mut apply_branch = match branch::Reader::new(&current_session_reader).read(branch_id) {
+        Ok(branch) => Ok(branch),
+        Err(reader::Error::NotFound) => Err(errors::ApplyBranchError::BranchNotFound(
+            errors::BranchNotFoundError {
+                project_id: project_repository.project().id,
+                branch_id: *branch_id,
+            },
+        )),
+        Err(error) => Err(errors::ApplyBranchError::Other(error.into())),
+    }?;
 
     let target_commit = repo
         .find_commit(default_target.sha)
@@ -194,10 +206,16 @@ pub fn apply_branch(
     // calculate the merge base and make sure it's the same as the target commit
     // if not, we need to merge or rebase the branch to get it up to date
 
-    let merge_base = repo.merge_base(default_target.sha, apply_branch.head)?;
+    let merge_base = repo
+        .merge_base(default_target.sha, apply_branch.head)
+        .context("failed to calculate merge base")?;
     if merge_base != default_target.sha {
         // Branch is out of date, merge or rebase it
-        let merge_base_tree = repo.find_commit(merge_base)?.tree()?;
+        let merge_base_tree = repo
+            .find_commit(merge_base)
+            .context(format!("failed to find merge base commit {}", merge_base))?
+            .tree()
+            .context("failed to find merge base tree")?;
         let mut merge_index = repo
             .merge_trees(&merge_base_tree, &branch_tree, &target_tree)
             .context("failed to merge trees")?;
@@ -215,14 +233,19 @@ pub fn apply_branch(
                 .allow_conflicts()
                 .conflict_style_merge()
                 .force()
-                .checkout()?;
+                .checkout()
+                .context("failed to checkout index")?;
 
             // mark conflicts
-            let conflicts = merge_index.conflicts()?;
+            let conflicts = merge_index
+                .conflicts()
+                .context("failed to get merge index conflicts")?;
             let mut merge_conflicts = Vec::new();
             for path in conflicts.flatten() {
                 if let Some(ours) = path.our {
-                    let path = std::str::from_utf8(&ours.path)?.to_string();
+                    let path = std::str::from_utf8(&ours.path)
+                        .context("failed to convert path to utf8")?
+                        .to_string();
                     merge_conflicts.push(path);
                 }
             }
@@ -241,8 +264,12 @@ pub fn apply_branch(
         // commit our new upstream merge
         let message = "merge upstream";
         // write the merge commit
-        let branch_tree_oid = merge_index.write_tree_to(repo)?;
-        branch_tree = repo.find_tree(branch_tree_oid)?;
+        let branch_tree_oid = merge_index
+            .write_tree_to(repo)
+            .context("failed to write tree")?;
+        branch_tree = repo
+            .find_tree(branch_tree_oid)
+            .context("failed to find tree")?;
 
         let new_branch_head = project_repository.commit(
             user,
@@ -266,7 +293,7 @@ pub fn apply_branch(
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
-        bail!("vbranch has conflicts with other applied branches, sorry bro.");
+        return Err(errors::ApplyBranchError::BranchConflicts(*branch_id));
     }
 
     // apply the branch
@@ -274,7 +301,10 @@ pub fn apply_branch(
     writer.write(&apply_branch)?;
 
     // checkout the merge index
-    repo.checkout_index(&mut merge_index).force().checkout()?;
+    repo.checkout_index(&mut merge_index)
+        .force()
+        .checkout()
+        .context("failed to checkout index")?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
@@ -285,22 +315,27 @@ pub fn unapply_ownership(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     ownership: &Ownership,
-) -> Result<()> {
+) -> Result<(), errors::UnapplyOwnershipError> {
     if conflicts::is_resolving(project_repository) {
-        bail!("cannot unapply, project is in a conflicted state");
+        return Err(errors::UnapplyOwnershipError::Conflict(
+            errors::ProjectConflictError {
+                project_id: project_repository.project().id,
+            },
+        ));
     }
     let current_session = gb_repository
         .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
+        .context("failed to get or create current session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
-    let default_target = match get_default_target(&current_session_reader)
+    let default_target = get_default_target(&current_session_reader)
         .context("failed to get default target")?
-    {
-        Some(target) => target,
-        None => return Ok(()),
-    };
+        .ok_or_else(|| {
+            errors::UnapplyOwnershipError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                project_id: project_repository.project().id,
+            })
+        })?;
 
     let applied_branches = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
@@ -366,7 +401,7 @@ pub fn unapply_ownership(
         .context("failed to find target commit")?;
 
     // ok, update the wd with the union of the rest of the branches
-    let base_tree = target_commit.tree()?;
+    let base_tree = target_commit.tree().context("failed to get target tree")?;
 
     // construst a new working directory tree, without the removed ownerships
     let final_tree = applied_statuses.into_iter().fold(
@@ -385,7 +420,8 @@ pub fn unapply_ownership(
     repo.checkout_tree(&final_tree)
         .force()
         .remove_untracked()
-        .checkout()?;
+        .checkout()
+        .context("failed to checkout tree")?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
@@ -397,9 +433,13 @@ pub fn unapply_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
-) -> Result<()> {
+) -> Result<(), errors::UnapplyBranchError> {
     if conflicts::is_resolving(project_repository) {
-        bail!("cannot unapply, project is in a conflicted state");
+        return Err(errors::UnapplyBranchError::Conflict(
+            errors::ProjectConflictError {
+                project_id: project_repository.project().id,
+            },
+        ));
     }
 
     let (default_target, applied_statuses) = if let Some(result) = {
@@ -412,12 +452,18 @@ pub fn unapply_branch(
 
         let branch_reader = branch::Reader::new(&current_session_reader);
 
-        let mut target_branch = branch_reader
-            .read(branch_id)
-            .context("failed to read branch")?;
+        let mut target_branch = branch_reader.read(branch_id).map_err(|error| match error {
+            reader::Error::NotFound => {
+                errors::UnapplyBranchError::BranchNotFound(errors::BranchNotFoundError {
+                    project_id: project_repository.project().id,
+                    branch_id: *branch_id,
+                })
+            }
+            error => errors::UnapplyBranchError::Other(error.into()),
+        })?;
 
         if !target_branch.applied {
-            bail!("branch is not applied");
+            return Ok(());
         }
 
         target_branch.applied = false;
@@ -436,7 +482,7 @@ pub fn unapply_branch(
         .context("failed to find target commit")?;
 
     // ok, update the wd with the union of the rest of the branches
-    let base_tree = target_commit.tree()?;
+    let base_tree = target_commit.tree().context("failed to get target tree")?;
 
     // go through the other applied branches and merge them into the final tree
     // then check that out into the working directory
@@ -460,7 +506,8 @@ pub fn unapply_branch(
     repo.checkout_tree(&final_tree)
         .force()
         .remove_untracked()
-        .checkout()?;
+        .checkout()
+        .context("failed to checkout tree")?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
@@ -535,7 +582,7 @@ fn unapply_all_branches(
 pub fn flush_applied_vbranches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<()> {
+) -> Result<(), errors::FlushAppliedVbranchesError> {
     let applied_branches = list_applied_vbranches(gb_repository)?;
 
     let session = &gb_repository
@@ -545,12 +592,15 @@ pub fn flush_applied_vbranches(
     let current_session_reader =
         sessions::Reader::open(gb_repository, session).context("failed to open current session")?;
 
-    let default_target = match get_default_target(&current_session_reader)
+    let default_target = get_default_target(&current_session_reader)
         .context("failed to get default target")?
-    {
-        Some(target) => target,
-        None => return Ok(()),
-    };
+        .ok_or_else(|| {
+            errors::FlushAppliedVbranchesError::DefaultTargetNotSet(
+                errors::DefaultTargetNotSetError {
+                    project_id: project_repository.project().id,
+                },
+            )
+        })?;
 
     let applied_statuses = get_applied_status(
         gb_repository,
@@ -616,7 +666,7 @@ fn find_base_tree<'a>(
 pub fn list_virtual_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<Vec<VirtualBranch>> {
+) -> Result<Vec<VirtualBranch>, errors::ListVirtualBranchesError> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -625,12 +675,15 @@ pub fn list_virtual_branches(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session reader")?;
 
-    let default_target = match get_default_target(&current_session_reader)
+    let default_target = get_default_target(&current_session_reader)
         .context("failed to get default target")?
-    {
-        Some(target) => target,
-        None => return Ok(vec![]),
-    };
+        .ok_or_else(|| {
+            errors::ListVirtualBranchesError::DefaultTargetNotSet(
+                errors::DefaultTargetNotSetError {
+                    project_id: project_repository.project().id,
+                },
+            )
+        })?;
 
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
     for (branch, files) in &statuses {
@@ -669,7 +722,11 @@ pub fn list_virtual_branches(
         let upstram_branch_commit = upstream_branch
             .as_ref()
             .map(git::Branch::peel_to_commit)
-            .transpose()?;
+            .transpose()
+            .context(format!(
+                "failed to find upstream branch commit for {}",
+                branch.name
+            ))?;
 
         // find upstream commits if we found an upstream reference
         let mut pushed_commits = HashMap::new();
@@ -706,7 +763,9 @@ pub fn list_virtual_branches(
         let mut base_current = true;
         if !branch.applied {
             // determine if this branch is up to date with the target/base
-            let merge_base = repo.merge_base(default_target.sha, branch.head)?;
+            let merge_base = repo
+                .merge_base(default_target.sha, branch.head)
+                .context("failed to find merge base")?;
             if merge_base != default_target.sha {
                 base_current = false;
             }
@@ -926,17 +985,22 @@ pub fn create_virtual_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     create: &BranchCreateRequest,
-) -> Result<branch::Branch> {
+) -> Result<branch::Branch, errors::CreateVirtualBranchError> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
-    let target_reader = target::Reader::new(&current_session_reader);
-    let default_target = target_reader
-        .read_default()
-        .context("failed to read default")?;
+    let default_target = get_default_target(&current_session_reader)
+        .context("failed to get default target")?
+        .ok_or_else(|| {
+            errors::CreateVirtualBranchError::DefaultTargetNotSet(
+                errors::DefaultTargetNotSetError {
+                    project_id: project_repository.project().id,
+                },
+            )
+        })?;
 
     let repo = gb_repository.git_repository();
     let commit = repo
@@ -1023,10 +1087,15 @@ pub fn merge_virtual_branch_upstream(
     branch_id: &BranchId,
     signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
-) -> Result<()> {
+) -> Result<(), errors::MergeVirtualBranchUpstreamError> {
     if conflicts::is_conflicting(project_repository, None)? {
-        bail!("cannot merge upstream, project is in a conflicted state");
+        return Err(errors::MergeVirtualBranchUpstreamError::Conflict(
+            errors::ProjectConflictError {
+                project_id: project_repository.project().id,
+            },
+        ));
     }
+
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get current session")?;
@@ -1035,9 +1104,16 @@ pub fn merge_virtual_branch_upstream(
 
     // get the branch
     let branch_reader = branch::Reader::new(&current_session_reader);
-    let mut branch = branch_reader
-        .read(branch_id)
-        .context("failed to read branch")?;
+    let mut branch = match branch_reader.read(branch_id) {
+        Ok(branch) => Ok(branch),
+        Err(reader::Error::NotFound) => Err(
+            errors::MergeVirtualBranchUpstreamError::BranchNotFound(errors::BranchNotFoundError {
+                project_id: project_repository.project().id,
+                branch_id: *branch_id,
+            }),
+        ),
+        Err(error) => Err(errors::MergeVirtualBranchUpstreamError::Other(error.into())),
+    }?;
 
     // check if the branch upstream can be merged into the wd cleanly
     let repo = &project_repository.git_repository;
@@ -1062,7 +1138,7 @@ pub fn merge_virtual_branch_upstream(
 
     // there is an upstream commit, so lets check it out
     let upstream_commit = upstream_commit.unwrap();
-    let remote_tree = upstream_commit.tree()?;
+    let remote_tree = upstream_commit.tree().context("failed to get tree")?;
 
     if upstream_commit.id() == branch.head {
         // upstream is already merged, nothing to do
@@ -1089,7 +1165,13 @@ pub fn merge_virtual_branch_upstream(
     let merge_base = repo
         .merge_base(upstream_commit.id(), branch.head)
         .context("failed to find merge base")?;
-    let merge_tree = repo.find_commit(merge_base)?.tree()?;
+    let merge_tree = repo
+        .find_commit(merge_base)
+        .and_then(|c| c.tree())
+        .context(format!(
+            "failed to find merge base commit {} tree",
+            merge_base
+        ))?;
 
     // get wd tree
     let wd_tree = project_repository.get_wd_tree()?;
@@ -1105,14 +1187,17 @@ pub fn merge_virtual_branch_upstream(
             .allow_conflicts()
             .conflict_style_merge()
             .force()
-            .checkout()?;
+            .checkout()
+            .context("failed to checkout index")?;
 
         // mark conflicts
-        let conflicts = merge_index.conflicts()?;
+        let conflicts = merge_index.conflicts().context("failed to get conflicts")?;
         let mut merge_conflicts = Vec::new();
         for path in conflicts.flatten() {
             if let Some(ours) = path.our {
-                let path = std::str::from_utf8(&ours.path)?.to_string();
+                let path = std::str::from_utf8(&ours.path)
+                    .context("failed to convert path to utf8")?
+                    .to_string();
                 merge_conflicts.push(path);
             }
         }
@@ -1127,8 +1212,12 @@ pub fn merge_virtual_branch_upstream(
             .write_tree_to(repo)
             .context("failed to write tree")?;
 
-        let head_commit = repo.find_commit(branch.head)?;
-        let merge_tree = repo.find_tree(merge_tree_oid)?;
+        let head_commit = repo
+            .find_commit(branch.head)
+            .context("failed to find head commit")?;
+        let merge_tree = repo
+            .find_tree(merge_tree_oid)
+            .context("failed to find merge tree")?;
         let new_branch_head = project_repository.commit(
             user,
             "merged from upstream",
@@ -1138,7 +1227,10 @@ pub fn merge_virtual_branch_upstream(
         )?;
 
         // checkout the merge tree
-        repo.checkout_tree(&merge_tree).force().checkout()?;
+        repo.checkout_tree(&merge_tree)
+            .force()
+            .checkout()
+            .context("failed to checkout tree")?;
 
         // write the branch data
         let branch_writer = branch::Writer::new(gb_repository);
@@ -1156,7 +1248,7 @@ pub fn update_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_update: branch::BranchUpdateRequest,
-) -> Result<branch::Branch> {
+) -> Result<branch::Branch, errors::UpdateBranchError> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
@@ -1167,7 +1259,15 @@ pub fn update_branch(
 
     let mut branch = branch_reader
         .read(&branch_update.id)
-        .context("failed to read branch")?;
+        .map_err(|error| match error {
+            reader::Error::NotFound => {
+                errors::UpdateBranchError::BranchNotFound(errors::BranchNotFoundError {
+                    project_id: project_repository.project().id,
+                    branch_id: branch_update.id,
+                })
+            }
+            _ => errors::UpdateBranchError::Other(error.into()),
+        })?;
 
     if let Some(ownership) = branch_update.ownership {
         set_ownership(&branch_reader, &branch_writer, &mut branch, &ownership)
@@ -1194,16 +1294,20 @@ pub fn update_branch(
     };
 
     if let Some(upstream_branch_name) = branch_update.upstream {
-        let remote_branch = match get_default_target(&current_session_reader)? {
-            Some(target) => format!(
-                "refs/remotes/{}/{}",
-                target.branch.remote(),
-                slugify(upstream_branch_name)
-            )
-            .parse::<git::RemoteBranchName>()
-            .unwrap(),
-            None => bail!("no remote set"),
-        };
+        let default_target = get_default_target(&current_session_reader)
+            .context("failed to get default target")?
+            .ok_or_else(|| {
+                errors::UpdateBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                    project_id: project_repository.project().id,
+                })
+            })?;
+        let remote_branch = format!(
+            "refs/remotes/{}/{}",
+            default_target.branch.remote(),
+            slugify(upstream_branch_name)
+        )
+        .parse::<git::RemoteBranchName>()
+        .unwrap();
         branch.upstream = Some(remote_branch);
     };
 
@@ -1226,7 +1330,7 @@ pub fn delete_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
-) -> Result<branch::Branch> {
+) -> Result<branch::Branch, errors::DeleteBranchError> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
@@ -1651,15 +1755,29 @@ pub fn reset_branch(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     target_commit_oid: git::Oid,
-) -> Result<()> {
+) -> Result<(), errors::ResetBranchError> {
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
 
-    let default_target =
-        get_default_target(&current_session_reader)?.context("no default target")?;
+    let default_target = get_default_target(&current_session_reader)
+        .context("failed to read default target")?
+        .ok_or_else(|| {
+            errors::ResetBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                project_id: project_repository.project().id,
+            })
+        })?;
 
     let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch = branch_reader.read(branch_id)?;
+    let branch = match branch_reader.read(branch_id) {
+        Ok(branch) => Ok(branch),
+        Err(reader::Error::NotFound) => Err(errors::ResetBranchError::BranchNotFound(
+            errors::BranchNotFoundError {
+                branch_id: *branch_id,
+                project_id: project_repository.project().id,
+            },
+        )),
+        Err(error) => Err(errors::ResetBranchError::Other(error.into())),
+    }?;
 
     if branch.head == target_commit_oid {
         // nothing to do
@@ -1671,11 +1789,9 @@ pub fn reset_branch(
             .l(branch.head, LogUntil::Commit(default_target.sha))?
             .contains(&target_commit_oid)
     {
-        bail!(
-            "commit {} is not in branch {}",
+        return Err(errors::ResetBranchError::CommitNotFoundInBranch(
             target_commit_oid,
-            branch.name
-        );
+        ));
     }
 
     let branch_writer = branch::Writer::new(gb_repository);
@@ -1843,11 +1959,15 @@ pub fn commit(
     ownership: Option<&branch::Ownership>,
     signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
-) -> Result<git::Oid, CommitError> {
+) -> Result<git::Oid, errors::CommitError> {
     let default_target = gb_repository
         .default_target()
         .context("failed to get default target")?
-        .context("no default target set")?;
+        .ok_or_else(|| {
+            errors::CommitError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                project_id: project_repository.project().id,
+            })
+        })?;
 
     // get the files to commit
     let statuses = get_status_by_branch(gb_repository, project_repository)
@@ -1856,11 +1976,20 @@ pub fn commit(
     let (branch, files) = statuses
         .iter()
         .find(|(branch, _)| branch.id == *branch_id)
-        .ok_or_else(|| anyhow!("branch {} not found", branch_id))?;
+        .ok_or_else(|| {
+            errors::CommitError::BranchNotFound(errors::BranchNotFoundError {
+                project_id: project_repository.project().id,
+                branch_id: *branch_id,
+            })
+        })?;
 
     let files = calculate_non_commited_diffs(project_repository, branch, &default_target, files)?;
     if conflicts::is_conflicting(project_repository, None)? {
-        return Err(CommitError::Conflicted);
+        return Err(errors::CommitError::Conflicted(
+            errors::ProjectConflictError {
+                project_id: project_repository.project().id,
+            },
+        ));
     }
 
     let tree_oid = if let Some(ownership) = ownership {
@@ -1941,58 +2070,50 @@ pub fn commit(
     Ok(commit_oid)
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum CommitError {
-    #[error("will not commit conflicted files")]
-    Conflicted,
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum PushError {
-    #[error(transparent)]
-    Remote(#[from] project_repository::RemoteError),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
 pub fn push(
     project_repository: &project_repository::Repository,
     gb_repository: &gb_repository::Repository,
     branch_id: &BranchId,
     with_force: bool,
     credentials: &git::credentials::Factory,
-) -> Result<(), PushError> {
+) -> Result<(), errors::PushError> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")
-        .map_err(PushError::Other)?;
+        .map_err(errors::PushError::Other)?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")
-        .map_err(PushError::Other)?;
+        .map_err(errors::PushError::Other)?;
 
     let branch_reader = branch::Reader::new(&current_session_reader);
     let branch_writer = branch::Writer::new(gb_repository);
 
-    let vbranch = branch_reader
-        .read(branch_id)
-        .context("failed to read branch")
-        .map_err(PushError::Other)?;
+    let vbranch = branch_reader.read(branch_id).map_err(|error| match error {
+        reader::Error::NotFound => errors::PushError::BranchNotFound(errors::BranchNotFoundError {
+            project_id: project_repository.project().id,
+            branch_id: *branch_id,
+        }),
+        error => errors::PushError::Other(error.into()),
+    })?;
 
     let remote_branch = if let Some(upstream_branch) = vbranch.upstream.as_ref() {
         upstream_branch.clone()
     } else {
-        let remote_branch = match get_default_target(&current_session_reader)? {
-            Some(target) => format!(
-                "refs/remotes/{}/{}",
-                target.branch.remote(),
-                slugify(&vbranch.name)
-            )
-            .parse::<git::RemoteBranchName>()
-            .unwrap(),
-            None => return Err(PushError::Other(anyhow::anyhow!("no default target set"))),
-        };
+        let default_target = get_default_target(&current_session_reader)
+            .context("failed to get default target")?
+            .ok_or_else(|| {
+                errors::PushError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                    project_id: project_repository.project().id,
+                })
+            })?;
+
+        let remote_branch = format!(
+            "refs/remotes/{}/{}",
+            default_target.branch.remote(),
+            slugify(&vbranch.name)
+        )
+        .parse::<git::RemoteBranchName>()
+        .context("failed to parse remote branch name")?;
 
         let remote_branches = project_repository.git_remote_branches()?;
         let existing_branches = remote_branches
@@ -2115,7 +2236,7 @@ pub fn is_remote_branch_mergeable(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_name: &git::BranchName,
-) -> Result<bool> {
+) -> Result<bool, errors::IsRemoteBranchMergableError> {
     // get the current target
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -2123,15 +2244,28 @@ pub fn is_remote_branch_mergeable(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
-    let default_target =
-        get_default_target(&current_session_reader)?.context("no default target set")?;
+    let default_target = get_default_target(&current_session_reader)
+        .context("failed to get default target")?
+        .ok_or_else(|| {
+            errors::IsRemoteBranchMergableError::DefaultTargetNotSet(
+                errors::DefaultTargetNotSetError {
+                    project_id: project_repository.project().id,
+                },
+            )
+        })?;
 
     let target_commit = project_repository
         .git_repository
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
 
-    let branch = project_repository.git_repository.find_branch(branch_name)?;
+    let branch = match project_repository.git_repository.find_branch(branch_name) {
+        Ok(branch) => Ok(branch),
+        Err(git::Error::NotFound(_)) => Err(errors::IsRemoteBranchMergableError::BranchNotFound(
+            branch_name.clone(),
+        )),
+        Err(error) => Err(errors::IsRemoteBranchMergableError::Other(error.into())),
+    }?;
     let branch_oid = branch.target().context("detatched head")?;
     let branch_commit = project_repository
         .git_repository
@@ -2146,10 +2280,11 @@ pub fn is_remote_branch_mergeable(
 
     let wd_tree = project_repository.get_wd_tree()?;
 
-    let branch_tree = branch_commit.tree()?;
+    let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
     let mergeable = !project_repository
         .git_repository
-        .merge_trees(&base_tree, &branch_tree, &wd_tree)?
+        .merge_trees(&base_tree, &branch_tree, &wd_tree)
+        .context("failed to merge trees")?
         .has_conflicts();
 
     Ok(mergeable)
@@ -2159,16 +2294,23 @@ pub fn is_virtual_branch_mergeable(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
-) -> Result<bool> {
+) -> Result<bool, errors::IsVirtualBranchMergeable> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session reader")?;
     let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch = branch_reader
-        .read(branch_id)
-        .context("failed to read branch")?;
+    let branch = match branch_reader.read(branch_id) {
+        Ok(branch) => Ok(branch),
+        Err(reader::Error::NotFound) => Err(errors::IsVirtualBranchMergeable::BranchNotFound(
+            errors::BranchNotFoundError {
+                project_id: project_repository.project().id,
+                branch_id: *branch_id,
+            },
+        )),
+        Err(error) => Err(errors::IsVirtualBranchMergeable::Other(error.into())),
+    }?;
 
     if branch.applied {
         return Ok(true);
@@ -2176,12 +2318,19 @@ pub fn is_virtual_branch_mergeable(
 
     let default_target = get_default_target(&current_session_reader)
         .context("failed to read default target")?
-        .context("no default target set")?;
+        .ok_or_else(|| {
+            errors::IsVirtualBranchMergeable::DefaultTargetNotSet(
+                errors::DefaultTargetNotSetError {
+                    project_id: project_repository.project().id,
+                },
+            )
+        })?;
 
     // determine if this branch is up to date with the target/base
     let merge_base = project_repository
         .git_repository
-        .merge_base(default_target.sha, branch.head)?;
+        .merge_base(default_target.sha, branch.head)
+        .context("failed to find merge base")?;
 
     if merge_base != default_target.sha {
         return Ok(false);
@@ -2213,7 +2362,8 @@ pub fn is_virtual_branch_mergeable(
 
     let is_mergeable = !project_repository
         .git_repository
-        .merge_trees(&base_tree, &branch_tree, &wd_tree)?
+        .merge_trees(&base_tree, &branch_tree, &wd_tree)
+        .context("failed to merge trees")?
         .has_conflicts();
 
     Ok(is_mergeable)
@@ -2224,9 +2374,11 @@ pub fn amend(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     target_ownership: &Ownership,
-) -> Result<git::Oid> {
+) -> Result<git::Oid, errors::AmendError> {
     if conflicts::is_conflicting(project_repository, None)? {
-        bail!("cannot amend while conflicted");
+        return Err(errors::AmendError::Conflict(errors::ProjectConflictError {
+            project_id: project_repository.project().id,
+        }));
     }
 
     let current_session = gb_repository
@@ -2243,7 +2395,12 @@ pub fn amend(
         .collect::<Vec<_>>();
 
     if !all_branches.iter().any(|b| b.id == *branch_id) {
-        bail!("branch not found");
+        return Err(errors::AmendError::BranchNotFound(
+            errors::BranchNotFoundError {
+                project_id: project_repository.project().id,
+                branch_id: *branch_id,
+            },
+        ));
     }
 
     let applied_branches = all_branches
@@ -2252,12 +2409,21 @@ pub fn amend(
         .collect::<Vec<_>>();
 
     if !applied_branches.iter().any(|b| b.id == *branch_id) {
-        bail!("branch not applied");
+        return Err(errors::AmendError::BranchNotFound(
+            errors::BranchNotFoundError {
+                project_id: project_repository.project().id,
+                branch_id: *branch_id,
+            },
+        ));
     }
 
     let default_target = get_default_target(&current_session_reader)
         .context("failed to read default target")?
-        .context("no default target set")?;
+        .ok_or_else(|| {
+            errors::AmendError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                project_id: project_repository.project().id,
+            })
+        })?;
 
     let applied_statuses = get_applied_status(
         gb_repository,
@@ -2269,7 +2435,12 @@ pub fn amend(
     let (target_branch, target_status) = applied_statuses
         .iter()
         .find(|(b, _)| b.id == *branch_id)
-        .context("branch not found")?;
+        .ok_or_else(|| {
+            errors::AmendError::BranchNotFound(errors::BranchNotFoundError {
+                project_id: project_repository.project().id,
+                branch_id: *branch_id,
+            })
+        })?;
 
     if project_repository
         .l(
@@ -2278,7 +2449,7 @@ pub fn amend(
         )?
         .is_empty()
     {
-        bail!("branch doesn't have any commits");
+        return Err(errors::AmendError::BranchHasNoCommits);
     }
 
     let diffs_to_consider = calculate_non_commited_diffs(
@@ -2321,7 +2492,9 @@ pub fn amend(
         .collect::<HashMap<_, _>>();
 
     if diffs_to_amend.is_empty() {
-        bail!("ownership not found");
+        return Err(errors::AmendError::TargetOwnerhshipNotFound(
+            target_ownership.clone(),
+        ));
     }
 
     let new_tree_oid =
@@ -2363,9 +2536,13 @@ pub fn cherry_pick(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     target_commit_oid: git::Oid,
-) -> Result<Option<git::Oid>> {
+) -> Result<Option<git::Oid>, errors::CherryPickError> {
     if conflicts::is_conflicting(project_repository, None)? {
-        bail!("cannot cherry pick while conflicted");
+        return Err(errors::CherryPickError::Conflict(
+            errors::ProjectConflictError {
+                project_id: project_repository.project().id,
+            },
+        ));
     }
 
     let current_session = gb_repository
@@ -2380,13 +2557,16 @@ pub fn cherry_pick(
 
     if !branch.applied {
         // todo?
-        bail!("cannot cherry pick unapplied branch");
+        return Err(errors::CherryPickError::NotApplied);
     }
 
     let target_commit = project_repository
         .git_repository
         .find_commit(target_commit_oid)
-        .context("failed to find target commit")?;
+        .map_err(|error| match error {
+            git::Error::NotFound(_) => errors::CherryPickError::CommitNotFound(target_commit_oid),
+            error => errors::CherryPickError::Other(error.into()),
+        })?;
 
     let branch_head_commit = project_repository
         .git_repository
@@ -2422,17 +2602,28 @@ pub fn cherry_pick(
     // create a wip commit. we'll use it to offload cherrypick conflicts calculation to libgit.
     let wip_commit = {
         let wip_tree_oid = write_tree(project_repository, &default_target, branch_files)?;
-        let wip_tree = project_repository.git_repository.find_tree(wip_tree_oid)?;
+        let wip_tree = project_repository
+            .git_repository
+            .find_tree(wip_tree_oid)
+            .context("failed to find tree")?;
 
-        let oid = project_repository.git_repository.commit(
-            None,
-            &git::Signature::now("GitButler", "gitbutler@gitbutler.com")?,
-            &git::Signature::now("GitButler", "gitbutler@gitbutler.com")?,
-            "wip cherry picking commit",
-            &wip_tree,
-            &[&branch_head_commit],
-        )?;
-        project_repository.git_repository.find_commit(oid)?
+        let signature = git::Signature::now("GitButler", "gitbutler@gitbutler.com")
+            .context("failed to make gb signature")?;
+        let oid = project_repository
+            .git_repository
+            .commit(
+                None,
+                &signature,
+                &signature,
+                "wip cherry picking commit",
+                &wip_tree,
+                &[&branch_head_commit],
+            )
+            .context("failed to commit wip work")?;
+        project_repository
+            .git_repository
+            .find_commit(oid)
+            .context("failed to find wip commit")?
     };
 
     let mut cherrypick_index = project_repository
@@ -2458,14 +2649,19 @@ pub fn cherry_pick(
             .allow_conflicts()
             .conflict_style_merge()
             .force()
-            .checkout()?;
+            .checkout()
+            .context("failed to checkout conflicts")?;
 
         // mark conflicts
-        let conflicts = cherrypick_index.conflicts()?;
+        let conflicts = cherrypick_index
+            .conflicts()
+            .context("failed to get conflicts")?;
         let mut merge_conflicts = Vec::new();
         for path in conflicts.flatten() {
             if let Some(ours) = path.our {
-                let path = std::str::from_utf8(&ours.path)?.to_string();
+                let path = std::str::from_utf8(&ours.path)
+                    .context("failed to convert path")?
+                    .to_string();
                 merge_conflicts.push(path);
             }
         }
@@ -2504,7 +2700,8 @@ pub fn cherry_pick(
             .checkout_tree(&merge_tree)
             .force()
             .remove_untracked()
-            .checkout()?;
+            .checkout()
+            .context("failed to checkout final tree")?;
 
         // update branch status
         let writer = branch::Writer::new(gb_repository);
@@ -2530,9 +2727,13 @@ pub fn squash(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     commit_oid: git::Oid,
-) -> Result<()> {
+) -> Result<(), errors::SquashError> {
     if conflicts::is_conflicting(project_repository, None)? {
-        bail!("cannot squash while conflicted");
+        return Err(errors::SquashError::Conflict(
+            errors::ProjectConflictError {
+                project_id: project_repository.project().id,
+            },
+        ));
     }
 
     let current_session = gb_repository
@@ -2544,11 +2745,21 @@ pub fn squash(
 
     let default_target = get_default_target(&current_session_reader)
         .context("failed to read default target")?
-        .context("no default target set")?;
+        .ok_or_else(|| {
+            errors::SquashError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                project_id: project_repository.project().id,
+            })
+        })?;
 
-    let branch = branch_reader
-        .read(branch_id)
-        .context("failed to read branch")?;
+    let branch = branch_reader.read(branch_id).map_err(|error| match error {
+        reader::Error::NotFound => {
+            errors::SquashError::BranchNotFound(errors::BranchNotFoundError {
+                project_id: project_repository.project().id,
+                branch_id: *branch_id,
+            })
+        }
+        error => errors::SquashError::Other(error.into()),
+    })?;
 
     let branch_commit_oids = project_repository.l(
         branch.head,
@@ -2556,7 +2767,7 @@ pub fn squash(
     )?;
 
     if !branch_commit_oids.contains(&commit_oid) {
-        bail!("commit is not on the branch found");
+        return Err(errors::SquashError::CommitNotFound(commit_oid));
     }
 
     let commit_to_squash = project_repository
@@ -2569,7 +2780,7 @@ pub fn squash(
         .context("failed to find parent commit")?;
 
     if !branch_commit_oids.contains(&parent_commit.id()) {
-        bail!("cannot squash root commit");
+        return Err(errors::SquashError::CantSquashRootCommit);
     }
 
     let ids_to_rebase = {
@@ -2587,25 +2798,29 @@ pub fn squash(
         .parents()
         .context("failed to find head commit parents")?;
 
-    let new_commit_oid = project_repository.git_repository.commit(
-        None,
-        &commit_to_squash.author(),
-        &commit_to_squash.committer(),
-        &format!(
-            "{}\n{}",
-            parent_commit.message().unwrap_or_default(),
-            commit_to_squash.message().unwrap_or_default(),
-        ),
-        &commit_to_squash.tree()?,
-        &parents.iter().collect::<Vec<_>>(),
-    )?;
+    let new_commit_oid = project_repository
+        .git_repository
+        .commit(
+            None,
+            &commit_to_squash.author(),
+            &commit_to_squash.committer(),
+            &format!(
+                "{}\n{}",
+                parent_commit.message().unwrap_or_default(),
+                commit_to_squash.message().unwrap_or_default(),
+            ),
+            &commit_to_squash.tree().context("failed to find tree")?,
+            &parents.iter().collect::<Vec<_>>(),
+        )
+        .context("failed to commit")?;
 
     let new_head_id = if let Some(ids_to_rebase) = ids_to_rebase {
         // now, rebase unchanged commits onto the new commit
         let commits_to_rebase = ids_to_rebase
             .iter()
             .map(|oid| project_repository.git_repository.find_commit(*oid))
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, _>>()
+            .context("failed to read commits to rebase")?;
 
         commits_to_rebase
             .into_iter()

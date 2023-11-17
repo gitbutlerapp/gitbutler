@@ -57,8 +57,8 @@ impl Handler {
             self.vbrach_controller.flush_vbranches(*project_id).await
         }) {
             Ok(()) => Ok(()),
-            Err(virtual_branches::ControllerError::Verify(error)) => {
-                tracing::warn!("failed to flush virtual branches: {:#}", error);
+            Err(virtual_branches::controller::ControllerError::VerifyError(error)) => {
+                tracing::warn!(?error, "failed to flush virtual branches");
                 Ok(())
             }
             Err(error) => Err(error),

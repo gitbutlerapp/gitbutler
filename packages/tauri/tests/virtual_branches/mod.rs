@@ -7,10 +7,11 @@
 use std::{fs, str::FromStr};
 
 use gblib::{
+    error::Error,
     git, keys,
     projects::{self, ProjectId},
     users,
-    virtual_branches::{branch, Controller, ControllerError},
+    virtual_branches::{branch, controller::ControllerError, errors, Controller},
 };
 
 use crate::{common::TestProject, paths};
@@ -569,7 +570,7 @@ mod set_base_branch {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/missing").unwrap(),
                 ),
-                Err(ControllerError::Other(_))
+                Err(Error::UserError { .. })
             ));
         }
     }
@@ -631,7 +632,9 @@ mod conflicts {
                     controller
                         .apply_virtual_branch(&project_id, &branch1_id)
                         .await,
-                    Err(ControllerError::Other(_))
+                    Err(ControllerError::Action(
+                        errors::ApplyBranchError::BranchConflicts(_)
+                    ))
                 ));
             }
         }
@@ -860,6 +863,8 @@ mod conflicts {
     }
 
     mod update_base_branch {
+        use gblib::virtual_branches::{controller::ControllerError, errors::CommitError};
+
         use super::*;
 
         #[tokio::test]
@@ -940,7 +945,7 @@ mod conflicts {
                     controller
                         .create_commit(&project_id, &branch1_id, "commit conflicts", None)
                         .await,
-                    Err(ControllerError::Conflicting)
+                    Err(ControllerError::Action(CommitError::Conflicted(_)))
                 ));
             }
 
@@ -966,6 +971,8 @@ mod conflicts {
 }
 
 mod reset_virtual_branch {
+    use gblib::virtual_branches::{controller::ControllerError, errors::ResetBranchError};
+
     use super::*;
 
     #[tokio::test]
@@ -1228,7 +1235,9 @@ mod reset_virtual_branch {
                     "fe14df8c66b73c6276f7bb26102ad91da680afcb".parse().unwrap()
                 )
                 .await,
-            Err(ControllerError::Other(_))
+            Err(ControllerError::Action(
+                ResetBranchError::CommitNotFoundInBranch(_)
+            ))
         ));
     }
 }
@@ -1607,7 +1616,7 @@ mod cherry_pick {
                 controller
                     .cherry_pick(&project_id, &branch_id, commit_three_oid)
                     .await,
-                Err(ControllerError::Other(_))
+                Err(ControllerError::Action(errors::CherryPickError::NotApplied))
             ));
         }
     }
@@ -1768,7 +1777,7 @@ mod cherry_pick {
                 controller
                     .cherry_pick(&project_id, &branch_id, commit_oid)
                     .await,
-                Err(ControllerError::Other(_))
+                Err(ControllerError::Action(errors::CherryPickError::NotApplied))
             ));
         }
     }
@@ -1801,14 +1810,13 @@ mod amend {
         // amend without head commit
         fs::write(repository.path().join("file2.txt"), "content").unwrap();
         let to_amend: branch::Ownership = "file2.txt:1-2".parse().unwrap();
-        assert_eq!(
+        assert!(matches!(
             controller
                 .amend(&project_id, &branch_id, &to_amend)
                 .await
-                .unwrap_err()
-                .to_string(),
-            "branch doesn't have any commits"
-        );
+                .unwrap_err(),
+            ControllerError::Action(errors::AmendError::BranchHasNoCommits)
+        ));
     }
 
     #[tokio::test]
@@ -1990,14 +1998,13 @@ mod amend {
         {
             // amend non existing hunk
             let to_amend: branch::Ownership = "file2.txt:1-2".parse().unwrap();
-            assert_eq!(
+            assert!(matches!(
                 controller
                     .amend(&project_id, &branch_id, &to_amend)
                     .await
-                    .unwrap_err()
-                    .to_string(),
-                "ownership not found"
-            );
+                    .unwrap_err(),
+                ControllerError::Action(errors::AmendError::TargetOwnerhshipNotFound(_))
+            ));
         }
     }
 }
@@ -2200,13 +2207,12 @@ mod squash {
                 .unwrap()
         };
 
-        assert_eq!(
+        assert!(matches!(
             controller
                 .squash(&project_id, &branch_id, commit_one_oid)
                 .await
-                .unwrap_err()
-                .to_string(),
-            "cannot squash root commit"
-        );
+                .unwrap_err(),
+            ControllerError::Action(errors::SquashError::CantSquashRootCommit)
+        ));
     }
 }

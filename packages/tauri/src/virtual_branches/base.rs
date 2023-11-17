@@ -10,7 +10,7 @@ use crate::{
     reader, sessions, users,
 };
 
-use super::{branch, delete_branch, iterator, target, BranchId, RemoteCommit};
+use super::{branch, delete_branch, errors, iterator, target, BranchId, RemoteCommit};
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -28,11 +28,15 @@ pub struct BaseBranch {
 pub fn get_base_branch_data(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<Option<super::BaseBranch>> {
-    match gb_repository.default_target()? {
+) -> Result<Option<super::BaseBranch>, errors::GetBaseBranchDataError> {
+    match gb_repository
+        .default_target()
+        .context("failed to get default target")?
+    {
         None => Ok(None),
         Some(target) => {
-            let base = target_to_base_branch(project_repository, &target)?;
+            let base = target_to_base_branch(project_repository, &target)
+                .context("failed to convert default target to base branch")?;
             Ok(Some(base))
         }
     }
@@ -43,20 +47,44 @@ pub fn set_base_branch(
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
     target_branch: &git::RemoteBranchName,
-) -> Result<super::BaseBranch> {
+) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
     let repo = &project_repository.git_repository;
 
     // lookup a branch by name
-    let branch = repo.find_branch(&target_branch.clone().into())?;
+    let branch = match repo.find_branch(&target_branch.clone().into()) {
+        Ok(branch) => Ok(branch),
+        Err(git::Error::NotFound(_)) => Err(errors::SetBaseBranchError::BranchNotFound(
+            target_branch.clone(),
+        )),
+        Err(error) => Err(errors::SetBaseBranchError::Other(error.into())),
+    }?;
 
-    let remote_name = repo.branch_remote_name(branch.refname().unwrap())?;
-    let remote = repo.find_remote(&remote_name)?;
-    let remote_url = remote.url()?.unwrap();
+    let remote_name = repo
+        .branch_remote_name(branch.refname().unwrap())
+        .context(format!(
+            "failed to get remote name for branch {}",
+            branch.name().unwrap()
+        ))?;
+    let remote = repo.find_remote(&remote_name).context(format!(
+        "failed to find remote {} for branch {}",
+        remote_name,
+        branch.name().unwrap()
+    ))?;
+    let remote_url = remote
+        .url()
+        .context(format!(
+            "failed to get remote url for remote {}",
+            remote_name
+        ))?
+        .unwrap();
 
     // get a list of currently active virtual branches
 
     // if there are no applied virtual branches, calculate the sha as the merge-base between HEAD in project_repository and this target commit
-    let commit = branch.peel_to_commit()?;
+    let commit = branch.peel_to_commit().context(format!(
+        "failed to peel branch {} to commit",
+        branch.name().unwrap()
+    ))?;
     let mut commit_oid = commit.id();
 
     let head_ref = repo.head().context("Failed to get HEAD reference")?;
@@ -112,7 +140,8 @@ pub fn set_base_branch(
             user,
         )?;
         if branch.ownership.is_empty() && branch.head == target.sha {
-            delete_branch(gb_repository, project_repository, &branch.id)?;
+            delete_branch(gb_repository, project_repository, &branch.id)
+                .context("failed to delete branch")?;
         }
     }
 
@@ -142,7 +171,7 @@ pub fn update_base_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
-) -> Result<()> {
+) -> Result<(), errors::UpdateBaseBranchError> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get current session")?;
@@ -153,7 +182,11 @@ pub fn update_base_branch(
     let target = gb_repository
         .default_target()
         .context("failed to get default target")?
-        .context("no default target set")?;
+        .ok_or_else(|| {
+            errors::UpdateBaseBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                project_id: project_repository.project().id,
+            })
+        })?;
 
     let branch_reader = branch::Reader::new(&current_session_reader);
     let branch_writer = branch::Writer::new(gb_repository);
@@ -184,11 +217,18 @@ pub fn update_base_branch(
         .collect::<Vec<_>>();
 
     // get tree from new target
-    let new_target_tree = new_target_commit.tree()?;
+    let new_target_tree = new_target_commit
+        .tree()
+        .context("failed to get new target commit tree")?;
 
     // get tree from target.sha
-    let old_target_commit = repo.find_commit(target.sha)?;
-    let old_target_tree = old_target_commit.tree()?;
+    let old_target_commit = repo
+        .find_commit(target.sha)
+        .context(format!("failed to find old target commit {}", target.sha))?;
+    let old_target_tree = old_target_commit.tree().context(format!(
+        "failed to get old target commit tree {}",
+        target.sha
+    ))?;
 
     // ok, now we need to deal with a number of situations
     // 1. applied branch, uncommitted conflicts
@@ -199,7 +239,8 @@ pub fn update_base_branch(
     // 6. unapplied branch, no conflicts
 
     let mut vbranches = super::get_status_by_branch(gb_repository, project_repository)?;
-    let mut vbranches_commits = super::list_virtual_branches(gb_repository, project_repository)?;
+    let mut vbranches_commits = super::list_virtual_branches(gb_repository, project_repository)
+        .context("failed to list branches")?;
     // update the heads of all our virtual branches
     for virtual_branch in &mut virtual_branches {
         let mut virtual_branch = virtual_branch.clone();
@@ -223,7 +264,10 @@ pub fn update_base_branch(
         } else {
             virtual_branch.tree
         };
-        let branch_tree = repo.find_tree(tree_oid)?;
+        let branch_tree = repo.find_tree(tree_oid).context(format!(
+            "failed to find tree for branch {}",
+            virtual_branch.id
+        ))?;
 
         let (author, committer) = project_repository.git_signatures(user)?;
 
@@ -240,19 +284,28 @@ pub fn update_base_branch(
             // unapply branch for now
             if virtual_branch.applied {
                 // this changes the wd, and thus the hunks, so we need to re-run the active branch listing
-                super::unapply_branch(gb_repository, project_repository, &virtual_branch.id)?;
+                super::unapply_branch(gb_repository, project_repository, &virtual_branch.id)
+                    .context("failed to unapply branch")?;
                 vbranches = super::get_status_by_branch(gb_repository, project_repository)?;
-                vbranches_commits =
-                    super::list_virtual_branches(gb_repository, project_repository)?;
+                vbranches_commits = super::list_virtual_branches(gb_repository, project_repository)
+                    .context("failed to list virtual bernaches")?;
             }
-            virtual_branch = branch_reader.read(&virtual_branch.id)?;
+            virtual_branch = branch_reader
+                .read(&virtual_branch.id)
+                .context(format!("failed to read branch {}", virtual_branch.id))?;
 
             if target.sha != virtual_branch.head {
                 // check if the head conflicts
                 // there are commits on this branch, so create a merge commit with the new tree
                 // get tree from virtual branch head
-                let head_commit = repo.find_commit(virtual_branch.head)?;
-                let head_tree = head_commit.tree()?;
+                let head_commit = repo.find_commit(virtual_branch.head).context(format!(
+                    "failed to find commit {} for branch {}",
+                    virtual_branch.head, virtual_branch.id
+                ))?;
+                let head_tree = head_commit.tree().context(format!(
+                    "failed to find tree for commit {} for branch {}",
+                    virtual_branch.head, virtual_branch.id
+                ))?;
 
                 let mut merge_index = repo
                     .merge_trees(&old_target_tree, &head_tree, &new_target_tree)
@@ -271,14 +324,16 @@ pub fn update_base_branch(
                         .context("failed to find tree")?;
 
                     // commit the merge tree oid
-                    let new_branch_head = repo.commit(
-                        None,
-                        &author,
-                        &committer,
-                        "merged upstream (head only)",
-                        &merge_tree,
-                        &[&head_commit, &new_target_commit],
-                    )?;
+                    let new_branch_head = repo
+                        .commit(
+                            None,
+                            &author,
+                            &committer,
+                            "merged upstream (head only)",
+                            &merge_tree,
+                            &[&head_commit, &new_target_commit],
+                        )
+                        .context("failed to commit merge")?;
                     virtual_branch.head = new_branch_head;
                     virtual_branch.tree = merge_tree_oid;
                     branch_writer.write(&virtual_branch)?;
@@ -301,8 +356,14 @@ pub fn update_base_branch(
                 // no conflicts, but there have been commits, so update head with a merge
                 // there are commits on this branch, so create a merge commit with the new tree
                 // get tree from virtual branch head
-                let head_commit = repo.find_commit(virtual_branch.head)?;
-                let head_tree = repo.find_tree(virtual_branch.tree)?;
+                let head_commit = repo.find_commit(virtual_branch.head).context(format!(
+                    "failed to find commit {} for branch {}",
+                    virtual_branch.head, virtual_branch.id
+                ))?;
+                let head_tree = repo.find_tree(virtual_branch.tree).context(format!(
+                    "failed to find tree {} for branch {}",
+                    virtual_branch.tree, virtual_branch.id
+                ))?;
 
                 let mut merge_index = repo
                     .merge_trees(&old_target_tree, &head_tree, &new_target_tree)
@@ -312,10 +373,12 @@ pub fn update_base_branch(
                 if merge_index.has_conflicts() {
                     // unapply branch for now
                     // this changes the wd, and thus the hunks, so we need to re-run the active branch listing
-                    super::unapply_branch(gb_repository, project_repository, &virtual_branch.id)?;
+                    super::unapply_branch(gb_repository, project_repository, &virtual_branch.id)
+                        .context("failed to unapply branch")?;
                     vbranches = super::get_status_by_branch(gb_repository, project_repository)?;
                     vbranches_commits =
-                        super::list_virtual_branches(gb_repository, project_repository)?;
+                        super::list_virtual_branches(gb_repository, project_repository)
+                            .context("failed to list virtual branches")?;
                 } else {
                     let merge_tree_oid = merge_index
                         .write_tree_to(repo)
@@ -342,17 +405,21 @@ pub fn update_base_branch(
                                 let mut rebase_options = git2::RebaseOptions::new();
                                 rebase_options.quiet(true);
                                 rebase_options.inmemory(true);
-                                let mut rebase = repo.rebase(
-                                    Some(&annotated_branch_head),
-                                    Some(&annotated_upstream_base),
-                                    None,
-                                    Some(&mut rebase_options),
-                                )?;
+                                let mut rebase = repo
+                                    .rebase(
+                                        Some(&annotated_branch_head),
+                                        Some(&annotated_upstream_base),
+                                        None,
+                                        Some(&mut rebase_options),
+                                    )
+                                    .context("failed to rebase")?;
 
                                 let mut rebase_success = true;
 
                                 while let Some(_rebase_operation) = rebase.next() {
-                                    let index = rebase.inmemory_index()?;
+                                    let index = rebase
+                                        .inmemory_index()
+                                        .context("failed to get inmemory index")?;
                                     if index.has_conflicts() {
                                         rebase_success = false;
                                         break;
@@ -373,27 +440,28 @@ pub fn update_base_branch(
 
                                 if rebase_success {
                                     // Finish the rebase.
-                                    rebase.finish(None)?;
+                                    rebase.finish(None).context("failed to finish rebase")?;
                                     new_branch_head = last_rebase_head;
                                 } else {
                                     // abort the rebase, just do a merge
-                                    rebase.abort()?;
+                                    rebase.abort().context("failed to abort rebase")?;
 
-                                    println!("rebase failed");
                                     // get tree from merge_tree_oid
                                     let merge_tree = repo
                                         .find_tree(merge_tree_oid)
                                         .context("failed to find tree")?;
 
                                     // commit the merge tree oid
-                                    new_branch_head = repo.commit(
-                                        None,
-                                        &author,
-                                        &committer,
-                                        "merged upstream",
-                                        &merge_tree,
-                                        &[&head_commit, &new_target_commit],
-                                    )?;
+                                    new_branch_head = repo
+                                        .commit(
+                                            None,
+                                            &author,
+                                            &committer,
+                                            "merged upstream",
+                                            &merge_tree,
+                                            &[&head_commit, &new_target_commit],
+                                        )
+                                        .context("failed to commit merge")?;
                                 }
                             }
                             Some(_) => {
@@ -403,14 +471,16 @@ pub fn update_base_branch(
                                     .context("failed to find tree")?;
 
                                 // commit the merge tree oid
-                                new_branch_head = repo.commit(
-                                    None,
-                                    &author,
-                                    &committer,
-                                    "merged upstream",
-                                    &merge_tree,
-                                    &[&head_commit, &new_target_commit],
-                                )?;
+                                new_branch_head = repo
+                                    .commit(
+                                        None,
+                                        &author,
+                                        &committer,
+                                        "merged upstream",
+                                        &merge_tree,
+                                        &[&head_commit, &new_target_commit],
+                                    )
+                                    .context("failed to commit merge")?;
                             }
                         }
 
@@ -435,11 +505,15 @@ pub fn update_base_branch(
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
-        bail!("this should not have happened, we should have already detected this");
+        return Err(errors::UpdateBaseBranchError::Other(anyhow::anyhow!(
+            "this should not have happened, we should have already detected this"
+        )));
     }
 
     // now we can try to merge the upstream branch into our current working directory
-    repo.checkout_index(&mut merge_index).force().checkout()?;
+    repo.checkout_index(&mut merge_index).force().checkout().context(
+        "failed to checkout index, this should not have happened, we should have already detected this",
+    )?;
 
     // write new target oid
     let target_writer = target::Writer::new(gb_repository);
@@ -506,10 +580,24 @@ pub fn create_virtual_branch_from_branch(
 
     let default_target = super::get_default_target(&current_session_reader)
         .context("failed to get default target")?
-        .context("no default target found")?;
+        .ok_or_else(|| {
+            errors::CreateVirtualBranchFromBranchError::DefaultTargetNotSet(
+                errors::DefaultTargetNotSetError {
+                    project_id: project_repository.project().id,
+                },
+            )
+        })?;
 
     let repo = &project_repository.git_repository;
-    let head = repo.find_reference(&upstream.to_string())?;
+    let head = match repo.find_reference(&upstream.to_string()) {
+        Ok(head) => Ok(head),
+        Err(git::Error::NotFound(_)) => Err(
+            errors::CreateVirtualBranchFromBranchError::BranchNotFound(upstream.clone()),
+        ),
+        Err(error) => Err(errors::CreateVirtualBranchFromBranchError::Other(
+            error.into(),
+        )),
+    }?;
     let head_commit = head.peel_to_commit()?;
     let tree = head_commit.tree().context("failed to find tree")?;
 
