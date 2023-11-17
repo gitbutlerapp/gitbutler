@@ -44,7 +44,7 @@ export class ProjectService {
 	}
 
 	async add(path: string) {
-		return await invoke<Project>('add_project', { params: { path } });
+		return await invoke<Project>('add_project', { path });
 	}
 
 	async deleteProject(id: string) {
