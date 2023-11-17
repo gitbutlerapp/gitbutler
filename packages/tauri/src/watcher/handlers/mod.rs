@@ -134,12 +134,12 @@ impl Handler {
                 ))])
             }
 
-            events::Event::VirtualBranch(project_id) => self
+            events::Event::CalculateVirtualBranches(project_id) => self
                 .virtual_branch_handler
                 .handle(project_id)
                 .context("failed to handle virtual branch event"),
 
-            events::Event::SessionProcessing(project_id, path) => self
+            events::Event::CalculateDeltas(project_id, path) => self
                 .session_processing_handler
                 .handle(path, project_id)
                 .context(format!(
