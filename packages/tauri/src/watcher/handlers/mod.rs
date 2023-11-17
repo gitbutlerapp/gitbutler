@@ -164,11 +164,6 @@ impl Handler {
                 .index_session(project_id, session)
                 .context("failed to index session"),
 
-            events::Event::Bookmark(bookmark) => self
-                .index_handler
-                .index_bookmark(&bookmark.project_id, bookmark)
-                .context("failed to index bookmark"),
-
             events::Event::IndexAll(project_id) => self.index_handler.reindex(project_id),
         }
     }

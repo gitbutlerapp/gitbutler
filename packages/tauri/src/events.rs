@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    bookmarks, deltas,
+    deltas,
     projects::ProjectId,
     reader,
     sessions::{self, SessionId},
@@ -100,14 +100,6 @@ impl Event {
         Event {
             name: format!("project://{}/sessions", project_id),
             payload: serde_json::to_value(session).unwrap(),
-            project_id: *project_id,
-        }
-    }
-
-    pub fn bookmark(project_id: &ProjectId, bookmark: &bookmarks::Bookmark) -> Self {
-        Event {
-            name: format!("project://{}/bookmarks", project_id),
-            payload: serde_json::to_value(bookmark).unwrap(),
             project_id: *project_id,
         }
     }
