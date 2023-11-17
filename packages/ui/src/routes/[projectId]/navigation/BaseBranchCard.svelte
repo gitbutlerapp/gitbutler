@@ -56,14 +56,14 @@
 			color="purple"
 			{loading}
 			on:click={async (e) => {
+				e.preventDefault();
+				e.stopPropagation();
 				loading = true;
 				try {
 					await branchController.updateBaseBranch();
 				} finally {
 					loading = false;
 				}
-
-				e.preventDefault();
 			}}
 		>
 			update
@@ -71,7 +71,9 @@
 	{/if}
 	<IconButton
 		class="items-center justify-center align-top "
-		on:click={async () => {
+		on:click={async (e) => {
+			e.preventDefault();
+			e.stopPropagation();
 			fetching = true;
 			await branchController.fetchFromTarget().finally(() => (fetching = false));
 			prService.reload();
