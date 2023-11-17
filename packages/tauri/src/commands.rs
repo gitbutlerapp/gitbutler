@@ -1,7 +1,8 @@
 use std::{collections::HashMap, path};
 
+use crate::watcher;
 use anyhow::Context;
-use tauri::Manager;
+use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
 use crate::{
@@ -10,6 +11,7 @@ use crate::{
     gb_repository, git,
     paths::DataDir,
     project_repository, projects, reader,
+    sessions::Session,
     sessions::SessionId,
     users, virtual_branches,
 };
@@ -180,14 +182,29 @@ pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Resul
             .await
     })?;
 
-    let _session = gb_repo
+    let session = gb_repo
         .flush(&project_repository, user.as_ref())
         .context("failed to flush session")?;
 
     gb_repo.push(user.as_ref()).context("failed to push")?;
 
-    //TODO: events::Event::Session(*project_id, session),
-    //TODO: events::Event::PushProjectToGitbutler(*project_id),
-
+    let watcher = handle.state::<watcher::Watchers>();
+    if session.is_some() {
+        if let Err(error) = watcher
+            .post(watcher::Event::Session(
+                id.clone(),
+                session.clone().unwrap(),
+            ))
+            .await
+        {
+            tracing::error!(?error);
+        }
+    }
+    if let Err(error) = watcher
+        .post(watcher::Event::PushProjectToGitbutler(id.clone()))
+        .await
+    {
+        tracing::error!(?error);
+    }
     Ok(())
 }
