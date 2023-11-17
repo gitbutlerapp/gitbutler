@@ -5,10 +5,12 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import IconEmail from '$lib/icons/IconEmail.svelte';
 	import IconHome from '$lib/icons/IconHome.svelte';
+	import IconSettings from '$lib/icons/IconSettings.svelte';
 	import IconSpinner from '$lib/icons/IconSpinner.svelte';
 	import * as events from '$lib/utils/events';
 
 	export let user: User | undefined;
+	export let projectId: string | undefined;
 </script>
 
 <div
@@ -16,15 +18,16 @@
 	style:background-color="var(--bg-surface-highlight)"
 	style:border-color="var(--border-surface)"
 >
-	<div class="flex items-center">
-		<Link href="/" class="p-1">
-			<IconHome />
-		</Link>
+	<div class="flex items-center gap-x-1">
+		<Link href="/" class="p-1"><IconHome /></Link>
 		<Tooltip label="Send feedback">
 			<button class="p-1 align-middle" on:click={() => events.emit('openSendIssueModal')}>
 				<IconEmail class="align-top" />
 			</button>
 		</Tooltip>
+		<Link href={`/${projectId}/settings`} class="p-1">
+			<IconSettings />
+		</Link>
 		{#if $isLoading}
 			<Tooltip label={loadStack.join('\n')}>
 				<IconSpinner class="scale-75" />
