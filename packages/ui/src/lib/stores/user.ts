@@ -1,9 +1,9 @@
 import type { User } from '$lib/backend/cloud';
 import * as users from '$lib/backend/users';
-import { BehaviorSubject, Observable, merge, shareReplay } from 'rxjs';
+import { Observable, Subject, merge, shareReplay } from 'rxjs';
 
 export class UserService {
-	reset$ = new BehaviorSubject<undefined | User>(undefined);
+	reset$ = new Subject<User | undefined>();
 	user$ = merge(
 		new Observable<User | undefined>((subscriber) => {
 			users.get().then((user) => {
@@ -13,9 +13,9 @@ export class UserService {
 					this.sentry.identify(user);
 				}
 			});
-		}).pipe(shareReplay(1)),
+		}),
 		this.reset$
-	);
+	).pipe(shareReplay(1));
 
 	constructor(
 		private sentry: any,
