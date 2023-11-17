@@ -13,7 +13,7 @@
 	Loading...
 {:else}
 	<div
-		class="h-fprojectsService: projects-grow flex flex-col p-8"
+		class="flex h-full flex-grow flex-col p-8"
 		style:background-color="var(--bg-surface)"
 		style:border-color="var(--border-surface)"
 	>
