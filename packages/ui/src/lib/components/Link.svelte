@@ -41,10 +41,10 @@
 		<div class="truncate">
 			<slot />
 		</div>
-		<div class="shrink-0">
-			{#if isExternal}
+		{#if isExternal}
+			<div class="shrink-0">
 				<IconExternalLink class="h-3.5 w-3.5" />
-			{/if}
-		</div>
+			</div>
+		{/if}
 	</a>
 {/if}

@@ -53,8 +53,7 @@
 		<BaseBranchCard {project} {baseBranchService} {branchController} {prService} />
 	</div>
 	<div class="mb-4">
-		<DomainButton href={`/${project.id}/board`} icon={IconBranch}>Active branches</DomainButton>
-		<DomainButton href={`/${project.id}/settings`} icon={IconSettings}>Settings</DomainButton>
+		<DomainButton href={`/${project.id}/board`} icon={IconBranch}>Applied branches</DomainButton>
 	</div>
 	<YourBranches {project} {branchController} {vbranchService} />
 	{#if githubContext}
@@ -62,6 +61,6 @@
 	{:else}
 		<RemoteBranches {remoteBranchService} projectId={project.id}></RemoteBranches>
 	{/if}
-	<Footer {user} />
+	<Footer {user} projectId={project.id} />
 	<AppUpdater {update} />
 </div>
