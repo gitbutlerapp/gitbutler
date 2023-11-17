@@ -9,6 +9,8 @@ use crate::{
     virtual_branches::branch::BranchCreateRequest,
 };
 
+use super::errors;
+
 pub const GITBUTLER_INTEGRATION_BRANCH_NAME: &str = "gitbutler/integration";
 pub const GITBUTLER_INTEGRATION_REFERENCE: &str = "refs/heads/gitbutler/integration";
 
@@ -193,51 +195,10 @@ pub fn update_gitbutler_integration(
     Ok(())
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum VerifyError {
-    #[error("head is detached")]
-    DetachedHead,
-    #[error("head is {0}")]
-    InvalidHead(String),
-    #[error("integration commit not found")]
-    NoIntegrationCommit,
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-impl From<VerifyError> for crate::error::Error {
-    fn from(value: VerifyError) -> Self {
-        match value {
-            VerifyError::DetachedHead => crate::error::Error::UserError {
-                code: crate::error::Code::ProjectHead,
-                message: format!(
-                    "Project in detached head state. Please checkout {0} to continue.",
-                    GITBUTLER_INTEGRATION_BRANCH_NAME
-                ),
-            },
-            VerifyError::InvalidHead(head) => crate::error::Error::UserError {
-                code: crate::error::Code::ProjectHead,
-                message: format!(
-                    "Project is on {}. Please checkout {} to continue.",
-                    head, GITBUTLER_INTEGRATION_BRANCH_NAME
-                ),
-            },
-            VerifyError::NoIntegrationCommit => crate::error::Error::UserError {
-                code: crate::error::Code::ProjectHead,
-                message: "GibButler's integration commit not found on head.".to_string(),
-            },
-            VerifyError::Other(error) => {
-                tracing::error!(?error);
-                crate::error::Error::Unknown
-            }
-        }
-    }
-}
-
 pub fn verify_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<(), VerifyError> {
+) -> Result<(), errors::VerifyError> {
     verify_head_is_set(gb_repository, project_repository)?;
     verify_head_is_clean(gb_repository, project_repository)?;
     Ok(())
@@ -246,7 +207,7 @@ pub fn verify_branch(
 fn verify_head_is_clean(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<(), VerifyError> {
+) -> Result<(), errors::VerifyError> {
     let head_commit = project_repository
         .git_repository
         .head()
@@ -265,7 +226,7 @@ fn verify_head_is_clean(
 
     if integration_commit.is_none() {
         // no integration commit found
-        return Err(VerifyError::NoIntegrationCommit);
+        return Err(errors::VerifyError::NoIntegrationCommit);
     }
 
     if extra_commits.is_empty() {
@@ -345,21 +306,21 @@ fn verify_head_is_clean(
 fn verify_head_is_set(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<(), VerifyError> {
+) -> Result<(), errors::VerifyError> {
     match project_repository
         .get_head()
         .context("failed to get head")
-        .map_err(VerifyError::Other)?
+        .map_err(errors::VerifyError::Other)?
         .name()
     {
         Some(GITBUTLER_INTEGRATION_REFERENCE) => Ok(()),
         None => {
-            super::mark_all_unapplied(gb_repository).map_err(VerifyError::Other)?;
-            Err(VerifyError::DetachedHead)
+            super::mark_all_unapplied(gb_repository).map_err(errors::VerifyError::Other)?;
+            Err(errors::VerifyError::DetachedHead)
         }
         Some(head_name) => {
-            super::mark_all_unapplied(gb_repository).map_err(VerifyError::Other)?;
-            Err(VerifyError::InvalidHead(head_name.to_string()))
+            super::mark_all_unapplied(gb_repository).map_err(errors::VerifyError::Other)?;
+            Err(errors::VerifyError::InvalidHead(head_name.to_string()))
         }
     }
 }

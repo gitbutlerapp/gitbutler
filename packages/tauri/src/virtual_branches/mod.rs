@@ -2,6 +2,8 @@ pub mod branch;
 pub use branch::{Branch, BranchId};
 pub mod target;
 
+pub mod errors;
+
 mod files;
 pub use files::*;
 
@@ -12,7 +14,7 @@ mod base;
 pub use base::*;
 
 pub mod controller;
-pub use controller::{Controller, Error as ControllerError};
+pub use controller::Controller;
 
 pub mod commands;
 

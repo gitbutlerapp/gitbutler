@@ -5,6 +5,8 @@ use serde::Serialize;
 
 use crate::git::{self, diff};
 
+use super::errors;
+
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranchFile {
@@ -15,11 +17,20 @@ pub struct RemoteBranchFile {
 
 pub fn list_remote_commit_files(
     repository: &git::Repository,
-    commit: &git::Commit,
-) -> Result<Vec<RemoteBranchFile>> {
+    commit_oid: git::Oid,
+) -> Result<Vec<RemoteBranchFile>, errors::ListRemoteCommitFilesError> {
+    let commit = match repository.find_commit(commit_oid) {
+        Ok(commit) => Ok(commit),
+        Err(git::Error::NotFound(_)) => Err(errors::ListRemoteCommitFilesError::CommitNotFound(
+            commit_oid,
+        )),
+        Err(error) => Err(errors::ListRemoteCommitFilesError::Other(error.into())),
+    }?;
+
     if commit.parent_count() == 0 {
         return Ok(vec![]);
     }
+
     let parent = commit.parent(0).context("failed to get parent commit")?;
     let commit_tree = commit.tree().context("failed to get commit tree")?;
     let parent_tree = parent.tree().context("failed to get parent tree")?;

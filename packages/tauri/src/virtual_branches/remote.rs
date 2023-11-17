@@ -7,7 +7,7 @@ use crate::{
     sessions,
 };
 
-use super::{get_default_target, Author};
+use super::{errors, get_default_target, Author};
 
 // this struct is a mapping to the view `RemoteBranch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
@@ -40,23 +40,25 @@ pub struct RemoteCommit {
 pub fn list_remote_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<Vec<RemoteBranch>> {
+) -> Result<Vec<RemoteBranch>, errors::ListRemoteBranchesError> {
     // get the current target
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
-    let default_target = match get_default_target(&current_session_reader)
+    let default_target = get_default_target(&current_session_reader)
         .context("failed to get default target")?
-    {
-        Some(target) => target,
-        None => return Ok(vec![]),
-    };
+        .ok_or_else(|| {
+            errors::ListRemoteBranchesError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                project_id: project_repository.project().id,
+            })
+        })?;
 
     let remote_branches = project_repository
         .git_repository
-        .branches(Some(git2::BranchType::Remote))?
+        .branches(Some(git2::BranchType::Remote))
+        .context("failed to list remove branches")?
         .flatten()
         .map(|(branch, _)| branch)
         .map(|branch| branch_to_remote_branch(project_repository, &branch, default_target.sha))
