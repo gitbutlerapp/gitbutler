@@ -53,13 +53,12 @@ pub async fn commit_virtual_branch(
             code: Code::Validation,
             message: "Malformed ownership".to_string(),
         })?;
-    let result = handle
+    let oid = handle
         .state::<Controller>()
         .create_commit(&project_id, &branch_id, message, ownership.as_ref())
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(oid)
 }
 
 #[tauri::command(async)]
@@ -93,13 +92,12 @@ pub async fn create_virtual_branch(
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
-    let result = handle
+    let branch_id = handle
         .state::<Controller>()
         .create_virtual_branch(&project_id, &branch)
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(branch_id)
 }
 
 #[tauri::command(async)]
@@ -113,13 +111,12 @@ pub async fn create_virtual_branch_from_branch(
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
-    let result = handle
+    let branch_id = handle
         .state::<Controller>()
         .create_virtual_branch_from_branch(&project_id, &branch)
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(branch_id)
 }
 
 #[tauri::command(async)]
@@ -137,13 +134,12 @@ pub async fn merge_virtual_branch_upstream(
         code: Code::Validation,
         message: "Malformed branch id".to_string(),
     })?;
-    let result = handle
+    handle
         .state::<Controller>()
         .merge_virtual_branch_upstream(&project_id, &branch_id)
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -189,7 +185,7 @@ pub async fn set_base_branch(
         .state::<assets::Proxy>()
         .proxy_base_branch(base_branch)
         .await;
-    emit_vbranches(&handle, &project_id);
+    emit_vbranches(&handle, &project_id).await;
     Ok(base_branch)
 }
 
@@ -200,13 +196,12 @@ pub async fn update_base_branch(handle: AppHandle, project_id: &str) -> Result<(
         code: Code::Validation,
         message: "Malformed project id".into(),
     })?;
-    let result = handle
+    handle
         .state::<Controller>()
         .update_base_branch(&project_id)
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -220,13 +215,12 @@ pub async fn update_virtual_branch(
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
-    let result = handle
+    handle
         .state::<Controller>()
         .update_virtual_branch(&project_id, branch)
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -244,13 +238,12 @@ pub async fn delete_virtual_branch(
         code: Code::Validation,
         message: "Malformed branch id".to_string(),
     })?;
-    let result = handle
+    handle
         .state::<Controller>()
         .delete_virtual_branch(&project_id, &branch_id)
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -264,13 +257,12 @@ pub async fn apply_branch(handle: AppHandle, project_id: &str, branch: &str) -> 
         code: Code::Validation,
         message: "Malformed branch id".to_string(),
     })?;
-    let result = handle
+    handle
         .state::<Controller>()
         .apply_virtual_branch(&project_id, &branch_id)
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -288,13 +280,12 @@ pub async fn unapply_branch(
         code: Code::Validation,
         message: "Malformed branch id".to_string(),
     })?;
-    let result = handle
+    handle
         .state::<Controller>()
         .unapply_virtual_branch(&project_id, &branch_id)
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -312,13 +303,12 @@ pub async fn unapply_ownership(
         code: Code::Validation,
         message: "Malformed ownership".to_string(),
     })?;
-    let result = handle
+    handle
         .state::<Controller>()
         .unapply_ownership(&project_id, &ownership)
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -337,13 +327,12 @@ pub async fn push_virtual_branch(
         code: Code::Validation,
         message: "Malformed branch id".to_string(),
     })?;
-    let result = handle
+    handle
         .state::<Controller>()
         .push_virtual_branch(&project_id, &branch_id, with_force)
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -429,13 +418,12 @@ pub async fn reset_virtual_branch(
         code: Code::Validation,
         message: "Malformed commit oid".to_string(),
     })?;
-    let result = handle
+    handle
         .state::<Controller>()
         .reset_virtual_branch(&project_id, &branch_id, target_commit_oid)
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -458,13 +446,12 @@ pub async fn cherry_pick_onto_virtual_branch(
         code: Code::Validation,
         message: "Malformed commit oid".to_string(),
     })?;
-    let result = handle
+    let oid = handle
         .state::<Controller>()
         .cherry_pick(&project_id, &branch_id, target_commit_oid)
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(oid)
 }
 
 #[tauri::command(async)]
@@ -487,13 +474,12 @@ pub async fn amend_virtual_branch(
         code: Code::Validation,
         message: "Malformed ownership".into(),
     })?;
-    let result = handle
+    let oid = handle
         .state::<Controller>()
         .amend(&project_id, &branch_id, &ownership)
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(oid)
 }
 
 #[tauri::command(async)]
@@ -536,25 +522,20 @@ pub async fn squash_branch_commit(
         code: Code::Validation,
         message: "Malformed commit oid".into(),
     })?;
-    let result = handle
+    handle
         .state::<Controller>()
         .squash(&project_id, &branch_id, target_commit_oid)
-        .await
-        .map_err(Into::into);
-    emit_vbranches(&handle, &project_id);
-    result
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(())
 }
 
-fn emit_vbranches(handle: &AppHandle, project_id: &projects::ProjectId) {
-    match futures::executor::block_on(async {
-        handle
-            .state::<watcher::Watchers>()
-            .post(watcher::Event::VirtualBranch(*project_id))
-            .await
-    }) {
-        Ok(()) => {}
-        Err(error) => {
-            tracing::error!(?error);
-        }
+async fn emit_vbranches(handle: &AppHandle, project_id: &projects::ProjectId) {
+    if let Err(error) = handle
+        .state::<watcher::Watchers>()
+        .post(watcher::Event::CalculateVirtualBranches(*project_id))
+        .await
+    {
+        tracing::error!(?error);
     }
 }
