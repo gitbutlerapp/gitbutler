@@ -1,3 +1,5 @@
+use std::path;
+
 use gblib::git;
 
 pub fn temp_dir() -> std::path::PathBuf {
@@ -192,5 +194,22 @@ impl TestProject {
             .expect("failed to get references")
             .collect::<Result<Vec<_>, _>>()
             .expect("failed to read references")
+    }
+
+    pub fn add_submodule(&self, url: &git::Url, path: &path::Path) {
+        let mut submodule = self.local_repository.add_submodule(url, path).unwrap();
+        let repo = submodule.open().unwrap();
+
+        // checkout submodule's master head
+        repo.find_remote("origin")
+            .unwrap()
+            .fetch(&["+refs/heads/*:refs/heads/*"], None, None)
+            .unwrap();
+        let reference = repo.find_reference("refs/heads/master").unwrap();
+        let reference_head = repo.find_commit(reference.target().unwrap()).unwrap();
+        repo.checkout_tree(reference_head.tree().unwrap().as_object(), None)
+            .unwrap();
+
+        submodule.add_finalize().unwrap();
     }
 }

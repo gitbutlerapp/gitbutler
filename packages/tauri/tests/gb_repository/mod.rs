@@ -1,4 +1,6 @@
-use gblib::{gb_repository, project_repository, projects};
+use std::path;
+
+use gblib::{gb_repository, git, project_repository, projects};
 
 use crate::{common::TestProject, paths};
 
@@ -117,6 +119,33 @@ mod flush {
         std::fs::write(project.path.join("dir/file"), "content").unwrap();
         std::os::unix::fs::symlink(project.path.join("dir"), project.path.join("dir_link"))
             .unwrap();
+
+        gb_repo.flush(&project_repository, None).unwrap();
+    }
+
+    #[test]
+    fn handle_submodules() {
+        let test_project = TestProject::default();
+
+        let data_dir = paths::data_dir();
+        let projects = projects::Controller::from(&data_dir);
+
+        let project = projects
+            .add(test_project.path())
+            .expect("failed to add project");
+
+        let project_repository = project_repository::Repository::open(&project).unwrap();
+
+        let gb_repo =
+            gb_repository::Repository::open(&data_dir, &project_repository, None).unwrap();
+
+        let submodule_url: git::Url = TestProject::default()
+            .path()
+            .display()
+            .to_string()
+            .parse()
+            .unwrap();
+        test_project.add_submodule(&submodule_url, path::Path::new("submodule"));
 
         gb_repo.flush(&project_repository, None).unwrap();
     }

@@ -1,10 +1,12 @@
 use std::{path, str};
 
+use git2::Submodule;
+
 use crate::keys;
 
 use super::{
     AnnotatedCommit, Blob, Branch, BranchName, Commit, Config, Index, Oid, Reference, Remote,
-    Result, Signature, Tree, TreeBuilder,
+    Result, Signature, Tree, TreeBuilder, Url,
 };
 
 // wrapper around git2::Repository to get control over how it's used.
@@ -50,6 +52,12 @@ impl Repository {
         self.0.odb().and_then(|odb| odb.refresh())?;
 
         Ok(())
+    }
+
+    pub fn add_submodule(&self, url: &Url, path: &path::Path) -> Result<Submodule<'_>> {
+        self.0
+            .submodule(&url.to_string(), path, false)
+            .map_err(Into::into)
     }
 
     pub fn find_annotated_commit(&self, id: Oid) -> Result<AnnotatedCommit<'_>> {

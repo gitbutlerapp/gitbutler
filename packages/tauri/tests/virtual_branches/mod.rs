@@ -4,7 +4,7 @@
     clippy::rest_pat_in_fully_bound_structs
 )]
 
-use std::{fs, str::FromStr};
+use std::{fs, path, str::FromStr};
 
 use gblib::{
     error::Error,
@@ -2011,6 +2011,36 @@ mod amend {
 
 mod init {
     use super::*;
+
+    #[tokio::test]
+    async fn submodule() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        let submodule_url: git::Url = TestProject::default()
+            .path()
+            .display()
+            .to_string()
+            .parse()
+            .unwrap();
+        repository.add_submodule(&submodule_url, path::Path::new("submodule"));
+
+        controller
+            .set_base_branch(
+                &project_id,
+                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+            )
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 1);
+        assert_eq!(branches[0].files.len(), 1);
+        assert_eq!(branches[0].files[0].hunks.len(), 1);
+    }
 
     #[tokio::test]
     async fn dirty() {

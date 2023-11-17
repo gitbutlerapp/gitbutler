@@ -1558,7 +1558,7 @@ fn get_applied_status(
         &default_target.sha,
         &diff::Options::default(),
     )
-    .context("failed to diff")?;
+    .context("failed to diff workdir")?;
 
     // sort by order, so that the default branch is first (left in the ui)
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));

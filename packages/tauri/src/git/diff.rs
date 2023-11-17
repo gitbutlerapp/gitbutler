@@ -43,6 +43,7 @@ pub fn workdir(
         .include_untracked(true)
         .show_binary(true)
         .show_untracked_content(true)
+        .ignore_submodules(true)
         .context_lines(opts.context_lines);
 
     let diff = repository.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
@@ -60,6 +61,7 @@ pub fn trees(
         .recurse_untracked_dirs(true)
         .include_untracked(true)
         .show_binary(true)
+        .ignore_submodules(true)
         .show_untracked_content(true);
 
     let diff =
