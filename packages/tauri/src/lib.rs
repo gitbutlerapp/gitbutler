@@ -3,7 +3,6 @@
 pub mod analytics;
 pub mod app;
 pub mod assets;
-pub mod bookmarks;
 pub mod commands;
 pub mod database;
 pub mod dedup;

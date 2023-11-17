@@ -1,7 +1,7 @@
 use std::{fmt::Display, path};
 
 use crate::{
-    analytics, bookmarks, deltas, events,
+    analytics, deltas, events,
     projects::ProjectId,
     reader,
     sessions::{self, SessionId},
@@ -24,7 +24,6 @@ pub enum Event {
     Session(ProjectId, sessions::Session),
     SessionFile((ProjectId, SessionId, path::PathBuf, Option<reader::Content>)),
     SessionDelta((ProjectId, SessionId, path::PathBuf, deltas::Delta)),
-    Bookmark(bookmarks::Bookmark),
 
     IndexAll(ProjectId),
 
@@ -40,7 +39,6 @@ impl Event {
         match self {
             Event::Analytics(event) => event.project_id(),
             Event::Emit(event) => event.project_id(),
-            Event::Bookmark(bookmark) => &bookmark.project_id,
             Event::Tick(project_id)
             | Event::IndexAll(project_id)
             | Event::FetchGitbutlerData(project_id)
@@ -79,7 +77,6 @@ impl Display for Event {
                 write!(f, "ProjectFileChange({}, {})", project_id, path.display())
             }
             Event::Session(pid, session) => write!(f, "Session({}, {})", pid, session.id),
-            Event::Bookmark(b) => write!(f, "Bookmark({})", b.project_id),
             Event::SessionFile((pid, session_id, path, _)) => {
                 write!(f, "File({}, {}, {})", pid, session_id, path.display())
             }
