@@ -21,10 +21,10 @@ Now you should be able to run the app in development mode:
 $ pnpm tauri dev
 ```
 
-By default it will not print debug logs to console. If you want debug logs, use `debug` feature:
+By default it will not print debug logs to console. If you want debug logs, set `LOG_LEVEL` environment variable:
 
 ```bash
-$ pnpm tauri dev --features debug
+$ LOG_LEVEL=debug pnpm tauri dev
 ```
 
 ### Lint & format

@@ -22,11 +22,11 @@ pub fn init(app_handle: &AppHandle) {
         .with_target(false)
         .compact();
 
-    let log_level_filter = if cfg!(feature = "debug") {
-        LevelFilter::DEBUG
-    } else {
-        LevelFilter::INFO
-    };
+    let log_level_filter = std::env::var("LOG_LEVEL")
+        .unwrap_or("info".to_string())
+        .to_lowercase()
+        .parse()
+        .unwrap_or(LevelFilter::INFO);
 
     let subscriber = tracing_subscriber::registry()
         .with(
