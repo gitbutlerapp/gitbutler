@@ -154,7 +154,8 @@ pub async fn get_base_branch_data(
     })?;
     if let Some(base_branch) = handle
         .state::<Controller>()
-        .get_base_branch_data(&project_id)?
+        .get_base_branch_data(&project_id)
+        .await?
     {
         let proxy = handle.state::<assets::Proxy>();
         let base_branch = proxy.proxy_base_branch(base_branch).await;
@@ -180,7 +181,8 @@ pub async fn set_base_branch(
         .context("Invalid branch name")?;
     let base_branch = handle
         .state::<Controller>()
-        .set_base_branch(&project_id, &branch_name)?;
+        .set_base_branch(&project_id, &branch_name)
+        .await?;
     let base_branch = handle
         .state::<assets::Proxy>()
         .proxy_base_branch(base_branch)
@@ -353,6 +355,7 @@ pub async fn can_apply_virtual_branch(
     handle
         .state::<Controller>()
         .can_apply_virtual_branch(&project_id, &branch_id)
+        .await
         .map_err(Into::into)
 }
 
@@ -374,6 +377,7 @@ pub async fn can_apply_remote_branch(
     handle
         .state::<Controller>()
         .can_apply_remote_branch(&project_id, &branch)
+        .await
         .map_err(Into::into)
 }
 
@@ -395,6 +399,7 @@ pub async fn list_remote_commit_files(
     handle
         .state::<Controller>()
         .list_remote_commit_files(&project_id, commit_oid)
+        .await
         .map_err(Into::into)
 }
 
@@ -494,7 +499,8 @@ pub async fn list_remote_branches(
     })?;
     let branches = handle
         .state::<Controller>()
-        .list_remote_branches(&project_id)?;
+        .list_remote_branches(&project_id)
+        .await?;
     let branches = handle
         .state::<assets::Proxy>()
         .proxy_remote_branches(branches)
