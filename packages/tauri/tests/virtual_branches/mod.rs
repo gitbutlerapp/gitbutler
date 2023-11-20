@@ -59,6 +59,7 @@ mod create_commit {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branch_id = controller
@@ -128,6 +129,7 @@ mod references {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch_id = controller
@@ -162,6 +164,7 @@ mod references {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch1_id = controller
@@ -220,6 +223,7 @@ mod references {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch_id = controller
@@ -273,6 +277,7 @@ mod references {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch1_id = controller
@@ -342,6 +347,7 @@ mod references {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let id = controller
@@ -389,6 +395,7 @@ mod references {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch1_id = controller
@@ -444,6 +451,7 @@ mod references {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch1_id = {
@@ -538,8 +546,8 @@ mod references {
 mod set_base_branch {
     use super::*;
 
-    #[test]
-    fn success() {
+    #[tokio::test]
+    async fn success() {
         let Test {
             project_id,
             controller,
@@ -551,14 +559,15 @@ mod set_base_branch {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
     }
 
     mod errors {
         use super::*;
 
-        #[test]
-        fn missing() {
+        #[tokio::test]
+        async fn missing() {
             let Test {
                 project_id,
                 controller,
@@ -566,10 +575,12 @@ mod set_base_branch {
             } = Test::default();
 
             assert!(matches!(
-                controller.set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/missing").unwrap(),
-                ),
+                controller
+                    .set_base_branch(
+                        &project_id,
+                        &git::RemoteBranchName::from_str("refs/remotes/origin/missing").unwrap(),
+                    )
+                    .await,
                 Err(Error::UserError { .. })
             ));
         }
@@ -595,6 +606,7 @@ mod conflicts {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch1_id = {
@@ -626,6 +638,7 @@ mod conflicts {
                 // it should not be possible to apply the first branch
                 assert!(!controller
                     .can_apply_virtual_branch(&project_id, &branch1_id)
+                    .await
                     .unwrap());
 
                 assert!(matches!(
@@ -663,6 +676,7 @@ mod conflicts {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch1_id = {
@@ -785,6 +799,7 @@ mod conflicts {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch1_id = {
@@ -890,6 +905,7 @@ mod conflicts {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch1_id = {
@@ -988,6 +1004,7 @@ mod reset_virtual_branch {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branch1_id = controller
@@ -1051,6 +1068,7 @@ mod reset_virtual_branch {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branch1_id = controller
@@ -1111,6 +1129,7 @@ mod reset_virtual_branch {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branch1_id = controller
@@ -1197,6 +1216,7 @@ mod reset_virtual_branch {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branch1_id = controller
@@ -1258,6 +1278,7 @@ mod upstream {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branch1_id = controller
@@ -1326,6 +1347,7 @@ mod upstream {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branch1_id = controller
@@ -1414,6 +1436,7 @@ mod cherry_pick {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch_id = controller
@@ -1487,6 +1510,7 @@ mod cherry_pick {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch_id = controller
@@ -1571,6 +1595,7 @@ mod cherry_pick {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch_id = controller
@@ -1637,6 +1662,7 @@ mod cherry_pick {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch_id = controller
@@ -1758,6 +1784,7 @@ mod cherry_pick {
                     &project_id,
                     &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
                 )
+                .await
                 .unwrap();
 
             let branch_id = controller
@@ -1800,6 +1827,7 @@ mod amend {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branch_id = controller
@@ -1833,6 +1861,7 @@ mod amend {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branch_id = controller
@@ -1896,6 +1925,7 @@ mod amend {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branch_id = controller
@@ -1968,6 +1998,7 @@ mod amend {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branch_id = controller
@@ -2034,6 +2065,7 @@ mod init {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branches = controller.list_virtual_branches(&project_id).await.unwrap();
@@ -2058,6 +2090,7 @@ mod init {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branches = controller.list_virtual_branches(&project_id).await.unwrap();
@@ -2084,6 +2117,7 @@ mod squash {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branch_id = controller
@@ -2150,6 +2184,7 @@ mod squash {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branch_id = controller
@@ -2222,6 +2257,7 @@ mod squash {
                 &project_id,
                 &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
             )
+            .await
             .unwrap();
 
         let branch_id = controller
