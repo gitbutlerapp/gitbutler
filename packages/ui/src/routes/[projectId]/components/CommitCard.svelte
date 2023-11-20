@@ -37,7 +37,7 @@
 </script>
 
 <div
-	class="w-full"
+	class="w-full overflow-hidden"
 	use:draggable={commit instanceof Commit
 		? draggableCommit(commit.branchId, commit)
 		: nonDraggable()}
