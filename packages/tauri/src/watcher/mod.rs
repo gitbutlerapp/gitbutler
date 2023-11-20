@@ -2,17 +2,19 @@ mod dispatchers;
 mod events;
 mod handlers;
 
-use std::{collections::HashMap, path, sync::Arc, time};
+use std::{
+    sync::{Arc, TryLockError},
+    collections::HashMap,
+    path,
+    time,
+};
 
 pub use events::Event;
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 use tokio::{
-    sync::{
-        mpsc::{unbounded_channel, UnboundedSender},
-        Mutex,
-    },
+    sync::mpsc::{unbounded_channel, UnboundedSender},
     task,
 };
 use tokio_util::sync::CancellationToken;
@@ -22,7 +24,7 @@ use crate::projects::{self, ProjectId};
 #[derive(Clone)]
 pub struct Watchers {
     app_handle: AppHandle,
-    watchers: Arc<Mutex<HashMap<ProjectId, Watcher>>>,
+    watchers: Arc<tokio::sync::Mutex<HashMap<ProjectId, Watcher>>>,
 }
 
 impl TryFrom<&AppHandle> for Watchers {
@@ -31,7 +33,7 @@ impl TryFrom<&AppHandle> for Watchers {
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
             app_handle: value.clone(),
-            watchers: Arc::new(Mutex::new(HashMap::new())),
+            watchers: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
         })
     }
 }
@@ -136,6 +138,7 @@ struct WatcherInner {
     cancellation_token: CancellationToken,
 
     proxy_tx: Arc<tokio::sync::Mutex<Option<UnboundedSender<Event>>>>,
+    running_handlers: Arc<std::sync::Mutex<HashMap<String, std::sync::Mutex<()>>>>,
 }
 
 impl TryFrom<&AppHandle> for WatcherInner {
@@ -147,6 +150,7 @@ impl TryFrom<&AppHandle> for WatcherInner {
             dispatcher: dispatchers::Dispatcher::new(),
             cancellation_token: CancellationToken::new(),
             proxy_tx: Arc::new(tokio::sync::Mutex::new(None)),
+            running_handlers: Arc::new(std::sync::Mutex::new(HashMap::new())),
         })
     }
 }
@@ -226,10 +230,35 @@ impl WatcherInner {
             Ok(())
         };
 
+        let handle_event_unique = |event: &Event| -> Result<()> {
+            if let Some(key) = event.unique_key() {
+                let mut handlers = self.running_handlers.lock().unwrap();
+                let running = handlers
+                    .entry(key.clone())
+                    .or_insert(std::sync::Mutex::new(()));
+
+                let result = match running.try_lock() {
+                    Ok(_) => {
+                        println!("running {}", &key);
+                        handle_event(event)
+                    }
+                    Err(TryLockError::Poisoned(_)) => Err(anyhow::anyhow!("mutex poisoned")),
+                    Err(TryLockError::WouldBlock) => {
+                        println!("{} is already running", &key);
+                        tracing::debug!(%event, "event is already running, skipping");
+                        Ok(())
+                    }
+                };
+                result
+            } else {
+                handle_event(event)
+            }
+        };
+
         loop {
             tokio::select! {
-                Some(event) = dispatcher_rx.recv() => handle_event(&event)?,
-                Some(event) = proxy_rx.recv() => handle_event(&event)?,
+                Some(event) = dispatcher_rx.recv() => handle_event_unique(&event)?,
+                Some(event) = proxy_rx.recv() => handle_event_unique(&event)?,
                 () = self.cancellation_token.cancelled() => {
                     self.dispatcher.stop();
                     break;

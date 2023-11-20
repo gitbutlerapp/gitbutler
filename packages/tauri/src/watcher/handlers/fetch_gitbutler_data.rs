@@ -1,7 +1,4 @@
-use std::{
-    sync::{Arc, Mutex, TryLockError},
-    time,
-};
+use std::time;
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
@@ -13,41 +10,12 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    inner: Arc<Mutex<HandlerInner>>,
-}
-
-impl TryFrom<&AppHandle> for Handler {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let inner = HandlerInner::try_from(value)?;
-        Ok(Self {
-            inner: Arc::new(Mutex::new(inner)),
-        })
-    }
-}
-
-impl Handler {
-    pub fn handle(
-        &self,
-        project_id: &ProjectId,
-        now: &time::SystemTime,
-    ) -> Result<Vec<events::Event>> {
-        match self.inner.try_lock() {
-            Ok(inner) => inner.handle(project_id, now),
-            Err(TryLockError::Poisoned(_)) => Err(anyhow::anyhow!("mutex poisoned")),
-            Err(TryLockError::WouldBlock) => Ok(vec![]),
-        }
-    }
-}
-
-struct HandlerInner {
     local_data_dir: DataDir,
     projects: projects::Controller,
     users: users::Controller,
 }
 
-impl TryFrom<&AppHandle> for HandlerInner {
+impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
@@ -60,7 +28,7 @@ impl TryFrom<&AppHandle> for HandlerInner {
     }
 }
 
-impl HandlerInner {
+impl Handler {
     pub fn handle(
         &self,
         project_id: &ProjectId,
@@ -174,7 +142,7 @@ mod test {
             ..Default::default()
         })?;
 
-        let listener = HandlerInner {
+        let listener = Handler {
             local_data_dir: suite.local_app_data,
             projects: suite.projects,
             users: suite.users,
@@ -190,7 +158,7 @@ mod test {
         let suite = Suite::default();
         let Case { project, .. } = suite.new_case();
 
-        let listener = HandlerInner {
+        let listener = Handler {
             local_data_dir: suite.local_app_data,
             projects: suite.projects,
             users: suite.users,

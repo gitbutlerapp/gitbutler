@@ -1,5 +1,3 @@
-use std::sync::{Arc, Mutex, TryLockError};
-
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
@@ -11,36 +9,12 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    inner: Arc<Mutex<HandlerInner>>,
-}
-
-impl TryFrom<&AppHandle> for Handler {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        Ok(Self {
-            inner: Arc::new(Mutex::new(HandlerInner::try_from(value)?)),
-        })
-    }
-}
-
-impl Handler {
-    pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
-        match self.inner.try_lock() {
-            Ok(inner) => inner.handle(project_id),
-            Err(TryLockError::Poisoned(_)) => Err(anyhow::anyhow!("mutex poisoned")),
-            Err(TryLockError::WouldBlock) => Ok(vec![]),
-        }
-    }
-}
-
-struct HandlerInner {
     local_data_dir: DataDir,
     projects: projects::Controller,
     users: users::Controller,
 }
 
-impl TryFrom<&AppHandle> for HandlerInner {
+impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
@@ -52,7 +26,7 @@ impl TryFrom<&AppHandle> for HandlerInner {
     }
 }
 
-impl HandlerInner {
+impl Handler {
     fn new(
         local_data_dir: DataDir,
         projects: projects::Controller,
