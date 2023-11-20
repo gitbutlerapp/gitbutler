@@ -4,7 +4,9 @@
 	import RemoteBranchPreview from './RemoteBranchPreview.svelte';
 
 	export let data: PageData;
-	let { projectId, branchController, remoteBranchService } = data;
+	$: projectId = data.projectId;
+	$: branchController = data.branchController;
+	$: remoteBranchService = data.remoteBranchService;
 	$: branches$ = remoteBranchService.branches$;
 	$: error$ = remoteBranchService.branchesError$;
 

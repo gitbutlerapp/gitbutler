@@ -11,7 +11,12 @@
 	import type { Key, Project } from '$lib/backend/projects';
 
 	export let data: PageData;
-	const { projectService, cloud, user$, userService, project$ } = data;
+
+	$: projectService = data.projectService;
+	$: project$ = data.project$;
+	$: userService = data.userService;
+	$: user$ = data.user$;
+	$: cloud = data.cloud;
 
 	let deleteConfirmationModal: Modal;
 	let isDeleting = false;

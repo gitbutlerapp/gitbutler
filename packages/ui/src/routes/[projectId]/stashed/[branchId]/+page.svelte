@@ -4,16 +4,15 @@
 	import BranchLane from '../../components/BranchLane.svelte';
 
 	export let data: PageData;
-	let {
-		projectId,
-		branchController,
-		githubContext$,
-		cloud,
-		baseBranchService,
-		vbranchService,
-		user$
-	} = data;
 
+	$: projectId = data.projectId;
+	$: user$ = data.user$;
+	$: githubContext$ = data.githubContext$;
+	$: cloud = data.cloud;
+
+	$: branchController = data.branchController;
+	$: vbranchService = data.vbranchService;
+	$: baseBranchService = data.baseBranchService;
 	$: baseBranch$ = baseBranchService.base$;
 
 	$: branches$ = vbranchService.branches$;

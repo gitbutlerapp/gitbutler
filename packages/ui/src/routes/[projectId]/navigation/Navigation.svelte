@@ -15,7 +15,6 @@
 	import type { Update } from '../../updater';
 	import DomainButton from './DomainButton.svelte';
 	import IconBranch from '$lib/icons/IconBranch.svelte';
-	import IconSettings from '$lib/icons/IconSettings.svelte';
 	import type { PrService } from '$lib/github/pullrequest';
 	import type { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { RemoteBranchService } from '$lib/stores/remoteBranches';
