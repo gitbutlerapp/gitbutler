@@ -14,7 +14,6 @@
 	import type { Loadable } from '@square/svelte-store';
 	import type { Update } from '../../updater';
 	import DomainButton from './DomainButton.svelte';
-	import IconBranch from '$lib/icons/IconBranch.svelte';
 	import type { PrService } from '$lib/github/pullrequest';
 	import type { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { RemoteBranchService } from '$lib/stores/remoteBranches';
@@ -52,7 +51,7 @@
 		<BaseBranchCard {project} {baseBranchService} {branchController} {prService} />
 	</div>
 	<div class="mb-4">
-		<DomainButton href={`/${project.id}/board`} icon={IconBranch}>Applied branches</DomainButton>
+		<DomainButton href={`/${project.id}/board`} icon="branch">Applied branches</DomainButton>
 	</div>
 	<YourBranches {project} {branchController} {vbranchService} />
 	{#if githubContext}

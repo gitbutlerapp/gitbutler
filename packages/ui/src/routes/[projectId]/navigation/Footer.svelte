@@ -3,9 +3,8 @@
 	import { isLoading, loadStack } from '$lib/backend/ipc';
 	import Link from '$lib/components/Link.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
-	import IconEmail from '$lib/icons/IconEmail.svelte';
+	import Icon from '$lib/icons/Icon.svelte';
 	import IconHome from '$lib/icons/IconHome.svelte';
-	import IconSettings from '$lib/icons/IconSettings.svelte';
 	import IconSpinner from '$lib/icons/IconSpinner.svelte';
 	import * as events from '$lib/utils/events';
 
@@ -22,11 +21,11 @@
 		<Link href="/" class="p-1"><IconHome /></Link>
 		<Tooltip label="Send feedback">
 			<button class="p-1 align-middle" on:click={() => events.emit('openSendIssueModal')}>
-				<IconEmail class="align-top" />
+				<Icon name="mail"></Icon>
 			</button>
 		</Tooltip>
 		<Link href={`/${projectId}/settings`} class="p-1">
-			<IconSettings />
+			<Icon name="settings" />
 		</Link>
 		{#if $isLoading}
 			<Tooltip label={loadStack.join('\n')}>

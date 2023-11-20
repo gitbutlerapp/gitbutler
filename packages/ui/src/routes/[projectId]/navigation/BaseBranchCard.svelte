@@ -6,7 +6,7 @@
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { PrService } from '$lib/github/pullrequest';
-	import IconBranch from '$lib/icons/IconBranch.svelte';
+	import Icon from '$lib/icons/Icon.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -35,7 +35,7 @@
 		{#if $base$?.remoteUrl.includes('github.com')}
 			<IconGithub class="h-4 w-4" />
 		{:else}
-			<IconBranch class="h-4 w-4" />
+			<Icon name="branch" />
 		{/if}
 	</div>
 	<div class="font-semibold">
