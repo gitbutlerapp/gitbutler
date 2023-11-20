@@ -3,7 +3,9 @@
 	import BaseBranch from './BaseBranch.svelte';
 
 	export let data: PageData;
-	let { projectId, branchController, baseBranchService } = data;
+	$: projectId = data.projectId;
+	$: branchController = data.branchController;
+	$: baseBranchService = data.baseBranchService;
 	$: base$ = baseBranchService.base$;
 	$: error$ = baseBranchService.error$;
 </script>

@@ -5,8 +5,9 @@
 	import { map } from 'rxjs';
 
 	export let data: PageData;
-	let { branchController, prService } = data;
 
+	$: branchController = data.branchController;
+	$: prService = data.prService;
 	$: pr = prService.prs$?.pipe(
 		map((prs) => prs.find((b) => b.number.toString() == $page.params.number))
 	);
