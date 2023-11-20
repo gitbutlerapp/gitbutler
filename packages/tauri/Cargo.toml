@@ -24,7 +24,7 @@ tempfile = "3.8"
 anyhow = "1.0.72"
 async-trait = "0.1.74"
 backoff = "0.4.0"
-bstr = "1.7.0"
+bstr = "1.8.0"
 byteorder = "1.4.3"
 chrono = { version = "0.4.31", features = ["serde"] }
 console-subscriber = "0.2.0"
