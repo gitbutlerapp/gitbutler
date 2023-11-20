@@ -21,9 +21,9 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { summarizeHunk } from './summaries';
 	import Tooltip from '$lib/components/Tooltip.svelte';
-	import IconLock from '$lib/icons/IconLock.svelte';
 	import HunkContextMenu from './HunkContextMenu.svelte';
 	import { draggableFile, draggableHunk } from '$lib/draggables';
+	import Icon from '$lib/icons/Icon.svelte';
 
 	export let branchId: string;
 	export let file: File;
@@ -134,7 +134,7 @@
 					<Tooltip
 						label="File changes cannot be moved because part of this file was already committed into this branch"
 					>
-						<IconLock class="h-4 w-4 text-yellow-600" />
+						<Icon name="locked" class="text-yellow-600" />
 					</Tooltip>
 				</div>
 			{/if}
