@@ -25,8 +25,7 @@
 </script>
 
 <div
-	class="bg-color-3 border-color-3 absolute flex h-fit w-fit flex-col items-center whitespace-nowrap rounded border
-				"
+	class="bg-color-3 border-color-3 flex h-fit w-fit flex-col items-center whitespace-nowrap rounded border"
 >
 	<div class="flex h-6 flex-row items-center justify-center font-medium leading-5">
 		<button
