@@ -64,7 +64,7 @@
 		"inter-ui": "^3.19.3",
 		"leven": "^4.0.0",
 		"lscache": "^1.3.2",
-		"marked": "^9.1.4",
+		"marked": "^10.0.0",
 		"mm-jsr": "^3.0.2",
 		"nanoevents": "^8.0.0",
 		"nanoid": "^5.0.1",
