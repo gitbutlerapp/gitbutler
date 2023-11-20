@@ -77,8 +77,10 @@
 			e.preventDefault();
 			e.stopPropagation();
 			fetching = true;
-			await branchController.fetchFromTarget().finally(() => (fetching = false));
-			prService.reload();
+			await branchController.fetchFromTarget().finally(() => {
+				fetching = false;
+				prService.reload();
+			});
 		}}
 	>
 		<div class:animate-spin={fetching}>
