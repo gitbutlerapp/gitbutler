@@ -60,6 +60,10 @@ impl Repository {
             let git_repository = git::Repository::open(path.clone())
                 .with_context(|| format!("{}: failed to open git repository", path.display()))?;
 
+            git_repository
+                .add_disk_alternate(project_objects_path.to_str().unwrap())
+                .context("failed to add disk alternate")?;
+
             Result::Ok(Self {
                 git_repository,
                 project: project.clone(),

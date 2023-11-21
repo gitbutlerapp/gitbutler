@@ -1002,11 +1002,14 @@ pub fn create_virtual_branch(
             )
         })?;
 
-    let repo = gb_repository.git_repository();
-    let commit = repo
+    let commit = project_repository
+        .git_repository
         .find_commit(default_target.sha)
-        .context("failed to find commit")?;
-    let tree = commit.tree().context("failed to find tree")?;
+        .context("failed to find default target commit")?;
+
+    let tree = commit
+        .tree()
+        .context("failed to find defaut target commit tree")?;
 
     let mut all_virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
@@ -1570,7 +1573,7 @@ fn get_applied_status(
             project_repository,
             &BranchCreateRequest::default(),
         )
-        .context("failed to default branch")?];
+        .context("failed to create default branch")?];
     }
 
     // align branch ownership to the real hunks:
