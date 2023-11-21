@@ -87,6 +87,8 @@ pub enum UnapplyOwnershipError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum UnapplyBranchError {
+    #[error("default target not set")]
+    DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error("project is in conflict state")]
     Conflict(ProjectConflictError),
     #[error("branch not found")]
@@ -552,6 +554,7 @@ impl From<UnapplyBranchError> for Error {
     fn from(value: UnapplyBranchError) -> Self {
         match value {
             UnapplyBranchError::Conflict(error) => error.into(),
+            UnapplyBranchError::DefaultTargetNotSet(error) => error.into(),
             UnapplyBranchError::BranchNotFound(error) => error.into(),
             UnapplyBranchError::Other(error) => {
                 tracing::error!(?error, "unapply branch error");

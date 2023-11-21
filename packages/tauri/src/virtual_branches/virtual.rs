@@ -442,38 +442,77 @@ pub fn unapply_branch(
         ));
     }
 
-    let (default_target, applied_statuses) = if let Some(result) = {
-        let session = &gb_repository
-            .get_or_create_current_session()
-            .context("failed to get or create currnt session")?;
+    let session = &gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
 
-        let current_session_reader = sessions::Reader::open(gb_repository, session)
-            .context("failed to open current session")?;
+    let current_session_reader =
+        sessions::Reader::open(gb_repository, session).context("failed to open current session")?;
 
-        let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch_reader = branch::Reader::new(&current_session_reader);
 
-        let mut target_branch = branch_reader.read(branch_id).map_err(|error| match error {
-            reader::Error::NotFound => {
-                errors::UnapplyBranchError::BranchNotFound(errors::BranchNotFoundError {
-                    project_id: project_repository.project().id,
-                    branch_id: *branch_id,
-                })
-            }
-            error => errors::UnapplyBranchError::Other(error.into()),
+    let target_branch = branch_reader.read(branch_id).map_err(|error| match error {
+        reader::Error::NotFound => {
+            errors::UnapplyBranchError::BranchNotFound(errors::BranchNotFoundError {
+                project_id: project_repository.project().id,
+                branch_id: *branch_id,
+            })
+        }
+        error => errors::UnapplyBranchError::Other(error.into()),
+    })?;
+
+    if !target_branch.applied {
+        return Ok(());
+    }
+
+    let default_target = get_default_target(&current_session_reader)
+        .context("failed to get default target")?
+        .ok_or_else(|| {
+            errors::UnapplyBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                project_id: project_repository.project().id,
+            })
         })?;
 
-        if !target_branch.applied {
+    let applied_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
+
+    let applied_statuses = get_applied_status(
+        gb_repository,
+        project_repository,
+        &default_target,
+        applied_branches,
+    )
+    .context("failed to get status by branch")?;
+
+    let status = applied_statuses
+        .iter()
+        .find(|(s, _)| s.id == target_branch.id)
+        .context("failed to find status for branch");
+
+    let branch_writer = branch::Writer::new(gb_repository);
+    if let Ok((_, files)) = status {
+        if files.is_empty() {
+            // if there is nothing to unapply, remove the branch straight away
+            branch_writer
+                .delete(&target_branch)
+                .context("Failed to remove branch")?;
+
+            project_repository.delete_branch_reference(&target_branch)?;
             return Ok(());
         }
 
-        target_branch.applied = false;
-
-        flush_vbranch_as_tree(gb_repository, project_repository, session, target_branch)?
-    } {
-        result
-    } else {
-        return Ok(());
-    };
+        let tree = write_tree(project_repository, &default_target, files)?;
+        branch_writer.write(&branch::Branch {
+            tree,
+            applied: false,
+            ..target_branch
+        })?;
+    }
 
     let repo = &project_repository.git_repository;
 
@@ -512,56 +551,6 @@ pub fn unapply_branch(
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     Ok(())
-}
-
-fn flush_vbranch_as_tree(
-    gb_repository: &gb_repository::Repository,
-    project_repository: &project_repository::Repository,
-    session: &sessions::Session,
-    branch: Branch,
-) -> Result<Option<(target::Target, AppliedStatuses)>> {
-    let branch_writer = branch::Writer::new(gb_repository);
-
-    let current_session_reader =
-        sessions::Reader::open(gb_repository, session).context("failed to open current session")?;
-
-    let default_target = match get_default_target(&current_session_reader)
-        .context("failed to get default target")?
-    {
-        Some(target) => target,
-        None => return Ok(None),
-    };
-
-    let applied_branches = Iterator::new(&current_session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|b| b.applied)
-        .collect::<Vec<_>>();
-
-    let applied_statuses = get_applied_status(
-        gb_repository,
-        project_repository,
-        &default_target,
-        applied_branches,
-    )
-    .context("failed to get status by branch")?;
-
-    let status = applied_statuses
-        .iter()
-        .find(|(s, _)| s.id == branch.id)
-        .context("failed to find status for branch");
-
-    if let Ok((_, files)) = status {
-        let tree = write_tree(project_repository, &default_target, files)?;
-
-        let mut branch = branch;
-        branch.tree = tree;
-        branch_writer.write(&branch)?;
-    }
-
-    Ok(Some((default_target, applied_statuses)))
 }
 
 fn unapply_all_branches(
