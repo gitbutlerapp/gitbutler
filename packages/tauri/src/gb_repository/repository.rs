@@ -518,9 +518,22 @@ impl Repository {
 
         Ok(())
     }
+}
 
-    pub fn git_repository(&self) -> &git::Repository {
-        &self.git_repository
+/// Re-export some methods of the underlying git repository.
+impl Repository {
+    pub fn head(&self) -> git::Result<git::Reference<'_>> {
+        self.git_repository.head()
+    }
+
+    pub fn find_commit(&self, oid: git::Oid) -> git::Result<git::Commit> {
+        self.git_repository.find_commit(oid)
+    }
+}
+
+impl<'a> From<&'a Repository> for &'a git::Repository {
+    fn from(repository: &'a Repository) -> Self {
+        &repository.git_repository
     }
 }
 
