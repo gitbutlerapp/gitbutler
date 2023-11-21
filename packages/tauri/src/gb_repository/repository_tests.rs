@@ -202,8 +202,8 @@ fn test_list_files_from_flushed_session() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_remote_syncronization() -> Result<()> {
+#[tokio::test]
+async fn test_remote_syncronization() -> Result<()> {
     // first, crate a remote, pretending it's a cloud
     let cloud = test_remote_repository()?;
     let api_project = projects::ApiProject {
@@ -225,11 +225,14 @@ fn test_remote_syncronization() -> Result<()> {
         path::PathBuf::from("test.txt"),
         "Hello World",
     )]));
-    suite.projects.update(&projects::UpdateRequest {
-        id: case_one.project.id,
-        api: Some(api_project.clone()),
-        ..Default::default()
-    })?;
+    suite
+        .projects
+        .update(&projects::UpdateRequest {
+            id: case_one.project.id,
+            api: Some(api_project.clone()),
+            ..Default::default()
+        })
+        .await?;
     let case_one = case_one.refresh();
 
     let writer = deltas::Writer::new(&case_one.gb_repository);
@@ -248,11 +251,14 @@ fn test_remote_syncronization() -> Result<()> {
 
     // create second local project, fetch it and make sure session is there
     let case_two = suite.new_case();
-    suite.projects.update(&projects::UpdateRequest {
-        id: case_two.project.id,
-        api: Some(api_project.clone()),
-        ..Default::default()
-    })?;
+    suite
+        .projects
+        .update(&projects::UpdateRequest {
+            id: case_two.project.id,
+            api: Some(api_project.clone()),
+            ..Default::default()
+        })
+        .await?;
     let case_two = case_two.refresh();
 
     case_two.gb_repository.fetch(Some(&user))?;
@@ -287,8 +293,8 @@ fn test_remote_syncronization() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_remote_sync_order() -> Result<()> {
+#[tokio::test]
+async fn test_remote_sync_order() -> Result<()> {
     // first, crate a remote, pretending it's a cloud
     let cloud = test_remote_repository()?;
     let api_project = projects::ApiProject {
@@ -305,19 +311,25 @@ fn test_remote_sync_order() -> Result<()> {
     let suite = Suite::default();
 
     let case_one = suite.new_case();
-    suite.projects.update(&projects::UpdateRequest {
-        id: case_one.project.id,
-        api: Some(api_project.clone()),
-        ..Default::default()
-    })?;
+    suite
+        .projects
+        .update(&projects::UpdateRequest {
+            id: case_one.project.id,
+            api: Some(api_project.clone()),
+            ..Default::default()
+        })
+        .await?;
     let case_one = case_one.refresh();
 
     let case_two = suite.new_case();
-    suite.projects.update(&projects::UpdateRequest {
-        id: case_two.project.id,
-        api: Some(api_project.clone()),
-        ..Default::default()
-    })?;
+    suite
+        .projects
+        .update(&projects::UpdateRequest {
+            id: case_two.project.id,
+            api: Some(api_project.clone()),
+            ..Default::default()
+        })
+        .await?;
     let case_two = case_two.refresh();
 
     let user = suite.sign_in();

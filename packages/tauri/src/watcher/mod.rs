@@ -196,31 +196,35 @@ impl WatcherInner {
                     let handler = self.handler.clone();
                     let tx = proxy_tx.clone();
                     let event = event.clone();
-                    move || match handler.handle(&event, time::SystemTime::now()) {
-                        Err(error) => tracing::error!(
-                            project_id,
-                            %event,
-                            ?error,
-                            "failed to handle event",
-                        ),
-                        Ok(events) => {
-                            for e in events {
-                                if let Err(error) = tx.send(e.clone()) {
-                                    tracing::error!(
-                                        project_id,
-                                        %event,
-                                        ?error,
-                                        "failed to post event",
-                                    );
-                                } else {
-                                    tracing::debug!(
-                                        project_id,
-                                        %event,
-                                        "sent response event",
-                                    );
+                    move || {
+                        futures::executor::block_on(async move {
+                            match handler.handle(&event, time::SystemTime::now()).await {
+                                Err(error) => tracing::error!(
+                                    project_id,
+                                    %event,
+                                    ?error,
+                                    "failed to handle event",
+                                ),
+                                Ok(events) => {
+                                    for e in events {
+                                        if let Err(error) = tx.send(e.clone()) {
+                                            tracing::error!(
+                                                project_id,
+                                                %event,
+                                                ?error,
+                                                "failed to post event",
+                                            );
+                                        } else {
+                                            tracing::debug!(
+                                                project_id,
+                                                %event,
+                                                "sent response event",
+                                            );
+                                        }
+                                    }
                                 }
                             }
-                        }
+                        });
                     }
                 })?;
             Ok(())

@@ -63,7 +63,7 @@ impl TryFrom<&AppHandle> for Handler {
 
 impl Handler {
     #[instrument(skip(self), fields(event = %event), level = "debug")]
-    pub fn handle(
+    pub async fn handle(
         &self,
         event: &events::Event,
         now: time::SystemTime,
@@ -90,16 +90,19 @@ impl Handler {
             events::Event::PushProjectToGitbutler(project_id) => self
                 .push_project_to_gitbutler
                 .handle(project_id, &now)
+                .await
                 .context("failed to push project to gitbutler"),
 
             events::Event::FetchGitbutlerData(project_id) => self
                 .fetch_gitbutler_handler
                 .handle(project_id, &now)
+                .await
                 .context("failed to fetch gitbutler data"),
 
             events::Event::FetchProjectData(project_id) => self
                 .fetch_project_handler
                 .handle(project_id, &now)
+                .await
                 .context("failed to fetch project data"),
 
             events::Event::Tick(project_id) => self
@@ -110,6 +113,7 @@ impl Handler {
             events::Event::Flush(project_id, session) => self
                 .flush_session_handler
                 .handle(project_id, session)
+                .await
                 .context("failed to handle flush session event"),
 
             events::Event::SessionFile((project_id, session_id, file_path, contents)) => {
@@ -137,6 +141,7 @@ impl Handler {
             events::Event::CalculateVirtualBranches(project_id) => self
                 .virtual_branch_handler
                 .handle(project_id)
+                .await
                 .context("failed to handle virtual branch event"),
 
             events::Event::CalculateDeltas(project_id, path) => self
@@ -157,6 +162,7 @@ impl Handler {
             events::Event::Analytics(event) => self
                 .analytics_handler
                 .handle(event)
+                .await
                 .context("failed to handle analytics event"),
 
             events::Event::Session(project_id, session) => self

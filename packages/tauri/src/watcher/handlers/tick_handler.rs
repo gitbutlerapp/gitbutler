@@ -185,8 +185,8 @@ mod test_handler {
     use super::super::test_remote_repository;
     use super::*;
 
-    #[test]
-    fn test_fetch_triggered() -> Result<()> {
+    #[tokio::test]
+    async fn test_fetch_triggered() -> Result<()> {
         let suite = Suite::default();
         let Case { project, .. } = suite.new_case();
 
@@ -203,11 +203,14 @@ mod test_handler {
             sync: true,
         };
 
-        suite.projects.update(&projects::UpdateRequest {
-            id: project.id,
-            api: Some(api_project.clone()),
-            ..Default::default()
-        })?;
+        suite
+            .projects
+            .update(&projects::UpdateRequest {
+                id: project.id,
+                api: Some(api_project.clone()),
+                ..Default::default()
+            })
+            .await?;
 
         let listener = Handler {
             local_data_dir: suite.local_app_data,

@@ -1,13 +1,12 @@
-use std::{
-    sync::{Arc, Mutex, TryLockError},
-    time,
-};
+use std::{sync::Arc, time};
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
+use tokio::sync::Mutex;
 
-use crate::{gb_repository, project_repository, projects, users};
-use crate::{paths::DataDir, projects::ProjectId};
+use crate::{
+    gb_repository, paths::DataDir, project_repository, projects, projects::ProjectId, users,
+};
 
 use super::events;
 
@@ -28,15 +27,15 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    pub fn handle(
+    pub async fn handle(
         &self,
         project_id: &ProjectId,
         now: &time::SystemTime,
     ) -> Result<Vec<events::Event>> {
-        match self.inner.try_lock() {
-            Ok(inner) => inner.handle(project_id, now),
-            Err(TryLockError::Poisoned(_)) => Err(anyhow::anyhow!("mutex poisoned")),
-            Err(TryLockError::WouldBlock) => Ok(vec![]),
+        if let Ok(inner) = self.inner.try_lock() {
+            inner.handle(project_id, now).await
+        } else {
+            Ok(vec![])
         }
     }
 }
@@ -61,7 +60,7 @@ impl TryFrom<&AppHandle> for HandlerInner {
 }
 
 impl HandlerInner {
-    pub fn handle(
+    pub async fn handle(
         &self,
         project_id: &ProjectId,
         now: &time::SystemTime,
@@ -117,6 +116,7 @@ impl HandlerInner {
                 gitbutler_data_last_fetched: Some(fetch_result),
                 ..Default::default()
             })
+            .await
             .context("failed to update fetched result")?;
 
         let sessions_after_fetch = gb_repo
@@ -150,8 +150,8 @@ mod test {
     use super::super::test_remote_repository;
     use super::*;
 
-    #[test]
-    fn test_fetch_success() -> Result<()> {
+    #[tokio::test]
+    async fn test_fetch_success() -> Result<()> {
         let suite = Suite::default();
         let Case { project, .. } = suite.new_case();
 
@@ -168,11 +168,14 @@ mod test {
             sync: true,
         };
 
-        suite.projects.update(&projects::UpdateRequest {
-            id: project.id,
-            api: Some(api_project.clone()),
-            ..Default::default()
-        })?;
+        suite
+            .projects
+            .update(&projects::UpdateRequest {
+                id: project.id,
+                api: Some(api_project.clone()),
+                ..Default::default()
+            })
+            .await?;
 
         let listener = HandlerInner {
             local_data_dir: suite.local_app_data,
@@ -180,13 +183,16 @@ mod test {
             users: suite.users,
         };
 
-        listener.handle(&project.id, &SystemTime::now()).unwrap();
+        listener
+            .handle(&project.id, &SystemTime::now())
+            .await
+            .unwrap();
 
         Ok(())
     }
 
-    #[test]
-    fn test_fetch_fail_no_sync() {
+    #[tokio::test]
+    async fn test_fetch_fail_no_sync() {
         let suite = Suite::default();
         let Case { project, .. } = suite.new_case();
 
@@ -196,7 +202,7 @@ mod test {
             users: suite.users,
         };
 
-        let res = listener.handle(&project.id, &SystemTime::now());
+        let res = listener.handle(&project.id, &SystemTime::now()).await;
 
         assert_eq!(&res.unwrap_err().to_string(), "sync disabled");
     }

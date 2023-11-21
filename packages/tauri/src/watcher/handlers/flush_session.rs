@@ -1,7 +1,8 @@
-use std::sync::{Arc, Mutex, TryLockError};
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
+use tokio::sync::Mutex;
 
 use crate::{
     gb_repository, paths::DataDir, project_repository, projects, projects::ProjectId, sessions,
@@ -27,15 +28,15 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    pub fn handle(
+    pub async fn handle(
         &self,
         project_id: &ProjectId,
         session: &sessions::Session,
     ) -> Result<Vec<events::Event>> {
-        match self.inner.try_lock() {
-            Ok(inner) => inner.handle(project_id, session),
-            Err(TryLockError::Poisoned(_)) => Err(anyhow::anyhow!("mutex poisoned")),
-            Err(TryLockError::WouldBlock) => Ok(vec![]),
+        if let Ok(inner) = self.inner.try_lock() {
+            inner.handle(project_id, session).await
+        } else {
+            Ok(vec![])
         }
     }
 }
@@ -64,7 +65,7 @@ impl TryFrom<&AppHandle> for HandlerInner {
 }
 
 impl HandlerInner {
-    pub fn handle(
+    pub async fn handle(
         &self,
         project_id: &ProjectId,
         session: &sessions::Session,
@@ -84,9 +85,7 @@ impl HandlerInner {
         )
         .context("failed to open repository")?;
 
-        match futures::executor::block_on(async {
-            self.vbrach_controller.flush_vbranches(*project_id).await
-        }) {
+        match self.vbrach_controller.flush_vbranches(*project_id).await {
             Ok(()) => Ok(()),
             Err(virtual_branches::controller::ControllerError::VerifyError(error)) => {
                 tracing::warn!(?error, "failed to flush virtual branches");

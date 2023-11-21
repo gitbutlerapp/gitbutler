@@ -1,10 +1,8 @@
-use std::{
-    sync::{Arc, Mutex, TryLockError},
-    time,
-};
+use std::{sync::Arc, time};
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
+use tokio::sync::Mutex;
 
 use crate::{
     gb_repository, git, keys,
@@ -33,15 +31,15 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    pub fn handle(
+    pub async fn handle(
         &self,
         project_id: &ProjectId,
         now: &time::SystemTime,
     ) -> Result<Vec<events::Event>> {
-        match self.inner.try_lock() {
-            Ok(inner) => inner.handle(project_id, now),
-            Err(TryLockError::Poisoned(_)) => Err(anyhow::anyhow!("mutex poisoned")),
-            Err(TryLockError::WouldBlock) => Ok(vec![]),
+        if let Ok(inner) = self.inner.try_lock() {
+            inner.handle(project_id, now).await
+        } else {
+            Ok(vec![])
         }
     }
 }
@@ -67,7 +65,7 @@ impl TryFrom<&AppHandle> for HandlerInner {
 }
 
 impl HandlerInner {
-    pub fn handle(
+    pub async fn handle(
         &self,
         project_id: &ProjectId,
         now: &time::SystemTime,
@@ -133,6 +131,7 @@ impl HandlerInner {
                 project_data_last_fetched: Some(fetch_result),
                 ..Default::default()
             })
+            .await
             .context("failed to update fetch result")?;
 
         Ok(vec![])

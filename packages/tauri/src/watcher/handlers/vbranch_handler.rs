@@ -1,9 +1,9 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
+use crate::{assets, events as app_events, projects::ProjectId, virtual_branches};
+
 use super::events;
-use crate::events as app_events;
-use crate::{assets, projects::ProjectId, virtual_branches};
 
 #[derive(Clone)]
 pub struct Handler {
@@ -25,28 +25,17 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
-        let branches = futures::executor::block_on(async {
-            self.vbranch_controller
-                .list_virtual_branches(project_id)
-                .await
-        });
+    pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
+        let branches = self
+            .vbranch_controller
+            .list_virtual_branches(project_id)
+            .await
+            .context("failed to list virtual branches")?;
 
-        let branches = match branches {
-            Ok(branches) => {
-                let branches = futures::executor::block_on(async {
-                    self.assets_proxy.proxy_virtual_branches(branches).await
-                });
-                Ok(branches)
-            }
-            Err(error) => Err(anyhow!(error)),
-        };
+        let branches = self.assets_proxy.proxy_virtual_branches(branches).await;
 
-        match branches {
-            Ok(branches) => Ok(vec![events::Event::Emit(
-                app_events::Event::virtual_branches(project_id, &branches.clone()),
-            )]),
-            Err(error) => Err(error),
-        }
+        Ok(vec![events::Event::Emit(
+            app_events::Event::virtual_branches(project_id, &branches.clone()),
+        )])
     }
 }
