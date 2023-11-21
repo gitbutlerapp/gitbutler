@@ -1,29 +1,26 @@
-use crate::projects::ProjectId;
+use std::{sync::Arc, time::Duration, vec};
+
 use anyhow::Result;
 use governor::{
     clock::QuantaClock,
     state::{InMemoryState, NotKeyed},
     Quota, RateLimiter,
 };
-use nonzero_ext::nonzero;
-use once_cell::sync::OnceCell;
-use std::{sync::Arc, vec};
+
+use crate::projects::ProjectId;
 
 use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    quota: Quota,
-    limit: Arc<OnceCell<RateLimiter<NotKeyed, InMemoryState, QuantaClock>>>,
+    vbranch_calculation_limit: Arc<RateLimiter<NotKeyed, InMemoryState, QuantaClock>>,
 }
 
 impl Handler {
     pub fn new() -> Self {
-        let quota = Quota::per_second(nonzero!(1_u32)); // 1 per second at most.
-        let limit: OnceCell<RateLimiter<NotKeyed, InMemoryState, QuantaClock>> = OnceCell::new();
+        let quota = Quota::with_period(Duration::from_millis(100)).expect("valid quota");
         Handler {
-            quota,
-            limit: limit.into(),
+            vbranch_calculation_limit: Arc::new(RateLimiter::direct(quota)),
         }
     }
 
@@ -36,9 +33,7 @@ impl Handler {
         let path = path.as_ref().to_path_buf();
         let mut events = vec![events::Event::CalculateDeltas(*project_id, path)];
 
-        let rate_limiter = self.limit.get_or_init(|| RateLimiter::direct(self.quota));
-
-        if rate_limiter.check().is_ok() {
+        if self.vbranch_calculation_limit.check().is_ok() {
             events.push(events::Event::CalculateVirtualBranches(*project_id));
         }
         Ok(events)
