@@ -587,6 +587,77 @@ mod set_base_branch {
     }
 }
 
+mod unapply {
+    use super::*;
+
+    #[tokio::test]
+    async fn unapply_with_data() {
+        let Test {
+            project_id,
+            controller,
+            repository,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(
+                &project_id,
+                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+            )
+            .await
+            .unwrap();
+
+        std::fs::write(repository.path().join("file.txt"), "content").unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 1);
+
+        controller
+            .unapply_virtual_branch(&project_id, &branches[0].id)
+            .await
+            .unwrap();
+
+        assert!(!repository.path().join("file.txt").exists());
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 1);
+        assert!(!branches[0].active);
+    }
+
+    #[tokio::test]
+    async fn delete_if_empty() {
+        let Test {
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(
+                &project_id,
+                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+            )
+            .await
+            .unwrap();
+
+        controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 1);
+
+        controller
+            .unapply_virtual_branch(&project_id, &branches[0].id)
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 0);
+    }
+}
+
 mod conflicts {
     use super::*;
 
