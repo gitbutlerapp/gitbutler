@@ -171,7 +171,7 @@ impl HandlerInner {
 fn gb_refs(project_repository: &project_repository::Repository) -> anyhow::Result<Vec<String>> {
     Ok(project_repository
         .git_repository
-        .references_glob("refs/gitbutler/*")?
+        .references_glob("refs/*")?
         .flatten()
         .filter_map(|r| r.name().map(ToString::to_string))
         .collect::<Vec<_>>())
