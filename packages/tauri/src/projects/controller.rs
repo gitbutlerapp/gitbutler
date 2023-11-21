@@ -1,7 +1,6 @@
 use std::path;
 
 use anyhow::Context;
-use futures::executor::block_on;
 use tauri::{AppHandle, Manager};
 
 use crate::{gb_repository, paths::DataDir, project_repository, users, watcher};
@@ -92,7 +91,7 @@ impl Controller {
         Ok(project)
     }
 
-    pub fn update(&self, project: &UpdateRequest) -> Result<Project, UpdateError> {
+    pub async fn update(&self, project: &UpdateRequest) -> Result<Project, UpdateError> {
         let updated = self
             .projects_storage
             .update(project)
@@ -104,8 +103,9 @@ impl Controller {
         if let Some(watchers) = &self.watchers {
             if let Some(api) = &project.api {
                 if api.sync {
-                    if let Err(error) =
-                        block_on(watchers.post(watcher::Event::FetchGitbutlerData(project.id)))
+                    if let Err(error) = watchers
+                        .post(watcher::Event::FetchGitbutlerData(project.id))
+                        .await
                     {
                         tracing::error!(
                             project_id = %project.id,
@@ -115,8 +115,9 @@ impl Controller {
                     }
                 }
 
-                if let Err(error) =
-                    block_on(watchers.post(watcher::Event::PushGitbutlerData(project.id)))
+                if let Err(error) = watchers
+                    .post(watcher::Event::PushGitbutlerData(project.id))
+                    .await
                 {
                     tracing::error!(
                         project_id = %project.id,
@@ -143,7 +144,7 @@ impl Controller {
             .map_err(|error| ListError::Other(error.into()))
     }
 
-    pub fn delete(&self, id: &ProjectId) -> Result<(), DeleteError> {
+    pub async fn delete(&self, id: &ProjectId) -> Result<(), DeleteError> {
         let project = match self.projects_storage.get(id) {
             Ok(project) => Ok(project),
             Err(super::storage::Error::NotFound) => return Ok(()),
@@ -151,7 +152,7 @@ impl Controller {
         }?;
 
         if let Some(watchers) = &self.watchers {
-            if let Err(error) = block_on(watchers.stop(id)) {
+            if let Err(error) = watchers.stop(id).await {
                 tracing::error!(
                     project_id = %id,
                     ?error,

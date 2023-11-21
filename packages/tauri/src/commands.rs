@@ -1,6 +1,5 @@
 use std::{collections::HashMap, path};
 
-use crate::watcher;
 use anyhow::Context;
 use tauri::Manager;
 use tracing::instrument;
@@ -12,7 +11,7 @@ use crate::{
     paths::DataDir,
     project_repository, projects, reader,
     sessions::SessionId,
-    users, virtual_branches,
+    users, virtual_branches, watcher,
 };
 
 impl From<app::Error> for Error {
@@ -97,7 +96,7 @@ pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<Stri
 #[instrument(skip(handle))]
 pub async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    app.delete_all_data()?;
+    app.delete_all_data().await?;
     Ok(())
 }
 
@@ -155,7 +154,7 @@ pub async fn git_get_global_config(
 #[tauri::command(async)]
 #[instrument(skip(handle))]
 pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
-    let id = id.parse().map_err(|_| Error::UserError {
+    let project_id = id.parse().map_err(|_| Error::UserError {
         code: Code::Validation,
         message: "Malformed project id".into(),
     })?;
@@ -168,18 +167,14 @@ pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Resul
         .clone();
     let local_data_dir = DataDir::try_from(&handle)?;
 
-    let project = projects.get(&id).context("failed to get project")?;
+    let project = projects.get(&project_id).context("failed to get project")?;
     let user = users.get_user()?;
     let project_repository = project_repository::Repository::open(&project)?;
     let gb_repo =
         gb_repository::Repository::open(&local_data_dir, &project_repository, user.as_ref())
             .context("failed to open repository")?;
 
-    futures::executor::block_on(async {
-        vbranches
-            .flush_vbranches(project_repository.project().id)
-            .await
-    })?;
+    vbranches.flush_vbranches(project_id).await?;
 
     let session = gb_repo
         .flush(&project_repository, user.as_ref())
@@ -190,14 +185,17 @@ pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Resul
     let watcher = handle.state::<watcher::Watchers>();
     if session.is_some() {
         if let Err(error) = watcher
-            .post(watcher::Event::Session(id, session.clone().unwrap()))
+            .post(watcher::Event::Session(
+                project_id,
+                session.clone().unwrap(),
+            ))
             .await
         {
             tracing::error!(?error);
         }
     }
     if let Err(error) = watcher
-        .post(watcher::Event::PushProjectToGitbutler(id))
+        .post(watcher::Event::PushProjectToGitbutler(project_id))
         .await
     {
         tracing::error!(?error);

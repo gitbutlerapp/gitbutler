@@ -34,6 +34,7 @@ pub async fn update_project(
     handle
         .state::<Controller>()
         .update(&project)
+        .await
         .map_err(Into::into)
 }
 
@@ -135,5 +136,9 @@ pub async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Er
         code: Code::Validation,
         message: "Malformed project id".into(),
     })?;
-    handle.state::<Controller>().delete(&id).map_err(Into::into)
+    handle
+        .state::<Controller>()
+        .delete(&id)
+        .await
+        .map_err(Into::into)
 }

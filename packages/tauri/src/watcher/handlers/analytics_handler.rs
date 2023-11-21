@@ -21,9 +21,11 @@ impl From<&AppHandle> for Handler {
 }
 
 impl Handler {
-    pub fn handle(&self, event: &analytics::Event) -> Result<Vec<events::Event>> {
+    pub async fn handle(&self, event: &analytics::Event) -> Result<Vec<events::Event>> {
         if let Some(user) = self.users.get_user().context("failed to get user")? {
-            futures::executor::block_on(self.client.send(&user, event))
+            self.client
+                .send(&user, event)
+                .await
                 .context("failed to send event")?;
         }
         Ok(vec![])

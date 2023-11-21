@@ -222,10 +222,11 @@ impl App {
         }
     }
 
-    pub fn delete_all_data(&self) -> Result<(), Error> {
+    pub async fn delete_all_data(&self) -> Result<(), Error> {
         for project in self.projects.list().context("failed to list projects")? {
             self.projects
                 .delete(&project.id)
+                .await
                 .context("failed to delete project")?;
         }
         Ok(())
