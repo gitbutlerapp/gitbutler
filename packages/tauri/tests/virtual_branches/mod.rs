@@ -2044,6 +2044,59 @@ mod init {
     use super::*;
 
     #[tokio::test]
+    async fn twice() {
+        let data_dir = paths::data_dir();
+        let keys = keys::Controller::from(&data_dir);
+        let projects = projects::Controller::from(&data_dir);
+        let users = users::Controller::from(&data_dir);
+
+        let test_project = TestProject::default();
+
+        let controller = Controller::new(&data_dir, &projects, &users, &keys);
+
+        {
+            let project = projects
+                .add(test_project.path())
+                .expect("failed to add project");
+            controller
+                .set_base_branch(
+                    &project.id,
+                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+                )
+                .await
+                .unwrap();
+            assert!(controller
+                .list_virtual_branches(&project.id)
+                .await
+                .unwrap()
+                .is_empty());
+            projects.delete(&project.id).await.unwrap();
+            controller
+                .list_virtual_branches(&project.id)
+                .await
+                .unwrap_err();
+        }
+
+        {
+            let project = projects.add(test_project.path()).unwrap();
+            controller
+                .set_base_branch(
+                    &project.id,
+                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
+                )
+                .await
+                .unwrap();
+
+            // even though project is on gitbutler/integration, we should not import it
+            assert!(controller
+                .list_virtual_branches(&project.id)
+                .await
+                .unwrap()
+                .is_empty());
+        }
+    }
+
+    #[tokio::test]
     async fn submodule() {
         let Test {
             repository,

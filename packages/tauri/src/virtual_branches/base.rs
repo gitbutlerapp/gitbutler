@@ -10,7 +10,10 @@ use crate::{
     reader, sessions, users,
 };
 
-use super::{branch, delete_branch, errors, iterator, target, BranchId, RemoteCommit};
+use super::{
+    branch, delete_branch, errors, integration::GITBUTLER_INTEGRATION_REFERENCE, iterator, target,
+    BranchId, RemoteCommit,
+};
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -131,7 +134,9 @@ pub fn set_base_branch(
         .filter(|branch| branch.applied)
         .collect::<Vec<_>>();
 
-    if active_virtual_branches.is_empty() {
+    if active_virtual_branches.is_empty()
+        && !head_name.to_string().eq(GITBUTLER_INTEGRATION_REFERENCE)
+    {
         let branch = create_virtual_branch_from_branch(
             gb_repository,
             project_repository,
