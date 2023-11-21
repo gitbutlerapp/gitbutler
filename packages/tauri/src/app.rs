@@ -4,9 +4,7 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    gb_repository,
-    git::{self, diff},
-    keys,
+    gb_repository, git, keys,
     paths::DataDir,
     project_repository::{self, conflicts},
     projects::{self, ProjectId},
@@ -142,43 +140,6 @@ impl App {
         project_repository.fetch(default_target.branch.remote(), &credentials)?;
 
         Ok(())
-    }
-
-    pub fn git_wd_diff(
-        &self,
-        project_id: &ProjectId,
-        context_lines: u32,
-    ) -> Result<HashMap<path::PathBuf, String>, Error> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
-
-        let diff = diff::workdir(
-            &project_repository.git_repository,
-            &project_repository
-                .get_head()
-                .context("failed to get project head")?
-                .peel_to_commit()
-                .context("failed to peel head to commit")?
-                .id(),
-            &diff::Options { context_lines },
-        )
-        .context("failed to diff")?;
-
-        let diff = diff
-            .into_iter()
-            .map(|(file_path, hunks)| {
-                (
-                    file_path,
-                    hunks
-                        .iter()
-                        .map(|hunk| hunk.diff.clone())
-                        .collect::<Vec<_>>()
-                        .join("\n"),
-                )
-            })
-            .collect::<HashMap<_, _>>();
-
-        Ok(diff)
     }
 
     pub fn git_remote_branches(
