@@ -145,7 +145,6 @@ fn main() {
                     commands::list_session_files,
                     commands::git_remote_branches,
                     commands::git_head,
-                    commands::git_wd_diff,
                     commands::delete_all_data,
                     commands::fetch_from_target,
                     commands::mark_resolved,

@@ -51,22 +51,6 @@ pub async fn list_session_files(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn git_wd_diff(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    context_lines: u32,
-) -> Result<HashMap<path::PathBuf, String>, Error> {
-    let app = handle.state::<app::App>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
-    let diff = app.git_wd_diff(&project_id, context_lines)?;
-    Ok(diff)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
 pub async fn git_remote_branches(
     handle: tauri::AppHandle,
     project_id: &str,
