@@ -44,12 +44,11 @@ impl Repository {
     }
 
     pub fn add_disk_alternate(&self, path: &str) -> Result<()> {
-        std::fs::write(
-            self.0.path().join("objects/info/alternates"),
-            format!("{path}\n"),
-        )?;
-
-        self.0.odb().and_then(|odb| odb.refresh())?;
+        let alternates_path = self.0.path().join("objects/info/alternates");
+        if !alternates_path.exists() {
+            std::fs::write(alternates_path, format!("{path}\n"))?;
+            self.0.odb().and_then(|odb| odb.refresh())?;
+        }
 
         Ok(())
     }
