@@ -63,9 +63,11 @@
 				class="h-px w-full border-none bg-gradient-to-r from-transparent via-light-500 to-transparent dark:via-dark-400"
 			/>
 		{/if}
-		<Tooltip label="This is the current base for your virtual branches.">
-			<h1 class="font-bold text-light-700 dark:text-dark-100">Local</h1>
-		</Tooltip>
+		<div>
+			<Tooltip label="This is the current base for your virtual branches.">
+				<h1 class="inline-block font-bold text-light-700 dark:text-dark-100">Local</h1>
+			</Tooltip>
+		</div>
 		<div class="flex flex-col gap-y-2">
 			{#each base.recentCommits as commit}
 				<CommitCard {commit} {projectId} commitUrl={base.commitUrl(commit.id)} />
