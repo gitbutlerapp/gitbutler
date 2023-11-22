@@ -73,7 +73,6 @@ impl HandlerInner {
             .context("failed to get project")?;
 
         if !project.api.as_ref().map(|api| api.sync).unwrap_or_default() {
-            //TODO: make the whole handler use a typesafe error
             anyhow::bail!("sync disabled");
         }
 
@@ -95,19 +94,26 @@ impl HandlerInner {
             .with_max_elapsed_time(Some(time::Duration::from_secs(10 * 60)))
             .build();
 
-        let fetch_result = if let Err(error) = backoff::retry(policy, || {
+        let fetch_result = match backoff::retry(policy, || {
             gb_repo.fetch(user.as_ref()).map_err(|err| {
                 tracing::warn!(%project_id, ?err, will_retry=true, "failed to fetch gitbutler data" );
                 backoff::Error::transient(err)
             })
         }) {
-            tracing::error!(%project_id, ?error, will_retry=false, "failed to fetch gitbutler data");
-            projects::FetchResult::Error {
-                timestamp: *now,
-                error: error.to_string(),
+            Ok(()) => projects::FetchResult::Fetched { timestamp: *now },
+            Err(backoff::Error::Permanent(gb_repository::RemoteError::Network)) => {
+                projects::FetchResult::Error {
+                    timestamp: *now,
+                    error: "network error".to_string(),
+                }
             }
-        } else {
-            projects::FetchResult::Fetched { timestamp: *now }
+            Err(error) => {
+                tracing::error!(%project_id, ?error, will_retry=false, "failed to fetch gitbutler data");
+                projects::FetchResult::Error {
+                    timestamp: *now,
+                    error: error.to_string(),
+                }
+            }
         };
 
         self.projects

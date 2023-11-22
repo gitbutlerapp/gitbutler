@@ -110,12 +110,14 @@ impl HandlerInner {
                 })
         }) {
             Ok(()) => projects::FetchResult::Fetched { timestamp: *now },
-            Err(backoff::Error::Permanent(RemoteError::AuthError)) => {
-                projects::FetchResult::Error {
-                    timestamp: *now,
-                    error: RemoteError::AuthError.to_string(),
-                }
-            }
+            Err(backoff::Error::Permanent(RemoteError::Network)) => projects::FetchResult::Error {
+                timestamp: *now,
+                error: RemoteError::Network.to_string(),
+            },
+            Err(backoff::Error::Permanent(RemoteError::Auth)) => projects::FetchResult::Error {
+                timestamp: *now,
+                error: RemoteError::Auth.to_string(),
+            },
             Err(error) => {
                 tracing::error!(%project_id, ?error, will_retry = false, "failed to fetch project data");
                 projects::FetchResult::Error {

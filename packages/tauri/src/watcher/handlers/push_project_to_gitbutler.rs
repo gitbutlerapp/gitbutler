@@ -108,9 +108,11 @@ impl HandlerInner {
         for (idx, id) in ids.iter().enumerate().rev() {
             let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
 
-            project_repository
-                .push_to_gitbutler_server(user.as_ref(), &[&refspec])
-                .context("failed to push project to gitbutler")?;
+            match project_repository.push_to_gitbutler_server(user.as_ref(), &[&refspec]) {
+                Ok(()) => {}
+                Err(project_repository::RemoteError::Network) => return Ok(vec![]),
+                Err(err) => return Err(err).context("failed to push"),
+            };
 
             self.project_store
                 .update(&projects::UpdateRequest {
@@ -131,12 +133,14 @@ impl HandlerInner {
         }
 
         // push refs/{project_id}
-        project_repository
-            .push_to_gitbutler_server(
-                user.as_ref(),
-                &[&format!("+{}:refs/{}", default_target.sha, project_id)],
-            )
-            .context("failed to push project (head) to gitbutler")?;
+        match project_repository.push_to_gitbutler_server(
+            user.as_ref(),
+            &[&format!("+{}:refs/{}", default_target.sha, project_id)],
+        ) {
+            Ok(()) => {}
+            Err(project_repository::RemoteError::Network) => return Ok(vec![]),
+            Err(err) => return Err(err).context("failed to push"),
+        };
 
         let refs = gb_refs(&project_repository)?;
 
