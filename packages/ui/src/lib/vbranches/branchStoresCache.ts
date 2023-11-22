@@ -51,6 +51,10 @@ export class VirtualBranchService {
 			}),
 			shareReplay(1)
 		);
+
+		this.activeBranches$ = this.branches$.pipe(
+			map((branches) => branches.filter((b) => !b.active))
+		);
 	}
 }
 
