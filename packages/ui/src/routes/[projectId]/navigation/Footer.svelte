@@ -2,11 +2,12 @@
 	import type { User } from '$lib/backend/cloud';
 	import { isLoading, loadStack } from '$lib/backend/ipc';
 	import Link from '$lib/components/Link.svelte';
+	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
-	import IconHome from '$lib/icons/IconHome.svelte';
 	import IconSpinner from '$lib/icons/IconSpinner.svelte';
 	import * as events from '$lib/utils/events';
+	import { formatDistanceToNowStrict } from 'date-fns';
 
 	export let user: User | undefined;
 	export let projectId: string | undefined;
@@ -28,8 +29,16 @@
 			<Icon name="settings" />
 		</Link>
 		{#if $isLoading}
-			<Tooltip label={loadStack.join('\n')}>
+			<Tooltip>
 				<IconSpinner class="scale-75" />
+				<div slot="label">
+					{#each loadStack as item}
+						<p>
+							{item.name}
+							- <TimeAgo date={item.startedAt} addSuffix={true} />
+						</p>
+					{/each}
+				</div>
 			</Tooltip>
 		{/if}
 	</div>

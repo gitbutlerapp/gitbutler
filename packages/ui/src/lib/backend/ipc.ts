@@ -33,17 +33,22 @@ export class UserError extends Error {
 	}
 }
 
+interface LoadItem {
+	name: string;
+	startedAt: Date;
+}
 const loadingStore = writable(false);
-export const loadStack: string[] = [];
+export const loadStack: LoadItem[] = [];
 export const isLoading = {
 	...loadingStore,
 	loadStack,
-	push: (name: string) => {
-		loadStack.push(name);
+	push: (item: LoadItem) => {
+		loadStack.push(item);
 		loadingStore.set(true);
 	},
-	pop: () => {
-		loadStack.pop();
+	pop: (item: LoadItem) => {
+		const i = loadStack.indexOf(item);
+		loadStack.splice(i, 1);
 		if (loadStack.length == 0) loadingStore.set(false);
 	}
 };
@@ -63,7 +68,8 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 	// 	console.error(`ipc->${command}: ${JSON.stringify(params)}`, userError);
 	// 	throw userError;
 	// });
-	isLoading.push(command);
+	const loadingItem = { name: command, startedAt: new Date() };
+	isLoading.push(loadingItem);
 	return (
 		invokeTauri<T>(command, params)
 			// .then((value) => {
@@ -79,7 +85,7 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 				throw userError;
 			})
 			.finally(() => {
-				isLoading.pop();
+				isLoading.pop(loadingItem);
 			})
 	);
 }
