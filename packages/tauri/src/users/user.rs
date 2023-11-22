@@ -17,6 +17,8 @@ pub struct User {
     pub github_access_token: Option<String>,
     #[serde(default)]
     pub github_username: Option<String>,
+    #[serde(default)]
+    pub current_project: Option<String>,
 }
 
 impl TryFrom<User> for git::Signature<'_> {
