@@ -1,10 +1,6 @@
 <script lang="ts">
 	import { offset, flip, shift } from 'svelte-floating-ui/dom';
-	import { arrow } from 'svelte-floating-ui';
 	import { createFloatingActions } from 'svelte-floating-ui';
-	import { writable } from 'svelte/store';
-
-	let arrowRef = writable({} as HTMLElement);
 
 	export let label: string;
 	type Placement = 'top' | 'right' | 'bottom' | 'left';
@@ -14,24 +10,7 @@
 	const [floatingRef, floatingContent] = createFloatingActions({
 		strategy: 'absolute',
 		placement: placement,
-		middleware: [offset(8), flip(), shift(), arrow({ element: arrowRef })],
-		onComputed({ placement, middlewareData }) {
-			if (!middlewareData.arrow) return;
-			const { x, y } = middlewareData.arrow;
-			const staticSide = {
-				top: 'bottom',
-				right: 'left',
-				bottom: 'top',
-				left: 'right'
-			}[placement.split('-')[0]] as any;
-
-			if (!$arrowRef) return;
-			Object.assign($arrowRef.style, {
-				left: x != null ? `${x}px` : '',
-				top: y != null ? `${y}px` : '',
-				[staticSide]: '-4px'
-			});
-		}
+		middleware: [offset(8), flip(), shift()]
 	});
 
 	let showTooltip = false;
@@ -40,7 +19,7 @@
 
 <div
 	role="tooltip"
-	class="inline-block h-fit overflow-auto"
+	class="inline-block"
 	on:mouseenter={() => (timeout = setTimeout(() => (showTooltip = true), timeoutMilliseconds))}
 	on:mouseleave={() => {
 		clearTimeout(timeout);
@@ -49,24 +28,24 @@
 	use:floatingRef
 >
 	<slot />
+	{#if showTooltip}
+		<div role="tooltip" class="tooltip" use:floatingContent>
+			<span>{label}</span>
+		</div>
+	{/if}
 </div>
 
-{#if showTooltip}
-	<div
-		role="tooltip"
-		class=" absolute z-50 rounded-[5px] bg-[#171717] p-2 text-sm text-zinc-300 shadow-lg"
-		use:floatingContent
-	>
-		<span>{label}</span>
-		<div
-			class="
-                absolute
-                h-3
-                w-3 rotate-45
-                rounded-sm
-                bg-[#171717]
-        "
-			bind:this={$arrowRef}
-		/>
-	</div>
-{/if}
+<style lang="postcss">
+	.tooltip {
+		background-color: var(--clr-core-ntrl-10);
+		border-radius: var(--radius-s);
+		border: 1px solid var(--clr-core-ntrl-30);
+		color: var(--clr-core-ntrl-60);
+		display: inline-block;
+		padding-left: var(--space-8);
+		padding-right: var(--space-8);
+		padding-top: var(--space-4);
+		padding-bottom: var(--space-4);
+		z-index: 50;
+	}
+</style>
