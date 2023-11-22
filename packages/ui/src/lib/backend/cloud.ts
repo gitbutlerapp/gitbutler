@@ -79,15 +79,16 @@ const withRequestId: FetchMiddleware = (fetch) => async (url, options) => {
 };
 
 const withLog: FetchMiddleware = (fetch) => async (url, options) => {
+	const item = { name: url.toString(), startedAt: new Date() };
 	try {
-		isLoading.push(url.toString());
+		isLoading.push(item);
 		const resp = await fetch(url, options);
 		return resp;
 	} catch (e: any) {
 		console.error('fetch', e);
 		throw e;
 	} finally {
-		isLoading.pop();
+		isLoading.pop(item);
 	}
 };
 
