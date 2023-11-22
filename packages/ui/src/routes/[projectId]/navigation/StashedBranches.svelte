@@ -83,7 +83,7 @@
 	</svelte:fragment>
 </Modal>
 
-<style>
+<style lang="postcss">
 	.viewport {
 		padding-top: var(--space-4);
 		padding-bottom: var(--space-4);

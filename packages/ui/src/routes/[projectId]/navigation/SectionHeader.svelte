@@ -28,7 +28,7 @@
 	{/if}
 </button>
 
-<style>
+<style lang="postcss">
 	.header {
 		display: flex;
 		color: var(--clr-theme-scale-ntrl-50);

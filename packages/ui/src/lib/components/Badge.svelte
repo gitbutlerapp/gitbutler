@@ -6,7 +6,7 @@
 	{count}
 </div>
 
-<style>
+<style lang="postcss">
 	.badge {
 		background-color: var(--clr-theme-container-dim);
 		color: var(--clr-theme-scale-ntrl-40);
