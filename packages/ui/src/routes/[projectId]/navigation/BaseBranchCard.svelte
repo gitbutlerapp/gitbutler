@@ -51,23 +51,25 @@
 				{$base$?.behind}
 			</div>
 		</Tooltip>
-		<Button
-			height="small"
-			color="purple"
-			{loading}
-			on:click={async (e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				loading = true;
-				try {
-					await branchController.updateBaseBranch();
-				} finally {
-					loading = false;
-				}
-			}}
-		>
-			update
-		</Button>
+		<Tooltip label="Merge upstream commits into common base">
+			<Button
+				height="small"
+				color="purple"
+				{loading}
+				on:click={async (e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					loading = true;
+					try {
+						await branchController.updateBaseBranch();
+					} finally {
+						loading = false;
+					}
+				}}
+			>
+				merge
+			</Button>
+		</Tooltip>
 	{/if}
 	<IconButton
 		class="items-center justify-center align-top "

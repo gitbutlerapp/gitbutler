@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import type { BranchService } from '$lib/remotecontributions/store';
+	import type { BranchService } from '$lib/branches/store';
 	import type { UIEventHandler } from 'svelte/elements';
 	import BranchItem from './BranchItem.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
