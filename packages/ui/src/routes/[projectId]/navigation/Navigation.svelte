@@ -5,7 +5,7 @@
 	import type { User } from '$lib/backend/cloud';
 	import BaseBranchCard from './BaseBranchCard.svelte';
 	import type { Project, ProjectService } from '$lib/backend/projects';
-	import YourBranches from './YourBranches.svelte';
+	import StashedBranches from './StashedBranches.svelte';
 	import Footer from './Footer.svelte';
 	import AppUpdater from './AppUpdater.svelte';
 	import type { Loadable } from '@square/svelte-store';
@@ -53,7 +53,7 @@
 		<DomainButton href={`/${project.id}/board`} icon="branch">Applied branches</DomainButton>
 	</div>
 	<Branches projectId={project.id} {branchService} grow={!stashExpanded} />
-	<YourBranches {project} {branchController} {vbranchService} bind:expanded={stashExpanded} />
+	<StashedBranches {project} {branchController} {vbranchService} bind:expanded={stashExpanded} />
 	<Footer {user} projectId={project.id} />
 	<AppUpdater {update} />
 </div>

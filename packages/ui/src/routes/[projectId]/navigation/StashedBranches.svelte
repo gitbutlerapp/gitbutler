@@ -1,15 +1,7 @@
 <script lang="ts">
-	import { IconTriangleDown } from '$lib/icons';
 	import { accordion } from './accordion';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import TimeAgo from '$lib/components/TimeAgo.svelte';
-	import IconButton from '$lib/components/IconButton.svelte';
-	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
-	import { page } from '$app/stores';
 	import { slide } from 'svelte/transition';
-	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
-	import type { Branch } from '$lib/vbranches/types';
-	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -36,28 +28,10 @@
 	const onScroll: UIEventHandler<HTMLDivElement> = (e) => {
 		scrolled = e.currentTarget.scrollTop != 0;
 	};
-
-	function sumBranchLinesAddedRemoved(branch: Branch) {
-		const comitted = computedAddedRemoved(...branch.commits.flatMap((c) => c.files));
-		const uncomitted = computedAddedRemoved(...branch.files);
-
-		return {
-			added: comitted.added + uncomitted.added,
-			removed: comitted.removed + uncomitted.removed
-		};
-	}
-
-	function toggleBranch(branch: Branch) {
-		if (!branch.baseCurrent) {
-			applyConflictedModal.show(branch);
-		} else {
-			branchController.applyBranch(branch.id);
-		}
-	}
 </script>
 
 <SectionHeader {scrolled} count={$branches$?.length ?? 0} expandable={true} bind:expanded>
-	Other branches
+	Stashed branches
 </SectionHeader>
 <div use:accordion={expanded} class="container relative flex-grow">
 	<div
