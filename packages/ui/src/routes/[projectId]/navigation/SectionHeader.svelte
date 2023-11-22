@@ -3,7 +3,7 @@
 	import Icon from '$lib/icons/Icon.svelte';
 
 	export let scrolled: boolean;
-	export let count: string | number | undefined;
+	export let count: number | undefined;
 	export let expanded = true;
 	export let expandable = false;
 </script>
@@ -12,6 +12,7 @@
 	on:click={() => {
 		if (expandable) expanded = !expanded;
 	}}
+	disabled={count && count > 0 ? false : true}
 	class="header border-t p-4 font-bold"
 	style:border-color="var(--border-surface)"
 	class:border-b={scrolled}
@@ -22,7 +23,7 @@
 			<Badge {count} />
 		{/if}
 	</div>
-	{#if expandable}
+	{#if expandable && count}
 		<Icon name={expanded ? 'chevron-down' : 'chevron-top'} />
 	{/if}
 </button>
@@ -38,5 +39,8 @@
 	.header:hover,
 	.header:focus {
 		color: var(--clr-theme-scale-ntrl-40);
+	}
+	.header:disabled {
+		color: var(--clr-theme-scale-ntrl-50);
 	}
 </style>

@@ -14,11 +14,13 @@ import {
 	combineLatestWith,
 	concat,
 	from,
-	tap
+	tap,
+	map
 } from 'rxjs';
 
 export class VirtualBranchService {
 	branches$: Observable<Branch[]>;
+	activeBranches$: Observable<Branch[]>;
 	branchesError$ = new BehaviorSubject<any>(undefined);
 
 	constructor(projectId: string, sessionId$: Observable<string>) {

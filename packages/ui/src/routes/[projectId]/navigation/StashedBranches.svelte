@@ -10,16 +10,13 @@
 	import type { UIEventHandler } from 'svelte/elements';
 	import SectionHeader from './SectionHeader.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
-	import { map } from 'rxjs';
 
 	export let vbranchService: VirtualBranchService;
 	export let branchController: BranchController;
 	export let project: Project;
-	export let expanded = true;
+	export let expanded = false;
 
-	$: branches$ = vbranchService.branches$.pipe(
-		map((branches) => branches.filter((b) => !b.active))
-	);
+	$: branches$ = vbranchService.activeBranches$;
 	$: branchesError$ = vbranchService.branchesError$;
 
 	let viewport: HTMLElement;
@@ -36,7 +33,7 @@
 <SectionHeader {scrolled} count={$branches$?.length ?? 0} expandable={true} bind:expanded>
 	Stashed branches
 </SectionHeader>
-<div use:accordion={expanded} class="container relative flex-grow">
+<div use:accordion={$branches$?.length > 0 && expanded} class="wrapper relative flex-grow">
 	<div
 		bind:this={viewport}
 		on:scroll={onScroll}
@@ -47,9 +44,7 @@
 				<div class="px-2 py-1">Something went wrong!</div>
 			{:else if !$branches$}
 				<div class="px-2 py-1">Loading...</div>
-			{:else if !$branches$ || $branches$.length == 0}
-				<div class="text-color-2 p-2">You currently have no virtual branches</div>
-			{:else if $branches$.filter((b) => !b.active).length == 0}
+			{:else if $branches$.length == 0}
 				<div class="text-color-2 p-2">You have no stashed branches</div>
 			{:else}
 				{#each $branches$ as branch (branch.id)}
@@ -95,7 +90,7 @@
 		padding-left: var(--space-16);
 		padding-right: var(--space-16);
 	}
-	.container {
+	.wrapper {
 		min-height: 10rem;
 	}
 	.item {

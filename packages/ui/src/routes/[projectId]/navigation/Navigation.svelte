@@ -28,6 +28,7 @@
 	export let prService: PrService;
 	export let projectService: ProjectService;
 
+	$: activeBranches$ = vbranchService?.activeBranches$;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	let stashExpanded = true;
@@ -63,7 +64,11 @@
 			</DomainButton>
 		</div>
 	</div>
-	<Branches projectId={project.id} {branchService} grow={!stashExpanded} />
+	<Branches
+		projectId={project.id}
+		{branchService}
+		grow={!stashExpanded || $activeBranches$?.length == 0}
+	/>
 	<StashedBranches {project} {branchController} {vbranchService} bind:expanded={stashExpanded} />
 	<Footer {user} projectId={project.id} />
 	<AppUpdater {update} />
