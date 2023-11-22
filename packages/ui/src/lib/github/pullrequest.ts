@@ -2,7 +2,11 @@ import lscache from 'lscache';
 import { Observable, EMPTY, BehaviorSubject, of } from 'rxjs';
 import { catchError, combineLatestWith, shareReplay, switchMap, tap } from 'rxjs/operators';
 
-import { PullRequest, type GitHubIntegrationContext } from '$lib/github/types';
+import {
+	type PullRequest,
+	type GitHubIntegrationContext,
+	ghResponseToInstance
+} from '$lib/github/types';
 import { newClient } from '$lib/github/client';
 
 export class PrService {
@@ -33,32 +37,27 @@ export class PrService {
 }
 
 function loadPrs(ctx: GitHubIntegrationContext): Observable<PullRequest[]> {
-	// throw 'An ad-hoc error';
 	return new Observable<PullRequest[]>((subscriber) => {
 		const key = ctx.owner + '/' + ctx.repo;
 
-		const cachedPrs = lscache.get(key);
-		if (cachedPrs) subscriber.next(cachedPrs);
+		const cachedRsp = lscache.get(key);
+		if (cachedRsp) subscriber.next(cachedRsp.data.map(ghResponseToInstance));
 
-		fetchPrs(ctx).then((prs) => {
-			subscriber.next(prs);
-			lscache.set(key, prs, 1440); // 1 day ttl
-		});
+		const octokit = newClient(ctx);
+		try {
+			octokit.rest.pulls
+				.list({
+					owner: ctx.owner,
+					repo: ctx.repo
+				})
+				.then((rsp) => {
+					lscache.set(key, rsp, 1440); // 1 day ttl
+					subscriber.next(rsp.data.map(ghResponseToInstance));
+				});
+		} catch (e) {
+			console.error(e);
+		}
 	});
-}
-
-async function fetchPrs(ctx: GitHubIntegrationContext): Promise<PullRequest[]> {
-	const octokit = newClient(ctx);
-	try {
-		const rsp = await octokit.rest.pulls.list({
-			owner: ctx.owner,
-			repo: ctx.repo
-		});
-		return rsp.data.map(PullRequest.fromApi);
-	} catch (e) {
-		console.error(e);
-		return [];
-	}
 }
 
 export async function getPullRequestByBranch(
@@ -75,7 +74,7 @@ export async function getPullRequestByBranch(
 		// at most one pull request per head / branch
 		const pr = rsp.data.find((pr) => pr !== undefined);
 		if (pr) {
-			return PullRequest.fromApi(pr);
+			return ghResponseToInstance(pr);
 		}
 	} catch (e) {
 		console.log(e);
@@ -99,8 +98,7 @@ export async function createPullRequest(
 			title,
 			body
 		});
-		const pr = rsp.data;
-		return PullRequest.fromApi(pr);
+		return ghResponseToInstance(rsp.data);
 	} catch (e) {
 		console.log(e);
 	}

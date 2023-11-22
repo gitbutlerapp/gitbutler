@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { fade } from 'svelte/transition';
 
 	export let viewport: Element;
 	export let contents: Element;
@@ -192,22 +191,19 @@
 	});
 </script>
 
-{#if visible}
+<div
+	bind:this={track}
+	class="absolute right-0 top-0 duration-200"
+	style:width
+	style:height={`${trackHeight}px`}
+	style:margin={`${marginTop}rem ${marginRight}rem ${marginBottom}rem ${marginLeft}rem`}
+>
 	<div
-		bind:this={track}
-		class="absolute right-0 top-0 transition-opacity duration-200"
-		transition:fade={{ duration: 200 }}
+		bind:this={thumb}
+		class="absolute z-30 bg-black transition-opacity dark:bg-white"
 		style:width
-		style:height={`${trackHeight}px`}
-		style:margin={`${marginTop}rem ${marginRight}rem ${marginBottom}rem ${marginLeft}rem`}
-	>
-		<div
-			bind:this={thumb}
-			class="absolute z-30 bg-black dark:bg-white"
-			style:width
-			style:opacity
-			style:top={`${thumbTop}px`}
-			style:height={`${thumbHeight}px`}
-		/>
-	</div>
-{/if}
+		style:opacity={visible ? opacity : 0}
+		style:top={`${thumbTop}px`}
+		style:height={`${thumbHeight}px`}
+	/>
+</div>

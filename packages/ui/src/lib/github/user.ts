@@ -1,11 +1,10 @@
-import { User } from '$lib/github/types';
 import { newClient } from '$lib/github/client';
 
-export async function getAuthenticated(ctx: { authToken: string }): Promise<User> {
+export async function getAuthenticated(ctx: { authToken: string }): Promise<string> {
 	const octokit = newClient(ctx);
 	try {
 		const rsp = await octokit.users.getAuthenticated();
-		return new User(rsp.data.login, rsp.data.email || undefined, rsp.data.type === 'Bot');
+		return rsp.data.login;
 	} catch (e) {
 		console.log(e);
 		throw e;

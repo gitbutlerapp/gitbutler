@@ -3,9 +3,6 @@
 	import { getContext } from 'svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { User } from '$lib/backend/cloud';
-	import RemoteBranches from './RemoteBranches.svelte';
-	import type { GitHubIntegrationContext } from '$lib/github/types';
-	import PullRequests from './PullRequests.svelte';
 	import BaseBranchCard from './BaseBranchCard.svelte';
 	import type { Project, ProjectService } from '$lib/backend/projects';
 	import YourBranches from './YourBranches.svelte';
@@ -16,21 +13,23 @@
 	import DomainButton from './DomainButton.svelte';
 	import type { PrService } from '$lib/github/pullrequest';
 	import type { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
-	import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import ProjectSelector from './ProjectSelector.svelte';
+	import Branches from './Branches.svelte';
+	import type { BranchService } from '$lib/remotecontributions/store';
 
 	export let vbranchService: VirtualBranchService;
-	export let remoteBranchService: RemoteBranchService;
+	export let branchService: BranchService;
 	export let baseBranchService: BaseBranchService;
 	export let branchController: BranchController;
 	export let project: Project;
-	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
 	export let update: Loadable<Update>;
 	export let prService: PrService;
 	export let projectService: ProjectService;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
+
+	let stashExpanded = true;
 </script>
 
 <div
@@ -53,12 +52,8 @@
 	<div class="mb-4">
 		<DomainButton href={`/${project.id}/board`} icon="branch">Applied branches</DomainButton>
 	</div>
-	<YourBranches {project} {branchController} {vbranchService} />
-	{#if githubContext}
-		<PullRequests {prService} {githubContext} projectId={project.id} />
-	{:else}
-		<RemoteBranches {remoteBranchService} projectId={project.id}></RemoteBranches>
-	{/if}
+	<Branches projectId={project.id} {branchService} grow={!stashExpanded} />
+	<YourBranches {project} {branchController} {vbranchService} bind:expanded={stashExpanded} />
 	<Footer {user} projectId={project.id} />
 	<AppUpdater {update} />
 </div>

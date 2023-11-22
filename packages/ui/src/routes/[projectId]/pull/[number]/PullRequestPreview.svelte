@@ -17,7 +17,7 @@
 				<h class="truncate text-lg font-semibold">
 					{pullrequest.title}
 					<span class="text-color-4">
-						<Link target="_blank" rel="noreferrer" href={pullrequest.html_url} class="text-3">
+						<Link target="_blank" rel="noreferrer" href={pullrequest.htmlUrl} class="text-3">
 							#{pullrequest.number}
 						</Link>
 					</span>
@@ -42,15 +42,15 @@
 					{/if}
 					<div class="text-color-3">
 						<span class="font-semibold">
-							{pullrequest.author?.username}
+							{pullrequest.author?.name}
 						</span>
 						wants to merge into
 						<span class="rounded bg-blue-500/10 px-1 py-0.5 text-blue-500">
-							{pullrequest.target_branch_name}
+							{pullrequest.sourceBranch}
 						</span>
 						from
 						<span class="rounded bg-blue-500/10 px-1 py-0.5 text-blue-500">
-							{pullrequest.branch_name}
+							{pullrequest.targetBranch}
 						</span>
 					</div>
 				</div>
@@ -70,7 +70,7 @@
 					on:click={() =>
 						pullrequest &&
 						branchController.createvBranchFromBranch(
-							'refs/remotes/origin/' + pullrequest.branch_name
+							'refs/remotes/origin/' + pullrequest.targetBranch
 						)}>Apply to working directory</Button
 				>
 			</Tooltip>
