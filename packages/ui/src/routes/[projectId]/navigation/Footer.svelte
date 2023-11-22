@@ -18,7 +18,7 @@
 	style:border-color="var(--border-surface)"
 >
 	<div class="flex items-center gap-x-1">
-		<Link href="/" class="p-1"><IconHome /></Link>
+		<Link href="/" class="p-1"><Icon name="home" /></Link>
 		<Tooltip label="Send feedback">
 			<button class="p-1 align-middle" on:click={() => events.emit('openSendIssueModal')}>
 				<Icon name="mail"></Icon>
