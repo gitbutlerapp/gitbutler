@@ -1,9 +1,11 @@
 use std::io::{Read, Write};
 
 use anyhow::{Context, Result};
+use lazy_static::lazy_static;
 
 use crate::{
-    gb_repository, git,
+    gb_repository,
+    git::{self},
     project_repository::{self, LogUntil},
     reader, sessions,
     virtual_branches::branch::BranchCreateRequest,
@@ -11,8 +13,10 @@ use crate::{
 
 use super::errors;
 
-pub const GITBUTLER_INTEGRATION_BRANCH_NAME: &str = "gitbutler/integration";
-pub const GITBUTLER_INTEGRATION_REFERENCE: &str = "refs/heads/gitbutler/integration";
+lazy_static! {
+    pub static ref GITBUTLER_INTEGRATION_REFERENCE: git::LocalRefname =
+        git::LocalRefname::new("gitbutler/integration", None);
+}
 
 const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME: &str = "GitButler";
 const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
@@ -30,7 +34,7 @@ pub fn update_gitbutler_integration(
 
     // write the currrent target sha to a temp branch as a parent
     repo.reference(
-        GITBUTLER_INTEGRATION_REFERENCE,
+        &GITBUTLER_INTEGRATION_REFERENCE.clone().into(),
         target.sha,
         true,
         "update target",
@@ -44,7 +48,7 @@ pub fn update_gitbutler_integration(
     let mut prev_head = head.name().unwrap().to_string();
     let mut prev_sha = head.target().unwrap().to_string();
     let integration_file = repo.path().join("integration");
-    if prev_head != GITBUTLER_INTEGRATION_REFERENCE {
+    if prev_head != GITBUTLER_INTEGRATION_REFERENCE.to_string() {
         // we are moving from a regular branch to our gitbutler integration branch, save the original
         // write a file to .git/integration with the previous head and name
         let mut file = std::fs::File::create(integration_file)?;
@@ -64,7 +68,7 @@ pub fn update_gitbutler_integration(
     }
 
     // commit index to temp head for the merge
-    repo.set_head(GITBUTLER_INTEGRATION_REFERENCE)
+    repo.set_head(&GITBUTLER_INTEGRATION_REFERENCE.clone().into())
         .context("failed to set head")?;
 
     let current_session = gb_repository
@@ -144,7 +148,7 @@ pub fn update_gitbutler_integration(
     )?;
 
     repo.commit(
-        Some("HEAD"),
+        Some(&"refs/heads/gitbutler/integration".parse().unwrap()),
         &committer,
         &committer,
         &message,
@@ -185,7 +189,7 @@ pub fn update_gitbutler_integration(
         }
 
         repo.reference(
-            &branch.refname(),
+            &branch.refname().into(),
             branch_head.id(),
             true,
             "update virtual branch",
@@ -313,7 +317,9 @@ fn verify_head_is_set(
         .map_err(errors::VerifyError::Other)?
         .name()
     {
-        Some(GITBUTLER_INTEGRATION_REFERENCE) => Ok(()),
+        Some(refname) if refname.to_string() == GITBUTLER_INTEGRATION_REFERENCE.to_string() => {
+            Ok(())
+        }
         None => {
             super::mark_all_unapplied(gb_repository).map_err(errors::VerifyError::Other)?;
             Err(errors::VerifyError::DetachedHead)

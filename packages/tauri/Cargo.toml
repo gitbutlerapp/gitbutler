@@ -34,6 +34,7 @@ futures = "0.3"
 git2 = { version = "0.18.1", features = ["vendored-openssl", "vendored-libgit2"] }
 governor = "0.6.0"
 itertools = "0.11"
+lazy_static = "1.4.0"
 md5 = "0.7.0"
 nonzero_ext = "0.3.0"
 notify = { version = "6.0.1" }

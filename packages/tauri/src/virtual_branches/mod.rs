@@ -8,7 +8,7 @@ mod files;
 pub use files::*;
 
 mod integration;
-pub use integration::GITBUTLER_INTEGRATION_BRANCH_NAME;
+pub use integration::GITBUTLER_INTEGRATION_REFERENCE;
 
 mod base;
 pub use base::*;

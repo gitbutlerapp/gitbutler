@@ -88,7 +88,10 @@ impl Handler {
                             project_id: project.id,
                             reference_name: head_ref_name.to_string(),
                         }),
-                        events::Event::Emit(app_events::Event::git_head(&project.id, head)),
+                        events::Event::Emit(app_events::Event::git_head(
+                            &project.id,
+                            &head.to_string(),
+                        )),
                     ])
                 } else {
                     Ok(vec![])

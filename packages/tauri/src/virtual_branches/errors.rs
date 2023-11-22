@@ -1,6 +1,6 @@
 use crate::{error::Error, git, project_repository, projects::ProjectId};
 
-use super::{branch::Ownership, BranchId, GITBUTLER_INTEGRATION_BRANCH_NAME};
+use super::{branch::Ownership, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
 
 #[derive(Debug, thiserror::Error)]
 pub enum VerifyError {
@@ -21,14 +21,15 @@ impl From<VerifyError> for crate::error::Error {
                 code: crate::error::Code::ProjectHead,
                 message: format!(
                     "Project in detached head state. Please checkout {0} to continue.",
-                    GITBUTLER_INTEGRATION_BRANCH_NAME
+                    GITBUTLER_INTEGRATION_REFERENCE.branch()
                 ),
             },
             VerifyError::InvalidHead(head) => crate::error::Error::UserError {
                 code: crate::error::Code::ProjectHead,
                 message: format!(
                     "Project is on {}. Please checkout {} to continue.",
-                    head, GITBUTLER_INTEGRATION_BRANCH_NAME
+                    head,
+                    GITBUTLER_INTEGRATION_REFERENCE.branch()
                 ),
             },
             VerifyError::NoIntegrationCommit => crate::error::Error::UserError {
@@ -242,6 +243,8 @@ pub enum UpdateBaseBranchError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CreateVirtualBranchFromBranchError {
+    #[error("merge conflict")]
+    MergeConflict,
     #[error("default target not set")]
     DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error("{0} not found")]
@@ -323,6 +326,10 @@ impl From<CreateVirtualBranchFromBranchError> for Error {
     fn from(value: CreateVirtualBranchFromBranchError) -> Self {
         match value {
             CreateVirtualBranchFromBranchError::DefaultTargetNotSet(error) => error.into(),
+            CreateVirtualBranchFromBranchError::MergeConflict => Error::UserError {
+                message: "Merge conflict".to_string(),
+                code: crate::error::Code::Branches,
+            },
             CreateVirtualBranchFromBranchError::BranchNotFound(name) => Error::UserError {
                 message: format!("Branch {} not found", name),
                 code: crate::error::Code::Branches,

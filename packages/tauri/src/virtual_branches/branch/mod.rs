@@ -8,7 +8,6 @@ pub use file_ownership::FileOwnership;
 pub use hunk::Hunk;
 pub use ownership::Ownership;
 pub use reader::BranchReader as Reader;
-use slug::slugify;
 pub use writer::BranchWriter as Writer;
 
 use std::path;
@@ -45,8 +44,8 @@ pub struct Branch {
 }
 
 impl Branch {
-    pub fn refname(&self) -> String {
-        format!("refs/gitbutler/{}", slugify(&self.name))
+    pub fn refname(&self) -> git::VirtualRefname {
+        self.into()
     }
 }
 

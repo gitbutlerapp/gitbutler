@@ -116,7 +116,7 @@ impl Repository {
 
     pub fn add_branch_reference(&self, branch: &Branch) -> Result<()> {
         let (should_write, with_force) =
-            match self.git_repository.find_reference(&branch.refname()) {
+            match self.git_repository.find_reference(&branch.refname().into()) {
                 Ok(reference) => match reference.target() {
                     Some(head_oid) => Ok((head_oid != branch.head, true)),
                     None => Ok((true, true)),
@@ -128,7 +128,12 @@ impl Repository {
 
         if should_write {
             self.git_repository
-                .reference(&branch.refname(), branch.head, with_force, "new vbranch")
+                .reference(
+                    &branch.refname().into(),
+                    branch.head,
+                    with_force,
+                    "new vbranch",
+                )
                 .context("failed to create branch reference")?;
         }
 
@@ -136,7 +141,7 @@ impl Repository {
     }
 
     pub fn delete_branch_reference(&self, branch: &Branch) -> Result<()> {
-        match self.git_repository.find_reference(&branch.refname()) {
+        match self.git_repository.find_reference(&branch.refname().into()) {
             Ok(mut reference) => {
                 reference
                     .delete()
@@ -528,47 +533,6 @@ impl Repository {
         }
 
         Err(RemoteError::AuthError)
-    }
-
-    pub fn git_commit(&self, message: &str) -> Result<()> {
-        let config = self
-            .git_repository
-            .config()
-            .with_context(|| "failed to get config")?;
-        let name = config
-            .get_string("user.name")
-            .context("failed to get user.name")?
-            .context("name is not set")?;
-        let email = config
-            .get_string("user.email")
-            .context("failed to get user.email")?
-            .context("email is not set")?;
-
-        // Get the default signature for the repository
-        let signature =
-            git::Signature::now(&name, &email).with_context(|| "failed to get signature")?;
-
-        // Create the commit with current index
-        let tree_id = self.git_repository.index()?.write_tree()?;
-        let tree = self.git_repository.find_tree(tree_id)?;
-        let parent_commit = self.git_repository.head()?.peel_to_commit()?;
-        let commit_oid = self.git_repository.commit(
-            Some("HEAD"),
-            &signature,
-            &signature,
-            message,
-            &tree,
-            &[&parent_commit],
-        )?;
-
-        tracing::info!(
-            project_id = %self.project.id,
-            %commit_oid,
-            message,
-            "created commit"
-        );
-
-        Ok(())
     }
 }
 

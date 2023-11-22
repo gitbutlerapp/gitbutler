@@ -82,6 +82,7 @@ impl super::RunCommand for Info {
                 .context("failed to get head")?
                 .name()
                 .context("failed to get head name")?
+                .to_string()
                 .blue()
         );
 

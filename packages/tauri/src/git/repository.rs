@@ -140,9 +140,9 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn find_reference(&self, name: &str) -> Result<Reference> {
+    pub fn find_reference(&self, name: &Refname) -> Result<Reference> {
         self.0
-            .find_reference(name)
+            .find_reference(&name.to_string())
             .map(Reference::from)
             .map_err(Into::into)
     }
@@ -217,7 +217,7 @@ impl Repository {
 
     pub fn commit(
         &self,
-        update_ref: Option<&str>,
+        update_ref: Option<&Refname>,
         author: &Signature<'_>,
         committer: &Signature<'_>,
         message: &str,
@@ -230,7 +230,7 @@ impl Repository {
             .collect::<Vec<_>>();
         self.0
             .commit(
-                update_ref,
+                update_ref.map(ToString::to_string).as_deref(),
                 author.into(),
                 committer.into(),
                 message,
@@ -329,13 +329,17 @@ impl Repository {
         self.0
             .find_branch(
                 &match name {
+                    Refname::HEAD => "HEAD".to_string(),
+                    Refname::Virtual(virtual_refname) => virtual_refname.branch().to_string(),
                     Refname::Local(local) => local.branch().to_string(),
                     Refname::Remote(remote) => {
                         format!("{}/{}", remote.remote(), remote.branch())
                     }
                 },
                 match name {
-                    Refname::Local(_) => git2::BranchType::Local,
+                    Refname::HEAD | Refname::Virtual(_) | Refname::Local(_) => {
+                        git2::BranchType::Local
+                    }
                     Refname::Remote(_) => git2::BranchType::Remote,
                 },
             )
@@ -370,19 +374,19 @@ impl Repository {
         }
     }
 
-    pub fn set_head(&self, refname: &str) -> Result<()> {
-        self.0.set_head(refname).map_err(Into::into)
+    pub fn set_head(&self, refname: &Refname) -> Result<()> {
+        self.0.set_head(&refname.to_string()).map_err(Into::into)
     }
 
     pub fn reference(
         &self,
-        name: &str,
+        name: &Refname,
         id: Oid,
         force: bool,
         log_message: &str,
     ) -> Result<Reference> {
         self.0
-            .reference(name, id.into(), force, log_message)
+            .reference(&name.to_string(), id.into(), force, log_message)
             .map(Into::into)
             .map_err(Into::into)
     }

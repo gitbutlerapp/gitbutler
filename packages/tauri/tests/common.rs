@@ -23,7 +23,7 @@ impl Default for TestProject {
         let signature = git::Signature::now("test", "test@email.com").unwrap();
         local_repository
             .commit(
-                Some("HEAD"),
+                Some(&"refs/heads/master".parse().unwrap()),
                 &signature,
                 &signature,
                 "Initial commit",
@@ -143,7 +143,7 @@ impl TestProject {
 
         self.remote_repository
             .commit(
-                Some("refs/heads/master"),
+                Some(&"refs/heads/master".parse().unwrap()),
                 &branch_commit.author(),
                 &branch_commit.committer(),
                 &format!("Merge pull request from {}", branch_name),
@@ -168,7 +168,7 @@ impl TestProject {
         let signature = git::Signature::now("test", "test@email.com").unwrap();
         self.local_repository
             .commit(
-                Some("HEAD"),
+                Some(&"refs/heads/master".parse().unwrap()),
                 &signature,
                 &signature,
                 message,

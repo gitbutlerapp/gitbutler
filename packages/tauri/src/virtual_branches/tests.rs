@@ -950,7 +950,7 @@ fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head("refs/heads/master")?;
+        .set_head(&"refs/heads/master".parse().unwrap())?;
     project_repository
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -970,7 +970,7 @@ fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
 
     //update repo ref refs/remotes/origin/master to up_target oid
     project_repository.git_repository.reference(
-        "refs/remotes/origin/master",
+        &"refs/remotes/origin/master".parse().unwrap(),
         up_target,
         true,
         "update target",
@@ -978,7 +978,7 @@ fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head("refs/heads/gitbutler/integration")?;
+        .set_head(&"refs/heads/gitbutler/integration".parse().unwrap())?;
     project_repository
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -1062,7 +1062,7 @@ fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result
 
     //update repo ref refs/remotes/origin/master to up_target oid
     project_repository.git_repository.reference(
-        "refs/remotes/origin/master",
+        &"refs/remotes/origin/master".parse().unwrap(),
         up_target,
         true,
         "update target",
@@ -1155,7 +1155,7 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
 
     //update repo ref refs/remotes/origin/master to up_target oid
     project_repository.git_repository.reference(
-        "refs/remotes/origin/master",
+        &"refs/remotes/origin/master".parse().unwrap(),
         coworker_work,
         true,
         "update target",
@@ -1284,7 +1284,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
 
     //update repo ref refs/remotes/origin/master to up_target oid
     project_repository.git_repository.reference(
-        "refs/remotes/origin/master",
+        &"refs/remotes/origin/master".parse().unwrap(),
         coworker_work,
         true,
         "update target",
@@ -1416,7 +1416,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head("refs/heads/master")?;
+        .set_head(&"refs/heads/master".parse().unwrap())?;
     project_repository
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -1444,7 +1444,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
 
     //update repo ref refs/remotes/origin/master to up_target oid
     project_repository.git_repository.reference(
-        "refs/remotes/origin/master",
+        &"refs/remotes/origin/master".parse().unwrap(),
         up_target,
         true,
         "update target",
@@ -1452,7 +1452,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head("refs/heads/gitbutler/integration")?;
+        .set_head(&"refs/heads/gitbutler/integration".parse().unwrap())?;
     project_repository
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -2122,7 +2122,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head("refs/heads/master")?;
+        .set_head(&"refs/heads/master".parse().unwrap())?;
     project_repository
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -2140,7 +2140,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
         .target()
         .unwrap();
     project_repository.git_repository.reference(
-        "refs/remotes/origin/remote_branch",
+        &"refs/remotes/origin/remote_branch".parse().unwrap(),
         up_target,
         true,
         "update target",
@@ -2164,7 +2164,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
         .target()
         .unwrap();
     project_repository.git_repository.reference(
-        "refs/remotes/origin/remote_branch2",
+        &"refs/remotes/origin/remote_branch2".parse().unwrap(),
         up_target,
         true,
         "update target",
@@ -2174,7 +2174,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head("refs/heads/gitbutler/integration")?;
+        .set_head(&"refs/heads/gitbutler/integration".parse().unwrap())?;
     project_repository
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -2273,7 +2273,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head("refs/heads/master")?;
+        .set_head(&"refs/heads/master".parse().unwrap())?;
     project_repository
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -2287,7 +2287,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
     let upstream: git::Refname = "refs/remotes/origin/branch1".parse().unwrap();
 
     project_repository.git_repository.reference(
-        &upstream.to_string(),
+        &upstream,
         project_repository
             .git_repository
             .head()
@@ -2298,9 +2298,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
         "update target",
     )?;
 
-    project_repository
-        .git_repository
-        .set_head(&upstream.to_string())?;
+    project_repository.git_repository.set_head(&upstream)?;
     project_repository
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -2426,14 +2424,14 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head("refs/heads/master")?;
+        .set_head(&"refs/heads/master".parse().unwrap())?;
     project_repository
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
 
     // reset master to the base commit
     project_repository.git_repository.reference(
-        "refs/heads/master",
+        &"refs/heads/master".parse().unwrap(),
         base_commit,
         true,
         "update target",
@@ -2457,7 +2455,7 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
 
     let remote_branch: git::Refname = "refs/remotes/origin/branch1".parse().unwrap();
     project_repository.git_repository.reference(
-        &remote_branch.to_string(),
+        &remote_branch,
         remote_commit,
         true,
         "update target",
@@ -2465,7 +2463,7 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head("refs/heads/gitbutler/integration")?;
+        .set_head(&"refs/heads/gitbutler/integration".parse().unwrap())?;
     project_repository
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -2555,7 +2553,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         .target()
         .unwrap();
     project_repository.git_repository.reference(
-        "refs/remotes/origin/master",
+        &"refs/remotes/origin/master".parse().unwrap(),
         upstream_commit,
         true,
         "update target",
@@ -3257,7 +3255,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head("refs/heads/master")?;
+        .set_head(&"refs/heads/master".parse().unwrap())?;
     project_repository
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -3276,7 +3274,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
         .target()
         .unwrap();
     project_repository.git_repository.reference(
-        "refs/remotes/origin/master",
+        &"refs/remotes/origin/master".parse().unwrap(),
         upstream_commit,
         true,
         "update target",
@@ -3284,7 +3282,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
 
     // reset master to the base commit
     project_repository.git_repository.reference(
-        "refs/heads/master",
+        &"refs/heads/master".parse().unwrap(),
         base_commit,
         true,
         "update target",
@@ -3312,7 +3310,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head("refs/heads/gitbutler/integration")?;
+        .set_head(&"refs/heads/gitbutler/integration".parse().unwrap())?;
     project_repository
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -3437,7 +3435,7 @@ fn test_verify_branch_not_integration() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head("refs/heads/master")?;
+        .set_head(&"refs/heads/master".parse().unwrap())?;
 
     let verify_result = integration::verify_branch(&gb_repository, &project_repository);
     assert!(verify_result.is_err());
