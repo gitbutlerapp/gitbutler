@@ -10,7 +10,7 @@
 	const [floatingRef, floatingContent] = createFloatingActions({
 		strategy: 'absolute',
 		placement: placement,
-		middleware: [offset(8), flip(), shift()]
+		middleware: [offset(4), flip(), shift()]
 	});
 
 	let showTooltip = false;
@@ -19,7 +19,7 @@
 
 <div
 	role="tooltip"
-	class="inline-block"
+	class="wrapper"
 	on:mouseenter={() => (timeout = setTimeout(() => (showTooltip = true), timeoutMilliseconds))}
 	on:mouseleave={() => {
 		clearTimeout(timeout);
@@ -29,13 +29,16 @@
 >
 	<slot />
 	{#if showTooltip}
-		<div role="tooltip" class="tooltip" use:floatingContent>
-			<span>{label}</span>
+		<div role="tooltip" class="tooltip text-base-11" use:floatingContent>
+			{label}
 		</div>
 	{/if}
 </div>
 
 <style lang="postcss">
+	.wrapper {
+		display: inline-block;
+	}
 	.tooltip {
 		background-color: var(--clr-core-ntrl-10);
 		border-radius: var(--radius-s);
