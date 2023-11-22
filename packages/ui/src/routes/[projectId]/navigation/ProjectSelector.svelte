@@ -21,17 +21,16 @@
 		}}
 	>
 		<button
-			class="flex w-full items-center justify-between rounded-md p-3"
-			style:background-color="var(--bg-surface-highlight)"
+			class="button"
 			on:click={(e) => {
 				popup.toggle();
 				e.preventDefault();
 			}}
 		>
-			<div class="flex flex-grow items-center gap-1 font-bold">
-				{project.title}
+			{project.title}
+			<div class="button__icon">
+				<Icon name="select-chevron" />
 			</div>
-			<Icon name="select-chevron" class="align-top" />
 		</button>
 		<ProjectsPopup bind:this={popup} projects={$projects$} />
 	</div>
@@ -41,5 +40,27 @@
 	.wrapper {
 		margin-top: var(--space-10);
 		margin-bottom: var(--space-16);
+	}
+	.button {
+		display: flex;
+		width: 100%;
+		padding: var(--space-12);
+
+		background-color: var(--clr-theme-container-pale);
+		color: var(--clr-theme-scale-ntrl-0);
+		font-weight: 700;
+
+		align-items: center;
+		justify-content: space-between;
+		&:focus,
+		&:hover {
+			background-color: var(--clr-theme-container-mid);
+			& .button__icon {
+				color: var(--clr-theme-scale-ntrl-50);
+			}
+		}
+	}
+	.button__icon {
+		color: var(--clr-theme-scale-ntrl-60);
 	}
 </style>
