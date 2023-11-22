@@ -8,7 +8,7 @@ import type { LayoutLoad } from './$types';
 import { PrService } from '$lib/github/pullrequest';
 import { of, shareReplay, switchMap } from 'rxjs';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
-import { BranchService } from '$lib/branches/store';
+import { BranchService } from '$lib/branches/service';
 
 export const prerender = false;
 
