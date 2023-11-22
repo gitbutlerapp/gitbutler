@@ -7,30 +7,42 @@ use std::{fmt, str::FromStr};
 use serde::{Deserialize, Serialize};
 
 pub use error::Error;
-pub use local::Name as LocalName;
-pub use remote::Name as RemoteName;
+pub use local::Refname as LocalRefname;
+pub use remote::Refname as RemoteRefname;
 
 use crate::git;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Name {
-    Remote(RemoteName),
-    Local(LocalName),
+pub enum Refname {
+    Remote(RemoteRefname),
+    Local(LocalRefname),
 }
 
-impl From<RemoteName> for Name {
-    fn from(value: RemoteName) -> Self {
+impl From<&RemoteRefname> for Refname {
+    fn from(value: &RemoteRefname) -> Self {
+        Self::Remote(value.clone())
+    }
+}
+
+impl From<RemoteRefname> for Refname {
+    fn from(value: RemoteRefname) -> Self {
         Self::Remote(value)
     }
 }
 
-impl From<LocalName> for Name {
-    fn from(value: LocalName) -> Self {
+impl From<LocalRefname> for Refname {
+    fn from(value: LocalRefname) -> Self {
         Self::Local(value)
     }
 }
 
-impl Name {
+impl From<&LocalRefname> for Refname {
+    fn from(value: &LocalRefname) -> Self {
+        Self::Local(value.clone())
+    }
+}
+
+impl Refname {
     pub fn branch(&self) -> &str {
         match self {
             Self::Remote(remote) => remote.branch(),
@@ -39,7 +51,7 @@ impl Name {
     }
 }
 
-impl FromStr for Name {
+impl FromStr for Refname {
     type Err = Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -57,19 +69,19 @@ impl FromStr for Name {
     }
 }
 
-impl TryFrom<&git::Branch<'_>> for Name {
+impl TryFrom<&git::Branch<'_>> for Refname {
     type Error = Error;
 
     fn try_from(value: &git::Branch<'_>) -> std::result::Result<Self, Self::Error> {
         if value.is_remote() {
-            Ok(Self::Remote(RemoteName::try_from(value)?))
+            Ok(Self::Remote(RemoteRefname::try_from(value)?))
         } else {
-            Ok(Self::Local(LocalName::try_from(value)?))
+            Ok(Self::Local(LocalRefname::try_from(value)?))
         }
     }
 }
 
-impl fmt::Display for Name {
+impl fmt::Display for Refname {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Remote(remote) => remote.fmt(f),
@@ -78,7 +90,7 @@ impl fmt::Display for Name {
     }
 }
 
-impl Serialize for Name {
+impl Serialize for Refname {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
             Self::Remote(remote) => remote.serialize(serializer),
@@ -87,7 +99,7 @@ impl Serialize for Name {
     }
 }
 
-impl<'d> Deserialize<'d> for Name {
+impl<'d> Deserialize<'d> for Refname {
     fn deserialize<D: serde::Deserializer<'d>>(deserializer: D) -> Result<Self, D::Error> {
         let name = String::deserialize(deserializer)?;
         name.parse().map_err(serde::de::Error::custom)

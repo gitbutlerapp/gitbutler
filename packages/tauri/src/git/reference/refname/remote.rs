@@ -7,14 +7,14 @@ use crate::git;
 use super::error::Error;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Name {
+pub struct Refname {
     // contains name of the remote, e.x. "origin" or "upstream"
     remote: String,
     // contains name of the branch, e.x. "master" or "main"
     branch: String,
 }
 
-impl Name {
+impl Refname {
     pub fn new(remote: &str, branch: &str) -> Self {
         Self {
             remote: remote.to_string(),
@@ -38,26 +38,26 @@ impl Name {
     }
 }
 
-impl fmt::Display for Name {
+impl fmt::Display for Refname {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "refs/remotes/{}/{}", self.remote, self.branch)
     }
 }
 
-impl Serialize for Name {
+impl Serialize for Refname {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&self.to_string())
     }
 }
 
-impl<'d> Deserialize<'d> for Name {
+impl<'d> Deserialize<'d> for Refname {
     fn deserialize<D: serde::Deserializer<'d>>(deserializer: D) -> Result<Self, D::Error> {
         let name = String::deserialize(deserializer)?;
         name.as_str().parse().map_err(serde::de::Error::custom)
     }
 }
 
-impl FromStr for Name {
+impl FromStr for Refname {
     type Err = Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -78,7 +78,7 @@ impl FromStr for Name {
     }
 }
 
-impl TryFrom<&git::Branch<'_>> for Name {
+impl TryFrom<&git::Branch<'_>> for Refname {
     type Error = Error;
 
     fn try_from(value: &git::Branch<'_>) -> std::result::Result<Self, Self::Error> {

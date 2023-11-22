@@ -55,10 +55,7 @@ mod create_commit {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -125,10 +122,7 @@ mod references {
             } = Test::default();
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -160,10 +154,7 @@ mod references {
             } = Test::default();
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -219,10 +210,7 @@ mod references {
             } = Test::default();
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -273,10 +261,7 @@ mod references {
             } = Test::default();
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -343,10 +328,7 @@ mod references {
             } = Test::default();
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -391,10 +373,7 @@ mod references {
             } = Test::default();
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -447,10 +426,7 @@ mod references {
             } = Test::default();
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -555,10 +531,7 @@ mod set_base_branch {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
     }
@@ -578,7 +551,7 @@ mod set_base_branch {
                 controller
                     .set_base_branch(
                         &project_id,
-                        &git::RemoteBranchName::from_str("refs/remotes/origin/missing").unwrap(),
+                        &git::RemoteRefname::from_str("refs/remotes/origin/missing").unwrap(),
                     )
                     .await,
                 Err(Error::UserError { .. })
@@ -600,10 +573,7 @@ mod unapply {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -633,10 +603,7 @@ mod unapply {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -673,10 +640,7 @@ mod conflicts {
             } = Test::default();
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -743,10 +707,7 @@ mod conflicts {
             }
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -866,10 +827,7 @@ mod conflicts {
             }
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -972,10 +930,7 @@ mod conflicts {
             }
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -1071,10 +1026,7 @@ mod reset_virtual_branch {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -1135,10 +1087,7 @@ mod reset_virtual_branch {
         } = Test::default();
 
         let base_branch = controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -1196,10 +1145,7 @@ mod reset_virtual_branch {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -1283,10 +1229,7 @@ mod reset_virtual_branch {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -1345,10 +1288,7 @@ mod upstream {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -1414,10 +1354,7 @@ mod upstream {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -1503,10 +1440,7 @@ mod cherry_pick {
             } = Test::default();
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -1577,10 +1511,7 @@ mod cherry_pick {
             } = Test::default();
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -1662,10 +1593,7 @@ mod cherry_pick {
             } = Test::default();
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -1729,10 +1657,7 @@ mod cherry_pick {
             } = Test::default();
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -1851,10 +1776,7 @@ mod cherry_pick {
             };
 
             controller
-                .set_base_branch(
-                    &project_id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -1894,10 +1816,7 @@ mod amend {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -1928,10 +1847,7 @@ mod amend {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -1992,10 +1908,7 @@ mod amend {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -2065,10 +1978,7 @@ mod amend {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -2130,10 +2040,7 @@ mod init {
                 .add(test_project.path())
                 .expect("failed to add project");
             controller
-                .set_base_branch(
-                    &project.id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project.id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
             assert!(controller
@@ -2151,10 +2058,7 @@ mod init {
         {
             let project = projects.add(test_project.path()).unwrap();
             controller
-                .set_base_branch(
-                    &project.id,
-                    &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-                )
+                .set_base_branch(&project.id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
 
@@ -2185,10 +2089,7 @@ mod init {
         repository.add_submodule(&submodule_url, path::Path::new("submodule"));
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -2210,10 +2111,7 @@ mod init {
         fs::write(repository.path().join("file.txt"), "content").unwrap();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -2237,10 +2135,7 @@ mod squash {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -2304,10 +2199,7 @@ mod squash {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -2377,10 +2269,7 @@ mod squash {
         } = Test::default();
 
         controller
-            .set_base_branch(
-                &project_id,
-                &git::RemoteBranchName::from_str("refs/remotes/origin/master").unwrap(),
-            )
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 

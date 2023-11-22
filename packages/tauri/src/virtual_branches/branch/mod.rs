@@ -31,7 +31,7 @@ pub struct Branch {
     pub name: String,
     pub notes: String,
     pub applied: bool,
-    pub upstream: Option<git::RemoteBranchName>,
+    pub upstream: Option<git::RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
     pub upstream_head: Option<git::Oid>,
     pub created_timestamp_ms: u128,
@@ -117,7 +117,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
                     Ok(None)
                 } else {
                     upstream
-                        .parse::<git::RemoteBranchName>()
+                        .parse::<git::RemoteRefname>()
                         .map(Some)
                         .map_err(|e| {
                             crate::reader::Error::Io(std::io::Error::new(

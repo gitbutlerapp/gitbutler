@@ -5,8 +5,8 @@ use git2::Submodule;
 use crate::keys;
 
 use super::{
-    AnnotatedCommit, Blob, Branch, BranchName, Commit, Config, Index, Oid, Reference, Remote,
-    Result, Signature, Tree, TreeBuilder, Url,
+    AnnotatedCommit, Blob, Branch, Commit, Config, Index, Oid, Reference, Refname, Remote, Result,
+    Signature, Tree, TreeBuilder, Url,
 };
 
 // wrapper around git2::Repository to get control over how it's used.
@@ -325,18 +325,18 @@ impl Repository {
         self.0.find_remote(name).map(Into::into).map_err(Into::into)
     }
 
-    pub fn find_branch(&self, name: &BranchName) -> Result<Branch> {
+    pub fn find_branch(&self, name: &Refname) -> Result<Branch> {
         self.0
             .find_branch(
                 &match name {
-                    BranchName::Local(local) => local.branch().to_string(),
-                    BranchName::Remote(remote) => {
+                    Refname::Local(local) => local.branch().to_string(),
+                    Refname::Remote(remote) => {
                         format!("{}/{}", remote.remote(), remote.branch())
                     }
                 },
                 match name {
-                    BranchName::Local(_) => git2::BranchType::Local,
-                    BranchName::Remote(_) => git2::BranchType::Remote,
+                    Refname::Local(_) => git2::BranchType::Local,
+                    Refname::Remote(_) => git2::BranchType::Remote,
                 },
             )
             .map(Into::into)

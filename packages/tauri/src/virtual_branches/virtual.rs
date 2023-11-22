@@ -12,7 +12,7 @@ use slug::slugify;
 use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
-    git::{self, diff, Commit, RemoteBranchName},
+    git::{self, diff, Commit, RemoteRefname},
     keys,
     project_repository::{self, conflicts, LogUntil},
     reader, sessions, users,
@@ -696,7 +696,7 @@ pub fn list_virtual_branches(
         let upstream_branch = match branch
             .upstream
             .as_ref()
-            .map(|name| repo.find_branch(&git::BranchName::from(name.clone())))
+            .map(|name| repo.find_branch(&git::Refname::from(name)))
             .transpose()
         {
             Err(git::Error::NotFound(_)) => Ok(None),
@@ -1298,7 +1298,7 @@ pub fn update_branch(
             default_target.branch.remote(),
             slugify(upstream_branch_name)
         )
-        .parse::<git::RemoteBranchName>()
+        .parse::<git::RemoteRefname>()
         .unwrap();
         branch.upstream = Some(remote_branch);
     };
@@ -2104,13 +2104,13 @@ pub fn push(
             default_target.branch.remote(),
             slugify(&vbranch.name)
         )
-        .parse::<git::RemoteBranchName>()
+        .parse::<git::RemoteRefname>()
         .context("failed to parse remote branch name")?;
 
         let remote_branches = project_repository.git_remote_branches()?;
         let existing_branches = remote_branches
             .iter()
-            .map(RemoteBranchName::branch)
+            .map(RemoteRefname::branch)
             .map(str::to_lowercase) // git is weird about case sensitivity here, assume not case sensitive
             .collect::<Vec<_>>();
 
@@ -2227,7 +2227,7 @@ fn is_commit_integrated(
 pub fn is_remote_branch_mergeable(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    branch_name: &git::BranchName,
+    branch_name: &git::RemoteRefname,
 ) -> Result<bool, errors::IsRemoteBranchMergableError> {
     // get the current target
     let current_session = gb_repository
@@ -2251,7 +2251,10 @@ pub fn is_remote_branch_mergeable(
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
 
-    let branch = match project_repository.git_repository.find_branch(branch_name) {
+    let branch = match project_repository
+        .git_repository
+        .find_branch(&branch_name.into())
+    {
         Ok(branch) => Ok(branch),
         Err(git::Error::NotFound(_)) => Err(errors::IsRemoteBranchMergableError::BranchNotFound(
             branch_name.clone(),

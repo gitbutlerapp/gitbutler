@@ -49,7 +49,7 @@ pub fn set_base_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
-    target_branch: &git::RemoteBranchName,
+    target_branch: &git::RemoteRefname,
 ) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
     let repo = &project_repository.git_repository;
 
@@ -91,7 +91,7 @@ pub fn set_base_branch(
     let mut commit_oid = commit.id();
 
     let head_ref = repo.head().context("Failed to get HEAD reference")?;
-    let head_name: git::BranchName = head_ref
+    let head_name: git::Refname = head_ref
         .name()
         .context("Failed to get HEAD reference name")?
         .parse()
@@ -573,7 +573,7 @@ pub fn target_to_base_branch(
 pub fn create_virtual_branch_from_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    upstream: &git::BranchName,
+    upstream: &git::Refname,
     applied: Option<bool>,
     user: Option<&users::User>,
 ) -> Result<branch::Branch> {
@@ -620,8 +620,8 @@ pub fn create_virtual_branch_from_branch(
 
     // only set upstream if it's not the default target
     let upstream_branch = match upstream {
-        git::BranchName::Remote(remote) => Some(remote.clone()),
-        git::BranchName::Local(local) => {
+        git::Refname::Remote(remote) => Some(remote.clone()),
+        git::Refname::Local(local) => {
             let remote_name = format!("{}/{}", default_target.branch.remote(), local.branch());
             (remote_name != default_target.branch.branch())
                 .then(|| format!("refs/remotes/{}", remote_name).parse().unwrap())

@@ -1,3 +1,6 @@
+mod refname;
+pub use refname::{LocalRefname, Refname, RemoteRefname};
+
 use super::{Commit, Oid, Result, Tree};
 
 pub struct Reference<'repo> {

@@ -102,13 +102,13 @@ impl Repository {
         self.git_repository.path().parent().unwrap()
     }
 
-    pub fn git_remote_branches(&self) -> Result<Vec<git::RemoteBranchName>> {
+    pub fn git_remote_branches(&self) -> Result<Vec<git::RemoteRefname>> {
         self.git_repository
             .branches(Some(git2::BranchType::Remote))?
             .flatten()
             .map(|(branch, _)| branch)
             .map(|branch| {
-                git::RemoteBranchName::try_from(&branch)
+                git::RemoteRefname::try_from(&branch)
                     .context("failed to convert branch to remote name")
             })
             .collect::<Result<Vec<_>>>()
@@ -420,7 +420,7 @@ impl Repository {
     pub fn push(
         &self,
         head: &git::Oid,
-        branch: &git::RemoteBranchName,
+        branch: &git::RemoteRefname,
         with_force: bool,
         credentials: &git::credentials::Factory,
     ) -> Result<(), RemoteError> {

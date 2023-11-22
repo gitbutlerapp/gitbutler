@@ -145,7 +145,7 @@ impl App {
     pub fn git_remote_branches(
         &self,
         project_id: &ProjectId,
-    ) -> Result<Vec<git::RemoteBranchName>, Error> {
+    ) -> Result<Vec<git::RemoteRefname>, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         project_repository

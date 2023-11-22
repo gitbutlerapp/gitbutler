@@ -162,7 +162,7 @@ pub enum IsRemoteBranchMergableError {
     #[error("default target not set")]
     DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error("branch not found")]
-    BranchNotFound(git::BranchName),
+    BranchNotFound(git::RemoteRefname),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -228,7 +228,7 @@ pub enum GetBaseBranchDataError {
 #[derive(Debug, thiserror::Error)]
 pub enum SetBaseBranchError {
     #[error("branch {0} not found")]
-    BranchNotFound(git::RemoteBranchName),
+    BranchNotFound(git::RemoteRefname),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -245,7 +245,7 @@ pub enum CreateVirtualBranchFromBranchError {
     #[error("default target not set")]
     DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error("{0} not found")]
-    BranchNotFound(git::BranchName),
+    BranchNotFound(git::Refname),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

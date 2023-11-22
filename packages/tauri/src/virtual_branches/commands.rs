@@ -105,11 +105,15 @@ pub async fn create_virtual_branch(
 pub async fn create_virtual_branch_from_branch(
     handle: AppHandle,
     project_id: &str,
-    branch: git::BranchName,
+    branch: &str,
 ) -> Result<BranchId, Error> {
     let project_id = project_id.parse().map_err(|_| Error::UserError {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
+    })?;
+    let branch = branch.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed branch name".to_string(),
     })?;
     let branch_id = handle
         .state::<Controller>()

@@ -1181,7 +1181,7 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
         "file2\n",
     )?;
 
-    let remote_branch: git::RemoteBranchName = "refs/remotes/origin/master".parse().unwrap();
+    let remote_branch: git::RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
     let branch_writer = branch::Writer::new(&gb_repository);
     let mut branch = create_virtual_branch(
         &gb_repository,
@@ -1309,7 +1309,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
         "line1\nline2\nline3\nline4\nupstream\nother side\n",
     )?;
 
-    let remote_branch: git::RemoteBranchName = "refs/remotes/origin/master".parse().unwrap();
+    let remote_branch: git::RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
     let branch_writer = branch::Writer::new(&gb_repository);
     let mut branch = create_virtual_branch(
         &gb_repository,
@@ -2284,7 +2284,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
     )?;
     test_utils::commit_all(&project_repository.git_repository);
 
-    let upstream: git::BranchName = "refs/remotes/origin/branch1".parse().unwrap();
+    let upstream: git::Refname = "refs/remotes/origin/branch1".parse().unwrap();
 
     project_repository.git_repository.reference(
         &upstream.to_string(),
@@ -2455,7 +2455,7 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
         .target()
         .unwrap();
 
-    let remote_branch: git::BranchName = "refs/remotes/origin/branch1".parse().unwrap();
+    let remote_branch: git::Refname = "refs/remotes/origin/branch1".parse().unwrap();
     project_repository.git_repository.reference(
         &remote_branch.to_string(),
         remote_commit,
