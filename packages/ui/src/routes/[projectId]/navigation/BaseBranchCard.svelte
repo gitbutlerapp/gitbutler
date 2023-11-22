@@ -1,97 +1,105 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import type { Project } from '$lib/backend/projects';
+	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import IconButton from '$lib/components/IconButton.svelte';
-	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
-	import type { PrService } from '$lib/github/pullrequest';
 	import Icon from '$lib/icons/Icon.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
-	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
 	export let project: Project;
 	export let branchController: BranchController;
 	export let baseBranchService: BaseBranchService;
-	export let prService: PrService;
 
 	$: base$ = baseBranchService.base$;
 	$: selected = $page.url.href.endsWith('/base');
 
 	let baseContents: HTMLElement;
-	let fetching = false;
 	let loading = false;
 </script>
 
 <a
 	href="/{project.id}/base"
-	class="relative flex flex-grow items-center gap-x-2 rounded-md px-3 py-1 text-lg"
-	style:background-color={selected ? 'var(--bg-surface-highlight)' : undefined}
+	class="card"
+	style:background-color={selected ? 'var(--clr-theme-container-pale)' : undefined}
 	bind:this={baseContents}
 >
-	<div class="flex items-center gap-1">
-		{#if $base$?.remoteUrl.includes('github.com')}
-			<IconGithub class="h-4 w-4" />
-		{:else}
-			<Icon name="branch" />
-		{/if}
+	<div class="card__icon">
+		<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<rect width="16" height="16" rx="4" fill="#FB7D61" />
+			<path d="M8 4L12 8L8 12L4 8L8 4Z" fill="white" />
+		</svg>
 	</div>
-	<div class="font-semibold">
-		{$base$?.branchName}
-	</div>
-
-	{#if ($base$?.behind || 0) > 0}
-		<Tooltip label="Unmerged upstream commits">
-			<div
-				class="flex h-4 w-4 items-center justify-center rounded-full text-base font-bold"
-				style:background-color="var(--bg-surface-highlight)"
-			>
-				{$base$?.behind}
-			</div>
-		</Tooltip>
-		<Tooltip label="Merge upstream commits into common base">
-			<Button
-				height="small"
-				color="purple"
-				{loading}
-				on:click={async (e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					loading = true;
-					try {
-						await branchController.updateBaseBranch();
-					} finally {
-						loading = false;
-					}
-				}}
-			>
-				merge
-			</Button>
-		</Tooltip>
-	{/if}
-	<IconButton
-		class="items-center justify-center align-top "
-		on:click={async (e) => {
-			e.preventDefault();
-			e.stopPropagation();
-			fetching = true;
-			await branchController.fetchFromTarget().finally(() => {
-				fetching = false;
-				prService.reload();
-			});
-		}}
-	>
-		<div class:animate-spin={fetching}>
-			<IconRefresh class="h-4 w-4" />
+	<div class="card__content">
+		<div class="card__row_1 text-base-13 font-bold">
+			<span>Trunk</span>
+			<Tooltip label="Unmerged upstream commits">
+				<Badge count={$base$?.behind || 0} />
+			</Tooltip>
+			{#if ($base$?.behind || 0) > 0}
+				<Tooltip label="Merge upstream commits into common base">
+					<Button
+						height="small"
+						color="purple"
+						{loading}
+						on:click={async (e) => {
+							e.preventDefault();
+							e.stopPropagation();
+							loading = true;
+							try {
+								await branchController.updateBaseBranch();
+							} finally {
+								loading = false;
+							}
+						}}
+					>
+						merge
+					</Button>
+				</Tooltip>
+			{/if}
 		</div>
-	</IconButton>
+		<div class="card__row_2 text-base-12">
+			{#if $base$?.remoteUrl.includes('github.com')}
+				<IconGithub class="h-4 w-4" />
+			{:else}
+				<Icon name="branch" />
+			{/if}
+			{$base$?.branchName}
+		</div>
+	</div>
 </a>
-<div class="text-color-3 py-0.5 pl-9 text-sm">
-	<Tooltip label="Last fetch from upstream">
-		{#if $base$?.fetchedAt}
-			<TimeAgo date={$base$.fetchedAt} />
-		{/if}
-	</Tooltip>
-</div>
+
+<style lang="postcss">
+	.card {
+		display: flex;
+		gap: var(--space-10);
+		padding: var(--space-8);
+		border-radius: var(--m, 6px);
+		&:hover,
+		&:focus {
+			background-color: var(--clr-theme-container-pale);
+		}
+	}
+	.card__icon {
+		flex-shrink: 0;
+	}
+	.card__content {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-8);
+	}
+	.card__row_1 {
+		display: flex;
+		gap: var(--space-6);
+		align-items: center;
+		color: var(--clr-theme-scale-ntrl-10);
+	}
+	.card__row_2 {
+		display: flex;
+		align-items: center;
+		gap: var(--space-4);
+		color: var(--clr-theme-scale-ntrl-40);
+	}
+</style>

@@ -16,6 +16,7 @@
 	import ProjectSelector from './ProjectSelector.svelte';
 	import Branches from './Branches.svelte';
 	import type { BranchService } from '$lib/branches/service';
+	import Header from './Header.svelte';
 
 	export let vbranchService: VirtualBranchService;
 	export let branchService: BranchService;
@@ -40,20 +41,39 @@
 	role="menu"
 	tabindex="0"
 >
-	<div class="flex h-8 flex-shrink-0" data-tauri-drag-region>
-		<!-- Top spacer & drag region -->
-	</div>
-	<div class="relative mx-4 mb-4 mt-1">
+	<div class="domains">
+		<Header {branchController} {baseBranchService} {prService} />
 		<ProjectSelector {project} {projectService} />
-	</div>
-	<div class="mx-4 mb-4 mt-1">
-		<BaseBranchCard {project} {baseBranchService} {branchController} {prService} />
-	</div>
-	<div class="mb-4">
-		<DomainButton href={`/${project.id}/board`} icon="branch">Applied branches</DomainButton>
+		<div class="flex flex-col gap-1">
+			<BaseBranchCard {project} {baseBranchService} {branchController} />
+			<DomainButton href={`/${project.id}/board`}>
+				<svg
+					width="16"
+					height="16"
+					viewBox="0 0 16 16"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<rect width="16" height="16" rx="4" fill="#797FE6" />
+					<path d="M5 8.8H11V4" stroke="white" stroke-width="2" />
+					<path d="M5 12V8.44444V4" stroke="white" stroke-width="2" />
+				</svg>
+
+				Applied branches
+			</DomainButton>
+		</div>
 	</div>
 	<Branches projectId={project.id} {branchService} grow={!stashExpanded} />
 	<StashedBranches {project} {branchController} {vbranchService} bind:expanded={stashExpanded} />
 	<Footer {user} projectId={project.id} />
 	<AppUpdater {update} />
 </div>
+
+<style>
+	.domains {
+		padding-top: var(--space-14);
+		padding-bottom: var(--space-24);
+		padding-left: var(--space-16);
+		padding-right: var(--space-16);
+	}
+</style>

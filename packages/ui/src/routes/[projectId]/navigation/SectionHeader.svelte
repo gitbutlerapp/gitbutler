@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Badge from '$lib/components/Badge.svelte';
-	import IconTriangleDown from '$lib/icons/IconTriangleDown.svelte';
+	import Icon from '$lib/icons/Icon.svelte';
 
 	export let scrolled: boolean;
 	export let count: string | number | undefined;
@@ -23,7 +23,7 @@
 		{/if}
 	</div>
 	{#if expandable}
-		<IconTriangleDown class={expanded ? '-rotate-180' : ''} />
+		<Icon name={expanded ? 'chevron-down' : 'chevron-top'} />
 	{/if}
 </button>
 

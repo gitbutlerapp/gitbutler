@@ -15,24 +15,33 @@
 	let popup: ProjectsPopup;
 </script>
 
-<div
-	class="relative"
-	use:clickOutside={() => {
-		popup.hide();
-	}}
->
-	<button
-		class="flex w-full items-center justify-between rounded-md p-3"
-		style:background-color="var(--bg-surface-highlight)"
-		on:click={(e) => {
-			popup.toggle();
-			e.preventDefault();
+<div class="wrapper">
+	<div
+		class="relative"
+		use:clickOutside={() => {
+			popup.hide();
 		}}
 	>
-		<div class="flex flex-grow items-center gap-1 font-bold">
-			{project.title}
-		</div>
-		<Icon name="select-chevron" class="align-top" />
-	</button>
-	<ProjectsPopup bind:this={popup} projects={$projects$} />
+		<button
+			class="flex w-full items-center justify-between rounded-md p-3"
+			style:background-color="var(--bg-surface-highlight)"
+			on:click={(e) => {
+				popup.toggle();
+				e.preventDefault();
+			}}
+		>
+			<div class="flex flex-grow items-center gap-1 font-bold">
+				{project.title}
+			</div>
+			<Icon name="select-chevron" class="align-top" />
+		</button>
+		<ProjectsPopup bind:this={popup} projects={$projects$} />
+	</div>
 </div>
+
+<style>
+	.wrapper {
+		margin-top: var(--space-10);
+		margin-bottom: var(--space-16);
+	}
+</style>
