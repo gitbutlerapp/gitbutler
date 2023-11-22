@@ -124,7 +124,7 @@ impl HandlerInner {
                 .await
                 .context("failed to update last push")?;
 
-            tracing::debug!(
+            tracing::info!(
                 %project_id,
                 "project batch pushed: {}/{}",id_count.saturating_sub(idx),id_count,
             );
@@ -154,7 +154,7 @@ impl HandlerInner {
 
         //TODO: remove push-tmp ref
 
-        tracing::debug!(
+        tracing::info!(
             %project_id,
             "project fully pushed",
         );
