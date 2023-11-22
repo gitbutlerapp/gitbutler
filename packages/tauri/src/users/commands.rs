@@ -62,32 +62,26 @@ pub async fn set_current_project(
     project_id: Option<&str>,
 ) -> Result<(), Error> {
     let app = handle.state::<Controller>();
-    match app.get_user()? {
-        Some(user) => {
-            let mut user = user;
-            match project_id {
-                Some(project_id) => {
-                    user.current_project = Some(project_id.to_string());
-                }
-                None => {
-                    user.current_project = None;
-                }
+    if let Some(user) = app.get_user()? {
+        let mut user = user;
+        match project_id {
+            Some(project_id) => {
+                user.current_project = Some(project_id.to_string());
             }
-            app.set_user(&user)?;
-            if let Some(win) = handle.get_window("main") {
-                let menu_handle = win.menu_handle();
-                _ = menu_handle
-                    .get_item("projectsettings")
-                    .set_enabled(project_id.is_some());
+            None => {
+                user.current_project = None;
             }
-
-            Ok(())
         }
-        None => Err({
-            tracing::error!("failed to get user");
-            Error::Unknown
-        }),
+        app.set_user(&user)?;
+        if let Some(win) = handle.get_window("main") {
+            let menu_handle = win.menu_handle();
+            _ = menu_handle
+                .get_item("projectsettings")
+                .set_enabled(project_id.is_some());
+        }
     }
+    // TODO: persist this not on the user object
+    Ok(())
 }
 
 #[tauri::command(async)]
