@@ -93,7 +93,7 @@ impl Controller {
     pub async fn can_apply_remote_branch(
         &self,
         project_id: &ProjectId,
-        branch_name: &git::BranchName,
+        branch_name: &git::RemoteRefname,
     ) -> Result<bool, ControllerError<IsRemoteBranchMergableError>> {
         self.inner(project_id)
             .await
@@ -134,7 +134,7 @@ impl Controller {
     pub async fn create_virtual_branch_from_branch(
         &self,
         project_id: &ProjectId,
-        branch: &git::BranchName,
+        branch: &git::Refname,
     ) -> Result<BranchId, ControllerError<errors::CreateVirtualBranchFromBranchError>> {
         self.inner(project_id)
             .await
@@ -164,7 +164,7 @@ impl Controller {
     pub async fn set_base_branch(
         &self,
         project_id: &ProjectId,
-        target_branch: &git::RemoteBranchName,
+        target_branch: &git::RemoteRefname,
     ) -> Result<super::BaseBranch, Error> {
         self.inner(project_id)
             .await
@@ -416,7 +416,7 @@ impl ControllerInner {
     pub fn can_apply_remote_branch(
         &self,
         project_id: &ProjectId,
-        branch_name: &git::BranchName,
+        branch_name: &git::RemoteRefname,
     ) -> Result<bool, ControllerError<IsRemoteBranchMergableError>> {
         let project = self.projects.get(project_id).map_err(Error::from)?;
         let project_repository =
@@ -478,7 +478,7 @@ impl ControllerInner {
     pub async fn create_virtual_branch_from_branch(
         &self,
         project_id: &ProjectId,
-        branch: &git::BranchName,
+        branch: &git::Refname,
     ) -> Result<BranchId, ControllerError<errors::CreateVirtualBranchFromBranchError>> {
         let _permit = self.semaphore.acquire().await;
 
@@ -550,7 +550,7 @@ impl ControllerInner {
     pub fn set_base_branch(
         &self,
         project_id: &ProjectId,
-        target_branch: &git::RemoteBranchName,
+        target_branch: &git::RemoteRefname,
     ) -> Result<super::BaseBranch, Error> {
         let project = self.projects.get(project_id)?;
         let user = self.users.get_user()?;

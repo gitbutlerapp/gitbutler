@@ -1,6 +1,6 @@
 use std::time;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use serde::Serialize;
 
 use crate::{
@@ -11,8 +11,10 @@ use crate::{
 };
 
 use super::{
-    branch, delete_branch, errors, integration::GITBUTLER_INTEGRATION_REFERENCE, iterator, target,
-    BranchId, RemoteCommit,
+    branch, delete_branch,
+    errors::{self, CreateVirtualBranchFromBranchError},
+    integration::GITBUTLER_INTEGRATION_REFERENCE,
+    iterator, target, BranchId, RemoteCommit,
 };
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -49,7 +51,7 @@ pub fn set_base_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
-    target_branch: &git::RemoteBranchName,
+    target_branch: &git::RemoteRefname,
 ) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
     let repo = &project_repository.git_repository;
 
@@ -91,11 +93,9 @@ pub fn set_base_branch(
     let mut commit_oid = commit.id();
 
     let head_ref = repo.head().context("Failed to get HEAD reference")?;
-    let head_name: git::BranchName = head_ref
+    let head_name: git::Refname = head_ref
         .name()
-        .context("Failed to get HEAD reference name")?
-        .parse()
-        .context("Failed to parse HEAD reference name")?;
+        .context("Failed to get HEAD reference name")?;
     let head_oid = head_ref
         .peel_to_commit()
         .context("Failed to peel HEAD reference to commit")?
@@ -135,7 +135,9 @@ pub fn set_base_branch(
         .collect::<Vec<_>>();
 
     if active_virtual_branches.is_empty()
-        && !head_name.to_string().eq(GITBUTLER_INTEGRATION_REFERENCE)
+        && !head_name
+            .to_string()
+            .eq(&GITBUTLER_INTEGRATION_REFERENCE.to_string())
     {
         let branch = create_virtual_branch_from_branch(
             gb_repository,
@@ -143,7 +145,8 @@ pub fn set_base_branch(
             &head_name,
             Some(true),
             user,
-        )?;
+        )
+        .context("failed to create virtual branch")?;
         if branch.ownership.is_empty() && branch.head == target.sha {
             delete_branch(gb_repository, project_repository, &branch.id)
                 .context("failed to delete branch")?;
@@ -573,10 +576,10 @@ pub fn target_to_base_branch(
 pub fn create_virtual_branch_from_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    upstream: &git::BranchName,
+    upstream: &git::Refname,
     applied: Option<bool>,
     user: Option<&users::User>,
-) -> Result<branch::Branch> {
+) -> Result<branch::Branch, CreateVirtualBranchFromBranchError> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create current session")?;
@@ -594,7 +597,7 @@ pub fn create_virtual_branch_from_branch(
         })?;
 
     let repo = &project_repository.git_repository;
-    let head = match repo.find_reference(&upstream.to_string()) {
+    let head = match repo.find_reference(upstream) {
         Ok(head) => Ok(head),
         Err(git::Error::NotFound(_)) => Err(
             errors::CreateVirtualBranchFromBranchError::BranchNotFound(upstream.clone()),
@@ -603,7 +606,7 @@ pub fn create_virtual_branch_from_branch(
             error.into(),
         )),
     }?;
-    let head_commit = head.peel_to_commit()?;
+    let head_commit = head.peel_to_commit().context("failed to peel to commit")?;
     let tree = head_commit.tree().context("failed to find tree")?;
 
     let virtual_branches = iterator::BranchIterator::new(&current_session_reader)
@@ -620,8 +623,14 @@ pub fn create_virtual_branch_from_branch(
 
     // only set upstream if it's not the default target
     let upstream_branch = match upstream {
-        git::BranchName::Remote(remote) => Some(remote.clone()),
-        git::BranchName::Local(local) => {
+        git::Refname::Virtual(_) | git::Refname::HEAD => {
+            // we don't support creating virtual branches from virtual branches
+            return Err(errors::CreateVirtualBranchFromBranchError::BranchNotFound(
+                upstream.clone(),
+            ));
+        }
+        git::Refname::Remote(remote) => Some(remote.clone()),
+        git::Refname::Local(local) => {
             let remote_name = format!("{}/{}", default_target.branch.remote(), local.branch());
             (remote_name != default_target.branch.branch())
                 .then(|| format!("refs/remotes/{}", remote_name).parse().unwrap())
@@ -644,12 +653,24 @@ pub fn create_virtual_branch_from_branch(
     };
 
     // add file ownership based off the diff
-    let target_commit = repo.find_commit(default_target.sha)?;
-    let merge_base = repo.merge_base(target_commit.id(), head_commit.id())?;
-    let merge_tree = repo.find_commit(merge_base)?.tree()?;
+    let target_commit = repo
+        .find_commit(default_target.sha)
+        .map_err(|error| CreateVirtualBranchFromBranchError::Other(error.into()))?;
+    let merge_base = repo
+        .merge_base(target_commit.id(), head_commit.id())
+        .map_err(|error| CreateVirtualBranchFromBranchError::Other(error.into()))?;
+    let merge_tree = repo
+        .find_commit(merge_base)
+        .map_err(|error| CreateVirtualBranchFromBranchError::Other(error.into()))?
+        .tree()
+        .map_err(|error| CreateVirtualBranchFromBranchError::Other(error.into()))?;
     if merge_base != target_commit.id() {
-        let target_tree = target_commit.tree()?;
-        let head_tree = head_commit.tree()?;
+        let target_tree = target_commit
+            .tree()
+            .map_err(|error| CreateVirtualBranchFromBranchError::Other(error.into()))?;
+        let head_tree = head_commit
+            .tree()
+            .map_err(|error| CreateVirtualBranchFromBranchError::Other(error.into()))?;
 
         // merge target and head
         let mut merge_index = repo
@@ -657,7 +678,7 @@ pub fn create_virtual_branch_from_branch(
             .context("failed to merge trees")?;
 
         if merge_index.has_conflicts() {
-            bail!("merge conflict");
+            return Err(CreateVirtualBranchFromBranchError::MergeConflict);
         }
 
         let (author, committer) = project_repository.git_signatures(user)?;
@@ -668,14 +689,16 @@ pub fn create_virtual_branch_from_branch(
             .find_tree(new_head_tree_oid)
             .context("failed to find tree")?;
 
-        let new_branch_head = repo.commit(
-            None,
-            &author,
-            &committer,
-            "merged upstream",
-            &new_head_tree,
-            &[&head_commit, &target_commit],
-        )?;
+        let new_branch_head = repo
+            .commit(
+                None,
+                &author,
+                &committer,
+                "merged upstream",
+                &new_head_tree,
+                &[&head_commit, &target_commit],
+            )
+            .map_err(|error| CreateVirtualBranchFromBranchError::Other(error.into()))?;
         branch.head = new_branch_head;
         branch.tree = new_head_tree_oid;
     }

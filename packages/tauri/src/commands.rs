@@ -54,7 +54,7 @@ pub async fn list_session_files(
 pub async fn git_remote_branches(
     handle: tauri::AppHandle,
     project_id: &str,
-) -> Result<Vec<git::RemoteBranchName>, Error> {
+) -> Result<Vec<git::RemoteRefname>, Error> {
     let app = handle.state::<app::App>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
         code: Code::Validation,

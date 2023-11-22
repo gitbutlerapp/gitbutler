@@ -23,7 +23,7 @@ impl Default for TestProject {
         let signature = git::Signature::now("test", "test@email.com").unwrap();
         local_repository
             .commit(
-                Some("HEAD"),
+                Some(&"refs/heads/master".parse().unwrap()),
                 &signature,
                 &signature,
                 "Initial commit",
@@ -108,15 +108,15 @@ impl TestProject {
     }
 
     /// works like if we'd open and merge a PR on github. does not update local.
-    pub fn merge(&self, branch_name: &git::BranchName) {
-        let branch_name: git::BranchName = format!("refs/heads/{}", branch_name.branch())
+    pub fn merge(&self, branch_name: &git::Refname) {
+        let branch_name: git::Refname = format!("refs/heads/{}", branch_name.branch())
             .parse()
             .unwrap();
         let branch = self.remote_repository.find_branch(&branch_name).unwrap();
         let branch_commit = branch.peel_to_commit().unwrap();
 
         let master_branch = {
-            let name: git::BranchName = "refs/heads/master".parse().unwrap();
+            let name: git::Refname = "refs/heads/master".parse().unwrap();
             self.remote_repository.find_branch(&name).unwrap()
         };
         let master_branch_commit = master_branch.peel_to_commit().unwrap();
@@ -143,7 +143,7 @@ impl TestProject {
 
         self.remote_repository
             .commit(
-                Some("refs/heads/master"),
+                Some(&"refs/heads/master".parse().unwrap()),
                 &branch_commit.author(),
                 &branch_commit.committer(),
                 &format!("Merge pull request from {}", branch_name),
@@ -168,7 +168,7 @@ impl TestProject {
         let signature = git::Signature::now("test", "test@email.com").unwrap();
         self.local_repository
             .commit(
-                Some("HEAD"),
+                Some(&"refs/heads/master".parse().unwrap()),
                 &signature,
                 &signature,
                 message,

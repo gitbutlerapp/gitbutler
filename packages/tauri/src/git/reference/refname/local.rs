@@ -4,46 +4,53 @@ use serde::{Deserialize, Serialize};
 
 use crate::git;
 
-use super::{error::Error, RemoteName};
+use super::{error::Error, remote};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Name {
+pub struct Refname {
     // contains name of the branch, e.x. "master" or "main"
     branch: String,
     // contains name of the remote branch, if the local branch is tracking a remote branch
-    remote: Option<RemoteName>,
+    remote: Option<remote::Refname>,
 }
 
-impl Name {
+impl Refname {
+    pub fn new(branch: &str, remote: Option<remote::Refname>) -> Self {
+        Self {
+            branch: branch.to_string(),
+            remote,
+        }
+    }
+
     pub fn branch(&self) -> &str {
         &self.branch
     }
 
-    pub fn remote(&self) -> Option<&RemoteName> {
+    pub fn remote(&self) -> Option<&remote::Refname> {
         self.remote.as_ref()
     }
 }
 
-impl Serialize for Name {
+impl Serialize for Refname {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&self.to_string())
     }
 }
 
-impl<'d> Deserialize<'d> for Name {
+impl<'d> Deserialize<'d> for Refname {
     fn deserialize<D: serde::Deserializer<'d>>(deserializer: D) -> Result<Self, D::Error> {
         let name = String::deserialize(deserializer)?;
         name.as_str().parse().map_err(serde::de::Error::custom)
     }
 }
 
-impl fmt::Display for Name {
+impl fmt::Display for Refname {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "refs/heads/{}", self.branch)
     }
 }
 
-impl FromStr for Name {
+impl FromStr for Refname {
     type Err = Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -62,7 +69,7 @@ impl FromStr for Name {
     }
 }
 
-impl TryFrom<&git::Branch<'_>> for Name {
+impl TryFrom<&git::Branch<'_>> for Refname {
     type Error = Error;
 
     fn try_from(value: &git::Branch<'_>) -> std::result::Result<Self, Self::Error> {
@@ -73,7 +80,7 @@ impl TryFrom<&git::Branch<'_>> for Name {
             let branch: Self = branch_name.parse()?;
             match value.upstream() {
                 Ok(upstream) => Ok(Self {
-                    remote: Some(RemoteName::try_from(&upstream)?),
+                    remote: Some(remote::Refname::try_from(&upstream)?),
                     ..branch
                 }),
                 Err(git::Error::NotFound(_)) => Ok(Self {

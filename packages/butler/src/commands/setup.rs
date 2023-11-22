@@ -20,6 +20,7 @@ impl super::RunCommand for Setup {
                 .context("failed to get head")?
                 .name()
                 .context("failed to get head name")?
+                .to_string()
                 .blue()
         );
         let items = app

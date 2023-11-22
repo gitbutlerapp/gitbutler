@@ -306,7 +306,7 @@ impl Repository {
             Result::Ok(head) => sessions::Meta {
                 start_timestamp_ms: now_ms,
                 last_timestamp_ms: now_ms,
-                branch: head.name().map(ToString::to_string),
+                branch: head.name().map(|name| name.to_string()),
                 commit: Some(head.peel_to_commit()?.id().to_string()),
             },
             Err(_) => sessions::Meta {
@@ -808,14 +808,16 @@ fn write_gb_commit(
         Some(user) => git::Signature::now(user.name.as_str(), user.email.as_str())?,
     };
 
+    let current_refname: git::Refname = "refs/heads/current".parse().unwrap();
+
     match gb_repository
         .git_repository
-        .find_reference("refs/heads/current")
+        .find_reference(&current_refname)
     {
         Result::Ok(reference) => {
             let last_commit = reference.peel_to_commit()?;
             let new_commit = gb_repository.git_repository.commit(
-                Some("refs/heads/current"),
+                Some(&current_refname),
                 &author,                                                   // author
                 &comitter,                                                 // committer
                 "gitbutler check",                                         // commit message
@@ -826,7 +828,7 @@ fn write_gb_commit(
         }
         Err(git::Error::NotFound(_)) => {
             let new_commit = gb_repository.git_repository.commit(
-                Some("refs/heads/current"),
+                Some(&current_refname),
                 &author,                                                   // author
                 &comitter,                                                 // committer
                 "gitbutler check",                                         // commit message

@@ -1,4 +1,4 @@
-#![forbid(unsafe_code, dead_code)]
+#![forbid(unsafe_code)]
 
 pub mod analytics;
 pub mod app;

@@ -173,6 +173,6 @@ fn gb_refs(project_repository: &project_repository::Repository) -> anyhow::Resul
         .git_repository
         .references_glob("refs/gitbutler/*")?
         .flatten()
-        .filter_map(|r| r.name().map(ToString::to_string))
+        .filter_map(|r| r.name().map(|name| name.to_string()))
         .collect::<Vec<_>>())
 }

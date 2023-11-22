@@ -1,3 +1,6 @@
+mod refname;
+pub use refname::{LocalRefname, Refname, RemoteRefname, VirtualRefname};
+
 use super::{Commit, Oid, Result, Tree};
 
 pub struct Reference<'repo> {
@@ -11,8 +14,10 @@ impl<'repo> From<git2::Reference<'repo>> for Reference<'repo> {
 }
 
 impl<'repo> Reference<'repo> {
-    pub fn name(&self) -> Option<&str> {
-        self.reference.name()
+    pub fn name(&self) -> Option<Refname> {
+        self.reference
+            .name()
+            .map(|name| name.parse().expect("libgit2 provides valid refnames"))
     }
 
     pub fn name_bytes(&self) -> &[u8] {
@@ -39,12 +44,12 @@ impl<'repo> Reference<'repo> {
 
     pub fn rename(
         &mut self,
-        new_name: &str,
+        new_name: &Refname,
         force: bool,
         log_message: &str,
     ) -> Result<Reference<'repo>> {
         self.reference
-            .rename(new_name, force, log_message)
+            .rename(&new_name.to_string(), force, log_message)
             .map(Into::into)
             .map_err(Into::into)
     }

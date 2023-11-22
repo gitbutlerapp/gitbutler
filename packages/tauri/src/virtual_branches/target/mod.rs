@@ -12,7 +12,7 @@ use crate::git;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Target {
-    pub branch: git::RemoteBranchName,
+    pub branch: git::RemoteRefname,
     pub remote_url: String,
     pub sha: git::Oid,
 }

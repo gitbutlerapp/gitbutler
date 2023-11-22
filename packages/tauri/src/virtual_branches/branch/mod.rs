@@ -8,7 +8,6 @@ pub use file_ownership::FileOwnership;
 pub use hunk::Hunk;
 pub use ownership::Ownership;
 pub use reader::BranchReader as Reader;
-use slug::slugify;
 pub use writer::BranchWriter as Writer;
 
 use std::path;
@@ -31,7 +30,7 @@ pub struct Branch {
     pub name: String,
     pub notes: String,
     pub applied: bool,
-    pub upstream: Option<git::RemoteBranchName>,
+    pub upstream: Option<git::RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
     pub upstream_head: Option<git::Oid>,
     pub created_timestamp_ms: u128,
@@ -45,8 +44,8 @@ pub struct Branch {
 }
 
 impl Branch {
-    pub fn refname(&self) -> String {
-        format!("refs/gitbutler/{}", slugify(&self.name))
+    pub fn refname(&self) -> git::VirtualRefname {
+        self.into()
     }
 }
 
@@ -117,7 +116,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
                     Ok(None)
                 } else {
                     upstream
-                        .parse::<git::RemoteBranchName>()
+                        .parse::<git::RemoteRefname>()
                         .map(Some)
                         .map_err(|e| {
                             crate::reader::Error::Io(std::io::Error::new(

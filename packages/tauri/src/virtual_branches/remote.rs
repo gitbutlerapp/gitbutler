@@ -22,8 +22,8 @@ use super::{errors, get_default_target, Author};
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranch {
     pub sha: git::Oid,
-    pub name: git::BranchName,
-    pub upstream: Option<git::RemoteBranchName>,
+    pub name: git::Refname,
+    pub upstream: Option<git::RemoteRefname>,
     pub behind: u32,
     pub commits: Vec<RemoteCommit>,
 }
@@ -84,7 +84,7 @@ pub fn branch_to_remote_branch(
                 .log(sha, LogUntil::Commit(base))
                 .context("failed to get ahead commits")?;
 
-            let name = git::BranchName::try_from(branch).context("could not get branch name")?;
+            let name = git::Refname::try_from(branch).context("could not get branch name")?;
 
             let count_behind = project_repository
                 .distance(base, sha)
@@ -92,7 +92,7 @@ pub fn branch_to_remote_branch(
 
             Ok(RemoteBranch {
                 sha,
-                upstream: if let git::BranchName::Local(local_name) = &name {
+                upstream: if let git::Refname::Local(local_name) = &name {
                     local_name.remote().cloned()
                 } else {
                     None

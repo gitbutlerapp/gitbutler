@@ -156,7 +156,7 @@ pub fn test_repository() -> git::Repository {
     let signature = git::Signature::now("test", "test@email.com").unwrap();
     repository
         .commit(
-            Some("HEAD"),
+            Some(&"refs/heads/master".parse().unwrap()),
             &signature,
             &signature,
             "Initial commit",
@@ -175,9 +175,10 @@ pub fn commit_all(repository: &git::Repository) -> git::Oid {
     index.write().expect("failed to write index");
     let oid = index.write_tree().expect("failed to write tree");
     let signature = git::Signature::now("test", "test@email.com").unwrap();
+    let head = repository.head().expect("failed to get head");
     let commit_oid = repository
         .commit(
-            Some("HEAD"),
+            Some(&head.name().unwrap()),
             &signature,
             &signature,
             "some commit",

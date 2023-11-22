@@ -1,6 +1,3 @@
-mod name;
-pub use name::{LocalName as LocalBranchName, Name as BranchName, RemoteName as RemoteBranchName};
-
 use super::{Commit, Oid, Result, Tree};
 
 pub struct Branch<'repo> {
