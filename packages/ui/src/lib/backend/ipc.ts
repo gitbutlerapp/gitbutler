@@ -15,8 +15,9 @@ export enum Code {
 
 export class UserError extends Error {
 	code!: Code;
+	cause: Error | undefined;
 
-	constructor(message: string, code: Code, cause: unknown) {
+	constructor(message: string, code: Code, cause: Error | undefined) {
 		super(message);
 
 		this.name = 'UserError';
