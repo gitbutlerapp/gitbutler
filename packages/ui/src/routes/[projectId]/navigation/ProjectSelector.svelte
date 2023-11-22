@@ -8,9 +8,7 @@
 	export let project: Project;
 	export let projectService: ProjectService;
 
-	$: projects$ = projectService.projects$.pipe(
-		map((projects) => projects.filter((p) => p.id != project.id))
-	);
+	$: projects$ = projectService.projects$;
 
 	let popup: ProjectsPopup;
 </script>
