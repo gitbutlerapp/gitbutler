@@ -1,0 +1,146 @@
+.text-semibold {
+  font-weight: 400;
+}
+
+.text-bold {
+  font-weight: 700;
+}
+
+/* text Base Classes */
+.text-base-10 {
+  font-family: var(--base-font-family);
+  font-size: 0.625rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 100%;
+}
+
+.text-base-11 {
+  font-family: var(--base-font-family);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 100%;
+}
+
+.text-base-12 {
+  font-family: var(--base-font-family);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 100%;
+}
+
+.text-base-13 {
+  font-family: var(--base-font-family);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 100%;
+}
+
+.text-base-14 {
+  font-family: var(--base-font-family);
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 100%;
+}
+
+.text-base-16 {
+  font-family: var(--base-font-family);
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 100%;
+}
+
+.text-base-18 {
+  font-family: var(--base-font-family);
+  font-size: 1.125rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 100%;
+}
+
+/* text Base Body Classes */
+.text-base-body-10 {
+  font-family: var(--base-font-family);
+  font-size: 625rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 150%;
+}
+
+.text-base-body-11 {
+  font-family: var(--base-font-family);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 150%;
+}
+
+.text-base-body-12 {
+  font-family: var(--base-font-family);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 150%;
+}
+
+.text-base-body-13 {
+  font-family: var(--base-font-family);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 150%;
+}
+
+.text-base-body-14 {
+  font-family: var(--base-font-family);
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 150%;
+}
+
+.text-base-body-16 {
+  font-family: var(--base-font-family);
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 150%;
+}
+
+.text-base-body-18 {
+  font-family: var(--base-font-family);
+  font-size: 1.125rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 150%;
+}
+
+/* text Head Classes */
+.text-head-20 {
+  font-family: var(--base-font-family);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 100%;
+}
+
+.text-head-22 {
+  font-family: var(--base-font-family);
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 100%;
+}
+
+.text-head-24 {
+  font-family: var(--base-font-family);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 100%;
+}

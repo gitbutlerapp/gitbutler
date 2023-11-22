@@ -25,6 +25,7 @@
 	$: vbranchService = data.vbranchService;
 	$: branchesError$ = vbranchService.branchesError$;
 	$: project$ = data.project$;
+	$: branchService = data.branchService;
 
 	$: baseBranchService = data.baseBranchService;
 	$: baseBranch$ = baseBranchService.base$;
@@ -85,11 +86,10 @@
 			{#if $project$}
 				<Navigation
 					{vbranchService}
-					{remoteBranchService}
+					{branchService}
 					{baseBranchService}
 					{branchController}
 					project={$project$}
-					githubContext={$githubContext$}
 					user={$user$}
 					{update}
 					{prService}

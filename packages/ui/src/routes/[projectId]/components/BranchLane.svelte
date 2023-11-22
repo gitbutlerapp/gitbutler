@@ -786,7 +786,7 @@
 													</Link>
 													{#await pullRequestPromise then pr}
 														{#if githubContext && pr}
-															<a target="_blank" rel="noreferrer" href={pr.html_url}>
+															<a target="_blank" rel="noreferrer" href={pr.htmlUrl}>
 																<Tooltip label="&nbsp; Go to Pull Request &nbsp;" placement="right">
 																	<IconGithub class="text-color-5 h-4 w-4"></IconGithub>
 																</Tooltip>

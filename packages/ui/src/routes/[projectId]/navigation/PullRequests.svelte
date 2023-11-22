@@ -23,9 +23,9 @@
 	const filterChoice = projectPullRequestListingFilter(projectId);
 	function filterPRs(prs: PullRequest[], filter: string): PullRequest[] {
 		if (filter === ListPRsFilter.ExcludeBots) {
-			return prs.filter((pr) => !pr.author?.is_bot);
+			return prs.filter((pr) => !pr.author?.isBot);
 		} else if (filter === ListPRsFilter.OnlyYours) {
-			return prs.filter((pr) => pr.author?.username === githubContext?.username);
+			return prs.filter((pr) => pr.author?.name === githubContext?.username);
 		}
 		return prs;
 	}
@@ -109,16 +109,16 @@
 							</span>
 							<span>
 								opened
-								<TimeAgo date={new Date(pr.created_at)} />
+								<TimeAgo date={new Date(pr.createdAt)} />
 							</span>
 							by
 							<span class="text-color-3 font-semibold">
-								{pr.author?.username}
+								{pr.author?.name}
 							</span>
 							{#if pr.draft}
 								(draft)
 							{/if}
-							{#if pr.author?.is_bot}
+							{#if pr.author?.isBot}
 								<div
 									class="text-color-3 border-color-3 rounded-full border px-1.5 text-xs font-semibold"
 								>

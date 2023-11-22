@@ -8,6 +8,7 @@ import type { LayoutLoad } from './$types';
 import { PrService } from '$lib/github/pullrequest';
 import { of, shareReplay, switchMap } from 'rxjs';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
+import { BranchService } from '$lib/remotecontributions/store';
 
 export const prerender = false;
 
@@ -40,6 +41,8 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		sessions$
 	);
 
+	const branchService = new BranchService(remoteBranchService, prService);
+
 	return {
 		projectId,
 		branchController,
@@ -49,6 +52,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		githubContext$,
 		remoteBranchService,
 		user$,
-		project$
+		project$,
+		branchService
 	};
 };

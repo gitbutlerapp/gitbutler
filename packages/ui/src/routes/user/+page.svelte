@@ -154,9 +154,7 @@
 			let u = $user$;
 			if (u) {
 				u.github_access_token = access_token;
-				u.github_username = await getAuthenticated({ authToken: access_token }).then(
-					(user) => user.username
-				);
+				u.github_username = await getAuthenticated({ authToken: access_token });
 				userService.set(u);
 			}
 		});

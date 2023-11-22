@@ -79,11 +79,11 @@ export class RemoteFile {
 	binary!: boolean;
 }
 
-export class Author {
-	email!: string;
-	name!: string;
-	@Transform((obj) => new Date(obj.value))
-	gravatarUrl!: URL;
+export interface Author {
+	email: string;
+	name: string;
+	gravatarUrl?: URL;
+	isBot: boolean;
 }
 
 export class RemoteBranch {
@@ -95,20 +95,28 @@ export class RemoteBranch {
 	commits!: RemoteCommit[];
 	isMergeable!: boolean | undefined;
 
-	ahead(): number {
+	get ahead(): number {
 		return this.commits.length;
 	}
 
-	lastCommitTs(): Date | undefined {
-		return this.commits.at(0)?.createdAt;
+	get lastCommitTs(): Date {
+		return this.commits[0].createdAt;
 	}
 
-	authors(): Author[] {
+	get firstCommitAt(): Date {
+		return this.commits[this.commits.length - 1].createdAt;
+	}
+
+	get authors(): Author[] {
 		const allAuthors = this.commits.map((commit) => commit.author);
 		const uniqueAuthors = allAuthors.filter(
 			(author, index) => allAuthors.findIndex((a) => a.email == author.email) == index
 		);
 		return uniqueAuthors;
+	}
+
+	get displayName(): string {
+		return this.name.replace('refs/remotes/', '').replace('origin/', '').replace('refs/heads/', '');
 	}
 }
 
