@@ -75,9 +75,9 @@ pub async fn set_current_project(
         app.set_user(&user)?;
         if let Some(win) = handle.get_window("main") {
             let menu_handle = win.menu_handle();
-            _ = menu_handle
-                .get_item("projectsettings")
-                .set_enabled(project_id.is_some());
+            if let Some(project_settings) = menu_handle.try_get_item("projectsettings") {
+                _ = project_settings.set_enabled(project_id.is_some());
+            }
         }
     }
     // TODO: persist this not on the user object

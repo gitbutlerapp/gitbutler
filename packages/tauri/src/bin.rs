@@ -27,7 +27,7 @@ fn main() {
             let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
             let tray = tauri::SystemTray::new().with_menu(tray_menu);
 
-            let project_settings = tauri::CustomMenuItem::new("projectSettings".to_string(), "Project Settings");
+            let project_settings = tauri::CustomMenuItem::new("projectsettings".to_string(), "Project Settings");
             let project_submenu = tauri::Submenu::new("Project", tauri::Menu::new().add_item(project_settings.disabled()));
             let menu = tauri::Menu::os_default(&app_title)
                 .add_submenu(project_submenu);
@@ -69,7 +69,7 @@ fn main() {
                     }
                 })
                 .on_menu_event(move |event| {
-                    if event.menu_item_id() == "projectSettings" {
+                    if event.menu_item_id() == "projectsettings" {
                         _ = event.window().emit("menuAction", Some("projectSettings"));
                     }
                   })
