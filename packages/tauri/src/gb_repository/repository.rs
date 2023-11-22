@@ -6,7 +6,7 @@ use std::{
     path, time,
 };
 
-use anyhow::{anyhow, Context, Ok, Result};
+use anyhow::{anyhow, Context, Result};
 use filetime::FileTime;
 use sha2::{Digest, Sha256};
 
@@ -131,10 +131,10 @@ impl Repository {
         Ok(Some((remote, access_token)))
     }
 
-    pub fn fetch(&self, user: Option<&users::User>) -> Result<bool> {
+    pub fn fetch(&self, user: Option<&users::User>) -> Result<(), RemoteError> {
         let (mut remote, access_token) = match self.remote(user)? {
             Some((remote, access_token)) => (remote, access_token),
-            None => return Ok(false),
+            None => return Result::Ok(()),
         };
 
         let mut callbacks = git2::RemoteCallbacks::new();
@@ -165,21 +165,23 @@ impl Repository {
 
         remote
             .fetch(&["refs/heads/*:refs/remotes/*"], Some(&mut fetch_opts))
-            .context(format!(
-                "failed to pull from remote {}",
-                remote.url()?.unwrap()
-            ))?;
+            .map_err(|error| match error {
+                git::Error::Network(error) => {
+                    tracing::warn!(project_id = %self.project.id, error = %error, "failed to fetch gb repo");
+                    RemoteError::Network
+                }
+                error => RemoteError::Other(error.into()),
+            })?;
 
         tracing::info!(
             project_id = %self.project.id,
-            remote = %remote.url()?.unwrap(),
             "gb repo fetched",
         );
 
-        Ok(true)
+        Result::Ok(())
     }
 
-    pub fn push(&self, user: Option<&users::User>) -> Result<()> {
+    pub fn push(&self, user: Option<&users::User>) -> Result<(), RemoteError> {
         let (mut remote, access_token) = match self.remote(user)? {
             Some((remote, access_token)) => (remote, access_token),
             None => return Ok(()),
@@ -216,13 +218,15 @@ impl Repository {
 
         // Push to the remote
         remote
-            .push(&[&remote_refspec], Some(&mut push_options))
-            .context(format!(
-                "failed to push refs/heads/current to {}",
-                remote.url()?.unwrap()
-            ))?;
+            .push(&[&remote_refspec], Some(&mut push_options)).map_err(|error| match error {
+                git::Error::Network(error) => {
+                    tracing::warn!(project_id = %self.project.id, error = %error, "failed to push gb repo");
+                    RemoteError::Network
+                }
+                error => RemoteError::Other(error.into()),
+            })?;
 
-        tracing::info!(project_id = %self.project.id, remote = %remote.url()?.unwrap(), "gb repository pushed");
+        tracing::info!(project_id = %self.project.id,  "gb repository pushed");
 
         Ok(())
     }
@@ -466,14 +470,14 @@ impl Repository {
     }
 
     pub fn get_sessions_iterator(&self) -> Result<sessions::SessionsIterator<'_>> {
-        Ok(sessions::SessionsIterator::new(&self.git_repository)?)
+        sessions::SessionsIterator::new(&self.git_repository)
     }
 
     pub fn get_current_session(&self) -> Result<Option<sessions::Session>> {
         let _lock = self.lock();
         let reader = reader::DirReader::open(self.root());
         match sessions::Session::try_from(reader) {
-            Result::Ok(session) => Ok(Some(session)),
+            Ok(session) => Ok(Some(session)),
             Err(sessions::SessionError::NoSession) => Ok(None),
             Err(sessions::SessionError::Err(err)) => Err(err),
         }
@@ -839,6 +843,14 @@ fn write_gb_commit(
         }
         Err(e) => Err(e.into()),
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RemoteError {
+    #[error("network error")]
+    Network,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
 }
 
 #[cfg(test)]

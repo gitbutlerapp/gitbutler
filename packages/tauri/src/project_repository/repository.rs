@@ -386,7 +386,7 @@ impl Repository {
 
         let access_token = user
             .map(|user| user.access_token.clone())
-            .ok_or(RemoteError::AuthError)?;
+            .ok_or(RemoteError::Auth)?;
 
         let mut callbacks = git2::RemoteCallbacks::new();
         let bytes_pushed = Arc::new(AtomicUsize::new(0));
@@ -410,7 +410,17 @@ impl Repository {
 
         remote
             .push(ref_specs, Some(&mut push_options))
-            .map_err(|e| RemoteError::Other(e.into()))?;
+            .map_err(|error| match error {
+                git::Error::Network(error) => {
+                    tracing::warn!(project_id = %self.project.id, ?error, "git push failed",);
+                    RemoteError::Network
+                }
+                git::Error::Auth(error) => {
+                    tracing::warn!(project_id = %self.project.id, ?error, "git push failed",);
+                    RemoteError::Auth
+                }
+                error => RemoteError::Other(error.into()),
+            })?;
 
         tracing::debug!(
             project_id = %self.project.id,
@@ -459,11 +469,15 @@ impl Repository {
                     tracing::warn!(project_id = %self.project.id, ?error, "git push failed",);
                     continue;
                 }
+                Err(git::Error::Network(error)) => {
+                    tracing::warn!(project_id = %self.project.id, ?error, "git push failed",);
+                    return Err(RemoteError::Network);
+                }
                 Err(error) => return Err(RemoteError::Other(error.into())),
             }
         }
 
-        Err(RemoteError::AuthError)
+        Err(RemoteError::Auth)
     }
 
     pub fn fetch(
@@ -528,16 +542,22 @@ impl Repository {
                     tracing::warn!(project_id = %self.project.id, ?error, "fetch failed");
                     continue;
                 }
+                Err(git::Error::Network(error)) => {
+                    tracing::warn!(project_id = %self.project.id, ?error, "fetch failed");
+                    return Err(RemoteError::Network);
+                }
                 Err(error) => return Err(RemoteError::Other(error.into())),
             }
         }
 
-        Err(RemoteError::AuthError)
+        Err(RemoteError::Auth)
     }
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum RemoteError {
+    #[error("network failed")]
+    Network,
     #[error("git url is empty")]
     NoUrl,
     #[error("git url is not ssh: {0}")]
@@ -545,7 +565,7 @@ pub enum RemoteError {
     #[error("git url is not https: {0}")]
     NonHttpsUrl(String),
     #[error("authentication failed")]
-    AuthError,
+    Auth,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -553,11 +573,15 @@ pub enum RemoteError {
 impl From<RemoteError> for crate::error::Error {
     fn from(value: RemoteError) -> Self {
         match value {
+            RemoteError::Network => crate::error::Error::UserError {
+                code: crate::error::Code::ProjectGitRemote,
+                message: "Network erorr occured".to_string(),
+            },
             RemoteError::NonHttpsUrl(url) => crate::error::Error::UserError {
                 code: crate::error::Code::ProjectGitRemote,
                 message: format!("Project has non-https remote url: {}", url),
             },
-            RemoteError::AuthError => crate::error::Error::UserError {
+            RemoteError::Auth => crate::error::Error::UserError {
                 code: crate::error::Code::ProjectGitAuth,
                 message: "Project remote authentication error".to_string(),
             },

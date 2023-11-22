@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex, TryLockError};
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
+use crate::gb_repository::RemoteError;
 use crate::paths::DataDir;
 use crate::projects::ProjectId;
 use crate::{gb_repository, project_repository, projects, users};
@@ -77,8 +78,9 @@ impl HandlerInner {
         )
         .context("failed to open repository")?;
 
-        gb_repo.push(user.as_ref()).context("failed to push")?;
-
-        Ok(vec![])
+        match gb_repo.push(user.as_ref()) {
+            Ok(()) | Err(RemoteError::Network) => Ok(vec![]),
+            Err(err) => Err(err).context("failed to push"),
+        }
     }
 }
