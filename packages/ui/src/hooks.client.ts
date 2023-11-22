@@ -2,6 +2,8 @@ import { handleErrorWithSentry, init } from '@sentry/sveltekit';
 import type { NavigationEvent } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { PUBLIC_SENTRY_ENVIRONMENT } from '$env/static/public';
+import { goto } from '$app/navigation';
+import { getCurrentProject } from '$lib/backend/users';
 
 init({
 	enabled: !dev,
@@ -28,3 +30,10 @@ window.onunhandledrejection = (event: PromiseRejectionEvent) => {
 	console.log('Unhandled exception', event.reason);
 	originalUnhandledHandler?.bind(window)(event);
 };
+
+// getCurrentProject().then((projectId) => {
+// 	// Start on the last used project
+// 	if (projectId) {
+// 		goto(`/${projectId}/base`);
+// 	}
+// });

@@ -14,6 +14,7 @@
 	import Link from '$lib/components/Link.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import { syncToCloud } from '$lib/backend/cloud';
+	import { handleMenuActions } from '$lib/backend/menu_actions';
 
 	export let data: LayoutData;
 
@@ -36,6 +37,7 @@
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	let trayViewport: HTMLElement;
+	handleMenuActions(data.projectId);
 
 	onMount(() => {
 		return unsubscribe(hotkeys.on('Meta+Shift+S', () => syncToCloud($project$?.id)));

@@ -27,7 +27,13 @@ fn main() {
             let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
             let tray = tauri::SystemTray::new().with_menu(tray_menu);
 
+            let project_settings = tauri::CustomMenuItem::new("projectSettings".to_string(), "Project Settings");
+            let project_submenu = tauri::Submenu::new("Project", tauri::Menu::new().add_item(project_settings.disabled()));
+            let menu = tauri::Menu::os_default(&app_title)
+                .add_submenu(project_submenu);
+
             tauri::Builder::default()
+                .menu(menu)
                 .system_tray(tray)
                 .on_system_tray_event(|app_handle, event| {
                     if let tauri::SystemTrayEvent::MenuItemClick { id, .. } = event {
@@ -62,6 +68,11 @@ fn main() {
                         api.prevent_close();
                     }
                 })
+                .on_menu_event(move |event| {
+                    if event.menu_item_id() == "projectSettings" {
+                        _ = event.window().emit("menuAction", Some("projectSettings"));
+                    }
+                  })
                 .setup(move |tauri_app| {
                     let window =
                         create_window(&tauri_app.handle()).expect("Failed to create window");
@@ -157,6 +168,8 @@ fn main() {
                     users::commands::set_user,
                     users::commands::delete_user,
                     users::commands::get_user,
+                    users::commands::get_current_project,
+                    users::commands::set_current_project,
                     projects::commands::add_project,
                     projects::commands::get_project,
                     projects::commands::update_project,
