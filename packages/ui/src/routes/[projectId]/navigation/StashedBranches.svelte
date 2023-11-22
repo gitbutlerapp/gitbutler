@@ -10,13 +10,16 @@
 	import type { UIEventHandler } from 'svelte/elements';
 	import SectionHeader from './SectionHeader.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
+	import { map } from 'rxjs';
 
 	export let vbranchService: VirtualBranchService;
 	export let branchController: BranchController;
 	export let project: Project;
 	export let expanded = true;
 
-	$: branches$ = vbranchService.branches$;
+	$: branches$ = vbranchService.branches$.pipe(
+		map((branches) => branches.filter((b) => !b.active))
+	);
 	$: branchesError$ = vbranchService.branchesError$;
 
 	let viewport: HTMLElement;
@@ -49,7 +52,7 @@
 			{:else if $branches$.filter((b) => !b.active).length == 0}
 				<div class="text-color-2 p-2">You have no stashed branches</div>
 			{:else}
-				{#each $branches$.filter((b) => !b.active) as branch (branch.id)}
+				{#each $branches$ as branch (branch.id)}
 					<a
 						class="item"
 						href={`/${project.id}/stashed/${branch.id}`}
