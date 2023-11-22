@@ -31,13 +31,9 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    pub async fn handle(
-        &self,
-        project_id: &ProjectId,
-        now: &time::SystemTime,
-    ) -> Result<Vec<events::Event>> {
+    pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         if let Ok(inner) = self.inner.try_lock() {
-            inner.handle(project_id, now).await
+            inner.handle(project_id).await
         } else {
             Ok(vec![])
         }
@@ -63,11 +59,7 @@ impl TryFrom<&AppHandle> for HandlerInner {
 }
 
 impl HandlerInner {
-    pub async fn handle(
-        &self,
-        project_id: &ProjectId,
-        now: &time::SystemTime,
-    ) -> Result<Vec<events::Event>> {
+    pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         let project = self
             .project_store
             .get(project_id)
@@ -125,7 +117,7 @@ impl HandlerInner {
                     id: *project_id,
                     gitbutler_code_push_state: Some(CodePushState {
                         id: *id,
-                        timestamp: *now,
+                        timestamp: time::SystemTime::now(),
                     }),
                     ..Default::default()
                 })

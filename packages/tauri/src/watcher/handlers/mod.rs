@@ -89,7 +89,7 @@ impl Handler {
 
             events::Event::PushProjectToGitbutler(project_id) => self
                 .push_project_to_gitbutler
-                .handle(project_id, &now)
+                .handle(project_id)
                 .await
                 .context("failed to push project to gitbutler"),
 
