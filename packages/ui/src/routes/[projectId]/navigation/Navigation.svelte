@@ -15,7 +15,7 @@
 	import type { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 	import ProjectSelector from './ProjectSelector.svelte';
 	import Branches from './Branches.svelte';
-	import type { BranchService } from '$lib/remotecontributions/store';
+	import type { BranchService } from '$lib/branches/store';
 
 	export let vbranchService: VirtualBranchService;
 	export let branchService: BranchService;

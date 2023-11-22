@@ -1,11 +1,10 @@
 import type { PullRequest } from '$lib/github/types';
 import type { RemoteBranch } from '$lib/vbranches/types';
-import { CombinedBranch } from '$lib/remotecontributions/types';
+import { CombinedBranch } from '$lib/branches/types';
 import { Observable, combineLatest } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { PrService } from '$lib/github/pullrequest';
-import { plainToInstance } from 'class-transformer';
 
 export class BranchService {
 	public branches$: Observable<CombinedBranch[]>;

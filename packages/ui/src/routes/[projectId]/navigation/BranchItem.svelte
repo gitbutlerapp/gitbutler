@@ -2,7 +2,7 @@
 	import AuthorIcons from '$lib/components/AuthorIcons.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
-	import type { CombinedBranch } from '$lib/remotecontributions/types';
+	import type { CombinedBranch } from '$lib/branches/types';
 
 	export let projectId: string;
 	export let branch: CombinedBranch;
