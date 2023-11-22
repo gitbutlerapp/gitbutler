@@ -74,7 +74,7 @@
 	<AppUpdater {update} />
 </div>
 
-<style>
+<style lang="postcss">
 	.domains {
 		padding-top: var(--space-14);
 		padding-bottom: var(--space-24);

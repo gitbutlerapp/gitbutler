@@ -29,7 +29,7 @@
 	</div>
 </a>
 
-<style>
+<style lang="postcss">
 	.item {
 		display: flex;
 		gap: var(--space-10);
