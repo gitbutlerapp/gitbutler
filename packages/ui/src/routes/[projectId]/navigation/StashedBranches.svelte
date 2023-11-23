@@ -10,6 +10,11 @@
 	import type { UIEventHandler } from 'svelte/elements';
 	import SectionHeader from './SectionHeader.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
+	import Resizer from '$lib/components/Resizer.svelte';
+	import { getContext } from 'svelte';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+
+	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	export let vbranchService: VirtualBranchService;
 	export let branchController: BranchController;
@@ -30,10 +35,27 @@
 	};
 </script>
 
+<Resizer
+	minHeight={100}
+	{viewport}
+	direction="vertical"
+	class="z-30"
+	reverse={true}
+	on:height={(e) => {
+		userSettings.update((s) => ({
+			...s,
+			stashedBranchesHeight: e.detail
+		}));
+	}}
+/>
 <SectionHeader {scrolled} count={$branches$?.length ?? 0} expandable={true} bind:expanded>
 	Stashed branches
 </SectionHeader>
-<div use:accordion={$branches$?.length > 0 && expanded} class="wrapper relative flex-grow">
+<div
+	class="wrapper"
+	use:accordion={$branches$?.length > 0 && expanded}
+	style:height={`${$userSettings.stashedBranchesHeight}px`}
+>
 	<div
 		bind:this={viewport}
 		on:scroll={onScroll}
@@ -91,7 +113,7 @@
 		padding-right: var(--space-16);
 	}
 	.wrapper {
-		min-height: 10rem;
+		position: relative;
 	}
 	.item {
 		display: flex;

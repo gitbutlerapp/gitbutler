@@ -64,11 +64,7 @@
 			</DomainButton>
 		</div>
 	</div>
-	<Branches
-		projectId={project.id}
-		{branchService}
-		grow={!stashExpanded || $activeBranches$?.length == 0}
-	/>
+	<Branches projectId={project.id} {branchService} />
 	<StashedBranches {project} {branchController} {vbranchService} bind:expanded={stashExpanded} />
 	<Footer {user} projectId={project.id} />
 	<AppUpdater {update} />
@@ -76,6 +72,7 @@
 
 <style lang="postcss">
 	.domains {
+		flex-grow: 1;
 		padding-top: var(--space-14);
 		padding-bottom: var(--space-24);
 		padding-left: var(--space-16);
