@@ -17,6 +17,7 @@ pub mod id;
 pub mod keys;
 pub mod lock;
 pub mod logs;
+pub mod menu;
 pub mod paths;
 pub mod project_repository;
 pub mod projects;

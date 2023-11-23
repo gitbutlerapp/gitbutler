@@ -16,7 +16,7 @@
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
 	import { initTheme } from './user/theme';
 	import { navigating } from '$app/stores';
-	import { setCurrentProject } from '$lib/backend/users';
+	import { subscribe as menuSubscribe } from '$lib/menu';
 
 	export let data: LayoutData;
 	const { projectService, cloud, user$ } = data;
@@ -31,10 +31,17 @@
 	$: zoom = $userSettings.zoom || 1;
 	$: document.documentElement.style.fontSize = zoom + 'rem';
 	$: userSettings.update((s) => ({ ...s, zoom: zoom }));
+
+	// listen for current project events
+	let unsubscribeMenu = () => {};
 	$: if ($navigating) {
-		// Keeps the backend aware of what is the current project
-		let projectId = $navigating?.to?.params?.projectId;
-		setCurrentProject({ projectId });
+		const fromProject = $navigating?.from?.params?.projectId;
+		const toProject = $navigating?.to?.params?.projectId;
+		const projectHasChanged = fromProject !== toProject;
+		if (projectHasChanged && toProject) {
+			unsubscribeMenu?.();
+			unsubscribeMenu = menuSubscribe(toProject);
+		}
 	}
 
 	onMount(() =>

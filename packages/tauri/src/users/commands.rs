@@ -55,48 +55,6 @@ pub async fn set_user(handle: AppHandle, user: User) -> Result<User, Error> {
     Ok(proxy.proxy_user(user).await)
 }
 
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn set_current_project(
-    handle: tauri::AppHandle,
-    project_id: Option<&str>,
-) -> Result<(), Error> {
-    let app = handle.state::<Controller>();
-    if let Some(user) = app.get_user()? {
-        let mut user = user;
-        match project_id {
-            Some(project_id) => {
-                user.current_project = Some(project_id.to_string());
-            }
-            None => {
-                user.current_project = None;
-            }
-        }
-        app.set_user(&user)?;
-        if let Some(win) = handle.get_window("main") {
-            let menu_handle = win.menu_handle();
-            if let Some(project_settings) = menu_handle.try_get_item("projectsettings") {
-                _ = project_settings.set_enabled(project_id.is_some());
-            }
-        }
-    }
-    // TODO: persist this not on the user object
-    Ok(())
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-pub async fn get_current_project(handle: tauri::AppHandle) -> Result<Option<String>, Error> {
-    let app = handle.state::<Controller>();
-    match app.get_user()? {
-        Some(user) => Ok(user.current_project),
-        None => Err({
-            tracing::error!("failed to get user");
-            Error::Unknown
-        }),
-    }
-}
-
 impl From<controller::DeleteError> for Error {
     fn from(value: controller::DeleteError) -> Self {
         match value {

@@ -12,11 +12,13 @@ pub enum Code {
     ProjectGitRemote,
     ProjectConflict,
     ProjectHead,
+    Menu,
 }
 
 impl fmt::Display for Code {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Code::Menu => write!(f, "errors.menu"),
             Code::Unknown => write!(f, "errors.unknown"),
             Code::Validation => write!(f, "errors.validation"),
             Code::Projects => write!(f, "errors.projects"),

@@ -4,7 +4,7 @@ use anyhow::Context;
 use tauri::{generate_context, Manager};
 
 use gblib::{
-    analytics, app, assets, commands, database, deltas, github, keys, logs, projects, sentry,
+    analytics, app, assets, commands, database, deltas, github, keys, logs, menu, projects, sentry,
     sessions, storage, users, virtual_branches, watcher, zip,
 };
 
@@ -27,13 +27,7 @@ fn main() {
             let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
             let tray = tauri::SystemTray::new().with_menu(tray_menu);
 
-            let project_settings = tauri::CustomMenuItem::new("projectsettings".to_string(), "Project Settings");
-            let project_submenu = tauri::Submenu::new("Project", tauri::Menu::new().add_item(project_settings.disabled()));
-            let menu = tauri::Menu::os_default(&app_title)
-                .add_submenu(project_submenu);
-
             tauri::Builder::default()
-                .menu(menu)
                 .system_tray(tray)
                 .on_system_tray_event(|app_handle, event| {
                     if let tauri::SystemTrayEvent::MenuItemClick { id, .. } = event {
@@ -68,11 +62,6 @@ fn main() {
                         api.prevent_close();
                     }
                 })
-                .on_menu_event(move |event| {
-                    if event.menu_item_id() == "projectsettings" {
-                        _ = event.window().emit("menuAction", Some("projectSettings"));
-                    }
-                  })
                 .setup(move |tauri_app| {
                     let window =
                         create_window(&tauri_app.handle()).expect("Failed to create window");
@@ -168,8 +157,6 @@ fn main() {
                     users::commands::set_user,
                     users::commands::delete_user,
                     users::commands::get_user,
-                    users::commands::get_current_project,
-                    users::commands::set_current_project,
                     projects::commands::add_project,
                     projects::commands::get_project,
                     projects::commands::update_project,
@@ -199,10 +186,13 @@ fn main() {
                     virtual_branches::commands::amend_virtual_branch,
                     virtual_branches::commands::list_remote_branches,
                     virtual_branches::commands::squash_branch_commit,
+                    menu::menu_item_set_enabled,
                     keys::commands::get_public_key,
                     github::commands::init_device_oauth,
                     github::commands::check_auth_status,
                 ])
+                .menu(menu::build(tauri_context.package_info()))
+                .on_menu_event(|event|menu::handle_event(&event))
                 .build(tauri_context)
                 .expect("Failed to build tauri app")
                 .run(|app_handle, event| match event {
