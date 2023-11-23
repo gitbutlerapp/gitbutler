@@ -2810,6 +2810,9 @@ pub fn squash(
         .context("failed to commit")?;
 
     let new_head_id = if let Some(ids_to_rebase) = ids_to_rebase {
+        let mut ids_to_rebase = ids_to_rebase.to_vec();
+        ids_to_rebase.reverse();
+
         // now, rebase unchanged commits onto the new commit
         let commits_to_rebase = ids_to_rebase
             .iter()
