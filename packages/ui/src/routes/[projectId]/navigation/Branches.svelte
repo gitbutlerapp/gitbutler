@@ -12,7 +12,6 @@
 
 	export let branchService: BranchService;
 	export let projectId: string;
-	export let grow: boolean;
 	$: branches$ = branchService.branches$;
 
 	let viewport: HTMLElement;
@@ -24,12 +23,21 @@
 	};
 </script>
 
+<Resizer
+	minHeight={100}
+	{viewport}
+	direction="vertical"
+	class="z-30"
+	reverse={true}
+	on:height={(e) => {
+		userSettings.update((s) => ({
+			...s,
+			vbranchExpandableHeight: e.detail
+		}));
+	}}
+/>
 <SectionHeader {scrolled} count={$branches$?.length ?? 0}>Other branches</SectionHeader>
-<div
-	class="wrapper"
-	style:height={`${$userSettings.vbranchExpandableHeight}px`}
-	class:flex-grow={grow}
->
+<div class="wrapper" style:height={`${$userSettings.vbranchExpandableHeight}px`}>
 	<div bind:this={viewport} class="viewport hide-native-scrollbar" on:scroll={onScroll}>
 		<div bind:this={contents} class="content">
 			{#if $branches$}
@@ -42,22 +50,8 @@
 	<Scrollbar {viewport} {contents} width="0.5rem" />
 </div>
 
-<Resizer
-	minHeight={200}
-	{viewport}
-	direction="vertical"
-	class="z-30"
-	on:height={(e) => {
-		userSettings.update((s) => ({
-			...s,
-			vbranchExpandableHeight: e.detail
-		}));
-	}}
-/>
-
 <style lang="postcss">
 	.wrapper {
-		min-height: 10rem;
 		position: relative;
 		overflow: hidden;
 	}

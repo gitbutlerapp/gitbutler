@@ -935,6 +935,10 @@
 			on:width={(e) => {
 				laneWidth = e.detail;
 				lscache.set(laneWidthKey + branch.id, e.detail, 7 * 1440); // 7 day ttl
+				userSettings.update((s) => ({
+					...s,
+					defaultLaneWidth: e.detail
+				}));
 			}}
 		/>
 	{/if}
