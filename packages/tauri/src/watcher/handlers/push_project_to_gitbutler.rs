@@ -97,10 +97,10 @@ impl HandlerInner {
             },
         )?;
 
-        tracing::debug!(
+        tracing::info!(
             %project_id,
             batches=%ids.len(),
-            "batches collected",
+            "batches left to push",
         );
 
         let id_count = ids.len();
@@ -128,7 +128,9 @@ impl HandlerInner {
 
             tracing::info!(
                 %project_id,
-                "project batch pushed: {}/{}",id_count.saturating_sub(idx),id_count,
+                i = id_count.saturating_sub(idx),
+                total = id_count,
+                "project batch pushed",
             );
         }
 
