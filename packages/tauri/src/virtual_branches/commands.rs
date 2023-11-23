@@ -540,6 +540,33 @@ pub async fn squash_branch_commit(
     Ok(())
 }
 
+pub async fn update_commit_message(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch_id: &str,
+    commit_oid: &str,
+    message: &str,
+) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".into(),
+    })?;
+    let branch_id = branch_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed branch id".into(),
+    })?;
+    let commit_oid = commit_oid.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed commit oid".into(),
+    })?;
+    handle
+        .state::<Controller>()
+        .update_commit_message(&project_id, &branch_id, commit_oid, message)
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(())
+}
+
 async fn emit_vbranches(handle: &AppHandle, project_id: &projects::ProjectId) {
     if let Err(error) = handle
         .state::<watcher::Watchers>()
