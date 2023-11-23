@@ -32,6 +32,7 @@
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	let stashExpanded = true;
+	let branchesExpanded = true;
 </script>
 
 <div
@@ -64,7 +65,7 @@
 			</DomainButton>
 		</div>
 	</div>
-	<Branches projectId={project.id} {branchService} />
+	<Branches projectId={project.id} {branchService} bind:expanded={branchesExpanded} />
 	<StashedBranches {project} {branchController} {vbranchService} bind:expanded={stashExpanded} />
 	<Footer {user} projectId={project.id} />
 	<AppUpdater {update} />

@@ -7,11 +7,14 @@
 	import { getContext } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import SectionHeader from './SectionHeader.svelte';
+	import { accordion } from './accordion';
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	export let branchService: BranchService;
 	export let projectId: string;
+	export let expanded = false;
+
 	$: branches$ = branchService.branches$;
 
 	let viewport: HTMLElement;
@@ -23,21 +26,29 @@
 	};
 </script>
 
-<Resizer
-	minHeight={100}
-	{viewport}
-	direction="vertical"
-	class="z-30"
-	reverse={true}
-	on:height={(e) => {
-		userSettings.update((s) => ({
-			...s,
-			vbranchExpandableHeight: e.detail
-		}));
-	}}
-/>
-<SectionHeader {scrolled} count={$branches$?.length ?? 0}>Other branches</SectionHeader>
-<div class="wrapper" style:height={`${$userSettings.vbranchExpandableHeight}px`}>
+{#if expanded}
+	<Resizer
+		minHeight={100}
+		{viewport}
+		direction="vertical"
+		class="z-30"
+		reverse={true}
+		on:height={(e) => {
+			userSettings.update((s) => ({
+				...s,
+				vbranchExpandableHeight: e.detail
+			}));
+		}}
+	/>
+{/if}
+<SectionHeader {scrolled} count={$branches$?.length ?? 0} expandable={true} bind:expanded
+	>Other branches</SectionHeader
+>
+<div
+	class="wrapper"
+	use:accordion={$branches$?.length > 0 && expanded}
+	style:height={`${$userSettings.vbranchExpandableHeight}px`}
+>
 	<div bind:this={viewport} class="viewport hide-native-scrollbar" on:scroll={onScroll}>
 		<div bind:this={contents} class="content">
 			{#if $branches$}
