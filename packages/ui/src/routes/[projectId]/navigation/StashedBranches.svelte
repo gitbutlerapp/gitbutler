@@ -35,77 +35,79 @@
 	};
 </script>
 
-{#if expanded}
-	<Resizer
-		minHeight={100}
-		{viewport}
-		direction="vertical"
-		class="z-30"
-		reverse={true}
-		on:height={(e) => {
-			userSettings.update((s) => ({
-				...s,
-				stashedBranchesHeight: e.detail
-			}));
-		}}
-	/>
-{/if}
-<SectionHeader {scrolled} count={$branches$?.length ?? 0} expandable={true} bind:expanded>
-	Stashed branches
-</SectionHeader>
-<div
-	class="wrapper"
-	use:accordion={$branches$?.length > 0 && expanded}
-	style:height={`${$userSettings.stashedBranchesHeight}px`}
->
-	<div
-		bind:this={viewport}
-		on:scroll={onScroll}
-		class="viewport hide-native-scrollbar flex h-full max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
-	>
-		<div bind:this={contents} class="contents">
-			{#if $branchesError$}
-				<div class="px-2 py-1">Something went wrong!</div>
-			{:else if !$branches$}
-				<div class="px-2 py-1">Loading...</div>
-			{:else if $branches$.length == 0}
-				<div class="text-color-2 p-2">You have no stashed branches</div>
-			{:else}
-				{#each $branches$ as branch (branch.id)}
-					<a
-						class="item"
-						href={`/${project.id}/stashed/${branch.id}`}
-						transition:slide={{ duration: 250 }}
-					>
-						<Icon name="branch" />
-						<div class="text-color-2 flex-grow truncate">
-							{branch.name}
-						</div>
-					</a>
-				{/each}
-			{/if}
-		</div>
-	</div>
-	<Scrollbar {viewport} {contents} width="0.5rem" />
-</div>
-
-<Modal width="small" bind:this={applyConflictedModal}>
-	<svelte:fragment slot="title">Merge conflicts</svelte:fragment>
-	<p>Applying this branch will introduce merge conflicts.</p>
-	<svelte:fragment slot="controls" let:item let:close>
-		<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
-		<Button
-			height="small"
-			color="purple"
-			on:click={() => {
-				branchController.applyBranch(item.id);
-				close();
+{#if $branches$?.length > 0}
+	{#if expanded}
+		<Resizer
+			minHeight={100}
+			{viewport}
+			direction="vertical"
+			class="z-30"
+			reverse={true}
+			on:height={(e) => {
+				userSettings.update((s) => ({
+					...s,
+					stashedBranchesHeight: e.detail
+				}));
 			}}
+		/>
+	{/if}
+	<SectionHeader {scrolled} count={$branches$?.length ?? 0} expandable={true} bind:expanded>
+		Stashed branches
+	</SectionHeader>
+	<div
+		class="wrapper"
+		use:accordion={$branches$?.length > 0 && expanded}
+		style:height={`${$userSettings.stashedBranchesHeight}px`}
+	>
+		<div
+			bind:this={viewport}
+			on:scroll={onScroll}
+			class="viewport hide-native-scrollbar flex h-full max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
 		>
-			Update
-		</Button>
-	</svelte:fragment>
-</Modal>
+			<div bind:this={contents} class="contents">
+				{#if $branchesError$}
+					<div class="px-2 py-1">Something went wrong!</div>
+				{:else if !$branches$}
+					<div class="px-2 py-1">Loading...</div>
+				{:else if $branches$.length == 0}
+					<div class="text-color-2 p-2">You have no stashed branches</div>
+				{:else}
+					{#each $branches$ as branch (branch.id)}
+						<a
+							class="item"
+							href={`/${project.id}/stashed/${branch.id}`}
+							transition:slide={{ duration: 250 }}
+						>
+							<Icon name="branch" />
+							<div class="text-color-2 flex-grow truncate">
+								{branch.name}
+							</div>
+						</a>
+					{/each}
+				{/if}
+			</div>
+		</div>
+		<Scrollbar {viewport} {contents} width="0.5rem" />
+	</div>
+
+	<Modal width="small" bind:this={applyConflictedModal}>
+		<svelte:fragment slot="title">Merge conflicts</svelte:fragment>
+		<p>Applying this branch will introduce merge conflicts.</p>
+		<svelte:fragment slot="controls" let:item let:close>
+			<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
+			<Button
+				height="small"
+				color="purple"
+				on:click={() => {
+					branchController.applyBranch(item.id);
+					close();
+				}}
+			>
+				Update
+			</Button>
+		</svelte:fragment>
+	</Modal>
+{/if}
 
 <style lang="postcss">
 	.viewport {
