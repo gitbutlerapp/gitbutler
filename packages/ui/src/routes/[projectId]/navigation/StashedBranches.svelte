@@ -35,19 +35,21 @@
 	};
 </script>
 
-<Resizer
-	minHeight={100}
-	{viewport}
-	direction="vertical"
-	class="z-30"
-	reverse={true}
-	on:height={(e) => {
-		userSettings.update((s) => ({
-			...s,
-			stashedBranchesHeight: e.detail
-		}));
-	}}
-/>
+{#if expanded}
+	<Resizer
+		minHeight={100}
+		{viewport}
+		direction="vertical"
+		class="z-30"
+		reverse={true}
+		on:height={(e) => {
+			userSettings.update((s) => ({
+				...s,
+				stashedBranchesHeight: e.detail
+			}));
+		}}
+	/>
+{/if}
 <SectionHeader {scrolled} count={$branches$?.length ?? 0} expandable={true} bind:expanded>
 	Stashed branches
 </SectionHeader>
