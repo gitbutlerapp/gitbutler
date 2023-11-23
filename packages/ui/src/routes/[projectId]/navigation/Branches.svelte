@@ -26,23 +26,17 @@
 
 <SectionHeader {scrolled} count={$branches$?.length ?? 0}>Other branches</SectionHeader>
 <div
-	class="container relative overflow-hidden"
+	class="wrapper"
 	style:height={`${$userSettings.vbranchExpandableHeight}px`}
 	class:flex-grow={grow}
 >
-	<div
-		bind:this={viewport}
-		class="hide-native-scrollbar h-full overflow-y-scroll overscroll-none px-4 py-1"
-		on:scroll={onScroll}
-	>
-		<div bind:this={contents} class="flex flex-col gap-3">
-			<div class="">
-				{#if $branches$}
-					{#each $branches$ as branch}
-						<BranchItem {projectId} {branch} />
-					{/each}
-				{/if}
-			</div>
+	<div bind:this={viewport} class="viewport hide-native-scrollbar" on:scroll={onScroll}>
+		<div bind:this={contents} class="content">
+			{#if $branches$}
+				{#each $branches$ as branch}
+					<BranchItem {projectId} {branch} />
+				{/each}
+			{/if}
 		</div>
 	</div>
 	<Scrollbar {viewport} {contents} width="0.5rem" />
@@ -61,8 +55,24 @@
 	}}
 />
 
-<style>
-	.container {
+<style lang="postcss">
+	.wrapper {
 		min-height: 10rem;
+		position: relative;
+		overflow: hidden;
+	}
+	.viewport {
+		height: 100%;
+		overflow-y: scroll;
+		overscroll-behavior: none;
+		padding-top: var(--space-4);
+		padding-bottom: var(--space-16);
+		padding-left: var(--space-16);
+		padding-right: var(--space-16);
+	}
+	.content {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-12);
 	}
 </style>
