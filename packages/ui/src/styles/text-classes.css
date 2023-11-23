@@ -1,11 +1,3 @@
-.text-semibold {
-	font-weight: 500;
-}
-
-.text-bold {
-	font-weight: 700;
-}
-
 /* text Base Classes */
 .text-base-10 {
 	font-family: var(--base-font-family);
@@ -143,4 +135,14 @@
 	font-weight: 700;
 	letter-spacing: 0;
 	line-height: 100%;
+}
+
+/* modifiers */
+
+.text-semibold {
+	font-weight: 500;
+}
+
+.text-bold {
+	font-weight: 700;
 }

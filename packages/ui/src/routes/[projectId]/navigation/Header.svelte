@@ -17,29 +17,30 @@
 </script>
 
 <div data-tauri-drag-region class="header">
-	<div class="header__sync text-base-11 font-semibold">
-		<IconButton
-			class="items-center justify-center align-top "
-			on:click={async (e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				fetching = true;
-				await branchController.fetchFromTarget().finally(() => {
-					fetching = false;
-					prService.reload();
-				});
-			}}
-		>
-			<div class:animate-spin={fetching}>
-				<IconRefresh class="h-4 w-4" />
-			</div>
-		</IconButton>
+	<button
+		class="sync-btn"
+		on:click={async (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			fetching = true;
+			await branchController.fetchFromTarget().finally(() => {
+				fetching = false;
+				prService.reload();
+			});
+		}}
+	>
 		<Tooltip label="Last fetch from upstream">
 			{#if $base$?.fetchedAt}
-				<TimeAgo date={$base$.fetchedAt} />
+				<span class="text-base-11 text-semibold sync-btn__label">
+					{#if fetching}
+						fetching...
+					{:else}
+						<TimeAgo date={$base$?.fetchedAt} />
+					{/if}
+				</span>
 			{/if}
 		</Tooltip>
-	</div>
+	</button>
 </div>
 
 <style lang="postcss">
@@ -48,9 +49,9 @@
 		flex-shrink: 0;
 		align-items: center;
 		justify-content: right;
-		color: var(--clr-theme-scale-ntrl-50);
 	}
-	.header__sync {
+
+	.sync-btn {
 		display: flex;
 		align-items: center;
 		gap: var(--space-4);
@@ -60,5 +61,15 @@
 		padding-right: var(--space-6);
 		background: var(--clr-theme-container-pale);
 		border-radius: var(--radius-m);
+		transition: background var(--transition-fast);
+
+		&:hover {
+			background: var(--clr-theme-container-sub);
+		}
+	}
+
+	.sync-btn__label {
+		white-space: nowrap;
+		color: var(--clr-theme-scale-ntrl-50);
 	}
 </style>
