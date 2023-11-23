@@ -325,6 +325,19 @@ impl Controller {
             .squash(project_id, branch_id, commit_oid)
             .await
     }
+
+    pub async fn update_commit_message(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid,
+        message: &str,
+    ) -> Result<(), ControllerError<errors::UpdateCommitMessageError>> {
+        self.inner(project_id)
+            .await
+            .update_commit_message(project_id, branch_id, commit_oid, message)
+            .await
+    }
 }
 
 #[derive(Clone)]
@@ -809,6 +822,26 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
             super::squash(gb_repository, project_repository, branch_id, commit_oid)
                 .map_err(Into::into)
+        })
+    }
+
+    pub async fn update_commit_message(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid,
+        message: &str,
+    ) -> Result<(), ControllerError<errors::UpdateCommitMessageError>> {
+        let _permit = self.semaphore.acquire().await;
+        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
+            super::update_commit_message(
+                gb_repository,
+                project_repository,
+                branch_id,
+                commit_oid,
+                message,
+            )
+            .map_err(Into::into)
         })
     }
 }

@@ -220,6 +220,45 @@ pub enum SquashError {
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum UpdateCommitMessageError {
+    #[error("empty message")]
+    EmptyMessage,
+    #[error("default target not set")]
+    DefaultTargetNotSet(DefaultTargetNotSetError),
+    #[error("commit {0} not in the branch")]
+    CommitNotFound(git::Oid),
+    #[error("branch not found")]
+    BranchNotFound(BranchNotFoundError),
+    #[error("project is in conflict state")]
+    Conflict(ProjectConflictError),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+impl From<UpdateCommitMessageError> for Error {
+    fn from(value: UpdateCommitMessageError) -> Self {
+        match value {
+            UpdateCommitMessageError::EmptyMessage => Error::UserError {
+                message: "Commit message can not be empty".to_string(),
+                code: crate::error::Code::Branches,
+            },
+            UpdateCommitMessageError::DefaultTargetNotSet(error) => error.into(),
+            UpdateCommitMessageError::CommitNotFound(oid) => Error::UserError {
+                message: format!("Commit {} not found", oid),
+                code: crate::error::Code::Branches,
+            },
+            UpdateCommitMessageError::BranchNotFound(error) => error.into(),
+            UpdateCommitMessageError::Conflict(error) => error.into(),
+            UpdateCommitMessageError::Other(error) => {
+                tracing::error!(?error, "update commit message error");
+                Error::Unknown
+            }
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum GetBaseBranchDataError {
     #[error(transparent)]

@@ -2810,6 +2810,167 @@ pub fn squash(
         .context("failed to commit")?;
 
     let new_head_id = if let Some(ids_to_rebase) = ids_to_rebase {
+        let mut ids_to_rebase = ids_to_rebase.to_vec();
+        ids_to_rebase.reverse();
+
+        // now, rebase unchanged commits onto the new commit
+        let commits_to_rebase = ids_to_rebase
+            .iter()
+            .map(|oid| project_repository.git_repository.find_commit(*oid))
+            .collect::<Result<Vec<_>, _>>()
+            .context("failed to read commits to rebase")?;
+
+        commits_to_rebase
+            .into_iter()
+            .fold(
+                project_repository
+                    .git_repository
+                    .find_commit(new_commit_oid)
+                    .context("failed to find new commit"),
+                |head, to_rebase| {
+                    let head = head?;
+
+                    let mut cherrypick_index = project_repository
+                        .git_repository
+                        .cherry_pick(&head, &to_rebase)
+                        .context("failed to cherry pick")?;
+
+                    if cherrypick_index.has_conflicts() {
+                        bail!("failed to rebase");
+                    }
+
+                    let merge_tree_oid = cherrypick_index
+                        .write_tree_to(&project_repository.git_repository)
+                        .context("failed to write merge tree")?;
+
+                    let merge_tree = project_repository
+                        .git_repository
+                        .find_tree(merge_tree_oid)
+                        .context("failed to find merge tree")?;
+
+                    let commit_oid = project_repository
+                        .git_repository
+                        .commit(
+                            None,
+                            &to_rebase.author(),
+                            &to_rebase.committer(),
+                            to_rebase.message().unwrap_or_default(),
+                            &merge_tree,
+                            &[&head],
+                        )
+                        .context("failed to create commit")?;
+
+                    project_repository
+                        .git_repository
+                        .find_commit(commit_oid)
+                        .context("failed to find commit")
+                },
+            )?
+            .id()
+    } else {
+        new_commit_oid
+    };
+
+    // save new branch head
+    let writer = branch::Writer::new(gb_repository);
+    writer
+        .write(&Branch {
+            head: new_head_id,
+            ..branch.clone()
+        })
+        .context("failed to write branch")?;
+
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
+    Ok(())
+}
+
+pub fn update_commit_message(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    commit_oid: git::Oid,
+    message: &str,
+) -> Result<(), errors::UpdateCommitMessageError> {
+    if message.is_empty() {
+        return Err(errors::UpdateCommitMessageError::EmptyMessage);
+    }
+
+    if conflicts::is_conflicting(project_repository, None)? {
+        return Err(errors::UpdateCommitMessageError::Conflict(
+            errors::ProjectConflictError {
+                project_id: project_repository.project().id,
+            },
+        ));
+    }
+
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create current session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+    let branch_reader = branch::Reader::new(&current_session_reader);
+
+    let default_target = get_default_target(&current_session_reader)
+        .context("failed to read default target")?
+        .ok_or_else(|| {
+            errors::UpdateCommitMessageError::DefaultTargetNotSet(
+                errors::DefaultTargetNotSetError {
+                    project_id: project_repository.project().id,
+                },
+            )
+        })?;
+
+    let branch = branch_reader.read(branch_id).map_err(|error| match error {
+        reader::Error::NotFound => {
+            errors::UpdateCommitMessageError::BranchNotFound(errors::BranchNotFoundError {
+                project_id: project_repository.project().id,
+                branch_id: *branch_id,
+            })
+        }
+        error => errors::UpdateCommitMessageError::Other(error.into()),
+    })?;
+
+    let branch_commit_oids = project_repository.l(
+        branch.head,
+        project_repository::LogUntil::Commit(default_target.sha),
+    )?;
+
+    if !branch_commit_oids.contains(&commit_oid) {
+        return Err(errors::UpdateCommitMessageError::CommitNotFound(commit_oid));
+    }
+
+    let target_commit = project_repository
+        .git_repository
+        .find_commit(commit_oid)
+        .context("failed to find commit")?;
+
+    let ids_to_rebase = {
+        let ids = branch_commit_oids
+            .split(|oid| oid.eq(&commit_oid))
+            .collect::<Vec<_>>();
+        ids.first().copied()
+    };
+
+    let parents = target_commit
+        .parents()
+        .context("failed to find head commit parents")?;
+
+    let new_commit_oid = project_repository
+        .git_repository
+        .commit(
+            None,
+            &target_commit.author(),
+            &target_commit.committer(),
+            message,
+            &target_commit.tree().context("failed to find tree")?,
+            &parents.iter().collect::<Vec<_>>(),
+        )
+        .context("failed to commit")?;
+
+    let new_head_id = if let Some(ids_to_rebase) = ids_to_rebase {
+        let mut ids_to_rebase = ids_to_rebase.to_vec();
+        ids_to_rebase.reverse();
         // now, rebase unchanged commits onto the new commit
         let commits_to_rebase = ids_to_rebase
             .iter()
