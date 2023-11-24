@@ -1,5 +1,9 @@
 <script lang="ts" context="module">
 	export type IconColor = 'success' | 'error' | 'pop' | undefined;
+	export type jsonIcon = {
+		size: number;
+		path: string;
+	};
 </script>
 
 <script lang="ts">
@@ -9,20 +13,21 @@
 	export { className as class };
 	export let name: keyof typeof iconsJson;
 	export let color: IconColor = undefined;
+
+	$: svg = iconsJson[name] as jsonIcon;
 </script>
 
 <svg
 	class={className}
-	width="16"
-	height="16"
-	style="width: 1rem; height: 1rem;"
-	viewBox="0 0 16 16"
+	style:width={svg.size}
+	style:height={svg.size}
+	viewBox={`0 0 ${svg.size} ${svg.size}`}
 	fill-rule="evenodd"
 	class:success={color == 'success'}
 	class:error={color == 'error'}
 	class:pop={color == 'pop'}
 >
-	<path fill="currentColor" d={iconsJson[name]}></path>
+	<path fill="currentColor" d={svg.path}></path>
 </svg>
 
 <style>

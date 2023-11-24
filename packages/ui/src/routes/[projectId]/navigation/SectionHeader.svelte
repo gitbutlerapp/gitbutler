@@ -24,7 +24,7 @@
 		{/if}
 	</div>
 	{#if expandable && count}
-		<Icon name={expanded ? 'chevron-down' : 'chevron-top'} />
+		<Icon name={expanded ? 'chevron-down-16' : 'chevron-top-16'} />
 	{/if}
 </button>
 

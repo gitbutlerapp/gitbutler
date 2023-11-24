@@ -134,7 +134,7 @@
 					<Tooltip
 						label="File changes cannot be moved because part of this file was already committed into this branch"
 					>
-						<Icon name="locked" class="text-yellow-600" />
+						<Icon name="locked-16" class="text-yellow-600" />
 					</Tooltip>
 				</div>
 			{/if}

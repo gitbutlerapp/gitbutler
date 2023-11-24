@@ -29,7 +29,7 @@
 		>
 			<span class="button__label text-base-14 text-bold">{project.title}</span>
 			<div class="button__icon">
-				<Icon name="select-chevron" />
+				<Icon name="select-chevron-16" />
 			</div>
 		</button>
 		<ProjectsPopup bind:this={popup} projects={$projects$} />

@@ -78,7 +78,7 @@
 							href={`/${project.id}/stashed/${branch.id}`}
 							transition:slide={{ duration: 250 }}
 						>
-							<Icon name="branch" />
+							<Icon name="branch-16" />
 							<div class="text-color-2 flex-grow truncate">
 								{branch.name}
 							</div>

@@ -65,7 +65,7 @@
 			{#if $base$?.remoteUrl.includes('github.com')}
 				<IconGithub class="h-3 w-3" />
 			{:else}
-				<Icon name="branch" />
+				<Icon name="branch-16" />
 			{/if}
 			{$base$?.branchName}
 		</div>

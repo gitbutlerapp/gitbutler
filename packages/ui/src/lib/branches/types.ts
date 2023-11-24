@@ -34,8 +34,8 @@ export class CombinedBranch {
 	}
 
 	get icon(): keyof typeof iconsJson {
-		if (this.pr) return 'pr';
-		else if (this.branch) return 'branch';
+		if (this.pr) return 'pr-16';
+		else if (this.branch) return 'branch-16';
 		throw 'No author found';
 	}
 
