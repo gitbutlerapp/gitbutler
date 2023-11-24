@@ -5,7 +5,7 @@ use tauri::AppHandle;
 use tokio::sync::Mutex;
 
 use crate::{
-    gb_repository,
+    gb_repository, git,
     paths::DataDir,
     project_repository,
     projects::{self, CodePushState, ProjectId},
@@ -144,10 +144,16 @@ impl HandlerInner {
             Err(err) => return Err(err).context("failed to push"),
         };
 
-        let refs = gb_refs(&project_repository)?;
+        let refnames = gb_refs(&project_repository)?;
 
-        let all_refs = refs
+        let all_refs = refnames
             .iter()
+            .filter(|r| {
+                matches!(
+                    r,
+                    git::Refname::Remote(_) | git::Refname::Virtual(_) | git::Refname::Local(_)
+                )
+            })
             .map(|r| format!("+{}:{}", r, r))
             .collect::<Vec<_>>();
 
@@ -169,11 +175,13 @@ impl HandlerInner {
     }
 }
 
-fn gb_refs(project_repository: &project_repository::Repository) -> anyhow::Result<Vec<String>> {
+fn gb_refs(
+    project_repository: &project_repository::Repository,
+) -> anyhow::Result<Vec<git::Refname>> {
     Ok(project_repository
         .git_repository
         .references_glob("refs/*")?
         .flatten()
-        .filter_map(|r| r.name().map(|name| name.to_string()))
+        .filter_map(|r| r.name())
         .collect::<Vec<_>>())
 }
