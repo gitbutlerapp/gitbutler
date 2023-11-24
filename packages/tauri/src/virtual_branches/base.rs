@@ -629,10 +629,7 @@ pub fn create_virtual_branch_from_branch(
 
     // only set upstream if it's not the default target
     let upstream_branch = match upstream {
-        git::Refname::STASH
-        | git::Refname::Virtual(_)
-        | git::Refname::HEAD
-        | git::Refname::Tag(_) => {
+        git::Refname::Other(_) | git::Refname::Virtual(_) => {
             // we only support local or remote branches
             return Err(errors::CreateVirtualBranchFromBranchError::BranchNotFound(
                 upstream.clone(),
