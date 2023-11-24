@@ -15,6 +15,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import { syncToCloud } from '$lib/backend/cloud';
 	import { handleMenuActions } from '$lib/backend/menu_actions';
+	import { subscribe as menuSubscribe } from '$lib/menu';
 
 	export let data: LayoutData;
 
@@ -40,7 +41,10 @@
 	handleMenuActions(data.projectId);
 
 	onMount(() => {
-		return unsubscribe(hotkeys.on('Meta+Shift+S', () => syncToCloud($project$?.id)));
+		return unsubscribe(
+			menuSubscribe(data.projectId),
+			hotkeys.on('Meta+Shift+S', () => syncToCloud($project$?.id))
+		);
 	});
 </script>
 
