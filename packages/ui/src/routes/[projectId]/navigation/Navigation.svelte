@@ -28,7 +28,6 @@
 	export let prService: PrService;
 	export let projectService: ProjectService;
 
-	$: activeBranches$ = vbranchService?.activeBranches$;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	let stashExpanded = true;
@@ -50,7 +49,7 @@
 		<ProjectSelector {project} {projectService} />
 		<div class="flex flex-col gap-1">
 			<BaseBranchCard {project} {baseBranchService} {branchController} />
-			<DomainButton href={`/${project.id}/board`}>
+			<DomainButton href={`/${project.id}/board`} label="Applied branches">
 				<svg
 					width="16"
 					height="16"
@@ -62,8 +61,6 @@
 					<path d="M5 8.8H11V4" stroke="white" stroke-width="2" />
 					<path d="M5 12V8.44444V4" stroke="white" stroke-width="2" />
 				</svg>
-
-				Applied branches
 			</DomainButton>
 		</div>
 	</div>
