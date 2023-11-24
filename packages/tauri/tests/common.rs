@@ -109,9 +109,13 @@ impl TestProject {
 
     /// works like if we'd open and merge a PR on github. does not update local.
     pub fn merge(&self, branch_name: &git::Refname) {
-        let branch_name: git::Refname = format!("refs/heads/{}", branch_name.branch())
-            .parse()
-            .unwrap();
+        let branch_name: git::Refname = match branch_name {
+            git::Refname::Local(local) => format!("refs/heads/{}", local.branch()).parse().unwrap(),
+            git::Refname::Remote(remote) => {
+                format!("refs/heads/{}", remote.branch()).parse().unwrap()
+            }
+            _ => "INVALID".parse().unwrap(), // todo
+        };
         let branch = self.remote_repository.find_branch(&branch_name).unwrap();
         let branch_commit = branch.peel_to_commit().unwrap();
 
