@@ -15,8 +15,6 @@
 	import ShareIssueModal from './ShareIssueModal.svelte';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
 	import { initTheme } from './user/theme';
-	import { navigating } from '$app/stores';
-	import { subscribe as menuSubscribe } from '$lib/menu';
 
 	export let data: LayoutData;
 	const { projectService, cloud, user$ } = data;
@@ -31,18 +29,6 @@
 	$: zoom = $userSettings.zoom || 1;
 	$: document.documentElement.style.fontSize = zoom + 'rem';
 	$: userSettings.update((s) => ({ ...s, zoom: zoom }));
-
-	// listen for current project events
-	let unsubscribeMenu = () => {};
-	$: if ($navigating) {
-		const fromProject = $navigating?.from?.params?.projectId;
-		const toProject = $navigating?.to?.params?.projectId;
-		const projectHasChanged = fromProject !== toProject;
-		if (projectHasChanged && toProject) {
-			unsubscribeMenu?.();
-			unsubscribeMenu = menuSubscribe(toProject);
-		}
-	}
 
 	onMount(() =>
 		unsubscribe(
