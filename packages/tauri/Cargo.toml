@@ -84,3 +84,6 @@ devtools = ["tauri/devtools"]
 # this feature is used used for production builds where `devPath` points to the filesystem
 # DO NOT remove this
 custom-protocol = ["tauri/custom-protocol"]
+
+[lints]
+workspace = true
