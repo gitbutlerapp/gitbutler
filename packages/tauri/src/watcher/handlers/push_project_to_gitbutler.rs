@@ -185,3 +185,102 @@ fn gb_refs(
         .filter_map(|r| r.name())
         .collect::<Vec<_>>())
 }
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+
+    use crate::test_utils::{Case, Suite};
+    use crate::virtual_branches::set_test_target;
+
+    use super::super::test_remote_repository;
+    use super::*;
+
+    #[tokio::test]
+    async fn test_push_error() -> Result<()> {
+        let suite = Suite::default();
+        let Case { project, .. } = suite.new_case();
+
+        let api_project = projects::ApiProject {
+            name: "test-sync".to_string(),
+            description: None,
+            repository_id: "123".to_string(),
+            git_url: "".to_string(),
+            code_git_url: Some("".to_string()),
+            created_at: 0_i32.to_string(),
+            updated_at: 0_i32.to_string(),
+            sync: true,
+        };
+
+        suite
+            .projects
+            .update(&projects::UpdateRequest {
+                id: project.id,
+                api: Some(api_project.clone()),
+                ..Default::default()
+            })
+            .await?;
+
+        let listener = HandlerInner {
+            local_data_dir: suite.local_app_data,
+            project_store: suite.projects,
+            users: suite.users,
+        };
+
+        let res = listener.handle(&project.id).await;
+
+        assert!(res.is_err());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_push_simple() -> Result<()> {
+        let suite = Suite::default();
+        let Case {
+            project,
+            gb_repository,
+            project_repository,
+            ..
+        } = suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
+
+        suite.sign_in();
+
+        set_test_target(&gb_repository, &project_repository).unwrap();
+
+        let cloud_code = test_remote_repository()?;
+
+        let api_project = projects::ApiProject {
+            name: "test-sync".to_string(),
+            description: None,
+            repository_id: "123".to_string(),
+            git_url: "".to_string(),
+            code_git_url: Some(cloud_code.path().to_str().unwrap().to_string()),
+            created_at: 0_i32.to_string(),
+            updated_at: 0_i32.to_string(),
+            sync: true,
+        };
+
+        suite
+            .projects
+            .update(&projects::UpdateRequest {
+                id: project.id,
+                api: Some(api_project.clone()),
+                ..Default::default()
+            })
+            .await?;
+
+        let listener = HandlerInner {
+            local_data_dir: suite.local_app_data,
+            project_store: suite.projects,
+            users: suite.users,
+        };
+
+        let res = listener.handle(&project.id).await.unwrap();
+
+        assert!(res.is_empty());
+
+        Ok(())
+    }
+}
