@@ -57,13 +57,13 @@
 		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
 	}
 	.popup__actions {
-		padding: var(--space-10);
+		padding: var(--space-8);
 		border-top: 1px solid var(--clr-theme-scale-ntrl-70);
 	}
 	.popup__projects {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
-		padding: var(--space-10);
+		padding: var(--space-8);
 	}
 </style>
