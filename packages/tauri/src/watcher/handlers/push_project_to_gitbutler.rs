@@ -206,8 +206,8 @@ mod test {
             name: "test-sync".to_string(),
             description: None,
             repository_id: "123".to_string(),
-            git_url: "".to_string(),
-            code_git_url: Some("".to_string()),
+            git_url: String::new(),
+            code_git_url: Some(String::new()),
             created_at: 0_i32.to_string(),
             updated_at: 0_i32.to_string(),
             sync: true,
@@ -226,11 +226,12 @@ mod test {
             local_data_dir: suite.local_app_data,
             project_store: suite.projects,
             users: suite.users,
+            batch_size: 100,
         };
 
         let res = listener.handle(&project.id).await;
 
-        assert!(res.is_err());
+        res.unwrap_err();
 
         Ok(())
     }
@@ -255,7 +256,7 @@ mod test {
             name: "test-sync".to_string(),
             description: None,
             repository_id: "123".to_string(),
-            git_url: "".to_string(),
+            git_url: String::new(),
             code_git_url: Some(cloud_code.path().to_str().unwrap().to_string()),
             created_at: 0_i32.to_string(),
             updated_at: 0_i32.to_string(),
@@ -275,6 +276,7 @@ mod test {
             local_data_dir: suite.local_app_data,
             project_store: suite.projects,
             users: suite.users,
+            batch_size: 2,
         };
 
         let res = listener.handle(&project.id).await.unwrap();
