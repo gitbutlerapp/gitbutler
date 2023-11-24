@@ -1,11 +1,13 @@
 use std::{sync::Arc, time};
 
 use anyhow::{Context, Result};
+use itertools::Itertools;
 use tauri::AppHandle;
 use tokio::sync::Mutex;
 
 use crate::{
-    gb_repository, git,
+    gb_repository,
+    git::{self, Oid, Repository},
     paths::DataDir,
     project_repository,
     projects::{self, CodePushState, ProjectId},
@@ -91,12 +93,11 @@ impl HandlerInner {
             .context("failed to open gb repo")?
             .context("failed to get default target")?;
 
-        let ids = project_repository.l(
+        let ids = batch_rev_walk(
+            &project_repository.git_repository,
+            self.batch_size,
             default_target.sha,
-            project_repository::LogUntil::EveryNth {
-                n: self.batch_size,
-                until_id: gb_code_last_commit,
-            },
+            gb_code_last_commit,
         )?;
 
         tracing::info!(
@@ -105,7 +106,7 @@ impl HandlerInner {
             "batches left to push",
         );
 
-        let id_count = ids.len();
+        let id_count = &ids.len();
 
         for (idx, id) in ids.iter().enumerate().rev() {
             let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
@@ -188,6 +189,35 @@ fn gb_refs(
         .collect::<Vec<_>>())
 }
 
+fn batch_rev_walk(
+    repo: &Repository,
+    batch_size: usize,
+    from: Oid,
+    until: Option<Oid>,
+) -> Result<Vec<Oid>> {
+    let mut revwalk = repo.revwalk().context("failed to create revwalk")?;
+    revwalk
+        .push(from.into())
+        .context(format!("failed to push {}", from))?;
+
+    if let Some(oid) = until {
+        revwalk
+            .hide(oid.into())
+            .context(format!("failed to hide {}", oid))?;
+    }
+    let mut oids = Vec::new();
+    oids.push(from);
+    for batch in &revwalk.chunks(batch_size) {
+        if let Some(oid) = batch.last() {
+            let oid = oid.context("failed to get oid")?;
+            if oid != from.into() {
+                oids.push(oid.into());
+            }
+        }
+    }
+    Ok(oids)
+}
+
 #[cfg(test)]
 mod test {
     use std::collections::HashMap;
@@ -253,15 +283,9 @@ mod test {
 
         set_test_target(&gb_repository, &project_repository).unwrap();
 
-        let head = project_repository
-            .get_head()
-            .unwrap()
-            .peel_to_commit()
-            .unwrap()
-            .id();
+        let target_id = gb_repository.default_target().unwrap().unwrap().sha;
 
-        let reference = project_repository.l(head, LogUntil::End).unwrap();
-        assert_eq!(reference.len(), 3);
+        let reference = project_repository.l(target_id, LogUntil::End).unwrap();
 
         let cloud_code = test_remote_repository()?;
 
@@ -285,24 +309,36 @@ mod test {
             })
             .await?;
 
-        let listener = HandlerInner {
-            local_data_dir: suite.local_app_data,
-            project_store: suite.projects,
-            users: suite.users,
-            batch_size: 10,
-        };
+        cloud_code.find_commit(target_id.into()).unwrap_err();
 
-        cloud_code.find_commit(head.into()).unwrap_err();
+        {
+            let listener = HandlerInner {
+                local_data_dir: suite.local_app_data,
+                project_store: suite.projects.clone(),
+                users: suite.users,
+                batch_size: 10,
+            };
 
-        let res = listener.handle(&project.id).await.unwrap();
+            let res = listener.handle(&project.id).await.unwrap();
+            assert!(res.is_empty());
+        }
 
-        assert!(res.is_empty());
+        cloud_code.find_commit(target_id.into()).unwrap();
 
-        cloud_code.find_commit(head.into()).unwrap();
-
-        let pushed = log_walk(&cloud_code, head);
+        let pushed = log_walk(&cloud_code, target_id);
         assert_eq!(reference.len(), pushed.len());
         assert_eq!(reference, pushed);
+
+        assert_eq!(
+            suite
+                .projects
+                .get(&project.id)
+                .unwrap()
+                .gitbutler_code_push_state
+                .unwrap()
+                .id,
+            target_id
+        );
 
         Ok(())
     }
