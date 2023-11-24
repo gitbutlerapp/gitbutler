@@ -580,6 +580,12 @@ pub fn create_virtual_branch_from_branch(
     applied: Option<bool>,
     user: Option<&users::User>,
 ) -> Result<branch::Branch, CreateVirtualBranchFromBranchError> {
+    if !matches!(upstream, git::Refname::Local(_) | git::Refname::Remote(_)) {
+        return Err(errors::CreateVirtualBranchFromBranchError::BranchNotFound(
+            upstream.clone(),
+        ));
+    }
+
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create current session")?;
@@ -623,8 +629,11 @@ pub fn create_virtual_branch_from_branch(
 
     // only set upstream if it's not the default target
     let upstream_branch = match upstream {
-        git::Refname::Virtual(_) | git::Refname::HEAD => {
-            // we don't support creating virtual branches from virtual branches
+        git::Refname::STASH
+        | git::Refname::Virtual(_)
+        | git::Refname::HEAD
+        | git::Refname::Tag(_) => {
+            // we only support local or remote branches
             return Err(errors::CreateVirtualBranchFromBranchError::BranchNotFound(
                 upstream.clone(),
             ));
@@ -639,7 +648,10 @@ pub fn create_virtual_branch_from_branch(
 
     let mut branch = branch::Branch {
         id: BranchId::generate(),
-        name: upstream.branch().to_string(),
+        name: upstream
+            .branch()
+            .expect("always a branch reference")
+            .to_string(),
         notes: String::new(),
         applied: applied.unwrap_or(false),
         upstream: upstream_branch,

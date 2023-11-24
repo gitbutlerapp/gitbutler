@@ -1,6 +1,7 @@
 mod error;
 mod local;
 mod remote;
+mod tag;
 mod r#virtual;
 
 use std::{fmt, str::FromStr};
@@ -11,12 +12,15 @@ pub use error::Error;
 pub use local::Refname as LocalRefname;
 pub use r#virtual::Refname as VirtualRefname;
 pub use remote::Refname as RemoteRefname;
+pub use tag::Refname as TagRefname;
 
 use crate::git;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Refname {
     HEAD,
+    STASH,
+    Tag(TagRefname),
     Remote(RemoteRefname),
     Local(LocalRefname),
     Virtual(VirtualRefname),
@@ -59,12 +63,12 @@ impl From<&LocalRefname> for Refname {
 }
 
 impl Refname {
-    pub fn branch(&self) -> &str {
+    pub fn branch(&self) -> Option<&str> {
         match self {
-            Self::HEAD => "HEAD",
-            Self::Remote(remote) => remote.branch(),
-            Self::Local(local) => local.branch(),
-            Self::Virtual(r#virtual) => r#virtual.branch(),
+            Self::HEAD | Self::Tag(_) | Self::STASH => None,
+            Self::Remote(remote) => Some(remote.branch()),
+            Self::Local(local) => Some(local.branch()),
+            Self::Virtual(r#virtual) => Some(r#virtual.branch()),
         }
     }
 }
@@ -73,20 +77,14 @@ impl FromStr for Refname {
     type Err = Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        if value == "HEAD" {
-            Ok(Self::HEAD)
-        } else if value.starts_with("refs") {
-            if value.starts_with("refs/remotes/") {
-                Ok(Self::Remote(value.parse()?))
-            } else if value.starts_with("refs/heads/") {
-                Ok(Self::Local(value.parse()?))
-            } else if value.starts_with("refs/gitbutler/") {
-                Ok(Self::Virtual(value.parse()?))
-            } else {
-                Err(Error::InvalidName(value.to_string()))
-            }
-        } else {
-            Ok(Self::Local(value.parse()?))
+        match value {
+            "HEAD" => Ok(Self::HEAD),
+            "refs/stash" => Ok(Self::STASH),
+            value if value.starts_with("refs/tags/") => Ok(Self::Tag(value.parse()?)),
+            value if value.starts_with("refs/remotes/") => Ok(Self::Remote(value.parse()?)),
+            value if value.starts_with("refs/heads/") => Ok(Self::Local(value.parse()?)),
+            value if value.starts_with("refs/gitbutler/") => Ok(Self::Virtual(value.parse()?)),
+            _ => Err(Error::InvalidName(value.to_string())),
         }
     }
 }
@@ -107,6 +105,8 @@ impl fmt::Display for Refname {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::HEAD => write!(f, "HEAD"),
+            Self::STASH => write!(f, "refs/stash"),
+            Self::Tag(tag) => tag.fmt(f),
             Self::Remote(remote) => remote.fmt(f),
             Self::Local(local) => local.fmt(f),
             Self::Virtual(r#virtual) => r#virtual.fmt(f),
@@ -117,7 +117,9 @@ impl fmt::Display for Refname {
 impl Serialize for Refname {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
+            Self::STASH => serializer.serialize_str("refs/stash"),
             Self::HEAD => serializer.serialize_str("HEAD"),
+            Self::Tag(tag) => tag.serialize(serializer),
             Self::Remote(remote) => remote.serialize(serializer),
             Self::Local(local) => local.serialize(serializer),
             Self::Virtual(r#virtual) => r#virtual.serialize(serializer),

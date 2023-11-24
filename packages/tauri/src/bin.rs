@@ -1,5 +1,3 @@
-#![forbid(unsafe_code)]
-
 use anyhow::Context;
 use tauri::{generate_context, Manager};
 

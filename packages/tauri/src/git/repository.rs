@@ -330,6 +330,8 @@ impl Repository {
             .find_branch(
                 &match name {
                     Refname::HEAD => "HEAD".to_string(),
+                    Refname::STASH => "stash".to_string(),
+                    Refname::Tag(tag) => tag.tag().to_string(),
                     Refname::Virtual(virtual_refname) => virtual_refname.branch().to_string(),
                     Refname::Local(local) => local.branch().to_string(),
                     Refname::Remote(remote) => {
@@ -337,9 +339,11 @@ impl Repository {
                     }
                 },
                 match name {
-                    Refname::HEAD | Refname::Virtual(_) | Refname::Local(_) => {
-                        git2::BranchType::Local
-                    }
+                    Refname::STASH
+                    | Refname::HEAD
+                    | Refname::Virtual(_)
+                    | Refname::Local(_)
+                    | Refname::Tag(_) => git2::BranchType::Local,
                     Refname::Remote(_) => git2::BranchType::Remote,
                 },
             )

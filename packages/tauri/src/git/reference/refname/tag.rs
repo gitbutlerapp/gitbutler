@@ -2,27 +2,16 @@ use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
-use crate::virtual_branches::Branch;
-
 use super::error::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Refname {
-    // contains slug of the virtual branch name
-    branch: String,
+    tag: String,
 }
 
 impl Refname {
-    pub fn branch(&self) -> &str {
-        &self.branch
-    }
-}
-
-impl From<&Branch> for Refname {
-    fn from(value: &Branch) -> Self {
-        Self {
-            branch: slug::slugify(&value.name),
-        }
+    pub fn tag(&self) -> &str {
+        &self.tag
     }
 }
 
@@ -41,7 +30,7 @@ impl<'d> Deserialize<'d> for Refname {
 
 impl fmt::Display for Refname {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "refs/gitbutler/{}", self.branch)
+        write!(f, "refs/tags/{}", self.tag)
     }
 }
 
@@ -49,13 +38,13 @@ impl FromStr for Refname {
     type Err = Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        if !value.starts_with("refs/gitbutler/") {
-            return Err(Error::NotLocal(value.to_string()));
+        if !value.starts_with("refs/tags/") {
+            return Err(Error::NotTag(value.to_string()));
         }
 
-        if let Some(branch) = value.strip_prefix("refs/gitbutler/") {
+        if let Some(tag) = value.strip_prefix("refs/tags/") {
             Ok(Self {
-                branch: branch.to_string(),
+                tag: tag.to_string(),
             })
         } else {
             Err(Error::InvalidName(value.to_string()))

@@ -77,5 +77,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-rust
-      - run: cargo install cargo-cranky
-      - run: cargo cranky --all-targets --all-features
+      - run: cargo clippy --all-targets --all-features --tests
