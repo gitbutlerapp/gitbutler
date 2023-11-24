@@ -1,6 +1,6 @@
 import { invoke } from '$lib/backend/ipc';
 import type { Project as CloudProject } from '$lib/backend/cloud';
-import { BehaviorSubject, Observable, catchError, from, map, shareReplay, switchMap } from 'rxjs';
+import { BehaviorSubject, catchError, from, map, shareReplay, switchMap } from 'rxjs';
 
 export type Key =
 	| 'generated'
@@ -34,7 +34,7 @@ export class ProjectService {
 	getProject(projectId: string) {
 		return this.projects$.pipe(
 			map((projects) => {
-				const project = projects.find((p) => (p.id = projectId));
+				const project = projects.find((p) => p.id == projectId);
 				if (!project) {
 					// We need to abort loading of /[projectId]/ if no project exists, such
 					// that the type here is of Project rather than Project | undefined.
