@@ -1,9 +1,7 @@
 <script lang="ts">
-	import IconButton from '$lib/components/IconButton.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { PrService } from '$lib/github/pullrequest';
-	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
@@ -16,7 +14,7 @@
 	let fetching = false;
 </script>
 
-<div data-tauri-drag-region class="header">
+<div class="header" data-tauri-drag-region>
 	<button
 		class="sync-btn"
 		on:click={async (e) => {

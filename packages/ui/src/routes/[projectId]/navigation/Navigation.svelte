@@ -43,8 +43,10 @@
 	role="menu"
 	tabindex="0"
 >
-	<div class="domains">
+	<div class="drag-region" data-tauri-drag-region>
 		<Header {branchController} {baseBranchService} {prService} />
+	</div>
+	<div class="domains">
 		<ProjectSelector {project} {projectService} />
 		<div class="flex flex-col gap-1">
 			<BaseBranchCard {project} {baseBranchService} {branchController} />
@@ -72,9 +74,13 @@
 </div>
 
 <style lang="postcss">
+	.drag-region {
+		padding-top: var(--space-14);
+		padding-left: var(--space-16);
+		padding-right: var(--space-16);
+	}
 	.domains {
 		flex-grow: 1;
-		padding-top: var(--space-14);
 		padding-bottom: var(--space-24);
 		padding-left: var(--space-16);
 		padding-right: var(--space-16);
