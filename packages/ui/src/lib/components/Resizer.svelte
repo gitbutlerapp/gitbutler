@@ -120,5 +120,6 @@
 				: `${width}px`
 			: `${width}px`
 		: undefined}
+	style:cursor={direction == 'horizontal' ? 'ew-resize' : 'ns-resize'}
 	class="shrink-0 {classes ? ` ${classes}` : ''}"
 />

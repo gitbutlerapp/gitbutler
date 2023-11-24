@@ -27,7 +27,7 @@
 				e.preventDefault();
 			}}
 		>
-			{project.title}
+			<span class="button__label text-base-14 text-bold">{project.title}</span>
 			<div class="button__icon">
 				<Icon name="select-chevron" />
 			</div>
@@ -36,22 +36,24 @@
 	</div>
 </div>
 
-<style>
+<style lang="postcss">
 	.wrapper {
 		margin-top: var(--space-10);
 		margin-bottom: var(--space-16);
 	}
+
 	.button {
 		display: flex;
 		width: 100%;
 		padding: var(--space-12);
 
 		background-color: var(--clr-theme-container-pale);
-		color: var(--clr-theme-scale-ntrl-0);
-		font-weight: 700;
 
 		align-items: center;
 		justify-content: space-between;
+
+		transition: background-color var(--transition-fast);
+
 		&:focus,
 		&:hover {
 			background-color: var(--clr-theme-container-mid);
@@ -60,6 +62,13 @@
 			}
 		}
 	}
+
+	.button__label {
+		flex-grow: 1;
+		color: var(--clr-theme-scale-ntrl-0);
+		text-align: left;
+	}
+
 	.button__icon {
 		color: var(--clr-theme-scale-ntrl-60);
 	}

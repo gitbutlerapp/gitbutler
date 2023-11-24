@@ -10,11 +10,27 @@
 @tailwind utilities;
 
 /* BOILERPLATE CSS */
+body {
+	font-family: 'Inter', sans-serif;
+	user-select: none;
+	height: 100vh;
+	width: 100vw;
+	overflow-y: hidden;
+	padding: 0;
+	color: var(--clr-theme-scale-ntrl-40);
+	background-color: var(--bg-body);
+
+	/* optimise font rendering */
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
 a,
 button {
 	-webkit-user-select: none;
 	-webkit-user-drag: none;
 	-webkit-app-region: no-drag;
+	cursor: default;
 }
 
 input,
