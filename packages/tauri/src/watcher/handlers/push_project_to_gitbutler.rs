@@ -44,6 +44,7 @@ pub struct HandlerInner {
     local_data_dir: DataDir,
     project_store: projects::Controller,
     users: users::Controller,
+    batch_size: usize,
 }
 
 impl TryFrom<&AppHandle> for HandlerInner {
@@ -51,6 +52,7 @@ impl TryFrom<&AppHandle> for HandlerInner {
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
+            batch_size: 1000,
             local_data_dir: DataDir::try_from(value)?,
             project_store: projects::Controller::try_from(value)?,
             users: users::Controller::from(value),
@@ -92,7 +94,7 @@ impl HandlerInner {
         let ids = project_repository.l(
             default_target.sha,
             project_repository::LogUntil::EveryNth {
-                n: 1000,
+                n: self.batch_size,
                 until_id: gb_code_last_commit,
             },
         )?;
@@ -191,6 +193,7 @@ mod test {
     use std::collections::HashMap;
     use std::path::PathBuf;
 
+    use crate::project_repository::LogUntil;
     use crate::test_utils::{Case, Suite};
     use crate::virtual_branches::set_test_target;
 
@@ -250,6 +253,16 @@ mod test {
 
         set_test_target(&gb_repository, &project_repository).unwrap();
 
+        let head = project_repository
+            .get_head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .id();
+
+        let reference = project_repository.l(head, LogUntil::End).unwrap();
+        assert_eq!(reference.len(), 3);
+
         let cloud_code = test_remote_repository()?;
 
         let api_project = projects::ApiProject {
@@ -276,13 +289,27 @@ mod test {
             local_data_dir: suite.local_app_data,
             project_store: suite.projects,
             users: suite.users,
-            batch_size: 2,
+            batch_size: 10,
         };
+
+        cloud_code.find_commit(head.into()).unwrap_err();
 
         let res = listener.handle(&project.id).await.unwrap();
 
         assert!(res.is_empty());
 
+        cloud_code.find_commit(head.into()).unwrap();
+
+        let pushed = log_walk(&cloud_code, head);
+        assert_eq!(reference.len(), pushed.len());
+        assert_eq!(reference, pushed);
+
         Ok(())
+    }
+
+    fn log_walk(repo: &git2::Repository, head: git::Oid) -> Vec<git::Oid> {
+        let mut walker = repo.revwalk().unwrap();
+        walker.push(head.into()).unwrap();
+        walker.map(|oid| oid.unwrap().into()).collect::<Vec<_>>()
     }
 }
