@@ -44,7 +44,6 @@
 
 	.button {
 		display: flex;
-		height: var(--space-40);
 		width: 100%;
 		padding: var(--space-12);
 

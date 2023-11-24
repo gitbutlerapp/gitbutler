@@ -64,10 +64,8 @@
 	.sync-btn {
 		display: flex;
 		align-items: center;
-		height: 20px;
 		gap: var(--space-6);
-		padding-top: var(--space-2);
-		padding-bottom: var(--space-2);
+		height: var(--space-20);
 		padding-left: var(--space-6);
 		padding-right: var(--space-6);
 		background: var(--clr-theme-container-pale);
