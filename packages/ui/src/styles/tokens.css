@@ -118,7 +118,7 @@
 	--clr-theme-err-container-dark: var(--clr-core-err-70);
 	--clr-theme-err-container-dim: var(--clr-core-err-80);
 	--clr-theme-err-element: var(--clr-core-err-50);
-	--clr-theme-err-element-dark: var(--clr-core-err-30);
+	--clr-theme-err-element-dark: var(--clr-core-err-35);
 	--clr-theme-err-element-dim: var(--clr-core-err-40);
 	--clr-theme-err-onContainer: var(--clr-core-err-40);
 	--clr-theme-err-onElement: var(--clr-core-err-95);
@@ -240,9 +240,9 @@
 	--clr-theme-err-container: var(--clr-core-err-15);
 	--clr-theme-err-container-dark: var(--clr-core-err-5);
 	--clr-theme-err-container-dim: var(--clr-core-err-10);
-	--clr-theme-err-element: var(--clr-core-err-30);
-	--clr-theme-err-element-dark: var(--clr-core-err-20);
-	--clr-theme-err-element-dim: var(--clr-core-err-25);
+	--clr-theme-err-element: var(--clr-core-err-50);
+	--clr-theme-err-element-dark: var(--clr-core-err-35);
+	--clr-theme-err-element-dim: var(--clr-core-err-40);
 	--clr-theme-err-onContainer: var(--clr-core-err-80);
 	--clr-theme-err-onElement: var(--clr-core-err-90);
 	--clr-theme-pop-container: var(--clr-core-pop-15);
@@ -306,17 +306,17 @@
 	--clr-theme-succ-container: var(--clr-core-succ-15);
 	--clr-theme-succ-container-dim: var(--clr-core-succ-5);
 	--clr-theme-succ-conteiner-dim: var(--clr-core-succ-10);
-	--clr-theme-succ-element: var(--clr-core-succ-30);
-	--clr-theme-succ-element-dark: var(--clr-core-succ-15);
-	--clr-theme-succ-element-dim: var(--clr-core-succ-20);
+	--clr-theme-succ-element: var(--clr-core-succ-50);
+	--clr-theme-succ-element-dark: var(--clr-core-succ-35);
+	--clr-theme-succ-element-dim: var(--clr-core-succ-40);
 	--clr-theme-succ-onContainer: var(--clr-core-succ-80);
 	--clr-theme-succ-onElement: var(--clr-core-succ-90);
 	--clr-theme-warn-container: var(--clr-core-warn-15);
 	--clr-theme-warn-container-dark: var(--clr-core-warn-5);
 	--clr-theme-warn-container-dim: var(--clr-core-warn-10);
-	--clr-theme-warn-eleemnt-dark: var(--clr-core-warn-20);
-	--clr-theme-warn-element: var(--clr-core-warn-30);
-	--clr-theme-warn-element-dim: var(--clr-core-warn-25);
+	--clr-theme-warn-eleemnt-dark: var(--clr-core-warn-35);
+	--clr-theme-warn-element: var(--clr-core-warn-50);
+	--clr-theme-warn-element-dim: var(--clr-core-warn-40);
 	--clr-theme-warn-onContainer: var(--clr-core-warn-80);
 	--clr-theme-warn-onElement: var(--clr-core-warn-90);
 }
