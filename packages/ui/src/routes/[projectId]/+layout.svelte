@@ -78,7 +78,7 @@
 			</div>
 		{:else}
 			<div class="flex max-w-xl gap-x-2 p-4">
-				<IconButton icon={IconChevronLeft} on:click={() => goto('/')}></IconButton>
+				<IconButton icon="home" on:click={() => goto('/')}></IconButton>
 				<div>
 					<h1 class="text-lg font-semibold">There was a problem loading this repo</h1>
 					<p>{$branchesError$.message}</p>
