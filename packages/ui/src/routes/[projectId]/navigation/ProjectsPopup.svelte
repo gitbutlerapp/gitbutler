@@ -30,7 +30,10 @@
 					<ListItem
 						{selected}
 						icon={selected ? 'tick' : undefined}
-						on:click={() => changeProject(project.id)}
+						on:click={() => {
+							hide();
+							changeProject(project.id);
+						}}
 					>
 						{project.title}
 					</ListItem>

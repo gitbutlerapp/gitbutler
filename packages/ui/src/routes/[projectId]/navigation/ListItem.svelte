@@ -33,8 +33,8 @@
 		padding-right: var(--space-10);
 		justify-content: space-between;
 		width: 100%;
-		&:hover,
-		&:focus {
+		&:hover:enabled,
+		&:focus:enabled {
 			background-color: var(--clr-theme-container-pale);
 			& .button__icon {
 				color: var(--clr-theme-scale-ntrl-40);
@@ -42,9 +42,7 @@
 		}
 		&:disabled {
 			background-color: var(--clr-theme-container-pale);
-			& .button__icon {
-				color: var(--clr-theme-scale-ntrl-50);
-			}
+			color: var(--clr-theme-scale-ntrl-50);
 		}
 	}
 	.button__icon {
