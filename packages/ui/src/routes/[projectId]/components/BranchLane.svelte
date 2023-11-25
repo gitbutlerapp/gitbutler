@@ -390,16 +390,6 @@
 						{/if}
 					{/await}
 					<div class="flex w-full items-center py-1 pl-1.5">
-						{#if !readonly}
-							<div bind:this={meatballButton}>
-								<IconButton
-									icon={IconKebabMenu}
-									title=""
-									class="flex h-6 w-3 flex-grow-0 scale-90 items-center justify-center"
-									on:click={() => popupMenu.openByElement(meatballButton, branch.id)}
-								/>
-							</div>
-						{/if}
 						<div class="flex-grow pr-2">
 							<input
 								type="text"
@@ -414,7 +404,7 @@
 								spellcheck="false"
 							/>
 						</div>
-						<div class="flex gap-x-1 px-1" transition:fade={{ duration: 150 }}>
+						<div class="flex items-center gap-x-1 px-1" transition:fade={{ duration: 150 }}>
 							{#if !readonly}
 								{#if branch.files.length > 0}
 									<Button
@@ -434,15 +424,12 @@
 										</span>
 									</Button>
 								{/if}
-								<button
-									class="text-color-4 hover:text-color-2 scale-90 px-1 py-1"
-									title="Stash this branch"
-									on:click={() => {
-										if (branch.id) branchController.unapplyBranch(branch.id);
-									}}
-								>
-									<IconCloseSmall />
-								</button>
+								<div bind:this={meatballButton}>
+									<IconButton
+										icon="kebab"
+										on:click={() => popupMenu.openByElement(meatballButton, branch.id)}
+									/>
+								</div>
 							{:else}
 								{#await branch.isMergeable then isMergeable}
 									{#if isMergeable}
@@ -458,8 +445,7 @@
 									{/if}
 								{/await}
 								<IconButton
-									icon={IconBackspace}
-									class="px-1 py-1 align-middle "
+									icon="question-mark"
 									title="delete branch"
 									on:click={() => deleteBranchModal.show(branch)}
 								/>
@@ -717,7 +703,7 @@
 														/>
 														<IconButton
 															class="insert-0 absolute opacity-0 group-hover:opacity-100"
-															icon={IconCloseSmall}
+															icon="question-mark"
 															on:click={resetHeadCommit}
 														/>
 													</div>
@@ -826,7 +812,7 @@
 														/>
 														<IconButton
 															class="insert-0 absolute opacity-0 group-hover:opacity-100"
-															icon={IconCloseSmall}
+															icon="question-mark"
 															on:click={resetHeadCommit}
 														/>
 													</div>

@@ -1,13 +1,13 @@
 <script lang="ts">
 	import type { User } from '$lib/backend/cloud';
 	import { isLoading, loadStack } from '$lib/backend/ipc';
+	import IconButton from '$lib/components/IconButton.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
 	import IconSpinner from '$lib/icons/IconSpinner.svelte';
 	import * as events from '$lib/utils/events';
-	import { formatDistanceToNowStrict } from 'date-fns';
 
 	export let user: User | undefined;
 	export let projectId: string | undefined;
@@ -15,18 +15,15 @@
 
 <div
 	class="text-color-3 flex flex-shrink-0 items-center justify-between border-t px-3 py-3"
-	style:background-color="var(--bg-surface-highlight)"
-	style:border-color="var(--border-surface)"
+	style:border-color="var(--clr-theme-container-outline-light)"
 >
-	<div class="flex items-center gap-x-1">
-		<Link href="/" class="p-1"><Icon name="home" /></Link>
+	<div class="flex items-center">
+		<Link href="/" class="p-1"><IconButton icon="home" /></Link>
 		<Tooltip label="Send feedback">
-			<button class="p-1 align-middle" on:click={() => events.emit('openSendIssueModal')}>
-				<Icon name="mail"></Icon>
-			</button>
+			<IconButton icon="mail" on:click={() => events.emit('openSendIssueModal')}></IconButton>
 		</Tooltip>
 		<Link href={`/${projectId}/settings`} class="p-1">
-			<Icon name="settings" />
+			<IconButton icon="settings" />
 		</Link>
 		{#if $isLoading}
 			<Tooltip>

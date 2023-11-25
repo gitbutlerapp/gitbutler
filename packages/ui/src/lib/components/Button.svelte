@@ -28,7 +28,7 @@
 
 <button
 	class={color + ' ' + classes + ' button rounded-md px-2 py-0.5'}
-	class:small={height === 'small'}
+	class:small-btn={height === 'small'}
 	class:full-width={width === 'full-width'}
 	class:pointer-events-none={loading}
 	bind:this={element}
