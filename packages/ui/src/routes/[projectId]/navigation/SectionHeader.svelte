@@ -13,7 +13,7 @@
 		if (expandable) expanded = !expanded;
 	}}
 	disabled={count && count > 0 ? false : true}
-	class="header border-t p-4 font-bold"
+	class="header border-t font-bold"
 	style:border-color="var(--border-surface)"
 	class:border-b={scrolled}
 >
@@ -35,6 +35,8 @@
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
+		padding: var(--space-16) var(--space-12);
+		gap: var(--space-8);
 	}
 	.header:hover,
 	.header:focus {

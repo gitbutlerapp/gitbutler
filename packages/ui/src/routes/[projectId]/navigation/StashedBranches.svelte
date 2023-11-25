@@ -113,8 +113,8 @@
 	.viewport {
 		padding-top: var(--space-4);
 		padding-bottom: var(--space-4);
-		padding-left: var(--space-16);
-		padding-right: var(--space-16);
+		padding-left: var(--space-12);
+		padding-right: var(--space-12);
 	}
 	.wrapper {
 		position: relative;

@@ -34,8 +34,8 @@
 	</div>
 
 	<div class="content">
-		<div class="row_1 text-base-13 font-bold">
-			<span>Trunk</span>
+		<div class="row_1">
+			<span class="text-base-14 text-semibold trunk-label">Trunk</span>
 			{#if ($base$?.behind || 0) > 0}
 				<Tooltip label="Unmerged upstream commits">
 					<Badge count={$base$?.behind || 0} />
@@ -78,6 +78,8 @@
 		gap: var(--space-10);
 		padding: var(--space-8);
 		border-radius: var(--radius-m);
+		transition: background-color var(--transition-fast);
+
 		&:hover,
 		&:focus {
 			background-color: var(--clr-theme-container-pale);
@@ -90,6 +92,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-8);
+	}
+	.trunk-label {
+		color: var(--clr-theme-scale-ntrl-0);
 	}
 	.row_1 {
 		display: flex;
