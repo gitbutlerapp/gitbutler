@@ -72,14 +72,14 @@
 
 <style lang="postcss">
 	.drag-region {
-		padding-top: var(--space-14);
-		padding-left: var(--space-16);
-		padding-right: var(--space-16);
+		padding-top: var(--space-12);
+		padding-left: var(--space-12);
+		padding-right: var(--space-12);
 	}
 	.domains {
 		flex-grow: 1;
 		padding-bottom: var(--space-24);
-		padding-left: var(--space-16);
-		padding-right: var(--space-16);
+		padding-left: var(--space-12);
+		padding-right: var(--space-12);
 	}
 </style>
