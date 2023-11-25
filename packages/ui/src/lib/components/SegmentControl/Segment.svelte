@@ -64,7 +64,7 @@
 	.btn {
 		display: inline-flex;
 		flex-grow: 1;
-		flex-basis: 1;
+		flex-basis: 0;
 		align-items: center;
 		gap: var(--space-4);
 		justify-content: center;
