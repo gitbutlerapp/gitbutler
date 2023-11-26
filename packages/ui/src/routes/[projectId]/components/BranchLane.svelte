@@ -48,6 +48,8 @@
 	import Link from '$lib/components/Link.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import { isDraggableRemoteCommit, type DraggableRemoteCommit } from '$lib/draggables';
+	import Icon from '$lib/icons/Icon.svelte';
+	import BranchLabel from './BranchLabel.svelte';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -389,20 +391,14 @@
 							</div>
 						{/if}
 					{/await}
-					<div class="flex w-full items-center py-1 pl-1.5">
-						<div class="flex-grow pr-2">
-							<input
-								type="text"
-								bind:value={branch.name}
-								on:change={handleBranchNameChange}
-								title={branch.name}
-								class="text-color-3 hover:text-color-2 focus:text-color-2 hover:border-color-2 w-full truncate rounded border border-transparent bg-transparent px-1 font-mono font-bold"
-								on:dblclick|stopPropagation
-								on:click={(e) => e.currentTarget.select()}
-								autocomplete="off"
-								autocorrect="off"
-								spellcheck="false"
-							/>
+					<div class="header">
+						<div class="header__left flex-grow">
+							{#if !readonly}
+								<div class="draggable">
+									<Icon name="draggable" />
+								</div>
+							{/if}
+							<BranchLabel bind:name={branch.name} on:change={handleBranchNameChange} />
 						</div>
 						<div class="flex items-center gap-x-1 px-1" transition:fade={{ duration: 150 }}>
 							{#if !readonly}
@@ -993,5 +989,25 @@
 	}
 	:global(.squash-dz-hover .hover-text) {
 		@apply visible;
+	}
+
+	.header {
+		display: flex;
+		width: 100%;
+		align-items: center;
+		padding: var(--space-12);
+		gap: var(--space-8);
+		&:hover .draggable {
+			color: var(--clr-theme-scale-ntrl-40);
+		}
+	}
+	.header__left {
+		display: flex;
+		gap: var(--space-4);
+		align-items: center;
+	}
+	.draggable {
+		cursor: grab;
+		color: var(--clr-theme-scale-ntrl-60);
 	}
 </style>
