@@ -66,17 +66,23 @@
 		flex-grow: 1;
 		flex-basis: 0;
 		align-items: center;
-		gap: var(--space-4);
 		justify-content: center;
+		gap: var(--space-4);
+
+		height: calc(var(--space-24) + var(--space-2));
+		color: var(--clr-theme-scale-ntrl-40);
 		background-color: var(--clr-theme-container-pale);
-		border-color: var(--clr-theme-container-outline-light);
-		padding-top: var(--space-4);
-		padding-bottom: var(--space-4);
-		padding-left: var(--space-8);
-		padding-right: var(--space-8);
+		padding: var(--space-4) var(--space-8);
+
 		border-top-width: 1px;
 		border-bottom-width: 1px;
-		color: var(--clr-theme-scale-ntrl-40);
+		border-color: var(--clr-theme-container-outline-light);
+
+		transition: background var(--transition-fast);
+
+		&:hover {
+			background-color: var(--clr-theme-container-mid);
+		}
 
 		&[aria-selected='true'] {
 			background-color: var(--clr-theme-container-light);
