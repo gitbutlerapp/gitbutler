@@ -265,8 +265,8 @@
 	--clr-theme-pop-element-dim: var(--clr-core-pop-30);
 	--clr-theme-pop-onContainer: var(--clr-core-pop-80);
 	--clr-theme-pop-onElement: var(--clr-core-ntrl-100);
-	--clr-theme-pop-oulint-dark: var(--clr-core-pop-60);
 	--clr-theme-pop-outline: var(--clr-core-pop-50);
+	--clr-theme-pop-outline-dark: var(--clr-core-pop-60);
 	--clr-theme-pop-outline-dim: var(--clr-core-pop-55);
 	--clr-theme-scale-err-10: var(--clr-core-err-90);
 	--clr-theme-scale-err-20: var(--clr-core-err-80);
