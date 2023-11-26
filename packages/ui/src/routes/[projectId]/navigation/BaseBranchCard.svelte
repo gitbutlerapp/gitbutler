@@ -17,7 +17,7 @@
 	$: selected = $page.url.href.endsWith('/base');
 
 	let baseContents: HTMLElement;
-	let loading = false;
+	let isLoading = false;
 </script>
 
 <a
@@ -41,23 +41,22 @@
 					<Badge count={$base$?.behind || 0} />
 				</Tooltip>
 				<Tooltip label="Merge upstream commits into common base">
-					<Button
-						height="small"
-						color="purple"
-						{loading}
+					<button
+						class="merge-btn font-base-11 font-bold"
+						disabled={isLoading}
 						on:click={async (e) => {
 							e.preventDefault();
 							e.stopPropagation();
-							loading = true;
+							isLoading = true;
 							try {
 								await branchController.updateBaseBranch();
 							} finally {
-								loading = false;
+								isLoading = false;
 							}
 						}}
 					>
 						merge
-					</Button>
+					</button>
 				</Tooltip>
 			{/if}
 		</div>
@@ -107,5 +106,14 @@
 		align-items: center;
 		gap: var(--space-4);
 		color: var(--clr-theme-scale-ntrl-40);
+	}
+	.merge-btn {
+		color: white;
+		padding: 0 0.3125rem;
+		border-radius: var(--radius-m);
+		background: var(--clr-theme-err-element);
+		&:hover {
+			background: var(--clr-theme-err-element-dim);
+		}
 	}
 </style>
