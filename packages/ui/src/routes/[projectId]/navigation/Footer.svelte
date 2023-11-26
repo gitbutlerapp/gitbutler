@@ -5,9 +5,9 @@
 	import Link from '$lib/components/Link.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
-	import Icon from '$lib/icons/Icon.svelte';
 	import IconSpinner from '$lib/icons/IconSpinner.svelte';
 	import * as events from '$lib/utils/events';
+	import AccountLink from './AccountLink.svelte';
 
 	export let user: User | undefined;
 	export let projectId: string | undefined;
@@ -39,10 +39,5 @@
 			</Tooltip>
 		{/if}
 	</div>
-	<Link href="/user/">
-		{#if user?.picture}
-			<img class="mr-1 inline-block h-5 w-5 rounded-full" src={user.picture} alt="Avatar" />
-		{/if}
-		{user?.name ?? 'Account'}
-	</Link>
+	<AccountLink {user} />
 </div>
