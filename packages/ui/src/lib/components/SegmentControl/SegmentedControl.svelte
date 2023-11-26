@@ -11,7 +11,7 @@
 	let indexesIterator = -1;
 	let segments: SegmentItem[] = [];
 
-	let focusedSegmentIndex = writable(selectedIndex);
+	let focusedSegmentIndex = writable(-1);
 	let selectedSegmentIndex = writable(selectedIndex);
 	let length = writable(0);
 
