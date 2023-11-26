@@ -15,7 +15,7 @@
 	--clr-core-err-40: #c0515b;
 	--clr-core-err-45: #d35964;
 	--clr-core-err-50: #e6616d;
-	--clr-core-err-55: #ed8d96;
+	--clr-core-err-55: #ea808a;
 	--clr-core-err-60: #f1a7ae;
 	--clr-core-err-65: #f5c1c6;
 	--clr-core-err-70: #f8ced3;
@@ -122,6 +122,9 @@
 	--clr-theme-err-element-dim: var(--clr-core-err-40);
 	--clr-theme-err-onContainer: var(--clr-core-err-40);
 	--clr-theme-err-onElement: var(--clr-core-err-95);
+	--clr-theme-err-outline: var(--clr-core-err-45);
+	--clr-theme-err-outline-dark: var(--clr-core-err-35);
+	--clr-theme-err-outline-dim: var(--clr-core-err-40);
 	--clr-theme-pop-container: var(--clr-core-pop-90);
 	--clr-theme-pop-container-dark: var(--clr-core-pop-70);
 	--clr-theme-pop-container-dim: var(--clr-core-pop-80);
@@ -130,9 +133,9 @@
 	--clr-theme-pop-element-dim: var(--clr-core-pop-30);
 	--clr-theme-pop-onContainer: var(--clr-core-pop-10);
 	--clr-theme-pop-onElement: var(--clr-core-ntrl-100);
-	--clr-theme-pop-oulint-dark: var(--clr-core-pop-25);
-	--clr-theme-pop-outline: var(--clr-core-pop-50);
-	--clr-theme-pop-outline-dim: var(--clr-core-pop-35);
+	--clr-theme-pop-oulint-dark: var(--clr-core-pop-20);
+	--clr-theme-pop-outline: var(--clr-core-pop-40);
+	--clr-theme-pop-outline-dim: var(--clr-core-pop-30);
 	--clr-theme-scale-err-10: var(--clr-core-err-10);
 	--clr-theme-scale-err-20: var(--clr-core-err-20);
 	--clr-theme-scale-err-30: var(--clr-core-err-30);
@@ -188,6 +191,9 @@
 	--clr-theme-succ-element-dim: var(--clr-core-succ-40);
 	--clr-theme-succ-onContainer: var(--clr-core-succ-40);
 	--clr-theme-succ-onElement: var(--clr-core-succ-95);
+	--clr-theme-succ-outline: var(--clr-core-succ-45);
+	--clr-theme-succ-outline-dark: var(--clr-core-succ-35);
+	--clr-theme-succ-outline-dim: var(--clr-core-succ-40);
 	--clr-theme-warn-container: var(--clr-core-warn-95);
 	--clr-theme-warn-container-dark: var(--clr-core-warn-75);
 	--clr-theme-warn-container-dim: var(--clr-core-warn-80);
@@ -196,6 +202,9 @@
 	--clr-theme-warn-element-dim: var(--clr-core-warn-40);
 	--clr-theme-warn-onContainer: var(--clr-core-warn-40);
 	--clr-theme-warn-onElement: var(--clr-core-warn-95);
+	--clr-theme-warn-outline: var(--clr-core-warn-45);
+	--clr-theme-warn-outline-dark: var(--clr-core-warn-35);
+	--clr-theme-warn-outline-dim: var(--clr-core-warn-40);
 	--fx-shadow-l: 0 16px 40px 0 #0000001f;
 	--fx-shadow-m: 0 10px 30px 0 #00000024;
 	--fx-shadow-s: 0 7px 14px 0 #0000001a;
@@ -245,6 +254,9 @@
 	--clr-theme-err-element-dim: var(--clr-core-err-40);
 	--clr-theme-err-onContainer: var(--clr-core-err-80);
 	--clr-theme-err-onElement: var(--clr-core-err-90);
+	--clr-theme-err-outline: var(--clr-core-err-45);
+	--clr-theme-err-outline-dark: var(--clr-core-err-55);
+	--clr-theme-err-outline-dim: var(--clr-core-err-50);
 	--clr-theme-pop-container: var(--clr-core-pop-15);
 	--clr-theme-pop-container-dark: var(--clr-core-pop-5);
 	--clr-theme-pop-container-dim: var(--clr-core-pop-10);
@@ -253,7 +265,7 @@
 	--clr-theme-pop-element-dim: var(--clr-core-pop-30);
 	--clr-theme-pop-onContainer: var(--clr-core-pop-80);
 	--clr-theme-pop-onElement: var(--clr-core-ntrl-100);
-	--clr-theme-pop-oulint-dark: var(--clr-core-pop-65);
+	--clr-theme-pop-oulint-dark: var(--clr-core-pop-60);
 	--clr-theme-pop-outline: var(--clr-core-pop-50);
 	--clr-theme-pop-outline-dim: var(--clr-core-pop-55);
 	--clr-theme-scale-err-10: var(--clr-core-err-90);
@@ -311,6 +323,9 @@
 	--clr-theme-succ-element-dim: var(--clr-core-succ-40);
 	--clr-theme-succ-onContainer: var(--clr-core-succ-80);
 	--clr-theme-succ-onElement: var(--clr-core-succ-90);
+	--clr-theme-succ-outline: var(--clr-core-succ-45);
+	--clr-theme-succ-outline-dark: var(--clr-core-succ-55);
+	--clr-theme-succ-outline-dim: var(--clr-core-succ-50);
 	--clr-theme-warn-container: var(--clr-core-warn-15);
 	--clr-theme-warn-container-dark: var(--clr-core-warn-5);
 	--clr-theme-warn-container-dim: var(--clr-core-warn-10);
@@ -319,4 +334,7 @@
 	--clr-theme-warn-element-dim: var(--clr-core-warn-40);
 	--clr-theme-warn-onContainer: var(--clr-core-warn-80);
 	--clr-theme-warn-onElement: var(--clr-core-warn-90);
+	--clr-theme-warn-outline: var(--clr-core-warn-45);
+	--clr-theme-warn-outline-dark: var(--clr-core-warn-55);
+	--clr-theme-warn-outline-dim: var(--clr-core-warn-50);
 }
