@@ -39,7 +39,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		vbranchService,
 		remoteBranchService,
 		baseBranchService,
-		sessions$
 	);
 
 	const branchService = new BranchService(remoteBranchService, prService);
