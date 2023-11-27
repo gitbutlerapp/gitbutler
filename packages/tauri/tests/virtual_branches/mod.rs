@@ -1033,7 +1033,7 @@ mod update_base_branch {
                 .unwrap();
 
             let branch_id = {
-                // make a branch that is unapplied and contains not commited conflict 
+                // make a branch that is unapplied and contains not commited conflict
                 let branch_id = controller
                     .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
                     .await
@@ -1053,7 +1053,7 @@ mod update_base_branch {
                 controller.update_base_branch(&project_id).await.unwrap();
 
                 // branch should not be changed.
-                
+
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
@@ -1172,7 +1172,10 @@ mod update_base_branch {
                     .await
                     .unwrap();
 
-                controller.push_virtual_branch(&project_id, &branch_id, false).await.unwrap();
+                controller
+                    .push_virtual_branch(&project_id, &branch_id, false)
+                    .await
+                    .unwrap();
 
                 controller
                     .unapply_virtual_branch(&project_id, &branch_id)
@@ -1475,6 +1478,8 @@ mod update_base_branch {
 
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 0); // TODO: should be 1
+
+                // TODO: this should be uncommented
                 // assert_eq!(branches[0].id, branch_id);
                 // assert!(!branches[0].active);
                 // assert!(branches[0].base_current);
@@ -1701,7 +1706,10 @@ mod update_base_branch {
                     .await
                     .unwrap();
 
-                controller.push_virtual_branch(&project_id, &branch_id, false).await.unwrap();
+                controller
+                    .push_virtual_branch(&project_id, &branch_id, false)
+                    .await
+                    .unwrap();
 
                 branch_id
             };
@@ -1851,7 +1859,6 @@ mod update_base_branch {
                     .unwrap()); // TODO: should be true
             }
         }
-
 
         #[tokio::test]
         async fn no_conflicts() {
