@@ -53,6 +53,7 @@ export class Branch {
 	@Type(() => RemoteBranch)
 	upstream?: RemoteBranch;
 	conflicted!: boolean;
+	// TODO: to be removed from the API
 	baseCurrent!: boolean;
 	ownership!: string;
 	// This should actually be named "canBeCleanlyApplied" - if it's false, applying this branch will generate conflict markers,
