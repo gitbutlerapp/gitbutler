@@ -6,6 +6,8 @@
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import type { UserService } from '$lib/stores/user';
+	import Link from '$lib/components/Link.svelte';
+	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	export let project: Project;
 	export let user: User | undefined;
@@ -72,6 +74,14 @@
 				</div>
 			</div>
 		</div>
+		{#if project.api}
+		<div class="flex flex-row justify-end space-x-2">
+			<div class="p-1">
+				<Link target="_blank" rel="noreferrer" href="{PUBLIC_API_BASE_URL}projects/{project.api?.repository_id}"
+				>Go to GitButler Cloud Project</Link>
+			</div>
+		</div>
+		{/if}
 	{:else}
 		<Login {userService} {user} />
 	{/if}
