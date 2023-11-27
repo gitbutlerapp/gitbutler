@@ -35,9 +35,7 @@
 </script>
 
 <div
-	class="z-30 flex w-80 shrink-0 flex-col border-r"
-	style:background-color="var(--bg-surface)"
-	style:border-color="var(--border-surface)"
+	class="navigation z-30 flex w-80 shrink-0 flex-col border-r"
 	style:width={$userSettings.trayWidth ? `${$userSettings.trayWidth}px` : null}
 	role="menu"
 	tabindex="0"
@@ -71,6 +69,10 @@
 </div>
 
 <style lang="postcss">
+	.navigation {
+		border-right: 1px solid var(--clr-theme-container-outline-light);
+		background: var(--clr-theme-container-light);
+	}
 	.drag-region {
 		padding-top: var(--space-12);
 		padding-left: var(--space-12);
