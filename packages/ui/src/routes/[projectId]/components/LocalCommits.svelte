@@ -79,10 +79,8 @@
 					/>
 				{:else}
 					<Button
-						class="w-20"
-						height="small"
 						kind="outlined"
-						color="purple"
+						color="primary"
 						id="push-commits"
 						loading={isPushing}
 						on:click={push}

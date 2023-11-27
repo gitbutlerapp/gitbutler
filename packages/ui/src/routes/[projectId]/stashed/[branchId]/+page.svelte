@@ -43,14 +43,8 @@
 	{:else if branch}
 		{#await branch.isMergeable then isMergeable}
 			{#if isMergeable}
-				<Button
-					class="w-20"
-					height="small"
-					kind="outlined"
-					color="purple"
-					on:click={() => branch && applyBranch(branch)}
-				>
-					<span class="purple"> Apply </span>
+				<Button kind="outlined" color="primary" on:click={() => branch && applyBranch(branch)}>
+					Apply
 				</Button>
 			{/if}
 		{/await}
@@ -80,10 +74,9 @@
 	<svelte:fragment slot="title">Merge conflicts</svelte:fragment>
 	<p>Applying this branch will introduce merge conflicts.</p>
 	<svelte:fragment slot="controls" let:item let:close>
-		<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
+		<Button kind="outlined" on:click={close}>Cancel</Button>
 		<Button
-			height="small"
-			color="purple"
+			color="primary"
 			on:click={() => {
 				branchController.applyBranch(item.id);
 				close();
@@ -100,10 +93,9 @@
 		Deleting <code>{item.name}</code> cannot be undone.
 	</div>
 	<svelte:fragment slot="controls" let:close let:item>
-		<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
+		<Button kind="outlined" on:click={close}>Cancel</Button>
 		<Button
-			height="small"
-			color="destructive"
+			color="error"
 			on:click={() => {
 				branchController.deleteBranch(item.id);
 				close();

@@ -20,8 +20,7 @@
 			</p>
 		</div>
 		<Button
-			color="purple"
-			height="small"
+			color="primary"
 			on:click={() => branch && branchController.createvBranchFromBranch(branch.name)}
 		>
 			Apply
