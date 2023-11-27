@@ -126,7 +126,7 @@ export function parseHunkSection(hunk: Hunk | RemoteHunk): HunkSection {
 			if (!currentSection || currentSection.sectionType != SectionType.Context) {
 				if (currentSection) hunkSection.subSections.push(currentSection);
 				currentSection = plainToInstance(ContentSection, {
-					expanded: false,
+					expanded: true,
 					lines: [],
 					sectionType: SectionType.Context
 				});
@@ -167,7 +167,7 @@ export function parseFileSections(file: File | RemoteFile): (ContentSection | Hu
 	while (i < lines.length) {
 		if (currentContext === undefined) {
 			currentContext = plainToInstance(ContentSection, {
-				expanded: false,
+				expanded: true,
 				lines: [],
 				sectionType: SectionType.Context
 			});

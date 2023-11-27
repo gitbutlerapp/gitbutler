@@ -1,60 +1,46 @@
 <script lang="ts">
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
-	import { createEventDispatcher, onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import type { File, Hunk } from '$lib/vbranches/types';
 	import { draggable } from '$lib/utils/draggable';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Writable } from 'svelte/store';
 	import RenderedLine from './RenderedLine.svelte';
-	import {
-		IconTriangleUp,
-		IconTriangleDown,
-		IconExpandUpDown,
-		IconExpandUp,
-		IconExpandDown
-	} from '$lib/icons';
+	import { IconExpandUpDown, IconExpandUp, IconExpandDown } from '$lib/icons';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from 'svelte';
-	import IconExpandUpDownSlim from '$lib/icons/IconExpandUpDownSlim.svelte';
-	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { slide } from 'svelte/transition';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { summarizeHunk } from './summaries';
-	import Tooltip from '$lib/components/Tooltip.svelte';
 	import HunkContextMenu from './HunkContextMenu.svelte';
 	import { draggableFile, draggableHunk } from '$lib/draggables';
-	import Icon from '$lib/icons/Icon.svelte';
+	import FileCardHeader from './FileCardHeader.svelte';
+	import Scrollbar from '$lib/components/Scrollbar.svelte';
+	import Resizer from '$lib/components/Resizer.svelte';
+	import lscache from 'lscache';
 
 	export let branchId: string;
 	export let file: File;
 	export let conflicted: boolean;
 	export let projectPath: string | undefined;
-	export let expanded: boolean | undefined;
 	export let branchController: BranchController;
 	export let readonly = false;
 	export let selectable = false;
 	export let selectedOwnership: Writable<Ownership>;
 
+	let viewport: HTMLElement;
+	let contents: HTMLElement;
+	let rsViewport: HTMLElement;
+
+	const fileWidthKey = 'fileWidth:';
+	let fileWidth: number;
+
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const dispatch = createEventDispatcher<{
-		expanded: boolean;
-	}>();
 
 	const popupMenu = new HunkContextMenu({
 		target: document.body,
 		props: { projectPath, file, branchController }
 	});
-
-	function boldenFilename(filepath: string): string {
-		const parts = filepath.split('/');
-		if (parts.length == 0) return '';
-		return (
-			'<span class="font-semibold text-color-2 mr-1">' +
-			parts[parts.length - 1] +
-			'</span>/' +
-			parts.slice(0, -1).join('/')
-		);
-	}
 
 	let sections: (HunkSection | ContentSection)[] = [];
 
@@ -92,70 +78,41 @@
 	onDestroy(() => {
 		popupMenu.$destroy();
 	});
+
+	function computedAddedRemoved(section: HunkSection | ContentSection): {
+		added: any;
+		removed: any;
+	} {
+		if (section instanceof HunkSection) {
+			const lines = section.hunk.diff.split('\n');
+			return {
+				added: lines.filter((l) => l.startsWith('+')).length,
+				removed: lines.filter((l) => l.startsWith('-')).length
+			};
+		}
+		return {
+			added: 0,
+			removed: 0
+		};
+	}
+
+	onMount(() => {
+		fileWidth = lscache.get(fileWidthKey + file.id) ?? $userSettings.defaultFileWidth;
+	});
 </script>
 
-<div
-	id={`file-${file.id}`}
-	use:draggable={{
-		...draggableFile(branchId, file),
-		disabled: readonly
-	}}
-	class="changed-file inner rounded-lg border p-1"
-	style:background-color="var(--bg-card)"
-	style:border-color="var(--border-card)"
-	class:opacity-80={isFileLocked}
->
-	<div class="flex w-full flex-col justify-center py-1">
-		<div
-			class="flex cursor-default pl-2"
-			role="button"
-			tabindex="0"
-			on:dblclick|stopPropagation={() => {
-				expanded = !expanded;
-				dispatch('expanded', expanded);
-			}}
-		>
-			<div
-				class="text-color-4 flex-grow overflow-hidden text-ellipsis whitespace-nowrap transition-none"
-				title={file.path}
-			>
-				<img
-					src={getVSIFileIcon(file.path)}
-					alt="js"
-					width="13"
-					style="width: 0.8125rem"
-					class="mr-1 inline"
-				/>
-
-				{@html boldenFilename(file.path)}
-			</div>
-			{#if isFileLocked}
-				<div class="flex flex-grow-0">
-					<Tooltip
-						label="File changes cannot be moved because part of this file was already committed into this branch"
-					>
-						<Icon name="locked" class="text-yellow-600" />
-					</Tooltip>
-				</div>
-			{/if}
-			<div
-				on:click|stopPropagation={() => {
-					expanded = !expanded;
-					dispatch('expanded', expanded);
-				}}
-				on:keypress={() => (expanded = !expanded)}
-				role="button"
-				tabindex="0"
-				class="text-color-4 hover:text-color-3 flex-grow-0 cursor-pointer px-3 py-2"
-			>
-				{#if expanded}
-					<IconTriangleUp />
-				{:else}
-					<IconTriangleDown />
-				{/if}
-			</div>
-		</div>
-
+<div bind:this={rsViewport} class="resize-viewport">
+	<div
+		id={`file-${file.id}`}
+		use:draggable={{
+			...draggableFile(branchId, file),
+			disabled: readonly
+		}}
+		class="file-card"
+		style:width={`${fileWidth}px`}
+		class:opacity-80={isFileLocked}
+	>
+		<FileCardHeader {file} {isFileLocked} on:close />
 		{#if conflicted}
 			<div class="mb-2 bg-red-500 px-2 py-0 font-bold text-white">
 				<button
@@ -167,149 +124,186 @@
 			</div>
 		{/if}
 
-		{#if expanded}
-			<div
-				class="hunk-change-container flex flex-col rounded px-2"
-				transition:slide={{ duration: 150 }}
-			>
-				{#if file.binary}
-					Binary content not shown
-				{:else if file.large}
-					Diff too large to be shown
-				{:else}
-					{#each sections as section}
-						{#if 'hunk' in section}
-							{#if $userSettings.aiSummariesEnabled && !file.binary}
-								{#await summarizeHunk(section.hunk.diff) then description}
-									<div class="text-color-3 truncate whitespace-normal pb-1 pl-1 pt-2">
-										{description}
+		<div class="relative flex max-h-full flex-shrink overflow-hidden">
+			<div class="viewport hide-native-scrollbar" bind:this={viewport}>
+				<div
+					bind:this={contents}
+					class="hunks flex flex-col rounded px-2"
+					transition:slide={{ duration: 150 }}
+				>
+					{#if file.binary}
+						Binary content not shown
+					{:else if file.large}
+						Diff too large to be shown
+					{:else}
+						{#each sections as section}
+							{@const { added, removed } = computedAddedRemoved(section)}
+							{#if 'hunk' in section}
+								{#if $userSettings.aiSummariesEnabled && !file.binary}
+									{#await summarizeHunk(section.hunk.diff) then description}
+										<div class="text-color-3 truncate whitespace-normal pb-1 pl-1 pt-2">
+											{description}
+										</div>
+									{/await}
+								{/if}
+								<div class="hunk-wrapper">
+									<div class="stats text-base-11">
+										<span class="added">+{added}</span>
+										<span class="removed">+{removed}</span>
 									</div>
-								{/await}
-							{/if}
-							<div
-								class="bg-6 border-color-3 my-2 flex w-full flex-col overflow-hidden rounded border"
-							>
-								<div
-									tabindex="0"
-									role="cell"
-									use:draggable={{
-										...draggableHunk(branchId, section.hunk),
-										disabled: readonly
-									}}
-									on:dblclick
-									class="changed-hunk"
-									class:opacity-60={section.hunk.locked && !isFileLocked}
-								>
-									<div class="bg-6 w-full overflow-hidden">
-										{#each section.subSections as subsection, sidx}
-											{@const hunk = section.hunk}
-											{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
-												<RenderedLine
-													{line}
-													{minWidth}
-													selected={$selectedOwnership.containsHunk(hunk.filePath, hunk.id)}
-													on:selected={(e) => onHunkSelected(hunk, e.detail)}
-													{selectable}
-													sectionType={subsection.sectionType}
-													filePath={file.path}
-													on:contextmenu={(e) =>
-														popupMenu.openByMouse(e, {
-															hunk,
-															section: subsection,
-															lineNumber: line.afterLineNumber
-																? line.afterLineNumber
-																: line.beforeLineNumber
-														})}
-												/>
-											{/each}
-											{#if !subsection.expanded}
-												<div
-													role="group"
-													class="border-color-3 flex w-full"
-													class:border-t={sidx == section.subSections.length - 1 ||
-														(sidx > 0 && sidx < section.subSections.length - 1)}
-													class:border-b={sidx == 0 ||
-														(sidx > 0 && sidx < section.subSections.length - 1)}
-													on:contextmenu|preventDefault={(e) =>
-														popupMenu.openByMouse(e, {
-															section: section,
-															hunk
-														})}
-												>
-													<div
-														class="bg-color-4 text-color-4 hover:text-color-2 border-color-3 border-r text-center"
-														style:min-width={`calc(${2 * minWidth}rem - 1px)`}
-													>
-														<button
-															class="flex justify-center py-0.5 text-sm"
-															style:width={`calc(${2 * minWidth}rem - 1px)`}
-															on:click={() => {
-																if ('expanded' in subsection) {
-																	subsection.expanded = true;
-																}
-															}}
-														>
-															{#if sidx == 0}
-																<IconExpandUp />
-															{:else if sidx == section.subSections.length - 1}
-																<IconExpandDown />
-															{:else}
-																<IconExpandUpDown />
-															{/if}
-														</button>
-													</div>
-													<div class="bg-color-4 flex-grow" />
-												</div>
-											{/if}
-										{/each}
-									</div>
-								</div>
-							</div>
-						{:else}
-							{#if section.expanded}
-								<div
-									class="border-color-3 bg-color-5 my-2 flex w-full flex-col overflow-hidden rounded border"
-									role="group"
-									on:dblclick
-								>
-									{#each section.lines.slice(0, section.expanded ? section.lines.length : 0) as line}
-										<RenderedLine
-											{line}
-											{minWidth}
-											sectionType={section.sectionType}
-											filePath={file.path}
-											on:contextmenu={(e) =>
-												popupMenu.openByMouse(e, {
-													section: section,
-													lineNumber: line.afterLineNumber
-												})}
-										/>
-									{/each}
-								</div>
-							{/if}
-							{#if !section.expanded}
-								<div style:width={`calc(${2 * minWidth}rem - 1px)`} class="flex justify-center">
-									<button
-										class="text-color-4 hover:text-color-3 px-2 text-sm"
-										on:click={() => {
-											if ('expanded' in section) {
-												section.expanded = true;
-											}
+									<div
+										tabindex="0"
+										role="cell"
+										use:draggable={{
+											...draggableHunk(branchId, section.hunk),
+											disabled: readonly
 										}}
+										on:dblclick
+										class="hunk"
+										class:opacity-60={section.hunk.locked && !isFileLocked}
 									>
-										<IconExpandUpDownSlim />
-									</button>
+										<div class="hunk__inner">
+											{#each section.subSections as subsection, sidx}
+												{@const hunk = section.hunk}
+												{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
+													<RenderedLine
+														{line}
+														{minWidth}
+														selected={$selectedOwnership.containsHunk(hunk.filePath, hunk.id)}
+														on:selected={(e) => onHunkSelected(hunk, e.detail)}
+														{selectable}
+														sectionType={subsection.sectionType}
+														filePath={file.path}
+														on:contextmenu={(e) =>
+															popupMenu.openByMouse(e, {
+																hunk,
+																section: subsection,
+																lineNumber: line.afterLineNumber
+																	? line.afterLineNumber
+																	: line.beforeLineNumber
+															})}
+													/>
+												{/each}
+												{#if !subsection.expanded}
+													<div
+														role="group"
+														class="border-color-3 flex w-full"
+														class:border-t={sidx == section.subSections.length - 1 ||
+															(sidx > 0 && sidx < section.subSections.length - 1)}
+														class:border-b={sidx == 0 ||
+															(sidx > 0 && sidx < section.subSections.length - 1)}
+														on:contextmenu|preventDefault={(e) =>
+															popupMenu.openByMouse(e, {
+																section: section,
+																hunk
+															})}
+													>
+														<div
+															class="bg-color-4 text-color-4 hover:text-color-2 border-color-3 border-r text-center"
+															style:min-width={`calc(${2 * minWidth}rem - 1px)`}
+														>
+															<button
+																class="flex justify-center py-0.5 text-sm"
+																style:width={`calc(${2 * minWidth}rem - 1px)`}
+																on:click={() => {
+																	if ('expanded' in subsection) {
+																		subsection.expanded = true;
+																	}
+																}}
+															>
+																{#if sidx == 0}
+																	<IconExpandUp />
+																{:else if sidx == section.subSections.length - 1}
+																	<IconExpandDown />
+																{:else}
+																	<IconExpandUpDown />
+																{/if}
+															</button>
+														</div>
+														<div class="bg-color-4 flex-grow" />
+													</div>
+												{/if}
+											{/each}
+										</div>
+									</div>
 								</div>
 							{/if}
-						{/if}
-					{/each}
-				{/if}
+						{/each}
+					{/if}
+				</div>
+				<Scrollbar {viewport} {contents} width="0.4rem" />
 			</div>
-		{/if}
+		</div>
 	</div>
+	<Resizer
+		minWidth={330}
+		viewport={rsViewport}
+		direction="horizontal"
+		class="z-30"
+		on:width={(e) => {
+			console.log(e.detail);
+			fileWidth = e.detail;
+			lscache.set(fileWidthKey + file.id, e.detail, 7 * 1440); // 7 day ttl
+			userSettings.update((s) => ({
+				...s,
+				defaultFileWidth: e.detail
+			}));
+			return true;
+		}}
+	/>
 </div>
 
 <style lang="postcss">
+	.file-card {
+		background: var(--clr-theme-container-light);
+		border-left: 1px solid var(--clr-theme-container-outline-light);
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.viewport {
+		overflow-y: scroll;
+		overflow-x: hidden;
+		overscroll-behavior: none;
+		width: 100%;
+	}
+	.hunks {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.hunk-wrapper {
+		display: flex;
+		flex-direction: column;
+		padding: var(--space-16);
+		gap: var(--space-16);
+	}
+	.hunk {
+		/* my-2 flex w-full flex-col overflow-hidden rounded border */
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+	.hunk__inner {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		background: var(--clr-theme-container-light);
+		border-radius: var(--radius-s);
+		border: 1px solid var(--clr-theme-container-outline-light);
+	}
+	.added {
+		color: #45b156;
+	}
+	.removed {
+		color: #ff3e00;
+	}
+	.resize-viewport {
+		position: relative;
+		display: flex;
+	}
+
 	@keyframes wiggle {
 		0% {
 			transform: rotate(0deg);

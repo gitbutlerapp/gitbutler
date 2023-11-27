@@ -39,7 +39,7 @@
 </script>
 
 <div
-	class="flex w-full bg-light-50 font-mono text-sm dark:bg-dark-700"
+	class="flex w-full font-mono text-sm dark:bg-dark-700"
 	role="group"
 	on:contextmenu|preventDefault
 >
@@ -60,10 +60,15 @@
 		{line.afterLineNumber || ''}
 	</button>
 	<div
-		class="flex-grow overflow-hidden whitespace-pre pl-0.5"
+		class="line flex-grow overflow-hidden whitespace-pre pl-0.5"
 		class:diff-line-deletion={sectionType === SectionType.RemovedLines}
 		class:diff-line-addition={sectionType === SectionType.AddedLines}
 	>
 		{@html toTokens(line.content).join('')}
 	</div>
 </div>
+
+<style lang="postcss">
+	.line {
+	}
+</style>

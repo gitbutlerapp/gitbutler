@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { filesToFileTree, sortLikeFileTree } from '$lib/vbranches/filetree';
-	import type { Branch } from '$lib/vbranches/types';
+	import type { Branch, File } from '$lib/vbranches/types';
 	import { slide } from 'svelte/transition';
 	import IconNewBadge from '$lib/icons/IconNewBadge.svelte';
 	import type { Ownership } from '$lib/vbranches/ownership';
@@ -14,10 +14,12 @@
 	import lscache from 'lscache';
 	import type { UIEventHandler } from 'svelte/elements';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
+	import { createEventDispatcher } from 'svelte';
 
 	export let branch: Branch;
 	export let readonly: boolean;
 	export let selectedOwnership: Writable<Ownership>;
+	export let selectedFile: Writable<File | undefined>;
 
 	let selectedListMode: string;
 	let filesHeight = 200;
@@ -30,6 +32,8 @@
 	const onScroll: UIEventHandler<HTMLDivElement> = (e) => {
 		scrolled = e.currentTarget.scrollTop != 0;
 	};
+
+	const dispatch = createEventDispatcher<{ select: File }>();
 
 	$: scrollable = contents ? contents.scrollHeight > contents.offsetHeight : false;
 </script>
@@ -68,21 +72,16 @@
 				<div class="files__contents" bind:this={contents}>
 					{#if selectedListMode == 'list'}
 						{#each sortLikeFileTree(branch.files) as file (file.id)}
-							<FileListItem {file} branchId={branch.id} {readonly} />
-							<!-- <FileCard
-					expanded={file.expanded}
-					conflicted={file.conflicted}
-					{selectedOwnership}
-					branchId={branch.id}
-					{file}
-					{projectPath}
-					{branchController}
-					{selectable}
-					{readonly}
-					on:expanded={(e) => {
-						setExpandedWithCache(file, e.detail);
-					}}
-				/> -->
+							<FileListItem
+								{file}
+								branchId={branch.id}
+								{readonly}
+								on:click={() => {
+									$selectedFile = file;
+									dispatch('select', file);
+								}}
+								selected={file == $selectedFile}
+							/>
 						{/each}
 					{:else}
 						<FileTree

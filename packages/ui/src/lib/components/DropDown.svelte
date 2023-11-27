@@ -15,18 +15,21 @@
 	let popup: HTMLDivElement;
 </script>
 
-<div
-	class="dropdown"
-	bind:this={container}
-	class:filled={type == 'filled'}
-	class:outlined={type == 'outlined'}
->
-	<button class="btn" disabled={disabled || loading} on:click>
-		<span class="label text-base-12"> <slot /></span>
-	</button>
-	<button class="icon" disabled={disabled || loading} on:click={() => show()}>
-		<Icon name={loading ? 'spinner' : 'chevron-down'} />
-	</button>
+
+<div class="wrapper">
+	<div
+		class="dropdown"
+		bind:this={container}
+		class:filled={type == 'filled'}
+		class:outlined={type == 'outlined'}
+	>
+		<button class="btn" disabled={disabled || loading} on:click>
+      <span class="label text-base-12"> <slot /></span>
+    </button>
+		<button class="icon" disabled={disabled || loading} on:click={() => show()}>
+			<Icon name={loading ? 'spinner' : visible ? 'chevron-top' : 'chevron-down'} />
+		</button>
+	</div>
 	<div
 		class="context-wrapper"
 		bind:this={popup}
@@ -38,10 +41,14 @@
 </div>
 
 <style lang="postcss">
+	.wrapper {
+		display: flex;
+		position: relative;
+	}
+
 	.dropdown {
 		display: flex;
 		align-items: center;
-		position: relative;
 	}
 
 	.btn,

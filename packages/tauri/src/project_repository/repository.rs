@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use itertools::Itertools;
 
 use crate::{
     git::{self, Url},
@@ -171,29 +170,6 @@ impl Repository {
                 revwalk
                     .map(|oid| oid.map(Into::into))
                     .collect::<Result<Vec<_>, _>>()
-            }
-            LogUntil::EveryNth { n, until_id } => {
-                let mut revwalk = self
-                    .git_repository
-                    .revwalk()
-                    .context("failed to create revwalk")?;
-                revwalk
-                    .push(from.into())
-                    .context(format!("failed to push {}", from))?;
-
-                if let Some(oid) = until_id {
-                    revwalk
-                        .hide(oid.into())
-                        .context(format!("failed to hide {}", oid))?;
-                }
-                let mut oids = Vec::new();
-                for batch in &revwalk.chunks(n) {
-                    if let Some(oid) = batch.last() {
-                        let oid = oid.context("failed to get oid")?;
-                        oids.push(oid.into());
-                    }
-                }
-                Ok(oids)
             }
             LogUntil::Take(n) => {
                 let mut revwalk = self
@@ -605,10 +581,6 @@ type OidFilter = dyn Fn(&git::Commit) -> Result<bool>;
 
 pub enum LogUntil {
     Commit(git::Oid),
-    EveryNth {
-        n: usize,
-        until_id: Option<git::Oid>,
-    },
     Take(usize),
     When(Box<OidFilter>),
     End,

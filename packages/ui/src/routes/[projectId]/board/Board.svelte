@@ -9,7 +9,7 @@
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 
 	export let projectId: string;
-	export let projectPath: string | undefined;
+	export let projectPath: string;
 
 	export let branches: Branch[] | undefined;
 	export let branchesError: any;
@@ -37,8 +37,7 @@
 	<div class="p-4">Loading...</div>
 {:else}
 	<div
-		id="branch-lanes"
-		class="flex h-full flex-shrink flex-grow items-start px-1"
+		class="board"
 		role="group"
 		bind:this={dropZone}
 		on:dragover={(e) => {
@@ -100,6 +99,7 @@
 					{branchController}
 					branchCount={branches.filter((c) => c.active).length}
 					{githubContext}
+					{projectPath}
 					{user}
 				/>
 			</div>
@@ -171,3 +171,15 @@
 		{/if}
 	</div>
 {/if}
+
+<style lang="postcss">
+	.board {
+		display: flex;
+		flex-grow: 1;
+		flex-shrink: 1;
+		align-items: flex-start;
+		height: 100%;
+		padding: var(--space-16);
+		gap: var(--space-16);
+	}
+</style>

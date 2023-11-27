@@ -10,42 +10,47 @@
 	export let branchId: string;
 	export let file: File;
 	export let readonly: boolean;
+	export let selected: boolean;
 
 	$: isLocked = file.hunks.some((h) => h.locked);
 </script>
 
 <div
-	class="file-list-item"
-	id={`file-${file.id}`}
+	on:click
+	on:keydown
 	use:draggable={{
 		...draggableFile(branchId, file),
 		disabled: readonly
 	}}
+	role="button"
+	tabindex="0"
 >
-	<div class="info">
-		<div class="icon">
-			<img
-				src={getVSIFileIcon(file.path)}
-				alt="js"
-				width="12"
-				style="width: 0.75rem"
-				class="mr-1 inline"
-			/>
+	<div class="file-list-item" id={`file-${file.id}`} class:selected>
+		<div class="info">
+			<div class="icon">
+				<img
+					src={getVSIFileIcon(file.path)}
+					alt="js"
+					width="12"
+					style="width: 0.75rem"
+					class="mr-1 inline"
+				/>
+			</div>
+			<div class="name">
+				{file.filename}
+			</div>
+			<div class="path">
+				{file.justpath}
+			</div>
 		</div>
-		<div class="name">
-			{file.filename}
+		{#if isLocked}
+			<div class="locked">
+				<Icon name="locked" />
+			</div>
+		{/if}
+		<div class="status">
+			<FileStatus status={computeFileStatus(file)} />
 		</div>
-		<div class="path">
-			{file.justpath}
-		</div>
-	</div>
-	{#if isLocked}
-		<div class="locked">
-			<Icon name="locked" />
-		</div>
-	{/if}
-	<div class="status">
-		<FileStatus status={computeFileStatus(file)} />
 	</div>
 </div>
 
@@ -59,7 +64,8 @@
 		max-width: 100%;
 		overflow: hidden;
 		background: var(--clr-theme-container-light);
-		&:hover {
+		text-align: left;
+		&:not(.selected):hover {
 			background: var(--clr-theme-container-pale);
 		}
 	}
@@ -87,6 +93,16 @@
 		overflow: hidden;
 	}
 	.locked {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-theme-scale-warn-60);
+	}
+	.selected {
+		background-color: var(--clr-theme-pop-element);
+		& .name {
+			color: var(--clr-theme-pop-on-element);
+		}
+		& .path {
+			color: var(--clr-theme-pop-on-element);
+			opacity: 0.4;
+		}
 	}
 </style>
