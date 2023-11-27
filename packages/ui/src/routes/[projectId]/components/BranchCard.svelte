@@ -330,7 +330,9 @@
 						{/if}
 					{:else if branch.commits.length == 0}
 						<div class="new-branch" data-dnd-ignore>
-							<h1 class="text-base-16 text-semibold">Nothing on this branch yet</h1>
+							<h1 class="text-base-16 text-semibold">
+								This is a new branch. Let's start creating!
+							</h1>
 							<p class="px-12">Get some work done, then throw some files my way!</p>
 						</div>
 					{:else}
@@ -425,14 +427,16 @@
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
+		color: var(--clr-theme-scale-ntrl-60);
 		background: var(--clr-theme-container-light);
 		justify-content: center;
 		gap: var(--space-8);
+		padding: 0 var(--space-40);
+	}
 
-		& h1 {
-			color: var(--clr-theme-scale-ntrl-40);
-			text-align: center;
-		}
+	.new-branch h1 {
+		color: var(--clr-theme-scale-ntrl-40);
+		text-align: center;
 	}
 
 	.new-branch p {
