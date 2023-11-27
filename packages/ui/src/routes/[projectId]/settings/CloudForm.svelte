@@ -75,12 +75,16 @@
 			</div>
 		</div>
 		{#if project.api}
-		<div class="flex flex-row justify-end space-x-2">
-			<div class="p-1">
-				<Link target="_blank" rel="noreferrer" href="{PUBLIC_API_BASE_URL}projects/{project.api?.repository_id}"
-				>Go to GitButler Cloud Project</Link>
+			<div class="flex flex-row justify-end space-x-2">
+				<div class="p-1">
+					<Link
+						target="_blank"
+						rel="noreferrer"
+						href="{PUBLIC_API_BASE_URL}projects/{project.api?.repository_id}"
+						>Go to GitButler Cloud Project</Link
+					>
+				</div>
 			</div>
-		</div>
 		{/if}
 	{:else}
 		<Login {userService} {user} />
