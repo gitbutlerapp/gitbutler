@@ -28,7 +28,7 @@
 	$: branch = $branches$?.find((b) => b.id == $page.params.branchId);
 
 	function applyBranch(branch: Branch) {
-		if (!branch.baseCurrent) {
+		if (!branch.isMergeable) {
 			applyConflictedModal.show(branch);
 		} else {
 			branchController.applyBranch(branch.id);
