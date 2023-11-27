@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
+	import type { File, BaseBranch, Branch } from '$lib/vbranches/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
@@ -21,9 +21,8 @@
 	export let user: User | undefined;
 	export let projectPath: string;
 
-	let selectedFile: File | undefined;
-
 	const selectedOwnership = writable(Ownership.fromBranch(branch));
+	const selectedFile = writable<File | undefined>(undefined);
 </script>
 
 <div class="wrapper">
@@ -40,20 +39,20 @@
 		{branchCount}
 		{githubContext}
 		{user}
-		on:select={(e) => (selectedFile = e.detail)}
+		{selectedFile}
 	/>
 
-	{#if selectedFile}
+	{#if $selectedFile}
 		<FileCard
-			conflicted={selectedFile.conflicted}
+			conflicted={$selectedFile.conflicted}
 			branchId={branch.id}
-			file={selectedFile}
+			file={$selectedFile}
 			{projectPath}
 			{branchController}
 			{selectedOwnership}
 			selectable={false}
 			{readonly}
-			on:close={() => (selectedFile = undefined)}
+			on:close={() => ($selectedFile = undefined)}
 		/>
 	{/if}
 </div>

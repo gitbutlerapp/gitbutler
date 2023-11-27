@@ -19,6 +19,7 @@
 	export let branch: Branch;
 	export let readonly: boolean;
 	export let selectedOwnership: Writable<Ownership>;
+	export let selectedFile: Writable<File | undefined>;
 
 	let selectedListMode: string;
 	let filesHeight = 200;
@@ -75,7 +76,11 @@
 								{file}
 								branchId={branch.id}
 								{readonly}
-								on:click={() => dispatch('select', file)}
+								on:click={() => {
+									$selectedFile = file;
+									dispatch('select', file);
+								}}
+								selected={file == $selectedFile}
 							/>
 						{/each}
 					{:else}

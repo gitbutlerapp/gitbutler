@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, Commit, File } from '$lib/vbranches/types';
 	import { getContext, onMount } from 'svelte';
 	import { dropzone } from '$lib/utils/draggable';
 	import {
@@ -20,7 +20,7 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import lscache from 'lscache';
 	import CommitDialog from './CommitDialog.svelte';
-	import { writable } from 'svelte/store';
+	import { writable, type Writable } from 'svelte/store';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
 	import { getPullRequestByBranch, createPullRequest } from '$lib/github/pullrequest';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
@@ -61,6 +61,7 @@
 	export let branchCount = 1;
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
+	export let selectedFile: Writable<File | undefined>;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
@@ -314,7 +315,7 @@
 		<div bind:this={viewport} class="scroll-container hide-native-scrollbar">
 			<div bind:this={contents} class="flex min-h-full flex-col">
 				{#if branch.files?.length > 0}
-					<BranchFiles {branch} {readonly} {selectedOwnership} on:select />
+					<BranchFiles {branch} {readonly} {selectedOwnership} {selectedFile} />
 					{#if branch.active}
 						<CommitDialog
 							{projectId}

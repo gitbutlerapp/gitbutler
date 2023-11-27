@@ -10,6 +10,7 @@
 	export let branchId: string;
 	export let file: File;
 	export let readonly: boolean;
+	export let selected: boolean;
 
 	$: isLocked = file.hunks.some((h) => h.locked);
 </script>
@@ -24,7 +25,7 @@
 	role="button"
 	tabindex="0"
 >
-	<div class="file-list-item" id={`file-${file.id}`}>
+	<div class="file-list-item" id={`file-${file.id}`} class:selected>
 		<div class="info">
 			<div class="icon">
 				<img
@@ -64,7 +65,7 @@
 		overflow: hidden;
 		background: var(--clr-theme-container-light);
 		text-align: left;
-		&:hover {
+		&:not(.selected):hover {
 			background: var(--clr-theme-container-pale);
 		}
 	}
@@ -92,6 +93,16 @@
 		overflow: hidden;
 	}
 	.locked {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-theme-scale-warn-60);
+	}
+	.selected {
+		background-color: var(--clr-theme-pop-element);
+		& .name {
+			color: var(--clr-theme-pop-on-element);
+		}
+		& .path {
+			color: var(--clr-theme-pop-on-element);
+			opacity: 0.4;
+		}
 	}
 </style>
