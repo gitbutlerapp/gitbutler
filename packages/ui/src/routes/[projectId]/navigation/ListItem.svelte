@@ -25,6 +25,7 @@
 
 <style lang="postcss">
 	.button {
+		display: flex;
 		color: var(--clr-theme-scale-ntrl-10);
 		font-weight: 700;
 		padding-top: var(--space-8);
@@ -32,6 +33,7 @@
 		padding-left: var(--space-10);
 		padding-right: var(--space-10);
 		justify-content: space-between;
+		border-radius: var(--radius-m);
 		width: 100%;
 		&:hover:enabled,
 		&:focus:enabled {
