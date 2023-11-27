@@ -255,145 +255,153 @@
 	}
 </script>
 
-<div class="branch-card" style:width={maximized ? '100%' : `${laneWidth}px`}>
-	<div class="flex flex-col">
-		<BranchHeader
-			{branchController}
-			{branch}
-			{allCollapsed}
-			{allExpanded}
-			on:action={(e) => {
-				if (e.detail == 'expand') {
-					handleExpandAll();
-				} else if (e.detail == 'collapse') {
-					handleCollapseAll();
-				} else if (e.detail == 'generate-branch-name') {
-					generateBranchName();
-				}
-			}}
-		/>
-
-		{#if branch.upstream?.commits.length && branch.upstream?.commits.length > 0 && !branch.conflicted}
-			<UpstreamCommits
-				upstream={branch.upstream}
-				branchId={branch.id}
+<div bind:this={rsViewport} class="resize-viewport">
+	<div class="branch-card" style:width={maximized ? '100%' : `${laneWidth}px`}>
+		<div class="flex flex-col">
+			<BranchHeader
 				{branchController}
-				{branchCount}
-				{projectId}
-				{base}
+				{branch}
+				{allCollapsed}
+				{allExpanded}
+				on:action={(e) => {
+					if (e.detail == 'expand') {
+						handleExpandAll();
+					} else if (e.detail == 'collapse') {
+						handleCollapseAll();
+					} else if (e.detail == 'generate-branch-name') {
+						generateBranchName();
+					}
+				}}
 			/>
-		{/if}
-	</div>
-	<div
-		class="relative flex flex-grow overflow-y-hidden"
-		use:dropzone={{
-			hover: 'cherrypick-dz-hover',
-			active: 'cherrypick-dz-active',
-			accepts: acceptCherrypick,
-			onDrop: onCherrypicked
-		}}
-		use:dropzone={{
-			hover: 'lane-dz-hover',
-			active: 'lane-dz-active',
-			accepts: acceptBranchDrop,
-			onDrop: onBranchDrop
-		}}
-	>
-		<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
-		<div
-			class="cherrypick-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
-		>
-			<div class="hover-text invisible font-semibold">Apply here</div>
-		</div>
 
-		<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
-		<div
-			class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
-		>
-			<div class="hover-text invisible font-semibold">Move here</div>
+			{#if branch.upstream?.commits.length && branch.upstream?.commits.length > 0 && !branch.conflicted}
+				<UpstreamCommits
+					upstream={branch.upstream}
+					branchId={branch.id}
+					{branchController}
+					{branchCount}
+					{projectId}
+					{base}
+				/>
+			{/if}
 		</div>
-		<div bind:this={viewport} class="scroll-container hide-native-scrollbar">
-			<div bind:this={contents} class="flex min-h-full flex-col">
-				{#if branch.files?.length > 0}
-					<BranchFiles {branch} {readonly} {selectedOwnership} {selectedFile} />
-					{#if branch.active}
-						<CommitDialog
+		<div
+			class="relative flex flex-grow overflow-y-hidden"
+			use:dropzone={{
+				hover: 'cherrypick-dz-hover',
+				active: 'cherrypick-dz-active',
+				accepts: acceptCherrypick,
+				onDrop: onCherrypicked
+			}}
+			use:dropzone={{
+				hover: 'lane-dz-hover',
+				active: 'lane-dz-active',
+				accepts: acceptBranchDrop,
+				onDrop: onBranchDrop
+			}}
+		>
+			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
+			<div
+				class="cherrypick-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+			>
+				<div class="hover-text invisible font-semibold">Apply here</div>
+			</div>
+
+			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
+			<div
+				class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+			>
+				<div class="hover-text invisible font-semibold">Move here</div>
+			</div>
+			<div bind:this={viewport} class="scroll-container hide-native-scrollbar">
+				<div bind:this={contents} class="flex min-h-full flex-col">
+					{#if branch.files?.length > 0}
+						<BranchFiles {branch} {readonly} {selectedOwnership} {selectedFile} />
+						{#if branch.active}
+							<CommitDialog
+								{projectId}
+								{branchController}
+								{branch}
+								{cloudEnabled}
+								{cloud}
+								{selectedOwnership}
+								{user}
+							/>
+						{/if}
+					{:else if branch.commits.length == 0}
+						<div class="new-branch" data-dnd-ignore>
+							<h1 class="text-base-16 text-semibold">Nothing on this branch yet</h1>
+							<p class="px-12">Get some work done, then throw some files my way!</p>
+						</div>
+					{:else}
+						<!-- attention: these markers have custom css at the bottom of thise file -->
+						<div class="no-changes" data-dnd-ignore>
+							<h1 class="text-base-16 text-semibold">No uncommitted changes on this branch</h1>
+						</div>
+					{/if}
+					{#if branch.commits.length > 0}
+						<LocalCommits
+							{branch}
+							{base}
+							{send}
+							{receive}
+							{prPromise}
+							{githubContext}
 							{projectId}
 							{branchController}
-							{branch}
-							{cloudEnabled}
-							{cloud}
-							{selectedOwnership}
-							{user}
+							{acceptAmend}
+							{acceptSquash}
+							{onAmend}
+							{onSquash}
+							{resetHeadCommit}
+							{createPr}
 						/>
+						<RemoteCommits
+							{branch}
+							{base}
+							{send}
+							{receive}
+							{prPromise}
+							{githubContext}
+							{projectId}
+							{acceptAmend}
+							{acceptSquash}
+							{onAmend}
+							{onSquash}
+							{resetHeadCommit}
+							{createPr}
+						/>
+						<IntegratedCommits {branch} {base} {send} {receive} {projectId} />
 					{/if}
-				{:else if branch.commits.length == 0}
-					<div class="new-branch" data-dnd-ignore>
-						<h1 class="text-base-16 text-semibold">Nothing on this branch yet</h1>
-						<p class="px-12">Get some work done, then throw some files my way!</p>
-					</div>
-				{:else}
-					<!-- attention: these markers have custom css at the bottom of thise file -->
-					<div class="no-changes" data-dnd-ignore>
-						<h1 class="text-base-16 text-semibold">No uncommitted changes on this branch</h1>
-					</div>
-				{/if}
-				{#if branch.commits.length > 0}
-					<LocalCommits
-						{branch}
-						{base}
-						{send}
-						{receive}
-						{prPromise}
-						{githubContext}
-						{projectId}
-						{branchController}
-						{acceptAmend}
-						{acceptSquash}
-						{onAmend}
-						{onSquash}
-						{resetHeadCommit}
-						{createPr}
-					/>
-					<RemoteCommits
-						{branch}
-						{base}
-						{send}
-						{receive}
-						{prPromise}
-						{githubContext}
-						{projectId}
-						{acceptAmend}
-						{acceptSquash}
-						{onAmend}
-						{onSquash}
-						{resetHeadCommit}
-						{createPr}
-					/>
-					<IntegratedCommits {branch} {base} {send} {receive} {projectId} />
-				{/if}
+				</div>
 			</div>
 		</div>
 	</div>
+	{#if !maximized}
+		<Resizer
+			minWidth={330}
+			viewport={rsViewport}
+			direction="horizontal"
+			class="z-30"
+			on:width={(e) => {
+				console.log(e.detail);
+				laneWidth = e.detail;
+				lscache.set(laneWidthKey + branch.id, e.detail, 7 * 1440); // 7 day ttl
+				userSettings.update((s) => ({
+					...s,
+					defaultLaneWidth: e.detail
+				}));
+				return true;
+			}}
+		/>
+	{/if}
 </div>
-{#if !maximized}
-	<Resizer
-		minWidth={330}
-		viewport={rsViewport}
-		direction="horizontal"
-		class="z-30"
-		on:width={(e) => {
-			laneWidth = e.detail;
-			lscache.set(laneWidthKey + branch.id, e.detail, 7 * 1440); // 7 day ttl
-			userSettings.update((s) => ({
-				...s,
-				defaultLaneWidth: e.detail
-			}));
-		}}
-	/>
-{/if}
 
 <style lang="postcss">
+	.resize-viewport {
+		position: relative;
+		display: flex;
+	}
 	.branch-card {
 		display: flex;
 		flex-grow: 1;

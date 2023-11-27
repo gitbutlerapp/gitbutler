@@ -13,6 +13,7 @@ export interface Settings {
 	vbranchExpandableHeight: number;
 	stashedBranchesHeight: number;
 	defaultLaneWidth: number;
+	defaultFileWidth: number;
 	defaultTreeHeight: number;
 	zoom: number;
 }
@@ -24,6 +25,7 @@ const defaults: Settings = {
 	peekTrayWidth: 480,
 	trayWidth: 320,
 	defaultLaneWidth: 460,
+	defaultFileWidth: 460,
 	defaultTreeHeight: 100,
 	vbranchExpandableHeight: 150,
 	stashedBranchesHeight: 150,
