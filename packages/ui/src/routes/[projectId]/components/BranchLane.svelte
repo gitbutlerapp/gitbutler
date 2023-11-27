@@ -317,14 +317,14 @@
 			>
 				<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
 				<div
-					class="cherrypick-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+					class="cherrypick-dz-marker outline-light-600 dark:outline-dark-300 absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 dark:bg-blue-900/60"
 				>
 					<div class="hover-text invisible font-semibold">Apply here</div>
 				</div>
 
 				<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
 				<div
-					class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+					class="lane-dz-marker outline-light-600 dark:outline-dark-300 absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 dark:bg-blue-900/60"
 				>
 					<div class="hover-text invisible font-semibold">Move here</div>
 				</div>
@@ -332,15 +332,17 @@
 					<div bind:this={contents} class="flex min-h-full flex-col">
 						{#if branch.files?.length > 0}
 							<BranchFiles {branch} {readonly} {selectedOwnership} />
-							<CommitDialog
-								{projectId}
-								{branchController}
-								{branch}
-								{cloudEnabled}
-								{cloud}
-								{selectedOwnership}
-								{user}
-							/>
+							{#if branch.active}
+								<CommitDialog
+									{projectId}
+									{branchController}
+									{branch}
+									{cloudEnabled}
+									{cloud}
+									{selectedOwnership}
+									{user}
+								/>
+							{/if}
 						{:else if branch.commits.length == 0}
 							<div class="new-branch" data-dnd-ignore>
 								<h1 class="text-base-16 text-semibold">Nothing on this branch yet</h1>
