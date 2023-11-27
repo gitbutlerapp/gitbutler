@@ -78,12 +78,8 @@
 						"origin/master" or "origin/main".
 					</p>
 					<div>
-						<Button
-							color="purple"
-							height="small"
-							{loading}
-							on:click={onSetTargetClick}
-							id="set-base-branch">Set Base Branch</Button
+						<Button color="primary" {loading} on:click={onSetTargetClick} id="set-base-branch"
+							>Set Base Branch</Button
 						>
 					</div>
 				{/if}

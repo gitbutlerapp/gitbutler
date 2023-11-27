@@ -172,20 +172,16 @@
 						disabled={true}
 						tabindex={-1}
 						kind="outlined"
-						class="text-light-500"
-						height="small"
-						icon={IconAISparkles}
+						icon="question-mark"
 						loading={isGeneratingCommigMessage}
 					>
-						<span class="text-light-700">Generate message</span>
+						Generate message
 					</Button>
 				</Tooltip>
 			{/if}
 		</div>
 		<Button
-			class="w-20"
-			height="small"
-			color="purple"
+			color="primary"
 			id="commit-to-branch"
 			on:click={() => {
 				if (commitMessage) commit();
