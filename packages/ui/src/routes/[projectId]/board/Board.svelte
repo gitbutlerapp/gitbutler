@@ -177,7 +177,7 @@
 		display: flex;
 		flex-grow: 1;
 		flex-shrink: 1;
-		align-items: start;
+		align-items: flex-start;
 		height: 100%;
 		padding: var(--space-16);
 		gap: var(--space-16);

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
-	import { createEventDispatcher, getContext, onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import { dropzone } from '$lib/utils/draggable';
 	import {
 		isDraggableHunk,
