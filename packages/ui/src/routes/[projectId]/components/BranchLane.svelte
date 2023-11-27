@@ -261,10 +261,7 @@
 	style:width={maximized ? '100%' : `${laneWidth}px`}
 >
 	<div class="absolute h-3 w-full" data-tauri-drag-region></div>
-	<div
-		bind:this={rsViewport}
-		class="flex flex-grow cursor-default flex-col overflow-x-hidden px-1 py-3"
-	>
+	<div bind:this={rsViewport} class="branch-card">
 		<div
 			class="flex h-full flex-col overflow-hidden rounded-lg border"
 			style:background-color="var(--bg-surface)"
@@ -433,6 +430,15 @@
 	}
 	:global(.squash-dz-hover .hover-text) {
 		@apply visible;
+	}
+
+	.branch-card {
+		display: flex;
+		flex-grow: 1;
+		flex-direction: column;
+		cursor: default;
+		overflow-x: hidden;
+		padding: var(--space-12) var(--space-4);
 	}
 
 	.scroll-container {

@@ -13,6 +13,7 @@
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { getContext } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import StashedBranchItem from './StashedBranchItem.svelte';
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
@@ -73,16 +74,7 @@
 					<div class="text-color-2 p-2">You have no stashed branches</div>
 				{:else}
 					{#each $branches$ as branch (branch.id)}
-						<a
-							class="item"
-							href={`/${project.id}/stashed/${branch.id}`}
-							transition:slide={{ duration: 250 }}
-						>
-							<Icon name="branch" />
-							<div class="text-color-2 flex-grow truncate">
-								{branch.name}
-							</div>
-						</a>
+						<StashedBranchItem {branch} projectId={project.id} />
 					{/each}
 				{/if}
 			</div>
@@ -117,18 +109,5 @@
 	}
 	.wrapper {
 		position: relative;
-	}
-	.item {
-		display: flex;
-		gap: var(--space-10);
-		padding-top: var(--space-10);
-		padding-bottom: var(--space-10);
-		padding-left: var(--space-8);
-		padding-right: var(--space-8);
-		border-radius: var(--radius-m);
-	}
-	.item:hover,
-	.item:focus {
-		background-color: var(--clr-theme-container-pale);
 	}
 </style>

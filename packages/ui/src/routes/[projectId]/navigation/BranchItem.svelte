@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/stores';
 	import AuthorIcons from '$lib/components/AuthorIcons.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
@@ -10,9 +11,11 @@
 	$: href = branch.pr
 		? `/${projectId}/pull/${branch.pr.number}`
 		: `/${projectId}/remote/${branch?.branch?.sha}`;
+
+	$: selected = $page.url.href.includes(href);
 </script>
 
-<a class="item" {href}>
+<a class="item" class:selected {href}>
 	<div class="item__icon"><Icon name={branch.icon} color="pop" /></div>
 	<div class="item__info flex flex-col gap-2 overflow-hidden">
 		<p class="text-base-13 truncate">
@@ -43,7 +46,8 @@
 	}
 
 	.item:hover,
-	.item:focus {
+	.item:focus,
+	.selected {
 		background-color: var(--clr-theme-container-pale);
 	}
 

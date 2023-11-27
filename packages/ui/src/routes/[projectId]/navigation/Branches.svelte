@@ -67,9 +67,9 @@
 		}}
 	/>
 {/if}
-<SectionHeader {scrolled} count={$branches$?.length ?? 0} expandable={true} bind:expanded
-	>Other branches</SectionHeader
->
+<SectionHeader {scrolled} count={$branches$?.length ?? 0} expandable={true} bind:expanded>
+	Other branches
+</SectionHeader>
 <div
 	class="wrapper"
 	use:accordion={$branches$?.length > 0 && expanded}
