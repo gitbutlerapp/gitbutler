@@ -135,7 +135,7 @@ test('parses a balanced hunk section', () => {
 	expect(hunkSection.subSections.length).toBe(4);
 	const firstContext = hunkSection.subSections[0];
 	expect(firstContext.sectionType).toBe(SectionType.Context);
-	expect(firstContext.expanded).toBeFalsy();
+	expect(firstContext.expanded).toBeTruthy();
 	expect(firstContext.lines).toEqual([
 		{
 			beforeLineNumber: 3,
@@ -175,7 +175,7 @@ test('parses a balanced hunk section', () => {
 	]);
 	const secondContext = hunkSection.subSections[3];
 	expect(secondContext.sectionType).toBe(SectionType.Context);
-	expect(secondContext.expanded).toBeFalsy();
+	expect(secondContext.expanded).toBeTruthy();
 	expect(secondContext.lines).toEqual([
 		{
 			beforeLineNumber: 7,
@@ -227,7 +227,7 @@ test('parses hunk sections with more added', () => {
 	expect(hunkSection.subSections.length).toBe(4);
 	const firstContext = hunkSection.subSections[0];
 	expect(firstContext.sectionType).toBe(SectionType.Context);
-	expect(firstContext.expanded).toBeFalsy();
+	expect(firstContext.expanded).toBeTruthy();
 	expect(firstContext.lines).toEqual([
 		{
 			beforeLineNumber: 3,
@@ -275,7 +275,7 @@ test('parses hunk sections with more added', () => {
 
 	const secondContext = hunkSection.subSections[3];
 	expect(secondContext.sectionType).toBe(SectionType.Context);
-	expect(secondContext.expanded).toBeFalsy();
+	expect(secondContext.expanded).toBeTruthy();
 	expect(secondContext.lines).toEqual([
 		{
 			beforeLineNumber: 7,
@@ -314,7 +314,7 @@ test('parses a hunk with two changed places', () => {
 
 	const firstContext = hunkSection.subSections[0];
 	expect(firstContext.sectionType).toBe(SectionType.Context);
-	expect(firstContext.expanded).toBeFalsy();
+	expect(firstContext.expanded).toBeTruthy();
 	expect(firstContext.lines).toEqual([
 		{
 			beforeLineNumber: 1,
@@ -344,7 +344,7 @@ test('parses a hunk with two changed places', () => {
 	]);
 	const secondContext = hunkSection.subSections[2];
 	expect(secondContext.sectionType).toBe(SectionType.Context);
-	expect(secondContext.expanded).toBeFalsy();
+	expect(secondContext.expanded).toBeTruthy();
 	expect(secondContext.lines).toEqual([
 		{
 			beforeLineNumber: 5,
@@ -389,7 +389,7 @@ test('parses a hunk with two changed places', () => {
 	]);
 	const thirdContext = hunkSection.subSections[5];
 	expect(thirdContext.sectionType).toBe(SectionType.Context);
-	expect(thirdContext.expanded).toBeFalsy();
+	expect(thirdContext.expanded).toBeTruthy();
 	expect(thirdContext.lines).toEqual([
 		{
 			beforeLineNumber: 10,
@@ -431,7 +431,7 @@ test('parses file with one hunk and balanced add-remove', () => {
 	expect(sections.length).toBe(3);
 	const beforeSection = sections[0] as ContentSection;
 	expect(beforeSection.sectionType).toBe(SectionType.Context);
-	expect(beforeSection.expanded).toBeFalsy();
+	expect(beforeSection.expanded).toBeTruthy();
 	expect(beforeSection.lines.length).toBe(2);
 	expect(beforeSection.lines[0]).toEqual({
 		beforeLineNumber: 1,
@@ -449,7 +449,7 @@ test('parses file with one hunk and balanced add-remove', () => {
 
 	const afterSection = sections[2] as ContentSection;
 	expect(afterSection.sectionType).toBe(SectionType.Context);
-	expect(afterSection.expanded).toBeFalsy();
+	expect(afterSection.expanded).toBeTruthy();
 	expect(afterSection.lines.length).toBe(3);
 	expect(afterSection.lines[0]).toEqual({
 		beforeLineNumber: 10,

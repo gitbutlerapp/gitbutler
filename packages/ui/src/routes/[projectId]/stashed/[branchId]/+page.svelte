@@ -17,6 +17,7 @@
 	$: user$ = data.user$;
 	$: githubContext$ = data.githubContext$;
 	$: cloud = data.cloud;
+	$: project$ = data.project$;
 
 	$: branchController = data.branchController;
 	$: vbranchService = data.vbranchService;
@@ -72,6 +73,7 @@
 			readonly={true}
 			githubContext={$githubContext$}
 			user={$user$}
+			projectPath={$project$.path}
 		/>
 	{:else}
 		<p>Branch no longer exists</p>

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { accordion } from './accordion';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import { slide } from 'svelte/transition';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -9,7 +8,6 @@
 	import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { UIEventHandler } from 'svelte/elements';
 	import SectionHeader from './SectionHeader.svelte';
-	import Icon from '$lib/icons/Icon.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { getContext } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';

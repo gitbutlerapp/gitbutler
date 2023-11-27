@@ -14,41 +14,44 @@
 	$: isLocked = file.hunks.some((h) => h.locked);
 </script>
 
-<button
-	class="file-list-item"
-	id={`file-${file.id}`}
+<div
 	on:click
+	on:keydown
 	use:draggable={{
 		...draggableFile(branchId, file),
 		disabled: readonly
 	}}
+	role="button"
+	tabindex="0"
 >
-	<div class="info">
-		<div class="icon">
-			<img
-				src={getVSIFileIcon(file.path)}
-				alt="js"
-				width="12"
-				style="width: 0.75rem"
-				class="mr-1 inline"
-			/>
+	<div class="file-list-item" id={`file-${file.id}`}>
+		<div class="info">
+			<div class="icon">
+				<img
+					src={getVSIFileIcon(file.path)}
+					alt="js"
+					width="12"
+					style="width: 0.75rem"
+					class="mr-1 inline"
+				/>
+			</div>
+			<div class="name">
+				{file.filename}
+			</div>
+			<div class="path">
+				{file.justpath}
+			</div>
 		</div>
-		<div class="name">
-			{file.filename}
-		</div>
-		<div class="path">
-			{file.justpath}
+		{#if isLocked}
+			<div class="locked">
+				<Icon name="locked" />
+			</div>
+		{/if}
+		<div class="status">
+			<FileStatus status={computeFileStatus(file)} />
 		</div>
 	</div>
-	{#if isLocked}
-		<div class="locked">
-			<Icon name="locked" />
-		</div>
-	{/if}
-	<div class="status">
-		<FileStatus status={computeFileStatus(file)} />
-	</div>
-</button>
+</div>
 
 <style lang="postcss">
 	.file-list-item {
