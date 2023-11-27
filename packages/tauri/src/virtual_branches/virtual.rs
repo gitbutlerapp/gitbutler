@@ -851,7 +851,7 @@ fn is_requires_force(
 
 // given a virtual branch and it's files that are calculated off of a default target,
 // return files adjusted to the branch's head commit
-fn calculate_non_commited_diffs(
+pub fn calculate_non_commited_diffs(
     project_repository: &project_repository::Repository,
     branch: &branch::Branch,
     default_target: &target::Target,
