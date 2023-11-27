@@ -51,26 +51,26 @@
 		return false;
 	}
 
-	$: isIndeterminate = isNodeIndeterminate($selectedOwnership, node);
+	// $: isIndeterminate = isNodeIndeterminate($selectedOwnership, node);
 
-	function idWithChildren(node: TreeNode): [string, string[]][] {
-		if (node.file) {
-			return [[node.file.id, node.file.hunks.map((h) => h.id)]];
-		}
-		return node.children.flatMap(idWithChildren);
-	}
+	// function idWithChildren(node: TreeNode): [string, string[]][] {
+	// 	if (node.file) {
+	// 		return [[node.file.id, node.file.hunks.map((h) => h.id)]];
+	// 	}
+	// 	return node.children.flatMap(idWithChildren);
+	// }
 
-	function onCheckboxChange() {
-		idWithChildren(node).forEach(([fileId, hunkIds]) =>
-			hunkIds.forEach((hunkId) => {
-				if (isChecked) {
-					selectedOwnership.update((ownership) => ownership.removeHunk(fileId, hunkId));
-				} else {
-					selectedOwnership.update((ownership) => ownership.addHunk(fileId, hunkId));
-				}
-			})
-		);
-	}
+	// function onCheckboxChange() {
+	// 	idWithChildren(node).forEach(([fileId, hunkIds]) =>
+	// 		hunkIds.forEach((hunkId) => {
+	// 			if (isChecked) {
+	// 				selectedOwnership.update((ownership) => ownership.removeHunk(fileId, hunkId));
+	// 			} else {
+	// 				selectedOwnership.update((ownership) => ownership.addHunk(fileId, hunkId));
+	// 			}
+	// 		})
+	// 	);
+	// }
 
 	function toggle() {
 		expanded = !expanded;

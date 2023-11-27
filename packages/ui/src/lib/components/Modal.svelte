@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Button from './Button.svelte';
 	import Overlay from './Overlay.svelte';
-	import { IconClose } from '$lib/icons';
 	import type { ComponentType } from 'svelte';
 
 	export function show(newItem?: any) {

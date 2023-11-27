@@ -65,7 +65,7 @@
 				on:scroll={onScroll}
 			>
 				<!-- TODO: This is an experiment in file sorting. Accept or reject! -->
-				<div bind:this={contents}>
+				<div class="files__contents" bind:this={contents}>
 					{#if selectedListMode == 'list'}
 						{#each sortLikeFileTree(branch.files) as file (file.id)}
 							<FileListItem {file} branchId={branch.id} {readonly} />
@@ -148,10 +148,7 @@
 		overflow: hidden;
 	}
 	.files {
-		display: flex;
-		flex-direction: column;
 		flex-grow: 1;
-		gap: var(--space-4);
 		padding-top: var(--space-8);
 		padding-bottom: var(--space-16);
 		padding-left: var(--space-12);
@@ -160,9 +157,18 @@
 		overflow-x: hidden;
 		overscroll-behavior: none;
 	}
+
+	.files__contents {
+		display: flex;
+		flex-direction: column;
+		flex-grow: 1;
+		gap: var(--space-4);
+	}
+
 	.no-uncommitted {
 		flex-grow: 1;
 	}
+
 	.new-branch {
 		flex-grow: 1;
 	}

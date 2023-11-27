@@ -17,30 +17,34 @@
 	let timeout: ReturnType<typeof setTimeout>;
 </script>
 
-<div
-	role="tooltip"
-	class="wrapper"
-	on:mouseenter={() => (timeout = setTimeout(() => (showTooltip = true), timeoutMilliseconds))}
-	on:mouseleave={() => {
-		clearTimeout(timeout);
-		showTooltip = false;
-	}}
-	use:floatingRef
->
+{#if label}
+	<div
+		role="tooltip"
+		class="wrapper"
+		on:mouseenter={() => (timeout = setTimeout(() => (showTooltip = true), timeoutMilliseconds))}
+		on:mouseleave={() => {
+			clearTimeout(timeout);
+			showTooltip = false;
+		}}
+		use:floatingRef
+	>
+		<slot />
+		{#if showTooltip}
+			<div role="tooltip" class="tooltip text-base-11" use:floatingContent>
+				<slot name="label" />
+				{#if label}
+					{label}
+				{/if}
+			</div>
+		{/if}
+	</div>
+{:else}
 	<slot />
-	{#if showTooltip}
-		<div role="tooltip" class="tooltip text-base-11" use:floatingContent>
-			<slot name="label" />
-			{#if label}
-				{label}
-			{/if}
-		</div>
-	{/if}
-</div>
+{/if}
 
 <style lang="postcss">
 	.wrapper {
-		display: inline-block;
+		display: flex;
 	}
 	.tooltip {
 		background-color: var(--clr-core-ntrl-10);

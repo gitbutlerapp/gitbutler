@@ -6,16 +6,18 @@
 	import type { Branch, File } from '$lib/vbranches/types';
 	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import type { User } from '$lib/backend/cloud';
-	import { IconAISparkles, IconLoading, IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import {
 		projectCommitGenerationExtraConcise,
 		projectCommitGenerationUseEmojis
 	} from '$lib/config/config';
 	import { createEventDispatcher } from 'svelte';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import TextArea from '$lib/components/TextArea.svelte';
+	import DropDown from '$lib/components/DropDown.svelte';
+	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 
 	export let projectId: string;
 	export let branchController: BranchController;
@@ -50,7 +52,6 @@
 
 	let isGeneratingCommigMessage = false;
 	async function generateCommitMessage(files: File[]) {
-		expanded = false;
 		const diff = files
 			.map((f) => f.hunks)
 			.flat()
@@ -82,9 +83,10 @@
 				isGeneratingCommigMessage = false;
 			});
 	}
-	let expanded = false;
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
 	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(projectId);
+
+	let contextMenu: ContextMenu;
 </script>
 
 <div class="commit-box" transition:slide={{ duration: 150 }}>
@@ -100,86 +102,35 @@
 		</div>
 	{/if} -->
 	<TextArea bind:value={commitMessage} rows={messageRows} placeholder="Your commit message here" />
-	<div class="flex flex-grow justify-end gap-2 p-3 px-5">
-		<div class="relative flex flex-grow">
-			{#if cloudEnabled && user}
-				<div
-					class="bg-color-3 border-color-3 absolute flex h-fit w-fit flex-col items-center whitespace-nowrap rounded border
-				"
-				>
-					<div class="flex h-6 flex-row items-center justify-center font-medium leading-5">
-						<button
-							disabled={isGeneratingCommigMessage}
-							class="hover:bg-color-2 flex h-full items-center justify-center gap-1 rounded-l pl-1.5 pr-1"
-							on:click={() => generateCommitMessage(branch.files)}
-						>
-							{#if isGeneratingCommigMessage}
-								<IconLoading
-									class="text-color-4 h-4 w-4 animate-spin fill-purple-600 dark:fill-purple-200"
-								/>
-							{:else}
-								<IconAISparkles class="text-color-4 h-4 w-4"></IconAISparkles>
-							{/if}
-							<span>Generate message</span>
-						</button>
-						<button
-							id="close-button"
-							disabled={isGeneratingCommigMessage}
-							class="hover:bg-color-2 flex h-full items-center justify-center rounded-r pl-1 pr-1.5"
-							on:click={() => (expanded = !expanded)}
-						>
-							{#if expanded}
-								<IconTriangleUp></IconTriangleUp>
-							{:else}
-								<IconTriangleDown></IconTriangleDown>
-							{/if}
-						</button>
-					</div>
-					{#if expanded}
-						<div class="border-color-4 z-50 w-full border-t px-2 py-0.5">
-							<label class="flex items-center gap-1">
-								<input
-									type="checkbox"
-									bind:checked={$commitGenerationExtraConcise}
-									on:change={(e) => {
-										if (e.target instanceof HTMLInputElement) {
-											commitGenerationExtraConcise.set(e.target.checked);
-										}
-									}}
-								/>
-								Extra concise
-							</label>
-							<label class="flex items-center gap-1">
-								<input
-									type="checkbox"
-									bind:checked={$commitGenerationUseEmojis}
-									on:change={(e) => {
-										if (e.target instanceof HTMLInputElement) {
-											commitGenerationUseEmojis.set(e.target.checked);
-										}
-									}}
-								/>
-								Use emojis
-							</label>
-						</div>
-					{/if}
-				</div>
-			{:else}
-				<Tooltip
-					label="Summary generation requres that you are logged in and have cloud sync enabled for the project"
-				>
-					<Button
-						disabled={true}
-						tabindex={-1}
-						kind="outlined"
-						icon="question-mark"
-						loading={isGeneratingCommigMessage}
+	<div class="actions">
+		<Tooltip
+			label={cloudEnabled && user
+				? undefined
+				: 'You must be logged in and have cloud sync enabled for the project to use this feature'}
+		>
+			<DropDown
+				type="outlined"
+				disabled={!(cloudEnabled && user)}
+				loading={isGeneratingCommigMessage}
+				on:click={() => generateCommitMessage(branch.files)}
+			>
+				Generate message
+				<ContextMenu type="checklist" slot="popup" bind:this={contextMenu}>
+					<ContextMenuItem
+						checked={$commitGenerationExtraConcise}
+						on:click={() => commitGenerationExtraConcise.update((value) => !value)}
 					>
-						Generate message
-					</Button>
-				</Tooltip>
-			{/if}
-		</div>
+						Extra concise
+					</ContextMenuItem>
+					<ContextMenuItem
+						checked={$commitGenerationUseEmojis}
+						on:click={() => commitGenerationUseEmojis.update((value) => !value)}
+					>
+						Use emojis 😎
+					</ContextMenuItem>
+				</ContextMenu>
+			</DropDown>
+		</Tooltip>
 		<Button
 			color="primary"
 			id="commit-to-branch"
@@ -201,5 +152,11 @@
 		border-top: 1px solid var(--color-theme-container-outline-light);
 		background: var(--clr-theme-container-pale);
 		padding: var(--space-16);
+		gap: var(--space-8);
+	}
+	.actions {
+		display: flex;
+		justify-content: right;
+		gap: var(--space-6);
 	}
 </style>

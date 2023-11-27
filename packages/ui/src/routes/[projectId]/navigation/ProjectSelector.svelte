@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Project, ProjectService } from '$lib/backend/projects';
+	import { clickOutside } from '$lib/clickOutside';
 	import Icon from '$lib/icons/Icon.svelte';
 	import ProjectsPopup from './ProjectsPopup.svelte';
-	import { clickOutside } from './clickOutside';
 
 	export let project: Project;
 	export let projectService: ProjectService;
