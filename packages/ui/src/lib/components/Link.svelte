@@ -7,7 +7,7 @@
 	export { classes as class };
 	export let target: '_blank' | '_self' | '_parent' | '_top' | undefined = undefined;
 	export let rel: string | undefined = undefined;
-	export let role: 'basic' | 'primary' | 'error' = 'basic';
+	export let role: 'basic' | 'primary' | 'destructive' = 'basic';
 	export let disabled = false;
 	export let href: string | undefined = undefined;
 

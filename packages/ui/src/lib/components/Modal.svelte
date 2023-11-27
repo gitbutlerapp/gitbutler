@@ -38,6 +38,7 @@
 						<slot name="title" />
 					</h2>
 				</div>
+				<Button height="small" kind="plain" on:click={close} icon={IconClose} />
 			</div>
 		{/if}
 
@@ -53,6 +54,8 @@
 						{title}
 					</h2>
 				</div>
+
+				<Button height="small" kind="plain" on:click={close} icon={IconClose} />
 			</div>
 		{/if}
 
@@ -65,7 +68,7 @@
 		>
 			<slot name="controls" {item} {close}>
 				<Button kind="outlined" on:click={close}>Secondary action</Button>
-				<Button color="primary" on:click={close}>Primary action</Button>
+				<Button color="purple" on:click={close}>Primary action</Button>
 			</slot>
 		</div>
 	</div>

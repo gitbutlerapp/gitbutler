@@ -43,7 +43,7 @@
 	tabindex="0"
 >
 	<div class="drag-region" data-tauri-drag-region>
-		<Header {branchController} {baseBranchService} {prService} projectId={project.id} />
+		<Header {branchController} {baseBranchService} {prService} />
 	</div>
 	<div class="domains">
 		<ProjectSelector {project} {projectService} />

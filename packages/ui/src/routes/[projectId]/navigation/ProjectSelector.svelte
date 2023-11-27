@@ -45,7 +45,6 @@
 		display: flex;
 		width: 100%;
 		padding: var(--space-12);
-		border-radius: var(--radius-m);
 
 		background-color: var(--clr-theme-container-pale);
 

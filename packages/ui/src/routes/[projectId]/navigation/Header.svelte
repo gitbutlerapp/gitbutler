@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { syncToCloud } from '$lib/backend/cloud';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { PrService } from '$lib/github/pullrequest';
@@ -9,7 +8,6 @@
 	export let branchController: BranchController;
 	export let prService: PrService;
 	export let baseBranchService: BaseBranchService;
-	export let projectId: string;
 
 	$: base$ = baseBranchService.base$;
 
@@ -23,11 +21,10 @@
 			e.preventDefault();
 			e.stopPropagation();
 			fetching = true;
-			await Promise.allSettled([branchController.fetchFromTarget(), syncToCloud(projectId)])
-				.then(() => prService.reload())
-				.finally(() => {
-					fetching = false;
-				});
+			await branchController.fetchFromTarget().finally(() => {
+				fetching = false;
+				prService.reload();
+			});
 		}}
 	>
 		{#if !fetching}
@@ -44,7 +41,7 @@
 			{#if $base$?.fetchedAt}
 				<span class="text-base-11 text-semibold sync-btn__label">
 					{#if fetching}
-						busy...
+						fetching...
 					{:else}
 						<TimeAgo date={$base$?.fetchedAt} />
 					{/if}

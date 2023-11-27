@@ -26,7 +26,7 @@
 				<div class="self-start">
 					<Button
 						id="add-new-project"
-						color="primary"
+						color="purple"
 						on:click={() => events.emit('openNewProjectModal')}
 					>
 						Add project
@@ -58,7 +58,7 @@
 					<p class="text-light-700 dark:text-dark-200">
 						Get started by adding a project you're working on.
 					</p>
-					<Button color="primary" on:click={() => events.emit('openNewProjectModal')}>
+					<Button color="purple" height="small" on:click={() => events.emit('openNewProjectModal')}>
 						Add Git project
 					</Button>
 				</div>

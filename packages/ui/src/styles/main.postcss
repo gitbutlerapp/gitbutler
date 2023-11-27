@@ -135,6 +135,36 @@ textarea {
 	@apply outline-none;
 }
 
+button.basic,
+button.primary,
+button.destructive {
+	line-height: 1.25rem;
+}
+
+button.primary {
+	@apply text-blue-500;
+}
+
+button.destructive {
+	@apply text-red-600;
+}
+
+button.disabled {
+	@apply pointer-events-none text-zinc-500;
+}
+
+button.active {
+	@apply bg-light-300 dark:bg-dark-600;
+}
+
+.button.active {
+	@apply bg-light-300 dark:bg-dark-600;
+}
+
+.button {
+	@apply relative inline-flex w-fit items-center gap-0.5 whitespace-nowrap rounded-lg py-2 text-base font-medium leading-5 outline-blue-200 transition-none focus:outline-2 dark:outline-blue-500;
+}
+
 .disabled {
 	@apply pointer-events-none text-zinc-500;
 }
@@ -162,6 +192,91 @@ textarea {
 
 .full-width {
 	@apply w-full;
+}
+
+.basic:hover {
+	@apply bg-light-50 dark:bg-dark-500;
+}
+.link.basic:hover {
+	@apply bg-transparent;
+}
+.basic:active {
+	@apply bg-transparent no-underline;
+}
+.basic.outlined {
+	@apply border-light-400 text-light-600 no-underline  dark:border-dark-500 dark:text-dark-200;
+}
+.basic.filled {
+	@apply border border-light-300 bg-light-50 text-light-700 no-underline dark:border-dark-400 dark:bg-dark-700 dark:text-dark-50;
+}
+.basic.filled:hover {
+	/* @apply bg-[#35353B]; */
+}
+
+.primary {
+	@apply text-blue-500;
+}
+.primary:hover {
+	@apply bg-[#3B82F6]/20 no-underline;
+}
+.primary:disabled {
+	@apply text-[#BDC1CC] no-underline opacity-100;
+}
+.primary:active {
+	@apply bg-transparent text-blue-700 underline;
+}
+.primary.outlined {
+	@apply border-[#3662E3] no-underline;
+}
+.primary.outlined:hover {
+	@apply bg-[#1C48C94D]/20;
+}
+.primary.filled {
+	@apply bg-blue-600 text-light-100 no-underline;
+}
+.primary.filled:hover {
+	@apply bg-[#1C48C9];
+}
+
+.destructive {
+	@apply text-red-600 no-underline;
+}
+.destructive:hover {
+	@apply bg-[#DC2626]/20;
+}
+.destructive:active {
+	@apply bg-transparent text-red-400;
+}
+.destructive.filled {
+	@apply bg-[#BF4545] text-zinc-50 no-underline;
+}
+.destructive.filled:disabled {
+	@apply bg-[#EB2525];
+}
+.destructive.filled:hover {
+	@apply bg-[#C91C1C];
+}
+.destructive.outlined {
+	@apply border-[#BF4545] text-[#BF4545] no-underline;
+}
+.destructive.outlined:hover {
+	@apply bg-[#E3363633]/20;
+}
+
+.purple {
+	@apply text-[#5852A0];
+}
+.purple.outlined {
+	@apply border-[#524C93] text-light-900 no-underline dark:text-[#524C93];
+}
+.purple.outlined:hover {
+	@apply bg-[#524C93]/20;
+}
+.purple.filled {
+	@apply bg-purple-500 font-semibold text-light-50 no-underline;
+}
+.purple.filled:hover {
+	@apply bg-[#423E7A];
 }
 
 input[type='checkbox'] {

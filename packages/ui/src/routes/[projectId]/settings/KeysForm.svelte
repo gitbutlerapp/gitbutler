@@ -81,7 +81,7 @@
 					<div>
 						<Button
 							kind="filled"
-							color="primary"
+							color="purple"
 							on:click={() => copyToClipboard(sshKey)}
 							disabled={selectedOption !== 'generated'}
 						>

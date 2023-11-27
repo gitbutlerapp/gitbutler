@@ -37,7 +37,9 @@
 						' into the base of all applied virtual branches'}
 				>
 					<Button
-						color="primary"
+						width="full-width"
+						height="small"
+						color="purple"
 						on:click={() => {
 							if ($mergeUpstreamWarningDismissed) {
 								branchController.updateBaseBranch();
@@ -95,9 +97,10 @@
 		</label>
 	</div>
 	<svelte:fragment slot="controls" let:close>
-		<Button kind="outlined" on:click={close}>Cancel</Button>
+		<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
 		<Button
-			color="primary"
+			height="small"
+			color="purple"
 			on:click={() => {
 				branchController.updateBaseBranch();
 				if (mergeUpstreamWarningDismissedCheckbox) {

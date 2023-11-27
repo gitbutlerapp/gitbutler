@@ -11,7 +11,7 @@ use crate::{
     paths::DataDir,
     project_repository, projects, reader,
     sessions::SessionId,
-    users, watcher,
+    users, virtual_branches, watcher,
 };
 
 impl From<app::Error> for Error {
@@ -145,6 +145,10 @@ pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Resul
 
     let users = handle.state::<users::Controller>().inner().clone();
     let projects = handle.state::<projects::Controller>().inner().clone();
+    let vbranches = handle
+        .state::<virtual_branches::Controller>()
+        .inner()
+        .clone();
     let local_data_dir = DataDir::try_from(&handle)?;
 
     let project = projects.get(&project_id).context("failed to get project")?;
@@ -153,6 +157,8 @@ pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Resul
     let gb_repo =
         gb_repository::Repository::open(&local_data_dir, &project_repository, user.as_ref())
             .context("failed to open repository")?;
+
+    vbranches.flush_vbranches(project_id).await?;
 
     let session = gb_repo
         .flush(&project_repository, user.as_ref())

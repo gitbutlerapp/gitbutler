@@ -62,7 +62,8 @@
 
 				<div class="flex flex-col items-center">
 					<Button
-						color="primary"
+						color="purple"
+						height="small"
 						on:click={() => {
 							if ($baseBranch$) branchController.setTarget($baseBranch$.branchName);
 						}}

@@ -32,8 +32,10 @@
 				upstream {upstream.commits.length > 1 ? 'commits' : 'commit'}
 			</div>
 			<Button
+				class="w-20"
+				height="small"
 				kind="outlined"
-				color="primary"
+				color="purple"
 				on:click={() => (upstreamCommitsShown = !upstreamCommitsShown)}
 			>
 				<span class="purple">
@@ -63,7 +65,7 @@
 						branches.
 					</div>
 				{/if}
-				<Button color="primary" on:click={merge}>Merge</Button>
+				<Button class="w-20" height="small" color="purple" on:click={merge}>Merge</Button>
 			</div>
 		</div>
 	{/if}

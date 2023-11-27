@@ -167,7 +167,7 @@
 
 	<svelte:fragment slot="controls">
 		<div class="px-4">
-			<Button color="primary" on:click={() => previewCommitModal.close()}>Close</Button>
+			<Button color="purple" on:click={() => previewCommitModal.close()}>Close</Button>
 		</div>
 	</svelte:fragment>
 </Modal>
