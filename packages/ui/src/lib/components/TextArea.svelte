@@ -26,12 +26,17 @@
 
 		display: flex;
 		width: 100%;
-		color: var(--clr-theme-scale-ntrl-50);
 		align-items: center;
 		gap: var(--space-8);
 		padding: var(--space-12);
+		color: var(--clr-theme-scale-ntrl-0);
 
 		resize: none;
+
+		&::placeholder {
+			/* Most modern browsers support this now. */
+			color: var(--clr-theme-scale-ntrl-50);
+		}
 
 		&:hover {
 			border-color: var(--clr-theme-container-outline-pale);
