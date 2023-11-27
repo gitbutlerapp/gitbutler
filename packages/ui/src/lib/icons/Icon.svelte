@@ -13,6 +13,7 @@
 
 <svg
 	class={className}
+	class:spinning={name == 'spinner'}
 	width="16"
 	height="16"
 	style="width: 1rem; height: 1rem;"
@@ -34,5 +35,15 @@
 	}
 	.pop {
 		color: var(--clr-core-pop-40);
+	}
+
+	.spinning {
+		transform-origin: center;
+		animation: spinner_AtaB 0.75s infinite linear;
+	}
+	@keyframes spinning {
+		100% {
+			transform: rotate(360deg);
+		}
 	}
 </style>

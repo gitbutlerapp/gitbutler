@@ -60,7 +60,9 @@
 		<button class="underline" on:click={() => open($authUrl)}>click here</button>
 	</p>
 {:else}
-	<Button loading={signUpOrLoginLoading} color="primary" on:click={onSignUpOrLoginClick}>
-		Sign up or Log in
-	</Button>
+	<div>
+		<Button loading={signUpOrLoginLoading} color="primary" on:click={onSignUpOrLoginClick}>
+			Sign up or Log in
+		</Button>
+	</div>
 {/if}
