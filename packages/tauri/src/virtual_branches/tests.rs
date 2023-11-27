@@ -1096,7 +1096,7 @@ fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result
     // there should be a new vbranch created, but nothing is on it
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches[0];
-    assert_eq!(branch.files.len(), 1);
+    assert_eq!(branch.files.len(), 0);
     assert_eq!(branch.commits.len(), 2);
 
     Ok(())
