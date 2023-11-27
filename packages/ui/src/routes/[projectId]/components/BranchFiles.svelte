@@ -106,22 +106,6 @@
 			}}
 		/>
 	{/if}
-	{#if branch.files.length == 0}
-		{#if branch.commits.length == 0}
-			<div class="new-branch text-color-3 space-y-6 rounded p-8 text-center" data-dnd-ignore>
-				<p>Nothing on this branch yet.</p>
-				{#if !readonly}
-					<IconNewBadge class="mx-auto mt-4 h-16 w-16 text-blue-400" />
-					<p class="px-12">Get some work done, then throw some files my way!</p>
-				{/if}
-			</div>
-		{:else}
-			<!-- attention: these markers have custom css at the bottom of thise file -->
-			<div class="no-uncommitted text-color-3 rounded py-6 text-center font-mono" data-dnd-ignore>
-				No uncommitted changes on this branch
-			</div>
-		{/if}
-	{/if}
 </div>
 
 <style lang="postcss">
@@ -162,13 +146,5 @@
 		flex-direction: column;
 		flex-grow: 1;
 		gap: var(--space-4);
-	}
-
-	.no-uncommitted {
-		flex-grow: 1;
-	}
-
-	.new-branch {
-		flex-grow: 1;
 	}
 </style>
