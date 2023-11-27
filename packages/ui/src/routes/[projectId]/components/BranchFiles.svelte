@@ -52,8 +52,8 @@
 				Changes <Badge count={branch.files.length} />
 			</div>
 			<SegmentedControl bind:selected={selectedListMode} selectedIndex={0}>
-				<Segment id="list" icon="list-view"></Segment>
-				<Segment id="tree" icon="tree-view"></Segment>
+				<Segment id="list" icon="list-view" />
+				<Segment id="tree" icon="tree-view" />
 			</SegmentedControl>
 		</div>
 		<div class="scrollbar">
@@ -135,11 +135,12 @@
 	.header {
 		color: var(----clr-theme-scale-ntrl-0);
 		display: flex;
+		align-items: center;
+		justify-content: space-between;
 		padding-top: var(--space-12);
 		padding-bottom: var(--space-12);
 		padding-left: var(--space-16);
 		padding-right: var(--space-12);
-		justify-content: space-between;
 		border-color: var(--clr-theme-container-outline-light);
 	}
 	.scrollbar {
@@ -149,7 +150,7 @@
 	}
 	.files {
 		flex-grow: 1;
-		padding-top: var(--space-8);
+		padding-top: 0;
 		padding-bottom: var(--space-16);
 		padding-left: var(--space-12);
 		padding-right: var(--space-12);

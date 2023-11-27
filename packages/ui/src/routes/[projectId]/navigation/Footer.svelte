@@ -13,31 +13,29 @@
 	export let projectId: string | undefined;
 </script>
 
-<div
-	class="text-color-3 flex flex-shrink-0 items-center justify-between border-t px-3 py-3"
-	style:border-color="var(--clr-theme-container-outline-light)"
->
-	<div class="flex items-center">
-		<Link href="/" class="p-1"><IconButton icon="home" /></Link>
+<div class="footer" style:border-color="var(--clr-theme-container-outline-light)">
+	<div class="left-btns">
+		<Link href="/"><IconButton icon="home" /></Link>
 		<Tooltip label="Send feedback">
 			<IconButton icon="mail" on:click={() => events.emit('openSendIssueModal')}></IconButton>
 		</Tooltip>
-		<Link href={`/${projectId}/settings`} class="p-1">
+		<Link href={`/${projectId}/settings`}>
 			<IconButton icon="settings" />
 		</Link>
-		{#if $isLoading}
-			<Tooltip>
-				<IconSpinner class="scale-75" />
-				<div slot="label">
-					{#each loadStack as item}
-						<p>
-							{item.name}
-							- <TimeAgo date={item.startedAt} addSuffix={true} />
-						</p>
-					{/each}
-				</div>
-			</Tooltip>
-		{/if}
 	</div>
 	<AccountLink {user} />
 </div>
+
+<style lang="postcss">
+	.footer {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--space-12);
+		border-top: 1px solid var(--clr-theme-container-outline-light);
+	}
+
+	.left-btns {
+		display: flex;
+	}
+</style>

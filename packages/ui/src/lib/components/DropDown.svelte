@@ -21,8 +21,8 @@
 	class:filled={type == 'filled'}
 	class:outlined={type == 'outlined'}
 >
-	<button class="label text-base-12" disabled={disabled || loading} on:click>
-		<slot />
+	<button class="btn" disabled={disabled || loading} on:click>
+		<span class="label text-base-12"> <slot /></span>
 	</button>
 	<button class="icon" disabled={disabled || loading} on:click={() => show()}>
 		<Icon name={loading ? 'spinner' : 'chevron-down'} />
@@ -44,7 +44,7 @@
 		position: relative;
 	}
 
-	.label,
+	.btn,
 	.icon {
 		display: flex;
 		align-items: center;
@@ -56,6 +56,11 @@
 	}
 
 	.label {
+		display: inline-flex;
+		padding: 0 var(--space-2);
+	}
+
+	.btn {
 		border-radius: var(--radius-m) 0 0 var(--radius-m);
 	}
 
@@ -95,7 +100,7 @@
 			border-color: var(--clr-theme-pop-outline-dim);
 		}
 
-		& .label {
+		& .btn {
 			border-width: 1px 0 1px 1px;
 			&:hover {
 				border-right-width: 1px;

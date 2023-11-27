@@ -19,7 +19,7 @@
 </script>
 
 <button
-	class="btn text-base-12"
+	class="btn"
 	class:error-outline={color == 'error' && kind == 'outlined'}
 	class:primary-outline={color == 'primary' && kind == 'outlined'}
 	class:error-filled={color == 'error' && kind == 'filled'}
@@ -31,7 +31,7 @@
 	{id}
 	{tabindex}
 >
-	<span>
+	<span class="label text-base-12">
 		<slot />
 	</span>
 	{#if icon}
@@ -49,10 +49,14 @@
 		flex-shrink: 0;
 		gap: var(--space-2);
 		align-items: center;
-		height: calc(var(--space-24) + var(--space-2));
+		height: var(--size-btn-m);
 		&:disabled {
 			opacity: 0.6;
 		}
+	}
+	.label {
+		display: inline-flex;
+		padding: 0 var(--space-2);
 	}
 	.primary-filled {
 		background: var(--clr-theme-pop-element);

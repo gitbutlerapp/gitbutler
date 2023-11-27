@@ -43,12 +43,18 @@ disabled:text-light-200 dark:text-dark-400 hover:dark:text-dark-100 focus:dark:t
 		background-color: var(--clr-theme-container-sub);
 	}
 	.large {
+		height: var(--size-btn-l);
+		width: var(--size-btn-l);
 		padding: var(--space-8);
 	}
 	.medium {
+		height: var(--size-btn-m);
+		width: var(--size-btn-m);
 		padding: var(--space-4);
 	}
 	.small {
+		height: var(--size-btn-s);
+		width: var(--size-btn-s);
 		padding: var(--space-2);
 	}
 </style>

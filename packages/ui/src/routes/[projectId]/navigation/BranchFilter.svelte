@@ -27,7 +27,7 @@
 	<div class="filter-btns">
 		<SegmentedControl on:select={(e) => onSelect(e.detail)} wide selectedIndex={0}>
 			{#each options as option}
-				<Segment id={option.id}>{option.name}</Segment>
+				<Segment id={option.id} label={option.name} />
 			{/each}
 		</SegmentedControl>
 	</div>
