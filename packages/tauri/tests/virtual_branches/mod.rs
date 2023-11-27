@@ -1052,7 +1052,6 @@ mod update_base_branch {
                 // fetch remote
                 controller.update_base_branch(&project_id).await.unwrap();
 
-                // there is a conflict now, so the branch should be stashed and applicable
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
@@ -1118,7 +1117,6 @@ mod update_base_branch {
                 // fetch remote
                 controller.update_base_branch(&project_id).await.unwrap();
 
-                // there is a conflict now, so the branch should be stashed and applicable
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
@@ -1183,7 +1181,6 @@ mod update_base_branch {
                 // fetch remote
                 controller.update_base_branch(&project_id).await.unwrap();
 
-                // there is a conflict now, so the branch should be stashed and applicable
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
@@ -1227,7 +1224,6 @@ mod update_base_branch {
                     .unwrap();
 
                 fs::write(repository.path().join("file.txt"), "second").unwrap();
-
                 controller
                     .create_commit(&project_id, &branch_id, "second", None)
                     .await
@@ -1265,7 +1261,6 @@ mod update_base_branch {
                 // fetch remote
                 controller.update_base_branch(&project_id).await.unwrap();
 
-                // there is a conflict now, so the branch should be stashed and applicable
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
@@ -1328,7 +1323,6 @@ mod update_base_branch {
                 // fetch remote
                 controller.update_base_branch(&project_id).await.unwrap();
 
-                // there is a conflict now, so the branch should be stashed and applicable
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 0);
             }
@@ -1378,7 +1372,6 @@ mod update_base_branch {
                 // fetch remote
                 controller.update_base_branch(&project_id).await.unwrap();
 
-                // there is a conflict now, so the branch should be stashed and applicable
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
@@ -1439,7 +1432,6 @@ mod update_base_branch {
                 // fetch remote
                 controller.update_base_branch(&project_id).await.unwrap();
 
-                // there is a conflict now, so the branch should be stashed and applicable
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
@@ -1501,7 +1493,6 @@ mod update_base_branch {
                 // fetch remote
                 controller.update_base_branch(&project_id).await.unwrap();
 
-                // there is a conflict now, so the branch should be stashed and applicable
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
@@ -1578,7 +1569,6 @@ mod update_base_branch {
                 // fetch remote
                 controller.update_base_branch(&project_id).await.unwrap();
 
-                // there is a conflict now, so the branch should be stashed and applicable
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
