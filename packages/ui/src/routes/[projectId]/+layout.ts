@@ -36,6 +36,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	);
 	const branchController = new BranchController(
 		projectId,
+		vbranchService,
 		remoteBranchService,
 		baseBranchService,
 		sessions$

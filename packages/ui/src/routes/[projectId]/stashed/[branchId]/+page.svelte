@@ -67,7 +67,6 @@
 			{projectId}
 			maximized={true}
 			cloudEnabled={false}
-			projectPath=""
 			readonly={true}
 			githubContext={$githubContext$}
 			user={$user$}

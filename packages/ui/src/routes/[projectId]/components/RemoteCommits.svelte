@@ -51,7 +51,7 @@
 </script>
 
 {#if remoteCommits.length > 0}
-	<div class="relative flex-grow">
+	<div class="relative">
 		<div
 			class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
 			style="height: calc(100% - 1rem);"
