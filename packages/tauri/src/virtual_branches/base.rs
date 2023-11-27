@@ -232,13 +232,6 @@ pub fn update_base_branch(
     let branch_writer = branch::Writer::new(gb_repository);
     let vbranches = super::get_status_by_branch(gb_repository, project_repository)?;
     for (virtual_branch, all_files) in &vbranches {
-        let non_commited_files = super::calculate_non_commited_diffs(
-            project_repository,
-            virtual_branch,
-            &target,
-            all_files,
-        )?;
-
         let branch_tree = if virtual_branch.applied {
             super::write_tree(project_repository, &target, all_files).and_then(|tree_id| {
                 repo.find_tree(tree_id)
@@ -353,6 +346,13 @@ pub fn update_base_branch(
                     super::unapply_branch(gb_repository, project_repository, &virtual_branch.id)
                         .context("failed to unapply branch")?;
                 } else {
+                    let non_commited_files = super::calculate_non_commited_diffs(
+                        project_repository,
+                        virtual_branch,
+                        &target,
+                        all_files,
+                    )?;
+
                     let merge_tree_oid = merge_index
                         .write_tree_to(repo)
                         .context("failed to write tree")?;
