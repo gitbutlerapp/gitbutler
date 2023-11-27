@@ -97,9 +97,11 @@
 			</div>
 
 			<Spacer />
-			<Button color="destructive" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
-				Delete project
-			</Button>
+			<div>
+				<Button color="error" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
+					Delete project
+				</Button>
+			</div>
 		{/if}
 	</div>
 </div>
@@ -112,8 +114,6 @@
 
 	<svelte:fragment slot="controls" let:close>
 		<Button kind="outlined" on:click={close}>Cancel</Button>
-		<Button color="destructive" loading={isDeleting} on:click={onDeleteClicked}>
-			Delete project
-		</Button>
+		<Button color="error" loading={isDeleting} on:click={onDeleteClicked}>Delete project</Button>
 	</svelte:fragment>
 </Modal>
