@@ -20,10 +20,6 @@
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import lscache from 'lscache';
-	import Tabs from './Tabs.svelte';
-	import NotesTabPanel from './NotesTabPanel.svelte';
-	import RemoteNamePanel from './RemoteNamePanel.svelte';
-	import FileTreeTabPanel from './FileTreeTabPanel.svelte';
 	import CommitDialog from './CommitDialog.svelte';
 	import { writable } from 'svelte/store';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
@@ -58,7 +54,6 @@
 
 	export let branch: Branch;
 	export let readonly = false;
-	export let projectPath: string | undefined;
 	export let projectId: string;
 	export let base: BaseBranch | undefined | null;
 	export let cloudEnabled: boolean;
@@ -85,12 +80,7 @@
 			? getPullRequestByBranch(githubContext, branch.upstream?.name.split('/').slice(-1)[0])
 			: undefined;
 
-	let shouldCreatePr = false;
 	$: branchName = branch.upstream?.name.split('/').slice(-1)[0];
-	$: if (shouldCreatePr && branchName && githubContext) {
-		createPr();
-		shouldCreatePr = false;
-	}
 
 	function createPr() {
 		if (githubContext && base?.branchName && branchName) {
@@ -316,19 +306,6 @@
 						}}
 					/>
 
-					{#if branch.files?.length > 0}
-						<CommitDialog
-							on:close={() => (commitDialogShown = false)}
-							{projectId}
-							{branchController}
-							{branch}
-							{cloudEnabled}
-							{cloud}
-							ownership={$selectedOwnership}
-							{user}
-						/>
-					{/if}
-
 					{#if branch.upstream?.commits.length && branch.upstream?.commits.length > 0 && !branch.conflicted}
 						<UpstreamCommits
 							upstream={branch.upstream}
@@ -341,33 +318,6 @@
 					{/if}
 				</div>
 			</div>
-			<Tabs
-				branchId={branch.id}
-				items={[
-					{
-						name: 'files',
-						displayName: 'Changed files (' + branch.files.length + ')',
-						component: FileTreeTabPanel,
-						props: {
-							files: branch.files,
-							selectedOwnership,
-							withCheckboxes: commitDialogShown
-						}
-					},
-					{
-						name: 'notes',
-						displayName: 'Notes',
-						component: NotesTabPanel,
-						props: { notes: branch.notes, branchId: branch.id, branchController }
-					},
-					{
-						name: 'Remote',
-						displayName: 'Remote',
-						component: RemoteNamePanel,
-						props: { branch: branch.upstream, branchId: branch.id, branchController }
-					}
-				]}
-			/>
 			<div
 				class="relative flex flex-grow overflow-y-hidden"
 				use:dropzone={{
@@ -396,19 +346,31 @@
 				>
 					<div class="hover-text invisible font-semibold">Move here</div>
 				</div>
-				<div
-					bind:this={viewport}
-					class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none pb-8"
-				>
-					<div bind:this={contents}>
-						<BranchFiles
-							{branch}
-							selectable={commitDialogShown}
-							{readonly}
-							{projectPath}
-							{branchController}
-							{selectedOwnership}
-						/>
+				<div bind:this={viewport} class="scroll-container hide-native-scrollbar">
+					<div bind:this={contents} class="flex min-h-full flex-col">
+						{#if branch.files?.length > 0}
+							<BranchFiles {branch} {readonly} {selectedOwnership} />
+							<CommitDialog
+								on:close={() => (commitDialogShown = false)}
+								{projectId}
+								{branchController}
+								{branch}
+								{cloudEnabled}
+								{cloud}
+								ownership={$selectedOwnership}
+								{user}
+							/>
+						{:else if branch.commits.length == 0}
+							<div class="new-branch" data-dnd-ignore>
+								<h1 class="text-base-16 text-semibold">Nothing on this branch yet</h1>
+								<p class="px-12">Get some work done, then throw some files my way!</p>
+							</div>
+						{:else}
+							<!-- attention: these markers have custom css at the bottom of thise file -->
+							<div class="no-changes" data-dnd-ignore>
+								<h1 class="text-base-16 text-semibold">No uncommitted changes on this branch</h1>
+							</div>
+						{/if}
 						{#if branch.commits.length > 0}
 							<LocalCommits
 								{branch}
@@ -490,5 +452,34 @@
 	}
 	:global(.squash-dz-hover .hover-text) {
 		@apply visible;
+	}
+
+	.scroll-container {
+		max-height: 100%;
+		flex-grow: 1;
+		flex-direction: column;
+		display: flex;
+		overflow-y: scroll;
+		overscroll-behavior: none;
+	}
+
+	.new-branch,
+	.no-changes {
+		display: flex;
+		flex-grow: 1;
+		flex-direction: column;
+		background: var(--clr-theme-container-light);
+		justify-content: center;
+		gap: var(--space-8);
+
+		& h1 {
+			color: var(--clr-theme-scale-ntrl-40);
+			text-align: center;
+		}
+	}
+
+	.new-branch p {
+		color: var(--clr-theme-scale-ntrl-50);
+		text-align: center;
 	}
 </style>

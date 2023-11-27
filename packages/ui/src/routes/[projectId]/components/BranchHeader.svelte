@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Button from '$lib/components/Button.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -9,7 +8,6 @@
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import type { Writable } from 'svelte/store';
 	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
-	import { setExpandedWithCache } from './cache';
 
 	export let readonly = false;
 	export let branch: Branch;
@@ -73,6 +71,7 @@
 		&:hover .draggable {
 			color: var(--clr-theme-scale-ntrl-40);
 		}
+		border-bottom: 1px solid var(--clr-theme-container-outline-light);
 	}
 	.header__left {
 		display: flex;

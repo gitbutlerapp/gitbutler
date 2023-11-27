@@ -43,7 +43,6 @@
 
 	$: headCommit = branch.commits[0];
 	$: localCommits = branch.commits.filter((c) => !c.isIntegrated && !c.isRemote);
-	$: remoteCommits = branch.commits.filter((c) => c.isRemote && !c.isIntegrated);
 
 	async function push() {
 		isPushing = true;
@@ -53,14 +52,10 @@
 </script>
 
 {#if localCommits.length > 0 || (branch.upstream && branch.upstream.commits.length > 0)}
-	<div
-		class="relative"
-		class:flex-grow={remoteCommits.length == 0}
-		transition:slide={{ duration: 150 }}
-	>
+	<div class="relative" transition:slide={{ duration: 150 }}>
 		<div
-			class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
-			style={localCommits.length == 0 ? 'height: calc();' : 'height: 100%;'}
+			class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% pt-4 dark:from-dark-600 dark:via-dark-600"
+			style="height: calc(100% - 1rem);"
 		/>
 
 		<div class="relative flex flex-col gap-2">
