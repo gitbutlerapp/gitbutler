@@ -612,7 +612,24 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
-            super::update_base_branch(gb_repository, project_repository, user).map_err(Into::into)
+            let signing_key = project_repository
+                .config()
+                .sign_commits()
+                .context("failed to get sign commits option")?
+                .then(|| {
+                    self.keys
+                        .get_or_create()
+                        .context("failed to get private key")
+                })
+                .transpose()?;
+
+            super::update_base_branch(
+                gb_repository,
+                project_repository,
+                user,
+                signing_key.as_ref(),
+            )
+            .map_err(Into::into)
         })
     }
 
