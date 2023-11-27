@@ -37,6 +37,7 @@ impl Suite {
         let user = users::User {
             name: "test".to_string(),
             email: "test@email.com".to_string(),
+            access_token: "token".to_string(),
             ..Default::default()
         };
         self.users.set_user(&user).expect("failed to add user");

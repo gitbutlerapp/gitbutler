@@ -19,7 +19,7 @@ use crate::{
 use super::*;
 use branch::{Branch, BranchCreateRequest, Ownership};
 
-fn set_test_target(
+pub fn set_test_target(
     gb_repo: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<()> {

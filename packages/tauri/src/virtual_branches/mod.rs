@@ -23,6 +23,8 @@ pub use iterator::BranchIterator as Iterator;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+pub use tests::set_test_target;
 
 mod r#virtual;
 pub use r#virtual::*;
