@@ -20,7 +20,7 @@
 	{title}
 	on:click
 >
-	<Icon name={icon} class="h-3 w-3" />
+	<Icon name={icon} />
 </button>
 
 <!-- {className} text-color-4 hover:text-color-1 outline-blue-200 focus:text-light-800 focus:outline-2 disabled:cursor-not-allowed
@@ -37,10 +37,6 @@ disabled:text-light-200 dark:text-dark-400 hover:dark:text-dark-100 focus:dark:t
 		&:not(.selected):hover {
 			background-color: var(--clr-theme-container-pale);
 			color: var(--clr-theme-scale-ntrl-40);
-		}
-		& svg {
-			height: var(--space-16);
-			width: var(--space-16);
 		}
 	}
 	.selected {

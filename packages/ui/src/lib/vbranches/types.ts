@@ -24,6 +24,14 @@ export class File {
 	content!: string;
 	binary!: boolean;
 	large!: boolean;
+
+	get filename() {
+		return this.path.split('/').at(-1);
+	}
+
+	get justpath() {
+		return this.path.split('/').slice(1, -2).join('/');
+	}
 }
 
 export class Branch {

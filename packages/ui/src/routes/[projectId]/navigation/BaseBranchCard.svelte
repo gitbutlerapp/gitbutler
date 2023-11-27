@@ -2,7 +2,6 @@
 	import { page } from '$app/stores';
 	import type { Project } from '$lib/backend/projects';
 	import Badge from '$lib/components/Badge.svelte';
-	import Button from '$lib/components/Button.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';

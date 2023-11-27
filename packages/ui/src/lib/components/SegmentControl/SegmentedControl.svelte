@@ -5,6 +5,7 @@
 
 	export let wide = false;
 	export let selectedIndex = 0;
+	export let selected: string | undefined = undefined;
 
 	let dispatch = createEventDispatcher<{ select: string }>();
 
@@ -26,6 +27,7 @@
 		addSegment: ({ id, index, disabled }) => {
 			segments = [...segments, { id, index, disabled }];
 			length.set(segments.length);
+			if (index == selectedIndex) selected = id;
 		},
 		setSelected: (segmentIndex) => {
 			if (segmentIndex >= 0 && segmentIndex < segments.length) {
@@ -33,7 +35,8 @@
 
 				if (!segments[segmentIndex].disabled) {
 					$selectedSegmentIndex = $focusedSegmentIndex;
-					dispatch('select', segments[segmentIndex].id);
+					selected = segments[segmentIndex].id;
+					dispatch('select', selected);
 				}
 			}
 		}
