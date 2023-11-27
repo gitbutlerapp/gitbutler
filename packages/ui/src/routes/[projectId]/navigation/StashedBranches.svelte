@@ -21,7 +21,7 @@
 	export let project: Project;
 	export let expanded = false;
 
-	$: branches$ = vbranchService.activeBranches$;
+	$: branches$ = vbranchService.stashedBranches$;
 	$: branchesError$ = vbranchService.branchesError$;
 
 	let viewport: HTMLElement;
