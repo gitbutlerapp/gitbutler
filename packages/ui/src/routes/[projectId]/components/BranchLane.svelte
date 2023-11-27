@@ -1,9 +1,12 @@
 <script lang="ts">
-	import type { BaseBranch, Branch } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import BranchCard from './BranchCard.svelte';
+	import FileCard from './FileCard.svelte';
+	import { writable } from 'svelte/store';
+	import { Ownership } from '$lib/vbranches/ownership';
 
 	export let branch: Branch;
 	export let readonly = false;
@@ -16,6 +19,11 @@
 	export let branchCount = 1;
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
+	export let projectPath: string;
+
+	let selectedFile: File | undefined;
+
+	const selectedOwnership = writable(Ownership.fromBranch(branch));
 </script>
 
 <div class="wrapper">
@@ -32,7 +40,22 @@
 		{branchCount}
 		{githubContext}
 		{user}
+		on:select={(e) => (selectedFile = e.detail)}
 	/>
+
+	{#if selectedFile}
+		<FileCard
+			conflicted={selectedFile.conflicted}
+			branchId={branch.id}
+			file={selectedFile}
+			{projectPath}
+			{branchController}
+			{selectedOwnership}
+			selectable={false}
+			{readonly}
+			on:close={() => (selectedFile = undefined)}
+		/>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -42,5 +65,6 @@
 		height: 100%;
 		flex-shrink: 0;
 		border-radius: var(--radius-m);
+		overflow: hidden;
 	}
 </style>

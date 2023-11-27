@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
-	import { getContext, onMount } from 'svelte';
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import { dropzone } from '$lib/utils/draggable';
 	import {
 		isDraggableHunk,
@@ -255,35 +255,33 @@
 </script>
 
 <div class="branch-card" style:width={maximized ? '100%' : `${laneWidth}px`}>
-	<div class="flex">
-		<div class="border-color-4 flex flex-grow flex-col">
-			<BranchHeader
-				{branchController}
-				{branch}
-				{allCollapsed}
-				{allExpanded}
-				on:action={(e) => {
-					if (e.detail == 'expand') {
-						handleExpandAll();
-					} else if (e.detail == 'collapse') {
-						handleCollapseAll();
-					} else if (e.detail == 'generate-branch-name') {
-						generateBranchName();
-					}
-				}}
-			/>
+	<div class="flex flex-col">
+		<BranchHeader
+			{branchController}
+			{branch}
+			{allCollapsed}
+			{allExpanded}
+			on:action={(e) => {
+				if (e.detail == 'expand') {
+					handleExpandAll();
+				} else if (e.detail == 'collapse') {
+					handleCollapseAll();
+				} else if (e.detail == 'generate-branch-name') {
+					generateBranchName();
+				}
+			}}
+		/>
 
-			{#if branch.upstream?.commits.length && branch.upstream?.commits.length > 0 && !branch.conflicted}
-				<UpstreamCommits
-					upstream={branch.upstream}
-					branchId={branch.id}
-					{branchController}
-					{branchCount}
-					{projectId}
-					{base}
-				/>
-			{/if}
-		</div>
+		{#if branch.upstream?.commits.length && branch.upstream?.commits.length > 0 && !branch.conflicted}
+			<UpstreamCommits
+				upstream={branch.upstream}
+				branchId={branch.id}
+				{branchController}
+				{branchCount}
+				{projectId}
+				{base}
+			/>
+		{/if}
 	</div>
 	<div
 		class="relative flex flex-grow overflow-y-hidden"
@@ -316,7 +314,7 @@
 		<div bind:this={viewport} class="scroll-container hide-native-scrollbar">
 			<div bind:this={contents} class="flex min-h-full flex-col">
 				{#if branch.files?.length > 0}
-					<BranchFiles {branch} {readonly} {selectedOwnership} />
+					<BranchFiles {branch} {readonly} {selectedOwnership} on:select />
 					{#if branch.active}
 						<CommitDialog
 							{projectId}
@@ -402,7 +400,6 @@
 		cursor: default;
 		overflow-x: hidden;
 		background: var(--clr-theme-container-light);
-		border-radius: var(--radius-m);
 	}
 
 	.scroll-container {

@@ -9,7 +9,7 @@
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 
 	export let projectId: string;
-	export let projectPath: string | undefined;
+	export let projectPath: string;
 
 	export let branches: Branch[] | undefined;
 	export let branchesError: any;
@@ -99,6 +99,7 @@
 					{branchController}
 					branchCount={branches.filter((c) => c.active).length}
 					{githubContext}
+					{projectPath}
 					{user}
 				/>
 			</div>
@@ -179,5 +180,6 @@
 		align-items: start;
 		height: 100%;
 		padding: var(--space-16);
+		gap: var(--space-16);
 	}
 </style>
