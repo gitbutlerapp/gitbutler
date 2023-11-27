@@ -333,13 +333,12 @@
 						{#if branch.files?.length > 0}
 							<BranchFiles {branch} {readonly} {selectedOwnership} />
 							<CommitDialog
-								on:close={() => (commitDialogShown = false)}
 								{projectId}
 								{branchController}
 								{branch}
 								{cloudEnabled}
 								{cloud}
-								ownership={$selectedOwnership}
+								{selectedOwnership}
 								{user}
 							/>
 						{:else if branch.commits.length == 0}

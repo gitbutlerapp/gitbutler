@@ -10,14 +10,14 @@
 		projectCommitGenerationExtraConcise,
 		projectCommitGenerationUseEmojis
 	} from '$lib/config/config';
-	import { createEventDispatcher } from 'svelte';
-	import type { Ownership } from '$lib/vbranches/ownership';
+	import { Ownership } from '$lib/vbranches/ownership';
 	import Button from '$lib/components/Button.svelte';
 	import TextArea from '$lib/components/TextArea.svelte';
 	import DropDown from '$lib/components/DropDown.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
+	import type { Writable } from 'svelte/store';
 
 	export let projectId: string;
 	export let branchController: BranchController;
@@ -25,16 +25,15 @@
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let user: User | undefined;
-	export let ownership: Ownership;
-
-	const dispatch = createEventDispatcher<{ close: null }>();
+	export let selectedOwnership: Writable<Ownership>;
 
 	let commitMessage: string;
 	$: messageRows =
 		Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10) + 2;
 
 	function commit() {
-		branchController.commitBranch(branch.id, commitMessage, ownership.toString());
+		selectedOwnership.set(Ownership.fromBranch(branch));
+		branchController.commitBranch(branch.id, commitMessage, $selectedOwnership.toString());
 	}
 
 	export function git_get_config(params: { key: string }) {
@@ -137,7 +136,6 @@
 			on:click={() => {
 				if (commitMessage) commit();
 				commitMessage = '';
-				dispatch('close');
 			}}
 		>
 			Commit
