@@ -31,9 +31,7 @@
 	{id}
 	{tabindex}
 >
-	<span>
-		<slot />
-	</span>
+	<slot />
 	{#if icon}
 		<Icon name={loading ? 'spinner' : icon} />
 	{:else if loading}

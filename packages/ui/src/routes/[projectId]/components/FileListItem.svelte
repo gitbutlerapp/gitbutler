@@ -14,9 +14,10 @@
 	$: isLocked = file.hunks.some((h) => h.locked);
 </script>
 
-<div
+<button
 	class="file-list-item"
 	id={`file-${file.id}`}
+	on:click
 	use:draggable={{
 		...draggableFile(branchId, file),
 		disabled: readonly
@@ -47,7 +48,7 @@
 	<div class="status">
 		<FileStatus status={computeFileStatus(file)} />
 	</div>
-</div>
+</button>
 
 <style lang="postcss">
 	.file-list-item {
@@ -59,6 +60,7 @@
 		max-width: 100%;
 		overflow: hidden;
 		background: var(--clr-theme-container-light);
+		text-align: left;
 		&:hover {
 			background: var(--clr-theme-container-pale);
 		}
