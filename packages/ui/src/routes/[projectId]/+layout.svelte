@@ -5,7 +5,6 @@
 	import { Code } from '$lib/backend/ipc';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
-	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
 	import { goto } from '$app/navigation';
 	import BaseBranchSelect from './BaseBranchSelect.svelte';
 	import { unsubscribe } from '$lib/utils/random';
@@ -20,7 +19,6 @@
 	export let data: LayoutData;
 
 	$: projectService = data.projectService;
-	$: githubContext$ = data.githubContext$;
 	$: branchController = data.branchController;
 	$: update = data.update;
 	$: prService = data.prService;
@@ -32,7 +30,6 @@
 	$: baseBranchService = data.baseBranchService;
 	$: baseBranch$ = baseBranchService.base$;
 
-	$: remoteBranchService = data.remoteBranchService;
 	$: user$ = data.user$;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
@@ -49,7 +46,6 @@
 </script>
 
 {#if $branchesError$}
-	{console.log($branchesError$)}
 	<div class="text-color-3 flex h-full w-full items-center justify-center">
 		{#if $branchesError$.code === Code.ProjectHead}
 			<div class="flex max-w-xl flex-col justify-center gap-y-3 p-4 text-center">
@@ -66,8 +62,7 @@
 
 				<div class="flex flex-col items-center">
 					<Button
-						color="purple"
-						height="small"
+						color="primary"
 						on:click={() => {
 							if ($baseBranch$) branchController.setTarget($baseBranch$.branchName);
 						}}
@@ -78,7 +73,7 @@
 			</div>
 		{:else}
 			<div class="flex max-w-xl gap-x-2 p-4">
-				<IconButton icon={IconChevronLeft} on:click={() => goto('/')}></IconButton>
+				<IconButton icon="home" on:click={() => goto('/')}></IconButton>
 				<div>
 					<h1 class="text-lg font-semibold">There was a problem loading this repo</h1>
 					<p>{$branchesError$.message}</p>

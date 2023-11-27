@@ -155,7 +155,7 @@
 
 	<svelte:fragment slot="controls" let:close>
 		<Button kind="outlined" on:click={close}>Not Now</Button>
-		<Button color="purple" loading={isLinking} on:click={() => onLinkClicked($project$)}>
+		<Button color="primary" loading={isLinking} on:click={() => onLinkClicked($project$)}>
 			{#if selectedRepositoryId === null}
 				Connect
 			{:else}

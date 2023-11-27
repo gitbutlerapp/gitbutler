@@ -113,7 +113,6 @@ impl Handler {
             events::Event::Flush(project_id, session) => self
                 .flush_session_handler
                 .handle(project_id, session)
-                .await
                 .context("failed to handle flush session event"),
 
             events::Event::SessionFile((project_id, session_id, file_path, contents)) => {

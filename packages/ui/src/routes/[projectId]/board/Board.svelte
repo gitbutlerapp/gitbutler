@@ -94,7 +94,6 @@
 				<BranchLane
 					{branch}
 					{projectId}
-					{projectPath}
 					{base}
 					{cloudEnabled}
 					{cloud}

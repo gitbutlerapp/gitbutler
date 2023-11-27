@@ -256,7 +256,7 @@
 						/>
 					</div>
 					<div class="mt-4 basis-full pr-4 text-right">
-						<Button loading={saving} color="purple" type="submit">Update profile</Button>
+						<Button loading={saving} color="primary">Update profile</Button>
 					</div>
 				</div>
 			</form>
@@ -318,7 +318,7 @@
 			</div>
 			<div class="flex flex-row justify-end space-x-2">
 				<div>
-					<Button kind="filled" color="purple" on:click={() => copyToClipboard(sshKey)}>
+					<Button kind="filled" color="primary" on:click={() => copyToClipboard(sshKey)}>
 						Copy to Clipboard
 					</Button>
 				</div>
@@ -420,7 +420,7 @@
 					</p>
 				</div>
 				<div>
-					<Button kind="filled" color="purple" on:click={gitHubStartOauth}>
+					<Button kind="filled" color="primary" on:click={gitHubStartOauth}>
 						{#if $user$.github_access_token}
 							Reauthenticate
 						{:else}
@@ -461,7 +461,7 @@
 		<Spacer />
 
 		<div class="flex flex-col gap-4">
-			<Button color="destructive" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
+			<Button color="error" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
 				Delete all data
 			</Button>
 		</div>
@@ -472,7 +472,7 @@
 
 		<svelte:fragment slot="controls" let:close>
 			<Button kind="outlined" on:click={close}>Cancel</Button>
-			<Button color="destructive" loading={isDeleting} on:click={onDeleteClicked}>Delete</Button>
+			<Button color="error" loading={isDeleting} on:click={onDeleteClicked}>Delete</Button>
 		</svelte:fragment>
 	</Modal>
 
@@ -490,7 +490,7 @@
 						whitespece-pre h-6 w-24 select-all rounded border border-light-200 bg-white font-mono dark:border-dark-400 dark:bg-dark-700"
 				/>
 
-				<Button kind="outlined" color="purple" on:click={() => copyToClipboard(userCode)}>
+				<Button kind="outlined" color="primary" on:click={() => copyToClipboard(userCode)}>
 					Copy to Clipboard
 				</Button>
 			</div>
@@ -503,7 +503,7 @@
 			<div>3️⃣ Paste the code that you copied and follow the on-screen instructions.</div>
 		</div>
 		<svelte:fragment slot="controls" let:close>
-			<Button color="purple" on:click={close}>Done</Button>
+			<Button color="primary" on:click={close}>Done</Button>
 		</svelte:fragment>
 	</Modal>
 </div>

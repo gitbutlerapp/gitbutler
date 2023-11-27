@@ -2,13 +2,14 @@ import type { BaseBranch, Hunk } from './types';
 import * as toasts from '$lib/utils/toasts';
 import { invoke } from '$lib/backend/ipc';
 import type { Session } from '$lib/backend/sessions';
-import type { BaseBranchService } from './branchStoresCache';
+import type { BaseBranchService, VirtualBranchService } from './branchStoresCache';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { Observable } from 'rxjs';
 
 export class BranchController {
 	constructor(
 		readonly projectId: string,
+		readonly vbranchService: VirtualBranchService,
 		readonly remoteBranchService: RemoteBranchService,
 		readonly targetBranchService: BaseBranchService,
 		readonly sessionsStore: Observable<Session[]>
@@ -22,6 +23,7 @@ export class BranchController {
 			toasts.error('Failed to set base branch');
 		} finally {
 			this.targetBranchService.reload();
+			this.vbranchService.reload();
 		}
 	}
 

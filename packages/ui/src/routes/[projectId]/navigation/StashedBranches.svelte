@@ -21,7 +21,7 @@
 	export let project: Project;
 	export let expanded = false;
 
-	$: branches$ = vbranchService.activeBranches$;
+	$: branches$ = vbranchService.stashedBranches$;
 	$: branchesError$ = vbranchService.branchesError$;
 
 	let viewport: HTMLElement;
@@ -94,10 +94,9 @@
 		<svelte:fragment slot="title">Merge conflicts</svelte:fragment>
 		<p>Applying this branch will introduce merge conflicts.</p>
 		<svelte:fragment slot="controls" let:item let:close>
-			<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
+			<Button kind="outlined" on:click={close}>Cancel</Button>
 			<Button
-				height="small"
-				color="purple"
+				color="primary"
 				on:click={() => {
 					branchController.applyBranch(item.id);
 					close();
@@ -113,8 +112,8 @@
 	.viewport {
 		padding-top: var(--space-4);
 		padding-bottom: var(--space-4);
-		padding-left: var(--space-16);
-		padding-right: var(--space-16);
+		padding-left: var(--space-12);
+		padding-right: var(--space-12);
 	}
 	.wrapper {
 		position: relative;

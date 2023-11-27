@@ -15,6 +15,7 @@
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import TextArea from '$lib/components/TextArea.svelte';
 
 	export let projectId: string;
 	export let branchController: BranchController;
@@ -86,8 +87,8 @@
 	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(projectId);
 </script>
 
-<div class="bg-color-3 flex w-full flex-col" transition:slide={{ duration: 150 }}>
-	{#if annotateCommits}
+<div class="commit-box" transition:slide={{ duration: 150 }}>
+	<!-- {#if annotateCommits}
 		<div class="bg-blue-400 p-2 text-sm text-white">
 			GitButler will be the committer of this commit.
 			<a
@@ -97,21 +98,8 @@
 				href="https://docs.gitbutler.com/features/virtual-branches/committer-mark">Learn more</a
 			>
 		</div>
-	{/if}
-	<div class="flex items-center">
-		<textarea
-			bind:value={commitMessage}
-			on:dblclick|stopPropagation
-			class="text-color-1 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-transparent p-2 font-mono outline-none focus:ring-0"
-			style:background-color="var(--bg-surface)"
-			placeholder="Your commit message here"
-			rows={messageRows}
-			autocomplete="off"
-			autocorrect="off"
-			spellcheck="true"
-			required
-		/>
-	</div>
+	{/if} -->
+	<TextArea bind:value={commitMessage} rows={messageRows} placeholder="Your commit message here" />
 	<div class="flex flex-grow justify-end gap-2 p-3 px-5">
 		<div class="relative flex flex-grow">
 			{#if cloudEnabled && user}
@@ -184,20 +172,16 @@
 						disabled={true}
 						tabindex={-1}
 						kind="outlined"
-						class="text-light-500"
-						height="small"
-						icon={IconAISparkles}
+						icon="question-mark"
 						loading={isGeneratingCommigMessage}
 					>
-						<span class="text-light-700">Generate message</span>
+						Generate message
 					</Button>
 				</Tooltip>
 			{/if}
 		</div>
 		<Button
-			class="w-20"
-			height="small"
-			color="purple"
+			color="primary"
 			id="commit-to-branch"
 			on:click={() => {
 				if (commitMessage) commit();
@@ -209,3 +193,13 @@
 		</Button>
 	</div>
 </div>
+
+<style lang="postcss">
+	.commit-box {
+		display: flex;
+		flex-direction: column;
+		border-top: 1px solid var(--color-theme-container-outline-light);
+		background: var(--clr-theme-container-pale);
+		padding: var(--space-16);
+	}
+</style>

@@ -1,22 +1,18 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import Icon from '$lib/icons/Icon.svelte';
-	import type iconsJson from '$lib/icons/icons.json';
 
 	export let href: string;
-	export let icon: keyof typeof iconsJson | undefined = undefined;
+	export let label: string;
 	$: selected = $page.url.href.includes(href);
 </script>
 
 <a
 	{href}
-	class="domain-button font-semibold"
+	class="domain-button"
 	style:background-color={selected ? 'var(--clr-theme-container-pale)' : undefined}
 >
-	{#if icon}
-		<Icon name={icon} class="text-color-4 mr-1 inline h-4 w-4 align-middle" />
-	{/if}
 	<slot />
+	<span class="text-base-14 text-semibold label">{label}</span>
 </a>
 
 <style lang="postcss">
@@ -27,9 +23,15 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-theme-container-light);
 		padding: var(--space-10);
+		transition: background-color var(--transition-fast);
+
 		&:hover,
 		&:focus {
 			background-color: var(--clr-theme-container-pale);
 		}
+	}
+
+	.label {
+		color: var(--clr-theme-scale-ntrl-0);
 	}
 </style>

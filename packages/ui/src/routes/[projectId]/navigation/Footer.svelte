@@ -1,32 +1,29 @@
 <script lang="ts">
 	import type { User } from '$lib/backend/cloud';
 	import { isLoading, loadStack } from '$lib/backend/ipc';
+	import IconButton from '$lib/components/IconButton.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
-	import Icon from '$lib/icons/Icon.svelte';
 	import IconSpinner from '$lib/icons/IconSpinner.svelte';
 	import * as events from '$lib/utils/events';
-	import { formatDistanceToNowStrict } from 'date-fns';
+	import AccountLink from './AccountLink.svelte';
 
 	export let user: User | undefined;
 	export let projectId: string | undefined;
 </script>
 
 <div
-	class="text-color-3 flex flex-shrink-0 items-center justify-between border-t px-4 py-4"
-	style:background-color="var(--bg-surface-highlight)"
-	style:border-color="var(--border-surface)"
+	class="text-color-3 flex flex-shrink-0 items-center justify-between border-t px-3 py-3"
+	style:border-color="var(--clr-theme-container-outline-light)"
 >
-	<div class="flex items-center gap-x-1">
-		<Link href="/" class="p-1"><Icon name="home" /></Link>
+	<div class="flex items-center">
+		<Link href="/" class="p-1"><IconButton icon="home" /></Link>
 		<Tooltip label="Send feedback">
-			<button class="p-1 align-middle" on:click={() => events.emit('openSendIssueModal')}>
-				<Icon name="mail"></Icon>
-			</button>
+			<IconButton icon="mail" on:click={() => events.emit('openSendIssueModal')}></IconButton>
 		</Tooltip>
 		<Link href={`/${projectId}/settings`} class="p-1">
-			<Icon name="settings" />
+			<IconButton icon="settings" />
 		</Link>
 		{#if $isLoading}
 			<Tooltip>
@@ -42,10 +39,5 @@
 			</Tooltip>
 		{/if}
 	</div>
-	<Link href="/user/">
-		{#if user?.picture}
-			<img class="mr-1 inline-block h-5 w-5 rounded-full" src={user.picture} alt="Avatar" />
-		{/if}
-		{user?.name ?? 'Account'}
-	</Link>
+	<AccountLink {user} />
 </div>

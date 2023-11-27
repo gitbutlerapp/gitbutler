@@ -1,6 +1,6 @@
 import { BaseBranch, Branch, RemoteBranch } from './types';
 import { plainToInstance } from 'class-transformer';
-import { invoke, listen } from '$lib/backend/ipc';
+import { UserError, invoke, listen } from '$lib/backend/ipc';
 import { isDelete, isInsert, type Delta } from '$lib/backend/deltas';
 import type { FileContent } from '$lib/backend/files';
 import {
@@ -20,41 +20,55 @@ import {
 
 export class VirtualBranchService {
 	branches$: Observable<Branch[]>;
-	activeBranches$: Observable<Branch[]>;
+	stashedBranches$: Observable<Branch[]>;
 	branchesError$ = new BehaviorSubject<any>(undefined);
+	private reload$ = new BehaviorSubject<void>(undefined);
 
 	constructor(projectId: string, sessionId$: Observable<string>) {
-		this.branches$ = concat(
-			from(listVirtualBranches({ projectId })),
-			new Observable<Branch[]>((subscriber) => {
-				return subscribeToVirtualBranches(projectId, (branches) => subscriber.next(branches));
-			})
-		).pipe(
-			combineLatestWith(sessionId$),
-			switchMap(
-				([branches, sessionId]) =>
+		this.branches$ = this.reload$.pipe(
+			switchMap(() =>
+				concat(
+					from(listVirtualBranches({ projectId })),
 					new Observable<Branch[]>((subscriber) => {
-						subscriber.next(branches);
-						withFileContent(projectId, sessionId, branches).then((branches) =>
-							subscriber.next(branches)
-						);
+						return subscribeToVirtualBranches(projectId, (branches) => subscriber.next(branches));
 					})
-			),
-			tap((branches) => {
-				branches.forEach((branch) => {
-					branch.files.sort((a) => (a.conflicted ? -1 : 0));
-					branch.isMergeable = invoke<boolean>('can_apply_virtual_branch', {
-						projectId: projectId,
-						branchId: branch.id
-					});
-				});
-			}),
-			shareReplay(1)
+				).pipe(
+					combineLatestWith(sessionId$),
+					switchMap(
+						([branches, sessionId]) =>
+							new Observable<Branch[]>((subscriber) => {
+								subscriber.next(branches);
+								withFileContent(projectId, sessionId, branches).then((branches) =>
+									subscriber.next(branches)
+								);
+							})
+					),
+					tap((branches) => {
+						branches.forEach((branch) => {
+							branch.files.sort((a) => (a.conflicted ? -1 : 0));
+							branch.isMergeable = invoke<boolean>('can_apply_virtual_branch', {
+								projectId: projectId,
+								branchId: branch.id
+							});
+						});
+					}),
+					catchError((err) => {
+						this.branchesError$.next(UserError.fromError(err));
+						return [];
+					}),
+					shareReplay(1)
+				)
+			)
 		);
 
-		this.activeBranches$ = this.branches$.pipe(
+		this.stashedBranches$ = this.branches$.pipe(
 			map((branches) => branches.filter((b) => !b.active))
 		);
+	}
+
+	reload() {
+		this.branchesError$.next(undefined);
+		this.reload$.next();
 	}
 }
 

@@ -283,16 +283,6 @@ impl Controller {
             .await
     }
 
-    pub async fn flush_vbranches(
-        &self,
-        project_id: ProjectId,
-    ) -> Result<(), ControllerError<errors::FlushAppliedVbranchesError>> {
-        self.inner(&project_id)
-            .await
-            .flush_vbranches(project_id)
-            .await
-    }
-
     pub async fn cherry_pick(
         &self,
         project_id: &ProjectId,
@@ -765,17 +755,6 @@ impl ControllerInner {
                 &credentials,
             )
             .map_err(Into::into)
-        })
-    }
-
-    pub async fn flush_vbranches(
-        &self,
-        project_id: ProjectId,
-    ) -> Result<(), ControllerError<errors::FlushAppliedVbranchesError>> {
-        let _permit = self.semaphore.acquire().await;
-
-        self.with_verify_branch(&project_id, |gb_repository, project_repository, _| {
-            super::flush_applied_vbranches(gb_repository, project_repository).map_err(Into::into)
         })
     }
 

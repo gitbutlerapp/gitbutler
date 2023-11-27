@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Project, ProjectService } from '$lib/backend/projects';
 	import Icon from '$lib/icons/Icon.svelte';
-	import { map } from 'rxjs';
 	import ProjectsPopup from './ProjectsPopup.svelte';
 	import { clickOutside } from './clickOutside';
 
@@ -46,6 +45,7 @@
 		display: flex;
 		width: 100%;
 		padding: var(--space-12);
+		border-radius: var(--radius-m);
 
 		background-color: var(--clr-theme-container-pale);
 

@@ -8,6 +8,9 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import SectionHeader from './SectionHeader.svelte';
 	import { accordion } from './accordion';
+	import BranchFilter, { type TypeFilter } from './BranchFilter.svelte';
+	import { BehaviorSubject, combineLatest } from 'rxjs';
+	import type { CombinedBranch } from '$lib/branches/types';
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
@@ -15,7 +18,14 @@
 	export let projectId: string;
 	export let expanded = false;
 
+	export const textFilter$ = new BehaviorSubject<string | undefined>(undefined);
+	export const typeFilter$ = new BehaviorSubject<TypeFilter>('all');
+
 	$: branches$ = branchService.branches$;
+	$: filteredBranches$ = combineLatest(
+		[branchService.branches$, typeFilter$, textFilter$],
+		(branches, type, search) => searchFilter(typeFilter(branches, type), search)
+	);
 
 	let viewport: HTMLElement;
 	let contents: HTMLElement;
@@ -24,6 +34,22 @@
 	const onScroll: UIEventHandler<HTMLDivElement> = (e) => {
 		scrolled = e.currentTarget.scrollTop != 0;
 	};
+
+	function typeFilter(branches: CombinedBranch[], type: TypeFilter): CombinedBranch[] {
+		switch (type) {
+			case 'all':
+				return branches;
+			case 'branch':
+				return branches.filter((b) => b.branch && !b.pr);
+			case 'pr':
+				return branches.filter((b) => b.pr);
+		}
+	}
+
+	function searchFilter(branches: CombinedBranch[], search: string | undefined) {
+		if (search == undefined) return branches;
+		return branches.filter((b) => b.displayName.includes(search));
+	}
 </script>
 
 {#if expanded}
@@ -50,9 +76,10 @@
 	style:height={`${$userSettings.vbranchExpandableHeight}px`}
 >
 	<div bind:this={viewport} class="viewport hide-native-scrollbar" on:scroll={onScroll}>
+		<BranchFilter {typeFilter$} {textFilter$}></BranchFilter>
 		<div bind:this={contents} class="content">
-			{#if $branches$}
-				{#each $branches$ as branch}
+			{#if $filteredBranches$}
+				{#each $filteredBranches$ as branch}
 					<BranchItem {projectId} {branch} />
 				{/each}
 			{/if}
@@ -67,13 +94,16 @@
 		overflow: hidden;
 	}
 	.viewport {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-12);
 		height: 100%;
 		overflow-y: scroll;
 		overscroll-behavior: none;
 		padding-top: var(--space-4);
 		padding-bottom: var(--space-16);
-		padding-left: var(--space-16);
-		padding-right: var(--space-16);
+		padding-left: var(--space-12);
+		padding-right: var(--space-12);
 	}
 	.content {
 		display: flex;

@@ -1,4 +1,3 @@
-import { gravatarUrl } from '$lib/gravatar/url';
 import type { Author } from '$lib/vbranches/types';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 

@@ -35,7 +35,7 @@ impl Handler {
         let branches = self.assets_proxy.proxy_virtual_branches(branches).await;
 
         Ok(vec![events::Event::Emit(
-            app_events::Event::virtual_branches(project_id, &branches.clone()),
+            app_events::Event::virtual_branches(project_id, &branches),
         )])
     }
 }

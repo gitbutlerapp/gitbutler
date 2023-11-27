@@ -15,7 +15,7 @@
 
 	export function openByElement(elt: HTMLElement, item: any) {
 		const rect = elt.getBoundingClientRect();
-		show(rect.left + rect.width, rect.top + rect.height, item);
+		show(rect.left, rect.top + rect.height, item);
 	}
 
 	function show(x: number, y: number, newItem: any) {

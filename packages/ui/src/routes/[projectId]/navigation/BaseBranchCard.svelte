@@ -2,7 +2,6 @@
 	import { page } from '$app/stores';
 	import type { Project } from '$lib/backend/projects';
 	import Badge from '$lib/components/Badge.svelte';
-	import Button from '$lib/components/Button.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
@@ -17,7 +16,7 @@
 	$: selected = $page.url.href.endsWith('/base');
 
 	let baseContents: HTMLElement;
-	let loading = false;
+	let isLoading = false;
 </script>
 
 <a
@@ -34,30 +33,29 @@
 	</div>
 
 	<div class="content">
-		<div class="row_1 text-base-13 font-bold">
-			<span>Trunk</span>
+		<div class="row_1">
+			<span class="text-base-14 text-semibold trunk-label">Trunk</span>
 			{#if ($base$?.behind || 0) > 0}
 				<Tooltip label="Unmerged upstream commits">
 					<Badge count={$base$?.behind || 0} />
 				</Tooltip>
 				<Tooltip label="Merge upstream commits into common base">
-					<Button
-						height="small"
-						color="purple"
-						{loading}
+					<button
+						class="merge-btn font-base-11 font-bold"
+						disabled={isLoading}
 						on:click={async (e) => {
 							e.preventDefault();
 							e.stopPropagation();
-							loading = true;
+							isLoading = true;
 							try {
 								await branchController.updateBaseBranch();
 							} finally {
-								loading = false;
+								isLoading = false;
 							}
 						}}
 					>
 						merge
-					</Button>
+					</button>
 				</Tooltip>
 			{/if}
 		</div>
@@ -78,6 +76,8 @@
 		gap: var(--space-10);
 		padding: var(--space-8);
 		border-radius: var(--radius-m);
+		transition: background-color var(--transition-fast);
+
 		&:hover,
 		&:focus {
 			background-color: var(--clr-theme-container-pale);
@@ -91,6 +91,9 @@
 		flex-direction: column;
 		gap: var(--space-8);
 	}
+	.trunk-label {
+		color: var(--clr-theme-scale-ntrl-0);
+	}
 	.row_1 {
 		display: flex;
 		gap: var(--space-6);
@@ -102,5 +105,14 @@
 		align-items: center;
 		gap: var(--space-4);
 		color: var(--clr-theme-scale-ntrl-40);
+	}
+	.merge-btn {
+		color: white;
+		padding: 0 0.3125rem;
+		border-radius: var(--radius-m);
+		background: var(--clr-theme-err-element);
+		&:hover {
+			background: var(--clr-theme-err-element-dim);
+		}
 	}
 </style>

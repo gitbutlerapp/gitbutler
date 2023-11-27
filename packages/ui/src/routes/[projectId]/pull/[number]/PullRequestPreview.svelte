@@ -65,8 +65,7 @@
 		<div class="w-1/2">
 			<Tooltip label="Does not create a commit. Can be toggled.">
 				<Button
-					color="purple"
-					height="small"
+					color="primary"
 					on:click={() =>
 						pullrequest &&
 						branchController.createvBranchFromBranch(

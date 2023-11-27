@@ -10,7 +10,6 @@
 
 	export let user: User | undefined;
 	export let userService: UserService;
-	export let width: 'basic' | 'full-width' = 'basic';
 
 	const pollForUser = async (token: string) => {
 		const apiUser = await cloud.login.user.get(token).catch(() => null);
@@ -43,8 +42,8 @@
 
 {#if user}
 	<Button
-		kind="plain"
-		color="destructive"
+		kind="filled"
+		color="error"
 		on:click={async () => {
 			user = undefined;
 			await userService.logout();
@@ -61,7 +60,7 @@
 		<button class="underline" on:click={() => open($authUrl)}>click here</button>
 	</p>
 {:else}
-	<Button {width} loading={signUpOrLoginLoading} color="purple" on:click={onSignUpOrLoginClick}>
+	<Button loading={signUpOrLoginLoading} color="primary" on:click={onSignUpOrLoginClick}>
 		Sign up or Log in
 	</Button>
 {/if}
