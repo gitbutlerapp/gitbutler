@@ -192,8 +192,6 @@ pub fn update_base_branch(
             })
         })?;
 
-    let branch_writer = branch::Writer::new(gb_repository);
-
     let repo = &project_repository.git_repository;
     let target_branch = repo
         .find_branch(&target.branch.clone().into())
@@ -215,14 +213,13 @@ pub fn update_base_branch(
         .tree()
         .context("failed to get new target commit tree")?;
 
-    // get tree from target.sha
-    let old_target_commit = repo
+    let old_target_tree = repo
         .find_commit(target.sha)
-        .context(format!("failed to find old target commit {}", target.sha))?;
-    let old_target_tree = old_target_commit.tree().context(format!(
-        "failed to get old target commit tree {}",
-        target.sha
-    ))?;
+        .and_then(|commit| commit.tree())
+        .context(format!(
+            "failed to get old target commit tree {}",
+            target.sha
+        ))?;
 
     // ok, now we need to deal with a number of situations
     // 1. applied branch, uncommitted conflicts
@@ -232,31 +229,27 @@ pub fn update_base_branch(
     // 5. unapplied branch, committed conflicts but not uncommitted
     // 6. unapplied branch, no conflicts
 
-    let mut vbranches = super::get_status_by_branch(gb_repository, project_repository)?;
-
-    // update the heads of all our virtual branches
-    for (virtual_branch, all_files) in &mut vbranches {
-        let mut virtual_branch = virtual_branch.clone();
-
+    let branch_writer = branch::Writer::new(gb_repository);
+    let vbranches = super::get_status_by_branch(gb_repository, project_repository)?;
+    for (virtual_branch, all_files) in &vbranches {
         let non_commited_files = super::calculate_non_commited_diffs(
             project_repository,
-            &virtual_branch,
+            virtual_branch,
             &target,
             all_files,
         )?;
 
-        let tree_oid = if virtual_branch.applied {
-            super::write_tree(project_repository, &target, all_files).context(format!(
-                "failed to write tree for branch {}",
+        let branch_tree = if virtual_branch.applied {
+            super::write_tree(project_repository, &target, all_files).and_then(|tree_id| {
+                repo.find_tree(tree_id)
+                    .context(format!("failed to find writen tree {}", tree_id))
+            })?
+        } else {
+            repo.find_tree(virtual_branch.tree).context(format!(
+                "failed to find tree for branch {}",
                 virtual_branch.id
             ))?
-        } else {
-            virtual_branch.tree
         };
-        let branch_tree = repo.find_tree(tree_oid).context(format!(
-            "failed to find tree for branch {}",
-            virtual_branch.id
-        ))?;
 
         // check for conflicts with this tree
         let mut merge_index = repo
@@ -314,9 +307,12 @@ pub fn update_base_branch(
                             signing_key,
                         )
                         .context("failed to commit merge")?;
-                    virtual_branch.head = new_branch_head;
-                    virtual_branch.tree = merge_tree_oid;
-                    branch_writer.write(&virtual_branch)?;
+
+                    branch_writer.write(&branch::Branch {
+                        head: new_branch_head,
+                        tree: merge_tree_oid,
+                        ..virtual_branch.clone()
+                    })?;
                 }
             }
         } else {
@@ -329,9 +325,11 @@ pub fn update_base_branch(
             // but also remove/archive it if the branch is fully integrated
             if target.sha == virtual_branch.head {
                 // there were no conflicts and no commits, so write the merge index as the new tree and update the head to the new target
-                virtual_branch.head = new_target_commit.id();
-                virtual_branch.tree = merge_tree_oid;
-                branch_writer.write(&virtual_branch)?;
+                branch_writer.write(&branch::Branch {
+                    head: new_target_commit.id(),
+                    tree: merge_tree_oid,
+                    ..virtual_branch.clone()
+                })?;
             } else {
                 // no conflicts, but there have been commits, so update head with a merge
                 // there are commits on this branch, so create a merge commit with the new tree
@@ -361,7 +359,7 @@ pub fn update_base_branch(
                     // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
                     // then the vbranch is fully merged, so delete it
                     if merge_tree_oid == new_target_tree.id() && non_commited_files.is_empty() {
-                        branch_writer.delete(&virtual_branch)?;
+                        branch_writer.delete(virtual_branch)?;
                     } else {
                         // check to see if these commits have already been pushed
                         let mut last_rebase_head = virtual_branch.head;
@@ -460,9 +458,11 @@ pub fn update_base_branch(
                             }
                         }
 
-                        virtual_branch.head = new_branch_head;
-                        virtual_branch.tree = merge_tree_oid;
-                        branch_writer.write(&virtual_branch)?;
+                        branch_writer.write(&branch::Branch {
+                            head: new_branch_head,
+                            tree: merge_tree_oid,
+                            ..virtual_branch.clone()
+                        })?;
                     }
                 }
             }
