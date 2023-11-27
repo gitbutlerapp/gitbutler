@@ -34,7 +34,7 @@
 	$: scrollable = contents ? contents.scrollHeight > contents.offsetHeight : false;
 </script>
 
-{#if branch.conflicted}
+{#if branch.active && branch.conflicted}
 	<div class="mb-2 bg-red-500 p-2 font-bold text-white">
 		{#if branch.files.some((f) => f.conflicted)}
 			This virtual branch conflicts with upstream changes. Please resolve all conflicts and commit

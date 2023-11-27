@@ -6,6 +6,7 @@
 	import IconButton from '$lib/components/IconButton.svelte';
 	import type { Branch } from '$lib/vbranches/types';
 	import Modal from '$lib/components/Modal.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 
 	export let data: PageData;
 
@@ -41,24 +42,25 @@
 	{:else if !$branches$}
 		<p>Loading...</p>
 	{:else if branch}
-		{#await branch.isMergeable then isMergeable}
-			{#if isMergeable}
-				<Button
-					class="w-20"
-					height="small"
-					kind="outlined"
-					color="purple"
-					on:click={() => branch && applyBranch(branch)}
-				>
-					<span class="purple"> Apply </span>
-				</Button>
-			{/if}
-		{/await}
+		<Button kind="outlined" color="primary" on:click={() => branch && applyBranch(branch)}>
+			<span class="purple"> Apply </span>
+		</Button>
 		<IconButton
 			icon="question-mark"
 			title="delete branch"
 			on:click={() => deleteBranchModal.show(branch)}
 		/>
+		{#await branch.isMergeable then isMergeable}
+			{#if isMergeable}
+				<Tooltip
+					label="Applying this branch will add merge conflict markers that you will have to resolve"
+				>
+					<div class="flex select-none bg-yellow-500 px-2 py-0.5 font-bold dark:bg-yellow-600">
+						<span>Conflicts with Applied Branches</span>
+					</div>
+				</Tooltip>
+			{/if}
+		{/await}
 		<BranchLane
 			{branch}
 			{branchController}

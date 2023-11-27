@@ -272,24 +272,6 @@
 		>
 			<div class="flex">
 				<div class="border-color-4 flex flex-grow flex-col">
-					{#await branch.isMergeable then isMergeable}
-						{#if !isMergeable}
-							<!-- use of relative is for tooltip rendering -->
-							<div class="bg-red-500 px-2 py-0.5 text-center font-bold dark:bg-red-700">
-								<Tooltip
-									label="Canflicts with changes in your working directory, cannot be applied"
-								>
-									<span class="text-white">cannot be applied</span>
-								</Tooltip>
-							</div>
-						{:else if !branch.baseCurrent}
-							<div class="bg-yellow-500 px-2 py-0.5 font-bold dark:bg-yellow-600">
-								<Tooltip label="Will introduce merge conflicts if applied">
-									<span class="">will cause merge conflicts</span>
-								</Tooltip>
-							</div>
-						{/if}
-					{/await}
 					<BranchHeader
 						{branchController}
 						{branch}

@@ -20,6 +20,9 @@ export class File {
 	expanded?: boolean;
 	@Transform((obj) => new Date(obj.value))
 	modifiedAt!: Date;
+	// This indicates if a file has merge conflict markers generated and not yet resolved.
+	// This is true for files after a branch which does not apply cleanly (Branch.isMergeable == false) is applied.
+	// (therefore this field is applicable only for applied branches, i.e. active == true)
 	conflicted!: boolean;
 	content!: string;
 	binary!: boolean;
@@ -38,6 +41,7 @@ export class Branch {
 	id!: string;
 	name!: string;
 	notes!: string;
+	// Active means the branch has been applied to the working directory (i.e. "Applied Branches")
 	active!: boolean;
 	@Type(() => File)
 	files!: File[];
@@ -51,6 +55,10 @@ export class Branch {
 	conflicted!: boolean;
 	baseCurrent!: boolean;
 	ownership!: string;
+	// This should actually be named "canBeCleanlyApplied" - if it's false, applying this branch will generate conflict markers,
+	// but it's totatlly okay for a user to apply it.
+	// If the branch has been already applied, then it was either performed cleanly or we generated conflict markers in the diffs.
+	// (therefore this field is applicable for stashed/unapplied or remote branches, i.e. active == false)
 	isMergeable!: Promise<boolean>;
 }
 
