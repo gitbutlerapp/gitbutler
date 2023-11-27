@@ -147,7 +147,7 @@
 	.commit-box {
 		display: flex;
 		flex-direction: column;
-		border-top: 1px solid var(--color-theme-container-outline-light);
+		border-top: 1px solid var(--clr-theme-container-outline-light);
 		background: var(--clr-theme-container-pale);
 		padding: var(--space-16);
 		gap: var(--space-8);

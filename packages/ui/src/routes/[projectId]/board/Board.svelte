@@ -37,8 +37,7 @@
 	<div class="p-4">Loading...</div>
 {:else}
 	<div
-		id="branch-lanes"
-		class="flex h-full flex-shrink flex-grow items-start px-1"
+		class="board"
 		role="group"
 		bind:this={dropZone}
 		on:dragover={(e) => {
@@ -171,3 +170,14 @@
 		{/if}
 	</div>
 {/if}
+
+<style lang="postcss">
+	.board {
+		display: flex;
+		flex-grow: 1;
+		flex-shrink: 1;
+		align-items: start;
+		height: 100%;
+		padding: var(--space-16);
+	}
+</style>
