@@ -15,7 +15,6 @@
 	let popup: HTMLDivElement;
 </script>
 
-
 <div class="wrapper">
 	<div
 		class="dropdown"
@@ -24,8 +23,8 @@
 		class:outlined={type == 'outlined'}
 	>
 		<button class="btn" disabled={disabled || loading} on:click>
-      <span class="label text-base-12"> <slot /></span>
-    </button>
+			<span class="label text-base-12"> <slot /></span>
+		</button>
 		<button class="icon" disabled={disabled || loading} on:click={() => show()}>
 			<Icon name={loading ? 'spinner' : visible ? 'chevron-top' : 'chevron-down'} />
 		</button>

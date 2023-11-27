@@ -30,7 +30,7 @@ disabled:text-light-200 dark:text-dark-400 hover:dark:text-dark-100 focus:dark:t
 	.icon-btn {
 		display: inline-flex;
 		align-items: center;
-		align-self: center;
+		justify-content: center;
 		color: var(--clr-theme-scale-ntrl-40);
 		border-radius: var(--radius-m);
 		color: var(--clr-theme-scale-ntrl-50);
