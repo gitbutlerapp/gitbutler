@@ -33,12 +33,6 @@ button {
 	cursor: default;
 }
 
-input,
-textarea {
-	outline: none;
-	@apply p-1;
-}
-
 .input,
 .textarea {
 	@apply text-color-2 rounded border border-light-500 px-2 py-1.5 dark:border-dark-400 dark:bg-dark-600;
@@ -133,27 +127,6 @@ textarea {
 
 .link:focus {
 	@apply outline-none;
-}
-
-.disabled {
-	@apply pointer-events-none text-zinc-500;
-}
-
-.filled.disabled,
-.outlined.disabled {
-	@apply opacity-40;
-}
-
-.filled {
-}
-
-.filled,
-.outlined {
-	@apply text-light-900 dark:text-dark-100;
-}
-
-.outlined {
-	@apply border;
 }
 
 .small-btn {

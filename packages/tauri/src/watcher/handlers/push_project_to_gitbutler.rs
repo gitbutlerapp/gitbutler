@@ -403,8 +403,7 @@ mod test {
                 .unwrap()
                 .peel_to_commit()
                 .unwrap()
-                .id()
-                .into();
+                .id();
 
             let reference = project_repository.l(head, LogUntil::End).unwrap();
             assert_eq!(reference.len(), 2);

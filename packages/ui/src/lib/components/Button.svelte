@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { onMount, type ComponentType } from 'svelte';
-	import { IconLoading } from '../icons';
+	import { onMount } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 	import Icon from '$lib/icons/Icon.svelte';
 
@@ -35,10 +34,10 @@
 	<span>
 		<slot />
 	</span>
-	{#if loading}
-		<IconLoading class="animate-spin" />
-	{:else if icon}
-		<Icon name={icon} />
+	{#if icon}
+		<Icon name={loading ? 'spinner' : icon} />
+	{:else if loading}
+		<Icon name="spinner" />
 	{/if}
 </button>
 
@@ -47,6 +46,7 @@
 		display: inline-flex;
 		padding: var(--space-4) var(--space-6);
 		border-radius: var(--radius-m);
+		flex-shrink: 0;
 		gap: var(--space-2);
 		align-items: center;
 		height: calc(var(--space-24) + var(--space-2));
