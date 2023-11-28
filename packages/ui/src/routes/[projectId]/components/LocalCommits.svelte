@@ -106,7 +106,6 @@
 									color="neutral-light"
 									clickable
 									on:click={(e) => {
-										console.log(pr?.htmlUrl);
 										open(pr?.htmlUrl);
 										e.preventDefault();
 										e.stopPropagation();
@@ -190,7 +189,13 @@
 									color="primary"
 									id="push-commits"
 									loading={isPushing}
-									on:click={() => push()}
+									on:click={async () => {
+										try {
+											await push();
+										} catch {
+											toast.error('Failed to push');
+										}
+									}}
 								>
 									{#if branch.requiresForce}
 										Force Push
