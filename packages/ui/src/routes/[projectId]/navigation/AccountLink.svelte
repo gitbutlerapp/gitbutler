@@ -26,11 +26,15 @@
 <style lang="postcss">
 	.btn {
 		display: flex;
-		color: var(--clr-theme-scale-ntrl-50);
-		padding: var(--space-4) var(--space-8);
-		border-radius: var(--radius-m);
 		align-items: center;
 		gap: var(--space-8);
+
+		height: var(--size-btn-l);
+		padding: var(--space-6) var(--space-8);
+		border-radius: var(--radius-m);
+
+		color: var(--clr-theme-scale-ntrl-50);
+
 		&:hover {
 			background-color: var(--clr-theme-container-pale);
 			color: var(--clr-theme-scale-ntrl-40);

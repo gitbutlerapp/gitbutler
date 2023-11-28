@@ -49,11 +49,12 @@
 		{/if}
 		<BranchLabel bind:name={branch.name} on:change={handleBranchNameChange} />
 	</div>
-	<div class="flex items-center gap-x-1 px-1" transition:fade={{ duration: 150 }}>
+	<div class="flex items-center gap-x-1" transition:fade={{ duration: 150 }}>
 		{#if !readonly}
 			<div bind:this={meatballButton}>
 				<IconButton
 					icon="kebab"
+					size="m"
 					on:click={() => popupMenu.openByElement(meatballButton, branch.id)}
 				/>
 			</div>

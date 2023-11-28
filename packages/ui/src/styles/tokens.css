@@ -208,9 +208,12 @@
 	--fx-shadow-l: 0 16px 40px 0 #0000001f;
 	--fx-shadow-m: 0 10px 30px 0 #00000024;
 	--fx-shadow-s: 0 7px 14px 0 #0000001a;
-	--radius-l: 0.75rem; /* 12px / 16px = 0.75rem */
-	--radius-m: 0.375rem; /* 6px / 16px = 0.375rem */
-	--radius-s: 0.25rem; /* 4px / 16px = 0.25rem */
+	--radius-l: var(--space-12);
+	--radius-m: var(--space-6);
+	--radius-s: var(--space-4);
+	--size-btn-s: 1.25rem;
+	--size-btn-m: 1.625rem;
+	--size-btn-l: 2rem;
 	--space-2: 0.125rem; /* 2px / 16px = 0.125rem */
 	--space-4: 0.25rem; /* 4px / 16px = 0.25rem */
 	--space-6: 0.375rem; /* 6px / 16px = 0.375rem */

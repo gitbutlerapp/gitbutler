@@ -58,7 +58,7 @@
 	.file-list-item {
 		display: flex;
 		align-items: center;
-		padding: var(--space-8);
+		padding: var(--space-6) var(--space-8);
 		gap: var(--space-16);
 		border-radius: var(--radius-s);
 		max-width: 100%;

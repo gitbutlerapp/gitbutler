@@ -7,6 +7,7 @@
 	export let id: string;
 	export let disabled = false;
 	export let icon: keyof typeof iconsJson | undefined = undefined;
+	export let label: string | undefined = undefined;
 
 	let ref: HTMLButtonElement | undefined;
 	const dispatcher = createEventDispatcher<{ select: string }>();
@@ -52,11 +53,15 @@
 		}
 	}}
 >
-	<span class="text-base-12">
-		<slot />
-	</span>
+	{#if label}
+		<span class="label text-base-12">
+			{label}
+		</span>
+	{/if}
 	{#if icon}
-		<Icon name={icon} />
+		<div class="icon">
+			<Icon name={icon} />
+		</div>
 	{/if}
 </button>
 
@@ -69,14 +74,15 @@
 		justify-content: center;
 		gap: var(--space-4);
 
-		height: calc(var(--space-24) + var(--space-2));
-		color: var(--clr-theme-scale-ntrl-40);
+		height: var(--size-btn-m);
 		background-color: var(--clr-theme-container-pale);
 		padding: var(--space-4) var(--space-8);
 
-		border-top-width: 1px;
-		border-bottom-width: 1px;
-		border-color: var(--clr-theme-container-outline-light);
+		border-width: 1px;
+		border-top-color: var(--clr-theme-container-outline-light);
+		border-bottom-color: var(--clr-theme-container-outline-light);
+		border-left-color: transparent;
+		border-right-color: transparent;
 
 		transition: background var(--transition-fast);
 
@@ -86,25 +92,39 @@
 
 		&[aria-selected='true'] {
 			background-color: var(--clr-theme-container-light);
-			border-left-width: 1px;
-			color: var(--clr-theme-scale-ntrl-10);
+			border-left-color: var(--clr-theme-container-outline-light);
+			border-right-color: var(--clr-theme-container-outline-light);
+
+			& > .label {
+				color: var(--clr-theme-scale-ntrl-0);
+			}
+			& > .icon {
+				color: var(--clr-theme-scale-ntrl-0);
+			}
 			&.left {
-				border-right-width: 1px;
+				border-right-color: var(--clr-theme-container-outline-light);
 			}
 			&.right {
-				border-left-width: 1px;
+				border-left-color: var(--clr-theme-container-outline-light);
 			}
-			border-right-width: 1px;
 		}
 		&.left {
 			border-top-left-radius: var(--radius-m);
-			border-left-width: 1px;
+			border-left-color: var(--clr-theme-container-outline-light);
 			border-bottom-left-radius: var(--radius-m);
 		}
 		&.right {
-			border-right-width: 1px;
+			border-right-color: var(--clr-theme-container-outline-light);
 			border-top-right-radius: var(--radius-m);
 			border-bottom-right-radius: var(--radius-m);
 		}
+	}
+
+	.icon {
+		color: var(--clr-theme-scale-ntrl-50);
+	}
+
+	.label {
+		color: var(--clr-theme-scale-ntrl-40);
 	}
 </style>
