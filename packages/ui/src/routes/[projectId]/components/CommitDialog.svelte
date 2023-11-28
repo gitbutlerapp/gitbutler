@@ -117,22 +117,14 @@
 				<ContextMenu type="checklist" slot="popup" bind:this={contextMenu}>
 					<ContextMenuItem
 						checked={$commitGenerationExtraConcise}
-						on:click={(e) => {
-							e.stopImmediatePropagation();
-							e.stopPropagation();
-							e.preventDefault();
-							commitGenerationExtraConcise.update((value) => !value);
-							return false;
-						}}
-					>
-						Extra concise
-					</ContextMenuItem>
+						label="Extra concise"
+						on:click={() => commitGenerationExtraConcise.update((value) => !value)}
+					/>
 					<ContextMenuItem
 						checked={$commitGenerationUseEmojis}
+						label="Use emojis 😎"
 						on:click={() => commitGenerationUseEmojis.update((value) => !value)}
-					>
-						Use emojis 😎
-					</ContextMenuItem>
+					/>
 				</ContextMenu>
 			</DropDown>
 		</Tooltip>

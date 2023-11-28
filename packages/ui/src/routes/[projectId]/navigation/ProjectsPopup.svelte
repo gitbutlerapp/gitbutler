@@ -10,6 +10,7 @@
 
 	export function toggle() {
 		hidden = !hidden;
+		return !hidden;
 	}
 
 	export function hide() {

@@ -11,6 +11,10 @@
 		visible = true;
 	}
 
+	export function close() {
+		visible = false;
+	}
+
 	let container: HTMLDivElement;
 	let popup: HTMLDivElement;
 	let iconElt: HTMLElement;
@@ -35,16 +39,14 @@
 			<Icon name={loading ? 'spinner' : visible ? 'chevron-top' : 'chevron-down'} />
 		</button>
 	</div>
-	{#if visible}
-		<div
-			class="context-wrapper"
-			use:clickOutside={{ trigger: iconElt, handler: () => (visible = !visible) }}
-			bind:this={popup}
-			style:display={visible ? 'block' : 'none'}
-		>
-			<slot name="popup" />
-		</div>
-	{/if}
+	<div
+		class="context-wrapper"
+		use:clickOutside={{ trigger: iconElt, handler: () => (visible = !visible), enabled: visible }}
+		bind:this={popup}
+		style:display={visible ? 'block' : 'none'}
+	>
+		<slot name="popup" />
+	</div>
 </div>
 
 <style lang="postcss">

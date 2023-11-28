@@ -6,10 +6,26 @@
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let checked = false;
+	export let id: string | undefined = undefined;
+	export let label: string;
+	export let selected = false;
+	export let disabled = false;
+
 	const context = getContext<ContextMenuContext>('ContextMenu');
+	const selection$ = context.selection$;
+
+	$: if (selected && id) selection$.next({ id, label });
 </script>
 
-<button class="menu-item" on:click>
+<button
+	class="menu-item"
+	class:disabled
+	{id}
+	on:click
+	on:click={() => {
+		if (id && !disabled) selection$.next({ id, label });
+	}}
+>
 	{#if icon}
 		<Icon name={icon} />
 	{/if}
@@ -18,7 +34,7 @@
 	{/if}
 
 	<div class="label">
-		<slot />
+		{label}
 	</div>
 </button>
 
@@ -28,10 +44,16 @@
 		align-items: center;
 		color: var(--clr-theme-scale-ntrl-0);
 		padding: var(--space-4) var(--space-6);
-		border-radius: var(--s);
-		&:hover {
-			background: var(--container-sub);
-		}
+		border-radius: var(--radius-s);
 		gap: var(--space-8);
+		&:not(.disabled):hover {
+			background: var(--clr-theme-container-sub);
+		}
+	}
+	.label {
+		white-space: nowrap;
+	}
+	.disabled {
+		color: var(--clr-theme-scale-ntrl-50);
 	}
 </style>
