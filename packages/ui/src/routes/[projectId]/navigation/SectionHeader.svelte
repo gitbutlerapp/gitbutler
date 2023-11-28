@@ -14,7 +14,6 @@
 	}}
 	disabled={count && count > 0 ? false : true}
 	class="header border-t font-bold"
-	style:border-color="var(--border-surface)"
 	class:border-b={scrolled}
 >
 	<div class="whitespace-nowrap font-bold">
@@ -37,6 +36,7 @@
 		width: 100%;
 		padding: var(--space-16) var(--space-12);
 		gap: var(--space-8);
+		border-top: 1px solid var(--clr-theme-container-outline-light);
 	}
 	.header:hover,
 	.header:focus {

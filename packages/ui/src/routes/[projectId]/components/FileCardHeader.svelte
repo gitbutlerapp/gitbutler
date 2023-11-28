@@ -42,7 +42,7 @@
 				{@html boldenFilename(file.path)}
 			</div>
 			<div class="header__tags">
-				<div>
+				<div class="header__tag-group">
 					{#if isFileLocked}
 						<Tooltip
 							label="File changes cannot be moved because part of this file was already committed into this branch"
@@ -50,11 +50,11 @@
 							<Tag icon="locked-small" color="warning" border>Locked</Tag>
 						</Tooltip>
 					{/if}
-				</div>
-				<div>
 					{#if file.conflicted}
 						<Tag icon="warning-small" color="error" border>Has conflicts</Tag>
 					{/if}
+				</div>
+				<div class="header__tag-group">
 					{#if fileStats.added}
 						<Tag color="success" border>+{fileStats.added}</Tag>
 					{/if}
@@ -93,10 +93,10 @@
 	.header__tags {
 		display: flex;
 		gap: var(--space-6);
-		& > div {
-			display: flex;
-			gap: var(--space-2);
-		}
+	}
+	.header__tag-group {
+		display: flex;
+		gap: var(--space-2);
 	}
 	.header__filename {
 		color: var(--clr-theme-scale-ntrl-50);
