@@ -47,6 +47,7 @@
 
 <div
 	class="commit__card"
+	class:is-head-commit={isHeadCommit}
 	on:click={onClick}
 	on:keyup={onClick}
 	use:draggable={commit instanceof Commit
@@ -56,19 +57,21 @@
 	tabindex="0"
 >
 	<div class="commit__header">
-		<span class="commit__description text-base-12 text-semibold truncate">
+		<span class="commit__description text-base-12 truncate">
 			{commit.description}
 		</span>
-		<Tag
-			color="ghost"
-			icon="undo-small"
-			border
-			clickable
-			on:click={(e) => {
-				e.stopPropagation();
-				console.log('sdfsdf');
-			}}>Undo</Tag
-		>
+		{#if isHeadCommit}
+			<Tag
+				color="ghost"
+				icon="undo-small"
+				border
+				clickable
+				on:click={(e) => {
+					e.stopPropagation();
+					console.log('sdfsdf');
+				}}>Undo</Tag
+			>
+		{/if}
 	</div>
 
 	<div class="commit__details">
@@ -84,7 +87,7 @@
 			/>
 			<span class="commit__author-name text-base-12 truncate">{commit.author.name}</span>
 		</div>
-		<span class="commit__time text-base-12">
+		<span class="commit__time text-base-11">
 			<TimeAgo date={commit.createdAt} />
 		</span>
 	</div>
@@ -198,7 +201,7 @@
 		display: flex;
 		flex-direction: column;
 		cursor: default;
-		gap: var(--space-8);
+		gap: var(--space-10);
 		padding: var(--space-12);
 		border-radius: var(--space-6);
 		background-color: var(--clr-theme-container-light);
@@ -250,5 +253,9 @@
 	.commit__time,
 	.commit__author-name {
 		color: var(--clr-theme-scale-ntrl-50);
+	}
+
+	.is-head-commit {
+		gap: var(--space-6);
 	}
 </style>
