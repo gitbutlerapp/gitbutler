@@ -147,7 +147,7 @@
 				{#if type != 'integrated'}
 					<div class="actions">
 						{#await prPromise then pr}
-							{#if githubContext && !pr}
+							{#if githubContext && !pr && type == 'local'}
 								<PushButton
 									wide
 									isLoading={isPushing}
@@ -159,6 +159,16 @@
 										});
 									}}
 								/>
+							{:else if githubContext && !pr && type == 'remote'}
+								<Button
+									kind="outlined"
+									color="primary"
+									id="push-commits"
+									loading={isPushing}
+									on:click={push}
+								>
+									Create Pull Request
+								</Button>
 							{:else if type == 'local'}
 								<Button
 									kind="outlined"
@@ -168,9 +178,9 @@
 									on:click={push}
 								>
 									{#if branch.requiresForce}
-										<span class="purple">Force Push</span>
+										Force Push
 									{:else}
-										<span class="purple">Push</span>
+										Push
 									{/if}
 								</Button>
 							{/if}
