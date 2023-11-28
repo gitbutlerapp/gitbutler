@@ -33,7 +33,7 @@ filetime = "0.2.22"
 futures = "0.3"
 git2 = { version = "0.18.1", features = ["vendored-openssl", "vendored-libgit2"] }
 governor = "0.6.0"
-itertools = "0.11"
+itertools = "0.12"
 lazy_static = "1.4.0"
 md5 = "0.7.0"
 nonzero_ext = "0.3.0"
