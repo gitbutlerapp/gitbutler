@@ -35,8 +35,9 @@ pub struct Branch {
     pub upstream_head: Option<git::Oid>,
     pub created_timestamp_ms: u128,
     pub updated_timestamp_ms: u128,
-    // tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
+    /// tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
     pub tree: git::Oid,
+    /// head is id of the last "virtual" commit in this branch
     pub head: git::Oid,
     pub ownership: Ownership,
     // order is the number by which UI should sort branches
