@@ -10,12 +10,15 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
+	import Tag from '../components/Tag.svelte';
 	import { draggableCommit, nonDraggable } from '$lib/draggables';
 	import { draggable } from '$lib/utils/draggable';
 
 	export let commit: Commit | RemoteCommit;
 	export let projectId: string;
 	export let commitUrl: string | undefined = undefined;
+	export let isHeadCommit: boolean;
+	export let resetHeadCommit: () => void;
 
 	let previewCommitModal: Modal;
 	let minWidth = 2;
@@ -36,40 +39,54 @@
 		isLoading = false;
 	}
 
-	function onClick() {
+	function onClick(e: MouseEvent | KeyboardEvent) {
 		loadEntries();
 		previewCommitModal.show();
 	}
 </script>
 
 <div
-	class="w-full overflow-hidden"
+	class="commit__card"
+	on:click={onClick}
+	on:keyup={onClick}
 	use:draggable={commit instanceof Commit
 		? draggableCommit(commit.branchId, commit)
 		: nonDraggable()}
+	role="button"
+	tabindex="0"
 >
-	<div class="commit__card" on:click={onClick} on:keyup={onClick} role="button" tabindex="0">
-		<span class="commit__description text-base-12 truncate">
+	<div class="commit__header">
+		<span class="commit__description text-base-12 text-semibold truncate">
 			{commit.description}
 		</span>
+		<Tag
+			color="ghost"
+			icon="undo-small"
+			border
+			clickable
+			on:click={(e) => {
+				e.stopPropagation();
+				console.log('sdfsdf');
+			}}>Undo</Tag
+		>
+	</div>
 
-		<div class="commit__details">
-			<div class="commit__author">
-				<img
-					class="commit__avatar"
-					title="Gravatar for {commit.author.email}"
-					alt="Gravatar for {commit.author.email}"
-					srcset="{commit.author.gravatarUrl} 2x"
-					width="100"
-					height="100"
-					on:error
-				/>
-				<span class="commit__author-name text-base-12 truncate">{commit.author.name}</span>
-			</div>
-			<span class="commit__time text-base-12">
-				<TimeAgo date={commit.createdAt} />
-			</span>
+	<div class="commit__details">
+		<div class="commit__author">
+			<img
+				class="commit__avatar"
+				title="Gravatar for {commit.author.email}"
+				alt="Gravatar for {commit.author.email}"
+				srcset="{commit.author.gravatarUrl} 2x"
+				width="100"
+				height="100"
+				on:error
+			/>
+			<span class="commit__author-name text-base-12 truncate">{commit.author.name}</span>
 		</div>
+		<span class="commit__time text-base-12">
+			<TimeAgo date={commit.createdAt} />
+		</span>
 	</div>
 </div>
 
@@ -186,9 +203,21 @@
 		border-radius: var(--space-6);
 		background-color: var(--clr-theme-container-light);
 		border: 1px solid var(--clr-theme-container-outline-light);
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			border: 1px solid var(--clr-theme-container-outline-pale);
+		}
+	}
+
+	.commit__header {
+		display: flex;
+		align-items: center;
+		gap: var(--space-8);
 	}
 
 	.commit__description {
+		flex: 1;
 		display: block;
 		color: var(--clr-theme-scale-ntrl-0);
 		width: 100%;

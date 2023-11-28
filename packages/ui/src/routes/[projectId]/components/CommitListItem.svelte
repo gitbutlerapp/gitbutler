@@ -49,13 +49,17 @@
 			<div class="hover-text font-semibold">Squash</div>
 		</div>
 
-		<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
+		<CommitCard
+			{commit}
+			{projectId}
+			commitUrl={base?.commitUrl(commit.id)}
+			{isHeadCommit}
+			{resetHeadCommit}
+		/>
 	</div>
-	{#if isHeadCommit}
-		<div class="reset-head">
+	<!-- <div class="reset-head">
 			<IconButton icon="cross-small" on:click={() => resetHeadCommit()} />
-		</div>
-	{/if}
+		</div> -->
 </div>
 
 <style lang="postcss">
