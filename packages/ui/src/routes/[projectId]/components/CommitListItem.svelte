@@ -1,4 +1,5 @@
 <script lang="ts">
+	import IconButton from '$lib/components/IconButton.svelte';
 	import type { DraggableCommit, DraggableFile, DraggableHunk } from '$lib/draggables';
 	import { dropzone } from '$lib/utils/draggable';
 	import type { BaseBranch, Commit } from '$lib/vbranches/types';
@@ -22,7 +23,6 @@
 		<div class="line" />
 	{/if}
 	<div class="connector" />
-	{#if isHeadCommit}{/if}
 	<div
 		class="relative h-full flex-grow overflow-hidden"
 		use:dropzone={{
@@ -51,6 +51,11 @@
 
 		<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
 	</div>
+	{#if isHeadCommit}
+		<div class="reset-head">
+			<IconButton icon="cross-small" on:click={() => resetHeadCommit()} />
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -75,5 +80,10 @@
 		border-bottom: 1px solid var(--clr-theme-container-outline-light);
 		border-left: 1px solid var(--clr-theme-container-outline-light);
 		border-radius: 0 0 0 8px;
+	}
+	.reset-head {
+		position: absolute;
+		top: var(--space-2);
+		right: var(--space-2);
 	}
 </style>
