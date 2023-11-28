@@ -22,6 +22,7 @@
 
 	let entries: [string, (ContentSection | HunkSection)[]][] = [];
 	let isLoading = false;
+
 	async function loadEntries() {
 		isLoading = true;
 		entries = plainToInstance(
@@ -34,6 +35,11 @@
 			.sort((a, b) => a[0].localeCompare(b[0]));
 		isLoading = false;
 	}
+
+	function onClick() {
+		loadEntries();
+		previewCommitModal.show();
+	}
 </script>
 
 <div
@@ -42,37 +48,27 @@
 		? draggableCommit(commit.branchId, commit)
 		: nonDraggable()}
 >
-	<div
-		class="text-color-2 border-color-4 rounded border p-2 text-left"
-		style:background-color="var(--bg-card)"
-		style:border-color="var(--border-card)"
-	>
-		<div class="mb-1">
-			<button
-				class="max-w-full overflow-hidden truncate"
-				on:click={() => {
-					loadEntries();
-					previewCommitModal.show();
-				}}
-			>
-				{commit.description}
-			</button>
-		</div>
+	<div class="commit__card" on:click={onClick} on:keyup={onClick} role="button" tabindex="0">
+		<span class="commit__description text-base-12 truncate">
+			{commit.description}
+		</span>
 
-		<div class="text-color-3 flex space-x-1 text-sm">
-			<img
-				class="relative inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
-				title="Gravatar for {commit.author.email}"
-				alt="Gravatar for {commit.author.email}"
-				srcset="{commit.author.gravatarUrl} 2x"
-				width="100"
-				height="100"
-				on:error
-			/>
-			<div class="flex-1 truncate">{commit.author.name}</div>
-			<div class="truncate">
-				<TimeAgo date={commit.createdAt} />
+		<div class="commit__details">
+			<div class="commit__author">
+				<img
+					class="commit__avatar"
+					title="Gravatar for {commit.author.email}"
+					alt="Gravatar for {commit.author.email}"
+					srcset="{commit.author.gravatarUrl} 2x"
+					width="100"
+					height="100"
+					on:error
+				/>
+				<span class="commit__author-name text-base-12 truncate">{commit.author.name}</span>
 			</div>
+			<span class="commit__time text-base-12">
+				<TimeAgo date={commit.createdAt} />
+			</span>
 		</div>
 	</div>
 </div>
@@ -179,5 +175,51 @@
 	}
 	:global(.amend-dz-hover .hover-text) {
 		@apply visible;
+	}
+
+	.commit__card {
+		display: flex;
+		flex-direction: column;
+		cursor: default;
+		gap: var(--space-8);
+		padding: var(--space-12);
+		border-radius: var(--space-6);
+		background-color: var(--clr-theme-container-light);
+		border: 1px solid var(--clr-theme-container-outline-light);
+	}
+
+	.commit__description {
+		display: block;
+		color: var(--clr-theme-scale-ntrl-0);
+		width: 100%;
+	}
+
+	.commit__details {
+		display: flex;
+		align-items: center;
+		gap: var(--space-8);
+	}
+
+	.commit__author {
+		display: block;
+		flex: 1;
+		display: flex;
+		align-items: center;
+		gap: var(--space-6);
+	}
+
+	.commit__avatar {
+		width: var(--space-16);
+		height: var(--space-16);
+		border-radius: 100%;
+	}
+
+	.commit__author-name {
+		max-width: calc(100% - var(--space-16));
+	}
+
+	.commit__time,
+	.commit__author-name {
+		color: var(--clr-theme-scale-ntrl-50);
 	}
 </style>
