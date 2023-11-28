@@ -1,14 +1,6 @@
 import lscache from 'lscache';
 import { Observable, EMPTY, BehaviorSubject, of } from 'rxjs';
-import {
-	catchError,
-	combineLatestWith,
-	find,
-	map,
-	shareReplay,
-	switchMap,
-	tap
-} from 'rxjs/operators';
+import { catchError, combineLatestWith, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 
 import {
 	type PullRequest,
@@ -53,7 +45,7 @@ export class PrService {
 	}
 	get(branch: string | undefined): Observable<PullRequest | undefined> | undefined {
 		if (!branch) return;
-		return this.prs$.pipe(map((prs) => prs.find((pr) => pr.sourceBranch == branch)));
+		return this.prs$.pipe(map((prs) => prs.find((pr) => pr.targetBranch == branch)));
 	}
 }
 

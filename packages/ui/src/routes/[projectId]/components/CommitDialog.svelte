@@ -45,14 +45,14 @@
 		return invoke<string>('git_get_global_config', params);
 	}
 
-	let annotateCommits = true;
+	// let annotateCommits = true;
 
-	function checkCommitsAnnotated() {
-		git_get_config({ key: 'gitbutler.utmostDiscretion' }).then((value) => {
-			annotateCommits = value ? value === '0' : true;
-		});
-	}
-	$: checkCommitsAnnotated();
+	// function checkCommitsAnnotated() {
+	// 	git_get_config({ key: 'gitbutler.utmostDiscretion' }).then((value) => {
+	// 		annotateCommits = value ? value === '0' : true;
+	// 	});
+	// }
+	// $: checkCommitsAnnotated();
 
 	let isGeneratingCommigMessage = false;
 	async function generateCommitMessage(files: File[]) {

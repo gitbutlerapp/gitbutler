@@ -20,39 +20,39 @@
 	export let branchId: string;
 	export let readonly: boolean;
 
-	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
-		if (node.file) {
-			const fileId = node.file.id;
-			return node.file.hunks.some((hunk) => selectedOwnership.containsHunk(fileId, hunk.id));
-		} else {
-			return node.children.every((child) => isNodeChecked(selectedOwnership, child));
-		}
-	}
+	// function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
+	// 	if (node.file) {
+	// 		const fileId = node.file.id;
+	// 		return node.file.hunks.some((hunk) => selectedOwnership.containsHunk(fileId, hunk.id));
+	// 	} else {
+	// 		return node.children.every((child) => isNodeChecked(selectedOwnership, child));
+	// 	}
+	// }
 
-	$: isChecked = isNodeChecked($selectedOwnership, node);
+	// $: isChecked = isNodeChecked($selectedOwnership, node);
 
-	function isNodeIndeterminate(selectedOwnership: Ownership, node: TreeNode): boolean {
-		if (node.file) {
-			const fileId = node.file.id;
-			const numSelected = node.file.hunks.filter(
-				(hunk) => !selectedOwnership.containsHunk(fileId, hunk.id)
-			).length;
-			return numSelected !== node.file.hunks.length && numSelected !== 0;
-		}
-		if (node.children.length === 0) return false;
+	// function isNodeIndeterminate(selectedOwnership: Ownership, node: TreeNode): boolean {
+	// 	if (node.file) {
+	// 		const fileId = node.file.id;
+	// 		const numSelected = node.file.hunks.filter(
+	// 			(hunk) => !selectedOwnership.containsHunk(fileId, hunk.id)
+	// 		).length;
+	// 		return numSelected !== node.file.hunks.length && numSelected !== 0;
+	// 	}
+	// 	if (node.children.length === 0) return false;
 
-		const isFirstNodeChecked = isNodeChecked(selectedOwnership, node.children[0]);
-		const isFirstNodeIndeterminate = isNodeIndeterminate(selectedOwnership, node.children[0]);
-		for (const child of node.children) {
-			if (isFirstNodeChecked !== isNodeChecked(selectedOwnership, child)) {
-				return true;
-			}
-			if (isFirstNodeIndeterminate !== isNodeIndeterminate(selectedOwnership, child)) {
-				return true;
-			}
-		}
-		return false;
-	}
+	// 	const isFirstNodeChecked = isNodeChecked(selectedOwnership, node.children[0]);
+	// 	const isFirstNodeIndeterminate = isNodeIndeterminate(selectedOwnership, node.children[0]);
+	// 	for (const child of node.children) {
+	// 		if (isFirstNodeChecked !== isNodeChecked(selectedOwnership, child)) {
+	// 			return true;
+	// 		}
+	// 		if (isFirstNodeIndeterminate !== isNodeIndeterminate(selectedOwnership, child)) {
+	// 			return true;
+	// 		}
+	// 	}
+	// 	return false;
+	// }
 
 	// $: isIndeterminate = isNodeIndeterminate($selectedOwnership, node);
 

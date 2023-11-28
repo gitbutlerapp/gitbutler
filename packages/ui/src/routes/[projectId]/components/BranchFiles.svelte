@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { filesToFileTree, sortLikeFileTree } from '$lib/vbranches/filetree';
-	import type { Branch, File } from '$lib/vbranches/types';
+	import type { Branch } from '$lib/vbranches/types';
 	import { slide } from 'svelte/transition';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Writable } from 'svelte/store';
@@ -13,7 +13,6 @@
 	import lscache from 'lscache';
 	import type { UIEventHandler } from 'svelte/elements';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import { createEventDispatcher } from 'svelte';
 
 	export let branch: Branch;
 	export let readonly: boolean;
@@ -31,8 +30,6 @@
 	const onScroll: UIEventHandler<HTMLDivElement> = (e) => {
 		scrolled = e.currentTarget.scrollTop != 0;
 	};
-
-	const dispatch = createEventDispatcher<{ select: File }>();
 
 	$: scrollable = contents ? contents.scrollHeight > contents.offsetHeight : false;
 </script>

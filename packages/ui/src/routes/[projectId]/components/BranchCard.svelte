@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { BaseBranch, Branch, Commit, File } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
 	import { getContext, onMount } from 'svelte';
 	import { dropzone } from '$lib/utils/draggable';
 	import {
