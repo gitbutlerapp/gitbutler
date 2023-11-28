@@ -15,6 +15,7 @@ export function getGithubContext(
 			if (!remoteUrl || !remoteUrl.includes('github') || !authToken) return of();
 
 			const [owner, repo] = remoteUrl.split('.git')[0].split(/\/|:/).slice(-2);
+			console.log('new gh context');
 			return of({ authToken, owner, repo, username });
 		}),
 		shareReplay(1)
