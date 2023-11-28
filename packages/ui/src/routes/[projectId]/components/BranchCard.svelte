@@ -327,6 +327,11 @@
 								{cloud}
 								{selectedOwnership}
 								{user}
+								on:action={(e) => {
+									if (e.detail == 'generate-branch-name') {
+										generateBranchName();
+									}
+								}}
 							/>
 						{/if}
 					{:else if branch.commits.length == 0}
