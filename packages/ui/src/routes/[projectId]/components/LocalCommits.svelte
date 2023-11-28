@@ -161,6 +161,7 @@
 								/>
 							{:else if githubContext && !pr && type == 'remote'}
 								<Button
+									wide
 									kind="outlined"
 									color="primary"
 									id="push-commits"

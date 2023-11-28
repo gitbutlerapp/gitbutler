@@ -10,6 +10,7 @@
 	export let id: string | undefined = undefined;
 	export let loading = false;
 	export let tabindex = 0;
+	export let wide = false;
 
 	let element: HTMLAnchorElement | HTMLButtonElement;
 
@@ -25,6 +26,7 @@
 	class:error-filled={color == 'error' && kind == 'filled'}
 	class:primary-filled={color == 'primary' && kind == 'filled'}
 	class:pointer-events-none={loading}
+	class:wide
 	bind:this={element}
 	{disabled}
 	on:click
@@ -49,9 +51,14 @@
 		flex-shrink: 0;
 		gap: var(--space-2);
 		align-items: center;
+		justify-content: center;
 		height: var(--size-btn-m);
 		&:disabled {
 			opacity: 0.6;
+		}
+		&.wide {
+			display: flex;
+			width: 100%;
 		}
 	}
 	.label {
