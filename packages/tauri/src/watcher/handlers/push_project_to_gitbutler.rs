@@ -117,7 +117,7 @@ impl HandlerInner {
                 let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
 
                 match project_repository.push_to_gitbutler_server(user.as_ref(), &[&refspec]) {
-                    Ok(()) => {}
+                    Ok(_) => {}
                     Err(project_repository::RemoteError::Network) => return Ok(vec![]),
                     Err(err) => return Err(err).context("failed to push"),
                 };
@@ -147,12 +147,17 @@ impl HandlerInner {
                 user.as_ref(),
                 &[&format!("+{}:refs/{}", default_target.sha, project_id)],
             ) {
-                Ok(()) => {}
+                Ok(_) => {}
                 Err(project_repository::RemoteError::Network) => return Ok(vec![]),
                 Err(err) => return Err(err).context("failed to push"),
             };
 
             //TODO: remove push-tmp ref
+
+            tracing::info!(
+                %project_id,
+                "project fully pushed (target was outdated)",
+            );
         }
 
         let refnames = gb_refs(&project_repository)?;
@@ -171,14 +176,29 @@ impl HandlerInner {
         let all_refs = all_refs.iter().map(String::as_str).collect::<Vec<_>>();
 
         // push all gitbutler refs
-        project_repository
+        let anything_pushed = project_repository
             .push_to_gitbutler_server(user.as_ref(), all_refs.as_slice())
             .context("failed to push project (all refs) to gitbutler")?;
 
-        tracing::info!(
-            %project_id,
-            "project fully pushed",
-        );
+        if anything_pushed {
+            tracing::info!(
+                %project_id,
+                "gitbutler refs pushed",
+            );
+        }
+
+        // make sure last push time is updated
+        self.project_store
+            .update(&projects::UpdateRequest {
+                id: *project_id,
+                gitbutler_code_push_state: Some(CodePushState {
+                    id: default_target.sha,
+                    timestamp: time::SystemTime::now(),
+                }),
+                ..Default::default()
+            })
+            .await
+            .context("failed to update last push")?;
 
         Ok(vec![])
     }
