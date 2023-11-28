@@ -12,6 +12,7 @@
 {#if !$projects$}
 	Loading...
 {:else}
+	<div class="absolute h-4 w-full" data-tauri-drag-region></div>
 	<div
 		class="flex h-full flex-grow flex-col p-8"
 		style:background-color="var(--bg-surface)"

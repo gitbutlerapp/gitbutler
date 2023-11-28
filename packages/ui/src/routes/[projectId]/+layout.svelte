@@ -112,6 +112,7 @@
 				}));
 			}}
 		/>
+		<div class="absolute h-4 w-full" data-tauri-drag-region></div>
 		<slot />
 	</div>
 {:else if $baseBranch$ === null}
