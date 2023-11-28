@@ -43,13 +43,15 @@
 				{file.justpath}
 			</div>
 		</div>
-		{#if isLocked}
-			<div class="locked">
-				<Icon name="locked" />
+		<div class="icons">
+			{#if isLocked}
+				<div class="locked">
+					<Icon name="locked-small" />
+				</div>
+			{/if}
+			<div class="status">
+				<FileStatusCircle status={computeFileStatus(file)} />
 			</div>
-		{/if}
-		<div class="status">
-			<FileStatusCircle status={computeFileStatus(file)} />
 		</div>
 	</div>
 </div>
@@ -58,7 +60,7 @@
 	.file-list-item {
 		display: flex;
 		align-items: center;
-		padding: var(--space-6) var(--space-8);
+		padding: var(--space-4) var(--space-8);
 		gap: var(--space-16);
 		border-radius: var(--radius-s);
 		max-width: 100%;
@@ -68,6 +70,11 @@
 		&:not(.selected):hover {
 			background: var(--clr-theme-container-pale);
 		}
+	}
+	.icons {
+		display: flex;
+		align-items: center;
+		gap: var(--space-4);
 	}
 	.icon {
 		flex-shrink: 0;
@@ -96,13 +103,6 @@
 		color: var(--clr-theme-scale-warn-60);
 	}
 	.selected {
-		background-color: var(--clr-theme-pop-element);
-		& .name {
-			color: var(--clr-theme-pop-on-element);
-		}
-		& .path {
-			color: var(--clr-theme-pop-on-element);
-			opacity: 0.4;
-		}
+		background-color: var(--clr-theme-scale-pop-80);
 	}
 </style>

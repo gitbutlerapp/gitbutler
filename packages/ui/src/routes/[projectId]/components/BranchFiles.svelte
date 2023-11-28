@@ -86,7 +86,6 @@
 						<FileTree
 							node={filesToFileTree(branch.files)}
 							isRoot={true}
-							class="p-2"
 							branchId={branch.id}
 							{selectedOwnership}
 							{selectedFileId}
