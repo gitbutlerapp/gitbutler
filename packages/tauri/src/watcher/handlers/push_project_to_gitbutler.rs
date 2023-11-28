@@ -141,17 +141,19 @@ impl HandlerInner {
                     "project batch pushed",
                 );
             }
-        }
 
-        // push refs/{project_id}
-        match project_repository.push_to_gitbutler_server(
-            user.as_ref(),
-            &[&format!("+{}:refs/{}", default_target.sha, project_id)],
-        ) {
-            Ok(()) => {}
-            Err(project_repository::RemoteError::Network) => return Ok(vec![]),
-            Err(err) => return Err(err).context("failed to push"),
-        };
+            // push refs/{project_id}
+            match project_repository.push_to_gitbutler_server(
+                user.as_ref(),
+                &[&format!("+{}:refs/{}", default_target.sha, project_id)],
+            ) {
+                Ok(()) => {}
+                Err(project_repository::RemoteError::Network) => return Ok(vec![]),
+                Err(err) => return Err(err).context("failed to push"),
+            };
+
+            //TODO: remove push-tmp ref
+        }
 
         let refnames = gb_refs(&project_repository)?;
 
@@ -172,8 +174,6 @@ impl HandlerInner {
         project_repository
             .push_to_gitbutler_server(user.as_ref(), all_refs.as_slice())
             .context("failed to push project (all refs) to gitbutler")?;
-
-        //TODO: remove push-tmp ref
 
         tracing::info!(
             %project_id,
