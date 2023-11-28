@@ -36,7 +36,7 @@ module.exports = {
 		'@typescript-eslint/no-empty-function': 'off',
 		'@typescript-eslint/no-explicit-any': 'off',
 		'@typescript-eslint/no-unused-vars': [
-			'warn', // or "error"
+			'error', // or "error"
 			{
 				argsIgnorePattern: '^_',
 				varsIgnorePattern: '^_',
