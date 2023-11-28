@@ -18,21 +18,21 @@
 	import { open } from '@tauri-apps/api/shell';
 	import toast from 'svelte-french-toast';
 	import { sleep } from '$lib/utils/sleep';
+	import { createPullRequest, type PrService } from '$lib/github/pullrequest';
 
 	export let branch: Branch;
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let base: BaseBranch | undefined | null;
-	export let prPromise: Promise<PullRequest | undefined> | undefined;
 	export let projectId: string;
 	export let branchController: BranchController;
 	export let type: CommitType;
+	export let prService: PrService;
 
 	export let acceptAmend: (commit: Commit) => (data: any) => boolean;
 	export let acceptSquash: (commit: Commit) => (data: any) => boolean;
 	export let onAmend: (data: DraggableFile | DraggableHunk) => void;
 	export let onSquash: (commit: Commit) => (data: DraggableCommit) => void;
 	export let resetHeadCommit: () => void;
-	export let createPr: () => Promise<PullRequest | undefined>;
 
 	export let receive: (
 		node: any,
@@ -50,6 +50,7 @@
 
 	let isPushing: boolean;
 
+	$: branchName = branch.upstream?.name.split('/').slice(-1)[0];
 	$: headCommit = branch.commits[0];
 	$: commits = branch.commits.filter((c) => {
 		switch (type) {
@@ -61,6 +62,7 @@
 				return c.isIntegrated;
 		}
 	});
+	$: pr$ = prService.get(branchName);
 
 	async function push(opts?: { createPr: boolean }) {
 		isPushing = true;
@@ -78,6 +80,23 @@
 		const parts = upstreamBranchName.split('/');
 		const branchName = parts[parts.length - 1];
 		return `${target.repoBaseUrl}/compare/${baseBranchName}...${branchName}`;
+	}
+
+	async function createPr() {
+		if (githubContext && base?.branchName && branchName) {
+			const pr = await createPullRequest(
+				githubContext,
+				branchName,
+				base.branchName.split('/').slice(-1)[0],
+				branch.name,
+				branch.notes
+			);
+			if (pr) {
+				prService.add(pr);
+				prService.reload();
+			}
+			return pr;
+		}
 	}
 
 	let expanded = true;
@@ -99,22 +118,21 @@
 						>
 							{branch.upstream.name.split('refs/remotes/')[1]}
 						</Link>
-						{#await prPromise then pr}
-							{#if pr?.htmlUrl}
-								<Tag
-									icon="pr-small"
-									color="neutral-light"
-									clickable
-									on:click={(e) => {
-										open(pr?.htmlUrl);
-										e.preventDefault();
-										e.stopPropagation();
-									}}
-								>
-									PR
-								</Tag>
-							{/if}
-						{/await}
+						{#if $pr$?.htmlUrl}
+							<Tag
+								icon="pr-small"
+								color="neutral-light"
+								clickable
+								on:click={(e) => {
+									const url = $pr$?.htmlUrl;
+									if (url) open(url);
+									e.preventDefault();
+									e.stopPropagation();
+								}}
+							>
+								PR
+							</Tag>
+						{/if}
 					{/if}
 				{:else if type == 'integrated'}
 					Integrated
@@ -138,73 +156,71 @@
 								{commit}
 								{base}
 								{projectId}
-								isChained={idx != commits.length - 1}
-								isHeadCommit={commit.id === headCommit?.id}
 								{acceptAmend}
 								{acceptSquash}
 								{onAmend}
 								{onSquash}
 								{resetHeadCommit}
+								isChained={idx != commits.length - 1}
+								isHeadCommit={commit.id === headCommit?.id}
 							/>
 						</div>
 					{/each}
 				</div>
 				{#if type != 'integrated'}
 					<div class="actions">
-						{#await prPromise then pr}
-							{#if githubContext && !pr && type == 'local'}
-								<PushButton
-									wide
-									isLoading={isPushing}
-									{projectId}
-									{githubContext}
-									on:trigger={async (e) => {
-										try {
-											await push({ createPr: e.detail.with_pr });
-										} catch {
-											toast.error('Failed to create pull qequest');
-										}
-									}}
-								/>
-							{:else if githubContext && !pr && type == 'remote'}
-								<Button
-									wide
-									kind="outlined"
-									color="primary"
-									id="push-commits"
-									loading={isPushing}
-									on:click={async () => {
-										try {
-											await push({ createPr: true });
-										} catch (e) {
-											toast.error('Failed to create pull qequest');
-										}
-									}}
-								>
-									Create Pull Request
-								</Button>
-							{:else if type == 'local'}
-								<Button
-									kind="outlined"
-									color="primary"
-									id="push-commits"
-									loading={isPushing}
-									on:click={async () => {
-										try {
-											await push();
-										} catch {
-											toast.error('Failed to push');
-										}
-									}}
-								>
-									{#if branch.requiresForce}
-										Force Push
-									{:else}
-										Push
-									{/if}
-								</Button>
-							{/if}
-						{/await}
+						{#if githubContext && !$pr$ && type == 'local'}
+							<PushButton
+								wide
+								isLoading={isPushing}
+								{projectId}
+								{githubContext}
+								on:trigger={async (e) => {
+									try {
+										await push({ createPr: e.detail.with_pr });
+									} catch {
+										toast.error('Failed to create pull qequest');
+									}
+								}}
+							/>
+						{:else if githubContext && !$pr$ && type == 'remote'}
+							<Button
+								wide
+								kind="outlined"
+								color="primary"
+								id="push-commits"
+								loading={isPushing}
+								on:click={async () => {
+									try {
+										await push({ createPr: true });
+									} catch (e) {
+										toast.error('Failed to create pull qequest');
+									}
+								}}
+							>
+								Create Pull Request
+							</Button>
+						{:else if type == 'local'}
+							<Button
+								kind="outlined"
+								color="primary"
+								id="push-commits"
+								loading={isPushing}
+								on:click={async () => {
+									try {
+										await push();
+									} catch {
+										toast.error('Failed to push');
+									}
+								}}
+							>
+								{#if branch.requiresForce}
+									Force Push
+								{:else}
+									Push
+								{/if}
+							</Button>
+						{/if}
 					</div>
 				{/if}
 			</div>

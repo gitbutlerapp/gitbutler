@@ -22,15 +22,13 @@
 	import CommitDialog from './CommitDialog.svelte';
 	import { writable, type Writable } from 'svelte/store';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
-	import { getPullRequestByBranch, createPullRequest } from '$lib/github/pullrequest';
+	import type { PrService } from '$lib/github/pullrequest';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import { isDraggableRemoteCommit, type DraggableRemoteCommit } from '$lib/draggables';
 	import BranchHeader from './BranchHeader.svelte';
 	import UpstreamCommits from './UpstreamCommits.svelte';
 	import BranchFiles from './BranchFiles.svelte';
 	import LocalCommits from './LocalCommits.svelte';
-	import RemoteCommits from './RemoteCommits.svelte';
-	import IntegratedCommits from './IntegratedCommits.svelte';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -62,6 +60,7 @@
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
 	export let selectedFileId: Writable<string | undefined>;
+	export let prService: PrService;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
@@ -73,29 +72,6 @@
 
 	const laneWidthKey = 'laneWidth:';
 	let laneWidth: number;
-
-	$: prPromise =
-		githubContext && branch.upstream
-			? getPullRequestByBranch(githubContext, branch.upstream?.name.split('/').slice(-1)[0])
-			: undefined;
-
-	$: branchName = branch.upstream?.name.split('/').slice(-1)[0];
-
-	async function createPr() {
-		if (githubContext && base?.branchName && branchName) {
-			console.log('creating pr');
-			const pr = await createPullRequest(
-				githubContext,
-				branchName,
-				base.branchName.split('/').slice(-1)[0],
-				branch.name,
-				branch.notes
-			);
-			console.log(pr);
-			prPromise = Promise.resolve(pr);
-			return pr;
-		}
-	}
 
 	$: {
 		// On refresh we need to check expansion status from localStorage
@@ -355,7 +331,6 @@
 							{base}
 							{send}
 							{receive}
-							{prPromise}
 							{githubContext}
 							{projectId}
 							{branchController}
@@ -364,7 +339,7 @@
 							{onAmend}
 							{onSquash}
 							{resetHeadCommit}
-							{createPr}
+							{prService}
 							type="local"
 						/>
 						<LocalCommits
@@ -372,7 +347,6 @@
 							{base}
 							{send}
 							{receive}
-							{prPromise}
 							{githubContext}
 							{projectId}
 							{branchController}
@@ -381,7 +355,7 @@
 							{onAmend}
 							{onSquash}
 							{resetHeadCommit}
-							{createPr}
+							{prService}
 							type="remote"
 						/>
 						<LocalCommits
@@ -389,7 +363,6 @@
 							{base}
 							{send}
 							{receive}
-							{prPromise}
 							{githubContext}
 							{projectId}
 							{branchController}
@@ -398,7 +371,7 @@
 							{onAmend}
 							{onSquash}
 							{resetHeadCommit}
-							{createPr}
+							{prService}
 							type="integrated"
 						/>
 					{/if}
