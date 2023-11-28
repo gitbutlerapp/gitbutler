@@ -1,6 +1,22 @@
 import lscache from 'lscache';
-import { Observable, EMPTY, BehaviorSubject, of } from 'rxjs';
-import { catchError, combineLatestWith, map, shareReplay, switchMap, tap } from 'rxjs/operators';
+import {
+	Observable,
+	EMPTY,
+	BehaviorSubject,
+	of,
+	firstValueFrom,
+	lastValueFrom,
+	Subject
+} from 'rxjs';
+import {
+	catchError,
+	combineLatestWith,
+	map,
+	shareReplay,
+	switchMap,
+	take,
+	tap
+} from 'rxjs/operators';
 
 import {
 	type PullRequest,
@@ -14,6 +30,7 @@ export class PrService {
 	error$ = new BehaviorSubject<string | undefined>(undefined);
 	private reload$ = new BehaviorSubject<{ skipCache: boolean } | undefined>(undefined);
 	private inject$ = new BehaviorSubject<PullRequest | undefined>(undefined);
+	private fresh$ = new Subject<void>();
 
 	constructor(ghContext$: Observable<GitHubIntegrationContext | undefined>) {
 		this.prs$ = ghContext$.pipe(
@@ -21,7 +38,9 @@ export class PrService {
 			tap(() => this.error$.next(undefined)),
 			switchMap(([ctx, reload]) => {
 				if (!ctx) return EMPTY;
-				return loadPrs(ctx, !!reload?.skipCache);
+				const prs = loadPrs(ctx, !!reload?.skipCache);
+				this.fresh$.next();
+				return prs;
 			}),
 			combineLatestWith(this.inject$),
 			map(([prs, inject]) => {
@@ -30,17 +49,17 @@ export class PrService {
 			}),
 			shareReplay(1),
 			catchError((err) => {
-				console.log(err);
 				this.error$.next(err);
 				return of([]);
 			})
 		);
 	}
 
-	reload(): void {
+	reload(): Promise<void> {
 		this.reload$.next({ skipCache: true });
+		return firstValueFrom(this.fresh$);
 	}
-	add(pr: PullRequest) {
+	insert(pr: PullRequest) {
 		this.inject$.next(pr);
 	}
 	get(branch: string | undefined): Observable<PullRequest | undefined> | undefined {

@@ -1,7 +1,7 @@
 import type { User } from '$lib/backend/cloud';
 import type { GitHubIntegrationContext } from '$lib/github/types';
 import type { BaseBranch } from '$lib/vbranches/types';
-import { combineLatest, switchMap, type Observable, of, shareReplay, distinct } from 'rxjs';
+import { combineLatest, switchMap, type Observable, of, shareReplay, distinct, tap } from 'rxjs';
 
 export function getGithubContext(
 	user$: Observable<User | undefined>,
@@ -18,6 +18,7 @@ export function getGithubContext(
 			const [owner, repo] = remoteUrl.split('.git')[0].split(/\/|:/).slice(-2);
 			return of({ authToken, owner, repo, username });
 		}),
+		distinct((val) => JSON.stringify(val)),
 		shareReplay(1)
 	);
 }
