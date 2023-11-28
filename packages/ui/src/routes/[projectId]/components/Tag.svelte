@@ -10,6 +10,7 @@
 	export let color: TagColor;
 	export let border = false;
 	export let filled = false;
+	export let onClick: (() => void) | undefined = undefined;
 </script>
 
 <div
@@ -21,26 +22,36 @@
 	class:neutral-dim={color == 'neutral-dim'}
 	class:border
 	class:filled
+	class:not-button={!onClick}
+	on:click={onClick}
+	role={onClick ? 'button' : undefined}
 >
-	<div class="label text-base-11">
+	<span class="label text-base-11 text-semibold">
 		<slot />
-	</div>
-	<div class="icon">
-		{#if icon}
+	</span>
+	{#if icon}
+		<div class="icon">
 			<Icon name={icon} />
-		{/if}
-	</div>
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
 	.tag {
+		cursor: default;
 		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: var(--size-btn-s);
 		padding: var(--space-2) var(--space-4);
 		border-radius: var(--radius-m);
-		align-items: center;
 	}
 	.icon {
 		flex-shrink: 0;
+	}
+	.label {
+		display: inline-block;
+		padding: 0 var(--space-2);
 	}
 	.success {
 		color: var(--clr-theme-succ-outline-dark);
@@ -122,5 +133,8 @@
 				background: var(--clr-theme-scale-ntrl-10);
 			}
 		}
+	}
+	.not-button {
+		pointer-events: none;
 	}
 </style>

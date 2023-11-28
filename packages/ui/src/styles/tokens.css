@@ -320,7 +320,7 @@
 	--clr-theme-scale-warn-90: var(--clr-core-warn-10);
 	--clr-theme-succ-container: var(--clr-core-succ-15);
 	--clr-theme-succ-container-dark: var(--clr-core-succ-5);
-	--clr-theme-succ-conteiner-dim: var(--clr-core-succ-10);
+	--clr-theme-succ-container-dim: var(--clr-core-succ-10);
 	--clr-theme-succ-element: var(--clr-core-succ-50);
 	--clr-theme-succ-element-dark: var(--clr-core-succ-35);
 	--clr-theme-succ-element-dim: var(--clr-core-succ-40);
