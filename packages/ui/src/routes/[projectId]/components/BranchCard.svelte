@@ -403,6 +403,7 @@
 		position: relative;
 		display: flex;
 	}
+
 	.branch-card {
 		display: flex;
 		flex-grow: 1;
@@ -431,23 +432,20 @@
 		justify-content: center;
 		gap: var(--space-8);
 		padding: 0 var(--space-40);
-		& h1 {
-			text-align: center;
-		}
-		& p {
-			text-align: center;
-		}
 	}
 
 	.new-branch h1 {
 		color: var(--clr-theme-scale-ntrl-40);
+		text-align: center;
 	}
 
 	.new-branch p {
+		text-align: center;
 		color: var(--clr-theme-scale-ntrl-50);
 	}
 
 	.no-changes h1 {
+		text-align: center;
 		text-align: center;
 	}
 
