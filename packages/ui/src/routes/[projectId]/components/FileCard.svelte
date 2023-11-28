@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import type { File, Hunk } from '$lib/vbranches/types';
 	import { draggable } from '$lib/utils/draggable';
 	import type { Ownership } from '$lib/vbranches/ownership';
@@ -10,6 +10,7 @@
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from 'svelte';
 	import { slide } from 'svelte/transition';
+	import { quintOut } from 'svelte/easing';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { summarizeHunk } from './summaries';
 	import HunkContextMenu from './HunkContextMenu.svelte';
@@ -96,12 +97,14 @@
 		};
 	}
 
-	onMount(() => {
-		fileWidth = lscache.get(fileWidthKey + file.id) ?? $userSettings.defaultFileWidth;
-	});
+	fileWidth = lscache.get(fileWidthKey + file.id) ?? $userSettings.defaultFileWidth;
 </script>
 
-<div bind:this={rsViewport} class="resize-viewport">
+<div
+	transition:slide={{ duration: 170, easing: quintOut, axis: 'x' }}
+	bind:this={rsViewport}
+	class="resize-viewport"
+>
 	<div
 		id={`file-${file.id}`}
 		use:draggable={{
@@ -126,11 +129,7 @@
 
 		<div class="relative flex max-h-full flex-shrink overflow-hidden">
 			<div class="viewport hide-native-scrollbar" bind:this={viewport}>
-				<div
-					bind:this={contents}
-					class="hunks flex flex-col rounded px-2"
-					transition:slide={{ duration: 150 }}
-				>
+				<div bind:this={contents} class="hunks flex flex-col rounded px-2">
 					{#if file.binary}
 						Binary content not shown
 					{:else if file.large}
