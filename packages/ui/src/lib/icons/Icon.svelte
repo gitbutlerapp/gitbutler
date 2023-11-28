@@ -39,7 +39,7 @@
 
 	.spinning {
 		transform-origin: center;
-		animation: spinner_AtaB 0.75s infinite linear;
+		animation: spinning 0.75s infinite linear;
 	}
 	@keyframes spinning {
 		100% {
