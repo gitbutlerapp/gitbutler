@@ -76,7 +76,7 @@
 								e.stopPropagation();
 								try {
 									await branchController.updateBaseBranch();
-								} finally {
+								} catch {
 									toasts.error('Failed update working directory');
 								}
 							}}
