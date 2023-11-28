@@ -1,5 +1,7 @@
 <script lang="ts">
-	export let status: 'A' | 'M' | 'D';
+	import type { FileStatus } from '$lib/vbranches/fileStatus';
+
+	export let status: FileStatus;
 </script>
 
 <div

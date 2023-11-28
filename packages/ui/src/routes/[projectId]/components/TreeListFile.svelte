@@ -3,7 +3,7 @@
 	import Icon from '$lib/icons/Icon.svelte';
 	import { computeFileStatus } from '$lib/vbranches/fileStatus';
 	import type { File } from '$lib/vbranches/types';
-	import FileStatus from './FileStatus.svelte';
+	import FileStatusCircle from './FileStatusCircle.svelte';
 
 	export let file: File;
 </script>
@@ -25,7 +25,7 @@
 		{file.filename}
 	</div>
 	<div class="status">
-		<FileStatus status={computeFileStatus(file)} />
+		<FileStatusCircle status={computeFileStatus(file)} />
 	</div>
 </button>
 

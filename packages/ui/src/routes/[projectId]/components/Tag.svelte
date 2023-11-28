@@ -1,9 +1,13 @@
+<script lang="ts" context="module">
+	export type TagColor = 'success' | 'error' | 'warning' | 'neutral-light' | 'neutral-dim';
+</script>
+
 <script lang="ts">
 	import Icon from '$lib/icons/Icon.svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 
-	export let icon: keyof typeof iconsJson;
-	export let color: 'success' | 'error' | 'warning' | 'neutral-light' | 'neutral-dim';
+	export let icon: keyof typeof iconsJson | undefined = undefined;
+	export let color: TagColor;
 	export let border = false;
 	export let filled = false;
 </script>
