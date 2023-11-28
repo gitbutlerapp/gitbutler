@@ -17,8 +17,8 @@
 	export let commit: Commit | RemoteCommit;
 	export let projectId: string;
 	export let commitUrl: string | undefined = undefined;
-	export let isHeadCommit: boolean;
-	export let resetHeadCommit: () => void;
+	export let isHeadCommit: boolean = false;
+	export let resetHeadCommit: () => void | undefined = () => undefined;
 
 	let previewCommitModal: Modal;
 	let minWidth = 2;

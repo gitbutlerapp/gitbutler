@@ -85,9 +85,4 @@
 		border-left: 1px solid var(--clr-theme-container-outline-light);
 		border-radius: 0 0 0 8px;
 	}
-	.reset-head {
-		position: absolute;
-		top: var(--space-2);
-		right: var(--space-2);
-	}
 </style>
