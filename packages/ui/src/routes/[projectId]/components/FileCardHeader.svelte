@@ -42,18 +42,20 @@
 				{@html boldenFilename(file.path)}
 			</div>
 			<div class="header__tags">
-				<div class="header__tag-group">
-					{#if isFileLocked}
-						<Tooltip
-							label="File changes cannot be moved because part of this file was already committed into this branch"
-						>
-							<Tag icon="locked-small" color="warning" border>Locked</Tag>
-						</Tooltip>
-					{/if}
-					{#if file.conflicted}
-						<Tag icon="warning-small" color="error" border>Has conflicts</Tag>
-					{/if}
-				</div>
+				{#if file.conflicted || isFileLocked}
+					<div class="header__tag-group">
+						{#if isFileLocked}
+							<Tooltip
+								label="File changes cannot be moved because part of this file was already committed into this branch"
+							>
+								<Tag icon="locked-small" color="warning" border>Locked</Tag>
+							</Tooltip>
+						{/if}
+						{#if file.conflicted}
+							<Tag icon="warning-small" color="error" border>Has conflicts</Tag>
+						{/if}
+					</div>
+				{/if}
 				<div class="header__tag-group">
 					{#if fileStats.added}
 						<Tag color="success" border>+{fileStats.added}</Tag>
