@@ -1,5 +1,11 @@
 <script lang="ts" context="module">
-	export type TagColor = 'success' | 'error' | 'warning' | 'neutral-light' | 'neutral-dim';
+	export type TagColor =
+		| 'success'
+		| 'error'
+		| 'warning'
+		| 'neutral-light'
+		| 'neutral-dim'
+		| 'ghost';
 </script>
 
 <script lang="ts">
@@ -20,8 +26,8 @@
 	class:warning={color == 'warning'}
 	class:neutral-light={color == 'neutral-light'}
 	class:neutral-dim={color == 'neutral-dim'}
-	class:text-semibold={filled}
-	class:border
+	class:ghost={color == 'ghost'}
+	class:tag-border={border}
 	class:filled
 	class:not-button={!clickable}
 	on:click
@@ -46,6 +52,7 @@
 		height: var(--size-btn-s);
 		padding: var(--space-2) var(--space-4);
 		border-radius: var(--radius-m);
+		transition: background-color var(--transition-fast);
 	}
 	.icon {
 		flex-shrink: 0;
@@ -54,14 +61,27 @@
 		display: inline-block;
 		padding: 0 var(--space-2);
 	}
+
+	/* colors */
+
+	.ghost {
+		color: var(--clr-theme-scale-ntrl-40);
+		&:hover {
+			background: var(--clr-theme-container-sub);
+		}
+		&.tag-border {
+			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-60);
+		}
+	}
+
 	.success {
 		color: var(--clr-theme-succ-outline-dark);
 		background: var(--clr-theme-succ-container);
 		&:hover {
 			background: var(--clr-theme-succ-container-dim);
 		}
-		&.border {
-			border: 1px solid var(--clr-theme-scale-succ-60);
+		&.tag-border {
+			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-succ-60);
 		}
 		&.filled {
 			background: var(--clr-theme-succ-element);
@@ -77,8 +97,8 @@
 		&:hover {
 			background: var(--clr-theme-err-container-dim);
 		}
-		&.border {
-			border: 1px solid var(--clr-theme-scale-err-60);
+		&.tag-border {
+			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-err-60);
 		}
 		&.filled {
 			color: var(--clr-theme-err-on-element);
@@ -94,8 +114,8 @@
 		&:hover {
 			background: var(--clr-theme-warn-container-dim);
 		}
-		&.border {
-			border: 1px solid var(--clr-theme-scale-warn-60);
+		&.tag-border {
+			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-warn-60);
 		}
 		&.filled {
 			background: var(--clr-theme-warn-element);
@@ -104,14 +124,15 @@
 			}
 		}
 	}
+
 	.neutral-light {
 		color: var(--clr-theme-scale-ntrl-40);
 		background: var(--clr-theme-container-mid);
 		&:hover {
 			background: var(--clr-theme-container-dim);
 		}
-		&.border {
-			border: 1px solid var(--clr-theme-scale-ntrl-60);
+		&.tag-border {
+			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-60);
 		}
 		&.filled {
 			background: var(--clr-theme-scale-ntrl-40);
@@ -120,14 +141,15 @@
 			}
 		}
 	}
+
 	.neutral-dim {
 		color: var(--clr-theme-scale-ntrl-20);
 		background: var(--clr-theme-container-dim);
 		&:hover {
 			background: var(--clr-theme-container-dark);
 		}
-		&.border {
-			border: 1px solid var(--clr-theme-scale-ntrl-60);
+		&.tag-border {
+			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-40);
 		}
 		&.filled {
 			background: var(--clr-theme-scale-ntrl-30);
@@ -136,6 +158,9 @@
 			}
 		}
 	}
+
+	/* modifiers */
+
 	.not-button {
 		pointer-events: none;
 	}

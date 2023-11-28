@@ -45,6 +45,7 @@
 		border: 1px solid transparent;
 	}
 	.branch-name {
+		cursor: text;
 		display: inline-block;
 		&:hover {
 			background-color: var(--clr-theme-container-pale);
