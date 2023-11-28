@@ -81,17 +81,19 @@
 
 	$: branchName = branch.upstream?.name.split('/').slice(-1)[0];
 
-	function createPr() {
+	async function createPr() {
 		if (githubContext && base?.branchName && branchName) {
-			createPullRequest(
+			console.log('creating pr');
+			const pr = await createPullRequest(
 				githubContext,
 				branchName,
 				base.branchName.split('/').slice(-1)[0],
 				branch.name,
 				branch.notes
-			).then((pr) => {
-				prPromise = Promise.resolve(pr);
-			});
+			);
+			console.log(pr);
+			prPromise = Promise.resolve(pr);
+			return pr;
 		}
 	}
 

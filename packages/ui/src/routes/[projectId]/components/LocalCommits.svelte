@@ -16,6 +16,7 @@
 	import Link from '$lib/components/Link.svelte';
 	import Tag from './Tag.svelte';
 	import { open } from '@tauri-apps/api/shell';
+	import toast from 'svelte-french-toast';
 
 	export let branch: Branch;
 	export let githubContext: GitHubIntegrationContext | undefined;
@@ -30,7 +31,7 @@
 	export let onAmend: (data: DraggableFile | DraggableHunk) => void;
 	export let onSquash: (commit: Commit) => (data: DraggableCommit) => void;
 	export let resetHeadCommit: () => void;
-	export let createPr: () => void;
+	export let createPr: () => Promise<PullRequest | undefined>;
 
 	export let receive: (
 		node: any,
@@ -60,9 +61,10 @@
 		}
 	});
 
-	async function push() {
+	async function push(opts?: { createPr: boolean }) {
 		isPushing = true;
 		await branchController.pushBranch(branch.id, branch.requiresForce);
+		if (opts?.createPr) await createPr();
 		isPushing = false;
 	}
 
@@ -153,12 +155,12 @@
 									isLoading={isPushing}
 									{projectId}
 									{githubContext}
-									on:trigger={(e) => {
-										push()?.finally(() => {
-											setTimeout(() => {
-												if (e.detail.with_pr) createPr();
-											}, 500);
-										});
+									on:trigger={async (e) => {
+										try {
+											await push({ createPr: e.detail.with_pr });
+										} catch {
+											toast.error('Failed to create pull qequest');
+										}
 									}}
 								/>
 							{:else if githubContext && !pr && type == 'remote'}
@@ -168,8 +170,12 @@
 									color="primary"
 									id="push-commits"
 									loading={isPushing}
-									on:click={() => {
-										push()?.finally(() => createPr());
+									on:click={async () => {
+										try {
+											await push({ createPr: true });
+										} catch (e) {
+											toast.error('Failed to create pull qequest');
+										}
 									}}
 								>
 									Create Pull Request
@@ -180,7 +186,7 @@
 									color="primary"
 									id="push-commits"
 									loading={isPushing}
-									on:click={push}
+									on:click={() => push()}
 								>
 									{#if branch.requiresForce}
 										Force Push
