@@ -88,6 +88,7 @@
 							isRoot={true}
 							class="p-2"
 							{selectedOwnership}
+							{selectedFileId}
 						/>
 					{/if}
 				</div>
