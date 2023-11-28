@@ -10,6 +10,7 @@
 	$: projects$ = projectService.projects$;
 
 	let popup: ProjectsPopup;
+	let visible: boolean = false;
 </script>
 
 <div class="wrapper">
@@ -18,13 +19,15 @@
 		use:clickOutside={{
 			handler: () => {
 				popup.hide();
-			}
+				visible = false;
+			},
+			enabled: visible
 		}}
 	>
 		<button
 			class="button"
 			on:click={(e) => {
-				popup.toggle();
+				visible = popup.toggle();
 				e.preventDefault();
 			}}
 		>
