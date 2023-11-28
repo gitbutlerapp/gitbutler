@@ -443,6 +443,10 @@
 		text-align: center;
 	}
 
+	.no-changes h1 {
+		text-align: center;
+	}
+
 	/* hunks drop zone */
 	:global(.lane-dz-active .lane-dz-marker) {
 		@apply flex;
