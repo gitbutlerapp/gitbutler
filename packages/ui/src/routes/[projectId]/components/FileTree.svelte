@@ -17,6 +17,8 @@
 	export let withCheckboxes: boolean = false;
 	export let selectedOwnership = writable(Ownership.default());
 	export let selectedFileId: Writable<string | undefined>;
+	export let branchId: string;
+	export let readonly: boolean;
 
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
@@ -89,6 +91,8 @@
 						{selectedOwnership}
 						{withCheckboxes}
 						{selectedFileId}
+						{branchId}
+						{readonly}
 						on:checked
 						on:unchecked
 					/>
@@ -99,6 +103,8 @@
 		<!-- Node is a file -->
 		<TreeListFile
 			file={node.file}
+			{branchId}
+			{readonly}
 			selected={node.file?.id == $selectedFileId}
 			on:click={() => {
 				if ($selectedFileId == node.file?.id) $selectedFileId = undefined;
@@ -124,6 +130,8 @@
 								{selectedOwnership}
 								{withCheckboxes}
 								{selectedFileId}
+								{branchId}
+								{readonly}
 								on:checked
 								on:unchecked
 							/>
