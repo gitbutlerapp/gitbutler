@@ -18,6 +18,11 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { Writable } from 'svelte/store';
+	import { createEventDispatcher } from 'svelte';
+
+	const dispatch = createEventDispatcher<{
+		action: 'generate-branch-name';
+	}>();
 
 	export let projectId: string;
 	export let branchController: BranchController;
@@ -61,6 +66,13 @@
 
 		if (!user) return;
 
+		// Branches get their names generated only if there are at least 4 lines of code
+		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
+		// or the user has to manually trigger the name generation from the meatball menu
+		// This saves people this extra click
+		if (branch.name.toLowerCase().includes('virtual branch')) {
+			dispatch('action', 'generate-branch-name');
+		}
 		isGeneratingCommigMessage = true;
 		cloud.summarize
 			.commit(user.access_token, {
