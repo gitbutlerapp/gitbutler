@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-	import { writable } from 'svelte/store';
+	import { writable, type Writable } from 'svelte/store';
 	import type { TreeNode } from '$lib/vbranches/filetree';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import TreeListFile from './TreeListFile.svelte';
@@ -16,6 +16,7 @@
 	export let isRoot = false;
 	export let withCheckboxes: boolean = false;
 	export let selectedOwnership = writable(Ownership.default());
+	export let selectedFileId: Writable<string | undefined>;
 
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
@@ -87,6 +88,7 @@
 						node={childNode}
 						{selectedOwnership}
 						{withCheckboxes}
+						{selectedFileId}
 						on:checked
 						on:unchecked
 					/>
@@ -97,11 +99,10 @@
 		<!-- Node is a file -->
 		<TreeListFile
 			file={node.file}
+			selected={node.file?.id == $selectedFileId}
 			on:click={() => {
-				const el = document.getElementById('file-' + node.file?.id);
-				el?.scrollIntoView({ behavior: 'smooth' });
-				setTimeout(() => el?.classList.add('wiggle'), 50);
-				setTimeout(() => el?.classList.remove('wiggle'), 550);
+				if ($selectedFileId == node.file?.id) $selectedFileId = undefined;
+				else $selectedFileId = node.file?.id;
 			}}
 		/>
 	{:else if node.children.length > 0}
@@ -122,6 +123,7 @@
 								expanded={true}
 								{selectedOwnership}
 								{withCheckboxes}
+								{selectedFileId}
 								on:checked
 								on:unchecked
 							/>

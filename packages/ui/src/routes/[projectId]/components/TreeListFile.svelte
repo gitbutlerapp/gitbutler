@@ -6,9 +6,10 @@
 	import FileStatusCircle from './FileStatusCircle.svelte';
 
 	export let file: File;
+	export let selected: boolean;
 </script>
 
-<button on:click class="tree-list-file">
+<button on:click class="tree-list-file" class:selected>
 	<div class="dot">
 		<Icon name="dot" />
 	</div>
@@ -33,11 +34,11 @@
 	.tree-list-file {
 		display: flex;
 		align-items: center;
-		padding: var(--space-4);
+		padding: var(--space-4) var(--space-8) var(--space-4) var(--space-4);
 		gap: var(--space-6);
 		border-radius: var(--radius-s);
 		max-width: 100%;
-		&:hover {
+		&:not(.selected):hover {
 			background: var(--clr-theme-container-pale);
 		}
 		overflow: hidden;
@@ -50,5 +51,11 @@
 	.dot {
 		color: var(--clr-theme-scale-ntrl-0);
 		opacity: 0.3;
+	}
+	.selected {
+		background-color: var(--clr-theme-pop-element);
+		& .name {
+			color: var(--clr-theme-pop-on-element);
+		}
 	}
 </style>

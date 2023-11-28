@@ -5,7 +5,7 @@
 	import type { ContextMenuContext } from './contextMenu';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let checked: boolean;
+	export let checked = false;
 	const context = getContext<ContextMenuContext>('ContextMenu');
 </script>
 
