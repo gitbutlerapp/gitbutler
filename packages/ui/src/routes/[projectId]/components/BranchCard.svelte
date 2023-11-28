@@ -61,7 +61,7 @@
 	export let branchCount = 1;
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
-	export let selectedFile: Writable<File | undefined>;
+	export let selectedFileId: Writable<string | undefined>;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
@@ -316,7 +316,7 @@
 			<div bind:this={viewport} class="scroll-container hide-native-scrollbar">
 				<div bind:this={contents} class="flex min-h-full flex-col">
 					{#if branch.files?.length > 0}
-						<BranchFiles {branch} {readonly} {selectedOwnership} {selectedFile} />
+						<BranchFiles {branch} {readonly} {selectedOwnership} {selectedFileId} />
 						{#if branch.active}
 							<CommitDialog
 								{projectId}
@@ -386,7 +386,6 @@
 			direction="horizontal"
 			class="z-30"
 			on:width={(e) => {
-				console.log(e.detail);
 				laneWidth = e.detail;
 				lscache.set(laneWidthKey + branch.id, e.detail, 7 * 1440); // 7 day ttl
 				userSettings.update((s) => ({

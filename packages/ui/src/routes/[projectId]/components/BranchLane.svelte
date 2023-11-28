@@ -22,7 +22,15 @@
 	export let projectPath: string;
 
 	const selectedOwnership = writable(Ownership.fromBranch(branch));
-	const selectedFile = writable<File | undefined>(undefined);
+	const selectedFileId = writable<string | undefined>(undefined);
+
+	function setSelected(fileId: string | undefined, branch: Branch) {
+		const match = branch.files?.find((f) => f.id == fileId);
+		if (!match) $selectedFileId = undefined;
+		return match;
+	}
+
+	$: selected = setSelected($selectedFileId, branch);
 </script>
 
 <div class="wrapper">
@@ -39,20 +47,20 @@
 		{branchCount}
 		{githubContext}
 		{user}
-		{selectedFile}
+		{selectedFileId}
 	/>
 
-	{#if $selectedFile}
+	{#if selected}
 		<FileCard
-			conflicted={$selectedFile.conflicted}
+			conflicted={selected.conflicted}
 			branchId={branch.id}
-			file={$selectedFile}
+			file={selected}
 			{projectPath}
 			{branchController}
 			{selectedOwnership}
 			selectable={false}
 			{readonly}
-			on:close={() => ($selectedFile = undefined)}
+			on:close={() => selected == undefined}
 		/>
 	{/if}
 </div>

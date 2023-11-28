@@ -15,8 +15,10 @@
 <div class="wrapper">
 	<div
 		class="relative"
-		use:clickOutside={() => {
-			popup.hide();
+		use:clickOutside={{
+			handler: () => {
+				popup.hide();
+			}
 		}}
 	>
 		<button
