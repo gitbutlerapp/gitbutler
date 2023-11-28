@@ -49,7 +49,6 @@
 		await branchController.pushBranch(branch.id, branch.requiresForce);
 		isPushing = false;
 	}
-	/* test commit */
 </script>
 
 {#if localCommits.length > 0 || (branch.upstream && branch.upstream.commits.length > 0)}
