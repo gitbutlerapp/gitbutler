@@ -341,7 +341,7 @@ impl Repository {
         &self,
         user: Option<&users::User>,
         ref_specs: &[&str],
-    ) -> Result<(), RemoteError> {
+    ) -> Result<bool, RemoteError> {
         let url = self
             .project
             .api
@@ -366,10 +366,13 @@ impl Repository {
 
         let mut callbacks = git2::RemoteCallbacks::new();
         let bytes_pushed = Arc::new(AtomicUsize::new(0));
+        let total_objects = Arc::new(AtomicUsize::new(0));
         {
-            let counter = Arc::<AtomicUsize>::clone(&bytes_pushed);
-            callbacks.push_transfer_progress(move |_current, _total, bytes| {
-                counter.store(bytes, std::sync::atomic::Ordering::Relaxed);
+            let byte_counter = Arc::<AtomicUsize>::clone(&bytes_pushed);
+            let total_counter = Arc::<AtomicUsize>::clone(&total_objects);
+            callbacks.push_transfer_progress(move |_current, total, bytes| {
+                byte_counter.store(bytes, std::sync::atomic::Ordering::Relaxed);
+                total_counter.store(total, std::sync::atomic::Ordering::Relaxed);
             });
         }
 
@@ -398,14 +401,18 @@ impl Repository {
                 error => RemoteError::Other(error.into()),
             })?;
 
+        let bytes_pushed = bytes_pushed.load(std::sync::atomic::Ordering::Relaxed);
+        let total_objects_pushed = total_objects.load(std::sync::atomic::Ordering::Relaxed);
+
         tracing::debug!(
             project_id = %self.project.id,
             ref_spec = ref_specs.join(" "),
-            bytes = bytes_pushed.load(std::sync::atomic::Ordering::Relaxed),
+            bytes = bytes_pushed,
+            objects = total_objects_pushed,
             "pushed to gb repo tmp ref",
         );
 
-        Ok(())
+        Ok(total_objects_pushed > 0)
     }
 
     pub fn push(
