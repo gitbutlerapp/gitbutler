@@ -2,17 +2,15 @@
 	import { page } from '$app/stores';
 
 	export let href: string;
-	export let label: string;
 	$: selected = $page.url.href.includes(href);
 </script>
 
 <a
 	{href}
-	class="domain-button"
+	class="domain-button text-base-14 text-semibold"
 	style:background-color={selected ? 'var(--clr-theme-container-pale)' : undefined}
 >
 	<slot />
-	<span class="text-base-14 text-semibold label">{label}</span>
 </a>
 
 <style lang="postcss">
@@ -24,14 +22,12 @@
 		background-color: var(--clr-theme-container-light);
 		padding: var(--space-10);
 		transition: background-color var(--transition-fast);
+		color: var(--clr-theme-scale-ntrl-0);
+		height: var(--space-36);
 
 		&:hover,
 		&:focus {
 			background-color: var(--clr-theme-container-pale);
 		}
-	}
-
-	.label {
-		color: var(--clr-theme-scale-ntrl-0);
 	}
 </style>

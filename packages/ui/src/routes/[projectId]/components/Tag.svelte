@@ -20,6 +20,7 @@
 	class:warning={color == 'warning'}
 	class:neutral-light={color == 'neutral-light'}
 	class:neutral-dim={color == 'neutral-dim'}
+	class:text-semibold={filled}
 	class:border
 	class:filled
 	class:not-button={!clickable}
@@ -80,6 +81,7 @@
 			border: 1px solid var(--clr-theme-scale-err-60);
 		}
 		&.filled {
+			color: var(--clr-theme-err-on-element);
 			background: var(--clr-theme-err-element);
 			&:hover {
 				background: var(--clr-theme-err-element-dim);

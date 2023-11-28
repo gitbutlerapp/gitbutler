@@ -17,6 +17,9 @@
 	import Branches from './Branches.svelte';
 	import type { BranchService } from '$lib/branches/service';
 	import Header from './Header.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
+	import Tag from '../components/Tag.svelte';
+	import * as toasts from '$lib/utils/toasts';
 
 	export let vbranchService: VirtualBranchService;
 	export let branchService: BranchService;
@@ -41,13 +44,13 @@
 	tabindex="0"
 >
 	<div class="drag-region" data-tauri-drag-region>
-		<Header {branchController} {baseBranchService} {prService} projectId={project.id} />
+		<Header />
 	</div>
 	<div class="domains">
 		<ProjectSelector {project} {projectService} />
 		<div class="flex flex-col gap-1">
-			<BaseBranchCard {project} {baseBranchService} {branchController} />
-			<DomainButton href={`/${project.id}/board`} label="Applied branches">
+			<BaseBranchCard {project} {baseBranchService} {branchController} {prService} />
+			<DomainButton href={`/${project.id}/board`}>
 				<svg
 					width="16"
 					height="16"
@@ -59,6 +62,24 @@
 					<path d="M5 8.8H11V4" stroke="white" stroke-width="2" />
 					<path d="M5 12V8.44444V4" stroke="white" stroke-width="2" />
 				</svg>
+				<span>Applied branches</span>
+				<Tooltip label="Merge upstream commits into common base">
+					<Tag
+						color="error"
+						filled
+						on:click={async (e) => {
+							e.preventDefault();
+							e.stopPropagation();
+							try {
+								await branchController.updateBaseBranch();
+							} finally {
+								toasts.error('Failed update working directory');
+							}
+						}}
+					>
+						Update
+					</Tag>
+				</Tooltip>
 			</DomainButton>
 		</div>
 	</div>

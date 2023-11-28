@@ -3,20 +3,22 @@
 	import type { Project } from '$lib/backend/projects';
 	import Badge from '$lib/components/Badge.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
+	import type { PrService } from '$lib/github/pullrequest';
 	import Icon from '$lib/icons/Icon.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import SyncButton from './SyncButton.svelte';
 
 	export let project: Project;
 	export let branchController: BranchController;
 	export let baseBranchService: BaseBranchService;
+	export let prService: PrService;
 
 	$: base$ = baseBranchService.base$;
 	$: selected = $page.url.href.endsWith('/base');
 
 	let baseContents: HTMLElement;
-	let isLoading = false;
 </script>
 
 <a
@@ -39,25 +41,8 @@
 				<Tooltip label="Unmerged upstream commits">
 					<Badge count={$base$?.behind || 0} />
 				</Tooltip>
-				<Tooltip label="Merge upstream commits into common base">
-					<button
-						class="merge-btn font-base-11 font-bold"
-						disabled={isLoading}
-						on:click={async (e) => {
-							e.preventDefault();
-							e.stopPropagation();
-							isLoading = true;
-							try {
-								await branchController.updateBaseBranch();
-							} finally {
-								isLoading = false;
-							}
-						}}
-					>
-						merge
-					</button>
-				</Tooltip>
 			{/if}
+			<SyncButton projectId={project.id} {branchController} {baseBranchService} {prService} />
 		</div>
 		<div class="row_2 text-base-12">
 			{#if $base$?.remoteUrl.includes('github.com')}
@@ -105,14 +90,5 @@
 		align-items: center;
 		gap: var(--space-4);
 		color: var(--clr-theme-scale-ntrl-40);
-	}
-	.merge-btn {
-		color: white;
-		padding: 0 0.3125rem;
-		border-radius: var(--radius-m);
-		background: var(--clr-theme-err-element);
-		&:hover {
-			background: var(--clr-theme-err-element-dim);
-		}
 	}
 </style>
