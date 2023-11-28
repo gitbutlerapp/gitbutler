@@ -68,7 +68,7 @@
 				clickable
 				on:click={(e) => {
 					e.stopPropagation();
-					console.log('sdfsdf');
+					resetHeadCommit();
 				}}>Undo</Tag
 			>
 		{/if}
