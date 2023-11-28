@@ -171,6 +171,27 @@ fn set_exclude_decoration(project_repository: &project_repository::Repository) -
     Ok(())
 }
 
+fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
+    println!("tree id: {}", tree.id());
+    for entry in tree {
+        println!(
+            "  entry: {} {}",
+            entry.name().unwrap_or_default(),
+            entry.id()
+        );
+        // get entry contents
+        let object = entry.to_object(repo).context("failed to get object")?;
+        let blob = object.as_blob().context("failed to get blob")?;
+        // convert content to string
+        if let Ok(content) = std::str::from_utf8(blob.content()) {
+            println!("    blob: {}", content);
+        } else {
+            println!("    blob: BINARY");
+        }
+    }
+    Ok(())
+}
+
 // try to update the target branch
 // this means that we need to:
 // determine if what the target branch is now pointing to is mergeable with our current working directory
@@ -230,240 +251,259 @@ pub fn update_base_branch(
     // 6. unapplied branch, no conflicts
 
     let branch_writer = branch::Writer::new(gb_repository);
-    let vbranches = super::get_status_by_branch(gb_repository, project_repository)?;
-    for (branch, all_files) in &vbranches {
-        let branch_tree = if branch.applied {
-            super::write_tree(project_repository, &target, all_files).and_then(|tree_id| {
-                repo.find_tree(tree_id)
-                    .context(format!("failed to find writen tree {}", tree_id))
-            })?
-        } else {
-            repo.find_tree(branch.tree)
-                .context(format!("failed to find tree for branch {}", branch.id))?
-        };
+    let updated_vbranches = super::get_status_by_branch(gb_repository, project_repository)?
+        .into_iter()
+        .map(
+            |(mut branch, all_files): (branch::Branch, super::BranchStatus)| -> Result<Option<branch::Branch>> {
+                let branch_tree = if branch.applied {
+                    super::write_tree(project_repository, &target, &all_files).and_then(|tree_id| {
+                        repo.find_tree(tree_id)
+                            .context(format!("failed to find writen tree {}", tree_id))
+                    })?
+                } else {
+                    repo.find_tree(branch.tree)
+                        .context(format!("failed to find tree for branch {}", branch.id))?
+                };
 
-        // try to merge the branch tree with the new target tree
-        let mut branch_merge_index = repo
-            .merge_trees(&old_target_tree, &branch_tree, &new_target_tree)
-            .context(format!("failed to merge trees for branch {}", branch.id))?;
+                // try to merge the branch tree with the new target tree
+                let mut branch_merge_index = repo
+                    .merge_trees(&old_target_tree, &branch_tree, &new_target_tree)
+                    .context(format!("failed to merge trees for branch {}", branch.id))?;
 
-        let branch_conflicting = branch_merge_index.has_conflicts();
-
-        let branch_head_commit = repo.find_commit(branch.head).context(format!(
-            "failed to find commit {} for branch {}",
-            branch.head, branch.id
-        ))?;
-
-        let branch_has_commits = branch.head != target.sha;
-        let branch_head_merge_index = branch_has_commits
-            .then(|| {
-                let head_tree = branch_head_commit.tree().context(format!(
+                let branch_head_commit = repo.find_commit(branch.head).context(format!(
+                    "failed to find commit {} for branch {}",
+                    branch.head, branch.id
+                ))?;
+                let branch_head_tree = branch_head_commit.tree().context(format!(
                     "failed to find tree for commit {} for branch {}",
                     branch.head, branch.id
                 ))?;
 
-                repo.merge_trees(&old_target_tree, &head_tree, &new_target_tree)
-                    .context(format!(
-                        "failed to merge head tree for branch {}",
-                        branch.id
-                    ))
-            })
-            .transpose()?;
+                let branch_has_commits = branch.head != target.sha;
+                let branch_head_merge_index = branch_has_commits
+                    .then(|| {
+                        repo.merge_trees(&old_target_tree, &branch_head_tree, &new_target_tree)
+                            .context(format!(
+                                "failed to merge head tree for branch {}",
+                                branch.id
+                            ))
+                    })
+                    .transpose()?;
 
-        if branch_conflicting {
-            if branch.applied {
-                // unapply branch for now. we'll handle it later, when user applies it back.
-                super::unapply_branch(gb_repository, project_repository, &branch.id)
-                    .context("failed to unapply branch")?;
-            }
-
-            if let Some(mut branch_head_merge_index) = branch_head_merge_index {
-                // if there are commits on this branch, so create a merge commit with the new tree
-
-                // check index for conflicts
-                // if it has conflicts, we just ignore it
-                if !branch_head_merge_index.has_conflicts() {
-                    // does not conflict with head, so lets merge it and update the head
-                    let merge_tree_oid = branch_head_merge_index
-                        .write_tree_to(repo)
-                        .context("failed to write tree")?;
-                    // get tree from merge_tree_oid
-                    let merge_tree = repo
-                        .find_tree(merge_tree_oid)
-                        .context("failed to find tree")?;
-
-                    // commit the merge tree oid
-                    let new_branch_head = project_repository
-                        .commit(
-                            user,
-                            "merged upstream (head only)",
-                            &merge_tree,
-                            &[&branch_head_commit, &new_target_commit],
-                            signing_key,
-                        )
-                        .context("failed to commit merge")?;
-
-                    branch_writer.write(&branch::Branch {
-                        head: new_branch_head,
-                        tree: merge_tree_oid,
-                        ..branch.clone()
-                    })?;
-                }
-            }
-        } else {
-            // get the merge tree oid from writing the index out
-            let merge_tree_oid = branch_merge_index
-                .write_tree_to(repo)
-                .context("failed to write tree")?;
-
-            // branch head does not have conflicts, so don't unapply it, but still try to merge it's head if there are commits
-            // but also remove/archive it if the branch is fully integrated
-            if let Some(mut branch_head_merge_index) = branch_head_merge_index {
-                // check index for conflicts
-                if branch_head_merge_index.has_conflicts() && branch.applied {
-                    // unapply branch for now. we'll handle it later, when user applied it back.
-                    super::unapply_branch(gb_repository, project_repository, &branch.id)
-                        .context("failed to unapply branch")?;
-                }
-
-                let non_commited_files = super::calculate_non_commited_diffs(
-                    project_repository,
-                    branch,
-                    &target,
-                    all_files,
-                )?;
-
-                let merge_tree_oid = branch_head_merge_index
-                    .write_tree_to(repo)
-                    .context("failed to write tree")?;
-                // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
-                // then the vbranch is fully merged, so delete it
-                if merge_tree_oid == new_target_tree.id() && non_commited_files.is_empty() {
-                    branch_writer.delete(branch)?;
-                } else {
-                    // check to see if these commits have already been pushed
-                    let mut last_rebase_head = branch.head;
-                    let new_branch_head;
-
-                    if branch.upstream.is_some() {
-                        // get tree from merge_tree_oid
-                        let merge_tree = repo
-                            .find_tree(merge_tree_oid)
-                            .context("failed to find tree")?;
-
-                        // commit the merge tree oid
-                        new_branch_head = project_repository
-                            .commit(
-                                user,
-                                "merged upstream",
-                                &merge_tree,
-                                &[&branch_head_commit, &new_target_commit],
-                                signing_key,
-                            )
-                            .context("failed to commit merge")?;
-                    } else {
-                        let (_, committer) = project_repository.git_signatures(user)?;
-                        // attempt to rebase, otherwise, fall back to the merge
-                        let annotated_branch_head = repo
-                            .find_annotated_commit(branch.head)
-                            .context("failed to find annotated commit")?;
-                        let annotated_upstream_base = repo
-                            .find_annotated_commit(new_target_commit.id())
-                            .context("failed to find annotated commit")?;
-                        let mut rebase_options = git2::RebaseOptions::new();
-                        rebase_options.quiet(true);
-                        rebase_options.inmemory(true);
-                        let mut rebase = repo
-                            .rebase(
-                                Some(&annotated_branch_head),
-                                Some(&annotated_upstream_base),
-                                None,
-                                Some(&mut rebase_options),
-                            )
-                            .context("failed to rebase")?;
-
-                        let mut rebase_success = true;
-                        while rebase.next().is_some() {
-                            let index = rebase
-                                .inmemory_index()
-                                .context("failed to get inmemory index")?;
-                            if index.has_conflicts() {
-                                rebase_success = false;
-                                break;
-                            }
-
-                            if let Ok(commit_id) =
-                                rebase.commit(None, &committer.clone().into(), None)
-                            {
-                                last_rebase_head = commit_id.into();
-                            } else {
-                                rebase_success = false;
-                                break;
-                            }
-                        }
-
-                        if rebase_success {
-                            // Finish the rebase.
-                            rebase.finish(None).context("failed to finish rebase")?;
-                            new_branch_head = last_rebase_head;
+                if branch_merge_index.has_conflicts() {
+                    if branch.applied {
+                        // unapply branch for now. we'll handle it later, when user applies it back.
+                        if let Some(unapplied_branch) = super::unapply_branch(gb_repository, project_repository, &branch.id)
+                            .context("failed to unapply branch")? {
+                            branch = unapplied_branch;
                         } else {
-                            // abort the rebase, just do a merge
-                            rebase.abort().context("failed to abort rebase")?;
+                            // branch was removed, so we are done
+                            return Ok(None);
+                        }
+                    }
 
+                    if let Some(mut branch_head_merge_index) = branch_head_merge_index {
+                        // there are commits on this branch, try to merge them with a new tree
+                        if !branch_head_merge_index.has_conflicts() {
+                            // does not conflict with head, so lets merge it and update the head
+                            let merge_tree_oid = branch_head_merge_index
+                                .write_tree_to(repo)
+                                .context("failed to write tree")?;
                             // get tree from merge_tree_oid
                             let merge_tree = repo
                                 .find_tree(merge_tree_oid)
                                 .context("failed to find tree")?;
 
                             // commit the merge tree oid
-                            new_branch_head = project_repository
+                            let new_branch_head = project_repository
                                 .commit(
                                     user,
-                                    "merged upstream",
+                                    "merged upstream (head only)",
                                     &merge_tree,
                                     &[&branch_head_commit, &new_target_commit],
                                     signing_key,
                                 )
                                 .context("failed to commit merge")?;
+
+                            let branch = branch::Branch {
+                                head: new_branch_head,
+                                tree: merge_tree_oid,
+                                ..branch.clone()
+                            };
+                            branch_writer.write(&branch)?;
+                            Ok(Some(branch))
+                        } else {
+                            // branch commits conflict with new target, branch is unapplied. we are done.
+                            Ok(Some(branch))
                         }
+                    } else {
+                        // no commits, branch is unapplied and conflicts with new target. we are done.
+                        Ok(Some(branch))
                     }
+                } else {
+                    // branch tree does not have conflicts with new target.
+                    if let Some(mut branch_head_merge_index) = branch_head_merge_index {
+                        // there are commits on this branch, try to merge them with a new tree
+                        if branch_head_merge_index.has_conflicts()  {
+                            // if branch commits conflict with new target, unapply branch.
+                            if branch.applied {
+                                // branch comits conflict with new targtet, unapply branch
+                                super::unapply_branch(gb_repository, project_repository, &branch.id)
+                                    .context("failed to unapply branch")?;
+                            }
+                            Ok(None)
+                        } else {
+                            let branch_head_merge_tree_oid = branch_head_merge_index
+                                .write_tree_to(repo)
+                                .context(format!("failed to write head merge index for {}", branch.id))?;
 
-                    branch_writer.write(&branch::Branch {
-                        head: new_branch_head,
-                        tree: merge_tree_oid,
-                        ..branch.clone()
-                    })?;
+                            let non_commited_files = diff::trees(
+                                &project_repository.git_repository,
+                                &branch_head_tree,
+                                &branch_tree,
+                            )?;
+
+                            // if the merge_tree is the same as the new_target_tree and there are no uncommitted changes
+                            // then the vbranch is fully merged, so delete it
+                            if branch_head_merge_tree_oid == new_target_tree.id()
+                                && non_commited_files.is_empty()
+                            {
+                                branch_writer.delete(&branch)?;
+                                Ok(None)
+                            } else {
+                                let new_branch_head = if branch.upstream.is_some() {
+                                    // if the branch was pushed, create a merge commit to avoid force pushing.
+
+                                    let branch_head_merge_tree = repo
+                                        .find_tree(branch_head_merge_tree_oid)
+                                        .context("failed to find tree")?;
+
+                                    project_repository
+                                        .commit(
+                                            user,
+                                            "merged upstream",
+                                            &branch_head_merge_tree,
+                                            &[&branch_head_commit, &new_target_commit],
+                                            signing_key,
+                                        )
+                                        .context("failed to commit merge")?
+                                } else {
+                                    // branch was not pushed yet. attempt to rebase, if it fails, do a merge commit.
+
+                                    let (_, committer) = project_repository.git_signatures(user)?;
+                                    let annotated_branch_head = repo
+                                        .find_annotated_commit(branch.head)
+                                        .context("failed to find annotated commit")?;
+                                    let annotated_upstream_base = repo
+                                        .find_annotated_commit(new_target_commit.id())
+                                        .context("failed to find annotated commit")?;
+                                    let mut rebase_options = git2::RebaseOptions::new();
+                                    rebase_options.quiet(true);
+                                    rebase_options.inmemory(true);
+                                    let mut rebase = repo
+                                        .rebase(
+                                            Some(&annotated_branch_head),
+                                            Some(&annotated_upstream_base),
+                                            None,
+                                            Some(&mut rebase_options),
+                                        )
+                                        .context("failed to rebase")?;
+
+                                    let mut rebase_success = true;
+                                    // check to see if these commits have already been pushed
+                                    let mut last_rebase_head = branch.head;
+                                    while rebase.next().is_some() {
+                                        let index = rebase
+                                            .inmemory_index()
+                                            .context("failed to get inmemory index")?;
+                                        if index.has_conflicts() {
+                                            rebase_success = false;
+                                            break;
+                                        }
+
+                                        if let Ok(commit_id) =
+                                            rebase.commit(None, &committer.clone().into(), None)
+                                        {
+                                            last_rebase_head = commit_id.into();
+                                        } else {
+                                            rebase_success = false;
+                                            break;
+                                        }
+                                    }
+
+                                    if rebase_success {
+                                        // Finish the rebase.
+                                        rebase.finish(None).context("failed to finish rebase")?;
+                                        last_rebase_head
+                                    } else {
+                                        // abort the rebase, just do a merge
+                                        rebase.abort().context("failed to abort rebase")?;
+
+                                        // get tree from merge_tree_oid
+                                        let merge_tree = repo
+                                            .find_tree(branch_head_merge_tree_oid)
+                                            .context("failed to find tree")?;
+
+                                        // commit the merge tree oid
+                                        project_repository
+                                            .commit(
+                                                user,
+                                                "merged upstream",
+                                                &merge_tree,
+                                                &[&branch_head_commit, &new_target_commit],
+                                                signing_key,
+                                            )
+                                            .context("failed to commit merge")?
+                                    }
+                                };
+
+                                let branch = branch::Branch {
+                                    head: new_branch_head,
+                                    tree: branch_merge_index
+                                        .write_tree_to(repo)
+                                        .context("failed to write tree")?,
+                                    ..branch.clone()
+                                };
+                                branch_writer.write(&branch)?;
+                                Ok(Some(branch))
+                            }
+                        }
+                    } else {
+                        let branch = branch::Branch {
+                            head: new_target_commit.id(),
+                            tree: branch_merge_index
+                                .write_tree_to(repo)
+                                .context("failed to write tree")?,
+                            ..branch.clone()
+                        };
+                        // there were no conflicts and no commits, so write the merge index as the new tree and update the head to the new target
+                        branch_writer.write(&branch)?;
+                        Ok(Some(branch))
+                    }
                 }
-            } else {
-                // there were no conflicts and no commits, so write the merge index as the new tree and update the head to the new target
-                branch_writer.write(&branch::Branch {
-                    head: new_target_commit.id(),
-                    tree: merge_tree_oid,
-                    ..branch.clone()
-                })?;
-            }
-        }
-    }
+            },
+        )
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
 
-    // ok, now all the problematic branches have been unapplied, so we can try to merge the upstream branch into our current working directory
-    // first, get a new wd tree
-    let wd_tree = project_repository
-        .get_wd_tree()
-        .context("failed to get wd tree")?;
+    // ok, now all the problematic branches have been unapplied
+    // now we calculate and checkout new tree for the working directory
 
-    // and try to merge it
-    let mut merge_index = repo
-        .merge_trees(&old_target_tree, &wd_tree, &new_target_tree)
-        .context("failed to merge trees")?;
+    let final_tree = updated_vbranches
+        .into_iter()
+        .filter(|branch| branch.applied)
+        .fold(new_target_commit.tree(), |final_tree, branch| {
+            let final_tree = final_tree?;
+            let branch_tree = repo.find_tree(branch.tree)?;
+            let mut merge_result = repo.merge_trees(&new_target_tree, &final_tree, &branch_tree)?;
+            let final_tree_oid = merge_result.write_tree_to(repo)?;
+            repo.find_tree(final_tree_oid)
+        })
+        .context("failed to calculate final tree")?;
 
-    if merge_index.has_conflicts() {
-        return Err(errors::UpdateBaseBranchError::Other(anyhow::anyhow!(
-            "this should not have happened, we should have already detected this"
-        )));
-    }
-
-    // now we can try to merge the upstream branch into our current working directory
-    repo.checkout_index(&mut merge_index).force().checkout().context(
+    repo.checkout_tree(&final_tree).force().checkout().context(
         "failed to checkout index, this should not have happened, we should have already detected this",
     )?;
 

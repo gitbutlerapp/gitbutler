@@ -743,7 +743,9 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::unapply_branch(gb_repository, project_repository, branch_id).map_err(Into::into)
+            super::unapply_branch(gb_repository, project_repository, branch_id)
+                .map(|_| ())
+                .map_err(Into::into)
         })
     }
 
