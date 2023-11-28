@@ -155,7 +155,9 @@
 									{githubContext}
 									on:trigger={(e) => {
 										push()?.finally(() => {
-											if (e.detail.with_pr) createPr();
+											setTimeout(() => {
+												if (e.detail.with_pr) createPr();
+											}, 500);
 										});
 									}}
 								/>
