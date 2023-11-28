@@ -12,23 +12,23 @@ import { newClient } from '$lib/github/client';
 export class PrService {
 	prs$: Observable<PullRequest[]>;
 	error$ = new BehaviorSubject<string | undefined>(undefined);
-	private reload$ = new BehaviorSubject<void>(undefined);
+	private reload$ = new BehaviorSubject<{ skipCache: boolean } | undefined>(undefined);
 	private inject$ = new BehaviorSubject<PullRequest | undefined>(undefined);
 
 	constructor(ghContext$: Observable<GitHubIntegrationContext | undefined>) {
 		this.prs$ = ghContext$.pipe(
 			combineLatestWith(this.reload$),
 			tap(() => this.error$.next(undefined)),
-			switchMap(([ctx, _]) => {
+			switchMap(([ctx, reload]) => {
 				if (!ctx) return EMPTY;
-				return loadPrs(ctx);
+				return loadPrs(ctx, !!reload?.skipCache);
 			}),
-			shareReplay(1),
 			combineLatestWith(this.inject$),
 			map(([prs, inject]) => {
 				if (inject) return prs.concat(inject);
 				return prs;
 			}),
+			shareReplay(1),
 			catchError((err) => {
 				console.log(err);
 				this.error$.next(err);
@@ -38,7 +38,7 @@ export class PrService {
 	}
 
 	reload(): void {
-		this.reload$.next();
+		this.reload$.next({ skipCache: true });
 	}
 	add(pr: PullRequest) {
 		this.inject$.next(pr);
@@ -49,12 +49,14 @@ export class PrService {
 	}
 }
 
-function loadPrs(ctx: GitHubIntegrationContext): Observable<PullRequest[]> {
+function loadPrs(ctx: GitHubIntegrationContext, skipCache: boolean): Observable<PullRequest[]> {
 	return new Observable<PullRequest[]>((subscriber) => {
 		const key = ctx.owner + '/' + ctx.repo;
 
-		const cachedRsp = lscache.get(key);
-		if (cachedRsp) subscriber.next(cachedRsp.data.map(ghResponseToInstance));
+		if (!skipCache) {
+			const cachedRsp = lscache.get(key);
+			if (cachedRsp) subscriber.next(cachedRsp.data.map(ghResponseToInstance));
+		}
 
 		const octokit = newClient(ctx);
 		try {
