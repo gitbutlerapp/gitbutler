@@ -1429,7 +1429,7 @@ mod update_base_branch {
                 .await
                 .unwrap();
 
-            let _branch_id = {
+            let branch_id = {
                 // make a branch that conflicts with the remote branch, but doesn't know about it yet
                 let branch_id = controller
                     .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
@@ -1441,6 +1441,10 @@ mod update_base_branch {
                     .create_commit(&project_id, &branch_id, "second", None)
                     .await
                     .unwrap();
+
+                // more local work in the same branch
+                fs::write(repository.path().join("file2.txt"), "other").unwrap();
+
                 controller
                     .push_virtual_branch(&project_id, &branch_id, false)
                     .await
@@ -1455,18 +1459,15 @@ mod update_base_branch {
                         .into_iter()
                         .find(|b| b.id == branch_id)
                         .unwrap();
+
                     repository.merge(&branch.upstream.as_ref().unwrap().name);
                     repository.fetch();
                 }
-
-                // more local work in the same branch
-                fs::write(repository.path().join("file2.txt"), "other").unwrap();
 
                 controller
                     .unapply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-
                 branch_id
             };
 
@@ -1477,18 +1478,16 @@ mod update_base_branch {
                 // should remove integrated commit, but leave work
 
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
-                assert_eq!(branches.len(), 0); // TODO: should be 1
-
-                // TODO: this should be uncommented
-                // assert_eq!(branches[0].id, branch_id);
-                // assert!(!branches[0].active);
-                // assert!(branches[0].base_current);
-                // assert_eq!(branches[0].files.len(), 1);
-                // assert_eq!(branches[0].commits.len(), 0);
-                // assert!(controller
-                //     .can_apply_virtual_branch(&project_id, &branch_id)
-                //     .await
-                //     .unwrap());
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(!branches[0].active);
+                assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 1);
+                assert!(controller
+                    .can_apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap());
             }
         }
 

@@ -433,7 +433,7 @@ pub fn unapply_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
-) -> Result<(), errors::UnapplyBranchError> {
+) -> Result<Option<branch::Branch>, errors::UnapplyBranchError> {
     if conflicts::is_resolving(project_repository) {
         return Err(errors::UnapplyBranchError::Conflict(
             errors::ProjectConflictError {
@@ -451,7 +451,7 @@ pub fn unapply_branch(
 
     let branch_reader = branch::Reader::new(&current_session_reader);
 
-    let target_branch = branch_reader.read(branch_id).map_err(|error| match error {
+    let mut target_branch = branch_reader.read(branch_id).map_err(|error| match error {
         reader::Error::NotFound => {
             errors::UnapplyBranchError::BranchNotFound(errors::BranchNotFoundError {
                 project_id: project_repository.project().id,
@@ -462,7 +462,7 @@ pub fn unapply_branch(
     })?;
 
     if !target_branch.applied {
-        return Ok(());
+        return Ok(Some(target_branch));
     }
 
     let default_target = get_default_target(&current_session_reader)
@@ -503,15 +503,12 @@ pub fn unapply_branch(
                 .context("Failed to remove branch")?;
 
             project_repository.delete_branch_reference(&target_branch)?;
-            return Ok(());
+            return Ok(None);
         }
 
-        let tree = write_tree(project_repository, &default_target, files)?;
-        branch_writer.write(&branch::Branch {
-            tree,
-            applied: false,
-            ..target_branch
-        })?;
+        target_branch.tree = write_tree(project_repository, &default_target, files)?;
+        target_branch.applied = false;
+        branch_writer.write(&target_branch)?;
     }
 
     let repo = &project_repository.git_repository;
@@ -550,7 +547,7 @@ pub fn unapply_branch(
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
-    Ok(())
+    Ok(Some(target_branch))
 }
 
 fn unapply_all_branches(
@@ -817,11 +814,15 @@ pub fn calculate_non_commited_diffs(
         return Ok(files.clone());
     };
 
-    // get the trees
-    let target_plus_wd_oid = write_tree(project_repository, default_target, files)?;
-    let target_plus_wd = project_repository
-        .git_repository
-        .find_tree(target_plus_wd_oid)?;
+    let branch_tree = if branch.applied {
+        let target_plus_wd_oid = write_tree(project_repository, default_target, files)?;
+        project_repository
+            .git_repository
+            .find_tree(target_plus_wd_oid)
+    } else {
+        project_repository.git_repository.find_tree(branch.tree)
+    }?;
+
     let branch_head = project_repository
         .git_repository
         .find_commit(branch.head)?
@@ -831,7 +832,7 @@ pub fn calculate_non_commited_diffs(
     let non_commited_diff = diff::trees(
         &project_repository.git_repository,
         &branch_head,
-        &target_plus_wd,
+        &branch_tree,
     )
     .context("failed to diff trees")?;
 
@@ -1395,7 +1396,7 @@ pub fn virtual_hunks_by_filepath(
         .collect::<HashMap<_, _>>()
 }
 
-type BranchStatus = HashMap<path::PathBuf, Vec<diff::Hunk>>;
+pub type BranchStatus = HashMap<path::PathBuf, Vec<diff::Hunk>>;
 
 // list the virtual branches and their file statuses (statusi?)
 pub fn get_status_by_branch(
@@ -1472,6 +1473,7 @@ fn get_non_applied_status(
                     .git_repository
                     .find_tree(branch.tree)
                     .context(format!("failed to find tree {}", branch.tree))?;
+
                 let target_tree = project_repository
                     .git_repository
                     .find_commit(default_target.sha)
