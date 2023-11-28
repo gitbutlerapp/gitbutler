@@ -27,6 +27,7 @@
 	const selectedFileId = writable<string | undefined>(undefined);
 
 	function setSelected(fileId: string | undefined, branch: Branch) {
+		if (!fileId) return;
 		const match = branch.files?.find((f) => f.id == fileId);
 		if (!match) $selectedFileId = undefined;
 		return match;
@@ -63,7 +64,7 @@
 			{selectedOwnership}
 			selectable={false}
 			{readonly}
-			on:close={() => selected == undefined}
+			on:close={() => ($selectedFileId = undefined)}
 		/>
 	{/if}
 </div>
