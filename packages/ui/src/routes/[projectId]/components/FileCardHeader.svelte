@@ -43,7 +43,7 @@
 			</div>
 			<div class="header__tags">
 				<div>
-					{#if !isFileLocked}
+					{#if isFileLocked}
 						<Tooltip
 							label="File changes cannot be moved because part of this file was already committed into this branch"
 						>
