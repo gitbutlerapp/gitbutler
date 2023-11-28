@@ -68,7 +68,7 @@
 		isPushing = true;
 		await branchController.pushBranch(branch.id, branch.requiresForce);
 		if (opts?.createPr) {
-			await sleep(500);
+			await sleep(200); // Needed by GitHub
 			await createPr();
 		}
 		isPushing = false;
@@ -82,7 +82,7 @@
 		return `${target.repoBaseUrl}/compare/${baseBranchName}...${branchName}`;
 	}
 
-	async function createPr() {
+	async function createPr(): Promise<void> {
 		if (githubContext && base?.branchName && branchName) {
 			const pr = await createPullRequest(
 				githubContext,
@@ -92,10 +92,10 @@
 				branch.notes
 			);
 			if (pr) {
-				prService.add(pr);
-				prService.reload();
+				prService.insert(pr);
+				await prService.reload();
 			}
-			return pr;
+			return;
 		}
 	}
 
