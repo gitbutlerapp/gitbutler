@@ -363,8 +363,9 @@
 							{onSquash}
 							{resetHeadCommit}
 							{createPr}
+							type="local"
 						/>
-						<RemoteCommits
+						<LocalCommits
 							{branch}
 							{base}
 							{send}
@@ -372,14 +373,32 @@
 							{prPromise}
 							{githubContext}
 							{projectId}
+							{branchController}
 							{acceptAmend}
 							{acceptSquash}
 							{onAmend}
 							{onSquash}
 							{resetHeadCommit}
 							{createPr}
+							type="remote"
 						/>
-						<IntegratedCommits {branch} {base} {send} {receive} {projectId} />
+						<LocalCommits
+							{branch}
+							{base}
+							{send}
+							{receive}
+							{prPromise}
+							{githubContext}
+							{projectId}
+							{branchController}
+							{acceptAmend}
+							{acceptSquash}
+							{onAmend}
+							{onSquash}
+							{resetHeadCommit}
+							{createPr}
+							type="integrated"
+						/>
 					{/if}
 				</div>
 			</div>

@@ -10,6 +10,7 @@
 
 	export let isLoading = false;
 	export let projectId: string;
+	export let wide = false;
 	export let githubContext: GitHubIntegrationContext | undefined;
 
 	const dispatch = createEventDispatcher<{ trigger: { with_pr: boolean } }>();
@@ -26,6 +27,7 @@
 	type="outlined"
 	loading={isLoading}
 	bind:this={dropDown}
+	{wide}
 	{disabled}
 	on:click={() => {
 		dispatch('trigger', { with_pr: $selection$?.id == 'pr' });

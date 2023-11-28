@@ -5,6 +5,7 @@
 	export let type: 'filled' | 'outlined' = 'filled';
 	export let disabled = false;
 	export let loading = false;
+	export let wide = false;
 	let visible = false;
 
 	export function show() {
@@ -20,7 +21,7 @@
 	let iconElt: HTMLElement;
 </script>
 
-<div class="wrapper">
+<div class="wrapper" style:display={wide ? 'flex' : 'inline-flex'}>
 	<div
 		class="dropdown"
 		bind:this={container}
@@ -51,12 +52,13 @@
 
 <style lang="postcss">
 	.wrapper {
-		display: flex;
+		/* display set directly on element */
 		position: relative;
 	}
 
 	.dropdown {
 		display: flex;
+		flex-grow: 1;
 		align-items: center;
 	}
 
@@ -78,6 +80,8 @@
 
 	.btn {
 		border-radius: var(--radius-m) 0 0 var(--radius-m);
+		justify-content: center;
+		width: 100%;
 	}
 
 	.icon {
