@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { File, BaseBranch, Branch } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { GitHubIntegrationContext } from '$lib/github/types';

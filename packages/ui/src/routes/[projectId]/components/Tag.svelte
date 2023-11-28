@@ -10,7 +10,7 @@
 	export let color: TagColor;
 	export let border = false;
 	export let filled = false;
-	export let onClick: (() => void) | undefined = undefined;
+	export let clickable = false;
 </script>
 
 <div
@@ -22,9 +22,9 @@
 	class:neutral-dim={color == 'neutral-dim'}
 	class:border
 	class:filled
-	class:not-button={!onClick}
-	on:click={onClick}
-	role={onClick ? 'button' : undefined}
+	class:not-button={!clickable}
+	on:click
+	role={clickable ? 'button' : undefined}
 >
 	<span class="label text-base-11 text-semibold">
 		<slot />

@@ -114,6 +114,7 @@
 		display: flex;
 		flex-direction: column;
 		flex-shrink: 1;
+		flex-grow: 1;
 		overflow: hidden;
 	}
 	.header {
