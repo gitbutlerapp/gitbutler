@@ -17,6 +17,7 @@
 	import Tag from './Tag.svelte';
 	import { open } from '@tauri-apps/api/shell';
 	import toast from 'svelte-french-toast';
+	import { sleep } from '$lib/utils/sleep';
 
 	export let branch: Branch;
 	export let githubContext: GitHubIntegrationContext | undefined;
@@ -64,7 +65,10 @@
 	async function push(opts?: { createPr: boolean }) {
 		isPushing = true;
 		await branchController.pushBranch(branch.id, branch.requiresForce);
-		if (opts?.createPr) await createPr();
+		if (opts?.createPr) {
+			await sleep(500);
+			await createPr();
+		}
 		isPushing = false;
 	}
 
