@@ -93,56 +93,54 @@ impl HandlerInner {
             .context("failed to open gb repo")?
             .context("failed to get default target")?;
 
-        if gb_code_last_commit
+        let target_changed = !gb_code_last_commit
             .map(|id| id == default_target.sha)
-            .unwrap_or_default()
-        {
-            // early out if nothing new is there to push
-            return Ok(vec![]);
-        }
+            .unwrap_or_default();
 
-        let ids = batch_rev_walk(
-            &project_repository.git_repository,
-            self.batch_size,
-            default_target.sha,
-            gb_code_last_commit,
-        )?;
-
-        tracing::info!(
-            %project_id,
-            batches=%ids.len(),
-            "batches left to push",
-        );
-
-        let id_count = &ids.len();
-
-        for (idx, id) in ids.iter().enumerate().rev() {
-            let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
-
-            match project_repository.push_to_gitbutler_server(user.as_ref(), &[&refspec]) {
-                Ok(()) => {}
-                Err(project_repository::RemoteError::Network) => return Ok(vec![]),
-                Err(err) => return Err(err).context("failed to push"),
-            };
-
-            self.project_store
-                .update(&projects::UpdateRequest {
-                    id: *project_id,
-                    gitbutler_code_push_state: Some(CodePushState {
-                        id: *id,
-                        timestamp: time::SystemTime::now(),
-                    }),
-                    ..Default::default()
-                })
-                .await
-                .context("failed to update last push")?;
+        if target_changed {
+            let ids = batch_rev_walk(
+                &project_repository.git_repository,
+                self.batch_size,
+                default_target.sha,
+                gb_code_last_commit,
+            )?;
 
             tracing::info!(
                 %project_id,
-                i = id_count.saturating_sub(idx),
-                total = id_count,
-                "project batch pushed",
+                batches=%ids.len(),
+                "batches left to push",
             );
+
+            let id_count = &ids.len();
+
+            for (idx, id) in ids.iter().enumerate().rev() {
+                let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
+
+                match project_repository.push_to_gitbutler_server(user.as_ref(), &[&refspec]) {
+                    Ok(()) => {}
+                    Err(project_repository::RemoteError::Network) => return Ok(vec![]),
+                    Err(err) => return Err(err).context("failed to push"),
+                };
+
+                self.project_store
+                    .update(&projects::UpdateRequest {
+                        id: *project_id,
+                        gitbutler_code_push_state: Some(CodePushState {
+                            id: *id,
+                            timestamp: time::SystemTime::now(),
+                        }),
+                        ..Default::default()
+                    })
+                    .await
+                    .context("failed to update last push")?;
+
+                tracing::info!(
+                    %project_id,
+                    i = id_count.saturating_sub(idx),
+                    total = id_count,
+                    "project batch pushed",
+                );
+            }
         }
 
         // push refs/{project_id}
