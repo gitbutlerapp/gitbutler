@@ -259,6 +259,7 @@
 	<div class="branch-card" style:width={maximized ? '100%' : `${laneWidth}px`}>
 		<div class="flex flex-col">
 			<BranchHeader
+				{readonly}
 				{branchController}
 				{branch}
 				{allCollapsed}
