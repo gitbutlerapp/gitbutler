@@ -67,6 +67,7 @@
 					<Tag
 						color="error"
 						filled
+						clickable
 						on:click={async (e) => {
 							e.preventDefault();
 							e.stopPropagation();
