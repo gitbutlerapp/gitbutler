@@ -1,43 +1,63 @@
 <script lang="ts">
+	import { draggableFile } from '$lib/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import Icon from '$lib/icons/Icon.svelte';
+	import { draggable } from '$lib/utils/draggable';
 	import { computeFileStatus } from '$lib/vbranches/fileStatus';
 	import type { File } from '$lib/vbranches/types';
 	import FileStatusCircle from './FileStatusCircle.svelte';
 
+	export let branchId: string;
 	export let file: File;
 	export let selected: boolean;
+	export let readonly: boolean;
 </script>
 
-<button on:click class="tree-list-file" class:selected>
-	<div class="dot">
-		<Icon name="dot" />
+<div
+	use:draggable={{
+		...draggableFile(branchId, file),
+		disabled: readonly
+	}}
+	on:click
+	on:keydown
+	class="draggable-wrapper"
+	role="button"
+	tabindex="0"
+>
+	<div class="tree-list-file" class:selected>
+		<div class="dot">
+			<Icon name="dot" />
+		</div>
+		<div class="icon">
+			<img
+				src={getVSIFileIcon(file.path)}
+				alt="js"
+				width="12"
+				style="width: 0.75rem"
+				class="mr-1 inline"
+			/>
+		</div>
+		<div class="name flex-shrink">
+			{file.filename}
+		</div>
+		<div class="status">
+			<FileStatusCircle status={computeFileStatus(file)} />
+		</div>
 	</div>
-	<div class="icon">
-		<img
-			src={getVSIFileIcon(file.path)}
-			alt="js"
-			width="12"
-			style="width: 0.75rem"
-			class="mr-1 inline"
-		/>
-	</div>
-	<div class="name flex-shrink">
-		{file.filename}
-	</div>
-	<div class="status">
-		<FileStatusCircle status={computeFileStatus(file)} />
-	</div>
-</button>
+</div>
 
 <style lang="postcss">
+	.draggable-wrapper {
+		display: inline-block;
+	}
 	.tree-list-file {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
 		padding: var(--space-4) var(--space-8) var(--space-4) var(--space-4);
 		gap: var(--space-6);
 		border-radius: var(--radius-s);
 		max-width: 100%;
+		background: var(--clr-theme-container-light);
 		&:not(.selected):hover {
 			background: var(--clr-theme-container-pale);
 		}
