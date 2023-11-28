@@ -117,7 +117,13 @@
 				<ContextMenu type="checklist" slot="popup" bind:this={contextMenu}>
 					<ContextMenuItem
 						checked={$commitGenerationExtraConcise}
-						on:click={() => commitGenerationExtraConcise.update((value) => !value)}
+						on:click={(e) => {
+							e.stopImmediatePropagation();
+							e.stopPropagation();
+							e.preventDefault();
+							commitGenerationExtraConcise.update((value) => !value);
+							return false;
+						}}
 					>
 						Extra concise
 					</ContextMenuItem>

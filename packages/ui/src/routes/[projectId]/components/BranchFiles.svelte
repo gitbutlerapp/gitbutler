@@ -2,7 +2,6 @@
 	import { filesToFileTree, sortLikeFileTree } from '$lib/vbranches/filetree';
 	import type { Branch, File } from '$lib/vbranches/types';
 	import { slide } from 'svelte/transition';
-	import IconNewBadge from '$lib/icons/IconNewBadge.svelte';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Writable } from 'svelte/store';
 	import Badge from '$lib/components/Badge.svelte';
@@ -19,7 +18,7 @@
 	export let branch: Branch;
 	export let readonly: boolean;
 	export let selectedOwnership: Writable<Ownership>;
-	export let selectedFile: Writable<File | undefined>;
+	export let selectedFileId: Writable<string | undefined>;
 
 	let selectedListMode: string;
 	let filesHeight = 200;
@@ -77,10 +76,10 @@
 								branchId={branch.id}
 								{readonly}
 								on:click={() => {
-									$selectedFile = file;
-									dispatch('select', file);
+									if ($selectedFileId == file.id) $selectedFileId = undefined;
+									else $selectedFileId = file.id;
 								}}
-								selected={file == $selectedFile}
+								selected={file.id == $selectedFileId}
 							/>
 						{/each}
 					{:else}

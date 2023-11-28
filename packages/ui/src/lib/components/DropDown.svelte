@@ -13,6 +13,7 @@
 
 	let container: HTMLDivElement;
 	let popup: HTMLDivElement;
+	let iconElt: HTMLElement;
 </script>
 
 <div class="wrapper">
@@ -25,18 +26,25 @@
 		<button class="btn" disabled={disabled || loading} on:click>
 			<span class="label text-base-12"> <slot /></span>
 		</button>
-		<button class="icon" disabled={disabled || loading} on:click={() => show()}>
+		<button
+			class="icon"
+			bind:this={iconElt}
+			disabled={disabled || loading}
+			on:click={() => (visible = !visible)}
+		>
 			<Icon name={loading ? 'spinner' : visible ? 'chevron-top' : 'chevron-down'} />
 		</button>
 	</div>
-	<div
-		class="context-wrapper"
-		bind:this={popup}
-		use:clickOutside={() => (visible = false)}
-		style:display={visible ? 'block' : 'none'}
-	>
-		<slot name="popup" />
-	</div>
+	{#if visible}
+		<div
+			class="context-wrapper"
+			use:clickOutside={{ trigger: iconElt, handler: () => (visible = !visible) }}
+			bind:this={popup}
+			style:display={visible ? 'block' : 'none'}
+		>
+			<slot name="popup" />
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
