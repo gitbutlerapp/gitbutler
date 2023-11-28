@@ -23,7 +23,9 @@
 			e.preventDefault();
 			e.stopPropagation();
 			fetching = true;
-			await Promise.allSettled([branchController.fetchFromTarget(), syncToCloud(projectId)])
+			syncToCloud(projectId); // don't wait for this
+			await branchController
+				.fetchFromTarget()
 				.then(() => prService.reload())
 				.finally(() => {
 					fetching = false;
