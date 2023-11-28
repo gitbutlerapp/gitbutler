@@ -166,7 +166,9 @@
 									color="primary"
 									id="push-commits"
 									loading={isPushing}
-									on:click={push}
+									on:click={() => {
+										push()?.finally(() => createPr());
+									}}
 								>
 									Create Pull Request
 								</Button>
