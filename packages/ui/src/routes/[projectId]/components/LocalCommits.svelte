@@ -106,7 +106,7 @@
 										e.stopPropagation();
 									}}
 								>
-									{pr.title}
+									PR
 								</Tag>
 							{/if}
 						{/await}
