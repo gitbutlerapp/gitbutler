@@ -2,6 +2,7 @@ use std::{fs, net::Ipv4Addr, time::Duration};
 
 use tauri::{AppHandle, Manager};
 use tracing::{metadata::LevelFilter, subscriber::set_global_default};
+use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, Layer};
 
 use crate::{paths::LogsDir, sentry};
@@ -12,7 +13,12 @@ pub fn init(app_handle: &AppHandle) {
         .to_path_buf();
     fs::create_dir_all(&logs_dir).expect("failed to create logs dir");
 
-    let file_appender = tracing_appender::rolling::daily(&logs_dir, "GitButler.log");
+    let file_appender = RollingFileAppender::builder()
+        .rotation(Rotation::DAILY)
+        .max_log_files(14)
+        .filename_prefix("GitButler.log")
+        .build(&logs_dir)
+        .expect("initializing rolling file appender failed");
     let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
     app_handle.manage(guard); // keep the guard alive for the lifetime of the app
 
