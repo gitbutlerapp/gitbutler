@@ -5,7 +5,7 @@
 	import Link from '$lib/components/Link.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
-	import IconSpinner from '$lib/icons/IconSpinner.svelte';
+	import Icon from '$lib/icons/Icon.svelte';
 	import * as events from '$lib/utils/events';
 	import AccountLink from './AccountLink.svelte';
 
@@ -22,6 +22,22 @@
 		<Link href={`/${projectId}/settings`}>
 			<IconButton icon="settings" />
 		</Link>
+		{#if $isLoading}
+			<Tooltip>
+				<div class="loading-status">
+					<Icon name="spinner" />
+				</div>
+				<div slot="label">
+					hello
+					{#each loadStack as item}
+						<p>
+							{item.name}
+							- <TimeAgo date={item.startedAt} addSuffix={true} />
+						</p>
+					{/each}
+				</div>
+			</Tooltip>
+		{/if}
 	</div>
 	<AccountLink {user} />
 </div>
@@ -37,5 +53,8 @@
 
 	.left-btns {
 		display: flex;
+	}
+	.loading-status {
+		padding: var(--space-8);
 	}
 </style>
