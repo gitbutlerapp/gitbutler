@@ -1,5 +1,7 @@
 import type { File } from './types';
 
+export type FileStatus = 'A' | 'M' | 'D';
+
 export function computedAddedRemoved(...files: File[]) {
 	return files
 		.flatMap((f) => f.hunks)
@@ -13,7 +15,7 @@ export function computedAddedRemoved(...files: File[]) {
 		);
 }
 
-export function computeFileStatus(file: File) {
+export function computeFileStatus(file: File): FileStatus {
 	const { added, removed } = computedAddedRemoved(file);
 	// TODO: How should we handle this for binary files? See: https://git-scm.com/docs/git-status
 	const contentLineCount = file.content?.trim().split('\n').length;

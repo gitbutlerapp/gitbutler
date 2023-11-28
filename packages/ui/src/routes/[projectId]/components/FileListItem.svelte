@@ -5,7 +5,7 @@
 	import { draggable } from '$lib/utils/draggable';
 	import { computeFileStatus } from '$lib/vbranches/fileStatus';
 	import type { File } from '$lib/vbranches/types';
-	import FileStatus from './FileStatus.svelte';
+	import FileStatusCircle from './FileStatusCircle.svelte';
 
 	export let branchId: string;
 	export let file: File;
@@ -49,7 +49,7 @@
 			</div>
 		{/if}
 		<div class="status">
-			<FileStatus status={computeFileStatus(file)} />
+			<FileStatusCircle status={computeFileStatus(file)} />
 		</div>
 	</div>
 </div>
