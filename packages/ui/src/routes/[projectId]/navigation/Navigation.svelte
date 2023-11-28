@@ -33,6 +33,8 @@
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
+	$: base$ = baseBranchService.base$;
+
 	let stashExpanded = true;
 	let branchesExpanded = true;
 </script>
@@ -63,24 +65,26 @@
 					<path d="M5 12V8.44444V4" stroke="white" stroke-width="2" />
 				</svg>
 				<span>Applied branches</span>
-				<Tooltip label="Merge upstream commits into common base">
-					<Tag
-						color="error"
-						filled
-						clickable
-						on:click={async (e) => {
-							e.preventDefault();
-							e.stopPropagation();
-							try {
-								await branchController.updateBaseBranch();
-							} finally {
-								toasts.error('Failed update working directory');
-							}
-						}}
-					>
-						Update
-					</Tag>
-				</Tooltip>
+				{#if ($base$?.behind || 0) > 0}
+					<Tooltip label="Merge upstream commits into common base">
+						<Tag
+							color="error"
+							filled
+							clickable
+							on:click={async (e) => {
+								e.preventDefault();
+								e.stopPropagation();
+								try {
+									await branchController.updateBaseBranch();
+								} finally {
+									toasts.error('Failed update working directory');
+								}
+							}}
+						>
+							Update
+						</Tag>
+					</Tooltip>
+				{/if}
 			</DomainButton>
 		</div>
 	</div>
