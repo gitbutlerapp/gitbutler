@@ -1,6 +1,14 @@
 import lscache from 'lscache';
 import { Observable, EMPTY, BehaviorSubject, of } from 'rxjs';
-import { catchError, combineLatestWith, shareReplay, switchMap, tap } from 'rxjs/operators';
+import {
+	catchError,
+	combineLatestWith,
+	find,
+	map,
+	shareReplay,
+	switchMap,
+	tap
+} from 'rxjs/operators';
 
 import {
 	type PullRequest,
@@ -13,6 +21,7 @@ export class PrService {
 	prs$: Observable<PullRequest[]>;
 	error$ = new BehaviorSubject<string | undefined>(undefined);
 	private reload$ = new BehaviorSubject<void>(undefined);
+	private inject$ = new BehaviorSubject<PullRequest | undefined>(undefined);
 
 	constructor(ghContext$: Observable<GitHubIntegrationContext | undefined>) {
 		this.prs$ = ghContext$.pipe(
@@ -23,6 +32,11 @@ export class PrService {
 				return loadPrs(ctx);
 			}),
 			shareReplay(1),
+			combineLatestWith(this.inject$),
+			map(([prs, inject]) => {
+				if (inject) return prs.concat(inject);
+				return prs;
+			}),
 			catchError((err) => {
 				console.log(err);
 				this.error$.next(err);
@@ -33,6 +47,13 @@ export class PrService {
 
 	reload(): void {
 		this.reload$.next();
+	}
+	add(pr: PullRequest) {
+		this.inject$.next(pr);
+	}
+	get(branch: string | undefined): Observable<PullRequest | undefined> | undefined {
+		if (!branch) return;
+		return this.prs$.pipe(map((prs) => prs.find((pr) => pr.sourceBranch == branch)));
 	}
 }
 

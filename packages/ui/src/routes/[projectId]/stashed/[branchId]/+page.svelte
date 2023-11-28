@@ -27,6 +27,7 @@
 	$: branches$ = vbranchService.branches$;
 	$: error$ = vbranchService.branchesError$;
 	$: branch = $branches$?.find((b) => b.id == $page.params.branchId);
+	$: prService = data.prService;
 
 	function applyBranch(branch: Branch) {
 		if (!branch.isMergeable) {
@@ -80,6 +81,7 @@
 				githubContext={$githubContext$}
 				user={$user$}
 				projectPath={$project$.path}
+				{prService}
 			/>
 		</div>
 	{:else}
