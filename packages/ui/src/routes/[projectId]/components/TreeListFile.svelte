@@ -37,9 +37,9 @@
 				class="mr-1 inline"
 			/>
 		</div>
-		<div class="name flex-shrink">
+		<span class="name text-base-12">
 			{file.filename}
-		</div>
+		</span>
 		<div class="status">
 			<FileStatusCircle status={computeFileStatus(file)} />
 		</div>
@@ -73,9 +73,6 @@
 		opacity: 0.3;
 	}
 	.selected {
-		background-color: var(--clr-theme-pop-element);
-		& .name {
-			color: var(--clr-theme-pop-on-element);
-		}
+		background-color: var(--clr-theme-scale-pop-80);
 	}
 </style>
