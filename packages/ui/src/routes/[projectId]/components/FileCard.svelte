@@ -240,7 +240,6 @@
 		direction="horizontal"
 		class="z-30"
 		on:width={(e) => {
-			console.log(e.detail);
 			fileWidth = e.detail;
 			lscache.set(fileWidthKey + file.id, e.detail, 7 * 1440); // 7 day ttl
 			userSettings.update((s) => ({

@@ -6,7 +6,7 @@
 	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
 	import type { CrossfadeParams, TransitionConfig } from 'svelte/transition';
 	import PushButton from './PushButton.svelte';
-	import type { GitHubIntegrationContext, PullRequest } from '$lib/github/types';
+	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import Button from '$lib/components/Button.svelte';
 	import { flip } from 'svelte/animate';
 	import type { BranchController } from '$lib/vbranches/branchController';
