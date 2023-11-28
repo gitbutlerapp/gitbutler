@@ -92,7 +92,7 @@
 				branch.notes
 			);
 			if (pr) {
-				prService.add(pr);
+				prService.insert(pr);
 				prService.reload();
 			}
 			return pr;

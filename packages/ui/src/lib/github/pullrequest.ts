@@ -17,14 +17,17 @@ export class PrService {
 
 	constructor(ghContext$: Observable<GitHubIntegrationContext | undefined>) {
 		this.prs$ = ghContext$.pipe(
+			tap((context) => console.log('context', context)),
 			combineLatestWith(this.reload$),
 			tap(() => this.error$.next(undefined)),
 			switchMap(([ctx, reload]) => {
 				if (!ctx) return EMPTY;
+				console.log('loading prs');
 				return loadPrs(ctx, !!reload?.skipCache);
 			}),
 			combineLatestWith(this.inject$),
 			map(([prs, inject]) => {
+				console.log('inject', inject, prs);
 				if (inject) return prs.concat(inject);
 				return prs;
 			}),
@@ -38,22 +41,27 @@ export class PrService {
 	}
 
 	reload(): void {
+		console.log('reload prs');
 		this.reload$.next({ skipCache: true });
 	}
-	add(pr: PullRequest) {
+	insert(pr: PullRequest) {
+		console.log('insert into cache', pr);
 		this.inject$.next(pr);
 	}
 	get(branch: string | undefined): Observable<PullRequest | undefined> | undefined {
 		if (!branch) return;
+		console.log('getting pr', branch);
 		return this.prs$.pipe(map((prs) => prs.find((pr) => pr.targetBranch == branch)));
 	}
 }
 
 function loadPrs(ctx: GitHubIntegrationContext, skipCache: boolean): Observable<PullRequest[]> {
+	console.log('actually loading prs, skip cache', skipCache);
 	return new Observable<PullRequest[]>((subscriber) => {
 		const key = ctx.owner + '/' + ctx.repo;
 
 		if (!skipCache) {
+			console.log('using cache');
 			const cachedRsp = lscache.get(key);
 			if (cachedRsp) subscriber.next(cachedRsp.data.map(ghResponseToInstance));
 		}
