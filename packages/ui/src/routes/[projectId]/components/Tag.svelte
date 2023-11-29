@@ -84,6 +84,7 @@
 			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-succ-60);
 		}
 		&.filled {
+			color: var(--clr-theme-succ-on-element);
 			background: var(--clr-theme-succ-element);
 			&:hover {
 				background: var(--clr-theme-succ-element-dim);
@@ -118,6 +119,7 @@
 			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-warn-60);
 		}
 		&.filled {
+			color: var(--clr-theme-warn-on-element);
 			background: var(--clr-theme-warn-element);
 			&:hover {
 				background: var(--clr-theme-warn-element-dim);

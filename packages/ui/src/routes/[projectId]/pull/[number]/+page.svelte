@@ -13,12 +13,8 @@
 	);
 </script>
 
-<div class="h-full flex-grow overflow-y-auto overscroll-none p-3">
-	<div
-		class="flex max-w-4xl flex-col gap-y-6 overflow-visible rounded-lg px-5 py-4"
-		style:background-color="var(--bg-surface)"
-		style:border-color="var(--border-surface)"
-	>
+<div class="wrapper overflow-y-auto overscroll-none">
+	<div class="inner flex px-5 py-4">
 		{#if !$pr}
 			<p>Loading...</p>
 		{:else if pr}
@@ -28,3 +24,11 @@
 		{/if}
 	</div>
 </div>
+
+<style lang="postcss">
+	.wrapper {
+		display: flex;
+		height: 100%;
+		overflow-y: auto;
+	}
+</style>
