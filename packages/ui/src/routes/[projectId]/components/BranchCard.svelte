@@ -120,7 +120,6 @@
 	onMount(() => {
 		expandFromCache();
 		laneWidth = lscache.get(laneWidthKey + branch.id) ?? $userSettings.defaultLaneWidth;
-		console.log(laneWidth);
 	});
 
 	const selectedOwnership = writable(Ownership.fromBranch(branch));

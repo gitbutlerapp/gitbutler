@@ -6,8 +6,8 @@
 	import type { CommitType } from './commitList';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { PrService } from '$lib/github/pullrequest';
-	import { sleep } from '$lib/utils/sleep';
 	import toast from 'svelte-french-toast';
+	import { sleep } from '$lib/utils/sleep';
 
 	export let branch: Branch;
 	export let type: CommitType;
@@ -19,7 +19,7 @@
 	export let projectId: string;
 
 	$: prServiceState$ = prService.getState(branch.id);
-	$: pr$ = prService.get(branch.shortName);
+	$: pr$ = prService.get(branch.upstreamName);
 
 	let isPushing: boolean;
 
@@ -27,17 +27,24 @@
 		isPushing = true;
 		await branchController.pushBranch(branch.id, branch.requiresForce);
 		if (opts?.createPr) {
-			await sleep(500); // Needed by GitHub
 			await createPr();
 		}
 		isPushing = false;
 	}
 
 	async function createPr(): Promise<void> {
-		if (githubContext && base?.branchName && branch.shortName) {
+		// TODO: Figure out a better way of knowing when upstream exists
+		for (let i = 0; i < 50; i++) {
+			if (branch.upstreamName) {
+				await sleep(100);
+			} else {
+				break;
+			}
+		}
+		if (githubContext && base?.shortName && branch.upstreamName) {
 			const pr = await prService.createPullRequest(
 				githubContext,
-				branch.shortName,
+				branch.upstreamName,
 				base.shortName,
 				branch.name,
 				branch.notes,

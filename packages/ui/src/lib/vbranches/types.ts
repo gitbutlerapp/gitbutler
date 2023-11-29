@@ -62,7 +62,7 @@ export class Branch {
 	// (therefore this field is applicable for stashed/unapplied or remote branches, i.e. active == false)
 	isMergeable!: Promise<boolean>;
 
-	get shortName() {
+	get upstreamName() {
 		return this.upstream?.name.split('/').slice(-1)[0];
 	}
 }
