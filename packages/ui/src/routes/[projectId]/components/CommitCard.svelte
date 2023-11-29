@@ -10,18 +10,22 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
+	import Tag from '../components/Tag.svelte';
 	import { draggableCommit, nonDraggable } from '$lib/draggables';
 	import { draggable } from '$lib/utils/draggable';
 
 	export let commit: Commit | RemoteCommit;
 	export let projectId: string;
 	export let commitUrl: string | undefined = undefined;
+	export let isHeadCommit: boolean = false;
+	export let resetHeadCommit: () => void | undefined = () => undefined;
 
 	let previewCommitModal: Modal;
 	let minWidth = 2;
 
 	let entries: [string, (ContentSection | HunkSection)[]][] = [];
 	let isLoading = false;
+
 	async function loadEntries() {
 		isLoading = true;
 		entries = plainToInstance(
@@ -34,34 +38,46 @@
 			.sort((a, b) => a[0].localeCompare(b[0]));
 		isLoading = false;
 	}
+
+	function onClick(e: MouseEvent | KeyboardEvent) {
+		loadEntries();
+		previewCommitModal.show();
+	}
 </script>
 
 <div
-	class="w-full overflow-hidden"
+	class="commit__card"
+	class:is-head-commit={isHeadCommit}
+	on:click={onClick}
+	on:keyup={onClick}
 	use:draggable={commit instanceof Commit
 		? draggableCommit(commit.branchId, commit)
 		: nonDraggable()}
+	role="button"
+	tabindex="0"
 >
-	<div
-		class="text-color-2 border-color-4 rounded border p-2 text-left"
-		style:background-color="var(--bg-card)"
-		style:border-color="var(--border-card)"
-	>
-		<div class="mb-1">
-			<button
-				class="max-w-full overflow-hidden truncate"
-				on:click={() => {
-					loadEntries();
-					previewCommitModal.show();
-				}}
+	<div class="commit__header">
+		<span class="commit__description text-base-12 truncate">
+			{commit.description}
+		</span>
+		{#if isHeadCommit}
+			<Tag
+				color="ghost"
+				icon="undo-small"
+				border
+				clickable
+				on:click={(e) => {
+					e.stopPropagation();
+					resetHeadCommit();
+				}}>Undo</Tag
 			>
-				{commit.description}
-			</button>
-		</div>
+		{/if}
+	</div>
 
-		<div class="text-color-3 flex space-x-1 text-sm">
+	<div class="commit__details">
+		<div class="commit__author">
 			<img
-				class="relative inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
+				class="commit__avatar"
 				title="Gravatar for {commit.author.email}"
 				alt="Gravatar for {commit.author.email}"
 				srcset="{commit.author.gravatarUrl} 2x"
@@ -69,11 +85,11 @@
 				height="100"
 				on:error
 			/>
-			<div class="flex-1 truncate">{commit.author.name}</div>
-			<div class="truncate">
-				<TimeAgo date={commit.createdAt} />
-			</div>
+			<span class="commit__author-name text-base-12 truncate">{commit.author.name}</span>
 		</div>
+		<span class="commit__time text-base-11">
+			<TimeAgo date={commit.createdAt} />
+		</span>
 	</div>
 </div>
 
@@ -179,5 +195,67 @@
 	}
 	:global(.amend-dz-hover .hover-text) {
 		@apply visible;
+	}
+
+	.commit__card {
+		display: flex;
+		flex-direction: column;
+		cursor: default;
+		gap: var(--space-10);
+		padding: var(--space-12);
+		border-radius: var(--space-6);
+		background-color: var(--clr-theme-container-light);
+		border: 1px solid var(--clr-theme-container-outline-light);
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			border: 1px solid var(--clr-theme-container-outline-pale);
+		}
+	}
+
+	.commit__header {
+		display: flex;
+		align-items: center;
+		gap: var(--space-8);
+	}
+
+	.commit__description {
+		flex: 1;
+		display: block;
+		color: var(--clr-theme-scale-ntrl-0);
+		width: 100%;
+	}
+
+	.commit__details {
+		display: flex;
+		align-items: center;
+		gap: var(--space-8);
+	}
+
+	.commit__author {
+		display: block;
+		flex: 1;
+		display: flex;
+		align-items: center;
+		gap: var(--space-6);
+	}
+
+	.commit__avatar {
+		width: var(--space-16);
+		height: var(--space-16);
+		border-radius: 100%;
+	}
+
+	.commit__author-name {
+		max-width: calc(100% - var(--space-16));
+	}
+
+	.commit__time,
+	.commit__author-name {
+		color: var(--clr-theme-scale-ntrl-50);
+	}
+
+	.is-head-commit {
+		gap: var(--space-6);
 	}
 </style>
