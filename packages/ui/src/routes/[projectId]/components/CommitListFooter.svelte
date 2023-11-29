@@ -6,7 +6,6 @@
 	import type { CommitType } from './commitList';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { PrService } from '$lib/github/pullrequest';
-	import { sleep } from '$lib/utils/sleep';
 	import toast from 'svelte-french-toast';
 
 	export let branch: Branch;
@@ -27,21 +26,21 @@
 		isPushing = true;
 		await branchController.pushBranch(branch.id, branch.requiresForce);
 		if (opts?.createPr) {
-			await sleep(500); // Needed by GitHub
 			await createPr();
 		}
 		isPushing = false;
 	}
 
 	async function createPr(): Promise<void> {
-		if (githubContext && base?.branchName && branch.shortName) {
+		if (githubContext && base?.shortName && branch.shortName) {
 			const pr = await prService.createPullRequest(
 				githubContext,
 				branch.shortName,
 				base.shortName,
 				branch.name,
 				branch.notes,
-				branch.id
+				branch.id,
+				500
 			);
 			if (pr) {
 				await prService.reload();

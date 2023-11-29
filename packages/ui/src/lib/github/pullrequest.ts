@@ -8,6 +8,7 @@ import {
 	ghResponseToInstance
 } from '$lib/github/types';
 import { newClient } from '$lib/github/client';
+import { sleep } from '$lib/utils/sleep';
 
 export type PrAction = 'creating_pr';
 export type PrServiceState = { busy: boolean; branchId: string; action?: PrAction };
@@ -75,10 +76,12 @@ export class PrService {
 		base: string,
 		title: string,
 		body: string,
-		branchId: string
+		branchId: string,
+		delayMs: number
 	): Promise<PullRequest | undefined> {
-		const octokit = newClient(ctx);
 		this.setBusy('creating_pr', branchId);
+		const octokit = newClient(ctx);
+		await sleep(delayMs);
 		try {
 			const rsp = await octokit.rest.pulls.create({
 				owner: ctx.owner,
