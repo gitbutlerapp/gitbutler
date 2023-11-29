@@ -101,16 +101,16 @@
 </script>
 
 <div
-	transition:slide={{ duration: 170, easing: quintOut, axis: 'x' }}
-	bind:this={rsViewport}
 	class="resize-viewport"
+	bind:this={rsViewport}
+	transition:slide={{ duration: 170, easing: quintOut, axis: 'x' }}
+	use:draggable={{
+		...draggableFile(branchId, file),
+		disabled: readonly
+	}}
 >
 	<div
 		id={`file-${file.id}`}
-		use:draggable={{
-			...draggableFile(branchId, file),
-			disabled: readonly
-		}}
 		class="file-card"
 		style:width={`${fileWidth}px`}
 		class:opacity-80={isFileLocked}
