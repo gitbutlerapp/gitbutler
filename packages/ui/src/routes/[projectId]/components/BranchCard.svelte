@@ -340,6 +340,7 @@
 							{onSquash}
 							{resetHeadCommit}
 							{prService}
+							{readonly}
 							type="local"
 						/>
 						<LocalCommits
@@ -356,6 +357,7 @@
 							{onSquash}
 							{resetHeadCommit}
 							{prService}
+							{readonly}
 							type="remote"
 						/>
 						<LocalCommits
@@ -372,6 +374,7 @@
 							{onSquash}
 							{resetHeadCommit}
 							{prService}
+							{readonly}
 							type="integrated"
 						/>
 					{/if}
