@@ -20,6 +20,7 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Tag from '../components/Tag.svelte';
 	import * as toasts from '$lib/utils/toasts';
+	import Badge from '$lib/components/Badge.svelte';
 
 	export let vbranchService: VirtualBranchService;
 	export let branchService: BranchService;
@@ -34,6 +35,7 @@
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	$: base$ = baseBranchService.base$;
+	$: branches$ = vbranchService.activeBranches$;
 
 	let stashExpanded = true;
 	let branchesExpanded = true;
@@ -65,6 +67,7 @@
 					<path d="M5 12V8.44444V4" stroke="white" stroke-width="2" />
 				</svg>
 				<span>Applied branches</span>
+				<Badge count={$branches$?.length} />
 				{#if ($base$?.behind || 0) > 0}
 					<Tooltip label="Merge upstream commits into common base">
 						<Tag

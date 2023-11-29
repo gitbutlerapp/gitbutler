@@ -31,8 +31,6 @@
 	let dropPosition = 0;
 
 	let dragHandle: any;
-
-	$: activeBranches = branches?.filter((b) => b.active) || [];
 </script>
 
 {#if branchesError}
@@ -71,9 +69,9 @@
 			if (!branches) return;
 			e.preventDefault();
 			if (priorPosition != dropPosition) {
-				const el = activeBranches.splice(priorPosition, 1);
-				activeBranches.splice(dropPosition, 0, ...el);
-				activeBranches.forEach((branch, i) => {
+				const el = branches.splice(priorPosition, 1);
+				branches.splice(dropPosition, 0, ...el);
+				branches.forEach((branch, i) => {
 					if (branch.order !== i) {
 						branchController.updateBranchOrder(branch.id, i);
 					}
@@ -81,7 +79,7 @@
 			}
 		}}
 	>
-		{#each activeBranches.sort((a, b) => a.order - b.order) as branch (branch.id)}
+		{#each branches.sort((a, b) => a.order - b.order) as branch (branch.id)}
 			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<div
 				class="h-full"
@@ -115,7 +113,7 @@
 			</div>
 		{/each}
 
-		{#if !activeBranches || activeBranches.length == 0}
+		{#if !branches || branches.length == 0}
 			<div
 				class="text-color-2 m-auto mx-10 flex w-full flex-grow items-center justify-center rounded border p-8"
 				style:background-color="var(--bg-surface-highlight)"

@@ -17,7 +17,7 @@
 	$: prService = data.prService;
 
 	$: project$ = data.project$;
-	$: branches$ = vbranchService.branches$;
+	$: activeBranches$ = vbranchService.activeBranches$;
 	$: error$ = vbranchService.branchesError$;
 
 	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(projectId);
@@ -54,7 +54,7 @@
 			{projectId}
 			{cloud}
 			base={$base$}
-			branches={$branches$}
+			branches={$activeBranches$}
 			projectPath={$project$?.path}
 			cloudEnabled={$project$?.api?.sync || false}
 			githubContext={$githubContext$}
