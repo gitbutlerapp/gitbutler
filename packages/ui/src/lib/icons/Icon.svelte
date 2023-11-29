@@ -22,11 +22,15 @@
 	class:success={color == 'success'}
 	class:error={color == 'error'}
 	class:pop={color == 'pop'}
+	class:default={!color}
 >
 	<path fill="currentColor" d={iconsJson[name]}></path>
 </svg>
 
 <style>
+	.default {
+		color: var(--clr-theme-scale-ntrl-40);
+	}
 	.success {
 		color: var(--clr-core-succ-40);
 	}
