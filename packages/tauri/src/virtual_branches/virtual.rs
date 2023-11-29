@@ -183,7 +183,7 @@ pub fn apply_branch(
 
     let writer = branch::Writer::new(gb_repository);
 
-    let mut apply_branch = match branch::Reader::new(&current_session_reader).read(branch_id) {
+    let mut branch = match branch::Reader::new(&current_session_reader).read(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::ApplyBranchError::BranchNotFound(
             errors::BranchNotFoundError {
@@ -194,21 +194,28 @@ pub fn apply_branch(
         Err(error) => Err(errors::ApplyBranchError::Other(error.into())),
     }?;
 
+    if branch.applied {
+        return Ok(());
+    }
+
     let target_commit = repo
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
     let target_tree = target_commit.tree().context("failed to get target tree")?;
 
-    let mut branch_tree = repo
-        .find_tree(apply_branch.tree)
+    let branch_tree = repo
+        .find_tree(branch.tree)
         .context("failed to find branch tree")?;
 
     // calculate the merge base and make sure it's the same as the target commit
     // if not, we need to merge or rebase the branch to get it up to date
 
     let merge_base = repo
-        .merge_base(default_target.sha, apply_branch.head)
-        .context("failed to calculate merge base")?;
+        .merge_base(default_target.sha, branch.head)
+        .context(format!(
+            "failed to find merge base between {} and {}",
+            default_target.sha, branch.head
+        ))?;
     if merge_base != default_target.sha {
         // Branch is out of date, merge or rebase it
         let merge_base_tree = repo
@@ -216,17 +223,27 @@ pub fn apply_branch(
             .context(format!("failed to find merge base commit {}", merge_base))?
             .tree()
             .context("failed to find merge base tree")?;
+
         let mut merge_index = repo
             .merge_trees(&merge_base_tree, &branch_tree, &target_tree)
             .context("failed to merge trees")?;
 
         if merge_index.has_conflicts() {
             // currently we can only deal with the merge problem branch
-            unapply_all_branches(gb_repository, project_repository)?;
+            for branch in super::get_status_by_branch(gb_repository, project_repository)?
+                .into_iter()
+                .map(|(branch, _)| branch)
+                .filter(|branch| branch.applied)
+            {
+                writer.write(&branch::Branch {
+                    applied: false,
+                    ..branch
+                })?;
+            }
 
             // apply the branch
-            apply_branch.applied = true;
-            writer.write(&apply_branch)?;
+            branch.applied = true;
+            writer.write(&branch)?;
 
             // checkout the conflicts
             repo.checkout_index(&mut merge_index)
@@ -258,31 +275,116 @@ pub fn apply_branch(
         }
 
         let head_commit = repo
-            .find_commit(apply_branch.head)
+            .find_commit(branch.head)
             .context("failed to find head commit")?;
 
-        // commit our new upstream merge
-        let message = "merge upstream";
-        // write the merge commit
-        let branch_tree_oid = merge_index
+        let merged_branch_tree_oid = merge_index
             .write_tree_to(repo)
             .context("failed to write tree")?;
-        branch_tree = repo
-            .find_tree(branch_tree_oid)
+
+        let merged_branch_tree = repo
+            .find_tree(merged_branch_tree_oid)
             .context("failed to find tree")?;
 
-        let new_branch_head = project_repository.commit(
-            user,
-            message,
-            &branch_tree,
-            &[&head_commit, &target_commit],
-            signing_key,
-        )?;
+        if branch.upstream.is_some() {
+            // branch was pushed to upstream. create a merge commit to avoid need
+            // of force pushing.
+            // TODO: make this configurable
 
-        // ok, update the virtual branch
-        apply_branch.head = new_branch_head;
-        apply_branch.tree = branch_tree_oid;
-        writer.write(&apply_branch)?;
+            let new_branch_head = project_repository.commit(
+                user,
+                format!(
+                    "Merged {}/{} into {}",
+                    default_target.branch.remote(),
+                    default_target.branch.branch(),
+                    branch.name
+                )
+                .as_str(),
+                &merged_branch_tree,
+                &[&head_commit, &target_commit],
+                signing_key,
+            )?;
+
+            // ok, update the virtual branch
+            branch.head = new_branch_head;
+            branch.tree = merged_branch_tree_oid;
+            writer.write(&branch)?;
+        } else {
+            // branch was not pushed to upstream yet. attempt a rebase,
+            let (_, committer) = project_repository.git_signatures(user)?;
+            let annotated_branch_head = repo
+                .find_annotated_commit(branch.head)
+                .context("failed to find annotated branch head commit")?;
+            let annotated_upstream_base = repo
+                .find_annotated_commit(target_commit.id())
+                .context("failed to find annotated target commit")?;
+            let mut rebase_options = git2::RebaseOptions::new();
+            rebase_options.quiet(true);
+            rebase_options.inmemory(true);
+            let mut rebase = repo
+                .rebase(
+                    Some(&annotated_branch_head),
+                    Some(&annotated_upstream_base),
+                    None,
+                    Some(&mut rebase_options),
+                )
+                .context("failed to rebase")?;
+
+            let mut rebase_success = true;
+            // check to see if these commits have already been pushed
+            let mut last_rebase_head = branch.head;
+            while rebase.next().is_some() {
+                let index = rebase
+                    .inmemory_index()
+                    .context("failed to get inmemory index")?;
+                if index.has_conflicts() {
+                    rebase_success = false;
+                    break;
+                }
+
+                if let Ok(commit_id) = rebase.commit(None, &committer.clone().into(), None) {
+                    last_rebase_head = commit_id.into();
+                } else {
+                    rebase_success = false;
+                    break;
+                }
+            }
+
+            if rebase_success {
+                // rebase worked out, rewrite the branch head
+                rebase.finish(None).context("failed to finish rebase")?;
+                branch.head = last_rebase_head;
+                branch.tree = merged_branch_tree_oid;
+            } else {
+                // rebase failed, do a merge commit
+                rebase.abort().context("failed to abort rebase")?;
+
+                // get tree from merge_tree_oid
+                let merge_tree = repo
+                    .find_tree(merged_branch_tree_oid)
+                    .context("failed to find tree")?;
+
+                // commit the merge tree oid
+                let new_branch_head = project_repository
+                    .commit(
+                        user,
+                        format!(
+                            "Merged {}/{} into {}",
+                            default_target.branch.remote(),
+                            default_target.branch.branch(),
+                            branch.name
+                        )
+                        .as_str(),
+                        &merge_tree,
+                        &[&head_commit, &target_commit],
+                        signing_key,
+                    )
+                    .context("failed to commit merge")?;
+
+                branch.head = new_branch_head;
+                branch.tree = merged_branch_tree_oid;
+            }
+        }
     }
 
     let wd_tree = project_repository.get_wd_tree()?;
@@ -297,8 +399,8 @@ pub fn apply_branch(
     }
 
     // apply the branch
-    apply_branch.applied = true;
-    writer.write(&apply_branch)?;
+    branch.applied = true;
+    writer.write(&branch)?;
 
     // checkout the merge index
     repo.checkout_index(&mut merge_index)
@@ -548,39 +650,6 @@ pub fn unapply_branch(
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     Ok(Some(target_branch))
-}
-
-fn unapply_all_branches(
-    gb_repository: &gb_repository::Repository,
-    project_repository: &project_repository::Repository,
-) -> Result<()> {
-    let applied_virtual_branches = list_applied_vbranches(gb_repository)?;
-
-    for branch in applied_virtual_branches {
-        let branch_id = branch.id;
-        unapply_branch(gb_repository, project_repository, &branch_id)
-            .context("failed to unapply branch")?;
-    }
-
-    Ok(())
-}
-
-fn list_applied_vbranches(
-    gb_repository: &gb_repository::Repository,
-) -> Result<Vec<Branch>, anyhow::Error> {
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
-    let applied_virtual_branches = Iterator::new(&current_session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|branch| branch.applied)
-        .collect::<Vec<_>>();
-    Ok(applied_virtual_branches)
 }
 
 fn find_base_tree<'a>(
