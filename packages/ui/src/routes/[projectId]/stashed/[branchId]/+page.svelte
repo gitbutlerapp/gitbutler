@@ -7,6 +7,7 @@
 	import type { Branch } from '$lib/vbranches/types';
 	import Modal from '$lib/components/Modal.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
+	import { goto } from '$app/navigation';
 
 	export let data: PageData;
 
@@ -44,12 +45,19 @@
 	{:else if !$branches$}
 		<p>Loading...</p>
 	{:else if branch}
-		<div class="flex items-center">
-			<Button kind="outlined" color="primary" on:click={() => branch && applyBranch(branch)}>
+		<div class="flex items-center justify-between pb-2">
+			<Button
+				kind="outlined"
+				color="primary"
+				on:click={() => {
+					branch && applyBranch(branch);
+					goto(`/${projectId}/board`);
+				}}
+			>
 				<span class="purple"> Apply </span>
 			</Button>
 			<IconButton
-				icon="question-mark"
+				icon="cross"
 				title="delete branch"
 				on:click={() => deleteBranchModal.show(branch)}
 			/>
@@ -99,6 +107,7 @@
 			on:click={() => {
 				branchController.applyBranch(item.id);
 				close();
+				goto(`/${projectId}/board`);
 			}}
 		>
 			Update
@@ -118,6 +127,7 @@
 			on:click={() => {
 				branchController.deleteBranch(item.id);
 				close();
+				goto(`/${projectId}/board`);
 			}}
 		>
 			Delete
