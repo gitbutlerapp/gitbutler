@@ -35,20 +35,6 @@
 	export let onSquash: (commit: Commit) => (data: DraggableCommit) => void;
 	export let resetHeadCommit: () => void;
 
-	export let receive: (
-		node: any,
-		params: CrossfadeParams & {
-			key: any;
-		}
-	) => () => TransitionConfig;
-
-	export let send: (
-		node: any,
-		params: CrossfadeParams & {
-			key: any;
-		}
-	) => () => TransitionConfig;
-
 	let isPushing: boolean;
 
 	$: branchName = branch.upstream?.name.split('/').slice(-1)[0];
@@ -147,12 +133,7 @@
 			<div class="content-wrapper">
 				<div class="commits">
 					{#each commits as commit, idx (commit.id)}
-						<div
-							class="draggable-wrapper"
-							in:receive={{ key: commit.id }}
-							out:send={{ key: commit.id }}
-							animate:flip
-						>
+						<div class="draggable-wrapper">
 							<CommitListItem
 								{commit}
 								{base}
