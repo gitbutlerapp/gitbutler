@@ -27,6 +27,7 @@
 	export let branchController: BranchController;
 	export let type: CommitType;
 	export let prService: PrService;
+	export let readonly: boolean;
 
 	export let acceptAmend: (commit: Commit) => (data: any) => boolean;
 	export let acceptSquash: (commit: Commit) => (data: any) => boolean;
@@ -167,7 +168,7 @@
 						</div>
 					{/each}
 				</div>
-				{#if type != 'integrated'}
+				{#if !readonly && type != 'integrated'}
 					<div class="actions">
 						{#if githubContext && !$pr$ && type == 'local'}
 							<PushButton
