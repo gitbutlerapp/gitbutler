@@ -14,7 +14,7 @@
 </script>
 
 <div class="wrapper overflow-y-auto overscroll-none">
-	<div class="inner flex px-5 py-4">
+	<div class="inner flex">
 		{#if !$pr}
 			<p>Loading...</p>
 		{:else if pr}
@@ -30,5 +30,8 @@
 		display: flex;
 		height: 100%;
 		overflow-y: auto;
+	}
+	.inner {
+		padding: var(--space-16);
 	}
 </style>
