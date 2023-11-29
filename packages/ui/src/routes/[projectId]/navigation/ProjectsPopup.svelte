@@ -51,7 +51,7 @@
 	.popup {
 		position: absolute;
 		top: 100%;
-		z-index: 30;
+		z-index: 50;
 		width: 100%;
 		margin-top: var(--space-6);
 		border-radius: var(--m, 6px);
