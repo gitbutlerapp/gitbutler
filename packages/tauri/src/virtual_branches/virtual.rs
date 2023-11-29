@@ -1785,7 +1785,7 @@ pub fn write_tree(
     write_tree_onto_commit(project_repository, target.sha, files)
 }
 
-fn write_tree_onto_commit(
+pub fn write_tree_onto_commit(
     project_repository: &project_repository::Repository,
     commit_oid: git::Oid,
     files: &HashMap<path::PathBuf, Vec<diff::Hunk>>,

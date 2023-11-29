@@ -1589,9 +1589,10 @@ mod update_base_branch {
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
+                dbg!(&branches[0]);
                 assert!(branches[0].base_current);
                 assert_eq!(branches[0].files.len(), 1);
-                assert_eq!(branches[0].commits.len(), 1);
+                assert_eq!(branches[0].commits.len(), 0);
                 assert!(controller
                     .can_apply_virtual_branch(&project_id, &branch_id)
                     .await
@@ -1613,6 +1614,10 @@ mod update_base_branch {
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "second"
+                );
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file2.txt")).unwrap(),
+                    "other"
                 );
             }
         }
@@ -2230,7 +2235,7 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(branches[0].base_current);
                 assert_eq!(branches[0].files.len(), 1);
-                assert_eq!(branches[0].commits.len(), 1); // TODO: should be 0
+                assert_eq!(branches[0].commits.len(), 0);
                 assert!(controller
                     .can_apply_virtual_branch(&project_id, &branch_id)
                     .await

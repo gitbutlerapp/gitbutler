@@ -2832,8 +2832,6 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
     assert_eq!(branches.len(), 1); // one is there still
     let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
     assert_eq!(branch1.files.len(), 0);
-    assert_eq!(branch1.commits.len(), 1);
-
     Ok(())
 }
 
