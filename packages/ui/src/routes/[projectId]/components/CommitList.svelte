@@ -138,6 +138,7 @@
 								{commit}
 								{base}
 								{projectId}
+								{readonly}
 								{acceptAmend}
 								{acceptSquash}
 								{onAmend}
