@@ -56,25 +56,27 @@
 			>
 				<span class="purple"> Apply </span>
 			</Button>
-			<IconButton
-				icon="cross"
-				title="delete branch"
-				on:click={() => deleteBranchModal.show(branch)}
-			/>
-			{#await branch.isMergeable then isMergeable}
-				{#if !isMergeable}
-					<Tooltip
-						timeoutMilliseconds={100}
-						label="Applying this branch will add merge conflict markers that you will have to resolve"
-					>
-						<div
-							class="flex cursor-default select-none rounded bg-yellow-300 px-2 py-0.5 dark:bg-yellow-800"
+			<div class="flex items-center">
+				{#await branch.isMergeable then isMergeable}
+					{#if !isMergeable}
+						<Tooltip
+							timeoutMilliseconds={100}
+							label="Applying this branch will add merge conflict markers that you will have to resolve"
 						>
-							Conflicts with Applied Branches
-						</div>
-					</Tooltip>
-				{/if}
-			{/await}
+							<div
+								class="flex cursor-default select-none rounded bg-yellow-300 px-2 py-0.5 dark:bg-yellow-800"
+							>
+								Conflicts with Applied Branches
+							</div>
+						</Tooltip>
+					{/if}
+				{/await}
+				<IconButton
+					icon="cross"
+					title="delete branch"
+					on:click={() => deleteBranchModal.show(branch)}
+				/>
+			</div>
 		</div>
 		<div class="h-full">
 			<BranchLane
