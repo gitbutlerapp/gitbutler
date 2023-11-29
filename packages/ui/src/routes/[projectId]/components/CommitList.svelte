@@ -77,7 +77,6 @@
 				branch.notes
 			);
 			if (pr) {
-				prService.insert(pr);
 				await prService.reload();
 			}
 			return;
