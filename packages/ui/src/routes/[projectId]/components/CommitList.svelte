@@ -123,7 +123,7 @@
 				{/if}
 			</div>
 			<div class="expander">
-				<Icon name={expanded ? 'chevron-top' : 'chevron-down'} />
+				<Icon name={expanded ? 'chevron-down' : 'chevron-top'} />
 			</div>
 		</button>
 		{#if expanded}
@@ -225,6 +225,7 @@
 		align-items: center;
 		color: var(--clr-theme-scale-ntrl-0);
 		gap: var(--space-8);
+		overflow-x: hidden;
 	}
 	.content-wrapper {
 		display: flex;
