@@ -19,6 +19,7 @@
 	export let commitUrl: string | undefined = undefined;
 	export let isHeadCommit: boolean = false;
 	export let resetHeadCommit: () => void | undefined = () => undefined;
+	export let readonly = false;
 
 	let previewCommitModal: Modal;
 	let minWidth = 2;
@@ -60,7 +61,7 @@
 		<span class="commit__description text-base-12 truncate">
 			{commit.description}
 		</span>
-		{#if isHeadCommit}
+		{#if isHeadCommit && !readonly}
 			<Tag
 				color="ghost"
 				icon="undo-small"

@@ -10,6 +10,7 @@
 	export let base: BaseBranch | undefined | null;
 	export let isHeadCommit: boolean;
 	export let isChained: boolean;
+	export let readonly = false;
 
 	export let acceptAmend: (commit: Commit) => (data: any) => boolean;
 	export let acceptSquash: (commit: Commit) => (data: any) => boolean;
@@ -55,6 +56,7 @@
 			commitUrl={base?.commitUrl(commit.id)}
 			{isHeadCommit}
 			{resetHeadCommit}
+			{readonly}
 		/>
 	</div>
 	<!-- <div class="reset-head">
