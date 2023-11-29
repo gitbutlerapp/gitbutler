@@ -23,7 +23,7 @@
 
 	$: branches$ = branchService.branches$;
 	$: filteredBranches$ = combineLatest(
-		[branchService.branches$, typeFilter$, textFilter$],
+		[branches$, typeFilter$, textFilter$],
 		(branches, type, search) => searchFilter(typeFilter(branches, type), search)
 	);
 
