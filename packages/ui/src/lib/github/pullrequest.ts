@@ -1,6 +1,14 @@
 import lscache from 'lscache';
 import { Observable, EMPTY, BehaviorSubject, of, firstValueFrom, Subject } from 'rxjs';
-import { catchError, combineLatestWith, map, shareReplay, switchMap, tap } from 'rxjs/operators';
+import {
+	catchError,
+	combineLatestWith,
+	filter,
+	map,
+	shareReplay,
+	switchMap,
+	tap
+} from 'rxjs/operators';
 
 import {
 	type PullRequest,
@@ -9,9 +17,13 @@ import {
 } from '$lib/github/types';
 import { newClient } from '$lib/github/client';
 
+export type PrAction = 'creating_pr';
+export type PrServiceState = { busy: boolean; action?: PrAction; branchId?: string };
+
 export class PrService {
 	prs$: Observable<PullRequest[]>;
 	error$ = new BehaviorSubject<string | undefined>(undefined);
+	state$ = new BehaviorSubject<PrServiceState>({ busy: false });
 	private reload$ = new BehaviorSubject<{ skipCache: boolean } | undefined>(undefined);
 	private fresh$ = new Subject<void>();
 
@@ -41,6 +53,44 @@ export class PrService {
 	get(branch: string | undefined): Observable<PullRequest | undefined> | undefined {
 		if (!branch) return;
 		return this.prs$.pipe(map((prs) => prs.find((pr) => pr.targetBranch == branch)));
+	}
+
+	getState(branchId: string) {
+		return this.state$.pipe(filter((b) => b.branchId == branchId));
+	}
+
+	private setBusy(action: PrAction) {
+		this.state$.next({ busy: true, action });
+	}
+
+	private setIdle() {
+		this.state$.next({ busy: false });
+	}
+
+	async createPullRequest(
+		ctx: GitHubIntegrationContext,
+		head: string,
+		base: string,
+		title: string,
+		body: string
+	): Promise<PullRequest | undefined> {
+		const octokit = newClient(ctx);
+		this.setBusy('creating_pr');
+		try {
+			const rsp = await octokit.rest.pulls.create({
+				owner: ctx.owner,
+				repo: ctx.repo,
+				head,
+				base,
+				title,
+				body
+			});
+			return ghResponseToInstance(rsp.data);
+		} catch (e) {
+			console.log(e);
+		} finally {
+			this.setIdle();
+		}
 	}
 }
 
@@ -86,29 +136,6 @@ export async function getPullRequestByBranch(
 		if (pr) {
 			return ghResponseToInstance(pr);
 		}
-	} catch (e) {
-		console.log(e);
-	}
-}
-
-export async function createPullRequest(
-	ctx: GitHubIntegrationContext,
-	head: string,
-	base: string,
-	title: string,
-	body: string
-): Promise<PullRequest | undefined> {
-	const octokit = newClient(ctx);
-	try {
-		const rsp = await octokit.rest.pulls.create({
-			owner: ctx.owner,
-			repo: ctx.repo,
-			head,
-			base,
-			title,
-			body
-		});
-		return ghResponseToInstance(rsp.data);
 	} catch (e) {
 		console.log(e);
 	}
