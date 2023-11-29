@@ -30,6 +30,8 @@
 	let priorPosition = 0;
 	let dropPosition = 0;
 
+	let dragHandle: any;
+
 	$: activeBranches = branches?.filter((b) => b.active) || [];
 </script>
 
@@ -80,11 +82,16 @@
 		}}
 	>
 		{#each activeBranches.sort((a, b) => a.order - b.order) as branch (branch.id)}
+			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<div
 				class="h-full"
-				role="group"
 				draggable="true"
+				on:mousedown={(e) => (dragHandle = e.target)}
 				on:dragstart={(e) => {
+					if (dragHandle.id != 'drag-handle') {
+						// We rely on elements with id `drag-handle` to initiate this drag
+						e.preventDefault();
+					}
 					dragged = e.currentTarget;
 					priorPosition = Array.from(dropZone.children).indexOf(dragged);
 				}}
@@ -104,7 +111,7 @@
 					{projectPath}
 					{user}
 					{prService}
-				/>
+				></BranchLane>
 			</div>
 		{/each}
 
