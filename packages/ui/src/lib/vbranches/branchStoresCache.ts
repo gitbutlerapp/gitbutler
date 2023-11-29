@@ -18,6 +18,7 @@ import {
 export class VirtualBranchService {
 	branches$: Observable<Branch[]>;
 	stashedBranches$: Observable<Branch[]>;
+	activeBranches$: Observable<Branch[]>;
 	branchesError$ = new BehaviorSubject<any>(undefined);
 	private reload$ = new BehaviorSubject<void>(undefined);
 
@@ -51,6 +52,8 @@ export class VirtualBranchService {
 		this.stashedBranches$ = this.branches$.pipe(
 			map((branches) => branches.filter((b) => !b.active))
 		);
+
+		this.activeBranches$ = this.branches$.pipe(map((branches) => branches.filter((b) => b.active)));
 	}
 
 	reload() {
