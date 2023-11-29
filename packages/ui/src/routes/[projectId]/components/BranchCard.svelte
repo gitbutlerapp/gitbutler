@@ -28,7 +28,7 @@
 	import BranchHeader from './BranchHeader.svelte';
 	import UpstreamCommits from './UpstreamCommits.svelte';
 	import BranchFiles from './BranchFiles.svelte';
-	import LocalCommits from './LocalCommits.svelte';
+	import CommitList from './CommitList.svelte';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -326,7 +326,7 @@
 						</div>
 					{/if}
 					{#if branch.commits.length > 0}
-						<LocalCommits
+						<CommitList
 							{branch}
 							{base}
 							{send}
@@ -343,7 +343,7 @@
 							{readonly}
 							type="local"
 						/>
-						<LocalCommits
+						<CommitList
 							{branch}
 							{base}
 							{send}
@@ -360,7 +360,7 @@
 							{readonly}
 							type="remote"
 						/>
-						<LocalCommits
+						<CommitList
 							{branch}
 							{base}
 							{send}
