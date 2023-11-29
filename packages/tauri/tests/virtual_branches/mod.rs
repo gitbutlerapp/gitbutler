@@ -1079,6 +1079,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(branches[0].conflicted);
                 assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 0);
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -1163,6 +1165,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(branches[0].conflicted);
                 assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 1);
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -1252,6 +1256,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(branches[0].conflicted);
                 assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 1);
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -1338,6 +1344,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(branches[0].conflicted);
                 assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 1);
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "<<<<<<< ours\nfix conflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -1424,6 +1432,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(branches[0].conflicted);
                 assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 1);
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "<<<<<<< ours\nfix conflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -1510,6 +1520,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(!branches[0].conflicted);
                 assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 1);
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "second"
@@ -1611,6 +1623,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(!branches[0].conflicted);
                 assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 0);
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "second"
@@ -1748,6 +1762,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(branches[0].conflicted);
                 assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 0);
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -1827,6 +1843,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(branches[0].conflicted);
                 assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 1);
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -1911,6 +1929,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(branches[0].conflicted);
                 assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 1);
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -1992,6 +2012,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(branches[0].conflicted);
                 assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 1);
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "<<<<<<< ours\nfix conflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -2073,6 +2095,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(branches[0].conflicted);
                 assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 1);
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "<<<<<<< ours\nfix conflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -2154,6 +2178,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(!branches[0].conflicted);
                 assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 1);
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "second"
@@ -2254,6 +2280,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(!branches[0].conflicted);
                 assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 0);
                 assert_eq!(
                     std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                     "second"
