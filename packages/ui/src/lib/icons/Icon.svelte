@@ -50,4 +50,8 @@
 			transform: rotate(360deg);
 		}
 	}
+
+	svg {
+		pointer-events: none;
+	}
 </style>

@@ -43,7 +43,7 @@
 <div class="header">
 	<div class="header__left flex-grow">
 		{#if !readonly}
-			<div class="draggable">
+			<div class="draggable" id="drag-handle">
 				<Icon name="draggable" />
 			</div>
 		{/if}
