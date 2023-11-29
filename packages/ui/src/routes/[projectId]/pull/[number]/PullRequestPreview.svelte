@@ -5,7 +5,7 @@
 	import Link from '$lib/components/Link.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Tag from '../../components/Tag.svelte';
-	import TextArea from '$lib/components/TextArea.svelte';
+	import { marked } from 'marked';
 
 	export let pullrequest: PullRequest | undefined;
 	export let branchController: BranchController;
@@ -47,7 +47,7 @@
 			</div>
 			{#if pullrequest.body}
 				<div class="body">
-					{@html pullrequest.body}
+					{@html marked.parse(pullrequest.body)}
 				</div>
 			{/if}
 			<div class="actions">
