@@ -68,7 +68,7 @@
 		isPushing = true;
 		await branchController.pushBranch(branch.id, branch.requiresForce);
 		if (opts?.createPr) {
-			await sleep(200); // Needed by GitHub
+			await sleep(500); // Needed by GitHub
 			await createPr();
 		}
 		isPushing = false;
