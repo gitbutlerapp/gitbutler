@@ -5,7 +5,7 @@
 	export let label: string | undefined = undefined;
 	type Placement = 'top' | 'right' | 'bottom' | 'left';
 	export let placement: Placement = 'bottom';
-	export let timeoutMilliseconds = 2500;
+	export let timeoutMilliseconds = 1500;
 
 	const [floatingRef, floatingContent] = createFloatingActions({
 		strategy: 'absolute',
