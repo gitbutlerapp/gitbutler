@@ -1,5 +1,4 @@
 <script lang="ts">
-	import IconButton from '$lib/components/IconButton.svelte';
 	import type { DraggableCommit, DraggableFile, DraggableHunk } from '$lib/draggables';
 	import { dropzone } from '$lib/utils/draggable';
 	import type { BaseBranch, Commit } from '$lib/vbranches/types';

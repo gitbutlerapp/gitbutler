@@ -1,22 +1,6 @@
 import lscache from 'lscache';
-import {
-	Observable,
-	EMPTY,
-	BehaviorSubject,
-	of,
-	firstValueFrom,
-	lastValueFrom,
-	Subject
-} from 'rxjs';
-import {
-	catchError,
-	combineLatestWith,
-	map,
-	shareReplay,
-	switchMap,
-	take,
-	tap
-} from 'rxjs/operators';
+import { Observable, EMPTY, BehaviorSubject, of, firstValueFrom, Subject } from 'rxjs';
+import { catchError, combineLatestWith, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 
 import {
 	type PullRequest,

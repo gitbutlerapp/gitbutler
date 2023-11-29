@@ -40,7 +40,7 @@
 		isLoading = false;
 	}
 
-	function onClick(e: MouseEvent | KeyboardEvent) {
+	function onClick() {
 		loadEntries();
 		previewCommitModal.show();
 	}

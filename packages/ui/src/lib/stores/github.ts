@@ -1,7 +1,7 @@
 import type { User } from '$lib/backend/cloud';
 import type { GitHubIntegrationContext } from '$lib/github/types';
 import type { BaseBranch } from '$lib/vbranches/types';
-import { combineLatest, switchMap, type Observable, of, shareReplay, distinct, tap } from 'rxjs';
+import { combineLatest, switchMap, type Observable, of, shareReplay, distinct } from 'rxjs';
 
 export function getGithubContext(
 	user$: Observable<User | undefined>,
