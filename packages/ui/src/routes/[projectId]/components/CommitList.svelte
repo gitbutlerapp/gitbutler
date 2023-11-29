@@ -16,7 +16,7 @@
 	import { open } from '@tauri-apps/api/shell';
 	import toast from 'svelte-french-toast';
 	import { sleep } from '$lib/utils/sleep';
-	import { createPullRequest, type PrService } from '$lib/github/pullrequest';
+	import type { PrService } from '$lib/github/pullrequest';
 
 	export let branch: Branch;
 	export let githubContext: GitHubIntegrationContext | undefined;
@@ -48,6 +48,7 @@
 		}
 	});
 	$: pr$ = prService.get(branchName);
+	$: prServiceState$ = prService.getState(branch.id);
 
 	async function push(opts?: { createPr: boolean }) {
 		isPushing = true;
@@ -69,17 +70,20 @@
 
 	async function createPr(): Promise<void> {
 		if (githubContext && base?.branchName && branchName) {
-			const pr = await createPullRequest(
+			const pr = await prService.createPullRequest(
 				githubContext,
 				branchName,
 				base.branchName.split('/').slice(-1)[0],
 				branch.name,
-				branch.notes
+				branch.notes,
+				branch.id
 			);
 			if (pr) {
 				await prService.reload();
 			}
 			return;
+		} else {
+			console.log('Unable to create pull request');
 		}
 	}
 
@@ -152,7 +156,7 @@
 						{#if githubContext && !$pr$ && type == 'local'}
 							<PushButton
 								wide
-								isLoading={isPushing}
+								isLoading={isPushing || $prServiceState$?.busy}
 								{projectId}
 								{githubContext}
 								on:trigger={async (e) => {
@@ -168,8 +172,7 @@
 								wide
 								kind="outlined"
 								color="primary"
-								id="push-commits"
-								loading={isPushing}
+								loading={isPushing || $prServiceState$?.busy}
 								on:click={async () => {
 									try {
 										await push({ createPr: true });
@@ -184,7 +187,6 @@
 							<Button
 								kind="outlined"
 								color="primary"
-								id="push-commits"
 								loading={isPushing}
 								on:click={async () => {
 									try {
