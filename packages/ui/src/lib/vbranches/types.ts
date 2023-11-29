@@ -61,6 +61,10 @@ export class Branch {
 	// If the branch has been already applied, then it was either performed cleanly or we generated conflict markers in the diffs.
 	// (therefore this field is applicable for stashed/unapplied or remote branches, i.e. active == false)
 	isMergeable!: Promise<boolean>;
+
+	get shortName() {
+		return this.upstream?.name.split('/').slice(-1)[0];
+	}
 }
 
 export class Commit {
@@ -160,5 +164,9 @@ export class BaseBranch {
 
 	commitUrl(commitId: string): string | undefined {
 		return `${this.repoBaseUrl}/commit/${commitId}`;
+	}
+
+	get shortName() {
+		return this.branchName.split('/').slice(-1)[0];
 	}
 }
