@@ -22,13 +22,14 @@
 		e.preventDefault();
 		e.stopPropagation();
 		fetching = true;
-		syncToCloud(projectId); // don't wait for this
-		await branchController
-			.fetchFromTarget()
-			.then(() => prService.reload())
-			.finally(() => {
-				fetching = false;
+		try {
+			syncToCloud(projectId); // don't wait for this
+			await branchController.fetchFromTarget().then(() => {
+				prService.reload();
 			});
+		} finally {
+			fetching = false;
+		}
 	}}
 >
 	{#if !fetching}
