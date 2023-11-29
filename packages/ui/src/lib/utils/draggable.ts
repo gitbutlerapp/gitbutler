@@ -62,6 +62,21 @@ const defaultDraggableOptions: Draggable = {
 	disabled: false
 };
 
+export function cloneNode(node: any) {
+	const clone = node.cloneNode(true) as HTMLElement;
+	clone.style.position = 'absolute';
+	clone.style.top = '-9999px'; // Element has to be in the DOM so we move it out of sight
+	clone.style.display = 'inline-block';
+	clone.style.padding = '30px'; // To prevent clipping of rotated element
+
+	// Style the inner node so it retains the shape and then rotate
+	const inner = clone.children[0] as HTMLElement;
+	inner.style.height = node.clientHeight + 'px';
+	inner.style.width = node.clientWidth + 'px';
+	inner.style.rotate = `${Math.floor(Math.random() * 3)}deg`;
+	return clone as HTMLElement;
+}
+
 export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefined) {
 	let currentOptions = { ...defaultDraggableOptions, ...opts };
 	let clone: HTMLElement;
@@ -78,17 +93,7 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 	 */
 	function handleDragStart(e: DragEvent) {
 		// Start by cloning the node for the ghost element
-		clone = node.cloneNode(true) as HTMLElement;
-		clone.style.position = 'absolute';
-		clone.style.top = '-9999px'; // Element has to be in the DOM so we move it out of sight
-		clone.style.display = 'inline-block';
-		clone.style.padding = '30px'; // To prevent clipping of rotated element
-
-		// Style the inner node so it retains the shape and then rotate
-		const inner = clone.children[0] as HTMLElement;
-		inner.style.height = node.clientHeight + 'px';
-		inner.style.width = node.clientWidth + 'px';
-		inner.style.rotate = `${Math.floor(Math.random() * 3)}deg`;
+		clone = cloneNode(node);
 		document.body.appendChild(clone);
 
 		// Dim the original element while dragging

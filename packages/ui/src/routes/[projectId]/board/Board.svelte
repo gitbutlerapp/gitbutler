@@ -8,6 +8,7 @@
 	import { IconFile, IconTerminal, IconExternalLink } from '$lib/icons';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { PrService } from '$lib/github/pullrequest';
+	import { cloneNode } from '$lib/utils/draggable';
 
 	export let projectId: string;
 	export let projectPath: string;
@@ -31,6 +32,7 @@
 	let dropPosition = 0;
 
 	let dragHandle: any;
+	let clone: any;
 </script>
 
 {#if branchesError}
@@ -90,11 +92,15 @@
 						// We rely on elements with id `drag-handle` to initiate this drag
 						e.preventDefault();
 					}
+					clone = cloneNode(e.target);
+					document.body.appendChild(clone);
+					e.dataTransfer?.setDragImage(clone, e.offsetX + 30, e.offsetY + 30); // Adds the padding
 					dragged = e.currentTarget;
 					priorPosition = Array.from(dropZone.children).indexOf(dragged);
 				}}
 				on:dragend={() => {
 					dragged = undefined;
+					clone?.remove();
 				}}
 			>
 				<BranchLane
