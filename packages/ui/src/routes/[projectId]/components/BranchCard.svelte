@@ -120,6 +120,7 @@
 	onMount(() => {
 		expandFromCache();
 		laneWidth = lscache.get(laneWidthKey + branch.id) ?? $userSettings.defaultLaneWidth;
+		console.log(laneWidth);
 	});
 
 	const selectedOwnership = writable(Ownership.fromBranch(branch));
@@ -364,10 +365,10 @@
 			class="z-30"
 			on:width={(e) => {
 				laneWidth = e.detail;
-				lscache.set(laneWidthKey + branch.id, e.detail, 7 * 1440); // 7 day ttl
+				lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
 				userSettings.update((s) => ({
 					...s,
-					defaultLaneWidth: e.detail
+					defaultLaneWidth: laneWidth
 				}));
 				return true;
 			}}
