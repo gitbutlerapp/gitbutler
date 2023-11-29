@@ -54,7 +54,7 @@
 				on:click={() => deleteBranchModal.show(branch)}
 			/>
 			{#await branch.isMergeable then isMergeable}
-				{#if isMergeable}
+				{#if !isMergeable}
 					<Tooltip
 						timeoutMilliseconds={100}
 						label="Applying this branch will add merge conflict markers that you will have to resolve"
