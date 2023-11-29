@@ -7,7 +7,6 @@
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { PrService } from '$lib/github/pullrequest';
 	import toast from 'svelte-french-toast';
-	import { sleep } from '$lib/utils/sleep';
 
 	export let branch: Branch;
 	export let type: CommitType;
@@ -23,28 +22,16 @@
 
 	let isPushing: boolean;
 
-	async function push(opts?: { createPr: boolean }) {
+	async function push() {
 		isPushing = true;
 		await branchController.pushBranch(branch.id, branch.requiresForce);
-		if (opts?.createPr) {
-			await createPr();
-		}
 		isPushing = false;
 	}
 
 	async function createPr(): Promise<void> {
-		// TODO: Figure out a better way of knowing when upstream exists
-		for (let i = 0; i < 50; i++) {
-			if (branch.upstreamName) {
-				await sleep(100);
-			} else {
-				break;
-			}
-		}
-		if (githubContext && base?.shortName && branch.upstreamName) {
+		if (githubContext && base?.shortName) {
 			const pr = await prService.createPullRequest(
 				githubContext,
-				branch.upstreamName,
 				base.shortName,
 				branch.name,
 				branch.notes,
@@ -70,7 +57,11 @@
 				{githubContext}
 				on:trigger={async (e) => {
 					try {
-						await push({ createPr: e.detail.with_pr });
+						if (e.detail.with_pr) {
+							await createPr();
+						} else {
+							await push();
+						}
 					} catch {
 						toast.error('Failed to create pull qequest');
 					}
@@ -84,7 +75,7 @@
 				loading={isPushing || $prServiceState$?.busy}
 				on:click={async () => {
 					try {
-						await push({ createPr: true });
+						await createPr();
 					} catch (e) {
 						toast.error('Failed to create pull qequest');
 					}
