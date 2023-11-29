@@ -154,29 +154,16 @@ pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Resul
         gb_repository::Repository::open(&local_data_dir, &project_repository, user.as_ref())
             .context("failed to open repository")?;
 
-    let session = gb_repo
-        .flush(&project_repository, user.as_ref())
-        .context("failed to flush session")?;
-
-    gb_repo.push(user.as_ref()).context("failed to push")?;
-
-    let watcher = handle.state::<watcher::Watchers>();
-    if session.is_some() {
-        if let Err(error) = watcher
-            .post(watcher::Event::Session(
-                project_id,
-                session.clone().unwrap(),
-            ))
-            .await
-        {
-            tracing::error!(?error);
-        }
-    }
-    if let Err(error) = watcher
-        .post(watcher::Event::PushProjectToGitbutler(project_id))
-        .await
+    if let Some(current_session) = gb_repo
+        .get_current_session()
+        .context("failed to get current session")?
     {
-        tracing::error!(?error);
+        let watcher = handle.state::<watcher::Watchers>();
+        watcher
+            .post(watcher::Event::Flush(project_id, current_session))
+            .await
+            .context("failed to post flush event")?;
     }
+
     Ok(())
 }
