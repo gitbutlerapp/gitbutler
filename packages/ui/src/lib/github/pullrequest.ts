@@ -13,7 +13,6 @@ export class PrService {
 	prs$: Observable<PullRequest[]>;
 	error$ = new BehaviorSubject<string | undefined>(undefined);
 	private reload$ = new BehaviorSubject<{ skipCache: boolean } | undefined>(undefined);
-	private inject$ = new BehaviorSubject<PullRequest | undefined>(undefined);
 	private fresh$ = new Subject<void>();
 
 	constructor(ghContext$: Observable<GitHubIntegrationContext | undefined>) {
@@ -24,11 +23,6 @@ export class PrService {
 				if (!ctx) return EMPTY;
 				const prs = loadPrs(ctx, !!reload?.skipCache);
 				this.fresh$.next();
-				return prs;
-			}),
-			combineLatestWith(this.inject$),
-			map(([prs, inject]) => {
-				if (inject) return prs.concat(inject);
 				return prs;
 			}),
 			shareReplay(1),
@@ -43,9 +37,7 @@ export class PrService {
 		this.reload$.next({ skipCache: true });
 		return firstValueFrom(this.fresh$);
 	}
-	insert(pr: PullRequest) {
-		this.inject$.next(pr);
-	}
+
 	get(branch: string | undefined): Observable<PullRequest | undefined> | undefined {
 		if (!branch) return;
 		return this.prs$.pipe(map((prs) => prs.find((pr) => pr.targetBranch == branch)));
