@@ -25,13 +25,14 @@
 
 	let viewport: HTMLElement;
 	let contents: HTMLElement;
+	let rsViewport: HTMLElement;
 
 	let scrolled: boolean;
 	const onScroll: UIEventHandler<HTMLDivElement> = (e) => {
 		scrolled = e.currentTarget.scrollTop != 0;
 	};
 
-	$: scrollable = contents ? contents.scrollHeight > contents.offsetHeight : false;
+	$: scrollable = contents ? contents.scrollHeight > rsViewport.offsetHeight : false;
 </script>
 
 {#if branch.active && branch.conflicted}
@@ -45,74 +46,87 @@
 	</div>
 {/if}
 
-<div class="wrapper" class:flex-grow={!scrollable}>
-	{#if branch.files.length > 0}
-		<div class="header" class:border-b={scrolled}>
-			<div class="text-bold">
-				Changes <Badge count={branch.files.length} />
-			</div>
-			<SegmentedControl bind:selected={selectedListMode} selectedIndex={0}>
-				<Segment id="list" icon="list-view" />
-				<Segment id="tree" icon="tree-view" />
-			</SegmentedControl>
-		</div>
-		<div class="scrollbar">
-			<div
-				class="files hide-native-scrollbar"
-				bind:this={viewport}
-				style:height={scrollable ? `${filesHeight}px` : undefined}
-				transition:slide={{ duration: readonly ? 0 : 250 }}
-				on:scroll={onScroll}
-			>
-				<!-- TODO: This is an experiment in file sorting. Accept or reject! -->
-				<div class="files__contents" bind:this={contents}>
-					{#if selectedListMode == 'list'}
-						{#each sortLikeFileTree(branch.files) as file (file.id)}
-							<FileListItem
-								{file}
-								branchId={branch.id}
-								{readonly}
-								on:click={() => {
-									if ($selectedFileId == file.id) $selectedFileId = undefined;
-									else $selectedFileId = file.id;
-								}}
-								selected={file.id == $selectedFileId}
-							/>
-						{/each}
-					{:else}
-						<FileTree
-							node={filesToFileTree(branch.files)}
-							isRoot={true}
-							branchId={branch.id}
-							{selectedOwnership}
-							{selectedFileId}
-							{readonly}
-						/>
-					{/if}
+<div
+	class="resize-viewport"
+	bind:this={rsViewport}
+	class:flex-grow={!scrollable}
+	style:height={scrollable ? `${filesHeight}px` : undefined}
+>
+	<div class="wrapper">
+		{#if branch.files.length > 0}
+			<div class="header" class:border-b={scrolled}>
+				<div class="text-bold">
+					Changes <Badge count={branch.files.length} />
 				</div>
+				<SegmentedControl bind:selected={selectedListMode} selectedIndex={0}>
+					<Segment id="list" icon="list-view" />
+					<Segment id="tree" icon="tree-view" />
+				</SegmentedControl>
 			</div>
-			<Scrollbar {viewport} {contents} width="0.4rem" />
-		</div>
-		<Resizer
-			minHeight={100}
-			{viewport}
-			direction="vertical"
-			class="z-30"
-			on:height={(e) => {
-				filesHeight = e.detail;
-				lscache.set(filesHeightKey + branch.id, e.detail, 7 * 1440); // 7 day ttl
-			}}
-		/>
-	{/if}
+			<div class="scrollbar">
+				<div
+					class="files hide-native-scrollbar"
+					bind:this={viewport}
+					transition:slide={{ duration: readonly ? 0 : 250 }}
+					on:scroll={onScroll}
+				>
+					<!-- TODO: This is an experiment in file sorting. Accept or reject! -->
+					<div class="files__contents" bind:this={contents}>
+						{#if selectedListMode == 'list'}
+							{#each sortLikeFileTree(branch.files) as file (file.id)}
+								<FileListItem
+									{file}
+									branchId={branch.id}
+									{readonly}
+									on:click={() => {
+										if ($selectedFileId == file.id) $selectedFileId = undefined;
+										else $selectedFileId = file.id;
+									}}
+									selected={file.id == $selectedFileId}
+								/>
+							{/each}
+						{:else}
+							<FileTree
+								node={filesToFileTree(branch.files)}
+								isRoot={true}
+								branchId={branch.id}
+								{selectedOwnership}
+								{selectedFileId}
+								{readonly}
+							/>
+						{/if}
+					</div>
+				</div>
+				<Scrollbar {viewport} {contents} width="0.4rem" />
+			</div>
+		{/if}
+	</div>
+	<Resizer
+		minHeight={100}
+		viewport={rsViewport}
+		direction="vertical"
+		class="z-30"
+		on:height={(e) => {
+			filesHeight = e.detail;
+			lscache.set(filesHeightKey + branch.id, e.detail, 7 * 1440); // 7 day ttl
+		}}
+	/>
 </div>
 
 <style lang="postcss">
+	.resize-viewport {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		flex-shrink: 1;
+		flex-shrink: 0;
 		flex-grow: 1;
 		overflow: hidden;
+		max-height: 100%;
 	}
 	.header {
 		color: var(----clr-theme-scale-ntrl-0);
