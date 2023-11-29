@@ -1066,6 +1066,24 @@ mod update_base_branch {
                     .await
                     .unwrap());
             }
+
+            {
+                // applying the branch should produce conflict markers
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
+                );
+            }
         }
 
         #[tokio::test]
@@ -1131,6 +1149,24 @@ mod update_base_branch {
                     .can_apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap());
+            }
+
+            {
+                // applying the branch should produce conflict markers
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
+                );
             }
         }
 
@@ -1203,6 +1239,24 @@ mod update_base_branch {
                     .await
                     .unwrap());
             }
+
+            {
+                // applying the branch should produce conflict markers
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
+                );
+            }
         }
 
         #[tokio::test]
@@ -1270,6 +1324,24 @@ mod update_base_branch {
                     .can_apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap()); // TODO: should be true
+            }
+
+            {
+                // applying the branch should produce conflict markers
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "<<<<<<< ours\nfix conflict\n=======\nsecond\n>>>>>>> theirs\n"
+                );
             }
         }
 
@@ -1339,6 +1411,24 @@ mod update_base_branch {
                     .await
                     .unwrap());
             }
+
+            {
+                // applying the branch should produce conflict markers
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "<<<<<<< ours\nfix conflict\n=======\nsecond\n>>>>>>> theirs\n"
+                );
+            }
         }
 
         #[tokio::test]
@@ -1406,6 +1496,24 @@ mod update_base_branch {
                     .can_apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap());
+            }
+
+            {
+                // applying the branch should produce conflict markers
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(!branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "second"
+                );
             }
         }
 
@@ -1488,6 +1596,24 @@ mod update_base_branch {
                     .can_apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap());
+            }
+
+            {
+                // applying the branch should produce conflict markers
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(!branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "second"
+                );
             }
         }
 
@@ -1604,6 +1730,24 @@ mod update_base_branch {
                     .await
                     .unwrap());
             }
+
+            {
+                // applying the branch should produce conflict markers
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
+                );
+            }
         }
 
         #[tokio::test]
@@ -1664,6 +1808,24 @@ mod update_base_branch {
                     .can_apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap());
+            }
+
+            {
+                // applying the branch should produce conflict markers
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
+                );
             }
         }
 
@@ -1731,6 +1893,24 @@ mod update_base_branch {
                     .await
                     .unwrap());
             }
+
+            {
+                // applying the branch should produce conflict markers
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
+                );
+            }
         }
 
         #[tokio::test]
@@ -1793,6 +1973,24 @@ mod update_base_branch {
                     .can_apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap()); // TODO: should be true
+            }
+
+            {
+                // applying the branch should produce conflict markers
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "<<<<<<< ours\nfix conflict\n=======\nsecond\n>>>>>>> theirs\n"
+                );
             }
         }
 
@@ -1857,6 +2055,24 @@ mod update_base_branch {
                     .await
                     .unwrap()); // TODO: should be true
             }
+
+            {
+                // applying the branch should produce conflict markers
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "<<<<<<< ours\nfix conflict\n=======\nsecond\n>>>>>>> theirs\n"
+                );
+            }
         }
 
         #[tokio::test]
@@ -1919,6 +2135,28 @@ mod update_base_branch {
                     .can_apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap());
+            }
+
+            {
+                // applying the branch should produce conflict markers
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(!branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "second"
+                );
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file2.txt")).unwrap(),
+                    "still no conflict"
+                );
             }
         }
 
@@ -1997,6 +2235,28 @@ mod update_base_branch {
                     .can_apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap());
+            }
+
+            {
+                // applying the branch should produce conflict markers
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(!branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                    "second"
+                );
+                assert_eq!(
+                    std::fs::read_to_string(repository.path().join("file2.txt")).unwrap(),
+                    "other"
+                );
             }
         }
 
