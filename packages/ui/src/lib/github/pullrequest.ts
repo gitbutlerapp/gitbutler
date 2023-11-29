@@ -77,8 +77,8 @@ export class PrService {
 		body: string,
 		branchId: string
 	): Promise<PullRequest | undefined> {
-		const octokit = newClient(ctx);
 		this.setBusy('creating_pr', branchId);
+		const octokit = newClient(ctx);
 		try {
 			const rsp = await octokit.rest.pulls.create({
 				owner: ctx.owner,

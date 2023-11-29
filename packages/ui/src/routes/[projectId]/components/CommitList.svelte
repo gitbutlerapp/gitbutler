@@ -35,7 +35,7 @@
 				return c.isIntegrated;
 		}
 	});
-	$: pr$ = prService.get(branch.shortName);
+	$: pr$ = prService.get(branch.upstreamName);
 
 	let expanded = true;
 </script>
