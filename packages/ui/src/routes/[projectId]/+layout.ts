@@ -19,7 +19,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const baseBranchService = new BaseBranchService(projectId, fetches$, heads$);
 	const githubContext$ = getGithubContext(user$, baseBranchService.base$);
 	const vbranchService = new VirtualBranchService(projectId);
-	const prService = new PrService(githubContext$);
 
 	const remoteBranchService = new RemoteBranchService(
 		projectId,
@@ -34,6 +33,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		baseBranchService
 	);
 
+	const prService = new PrService(branchController, vbranchService, githubContext$);
 	const branchService = new BranchService(remoteBranchService, prService);
 
 	return {

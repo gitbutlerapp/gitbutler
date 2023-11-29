@@ -1,6 +1,14 @@
 import lscache from 'lscache';
 import { Observable, EMPTY, BehaviorSubject, of, firstValueFrom, Subject } from 'rxjs';
-import { catchError, combineLatestWith, map, shareReplay, switchMap, tap } from 'rxjs/operators';
+import {
+	catchError,
+	combineLatestWith,
+	map,
+	shareReplay,
+	switchMap,
+	tap,
+	timeout
+} from 'rxjs/operators';
 
 import {
 	type PullRequest,
@@ -8,6 +16,8 @@ import {
 	ghResponseToInstance
 } from '$lib/github/types';
 import { newClient } from '$lib/github/client';
+import type { BranchController } from '$lib/vbranches/branchController';
+import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 
 export type PrAction = 'creating_pr';
 export type PrServiceState = { busy: boolean; branchId: string; action?: PrAction };
@@ -20,7 +30,11 @@ export class PrService {
 	private reload$ = new BehaviorSubject<{ skipCache: boolean } | undefined>(undefined);
 	private fresh$ = new Subject<void>();
 
-	constructor(ghContext$: Observable<GitHubIntegrationContext | undefined>) {
+	constructor(
+		private branchController: BranchController,
+		private branchService: VirtualBranchService,
+		ghContext$: Observable<GitHubIntegrationContext | undefined>
+	) {
 		this.prs$ = ghContext$.pipe(
 			combineLatestWith(this.reload$),
 			tap(() => this.error$.next(undefined)),
@@ -71,7 +85,6 @@ export class PrService {
 
 	async createPullRequest(
 		ctx: GitHubIntegrationContext,
-		head: string,
 		base: string,
 		title: string,
 		body: string,
@@ -80,17 +93,26 @@ export class PrService {
 		this.setBusy('creating_pr', branchId);
 		const octokit = newClient(ctx);
 		try {
-			const rsp = await octokit.rest.pulls.create({
-				owner: ctx.owner,
-				repo: ctx.repo,
-				head,
-				base,
-				title,
-				body
-			});
-			return ghResponseToInstance(rsp.data);
-		} catch (e) {
-			console.log(e);
+			// Wait for branch to have upstream data
+			await this.branchController.pushBranch(branchId, true);
+			const branch = await firstValueFrom(
+				this.branchService.branches$.pipe(
+					timeout(10000),
+					map((branches) => branches.find((b) => b.id == branchId && b.upstream))
+				)
+			);
+			if (branch?.upstreamName) {
+				const rsp = await octokit.rest.pulls.create({
+					owner: ctx.owner,
+					repo: ctx.repo,
+					head: branch.upstreamName,
+					base,
+					title,
+					body
+				});
+				return ghResponseToInstance(rsp.data);
+			}
+			throw `No upstream for branch ${branchId}`;
 		} finally {
 			this.setIdle(branchId);
 		}
