@@ -24,7 +24,7 @@
 
 <div bind:this={viewport} class="flex max-h-full flex-col overflow-y-scroll overscroll-none">
 	<div bind:this={contents} class="flex flex-col gap-y-4">
-		<div class="rounded-sm text-sm text-light-700 dark:text-dark-200">
+		<div class="text-base-13 rounded-sm">
 			There {multiple ? 'are' : 'is'}
 			{base.upstreamCommits.length} unmerged upstream
 			{multiple ? 'commits' : 'commit'}
