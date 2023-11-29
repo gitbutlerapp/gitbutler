@@ -7,7 +7,7 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
 	import * as events from '$lib/utils/events';
-	import AccountLink from './AccountLink.svelte';
+	import AccountLink from '$lib/components/AccountLink.svelte';
 
 	export let user: User | undefined;
 	export let projectId: string | undefined;

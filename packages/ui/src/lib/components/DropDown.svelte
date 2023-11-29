@@ -140,5 +140,6 @@
 		right: 0;
 		bottom: 100%;
 		padding-bottom: var(--space-4);
+		z-index: 50;
 	}
 </style>
