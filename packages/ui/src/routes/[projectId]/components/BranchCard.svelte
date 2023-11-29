@@ -13,8 +13,6 @@
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import { quintOut } from 'svelte/easing';
-	import { crossfade } from 'svelte/transition';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
@@ -29,24 +27,6 @@
 	import UpstreamCommits from './UpstreamCommits.svelte';
 	import BranchFiles from './BranchFiles.svelte';
 	import CommitList from './CommitList.svelte';
-
-	const [send, receive] = crossfade({
-		duration: (d) => Math.sqrt(d * 200),
-
-		fallback(node) {
-			const style = getComputedStyle(node);
-			const transform = style.transform === 'none' ? '' : style.transform;
-
-			return {
-				duration: 600,
-				easing: quintOut,
-				css: (t) => `
-					transform: ${transform} scale(${t});
-					opacity: ${t}
-				`
-			};
-		}
-	});
 
 	export let branch: Branch;
 	export let readonly = false;
@@ -329,8 +309,6 @@
 						<CommitList
 							{branch}
 							{base}
-							{send}
-							{receive}
 							{githubContext}
 							{projectId}
 							{branchController}
@@ -346,8 +324,6 @@
 						<CommitList
 							{branch}
 							{base}
-							{send}
-							{receive}
 							{githubContext}
 							{projectId}
 							{branchController}
@@ -363,8 +339,6 @@
 						<CommitList
 							{branch}
 							{base}
-							{send}
-							{receive}
 							{githubContext}
 							{projectId}
 							{branchController}
