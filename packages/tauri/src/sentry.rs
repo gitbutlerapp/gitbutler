@@ -43,10 +43,7 @@ pub fn configure_scope(user: Option<&users::User>) {
     let name = match user {
         Some(user) => match &user.name {
             Some(name) => Some(name.clone()),
-            None => user
-                .given_name
-                .as_ref()
-                .map(|given_name| given_name.clone()),
+            None => user.given_name.as_ref().cloned(),
         },
         None => None,
     };
