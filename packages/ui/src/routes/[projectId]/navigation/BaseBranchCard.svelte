@@ -42,7 +42,13 @@
 					<Badge count={$base$?.behind || 0} />
 				</Tooltip>
 			{/if}
-			<SyncButton projectId={project.id} {branchController} {baseBranchService} {prService} />
+			<SyncButton
+				projectId={project.id}
+				{branchController}
+				{baseBranchService}
+				{prService}
+				cloudEnabled={project?.api?.sync || false}
+			/>
 		</div>
 		<div class="row_2 text-base-12">
 			{#if $base$?.remoteUrl.includes('github.com')}
