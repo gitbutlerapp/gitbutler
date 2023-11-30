@@ -27,6 +27,7 @@
 	import UpstreamCommits from './UpstreamCommits.svelte';
 	import BranchFiles from './BranchFiles.svelte';
 	import CommitList from './CommitList.svelte';
+	import Scrollbar from '$lib/components/Scrollbar.svelte';
 
 	export let branch: Branch;
 	export let readonly = false;
@@ -272,87 +273,90 @@
 			>
 				<div class="hover-text invisible font-semibold">Move here</div>
 			</div>
-			<div bind:this={viewport} class="scroll-container hide-native-scrollbar">
-				<div bind:this={contents} class="flex min-h-full flex-col">
-					{#if branch.files?.length > 0}
-						<BranchFiles {branch} {readonly} {selectedOwnership} {selectedFileId} />
-						{#if branch.active}
-							<CommitDialog
+			<div class="scrollbar-viewport">
+				<div bind:this={viewport} class="viewport hide-native-scrollbar">
+					<div bind:this={contents} class="flex min-h-full flex-col">
+						{#if branch.files?.length > 0}
+							<BranchFiles {branch} {readonly} {selectedOwnership} {selectedFileId} />
+							{#if branch.active}
+								<CommitDialog
+									{projectId}
+									{branchController}
+									{branch}
+									{cloudEnabled}
+									{cloud}
+									{selectedOwnership}
+									{user}
+									on:action={(e) => {
+										if (e.detail == 'generate-branch-name') {
+											generateBranchName();
+										}
+									}}
+								/>
+							{/if}
+						{:else if branch.commits.length == 0}
+							<div class="new-branch" data-dnd-ignore>
+								<h1 class="text-base-16 text-semibold">
+									This is a new branch. Let's start creating!
+								</h1>
+								<p class="px-12">Get some work done, then throw some files my way!</p>
+							</div>
+						{:else}
+							<!-- attention: these markers have custom css at the bottom of thise file -->
+							<div class="no-changes" data-dnd-ignore>
+								<h1 class="text-base-16 text-semibold">No uncommitted changes on this branch</h1>
+							</div>
+						{/if}
+						{#if branch.commits.length > 0}
+							<CommitList
+								{branch}
+								{base}
+								{githubContext}
 								{projectId}
 								{branchController}
+								{acceptAmend}
+								{acceptSquash}
+								{onAmend}
+								{onSquash}
+								{resetHeadCommit}
+								{prService}
+								{readonly}
+								type="local"
+							/>
+							<CommitList
 								{branch}
-								{cloudEnabled}
-								{cloud}
-								{selectedOwnership}
-								{user}
-								on:action={(e) => {
-									if (e.detail == 'generate-branch-name') {
-										generateBranchName();
-									}
-								}}
+								{base}
+								{githubContext}
+								{projectId}
+								{branchController}
+								{acceptAmend}
+								{acceptSquash}
+								{onAmend}
+								{onSquash}
+								{resetHeadCommit}
+								{prService}
+								{readonly}
+								type="remote"
+							/>
+							<CommitList
+								{branch}
+								{base}
+								{githubContext}
+								{projectId}
+								{branchController}
+								{acceptAmend}
+								{acceptSquash}
+								{onAmend}
+								{onSquash}
+								{resetHeadCommit}
+								{prService}
+								{readonly}
+								type="integrated"
 							/>
 						{/if}
-					{:else if branch.commits.length == 0}
-						<div class="new-branch" data-dnd-ignore>
-							<h1 class="text-base-16 text-semibold">
-								This is a new branch. Let's start creating!
-							</h1>
-							<p class="px-12">Get some work done, then throw some files my way!</p>
-						</div>
-					{:else}
-						<!-- attention: these markers have custom css at the bottom of thise file -->
-						<div class="no-changes" data-dnd-ignore>
-							<h1 class="text-base-16 text-semibold">No uncommitted changes on this branch</h1>
-						</div>
-					{/if}
-					{#if branch.commits.length > 0}
-						<CommitList
-							{branch}
-							{base}
-							{githubContext}
-							{projectId}
-							{branchController}
-							{acceptAmend}
-							{acceptSquash}
-							{onAmend}
-							{onSquash}
-							{resetHeadCommit}
-							{prService}
-							{readonly}
-							type="local"
-						/>
-						<CommitList
-							{branch}
-							{base}
-							{githubContext}
-							{projectId}
-							{branchController}
-							{acceptAmend}
-							{acceptSquash}
-							{onAmend}
-							{onSquash}
-							{resetHeadCommit}
-							{prService}
-							{readonly}
-							type="remote"
-						/>
-						<CommitList
-							{branch}
-							{base}
-							{githubContext}
-							{projectId}
-							{branchController}
-							{acceptAmend}
-							{acceptSquash}
-							{onAmend}
-							{onSquash}
-							{resetHeadCommit}
-							{prService}
-							{readonly}
-							type="integrated"
-						/>
-					{/if}
+					</div>
 				</div>
+				<Scrollbar {viewport} {contents} width="0.4rem" />
 			</div>
 		</div>
 	</div>
@@ -390,13 +394,19 @@
 		background: var(--clr-theme-container-light);
 	}
 
-	.scroll-container {
+	.viewport {
 		max-height: 100%;
 		flex-grow: 1;
 		flex-direction: column;
 		display: flex;
 		overflow-y: scroll;
 		overscroll-behavior: none;
+	}
+
+	.scrollbar-viewport {
+		position: relative;
+		display: flex;
+		width: 100%;
 	}
 
 	.new-branch,
