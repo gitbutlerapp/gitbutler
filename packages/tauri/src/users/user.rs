@@ -5,7 +5,7 @@ use crate::git;
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct User {
     pub id: u64,
-    pub name: String,
+    pub name: Option<String>,
     pub given_name: Option<String>,
     pub family_name: Option<String>,
     pub email: String,
@@ -23,6 +23,12 @@ impl TryFrom<User> for git::Signature<'_> {
     type Error = git::Error;
 
     fn try_from(value: User) -> Result<Self, Self::Error> {
-        git::Signature::now(&value.name, &value.email)
+        if let Some(name) = value.name {
+            git::Signature::now(&name, &value.email)
+        } else if let Some(name) = value.given_name {
+            git::Signature::now(&name, &value.email)
+        } else {
+            git::Signature::now(&value.email, &value.email)
+        }
     }
 }

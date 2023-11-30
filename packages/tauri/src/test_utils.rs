@@ -35,7 +35,7 @@ impl Default for Suite {
 impl Suite {
     pub fn sign_in(&self) -> users::User {
         let user = users::User {
-            name: "test".to_string(),
+            name: Some("test".to_string()),
             email: "test@email.com".to_string(),
             access_token: "token".to_string(),
             ..Default::default()

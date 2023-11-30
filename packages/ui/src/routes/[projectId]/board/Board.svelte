@@ -52,7 +52,7 @@
 			// We account for the NewBranchDropZone by subtracting 2
 			for (let i = 0; i < children.length - 2; i++) {
 				const pos = children[i].getBoundingClientRect();
-				if (e.clientX > pos.left + pos.width) {
+				if (e.clientX > pos.left + dragged.offsetWidth / 2) {
 					dropPosition = i + 1; // Note that this is declared in the <script>
 				} else {
 					break;
@@ -91,6 +91,7 @@
 						// We rely on elements with id `drag-handle` to initiate this drag
 						e.preventDefault();
 						e.stopPropagation();
+						return;
 					}
 					clone = cloneNode(e.target);
 					document.body.appendChild(clone);

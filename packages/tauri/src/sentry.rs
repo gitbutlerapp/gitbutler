@@ -40,10 +40,18 @@ pub fn init(package_info: &PackageInfo) -> ClientInitGuard {
 /// Sets the current user in the Sentry scope.
 /// There is only one scope in the application, so this will overwrite any previous user.
 pub fn configure_scope(user: Option<&users::User>) {
+    let name = match user {
+        Some(user) => match &user.name {
+            Some(name) => Some(name.clone()),
+            None => user.given_name.as_ref().cloned(),
+        },
+        None => None,
+    };
+
     sentry::configure_scope(|scope| {
         scope.set_user(user.map(|user| sentry::User {
             id: Some(user.id.to_string()),
-            username: Some(user.name.clone()),
+            username: name,
             email: Some(user.email.clone()),
             ..Default::default()
         }));

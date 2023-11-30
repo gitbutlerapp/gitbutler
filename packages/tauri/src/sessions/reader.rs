@@ -3,7 +3,7 @@ use std::{collections::HashMap, path};
 use anyhow::{anyhow, Context, Result};
 
 use crate::{
-    gb_repository, git,
+    gb_repository,
     reader::{self, CommitReader, Reader},
 };
 
@@ -62,13 +62,9 @@ impl<'reader> SessionReader<'reader> {
             ));
         };
 
-        let oid: git::Oid = session_hash
-            .parse()
-            .context(format!("failed to parse commit hash {}", session_hash))?;
-
         let commit = repository
             .git_repository()
-            .find_commit(oid)
+            .find_commit(*session_hash)
             .context("failed to get commit")?;
         let commit_reader =
             reader::CommitReader::from_commit(repository.git_repository(), &commit)?;

@@ -191,7 +191,9 @@ mod test {
     use once_cell::sync::Lazy;
 
     use crate::{
-        deltas, sessions,
+        deltas,
+        reader::Reader,
+        sessions,
         test_utils::{self, Case, Suite},
         virtual_branches::{self, branch},
     };
@@ -922,5 +924,263 @@ mod test {
         assert_eq!(target_reader.read(&vbranch1.id).unwrap(), vbranch1_target);
 
         Ok(())
+    }
+
+    mod flush_wd {
+        use super::*;
+
+        #[test]
+        fn should_add_new_files_to_session_wd() {
+            let suite = Suite::default();
+            let Case {
+                gb_repository,
+                project,
+                project_repository,
+                ..
+            } = suite.new_case();
+            let listener = Handler::from(&suite.local_app_data);
+
+            // write a file into session
+            std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
+            listener.handle("test.txt", &project.id).unwrap();
+
+            let flushed_session = gb_repository
+                .flush(&project_repository, None)
+                .unwrap()
+                .unwrap();
+            {
+                // after flush it should be flushed into the commit
+                let session_commit = gb_repository
+                    .git_repository()
+                    .find_commit(flushed_session.hash.unwrap())
+                    .unwrap();
+                let commit_reader = reader::CommitReader::from_commit(
+                    gb_repository.git_repository(),
+                    &session_commit,
+                )
+                .unwrap();
+                assert_eq!(
+                    commit_reader.list_files(path::Path::new("wd")).unwrap(),
+                    vec![path::Path::new("test.txt")]
+                );
+                assert_eq!(
+                    commit_reader.read(path::Path::new("wd/test.txt")).unwrap(),
+                    reader::Content::UTF8("hello world!".to_string())
+                );
+            }
+
+            // write another file into session
+            std::fs::create_dir_all(project.path.join("one/two")).unwrap();
+            std::fs::write(project.path.join("one/two/test2.txt"), "hello world!").unwrap();
+            listener.handle("one/two/test2.txt", &project.id).unwrap();
+
+            let flushed_session = gb_repository
+                .flush(&project_repository, None)
+                .unwrap()
+                .unwrap();
+            {
+                // after flush it should be flushed into the commit next to the previous one
+                let session_commit = gb_repository
+                    .git_repository()
+                    .find_commit(flushed_session.hash.unwrap())
+                    .unwrap();
+                let commit_reader = reader::CommitReader::from_commit(
+                    gb_repository.git_repository(),
+                    &session_commit,
+                )
+                .unwrap();
+                assert_eq!(
+                    commit_reader.list_files(path::Path::new("wd")).unwrap(),
+                    vec![
+                        path::Path::new("one/two/test2.txt"),
+                        path::Path::new("test.txt"),
+                    ]
+                );
+                assert_eq!(
+                    commit_reader.read(path::Path::new("wd/test.txt")).unwrap(),
+                    reader::Content::UTF8("hello world!".to_string())
+                );
+                assert_eq!(
+                    commit_reader
+                        .read(path::Path::new("wd/one/two/test2.txt"))
+                        .unwrap(),
+                    reader::Content::UTF8("hello world!".to_string())
+                );
+            }
+        }
+
+        #[test]
+        fn should_remove_deleted_files_from_session_wd() {
+            let suite = Suite::default();
+            let Case {
+                gb_repository,
+                project,
+                project_repository,
+                ..
+            } = suite.new_case();
+            let listener = Handler::from(&suite.local_app_data);
+
+            // write a file into session
+            std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
+            listener.handle("test.txt", &project.id).unwrap();
+            std::fs::create_dir_all(project.path.join("one/two")).unwrap();
+            std::fs::write(project.path.join("one/two/test2.txt"), "hello world!").unwrap();
+            listener.handle("one/two/test2.txt", &project.id).unwrap();
+
+            let flushed_session = gb_repository
+                .flush(&project_repository, None)
+                .unwrap()
+                .unwrap();
+            {
+                // after flush it should be flushed into the commit
+                let session_commit = gb_repository
+                    .git_repository()
+                    .find_commit(flushed_session.hash.unwrap())
+                    .unwrap();
+                let commit_reader = reader::CommitReader::from_commit(
+                    gb_repository.git_repository(),
+                    &session_commit,
+                )
+                .unwrap();
+                assert_eq!(
+                    commit_reader.list_files(path::Path::new("wd")).unwrap(),
+                    vec![
+                        path::Path::new("one/two/test2.txt"),
+                        path::Path::new("test.txt"),
+                    ]
+                );
+                assert_eq!(
+                    commit_reader.read(path::Path::new("wd/test.txt")).unwrap(),
+                    reader::Content::UTF8("hello world!".to_string())
+                );
+                assert_eq!(
+                    commit_reader
+                        .read(path::Path::new("wd/one/two/test2.txt"))
+                        .unwrap(),
+                    reader::Content::UTF8("hello world!".to_string())
+                );
+            }
+
+            // rm the files
+            std::fs::remove_file(project.path.join("test.txt")).unwrap();
+            listener.handle("test.txt", &project.id).unwrap();
+            std::fs::remove_file(project.path.join("one/two/test2.txt")).unwrap();
+            listener.handle("one/two/test2.txt", &project.id).unwrap();
+
+            let flushed_session = gb_repository
+                .flush(&project_repository, None)
+                .unwrap()
+                .unwrap();
+            {
+                // after flush it should be removed from the commit
+                let session_commit = gb_repository
+                    .git_repository()
+                    .find_commit(flushed_session.hash.unwrap())
+                    .unwrap();
+                let commit_reader = reader::CommitReader::from_commit(
+                    gb_repository.git_repository(),
+                    &session_commit,
+                )
+                .unwrap();
+                assert!(commit_reader
+                    .list_files(path::Path::new("wd"))
+                    .unwrap()
+                    .is_empty());
+            }
+        }
+
+        #[test]
+        fn should_update_updated_files_in_session_wd() {
+            let suite = Suite::default();
+            let Case {
+                gb_repository,
+                project,
+                project_repository,
+                ..
+            } = suite.new_case();
+            let listener = Handler::from(&suite.local_app_data);
+
+            // write a file into session
+            std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
+            listener.handle("test.txt", &project.id).unwrap();
+            std::fs::create_dir_all(project.path.join("one/two")).unwrap();
+            std::fs::write(project.path.join("one/two/test2.txt"), "hello world!").unwrap();
+            listener.handle("one/two/test2.txt", &project.id).unwrap();
+
+            let flushed_session = gb_repository
+                .flush(&project_repository, None)
+                .unwrap()
+                .unwrap();
+            {
+                // after flush it should be flushed into the commit
+                let session_commit = gb_repository
+                    .git_repository()
+                    .find_commit(flushed_session.hash.unwrap())
+                    .unwrap();
+                let commit_reader = reader::CommitReader::from_commit(
+                    gb_repository.git_repository(),
+                    &session_commit,
+                )
+                .unwrap();
+                assert_eq!(
+                    commit_reader.list_files(path::Path::new("wd")).unwrap(),
+                    vec![
+                        path::Path::new("one/two/test2.txt"),
+                        path::Path::new("test.txt"),
+                    ]
+                );
+                assert_eq!(
+                    commit_reader.read(path::Path::new("wd/test.txt")).unwrap(),
+                    reader::Content::UTF8("hello world!".to_string())
+                );
+                assert_eq!(
+                    commit_reader
+                        .read(path::Path::new("wd/one/two/test2.txt"))
+                        .unwrap(),
+                    reader::Content::UTF8("hello world!".to_string())
+                );
+            }
+
+            // update the file
+            std::fs::write(project.path.join("test.txt"), "hello world!2").unwrap();
+            listener.handle("test.txt", &project.id).unwrap();
+
+            std::fs::write(project.path.join("one/two/test2.txt"), "hello world!2").unwrap();
+            listener.handle("one/two/test2.txt", &project.id).unwrap();
+
+            let flushed_session = gb_repository
+                .flush(&project_repository, None)
+                .unwrap()
+                .unwrap();
+            {
+                // after flush it should be updated in the commit
+                let session_commit = gb_repository
+                    .git_repository()
+                    .find_commit(flushed_session.hash.unwrap())
+                    .unwrap();
+                let commit_reader = reader::CommitReader::from_commit(
+                    gb_repository.git_repository(),
+                    &session_commit,
+                )
+                .unwrap();
+                assert_eq!(
+                    commit_reader.list_files(path::Path::new("wd")).unwrap(),
+                    vec![
+                        path::Path::new("one/two/test2.txt"),
+                        path::Path::new("test.txt"),
+                    ]
+                );
+                assert_eq!(
+                    commit_reader.read(path::Path::new("wd/test.txt")).unwrap(),
+                    reader::Content::UTF8("hello world!2".to_string())
+                );
+                assert_eq!(
+                    commit_reader
+                        .read(path::Path::new("wd/one/two/test2.txt"))
+                        .unwrap(),
+                    reader::Content::UTF8("hello world!2".to_string())
+                );
+            }
+        }
     }
 }

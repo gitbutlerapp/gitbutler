@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::File,
     io::{BufReader, Read},
     os::unix::prelude::{MetadataExt, OsStrExt},
@@ -11,15 +11,16 @@ use filetime::FileTime;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    fs, git, lock,
+    deltas, fs, git, lock,
     paths::DataDir,
+    project_repository,
     projects::{self, ProjectId},
+    reader::{self, Reader},
+    sessions,
     sessions::SessionId,
     users,
     virtual_branches::{self, target},
 };
-
-use crate::{project_repository, reader, sessions};
 
 pub struct Repository {
     git_repository: git::Repository,
@@ -429,6 +430,7 @@ impl Repository {
         sessions::Writer::new(self).write(session)?;
 
         let mut tree_builder = self.git_repository.treebuilder(None);
+
         tree_builder.upsert(
             "session",
             build_session_tree(self).context("failed to build session tree")?,
@@ -462,7 +464,7 @@ impl Repository {
             .context("failed to remove session directory")?;
 
         let session = sessions::Session {
-            hash: Some(commit_oid.to_string()),
+            hash: Some(commit_oid),
             ..session.clone()
         };
 
@@ -532,9 +534,81 @@ impl Repository {
     }
 }
 
+fn build_wd_tree(
+    gb_repository: &Repository,
+    project_repository: &project_repository::Repository,
+) -> Result<git::Oid> {
+    match gb_repository
+        .git_repository
+        .find_reference(&"refs/heads/current".parse().unwrap())
+    {
+        Result::Ok(reference) => build_wd_tree_from_reference(gb_repository, &reference)
+            .context("failed to build wd index"),
+        Err(git::Error::NotFound(_)) => build_wd_tree_from_repo(gb_repository, project_repository)
+            .context("failed to build wd index"),
+        Err(e) => Err(e.into()),
+    }
+}
+
+fn build_wd_tree_from_reference(
+    gb_repository: &Repository,
+    reference: &git::Reference,
+) -> Result<git::Oid> {
+    // start off with the last tree as a base
+    let tree = reference.peel_to_tree()?;
+    let wd_tree_entry = tree.get_name("wd").unwrap();
+    let wd_tree = gb_repository.git_repository.find_tree(wd_tree_entry.id())?;
+    let mut index = git::Index::try_from(&wd_tree)?;
+
+    // write updated files on top of the last tree
+    for file_path in fs::list_files(gb_repository.session_wd_path(), &[]).with_context(|| {
+        format!(
+            "failed to session working directory files list files in {}",
+            gb_repository.session_wd_path().display()
+        )
+    })? {
+        add_wd_path(
+            &mut index,
+            &gb_repository.session_wd_path(),
+            &file_path,
+            gb_repository,
+        )
+        .with_context(|| {
+            format!(
+                "failed to add session working directory path {}",
+                file_path.display()
+            )
+        })?;
+    }
+
+    let session_reader = reader::DirReader::open(gb_repository.root());
+    let deltas = deltas::Reader::new(&session_reader)
+        .read(None)
+        .context("failed to read deltas")?;
+    let wd_files = session_reader.list_files(path::Path::new("session/wd"))?;
+    let wd_files = wd_files.iter().collect::<HashSet<_>>();
+
+    // if a file has delta, but doesn't exist in wd, it was deleted
+    let deleted_files = deltas
+        .keys()
+        .filter(|key| !wd_files.contains(key))
+        .collect::<Vec<_>>();
+
+    for deleted_file in deleted_files {
+        index
+            .remove_path(deleted_file)
+            .context("failed to remove path")?;
+    }
+
+    let wd_tree_oid = index
+        .write_tree_to(&gb_repository.git_repository)
+        .context("failed to write wd tree")?;
+    Ok(wd_tree_oid)
+}
+
 // build wd index from the working directory files new session wd files
 // this is important because we want to make sure session files are in sync with session deltas
-fn build_wd_tree(
+fn build_wd_tree_from_repo(
     gb_repository: &Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<git::Oid> {
@@ -544,16 +618,15 @@ fn build_wd_tree(
 
     // first, add session/wd files. session/wd are written at the same time as deltas, so it's important to add them first
     // to make sure they are in sync with the deltas
-    for file_path in fs::list_files(gb_repository.session_wd_path()).with_context(|| {
+    for file_path in fs::list_files(gb_repository.session_wd_path(), &[]).with_context(|| {
         format!(
             "failed to session working directory files list files in {}",
             gb_repository.session_wd_path().display()
         )
     })? {
-        let file_path = std::path::Path::new(&file_path);
         if project_repository
             .git_repository
-            .is_path_ignored(file_path)
+            .is_path_ignored(&file_path)
             .unwrap_or(true)
         {
             continue;
@@ -562,7 +635,7 @@ fn build_wd_tree(
         add_wd_path(
             &mut index,
             &gb_repository.session_wd_path(),
-            file_path,
+            &file_path,
             gb_repository,
         )
         .with_context(|| {
@@ -575,21 +648,21 @@ fn build_wd_tree(
     }
 
     // finally, add files from the working directory if they aren't already in the index
-    for file_path in fs::list_files(project_repository.root()).with_context(|| {
-        format!(
-            "failed to working directory list files in {}",
-            project_repository.root().display()
-        )
-    })? {
+    for file_path in fs::list_files(project_repository.root(), &[path::Path::new(".git")])
+        .with_context(|| {
+            format!(
+                "failed to working directory list files in {}",
+                project_repository.root().display()
+            )
+        })?
+    {
         if added.contains_key(&file_path.to_string_lossy().to_string()) {
             continue;
         }
 
-        let file_path = std::path::Path::new(&file_path);
-
         if project_repository
             .git_repository
-            .is_path_ignored(file_path)
+            .is_path_ignored(&file_path)
             .unwrap_or(true)
         {
             continue;
@@ -598,7 +671,7 @@ fn build_wd_tree(
         add_wd_path(
             &mut index,
             project_repository.root(),
-            file_path,
+            &file_path,
             gb_repository,
         )
         .with_context(|| {
@@ -720,7 +793,9 @@ fn build_branches_tree(gb_repository: &Repository) -> Result<git::Oid> {
     let mut index = git::Index::new()?;
 
     let branches_dir = gb_repository.root().join("branches");
-    for file_path in fs::list_files(&branches_dir).context("failed to find branches directory")? {
+    for file_path in
+        fs::list_files(&branches_dir, &[]).context("failed to find branches directory")?
+    {
         let file_path = std::path::Path::new(&file_path);
         add_file_to_index(
             gb_repository,
@@ -742,18 +817,17 @@ fn build_session_tree(gb_repository: &Repository) -> Result<git::Oid> {
     let mut index = git::Index::new()?;
 
     // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
-    for file_path in
-        fs::list_files(gb_repository.session_path()).context("failed to list session files")?
+    for file_path in fs::list_files(
+        gb_repository.session_path(),
+        &[path::Path::new("wd").to_path_buf()],
+    )
+    .context("failed to list session files")?
     {
-        let file_path = std::path::Path::new(&file_path);
-        if file_path.starts_with("wd/") {
-            continue;
-        }
         add_file_to_index(
             gb_repository,
             &mut index,
-            file_path,
-            &gb_repository.session_path().join(file_path),
+            &file_path,
+            &gb_repository.session_path().join(&file_path),
         )
         .with_context(|| format!("failed to add session file: {}", file_path.display()))?;
     }
@@ -809,7 +883,7 @@ fn write_gb_commit(
     let comitter = git::Signature::now("gitbutler", "gitbutler@localhost")?;
     let author = match user {
         None => comitter.clone(),
-        Some(user) => git::Signature::now(user.name.as_str(), user.email.as_str())?,
+        Some(user) => git::Signature::try_from(user)?,
     };
 
     let current_refname: git::Refname = "refs/heads/current".parse().unwrap();

@@ -32,7 +32,7 @@ impl Database {
                 stmt.execute(rusqlite::named_params! {
                     ":id": session.id,
                     ":project_id": project_id,
-                    ":hash": session.hash,
+                    ":hash": session.hash.map(|hash| hash.to_string()),
                     ":branch": session.meta.branch,
                     ":commit": session.meta.commit,
                     ":start_timestamp_ms": session.meta.start_timestamp_ms.to_string(),
@@ -127,7 +127,11 @@ impl Database {
 fn parse_row(row: &rusqlite::Row) -> Result<session::Session> {
     Ok(session::Session {
         id: row.get(0).context("Failed to get id")?,
-        hash: row.get(2).context("Failed to get hash")?,
+        hash: row
+            .get::<usize, Option<String>>(2)
+            .context("Failed to get hash")?
+            .map(|hash| hash.parse().context("Failed to parse hash"))
+            .transpose()?,
         meta: session::Meta {
             branch: row.get(3).context("Failed to get branch")?,
             commit: row.get(4).context("Failed to get commit")?,
@@ -212,7 +216,7 @@ mod tests {
         };
         let session2 = session::Session {
             id: SessionId::generate(),
-            hash: Some("hash2".to_string()),
+            hash: Some("08f23df1b9c2dec3d0c826a3ae745f9b821a1a26".parse().unwrap()),
             meta: session::Meta {
                 branch: Some("branch2".to_string()),
                 commit: Some("commit2".to_string()),
@@ -253,7 +257,7 @@ mod tests {
         };
         let session_updated = session::Session {
             id: session.id,
-            hash: Some("hash2".to_string()),
+            hash: Some("08f23df1b9c2dec3d0c826a3ae745f9b821a1a26".parse().unwrap()),
             meta: session::Meta {
                 branch: Some("branch2".to_string()),
                 commit: Some("commit2".to_string()),
