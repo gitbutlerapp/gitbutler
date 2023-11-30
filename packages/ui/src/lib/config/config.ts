@@ -35,3 +35,8 @@ export function projectPullRequestListingFilter(projectId: string): Persisted<st
 	const key = 'projectPullRequestListingFilter_';
 	return persisted(ListPRsFilter.All, key + projectId);
 }
+
+export function projectAiGenEnabled(projectId: string): Persisted<boolean> {
+	const key = 'projectAiGenEnabled_';
+	return persisted(false, key + projectId);
+}

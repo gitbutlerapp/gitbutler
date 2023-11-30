@@ -7,6 +7,7 @@
 	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import type { User } from '$lib/backend/cloud';
 	import {
+		projectAiGenEnabled,
 		projectCommitGenerationExtraConcise,
 		projectCommitGenerationUseEmojis
 	} from '$lib/config/config';
@@ -27,12 +28,13 @@
 	export let projectId: string;
 	export let branchController: BranchController;
 	export let branch: Branch;
-	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let user: User | undefined;
 	export let selectedOwnership: Writable<Ownership>;
 
+	const aiGenEnabled = projectAiGenEnabled(projectId);
 	let commitMessage: string;
+
 	$: messageRows =
 		Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10) + 2;
 
@@ -115,13 +117,13 @@
 	<TextArea bind:value={commitMessage} rows={messageRows} placeholder="Your commit message here" />
 	<div class="actions">
 		<Tooltip
-			label={cloudEnabled && user
+			label={$aiGenEnabled && user
 				? undefined
-				: 'You must be logged in and have cloud sync enabled for the project to use this feature'}
+				: 'You must be logged in and have summary generation enabled to use this feature'}
 		>
 			<DropDown
 				type="outlined"
-				disabled={!(cloudEnabled && user)}
+				disabled={!($aiGenEnabled && user)}
 				loading={isGeneratingCommigMessage}
 				on:click={() => generateCommitMessage(branch.files)}
 			>

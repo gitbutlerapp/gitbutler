@@ -43,7 +43,7 @@
 					.then(async (project) => {
 						if (!project) return;
 						toasts.success(`Project ${project.title} created`);
-						linkProjectModal?.show(project.id);
+						// linkProjectModal?.show(project.id);
 						goto(`/${project.id}/board`);
 					})
 					.catch((e: any) => toasts.error(e.message))

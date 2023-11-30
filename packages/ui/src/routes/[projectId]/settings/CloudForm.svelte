@@ -1,5 +1,4 @@
 <script lang="ts">
-	import * as toasts from '$lib/utils/toasts';
 	import { getCloudApiClient, type User } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import { createEventDispatcher, onMount } from 'svelte';
@@ -8,11 +7,14 @@
 	import type { UserService } from '$lib/stores/user';
 	import Link from '$lib/components/Link.svelte';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
+	import { projectAiGenEnabled } from '$lib/config/config';
 
 	export let project: Project;
 	export let user: User | undefined;
 	export let userService: UserService;
+
 	const cloud = getCloudApiClient();
+	const aiGenEnabled = projectAiGenEnabled(project.id);
 
 	const dispatch = createEventDispatcher<{
 		updated: Project;
@@ -26,34 +28,31 @@
 		dispatch('updated', { ...project, api: { ...cloudProject, sync: project.api.sync } });
 	});
 
-	const onSyncChange = async (event: Event) => {
-		if (!user) return;
+	// const onSyncChange = async (event: Event) => {
+	// 	if (!user) return;
 
-		const target = event.target as HTMLInputElement;
-		const sync = target.checked;
+	// 	const target = event.target as HTMLInputElement;
+	// 	const sync = target.checked;
 
-		try {
-			const cloudProject =
-				project.api ??
-				(await cloud.projects.create(user.access_token, {
-					name: project.title,
-					description: project.description,
-					uid: project.id
-				}));
-			dispatch('updated', { ...project, api: { ...cloudProject, sync } });
-		} catch (error) {
-			console.error(`Failed to update project sync status: ${error}`);
-			toasts.error('Failed to update project sync status');
-		}
-	};
+	// 	try {
+	// 		const cloudProject =
+	// 			project.api ??
+	// 			(await cloud.projects.create(user.access_token, {
+	// 				name: project.title,
+	// 				description: project.description,
+	// 				uid: project.id
+	// 			}));
+	// 		dispatch('updated', { ...project, api: { ...cloudProject, sync } });
+	// 	} catch (error) {
+	// 		console.error(`Failed to update project sync status: ${error}`);
+	// 		toasts.error('Failed to update project sync status');
+	// 	}
+	// };
 </script>
 
 <section class="space-y-2">
 	<header>
-		<h2 class="text-xl">GitButler Cloud</h2>
-		<span class="text-text-subdued">
-			Sync with GitButler secure cloud for AI features, team features, and more.
-		</span>
+		<span class="text-text-subdued"> Summary generation </span>
 	</header>
 
 	{#if user}
@@ -66,10 +65,12 @@
 						<Checkbox
 							name="sync"
 							disabled={user === undefined}
-							checked={project.api?.sync || false}
-							on:change={onSyncChange}
+							checked={$aiGenEnabled}
+							on:change={() => {
+								$aiGenEnabled = !$aiGenEnabled;
+							}}
 						/>
-						<label class="ml-2" for="sync">Enable GitButler Cloud</label>
+						<label class="ml-2" for="sync">Enable branch and commit message generation.</label>
 					</form>
 				</div>
 			</div>
@@ -87,6 +88,6 @@
 			</div>
 		{/if}
 	{:else}
-		<Login {userService} {user} />
+		<Login {userService} />
 	{/if}
 </section>

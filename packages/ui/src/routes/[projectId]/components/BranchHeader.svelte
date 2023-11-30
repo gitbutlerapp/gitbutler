@@ -14,6 +14,7 @@
 	export let allExpanded: Writable<boolean>;
 	export let allCollapsed: Writable<boolean>;
 	export let branchController: BranchController;
+	export let projectId: string;
 
 	const dispatch = createEventDispatcher<{ action: string }>();
 	let meatballButton: HTMLDivElement;
@@ -22,7 +23,7 @@
 	// TODO: Use document.body.addEventListener to avoid having to use backdrop
 	let popupMenu = new BranchLanePopupMenu({
 		target: document.body,
-		props: { allExpanded, allCollapsed, order: branch?.order, branchController }
+		props: { allExpanded, allCollapsed, order: branch?.order, branchController, projectId }
 	});
 
 	function handleBranchNameChange() {

@@ -13,7 +13,6 @@
 	export let readonly = false;
 	export let projectId: string;
 	export let base: BaseBranch | undefined | null;
-	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
 	export let maximized = false;
@@ -43,7 +42,6 @@
 		{readonly}
 		{projectId}
 		{base}
-		{cloudEnabled}
 		{cloud}
 		{branchController}
 		{maximized}

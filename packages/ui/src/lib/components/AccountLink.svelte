@@ -47,6 +47,9 @@
 		height: var(--space-20);
 	}
 	.anon-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		padding: var(--space-2);
 		background: var(--clr-theme-pop-element);
 		color: var(--clr-theme-pop-on-element);

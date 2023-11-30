@@ -18,7 +18,6 @@
 
 	export let base: BaseBranch | undefined | null;
 
-	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
 	export let prService: PrService;
@@ -91,6 +90,7 @@
 					if (dragHandle.id != 'drag-handle') {
 						// We rely on elements with id `drag-handle` to initiate this drag
 						e.preventDefault();
+						e.stopPropagation();
 						return;
 					}
 					clone = cloneNode(e.target);
@@ -108,7 +108,6 @@
 					{branch}
 					{projectId}
 					{base}
-					{cloudEnabled}
 					{cloud}
 					{branchController}
 					branchCount={branches.filter((c) => c.active).length}
