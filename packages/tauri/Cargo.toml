@@ -31,7 +31,7 @@ console-subscriber = "0.2.0"
 diffy = "0.3.0"
 filetime = "0.2.22"
 futures = "0.3"
-git2 = { version = "0.18.1", features = ["vendored-openssl", "vendored-libgit2"] }
+git2 = { path = "../../../git2-rs", features = ["vendored-openssl"] }
 governor = "0.6.0"
 itertools = "0.12"
 lazy_static = "1.4.0"

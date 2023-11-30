@@ -37,6 +37,8 @@ pub fn workdir(
         .context("failed to find commit")?;
     let tree = commit.tree().context("failed to find tree")?;
 
+    println!("diffing tree to workdir");
+
     let mut diff_opts = git2::DiffOptions::new();
     diff_opts
         .recurse_untracked_dirs(true)
@@ -48,6 +50,7 @@ pub fn workdir(
 
     let diff = repository.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
 
+    println!("-----------------------");
     hunks_by_filepath(repository, &diff)
 }
 

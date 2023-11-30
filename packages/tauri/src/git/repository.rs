@@ -124,7 +124,7 @@ impl Repository {
         opts: Option<&mut git2::DiffOptions>,
     ) -> Result<git2::Diff<'_>> {
         self.0
-            .diff_tree_to_workdir(old_tree.map(Into::into), opts)
+            .diff_tree_to_workdir_with_index(old_tree.map(Into::into), opts)
             .map_err(Into::into)
     }
 

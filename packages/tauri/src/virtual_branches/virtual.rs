@@ -394,7 +394,34 @@ pub fn apply_branch(
         .merge_trees(&target_tree, &wd_tree, &branch_tree)
         .context("failed to merge trees")?;
 
+    tracing::info!("apply_branch: (anc): {:?}", target_tree.id());
+    tracing::info!("apply_branch: (our): {:?}", wd_tree.id());
+    tracing::info!("apply_branch: (thr): {:?}", branch_tree.id());
+
     if merge_index.has_conflicts() {
+        // debug print the conflicts
+        let conflicts = merge_index
+            .conflicts()
+            .context("failed to get merge index conflicts")?;
+        tracing::info!("apply_branch: merge_index has conflicts");
+        for path in conflicts.flatten() {
+            if let Some(ours) = path.our {
+                let path =
+                    std::str::from_utf8(&ours.path).context("failed to convert path to utf8")?;
+                tracing::info!("apply_branch: conflict(our): {}, {}", path, ours.id);
+            }
+            if let Some(ours) = path.ancestor {
+                let path =
+                    std::str::from_utf8(&ours.path).context("failed to convert path to utf8")?;
+                tracing::info!("apply_branch: conflict(anc): {}, {}", path, ours.id);
+            }
+            if let Some(ours) = path.their {
+                let path =
+                    std::str::from_utf8(&ours.path).context("failed to convert path to utf8")?;
+                tracing::info!("apply_branch: conflict(thr): {} {}", path, ours.id);
+            }
+        }
+
         return Err(errors::ApplyBranchError::BranchConflicts(*branch_id));
     }
 
@@ -1578,6 +1605,8 @@ fn get_applied_status(
         &diff::Options::default(),
     )
     .context("failed to diff workdir")?;
+
+    dbg!(diff.clone());
 
     // sort by order, so that the default branch is first (left in the ui)
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
