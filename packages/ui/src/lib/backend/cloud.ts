@@ -29,7 +29,7 @@ export type LoginToken = {
 
 export type User = {
 	id: number;
-	name: string;
+	name: string | undefined;
 	given_name: string | undefined;
 	family_name: string | undefined;
 	email: string;

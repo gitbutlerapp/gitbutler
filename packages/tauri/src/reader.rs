@@ -53,12 +53,10 @@ impl Reader for DirReader {
     }
 
     fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>> {
-        fs::list_files(self.root.join(dir_path)).map(|files| {
-            files
-                .into_iter()
-                .filter(|f| !f.starts_with(".git"))
-                .collect::<Vec<_>>()
-        })
+        fs::list_files(
+            self.root.join(dir_path),
+            &[path::Path::new(".git").to_path_buf()],
+        )
     }
 }
 
