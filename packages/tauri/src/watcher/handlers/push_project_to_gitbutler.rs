@@ -201,11 +201,11 @@ impl HandlerInner {
 }
 
 fn push_all_refs(
-    project_repository: project_repository::Repository,
-    user: Option<users::User>,
+    project_repository: &project_repository::Repository,
+    user: &Option<users::User>,
     project_id: &crate::id::Id<projects::Project>,
 ) -> Result<(), project_repository::RemoteError> {
-    let gb_references = collect_refs(&project_repository)?;
+    let gb_references = collect_refs(project_repository)?;
 
     let all_refs = gb_references
         .iter()
