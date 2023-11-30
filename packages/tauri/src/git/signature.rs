@@ -34,9 +34,19 @@ impl TryFrom<&users::User> for Signature<'_> {
     type Error = super::Error;
 
     fn try_from(value: &users::User) -> Result<Self, Self::Error> {
-        git2::Signature::now(&value.name, &value.email)
-            .map(Into::into)
-            .map_err(Into::into)
+        if let Some(name) = &value.name {
+            git2::Signature::now(&name, &value.email)
+                .map(Into::into)
+                .map_err(Into::into)
+        } else if let Some(name) = &value.given_name {
+            git2::Signature::now(&name, &value.email)
+                .map(Into::into)
+                .map_err(Into::into)
+        } else {
+            git2::Signature::now(&value.email, &value.email)
+                .map(Into::into)
+                .map_err(Into::into)
+        }
     }
 }
 

@@ -887,7 +887,7 @@ fn write_gb_commit(
     let comitter = git::Signature::now("gitbutler", "gitbutler@localhost")?;
     let author = match user {
         None => comitter.clone(),
-        Some(user) => git::Signature::now(user.name.as_str(), user.email.as_str())?,
+        Some(user) => git::Signature::try_from(user)?,
     };
 
     let current_refname: git::Refname = "refs/heads/current".parse().unwrap();
