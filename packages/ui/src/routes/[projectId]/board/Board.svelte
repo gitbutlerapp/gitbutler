@@ -91,6 +91,7 @@
 					if (dragHandle.id != 'drag-handle') {
 						// We rely on elements with id `drag-handle` to initiate this drag
 						e.preventDefault();
+						return;
 					}
 					clone = cloneNode(e.target);
 					document.body.appendChild(clone);
