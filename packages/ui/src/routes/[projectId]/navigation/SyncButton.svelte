@@ -24,9 +24,8 @@
 		fetching = true;
 		try {
 			syncToCloud(projectId); // don't wait for this
-			await branchController.fetchFromTarget().then(() => {
-				prService.reload();
-			});
+			await branchController.fetchFromTarget();
+			await prService.reload();
 		} finally {
 			fetching = false;
 		}

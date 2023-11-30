@@ -4,7 +4,7 @@
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import PushButton from './PushButton.svelte';
 	import type { CommitType } from './commitList';
-	import type { GitHubIntegrationContext } from '$lib/github/types';
+	import type { GitHubIntegrationContext, PullRequest } from '$lib/github/types';
 	import type { PrService } from '$lib/github/pullrequest';
 	import toast from 'svelte-french-toast';
 
@@ -28,19 +28,15 @@
 		isPushing = false;
 	}
 
-	async function createPr(): Promise<void> {
+	async function createPr(): Promise<PullRequest | undefined> {
 		if (githubContext && base?.shortName) {
-			const pr = await prService.createPullRequest(
+			return await prService.createPullRequest(
 				githubContext,
 				base.shortName,
 				branch.name,
 				branch.notes,
 				branch.id
 			);
-			if (pr) {
-				await prService.reload();
-			}
-			return;
 		} else {
 			console.log('Unable to create pull request');
 		}
