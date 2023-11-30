@@ -9,8 +9,6 @@
 	import Segment from '$lib/components/SegmentControl/Segment.svelte';
 	import FileListItem from './FileListItem.svelte';
 	import FileTree from './FileTree.svelte';
-	import Resizer from '$lib/components/Resizer.svelte';
-	import lscache from 'lscache';
 	import type { UIEventHandler } from 'svelte/elements';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 
@@ -20,8 +18,6 @@
 	export let selectedFileId: Writable<string | undefined>;
 
 	let selectedListMode: string;
-	let filesHeight = 200;
-	const filesHeightKey = 'filesHeight:';
 
 	let viewport: HTMLElement;
 	let contents: HTMLElement;
@@ -31,8 +27,6 @@
 	const onScroll: UIEventHandler<HTMLDivElement> = (e) => {
 		scrolled = e.currentTarget.scrollTop != 0;
 	};
-
-	$: scrollable = contents ? contents.offsetHeight > viewport.offsetHeight : false;
 </script>
 
 {#if branch.active && branch.conflicted}
@@ -46,12 +40,7 @@
 	</div>
 {/if}
 
-<div
-	class="resize-viewport"
-	bind:this={rsViewport}
-	class:flex-grow={!scrollable}
-	style:height={scrollable ? `${filesHeight}px` : undefined}
->
+<div class="resize-viewport" bind:this={rsViewport}>
 	<div class="wrapper">
 		{#if branch.files.length > 0}
 			<div class="header" class:border-b={scrolled}>
@@ -101,16 +90,6 @@
 			</div>
 		{/if}
 	</div>
-	<Resizer
-		minHeight={100}
-		viewport={rsViewport}
-		direction="vertical"
-		class="z-30"
-		on:height={(e) => {
-			filesHeight = e.detail;
-			lscache.set(filesHeightKey + branch.id, e.detail, 7 * 1440); // 7 day ttl
-		}}
-	/>
 </div>
 
 <style lang="postcss">
@@ -118,6 +97,7 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
+		flex-grow: 1;
 		overflow: hidden;
 	}
 	.wrapper {
