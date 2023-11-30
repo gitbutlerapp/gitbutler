@@ -79,11 +79,16 @@
 					</CardSection>
 					<CardSection>
 						<svelte:fragment slot="label">
-							Take advantage of our AI integration <span class="optional">(optional)</span>
+							Summary generation <span class="optional">
+								{#if $user$}
+									(optional)
+								{:else}
+									(requires login)
+								{/if}
+							</span>
 						</svelte:fragment>
 						<svelte:fragment slot="description">
-							Enable automatic branch and commit message generation by logging or setting up an
-							account.
+							Enable automatic branch and commit message generation.
 						</svelte:fragment>
 						{#if !$userSettings.aiSummariesEnabled}
 							{#if !$user$}
@@ -98,7 +103,7 @@
 										$aiGenEnabled = aiGenCheckbox.checked;
 									}}
 								/>
-								<label for="summarize">Enable automatic summaries of your work</label>
+								<label for="summarize">Enable branch name and commit message generation</label>
 							{/if}
 						{/if}
 					</CardSection>
