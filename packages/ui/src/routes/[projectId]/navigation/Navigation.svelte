@@ -20,6 +20,7 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Tag from '../components/Tag.svelte';
 	import * as toasts from '$lib/utils/toasts';
+	import Resizer from '$lib/components/Resizer.svelte';
 
 	export let vbranchService: VirtualBranchService;
 	export let branchService: BranchService;
@@ -37,11 +38,13 @@
 
 	let stashExpanded = true;
 	let branchesExpanded = true;
+	let viewport: HTMLDivElement;
 </script>
 
 <div
-	class="navigation z-30 flex w-80 shrink-0 flex-col border-r"
+	class="navigation relative z-30 flex w-80 shrink-0 flex-col border-r"
 	style:width={$userSettings.trayWidth ? `${$userSettings.trayWidth}px` : null}
+	bind:this={viewport}
 	role="menu"
 	tabindex="0"
 >
@@ -92,12 +95,24 @@
 	<StashedBranches {project} {branchController} {vbranchService} bind:expanded={stashExpanded} />
 	<Footer {user} projectId={project.id} />
 	<AppUpdater {update} />
+	<Resizer
+		{viewport}
+		direction="right"
+		minWidth={320}
+		on:width={(e) => {
+			userSettings.update((s) => ({
+				...s,
+				trayWidth: e.detail
+			}));
+		}}
+	/>
 </div>
 
 <style lang="postcss">
 	.navigation {
 		border-right: 1px solid var(--clr-theme-container-outline-light);
 		background: var(--clr-theme-container-light);
+		max-height: 100%;
 	}
 	.drag-region {
 		padding-top: var(--space-12);

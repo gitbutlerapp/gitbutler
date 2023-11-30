@@ -107,10 +107,8 @@
 			{/if}
 		</div>
 		<Resizer
-			minWidth={300}
 			viewport={trayViewport}
-			direction="horizontal"
-			class="z-30"
+			direction="right"
 			on:width={(e) => {
 				userSettings.update((s) => ({
 					...s,

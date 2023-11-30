@@ -3,6 +3,7 @@
 	import type { PageData } from './$types';
 	import IconExternalLink from '$lib/icons/IconExternalLink.svelte';
 	import Board from './Board.svelte';
+	import Scrollbar from '$lib/components/Scrollbar.svelte';
 
 	export let data: PageData;
 
@@ -20,7 +21,11 @@
 	$: activeBranches$ = vbranchService.activeBranches$;
 	$: error$ = vbranchService.branchesError$;
 
+	let viewport: HTMLDivElement;
+	let contents: HTMLDivElement;
+
 	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(projectId);
+
 	function shouldShowHttpsWarning() {
 		if (httpsWarningBannerDismissed) return false;
 		if (!$base$?.remoteUrl.startsWith('https')) return false;
@@ -29,7 +34,7 @@
 	}
 </script>
 
-<div class="flex h-full w-full flex-grow flex-col overflow-hidden">
+<div class="flex h-full w-full max-w-full flex-grow flex-col overflow-hidden">
 	{#if shouldShowHttpsWarning()}
 		<div class="w-full bg-yellow-200/70 px-2 py-1 dark:bg-yellow-700/70">
 			HTTPS remote detected. In order to push & fetch, you may need to&nbsp;
@@ -48,18 +53,36 @@
 			<button on:click={() => httpsWarningBannerDismissed.set(true)}>Dismiss</button>
 		</div>
 	{/if}
-	<div class="flex-grow overflow-x-auto overflow-y-hidden overscroll-none">
-		<Board
-			{branchController}
-			{projectId}
-			{cloud}
-			base={$base$}
-			branches={$activeBranches$}
-			projectPath={$project$?.path}
-			githubContext={$githubContext$}
-			branchesError={$error$}
-			user={$user$}
-			{prService}
-		/>
+	<div class="relative h-full flex-grow overscroll-none">
+		<div class="scroll-viewport hide-native-scrollbar" bind:this={viewport}>
+			<div class="scroll-contents" bind:this={contents}>
+				<Board
+					{branchController}
+					{projectId}
+					{cloud}
+					base={$base$}
+					branches={$activeBranches$}
+					projectPath={$project$?.path}
+					githubContext={$githubContext$}
+					branchesError={$error$}
+					user={$user$}
+					{prService}
+				/>
+			</div>
+		</div>
+		<Scrollbar {viewport} {contents} vertical thickness="0.4rem" />
 	</div>
 </div>
+
+<style lang="postcss">
+	.scroll-viewport {
+		overflow-x: scroll;
+		overscroll-behavior: none;
+		height: 100%;
+		width: 100%;
+	}
+	.scroll-contents {
+		display: flex;
+		height: 100%;
+	}
+</style>
