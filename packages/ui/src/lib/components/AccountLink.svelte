@@ -9,7 +9,13 @@
 <button class="btn" on:click={() => goto('/user/')}>
 	<span class="name text-base-13 text-semibold">
 		{#if user}
-			{user.name}
+			{#if user.name}
+				{user.name}
+			{:else if user.given_name}
+				{user.given_name}
+			{:else if user.email}
+				{user.email}
+			{/if}
 		{:else}
 			Account
 		{/if}
