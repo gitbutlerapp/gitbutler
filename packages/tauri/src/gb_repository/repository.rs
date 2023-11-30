@@ -8,18 +8,19 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use filetime::FileTime;
+use git2::TreeWalkResult;
 use sha2::{Digest, Sha256};
 
 use crate::{
     fs, git, lock,
     paths::DataDir,
+    project_repository,
     projects::{self, ProjectId},
+    reader, sessions,
     sessions::SessionId,
     users,
     virtual_branches::{self, target},
 };
-
-use crate::{project_repository, reader, sessions};
 
 pub struct Repository {
     git_repository: git::Repository,
@@ -463,7 +464,7 @@ impl Repository {
             .context("failed to remove session directory")?;
 
         let session = sessions::Session {
-            hash: Some(commit_oid.to_string()),
+            hash: Some(commit_oid),
             ..session.clone()
         };
 
@@ -533,9 +534,85 @@ impl Repository {
     }
 }
 
+fn build_wd_tree(
+    gb_repository: &Repository,
+    project_repository: &project_repository::Repository,
+) -> Result<git::Oid> {
+    match gb_repository
+        .git_repository
+        .find_reference(&"refs/heads/current".parse().unwrap())
+    {
+        Result::Ok(reference) => {
+            build_wd_tree_from_reference(gb_repository, project_repository, &reference)
+                .context("failed to build wd index")
+        }
+        Err(git::Error::NotFound(_)) => build_wd_tree_from_repo(gb_repository, project_repository)
+            .context("failed to build wd index"),
+        Err(e) => Err(e.into()),
+    }
+}
+
+fn build_wd_tree_from_reference(
+    gb_repository: &Repository,
+    project_repository: &project_repository::Repository,
+    reference: &git::Reference,
+) -> Result<git::Oid> {
+    // start off with the last tree as a base
+    let tree = reference.peel_to_tree()?;
+    let wd_tree_entry = tree.get_name("wd").unwrap();
+    let wd_tree = gb_repository.git_repository.find_tree(wd_tree_entry.id())?;
+    let mut index = git::Index::try_from(&wd_tree)?;
+
+    // write updated files on top of the last tree
+    for file_path in fs::list_files(gb_repository.session_wd_path(), &[]).with_context(|| {
+        format!(
+            "failed to session working directory files list files in {}",
+            gb_repository.session_wd_path().display()
+        )
+    })? {
+        if project_repository
+            .git_repository
+            .is_path_ignored(&file_path)
+            .unwrap_or(true)
+        {
+            continue;
+        }
+
+        add_wd_path(
+            &mut index,
+            &gb_repository.session_wd_path(),
+            &file_path,
+            gb_repository,
+        )
+        .with_context(|| {
+            format!(
+                "failed to add session working directory path {}",
+                file_path.display()
+            )
+        })?;
+    }
+
+    // remove deleted files from the last tree
+    wd_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+        if let Some(name) = &entry.name() {
+            let rel_path = path::Path::new(root).join(name);
+            let full_path = project_repository.path().join(&rel_path);
+            if !full_path.exists() && index.remove_path(&rel_path).is_err() {
+                return TreeWalkResult::Abort;
+            }
+        }
+        TreeWalkResult::Ok
+    })?;
+
+    let wd_tree_oid = index
+        .write_tree_to(&gb_repository.git_repository)
+        .context("failed to write wd tree")?;
+    Ok(wd_tree_oid)
+}
+
 // build wd index from the working directory files new session wd files
 // this is important because we want to make sure session files are in sync with session deltas
-fn build_wd_tree(
+fn build_wd_tree_from_repo(
     gb_repository: &Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<git::Oid> {

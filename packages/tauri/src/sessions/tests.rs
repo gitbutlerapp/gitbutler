@@ -13,7 +13,7 @@ fn test_should_not_write_session_with_hash() {
 
     let session = sessions::Session {
         id: SessionId::generate(),
-        hash: Some("hash".to_string()),
+        hash: Some("08f23df1b9c2dec3d0c826a3ae745f9b821a1a26".parse().unwrap()),
         meta: sessions::Meta {
             start_timestamp_ms: 0,
             last_timestamp_ms: 1,

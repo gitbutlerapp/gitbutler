@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::{id::Id, reader};
+use crate::{git, id::Id, reader};
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -26,7 +26,7 @@ pub type SessionId = Id<Session>;
 pub struct Session {
     pub id: SessionId,
     // if hash is not set, the session is not saved aka current
-    pub hash: Option<String>,
+    pub hash: Option<git::Oid>,
     pub meta: Meta,
 }
 
@@ -107,7 +107,7 @@ impl<'reader> TryFrom<reader::CommitReader<'reader>> for Session {
     type Error = SessionError;
 
     fn try_from(reader: reader::CommitReader<'reader>) -> Result<Self, Self::Error> {
-        let commit_oid = reader.get_commit_oid().to_string();
+        let commit_oid = reader.get_commit_oid();
         let session = Session::try_from(&reader as &dyn reader::Reader)?;
         Ok(Session {
             hash: Some(commit_oid),
