@@ -41,12 +41,12 @@ pub fn init(package_info: &PackageInfo) -> ClientInitGuard {
 /// There is only one scope in the application, so this will overwrite any previous user.
 pub fn configure_scope(user: Option<&users::User>) {
     let name = match user {
-        Some(user) => match user.name {
-            Some(ref name) => Some(name.clone()),
-            None => match user.given_name {
-                Some(ref given_name) => Some(given_name.clone()),
-                None => None,
-            },
+        Some(user) => match &user.name {
+            Some(name) => Some(name.clone()),
+            None => user
+                .given_name
+                .as_ref()
+                .map(|given_name| given_name.clone()),
         },
         None => None,
     };
