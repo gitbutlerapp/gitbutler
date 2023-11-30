@@ -53,9 +53,10 @@ export class PrService {
 		);
 	}
 
-	reload(): Promise<void> {
+	async reload(): Promise<void> {
+		const fresh = firstValueFrom(this.fresh$);
 		this.reload$.next({ skipCache: true });
-		return firstValueFrom(this.fresh$);
+		return await fresh;
 	}
 
 	get(branch: string | undefined): Observable<PullRequest | undefined> | undefined {
@@ -110,6 +111,7 @@ export class PrService {
 					title,
 					body
 				});
+				await this.reload();
 				return ghResponseToInstance(rsp.data);
 			}
 			throw `No upstream for branch ${branchId}`;

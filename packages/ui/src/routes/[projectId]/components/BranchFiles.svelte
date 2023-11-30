@@ -32,7 +32,7 @@
 		scrolled = e.currentTarget.scrollTop != 0;
 	};
 
-	$: scrollable = contents ? contents.scrollHeight > rsViewport.offsetHeight : false;
+	$: scrollable = contents ? contents.offsetHeight > viewport.offsetHeight : false;
 </script>
 
 {#if branch.active && branch.conflicted}
