@@ -108,14 +108,14 @@ impl HandlerInner {
                 )
                 .await
             {
-                Ok(_) => {}
+                Ok(()) => {}
                 Err(project_repository::RemoteError::Network) => return Ok(vec![]),
                 Err(err) => return Err(err).context("failed to push"),
             };
         }
 
-        match push_all_refs(project_repository, user, project_id) {
-            Ok(_) => {}
+        match push_all_refs(&project_repository, &user, project_id) {
+            Ok(()) => {}
             Err(project_repository::RemoteError::Network) => return Ok(vec![]),
             Err(err) => return Err(err).context("failed to push"),
         };
