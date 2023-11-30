@@ -1065,7 +1065,7 @@ mod test {
             std::fs::remove_file(project.path.join("test.txt")).unwrap();
             listener.handle("test.txt", &project.id).unwrap();
             std::fs::remove_file(project.path.join("one/two/test2.txt")).unwrap();
-            listener.handle("one/two/test.txt", &project.id).unwrap();
+            listener.handle("one/two/test2.txt", &project.id).unwrap();
 
             let flushed_session = gb_repository
                 .flush(&project_repository, None)

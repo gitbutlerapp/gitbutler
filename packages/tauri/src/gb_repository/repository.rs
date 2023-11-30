@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::File,
     io::{BufReader, Read},
     os::unix::prelude::{MetadataExt, OsStrExt},
@@ -8,15 +8,15 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use filetime::FileTime;
-use git2::TreeWalkResult;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    fs, git, lock,
+    deltas, fs, git, lock,
     paths::DataDir,
     project_repository,
     projects::{self, ProjectId},
-    reader, sessions,
+    reader::{self, Reader},
+    sessions,
     sessions::SessionId,
     users,
     virtual_branches::{self, target},
@@ -542,10 +542,8 @@ fn build_wd_tree(
         .git_repository
         .find_reference(&"refs/heads/current".parse().unwrap())
     {
-        Result::Ok(reference) => {
-            build_wd_tree_from_reference(gb_repository, project_repository, &reference)
-                .context("failed to build wd index")
-        }
+        Result::Ok(reference) => build_wd_tree_from_reference(gb_repository, &reference)
+            .context("failed to build wd index"),
         Err(git::Error::NotFound(_)) => build_wd_tree_from_repo(gb_repository, project_repository)
             .context("failed to build wd index"),
         Err(e) => Err(e.into()),
@@ -554,7 +552,6 @@ fn build_wd_tree(
 
 fn build_wd_tree_from_reference(
     gb_repository: &Repository,
-    project_repository: &project_repository::Repository,
     reference: &git::Reference,
 ) -> Result<git::Oid> {
     // start off with the last tree as a base
@@ -570,14 +567,6 @@ fn build_wd_tree_from_reference(
             gb_repository.session_wd_path().display()
         )
     })? {
-        if project_repository
-            .git_repository
-            .is_path_ignored(&file_path)
-            .unwrap_or(true)
-        {
-            continue;
-        }
-
         add_wd_path(
             &mut index,
             &gb_repository.session_wd_path(),
@@ -592,17 +581,24 @@ fn build_wd_tree_from_reference(
         })?;
     }
 
-    // remove deleted files from the last tree
-    wd_tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
-        if let Some(name) = &entry.name() {
-            let rel_path = path::Path::new(root).join(name);
-            let full_path = project_repository.path().join(&rel_path);
-            if !full_path.exists() && index.remove_path(&rel_path).is_err() {
-                return TreeWalkResult::Abort;
-            }
-        }
-        TreeWalkResult::Ok
-    })?;
+    let session_reader = reader::DirReader::open(gb_repository.root());
+    let deltas = deltas::Reader::new(&session_reader)
+        .read(None)
+        .context("failed to read deltas")?;
+    let wd_files = session_reader.list_files(path::Path::new("session/wd"))?;
+    let wd_files = wd_files.iter().collect::<HashSet<_>>();
+
+    // if a file has delta, but doesn't exist in wd, it was deleted
+    let deleted_files = deltas
+        .keys()
+        .filter(|key| !wd_files.contains(key))
+        .collect::<Vec<_>>();
+
+    for deleted_file in deleted_files {
+        index
+            .remove_path(deleted_file)
+            .context("failed to remove path")?;
+    }
 
     let wd_tree_oid = index
         .write_tree_to(&gb_repository.git_repository)
