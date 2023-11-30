@@ -429,6 +429,7 @@ impl Repository {
         sessions::Writer::new(self).write(session)?;
 
         let mut tree_builder = self.git_repository.treebuilder(None);
+
         tree_builder.upsert(
             "session",
             build_session_tree(self).context("failed to build session tree")?,
@@ -544,16 +545,15 @@ fn build_wd_tree(
 
     // first, add session/wd files. session/wd are written at the same time as deltas, so it's important to add them first
     // to make sure they are in sync with the deltas
-    for file_path in fs::list_files(gb_repository.session_wd_path()).with_context(|| {
+    for file_path in fs::list_files(gb_repository.session_wd_path(), &[]).with_context(|| {
         format!(
             "failed to session working directory files list files in {}",
             gb_repository.session_wd_path().display()
         )
     })? {
-        let file_path = std::path::Path::new(&file_path);
         if project_repository
             .git_repository
-            .is_path_ignored(file_path)
+            .is_path_ignored(&file_path)
             .unwrap_or(true)
         {
             continue;
@@ -562,7 +562,7 @@ fn build_wd_tree(
         add_wd_path(
             &mut index,
             &gb_repository.session_wd_path(),
-            file_path,
+            &file_path,
             gb_repository,
         )
         .with_context(|| {
@@ -575,21 +575,21 @@ fn build_wd_tree(
     }
 
     // finally, add files from the working directory if they aren't already in the index
-    for file_path in fs::list_files(project_repository.root()).with_context(|| {
-        format!(
-            "failed to working directory list files in {}",
-            project_repository.root().display()
-        )
-    })? {
+    for file_path in fs::list_files(project_repository.root(), &[path::Path::new(".git")])
+        .with_context(|| {
+            format!(
+                "failed to working directory list files in {}",
+                project_repository.root().display()
+            )
+        })?
+    {
         if added.contains_key(&file_path.to_string_lossy().to_string()) {
             continue;
         }
 
-        let file_path = std::path::Path::new(&file_path);
-
         if project_repository
             .git_repository
-            .is_path_ignored(file_path)
+            .is_path_ignored(&file_path)
             .unwrap_or(true)
         {
             continue;
@@ -598,7 +598,7 @@ fn build_wd_tree(
         add_wd_path(
             &mut index,
             project_repository.root(),
-            file_path,
+            &file_path,
             gb_repository,
         )
         .with_context(|| {
@@ -720,7 +720,9 @@ fn build_branches_tree(gb_repository: &Repository) -> Result<git::Oid> {
     let mut index = git::Index::new()?;
 
     let branches_dir = gb_repository.root().join("branches");
-    for file_path in fs::list_files(&branches_dir).context("failed to find branches directory")? {
+    for file_path in
+        fs::list_files(&branches_dir, &[]).context("failed to find branches directory")?
+    {
         let file_path = std::path::Path::new(&file_path);
         add_file_to_index(
             gb_repository,
@@ -742,18 +744,17 @@ fn build_session_tree(gb_repository: &Repository) -> Result<git::Oid> {
     let mut index = git::Index::new()?;
 
     // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
-    for file_path in
-        fs::list_files(gb_repository.session_path()).context("failed to list session files")?
+    for file_path in fs::list_files(
+        gb_repository.session_path(),
+        &[path::Path::new("wd").to_path_buf()],
+    )
+    .context("failed to list session files")?
     {
-        let file_path = std::path::Path::new(&file_path);
-        if file_path.starts_with("wd/") {
-            continue;
-        }
         add_file_to_index(
             gb_repository,
             &mut index,
-            file_path,
-            &gb_repository.session_path().join(file_path),
+            &file_path,
+            &gb_repository.session_path().join(&file_path),
         )
         .with_context(|| format!("failed to add session file: {}", file_path.display()))?;
     }
