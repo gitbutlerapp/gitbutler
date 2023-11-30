@@ -10,6 +10,7 @@
 	export let prService: PrService;
 	export let projectId: string;
 	export let baseBranchService: BaseBranchService;
+	export let cloudEnabled: boolean;
 
 	$: base$ = baseBranchService.base$;
 
@@ -23,7 +24,7 @@
 		e.stopPropagation();
 		fetching = true;
 		try {
-			syncToCloud(projectId); // don't wait for this
+			if (cloudEnabled) syncToCloud(projectId); // don't wait for this
 			await branchController.fetchFromTarget();
 			await prService.reload();
 		} finally {
