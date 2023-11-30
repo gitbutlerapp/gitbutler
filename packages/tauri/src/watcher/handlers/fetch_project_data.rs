@@ -105,8 +105,13 @@ impl HandlerInner {
             project_repository
                 .fetch(default_target.branch.remote(), &credentials)
                 .map_err(|err| {
-                    tracing::warn!(%project_id, ?err, will_retry = true, "failed to fetch project data");
-                    backoff::Error::transient(err)
+                    match err  {
+                        RemoteError::Auth | RemoteError::Network => backoff::Error::permanent(err),
+                        err =>  {
+                            tracing::warn!(%project_id, ?err, will_retry = true, "failed to fetch project data");
+                            backoff::Error::transient(err)
+                        }
+                    }
                 })
         }) {
             Ok(()) => projects::FetchResult::Fetched { timestamp: *now },
