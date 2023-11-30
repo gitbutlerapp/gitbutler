@@ -230,15 +230,15 @@
 						{/each}
 					{/if}
 				</div>
-				<Scrollbar {viewport} {contents} width="0.4rem" />
+				<Scrollbar {viewport} {contents} thickness="0.4rem" />
 			</div>
 		</div>
 	</div>
 	<Resizer
-		minWidth={330}
 		viewport={rsViewport}
-		direction="horizontal"
-		class="z-30"
+		direction="right"
+		inside
+		minWidth={240}
 		on:width={(e) => {
 			fileWidth = e.detail;
 			lscache.set(fileWidthKey + file.id, e.detail, 7 * 1440); // 7 day ttl

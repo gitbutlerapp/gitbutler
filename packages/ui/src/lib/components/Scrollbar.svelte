@@ -8,12 +8,17 @@
 	export let initiallyVisible = false;
 	export let margin: { top?: number; right?: number; bottom?: number; left?: number } = {};
 	export let opacity = '0.2';
-	export let width = '0.625rem';
+	export let thickness = '0.625rem';
+	export let vertical = false;
+
+	$: horz = !vertical;
 
 	let thumb: Element;
 	let track: Element;
 	let startTop = 0;
+	let startLeft = 0;
 	let startY = 0;
+	let startX = 0;
 	let timer = 0;
 	let interacted = false;
 
@@ -28,13 +33,19 @@
 	$: marginLeft = margin.left ?? 0;
 
 	$: wholeHeight = viewport?.scrollHeight ?? 0;
+	$: wholeWidth = viewport?.scrollWidth ?? 0;
 	$: scrollTop = viewport?.scrollTop ?? 0;
+	$: scrollLeft = viewport?.scrollLeft ?? 0;
 	$: trackHeight = viewport?.clientHeight ?? 0 - (marginTop + marginBottom);
+	$: trackWidth = viewport?.clientHeight ?? 0 - (marginTop + marginBottom);
 	$: thumbHeight = wholeHeight > 0 ? (trackHeight / wholeHeight) * trackHeight : 0;
+	$: thumbWidth = wholeWidth > 0 ? (trackWidth / wholeWidth) * trackWidth : 0;
 	$: thumbTop = wholeHeight > 0 ? (scrollTop / wholeHeight) * trackHeight : 0;
+	$: thumbLeft = wholeHeight > 0 ? (scrollLeft / wholeWidth) * trackWidth : 0;
 
-	$: scrollable = wholeHeight > trackHeight;
-	$: visible = scrollable && (alwaysVisible || initiallyVisible);
+	$: scrollableY = wholeHeight > trackHeight;
+	$: scrollableX = wholeWidth > trackWidth;
+	$: visible = (scrollableY || scrollableX) && (alwaysVisible || initiallyVisible);
 
 	function setupViewport(viewport: Element) {
 		if (!viewport) return;
@@ -46,7 +57,9 @@
 		const observer = new ResizeObserver((entries) => {
 			for (const _entry of entries) {
 				wholeHeight = viewport?.scrollHeight ?? 0;
+				wholeWidth = viewport?.scrollWidth ?? 0;
 				trackHeight = viewport?.clientHeight - (marginTop + marginBottom) ?? 0;
+				trackWidth = viewport?.clientWidth - (marginLeft + marginRight) ?? 0;
 			}
 		});
 		observer.observe(viewport);
@@ -106,7 +119,9 @@
 
 	function setupTimer() {
 		timer = window.setTimeout(() => {
-			visible = (scrollable && (alwaysVisible || (initiallyVisible && !interacted))) || false;
+			visible =
+				((scrollableY || scrollableX) && (alwaysVisible || (initiallyVisible && !interacted))) ||
+				false;
 		}, hideAfter);
 	}
 
@@ -118,13 +133,14 @@
 	}
 
 	function onScroll() {
-		if (!scrollable) return;
+		if (!scrollableY && !scrollableX) return;
 
 		clearTimer();
 		setupTimer();
 
 		visible = alwaysVisible || (initiallyVisible && !interacted) || true;
 		scrollTop = viewport?.scrollTop ?? 0;
+		scrollLeft = viewport?.scrollLeft ?? 0;
 		interacted = true;
 	}
 
@@ -142,11 +158,16 @@
 		event.preventDefault();
 
 		if (event instanceof MouseEvent) {
-			const clickOffset = (event.offsetY / trackHeight) * wholeHeight;
-			const halfThumb = (thumbHeight / trackHeight) * (wholeHeight / 2);
-			viewport.scrollTo({ top: clickOffset - halfThumb });
+			const clickOffsetY = (event.offsetY / trackHeight) * wholeHeight;
+			const clickOffsetX = (event.offsetX / trackWidth) * wholeWidth;
+			const halfThumbY = (thumbHeight / trackHeight) * (wholeHeight / 2);
+			const halfThumbX = (thumbWidth / trackWidth) * (wholeWidth / 2);
+			if (horz) viewport.scrollTo({ top: clickOffsetY - halfThumbY });
+			if (!horz) viewport.scrollTo({ top: clickOffsetX - halfThumbX });
 			startY = event.clientY;
 			startTop = viewport.scrollTop;
+			startX = event.clientY;
+			startLeft = viewport.scrollTop;
 		}
 
 		document.addEventListener('mousemove', onMouseMove);
@@ -158,8 +179,10 @@
 		event.preventDefault();
 
 		startTop = viewport.scrollTop;
+		startLeft = viewport.scrollLeft;
 		if (event instanceof MouseEvent) {
 			startY = event.clientY;
+			startX = event.clientX;
 		}
 
 		document.addEventListener('mousemove', onMouseMove);
@@ -171,6 +194,7 @@
 		event.preventDefault();
 
 		viewport.scrollTop = startTop + (wholeHeight / trackHeight) * (event.clientY - startY);
+		viewport.scrollLeft = startLeft + (wholeWidth / trackWidth) * (event.clientX - startX);
 	}
 
 	function onMouseUp(event: MouseEvent) {
@@ -179,6 +203,9 @@
 
 		startTop = 0;
 		startY = 0;
+
+		startLeft = 0;
+		startX = 0;
 
 		document.removeEventListener('mousemove', onMouseMove);
 		document.removeEventListener('mouseup', onMouseUp);
@@ -193,17 +220,22 @@
 
 <div
 	bind:this={track}
-	class="absolute right-0 top-0 duration-200"
-	style:width
-	style:height={`${trackHeight}px`}
+	class="absolute top-0 duration-200"
+	class:right-0={horz}
+	class:top-0={horz}
+	class:bottom-0={vertical}
+	class:left-0={vertical}
+	style:width={horz ? thickness : `${trackWidth}px`}
+	style:height={horz ? `${trackHeight}px` : thickness}
 	style:margin={`${marginTop}rem ${marginRight}rem ${marginBottom}rem ${marginLeft}rem`}
 >
 	<div
 		bind:this={thumb}
 		class="absolute z-30 bg-black transition-opacity dark:bg-white"
-		style:width
 		style:opacity={visible ? opacity : 0}
-		style:top={`${thumbTop}px`}
-		style:height={`${thumbHeight}px`}
+		style:left={horz ? undefined : `${thumbLeft}px`}
+		style:top={horz ? `${thumbTop}px` : undefined}
+		style:width={horz ? thickness : `${thumbWidth}px`}
+		style:height={horz ? `${thumbHeight}px` : thickness}
 	/>
 </div>

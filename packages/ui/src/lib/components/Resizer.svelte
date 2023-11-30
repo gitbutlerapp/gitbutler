@@ -1,36 +1,23 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 
-	let classes = '';
-	export { classes as class };
-
 	// The element that is being resized
 	export let viewport: HTMLElement;
 
 	// Sets direction of resizing for viewport
-	export let direction: 'horizontal' | 'vertical';
+	export let direction: 'left' | 'right' | 'up' | 'down';
 
-	// For resizing bottom-up or right-to-left
-	export let reverse = false;
+	// Needed when overflow is hidden
+	export let inside = false;
 
-	// Grow beyond container on hover
-	export let grow = true;
+	//
+	export let minWidth = 0;
+	export let minHeight = 0;
 
-	// Width of resize handle when horizontal
-	export let width = 1;
+	$: orientation = ['left', 'right'].includes(direction) ? 'horizontal' : 'vertical';
 
-	// Height of resize handle when vertical
-	export let height = 1;
-
-	// Min width of viewport when horizontal
-	export let minWidth = 100;
-
-	// min height of viewport when vertical
-	export let minHeight = 100;
-
-	let dragging = false;
-	let hovering = false;
 	let initial = 0;
+	let dragging = false;
 
 	const dispatch = createEventDispatcher<{
 		height: number;
@@ -43,48 +30,37 @@
 		e.preventDefault();
 		document.addEventListener('mouseup', onMouseUp);
 		document.addEventListener('mousemove', onMouseMove);
-		dragging = true;
 
-		if (direction == 'horizontal') {
-			if (!reverse) initial = e.clientX - viewport.clientWidth;
-			if (reverse) initial = window.innerWidth - e.clientX - viewport.clientWidth;
-		}
-		if (direction == 'vertical') {
-			if (!reverse) initial = e.clientY - viewport.clientHeight;
-			if (reverse) initial = window.innerHeight - e.clientY - viewport.clientHeight;
-		}
+		if (direction == 'right') initial = e.clientX - viewport.clientWidth;
+		if (direction == 'left') initial = window.innerWidth - e.clientX - viewport.clientWidth;
+		if (direction == 'down') initial = e.clientY - viewport.clientHeight;
+		if (direction == 'up') initial = window.innerHeight - e.clientY - viewport.clientHeight;
 
 		dispatch('resizing', true);
 	}
 
-	function onMouseEnter() {
-		hovering = true;
-	}
-
-	function onMouseLeave() {
-		if (!dragging) {
-			hovering = false;
-		}
-	}
-
 	function onMouseMove(e: MouseEvent) {
-		if (direction == 'horizontal') {
-			let width = !reverse
-				? e.clientX - initial + 2
-				: document.body.scrollWidth - e.clientX - initial;
-			dispatch('width', minWidth ? Math.max(minWidth, width) : width);
+		dragging = true;
+		if (direction == 'down') {
+			let height = e.clientY - initial;
+			dispatch('height', Math.max(height, minHeight));
 		}
-		if (direction == 'vertical') {
-			let height = !reverse
-				? e.clientY - initial
-				: document.body.scrollHeight - e.clientY - initial;
-			dispatch('height', minHeight ? Math.max(minHeight, height) : height);
+		if (direction == 'up') {
+			let height = document.body.scrollHeight - e.clientY - initial;
+			dispatch('height', Math.max(height, minHeight));
+		}
+		if (direction == 'right') {
+			let width = e.clientX - initial + 2;
+			dispatch('width', Math.max(width, minWidth));
+		}
+		if (direction == 'left') {
+			let width = document.body.scrollWidth - e.clientX - initial;
+			dispatch('width', Math.max(width, minWidth));
 		}
 	}
 
 	function onMouseUp() {
 		dragging = false;
-		hovering = false;
 		document.removeEventListener('mouseup', onMouseUp);
 		document.removeEventListener('mousemove', onMouseMove);
 		dispatch('resizing', false);
@@ -93,33 +69,68 @@
 
 <div
 	on:mousedown={onMouseDown}
-	on:mouseenter={onMouseEnter}
-	on:mouseleave={onMouseLeave}
+	class="resizer"
 	tabindex="0"
 	role="slider"
 	aria-valuenow={viewport?.clientHeight}
-	style:background-color={hovering ? 'var(--resizer-bg-active)' : undefined}
-	class:cursor-ew-resize={hovering && direction == 'horizontal'}
-	class:cursor-ns-resize={hovering && direction == 'vertical'}
-	class:-mt-[2px]={hovering && grow && direction == 'vertical'}
-	class:-mb-[2px]={hovering && grow && direction == 'vertical'}
-	class:-mr-[2px]={hovering && grow && direction == 'horizontal'}
-	class:-ml-[2px]={hovering && grow && direction == 'horizontal'}
-	class:h-full={direction == 'vertical'}
-	style:height={direction == 'vertical'
-		? hovering
-			? grow
-				? `${height + 4}px`
-				: `${height}px`
-			: `${height}px`
-		: undefined}
-	style:width={direction == 'horizontal'
-		? hovering
-			? grow
-				? `${width + 4}px`
-				: `${width}px`
-			: `${width}px`
-		: undefined}
-	style:cursor={direction == 'horizontal' ? 'ew-resize' : 'ns-resize'}
-	class="shrink-0 {classes ? ` ${classes}` : ''}"
+	class:inside
+	class:dragging
+	class:vertical={orientation == 'vertical'}
+	class:horizontal={orientation == 'horizontal'}
+	class:up={direction == 'up'}
+	class:down={direction == 'down'}
+	class:left={direction == 'left'}
+	class:right={direction == 'right'}
 />
+
+<style lang="postcss">
+	.resizer {
+		position: absolute;
+		z-index: 40;
+		&:hover,
+		&.dragging {
+			background-color: var(--resizer-bg-active);
+		}
+	}
+	.horizontal {
+		width: var(--space-4);
+		height: 100%;
+		cursor: ew-resize;
+		&:hover {
+			width: var(--space-4);
+		}
+	}
+	.vertical {
+		height: var(--space-4);
+		width: 100%;
+		cursor: ns-resize;
+		&:hover {
+			height: var(--space-4);
+		}
+	}
+	.right {
+		right: calc(-1 * var(--space-2));
+		&.inside {
+			right: 0;
+		}
+	}
+	.left {
+		left: 0;
+		&:hover {
+			width: var(--space-4);
+		}
+	}
+	.up {
+		top: 0;
+		&:hover {
+			height: var(--space-4);
+		}
+	}
+	.down {
+		bottom: var(--space-2);
+		&:hover {
+			bottom: var(--space-4);
+			height: var(--space-4);
+		}
+	}
+</style>

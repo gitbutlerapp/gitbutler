@@ -52,40 +52,41 @@
 	}
 </script>
 
-{#if expanded}
-	<Resizer
-		minHeight={100}
-		{viewport}
-		direction="vertical"
-		class="z-30"
-		reverse={true}
-		on:height={(e) => {
-			userSettings.update((s) => ({
-				...s,
-				vbranchExpandableHeight: e.detail
-			}));
-		}}
-	/>
-{/if}
-<SectionHeader {scrolled} count={$branches$?.length ?? 0} expandable={true} bind:expanded>
-	Other branches
-</SectionHeader>
-<div
-	class="wrapper"
-	use:accordion={$branches$?.length > 0 && expanded}
-	style:height={`${$userSettings.vbranchExpandableHeight}px`}
->
-	<div bind:this={viewport} class="viewport hide-native-scrollbar" on:scroll={onScroll}>
-		<BranchFilter {typeFilter$} {textFilter$}></BranchFilter>
-		<div bind:this={contents} class="content">
-			{#if $filteredBranches$}
-				{#each $filteredBranches$ as branch}
-					<BranchItem {projectId} {branch} />
-				{/each}
-			{/if}
+<div class="relative flex flex-col">
+	{#if expanded}
+		<Resizer
+			{viewport}
+			direction="up"
+			inside
+			minHeight={90}
+			on:height={(e) => {
+				userSettings.update((s) => ({
+					...s,
+					vbranchExpandableHeight: e.detail
+				}));
+			}}
+		/>
+	{/if}
+	<SectionHeader {scrolled} count={$branches$?.length ?? 0} expandable={true} bind:expanded>
+		Other branches
+	</SectionHeader>
+	<div
+		class="wrapper"
+		use:accordion={$branches$?.length > 0 && expanded}
+		style:height={`${$userSettings.vbranchExpandableHeight}px`}
+	>
+		<div bind:this={viewport} class="viewport hide-native-scrollbar" on:scroll={onScroll}>
+			<BranchFilter {typeFilter$} {textFilter$}></BranchFilter>
+			<div bind:this={contents} class="content">
+				{#if $filteredBranches$}
+					{#each $filteredBranches$ as branch}
+						<BranchItem {projectId} {branch} />
+					{/each}
+				{/if}
+			</div>
 		</div>
+		<Scrollbar {viewport} {contents} thickness="0.5rem" />
 	</div>
-	<Scrollbar {viewport} {contents} width="0.5rem" />
 </div>
 
 <style lang="postcss">

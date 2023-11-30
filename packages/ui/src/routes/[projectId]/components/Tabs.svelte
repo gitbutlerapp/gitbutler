@@ -95,15 +95,13 @@
 					{/each}
 				</div>
 			</div>
-			<Scrollbar viewport={thViewport} contents={thContents} width="0.4rem" />
+			<Scrollbar viewport={thViewport} contents={thContents} thickness="0.4rem" />
 		</div>
 	{/if}
 </div>
 <Resizer
-	minHeight={40}
 	viewport={thViewport}
-	direction="vertical"
-	class="z-30"
+	direction="down"
 	on:height={(e) => {
 		treeHeight = e.detail;
 		lscache.set(treeHeightKey + branchId, e.detail, 7 * 1440); // 7 day ttl

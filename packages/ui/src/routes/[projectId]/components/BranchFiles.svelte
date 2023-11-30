@@ -86,7 +86,7 @@
 						{/if}
 					</div>
 				</div>
-				<Scrollbar {viewport} {contents} width="0.4rem" />
+				<Scrollbar {viewport} {contents} thickness="0.4rem" />
 			</div>
 		{/if}
 	</div>

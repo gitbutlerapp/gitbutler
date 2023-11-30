@@ -360,10 +360,10 @@
 	</div>
 	{#if !maximized}
 		<Resizer
-			minWidth={330}
 			viewport={rsViewport}
-			direction="horizontal"
-			class="z-30"
+			direction="right"
+			inside={!$selectedFileId}
+			minWidth={320}
 			on:width={(e) => {
 				laneWidth = e.detail;
 				lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
