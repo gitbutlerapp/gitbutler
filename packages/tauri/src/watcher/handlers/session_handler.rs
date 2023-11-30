@@ -970,8 +970,9 @@ mod test {
             }
 
             // write another file into session
-            std::fs::write(project.path.join("test2.txt"), "hello world!").unwrap();
-            listener.handle("test2.txt", &project.id).unwrap();
+            std::fs::create_dir_all(project.path.join("one/two")).unwrap();
+            std::fs::write(project.path.join("one/two/test2.txt"), "hello world!").unwrap();
+            listener.handle("one/two/test2.txt", &project.id).unwrap();
 
             let flushed_session = gb_repository
                 .flush(&project_repository, None)
@@ -990,14 +991,19 @@ mod test {
                 .unwrap();
                 assert_eq!(
                     commit_reader.list_files(path::Path::new("wd")).unwrap(),
-                    vec![path::Path::new("test.txt"), path::Path::new("test2.txt")]
+                    vec![
+                        path::Path::new("one/two/test2.txt"),
+                        path::Path::new("test.txt"),
+                    ]
                 );
                 assert_eq!(
                     commit_reader.read(path::Path::new("wd/test.txt")).unwrap(),
                     reader::Content::UTF8("hello world!".to_string())
                 );
                 assert_eq!(
-                    commit_reader.read(path::Path::new("wd/test2.txt")).unwrap(),
+                    commit_reader
+                        .read(path::Path::new("wd/one/two/test2.txt"))
+                        .unwrap(),
                     reader::Content::UTF8("hello world!".to_string())
                 );
             }
@@ -1017,6 +1023,9 @@ mod test {
             // write a file into session
             std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
             listener.handle("test.txt", &project.id).unwrap();
+            std::fs::create_dir_all(project.path.join("one/two")).unwrap();
+            std::fs::write(project.path.join("one/two/test2.txt"), "hello world!").unwrap();
+            listener.handle("one/two/test2.txt", &project.id).unwrap();
 
             let flushed_session = gb_repository
                 .flush(&project_repository, None)
@@ -1035,10 +1044,19 @@ mod test {
                 .unwrap();
                 assert_eq!(
                     commit_reader.list_files(path::Path::new("wd")).unwrap(),
-                    vec![path::Path::new("test.txt")]
+                    vec![
+                        path::Path::new("one/two/test2.txt"),
+                        path::Path::new("test.txt"),
+                    ]
                 );
                 assert_eq!(
                     commit_reader.read(path::Path::new("wd/test.txt")).unwrap(),
+                    reader::Content::UTF8("hello world!".to_string())
+                );
+                assert_eq!(
+                    commit_reader
+                        .read(path::Path::new("wd/one/two/test2.txt"))
+                        .unwrap(),
                     reader::Content::UTF8("hello world!".to_string())
                 );
             }
@@ -1046,6 +1064,8 @@ mod test {
             // rm the files
             std::fs::remove_file(project.path.join("test.txt")).unwrap();
             listener.handle("test.txt", &project.id).unwrap();
+            std::fs::remove_file(project.path.join("one/two/test2.txt")).unwrap();
+            listener.handle("one/two/test.txt", &project.id).unwrap();
 
             let flushed_session = gb_repository
                 .flush(&project_repository, None)
@@ -1083,6 +1103,9 @@ mod test {
             // write a file into session
             std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
             listener.handle("test.txt", &project.id).unwrap();
+            std::fs::create_dir_all(project.path.join("one/two")).unwrap();
+            std::fs::write(project.path.join("one/two/test2.txt"), "hello world!").unwrap();
+            listener.handle("one/two/test2.txt", &project.id).unwrap();
 
             let flushed_session = gb_repository
                 .flush(&project_repository, None)
@@ -1101,10 +1124,19 @@ mod test {
                 .unwrap();
                 assert_eq!(
                     commit_reader.list_files(path::Path::new("wd")).unwrap(),
-                    vec![path::Path::new("test.txt")]
+                    vec![
+                        path::Path::new("one/two/test2.txt"),
+                        path::Path::new("test.txt"),
+                    ]
                 );
                 assert_eq!(
                     commit_reader.read(path::Path::new("wd/test.txt")).unwrap(),
+                    reader::Content::UTF8("hello world!".to_string())
+                );
+                assert_eq!(
+                    commit_reader
+                        .read(path::Path::new("wd/one/two/test2.txt"))
+                        .unwrap(),
                     reader::Content::UTF8("hello world!".to_string())
                 );
             }
@@ -1112,6 +1144,9 @@ mod test {
             // update the file
             std::fs::write(project.path.join("test.txt"), "hello world!2").unwrap();
             listener.handle("test.txt", &project.id).unwrap();
+
+            std::fs::write(project.path.join("one/two/test2.txt"), "hello world!2").unwrap();
+            listener.handle("one/two/test2.txt", &project.id).unwrap();
 
             let flushed_session = gb_repository
                 .flush(&project_repository, None)
@@ -1130,10 +1165,19 @@ mod test {
                 .unwrap();
                 assert_eq!(
                     commit_reader.list_files(path::Path::new("wd")).unwrap(),
-                    vec![path::Path::new("test.txt")]
+                    vec![
+                        path::Path::new("one/two/test2.txt"),
+                        path::Path::new("test.txt"),
+                    ]
                 );
                 assert_eq!(
                     commit_reader.read(path::Path::new("wd/test.txt")).unwrap(),
+                    reader::Content::UTF8("hello world!2".to_string())
+                );
+                assert_eq!(
+                    commit_reader
+                        .read(path::Path::new("wd/one/two/test2.txt"))
+                        .unwrap(),
                     reader::Content::UTF8("hello world!2".to_string())
                 );
             }
