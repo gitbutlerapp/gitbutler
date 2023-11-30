@@ -98,101 +98,97 @@ impl HandlerInner {
             .unwrap_or_default();
 
         if target_changed {
-            let ids = batch_rev_walk(
-                &project_repository.git_repository,
-                self.batch_size,
-                default_target.sha,
-                gb_code_last_commit,
-            )?;
-
-            tracing::info!(
-                %project_id,
-                batches=%ids.len(),
-                "batches left to push",
-            );
-
-            let id_count = &ids.len();
-
-            for (idx, id) in ids.iter().enumerate().rev() {
-                let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
-
-                match project_repository.push_to_gitbutler_server(user.as_ref(), &[&refspec]) {
-                    Ok(_) => {}
-                    Err(project_repository::RemoteError::Network) => return Ok(vec![]),
-                    Err(err) => return Err(err).context("failed to push"),
-                };
-
-                self.project_store
-                    .update(&projects::UpdateRequest {
-                        id: *project_id,
-                        gitbutler_code_push_state: Some(CodePushState {
-                            id: *id,
-                            timestamp: time::SystemTime::now(),
-                        }),
-                        ..Default::default()
-                    })
-                    .await
-                    .context("failed to update last push")?;
-
-                tracing::info!(
-                    %project_id,
-                    i = id_count.saturating_sub(idx),
-                    total = id_count,
-                    "project batch pushed",
-                );
-            }
-
-            // push refs/{project_id}
-            match project_repository.push_to_gitbutler_server(
-                user.as_ref(),
-                &[&format!("+{}:refs/{}", default_target.sha, project_id)],
-            ) {
+            match self
+                .push_target(
+                    &project_repository,
+                    &default_target,
+                    gb_code_last_commit,
+                    project_id,
+                    &user,
+                )
+                .await
+            {
                 Ok(_) => {}
                 Err(project_repository::RemoteError::Network) => return Ok(vec![]),
                 Err(err) => return Err(err).context("failed to push"),
             };
-
-            //TODO: remove push-tmp ref
-
-            tracing::info!(
-                %project_id,
-                "project fully pushed (target was outdated)",
-            );
         }
 
-        let refnames = gb_refs(&project_repository)?;
-
-        let all_refs = refnames
-            .iter()
-            .filter(|r| {
-                matches!(
-                    r,
-                    git::Refname::Remote(_) | git::Refname::Virtual(_) | git::Refname::Local(_)
-                )
-            })
-            .map(|r| format!("+{}:{}", r, r))
-            .collect::<Vec<_>>();
-
-        let all_refs = all_refs.iter().map(String::as_str).collect::<Vec<_>>();
-
-        // push all gitbutler refs
-        let anything_pushed = project_repository
-            .push_to_gitbutler_server(user.as_ref(), all_refs.as_slice())
-            .context("failed to push project (all refs) to gitbutler")?;
-
-        if anything_pushed {
-            tracing::info!(
-                %project_id,
-                "gitbutler refs pushed",
-            );
-        }
+        match push_all_refs(project_repository, user, project_id) {
+            Ok(_) => {}
+            Err(project_repository::RemoteError::Network) => return Ok(vec![]),
+            Err(err) => return Err(err).context("failed to push"),
+        };
 
         // make sure last push time is updated
+        self.update_project(project_id, &default_target.sha).await?;
+
+        Ok(vec![])
+    }
+
+    async fn push_target(
+        &self,
+        project_repository: &project_repository::Repository,
+        default_target: &crate::virtual_branches::target::Target,
+        gb_code_last_commit: Option<Oid>,
+        project_id: &crate::id::Id<projects::Project>,
+        user: &Option<users::User>,
+    ) -> Result<(), project_repository::RemoteError> {
+        let ids = batch_rev_walk(
+            &project_repository.git_repository,
+            self.batch_size,
+            default_target.sha,
+            gb_code_last_commit,
+        )?;
+
+        tracing::info!(
+            %project_id,
+            batches=%ids.len(),
+            "batches left to push",
+        );
+
+        let id_count = &ids.len();
+
+        for (idx, id) in ids.iter().enumerate().rev() {
+            let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
+
+            project_repository.push_to_gitbutler_server(user.as_ref(), &[&refspec])?;
+
+            self.update_project(project_id, id).await?;
+
+            tracing::info!(
+                %project_id,
+                i = id_count.saturating_sub(idx),
+                total = id_count,
+                "project batch pushed",
+            );
+        }
+
+        project_repository.push_to_gitbutler_server(
+            user.as_ref(),
+            &[&format!("+{}:refs/{}", default_target.sha, project_id)],
+        )?;
+
+        //TODO: remove push-tmp ref
+
+        tracing::info!(
+            %project_id,
+            "project target ref fully pushed",
+        );
+
+        Ok(())
+    }
+
+    async fn update_project(
+        &self,
+        project_id: &crate::id::Id<projects::Project>,
+        id: &Oid,
+    ) -> Result<(), project_repository::RemoteError> {
         self.project_store
             .update(&projects::UpdateRequest {
                 id: *project_id,
                 gitbutler_code_push_state: Some(CodePushState {
-                    id: default_target.sha,
+                    id: *id,
                     timestamp: time::SystemTime::now(),
                 }),
                 ..Default::default()
@@ -200,11 +196,45 @@ impl HandlerInner {
             .await
             .context("failed to update last push")?;
 
-        Ok(vec![])
+        Ok(())
     }
 }
 
-fn gb_refs(
+fn push_all_refs(
+    project_repository: project_repository::Repository,
+    user: Option<users::User>,
+    project_id: &crate::id::Id<projects::Project>,
+) -> Result<(), project_repository::RemoteError> {
+    let gb_references = collect_refs(&project_repository)?;
+
+    let all_refs = gb_references
+        .iter()
+        .filter(|r| {
+            matches!(
+                r,
+                git::Refname::Remote(_) | git::Refname::Virtual(_) | git::Refname::Local(_)
+            )
+        })
+        .map(|r| format!("+{}:{}", r, r))
+        .collect::<Vec<_>>();
+
+    let all_refs = all_refs.iter().map(String::as_str).collect::<Vec<_>>();
+
+    let anything_pushed = project_repository
+        .push_to_gitbutler_server(user.as_ref(), all_refs.as_slice())
+        .context("failed to push project (all refs) to gitbutler")?;
+
+    if anything_pushed {
+        tracing::info!(
+            %project_id,
+            "refs pushed",
+        );
+    }
+
+    Ok(())
+}
+
+fn collect_refs(
     project_repository: &project_repository::Repository,
 ) -> anyhow::Result<Vec<git::Refname>> {
     Ok(project_repository
