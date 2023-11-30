@@ -1,11 +1,13 @@
 <script lang="ts">
 	import PopupMenu from '$lib/components/PopupMenu.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenuItem.svelte';
+	import { projectAiGenEnabled } from '$lib/config/config';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import { createEventDispatcher } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	export let branchController: BranchController;
+	export let projectId: string;
 	export let order: number;
 	export let allCollapsed: Writable<boolean | undefined>;
 	export let allExpanded: Writable<boolean | undefined>;
@@ -14,6 +16,8 @@
 	const dispatch = createEventDispatcher<{
 		action: 'expand' | 'collapse' | 'generate-branch-name';
 	}>();
+
+	const aiGenEnabled = projectAiGenEnabled(projectId);
 
 	export function openByMouse(e: MouseEvent, item: any) {
 		popupMenu.openByMouse(e, item);
@@ -36,7 +40,10 @@
 		Collapse all
 	</PopupMenuItem>
 
-	<PopupMenuItem on:click={() => dispatch('action', 'generate-branch-name')}>
+	<PopupMenuItem
+		on:click={() => dispatch('action', 'generate-branch-name')}
+		disabled={!$aiGenEnabled}
+	>
 		Generate branch name
 	</PopupMenuItem>
 

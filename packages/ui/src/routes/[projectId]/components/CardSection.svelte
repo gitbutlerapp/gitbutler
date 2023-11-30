@@ -1,0 +1,45 @@
+<script lang="ts">
+	export let disabled = false;
+</script>
+
+<div class="section" class:disabled>
+	<div class="header">
+		<p class="text-base-14 text-semibold title"><slot name="label" /></p>
+		<p class="text-base-13 description"><slot name="description" /></p>
+	</div>
+	<div class="text-base-13 content">
+		<slot />
+	</div>
+</div>
+
+<style lang="postcss">
+	.section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-16);
+	}
+	.header {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+	}
+	.title {
+		color: var(--clr-theme-scale-ntrl-40);
+	}
+	.description {
+		color: var(--clr-theme-scale-ntrl-50);
+		padding: var(--space-4) 0;
+	}
+	.content {
+		display: flex;
+		align-items: center;
+		color: var(--clr-theme-scale-ntrl-40);
+		border-radius: var(--radius-m);
+		padding: 0 var(--space-16);
+		gap: var(--space-8);
+	}
+	.disabled {
+		pointer-events: none;
+		opacity: 0.6;
+	}
+</style>

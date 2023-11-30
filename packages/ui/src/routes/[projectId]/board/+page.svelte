@@ -56,7 +56,6 @@
 			base={$base$}
 			branches={$activeBranches$}
 			projectPath={$project$?.path}
-			cloudEnabled={$project$?.api?.sync || false}
 			githubContext={$githubContext$}
 			branchesError={$error$}
 			user={$user$}

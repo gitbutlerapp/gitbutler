@@ -27,12 +27,12 @@
 	import UpstreamCommits from './UpstreamCommits.svelte';
 	import BranchFiles from './BranchFiles.svelte';
 	import CommitList from './CommitList.svelte';
+	import { projectAiGenEnabled } from '$lib/config/config';
 
 	export let branch: Branch;
 	export let readonly = false;
 	export let projectId: string;
 	export let base: BaseBranch | undefined | null;
-	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
 	export let maximized = false;
@@ -46,6 +46,8 @@
 
 	const allExpanded = writable(false);
 	const allCollapsed = writable(false);
+	const aiGenEnabled = projectAiGenEnabled(projectId);
+
 	let rsViewport: HTMLElement;
 	let viewport: HTMLElement;
 	let contents: HTMLElement;
@@ -91,7 +93,7 @@
 			.join('\n')
 			.slice(0, 5000);
 
-		if (user) {
+		if (user && aiGenEnabled) {
 			cloud.summarize.branch(user.access_token, { diff }).then((result) => {
 				if (result.message && result.message !== branch.name) {
 					branch.name = result.message;
@@ -222,6 +224,7 @@
 				{branch}
 				{allCollapsed}
 				{allExpanded}
+				{projectId}
 				on:action={(e) => {
 					if (e.detail == 'expand') {
 						handleExpandAll();
@@ -281,7 +284,6 @@
 								{projectId}
 								{branchController}
 								{branch}
-								{cloudEnabled}
 								{cloud}
 								{selectedOwnership}
 								{user}

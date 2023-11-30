@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getCloudApiClient, type LoginToken, type User } from '$lib/backend/cloud';
+	import { getCloudApiClient, type LoginToken } from '$lib/backend/cloud';
 	import * as toasts from '$lib/utils/toasts';
 	import { open } from '@tauri-apps/api/shell';
 	import Button from './Button.svelte';
@@ -8,8 +8,10 @@
 
 	const cloud = getCloudApiClient();
 
-	export let user: User | undefined;
 	export let userService: UserService;
+	export let minimal: boolean = false;
+
+	$: user$ = userService.user$;
 
 	const pollForUser = async (token: string) => {
 		const apiUser = await cloud.login.user.get(token).catch(() => null);
@@ -40,25 +42,28 @@
 	const authUrl = derived(token, ($token) => $token?.url as string);
 </script>
 
-{#if user}
+{#if $user$}
 	<Button
 		kind="filled"
 		color="error"
 		on:click={async () => {
-			user = undefined;
 			await userService.logout();
 		}}>Log out</Button
 	>
 {:else if $token}
-	{#await Promise.all([open($token.url), pollForUser($token.token)])}
-		<div class="text-light-700">
-			Your browser should have been opened. Please log into your GitButler account there.
-		</div>
-	{/await}
-	<p>
-		If you were not redirected automatically, you can
-		<button class="underline" on:click={() => open($authUrl)}>click here</button>
-	</p>
+	{#if minimal}
+		Your browser should have been opened. Please log into your GitButler account there.
+	{:else}
+		{#await Promise.all([open($token.url), pollForUser($token.token)])}
+			<div class="text-light-700">
+				Your browser should have been opened. Please log into your GitButler account there.
+			</div>
+		{/await}
+		<p>
+			If you were not redirected automatically, you can
+			<button class="underline" on:click={() => open($authUrl)}>click here</button>
+		</p>
+	{/if}
 {:else}
 	<div>
 		<Button loading={signUpOrLoginLoading} color="primary" on:click={onSignUpOrLoginClick}>

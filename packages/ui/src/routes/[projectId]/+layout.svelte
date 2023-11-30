@@ -26,6 +26,8 @@
 	$: branchesError$ = vbranchService.branchesError$;
 	$: project$ = data.project$;
 	$: branchService = data.branchService;
+	$: userService = data.userService;
+	$: projectId = data.projectId;
 
 	$: baseBranchService = data.baseBranchService;
 	$: baseBranch$ = baseBranchService.base$;
@@ -45,7 +47,11 @@
 	});
 </script>
 
-{#if $branchesError$}
+{#if $baseBranch$ === null}
+	{#if $project$}
+		<BaseBranchSelect {branchController} {userService} {projectId} />
+	{/if}
+{:else if $branchesError$}
 	<div class="text-color-3 flex h-full w-full items-center justify-center">
 		{#if $branchesError$.code === Code.ProjectHead}
 			<div class="flex max-w-xl flex-col justify-center gap-y-3 p-4 text-center">
@@ -115,10 +121,6 @@
 		<div class="absolute h-4 w-full" data-tauri-drag-region></div>
 		<slot />
 	</div>
-{:else if $baseBranch$ === null}
-	{#if $project$}
-		<BaseBranchSelect projectId={$project$?.id} {project$} {projectService} {branchController} />
-	{/if}
 {:else}
 	loading...
 {/if}

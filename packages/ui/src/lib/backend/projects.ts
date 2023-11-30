@@ -1,6 +1,15 @@
 import { invoke } from '$lib/backend/ipc';
 import type { Project as CloudProject } from '$lib/backend/cloud';
-import { BehaviorSubject, catchError, from, map, shareReplay, switchMap } from 'rxjs';
+import {
+	BehaviorSubject,
+	catchError,
+	firstValueFrom,
+	from,
+	map,
+	shareReplay,
+	skip,
+	switchMap
+} from 'rxjs';
 
 export type Key =
 	| 'generated'
@@ -57,7 +66,7 @@ export class ProjectService {
 
 	async add(path: string) {
 		const project = await invoke<Project>('add_project', { path });
-		this.reload();
+		await this.reload();
 		return project;
 	}
 
@@ -66,7 +75,9 @@ export class ProjectService {
 		this.reload();
 	}
 
-	reload() {
+	async reload(): Promise<Project[]> {
+		const projects = firstValueFrom(this.projects$.pipe(skip(1)));
 		this.reload$.next();
+		return projects;
 	}
 }

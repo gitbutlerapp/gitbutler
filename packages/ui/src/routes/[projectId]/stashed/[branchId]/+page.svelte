@@ -86,7 +86,6 @@
 				{cloud}
 				{projectId}
 				maximized={false}
-				cloudEnabled={false}
 				readonly={true}
 				githubContext={$githubContext$}
 				user={$user$}

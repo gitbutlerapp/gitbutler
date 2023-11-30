@@ -28,9 +28,6 @@
 </svg>
 
 <style>
-	.default {
-		color: var(--clr-theme-scale-ntrl-40);
-	}
 	.success {
 		color: var(--clr-core-succ-40);
 	}
@@ -53,5 +50,6 @@
 
 	svg {
 		pointer-events: none;
+		display: inline-block;
 	}
 </style>

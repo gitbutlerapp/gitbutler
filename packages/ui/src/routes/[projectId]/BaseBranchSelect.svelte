@@ -1,23 +1,32 @@
 <script async lang="ts">
-	import type { Project, ProjectService } from '$lib/backend/projects';
-	import BackButton from '$lib/components/BackButton.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import IconExternalLink from '$lib/icons/IconExternalLink.svelte';
-	import IconLoading from '$lib/icons/IconLoading.svelte';
+	import IconButton from '$lib/components/IconButton.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
+	import { goto } from '$app/navigation';
+	import CardSection from './components/CardSection.svelte';
+	import Login from '$lib/components/Login.svelte';
+	import type { UserService } from '$lib/stores/user';
+	import { getContext } from 'svelte';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import GithubIntegration from '../components/GithubIntegration.svelte';
+	import Icon from '$lib/icons/Icon.svelte';
 	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
-	import type { Observable } from 'rxjs';
+	import { projectAiGenEnabled } from '$lib/config/config';
 
-	export let projectId: string;
-	export let projectService: ProjectService;
 	export let branchController: BranchController;
-	export let project$: Observable<Project>;
+	export let userService: UserService;
+	export let projectId: string;
 
+	$: user$ = userService.user$;
+
+	const remoteBranches = getRemoteBranches(projectId);
+	const aiGenEnabled = projectAiGenEnabled(projectId);
+
+	let aiGenCheckbox: HTMLInputElement;
 	let targetChoice: string | undefined;
 	let loading = false;
 
-	$: projectError = projectService.error$;
-	$: remoteBranchNames = getRemoteBranches(projectId);
+	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	function onSetTargetClick() {
 		if (!targetChoice) {
@@ -28,26 +37,14 @@
 	}
 </script>
 
-{#if $projectError?.isLoading}
-	<p>loading...</p>
-{:else if $projectError?.isError}
-	<p>$projectState.error</p>
-{:else if $project$}
-	<div class="bg-color-2 grid h-full w-full grid-cols-2 items-center justify-items-stretch">
-		<div
-			id="vb-data"
-			class="bg-color-3 flex h-full flex-col justify-center gap-y-4 self-center p-12 text-lg"
-		>
-			<div class="font-bold">
-				<BackButton />
-				Set your Base Branch
-			</div>
-			<p class="text-color-3">
-				You need to set your base branch before you can start working on your project.
-			</p>
-			<!-- select menu of remoteBranches -->
-			{#await remoteBranchNames}
-				<IconLoading class="animate-spin fill-blue-600 text-light-600"></IconLoading>
+<div class="wrapper">
+	<div class="setup">
+		<div class="setup__header">
+			<span class="setup__title text-base-14 font-semibold">Setup</span>
+		</div>
+		<div class="setup__content">
+			{#await remoteBranches}
+				<p>loading...</p>
 			{:then names}
 				{#if names.length == 0}
 					<p class="mt-6 text-red-500">You don't have any remote branches.</p>
@@ -62,77 +59,127 @@
 						>
 					</p>
 				{:else}
-					<select bind:value={targetChoice} disabled={loading}>
-						{#each names
-							.map((name) => name.substring(13))
-							.sort((a, b) => a.localeCompare(b)) as branch}
-							{#if branch == 'origin/master' || branch == 'origin/main'}
-								<option value={branch} selected>{branch}</option>
+					<CardSection>
+						<svelte:fragment slot="label">Choose your base branch</svelte:fragment>
+						<svelte:fragment slot="description">
+							This is the branch that you consider "production", normally something like
+							"origin/master" or "origin/main".
+						</svelte:fragment>
+						<select class="select" bind:value={targetChoice} disabled={loading}>
+							{#each names
+								.map((name) => name.substring(13))
+								.sort((a, b) => a.localeCompare(b)) as branch}
+								{#if branch == 'origin/master' || branch == 'origin/main'}
+									<option value={branch} selected>{branch}</option>
+								{:else}
+									<option value={branch}>{branch}</option>
+								{/if}
+							{/each}
+						</select>
+					</CardSection>
+					<CardSection>
+						<svelte:fragment slot="label">
+							Take advantage of our AI integration <span class="optional">(optional)</span>
+						</svelte:fragment>
+						<svelte:fragment slot="description">
+							Enable automatic branch and commit message generation by logging or setting up an
+							account.
+						</svelte:fragment>
+						{#if !$userSettings.aiSummariesEnabled}
+							{#if !$user$}
+								<Login {userService} />
 							{:else}
-								<option value={branch}>{branch}</option>
+								<input
+									id="summarize"
+									bind:this={aiGenCheckbox}
+									type="checkbox"
+									checked={$aiGenEnabled}
+									on:change={() => {
+										$aiGenEnabled = aiGenCheckbox.checked;
+									}}
+								/>
+								<label for="summarize">Enable automatic summaries of your work</label>
 							{/if}
-						{/each}
-					</select>
-					<p class="text-color-3 text-base">
-						This is the branch that you consider "production", normally something like
-						"origin/master" or "origin/main".
-					</p>
-					<div>
-						<Button color="primary" {loading} on:click={onSetTargetClick} id="set-base-branch"
-							>Set Base Branch</Button
-						>
-					</div>
+						{/if}
+					</CardSection>
+					<CardSection disabled={!$user$}>
+						<svelte:fragment slot="label">
+							Work seamlessly with GitHub pull requests <span class="optional">
+								{#if $user$}
+									(optional)
+								{:else}
+									(requires login)
+								{/if}
+							</span>
+						</svelte:fragment>
+						<svelte:fragment slot="description">
+							Enables you to work with PRs without leaving the app.
+						</svelte:fragment>
+						{#if !$user$?.github_access_token}
+							<GithubIntegration minimal {userService} />
+						{:else}
+							<Icon name="tick" color="success" /> You have enabled this integration
+						{/if}
+					</CardSection>
 				{/if}
 			{:catch}
-				<p class="text-sm text-red-500">Could not load remote branch names</p>
+				<p>Something has gone wrong...</p>
 			{/await}
 		</div>
-		<div id="vb-data" class="max-h-full justify-center overflow-y-auto">
-			<div class="flex h-full max-h-full flex-col gap-y-3 p-12 text-lg">
-				<h1 class="text-xl font-bold">Getting Started with Virtual Branches</h1>
-				<p class="text-color-3 text-xl">
-					Virtual branches are just like normal Git branches, except that you can work on several of
-					them at the same time.
-				</p>
-				<div class="font-bold">Base Branch</div>
-				<p class="text-color-3">
-					With virtual branches, you are not working off of local main or master branches.
-					Everything that you do is on a virtual branch, automatically.
-				</p>
-				<p class="text-color-3">
-					This works by specifying a "base branch" that represents the state of production, normally
-					something like "origin/master".
-				</p>
-				<div class="font-bold">Ownership, Committing and Pushing</div>
-				<p class="text-color-3">
-					Each virtual branch "owns" parts of the files that are seen as changed. If you commit on
-					that branch, only the parts that are owned by that branch are actually recorded in the
-					commits on that branch.
-				</p>
-				<p class="text-color-3">
-					When you push a virtual branch, it will create a branch name based on your branch title,
-					push that branch to your remote with just the changes committed to that branch, not
-					everything in your working directory.
-				</p>
-				<div class="font-bold">Applying and Unapplying</div>
-				<p class="text-color-3">
-					You can have many virtual branches applied at the same time, but they cannot conflict with
-					each other currently. Unapplying a virtual branch will take all of the changes that it
-					owns and remove them from your working directory. Applying the branch will add those
-					changes back in.
-				</p>
-				<div class="flex flex-row place-content-center content-center space-x-2 pt-4 text-blue-600">
-					<a
-						target="_blank"
-						rel="noreferrer"
-						class="font-bold"
-						href="https://docs.gitbutler.com/features/virtual-branches">Learn more</a
-					>
-					<IconExternalLink class="h-4 w-4" />
-				</div>
-			</div>
+
+		<div class="setup_footer">
+			<IconButton icon="home" on:click={() => goto('/')} />
+			<Button color="primary" {loading} on:click={onSetTargetClick} id="set-base-branch">
+				Done
+			</Button>
 		</div>
 	</div>
-{:else}
-	<p>something went wrong</p>
-{/if}
+</div>
+
+<style lang="postcss">
+	.wrapper {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		width: 100%;
+		padding: var(--space-24);
+	}
+	.setup {
+		display: flex;
+		flex-direction: column;
+		max-width: 640px;
+		overflow-y: hidden;
+		background: var(--clr-theme-container-light);
+		border: 1px solid var(--clr-theme-container-outline-light);
+		border-radius: var(--radius-m);
+	}
+	.setup__header {
+		padding: var(--space-12);
+		border-bottom: 1px solid var(--clr-theme-container-outline-light);
+	}
+	.setup__title {
+		padding: var(--space-4) var(--space-6);
+	}
+	.setup__content {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-28);
+		padding: var(--space-24) var(--space-16);
+	}
+	.setup_footer {
+		display: flex;
+		gap: var(--space-6);
+		padding: var(--space-12);
+		justify-content: space-between;
+		border-top: 1px solid var(--clr-theme-container-outline-light);
+	}
+
+	.optional {
+		color: var(--clr-theme-scale-ntrl-60);
+		font-style: italic;
+		font-weight: 500;
+	}
+	.select {
+		width: 100%;
+	}
+</style>
