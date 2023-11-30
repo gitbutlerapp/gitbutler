@@ -18,6 +18,12 @@ impl<'a> From<&'a Repository> for &'a git2::Repository {
     }
 }
 
+impl From<git2::Repository> for Repository {
+    fn from(repo: git2::Repository) -> Self {
+        Self(repo)
+    }
+}
+
 impl Repository {
     #[cfg(test)]
     pub fn init_bare<P: AsRef<path::Path>>(path: P) -> Result<Self> {

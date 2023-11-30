@@ -405,6 +405,102 @@ mod test {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn test_push_remote_ref() -> Result<()> {
+        let suite = Suite::default();
+        let Case {
+            project,
+            gb_repository,
+            project_repository,
+            ..
+        } = suite.new_case();
+
+        suite.sign_in();
+
+        set_test_target(&gb_repository, &project_repository).unwrap();
+
+        let cloud_code: git::Repository = test_remote_repository()?.into();
+
+        let remote_repo: git::Repository = test_remote_repository()?.into();
+
+        let last_commit = create_initial_commit(&remote_repo);
+
+        remote_repo
+            .reference(
+                &git::Refname::Local(git::LocalRefname::new("refs/heads/testbranch", None)),
+                last_commit,
+                false,
+                "",
+            )
+            .unwrap();
+
+        let mut remote = project_repository
+            .git_repository
+            .remote("tr", remote_repo.path().to_str().unwrap())
+            .unwrap();
+
+        remote
+            .fetch(&["+refs/heads/*:refs/remotes/tr/*"], None)
+            .unwrap();
+
+        project_repository
+            .git_repository
+            .find_commit(last_commit)
+            .unwrap();
+
+        let api_project = projects::ApiProject {
+            name: "test-sync".to_string(),
+            description: None,
+            repository_id: "123".to_string(),
+            git_url: String::new(),
+            code_git_url: Some(cloud_code.path().to_str().unwrap().to_string()),
+            created_at: 0_i32.to_string(),
+            updated_at: 0_i32.to_string(),
+            sync: true,
+        };
+
+        suite
+            .projects
+            .update(&projects::UpdateRequest {
+                id: project.id,
+                api: Some(api_project.clone()),
+                ..Default::default()
+            })
+            .await?;
+
+        {
+            let listener = HandlerInner {
+                local_data_dir: suite.local_app_data,
+                project_store: suite.projects.clone(),
+                users: suite.users,
+                batch_size: 10,
+            };
+
+            listener.handle(&project.id).await.unwrap();
+        }
+
+        cloud_code.find_commit(last_commit).unwrap();
+
+        Ok(())
+    }
+
+    fn create_initial_commit(repo: &git::Repository) -> git::Oid {
+        let signature = git::Signature::now("test", "test@email.com").unwrap();
+
+        let mut index = repo.index().unwrap();
+        let oid = index.write_tree().unwrap();
+
+        repo.commit(
+            None,
+            &signature,
+            &signature,
+            "initial commit",
+            &repo.find_tree(oid).unwrap(),
+            &[],
+        )
+        .unwrap()
+    }
+
     fn create_test_commits(repo: &git::Repository, commits: usize) -> git::Oid {
         let signature = git::Signature::now("test", "test@email.com").unwrap();
 
