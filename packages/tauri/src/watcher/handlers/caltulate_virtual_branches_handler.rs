@@ -1,7 +1,11 @@
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
-use crate::{assets, events as app_events, projects::ProjectId, virtual_branches};
+use crate::{
+    assets, events as app_events,
+    projects::ProjectId,
+    virtual_branches::{self, controller::ControllerError},
+};
 
 use super::events;
 
@@ -26,16 +30,19 @@ impl TryFrom<&AppHandle> for Handler {
 
 impl Handler {
     pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
-        let branches = self
+        match self
             .vbranch_controller
             .list_virtual_branches(project_id)
             .await
-            .context("failed to list virtual branches")?;
-
-        let branches = self.assets_proxy.proxy_virtual_branches(branches).await;
-
-        Ok(vec![events::Event::Emit(
-            app_events::Event::virtual_branches(project_id, &branches),
-        )])
+        {
+            Ok(branches) => Ok(vec![events::Event::Emit(
+                app_events::Event::virtual_branches(
+                    project_id,
+                    &self.assets_proxy.proxy_virtual_branches(branches).await,
+                ),
+            )]),
+            Err(ControllerError::VerifyError(_)) => Ok(vec![]),
+            Err(error) => Err(error).context("failed to list virtual branches"),
+        }
     }
 }

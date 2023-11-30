@@ -1,4 +1,6 @@
 mod analytics_handler;
+mod calculate_deltas_handler;
+mod caltulate_virtual_branches_handler;
 mod fetch_gitbutler_data;
 mod fetch_project_data;
 mod flush_session;
@@ -7,9 +9,7 @@ mod index_handler;
 mod project_file_change;
 mod push_gitbutler_data;
 mod push_project_to_gitbutler;
-mod session_handler;
 mod tick_handler;
-mod vbranch_handler;
 
 use std::time;
 
@@ -33,8 +33,8 @@ pub struct Handler {
     analytics_handler: analytics_handler::Handler,
     index_handler: index_handler::Handler,
     push_project_to_gitbutler: push_project_to_gitbutler::Handler,
-    virtual_branch_handler: vbranch_handler::Handler,
-    session_processing_handler: session_handler::Handler,
+    calculate_vbranches_handler: caltulate_virtual_branches_handler::Handler,
+    calculate_deltas_handler: calculate_deltas_handler::Handler,
 
     events_sender: app_events::Sender,
 }
@@ -55,8 +55,10 @@ impl TryFrom<&AppHandle> for Handler {
             fetch_gitbutler_handler: fetch_gitbutler_data::Handler::try_from(value)?,
             analytics_handler: analytics_handler::Handler::from(value),
             push_project_to_gitbutler: push_project_to_gitbutler::Handler::try_from(value)?,
-            virtual_branch_handler: vbranch_handler::Handler::try_from(value)?,
-            session_processing_handler: session_handler::Handler::try_from(value)?,
+            calculate_vbranches_handler: caltulate_virtual_branches_handler::Handler::try_from(
+                value,
+            )?,
+            calculate_deltas_handler: calculate_deltas_handler::Handler::try_from(value)?,
         })
     }
 }
@@ -138,13 +140,13 @@ impl Handler {
             }
 
             events::Event::CalculateVirtualBranches(project_id) => self
-                .virtual_branch_handler
+                .calculate_vbranches_handler
                 .handle(project_id)
                 .await
                 .context("failed to handle virtual branch event"),
 
             events::Event::CalculateDeltas(project_id, path) => self
-                .session_processing_handler
+                .calculate_deltas_handler
                 .handle(path, project_id)
                 .context(format!(
                     "failed to handle session processing event: {:?}",
