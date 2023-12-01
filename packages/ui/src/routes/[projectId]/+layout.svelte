@@ -1,9 +1,7 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
-	import { getContext, onMount } from 'svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import { onMount } from 'svelte';
 	import { Code } from '$lib/backend/ipc';
-	import Resizer from '$lib/components/Resizer.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import { goto } from '$app/navigation';
 	import BaseBranchSelect from './BaseBranchSelect.svelte';
@@ -33,8 +31,6 @@
 	$: baseBranch$ = baseBranchService.base$;
 
 	$: user$ = data.user$;
-
-	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	let trayViewport: HTMLElement;
 	handleMenuActions(data.projectId);
@@ -106,16 +102,6 @@
 				<p>loading...</p>
 			{/if}
 		</div>
-		<Resizer
-			viewport={trayViewport}
-			direction="right"
-			on:width={(e) => {
-				userSettings.update((s) => ({
-					...s,
-					trayWidth: e.detail
-				}));
-			}}
-		/>
 		<div class="absolute h-4 w-full" data-tauri-drag-region></div>
 		<slot />
 	</div>
