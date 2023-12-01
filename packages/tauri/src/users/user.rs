@@ -14,6 +14,7 @@ pub struct User {
     pub created_at: String,
     pub updated_at: String,
     pub access_token: String,
+    pub role: Option<String>,
     pub github_access_token: Option<String>,
     #[serde(default)]
     pub github_username: Option<String>,
