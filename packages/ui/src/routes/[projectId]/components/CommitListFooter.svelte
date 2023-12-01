@@ -81,6 +81,7 @@
 			</Button>
 		{:else if type == 'local'}
 			<Button
+				wide
 				kind="outlined"
 				color="primary"
 				loading={isPushing}
