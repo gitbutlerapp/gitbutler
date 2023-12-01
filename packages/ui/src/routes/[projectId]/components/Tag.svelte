@@ -32,6 +32,7 @@
 	class:not-button={!clickable}
 	on:click
 	role={clickable ? 'button' : undefined}
+	class:clickable
 >
 	<span class="label">
 		<slot />
@@ -60,6 +61,12 @@
 	.label {
 		display: inline-block;
 		padding: 0 var(--space-2);
+	}
+	.clickable {
+		cursor: pointer;
+		&:hover {
+			background: var(--clr-theme-container-sub);
+		}
 	}
 
 	/* colors */
