@@ -42,6 +42,7 @@
 	<div
 		class="board"
 		role="group"
+		data-tauri-drag-region
 		bind:this={dropZone}
 		on:dragover={(e) => {
 			if (!dragged) return;
