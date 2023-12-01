@@ -1,4 +1,5 @@
 <script lang="ts">
+	import * as toasts from '$lib/utils/toasts';
 	import { getCloudApiClient, type User } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import { createEventDispatcher, onMount } from 'svelte';
@@ -28,34 +29,36 @@
 		dispatch('updated', { ...project, api: { ...cloudProject, sync: project.api.sync } });
 	});
 
-	// const onSyncChange = async (event: Event) => {
-	// 	if (!user) return;
+	const onSyncChange = async (event: Event) => {
+		if (!user) return;
 
-	// 	const target = event.target as HTMLInputElement;
-	// 	const sync = target.checked;
+		const target = event.target as HTMLInputElement;
+		const sync = target.checked;
 
-	// 	try {
-	// 		const cloudProject =
-	// 			project.api ??
-	// 			(await cloud.projects.create(user.access_token, {
-	// 				name: project.title,
-	// 				description: project.description,
-	// 				uid: project.id
-	// 			}));
-	// 		dispatch('updated', { ...project, api: { ...cloudProject, sync } });
-	// 	} catch (error) {
-	// 		console.error(`Failed to update project sync status: ${error}`);
-	// 		toasts.error('Failed to update project sync status');
-	// 	}
-	// };
+		try {
+			const cloudProject =
+				project.api ??
+				(await cloud.projects.create(user.access_token, {
+					name: project.title,
+					description: project.description,
+					uid: project.id
+				}));
+			dispatch('updated', { ...project, api: { ...cloudProject, sync } });
+		} catch (error) {
+			console.error(`Failed to update project sync status: ${error}`);
+			toasts.error('Failed to update project sync status');
+		}
+	};
 </script>
 
 <section class="space-y-2">
-	<header>
-		<span class="text-text-subdued"> Summary generation </span>
-	</header>
-
 	{#if user}
+		<h2 class="text-xl">GitButler Cloud</h2>
+
+		<header>
+			<span class="text-text-subdued"> Summary generation </span>
+		</header>
+
 		<div
 			class="flex flex-row items-center justify-between rounded-lg border border-light-400 p-2 dark:border-dark-500"
 		>
@@ -75,17 +78,42 @@
 				</div>
 			</div>
 		</div>
-		{#if project.api}
-			<div class="flex flex-row justify-end space-x-2">
-				<div class="p-1">
-					<Link
-						target="_blank"
-						rel="noreferrer"
-						href="{PUBLIC_API_BASE_URL}projects/{project.api?.repository_id}"
-						>Go to GitButler Cloud Project</Link
-					>
+		{#if user.role === 'admin'}
+			<header>
+				<span class="text-text-subdued"> Full data synchronization </span>
+			</header>
+			<div
+				class="flex flex-row items-center justify-between rounded-lg border border-light-400 p-2 dark:border-dark-500"
+			>
+				<div class="flex flex-row space-x-3">
+					<div class="flex flex-row">
+						<form class="flex items-center gap-1">
+							<Checkbox
+								name="sync"
+								disabled={user === undefined}
+								checked={project.api?.sync || false}
+								on:change={onSyncChange}
+							/>
+							<label class="ml-2" for="sync">
+								Sync my history, repository and branch data for backup, sharing and team features.
+							</label>
+						</form>
+					</div>
 				</div>
 			</div>
+
+			{#if project.api}
+				<div class="flex flex-row justify-end space-x-2">
+					<div class="p-1">
+						<Link
+							target="_blank"
+							rel="noreferrer"
+							href="{PUBLIC_API_BASE_URL}projects/{project.api?.repository_id}"
+							>Go to GitButler Cloud Project</Link
+						>
+					</div>
+				</div>
+			{/if}
 		{/if}
 	{:else}
 		<Login {userService} />
