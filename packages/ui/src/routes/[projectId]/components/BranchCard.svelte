@@ -28,6 +28,8 @@
 	import BranchFiles from './BranchFiles.svelte';
 	import CommitList from './CommitList.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import Scrollbar from '$lib/components/Scrollbar.svelte';
+	import type { UIEventHandler } from 'svelte/elements';
 
 	export let branch: Branch;
 	export let readonly = false;
@@ -51,6 +53,7 @@
 	let rsViewport: HTMLElement;
 	let viewport: HTMLElement;
 	let contents: HTMLElement;
+	let scrolled = false;
 
 	const laneWidthKey = 'laneWidth:';
 	let laneWidth: number;
@@ -213,6 +216,10 @@
 			}
 		};
 	}
+
+	const onScroll: UIEventHandler<HTMLDivElement> = (e) => {
+		scrolled = e.currentTarget.scrollTop != 0;
+	};
 </script>
 
 <div bind:this={rsViewport} class="resize-viewport">
@@ -248,7 +255,7 @@
 			{/if}
 		</div>
 		<div
-			class="relative flex flex-grow overflow-y-hidden"
+			class="relative flex flex-grow flex-col overflow-y-hidden"
 			use:dropzone={{
 				hover: 'cherrypick-dz-hover',
 				active: 'cherrypick-dz-active',
@@ -275,86 +282,92 @@
 			>
 				<div class="hover-text invisible font-semibold">Move here</div>
 			</div>
-			<div bind:this={viewport} class="scroll-container hide-native-scrollbar">
-				<div bind:this={contents} class="flex min-h-full flex-col">
-					{#if branch.files?.length > 0}
-						<BranchFiles {branch} {readonly} {selectedOwnership} {selectedFileId} />
-						{#if branch.active}
-							<CommitDialog
+			{#if branch.files?.length > 0}
+				<BranchFiles {branch} {readonly} {selectedOwnership} {selectedFileId} />
+				{#if branch.active}
+					<CommitDialog
+						{projectId}
+						{branchController}
+						{branch}
+						{cloud}
+						{selectedOwnership}
+						{user}
+						on:action={(e) => {
+							if (e.detail == 'generate-branch-name') {
+								generateBranchName();
+							}
+						}}
+					/>
+				{/if}
+			{:else if branch.commits.length == 0}
+				<div class="new-branch" data-dnd-ignore>
+					<h1 class="text-base-16 text-semibold">This is a new branch. Let's start creating!</h1>
+					<p class="px-12">Get some work done, then throw some files my way!</p>
+				</div>
+			{:else}
+				<!-- attention: these markers have custom css at the bottom of thise file -->
+				<div class="no-changes" data-dnd-ignore>
+					<h1 class="text-base-16 text-semibold">No uncommitted changes on this branch</h1>
+				</div>
+			{/if}
+			<div class="scroll-container">
+				<div
+					bind:this={viewport}
+					class="viewport hide-native-scrollbar"
+					class:scrolled
+					on:scroll={onScroll}
+				>
+					<div bind:this={contents} class="flex min-h-full flex-col">
+						{#if branch.commits.length > 0}
+							<CommitList
+								{branch}
+								{base}
+								{githubContext}
 								{projectId}
 								{branchController}
+								{acceptAmend}
+								{acceptSquash}
+								{onAmend}
+								{onSquash}
+								{resetHeadCommit}
+								{prService}
+								{readonly}
+								type="local"
+							/>
+							<CommitList
 								{branch}
-								{cloud}
-								{selectedOwnership}
-								{user}
-								on:action={(e) => {
-									if (e.detail == 'generate-branch-name') {
-										generateBranchName();
-									}
-								}}
+								{base}
+								{githubContext}
+								{projectId}
+								{branchController}
+								{acceptAmend}
+								{acceptSquash}
+								{onAmend}
+								{onSquash}
+								{resetHeadCommit}
+								{prService}
+								{readonly}
+								type="remote"
+							/>
+							<CommitList
+								{branch}
+								{base}
+								{githubContext}
+								{projectId}
+								{branchController}
+								{acceptAmend}
+								{acceptSquash}
+								{onAmend}
+								{onSquash}
+								{resetHeadCommit}
+								{prService}
+								{readonly}
+								type="integrated"
 							/>
 						{/if}
-					{:else if branch.commits.length == 0}
-						<div class="new-branch" data-dnd-ignore>
-							<h1 class="text-base-16 text-semibold">
-								This is a new branch. Let's start creating!
-							</h1>
-							<p class="px-12">Get some work done, then throw some files my way!</p>
-						</div>
-					{:else}
-						<!-- attention: these markers have custom css at the bottom of thise file -->
-						<div class="no-changes" data-dnd-ignore>
-							<h1 class="text-base-16 text-semibold">No uncommitted changes on this branch</h1>
-						</div>
-					{/if}
-					{#if branch.commits.length > 0}
-						<CommitList
-							{branch}
-							{base}
-							{githubContext}
-							{projectId}
-							{branchController}
-							{acceptAmend}
-							{acceptSquash}
-							{onAmend}
-							{onSquash}
-							{resetHeadCommit}
-							{prService}
-							{readonly}
-							type="local"
-						/>
-						<CommitList
-							{branch}
-							{base}
-							{githubContext}
-							{projectId}
-							{branchController}
-							{acceptAmend}
-							{acceptSquash}
-							{onAmend}
-							{onSquash}
-							{resetHeadCommit}
-							{prService}
-							{readonly}
-							type="remote"
-						/>
-						<CommitList
-							{branch}
-							{base}
-							{githubContext}
-							{projectId}
-							{branchController}
-							{acceptAmend}
-							{acceptSquash}
-							{onAmend}
-							{onSquash}
-							{resetHeadCommit}
-							{prService}
-							{readonly}
-							type="integrated"
-						/>
-					{/if}
+					</div>
 				</div>
+				<Scrollbar {viewport} {contents} thickness="0.4rem" />
 			</div>
 		</div>
 	</div>
@@ -391,14 +404,19 @@
 		overflow-x: hidden;
 		background: var(--clr-theme-container-light);
 	}
-
 	.scroll-container {
+		position: relative;
+		overflow-y: hidden;
+	}
+	.viewport {
 		max-height: 100%;
-		flex-grow: 1;
 		flex-direction: column;
 		display: flex;
 		overflow-y: scroll;
 		overscroll-behavior: none;
+		&.scrolled {
+			border-top: 1px solid var(--clr-theme-container-outline-light);
+		}
 	}
 
 	.new-branch,

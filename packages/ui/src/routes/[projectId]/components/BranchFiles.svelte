@@ -11,6 +11,8 @@
 	import FileTree from './FileTree.svelte';
 	import type { UIEventHandler } from 'svelte/elements';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
+	import Resizer from '$lib/components/Resizer.svelte';
+	import { onDestroy, onMount } from 'svelte';
 
 	export let branch: Branch;
 	export let readonly: boolean;
@@ -19,14 +21,42 @@
 
 	let selectedListMode: string;
 
-	let viewport: HTMLElement;
-	let contents: HTMLElement;
+	let viewport: HTMLElement | undefined;
+	let contents: HTMLElement | undefined;
 	let rsViewport: HTMLElement;
 
 	let scrolled: boolean;
+	let height: number | undefined = undefined;
+	let headerHeight: number;
+	let headerElement: HTMLDivElement;
+	let resizable = false;
+
+	let observer: ResizeObserver;
+
 	const onScroll: UIEventHandler<HTMLDivElement> = (e) => {
 		scrolled = e.currentTarget.scrollTop != 0;
 	};
+
+	function updateResizable() {
+		if (viewport && contents) {
+			const oldValue = resizable;
+			resizable = viewport.offsetHeight <= contents.offsetHeight;
+			if (oldValue == false && resizable == true) {
+				height = viewport.offsetHeight;
+			}
+		} else {
+			resizable = false;
+		}
+	}
+
+	onMount(() => {
+		updateResizable();
+		observer = new ResizeObserver(() => updateResizable());
+		if (viewport) observer.observe(viewport);
+		headerHeight = headerElement?.offsetHeight;
+	});
+
+	onDestroy(() => observer.disconnect());
 </script>
 
 {#if branch.active && branch.conflicted}
@@ -41,9 +71,9 @@
 {/if}
 
 <div class="resize-viewport" bind:this={rsViewport}>
-	<div class="wrapper">
+	<div class="branch-files-wrapper">
 		{#if branch.files.length > 0}
-			<div class="header" class:border-b={scrolled}>
+			<div class="header" class:border-b={scrolled} bind:this={headerElement}>
 				<div class="text-bold">
 					Changes <Badge count={branch.files.length} />
 				</div>
@@ -52,15 +82,17 @@
 					<Segment id="tree" icon="tree-view" />
 				</SegmentedControl>
 			</div>
-			<div class="scrollbar">
+			<div class="scrollbar-container">
 				<div
-					class="files hide-native-scrollbar"
+					class="files-viewport hide-native-scrollbar"
+					style:height={resizable ? `${height}px` : undefined}
+					style:min-height={`${2 * headerHeight}px`}
 					bind:this={viewport}
 					transition:slide={{ duration: readonly ? 0 : 250 }}
 					on:scroll={onScroll}
 				>
 					<!-- TODO: This is an experiment in file sorting. Accept or reject! -->
-					<div class="files__contents" bind:this={contents}>
+					<div class="files-content" bind:this={contents}>
 						{#if selectedListMode == 'list'}
 							{#each sortLikeFileTree(branch.files) as file (file.id)}
 								<FileListItem
@@ -90,6 +122,17 @@
 			</div>
 		{/if}
 	</div>
+	{#if resizable && viewport}
+		<Resizer
+			inside
+			direction="down"
+			{viewport}
+			on:height={(e) => {
+				height = e.detail;
+				updateResizable();
+			}}
+		/>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -97,10 +140,12 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		flex-grow: 1;
 		overflow: hidden;
+		min-height: 8rem;
+		flex-shrink: 0;
+		flex-grow: 1;
 	}
-	.wrapper {
+	.branch-files-wrapper {
 		display: flex;
 		flex-direction: column;
 		flex-shrink: 0;
@@ -119,15 +164,17 @@
 		padding-right: var(--space-12);
 		border-color: var(--clr-theme-container-outline-light);
 	}
-	.scrollbar {
+	.scrollbar-container {
 		position: relative;
 		display: flex;
+		flex-direction: column;
 		overflow: hidden;
+		flex-grow: 1;
+		width: 100%;
 	}
-	.files {
+	.files-viewport {
 		flex-grow: 1;
 		padding-top: 0;
-		padding-bottom: var(--space-16);
 		padding-left: var(--space-12);
 		padding-right: var(--space-12);
 		overflow-y: scroll;
@@ -135,10 +182,11 @@
 		overscroll-behavior: none;
 	}
 
-	.files__contents {
+	.files-content {
 		display: flex;
 		flex-direction: column;
 		flex-grow: 1;
+		padding-bottom: var(--space-16);
 		gap: var(--space-4);
 	}
 </style>

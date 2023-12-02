@@ -8,6 +8,7 @@
 	import CommitListHeader from './CommitListHeader.svelte';
 	import type { CommitType } from './commitList';
 	import CommitListFooter from './CommitListFooter.svelte';
+	import { onMount } from 'svelte';
 
 	export let branch: Branch;
 	export let githubContext: GitHubIntegrationContext | undefined;
@@ -24,6 +25,10 @@
 	export let onSquash: (commit: Commit) => (data: DraggableCommit) => void;
 	export let resetHeadCommit: () => void;
 
+	let viewport: HTMLDivElement;
+	let height: number;
+	let headerHeight: number;
+
 	$: headCommit = branch.commits[0];
 	$: commits = branch.commits.filter((c) => {
 		switch (type) {
@@ -38,11 +43,20 @@
 	$: pr$ = prService.get(branch.upstreamName);
 
 	let expanded = true;
+
+	onMount(() => {
+		height = viewport?.offsetHeight;
+	});
 </script>
 
 {#if commits.length > 0}
-	<div class="wrapper">
-		<CommitListHeader {expanded} {branch} {pr$} {type} {base} />
+	<div
+		class="wrapper"
+		bind:this={viewport}
+		style:height={`${height}px`}
+		style:min-height={`${2 * headerHeight}px`}
+	>
+		<CommitListHeader {expanded} {branch} {pr$} {type} {base} bind:height={headerHeight} />
 		{#if expanded}
 			<div class="content-wrapper">
 				<div class="commits">
@@ -81,15 +95,20 @@
 
 <style lang="postcss">
 	.wrapper {
+		background-color: var(--clr-theme-container-light);
 		display: flex;
 		flex-direction: column;
 		border-top: 1px solid var(--clr-theme-container-outline-light);
+		position: relative;
+		flex-shrink: 0;
 	}
 	.content-wrapper {
 		display: flex;
 		flex-direction: column;
 		padding: 0 var(--space-16) var(--space-20) var(--space-16);
 		gap: var(--space-8);
+	}
+	.draggable-wrapper {
 	}
 	.commits {
 	}

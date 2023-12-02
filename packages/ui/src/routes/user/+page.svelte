@@ -136,263 +136,265 @@
 			.finally(() => (isDeleting = false));
 </script>
 
-<div
-	class="flex h-full flex-shrink flex-grow flex-col pb-4"
-	style:background-color="var(--bg-surface)"
->
-	<div class="h-16" data-tauri-drag-region></div>
-	<div
-		class="flex w-full items-center justify-between border-b px-2 pb-2"
-		style:border-color="var(--border-surface)"
-	>
-		<div class="flex">
-			<BackButton />
-			<h2 class="ml-2 text-2xl font-medium">GitButler Settings</h2>
-		</div>
-		{#if $user$}
-			<!-- TODO: Separate logout from login button -->
-			<Login {userService} />
-		{/if}
-	</div>
-	<div
-		class="flex flex-col gap-y-6 overflow-y-auto overscroll-none border-b px-5 py-4"
-		style:border-color="var(--border-surface)"
-	>
-		<div>
-			<h2 class="mb-2 text-lg font-medium">GitButler Cloud</h2>
-			<p class="">
+<div class="settings">
+	<div class="wrapper">
+		<ul class="menu">
+			<li>Account</li>
+			<li>Appearance</li>
+			<li>Integrations</li>
+		</ul>
+		<div class="content">
+			<div class="flex w-full items-center justify-between border-b px-2 pb-2">
+				<div class="flex">
+					<BackButton />
+					<h2 class="ml-2 text-2xl font-medium">GitButler Settings</h2>
+				</div>
 				{#if $user$}
-					Your online account details on gitbutler.com
-				{:else}
-					You are not logged into GitButler.
+					<!-- TODO: Separate logout from login button -->
+					<Login {userService} />
 				{/if}
-			</p>
-		</div>
-
-		{#if $user$}
-			<form
-				on:submit={onSubmit}
-				class="user-form flex flex-row items-start justify-between gap-12 rounded-lg"
+			</div>
+			<div
+				class="flex flex-col gap-y-6 overflow-y-auto overscroll-none border-b px-5 py-4"
+				style:border-color="var(--border-surface)"
 			>
-				<div id="profile-picture" class="relative flex flex-col items-center gap-2 pt-4">
-					{#if $user$.picture}
-						<img
-							class="h-28 w-28 rounded-full border-zinc-300"
-							src={userPicture}
-							alt="Your avatar"
-						/>
-					{/if}
+				<div>
+					<h2 class="mb-2 text-lg font-medium">GitButler Cloud</h2>
+					<p class="">
+						{#if $user$}
+							Your online account details on gitbutler.com
+						{:else}
+							You are not logged into GitButler.
+						{/if}
+					</p>
+				</div>
 
-					<label
-						title="Edit profile photo"
-						for="picture"
-						class="font-sm absolute bottom-0 right-0 ml-16 cursor-default rounded-lg border border-zinc-600 bg-zinc-800 px-2 text-center text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50"
+				{#if $user$}
+					<form
+						on:submit={onSubmit}
+						class="user-form flex flex-row items-start justify-between gap-12 rounded-lg"
 					>
-						Edit
-						<input
-							on:change={onPictureChange}
-							type="file"
-							id="picture"
-							name="picture"
-							accept={fileTypes.join('')}
-							class="input hidden"
-						/>
-					</label>
-				</div>
+						<div id="profile-picture" class="relative flex flex-col items-center gap-2 pt-4">
+							{#if $user$.picture}
+								<img
+									class="h-28 w-28 rounded-full border-zinc-300"
+									src={userPicture}
+									alt="Your avatar"
+								/>
+							{/if}
 
-				<div id="contact-info" class="flex flex-1 flex-wrap">
-					<div class="basis-full pr-4">
-						<label for="fullName" class="text-zinc-400">Full name</label>
-						<input
-							autocomplete="off"
-							autocorrect="off"
-							spellcheck="false"
-							name="firstName"
-							bind:value={newName}
-							type="text"
-							class="input w-full"
-							placeholder="Name can't be empty"
-							required
-						/>
-					</div>
+							<label
+								title="Edit profile photo"
+								for="picture"
+								class="font-sm absolute bottom-0 right-0 ml-16 cursor-default rounded-lg border border-zinc-600 bg-zinc-800 px-2 text-center text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50"
+							>
+								Edit
+								<input
+									on:change={onPictureChange}
+									type="file"
+									id="picture"
+									name="picture"
+									accept={fileTypes.join('')}
+									class="input hidden"
+								/>
+							</label>
+						</div>
 
-					<div class="mt-4 basis-full pr-4">
-						<label for="email" class="text-zinc-400">Email</label>
-						<input
-							autocomplete="off"
-							autocorrect="off"
-							spellcheck="false"
-							readonly
-							id="email"
-							name="email"
-							bind:value={$user$.email}
-							type="text"
-							class="input w-full"
-						/>
-					</div>
-					<div class="mt-4 basis-full pr-4 text-right">
-						<Button loading={saving} color="primary">Update profile</Button>
-					</div>
+						<div id="contact-info" class="flex flex-1 flex-wrap">
+							<div class="basis-full pr-4">
+								<label for="fullName" class="text-zinc-400">Full name</label>
+								<input
+									autocomplete="off"
+									autocorrect="off"
+									spellcheck="false"
+									name="firstName"
+									bind:value={newName}
+									type="text"
+									class="input w-full"
+									placeholder="Name can't be empty"
+									required
+								/>
+							</div>
+
+							<div class="mt-4 basis-full pr-4">
+								<label for="email" class="text-zinc-400">Email</label>
+								<input
+									autocomplete="off"
+									autocorrect="off"
+									spellcheck="false"
+									readonly
+									id="email"
+									name="email"
+									bind:value={$user$.email}
+									type="text"
+									class="input w-full"
+								/>
+							</div>
+							<div class="mt-4 basis-full pr-4 text-right">
+								<Button loading={saving} color="primary">Update profile</Button>
+							</div>
+						</div>
+					</form>
+				{:else}
+					<Login {userService} />
+				{/if}
+				<Spacer />
+				<div>
+					<h2 class="mb-2 text-lg font-medium">Git Stuff</h2>
 				</div>
-			</form>
-		{:else}
-			<Login {userService} />
-		{/if}
-		<Spacer />
-		<div>
-			<h2 class="mb-2 text-lg font-medium">Git Stuff</h2>
-		</div>
-		<div class="flex items-center">
-			<div class="flex-grow">
-				<p>Credit GitButler as the Committer</p>
-				<div class="space-y-2 pr-8 text-sm text-light-700 dark:text-dark-200">
+				<div class="flex items-center">
+					<div class="flex-grow">
+						<p>Credit GitButler as the Committer</p>
+						<div class="space-y-2 pr-8 text-sm text-light-700 dark:text-dark-200">
+							<div>
+								By default, everything in the GitButler client is free to use, but we credit
+								ourselves as the committer in your virtual branch commits. Community members and
+								supporters of GitButler can turn this off.
+							</div>
+							<Link
+								target="_blank"
+								rel="noreferrer"
+								href="https://docs.gitbutler.com/features/virtual-branches/committer-mark"
+							>
+								Learn more
+							</Link>
+						</div>
+					</div>
 					<div>
-						By default, everything in the GitButler client is free to use, but we credit ourselves
-						as the committer in your virtual branch commits. Community members and supporters of
-						GitButler can turn this off.
+						<label class="relative inline-flex cursor-pointer items-center">
+							<input
+								type="checkbox"
+								disabled={!$user$?.supporter}
+								checked={annotateCommits}
+								on:change={(e) => setCommitterSetting(!!e.currentTarget?.checked)}
+								class="peer sr-only"
+							/>
+							<div
+								class="peer-focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800 peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-disabled:bg-zinc-300"
+							/>
+						</label>
 					</div>
-					<Link
+				</div>
+
+				<div class="flex flex-col space-y-2">
+					<p>SSH Key</p>
+					<div class="pr-8 text-sm text-light-700 dark:text-dark-200">
+						<div>
+							GitButler uses SSH keys to authenticate with your Git provider. Add the following
+							public key to your Git provider to enable GitButler to push code.
+						</div>
+					</div>
+					<div class="flex-auto overflow-y-scroll">
+						<input
+							bind:value={sshKey}
+							class="
+                        whitespece-pre input w-full select-all p-2 font-mono"
+						/>
+					</div>
+					<div class="flex flex-row justify-end space-x-2">
+						<div>
+							<Button kind="filled" color="primary" on:click={() => copyToClipboard(sshKey)}>
+								Copy to Clipboard
+							</Button>
+						</div>
+						<div class="p-1">
+							<Link target="_blank" rel="noreferrer" href="https://github.com/settings/ssh/new"
+								>Add key to GitHub</Link
+							>
+						</div>
+					</div>
+				</div>
+
+				<div class="flex items-center">
+					<div class="flex-grow">
+						<p>Sign Commits with the above SSH Key</p>
+						<div class="space-y-2 pr-8 text-sm text-light-700 dark:text-dark-200">
+							<div>
+								If you want GitButler to sign your commits with the SSH key we generated, then you
+								can add that key to GitHub as a signing key to have those commits verified.
+							</div>
+							<Link
+								target="_blank"
+								rel="noreferrer"
+								href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
+							>
+								Learn more
+							</Link>
+						</div>
+					</div>
+					<div>
+						<label class="relative inline-flex cursor-pointer items-center">
+							<input
+								type="checkbox"
+								checked={signCommits}
+								on:change={(e) => setSigningSetting(!!e.currentTarget?.checked)}
+								class="peer sr-only"
+							/>
+							<div
+								class="peer-focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800 peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-disabled:bg-zinc-300"
+							/>
+						</label>
+					</div>
+				</div>
+
+				<Spacer />
+				<div>
+					<h2 class="mb-2 text-lg font-medium">Appearance</h2>
+				</div>
+				<div class="flex items-center">
+					<div class="flex-grow">
+						<p>Interface theme</p>
+						<p class="text-sm text-light-700 dark:text-dark-200">
+							Select or customize your interface theme.
+						</p>
+					</div>
+					<div><ThemeSelector /></div>
+				</div>
+
+				<Spacer />
+
+				{#if $user$}
+					<div>
+						<h2 class="mb-2 text-lg font-medium">Remote Integrations</h2>
+					</div>
+					<GithubIntegration {userService} />
+				{/if}
+
+				<div>
+					<h2 class="mb-2 text-lg font-medium">Need help?</h2>
+				</div>
+				<div class="flex gap-x-4">
+					<a
+						href="https://discord.gg/wDKZCPEjXC"
 						target="_blank"
 						rel="noreferrer"
-						href="https://docs.gitbutler.com/features/virtual-branches/committer-mark"
+						class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
 					>
-						Learn more
-					</Link>
+						<p class="mb-2 font-medium">Join our Discorder</p>
+						<p class="text-light-700 dark:text-dark-200">
+							Join our community and share feedback, requests, or ask a question.
+						</p>
+					</a>
+					<a
+						href="mailto:hello@gitbutler.com?subject=Feedback or question!"
+						target="_blank"
+						class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
+					>
+						<p class="mb-2 font-medium">Contact us</p>
+						<p class="text-light-700 dark:text-dark-200">
+							If you have an issue or any questions, contact us.
+						</p>
+					</a>
 				</div>
-			</div>
-			<div>
-				<label class="relative inline-flex cursor-pointer items-center">
-					<input
-						type="checkbox"
-						disabled={!$user$?.supporter}
-						checked={annotateCommits}
-						on:change={(e) => setCommitterSetting(!!e.currentTarget?.checked)}
-						class="peer sr-only"
-					/>
-					<div
-						class="peer-focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800 peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-disabled:bg-zinc-300"
-					/>
-				</label>
-			</div>
-		</div>
 
-		<div class="flex flex-col space-y-2">
-			<p>SSH Key</p>
-			<div class="pr-8 text-sm text-light-700 dark:text-dark-200">
+				<Spacer />
+
 				<div>
-					GitButler uses SSH keys to authenticate with your Git provider. Add the following public
-					key to your Git provider to enable GitButler to push code.
-				</div>
-			</div>
-			<div class="flex-auto overflow-y-scroll">
-				<input
-					bind:value={sshKey}
-					class="
-                        whitespece-pre input w-full select-all p-2 font-mono"
-				/>
-			</div>
-			<div class="flex flex-row justify-end space-x-2">
-				<div>
-					<Button kind="filled" color="primary" on:click={() => copyToClipboard(sshKey)}>
-						Copy to Clipboard
+					<Button color="error" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
+						Delete all data
 					</Button>
 				</div>
-				<div class="p-1">
-					<Link target="_blank" rel="noreferrer" href="https://github.com/settings/ssh/new"
-						>Add key to GitHub</Link
-					>
-				</div>
 			</div>
-		</div>
-
-		<div class="flex items-center">
-			<div class="flex-grow">
-				<p>Sign Commits with the above SSH Key</p>
-				<div class="space-y-2 pr-8 text-sm text-light-700 dark:text-dark-200">
-					<div>
-						If you want GitButler to sign your commits with the SSH key we generated, then you can
-						add that key to GitHub as a signing key to have those commits verified.
-					</div>
-					<Link
-						target="_blank"
-						rel="noreferrer"
-						href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
-					>
-						Learn more
-					</Link>
-				</div>
-			</div>
-			<div>
-				<label class="relative inline-flex cursor-pointer items-center">
-					<input
-						type="checkbox"
-						checked={signCommits}
-						on:change={(e) => setSigningSetting(!!e.currentTarget?.checked)}
-						class="peer sr-only"
-					/>
-					<div
-						class="peer-focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800 peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-disabled:bg-zinc-300"
-					/>
-				</label>
-			</div>
-		</div>
-
-		<Spacer />
-		<div>
-			<h2 class="mb-2 text-lg font-medium">Appearance</h2>
-		</div>
-		<div class="flex items-center">
-			<div class="flex-grow">
-				<p>Interface theme</p>
-				<p class="text-sm text-light-700 dark:text-dark-200">
-					Select or customize your interface theme.
-				</p>
-			</div>
-			<div><ThemeSelector /></div>
-		</div>
-
-		<Spacer />
-
-		{#if $user$}
-			<div>
-				<h2 class="mb-2 text-lg font-medium">Remote Integrations</h2>
-			</div>
-			<GithubIntegration {userService} />
-		{/if}
-
-		<div>
-			<h2 class="mb-2 text-lg font-medium">Need help?</h2>
-		</div>
-		<div class="flex gap-x-4">
-			<a
-				href="https://discord.gg/wDKZCPEjXC"
-				target="_blank"
-				rel="noreferrer"
-				class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
-			>
-				<p class="mb-2 font-medium">Join our Discorder</p>
-				<p class="text-light-700 dark:text-dark-200">
-					Join our community and share feedback, requests, or ask a question.
-				</p>
-			</a>
-			<a
-				href="mailto:hello@gitbutler.com?subject=Feedback or question!"
-				target="_blank"
-				class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
-			>
-				<p class="mb-2 font-medium">Contact us</p>
-				<p class="text-light-700 dark:text-dark-200">
-					If you have an issue or any questions, contact us.
-				</p>
-			</a>
-		</div>
-
-		<Spacer />
-
-		<div>
-			<Button color="error" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
-				Delete all data
-			</Button>
 		</div>
 	</div>
 
@@ -407,3 +409,22 @@
 </div>
 
 <div id="clipboard" />
+
+<style lang="postcss">
+	.settings {
+		display: flex;
+		width: 100%;
+		height: 100%;
+		align-items: center;
+		justify-content: center;
+	}
+	.wrapper {
+		display: flex;
+		align-items: start;
+		max-width: 40rem;
+		max-height: 60rem;
+	}
+	.menu {
+		width: 10rem;
+	}
+</style>
