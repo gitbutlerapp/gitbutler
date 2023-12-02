@@ -47,8 +47,6 @@
 </script>
 
 <div
-	class="commit__card"
-	class:is-head-commit={isHeadCommit}
 	on:click={onClick}
 	on:keyup={onClick}
 	use:draggable={commit instanceof Commit
@@ -57,40 +55,42 @@
 	role="button"
 	tabindex="0"
 >
-	<div class="commit__header">
-		<span class="commit__description text-base-12 truncate">
-			{commit.description}
-		</span>
-		{#if isHeadCommit && !readonly}
-			<Tag
-				color="ghost"
-				icon="undo-small"
-				border
-				clickable
-				on:click={(e) => {
-					e.stopPropagation();
-					resetHeadCommit();
-				}}>Undo</Tag
-			>
-		{/if}
-	</div>
-
-	<div class="commit__details">
-		<div class="commit__author">
-			<img
-				class="commit__avatar"
-				title="Gravatar for {commit.author.email}"
-				alt="Gravatar for {commit.author.email}"
-				srcset="{commit.author.gravatarUrl} 2x"
-				width="100"
-				height="100"
-				on:error
-			/>
-			<span class="commit__author-name text-base-12 truncate">{commit.author.name}</span>
+	<div class="commit__card" class:is-head-commit={isHeadCommit}>
+		<div class="commit__header">
+			<span class="commit__description text-base-12 truncate">
+				{commit.description}
+			</span>
+			{#if isHeadCommit && !readonly}
+				<Tag
+					color="ghost"
+					icon="undo-small"
+					border
+					clickable
+					on:click={(e) => {
+						e.stopPropagation();
+						resetHeadCommit();
+					}}>Undo</Tag
+				>
+			{/if}
 		</div>
-		<span class="commit__time text-base-11">
-			<TimeAgo date={commit.createdAt} />
-		</span>
+
+		<div class="commit__details">
+			<div class="commit__author">
+				<img
+					class="commit__avatar"
+					title="Gravatar for {commit.author.email}"
+					alt="Gravatar for {commit.author.email}"
+					srcset="{commit.author.gravatarUrl} 2x"
+					width="100"
+					height="100"
+					on:error
+				/>
+				<span class="commit__author-name text-base-12 truncate">{commit.author.name}</span>
+			</div>
+			<span class="commit__time text-base-11">
+				<TimeAgo date={commit.createdAt} />
+			</span>
+		</div>
 	</div>
 </div>
 
