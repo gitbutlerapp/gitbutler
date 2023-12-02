@@ -17,6 +17,8 @@
 	export let projectId: string;
 
 	const dispatch = createEventDispatcher<{ action: string }>();
+
+	let element: HTMLDivElement | undefined = undefined;
 	let meatballButton: HTMLDivElement;
 
 	// We have to create this manually for now.
@@ -41,7 +43,7 @@
 	});
 </script>
 
-<div class="header">
+<div class="header" bind:this={element}>
 	<div class="header__left flex-grow">
 		{#if !readonly}
 			<div class="draggable" id="drag-handle">

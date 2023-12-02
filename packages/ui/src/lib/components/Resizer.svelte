@@ -127,10 +127,12 @@
 		}
 	}
 	.down {
-		bottom: var(--space-2);
+		bottom: calc(-1 * var(--space-2));
 		&:hover {
-			bottom: var(--space-4);
 			height: var(--space-4);
+		}
+		&.inside {
+			bottom: 0;
 		}
 	}
 </style>

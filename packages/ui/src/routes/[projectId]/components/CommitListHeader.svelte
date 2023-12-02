@@ -7,15 +7,21 @@
 	import Link from '$lib/components/Link.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
 	import Tag from './Tag.svelte';
+	import { onMount } from 'svelte';
 
 	export let branch: Branch;
 	export let expanded: boolean;
 	export let pr$: Observable<PullRequest | undefined> | undefined;
 	export let type: CommitType;
 	export let base: BaseBranch | undefined | null;
+	export let height: number | undefined;
+
+	let element: HTMLButtonElement | undefined = undefined;
+
+	onMount(() => (height = element?.offsetHeight));
 </script>
 
-<button class="header" on:click={() => (expanded = !expanded)}>
+<button class="header" bind:this={element} on:click={() => (expanded = !expanded)}>
 	<div class="title text-base-12 text-bold">
 		{#if type == 'local'}
 			Local
