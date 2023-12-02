@@ -2,7 +2,6 @@
 	import type { LayoutData } from './$types';
 	import { onMount } from 'svelte';
 	import { Code } from '$lib/backend/ipc';
-	import IconButton from '$lib/components/IconButton.svelte';
 	import { goto } from '$app/navigation';
 	import BaseBranchSelect from './BaseBranchSelect.svelte';
 	import { unsubscribe } from '$lib/utils/random';
@@ -74,11 +73,13 @@
 				</div>
 			</div>
 		{:else}
-			<div class="flex max-w-xl gap-x-2 p-4">
-				<IconButton icon="home" on:click={() => goto('/')}></IconButton>
+			<div class="flex max-w-xl flex-col gap-y-3 p-4">
 				<div>
 					<h1 class="text-lg font-semibold">There was a problem loading this repo</h1>
 					<p>{$branchesError$.message}</p>
+				</div>
+				<div class="text-center">
+					<Button icon="home" on:click={() => goto('/')}>Home</Button>
 				</div>
 			</div>
 		{/if}
