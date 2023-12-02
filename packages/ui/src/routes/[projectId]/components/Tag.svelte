@@ -20,7 +20,7 @@
 </script>
 
 <div
-	class="tag"
+	class="tag text-base-11 text-semibold"
 	class:success={color == 'success'}
 	class:error={color == 'error'}
 	class:warning={color == 'warning'}
@@ -33,7 +33,7 @@
 	on:click
 	role={clickable ? 'button' : undefined}
 >
-	<span class="label text-base-11 text-semibold">
+	<span class="label">
 		<slot />
 	</span>
 	{#if icon}
