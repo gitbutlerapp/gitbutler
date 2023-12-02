@@ -38,11 +38,11 @@
 </script>
 
 <div class="wrapper">
-	<div class="setup">
-		<div class="setup__header">
+	<div class="setup card">
+		<div class="card__header">
 			<span class="setup__title text-base-14 font-semibold">Setup</span>
 		</div>
-		<div class="setup__content">
+		<div class="card__content">
 			{#await remoteBranches}
 				<p>loading...</p>
 			{:then names}
@@ -132,7 +132,7 @@
 			{/await}
 		</div>
 
-		<div class="setup_footer">
+		<div class="card__footer">
 			<IconButton icon="home" on:click={() => goto('/')} />
 			<Button color="primary" {loading} on:click={onSetTargetClick} id="set-base-branch">
 				Done
@@ -149,36 +149,13 @@
 		width: 100%;
 		padding: var(--space-24);
 	}
-	.setup {
-		display: flex;
-		flex-direction: column;
+	.card {
 		max-width: 640px;
 		overflow-y: hidden;
-		background: var(--clr-theme-container-light);
-		border: 1px solid var(--clr-theme-container-outline-light);
-		border-radius: var(--radius-m);
 	}
-	.setup__header {
-		padding: var(--space-12);
-		border-bottom: 1px solid var(--clr-theme-container-outline-light);
-	}
-	.setup__title {
-		padding: var(--space-4) var(--space-6);
-	}
-	.setup__content {
-		display: flex;
-		flex-direction: column;
+	.card__content {
 		gap: var(--space-28);
-		padding: var(--space-24) var(--space-16);
 	}
-	.setup_footer {
-		display: flex;
-		gap: var(--space-6);
-		padding: var(--space-12);
-		justify-content: space-between;
-		border-top: 1px solid var(--clr-theme-container-outline-light);
-	}
-
 	.optional {
 		color: var(--clr-theme-scale-ntrl-60);
 		font-style: italic;

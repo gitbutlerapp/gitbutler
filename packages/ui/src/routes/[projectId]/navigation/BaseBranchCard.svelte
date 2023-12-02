@@ -23,7 +23,7 @@
 
 <a
 	href="/{project.id}/base"
-	class="card"
+	class="base-branch-card"
 	style:background-color={selected ? 'var(--clr-theme-container-pale)' : undefined}
 	bind:this={baseContents}
 >
@@ -62,7 +62,7 @@
 </a>
 
 <style lang="postcss">
-	.card {
+	.base-branch-card {
 		display: flex;
 		gap: var(--space-10);
 		padding: var(--space-8);
