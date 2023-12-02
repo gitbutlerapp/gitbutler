@@ -43,7 +43,7 @@
 	});
 </script>
 
-<div class="header" bind:this={element}>
+<div class="card__header" bind:this={element}>
 	<div class="header__left flex-grow">
 		{#if !readonly}
 			<div class="draggable" id="drag-handle">
@@ -66,16 +66,8 @@
 </div>
 
 <style lang="postcss">
-	.header {
-		display: flex;
-		width: 100%;
-		align-items: center;
-		padding: var(--space-12);
-		gap: var(--space-8);
-		&:hover .draggable {
-			color: var(--clr-theme-scale-ntrl-40);
-		}
-		border-bottom: 1px solid var(--clr-theme-container-outline-light);
+	.card__header:hover .draggable {
+		color: var(--clr-theme-scale-ntrl-40);
 	}
 	.header__left {
 		display: flex;
