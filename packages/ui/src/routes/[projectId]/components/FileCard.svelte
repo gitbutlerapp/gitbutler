@@ -19,7 +19,9 @@
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import lscache from 'lscache';
+	import { persisted } from '@square/svelte-store';
 
+	export let projectId: string;
 	export let branchId: string;
 	export let file: File;
 	export let conflicted: boolean;
@@ -33,7 +35,8 @@
 	let contents: HTMLElement;
 	let rsViewport: HTMLElement;
 
-	const fileWidthKey = 'fileWidth:';
+	const defaultFileWidthRem = persisted<number | undefined>(30, 'defaulFileWidth' + projectId);
+	const fileWidthKey = 'fileWidth_';
 	let fileWidth: number;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
@@ -97,7 +100,7 @@
 		};
 	}
 
-	fileWidth = lscache.get(fileWidthKey + file.id) ?? $userSettings.defaultFileWidth;
+	fileWidth = lscache.get(fileWidthKey + file.id);
 </script>
 
 <div
@@ -112,7 +115,7 @@
 	<div
 		id={`file-${file.id}`}
 		class="file-card"
-		style:width={`${fileWidth}px`}
+		style:width={`${fileWidth || $defaultFileWidthRem}rem`}
 		class:opacity-80={isFileLocked}
 	>
 		<FileCardHeader {file} {isFileLocked} on:close />
@@ -240,13 +243,9 @@
 		inside
 		minWidth={240}
 		on:width={(e) => {
-			fileWidth = e.detail;
-			lscache.set(fileWidthKey + file.id, e.detail, 7 * 1440); // 7 day ttl
-			userSettings.update((s) => ({
-				...s,
-				defaultFileWidth: e.detail
-			}));
-			return true;
+			fileWidth = e.detail / 16;
+			lscache.set(fileWidthKey + file.id, fileWidth, 7 * 1440); // 7 day ttl
+			$defaultFileWidthRem = fileWidth;
 		}}
 	/>
 </div>
