@@ -15,6 +15,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import TextArea from '$lib/components/TextArea.svelte';
 	import DropDown from '$lib/components/DropDown.svelte';
+	import InfoMessage from '$lib/components/InfoMessage.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
@@ -104,15 +105,13 @@
 
 <div class="commit-box" transition:slide={{ duration: 150 }}>
 	{#if annotateCommits}
-		<div class="rounded bg-blue-400 p-2 text-sm text-white">
-			GitButler will be the committer of this commit.
-			<a
+		<InfoMessage color="accent" outline>
+			GitButler will be the committer of this commit. <a
 				target="_blank"
 				rel="noreferrer"
-				class="font-bold"
 				href="https://docs.gitbutler.com/features/virtual-branches/committer-mark">Learn more</a
 			>
-		</div>
+		</InfoMessage>
 	{/if}
 	<TextArea bind:value={commitMessage} rows={messageRows} placeholder="Your commit message here" />
 	<div class="actions">
