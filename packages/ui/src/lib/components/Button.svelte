@@ -63,6 +63,7 @@
 		gap: var(--space-2);
 		height: var(--size-btn-m);
 		min-width: var(--size-btn-m);
+		transition: background-color var(--transition-fast);
 		&:disabled {
 			pointer-events: none;
 			opacity: 0.6;

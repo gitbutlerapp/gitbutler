@@ -105,7 +105,7 @@
 
 <div class="commit-box" transition:slide={{ duration: 150 }}>
 	{#if annotateCommits}
-		<InfoMessage color="accent" outline>
+		<InfoMessage color="accent-dim">
 			GitButler will be the committer of this commit. <a
 				target="_blank"
 				rel="noreferrer"
