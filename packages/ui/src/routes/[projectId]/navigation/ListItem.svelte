@@ -9,36 +9,29 @@
 	const dispatch = createEventDispatcher();
 </script>
 
-<button
-	disabled={selected}
-	class="button text-base-14 font-bold"
-	class:selected
-	on:click={() => dispatch('click')}
->
-	<slot />
+<button disabled={selected} class="button" class:selected on:click={() => dispatch('click')}>
+	<span class="text-base-14 text-bold">
+		<slot />
+	</span>
 	{#if icon}
-		<div class="button__icon">
-			<Icon name={icon} />
-		</div>
+		<Icon name={icon} class="button__icon" />
 	{/if}
 </button>
 
 <style lang="postcss">
 	.button {
 		display: flex;
+		align-items: center;
 		color: var(--clr-theme-scale-ntrl-10);
 		font-weight: 700;
-		padding-top: var(--space-8);
-		padding-bottom: var(--space-8);
-		padding-left: var(--space-10);
-		padding-right: var(--space-10);
+		padding: var(--space-10) var(--space-10);
 		justify-content: space-between;
 		border-radius: var(--radius-m);
 		width: 100%;
 		&:hover:enabled,
 		&:focus:enabled {
 			background-color: var(--clr-theme-container-pale);
-			& .button__icon {
+			& :global(.button__icon) {
 				color: var(--clr-theme-scale-ntrl-40);
 			}
 		}
@@ -47,7 +40,8 @@
 			color: var(--clr-theme-scale-ntrl-50);
 		}
 	}
-	.button__icon {
+
+	.button :global(.button__icon) {
 		color: var(--clr-theme-scale-ntrl-50);
 	}
 </style>
