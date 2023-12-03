@@ -53,8 +53,10 @@
 
 	.left-btns {
 		display: flex;
+		align-items: center;
 	}
 	.loading-status {
-		padding: var(--space-8);
+		margin-left: 0.5rem;
+		margin-right: 0.5rem;
 	}
 </style>
