@@ -68,7 +68,7 @@
 </script>
 
 <div class="flex h-full flex-col">
-	<div class="flex flex-grow overflow-hidden">
+	<div class="flex flex-grow justify-center overflow-hidden">
 		<slot />
 	</div>
 	<Toaster />
