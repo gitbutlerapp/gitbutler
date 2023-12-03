@@ -122,8 +122,8 @@
 				: 'You must be logged in and have summary generation enabled to use this feature'}
 		>
 			<DropDown
-				type="outlined"
-				disabled={!($aiGenEnabled && user)}
+				kind="outlined"
+				disabled={!$aiGenEnabled || !user}
 				loading={isGeneratingCommigMessage}
 				on:click={() => generateCommitMessage(branch.files)}
 			>

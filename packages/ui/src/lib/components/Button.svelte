@@ -12,15 +12,21 @@
 	export let tabindex = 0;
 	export let wide = false;
 
-	let element: HTMLAnchorElement | HTMLButtonElement;
+	export let element: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
+
+	let className = '';
+	export { className as class };
+
+	const SLOTS = $$props.$$slots;
 
 	onMount(() => {
+		if (!element) return;
 		element.ariaLabel = element.innerText?.trim();
 	});
 </script>
 
 <button
-	class="btn"
+	class={`btn ${className}`}
 	class:error-outline={color == 'error' && kind == 'outlined'}
 	class:primary-outline={color == 'primary' && kind == 'outlined'}
 	class:error-filled={color == 'error' && kind == 'filled'}
@@ -33,9 +39,11 @@
 	{id}
 	{tabindex}
 >
-	<span class="label text-base-12">
-		<slot />
-	</span>
+	{#if SLOTS}
+		<span class="label text-base-12">
+			<slot />
+		</span>
+	{/if}
 	{#if icon}
 		<Icon name={loading ? 'spinner' : icon} />
 	{:else if loading}
@@ -45,15 +53,18 @@
 
 <style lang="postcss">
 	.btn {
+		position: relative;
 		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 		padding: var(--space-4) var(--space-6);
 		border-radius: var(--radius-m);
 		flex-shrink: 0;
 		gap: var(--space-2);
-		align-items: center;
-		justify-content: center;
 		height: var(--size-btn-m);
+		min-width: var(--size-btn-m);
 		&:disabled {
+			pointer-events: none;
 			opacity: 0.6;
 		}
 		&.wide {

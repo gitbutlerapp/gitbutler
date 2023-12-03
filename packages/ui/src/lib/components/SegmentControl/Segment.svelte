@@ -120,6 +120,9 @@
 	}
 
 	.icon {
+		display: flex;
+		justify-content: center;
+		align-items: center;
 		color: var(--clr-theme-scale-ntrl-50);
 	}
 

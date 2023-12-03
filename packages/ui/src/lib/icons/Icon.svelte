@@ -12,11 +12,8 @@
 </script>
 
 <svg
-	class={className}
+	class={`icon-wrapper ${className}`}
 	class:spinning={name == 'spinner'}
-	width="16"
-	height="16"
-	style="width: 1rem; height: 1rem;"
 	viewBox="0 0 16 16"
 	fill-rule="evenodd"
 	class:success={color == 'success'}
@@ -27,7 +24,14 @@
 	<path fill="currentColor" d={iconsJson[name]}></path>
 </svg>
 
-<style>
+<style lang="postcss">
+	.icon-wrapper {
+		width: 1rem;
+		height: 1rem;
+		pointer-events: none;
+		display: inline-block;
+	}
+
 	.success {
 		color: var(--clr-core-succ-40);
 	}
@@ -46,10 +50,5 @@
 		100% {
 			transform: rotate(360deg);
 		}
-	}
-
-	svg {
-		pointer-events: none;
-		display: inline-block;
 	}
 </style>
