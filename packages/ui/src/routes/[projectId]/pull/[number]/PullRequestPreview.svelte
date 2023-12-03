@@ -13,9 +13,9 @@
 
 {#if pullrequest != undefined}
 	<div class="wrapper max-w-4xl">
-		<div class="pr">
-			<div class="text-base-body-16 text-semibold flex items-center justify-between">
-				<span class="whitespace-pre-wrap">
+		<div class="pr card">
+			<div class="card__header text-base-body-14 text-semibold">
+				<span class="card__title whitespace-pre-wrap">
 					{pullrequest.title}
 					<span class="text-color-4">
 						<Link target="_blank" rel="noreferrer" href={pullrequest.htmlUrl} class="text-3">
@@ -30,8 +30,8 @@
 				{/if}
 			</div>
 
-			<div class="flex items-center gap-1">
-				<div class="text-color-3">
+			<div class="card__content">
+				<div class="text-base-13">
 					<span class="font-semibold">
 						{pullrequest.author?.name}
 					</span>
@@ -44,13 +44,13 @@
 						{pullrequest.targetBranch}
 					</span>
 				</div>
+				{#if pullrequest.body}
+					<div class="body">
+						{@html marked.parse(pullrequest.body)}
+					</div>
+				{/if}
 			</div>
-			{#if pullrequest.body}
-				<div class="body">
-					{@html marked.parse(pullrequest.body)}
-				</div>
-			{/if}
-			<div class="actions">
+			<div class="card__footer">
 				<Tooltip label="Does not create a commit. Can be toggled.">
 					<Button
 						color="primary"
@@ -72,18 +72,7 @@
 		flex-direction: column;
 		gap: var(--space-16);
 	}
-	.actions {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-end;
-	}
-	.pr {
-		display: flex;
-		flex-direction: column;
-		border: 1px solid var(--clr-theme-container-outline-light);
-		background-color: var(--clr-theme-container-light);
-		padding: var(--space-16);
-		border-radius: var(--radius-m);
+	.card__content {
 		gap: var(--space-12);
 	}
 	.body {

@@ -10,27 +10,31 @@
 </script>
 
 {#if branch != undefined}
-	<div class="flex w-full max-w-full flex-col gap-y-4 p-4">
-		<div class="flex-grow items-center">
-			<p class="truncate text-lg font-bold" title="remote branch">
+	<div class="card">
+		<div class="card__header text-base-14 text-semibold">
+			<span class="card__title" title="remote branch">
 				{branch.name.replace('refs/remotes/', '').replace('origin/', '').replace('refs/heads/', '')}
-			</p>
-			<p class="text-3" title="upstream target">
-				{branch.upstream?.replace('refs/remotes/', '') || ''}
-			</p>
+				<span class="text-3" title="upstream target">
+					{branch.upstream?.replace('refs/remotes/', '') || ''}
+				</span>
+			</span>
 		</div>
-		<Button
-			color="primary"
-			on:click={() => branch && branchController.createvBranchFromBranch(branch.name)}
-		>
-			Apply
-		</Button>
-		{#if branch.commits && branch.commits.length > 0}
-			<div class="flex w-full flex-col gap-y-2">
-				{#each branch.commits as commit}
-					<CommitCard {commit} {projectId} />
-				{/each}
-			</div>
-		{/if}
+		<div class="card__content">
+			{#if branch.commits && branch.commits.length > 0}
+				<div class="flex w-full flex-col gap-y-2">
+					{#each branch.commits as commit}
+						<CommitCard {commit} {projectId} />
+					{/each}
+				</div>
+			{/if}
+		</div>
+		<div class="card__footer">
+			<Button
+				color="primary"
+				on:click={() => branch && branchController.createvBranchFromBranch(branch.name)}
+			>
+				Apply
+			</Button>
+		</div>
 	</div>
 {/if}

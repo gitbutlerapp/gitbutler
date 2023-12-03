@@ -35,7 +35,7 @@
 	$: selected = setSelected($selectedFileId, branch);
 </script>
 
-<div class="wrapper">
+<div class="wrapper card">
 	<div class="absolute h-3 w-full" data-tauri-drag-region></div>
 	<BranchCard
 		{branch}
@@ -69,11 +69,11 @@
 
 <style lang="postcss">
 	.wrapper {
-		border: 1px solid var(--clr-theme-container-outline-light);
-		display: flex;
 		height: 100%;
 		flex-shrink: 0;
-		border-radius: var(--radius-m);
-		overflow: hidden;
+	}
+
+	.card {
+		flex-direction: row;
 	}
 </style>

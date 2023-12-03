@@ -51,31 +51,29 @@
 
 {#if commits.length > 0}
 	<div
-		class="wrapper"
+		class="commit-list"
 		bind:this={viewport}
 		style:height={`${height}px`}
 		style:min-height={`${2 * headerHeight}px`}
 	>
-		<CommitListHeader {expanded} {branch} {pr$} {type} {base} bind:height={headerHeight} />
+		<CommitListHeader bind:expanded {branch} {pr$} {type} {base} bind:height={headerHeight} />
 		{#if expanded}
-			<div class="content-wrapper">
+			<div class="commit-list__content">
 				<div class="commits">
 					{#each commits as commit, idx (commit.id)}
-						<div class="draggable-wrapper">
-							<CommitListItem
-								{commit}
-								{base}
-								{projectId}
-								{readonly}
-								{acceptAmend}
-								{acceptSquash}
-								{onAmend}
-								{onSquash}
-								{resetHeadCommit}
-								isChained={idx != commits.length - 1}
-								isHeadCommit={commit.id === headCommit?.id}
-							/>
-						</div>
+						<CommitListItem
+							{commit}
+							{base}
+							{projectId}
+							{readonly}
+							{acceptAmend}
+							{acceptSquash}
+							{onAmend}
+							{onSquash}
+							{resetHeadCommit}
+							isChained={idx != commits.length - 1}
+							isHeadCommit={commit.id === headCommit?.id}
+						/>
 					{/each}
 				</div>
 				<CommitListFooter
@@ -94,7 +92,7 @@
 {/if}
 
 <style lang="postcss">
-	.wrapper {
+	.commit-list {
 		background-color: var(--clr-theme-container-light);
 		display: flex;
 		flex-direction: column;
@@ -102,14 +100,10 @@
 		position: relative;
 		flex-shrink: 0;
 	}
-	.content-wrapper {
+	.commit-list__content {
 		display: flex;
 		flex-direction: column;
 		padding: 0 var(--space-16) var(--space-20) var(--space-16);
 		gap: var(--space-8);
-	}
-	.draggable-wrapper {
-	}
-	.commits {
 	}
 </style>
