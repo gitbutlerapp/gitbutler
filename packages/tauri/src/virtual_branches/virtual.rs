@@ -947,7 +947,7 @@ fn list_virtual_commit_files(
         &parent_tree,
         &commit_tree,
     )?;
-    let hunks_by_filepath = virtual_hunks_by_filepath(&project_repository.git_repository, &diff);
+    let hunks_by_filepath = virtual_hunks_by_filepath(&project_repository.project().path, &diff);
     Ok(virtual_hunks_to_virtual_files(
         project_repository,
         &hunks_by_filepath
@@ -1440,7 +1440,7 @@ fn diff_hash(diff: &str) -> String {
 }
 
 pub fn virtual_hunks_by_filepath(
-    repository: &git::Repository,
+    project_path: &path::PathBuf,
     diff: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
 ) -> HashMap<path::PathBuf, Vec<VirtualBranchHunk>> {
     let mut mtimes: HashMap<path::PathBuf, u128> = HashMap::new();
@@ -1450,7 +1450,7 @@ pub fn virtual_hunks_by_filepath(
                 .iter()
                 .map(|hunk| VirtualBranchHunk {
                     id: format!("{}-{}", hunk.new_start, hunk.new_start + hunk.new_lines),
-                    modified_at: get_mtime(&mut mtimes, &repository.path().join(file_path)),
+                    modified_at: get_mtime(&mut mtimes, &project_path.join(file_path)),
                     file_path: file_path.clone(),
                     diff: hunk.diff.clone(),
                     start: hunk.new_start,
@@ -1832,7 +1832,7 @@ fn diffs_to_virtual_files(
     project_repository: &project_repository::Repository,
     diffs: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
 ) -> Vec<VirtualBranchFile> {
-    let hunks_by_filepath = virtual_hunks_by_filepath(&project_repository.git_repository, diffs);
+    let hunks_by_filepath = virtual_hunks_by_filepath(&project_repository.project().path, diffs);
     virtual_hunks_to_virtual_files(
         project_repository,
         &hunks_by_filepath

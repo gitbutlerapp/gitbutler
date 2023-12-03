@@ -674,7 +674,7 @@ pub fn create_virtual_branch_from_branch(
     let diff = diff::trees(&project_repository.git_repository, &merge_tree, &tree)
         .context("failed to diff trees")?;
     let hunks_by_filepath =
-        super::virtual_hunks_by_filepath(&project_repository.git_repository, &diff);
+        super::virtual_hunks_by_filepath(&project_repository.project().path, &diff);
 
     // assign ownership to the branch
     for hunk in hunks_by_filepath.values().flatten() {
