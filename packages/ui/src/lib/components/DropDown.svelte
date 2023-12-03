@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { joinClassNames } from '$lib/utils/joinClassNames';
-	import Icon from '$lib/icons/Icon.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import { clickOutside } from '$lib/clickOutside';
 
