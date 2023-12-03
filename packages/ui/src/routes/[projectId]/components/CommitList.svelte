@@ -8,7 +8,6 @@
 	import CommitListHeader from './CommitListHeader.svelte';
 	import type { CommitType } from './commitList';
 	import CommitListFooter from './CommitListFooter.svelte';
-	import { onMount } from 'svelte';
 
 	export let branch: Branch;
 	export let githubContext: GitHubIntegrationContext | undefined;
@@ -26,7 +25,6 @@
 	export let resetHeadCommit: () => void;
 
 	let viewport: HTMLDivElement;
-	let height: number;
 	let headerHeight: number;
 
 	$: headCommit = branch.commits[0];
@@ -43,18 +41,13 @@
 	$: pr$ = prService.get(branch.upstreamName);
 
 	let expanded = true;
-
-	onMount(() => {
-		height = viewport?.offsetHeight;
-	});
 </script>
 
 {#if commits.length > 0}
 	<div
 		class="commit-list"
 		bind:this={viewport}
-		style:height={`${height}px`}
-		style:min-height={`${2 * headerHeight}px`}
+		style:min-height={expanded ? `${2 * headerHeight}px` : undefined}
 	>
 		<CommitListHeader bind:expanded {branch} {pr$} {type} {base} bind:height={headerHeight} />
 		{#if expanded}
