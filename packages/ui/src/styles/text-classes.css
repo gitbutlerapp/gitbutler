@@ -1,3 +1,8 @@
+:root {
+	--base-font-family: 'Inter', sans-serif;
+	--text-body-line-height: var(--text-body-line-height);
+}
+
 /* text Base Classes */
 .text-base-10 {
 	font-family: var(--base-font-family);
@@ -53,49 +58,49 @@
 	font-family: var(--base-font-family);
 	font-size: 625rem;
 	font-weight: 500;
-	line-height: 150%;
+	line-height: var(--text-body-line-height);
 }
 
 .text-base-body-11 {
 	font-family: var(--base-font-family);
 	font-size: 0.6875rem;
 	font-weight: 500;
-	line-height: 150%;
+	line-height: var(--text-body-line-height);
 }
 
 .text-base-body-12 {
 	font-family: var(--base-font-family);
 	font-size: 0.75rem;
 	font-weight: 500;
-	line-height: 150%;
+	line-height: var(--text-body-line-height);
 }
 
 .text-base-body-13 {
 	font-family: var(--base-font-family);
 	font-size: 0.8125rem;
 	font-weight: 500;
-	line-height: 150%;
+	line-height: var(--text-body-line-height);
 }
 
 .text-base-body-14 {
 	font-family: var(--base-font-family);
 	font-size: 0.875rem;
 	font-weight: 500;
-	line-height: 150%;
+	line-height: var(--text-body-line-height);
 }
 
 .text-base-body-16 {
 	font-family: var(--base-font-family);
 	font-size: 1rem;
 	font-weight: 500;
-	line-height: 150%;
+	line-height: var(--text-body-line-height);
 }
 
 .text-base-body-18 {
 	font-family: var(--base-font-family);
 	font-size: 1.125rem;
 	font-weight: 500;
-	line-height: 150%;
+	line-height: var(--text-body-line-height);
 }
 
 /* text Head Classes */
@@ -119,7 +124,6 @@
 	font-weight: 700;
 	line-height: 100%;
 }
-sdf
 
 /* modifiers */
 

@@ -36,10 +36,10 @@
 					class="mr-1 inline"
 				/>
 			</div>
-			<span class="name">
+			<span class="text-base-12 name">
 				{file.filename}
 			</span>
-			<span class="path">
+			<span class="text-base-12 path">
 				{file.justpath}
 			</span>
 		</div>
@@ -81,6 +81,7 @@
 	}
 	.info {
 		display: flex;
+		align-items: center;
 		flex-grow: 1;
 		flex-shrink: 1;
 		gap: var(--space-6);
