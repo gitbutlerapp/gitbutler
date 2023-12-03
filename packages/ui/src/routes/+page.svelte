@@ -12,26 +12,8 @@
 {#if !$projects$}
 	Loading...
 {:else}
-	<div class="absolute h-4 w-full" data-tauri-drag-region></div>
-	<div class="homepage">
-		<div class="homepage__content">
-			<SelectProject projects={$projects$} user={$user$} />
-		</div>
-	</div>
+	<SelectProject projects={$projects$} user={$user$} />
 {/if}
 
 <style lang="postcss">
-	.homepage {
-		display: flex;
-		align-items: center;
-		flex-direction: column;
-		justify-content: center;
-		flex-grow: 1;
-	}
-	.homepage__content {
-		display: flex;
-		flex-direction: column;
-		max-width: 420px;
-		gap: var(--space-8);
-	}
 </style>
