@@ -32,6 +32,15 @@
 		Unapply
 	</PopupMenuItem>
 
+	<PopupMenuItem
+		on:click={async () => {
+			await branchController.unapplyBranch(branchId);
+			await branchController.deleteBranch(branchId);
+		}}
+	>
+		Delete
+	</PopupMenuItem>
+
 	<PopupMenuItem on:click={() => dispatch('action', 'expand')} disabled={$allExpanded}>
 		Expand all
 	</PopupMenuItem>
