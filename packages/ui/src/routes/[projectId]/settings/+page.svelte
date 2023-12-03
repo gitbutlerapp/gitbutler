@@ -55,49 +55,46 @@
 </script>
 
 <div class="h-full flex-grow overflow-y-auto overscroll-none p-3">
-	<div
-		class="flex min-w-min max-w-4xl flex-col gap-y-6 overflow-visible rounded-lg px-5 py-4"
-		style:background-color="var(--bg-surface)"
-		style:border-color="var(--border-surface)"
-	>
+	<div class="card">
 		{#if !$project$}
 			loading...
 		{:else}
-			<h2 class="text-2xl font-medium">Project settings</h2>
-			<Spacer />
-			<CloudForm project={$project$} user={$user$} {userService} on:updated={onCloudUpdated} />
-			<Spacer />
-			<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
-			<Spacer />
-			<KeysForm project={$project$} on:updated={onKeysUpdated} />
-			<Spacer />
-
-			<div class="flex gap-x-4">
-				<a
-					href="https://discord.gg/wDKZCPEjXC"
-					target="_blank"
-					rel="noreferrer"
-					class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
-				>
-					<p class="mb-2 font-medium">Join our Discorder</p>
-					<p class="text-light-700 dark:text-dark-200">
-						Join our community and share feedback, requests, or ask a question.
-					</p>
-				</a>
-				<a
-					href="mailto:hello@gitbutler.com?subject=Feedback or question!"
-					target="_blank"
-					class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
-				>
-					<p class="mb-2 font-medium">Contact us</p>
-					<p class="text-light-700 dark:text-dark-200">
-						If you have an issue or any questions, contact us.
-					</p>
-				</a>
+			<div class="card__header">
+				<span class="card_title text-base-16 text-semibold">Project settings</span>
 			</div>
+			<div class="card__content">
+				<CloudForm project={$project$} user={$user$} {userService} on:updated={onCloudUpdated} />
+				<Spacer />
+				<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
+				<Spacer />
+				<KeysForm project={$project$} on:updated={onKeysUpdated} />
+				<Spacer />
 
-			<Spacer />
-			<div>
+				<div class="flex gap-x-4">
+					<a
+						href="https://discord.gg/wDKZCPEjXC"
+						target="_blank"
+						rel="noreferrer"
+						class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
+					>
+						<p class="mb-2 font-medium">Join our Discorder</p>
+						<p class="text-light-700 dark:text-dark-200">
+							Join our community and share feedback, requests, or ask a question.
+						</p>
+					</a>
+					<a
+						href="mailto:hello@gitbutler.com?subject=Feedback or question!"
+						target="_blank"
+						class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
+					>
+						<p class="mb-2 font-medium">Contact us</p>
+						<p class="text-light-700 dark:text-dark-200">
+							If you have an issue or any questions, contact us.
+						</p>
+					</a>
+				</div>
+			</div>
+			<div class="card__footer">
 				<Button color="error" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
 					Delete project
 				</Button>
@@ -117,3 +114,9 @@
 		<Button color="error" loading={isDeleting} on:click={onDeleteClicked}>Delete project</Button>
 	</svelte:fragment>
 </Modal>
+
+<style lang="postcss">
+	.card__content {
+		gap: var(--space-24);
+	}
+</style>
