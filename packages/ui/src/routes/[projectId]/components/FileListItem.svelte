@@ -36,12 +36,12 @@
 					class="mr-1 inline"
 				/>
 			</div>
-			<div class="name">
+			<span class="name">
 				{file.filename}
-			</div>
-			<div class="path">
+			</span>
+			<span class="path">
 				{file.justpath}
-			</div>
+			</span>
 		</div>
 		<div class="icons">
 			{#if isLocked}
@@ -88,14 +88,15 @@
 	}
 	.name {
 		color: var(--clr-theme-scale-ntrl-0);
-		flex-shrink: 1;
+		white-space: nowrap;
+		flex-shrink: 0;
 		text-overflow: ellipsis;
 		overflow: hidden;
 	}
 	.path {
 		color: var(--clr-theme-scale-ntrl-40);
-		flex-grow: 1;
 		flex-shrink: 1;
+		white-space: nowrap;
 		text-overflow: ellipsis;
 		overflow: hidden;
 	}
