@@ -36,12 +36,12 @@
 					class="mr-1 inline"
 				/>
 			</div>
-			<div class="name">
+			<span class="text-base-12 name">
 				{file.filename}
-			</div>
-			<div class="path">
+			</span>
+			<span class="text-base-12 path">
 				{file.justpath}
-			</div>
+			</span>
 		</div>
 		<div class="icons">
 			{#if isLocked}
@@ -81,6 +81,7 @@
 	}
 	.info {
 		display: flex;
+		align-items: center;
 		flex-grow: 1;
 		flex-shrink: 1;
 		gap: var(--space-6);
@@ -88,14 +89,15 @@
 	}
 	.name {
 		color: var(--clr-theme-scale-ntrl-0);
-		flex-shrink: 1;
+		white-space: nowrap;
+		flex-shrink: 0;
 		text-overflow: ellipsis;
 		overflow: hidden;
 	}
 	.path {
 		color: var(--clr-theme-scale-ntrl-40);
-		flex-grow: 1;
 		flex-shrink: 1;
+		white-space: nowrap;
 		text-overflow: ellipsis;
 		overflow: hidden;
 	}
