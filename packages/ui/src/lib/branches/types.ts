@@ -52,11 +52,11 @@ export class CombinedBranch {
 		return this.authors[0];
 	}
 
-	get icon(): keyof typeof iconsJson {
+	get icon(): keyof typeof iconsJson | undefined {
 		if (this.vbranch) return 'branch';
 		if (this.pr) return 'pr';
 		if (this.remoteBranch) return 'branch';
-		throw 'No icon found';
+		return undefined; // or implement a default icon?
 	}
 
 	get color(): IconColor {

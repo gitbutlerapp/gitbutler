@@ -20,7 +20,9 @@
 </script>
 
 <a class="item" class:selected {href}>
-	<div class="item__icon"><Icon name={branch.icon} color={branch.color} /></div>
+	{#if branch.icon}
+		<div class="item__icon"><Icon name={branch.icon} color={branch.color} /></div>
+	{/if}
 	<div class="item__info flex flex-col gap-2 overflow-hidden">
 		<p class="text-base-13 truncate">
 			{branch.displayName}
