@@ -1,22 +1,33 @@
 import type { PullRequest } from '$lib/github/types';
-import type { RemoteBranch } from '$lib/vbranches/types';
+import type { Branch, RemoteBranch } from '$lib/vbranches/types';
 import { CombinedBranch } from '$lib/branches/types';
 import { Observable, combineLatest } from 'rxjs';
 import { startWith, switchMap } from 'rxjs/operators';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { PrService } from '$lib/github/pullrequest';
+import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 
 export class BranchService {
 	public branches$: Observable<CombinedBranch[]>;
 
-	constructor(remoteBranchService: RemoteBranchService, prService: PrService) {
-		const prWithEmpty$ = prService.prs$.pipe(startWith([]));
+	constructor(
+		vbranchService: VirtualBranchService,
+		remoteBranchService: RemoteBranchService,
+		prService: PrService
+	) {
+		const vbranchesWithEmpty$ = vbranchService.branches$.pipe(startWith([]));
 		const branchesWithEmpty$ = remoteBranchService.branches$.pipe(startWith([]));
-		this.branches$ = combineLatest([branchesWithEmpty$, prWithEmpty$]).pipe(
+		const prWithEmpty$ = prService.prs$.pipe(startWith([]));
+
+		this.branches$ = combineLatest([vbranchesWithEmpty$, branchesWithEmpty$, prWithEmpty$]).pipe(
 			switchMap(
-				([remoteBranches, pullRequests]) =>
+				([vbranches, remoteBranches, pullRequests]) =>
 					new Observable<CombinedBranch[]>((observer) => {
-						const contributions = mergeBranchesAndPrs(pullRequests, remoteBranches || []);
+						const contributions = mergeBranchesAndPrs(
+							vbranches,
+							pullRequests,
+							remoteBranches || []
+						);
 						observer.next(contributions);
 					})
 			)
@@ -25,34 +36,50 @@ export class BranchService {
 }
 
 function mergeBranchesAndPrs(
+	vbranches: Branch[],
 	pullRequests: PullRequest[],
 	remoteBranches: RemoteBranch[]
 ): CombinedBranch[] {
 	const contributions: CombinedBranch[] = [];
-	// branches without pull requests
+
+	// First we add everything with a virtual branch
+	contributions.push(
+		...vbranches.map((vb) => {
+			const upstream = vb.upstream?.upstream;
+			const pr = upstream
+				? pullRequests.find((pr) => isBranchNameMatch(pr.targetBranch, upstream))
+				: undefined;
+			return new CombinedBranch({ vbranch: vb, remoteBranch: vb.upstream, pr });
+		})
+	);
+
+	// Then remote branches that have no virtual branch, combined with pull requests if present
 	contributions.push(
 		...remoteBranches
-			.filter((b) => !pullRequests.some((pr) => brachesMatch(pr.targetBranch, b.name)))
-			.map((remoteBranch) => new CombinedBranch({ remoteBranch }))
-	);
-	// pull requests without branches
-	contributions.push(
-		...pullRequests
-			.filter((pr) => !remoteBranches.some((branch) => brachesMatch(pr.targetBranch, branch.name)))
-			.map((pr) => new CombinedBranch({ pr }))
-	);
-	// branches with pull requests
-	contributions.push(
-		...remoteBranches
-			.filter((branch) => pullRequests.some((pr) => brachesMatch(pr.targetBranch, branch.name)))
-			.map((remoteBranch) => {
-				const pr = pullRequests.find((pr) => brachesMatch(pr.targetBranch, remoteBranch.name));
-				return new CombinedBranch({ pr, remoteBranch });
+			.filter((rb) => !vbranches.some((vb) => isBranchNameMatch(rb.name, vb.upstreamName)))
+			.map((rb) => {
+				const pr = pullRequests.find((pr) => isBranchNameMatch(pr.targetBranch, rb.name));
+				return new CombinedBranch({ remoteBranch: rb, pr });
 			})
 	);
-	return contributions.sort((a, b) => (a.modifiedAt < b.modifiedAt ? 1 : -1));
+
+	// And finally pull requests that lack any corresponding branch
+	contributions.push(
+		...pullRequests
+			.filter((pr) => !remoteBranches.some((rb) => isBranchNameMatch(pr.targetBranch, rb.name)))
+			.map((pr) => {
+				return new CombinedBranch({ pr });
+			})
+	);
+
+	// This should be everything considered a branch in one list
+	const filtered = contributions
+		.filter((b) => !b.vbranch || !b.vbranch.active)
+		.sort((a, b) => (a.modifiedAt < b.modifiedAt ? 1 : -1));
+	return filtered;
 }
 
-function brachesMatch(left: string, right: string): boolean {
+function isBranchNameMatch(left: string | undefined, right: string | undefined): boolean {
+	if (!left || !right) return false;
 	return left.split('/').pop() === right.split('/').pop();
 }

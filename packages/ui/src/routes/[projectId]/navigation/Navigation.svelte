@@ -5,14 +5,13 @@
 	import type { User } from '$lib/backend/cloud';
 	import BaseBranchCard from './BaseBranchCard.svelte';
 	import type { Project, ProjectService } from '$lib/backend/projects';
-	import StashedBranches from './StashedBranches.svelte';
 	import Footer from './Footer.svelte';
 	import AppUpdater from './AppUpdater.svelte';
 	import type { Loadable } from '@square/svelte-store';
 	import type { Update } from '../../updater';
 	import DomainButton from './DomainButton.svelte';
 	import type { PrService } from '$lib/github/pullrequest';
-	import type { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
+	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import ProjectSelector from './ProjectSelector.svelte';
 	import Branches from './Branches.svelte';
 	import type { BranchService } from '$lib/branches/service';
@@ -22,7 +21,6 @@
 	import * as toasts from '$lib/utils/toasts';
 	import Resizer from '$lib/components/Resizer.svelte';
 
-	export let vbranchService: VirtualBranchService;
 	export let branchService: BranchService;
 	export let baseBranchService: BaseBranchService;
 	export let branchController: BranchController;
@@ -36,7 +34,6 @@
 
 	$: base$ = baseBranchService.base$;
 
-	let stashExpanded = true;
 	let branchesExpanded = true;
 	let viewport: HTMLDivElement;
 </script>
@@ -92,7 +89,6 @@
 		</div>
 	</div>
 	<Branches projectId={project.id} {branchService} bind:expanded={branchesExpanded} />
-	<StashedBranches {project} {branchController} {vbranchService} bind:expanded={stashExpanded} />
 	<Footer {user} projectId={project.id} />
 	<AppUpdater {update} />
 	<Resizer
@@ -120,7 +116,6 @@
 		padding-right: var(--space-12);
 	}
 	.domains {
-		flex-grow: 1;
 		padding-bottom: var(--space-24);
 		padding-left: var(--space-12);
 		padding-right: var(--space-12);

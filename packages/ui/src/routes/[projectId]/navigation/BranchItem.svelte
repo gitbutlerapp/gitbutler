@@ -8,15 +8,19 @@
 	export let projectId: string;
 	export let branch: CombinedBranch;
 
-	$: href = branch.pr
-		? `/${projectId}/pull/${branch.pr.number}`
-		: `/${projectId}/remote/${branch?.branch?.sha}`;
+	function getBranchLink(b: CombinedBranch): string | undefined {
+		if (b.pr) return `/${projectId}/pull/${b.pr.number}`;
+		if (b.vbranch?.active) return `/${projectId}/board/`;
+		if (b.vbranch) return `/${projectId}/stashed/${b.vbranch.id}`;
+		if (b.remoteBranch) return `/${projectId}/remote/${branch?.remoteBranch?.sha}`;
+	}
 
-	$: selected = $page.url.href.includes(href);
+	$: href = getBranchLink(branch);
+	$: selected = href ? $page.url.href.includes(href) : false;
 </script>
 
 <a class="item" class:selected {href}>
-	<div class="item__icon"><Icon name={branch.icon} color="pop" /></div>
+	<div class="item__icon"><Icon name={branch.icon} color={branch.color} /></div>
 	<div class="item__info flex flex-col gap-2 overflow-hidden">
 		<p class="text-base-13 truncate">
 			{branch.displayName}
@@ -25,8 +29,10 @@
 			class="text-base-11 flex w-full justify-between"
 			style="color: var(--clr-theme-scale-ntrl-50)"
 		>
-			<TimeAgo date={branch.createdAt} />
-			by {branch.author?.name ?? 'unknown'}
+			<TimeAgo date={branch.modifiedAt} />
+			{#if branch.author}
+				by {branch.author?.name ?? 'unknown'}
+			{/if}
 			<AuthorIcons authors={branch.authors} />
 		</p>
 	</div>

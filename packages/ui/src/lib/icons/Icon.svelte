@@ -1,5 +1,5 @@
 <script lang="ts" context="module">
-	export type IconColor = 'success' | 'error' | 'pop' | undefined;
+	export type IconColor = 'success' | 'error' | 'pop' | 'warn' | undefined;
 </script>
 
 <script lang="ts">
@@ -19,6 +19,7 @@
 	class:success={color == 'success'}
 	class:error={color == 'error'}
 	class:pop={color == 'pop'}
+	class:warn={color == 'warn'}
 	class:default={!color}
 >
 	<path fill="currentColor" d={iconsJson[name]}></path>
@@ -40,6 +41,9 @@
 	}
 	.pop {
 		color: var(--clr-core-pop-40);
+	}
+	.warn {
+		color: var(--clr-core-warn-40);
 	}
 
 	.spinning {

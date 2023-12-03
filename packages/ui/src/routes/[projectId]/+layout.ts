@@ -34,7 +34,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	);
 
 	const prService = new PrService(branchController, vbranchService, githubContext$);
-	const branchService = new BranchService(remoteBranchService, prService);
+	const branchService = new BranchService(vbranchService, remoteBranchService, prService);
 
 	return {
 		projectId,

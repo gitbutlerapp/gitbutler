@@ -4,7 +4,7 @@
 	import type { UIEventHandler } from 'svelte/elements';
 	import BranchItem from './BranchItem.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import { getContext } from 'svelte';
+	import { getContext, onDestroy, onMount } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import SectionHeader from './SectionHeader.svelte';
 	import { accordion } from './accordion';
@@ -27,8 +27,13 @@
 		(branches, type, search) => searchFilter(typeFilter(branches, type), search)
 	);
 
+	let resizeGuard: HTMLElement;
 	let viewport: HTMLElement;
+	let rsViewport: HTMLElement;
 	let contents: HTMLElement;
+
+	let observer: ResizeObserver;
+	let maxHeight: number | undefined = undefined;
 
 	let scrolled: boolean;
 	const onScroll: UIEventHandler<HTMLDivElement> = (e) => {
@@ -39,8 +44,10 @@
 		switch (type) {
 			case 'all':
 				return branches;
+			case 'vbranch':
+				return branches.filter((b) => b.vbranch);
 			case 'branch':
-				return branches.filter((b) => b.branch && !b.pr);
+				return branches.filter((b) => b.remoteBranch);
 			case 'pr':
 				return branches.filter((b) => b.pr);
 		}
@@ -50,49 +57,79 @@
 		if (search == undefined) return branches;
 		return branches.filter((b) => b.displayName.includes(search));
 	}
+
+	function updateResizable() {
+		if (resizeGuard) {
+			maxHeight = resizeGuard.offsetHeight;
+		}
+	}
+
+	onMount(() => {
+		updateResizable();
+		observer = new ResizeObserver(() => updateResizable());
+		if (viewport) observer.observe(resizeGuard);
+	});
+
+	onDestroy(() => observer.disconnect());
 </script>
 
-<div class="relative flex flex-col">
-	{#if expanded}
-		<Resizer
-			{viewport}
-			direction="up"
-			inside
-			minHeight={90}
-			on:height={(e) => {
-				userSettings.update((s) => ({
-					...s,
-					vbranchExpandableHeight: e.detail
-				}));
-			}}
-		/>
-	{/if}
-	<SectionHeader {scrolled} count={$branches$?.length ?? 0} expandable={true} bind:expanded>
-		Other branches
-	</SectionHeader>
+<div class="resize-guard" bind:this={resizeGuard}>
 	<div
-		class="wrapper"
-		use:accordion={$branches$?.length > 0 && expanded}
+		class="branch-list"
+		bind:this={rsViewport}
 		style:height={`${$userSettings.vbranchExpandableHeight}px`}
+		style:max-height={maxHeight ? `${maxHeight}px` : undefined}
 	>
-		<div bind:this={viewport} class="viewport hide-native-scrollbar" on:scroll={onScroll}>
-			<BranchFilter {typeFilter$} {textFilter$}></BranchFilter>
-			<div bind:this={contents} class="content">
-				{#if $filteredBranches$}
-					{#each $filteredBranches$ as branch}
-						<BranchItem {projectId} {branch} />
-					{/each}
-				{/if}
+		{#if expanded}
+			<Resizer
+				viewport={rsViewport}
+				direction="up"
+				inside
+				minHeight={90}
+				on:height={(e) => {
+					userSettings.update((s) => ({
+						...s,
+						vbranchExpandableHeight: maxHeight ? Math.min(maxHeight, e.detail) : e.detail
+					}));
+				}}
+			/>
+		{/if}
+		<SectionHeader {scrolled} count={$branches$?.length ?? 0} expandable={true} bind:expanded>
+			Branches
+		</SectionHeader>
+		<div class="scroll-container" use:accordion={$branches$?.length > 0 && expanded}>
+			<div bind:this={viewport} class="viewport hide-native-scrollbar" on:scroll={onScroll}>
+				<BranchFilter {typeFilter$} {textFilter$}></BranchFilter>
+				<div bind:this={contents} class="content">
+					{#if $filteredBranches$}
+						{#each $filteredBranches$ as branch}
+							<BranchItem {projectId} {branch} />
+						{/each}
+					{/if}
+				</div>
 			</div>
+			<Scrollbar {viewport} {contents} thickness="0.5rem" />
 		</div>
-		<Scrollbar {viewport} {contents} thickness="0.5rem" />
 	</div>
 </div>
 
 <style lang="postcss">
-	.wrapper {
+	.resize-guard {
+		display: flex;
+		flex-direction: column;
+		flex-grow: 1;
+		justify-content: flex-end;
+		position: relative;
+		overflow-y: hidden;
+	}
+	.scroll-container {
 		position: relative;
 		overflow: hidden;
+	}
+	.branch-list {
+		position: relative;
+		display: flex;
+		flex-direction: column;
 	}
 	.viewport {
 		display: flex;
