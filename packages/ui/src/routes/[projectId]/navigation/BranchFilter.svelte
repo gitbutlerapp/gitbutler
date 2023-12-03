@@ -13,9 +13,9 @@
 
 	let options: { id: TypeFilter; name: string }[] = [
 		{ id: 'all', name: 'All' },
-		{ id: 'vbranch', name: 'Virtual' },
+		{ id: 'pr', name: 'PR' },
 		{ id: 'branch', name: 'Remote' },
-		{ id: 'pr', name: 'Pull request' }
+		{ id: 'vbranch', name: 'Unapplied' }
 	];
 
 	function onSelect(id: string) {
