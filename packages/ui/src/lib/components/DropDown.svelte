@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { joinClassNames } from '$lib/utils/joinClassNames';
 	import Icon from '$lib/icons/Icon.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import { clickOutside } from '$lib/clickOutside';
 
-	export let type: 'filled' | 'outlined' = 'filled';
+	export let color: 'primary' | 'error' = 'primary';
+	export let kind: 'filled' | 'outlined' = 'filled';
 	export let disabled = false;
 	export let loading = false;
 	export let wide = false;
@@ -21,24 +24,30 @@
 	let iconElt: HTMLElement;
 </script>
 
-<div class="wrapper" style:display={wide ? 'flex' : 'inline-flex'}>
-	<div
-		class="dropdown"
-		bind:this={container}
-		class:filled={type == 'filled'}
-		class:outlined={type == 'outlined'}
-	>
-		<button class="btn" disabled={disabled || loading} on:click>
-			<span class="label text-base-12"> <slot /></span>
-		</button>
-		<button
-			class="icon"
-			bind:this={iconElt}
+<div class="dropdown-wrapper" style:display={wide ? 'flex' : 'inline-flex'}>
+	<div class="dropdown" bind:this={container}>
+		<Button
+			class={joinClassNames([
+				'dropdown__text-btn',
+				kind == 'outlined' ? 'dropdown__text-btn_outlined' : 'dropdown__text-btn_filled'
+			])}
+			{color}
+			{kind}
+			disabled={disabled || loading}
+			on:click><slot /></Button
+		>
+		<Button
+			class={joinClassNames([
+				'dropdown__icon-btn',
+				kind == 'outlined' ? 'dropdown__icon-btn_outlined' : ''
+			])}
+			bind:element={iconElt}
+			{color}
+			{kind}
+			icon={loading ? 'spinner' : visible ? 'chevron-top' : 'chevron-down'}
 			disabled={disabled || loading}
 			on:click={() => (visible = !visible)}
-		>
-			<Icon name={loading ? 'spinner' : visible ? 'chevron-top' : 'chevron-down'} />
-		</button>
+		/>
 	</div>
 	<div
 		class="context-wrapper"
@@ -51,88 +60,47 @@
 </div>
 
 <style lang="postcss">
-	.wrapper {
+	.dropdown-wrapper {
 		/* display set directly on element */
 		position: relative;
+	}
+
+	.dropdown-wrapper :global(.dropdown__text-btn) {
+		z-index: 1;
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+
+		&:hover {
+			z-index: 2;
+		}
+	}
+
+	.dropdown-wrapper :global(.dropdown__icon-btn) {
+		z-index: 1;
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
+
+		&:hover {
+			z-index: 2;
+		}
+	}
+
+	.dropdown-wrapper :global(.dropdown__text-btn_outlined) {
+		transform: translateX(1px);
+	}
+
+	.dropdown-wrapper :global(.dropdown__text-btn_filled) {
+		border-right: 1px solid var(--clr-theme-scale-pop-50);
+	}
+
+	.dropdown-wrapper :global(.dropdown__icon-btn_outlined):disabled {
+		border-left: 1px solid transparent;
 	}
 
 	.dropdown {
 		display: flex;
 		flex-grow: 1;
 		align-items: center;
-	}
-
-	.btn,
-	.icon {
-		display: flex;
-		align-items: center;
-		height: 100%;
-		padding: var(--space-4) var(--space-6);
-		&:disabled {
-			opacity: 0.6;
-		}
-	}
-
-	.label {
-		display: inline-flex;
-		padding: 0 var(--space-2);
-	}
-
-	.btn {
-		border-radius: var(--radius-m) 0 0 var(--radius-m);
-		justify-content: center;
-		width: 100%;
-	}
-
-	.icon {
-		border-radius: 0 var(--radius-m) var(--radius-m) 0;
-	}
-
-	.filled {
-		color: var(--clr-theme-pop-on-element);
-
-		& .label:hover:not(:disabled),
-		.icon:hover:not(:disabled) {
-			background: var(--clr-theme-pop-element-dim);
-		}
-
-		& .label {
-			background: var(--clr-theme-pop-element);
-		}
-
-		& .icon {
-			background: var(--clr-theme-pop-element);
-			border-left: 1px solid var(--clr-core-pop-55);
-		}
-	}
-
-	.outlined:not(:hover) .icon {
-		border-left: 1px solid var(--clr-theme-pop-outline);
-	}
-
-	.outlined {
-		color: var(--clr-theme-pop-outline);
-		border-color: (--clr-theme-pop-outline);
-
-		& .label:hover:not(:disabled),
-		.icon:hover:not(:disabled) {
-			color: var(--clr-theme-pop-outline-dim);
-			border-color: var(--clr-theme-pop-outline-dim);
-		}
-
-		& .btn {
-			border-width: 1px 0 1px 1px;
-			&:hover {
-				border-right-width: 1px;
-			}
-		}
-
-		& .icon {
-			border-width: 1px 1px 1px 0;
-			&:hover {
-				border-left-width: 1px;
-			}
-		}
 	}
 
 	.context-wrapper {

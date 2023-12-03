@@ -24,7 +24,8 @@
 </script>
 
 <DropDown
-	type="outlined"
+	color="primary"
+	kind="outlined"
 	loading={isLoading}
 	bind:this={dropDown}
 	{wide}
