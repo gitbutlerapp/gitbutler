@@ -23,12 +23,13 @@
 	let iconElt: HTMLElement;
 </script>
 
-<div class="dropdown-wrapper" style:display={wide ? 'flex' : 'inline-flex'}>
+<div class="dropdown-wrapper" class:wide>
 	<div class="dropdown" bind:this={container}>
 		<Button
 			class={joinClassNames([
 				'dropdown__text-btn',
-				kind == 'outlined' ? 'dropdown__text-btn_outlined' : 'dropdown__text-btn_filled'
+				kind == 'outlined' ? 'dropdown__text-btn_outlined' : 'dropdown__text-btn_filled',
+				wide ? 'wide-text-btn' : ''
 			])}
 			{color}
 			{kind}
@@ -108,5 +109,13 @@
 		bottom: 100%;
 		padding-bottom: var(--space-4);
 		z-index: 50;
+	}
+
+	.wide {
+		width: 100%;
+	}
+
+	.dropdown-wrapper :global(.wide-text-btn) {
+		flex: 1;
 	}
 </style>
