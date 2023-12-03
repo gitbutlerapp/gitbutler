@@ -15,6 +15,7 @@
 	<Icon name="branch" />
 	<div class="text-color-2 flex-grow truncate">
 		{branch.name}
+		{branch.files[0]?.modifiedAt}
 	</div>
 </a>
 

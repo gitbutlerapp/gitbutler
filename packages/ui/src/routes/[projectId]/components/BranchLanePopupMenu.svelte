@@ -1,5 +1,7 @@
 <script lang="ts">
 	import PopupMenu from '$lib/components/PopupMenu.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenuItem.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -12,6 +14,7 @@
 	export let allCollapsed: Writable<boolean | undefined>;
 	export let allExpanded: Writable<boolean | undefined>;
 	let popupMenu: PopupMenu;
+	let deleteBranchModal: Modal;
 
 	const dispatch = createEventDispatcher<{
 		action: 'expand' | 'collapse' | 'generate-branch-name';
@@ -32,14 +35,7 @@
 		Unapply
 	</PopupMenuItem>
 
-	<PopupMenuItem
-		on:click={async () => {
-			await branchController.unapplyBranch(branchId);
-			await branchController.deleteBranch(branchId);
-		}}
-	>
-		Delete
-	</PopupMenuItem>
+	<PopupMenuItem on:click={() => deleteBranchModal.show(branchId)}>Delete</PopupMenuItem>
 
 	<PopupMenuItem on:click={() => dispatch('action', 'expand')} disabled={$allExpanded}>
 		Expand all
@@ -68,3 +64,22 @@
 		Create branch after
 	</PopupMenuItem>
 </PopupMenu>
+
+<Modal width="small" bind:this={deleteBranchModal} let:item>
+	<svelte:fragment slot="title">Delete branch</svelte:fragment>
+	<div>
+		Deleting <code>{item.name}</code> cannot be undone.
+	</div>
+	<svelte:fragment slot="controls" let:close let:item>
+		<Button kind="outlined" on:click={close}>Cancel</Button>
+		<Button
+			color="error"
+			on:click={async () => {
+				await branchController.unapplyBranch(item);
+				await branchController.deleteBranch(item);
+			}}
+		>
+			Delete
+		</Button>
+	</svelte:fragment>
+</Modal>
