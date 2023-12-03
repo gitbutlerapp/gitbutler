@@ -33,7 +33,7 @@ export class File {
 	}
 
 	get justpath() {
-		return this.path.split('/').slice(1, -2).join('/');
+		return this.path.split('/').slice(0, -1).join('/');
 	}
 }
 
