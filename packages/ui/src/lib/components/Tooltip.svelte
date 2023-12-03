@@ -2,8 +2,10 @@
 	import { offset, flip, shift } from 'svelte-floating-ui/dom';
 	import { createFloatingActions } from 'svelte-floating-ui';
 
-	export let label: string | undefined = undefined;
 	type Placement = 'top' | 'right' | 'bottom' | 'left';
+	const SLOTS = $$props.$$slots;
+
+	export let label: string | undefined = undefined;
 	export let placement: Placement = 'bottom';
 	export let timeoutMilliseconds = 1500;
 
@@ -17,7 +19,7 @@
 	let timeout: ReturnType<typeof setTimeout>;
 </script>
 
-{#if label}
+{#if label || SLOTS.label}
 	<div
 		role="tooltip"
 		class="wrapper"
