@@ -1,12 +1,5 @@
 <script lang="ts">
-	export let color:
-		| 'info'
-		| 'info-dim'
-		| 'accent'
-		| 'accent-dim'
-		| 'success'
-		| 'error'
-		| 'warning' = 'info';
+	export let color: 'info' | 'info-dim' | 'accent' | 'accent-dim';
 	export let outline = false;
 	export let clickable = false;
 </script>
@@ -18,9 +11,6 @@
 	class:info-dim={color == 'info-dim'}
 	class:accent={color == 'accent'}
 	class:accent-dim={color == 'accent-dim'}
-	class:success={color == 'success'}
-	class:error={color == 'error'}
-	class:warning={color == 'warning'}
 	on:click
 	role={clickable ? 'button' : undefined}
 >
@@ -65,7 +55,7 @@
 		background-color: var(--clr-theme-pop-container);
 
 		& span {
-			color: var(--clr-theme-scale-pop-20);
+			color: var(--clr-theme-scale-pop-30);
 		}
 
 		&.info-message_outlined {
@@ -77,47 +67,11 @@
 		background-color: var(--clr-theme-pop-container-dim);
 
 		& span {
-			color: var(--clr-theme-scale-pop-20);
+			color: var(--clr-theme-scale-pop-30);
 		}
 
 		&.info-message_outlined {
 			border: 1px solid var(--clr-theme-scale-pop-60);
-		}
-	}
-
-	.success {
-		background-color: var(--clr-theme-succ-container);
-
-		& span {
-			color: var(--clr-theme-scale-succ-30);
-		}
-
-		&.info-message_outlined {
-			border: 1px solid var(--clr-theme-scale-succ-60);
-		}
-	}
-
-	.error {
-		background-color: var(--clr-theme-err-container);
-
-		& span {
-			color: var(--clr-theme-scale-err-30);
-		}
-
-		&.info-message_outlined {
-			border: 1px solid var(--clr-theme-scale-err-60);
-		}
-	}
-
-	.warning {
-		background-color: var(--clr-theme-warn-container);
-
-		& span {
-			color: var(--clr-theme-scale-warn-30);
-		}
-
-		&.info-message_outlined {
-			border: 1px solid var(--clr-theme-scale-warn-60);
 		}
 	}
 
