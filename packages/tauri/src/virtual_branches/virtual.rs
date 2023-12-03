@@ -1440,7 +1440,7 @@ fn diff_hash(diff: &str) -> String {
 }
 
 pub fn virtual_hunks_by_filepath(
-    project_path: &path::PathBuf,
+    project_path: &path::Path,
     diff: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
 ) -> HashMap<path::PathBuf, Vec<VirtualBranchHunk>> {
     let mut mtimes: HashMap<path::PathBuf, u128> = HashMap::new();
