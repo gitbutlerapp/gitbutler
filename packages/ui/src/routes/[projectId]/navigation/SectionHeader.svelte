@@ -13,8 +13,8 @@
 		if (expandable) expanded = !expanded;
 	}}
 	disabled={count && count > 0 ? false : true}
-	class="header border-t font-bold"
-	class:border-b={scrolled}
+	class="header font-bold"
+	class:header-scrolled={scrolled}
 >
 	<div class="whitespace-nowrap font-bold">
 		<slot />
@@ -37,6 +37,8 @@
 		padding: var(--space-16) var(--space-12);
 		gap: var(--space-8);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
+		border-bottom: 1px solid transparent;
+		transition: border-bottom var(--transition-fast);
 	}
 	.header:hover,
 	.header:focus {
@@ -44,5 +46,9 @@
 	}
 	.header:disabled {
 		color: var(--clr-theme-scale-ntrl-50);
+	}
+
+	.header-scrolled {
+		border-bottom: 1px solid var(--clr-theme-container-outline-light);
 	}
 </style>
