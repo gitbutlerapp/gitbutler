@@ -120,8 +120,8 @@ export class RemoteBranch {
 		return this.commits.length;
 	}
 
-	get lastCommitTs(): Date {
-		return this.commits[0].createdAt;
+	get lastCommitTs(): Date | undefined {
+		return this.commits[0]?.createdAt;
 	}
 
 	get firstCommitAt(): Date {

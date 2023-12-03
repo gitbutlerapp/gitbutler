@@ -45,9 +45,9 @@ export class CombinedBranch {
 		return authors;
 	}
 
-	get author(): Author {
+	get author(): Author | undefined {
 		if (this.authors.length == 0) {
-			throw 'No author found';
+			return undefined;
 		}
 		return this.authors[0];
 	}
@@ -66,7 +66,7 @@ export class CombinedBranch {
 		return 'pop';
 	}
 
-	get modifiedAt(): Date {
+	get modifiedAt(): Date | undefined {
 		if (this.pr) return this.pr.modifiedAt || this.pr.createdAt;
 		if (this.remoteBranch) return this.remoteBranch.lastCommitTs;
 
