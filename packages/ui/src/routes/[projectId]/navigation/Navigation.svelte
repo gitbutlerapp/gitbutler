@@ -1,13 +1,11 @@
 <script lang="ts">
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { getContext } from 'svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { User } from '$lib/backend/cloud';
 	import BaseBranchCard from './BaseBranchCard.svelte';
 	import type { Project, ProjectService } from '$lib/backend/projects';
 	import Footer from './Footer.svelte';
 	import AppUpdater from './AppUpdater.svelte';
-	import type { Loadable } from '@square/svelte-store';
+	import { persisted, type Loadable } from '@square/svelte-store';
 	import type { Update } from '../../updater';
 	import DomainButton from './DomainButton.svelte';
 	import type { PrService } from '$lib/github/pullrequest';
@@ -30,7 +28,10 @@
 	export let prService: PrService;
 	export let projectService: ProjectService;
 
-	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
+	const defaultTrayWidthRem = persisted<number | undefined>(
+		undefined,
+		'defaulTrayWidth_ ' + project.id
+	);
 
 	$: base$ = baseBranchService.base$;
 
@@ -40,7 +41,7 @@
 
 <div
 	class="navigation relative z-30 flex w-80 shrink-0 flex-col border-r"
-	style:width={$userSettings.trayWidth ? `${$userSettings.trayWidth}px` : null}
+	style:width={$defaultTrayWidthRem ? $defaultTrayWidthRem + 'rem' : null}
 	bind:this={viewport}
 	role="menu"
 	tabindex="0"
@@ -96,10 +97,7 @@
 		direction="right"
 		minWidth={320}
 		on:width={(e) => {
-			userSettings.update((s) => ({
-				...s,
-				trayWidth: e.detail
-			}));
+			$defaultTrayWidthRem = e.detail / 16;
 		}}
 	/>
 </div>

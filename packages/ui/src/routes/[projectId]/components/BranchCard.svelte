@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
-	import { getContext, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { dropzone } from '$lib/utils/draggable';
 	import {
 		isDraggableHunk,
@@ -15,7 +15,6 @@
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import lscache from 'lscache';
 	import CommitDialog from './CommitDialog.svelte';
 	import { writable, type Writable } from 'svelte/store';
@@ -30,6 +29,7 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import type { UIEventHandler } from 'svelte/elements';
+	import { persisted } from '@square/svelte-store';
 
 	export let branch: Branch;
 	export let readonly = false;
@@ -44,8 +44,6 @@
 	export let selectedFileId: Writable<string | undefined>;
 	export let prService: PrService;
 
-	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-
 	const allExpanded = writable(false);
 	const allCollapsed = writable(false);
 	const aiGenEnabled = projectAiGenEnabled(projectId);
@@ -55,7 +53,8 @@
 	let contents: HTMLElement;
 	let scrolled = false;
 
-	const laneWidthKey = 'laneWidth:';
+	const defaultBranchWidthRem = persisted<number | undefined>(30, 'defaulBranchWidth' + projectId);
+	const laneWidthKey = 'laneWidth_';
 	let laneWidth: number;
 
 	$: {
@@ -124,7 +123,7 @@
 
 	onMount(() => {
 		expandFromCache();
-		laneWidth = lscache.get(laneWidthKey + branch.id) ?? $userSettings.defaultLaneWidth;
+		laneWidth = lscache.get(laneWidthKey + branch.id);
 	});
 
 	const selectedOwnership = writable(Ownership.fromBranch(branch));
@@ -223,7 +222,7 @@
 </script>
 
 <div bind:this={rsViewport} class="resize-viewport">
-	<div class="branch-card" style:width={maximized ? '100%' : `${laneWidth}px`}>
+	<div class="branch-card" style:width={`${laneWidth || $defaultBranchWidthRem}rem`}>
 		<div class="flex flex-col">
 			<BranchHeader
 				{readonly}
@@ -378,13 +377,9 @@
 			inside={!$selectedFileId}
 			minWidth={320}
 			on:width={(e) => {
-				laneWidth = e.detail;
+				laneWidth = e.detail / 16;
 				lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
-				userSettings.update((s) => ({
-					...s,
-					defaultLaneWidth: laneWidth
-				}));
-				return true;
+				$defaultBranchWidthRem = laneWidth;
 			}}
 		/>
 	{/if}

@@ -57,6 +57,7 @@
 			conflicted={selected.conflicted}
 			branchId={branch.id}
 			file={selected}
+			{projectId}
 			{projectPath}
 			{branchController}
 			{selectedOwnership}
