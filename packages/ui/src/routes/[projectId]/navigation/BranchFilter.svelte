@@ -1,5 +1,5 @@
 <script lang="ts" context="module">
-	export type TypeFilter = 'all' | 'branch' | 'pr';
+	export type TypeFilter = 'all' | 'branch' | 'pr' | 'vbranch';
 </script>
 
 <script lang="ts">
@@ -13,7 +13,8 @@
 
 	let options: { id: TypeFilter; name: string }[] = [
 		{ id: 'all', name: 'All' },
-		{ id: 'branch', name: 'Branch' },
+		{ id: 'vbranch', name: 'Virtual' },
+		{ id: 'branch', name: 'Remote' },
 		{ id: 'pr', name: 'Pull request' }
 	];
 

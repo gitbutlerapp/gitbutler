@@ -101,10 +101,10 @@ export class RemoteFile {
 }
 
 export interface Author {
-	email: string;
+	email?: string;
 	name: string;
 	gravatarUrl?: URL;
-	isBot: boolean;
+	isBot?: boolean;
 }
 
 export class RemoteBranch {

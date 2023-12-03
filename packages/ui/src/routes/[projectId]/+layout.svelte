@@ -89,7 +89,6 @@
 		<div bind:this={trayViewport} class="z-30 flex flex-shrink">
 			{#if $project$}
 				<Navigation
-					{vbranchService}
 					{branchService}
 					{baseBranchService}
 					{branchController}
