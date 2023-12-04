@@ -1,18 +1,14 @@
 <script lang="ts">
 	import { draggableFile } from '$lib/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
-	import Icon from '$lib/icons/Icon.svelte';
 	import { draggable } from '$lib/utils/draggable';
-	import { computeFileStatus } from '$lib/vbranches/fileStatus';
 	import type { File } from '$lib/vbranches/types';
-	import FileStatusCircle from './FileStatusCircle.svelte';
+	import FileStatusIcons from './FileStatusIcons.svelte';
 
 	export let branchId: string;
 	export let file: File;
 	export let readonly: boolean;
 	export let selected: boolean;
-
-	$: isLocked = file.hunks.some((h) => h.locked);
 </script>
 
 <div
@@ -43,16 +39,7 @@
 				{file.justpath}
 			</span>
 		</div>
-		<div class="icons">
-			{#if isLocked}
-				<div class="locked">
-					<Icon name="locked-small" />
-				</div>
-			{/if}
-			<div class="status">
-				<FileStatusCircle status={computeFileStatus(file)} />
-			</div>
-		</div>
+		<FileStatusIcons {file} />
 	</div>
 </div>
 
@@ -70,11 +57,6 @@
 		&:not(.selected):hover {
 			background: var(--clr-theme-container-pale);
 		}
-	}
-	.icons {
-		display: flex;
-		align-items: center;
-		gap: var(--space-4);
 	}
 	.icon {
 		flex-shrink: 0;

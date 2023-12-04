@@ -34,16 +34,16 @@
 	}
 
 	.success {
-		color: var(--clr-core-succ-40);
+		color: var(--clr-theme-scale-succ-50);
 	}
 	.error {
-		color: var(--clr-core-err-40);
+		color: var(--clr-theme-scale-err-50);
 	}
 	.pop {
-		color: var(--clr-core-pop-40);
+		color: var(--clr-theme-scale-pop-50);
 	}
 	.warn {
-		color: var(--clr-core-warn-40);
+		color: var(--clr-theme-scale-warn-60);
 	}
 
 	.spinning {
