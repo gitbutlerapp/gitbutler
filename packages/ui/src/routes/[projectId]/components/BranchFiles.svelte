@@ -142,7 +142,7 @@
 		flex-direction: column;
 		overflow: hidden;
 		min-height: 8rem;
-		flex-shrink: 0;
+		flex-shrink: 1;
 		flex-grow: 1;
 	}
 	.branch-files-wrapper {
