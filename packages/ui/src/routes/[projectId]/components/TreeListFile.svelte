@@ -3,9 +3,8 @@
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import Icon from '$lib/icons/Icon.svelte';
 	import { draggable } from '$lib/utils/draggable';
-	import { computeFileStatus } from '$lib/vbranches/fileStatus';
 	import type { File } from '$lib/vbranches/types';
-	import FileStatusCircle from './FileStatusCircle.svelte';
+	import FileStatusIcons from './FileStatusIcons.svelte';
 
 	export let branchId: string;
 	export let file: File;
@@ -40,9 +39,7 @@
 		<span class="name text-base-12">
 			{file.filename}
 		</span>
-		<div class="status">
-			<FileStatusCircle status={computeFileStatus(file)} />
-		</div>
+		<FileStatusIcons {file} />
 	</div>
 </div>
 
