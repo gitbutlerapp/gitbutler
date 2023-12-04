@@ -162,8 +162,8 @@ importers:
         specifier: ^3.0.2
         version: 3.0.2
       nanoevents:
-        specifier: ^8.0.0
-        version: 8.0.0
+        specifier: ^9.0.0
+        version: 9.0.0
       nanoid:
         specifier: ^5.0.3
         version: 5.0.3
@@ -3331,9 +3331,9 @@ packages:
       thenify-all: 1.6.0
     dev: true
 
-  /nanoevents@8.0.0:
-    resolution: {integrity: sha512-bYYwNCdNc5ea6/Lwh1uioU1/7aaKa3EPmNQ2weTm8PWSpbWrsaWHePe0Zq4SF+D3F3JX3cn+QdktOPCf1meOqw==}
-    engines: {node: ^16.0.0 || ^18.0.0 || >=20.0.0}
+  /nanoevents@9.0.0:
+    resolution: {integrity: sha512-X8pU7IOpgKXVLPxYUI55ymXc8XuBE+uypfEyEFBtHkD1EX9KavYTVc+vXZHFyHKzA1TaZoVDqklLdQBBrxIuAw==}
+    engines: {node: ^18.0.0 || >=20.0.0}
     dev: true
 
   /nanoid@3.3.6:
