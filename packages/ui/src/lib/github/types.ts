@@ -45,8 +45,8 @@ export function ghResponseToInstance(
 		body: pr.body || undefined,
 		author: pr.user
 			? {
-					name: pr.user.login || 'unknown',
-					email: pr.user.email || 'unknown',
+					name: pr.user.login || undefined,
+					email: pr.user.email || undefined,
 					isBot: pr.user.type == 'bot',
 					gravatarUrl: new URL(pr.user.avatar_url)
 			  }
