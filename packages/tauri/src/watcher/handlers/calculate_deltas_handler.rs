@@ -1,4 +1,4 @@
-use std::{path, vec};
+use std::vec;
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
@@ -58,24 +58,6 @@ impl Handler {
         reader.read(path)
     }
 
-    // returns deltas for the file that are already part of the current session (if any)
-    fn get_current_deltas(
-        gb_repo: &gb_repository::Repository,
-        path: &path::Path,
-    ) -> Result<Option<Vec<deltas::Delta>>> {
-        if let Some(current_session) = gb_repo.get_current_session()? {
-            let session_reader = sessions::Reader::open(gb_repo, &current_session)
-                .context("failed to get session reader")?;
-            let deltas_reader = deltas::Reader::new(&session_reader);
-            let deltas = deltas_reader
-                .read_file(path)
-                .context("failed to get file deltas")?;
-            Ok(deltas)
-        } else {
-            Ok(None)
-        }
-    }
-
     pub fn handle<P: AsRef<std::path::Path>>(
         &self,
         path: P,
@@ -133,8 +115,10 @@ impl Handler {
             Err(err) => Err(err).context("failed to get file content")?,
         };
 
-        let current_deltas = Self::get_current_deltas(&gb_repository, path)
-            .with_context(|| "failed to get current deltas")?;
+        let deltas_reader = deltas::Reader::new(&current_session_reader);
+        let current_deltas = deltas_reader
+            .read_file(path)
+            .context("failed to get file deltas")?;
 
         let mut text_doc = deltas::Document::new(
             latest_file_content.as_ref(),
@@ -151,7 +135,7 @@ impl Handler {
             let writer = deltas::Writer::new(&gb_repository);
             writer
                 .write(path, &deltas)
-                .with_context(|| "failed to write deltas")?;
+                .context("failed to write deltas")?;
 
             match &current_wd_file_content {
                 Some(reader::Content::UTF8(text)) => writer.write_wd_file(path, text),
@@ -185,6 +169,7 @@ impl Handler {
 mod test {
     use std::{
         collections::HashMap,
+        path,
         sync::atomic::{AtomicUsize, Ordering},
     };
 

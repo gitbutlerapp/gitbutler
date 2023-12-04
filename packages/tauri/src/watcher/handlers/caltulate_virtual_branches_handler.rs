@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
+use tokio::sync::Mutex;
 
 use crate::{
     assets, events as app_events,
@@ -11,11 +14,35 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
+    inner: Arc<Mutex<HandlerInner>>,
+}
+
+impl TryFrom<&AppHandle> for Handler {
+    type Error = anyhow::Error;
+    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+        let inner = HandlerInner::try_from(value)?;
+        Ok(Self {
+            inner: Arc::new(Mutex::new(inner)),
+        })
+    }
+}
+
+impl Handler {
+    pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
+        if let Ok(handler) = self.inner.try_lock() {
+            handler.handle(project_id).await
+        } else {
+            Ok(vec![])
+        }
+    }
+}
+
+struct HandlerInner {
     vbranch_controller: virtual_branches::Controller,
     assets_proxy: assets::Proxy,
 }
 
-impl TryFrom<&AppHandle> for Handler {
+impl TryFrom<&AppHandle> for HandlerInner {
     type Error = anyhow::Error;
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
@@ -28,7 +55,7 @@ impl TryFrom<&AppHandle> for Handler {
     }
 }
 
-impl Handler {
+impl HandlerInner {
     pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         match self
             .vbranch_controller
