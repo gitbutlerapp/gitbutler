@@ -102,7 +102,7 @@ export class RemoteFile {
 
 export interface Author {
 	email?: string;
-	name: string;
+	name?: string;
 	gravatarUrl?: URL;
 	isBot?: boolean;
 }
