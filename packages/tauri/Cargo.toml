@@ -52,7 +52,7 @@ rustix = "0.38"
 sentry = { version = "0.31", features = ["backtrace", "contexts", "panic", "transport", "anyhow", "debug-images", "reqwest", "native-tls" ] }
 sentry-tracing = "0.31.7"
 serde = { version = "1.0", features = ["derive"] }
-serde-jsonlines = "0.4.0"
+serde-jsonlines = "0.5.0"
 serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
 sha1 = "0.10.6"
 sha2 = "0.10.8"
