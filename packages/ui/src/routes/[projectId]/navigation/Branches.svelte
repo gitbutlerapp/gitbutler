@@ -4,15 +4,13 @@
 	import type { UIEventHandler } from 'svelte/elements';
 	import BranchItem from './BranchItem.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import { getContext, onDestroy, onMount } from 'svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import { onDestroy, onMount } from 'svelte';
 	import SectionHeader from './SectionHeader.svelte';
 	import { accordion } from './accordion';
 	import BranchFilter, { type TypeFilter } from './BranchFilter.svelte';
 	import { BehaviorSubject, combineLatest } from 'rxjs';
 	import type { CombinedBranch } from '$lib/branches/types';
-
-	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
+	import { persisted } from '@square/svelte-store';
 
 	export let branchService: BranchService;
 	export let projectId: string;
@@ -20,6 +18,8 @@
 
 	export const textFilter$ = new BehaviorSubject<string | undefined>(undefined);
 	export const typeFilter$ = new BehaviorSubject<TypeFilter>('all');
+
+	const height = persisted<number | undefined>(undefined, 'branchesHeight_' + projectId);
 
 	$: branches$ = branchService.branches$;
 	$: filteredBranches$ = combineLatest(
@@ -33,7 +33,7 @@
 	let contents: HTMLElement;
 
 	let observer: ResizeObserver;
-	let maxHeight: number | undefined = undefined;
+	let maxHeight: number;
 
 	let scrolled: boolean;
 	const onScroll: UIEventHandler<HTMLDivElement> = (e) => {
@@ -60,7 +60,7 @@
 
 	function updateResizable() {
 		if (resizeGuard) {
-			maxHeight = resizeGuard.offsetHeight;
+			maxHeight = resizeGuard.offsetHeight / 16;
 		}
 	}
 
@@ -77,8 +77,8 @@
 	<div
 		class="branch-list"
 		bind:this={rsViewport}
-		style:height={`${$userSettings.vbranchExpandableHeight}px`}
-		style:max-height={maxHeight ? `${maxHeight}px` : undefined}
+		style:height={expanded && $height ? `${$height}rem` : undefined}
+		style:max-height={maxHeight ? `${maxHeight}rem` : undefined}
 	>
 		{#if expanded}
 			<Resizer
@@ -87,10 +87,7 @@
 				inside
 				minHeight={90}
 				on:height={(e) => {
-					userSettings.update((s) => ({
-						...s,
-						vbranchExpandableHeight: maxHeight ? Math.min(maxHeight, e.detail) : e.detail
-					}));
+					$height = Math.min(maxHeight, e.detail / 16);
 				}}
 			/>
 		{/if}
