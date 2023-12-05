@@ -1,8 +1,8 @@
-use std::path;
+mod common;
 
+use self::common::{paths, TestProject};
 use gblib::{gb_repository, git, project_repository, projects};
-
-use crate::{common::TestProject, paths};
+use std::path;
 
 mod init {
     use super::*;
