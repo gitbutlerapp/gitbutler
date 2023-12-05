@@ -25,7 +25,7 @@ anyhow = "1.0.72"
 async-trait = "0.1.74"
 backoff = "0.4.0"
 bstr = "1.8.0"
-byteorder = "1.4.3"
+byteorder = "1.5.0"
 chrono = { version = "0.4.31", features = ["serde"] }
 console-subscriber = "0.2.0"
 diffy = "0.3.0"
