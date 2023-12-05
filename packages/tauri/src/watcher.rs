@@ -74,10 +74,7 @@ impl Watchers {
         if let Some(watcher) = watchers.get(event.project_id()) {
             watcher.post(event).await.context("failed to post event")
         } else {
-            Err(anyhow::anyhow!(
-                "watcher for project {} not found",
-                event.project_id()
-            ))
+            Err(anyhow::anyhow!("watcher not found",))
         }
     }
 
