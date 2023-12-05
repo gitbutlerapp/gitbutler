@@ -38,7 +38,7 @@
 	{#if shouldShowHttpsWarning()}
 		<div class="w-full bg-yellow-200/70 px-2 py-1 dark:bg-yellow-700/70">
 			HTTPS remote detected. In order to push & fetch, you may need to&nbsp;
-			<a class="font-bold" href="/user"> set up </a>&nbsp;an SSH key (
+			<a class="font-bold" href="/settings"> set up </a>&nbsp;an SSH key (
 			<a
 				target="_blank"
 				rel="noreferrer"
