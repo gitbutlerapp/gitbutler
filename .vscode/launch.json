@@ -10,7 +10,8 @@
             "name": "GitButler Dev",
             "program": "${workspaceFolder}/target/debug/GitButler Dev",
             "args": [],
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "ui:dev",
         }
     ]
 }
