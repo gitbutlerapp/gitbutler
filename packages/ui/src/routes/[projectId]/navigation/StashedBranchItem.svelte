@@ -12,7 +12,7 @@
 </script>
 
 <a class="item" {href} class:selected transition:slide={{ duration: 250 }}>
-	<Icon name="branch" class="icon" />
+	<Icon name="branch" />
 	<div class="text-color-2 flex-grow truncate">
 		{branch.name}
 		{branch.files[0]?.modifiedAt}
@@ -33,9 +33,5 @@
 	.item:focus,
 	.selected {
 		background-color: var(--clr-theme-container-pale);
-	}
-
-	.item :global(.icon) {
-		flex-shrink: 0;
 	}
 </style>
