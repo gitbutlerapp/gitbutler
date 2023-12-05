@@ -48,24 +48,34 @@ impl Dispatcher {
         project_id: &ProjectId,
         path: &path::Path,
     ) -> Result<Receiver<events::Event>, RunError> {
-        if !path.exists() {
-            return Err(RunError::PathNotFound(path.to_path_buf()));
-        }
-
-        let repo = git::Repository::open(path)
-            .with_context(|| format!("failed to open project repository: {}", path.display()))?;
-
         let (notify_tx, notify_rx) = std::sync::mpsc::channel();
         let mut debouncer = new_debouncer(DEBOUNCE_TIMEOUT, None, notify_tx)
             .context("failed to create debouncer")?;
 
-        debouncer
-            .watcher()
-            .watch(path, notify::RecursiveMode::Recursive)
-            .context("failed to start watcher")?;
-        debouncer
-            .cache()
-            .add_root(path, notify::RecursiveMode::Recursive);
+        let policy = backoff::ExponentialBackoffBuilder::new()
+            .with_max_elapsed_time(Some(std::time::Duration::from_secs(30)))
+            .build();
+
+        backoff::retry(policy, || {
+            debouncer
+                .watcher()
+                .watch(path, notify::RecursiveMode::Recursive)
+                .map_err(|error| match error.kind {
+                    notify::ErrorKind::PathNotFound => {
+                        backoff::Error::permanent(RunError::PathNotFound(path.to_path_buf()))
+                    }
+                    notify::ErrorKind::Io(_) | notify::ErrorKind::InvalidConfig(_) => {
+                        backoff::Error::permanent(RunError::Other(error.into()))
+                    }
+                    _ => backoff::Error::transient(RunError::Other(error.into())),
+                })
+        })
+        .context("failed to start watcher")?;
+
+        let repo = git::Repository::open(path).context(format!(
+            "failed to open project repository: {}",
+            path.display()
+        ))?;
 
         self.watcher.lock().unwrap().replace(debouncer);
 
