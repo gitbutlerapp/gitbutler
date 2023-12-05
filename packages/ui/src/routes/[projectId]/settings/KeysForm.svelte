@@ -5,6 +5,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
+	import TextBox from '$lib/components/TextBox.svelte';
 
 	export let project: Project;
 
@@ -102,7 +103,7 @@
 			{/if}
 		</div>
 
-		<input type="radio" bind:group={selectedOption} value="local" on:input={setLocalKey} />
+		<input type="radio" bind:group={selectedOption} value="local" on:input={() => setLocalKey} />
 		<div class="flex flex-col space-y-2">
 			<div>Use existing SSH key</div>
 
@@ -113,23 +114,20 @@
 					</div>
 				</div>
 
-				<div class="grid grid-cols-2 gap-2" style="grid-template-columns: max-content 1fr;">
+				<div
+					class="grid grid-cols-2 items-center gap-2"
+					style="grid-template-columns: max-content 1fr;"
+				>
 					<label for="path">Path to private key</label>
-					<input
-						name="path"
-						type="text"
+
+					<TextBox
 						placeholder="~/.ssh/id_rsa"
 						bind:value={privateKeyPath}
-						on:input={setLocalKey}
+						on:change={setLocalKey}
 					/>
 
 					<label for="passphrase">Passphrase</label>
-					<input
-						name="passphrase"
-						type="password"
-						bind:value={privateKeyPassphrase}
-						on:input={setLocalKey}
-					/>
+					<TextBox password bind:value={privateKeyPassphrase} on:change={setLocalKey} />
 				</div>
 			{/if}
 		</div>

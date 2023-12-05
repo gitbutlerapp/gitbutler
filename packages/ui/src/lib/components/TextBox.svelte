@@ -3,19 +3,24 @@
 	import Icon from '$lib/icons/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 
+	export let id: string | undefined = undefined;
 	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let iconPosition: 'left' | 'right' = 'left';
+	export let value: string | undefined = undefined;
 	export let placeholder: string | undefined = undefined;
+	export let iconPosition: 'left' | 'right' = 'left';
 	export let disabled = false;
+	export let readonly = false;
+	export let required = false;
+	export let password = false;
 
-	const dispatch = createEventDispatcher<{ input: string }>();
+	const dispatch = createEventDispatcher<{ input: string; change: string }>();
 </script>
 
 <div class="textbox">
 	<div
 		class="textbox__input-wrap"
-		class:textbox_left-orient={iconPosition === 'left'}
-		class:textbox_right-orient={iconPosition === 'right'}
+		class:textbox__left-orient={icon && iconPosition == 'left'}
+		class:textbox__right-orient={icon && iconPosition == 'right'}
 		class:disabled
 	>
 		{#if icon}
@@ -23,12 +28,30 @@
 				<Icon name={icon} />
 			</div>
 		{/if}
-		<input
-			type="text"
-			class="textbox__input text-base-13"
-			{placeholder}
-			on:input={(e) => dispatch('input', e.currentTarget.value)}
-		/>
+		{#if password}
+			<input
+				{id}
+				type="password"
+				class="textbox__input text-base-13"
+				{placeholder}
+				{readonly}
+				{required}
+				bind:value
+				on:input={(e) => dispatch('input', e.currentTarget.value)}
+				on:change={(e) => dispatch('change', e.currentTarget.value)}
+			/>
+		{:else}
+			<input
+				{id}
+				class="textbox__input text-base-13"
+				{placeholder}
+				{readonly}
+				{required}
+				bind:value
+				on:input={(e) => dispatch('input', e.currentTarget.value)}
+				on:change={(e) => dispatch('change', e.currentTarget.value)}
+			/>
+		{/if}
 	</div>
 </div>
 
@@ -87,7 +110,7 @@
 
 	/* Modifiers */
 
-	.textbox_left-orient {
+	.textbox__left-orient {
 		& .textbox__input {
 			padding-left: calc(var(--space-32) + var(--space-2));
 		}
@@ -96,7 +119,7 @@
 		}
 	}
 
-	.textbox_right-orient {
+	.textbox__right-orient {
 		& .textbox__input {
 			padding-right: calc(var(--space-32) + var(--space-2));
 		}
