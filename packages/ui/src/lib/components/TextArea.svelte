@@ -1,21 +1,24 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 
-	export let value: string;
-	export let placeholder: string;
+	export let value: string | undefined;
+	export let placeholder: string | undefined = undefined;
 	export let required = false;
 	export let rows = 4;
+	export let id: string | undefined = undefined;
 
-	const dispatch = createEventDispatcher<{ input: string }>();
+	const dispatch = createEventDispatcher<{ input: string; change: string }>();
 </script>
 
 <textarea
 	class="text-box text-base-13"
 	bind:value
+	{id}
 	{placeholder}
 	{required}
 	{rows}
 	on:input={(e) => dispatch('input', e.currentTarget.value)}
+	on:change={(e) => dispatch('change', e.currentTarget.value)}
 />
 
 <style lang="postcss">
