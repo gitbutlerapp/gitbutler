@@ -24,7 +24,6 @@
 	export let onSquash: (commit: Commit) => (data: DraggableCommit) => void;
 	export let resetHeadCommit: () => void;
 
-	let viewport: HTMLDivElement;
 	let headerHeight: number;
 
 	$: headCommit = branch.commits[0];
@@ -44,11 +43,7 @@
 </script>
 
 {#if commits.length > 0}
-	<div
-		class="commit-list"
-		bind:this={viewport}
-		style:min-height={expanded ? `${2 * headerHeight}px` : undefined}
-	>
+	<div class="commit-list" style:min-height={expanded ? `${2 * headerHeight}px` : undefined}>
 		<CommitListHeader bind:expanded {branch} {pr$} {type} {base} bind:height={headerHeight} />
 		{#if expanded}
 			<div class="commit-list__content">

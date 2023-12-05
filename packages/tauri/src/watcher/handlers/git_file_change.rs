@@ -45,9 +45,10 @@ impl Handler {
             .context("failed to open project repository for project")?;
 
         match path.as_ref().to_str().unwrap() {
-            "FETCH_HEAD" => Ok(vec![events::Event::Emit(app_events::Event::git_fetch(
-                &project.id,
-            ))]),
+            "FETCH_HEAD" => Ok(vec![
+                events::Event::Emit(app_events::Event::git_fetch(&project.id)),
+                events::Event::CalculateVirtualBranches(*project_id),
+            ]),
             "logs/HEAD" => Ok(vec![events::Event::Emit(app_events::Event::git_activity(
                 &project.id,
             ))]),

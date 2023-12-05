@@ -74,7 +74,6 @@
 		<Button
 			color="error"
 			on:click={async () => {
-				await branchController.unapplyBranch(branch.id);
 				await branchController.deleteBranch(branch.id);
 			}}
 		>

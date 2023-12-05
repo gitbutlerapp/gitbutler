@@ -25,7 +25,7 @@ anyhow = "1.0.72"
 async-trait = "0.1.74"
 backoff = "0.4.0"
 bstr = "1.8.0"
-byteorder = "1.4.3"
+byteorder = "1.5.0"
 chrono = { version = "0.4.31", features = ["serde"] }
 console-subscriber = "0.2.0"
 diffy = "0.3.0"
@@ -52,13 +52,12 @@ rustix = "0.38"
 sentry = { version = "0.31", features = ["backtrace", "contexts", "panic", "transport", "anyhow", "debug-images", "reqwest", "native-tls" ] }
 sentry-tracing = "0.31.7"
 serde = { version = "1.0", features = ["derive"] }
-serde-jsonlines = "0.4.0"
 serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
 sha1 = "0.10.6"
 sha2 = "0.10.8"
 similar = { version = "2.2.1", features = ["unicode"] }
 slug = "0.1.5"
-ssh-key = { version = "0.6.2", features = [ "alloc", "ed25519" ] }
+ssh-key = { version = "0.6.3", features = [ "alloc", "ed25519" ] }
 tauri = { version = "1.5.2", features = ["dialog-open", "fs-read-file", "path-all", "process-relaunch", "protocol-asset", "shell-open", "system-tray", "window-maximize", "window-start-dragging", "window-unmaximize"] }
 tauri-plugin-context-menu = { git = "https://github.com/gitbutlerapp/tauri-plugin-context-menu", branch = "main" }
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }

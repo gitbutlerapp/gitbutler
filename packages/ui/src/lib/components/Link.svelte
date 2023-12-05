@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { IconExternalLink } from '../icons';
 	import { open } from '@tauri-apps/api/shell';
+	import Icon from '$lib/icons/Icon.svelte';
 
 	let classes = '';
 	export { classes as class };
@@ -43,7 +43,7 @@
 		</div>
 		{#if isExternal}
 			<div class="shrink-0">
-				<IconExternalLink class="h-3.5 w-3.5" />
+				<Icon name="open-link" />
 			</div>
 		{/if}
 	</a>

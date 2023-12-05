@@ -14,7 +14,7 @@
 	import LinkProjectModal from './LinkProjectModal.svelte';
 	import ShareIssueModal from './ShareIssueModal.svelte';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
-	import { initTheme } from './user/theme';
+	import { initTheme } from './settings/theme';
 
 	export let data: LayoutData;
 	const { projectService, cloud, user$ } = data;

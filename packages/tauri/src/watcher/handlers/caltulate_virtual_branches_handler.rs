@@ -1,6 +1,11 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
+use governor::{
+    clock::QuantaClock,
+    state::{InMemoryState, NotKeyed},
+    Quota, RateLimiter,
+};
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
@@ -15,21 +20,26 @@ use super::events;
 #[derive(Clone)]
 pub struct Handler {
     inner: Arc<Mutex<HandlerInner>>,
+    limit: Arc<RateLimiter<NotKeyed, InMemoryState, QuantaClock>>,
 }
 
 impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
         let inner = HandlerInner::try_from(value)?;
+        let quota = Quota::with_period(Duration::from_millis(100)).expect("valid quota");
         Ok(Self {
             inner: Arc::new(Mutex::new(inner)),
+            limit: Arc::new(RateLimiter::direct(quota)),
         })
     }
 }
 
 impl Handler {
     pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
-        if let Ok(handler) = self.inner.try_lock() {
+        if self.limit.check().is_err() {
+            Ok(vec![])
+        } else if let Ok(handler) = self.inner.try_lock() {
             handler.handle(project_id).await
         } else {
             Ok(vec![])

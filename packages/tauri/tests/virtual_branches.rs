@@ -1,9 +1,13 @@
 //TODO:
 #![allow(
     clippy::redundant_closure_for_method_calls,
-    clippy::rest_pat_in_fully_bound_structs
+    clippy::rest_pat_in_fully_bound_structs,
+    clippy::dbg_macro
 )]
 
+mod common;
+
+use self::common::{paths, TestProject};
 use std::{fs, path, str::FromStr};
 
 use gblib::{
@@ -13,8 +17,6 @@ use gblib::{
     users,
     virtual_branches::{branch, controller::ControllerError, errors, Controller},
 };
-
-use crate::{common::TestProject, paths};
 
 struct Test {
     repository: TestProject,
@@ -315,51 +317,6 @@ mod references {
         }
     }
 
-    mod delete_virtual_branch {
-        use super::*;
-
-        #[tokio::test]
-        async fn simple() {
-            let Test {
-                project_id,
-                controller,
-                repository,
-                ..
-            } = Test::default();
-
-            controller
-                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
-                .await
-                .unwrap();
-
-            let id = controller
-                .create_virtual_branch(
-                    &project_id,
-                    &branch::BranchCreateRequest {
-                        name: Some("name".to_string()),
-                        ..Default::default()
-                    },
-                )
-                .await
-                .unwrap();
-
-            controller
-                .delete_virtual_branch(&project_id, &id)
-                .await
-                .unwrap();
-
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
-            assert_eq!(branches.len(), 0);
-
-            let refnames = repository
-                .references()
-                .into_iter()
-                .filter_map(|reference| reference.name().map(|name| name.to_string()))
-                .collect::<Vec<_>>();
-            assert!(!refnames.contains(&"refs/gitbutler/name".to_string()));
-        }
-    }
-
     mod push_virtual_branch {
         use super::*;
 
@@ -516,6 +473,87 @@ mod references {
             assert!(refnames.contains(&branches[0].upstream.clone().unwrap().name.to_string()));
             assert!(refnames.contains(&branches[1].upstream.clone().unwrap().name.to_string()));
         }
+    }
+}
+
+mod delete_virtual_branch {
+    use super::*;
+
+    #[tokio::test]
+    async fn should_unapply_diff() {
+        let Test {
+            project_id,
+            controller,
+            repository,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        // write some
+        std::fs::write(repository.path().join("file.txt"), "content").unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+
+        controller
+            .delete_virtual_branch(&project_id, &branches[0].id)
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 0);
+        assert!(!repository.path().join("file.txt").exists());
+
+        let refnames = repository
+            .references()
+            .into_iter()
+            .filter_map(|reference| reference.name().map(|name| name.to_string()))
+            .collect::<Vec<_>>();
+        assert!(!refnames.contains(&"refs/gitbutler/name".to_string()));
+    }
+
+    #[tokio::test]
+    async fn should_remove_reference() {
+        let Test {
+            project_id,
+            controller,
+            repository,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let id = controller
+            .create_virtual_branch(
+                &project_id,
+                &branch::BranchCreateRequest {
+                    name: Some("name".to_string()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+
+        controller
+            .delete_virtual_branch(&project_id, &id)
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 0);
+
+        let refnames = repository
+            .references()
+            .into_iter()
+            .filter_map(|reference| reference.name().map(|name| name.to_string()))
+            .collect::<Vec<_>>();
+        assert!(!refnames.contains(&"refs/gitbutler/name".to_string()));
     }
 }
 
@@ -3405,6 +3443,140 @@ mod init {
     }
 
     #[tokio::test]
+    async fn dirty_non_target() {
+        // a situation when you initialize project while being on the local verison of the master
+        // that has uncommited changes.
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        repository.checkout("refs/heads/some-feature".parse().unwrap());
+
+        fs::write(repository.path().join("file.txt"), "content").unwrap();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 1);
+        assert_eq!(branches[0].files.len(), 1);
+        assert_eq!(branches[0].files[0].hunks.len(), 1);
+        assert!(branches[0].upstream.is_none());
+        assert_eq!(branches[0].name, "some-feature");
+    }
+
+    #[tokio::test]
+    async fn dirty_target() {
+        // a situation when you initialize project while being on the local verison of the master
+        // that has uncommited changes.
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        fs::write(repository.path().join("file.txt"), "content").unwrap();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 1);
+        assert_eq!(branches[0].files.len(), 1);
+        assert_eq!(branches[0].files[0].hunks.len(), 1);
+        assert!(branches[0].upstream.is_none());
+        assert_eq!(branches[0].name, "master");
+    }
+
+    #[tokio::test]
+    async fn commit_on_non_target_local() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        repository.checkout("refs/heads/some-feature".parse().unwrap());
+        fs::write(repository.path().join("file.txt"), "content").unwrap();
+        repository.commit_all("commit on target");
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        dbg!(&branches);
+        assert_eq!(branches.len(), 1);
+        assert!(branches[0].files.is_empty());
+        assert_eq!(branches[0].commits.len(), 1);
+        assert!(branches[0].upstream.is_none());
+        assert_eq!(branches[0].name, "some-feature");
+    }
+
+    #[tokio::test]
+    async fn commit_on_non_target_remote() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        repository.checkout("refs/heads/some-feature".parse().unwrap());
+        fs::write(repository.path().join("file.txt"), "content").unwrap();
+        repository.commit_all("commit on target");
+        repository.push_branch(&"refs/heads/some-feature".parse().unwrap());
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        dbg!(&branches);
+        assert_eq!(branches.len(), 1);
+        assert!(branches[0].files.is_empty());
+        assert_eq!(branches[0].commits.len(), 1);
+        assert!(branches[0].upstream.is_some());
+        assert_eq!(branches[0].name, "some-feature");
+    }
+
+    #[tokio::test]
+    async fn commit_on_target() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        fs::write(repository.path().join("file.txt"), "content").unwrap();
+        repository.commit_all("commit on target");
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 1);
+        assert!(branches[0].files.is_empty());
+        assert_eq!(branches[0].commits.len(), 1);
+        assert!(branches[0].upstream.is_none());
+        assert_eq!(branches[0].name, "master");
+    }
+
+    #[tokio::test]
     async fn submodule() {
         let Test {
             repository,
@@ -3420,28 +3592,6 @@ mod init {
             .parse()
             .unwrap();
         repository.add_submodule(&submodule_url, path::Path::new("submodule"));
-
-        controller
-            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
-            .await
-            .unwrap();
-
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
-        assert_eq!(branches.len(), 1);
-        assert_eq!(branches[0].files.len(), 1);
-        assert_eq!(branches[0].files[0].hunks.len(), 1);
-    }
-
-    #[tokio::test]
-    async fn dirty() {
-        let Test {
-            repository,
-            project_id,
-            controller,
-            ..
-        } = Test::default();
-
-        fs::write(repository.path().join("file.txt"), "content").unwrap();
 
         controller
             .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())

@@ -1,6 +1,7 @@
-use gblib::projects::Controller;
+mod common;
 
-use crate::{common, paths};
+use self::common::paths;
+use gblib::projects::Controller;
 
 pub fn new() -> Controller {
     let data_dir = paths::data_dir();
