@@ -57,7 +57,7 @@ sha1 = "0.10.6"
 sha2 = "0.10.8"
 similar = { version = "2.2.1", features = ["unicode"] }
 slug = "0.1.5"
-ssh-key = { version = "0.6.2", features = [ "alloc", "ed25519" ] }
+ssh-key = { version = "0.6.3", features = [ "alloc", "ed25519" ] }
 tauri = { version = "1.5.2", features = ["dialog-open", "fs-read-file", "path-all", "process-relaunch", "protocol-asset", "shell-open", "system-tray", "window-maximize", "window-start-dragging", "window-unmaximize"] }
 tauri-plugin-context-menu = { git = "https://github.com/gitbutlerapp/tauri-plugin-context-menu", branch = "main" }
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
