@@ -25,7 +25,7 @@
 	// TODO: Use document.body.addEventListener to avoid having to use backdrop
 	let popupMenu = new BranchLanePopupMenu({
 		target: document.body,
-		props: { allExpanded, allCollapsed, order: branch?.order, branchController, projectId }
+		props: { allExpanded, allCollapsed, branchController, projectId }
 	});
 
 	function handleBranchNameChange() {
@@ -58,7 +58,7 @@
 				<IconButton
 					icon="kebab"
 					size="m"
-					on:click={() => popupMenu.openByElement(meatballButton, branch.id)}
+					on:click={() => popupMenu.openByElement(meatballButton, branch)}
 				/>
 			</div>
 		{/if}

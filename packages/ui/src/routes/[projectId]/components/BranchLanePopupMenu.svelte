@@ -10,7 +10,6 @@
 
 	export let branchController: BranchController;
 	export let projectId: string;
-	export let order: number;
 	export let allCollapsed: Writable<boolean | undefined>;
 	export let allExpanded: Writable<boolean | undefined>;
 	let popupMenu: PopupMenu;
@@ -30,12 +29,12 @@
 	}
 </script>
 
-<PopupMenu bind:this={popupMenu} let:item={branchId}>
-	<PopupMenuItem on:click={() => branchId && branchController.unapplyBranch(branchId)}>
+<PopupMenu bind:this={popupMenu} let:item={branch}>
+	<PopupMenuItem on:click={() => branch.id && branchController.unapplyBranch(branch.id)}>
 		Unapply
 	</PopupMenuItem>
 
-	<PopupMenuItem on:click={() => deleteBranchModal.show(branchId)}>Delete</PopupMenuItem>
+	<PopupMenuItem on:click={() => deleteBranchModal.show(branch)}>Delete</PopupMenuItem>
 
 	<PopupMenuItem on:click={() => dispatch('action', 'expand')} disabled={$allExpanded}>
 		Expand all
@@ -56,27 +55,27 @@
 		<div class="bg-color-3 my-2 h-[0.0625rem] w-full" />
 	</div>
 
-	<PopupMenuItem on:click={() => branchController.createBranch({ order })}>
+	<PopupMenuItem on:click={() => branchController.createBranch({ order: branch.order })}>
 		Create branch before
 	</PopupMenuItem>
 
-	<PopupMenuItem on:click={() => branchController.createBranch({ order: order + 1 })}>
+	<PopupMenuItem on:click={() => branchController.createBranch({ order: branch.order + 1 })}>
 		Create branch after
 	</PopupMenuItem>
 </PopupMenu>
 
-<Modal width="small" bind:this={deleteBranchModal} let:item>
+<Modal width="small" bind:this={deleteBranchModal} let:item={branch}>
 	<svelte:fragment slot="title">Delete branch</svelte:fragment>
 	<div>
-		Deleting <code>{item.name}</code> cannot be undone.
+		Deleting <code>{branch.name}</code> cannot be undone.
 	</div>
-	<svelte:fragment slot="controls" let:close let:item>
+	<svelte:fragment slot="controls" let:close let:item={branch}>
 		<Button kind="outlined" on:click={close}>Cancel</Button>
 		<Button
 			color="error"
 			on:click={async () => {
-				await branchController.unapplyBranch(item);
-				await branchController.deleteBranch(item);
+				await branchController.unapplyBranch(branch.id);
+				await branchController.deleteBranch(branch.id);
 			}}
 		>
 			Delete
