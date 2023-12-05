@@ -51,7 +51,7 @@ impl Factory {
         if is_https {
             if let Some(url) = remote.url_as_str().ok().flatten() {
                 if let Some(credentials) = invoke_credential_helper(url, config) {
-                    return vec![from_plaintext(credentials.0, credentials.1)];
+                    return vec![from_credential_helper(credentials.0, credentials.1)];
                 }
             }
         }
@@ -128,7 +128,7 @@ fn from_token(token: &str) -> CredentialsCallback {
     })
 }
 
-fn from_plaintext(usr: String, pwd: String) -> CredentialsCallback<'static> {
+fn from_credential_helper(usr: String, pwd: String) -> CredentialsCallback<'static> {
     Box::new(move |url, _username_from_url, _allowed_types| {
         tracing::info!(
             "authenticating with {} using credentials (via creds helper)",
