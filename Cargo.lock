@@ -1970,7 +1970,6 @@ dependencies = [
  "sentry",
  "sentry-tracing",
  "serde",
- "serde-jsonlines",
  "serde_json",
  "sha1",
  "sha2",
@@ -4597,16 +4596,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91d3c334ca1ee894a2c6f6ad698fe8c435b76d504b13d436f0685d648d6d96f7"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde-jsonlines"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4684abdec99c1de7e507a3516c82385ff74d54c385973846b079bfd9f5920d35"
-dependencies = [
- "serde",
- "serde_json",
 ]
 
 [[package]]
