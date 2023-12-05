@@ -66,6 +66,8 @@ unneeded_field_pattern = "deny"
 unseparated_literal_suffix = "deny"
 if_then_some_else_none = "deny"
 use_debug = "deny"
+mod_module_files = "deny"
+self_named_module_files = "allow"
 # TODO
 # partial_pub_fields = "deny"
 # print_stdout = "deny"

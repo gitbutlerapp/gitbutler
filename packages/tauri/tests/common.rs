@@ -1,6 +1,6 @@
-use std::path;
-
+#![allow(unused)]
 use gblib::git;
+use std::path;
 
 pub fn temp_dir() -> std::path::PathBuf {
     tempfile::tempdir()
@@ -248,5 +248,14 @@ impl TestProject {
             .unwrap();
 
         submodule.add_finalize().unwrap();
+    }
+}
+
+pub mod paths {
+    use super::temp_dir;
+    use gblib::paths::DataDir;
+
+    pub fn data_dir() -> DataDir {
+        DataDir::from(temp_dir())
     }
 }

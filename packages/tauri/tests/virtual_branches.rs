@@ -1,9 +1,13 @@
 //TODO:
 #![allow(
     clippy::redundant_closure_for_method_calls,
-    clippy::rest_pat_in_fully_bound_structs
+    clippy::rest_pat_in_fully_bound_structs,
+    clippy::dbg_macro
 )]
 
+mod common;
+
+use self::common::{paths, TestProject};
 use std::{fs, path, str::FromStr};
 
 use gblib::{
@@ -13,8 +17,6 @@ use gblib::{
     users,
     virtual_branches::{branch, controller::ControllerError, errors, Controller},
 };
-
-use crate::{common::TestProject, paths};
 
 struct Test {
     repository: TestProject,
