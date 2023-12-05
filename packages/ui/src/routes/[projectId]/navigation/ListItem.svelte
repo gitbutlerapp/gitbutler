@@ -10,7 +10,7 @@
 </script>
 
 <button disabled={selected} class="button" class:selected on:click={() => dispatch('click')}>
-	<div class="text-base-14 text-bold">
+	<div class="label text-base-14 text-bold">
 		<slot />
 	</div>
 	{#if icon}
@@ -42,7 +42,11 @@
 			color: var(--clr-theme-scale-ntrl-50);
 		}
 		& .icon {
+			display: flex;
 			color: var(--clr-theme-scale-ntrl-50);
+		}
+		& .label {
+			height: var(--space-16);
 		}
 	}
 </style>
