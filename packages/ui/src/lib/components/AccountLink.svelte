@@ -6,7 +6,7 @@
 	export let user: User | undefined;
 </script>
 
-<button class="btn" on:click={() => goto('/user/')}>
+<button class="btn" on:click={() => goto('/settings/')}>
 	<span class="name text-base-13 text-semibold">
 		{#if user}
 			{#if user.name}
