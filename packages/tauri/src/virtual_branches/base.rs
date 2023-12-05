@@ -5,14 +5,18 @@ use serde::Serialize;
 
 use crate::{
     gb_repository,
-    git::{self, diff},
+    git::{
+        self,
+        diff::{self, Options},
+    },
     keys,
     project_repository::{self, LogUntil},
     reader, sessions, users,
+    virtual_branches::branch::Ownership,
 };
 
 use super::{
-    branch, delete_branch,
+    branch,
     errors::{self, CreateVirtualBranchFromBranchError},
     integration::GITBUTLER_INTEGRATION_REFERENCE,
     iterator, target, BranchId, RemoteCommit,
@@ -51,30 +55,29 @@ pub fn get_base_branch_data(
 pub fn set_base_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    user: Option<&users::User>,
-    target_branch: &git::RemoteRefname,
+    target_branch_ref: &git::RemoteRefname,
 ) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
     let repo = &project_repository.git_repository;
 
     // lookup a branch by name
-    let branch = match repo.find_branch(&target_branch.clone().into()) {
+    let target_branch = match repo.find_branch(&target_branch_ref.clone().into()) {
         Ok(branch) => Ok(branch),
         Err(git::Error::NotFound(_)) => Err(errors::SetBaseBranchError::BranchNotFound(
-            target_branch.clone(),
+            target_branch_ref.clone(),
         )),
         Err(error) => Err(errors::SetBaseBranchError::Other(error.into())),
     }?;
 
     let remote_name = repo
-        .branch_remote_name(branch.refname().unwrap())
+        .branch_remote_name(target_branch.refname().unwrap())
         .context(format!(
             "failed to get remote name for branch {}",
-            branch.name().unwrap()
+            target_branch.name().unwrap()
         ))?;
     let remote = repo.find_remote(&remote_name).context(format!(
         "failed to find remote {} for branch {}",
         remote_name,
-        branch.name().unwrap()
+        target_branch.name().unwrap()
     ))?;
     let remote_url = remote
         .url()
@@ -84,34 +87,30 @@ pub fn set_base_branch(
         ))?
         .unwrap();
 
-    // get a list of currently active virtual branches
-
-    // if there are no applied virtual branches, calculate the sha as the merge-base between HEAD in project_repository and this target commit
-    let commit = branch.peel_to_commit().context(format!(
+    let target_branch_head = target_branch.peel_to_commit().context(format!(
         "failed to peel branch {} to commit",
-        branch.name().unwrap()
+        target_branch.name().unwrap()
     ))?;
-    let mut commit_oid = commit.id();
 
     let head_ref = repo.head().context("Failed to get HEAD reference")?;
     let head_name: git::Refname = head_ref
         .name()
         .context("Failed to get HEAD reference name")?;
-    let head_oid = head_ref
+    let head_commit = head_ref
         .peel_to_commit()
-        .context("Failed to peel HEAD reference to commit")?
-        .id();
+        .context("Failed to peel HEAD reference to commit")?;
 
-    if head_oid != commit_oid {
-        // calculate the commit as the merge-base between HEAD in project_repository and this target commit
-        commit_oid = repo.merge_base(head_oid, commit_oid).context(format!(
+    // calculate the commit as the merge-base between HEAD in project_repository and this target commit
+    let commit_oid = repo
+        .merge_base(head_commit.id(), target_branch_head.id())
+        .context(format!(
             "Failed to calculate merge base between {} and {}",
-            head_oid, commit_oid
+            head_commit.id(),
+            target_branch_head.id()
         ))?;
-    }
 
     let target = target::Target {
-        branch: target_branch.clone(),
+        branch: target_branch_ref.clone(),
         remote_url: remote_url.to_string(),
         sha: commit_oid,
     };
@@ -119,38 +118,83 @@ pub fn set_base_branch(
     let target_writer = target::Writer::new(gb_repository);
     target_writer.write_default(&target)?;
 
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get current session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session for reading")?;
-
-    let virtual_branches = iterator::BranchIterator::new(&current_session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?;
-
-    let active_virtual_branches = virtual_branches
-        .iter()
-        .filter(|branch| branch.applied)
-        .collect::<Vec<_>>();
-
-    if active_virtual_branches.is_empty()
-        && !head_name
-            .to_string()
-            .eq(&GITBUTLER_INTEGRATION_REFERENCE.to_string())
+    if !head_name
+        .to_string()
+        .eq(&GITBUTLER_INTEGRATION_REFERENCE.to_string())
     {
-        let branch = create_virtual_branch_from_branch(
-            gb_repository,
-            project_repository,
-            &head_name,
-            Some(true),
-            user,
-        )
-        .context("failed to create virtual branch")?;
-        if branch.ownership.is_empty() && branch.head == target.sha {
-            delete_branch(gb_repository, project_repository, &branch.id)
-                .context("failed to delete branch")?;
+        // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
+        // put them into a virtual branch
+
+        let wd_diff = diff::workdir(repo, &head_commit.id(), &Options::default())?;
+
+        if !wd_diff.is_empty() || head_commit.id() != commit_oid {
+            let hunks_by_filepath =
+                super::virtual_hunks_by_filepath(&project_repository.project().path, &wd_diff);
+
+            // assign ownership to the branch
+            let ownership = hunks_by_filepath.values().flatten().fold(
+                Ownership::default(),
+                |mut ownership, hunk| {
+                    ownership.put(
+                        &format!("{}:{}", hunk.file_path.display(), hunk.id)
+                            .parse()
+                            .unwrap(),
+                    );
+                    ownership
+                },
+            );
+
+            let now_ms = time::UNIX_EPOCH
+                .elapsed()
+                .context("failed to get elapsed time")?
+                .as_millis();
+
+            let (upstream, upstream_head) = if let git::Refname::Local(head_name) = &head_name {
+                let upstream_name = target_branch_ref.with_branch(head_name.branch());
+                if upstream_name.eq(target_branch_ref) {
+                    (None, None)
+                } else {
+                    match repo.find_reference(&git::Refname::from(&upstream_name)) {
+                        Ok(upstream) => {
+                            let head = upstream
+                                .peel_to_commit()
+                                .map(|commit| commit.id())
+                                .context(format!(
+                                    "failed to peel upstream {} to commit",
+                                    upstream.name().unwrap()
+                                ))?;
+                            Ok((Some(upstream_name), Some(head)))
+                        }
+                        Err(git::Error::NotFound(_)) => Ok((None, None)),
+                        Err(error) => Err(error),
+                    }
+                    .context(format!("failed to find upstream for {}", head_name))?
+                }
+            } else {
+                (None, None)
+            };
+
+            let branch = branch::Branch {
+                id: BranchId::generate(),
+                name: head_name.to_string().replace("refs/heads/", ""),
+                notes: String::new(),
+                applied: true,
+                upstream,
+                upstream_head,
+                created_timestamp_ms: now_ms,
+                updated_timestamp_ms: now_ms,
+                head: head_commit.id(),
+                tree: super::write_tree_onto_commit(
+                    project_repository,
+                    head_commit.id(),
+                    &wd_diff,
+                )?,
+                ownership,
+                order: 0,
+            };
+
+            let branch_writer = branch::Writer::new(gb_repository);
+            branch_writer.write(&branch)?;
         }
     }
 

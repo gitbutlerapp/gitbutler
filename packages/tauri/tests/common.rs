@@ -70,6 +70,11 @@ impl TestProject {
         self.local_repository.workdir().unwrap()
     }
 
+    pub fn push_branch(&self, branch: &git::LocalRefname) {
+        let mut origin = self.local_repository.find_remote("origin").unwrap();
+        origin.push(&[&format!("{branch}:{branch}")], None).unwrap();
+    }
+
     pub fn push(&self) {
         let mut origin = self.local_repository.find_remote("origin").unwrap();
         origin
@@ -161,8 +166,36 @@ impl TestProject {
         self.local_repository.find_commit(oid)
     }
 
+    pub fn checkout(&self, branch: git::LocalRefname) {
+        let branch: git::Refname = branch.into();
+        let tree = match self.local_repository.find_branch(&branch) {
+            Ok(branch) => branch.peel_to_tree(),
+            Err(git::Error::NotFound(_)) => {
+                let head_commit = self
+                    .local_repository
+                    .head()
+                    .unwrap()
+                    .peel_to_commit()
+                    .unwrap();
+                self.local_repository
+                    .reference(&branch, head_commit.id(), false, "new branch")
+                    .unwrap();
+                head_commit.tree()
+            }
+            Err(error) => Err(error),
+        }
+        .unwrap();
+        self.local_repository.set_head(&branch).unwrap();
+        self.local_repository
+            .checkout_tree(&tree)
+            .force()
+            .checkout()
+            .unwrap();
+    }
+
     /// takes all changes in the working directory and commits them into local
     pub fn commit_all(&self, message: &str) -> git::Oid {
+        let head = self.local_repository.head().unwrap();
         let mut index = self.local_repository.index().expect("failed to get index");
         index
             .add_all(["."], git2::IndexAddOption::DEFAULT, None)
@@ -172,7 +205,7 @@ impl TestProject {
         let signature = git::Signature::now("test", "test@email.com").unwrap();
         self.local_repository
             .commit(
-                Some(&"refs/heads/master".parse().unwrap()),
+                head.name().as_ref(),
                 &signature,
                 &signature,
                 message,
