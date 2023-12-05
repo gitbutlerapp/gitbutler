@@ -18,7 +18,6 @@
 
 	const dispatch = createEventDispatcher<{ action: string }>();
 
-	let element: HTMLDivElement | undefined = undefined;
 	let meatballButton: HTMLDivElement;
 
 	// We have to create this manually for now.
@@ -43,10 +42,10 @@
 	});
 </script>
 
-<div class="card__header" bind:this={element}>
+<div class="card__header" data-drag-handle>
 	<div class="header__left flex-grow">
 		{#if !readonly}
-			<div class="draggable" id="drag-handle">
+			<div class="draggable" data-drag-handle>
 				<Icon name="draggable" />
 			</div>
 		{/if}
