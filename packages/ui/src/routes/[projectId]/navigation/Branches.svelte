@@ -4,13 +4,14 @@
 	import type { UIEventHandler } from 'svelte/elements';
 	import BranchItem from './BranchItem.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import { onDestroy, onMount } from 'svelte';
+	import { getContext, onDestroy, onMount } from 'svelte';
 	import SectionHeader from './SectionHeader.svelte';
 	import { accordion } from './accordion';
 	import BranchFilter, { type TypeFilter } from './BranchFilter.svelte';
 	import { BehaviorSubject, combineLatest } from 'rxjs';
 	import type { CombinedBranch } from '$lib/branches/types';
 	import { persisted } from '@square/svelte-store';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 
 	export let branchService: BranchService;
 	export let projectId: string;
@@ -19,6 +20,7 @@
 	export const textFilter$ = new BehaviorSubject<string | undefined>(undefined);
 	export const typeFilter$ = new BehaviorSubject<TypeFilter>('all');
 
+	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const height = persisted<number | undefined>(undefined, 'branchesHeight_' + projectId);
 
 	$: branches$ = branchService.branches$;
@@ -60,7 +62,7 @@
 
 	function updateResizable() {
 		if (resizeGuard) {
-			maxHeight = resizeGuard.offsetHeight / 16;
+			maxHeight = resizeGuard.offsetHeight / (16 * $userSettings.zoom);
 		}
 	}
 
@@ -87,7 +89,7 @@
 				inside
 				minHeight={90}
 				on:height={(e) => {
-					$height = Math.min(maxHeight, e.detail / 16);
+					$height = Math.min(maxHeight, e.detail / (16 * $userSettings.zoom));
 				}}
 			/>
 		{/if}

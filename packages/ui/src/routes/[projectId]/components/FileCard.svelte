@@ -243,7 +243,7 @@
 		inside
 		minWidth={240}
 		on:width={(e) => {
-			fileWidth = e.detail / 16;
+			fileWidth = e.detail / (16 * $userSettings.zoom);
 			lscache.set(fileWidthKey + file.id, fileWidth, 7 * 1440); // 7 day ttl
 			$defaultFileWidthRem = fileWidth;
 		}}

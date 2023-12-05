@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
-	import { onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import { dropzone } from '$lib/utils/draggable';
 	import {
 		isDraggableHunk,
@@ -30,6 +30,7 @@
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import type { UIEventHandler } from 'svelte/elements';
 	import { persisted } from '@square/svelte-store';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 
 	export let branch: Branch;
 	export let readonly = false;
@@ -53,6 +54,7 @@
 	let contents: HTMLElement;
 	let scrolled = false;
 
+	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const defaultBranchWidthRem = persisted<number | undefined>(30, 'defaulBranchWidth' + projectId);
 	const laneWidthKey = 'laneWidth_';
 	let laneWidth: number;
@@ -377,7 +379,7 @@
 			inside={!$selectedFileId}
 			minWidth={320}
 			on:width={(e) => {
-				laneWidth = e.detail / 16;
+				laneWidth = e.detail / (16 * $userSettings.zoom);
 				lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
 				$defaultBranchWidthRem = laneWidth;
 			}}
