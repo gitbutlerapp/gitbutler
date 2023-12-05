@@ -6,7 +6,6 @@ mod fetch_project_data;
 mod flush_session;
 mod git_file_change;
 mod index_handler;
-mod project_file_change;
 mod push_gitbutler_data;
 mod push_project_to_gitbutler;
 mod tick_handler;
@@ -23,7 +22,6 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    project_file_handler: project_file_change::Handler,
     git_file_change_handler: git_file_change::Handler,
     tick_handler: tick_handler::Handler,
     flush_session_handler: flush_session::Handler,
@@ -45,7 +43,6 @@ impl TryFrom<&AppHandle> for Handler {
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
         Ok(Self {
             events_sender: app_events::Sender::from(value),
-            project_file_handler: project_file_change::Handler::new(),
             tick_handler: tick_handler::Handler::try_from(value)?,
             git_file_change_handler: git_file_change::Handler::try_from(value)?,
             index_handler: index_handler::Handler::try_from(value)?,
@@ -71,13 +68,10 @@ impl Handler {
         now: time::SystemTime,
     ) -> Result<Vec<events::Event>> {
         match event {
-            events::Event::ProjectFileChange(project_id, path) => self
-                .project_file_handler
-                .handle(path, project_id)
-                .context(format!(
-                    "failed to handle project file change event: {:?}",
-                    path.display()
-                )),
+            events::Event::ProjectFileChange(project_id, path) => Ok(vec![
+                events::Event::CalculateDeltas(*project_id, path.clone()),
+                events::Event::CalculateVirtualBranches(*project_id),
+            ]),
 
             events::Event::GitFileChange(project_id, path) => self
                 .git_file_change_handler
