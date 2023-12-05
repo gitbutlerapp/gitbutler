@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "packages/butler",
     "packages/tauri",
 ]
 resolver = "2"
