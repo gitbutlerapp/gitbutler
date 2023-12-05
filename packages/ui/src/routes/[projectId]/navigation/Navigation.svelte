@@ -18,6 +18,8 @@
 	import Tag from '../components/Tag.svelte';
 	import * as toasts from '$lib/utils/toasts';
 	import Resizer from '$lib/components/Resizer.svelte';
+	import { getContext } from 'svelte';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 
 	export let branchService: BranchService;
 	export let baseBranchService: BaseBranchService;
@@ -28,6 +30,7 @@
 	export let prService: PrService;
 	export let projectService: ProjectService;
 
+	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const defaultTrayWidthRem = persisted<number | undefined>(
 		undefined,
 		'defaulTrayWidth_ ' + project.id
@@ -97,7 +100,7 @@
 		direction="right"
 		minWidth={320}
 		on:width={(e) => {
-			$defaultTrayWidthRem = e.detail / 16;
+			$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
 		}}
 	/>
 </div>
