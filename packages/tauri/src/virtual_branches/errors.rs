@@ -47,6 +47,8 @@ impl From<VerifyError> for crate::error::Error {
 #[derive(Debug, thiserror::Error)]
 pub enum DeleteBranchError {
     #[error(transparent)]
+    UnapplyBranch(#[from] UnapplyBranchError),
+    #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
 
@@ -414,6 +416,7 @@ impl From<IsRemoteBranchMergableError> for Error {
 impl From<DeleteBranchError> for Error {
     fn from(value: DeleteBranchError) -> Self {
         match value {
+            DeleteBranchError::UnapplyBranch(error) => error.into(),
             DeleteBranchError::Other(error) => {
                 tracing::error!(?error, "delete branch error");
                 Error::Unknown

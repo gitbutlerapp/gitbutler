@@ -565,14 +565,8 @@ impl ControllerInner {
         )
         .context("failed to open gitbutler repository")?;
 
-        let target = super::set_base_branch(
-            &gb_repository,
-            &project_repository,
-            user.as_ref(),
-            target_branch,
-        )?;
-
-        Ok(target)
+        super::set_base_branch(&gb_repository, &project_repository, target_branch)
+            .map_err(Into::into)
     }
 
     pub async fn merge_virtual_branch_upstream(
