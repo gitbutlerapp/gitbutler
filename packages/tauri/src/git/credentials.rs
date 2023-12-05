@@ -130,7 +130,10 @@ fn from_token(token: &str) -> CredentialsCallback {
 
 fn from_plaintext(usr: String, pwd: String) -> CredentialsCallback<'static> {
     Box::new(move |url, _username_from_url, _allowed_types| {
-        tracing::info!("authenticating with {} using credentials", url);
+        tracing::info!(
+            "authenticating with {} using credentials (via creds helper)",
+            url
+        );
         git2::Cred::userpass_plaintext(&usr, &pwd)
     })
 }
