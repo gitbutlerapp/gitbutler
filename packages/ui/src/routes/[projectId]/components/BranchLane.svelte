@@ -36,7 +36,6 @@
 </script>
 
 <div class="wrapper card">
-	<div class="absolute h-3 w-full" data-tauri-drag-region></div>
 	<BranchCard
 		{branch}
 		{readonly}

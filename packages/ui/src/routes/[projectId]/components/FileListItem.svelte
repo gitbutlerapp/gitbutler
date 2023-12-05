@@ -83,9 +83,6 @@
 		text-overflow: ellipsis;
 		overflow: hidden;
 	}
-	.locked {
-		color: var(--clr-theme-scale-warn-60);
-	}
 	.selected {
 		background-color: var(--clr-theme-scale-pop-80);
 	}
