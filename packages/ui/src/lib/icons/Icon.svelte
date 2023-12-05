@@ -5,14 +5,12 @@
 <script lang="ts">
 	import iconsJson from './icons.json';
 
-	let className = '';
-	export { className as class };
 	export let name: keyof typeof iconsJson;
 	export let color: IconColor = undefined;
 </script>
 
 <svg
-	class={`icon-wrapper ${className}`}
+	class="icon-wrapper"
 	class:spinning={name == 'spinner'}
 	viewBox="0 0 16 16"
 	fill-rule="evenodd"
@@ -29,6 +27,7 @@
 	.icon-wrapper {
 		width: 1rem;
 		height: 1rem;
+		flex-shrink: 0;
 		pointer-events: none;
 		display: inline-block;
 	}
