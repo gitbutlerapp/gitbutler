@@ -10,11 +10,13 @@
 </script>
 
 <button disabled={selected} class="button" class:selected on:click={() => dispatch('click')}>
-	<span class="text-base-14 text-bold">
+	<div class="text-base-14 text-bold">
 		<slot />
-	</span>
+	</div>
 	{#if icon}
-		<Icon name={icon} class="button__icon" />
+		<div class="icon">
+			<Icon name={icon} />
+		</div>
 	{/if}
 </button>
 
@@ -31,7 +33,7 @@
 		&:hover:enabled,
 		&:focus:enabled {
 			background-color: var(--clr-theme-container-pale);
-			& :global(.button__icon) {
+			& .icon {
 				color: var(--clr-theme-scale-ntrl-40);
 			}
 		}
@@ -39,9 +41,8 @@
 			background-color: var(--clr-theme-container-pale);
 			color: var(--clr-theme-scale-ntrl-50);
 		}
-	}
-
-	.button :global(.button__icon) {
-		color: var(--clr-theme-scale-ntrl-50);
+		& .icon {
+			color: var(--clr-theme-scale-ntrl-50);
+		}
 	}
 </style>
