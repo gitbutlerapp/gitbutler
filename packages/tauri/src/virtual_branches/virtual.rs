@@ -1348,7 +1348,7 @@ pub fn delete_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
-) -> Result<branch::Branch, errors::DeleteBranchError> {
+) -> Result<(), errors::DeleteBranchError> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
@@ -1361,12 +1361,16 @@ pub fn delete_branch(
         .read(branch_id)
         .context("failed to read branch")?;
 
+    if branch.applied && unapply_branch(gb_repository, project_repository, branch_id)?.is_none() {
+        return Ok(());
+    }
+
     branch_writer
         .delete(&branch)
         .context("Failed to remove branch")?;
 
     project_repository.delete_branch_reference(&branch)?;
-    Ok(branch)
+    Ok(())
 }
 
 fn set_ownership(
@@ -1872,6 +1876,9 @@ pub fn write_tree_onto_commit(
         let rel_path = std::path::Path::new(&filepath);
         let full_path = project_repository.path().join(rel_path);
 
+        let is_submodule =
+            full_path.is_dir() && hunks.len() == 1 && hunks[0].diff.contains("Subproject commit");
+
         // if file exists
         if full_path.exists() {
             // if file is executable, use 755, otherwise 644
@@ -1930,9 +1937,28 @@ pub fn write_tree_onto_commit(
                     // upsert into the builder
                     builder.upsert(rel_path, new_blob_oid, filemode);
                 }
+            } else if is_submodule {
+                let mut blob_contents = vec![];
+
+                let mut hunks = hunks.clone();
+                hunks.sort_by_key(|hunk| hunk.new_start);
+                for hunk in hunks {
+                    let patch = format!("--- original\n+++ modified\n{}", hunk.diff);
+                    let patch_bytes = patch.as_bytes();
+                    let patch = Patch::from_bytes(patch_bytes)?;
+                    blob_contents = apply_bytes(&blob_contents, &patch)
+                        .context(format!("failed to apply {}", &hunk.diff))?;
+                }
+
+                // create a blob
+                let new_blob_oid = git_repository.blob(&blob_contents)?;
+                // upsert into the builder
+                builder.upsert(rel_path, new_blob_oid, filemode);
             } else {
                 // create a git blob from a file on disk
-                let blob_oid = git_repository.blob_path(&full_path)?;
+                let blob_oid = git_repository
+                    .blob_path(&full_path)
+                    .context(format!("failed to create blob from path {:?}", &full_path))?;
                 builder.upsert(rel_path, blob_oid, filemode);
             }
         } else if base_tree.get_path(rel_path).is_ok() {
