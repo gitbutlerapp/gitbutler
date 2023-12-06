@@ -277,7 +277,18 @@ impl Repository {
         name: &str,
         credentials: &git::credentials::Factory,
     ) -> Result<git::Remote, RemoteError> {
-        if credentials.has_github_token() {
+        let remote = self
+            .git_repository
+            .find_remote(name)
+            .context("failed to find remote")
+            .map_err(RemoteError::Other)?;
+
+        let is_github = remote
+            .url()
+            .map(|url| url.map_or(false, |url| url.is_github()))
+            .unwrap_or(false);
+
+        if credentials.has_github_token() && is_github {
             self.get_https_remote(name)
         } else {
             self.get_ssh_remote(name)
