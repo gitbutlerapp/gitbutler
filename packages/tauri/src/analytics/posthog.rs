@@ -1,5 +1,6 @@
 pub mod mock;
 pub mod real;
+pub mod retry;
 
 use std::collections::HashMap;
 
@@ -9,18 +10,20 @@ use serde::Serialize;
 
 #[async_trait]
 pub trait Client {
-    async fn capture(&self, event: Event) -> Result<(), Error>;
+    async fn capture(&self, events: &[Event]) -> Result<(), Error>;
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("{code}: {message}")]
+    BadRequest { code: u16, message: String },
     #[error("Connection error: {0}")]
     Connection(#[from] reqwest::Error),
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 }
 
-#[derive(Serialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct Event {
     event: String,
     properties: Properties,
@@ -41,10 +44,10 @@ impl Properties {
         }
     }
 
-    pub fn insert<K: Into<String>, P: Serialize>(&mut self, key: K, prop: P) -> Result<(), Error> {
-        let as_json = serde_json::to_value(prop)?;
+    pub fn insert<K: Into<String>, P: Serialize>(&mut self, key: K, prop: P) {
+        let as_json =
+            serde_json::to_value(prop).expect("safe serialization of a analytics property");
         let _ = self.props.insert(key.into(), as_json);
-        Ok(())
     }
 }
 
@@ -58,12 +61,7 @@ impl Event {
     }
 
     /// Errors if `prop` fails to serialize
-    pub fn insert_prop<K: Into<String>, P: Serialize>(
-        &mut self,
-        key: K,
-        prop: P,
-    ) -> Result<(), Error> {
-        self.properties.insert(key, prop)?;
-        Ok(())
+    pub fn insert_prop<K: Into<String>, P: Serialize>(&mut self, key: K, prop: P) {
+        self.properties.insert(key, prop);
     }
 }
