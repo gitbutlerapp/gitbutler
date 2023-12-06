@@ -11,6 +11,7 @@ export interface TreeNode {
 	file?: File;
 	children: TreeNode[];
 	parent?: TreeNode;
+	// asdf
 }
 
 function createNode(acc: TreeNode, pathParts: string[]) {
