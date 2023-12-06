@@ -1,22 +1,13 @@
 <script lang="ts">
 	import type { Project } from '$lib/backend/projects';
-	import { debounce } from '$lib/utils/random';
+	import TextArea from '$lib/components/TextArea.svelte';
+	import TextBox from '$lib/components/TextBox.svelte';
 	import { createEventDispatcher } from 'svelte';
 
 	export let project: Project;
 
 	let title = project?.title;
 	let description = project?.description;
-
-	const onTitleInput = debounce((e: InputEvent) => {
-		project.title = (e.target as HTMLInputElement).value;
-		dispatch('updated', project);
-	}, 300);
-
-	const onDescriptionInput = debounce((e: InputEvent) => {
-		project.description = (e.target as HTMLTextAreaElement).value;
-		dispatch('updated', project);
-	}, 300);
 
 	const dispatch = createEventDispatcher<{
 		updated: Project;
@@ -27,40 +18,31 @@
 	<fieldset class="flex flex-col gap-3">
 		<div class="flex flex-col gap-1">
 			<label for="path">Path</label>
-			<input
-				disabled
-				id="path"
-				name="path"
-				type="text"
-				class="input w-full"
-				value={project?.path}
-			/>
+			<TextBox readonly id="path" value={project?.path} />
 		</div>
 		<div class="flex flex-col gap-1">
 			<label for="name">Project Name</label>
-			<input
+			<TextBox
 				id="name"
-				name="name"
-				type="text"
-				class="input w-full"
 				placeholder="Project name can't be empty"
 				bind:value={title}
 				required
-				on:input={onTitleInput}
+				on:change={(e) => {
+					project.title = e.detail;
+					dispatch('updated', project);
+				}}
 			/>
 		</div>
 		<div class="flex flex-col gap-1">
 			<label for="description">Project Description</label>
-			<textarea
-				autocomplete="off"
-				autocorrect="off"
-				spellcheck="false"
+			<TextArea
 				id="description"
-				name="description"
-				rows="3"
-				class="input w-full"
-				value={description}
-				on:input={onDescriptionInput}
+				rows={3}
+				bind:value={description}
+				on:change={(e) => {
+					project.description = e.detail;
+					dispatch('updated', project);
+				}}
 			/>
 		</div>
 	</fieldset>

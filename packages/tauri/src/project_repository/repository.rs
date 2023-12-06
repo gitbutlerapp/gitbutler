@@ -272,16 +272,32 @@ impl Repository {
         }
     }
 
+    fn get_https_remote_url_string(&self, name: &str) -> Option<String> {
+        let remote = self.git_repository.find_remote(name).ok()?;
+        remote.url_as_str().ok()?.map(ToString::to_string)
+    }
+
     fn get_remote(
         &self,
         name: &str,
         credentials: &git::credentials::Factory,
     ) -> Result<git::Remote, RemoteError> {
         if credentials.has_github_token() {
-            self.get_https_remote(name)
-        } else {
-            self.get_ssh_remote(name)
+            return self.get_https_remote(name);
         }
+
+        if let Some(url) = self.get_https_remote_url_string(name) {
+            if git::credentials::Factory::credential_helper_supplied(
+                &url,
+                self.git_repository
+                    .config()
+                    .map_err(|_| anyhow::anyhow!("config error"))?,
+            ) {
+                return self.get_https_remote(name);
+            }
+        }
+
+        self.get_ssh_remote(name)
     }
 
     // returns a remote and makes sure that the push url is an ssh url
@@ -430,7 +446,12 @@ impl Repository {
             format!("{}:refs/heads/{}", head, branch.branch())
         };
 
-        for credential_callback in credentials.for_remote(&remote) {
+        for credential_callback in credentials.for_remote(
+            &remote,
+            self.git_repository
+                .config()
+                .map_err(|_| anyhow::anyhow!("config error"))?,
+        ) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
             remote_callbacks.credentials(credential_callback);
 
@@ -470,7 +491,12 @@ impl Repository {
     ) -> Result<(), RemoteError> {
         let mut remote = self.get_remote(remote_name, credentials)?;
 
-        for credential_callback in credentials.for_remote(&remote) {
+        for credential_callback in credentials.for_remote(
+            &remote,
+            self.git_repository
+                .config()
+                .map_err(|_| anyhow::anyhow!("config error"))?,
+        ) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
             remote_callbacks.credentials(credential_callback);
             remote_callbacks.push_update_reference(|refname, message| {
