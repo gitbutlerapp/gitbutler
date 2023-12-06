@@ -4,7 +4,7 @@
 	import Icon from '$lib/icons/Icon.svelte';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let color: 'primary' | 'error' = 'primary';
+	export let color: 'primary' | 'neutral' | 'error' = 'primary';
 	export let kind: 'filled' | 'outlined' = 'filled';
 	export let disabled = false;
 	export let id: string | undefined = undefined;
@@ -31,6 +31,7 @@
 	class:primary-outline={color == 'primary' && kind == 'outlined'}
 	class:error-filled={color == 'error' && kind == 'filled'}
 	class:primary-filled={color == 'primary' && kind == 'filled'}
+	class:neutral-outline={color == 'neutral' && kind == 'outlined'}
 	class:pointer-events-none={loading}
 	class:wide
 	bind:this={element}
@@ -63,6 +64,7 @@
 		gap: var(--space-2);
 		height: var(--size-btn-m);
 		min-width: var(--size-btn-m);
+		background: transparent;
 		transition: background-color var(--transition-fast);
 		&:disabled {
 			pointer-events: none;
@@ -98,6 +100,19 @@
 			color: var(--clr-theme-pop-outline-dim);
 			border: 1px solid var(--clr-theme-pop-outline-dim);
 			background: var(--clr-theme-pop-container);
+		}
+	}
+	.neutral-outline {
+		color: var(--clr-theme-scale-30);
+		border: 1px solid var(--clr-theme-container-outline-light);
+		&:hover {
+			color: var(--clr-theme-scale-20);
+			border: 1px solid var(--clr-theme-container-outline-pale);
+		}
+		&:active {
+			color: var(--clr-theme-scale-20);
+			border: 1px solid var(--clr-theme-container-outline-pale);
+			background: var(--clr-theme-container-pale);
 		}
 	}
 	.error-filled {

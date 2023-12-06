@@ -11,7 +11,7 @@
 	on:click|stopPropagation
 	on:change
 	type="checkbox"
-	class="checkbox"
+	class="toggle"
 	class:small
 	{value}
 	{name}
@@ -20,12 +20,12 @@
 />
 
 <style lang="postcss">
-	.checkbox {
+	.toggle {
 		appearance: none;
-		width: var(--space-16);
+		width: calc(var(--space-24) + var(--space-2));
 		height: var(--space-16);
-		border-radius: var(--radius-s);
-		background-color: var(--clr-theme-container-light);
+		border-radius: var(--space-16);
+		background-color: var(--clr-theme-container-mid);
 		box-shadow: inset 0 0 0 1px var(--clr-theme-container-outline-light);
 		transition:
 			background-color var(--transition-fast),
@@ -37,14 +37,8 @@
 		/* not checked */
 		&:hover,
 		&:focus {
-			background-color: var(--clr-theme-container-pale);
-			box-shadow: inset 0 0 0 1px var(--clr-theme-container-outline-pale);
+			background-color: var(--clr-theme-container-dark);
 			outline: none;
-
-			&::after {
-				opacity: 0.3;
-				transform: scale(0.8);
-			}
 		}
 
 		&:focus {
@@ -66,7 +60,7 @@
 
 			&:hover {
 				background-color: var(--clr-theme-pop-element-dim);
-				box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element-dim);
+				box-shadow: inset 0 0 0 1px var(--clr-theme-pop-dim);
 			}
 
 			&:disabled {
@@ -76,9 +70,7 @@
 			}
 
 			&::after {
-				opacity: 1;
-				filter: invert(0);
-				transform: scale(1);
+				transform: translateX(var(--space-10));
 			}
 		}
 
@@ -86,26 +78,27 @@
 		&::after {
 			content: '';
 			position: absolute;
-			width: 100%;
-			height: 100%;
-			border-radius: var(--radius-s);
-			background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iNyIgdmlld0JveD0iMCAwIDEwIDciIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik05IDEuNUw0LjkyMTM5IDUuNzQ4NTVDNC41Mjc4MyA2LjE1ODUxIDMuODcyMTcgNi4xNTg1MSAzLjQ3ODYxIDUuNzQ4NTZMMSAzLjE2NjY3IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8L3N2Zz4K');
-			background-position: center;
-			background-size: 80%;
-			background-repeat: no-repeat;
+			top: var(--space-2);
+			left: var(--space-2);
+			width: var(--space-12);
+			height: var(--space-12);
+			border-radius: var(--space-12);
+			background-color: var(--clr-core-ntrl-100);
 			transition:
-				opacity var(--transition-fast),
-				transform var(--transition-fast);
-			filter: invert(var(--helpers-invert-1));
-			transform: scale(0.4);
-			opacity: 0;
+				background-color var(--transition-fast),
+				transform var(--transition-medium);
 		}
 
 		/* modifiers */
 
 		&.small {
-			width: var(--space-14);
+			width: var(--space-24);
 			height: var(--space-14);
+
+			&:after {
+				width: var(--space-10);
+				height: var(--space-10);
+			}
 		}
 	}
 </style>
