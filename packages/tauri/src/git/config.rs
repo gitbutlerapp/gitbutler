@@ -10,6 +10,12 @@ impl From<git2::Config> for Config {
     }
 }
 
+impl From<Config> for git2::Config {
+    fn from(v: Config) -> Self {
+        v.config
+    }
+}
+
 impl Config {
     pub fn set_str(&mut self, key: &str, value: &str) -> Result<()> {
         self.config.set_str(key, value).map_err(Into::into)

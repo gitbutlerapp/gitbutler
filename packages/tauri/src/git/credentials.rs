@@ -27,7 +27,11 @@ impl Factory {
         self.github_token.is_some()
     }
 
-    pub fn for_remote(&self, remote: &super::Remote) -> Vec<CredentialsCallback> {
+    pub fn for_remote(
+        &self,
+        remote: &super::Remote,
+        config: super::Config,
+    ) -> Vec<CredentialsCallback> {
         let is_github = remote
             .url()
             .map(|url| url.map_or(false, |url| url.is_github()))
@@ -41,6 +45,14 @@ impl Factory {
         if is_github && is_https {
             if let Some(github_token) = self.github_token.as_ref() {
                 return vec![from_token(github_token)];
+            }
+        }
+
+        if is_https {
+            if let Some(url) = remote.url_as_str().ok().flatten() {
+                if let Some(credentials) = invoke_credential_helper(url, config) {
+                    return vec![from_credential_helper(credentials.0, credentials.1)];
+                }
             }
         }
 
@@ -77,6 +89,17 @@ impl Factory {
             }
         }
     }
+
+    pub fn credential_helper_supplied(url: &str, config: super::Config) -> bool {
+        invoke_credential_helper(url, config).is_some()
+    }
+}
+
+fn invoke_credential_helper(url: &str, config: super::Config) -> Option<(String, String)> {
+    let mut helper = git2::CredentialHelper::new(url);
+    let config: git2::Config = config.into();
+    helper.config(&config);
+    helper.execute()
 }
 
 pub type CredentialsCallback<'a> = Box<
@@ -102,5 +125,15 @@ fn from_token(token: &str) -> CredentialsCallback {
     Box::new(move |url, _username_from_url, _allowed_types| {
         tracing::debug!("authenticating with {} using github token", url);
         git2::Cred::userpass_plaintext("git", token)
+    })
+}
+
+fn from_credential_helper(usr: String, pwd: String) -> CredentialsCallback<'static> {
+    Box::new(move |url, _username_from_url, _allowed_types| {
+        tracing::info!(
+            "authenticating with {} using credentials (via creds helper)",
+            url
+        );
+        git2::Cred::userpass_plaintext(&usr, &pwd)
     })
 }
