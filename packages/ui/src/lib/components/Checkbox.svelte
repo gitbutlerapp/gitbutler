@@ -8,6 +8,7 @@
 	export let indeterminate = false;
 	export let value = '';
 </script>
+//
 
 <input
 	on:click|stopPropagation
