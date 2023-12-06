@@ -211,6 +211,8 @@
 	--radius-l: var(--space-12);
 	--radius-m: var(--space-6);
 	--radius-s: var(--space-4);
+	--size-btn-xxs: 0.875rem;
+	--size-btn-xs: 1rem;
 	--size-btn-s: 1.25rem;
 	--size-btn-m: 1.625rem;
 	--size-btn-l: 2rem;
