@@ -236,6 +236,8 @@
 	--transition-fast: 0.05s ease-in-out;
 	--transition-medium: 0.1s ease-in-out;
 	--transition-slow: 0.25s ease-in-out;
+	--helpers-invert-0: 0;
+	--helpers-invert-1: 1;
 }
 
 :root.dark {
@@ -342,4 +344,6 @@
 	--clr-theme-warn-outline: var(--clr-core-warn-55);
 	--clr-theme-warn-outline-dark: var(--clr-core-warn-65);
 	--clr-theme-warn-outline-dim: var(--clr-core-warn-60);
+	--helpers-invert-0: 1;
+	--helpers-invert-1: 0;
 }

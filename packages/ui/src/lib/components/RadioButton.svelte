@@ -3,28 +3,28 @@
 
 	export let small = false;
 	export let disabled = false;
-	export let checked = false;
+	export let group = '';
 	export let value = '';
 </script>
 
 <input
 	on:click|stopPropagation
 	on:change
-	type="checkbox"
-	class="checkbox"
+	type="radio"
+	class="radio"
 	class:small
 	{value}
 	{name}
 	{disabled}
-	bind:checked
+	bind:group
 />
 
 <style lang="postcss">
-	.checkbox {
+	.radio {
 		appearance: none;
 		width: var(--space-16);
 		height: var(--space-16);
-		border-radius: var(--radius-s);
+		border-radius: var(--space-16);
 		background-color: var(--clr-theme-container-light);
 		box-shadow: inset 0 0 0 1px var(--clr-theme-container-outline-light);
 		transition:
@@ -42,8 +42,8 @@
 			outline: none;
 
 			&::after {
-				opacity: 0.3;
-				transform: scale(0.8);
+				opacity: 0.2;
+				transform: scale(0.7);
 			}
 		}
 
@@ -77,8 +77,8 @@
 
 			&::after {
 				opacity: 1;
-				filter: invert(0);
 				transform: scale(1);
+				background-color: var(--clr-core-ntrl-100);
 			}
 		}
 
@@ -86,18 +86,14 @@
 		&::after {
 			content: '';
 			position: absolute;
-			width: 100%;
-			height: 100%;
-			border-radius: var(--radius-s);
-			background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iNyIgdmlld0JveD0iMCAwIDEwIDciIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik05IDEuNUw0LjkyMTM5IDUuNzQ4NTVDNC41Mjc4MyA2LjE1ODUxIDMuODcyMTcgNi4xNTg1MSAzLjQ3ODYxIDUuNzQ4NTZMMSAzLjE2NjY3IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8L3N2Zz4K');
-			background-position: center;
-			background-size: 80%;
-			background-repeat: no-repeat;
-			transition:
-				opacity var(--transition-fast),
-				transform var(--transition-fast);
-			filter: invert(var(--helpers-invert-1));
-			transform: scale(0.4);
+			top: var(--space-4);
+			left: var(--space-4);
+			width: calc(100% - var(--space-8));
+			height: calc(100% - var(--space-8));
+			border-radius: var(--space-16);
+			background-color: var(--clr-theme-scale-ntrl-0);
+			transition: background-color var(--transition-fast);
+			transform: scale(0.5);
 			opacity: 0;
 		}
 
