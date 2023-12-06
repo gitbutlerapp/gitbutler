@@ -7,7 +7,7 @@ pub struct Client;
 #[async_trait]
 impl super::Client for Client {
     #[instrument(skip(self), level = "debug")]
-    async fn capture(&self, _event: super::Event) -> Result<(), super::Error> {
+    async fn capture(&self, _events: &[super::Event]) -> Result<(), super::Error> {
         Ok(())
     }
 }

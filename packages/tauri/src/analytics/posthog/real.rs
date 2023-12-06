@@ -3,12 +3,11 @@ use std::time::Duration;
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use reqwest::{header::CONTENT_TYPE, Client as HttpClient};
-
 use serde::Serialize;
 use serde_json;
 use tracing::instrument;
 
-const API_ENDPOINT: &str = "https://eu.posthog.com/capture/";
+const API_ENDPOINT: &str = "https://eu.posthog.com/batch/";
 const TIMEOUT: &Duration = &Duration::from_millis(800);
 
 pub struct ClientOptions {
@@ -35,39 +34,61 @@ impl Client {
 #[async_trait]
 impl super::Client for Client {
     #[instrument(skip(self), level = "debug")]
-    async fn capture(&self, event: super::Event) -> Result<(), super::Error> {
-        let mut event = event;
-        event
-            .properties
-            .insert("appName", self.options.app_name.clone())?;
-        event
-            .properties
-            .insert("appVersion", self.options.app_version.clone())?;
-        let inner_event = InnerEvent::new(&event, self.options.api_key.clone());
-        let _res = self
+    async fn capture(&self, events: &[super::Event]) -> Result<(), super::Error> {
+        let events = events
+            .iter()
+            .map(|event| {
+                let event = &mut event.clone();
+                event
+                    .properties
+                    .insert("appName", self.options.app_name.clone());
+                event
+                    .properties
+                    .insert("appVersion", self.options.app_version.clone());
+                Event::from(event)
+            })
+            .collect::<Vec<_>>();
+
+        let batch = Batch {
+            api_key: &self.options.api_key,
+            batch: events.as_slice(),
+        };
+
+        let response = self
             .client
             .post(API_ENDPOINT)
             .header(CONTENT_TYPE, "application/json")
-            .body(serde_json::to_string(&inner_event).expect("unwrap here is safe"))
+            .body(serde_json::to_string(&batch)?)
             .send()
             .await?;
-        Ok(())
+
+        if response.status().is_success() {
+            Ok(())
+        } else {
+            Err(super::Error::BadRequest {
+                code: response.status().as_u16(),
+                message: response.text().await.unwrap_or_default(),
+            })
+        }
     }
 }
 
-// This exists so that the client doesn't have to specify the API key over and over
 #[derive(Serialize)]
-struct InnerEvent {
-    api_key: String,
+struct Batch<'a> {
+    api_key: &'a str,
+    batch: &'a [Event],
+}
+
+#[derive(Serialize)]
+struct Event {
     event: String,
     properties: super::Properties,
     timestamp: Option<NaiveDateTime>,
 }
 
-impl InnerEvent {
-    fn new(event: &super::Event, api_key: String) -> Self {
+impl From<&mut super::Event> for Event {
+    fn from(event: &mut super::Event) -> Self {
         Self {
-            api_key,
             event: event.event.clone(),
             properties: event.properties.clone(),
             timestamp: event.timestamp,
