@@ -1,22 +1,35 @@
 <script lang="ts">
-	import type { PullRequest } from '$lib/github/types';
+	import type { PrStatus, PullRequest } from '$lib/github/types';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import type { Observable } from 'rxjs';
 	import { branchUrl, type CommitType } from './commitList';
 	import { open } from '@tauri-apps/api/shell';
 	import Link from '$lib/components/Link.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
-	import Tag from './Tag.svelte';
+	import Tag, { type TagColor } from './Tag.svelte';
 	import { onMount } from 'svelte';
 
 	export let branch: Branch;
 	export let expanded: boolean;
 	export let pr$: Observable<PullRequest | undefined> | undefined;
+	export let prStatus$: Observable<PrStatus | undefined> | undefined;
 	export let type: CommitType;
 	export let base: BaseBranch | undefined | null;
 	export let height: number | undefined;
 
 	let element: HTMLButtonElement | undefined = undefined;
+
+	$: prColor = statusToColor($prStatus$);
+
+	function statusToColor(status: PrStatus | undefined): TagColor {
+		console.log(status);
+		if (!status) return 'neutral-light';
+		if (status && !status.hasChecks) return 'neutral-light';
+		if (status.completed) {
+			return status.success ? 'success' : 'error';
+		}
+		return 'warning';
+	}
 
 	onMount(() => (height = element?.offsetHeight));
 </script>
@@ -38,7 +51,7 @@
 				{#if $pr$?.htmlUrl}
 					<Tag
 						icon="pr-small"
-						color="neutral-light"
+						color={prColor}
 						clickable
 						on:click={(e) => {
 							const url = $pr$?.htmlUrl;

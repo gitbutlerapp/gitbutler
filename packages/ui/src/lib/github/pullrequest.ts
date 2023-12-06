@@ -13,7 +13,8 @@ import {
 import {
 	type PullRequest,
 	type GitHubIntegrationContext,
-	ghResponseToInstance
+	ghResponseToInstance,
+	type PrStatus
 } from '$lib/github/types';
 import { newClient } from '$lib/github/client';
 import type { BranchController } from '$lib/vbranches/branchController';
@@ -33,7 +34,7 @@ export class PrService {
 	constructor(
 		private branchController: BranchController,
 		private branchService: VirtualBranchService,
-		ghContext$: Observable<GitHubIntegrationContext | undefined>
+		private ghContext$: Observable<GitHubIntegrationContext | undefined>
 	) {
 		this.prs$ = ghContext$.pipe(
 			combineLatestWith(this.reload$),
@@ -103,6 +104,7 @@ export class PrService {
 				)
 			);
 			if (branch?.upstreamName) {
+				octokit.rest;
 				const rsp = await octokit.rest.pulls.create({
 					owner: ctx.owner,
 					repo: ctx.repo,
@@ -118,6 +120,34 @@ export class PrService {
 		} finally {
 			this.setIdle(branchId);
 		}
+	}
+
+	getStatus(ref: string | undefined): Observable<PrStatus | undefined> | undefined {
+		if (!ref) return;
+		return this.ghContext$.pipe(
+			switchMap(async (ctx) => {
+				if (!ctx) return;
+				const octokit = newClient(ctx);
+				return await octokit.checks.listForRef({
+					owner: ctx.owner,
+					repo: ctx.repo,
+					ref: ref,
+					headers: {
+						'X-GitHub-Api-Version': '2022-11-28'
+					}
+				});
+			}),
+			map((resp) => {
+				console.log(resp);
+				return {
+					completed: resp?.data.check_runs.every((check) => !!check.completed_at),
+					success: resp?.data.check_runs.every(
+						(check) => check.conclusion == 'skipped' || check.conclusion == 'success'
+					),
+					hasChecks: !!resp?.data?.total_count
+				};
+			})
+		);
 	}
 }
 
@@ -145,25 +175,4 @@ function loadPrs(ctx: GitHubIntegrationContext, skipCache: boolean): Observable<
 			console.error(e);
 		}
 	});
-}
-
-export async function getPullRequestByBranch(
-	ctx: GitHubIntegrationContext,
-	branch: string
-): Promise<PullRequest | undefined> {
-	const octokit = newClient(ctx);
-	try {
-		const rsp = await octokit.rest.pulls.list({
-			owner: ctx.owner,
-			repo: ctx.repo,
-			head: ctx.owner + ':' + branch
-		});
-		// at most one pull request per head / branch
-		const pr = rsp.data.find((pr) => pr !== undefined);
-		if (pr) {
-			return ghResponseToInstance(pr);
-		}
-	} catch (e) {
-		console.log(e);
-	}
 }
