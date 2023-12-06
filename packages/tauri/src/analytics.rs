@@ -40,7 +40,7 @@ impl Event {
         }
     }
 
-    fn into_posthog_event(self, user: &User) -> Result<posthog::Event, posthog::Error> {
+    fn into_posthog_event(self, user: &User) -> posthog::Event {
         match self {
             Event::HeadChange {
                 project_id,
@@ -48,9 +48,9 @@ impl Event {
             } => {
                 let mut event =
                     posthog::Event::new("git::head_changed", &format!("user_{}", user.id));
-                event.insert_prop("project_id", format!("project_{}", project_id))?;
-                event.insert_prop("reference", reference)?;
-                Ok(event)
+                event.insert_prop("project_id", format!("project_{}", project_id));
+                event.insert_prop("reference", reference);
+                event
             }
         }
     }
@@ -65,11 +65,13 @@ impl Client {
     pub fn new(app_handle: &AppHandle, config: &Config) -> Self {
         let client: Box<dyn posthog::Client + Sync + Send> =
             if let Some(posthog_token) = config.posthog_token {
-                Box::new(posthog::real::Client::new(posthog::real::ClientOptions {
+                let real = posthog::real::Client::new(posthog::real::ClientOptions {
                     api_key: posthog_token.to_string(),
                     app_name: app_handle.package_info().name.clone(),
                     app_version: app_handle.package_info().version.to_string(),
-                }))
+                });
+                let real_with_retry = posthog::retry::Client::new(real);
+                Box::new(real_with_retry)
             } else {
                 Box::<posthog::mock::Client>::default()
             };
@@ -78,10 +80,13 @@ impl Client {
         }
     }
 
-    pub async fn send(&self, user: &User, event: &Event) -> Result<(), posthog::Error> {
-        self.client
-            .capture(event.clone().into_posthog_event(user)?)
-            .await?;
-        Ok(())
+    pub async fn send(&self, user: &User, event: &Event) {
+        if let Err(error) = self
+            .client
+            .capture(&[event.clone().into_posthog_event(user)])
+            .await
+        {
+            tracing::warn!(?error, "failed to send analytics");
+        }
     }
 }

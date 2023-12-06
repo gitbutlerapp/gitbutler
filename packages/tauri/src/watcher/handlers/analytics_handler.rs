@@ -23,10 +23,7 @@ impl From<&AppHandle> for Handler {
 impl Handler {
     pub async fn handle(&self, event: &analytics::Event) -> Result<Vec<events::Event>> {
         if let Some(user) = self.users.get_user().context("failed to get user")? {
-            self.client
-                .send(&user, event)
-                .await
-                .context("failed to send event")?;
+            self.client.send(&user, event).await;
         }
         Ok(vec![])
     }
