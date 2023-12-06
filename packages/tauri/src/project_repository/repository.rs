@@ -6,7 +6,7 @@ use std::{
 use anyhow::{Context, Result};
 
 use crate::{
-    git::{self, Url},
+    git::{self, credentials::HelpError, Url},
     keys, projects, reader, users,
     virtual_branches::Branch,
 };
@@ -239,100 +239,6 @@ impl Repository {
         Ok(oids.len().try_into()?)
     }
 
-    // returns a remote and makes sure that the push url is an https url
-    // if url is already https, or not set at all, then it returns the remote as is.
-    fn get_https_remote(&self, name: &str) -> Result<git::Remote, RemoteError> {
-        let remote = self
-            .git_repository
-            .find_remote(name)
-            .context("failed to find remote")
-            .map_err(RemoteError::Other)?;
-
-        let remote_url = remote
-            .url()
-            .context("failed to get remote url")
-            .map_err(RemoteError::Other)?;
-
-        if let Some(url) = remote_url {
-            match url.scheme {
-                git::Scheme::Https | git::Scheme::File => Ok(remote),
-                _ => {
-                    let https_url = url
-                        .as_https()
-                        .map_err(|_| RemoteError::NonHttpsUrl(url.to_string()))?;
-                    Ok(self
-                        .git_repository
-                        .remote_anonymous(&https_url)
-                        .context("failed to get anonymous")
-                        .map_err(RemoteError::Other)?)
-                }
-            }
-        } else {
-            Err(RemoteError::NoUrl)
-        }
-    }
-
-    fn get_https_remote_url_string(&self, name: &str) -> Option<String> {
-        let remote = self.git_repository.find_remote(name).ok()?;
-        remote.url_as_str().ok()?.map(ToString::to_string)
-    }
-
-    fn get_remote(
-        &self,
-        name: &str,
-        credentials: &git::credentials::Factory,
-    ) -> Result<git::Remote, RemoteError> {
-        if credentials.has_github_token() {
-            return self.get_https_remote(name);
-        }
-
-        if let Some(url) = self.get_https_remote_url_string(name) {
-            if git::credentials::Factory::credential_helper_supplied(
-                &url,
-                self.git_repository
-                    .config()
-                    .map_err(|_| anyhow::anyhow!("config error"))?,
-            ) {
-                return self.get_https_remote(name);
-            }
-        }
-
-        self.get_ssh_remote(name)
-    }
-
-    // returns a remote and makes sure that the push url is an ssh url
-    // if url is already ssh, or not set at all, then it returns the remote as is.
-    fn get_ssh_remote(&self, name: &str) -> Result<git::Remote, RemoteError> {
-        let remote = self
-            .git_repository
-            .find_remote(name)
-            .context("failed to find remote")
-            .map_err(RemoteError::Other)?;
-
-        let remote_url = remote
-            .url()
-            .context("failed to get remote url")
-            .map_err(RemoteError::Other)?;
-
-        if let Some(url) = remote_url {
-            match url.scheme {
-                git::Scheme::Ssh | git::Scheme::File => Ok(remote),
-                _ => {
-                    let ssh_url = url
-                        .as_ssh()
-                        .map_err(|_| RemoteError::NonSshUrl(url.to_string()))?;
-                    Ok(self
-                        .git_repository
-                        .remote_anonymous(&ssh_url)
-                        .context("failed to get anonymous")
-                        .map_err(RemoteError::Other)?)
-                }
-            }
-        } else {
-            Err(RemoteError::NoUrl)
-        }
-    }
-
     pub fn commit(
         &self,
         user: Option<&users::User>,
@@ -436,48 +342,41 @@ impl Repository {
         head: &git::Oid,
         branch: &git::RemoteRefname,
         with_force: bool,
-        credentials: &git::credentials::Factory,
+        credentials: &git::credentials::Helper,
     ) -> Result<(), RemoteError> {
-        let mut remote = self.get_remote(branch.remote(), credentials)?;
-
         let refspec = if with_force {
             format!("+{}:refs/heads/{}", head, branch.branch())
         } else {
             format!("{}:refs/heads/{}", head, branch.branch())
         };
 
-        for credential_callback in credentials.for_remote(
-            &remote,
-            self.git_repository
-                .config()
-                .map_err(|_| anyhow::anyhow!("config error"))?,
-        ) {
-            let mut remote_callbacks = git2::RemoteCallbacks::new();
-            remote_callbacks.credentials(credential_callback);
-
-            match remote.push(
-                &[refspec.as_str()],
-                Some(&mut git2::PushOptions::new().remote_callbacks(remote_callbacks)),
-            ) {
-                Ok(()) => {
-                    tracing::info!(
-                        project_id = %self.project.id,
-                        remote = %branch.remote(),
-                        %head,
-                        branch = branch.branch(),
-                        "pushed git branch"
-                    );
-                    return Ok(());
+        let auth_flows = credentials.help(self, branch.remote())?;
+        for (mut remote, callbacks) in auth_flows {
+            for callback in callbacks {
+                match remote.push(
+                    &[refspec.as_str()],
+                    Some(&mut git2::PushOptions::new().remote_callbacks(callback.into())),
+                ) {
+                    Ok(()) => {
+                        tracing::info!(
+                            project_id = %self.project.id,
+                            remote = %branch.remote(),
+                            %head,
+                            branch = branch.branch(),
+                            "pushed git branch"
+                        );
+                        return Ok(());
+                    }
+                    Err(git::Error::Auth(error)) => {
+                        tracing::warn!(project_id = %self.project.id, ?error, "git push failed",);
+                        continue;
+                    }
+                    Err(git::Error::Network(error)) => {
+                        tracing::warn!(project_id = %self.project.id, ?error, "git push failed",);
+                        return Err(RemoteError::Network);
+                    }
+                    Err(error) => return Err(RemoteError::Other(error.into())),
                 }
-                Err(git::Error::Auth(error)) => {
-                    tracing::warn!(project_id = %self.project.id, ?error, "git push failed",);
-                    continue;
-                }
-                Err(git::Error::Network(error)) => {
-                    tracing::warn!(project_id = %self.project.id, ?error, "git push failed",);
-                    return Err(RemoteError::Network);
-                }
-                Err(error) => return Err(RemoteError::Other(error.into())),
             }
         }
 
@@ -487,75 +386,31 @@ impl Repository {
     pub fn fetch(
         &self,
         remote_name: &str,
-        credentials: &git::credentials::Factory,
+        credentials: &git::credentials::Helper,
     ) -> Result<(), RemoteError> {
-        let mut remote = self.get_remote(remote_name, credentials)?;
+        let refspec = &format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
+        let auth_flows = credentials.help(self, remote_name)?;
+        for (mut remote, callbacks) in auth_flows {
+            for callback in callbacks {
+                let mut fetch_opts = git2::FetchOptions::new();
+                fetch_opts.remote_callbacks(callback.into());
+                fetch_opts.prune(git2::FetchPrune::On);
 
-        for credential_callback in credentials.for_remote(
-            &remote,
-            self.git_repository
-                .config()
-                .map_err(|_| anyhow::anyhow!("config error"))?,
-        ) {
-            let mut remote_callbacks = git2::RemoteCallbacks::new();
-            remote_callbacks.credentials(credential_callback);
-            remote_callbacks.push_update_reference(|refname, message| {
-                if let Some(msg) = message {
-                    tracing::debug!(
-                        project_id = %self.project.id,
-                        refname,
-                        msg,
-                        "push update reference",
-                    );
+                match remote.fetch(&[refspec], Some(&mut fetch_opts)) {
+                    Ok(()) => {
+                        tracing::info!(project_id = %self.project.id, %refspec, "git fetched");
+                        return Ok(());
+                    }
+                    Err(git::Error::Auth(error)) => {
+                        tracing::warn!(project_id = %self.project.id, ?error, "fetch failed");
+                        continue;
+                    }
+                    Err(git::Error::Network(error)) => {
+                        tracing::warn!(project_id = %self.project.id, ?error, "fetch failed");
+                        return Err(RemoteError::Network);
+                    }
+                    Err(error) => return Err(RemoteError::Other(error.into())),
                 }
-                Ok(())
-            });
-            remote_callbacks.push_negotiation(|proposals| {
-                tracing::debug!(
-                    project_id = %self.project.id,
-                    proposals = proposals
-                        .iter()
-                        .map(|p| format!(
-                            "src_refname: {}, dst_refname: {}",
-                            p.src_refname().unwrap_or(&p.src().to_string()),
-                            p.dst_refname().unwrap_or(&p.dst().to_string())
-                        ))
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                    "push negotiation"
-                );
-                Ok(())
-            });
-            remote_callbacks.push_transfer_progress(|one, two, three| {
-                tracing::debug!(
-                    project_id = %self.project.id,
-                    "push transfer progress: {}/{}/{}",
-                    one,
-                    two,
-                    three
-                );
-            });
-
-            let mut fetch_opts = git2::FetchOptions::new();
-            fetch_opts.remote_callbacks(remote_callbacks);
-            fetch_opts.prune(git2::FetchPrune::On);
-
-            let refspec = &format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
-
-            match remote.fetch(&[refspec], Some(&mut fetch_opts)) {
-                Ok(()) => {
-                    tracing::info!(project_id = %self.project.id, %refspec, "git fetched");
-                    return Ok(());
-                }
-                Err(git::Error::Auth(error)) => {
-                    tracing::warn!(project_id = %self.project.id, ?error, "fetch failed");
-                    continue;
-                }
-                Err(git::Error::Network(error)) => {
-                    tracing::warn!(project_id = %self.project.id, ?error, "fetch failed");
-                    return Err(RemoteError::Network);
-                }
-                Err(error) => return Err(RemoteError::Other(error.into())),
             }
         }
 
@@ -565,16 +420,14 @@ impl Repository {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RemoteError {
+    #[error(transparent)]
+    Help(#[from] HelpError),
     #[error("network failed")]
     Network,
-    #[error("git url is empty")]
-    NoUrl,
-    #[error("git url is not ssh: {0}")]
-    NonSshUrl(String),
-    #[error("git url is not https: {0}")]
-    NonHttpsUrl(String),
     #[error("authentication failed")]
     Auth,
+    #[error("all authentication methods exhaused")]
+    NoAuthMethodsLeft,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -582,25 +435,18 @@ pub enum RemoteError {
 impl From<RemoteError> for crate::error::Error {
     fn from(value: RemoteError) -> Self {
         match value {
+            RemoteError::Help(error) => error.into(),
+            RemoteError::NoAuthMethodsLeft => crate::error::Error::UserError {
+                code: crate::error::Code::ProjectGitRemote,
+                message: "We don't know how to authenticate with your remote.".to_string(),
+            },
             RemoteError::Network => crate::error::Error::UserError {
                 code: crate::error::Code::ProjectGitRemote,
                 message: "Network erorr occured".to_string(),
             },
-            RemoteError::NonHttpsUrl(url) => crate::error::Error::UserError {
-                code: crate::error::Code::ProjectGitRemote,
-                message: format!("Project has non-https remote url: {}", url),
-            },
             RemoteError::Auth => crate::error::Error::UserError {
                 code: crate::error::Code::ProjectGitAuth,
                 message: "Project remote authentication error".to_string(),
-            },
-            RemoteError::NonSshUrl(url) => crate::error::Error::UserError {
-                code: crate::error::Code::ProjectGitRemote,
-                message: format!("Project has non-ssh remote url: {}", url),
-            },
-            RemoteError::NoUrl => crate::error::Error::UserError {
-                code: crate::error::Code::ProjectGitRemote,
-                message: "Project has no remote url".to_string(),
             },
             RemoteError::Other(error) => {
                 tracing::error!(?error);

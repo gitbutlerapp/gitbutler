@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    gb_repository, git, keys,
+    gb_repository, git,
     paths::DataDir,
     project_repository::{self, conflicts},
     projects::{self, ProjectId},
@@ -19,9 +19,9 @@ pub struct App {
     local_data_dir: DataDir,
     projects: projects::Controller,
     users: users::Controller,
-    keys: keys::Controller,
     watchers: watcher::Watchers,
     sessions_database: sessions::Database,
+    helper: git::credentials::Helper,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -42,11 +42,11 @@ impl TryFrom<&AppHandle> for App {
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
             local_data_dir: DataDir::try_from(value)?,
-            keys: keys::Controller::from(value),
             projects: projects::Controller::try_from(value)?,
             users: users::Controller::from(value),
             watchers: value.state::<watcher::Watchers>().inner().clone(),
             sessions_database: sessions::Database::from(value),
+            helper: git::credentials::Helper::from(value),
         })
     }
 }
@@ -129,15 +129,7 @@ impl App {
             Err(e) => Err(e).context("failed to read default target"),
         }?;
 
-        let credentials = git::credentials::Factory::new(
-            &project,
-            self.keys
-                .get_or_create()
-                .context("failed to get or create key")?,
-            user.as_ref(),
-        );
-
-        project_repository.fetch(default_target.branch.remote(), &credentials)?;
+        project_repository.fetch(default_target.branch.remote(), &self.helper)?;
 
         Ok(())
     }
