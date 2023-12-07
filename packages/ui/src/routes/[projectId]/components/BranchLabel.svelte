@@ -1,7 +1,6 @@
 <script lang="ts">
 	export let name: string;
 	let activeInput = false;
-	let focusLabel = false;
 	let label: HTMLDivElement;
 	let input: HTMLInputElement;
 
@@ -11,7 +10,6 @@
 	}
 
 	function selectNameLabel() {
-		focusLabel = true;
 		setTimeout(() => label.focus(), 0);
 	}
 </script>
@@ -45,7 +43,6 @@
 		class="branch-name text-base-13 truncate"
 		on:keydown={activate}
 		on:click={activate}
-		on:blur={() => (focusLabel = false)}
 	>
 		{name}
 	</div>
