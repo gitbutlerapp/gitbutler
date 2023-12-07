@@ -4,13 +4,22 @@
 	let label: HTMLDivElement;
 	let input: HTMLInputElement;
 
-	function activate() {
+	function activateInput() {
 		activeInput = true;
 		setTimeout(() => input.select(), 0);
 	}
 
-	function selectNameLabel() {
-		setTimeout(() => label.focus(), 0);
+	function activateInputOnEnter(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			activateInput();
+		}
+	}
+
+	function selectNameLabelOnEnter(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			activeInput = false;
+			setTimeout(() => label.focus(), 0);
+		}
 	}
 </script>
 
@@ -25,12 +34,7 @@
 		on:dblclick|stopPropagation
 		on:click={(e) => e.currentTarget.select()}
 		on:blur={() => (activeInput = false)}
-		on:keydown={(e) => {
-			if (e.key === 'Enter') {
-				e.currentTarget.blur();
-				selectNameLabel();
-			}
-		}}
+		on:keydown={selectNameLabelOnEnter}
 		autocomplete="off"
 		autocorrect="off"
 		spellcheck="false"
@@ -41,8 +45,8 @@
 		role="textbox"
 		tabindex="0"
 		class="branch-name text-base-13 truncate"
-		on:keydown={activate}
-		on:click={activate}
+		on:keydown={activateInputOnEnter}
+		on:click={activateInput}
 	>
 		{name}
 	</div>
