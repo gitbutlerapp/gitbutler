@@ -14,6 +14,7 @@ use pretty_assertions::{assert_eq, assert_ne};
 use crate::{
     gb_repository, git, project_repository, reader, sessions,
     test_utils::{self, empty_bare_repository, Case, Suite},
+    virtual_branches::errors::CommitError,
 };
 
 use super::*;
@@ -2734,6 +2735,74 @@ fn test_verify_branch_not_integration() -> Result<()> {
         verify_result.unwrap_err().to_string(),
         "head is refs/heads/master"
     );
+
+    Ok(())
+}
+
+#[test]
+fn test_pre_commit_hook_rejection() -> Result<()> {
+    let suite = Suite::default();
+    let Case {
+        project,
+        gb_repository,
+        project_repository,
+        ..
+    } = suite.new_case_with_files(HashMap::from([
+        (
+            path::PathBuf::from("test.txt"),
+            "line1\nline2\nline3\nline4\n",
+        ),
+        (
+            path::PathBuf::from("test2.txt"),
+            "line5\nline6\nline7\nline8\n",
+        ),
+    ]));
+
+    set_test_target(&gb_repository, &project_repository)?;
+
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+
+    std::fs::write(
+        std::path::Path::new(&project.path).join("test.txt"),
+        "line0\nline1\nline2\nline3\nline4\n",
+    )?;
+
+    let hook = b"#!/bin/sh
+    echo 'rejected'
+    exit 1
+            ";
+
+    git2_hooks::create_hook(
+        (&project_repository.git_repository).into(),
+        git2_hooks::HOOK_PRE_COMMIT,
+        hook,
+    );
+
+    let res = commit(
+        &gb_repository,
+        &project_repository,
+        &branch1_id,
+        "test commit",
+        None,
+        Some(suite.keys.get_or_create()?).as_ref(),
+        None,
+    );
+
+    let error = res.unwrap_err();
+
+    assert!(matches!(error, CommitError::CommitHookRejected(_)));
+
+    let CommitError::CommitHookRejected(output) = error else {
+        unreachable!()
+    };
+
+    assert_eq!(&output, "rejected\n");
 
     Ok(())
 }

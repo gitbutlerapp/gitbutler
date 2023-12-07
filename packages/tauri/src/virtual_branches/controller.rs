@@ -1,7 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::{anyhow, Context};
-use git2_hooks::HookResult;
+use anyhow::Context;
 use tauri::AppHandle;
 use tokio::sync::Semaphore;
 
@@ -393,18 +392,6 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
-            let hook_result = project_repository
-                .git_repository
-                .run_hook_pre_commit()
-                .context("failed to get default target")
-                .map_err(|e: anyhow::Error| -> errors::CommitError {
-                    anyhow!("hook error: {e:?}").into()
-                })?;
-
-            if let HookResult::NotOk { stdout, .. } = hook_result {
-                return Err(errors::CommitError::CommitHookRejected(stdout));
-            }
-
             let signing_key = project_repository
                 .config()
                 .sign_commits()

@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use diffy::{apply_bytes, Patch};
+use git2_hooks::HookResult;
 use serde::Serialize;
 use slug::slugify;
 
@@ -2006,6 +2007,15 @@ pub fn commit(
     signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
 ) -> Result<git::Oid, errors::CommitError> {
+    let hook_result = project_repository
+        .git_repository
+        .run_hook_pre_commit()
+        .context("failed to run hook")?;
+
+    if let HookResult::NotOk { stdout, .. } = hook_result {
+        return Err(errors::CommitError::CommitHookRejected(stdout));
+    }
+
     let default_target = gb_repository
         .default_target()
         .context("failed to get default target")?
