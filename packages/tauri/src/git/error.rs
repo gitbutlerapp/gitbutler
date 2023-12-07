@@ -14,6 +14,8 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("network error: {0}")]
     Network(git2::Error),
+    #[error("hook error: {0}")]
+    Hooks(#[from] git2_hooks::HooksError),
     #[error(transparent)]
     Other(git2::Error),
 }

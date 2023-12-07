@@ -144,6 +144,8 @@ pub enum CommitError {
     DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error("will not commit conflicted files")]
     Conflicted(ProjectConflictError),
+    #[error("commit hook rejected")]
+    CommitHookRejected(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -389,6 +391,7 @@ impl From<CommitError> for Error {
             CommitError::BranchNotFound(error) => error.into(),
             CommitError::DefaultTargetNotSet(error) => error.into(),
             CommitError::Conflicted(error) => error.into(),
+            CommitError::CommitHookRejected(error) => CommitError::CommitHookRejected(error).into(),
             CommitError::Other(error) => {
                 tracing::error!(?error, "commit error");
                 Error::Unknown
