@@ -9,8 +9,6 @@
 	import TreeListFile from './TreeListFile.svelte';
 	import TreeListFolder from './TreeListFolder.svelte';
 
-	let className = '';
-	export { className as class };
 	export let expanded = true;
 	export let node: TreeNode;
 	export let isRoot = false;
@@ -80,68 +78,66 @@
 	}
 </script>
 
-<div class={className}>
-	{#if isRoot}
-		<!-- Node is a root and should only render children! -->
-		<ul id={`fileTree-${fileTreeId++}`}>
-			{#each node.children as childNode}
-				<li>
-					<svelte:self
-						node={childNode}
-						{selectedOwnership}
-						{withCheckboxes}
-						{selectedFileId}
-						{branchId}
-						{readonly}
-						on:checked
-						on:unchecked
-					/>
-				</li>
-			{/each}
-		</ul>
-	{:else if node.file}
-		<!-- Node is a file -->
-		<TreeListFile
-			file={node.file}
-			{branchId}
-			{readonly}
-			selected={node.file?.id == $selectedFileId}
-			on:click={() => {
-				if ($selectedFileId == node.file?.id) $selectedFileId = undefined;
-				else $selectedFileId = node.file?.id;
-			}}
-		/>
-	{:else if node.children.length > 0}
-		<!-- Node is a folder -->
-		<TreeListFolder {node} on:click={toggle} {expanded} />
+{#if isRoot}
+	<!-- Node is a root and should only render children! -->
+	<ul id={`fileTree-${fileTreeId++}`}>
+		{#each node.children as childNode}
+			<li>
+				<svelte:self
+					node={childNode}
+					{selectedOwnership}
+					{withCheckboxes}
+					{selectedFileId}
+					{branchId}
+					{readonly}
+					on:checked
+					on:unchecked
+				/>
+			</li>
+		{/each}
+	</ul>
+{:else if node.file}
+	<!-- Node is a file -->
+	<TreeListFile
+		file={node.file}
+		{branchId}
+		{readonly}
+		selected={node.file?.id == $selectedFileId}
+		on:click={() => {
+			if ($selectedFileId == node.file?.id) $selectedFileId = undefined;
+			else $selectedFileId = node.file?.id;
+		}}
+	/>
+{:else if node.children.length > 0}
+	<!-- Node is a folder -->
+	<TreeListFolder {node} on:click={toggle} {expanded} />
 
-		<!-- We assume a folder cannot be empty -->
-		{#if expanded}
-			<div class="nested">
-				<div class="line">
-					<div class="bg-color-3 inline-block h-full w-px" />
-				</div>
-				<ul class="w-full overflow-hidden">
-					{#each node.children as childNode}
-						<li>
-							<svelte:self
-								node={childNode}
-								expanded={true}
-								{selectedOwnership}
-								{withCheckboxes}
-								{selectedFileId}
-								{branchId}
-								{readonly}
-								on:checked
-								on:unchecked
-							/>
-						</li>
-					{/each}
-				</ul>
+	<!-- We assume a folder cannot be empty -->
+	{#if expanded}
+		<div class="nested">
+			<div class="line">
+				<div class="bg-color-3 inline-block h-full w-px" />
 			</div>
-		{/if}
+			<ul class="w-full overflow-hidden">
+				{#each node.children as childNode}
+					<li>
+						<svelte:self
+							node={childNode}
+							expanded={true}
+							{selectedOwnership}
+							{withCheckboxes}
+							{selectedFileId}
+							{branchId}
+							{readonly}
+							on:checked
+							on:unchecked
+						/>
+					</li>
+				{/each}
+			</ul>
+		</div>
 	{/if}
-</div>
+{/if}
 
 <style lang="postcss">
 	.nested {

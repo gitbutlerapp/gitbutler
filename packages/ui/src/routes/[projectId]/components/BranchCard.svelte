@@ -1,12 +1,10 @@
 <script lang="ts">
-	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { getContext, onMount } from 'svelte';
 	import { dropzone } from '$lib/utils/draggable';
 	import {
 		isDraggableHunk,
 		isDraggableFile,
-		isDraggableCommit,
-		type DraggableCommit,
 		type DraggableFile,
 		type DraggableHunk
 	} from '$lib/draggables';
@@ -25,12 +23,10 @@
 	import BranchHeader from './BranchHeader.svelte';
 	import UpstreamCommits from './UpstreamCommits.svelte';
 	import BranchFiles from './BranchFiles.svelte';
-	import CommitList from './CommitList.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import type { UIEventHandler } from 'svelte/elements';
 	import { persisted } from '@square/svelte-store';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import BranchCommits from './BranchCommits.svelte';
 
 	export let branch: Branch;
 	export let readonly = false;
@@ -50,9 +46,7 @@
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 
 	let rsViewport: HTMLElement;
-	let viewport: HTMLElement;
-	let contents: HTMLElement;
-	let scrolled = false;
+	let commitsScrollable = false;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const defaultBranchWidthRem = persisted<number | undefined>(30, 'defaulBranchWidth' + projectId);
@@ -115,14 +109,6 @@
 		generateBranchName();
 	}
 
-	function resetHeadCommit() {
-		if (branch.commits.length > 1) {
-			branchController.resetBranch(branch.id, branch.commits[1].id);
-		} else if (branch.commits.length === 1 && base) {
-			branchController.resetBranch(branch.id, base.baseSha);
-		}
-	}
-
 	onMount(() => {
 		expandFromCache();
 		laneWidth = lscache.get(laneWidthKey + branch.id);
@@ -164,63 +150,6 @@
 			);
 		}
 	}
-
-	function acceptAmend(commit: Commit) {
-		return (data: any) => {
-			if (
-				isDraggableHunk(data) &&
-				data.branchId == branch.id &&
-				commit.id == branch.commits.at(0)?.id
-			) {
-				return true;
-			} else if (
-				isDraggableFile(data) &&
-				data.branchId == branch.id &&
-				commit.id == branch.commits.at(0)?.id
-			) {
-				return true;
-			} else {
-				return false;
-			}
-		};
-	}
-
-	function onAmend(data: DraggableFile | DraggableHunk) {
-		if (isDraggableHunk(data)) {
-			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
-			branchController.amendBranch(branch.id, newOwnership);
-		} else if (isDraggableFile(data)) {
-			const newOwnership = `${data.file.path}:${data.file.hunks.map(({ id }) => id).join(',')}`;
-			branchController.amendBranch(branch.id, newOwnership);
-		}
-	}
-
-	function acceptSquash(commit: Commit) {
-		return (data: any) => {
-			return (
-				isDraggableCommit(data) &&
-				data.branchId == branch.id &&
-				(commit.parentIds.includes(data.commit.id) || data.commit.parentIds.includes(commit.id))
-			);
-		};
-	}
-
-	function onSquash(commit: Commit) {
-		function isParentOf(commit: Commit, other: Commit) {
-			return commit.parentIds.includes(other.id);
-		}
-		return (data: DraggableCommit) => {
-			if (isParentOf(commit, data.commit)) {
-				branchController.squashBranchCommit(data.branchId, commit.id);
-			} else if (isParentOf(data.commit, commit)) {
-				branchController.squashBranchCommit(data.branchId, data.commit.id);
-			}
-		};
-	}
-
-	const onScroll: UIEventHandler<HTMLDivElement> = (e) => {
-		scrolled = e.currentTarget.scrollTop != 0;
-	};
 </script>
 
 <div bind:this={rsViewport} class="resize-viewport">
@@ -284,7 +213,14 @@
 				<div class="hover-text invisible font-semibold">Move here</div>
 			</div>
 			{#if branch.files?.length > 0}
-				<BranchFiles {branch} {readonly} {selectedOwnership} {selectedFileId} />
+				<BranchFiles
+					{branch}
+					{readonly}
+					{selectedOwnership}
+					{selectedFileId}
+					forceResizable={commitsScrollable}
+					enableResizing={branch.commits.length > 0}
+				/>
 				{#if branch.active}
 					<CommitDialog
 						{projectId}
@@ -311,65 +247,16 @@
 					<h1 class="text-base-16 text-semibold">No uncommitted changes on this branch</h1>
 				</div>
 			{/if}
-			<div class="scroll-container">
-				<div
-					bind:this={viewport}
-					class="viewport hide-native-scrollbar"
-					class:scrolled
-					on:scroll={onScroll}
-				>
-					<div bind:this={contents} class="flex min-h-full flex-col">
-						{#if branch.commits.length > 0}
-							<CommitList
-								{branch}
-								{base}
-								{githubContext}
-								{projectId}
-								{branchController}
-								{acceptAmend}
-								{acceptSquash}
-								{onAmend}
-								{onSquash}
-								{resetHeadCommit}
-								{prService}
-								{readonly}
-								type="local"
-							/>
-							<CommitList
-								{branch}
-								{base}
-								{githubContext}
-								{projectId}
-								{branchController}
-								{acceptAmend}
-								{acceptSquash}
-								{onAmend}
-								{onSquash}
-								{resetHeadCommit}
-								{prService}
-								{readonly}
-								type="remote"
-							/>
-							<CommitList
-								{branch}
-								{base}
-								{githubContext}
-								{projectId}
-								{branchController}
-								{acceptAmend}
-								{acceptSquash}
-								{onAmend}
-								{onSquash}
-								{resetHeadCommit}
-								{prService}
-								{readonly}
-								type="integrated"
-							/>
-						{/if}
-					</div>
-				</div>
-				<Scrollbar {viewport} {contents} thickness="0.4rem" />
-			</div>
+			<BranchCommits
+				{base}
+				{branch}
+				{githubContext}
+				{projectId}
+				{prService}
+				{branchController}
+				{readonly}
+				bind:scrollable={commitsScrollable}
+			/>
 		</div>
 	</div>
 	{#if !maximized}
@@ -400,20 +287,6 @@
 		cursor: default;
 		overflow-x: hidden;
 		background: var(--clr-theme-container-light);
-	}
-	.scroll-container {
-		position: relative;
-		overflow-y: hidden;
-	}
-	.viewport {
-		max-height: 100%;
-		flex-direction: column;
-		display: flex;
-		overflow-y: scroll;
-		overscroll-behavior: none;
-		&.scrolled {
-			border-top: 1px solid var(--clr-theme-container-outline-light);
-		}
 	}
 
 	.new-branch,

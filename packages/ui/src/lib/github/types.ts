@@ -29,6 +29,12 @@ export interface PullRequest {
 	mergedAt?: Date;
 }
 
+export interface PrStatus {
+	completed?: boolean;
+	success?: boolean;
+	hasChecks: boolean;
+}
+
 export function ghResponseToInstance(
 	pr:
 		| RestEndpointMethodTypes['pulls']['create']['response']['data']
