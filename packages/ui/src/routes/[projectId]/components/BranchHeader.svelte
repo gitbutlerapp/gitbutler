@@ -43,7 +43,7 @@
 </script>
 
 <div class="card__header" data-drag-handle>
-	<div class="header__left flex-grow">
+	<div class="header__left">
 		{#if !readonly}
 			<div class="draggable" data-drag-handle>
 				<Icon name="draggable" />
@@ -69,12 +69,18 @@
 		color: var(--clr-theme-scale-ntrl-40);
 	}
 	.header__left {
+		pointer-events: none;
+		overflow-x: hidden;
 		display: flex;
-		gap: var(--space-4);
+		flex-grow: 1;
 		align-items: center;
+		gap: var(--space-4);
 	}
+
 	.draggable {
+		display: flex;
 		cursor: grab;
 		color: var(--clr-theme-scale-ntrl-60);
+		transition: color var(--transition-medium);
 	}
 </style>

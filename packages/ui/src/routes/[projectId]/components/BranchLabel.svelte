@@ -28,7 +28,7 @@
 	<div
 		role="textbox"
 		tabindex="0"
-		class="branch-name text-base-13"
+		class="branch-name text-base-13 truncate"
 		on:keydown={activate}
 		on:click={activate}
 	>
@@ -39,21 +39,28 @@
 <style lang="postcss">
 	.branch-name,
 	.branch-name-input {
+		height: var(--size-btn-m);
+		pointer-events: auto;
 		color: var(--clr-theme-scale-ntrl-0);
-		padding: var(--space-4) var(--space-6);
+		padding: var(--space-6);
 		border-radius: var(--radius-s);
 		border: 1px solid transparent;
 	}
 	.branch-name {
 		cursor: text;
 		display: inline-block;
+		transition: background-color var(--transition-fast);
 		&:hover {
 			background-color: var(--clr-theme-container-pale);
 		}
 	}
 	.branch-name-input {
 		width: 100%;
-		background-color: var(--clr-theme-container-light);
+		/* background-color: var(--clr-theme-container-pale); */
 		border: 1px solid var(--clr-theme-container-outline-light);
+		&:focus {
+			outline: none;
+			border-color: var(--clr-theme-container-outline-light);
+		}
 	}
 </style>
