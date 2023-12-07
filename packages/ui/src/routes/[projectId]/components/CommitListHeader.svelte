@@ -12,11 +12,23 @@
 	export let branch: Branch;
 	export let expanded: boolean;
 	export let pr$: Observable<PullRequest | undefined> | undefined;
+	// export let prStatus$: Observable<PrStatus | undefined> | undefined;
 	export let type: CommitType;
 	export let base: BaseBranch | undefined | null;
 	export let height: number | undefined;
 
 	let element: HTMLButtonElement | undefined = undefined;
+
+	// $: prColor = statusToColor($prStatus$);
+
+	// function statusToColor(status: PrStatus | undefined): TagColor {
+	// 	if (!status) return 'neutral-light';
+	// 	if (status && !status.hasChecks) return 'neutral-light';
+	// 	if (status.completed) {
+	// 		return status.success ? 'success' : 'error';
+	// 	}
+	// 	return 'warning';
+	// }
 
 	onMount(() => (height = element?.offsetHeight));
 </script>

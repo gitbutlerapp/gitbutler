@@ -16,10 +16,10 @@
 	import HunkContextMenu from './HunkContextMenu.svelte';
 	import { draggableFile, draggableHunk } from '$lib/draggables';
 	import FileCardHeader from './FileCardHeader.svelte';
-	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import lscache from 'lscache';
 	import { persisted } from '@square/svelte-store';
+	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 
 	export let projectId: string;
 	export let branchId: string;
@@ -31,8 +31,6 @@
 	export let selectable = false;
 	export let selectedOwnership: Writable<Ownership>;
 
-	let viewport: HTMLElement;
-	let contents: HTMLElement;
 	let rsViewport: HTMLElement;
 
 	const defaultFileWidthRem = persisted<number | undefined>(30, 'defaulFileWidth' + projectId);
@@ -131,110 +129,107 @@
 		{/if}
 
 		<div class="relative flex max-h-full flex-shrink overflow-hidden">
-			<div class="viewport hide-native-scrollbar" bind:this={viewport}>
-				<div bind:this={contents} class="hunks flex flex-col rounded px-2">
-					{#if file.binary}
-						Binary content not shown
-					{:else if file.large}
-						Diff too large to be shown
-					{:else}
-						{#each sections as section}
-							{@const { added, removed } = computedAddedRemoved(section)}
-							{#if 'hunk' in section}
-								{#if $userSettings.aiSummariesEnabled && !file.binary}
-									{#await summarizeHunk(section.hunk.diff) then description}
-										<div class="text-color-3 truncate whitespace-normal pb-1 pl-1 pt-2">
-											{description}
-										</div>
-									{/await}
-								{/if}
-								<div class="hunk-wrapper">
-									<div class="stats text-base-11">
-										<span class="added">+{added}</span>
-										<span class="removed">+{removed}</span>
+			<ScrollableContainer>
+				{#if file.binary}
+					Binary content not shown
+				{:else if file.large}
+					Diff too large to be shown
+				{:else}
+					{#each sections as section}
+						{@const { added, removed } = computedAddedRemoved(section)}
+						{#if 'hunk' in section}
+							{#if $userSettings.aiSummariesEnabled && !file.binary}
+								{#await summarizeHunk(section.hunk.diff) then description}
+									<div class="text-color-3 truncate whitespace-normal pb-1 pl-1 pt-2">
+										{description}
 									</div>
-									<div
-										tabindex="0"
-										role="cell"
-										use:draggable={{
-											...draggableHunk(branchId, section.hunk),
-											disabled: readonly
-										}}
-										on:dblclick
-										class="hunk"
-										class:opacity-60={section.hunk.locked && !isFileLocked}
-									>
-										<div class="hunk__inner">
-											{#each section.subSections as subsection, sidx}
-												{@const hunk = section.hunk}
-												{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
-													<RenderedLine
-														{line}
-														{minWidth}
-														selected={$selectedOwnership.containsHunk(hunk.filePath, hunk.id)}
-														on:selected={(e) => onHunkSelected(hunk, e.detail)}
-														{selectable}
-														sectionType={subsection.sectionType}
-														filePath={file.path}
-														on:contextmenu={(e) =>
-															popupMenu.openByMouse(e, {
-																hunk,
-																section: subsection,
-																lineNumber: line.afterLineNumber
-																	? line.afterLineNumber
-																	: line.beforeLineNumber
-															})}
-													/>
-												{/each}
-												{#if !subsection.expanded}
-													<div
-														role="group"
-														class="border-color-3 flex w-full"
-														class:border-t={sidx == section.subSections.length - 1 ||
-															(sidx > 0 && sidx < section.subSections.length - 1)}
-														class:border-b={sidx == 0 ||
-															(sidx > 0 && sidx < section.subSections.length - 1)}
-														on:contextmenu|preventDefault={(e) =>
-															popupMenu.openByMouse(e, {
-																section: section,
-																hunk
-															})}
-													>
-														<div
-															class="bg-color-4 text-color-4 hover:text-color-2 border-color-3 border-r text-center"
-															style:min-width={`calc(${2 * minWidth}rem - 1px)`}
-														>
-															<button
-																class="flex justify-center py-0.5 text-sm"
-																style:width={`calc(${2 * minWidth}rem - 1px)`}
-																on:click={() => {
-																	if ('expanded' in subsection) {
-																		subsection.expanded = true;
-																	}
-																}}
-															>
-																{#if sidx == 0}
-																	<IconExpandUp />
-																{:else if sidx == section.subSections.length - 1}
-																	<IconExpandDown />
-																{:else}
-																	<IconExpandUpDown />
-																{/if}
-															</button>
-														</div>
-														<div class="bg-color-4 flex-grow" />
-													</div>
-												{/if}
+								{/await}
+							{/if}
+							<div class="hunk-wrapper">
+								<div class="stats text-base-11">
+									<span class="added">+{added}</span>
+									<span class="removed">+{removed}</span>
+								</div>
+								<div
+									tabindex="0"
+									role="cell"
+									use:draggable={{
+										...draggableHunk(branchId, section.hunk),
+										disabled: readonly
+									}}
+									on:dblclick
+									class="hunk"
+									class:opacity-60={section.hunk.locked && !isFileLocked}
+								>
+									<div class="hunk__inner">
+										{#each section.subSections as subsection, sidx}
+											{@const hunk = section.hunk}
+											{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
+												<RenderedLine
+													{line}
+													{minWidth}
+													selected={$selectedOwnership.containsHunk(hunk.filePath, hunk.id)}
+													on:selected={(e) => onHunkSelected(hunk, e.detail)}
+													{selectable}
+													sectionType={subsection.sectionType}
+													filePath={file.path}
+													on:contextmenu={(e) =>
+														popupMenu.openByMouse(e, {
+															hunk,
+															section: subsection,
+															lineNumber: line.afterLineNumber
+																? line.afterLineNumber
+																: line.beforeLineNumber
+														})}
+												/>
 											{/each}
-										</div>
+											{#if !subsection.expanded}
+												<div
+													role="group"
+													class="border-color-3 flex w-full"
+													class:border-t={sidx == section.subSections.length - 1 ||
+														(sidx > 0 && sidx < section.subSections.length - 1)}
+													class:border-b={sidx == 0 ||
+														(sidx > 0 && sidx < section.subSections.length - 1)}
+													on:contextmenu|preventDefault={(e) =>
+														popupMenu.openByMouse(e, {
+															section: section,
+															hunk
+														})}
+												>
+													<div
+														class="bg-color-4 text-color-4 hover:text-color-2 border-color-3 border-r text-center"
+														style:min-width={`calc(${2 * minWidth}rem - 1px)`}
+													>
+														<button
+															class="flex justify-center py-0.5 text-sm"
+															style:width={`calc(${2 * minWidth}rem - 1px)`}
+															on:click={() => {
+																if ('expanded' in subsection) {
+																	subsection.expanded = true;
+																}
+															}}
+														>
+															{#if sidx == 0}
+																<IconExpandUp />
+															{:else if sidx == section.subSections.length - 1}
+																<IconExpandDown />
+															{:else}
+																<IconExpandUpDown />
+															{/if}
+														</button>
+													</div>
+													<div class="bg-color-4 flex-grow" />
+												</div>
+											{/if}
+										{/each}
 									</div>
 								</div>
-							{/if}
-						{/each}
-					{/if}
-				</div>
-				<Scrollbar {viewport} {contents} thickness="0.4rem" />
-			</div>
+							</div>
+						{/if}
+					{/each}
+				{/if}
+			</ScrollableContainer>
 		</div>
 	</div>
 	<Resizer
@@ -258,18 +253,6 @@
 		display: flex;
 		flex-direction: column;
 	}
-
-	.viewport {
-		overflow-y: scroll;
-		overflow-x: hidden;
-		overscroll-behavior: none;
-		width: 100%;
-	}
-	.hunks {
-		display: flex;
-		flex-direction: column;
-	}
-
 	.hunk-wrapper {
 		display: flex;
 		flex-direction: column;

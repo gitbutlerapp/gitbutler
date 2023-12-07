@@ -1,21 +1,86 @@
 <script lang="ts">
-	import type { DraggableCommit, DraggableFile, DraggableHunk } from '$lib/draggables';
+	import {
+		isDraggableHunk,
+		type DraggableCommit,
+		type DraggableFile,
+		type DraggableHunk,
+		isDraggableFile,
+		isDraggableCommit
+	} from '$lib/draggables';
 	import { dropzone } from '$lib/utils/draggable';
-	import type { BaseBranch, Commit } from '$lib/vbranches/types';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
 	import CommitCard from './CommitCard.svelte';
 
+	export let branch: Branch;
 	export let projectId: string;
 	export let commit: Commit;
 	export let base: BaseBranch | undefined | null;
 	export let isHeadCommit: boolean;
 	export let isChained: boolean;
 	export let readonly = false;
+	export let branchController: BranchController;
 
-	export let acceptAmend: (commit: Commit) => (data: any) => boolean;
-	export let acceptSquash: (commit: Commit) => (data: any) => boolean;
-	export let onAmend: (data: DraggableFile | DraggableHunk) => void;
-	export let onSquash: (commit: Commit) => (data: DraggableCommit) => void;
-	export let resetHeadCommit: () => void;
+	function acceptAmend(commit: Commit) {
+		return (data: any) => {
+			if (
+				isDraggableHunk(data) &&
+				data.branchId == branch.id &&
+				commit.id == branch.commits.at(0)?.id
+			) {
+				return true;
+			} else if (
+				isDraggableFile(data) &&
+				data.branchId == branch.id &&
+				commit.id == branch.commits.at(0)?.id
+			) {
+				return true;
+			} else {
+				return false;
+			}
+		};
+	}
+
+	function onAmend(data: DraggableFile | DraggableHunk) {
+		if (isDraggableHunk(data)) {
+			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
+			branchController.amendBranch(branch.id, newOwnership);
+		} else if (isDraggableFile(data)) {
+			const newOwnership = `${data.file.path}:${data.file.hunks.map(({ id }) => id).join(',')}`;
+			branchController.amendBranch(branch.id, newOwnership);
+		}
+	}
+
+	function acceptSquash(commit: Commit) {
+		return (data: any) => {
+			return (
+				isDraggableCommit(data) &&
+				data.branchId == branch.id &&
+				(commit.parentIds.includes(data.commit.id) || data.commit.parentIds.includes(commit.id))
+			);
+		};
+	}
+
+	function onSquash(commit: Commit) {
+		function isParentOf(commit: Commit, other: Commit) {
+			return commit.parentIds.includes(other.id);
+		}
+		return (data: DraggableCommit) => {
+			if (isParentOf(commit, data.commit)) {
+				branchController.squashBranchCommit(data.branchId, commit.id);
+			} else if (isParentOf(data.commit, commit)) {
+				branchController.squashBranchCommit(data.branchId, data.commit.id);
+			}
+		};
+	}
+
+	function resetHeadCommit() {
+		if (branch.commits.length > 1) {
+			branchController.resetBranch(branch.id, branch.commits[1].id);
+		} else if (branch.commits.length === 1 && base) {
+			branchController.resetBranch(branch.id, base.baseSha);
+		}
+	}
 </script>
 
 <div class="commit-list-item flex w-full items-center gap-x-2 pb-2 pr-4">

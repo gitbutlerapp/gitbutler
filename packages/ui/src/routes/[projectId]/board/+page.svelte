@@ -70,7 +70,7 @@
 				/>
 			</div>
 		</div>
-		<Scrollbar {viewport} {contents} vertical thickness="0.4rem" />
+		<Scrollbar {viewport} {contents} horz thickness="0.4rem" />
 	</div>
 </div>
 
