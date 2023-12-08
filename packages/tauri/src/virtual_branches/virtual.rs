@@ -2121,7 +2121,7 @@ pub fn push(
     gb_repository: &gb_repository::Repository,
     branch_id: &BranchId,
     with_force: bool,
-    credentials: &git::credentials::Factory,
+    credentials: &git::credentials::Helper,
 ) -> Result<(), errors::PushError> {
     let current_session = gb_repository
         .get_or_create_current_session()

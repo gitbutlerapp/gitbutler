@@ -9,7 +9,7 @@ pub use convert::ConvertError;
 pub use parse::Error as ParseError;
 pub use scheme::Scheme;
 
-#[derive(Default, Clone, Debug, thiserror::Error)]
+#[derive(Default, Clone, Hash, PartialEq, Eq, Debug, thiserror::Error)]
 pub struct Url {
     /// The URL scheme.
     pub scheme: Scheme,
