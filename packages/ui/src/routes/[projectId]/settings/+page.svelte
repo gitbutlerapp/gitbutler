@@ -9,6 +9,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Spacer from './Spacer.svelte';
 	import type { Key, Project } from '$lib/backend/projects';
+	import ScrollableContainer from '../../../lib/components/ScrollableContainer.svelte';
 
 	export let data: PageData;
 
@@ -54,54 +55,56 @@
 	};
 </script>
 
-<div class="h-full flex-grow overflow-y-auto overscroll-none p-3">
-	<div class="card">
-		{#if !$project$}
-			loading...
-		{:else}
-			<div class="card__header">
-				<span class="card_title text-base-16 text-semibold">Project settings</span>
-			</div>
-			<div class="card__content">
-				<CloudForm project={$project$} user={$user$} {userService} on:updated={onCloudUpdated} />
-				<Spacer />
-				<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
-				<Spacer />
-				<KeysForm project={$project$} on:updated={onKeysUpdated} />
-				<Spacer />
-
-				<div class="flex gap-x-4">
-					<a
-						href="https://discord.gg/wDKZCPEjXC"
-						target="_blank"
-						rel="noreferrer"
-						class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
-					>
-						<p class="mb-2 font-medium">Join our Discorder</p>
-						<p class="text-light-700 dark:text-dark-200">
-							Join our community and share feedback, requests, or ask a question.
-						</p>
-					</a>
-					<a
-						href="mailto:hello@gitbutler.com?subject=Feedback or question!"
-						target="_blank"
-						class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
-					>
-						<p class="mb-2 font-medium">Contact us</p>
-						<p class="text-light-700 dark:text-dark-200">
-							If you have an issue or any questions, contact us.
-						</p>
-					</a>
+<ScrollableContainer>
+	<div class="settings">
+		<div class="card">
+			{#if !$project$}
+				loading...
+			{:else}
+				<div class="card__header">
+					<span class="card_title text-base-16 text-semibold">Project settings</span>
 				</div>
-			</div>
-			<div class="card__footer">
-				<Button color="error" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
-					Delete project
-				</Button>
-			</div>
-		{/if}
+				<div class="card__content">
+					<CloudForm project={$project$} user={$user$} {userService} on:updated={onCloudUpdated} />
+					<Spacer />
+					<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
+					<Spacer />
+					<KeysForm project={$project$} on:updated={onKeysUpdated} />
+					<Spacer />
+
+					<div class="flex gap-x-4">
+						<a
+							href="https://discord.gg/wDKZCPEjXC"
+							target="_blank"
+							rel="noreferrer"
+							class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
+						>
+							<p class="mb-2 font-medium">Join our Discord</p>
+							<p class="text-light-700 dark:text-dark-200">
+								Join our community and share feedback, requests, or ask a question.
+							</p>
+						</a>
+						<a
+							href="mailto:hello@gitbutler.com?subject=Feedback or question!"
+							target="_blank"
+							class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
+						>
+							<p class="mb-2 font-medium">Contact us</p>
+							<p class="text-light-700 dark:text-dark-200">
+								If you have an issue or any questions, contact us.
+							</p>
+						</a>
+					</div>
+				</div>
+				<div class="card__footer">
+					<Button color="error" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
+						Delete project
+					</Button>
+				</div>
+			{/if}
+		</div>
 	</div>
-</div>
+</ScrollableContainer>
 
 <Modal bind:this={deleteConfirmationModal} title="Delete {$project$?.title}?">
 	<p>
@@ -116,6 +119,16 @@
 </Modal>
 
 <style lang="postcss">
+	.settings {
+		display: flex;
+		flex-direction: column;
+		padding: var(--space-16) var(--space-16);
+		height: 100%;
+		width: 100%;
+	}
+	.card {
+		max-width: 50rem;
+	}
 	.card__content {
 		gap: var(--space-24);
 	}

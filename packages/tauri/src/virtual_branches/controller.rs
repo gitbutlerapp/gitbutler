@@ -25,6 +25,7 @@ pub struct Controller {
     projects: projects::Controller,
     users: users::Controller,
     keys: keys::Controller,
+    helper: git::credentials::Helper,
 
     by_project_id: Arc<tokio::sync::Mutex<HashMap<ProjectId, ControllerInner>>>,
 }
@@ -39,6 +40,7 @@ impl TryFrom<&AppHandle> for Controller {
                 &projects::Controller::from(&data_dir),
                 &users::Controller::from(&data_dir),
                 &keys::Controller::from(&data_dir),
+                &git::credentials::Helper::from(&data_dir),
             )
         })
     }
@@ -50,6 +52,7 @@ impl Controller {
         projects: &projects::Controller,
         users: &users::Controller,
         keys: &keys::Controller,
+        helper: &git::credentials::Helper,
     ) -> Self {
         Self {
             by_project_id: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
@@ -58,6 +61,7 @@ impl Controller {
             projects: projects.clone(),
             users: users.clone(),
             keys: keys.clone(),
+            helper: helper.clone(),
         }
     }
 
@@ -72,6 +76,7 @@ impl Controller {
                     &self.projects,
                     &self.users,
                     &self.keys,
+                    &self.helper,
                 )
             })
             .clone()
@@ -338,6 +343,7 @@ struct ControllerInner {
     projects: projects::Controller,
     users: users::Controller,
     keys: keys::Controller,
+    helper: git::credentials::Helper,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -362,6 +368,7 @@ impl From<&DataDir> for ControllerInner {
             &projects::Controller::from(value),
             &users::Controller::from(value),
             &keys::Controller::from(value),
+            &git::credentials::Helper::from(value),
         )
     }
 }
@@ -372,6 +379,7 @@ impl ControllerInner {
         projects: &projects::Controller,
         users: &users::Controller,
         keys: &keys::Controller,
+        helper: &git::credentials::Helper,
     ) -> Self {
         Self {
             local_data_dir: data_dir.clone(),
@@ -379,6 +387,7 @@ impl ControllerInner {
             projects: projects.clone(),
             users: users.clone(),
             keys: keys.clone(),
+            helper: helper.clone(),
         }
     }
 
@@ -751,21 +760,13 @@ impl ControllerInner {
     ) -> Result<(), ControllerError<errors::PushError>> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
-            let credentials = git::credentials::Factory::new(
-                project_repository.project(),
-                self.keys
-                    .get_or_create()
-                    .context("failed to get or create private key")?,
-                user,
-            );
-
+        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
             super::push(
                 project_repository,
                 gb_repository,
                 branch_id,
                 with_force,
-                &credentials,
+                &self.helper,
             )
             .map_err(Into::into)
         })

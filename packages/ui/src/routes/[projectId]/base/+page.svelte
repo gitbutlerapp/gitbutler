@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import type { PageData } from './$types';
 	import BaseBranch from './BaseBranch.svelte';
 
@@ -10,8 +11,8 @@
 	$: error$ = baseBranchService.error$;
 </script>
 
-<div class="h-full flex-grow overflow-y-auto overscroll-none p-4">
-	<div class="wrapper flex max-w-2xl flex-col gap-y-6 overflow-visible">
+<ScrollableContainer wide>
+	<div class="card">
 		{#if $error$}
 			<p>Error...</p>
 		{:else if !$base$}
@@ -20,13 +21,12 @@
 			<BaseBranch {projectId} base={$base$} {branchController} />
 		{/if}
 	</div>
-</div>
+</ScrollableContainer>
 
 <style lang="postcss">
-	.wrapper {
-		border: 1px solid var(--clr-theme-container-outline-light);
-		background-color: var(--clr-theme-container-light);
+	.card {
+		margin: var(--space-16);
 		padding: var(--space-16);
-		border-radius: var(--radius-m);
+		max-width: 50rem;
 	}
 </style>

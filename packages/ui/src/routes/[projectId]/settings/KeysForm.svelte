@@ -121,7 +121,7 @@
 					<label for="path">Path to private key</label>
 
 					<TextBox
-						placeholder="~/.ssh/id_rsa"
+						placeholder="/absolute/path/id_rsa"
 						bind:value={privateKeyPath}
 						on:change={setLocalKey}
 					/>

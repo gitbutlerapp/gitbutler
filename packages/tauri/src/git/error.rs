@@ -24,7 +24,7 @@ impl From<git2::Error> for Error {
     fn from(err: git2::Error) -> Self {
         match err.class() {
             git2::ErrorClass::Ssh => match err.code() {
-                git2::ErrorCode::GenericError => Error::Auth(err),
+                git2::ErrorCode::GenericError | git2::ErrorCode::Auth => Error::Auth(err),
                 _ => Error::Other(err),
             },
             git2::ErrorClass::Net => Error::Network(err),

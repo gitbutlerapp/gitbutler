@@ -30,6 +30,7 @@ impl Default for Test {
         let keys = keys::Controller::from(&data_dir);
         let projects = projects::Controller::from(&data_dir);
         let users = users::Controller::from(&data_dir);
+        let helper = git::credentials::Helper::from(&data_dir);
 
         let test_project = TestProject::default();
         let project = projects
@@ -39,7 +40,7 @@ impl Default for Test {
         Self {
             repository: test_project,
             project_id: project.id,
-            controller: Controller::new(&data_dir, &projects, &users, &keys),
+            controller: Controller::new(&data_dir, &projects, &users, &keys, &helper),
         }
     }
 }
@@ -3401,10 +3402,11 @@ mod init {
         let keys = keys::Controller::from(&data_dir);
         let projects = projects::Controller::from(&data_dir);
         let users = users::Controller::from(&data_dir);
+        let helper = git::credentials::Helper::from(&data_dir);
 
         let test_project = TestProject::default();
 
-        let controller = Controller::new(&data_dir, &projects, &users, &keys);
+        let controller = Controller::new(&data_dir, &projects, &users, &keys, &helper);
 
         {
             let project = projects
