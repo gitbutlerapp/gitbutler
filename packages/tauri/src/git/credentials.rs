@@ -4,18 +4,23 @@ use tauri::AppHandle;
 
 use crate::{keys, paths, project_repository, projects, users};
 
+#[derive(Debug, Clone)]
 pub enum SshCredential {
     Keyfile {
         key_path: path::PathBuf,
         passphrase: Option<String>,
     },
-    MemoryKey(Box<keys::PrivateKey>),
+    GitButlerKey(Box<keys::PrivateKey>),
 }
 
+#[derive(Debug, Clone)]
 pub enum HttpsCredential {
     UsernamePassword { username: String, password: String },
+    CredentialHelper { username: String, password: String },
+    GitHubToken(String),
 }
 
+#[derive(Debug, Clone)]
 pub enum Credential {
     Noop,
     Ssh(SshCredential),
@@ -40,7 +45,7 @@ impl From<Credential> for git2::RemoteCallbacks<'_> {
                     git2::Cred::ssh_key("git", None, &key_path, passphrase.as_deref())
                 });
             }
-            Credential::Ssh(SshCredential::MemoryKey(key)) => {
+            Credential::Ssh(SshCredential::GitButlerKey(key)) => {
                 remote_callbacks.credentials(move |url, _username_from_url, _allowed_types| {
                     tracing::info!("authenticating with {} using gitbutler's key", url);
                     git2::Cred::ssh_key_from_memory("git", None, &key.to_string(), None)
@@ -50,6 +55,18 @@ impl From<Credential> for git2::RemoteCallbacks<'_> {
                 remote_callbacks.credentials(move |url, _username_from_url, _allowed_types| {
                     tracing::info!("authenticating with {url} as '{username}' with password");
                     git2::Cred::userpass_plaintext(&username, &password)
+                });
+            }
+            Credential::Https(HttpsCredential::CredentialHelper { username, password }) => {
+                remote_callbacks.credentials(move |url, _username_from_url, _allowed_types| {
+                    tracing::info!("authenticating with {url} as '{username}' with password using credential helper");
+                    git2::Cred::userpass_plaintext(&username, &password)
+                });
+            }
+            Credential::Https(HttpsCredential::GitHubToken(token)) => {
+                remote_callbacks.credentials(move |url, _username_from_url, _allowed_types| {
+                    tracing::info!("authenticating with {url} using github token");
+                    git2::Cred::userpass_plaintext("git", &token)
                 });
             }
         };
@@ -117,6 +134,89 @@ impl From<HelpError> for crate::error::Error {
 }
 
 impl Helper {
+    /// returns all possible credentials for a remote, without trying to be smart.
+    pub fn enumerate<'a>(
+        &'a self,
+        project_repository: &'a project_repository::Repository,
+        remote: &str,
+    ) -> Result<Vec<(super::Remote, Vec<Credential>)>, HelpError> {
+        let remote = project_repository.git_repository.find_remote(remote)?;
+        let remote_url = remote.url()?.ok_or(HelpError::NoUrlSet)?;
+
+        let mut flow = vec![];
+
+        if let projects::AuthKey::Local {
+            private_key_path,
+            passphrase,
+        } = &project_repository.project().preferred_key
+        {
+            let ssh_remote = if remote_url.scheme == super::Scheme::Ssh {
+                project_repository
+                    .git_repository
+                    .remote_anonymous(&remote_url)
+            } else {
+                let ssh_url = remote_url.as_ssh()?;
+                project_repository.git_repository.remote_anonymous(&ssh_url)
+            }?;
+            flow.push((
+                ssh_remote,
+                vec![Credential::Ssh(SshCredential::Keyfile {
+                    key_path: private_key_path
+                        .canonicalize()
+                        .unwrap_or(private_key_path.clone()),
+                    passphrase: passphrase.clone(),
+                })],
+            ));
+        }
+
+        // is github is authenticated, only try github.
+        if remote_url.is_github() {
+            if let Some(github_access_token) = self
+                .users
+                .get_user()?
+                .and_then(|user| user.github_access_token)
+            {
+                let https_remote = if remote_url.scheme == super::Scheme::Https {
+                    project_repository
+                        .git_repository
+                        .remote_anonymous(&remote_url)
+                } else {
+                    let ssh_url = remote_url.as_ssh()?;
+                    project_repository.git_repository.remote_anonymous(&ssh_url)
+                }?;
+                flow.push((
+                    https_remote,
+                    vec![Credential::Https(HttpsCredential::GitHubToken(
+                        github_access_token,
+                    ))],
+                ));
+            }
+        }
+
+        if let Ok(https_url) = remote_url.as_https() {
+            flow.push((
+                project_repository
+                    .git_repository
+                    .remote_anonymous(&https_url)?,
+                Self::https_flow(project_repository, &https_url)?
+                    .into_iter()
+                    .map(Credential::Https)
+                    .collect(),
+            ));
+        }
+
+        if let Ok(ssh_url) = remote_url.as_ssh() {
+            flow.push((
+                project_repository
+                    .git_repository
+                    .remote_anonymous(&ssh_url)?,
+                self.ssh_flow()?.into_iter().map(Credential::Ssh).collect(),
+            ));
+        }
+
+        Ok(flow)
+    }
+
     pub fn help<'a>(
         &'a self,
         project_repository: &'a project_repository::Repository,
@@ -142,11 +242,12 @@ impl Helper {
                 let ssh_url = remote_url.as_ssh()?;
                 project_repository.git_repository.remote_anonymous(&ssh_url)
             }?;
+
             return Ok(vec![(
                 ssh_remote,
                 vec![Credential::Ssh(SshCredential::Keyfile {
                     key_path: private_key_path
-                        .read_link()
+                        .canonicalize()
                         .unwrap_or(private_key_path.clone()),
                     passphrase: passphrase.clone(),
                 })],
@@ -163,10 +264,8 @@ impl Helper {
                 let https_remote = if remote_url.scheme == super::Scheme::Https {
                     Ok(remote)
                 } else {
-                    let https_url = remote_url.as_ssh()?;
-                    project_repository
-                        .git_repository
-                        .remote_anonymous(&https_url)
+                    let ssh_url = remote_url.as_ssh()?;
+                    project_repository.git_repository.remote_anonymous(&ssh_url)
                 }?;
                 return Ok(vec![(
                     https_remote,
@@ -205,7 +304,7 @@ impl Helper {
                     self.ssh_flow()?.into_iter().map(Credential::Ssh).collect(),
                 )];
 
-                if let Ok(https_url) = remote_url.as_ssh() {
+                if let Ok(https_url) = remote_url.as_https() {
                     flow.push((
                         project_repository
                             .git_repository
@@ -222,7 +321,7 @@ impl Helper {
             _ => {
                 let mut flow = vec![];
 
-                if let Ok(https_url) = remote_url.as_ssh() {
+                if let Ok(https_url) = remote_url.as_https() {
                     flow.push((
                         project_repository
                             .git_repository
@@ -258,7 +357,7 @@ impl Helper {
         let config = project_repository.git_repository.config()?;
         helper.config(&git2::Config::from(config));
         if let Some((username, password)) = helper.execute() {
-            flow.push(HttpsCredential::UsernamePassword { username, password });
+            flow.push(HttpsCredential::CredentialHelper { username, password });
         }
 
         Ok(flow)
@@ -270,7 +369,7 @@ impl Helper {
             let home_path = std::path::Path::new(&home_path);
 
             let id_rsa_path = home_path.join(".ssh").join("id_rsa");
-            let id_rsa_path = id_rsa_path.read_link().unwrap_or(id_rsa_path);
+            let id_rsa_path = id_rsa_path.canonicalize().unwrap_or(id_rsa_path);
             if id_rsa_path.exists() {
                 flow.push(SshCredential::Keyfile {
                     key_path: id_rsa_path.clone(),
@@ -279,7 +378,7 @@ impl Helper {
             }
 
             let id_ed25519_path = home_path.join(".ssh").join("id_ed25519");
-            let id_ed25519_path = id_ed25519_path.read_link().unwrap_or(id_ed25519_path);
+            let id_ed25519_path = id_ed25519_path.canonicalize().unwrap_or(id_ed25519_path);
             if id_ed25519_path.exists() {
                 flow.push(SshCredential::Keyfile {
                     key_path: id_ed25519_path.clone(),
@@ -288,7 +387,7 @@ impl Helper {
             }
 
             let id_ecdsa_path = home_path.join(".ssh").join("id_ecdsa");
-            let id_ecdsa_path = id_ecdsa_path.read_link().unwrap_or(id_ecdsa_path);
+            let id_ecdsa_path = id_ecdsa_path.canonicalize().unwrap_or(id_ecdsa_path);
             if id_ecdsa_path.exists() {
                 flow.push(SshCredential::Keyfile {
                     key_path: id_ecdsa_path.clone(),
@@ -298,7 +397,7 @@ impl Helper {
         }
 
         let key = self.keys.get_or_create()?;
-        flow.push(SshCredential::MemoryKey(Box::new(key)));
+        flow.push(SshCredential::GitButlerKey(Box::new(key)));
         Ok(flow)
     }
 }
