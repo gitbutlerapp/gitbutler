@@ -18,7 +18,7 @@ pub struct Url {
     /// The password associated with a user.
     password: Option<String>,
     /// The host to which to connect. Localhost is implied if `None`.
-    host: Option<String>,
+    pub host: Option<String>,
     /// When serializing, use the alternative forms as it was parsed as such.
     serialize_alternative_form: bool,
     /// The port to use when connecting to a host. If `None`, standard ports depending on `scheme` will be used.
