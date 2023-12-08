@@ -15,65 +15,60 @@
 	);
 
 	let updateTargetModal: Modal;
-	let viewport: HTMLElement;
-	let contents: HTMLElement;
 	let mergeUpstreamWarningDismissedCheckbox = false;
 
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0 : false;
 </script>
 
-<div bind:this={viewport} class="flex max-h-full flex-col overflow-y-scroll overscroll-none">
-	<div bind:this={contents} class="flex flex-col gap-y-4">
-		<div class="text-base-13 rounded-sm">
-			There {multiple ? 'are' : 'is'}
-			{base.upstreamCommits.length} unmerged upstream
-			{multiple ? 'commits' : 'commit'}
-		</div>
-		{#if base.upstreamCommits?.length > 0}
-			<div>
-				<Tooltip
-					label={'Merges the commits from ' +
-						base.branchName +
-						' into the base of all applied virtual branches'}
-				>
-					<Button
-						color="primary"
-						on:click={() => {
-							if ($mergeUpstreamWarningDismissed) {
-								branchController.updateBaseBranch();
-							} else {
-								updateTargetModal.show();
-							}
-						}}
-					>
-						Merge into common base
-					</Button>
-				</Tooltip>
-			</div>
-			<div class="flex h-full">
-				<div class="z-20 flex w-full flex-col gap-2">
-					{#each base.upstreamCommits as commit}
-						<CommitCard {commit} {projectId} commitUrl={base.commitUrl(commit.id)} />
-					{/each}
-				</div>
-			</div>
-			<div
-				class="h-px w-full border-none bg-gradient-to-r from-transparent via-light-500 to-transparent dark:via-dark-400"
-			/>
-		{/if}
+<div class="flex flex-col gap-y-4">
+	<div class="text-base-13 rounded-sm">
+		There {multiple ? 'are' : 'is'}
+		{base.upstreamCommits.length} unmerged upstream
+		{multiple ? 'commits' : 'commit'}
+	</div>
+	{#if base.upstreamCommits?.length > 0}
 		<div>
-			<Tooltip label="This is the current base for your virtual branches.">
-				<h1 class="inline-block font-bold text-light-700 dark:text-dark-100">Local</h1>
+			<Tooltip
+				label={'Merges the commits from ' +
+					base.branchName +
+					' into the base of all applied virtual branches'}
+			>
+				<Button
+					color="primary"
+					on:click={() => {
+						if ($mergeUpstreamWarningDismissed) {
+							branchController.updateBaseBranch();
+						} else {
+							updateTargetModal.show();
+						}
+					}}
+				>
+					Merge into common base
+				</Button>
 			</Tooltip>
 		</div>
-		<div class="flex flex-col gap-y-2">
-			{#each base.recentCommits as commit}
-				<CommitCard {commit} {projectId} commitUrl={base.commitUrl(commit.id)} />
-			{/each}
+		<div class="flex h-full">
+			<div class="z-20 flex w-full flex-col gap-2">
+				{#each base.upstreamCommits as commit}
+					<CommitCard {commit} {projectId} commitUrl={base.commitUrl(commit.id)} />
+				{/each}
+			</div>
 		</div>
+		<div
+			class="h-px w-full border-none bg-gradient-to-r from-transparent via-light-500 to-transparent dark:via-dark-400"
+		/>
+	{/if}
+	<div>
+		<Tooltip label="This is the current base for your virtual branches.">
+			<h1 class="inline-block font-bold text-light-700 dark:text-dark-100">Local</h1>
+		</Tooltip>
+	</div>
+	<div class="flex flex-col gap-y-2">
+		{#each base.recentCommits as commit}
+			<CommitCard {commit} {projectId} commitUrl={base.commitUrl(commit.id)} />
+		{/each}
 	</div>
 </div>
-<!-- Confirm target update modal -->
 
 <Modal width="small" bind:this={updateTargetModal}>
 	<svelte:fragment slot="title">Merge Upstream Work</svelte:fragment>

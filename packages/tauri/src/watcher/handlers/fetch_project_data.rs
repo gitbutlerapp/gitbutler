@@ -5,7 +5,7 @@ use tauri::AppHandle;
 use tokio::sync::Mutex;
 
 use crate::{
-    gb_repository, git, keys,
+    gb_repository, git,
     paths::DataDir,
     project_repository::{self, RemoteError},
     projects::{self, ProjectId},
@@ -48,7 +48,7 @@ struct HandlerInner {
     local_data_dir: DataDir,
     projects: projects::Controller,
     users: users::Controller,
-    keys: keys::Controller,
+    helper: git::credentials::Helper,
 }
 
 impl TryFrom<&AppHandle> for HandlerInner {
@@ -57,9 +57,9 @@ impl TryFrom<&AppHandle> for HandlerInner {
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
             local_data_dir: DataDir::try_from(value)?,
-            keys: keys::Controller::from(value),
             projects: projects::Controller::try_from(value)?,
             users: users::Controller::from(value),
+            helper: git::credentials::Helper::from(value),
         })
     }
 }
@@ -91,19 +91,13 @@ impl HandlerInner {
             return Ok(vec![]);
         };
 
-        let credentials = git::credentials::Factory::new(
-            &project,
-            self.keys.get_or_create().context("failed to get key")?,
-            user.as_ref(),
-        );
-
         let policy = backoff::ExponentialBackoffBuilder::new()
             .with_max_elapsed_time(Some(time::Duration::from_secs(10 * 60)))
             .build();
 
         let fetch_result = match backoff::retry(policy, || {
             project_repository
-                .fetch(default_target.branch.remote(), &credentials)
+                .fetch(default_target.branch.remote(), &self.helper)
                 .map_err(|err| {
                     match err  {
                         RemoteError::Auth | RemoteError::Network => backoff::Error::permanent(err),

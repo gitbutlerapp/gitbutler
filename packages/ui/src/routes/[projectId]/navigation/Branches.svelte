@@ -1,15 +1,15 @@
 <script lang="ts">
-	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import type { BranchService } from '$lib/branches/service';
-	import type { UIEventHandler } from 'svelte/elements';
+	import type { CombinedBranch } from '$lib/branches/types';
+
+	import BranchFilter, { type TypeFilter } from './BranchFilter.svelte';
 	import BranchItem from './BranchItem.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import { getContext, onDestroy, onMount } from 'svelte';
 	import SectionHeader from './SectionHeader.svelte';
-	import { accordion } from './accordion';
-	import BranchFilter, { type TypeFilter } from './BranchFilter.svelte';
+	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
+
+	import { getContext, onDestroy, onMount } from 'svelte';
 	import { BehaviorSubject, combineLatest } from 'rxjs';
-	import type { CombinedBranch } from '$lib/branches/types';
 	import { persisted } from '@square/svelte-store';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 
@@ -30,7 +30,7 @@
 	);
 
 	let resizeGuard: HTMLElement;
-	let viewport: HTMLElement;
+	let viewport: HTMLDivElement;
 	let rsViewport: HTMLElement;
 	let contents: HTMLElement;
 
@@ -38,9 +38,6 @@
 	let maxHeight: number;
 
 	let scrolled: boolean;
-	const onScroll: UIEventHandler<HTMLDivElement> = (e) => {
-		scrolled = e.currentTarget.scrollTop != 0;
-	};
 
 	function typeFilter(branches: CombinedBranch[], type: TypeFilter): CombinedBranch[] {
 		switch (type) {
@@ -96,18 +93,19 @@
 		<SectionHeader {scrolled} count={$branches$?.length ?? 0} expandable={true} bind:expanded>
 			Branches
 		</SectionHeader>
-		<div class="scroll-container" use:accordion={$branches$?.length > 0 && expanded}>
-			<div bind:this={viewport} class="viewport hide-native-scrollbar" on:scroll={onScroll}>
-				<BranchFilter {typeFilter$} {textFilter$}></BranchFilter>
-				<div bind:this={contents} class="content">
-					{#if $filteredBranches$}
-						{#each $filteredBranches$ as branch}
-							<BranchItem {projectId} {branch} />
-						{/each}
-					{/if}
+		<div class="expandable" class:collapsed={$branches$?.length == 0 || !expanded}>
+			<ScrollableContainer bind:scrolled bind:viewport>
+				<div class="scroll-container">
+					<BranchFilter {typeFilter$} {textFilter$}></BranchFilter>
+					<div bind:this={contents} class="content">
+						{#if $filteredBranches$}
+							{#each $filteredBranches$ as branch}
+								<BranchItem {projectId} {branch} />
+							{/each}
+						{/if}
+					</div>
 				</div>
-			</div>
-			<Scrollbar {viewport} {contents} thickness="0.5rem" />
+			</ScrollableContainer>
 		</div>
 	</div>
 </div>
@@ -122,25 +120,24 @@
 		overflow-y: hidden;
 	}
 	.scroll-container {
-		position: relative;
+		width: 100%;
+		padding-top: var(--space-4);
+		padding-bottom: var(--space-16);
+		padding-left: var(--space-12);
+		padding-right: var(--space-12);
+	}
+	.expandable {
+		display: flex;
+		flex-direction: column;
 		overflow: hidden;
+		&.collapsed {
+			display: none;
+		}
 	}
 	.branch-list {
 		position: relative;
 		display: flex;
 		flex-direction: column;
-	}
-	.viewport {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-12);
-		height: 100%;
-		overflow-y: scroll;
-		overscroll-behavior: none;
-		padding-top: var(--space-4);
-		padding-bottom: var(--space-16);
-		padding-left: var(--space-12);
-		padding-right: var(--space-12);
 	}
 	.content {
 		display: flex;

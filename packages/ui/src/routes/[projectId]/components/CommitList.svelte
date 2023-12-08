@@ -1,8 +1,7 @@
 <script lang="ts">
-	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { DraggableCommit, DraggableFile, DraggableHunk } from '$lib/draggables';
 	import CommitListItem from './CommitListItem.svelte';
 	import type { PrService } from '$lib/github/pullrequest';
 	import CommitListHeader from './CommitListHeader.svelte';
@@ -18,12 +17,6 @@
 	export let prService: PrService;
 	export let readonly: boolean;
 
-	export let acceptAmend: (commit: Commit) => (data: any) => boolean;
-	export let acceptSquash: (commit: Commit) => (data: any) => boolean;
-	export let onAmend: (data: DraggableFile | DraggableHunk) => void;
-	export let onSquash: (commit: Commit) => (data: DraggableCommit) => void;
-	export let resetHeadCommit: () => void;
-
 	let headerHeight: number;
 
 	$: headCommit = branch.commits[0];
@@ -38,6 +31,7 @@
 		}
 	});
 	$: pr$ = prService.get(branch.upstreamName);
+	// $: prStatus$ = prService.getStatus($pr$?.targetBranch);
 
 	let expanded = true;
 </script>
@@ -50,15 +44,12 @@
 				<div class="commits">
 					{#each commits as commit, idx (commit.id)}
 						<CommitListItem
+							{branch}
+							{branchController}
 							{commit}
 							{base}
 							{projectId}
 							{readonly}
-							{acceptAmend}
-							{acceptSquash}
-							{onAmend}
-							{onSquash}
-							{resetHeadCommit}
 							isChained={idx != commits.length - 1}
 							isHeadCommit={commit.id === headCommit?.id}
 						/>

@@ -1,5 +1,13 @@
 import lscache from 'lscache';
-import { Observable, EMPTY, BehaviorSubject, of, firstValueFrom, Subject } from 'rxjs';
+import {
+	Observable,
+	EMPTY,
+	BehaviorSubject,
+	of,
+	firstValueFrom,
+	Subject,
+	combineLatest
+} from 'rxjs';
 import {
 	catchError,
 	combineLatestWith,
@@ -13,11 +21,13 @@ import {
 import {
 	type PullRequest,
 	type GitHubIntegrationContext,
-	ghResponseToInstance
+	ghResponseToInstance,
+	type PrStatus
 } from '$lib/github/types';
 import { newClient } from '$lib/github/client';
 import type { BranchController } from '$lib/vbranches/branchController';
 import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
+import type { Octokit } from '@octokit/rest';
 
 export type PrAction = 'creating_pr';
 export type PrServiceState = { busy: boolean; branchId: string; action?: PrAction };
@@ -29,18 +39,20 @@ export class PrService {
 	private stateMap = new Map<string, BehaviorSubject<PrServiceState>>();
 	private reload$ = new BehaviorSubject<{ skipCache: boolean } | undefined>(undefined);
 	private fresh$ = new Subject<void>();
+	private octokit$: Observable<Octokit | undefined>;
 
 	constructor(
 		private branchController: BranchController,
 		private branchService: VirtualBranchService,
-		ghContext$: Observable<GitHubIntegrationContext | undefined>
+		private ctx$: Observable<GitHubIntegrationContext | undefined>
 	) {
-		this.prs$ = ghContext$.pipe(
-			combineLatestWith(this.reload$),
+		this.octokit$ = this.ctx$.pipe(map((ctx) => (ctx ? newClient(ctx) : undefined)));
+		this.prs$ = ctx$.pipe(
+			combineLatestWith(this.octokit$, this.reload$),
 			tap(() => this.error$.next(undefined)),
-			switchMap(([ctx, reload]) => {
-				if (!ctx) return EMPTY;
-				const prs = loadPrs(ctx, !!reload?.skipCache);
+			switchMap(([ctx, octokit, reload]) => {
+				if (!ctx || !octokit) return EMPTY;
+				const prs = loadPrs(ctx, octokit, !!reload?.skipCache);
 				this.fresh$.next();
 				return prs;
 			}),
@@ -119,9 +131,49 @@ export class PrService {
 			this.setIdle(branchId);
 		}
 	}
+
+	getStatus(ref: string | undefined): Observable<PrStatus | undefined> | undefined {
+		if (!ref) return;
+		return combineLatest([this.octokit$, this.ctx$]).pipe(
+			switchMap(async ([octokit, ctx]) => {
+				if (!octokit || !ctx) return;
+				return await octokit.checks.listForRef({
+					owner: ctx.owner,
+					repo: ctx.repo,
+					ref: ref,
+					headers: {
+						'X-GitHub-Api-Version': '2022-11-28'
+					}
+				});
+			}),
+			map((resp) => {
+				if (!resp) return;
+				const checks = resp?.data.check_runs;
+				if (!checks) return;
+
+				const skipped = checks.filter((c) => c.conclusion == 'skipped');
+				const succeeded = checks.filter((c) => c.conclusion == 'success');
+				const failed = checks.filter((c) => c.conclusion == 'failure');
+				const completed = checks.every((check) => !!check.completed_at);
+
+				const count = resp?.data.total_count;
+				return {
+					success: skipped.length + succeeded.length == count,
+					hasChecks: !!count,
+					completed,
+					failed,
+					skipped
+				};
+			})
+		);
+	}
 }
 
-function loadPrs(ctx: GitHubIntegrationContext, skipCache: boolean): Observable<PullRequest[]> {
+function loadPrs(
+	ctx: GitHubIntegrationContext,
+	octokit: Octokit,
+	skipCache: boolean
+): Observable<PullRequest[]> {
 	return new Observable<PullRequest[]>((subscriber) => {
 		const key = ctx.owner + '/' + ctx.repo;
 
@@ -130,7 +182,6 @@ function loadPrs(ctx: GitHubIntegrationContext, skipCache: boolean): Observable<
 			if (cachedRsp) subscriber.next(cachedRsp.data.map(ghResponseToInstance));
 		}
 
-		const octokit = newClient(ctx);
 		try {
 			octokit.rest.pulls
 				.list({
@@ -145,25 +196,4 @@ function loadPrs(ctx: GitHubIntegrationContext, skipCache: boolean): Observable<
 			console.error(e);
 		}
 	});
-}
-
-export async function getPullRequestByBranch(
-	ctx: GitHubIntegrationContext,
-	branch: string
-): Promise<PullRequest | undefined> {
-	const octokit = newClient(ctx);
-	try {
-		const rsp = await octokit.rest.pulls.list({
-			owner: ctx.owner,
-			repo: ctx.repo,
-			head: ctx.owner + ':' + branch
-		});
-		// at most one pull request per head / branch
-		const pr = rsp.data.find((pr) => pr !== undefined);
-		if (pr) {
-			return ghResponseToInstance(pr);
-		}
-	} catch (e) {
-		console.log(e);
-	}
 }

@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn to_https_url_test() {
-        vec![
+        for (input, expected) in [
             (
                 "https://github.com/gitbutlerapp/gitbutler-client.git",
                 "https://github.com/gitbutlerapp/gitbutler-client.git",
@@ -77,19 +77,24 @@ mod tests {
                 "ssh://git@github.com/gitbutlerapp/gitbutler-client.git",
                 "https://github.com/gitbutlerapp/gitbutler-client.git",
             ),
-        ]
-        .into_iter()
-        .enumerate()
-        .for_each(|(i, (input, expected))| {
+            (
+                "git@bitbucket.org:gitbutler-nikita/test.git",
+                "https://bitbucket.org/gitbutler-nikita/test.git",
+            ),
+            (
+                "https://bitbucket.org/gitbutler-nikita/test.git",
+                "https://bitbucket.org/gitbutler-nikita/test.git",
+            ),
+        ] {
             let url = input.parse().unwrap();
             let https_url = to_https_url(&url).unwrap();
-            assert_eq!(https_url.to_string(), expected, "test case {}", i);
-        });
+            assert_eq!(https_url.to_string(), expected, "test case {}", url);
+        }
     }
 
     #[test]
     fn to_ssh_url_test() {
-        vec![
+        for (input, expected) in [
             (
                 "git@github.com:gitbutlerapp/gitbutler-client.git",
                 "git@github.com:gitbutlerapp/gitbutler-client.git",
@@ -106,13 +111,18 @@ mod tests {
                 "ssh://git@github.com/gitbutlerapp/gitbutler-client.git",
                 "ssh://git@github.com/gitbutlerapp/gitbutler-client.git",
             ),
-        ]
-        .into_iter()
-        .enumerate()
-        .for_each(|(i, (input, expected))| {
+            (
+                "https://bitbucket.org/gitbutler-nikita/test.git",
+                "git@bitbucket.org:gitbutler-nikita/test.git",
+            ),
+            (
+                "git@bitbucket.org:gitbutler-nikita/test.git",
+                "git@bitbucket.org:gitbutler-nikita/test.git",
+            ),
+        ] {
             let url = input.parse().unwrap();
             let ssh_url = to_ssh_url(&url).unwrap();
-            assert_eq!(ssh_url.to_string(), expected, "test case {}", i);
-        });
+            assert_eq!(ssh_url.to_string(), expected, "test case {}", url);
+        }
     }
 }
