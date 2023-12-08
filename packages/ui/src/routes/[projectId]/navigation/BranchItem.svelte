@@ -23,20 +23,19 @@
 	{#if branch.icon}
 		<div class="item__icon"><Icon name={branch.icon} color={branch.color} /></div>
 	{/if}
-	<div class="item__info flex flex-col gap-2 overflow-hidden">
-		<p class="text-base-13 truncate">
+	<div class="item__info flex flex-col gap-2">
+		<p class="text-base-13">
 			{branch.displayName}
 		</p>
-		<p
-			class="text-base-11 flex w-full justify-between"
-			style="color: var(--clr-theme-scale-ntrl-50)"
-		>
-			<TimeAgo date={branch.modifiedAt} />
-			{#if branch.author}
-				by {branch.author?.name ?? 'unknown'}
-			{/if}
+		<div class="details">
+			<span class="by-label text-base-11 details truncate">
+				<TimeAgo date={branch.modifiedAt} />
+				{#if branch.author}
+					by {branch.author?.name ?? 'unknown'}
+				{/if}
+			</span>
 			<AuthorIcons authors={branch.authors} />
-		</p>
+		</div>
 	</div>
 </a>
 
@@ -46,11 +45,19 @@
 		gap: var(--space-10);
 		width: 100%;
 
-		padding-top: var(--space-10);
-		padding-bottom: var(--space-10);
-		padding-left: var(--space-8);
-		padding-right: var(--space-8);
+		padding: var(--space-10) var(--space-8);
 		border-radius: var(--radius-m);
+	}
+
+	.details {
+		display: flex;
+		align-items: center;
+		gap: var(--space-6);
+	}
+
+	.by-label {
+		flex: 1;
+		color: var(--clr-theme-scale-ntrl-50);
 	}
 
 	.item:hover,
