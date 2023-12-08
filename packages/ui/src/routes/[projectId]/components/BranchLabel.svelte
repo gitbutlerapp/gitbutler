@@ -1,29 +1,23 @@
 <script lang="ts">
 	export let name: string;
-	let activeInput = false;
+	let inputActive = false;
 	let label: HTMLDivElement;
 	let input: HTMLInputElement;
 
 	function activateInput() {
-		activeInput = true;
+		inputActive = true;
 		setTimeout(() => input.select(), 0);
 	}
 
-	function activateInputOnEnter(e: KeyboardEvent) {
-		if (e.key === 'Enter') {
-			activateInput();
-		}
-	}
-
 	function selectNameLabelOnEnter(e: KeyboardEvent) {
-		if (e.key === 'Enter') {
-			activeInput = false;
+		if (e.key == 'Enter') {
+			inputActive = false;
 			setTimeout(() => label.focus(), 0);
 		}
 	}
 </script>
 
-{#if activeInput}
+{#if inputActive}
 	<input
 		type="text"
 		bind:this={input}
@@ -33,7 +27,7 @@
 		class="branch-name-input text-base-13"
 		on:dblclick|stopPropagation
 		on:click={(e) => e.currentTarget.select()}
-		on:blur={() => (activeInput = false)}
+		on:blur={() => (inputActive = false)}
 		on:keydown={selectNameLabelOnEnter}
 		autocomplete="off"
 		autocorrect="off"
@@ -45,7 +39,7 @@
 		role="textbox"
 		tabindex="0"
 		class="branch-name text-base-13 truncate"
-		on:keydown={activateInputOnEnter}
+		on:keydown={(e) => e.key == 'Enter' && activateInput()}
 		on:click={activateInput}
 	>
 		{name}
