@@ -61,7 +61,7 @@
 
 		&:focus,
 		&:hover {
-			background-color: var(--clr-theme-container-mid);
+			background-color: var(--clr-theme-container-sub);
 			& .button__icon {
 				color: var(--clr-theme-scale-ntrl-50);
 			}

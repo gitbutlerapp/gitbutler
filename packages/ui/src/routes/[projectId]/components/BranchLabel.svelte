@@ -8,13 +8,6 @@
 		inputActive = true;
 		setTimeout(() => input.select(), 0);
 	}
-
-	function selectNameLabelOnEnter(e: KeyboardEvent) {
-		if (e.key == 'Enter') {
-			inputActive = false;
-			setTimeout(() => label.focus(), 0);
-		}
-	}
 </script>
 
 {#if inputActive}
@@ -28,7 +21,12 @@
 		on:dblclick|stopPropagation
 		on:click={(e) => e.currentTarget.select()}
 		on:blur={() => (inputActive = false)}
-		on:keydown={selectNameLabelOnEnter}
+		on:keydown={(e) => {
+			if (e.key == 'Enter') {
+				inputActive = false;
+				setTimeout(() => label.focus(), 0);
+			}
+		}}
 		autocomplete="off"
 		autocorrect="off"
 		spellcheck="false"

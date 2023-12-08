@@ -2,14 +2,27 @@
 	import type { Author } from '$lib/vbranches/types';
 
 	export let author: Author;
+
+	let imgCaption = `Gravatar for ${author.email || author.name}`;
 </script>
 
 <img
-	class="-ml-1 inline-block h-4 w-4 rounded-full first:ml-0"
-	title="Gravatar for {author.email || author.name}"
-	alt="Gravatar for {author.email || author.name}"
+	class="gravatar-image"
+	title={imgCaption}
+	alt={imgCaption}
 	srcset="{author.gravatarUrl} 2x"
-	width="100"
-	height="100"
 	on:error
 />
+
+<style lang="postcss">
+	.gravatar-image {
+		width: var(--space-16);
+		height: var(--space-16);
+		border-radius: 50%;
+		margin-left: calc(var(--space-4) * -1);
+
+		&:first-child {
+			margin-left: 0;
+		}
+	}
+</style>

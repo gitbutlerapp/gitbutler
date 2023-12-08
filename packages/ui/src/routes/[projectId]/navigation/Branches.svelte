@@ -120,12 +120,16 @@
 		overflow-y: hidden;
 	}
 	.scroll-container {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-12);
 		width: 100%;
 		padding-top: var(--space-4);
 		padding-bottom: var(--space-16);
 		padding-left: var(--space-12);
 		padding-right: var(--space-12);
 	}
+
 	.expandable {
 		display: flex;
 		flex-direction: column;
