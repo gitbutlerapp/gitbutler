@@ -22,6 +22,7 @@ pub mod projects;
 pub mod reader;
 pub mod sentry;
 pub mod sessions;
+pub mod ssh;
 pub mod storage;
 pub mod users;
 pub mod virtual_branches;
