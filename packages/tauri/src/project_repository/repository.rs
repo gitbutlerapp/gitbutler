@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 
 use crate::{
     git::{self, credentials::HelpError, Url},
-    keys, projects, reader, users,
+    keys, projects, reader, ssh, users,
     virtual_branches::Branch,
 };
 
@@ -352,6 +352,9 @@ impl Repository {
 
         let auth_flows = credentials.help(self, branch.remote())?;
         for (mut remote, callbacks) in auth_flows {
+            if let Some(url) = remote.url().context("failed to get remote url")? {
+                ssh::check_known_host(&url).context("failed to check known host")?;
+            }
             for callback in callbacks {
                 match remote.push(
                     &[refspec.as_str()],
@@ -391,6 +394,9 @@ impl Repository {
         let refspec = &format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
         let auth_flows = credentials.help(self, remote_name)?;
         for (mut remote, callbacks) in auth_flows {
+            if let Some(url) = remote.url().context("failed to get remote url")? {
+                ssh::check_known_host(&url).context("failed to check known host")?;
+            }
             for callback in callbacks {
                 let mut fetch_opts = git2::FetchOptions::new();
                 fetch_opts.remote_callbacks(callback.into());
