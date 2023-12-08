@@ -1765,9 +1765,9 @@ dependencies = [
 
 [[package]]
 name = "git2-hooks"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01186071ba8f69c2ee617b1c0b0b24d4b078ce9584a6ca91943b32a8ff6afe33"
+checksum = "0fa76beea92a16bbdf05842f0c6d9611bbb7eef764b34dde223359077463b800"
 dependencies = [
  "git2",
  "log",

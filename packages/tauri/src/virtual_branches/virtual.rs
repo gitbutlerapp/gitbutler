@@ -2012,7 +2012,7 @@ pub fn commit(
         .run_hook_pre_commit()
         .context("failed to run hook")?;
 
-    if let HookResult::NotOk { stdout, .. } = hook_result {
+    if let HookResult::RunNotSuccessful { stdout, .. } = hook_result {
         return Err(errors::CommitError::CommitHookRejected(stdout));
     }
 

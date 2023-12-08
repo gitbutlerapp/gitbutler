@@ -424,7 +424,7 @@ impl Repository {
     }
 
     pub fn run_hook_pre_commit(&self) -> Result<HookResult> {
-        let res = git2_hooks::hooks_pre_commit(&self.0)?;
+        let res = git2_hooks::hooks_pre_commit(&self.0, Some(&["../.husky"]))?;
         Ok(res)
     }
 }
