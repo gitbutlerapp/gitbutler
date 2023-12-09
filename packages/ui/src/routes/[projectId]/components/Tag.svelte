@@ -4,6 +4,7 @@
 		| 'error'
 		| 'warning'
 		| 'neutral-light'
+		| 'neutral-mid'
 		| 'neutral-dim'
 		| 'ghost';
 </script>
@@ -25,6 +26,7 @@
 	class:error={color == 'error'}
 	class:warning={color == 'warning'}
 	class:neutral-light={color == 'neutral-light'}
+	class:neutral-mid={color == 'neutral-mid'}
 	class:neutral-dim={color == 'neutral-dim'}
 	class:ghost={color == 'ghost'}
 	class:tag-border={border}
@@ -116,6 +118,7 @@
 			}
 		}
 	}
+
 	.warning {
 		color: var(--clr-theme-warn-outline-dark);
 		background: var(--clr-theme-warn-container);
@@ -135,6 +138,17 @@
 	}
 
 	.neutral-light {
+		color: var(--clr-theme-scale-ntrl-40);
+		background: var(--clr-theme-container-pale);
+		&:hover {
+			background: var(--clr-theme-container-sub);
+		}
+		&.tag-border {
+			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-60);
+		}
+	}
+
+	.neutral-mid {
 		color: var(--clr-theme-scale-ntrl-40);
 		background: var(--clr-theme-container-mid);
 		&:hover {
