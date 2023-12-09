@@ -51,6 +51,7 @@
 					<Tag
 						icon="pr-small"
 						color="neutral-light"
+						border
 						clickable
 						on:click={(e) => {
 							const url = $pr$?.htmlUrl;
