@@ -20,7 +20,7 @@
 		gap: var(--space-10);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-theme-container-light);
-		padding: var(--space-10);
+		padding: var(--space-10) var(--space-8);
 		transition: background-color var(--transition-fast);
 		color: var(--clr-theme-scale-ntrl-0);
 		height: var(--space-36);
