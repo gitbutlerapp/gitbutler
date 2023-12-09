@@ -65,7 +65,7 @@
 	.base-branch-card {
 		display: flex;
 		gap: var(--space-10);
-		padding: var(--space-8);
+		padding: var(--space-10) var(--space-8);
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 
