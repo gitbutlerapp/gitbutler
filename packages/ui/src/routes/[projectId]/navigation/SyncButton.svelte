@@ -43,7 +43,7 @@
 		{#if $base$?.fetchedAt}
 			<span class="text-base-11 text-semibold sync-btn__label">
 				{#if fetching}
-					busy...
+					<div class="sync-btn__busy-label">busy…</div>
 				{:else}
 					<TimeAgo date={$base$?.fetchedAt} />
 				{/if}
@@ -97,5 +97,9 @@
 		white-space: nowrap;
 		color: var(--clr-theme-scale-ntrl-40);
 		transition: color var(--transition-fast);
+	}
+
+	.sync-btn__busy-label {
+		padding-left: var(--space-4);
 	}
 </style>
