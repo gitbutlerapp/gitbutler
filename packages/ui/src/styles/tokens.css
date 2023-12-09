@@ -125,6 +125,7 @@
 	--clr-theme-err-outline: var(--clr-core-err-45);
 	--clr-theme-err-outline-dark: var(--clr-core-err-35);
 	--clr-theme-err-outline-dim: var(--clr-core-err-40);
+	--clr-theme-overlay-bg: #cfcfcf80;
 	--clr-theme-pop-container: var(--clr-core-pop-90);
 	--clr-theme-pop-container-dark: var(--clr-core-pop-70);
 	--clr-theme-pop-container-dim: var(--clr-core-pop-80);
@@ -264,6 +265,7 @@
 	--clr-theme-err-outline: var(--clr-core-err-55);
 	--clr-theme-err-outline-dark: var(--clr-core-err-65);
 	--clr-theme-err-outline-dim: var(--clr-core-err-60);
+	--clr-theme-overlay-bg: #5a5a5a99;
 	--clr-theme-pop-container: var(--clr-core-pop-25);
 	--clr-theme-pop-container-dark: var(--clr-core-pop-15);
 	--clr-theme-pop-container-dim: var(--clr-core-pop-20);
