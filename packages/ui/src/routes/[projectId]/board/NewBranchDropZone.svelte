@@ -26,7 +26,7 @@
 </script>
 
 <div
-	class="group h-full flex-grow p-2 font-semibold"
+	class="canvas-dropzone"
 	use:dropzone={{
 		active: 'new-dz-active',
 		hover: 'new-dz-hover',
@@ -34,34 +34,67 @@
 		accepts
 	}}
 >
-	<div
+	<button
 		id="new-branch-dz"
-		class="call-to-action flex h-full w-96 shrink-0 items-start justify-center text-center opacity-0 transition-all duration-100 group-hover:opacity-100"
+		class="new-virtual-branch"
+		on:click={() => branchController.createBranch({})}
 	>
-		<button
-			class="text-color-4 hover:text-color-2 p-2"
-			on:click={() => branchController.createBranch({})}
-		>
-			New virtual branch
-		</button>
-	</div>
-	<div
-		class="new-dz-marker text-color-3 border-color-3 hidden h-full w-96 shrink-0 items-center justify-center border-2 border-dashed text-center"
-	>
-		New branch
-	</div>
+		<div class="new-virtual-branch__content">
+			<svg
+				width="20"
+				height="20"
+				viewBox="0 0 20 20"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+			>
+				<path d="M10 20V0M0 10L20 10" stroke="currentcolor" stroke-width="1.5" />
+			</svg>
+
+			<span class="text-base-12 text-semibold">New virtual branch</span>
+		</div>
+	</button>
 </div>
 
 <style lang="postcss">
-	:global(.new-dz-active .call-to-action) {
-		@apply hidden;
+	.canvas-dropzone {
+		display: flex;
+		height: 100%;
 	}
-	:global(.new-dz-active .new-dz-marker) {
-		@apply flex;
+
+	.new-virtual-branch {
+		color: var(--clr-theme-scale-ntrl-0);
+		width: 20rem;
+		height: 100%;
+		border-radius: var(--radius-m);
+		border: 1px dashed var(--clr-theme-container-outline-light);
+
+		&:hover {
+			& .new-virtual-branch__content {
+				opacity: 0.3;
+				transform: translateY(0);
+
+				& span {
+					opacity: 1;
+				}
+			}
+		}
 	}
-	/**
-	 * We can't sue dark:[className] because of css isolation, and we can't use :hover
-	 * on the element since such events don't seem to trigger on drag. This is a hacky
-	 * solution and you're welcome to improve it.
-	 */
+
+	.new-virtual-branch__content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-16);
+		opacity: 0.15;
+		transform: translateY(calc(var(--space-12)));
+		transition:
+			transform 0.2s var(--transition-fast),
+			opacity 0.2s var(--transition-fast);
+
+		& span {
+			opacity: 0;
+			transition: opacity 0.2s var(--transition-fast);
+		}
+	}
 </style>
