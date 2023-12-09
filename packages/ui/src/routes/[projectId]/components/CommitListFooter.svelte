@@ -59,7 +59,7 @@
 							await push();
 						}
 					} catch {
-						toast.error('Failed to create pull qequest');
+						toast.error('Failed to create pull request');
 					}
 				}}
 			/>
@@ -73,7 +73,7 @@
 					try {
 						await createPr();
 					} catch (e) {
-						toast.error('Failed to create pull qequest');
+						toast.error('Failed to create pull request');
 					}
 				}}
 			>
