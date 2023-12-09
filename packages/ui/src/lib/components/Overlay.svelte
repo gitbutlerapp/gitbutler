@@ -21,15 +21,7 @@
 	}
 </script>
 
-<dialog
-	class="rounded-lg border p-0 backdrop:bg-zinc-200/50 backdrop:dark:bg-zinc-700/50"
-	style:background-color="var(--bg-surface)"
-	style:border-color="var(--border-surface)"
-	style="max-height: calc(100vh - 5rem)"
-	bind:this={dialog}
-	on:close={close}
-	on:close
->
+<dialog class="dialog-overlay" bind:this={dialog} on:close={close} on:close>
 	{#if open}
 		<OutClick on:outclick={close}>
 			<div class="flex">
@@ -38,3 +30,15 @@
 		</OutClick>
 	{/if}
 </dialog>
+
+<style lang="postcss">
+	.dialog-overlay {
+		max-height: calc(100vh - 5rem);
+		border-radius: var(--radius-l);
+		background-color: var(--clr-theme-container-light);
+
+		&::backdrop {
+			background-color: var(--clr-theme-overlay-bg);
+		}
+	}
+</style>

@@ -4,7 +4,8 @@
  * DO NOT EDIT!
  */
 
-:root {
+:root,
+::backdrop {
 	--clr-core-err-5: #3c1b1e;
 	--clr-core-err-10: #481e23;
 	--clr-core-err-15: #56242a;
@@ -125,6 +126,7 @@
 	--clr-theme-err-outline: var(--clr-core-err-45);
 	--clr-theme-err-outline-dark: var(--clr-core-err-35);
 	--clr-theme-err-outline-dim: var(--clr-core-err-40);
+	--clr-theme-overlay-bg: #cfcfcf80;
 	--clr-theme-pop-container: var(--clr-core-pop-90);
 	--clr-theme-pop-container-dark: var(--clr-core-pop-70);
 	--clr-theme-pop-container-dim: var(--clr-core-pop-80);
@@ -240,7 +242,8 @@
 	--helpers-invert-1: 1;
 }
 
-:root.dark {
+:root.dark,
+:root.dark ::backdrop {
 	--clr-theme-container-dark: var(--clr-core-ntrl-0);
 	--clr-theme-container-dim: var(--clr-core-ntrl-5);
 	--clr-theme-container-light: var(--clr-core-ntrl-25);
@@ -264,6 +267,7 @@
 	--clr-theme-err-outline: var(--clr-core-err-55);
 	--clr-theme-err-outline-dark: var(--clr-core-err-65);
 	--clr-theme-err-outline-dim: var(--clr-core-err-60);
+	--clr-theme-overlay-bg: #5a5a5a99;
 	--clr-theme-pop-container: var(--clr-core-pop-25);
 	--clr-theme-pop-container-dark: var(--clr-core-pop-15);
 	--clr-theme-pop-container-dim: var(--clr-core-pop-20);
