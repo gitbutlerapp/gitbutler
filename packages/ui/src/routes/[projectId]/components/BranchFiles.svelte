@@ -119,9 +119,13 @@
 		overflow: hidden;
 	}
 	.scroll-container {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
 		padding-top: 0;
 		padding-left: var(--space-12);
 		padding-right: var(--space-12);
+		padding-bottom: var(--space-16);
 	}
 	.header {
 		color: var(----clr-theme-scale-ntrl-0);
