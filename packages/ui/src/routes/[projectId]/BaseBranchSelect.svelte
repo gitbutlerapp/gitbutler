@@ -6,8 +6,6 @@
 	import CardSection from './components/CardSection.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import type { UserService } from '$lib/stores/user';
-	import { getContext } from 'svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import GithubIntegration from '../components/GithubIntegration.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
 	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
@@ -25,8 +23,6 @@
 	let aiGenCheckbox: HTMLInputElement;
 	let targetChoice: string | undefined;
 	let loading = false;
-
-	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	function onSetTargetClick() {
 		if (!targetChoice) {
@@ -90,21 +86,19 @@
 						<svelte:fragment slot="description">
 							Enable automatic branch and commit message generation.
 						</svelte:fragment>
-						{#if !$userSettings.aiSummariesEnabled}
-							{#if !$user$}
-								<Login {userService} />
-							{:else}
-								<input
-									id="summarize"
-									bind:this={aiGenCheckbox}
-									type="checkbox"
-									checked={$aiGenEnabled}
-									on:change={() => {
-										$aiGenEnabled = aiGenCheckbox.checked;
-									}}
-								/>
-								<label for="summarize">Enable branch name and commit message generation</label>
-							{/if}
+						{#if !$user$}
+							<Login {userService} />
+						{:else}
+							<input
+								id="summarize"
+								bind:this={aiGenCheckbox}
+								type="checkbox"
+								checked={$aiGenEnabled}
+								on:change={() => {
+									$aiGenEnabled = aiGenCheckbox.checked;
+								}}
+							/>
+							<label for="summarize">Enable branch name and commit message generation</label>
 						{/if}
 					</CardSection>
 					<CardSection disabled={!$user$}>
