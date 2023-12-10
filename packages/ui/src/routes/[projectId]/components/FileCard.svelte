@@ -128,7 +128,7 @@
 			</div>
 		{/if}
 
-		<div class="relative flex max-h-full w-full flex-shrink overflow-hidden">
+		<div class="relative flex max-h-full flex-shrink overflow-hidden">
 			<ScrollableContainer wide>
 				{#if file.binary}
 					Binary content not shown
@@ -258,7 +258,6 @@
 		flex-direction: column;
 		padding: var(--space-16);
 		gap: var(--space-16);
-		width: 100%;
 	}
 	.hunk {
 		/* my-2 flex w-full flex-col overflow-hidden rounded border */
