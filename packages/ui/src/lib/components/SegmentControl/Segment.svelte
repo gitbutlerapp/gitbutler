@@ -85,7 +85,7 @@
 		transition: background var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-theme-container-mid);
+			background-color: var(--clr-theme-container-sub);
 		}
 
 		&[aria-selected='true'] {
