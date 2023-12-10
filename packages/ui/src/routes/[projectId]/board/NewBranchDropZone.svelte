@@ -103,7 +103,7 @@
 		align-items: center;
 		justify-content: center;
 		gap: var(--space-16);
-		transform: translateY(calc(var(--space-20)));
+		transform: translateY(calc(var(--space-10)));
 		transition:
 			transform var(--transition-medium),
 			opacity var(--transition-medium);
@@ -113,7 +113,6 @@
 			transition:
 				opacity var(--transition-medium),
 				transform var(--transition-medium);
-			transform: translateY(calc(var(--space-8) * -1));
 
 			&:after {
 				content: 'New Branch';
@@ -152,7 +151,6 @@
 
 				& span {
 					opacity: 0.6;
-					transform: translateY(0);
 				}
 			}
 		}
