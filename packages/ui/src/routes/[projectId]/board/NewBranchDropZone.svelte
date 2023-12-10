@@ -68,7 +68,7 @@
 
 	.new-virtual-branch {
 		color: color-mix(in srgb, var(--clr-theme-scale-ntrl-0) 30%, transparent);
-		width: 20rem;
+		width: 24rem;
 		height: 100%;
 		border-radius: var(--radius-m);
 		border: 1px solid color-mix(in srgb, var(--clr-theme-container-outline-light) 40%, transparent);

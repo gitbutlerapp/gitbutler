@@ -49,7 +49,7 @@
 	let commitsScrollable = false;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const defaultBranchWidthRem = persisted<number | undefined>(30, 'defaulBranchWidth' + projectId);
+	const defaultBranchWidthRem = persisted<number | undefined>(24, 'defaulBranchWidth' + projectId);
 	const laneWidthKey = 'laneWidth_';
 	let laneWidth: number;
 
