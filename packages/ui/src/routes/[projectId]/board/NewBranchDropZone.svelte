@@ -26,7 +26,7 @@
 </script>
 
 <div
-	class="group h-full flex-grow p-2 font-semibold"
+	class="canvas-dropzone"
 	use:dropzone={{
 		active: 'new-dz-active',
 		hover: 'new-dz-hover',
@@ -34,34 +34,127 @@
 		accepts
 	}}
 >
-	<div
+	<button
 		id="new-branch-dz"
-		class="call-to-action flex h-full w-96 shrink-0 items-start justify-center text-center opacity-0 transition-all duration-100 group-hover:opacity-100"
+		class="new-virtual-branch"
+		on:click={() => branchController.createBranch({})}
 	>
-		<button
-			class="text-color-4 hover:text-color-2 p-2"
-			on:click={() => branchController.createBranch({})}
-		>
-			New virtual branch
-		</button>
-	</div>
-	<div
-		class="new-dz-marker text-color-3 border-color-3 hidden h-full w-96 shrink-0 items-center justify-center border-2 border-dashed text-center"
-	>
-		New branch
-	</div>
+		<div class="new-virtual-branch__content">
+			<svg
+				width="20"
+				height="20"
+				viewBox="0 0 20 20"
+				fill="currentcolor"
+				xmlns="http://www.w3.org/2000/svg"
+			>
+				<path
+					fill-rule="evenodd"
+					clip-rule="evenodd"
+					d="M10.75 10.75V20H9.25V10.75H0V9.25H9.25V0H10.75V9.25H20V10.75H10.75Z"
+				/>
+			</svg>
+
+			<span class="text-base-12 text-semibold" />
+		</div>
+	</button>
 </div>
 
 <style lang="postcss">
-	:global(.new-dz-active .call-to-action) {
-		@apply hidden;
+	.canvas-dropzone {
+		display: flex;
+		height: 100%;
+		width: 100%;
 	}
-	:global(.new-dz-active .new-dz-marker) {
-		@apply flex;
+
+	.new-virtual-branch {
+		color: color-mix(in srgb, var(--clr-theme-scale-ntrl-0) 30%, transparent);
+		width: 24rem;
+		height: 100%;
+		border-radius: var(--radius-m);
+		border: 1px solid color-mix(in srgb, var(--clr-theme-container-outline-light) 40%, transparent);
+		background-color: transparent;
+		transition:
+			opacity var(--transition-medium),
+			background-color var(--transition-medium),
+			border-color var(--transition-medium),
+			color var(--transition-medium);
+
+		&:hover {
+			opacity: 0.8;
+			background-color: color-mix(in srgb, var(--clr-theme-container-sub) 60%, transparent);
+			border: 1px solid color-mix(in srgb, var(--clr-theme-container-sub) 60%, transparent);
+			color: var(--clr-theme-scale-ntrl-40);
+
+			& .new-virtual-branch__content {
+				opacity: 1;
+				transform: translateY(0);
+
+				& span {
+					opacity: 0.5;
+					transform: translateY(0);
+				}
+			}
+		}
 	}
-	/**
-	 * We can't sue dark:[className] because of css isolation, and we can't use :hover
-	 * on the element since such events don't seem to trigger on drag. This is a hacky
-	 * solution and you're welcome to improve it.
-	 */
+
+	.new-virtual-branch__content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-16);
+		transform: translateY(calc(var(--space-20)));
+		transition:
+			transform var(--transition-medium),
+			opacity var(--transition-medium);
+
+		& span {
+			opacity: 0;
+			transition:
+				opacity var(--transition-medium),
+				transform var(--transition-medium);
+			transform: translateY(calc(var(--space-8) * -1));
+
+			&:after {
+				content: 'New Branch';
+			}
+		}
+
+		& svg {
+			transition: fill var(--transition-medium);
+		}
+	}
+
+	/* DRAGZONE MODIEFIERS */
+	.canvas-dropzone {
+		&:global(.new-dz-active > .new-virtual-branch) {
+			background-color: color-mix(in srgb, var(--clr-theme-pop-container-dark) 30%, transparent);
+			border: 1px solid color-mix(in srgb, var(--clr-theme-pop-container-dark) 30%, transparent);
+			color: var(--clr-theme-scale-pop-50);
+
+			& .new-virtual-branch__content {
+				& span {
+					&:after {
+						content: 'Drop to create new branch';
+					}
+				}
+			}
+		}
+
+		&:global(.new-dz-hover > .new-virtual-branch) {
+			background-color: color-mix(in srgb, var(--clr-theme-pop-container-dark) 60%, transparent);
+			border: 1px solid color-mix(in srgb, var(--clr-theme-pop-container-dark) 60%, transparent);
+			color: var(--clr-theme-scale-pop-50);
+
+			& .new-virtual-branch__content {
+				opacity: 1;
+				transform: translateY(0);
+
+				& span {
+					opacity: 0.6;
+					transform: translateY(0);
+				}
+			}
+		}
+	}
 </style>
