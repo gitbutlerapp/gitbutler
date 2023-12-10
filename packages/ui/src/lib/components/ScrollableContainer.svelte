@@ -64,8 +64,9 @@
 		width: 100%;
 	}
 	.contents {
-		display: block;
-
+		display: flex;
+		flex-direction: column;
+		align-items: center;
 		min-width: 100%;
 	}
 </style>

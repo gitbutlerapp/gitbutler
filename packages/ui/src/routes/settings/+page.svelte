@@ -137,7 +137,7 @@
 			.finally(() => (isDeleting = false));
 </script>
 
-<ScrollableContainer verticalCenter>
+<ScrollableContainer verticalCenter wide>
 	<div class="settings" data-tauri-drag-region>
 		<div class="card">
 			<div class="card__header text-base-16 font-semibold">

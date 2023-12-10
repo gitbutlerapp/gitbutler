@@ -55,7 +55,7 @@
 	};
 </script>
 
-<ScrollableContainer>
+<ScrollableContainer wide>
 	<div class="settings">
 		<div class="card">
 			{#if !$project$}

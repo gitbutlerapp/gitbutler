@@ -78,6 +78,7 @@
 		border-top: 1px solid var(--clr-theme-container-outline-light);
 		position: relative;
 		flex-shrink: 0;
+		width: 100%;
 	}
 	.commit-list__content {
 		display: flex;

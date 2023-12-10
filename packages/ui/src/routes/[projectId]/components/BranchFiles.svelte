@@ -122,6 +122,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
+		width: 100%;
 		padding-top: 0;
 		padding-left: var(--space-12);
 		padding-right: var(--space-12);
