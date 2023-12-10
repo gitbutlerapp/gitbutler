@@ -2,7 +2,6 @@
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { onDestroy, onMount } from 'svelte';
 
-	export let verticalCenter = false;
 	export let viewport: HTMLDivElement | undefined = undefined;
 	export let contents: HTMLDivElement | undefined = undefined;
 	export let height: string | undefined = undefined;
@@ -40,11 +39,7 @@
 		style:min-height={minHeight}
 		style:overflow-y={scrollable ? 'scroll' : 'hidden'}
 	>
-		<div
-			bind:this={contents}
-			class="contents"
-			style:justify-content={verticalCenter ? 'center' : undefined}
-		>
+		<div bind:this={contents} class="contents">
 			<slot />
 		</div>
 	</div>
@@ -64,9 +59,7 @@
 		width: 100%;
 	}
 	.contents {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
+		display: block;
 		min-width: 100%;
 	}
 </style>

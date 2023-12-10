@@ -137,7 +137,7 @@
 			.finally(() => (isDeleting = false));
 </script>
 
-<ScrollableContainer verticalCenter wide>
+<ScrollableContainer wide>
 	<div class="settings" data-tauri-drag-region>
 		<div class="card">
 			<div class="card__header text-base-16 font-semibold">
@@ -412,6 +412,7 @@
 		display: flex;
 		width: 100%;
 		max-width: 50rem;
+		margin: 0 auto;
 		justify-self: center;
 		justify-content: center;
 		flex-direction: column;
