@@ -39,10 +39,15 @@
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
-	const popupMenu = new HunkContextMenu({
-		target: document.body,
-		props: { projectPath, file, branchController }
-	});
+	function updateContextMenu(file: File) {
+		if (popupMenu) popupMenu.$destroy();
+		return new HunkContextMenu({
+			target: document.body,
+			props: { projectPath, file, branchController }
+		});
+	}
+
+	$: popupMenu = updateContextMenu(file);
 
 	let sections: (HunkSection | ContentSection)[] = [];
 
@@ -78,7 +83,9 @@
 	}
 
 	onDestroy(() => {
-		popupMenu.$destroy();
+		if (popupMenu) {
+			popupMenu.$destroy();
+		}
 	});
 
 	function computedAddedRemoved(section: HunkSection | ContentSection): {
