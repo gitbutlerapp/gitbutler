@@ -264,8 +264,8 @@ impl Helper {
                 let https_remote = if remote_url.scheme == super::Scheme::Https {
                     Ok(remote)
                 } else {
-                    let ssh_url = remote_url.as_ssh()?;
-                    project_repository.git_repository.remote_anonymous(&ssh_url)
+                    let url = remote_url.as_https()?;
+                    project_repository.git_repository.remote_anonymous(&url)
                 }?;
                 return Ok(vec![(
                     https_remote,
