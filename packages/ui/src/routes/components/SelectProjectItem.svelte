@@ -33,6 +33,7 @@
 		display: flex;
 		gap: var(--space-12);
 		align-items: center;
+		align-self: stretch;
 		justify-content: space-between;
 		border-radius: var(--radius-m);
 		padding: var(--space-4) var(--space-6);
