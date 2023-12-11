@@ -3380,6 +3380,52 @@ mod amend {
     }
 
     #[tokio::test]
+    async fn forcepush_forbidden() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branch_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        {
+            // create commit
+            fs::write(repository.path().join("file.txt"), "content").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit one", None)
+                .await
+                .unwrap();
+        };
+
+        controller
+            .push_virtual_branch(&project_id, &branch_id, false)
+            .await
+            .unwrap();
+
+        {
+            fs::write(repository.path().join("file2.txt"), "content2").unwrap();
+            let to_amend: branch::Ownership = "file2.txt:1-2".parse().unwrap();
+            assert!(matches!(
+                controller
+                    .amend(&project_id, &branch_id, &to_amend)
+                    .await
+                    .unwrap_err(),
+                ControllerError::Action(errors::AmendError::ForcePushNotAllowed(_))
+            ));
+        }
+    }
+
+    #[tokio::test]
     async fn non_locked_hunk() {
         let Test {
             repository,

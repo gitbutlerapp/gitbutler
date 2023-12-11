@@ -7,11 +7,12 @@
 	import CommitListHeader from './CommitListHeader.svelte';
 	import type { CommitType } from './commitList';
 	import CommitListFooter from './CommitListFooter.svelte';
+	import type { Project } from '$lib/backend/projects';
 
 	export let branch: Branch;
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let base: BaseBranch | undefined | null;
-	export let projectId: string;
+	export let project: Project;
 	export let branchController: BranchController;
 	export let type: CommitType;
 	export let prService: PrService;
@@ -48,7 +49,7 @@
 							{branchController}
 							{commit}
 							{base}
-							{projectId}
+							{project}
 							{readonly}
 							isChained={idx != commits.length - 1}
 							isHeadCommit={commit.id === headCommit?.id}
@@ -63,7 +64,7 @@
 					{base}
 					{githubContext}
 					{readonly}
-					{projectId}
+					projectId={project.id}
 				/>
 			</div>
 		{/if}

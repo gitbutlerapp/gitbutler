@@ -8,10 +8,11 @@
 	import { writable } from 'svelte/store';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import type { PrService } from '$lib/github/pullrequest';
+	import type { Project } from '$lib/backend/projects';
 
 	export let branch: Branch;
 	export let readonly = false;
-	export let projectId: string;
+	export let project: Project;
 	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
@@ -39,7 +40,7 @@
 	<BranchCard
 		{branch}
 		{readonly}
-		{projectId}
+		{project}
 		{base}
 		{cloud}
 		{branchController}
@@ -56,7 +57,7 @@
 			conflicted={selected.conflicted}
 			branchId={branch.id}
 			file={selected}
-			{projectId}
+			projectId={project.id}
 			{projectPath}
 			{branchController}
 			{selectedOwnership}

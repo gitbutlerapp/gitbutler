@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Project } from '$lib/backend/projects';
 	import {
 		isDraggableHunk,
 		type DraggableCommit,
@@ -13,7 +14,7 @@
 	import CommitCard from './CommitCard.svelte';
 
 	export let branch: Branch;
-	export let projectId: string;
+	export let project: Project;
 	export let commit: Commit;
 	export let base: BaseBranch | undefined | null;
 	export let isHeadCommit: boolean;
@@ -23,17 +24,22 @@
 
 	function acceptAmend(commit: Commit) {
 		return (data: any) => {
-			if (
-				isDraggableHunk(data) &&
-				data.branchId == branch.id &&
-				commit.id == branch.commits.at(0)?.id
-			) {
+			if (!project.ok_with_force_push && commit.isRemote) {
+				return false;
+			}
+
+			if (commit.isIntegrated) {
+				return false;
+			}
+
+			// only allow to amend the head commit
+			if (commit.id != branch.commits.at(0)?.id) {
+				return false;
+			}
+
+			if (isDraggableHunk(data) && data.branchId == branch.id) {
 				return true;
-			} else if (
-				isDraggableFile(data) &&
-				data.branchId == branch.id &&
-				commit.id == branch.commits.at(0)?.id
-			) {
+			} else if (isDraggableFile(data) && data.branchId == branch.id) {
 				return true;
 			} else {
 				return false;
@@ -116,7 +122,7 @@
 
 		<CommitCard
 			{commit}
-			{projectId}
+			projectId={project.id}
 			commitUrl={base?.commitUrl(commit.id)}
 			{isHeadCommit}
 			{resetHeadCommit}
