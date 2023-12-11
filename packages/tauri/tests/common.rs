@@ -47,10 +47,12 @@ impl Default for TestProject {
             let mut remote = local_repository
                 .remote(
                     "origin",
-                    remote_repository
+                    &remote_repository
                         .path()
                         .to_str()
-                        .expect("failed to convert path to str"),
+                        .expect("failed to convert path to str")
+                        .parse()
+                        .unwrap(),
                 )
                 .expect("failed to add remote");
             remote
