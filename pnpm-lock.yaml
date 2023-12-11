@@ -144,8 +144,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       eslint-plugin-svelte:
-        specifier: ^2.35.0
-        version: 2.35.0(eslint@8.55.0)(svelte@4.2.2)
+        specifier: ^2.35.1
+        version: 2.35.1(eslint@8.55.0)(svelte@4.2.2)
       inter-ui:
         specifier: ^3.19.3
         version: 3.19.3
@@ -2439,8 +2439,8 @@ packages:
     resolution: {integrity: sha512-QLybNNEPcBKVrgAeow/7ouOqbTVsWwEdStFab9ZMZaW19Y//ZEhhtuEb92P69n9u/JRL6EFhArV9AfS+LgS4mA==}
     dev: true
 
-  /eslint-plugin-svelte@2.35.0(eslint@8.55.0)(svelte@4.2.2):
-    resolution: {integrity: sha512-3WDFxNrkXaMlpqoNo3M1ZOQuoFLMO9+bdnN6oVVXaydXC7nzCJuGy9a0zqoNDHMSRPYt0Rqo6hIdHMEaI5sQnw==}
+  /eslint-plugin-svelte@2.35.1(eslint@8.55.0)(svelte@4.2.2):
+    resolution: {integrity: sha512-IF8TpLnROSGy98Z3NrsKXWDSCbNY2ReHDcrYTuXZMbfX7VmESISR78TWgO9zdg4Dht1X8coub5jKwHzP0ExRug==}
     engines: {node: ^14.17.0 || >=16.0.0}
     peerDependencies:
       eslint: ^7.0.0 || ^8.0.0-0
