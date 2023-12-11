@@ -79,16 +79,16 @@ importers:
         version: 6.0.0(@codemirror/autocomplete@6.9.0)(@codemirror/lang-css@6.2.1)(@codemirror/lang-html@6.4.6)(@codemirror/lang-javascript@6.2.1)(@codemirror/language@6.9.3)(@codemirror/state@6.3.1)(@codemirror/view@6.22.0)(@lezer/common@1.1.0)(@lezer/highlight@1.1.6)(@lezer/javascript@1.4.7)(@lezer/lr@1.3.10)
       '@sentry/sveltekit':
         specifier: ^7.73.0
-        version: 7.73.0(@sveltejs/kit@1.27.5)(svelte@4.2.2)
+        version: 7.73.0(@sveltejs/kit@1.28.0)(svelte@4.2.2)
       '@square/svelte-store':
         specifier: git+https://git@github.com/gitbutlerapp/svelte-store.git#aa299b5b011598bdcf9c20e744988ecaba050d63
         version: github.com/gitbutlerapp/svelte-store/aa299b5b011598bdcf9c20e744988ecaba050d63(svelte@4.2.2)
       '@sveltejs/adapter-static':
         specifier: ^2.0.3
-        version: 2.0.3(@sveltejs/kit@1.27.5)
+        version: 2.0.3(@sveltejs/kit@1.28.0)
       '@sveltejs/kit':
-        specifier: ^1.27.5
-        version: 1.27.5(svelte@4.2.2)(vite@4.5.0)
+        specifier: ^1.28.0
+        version: 1.28.0(svelte@4.2.2)(vite@4.5.0)
       '@tauri-apps/api':
         specifier: ^1.5.0
         version: 1.5.0
@@ -1169,7 +1169,7 @@ packages:
       tslib: 2.6.2
     dev: true
 
-  /@sentry/sveltekit@7.73.0(@sveltejs/kit@1.27.5)(svelte@4.2.2):
+  /@sentry/sveltekit@7.73.0(@sveltejs/kit@1.28.0)(svelte@4.2.2):
     resolution: {integrity: sha512-YssAFxuCGVBUMoc/8jUYc/mqGGRi3tiVWLAjIK4gKEXp9mHqCEKCxV8mcPvwZdNjCodIq69Y9GSMDSfrHxu7Yg==}
     engines: {node: '>=16'}
     peerDependencies:
@@ -1183,7 +1183,7 @@ packages:
       '@sentry/types': 7.73.0
       '@sentry/utils': 7.73.0
       '@sentry/vite-plugin': 0.6.1
-      '@sveltejs/kit': 1.27.5(svelte@4.2.2)(vite@4.5.0)
+      '@sveltejs/kit': 1.28.0(svelte@4.2.2)(vite@4.5.0)
       magicast: 0.2.8
       sorcery: 0.11.0
     transitivePeerDependencies:
@@ -1239,16 +1239,16 @@ packages:
     resolution: {integrity: sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==}
     dev: true
 
-  /@sveltejs/adapter-static@2.0.3(@sveltejs/kit@1.27.5):
+  /@sveltejs/adapter-static@2.0.3(@sveltejs/kit@1.28.0):
     resolution: {integrity: sha512-VUqTfXsxYGugCpMqQv1U0LIdbR3S5nBkMMDmpjGVJyM6Q2jHVMFtdWJCkeHMySc6mZxJ+0eZK3T7IgmUCDrcUQ==}
     peerDependencies:
       '@sveltejs/kit': ^1.5.0
     dependencies:
-      '@sveltejs/kit': 1.27.5(svelte@4.2.2)(vite@4.5.0)
+      '@sveltejs/kit': 1.28.0(svelte@4.2.2)(vite@4.5.0)
     dev: true
 
-  /@sveltejs/kit@1.27.5(svelte@4.2.2)(vite@4.5.0):
-    resolution: {integrity: sha512-+L1WPs/ZYNjXoBFoFARypD4aZOjkT51vFpRCtQI45+Fmmfi4Y0dH/8VFlmYD6VlGe89ViIPg7lgf/JpGQ2tr7A==}
+  /@sveltejs/kit@1.28.0(svelte@4.2.2)(vite@4.5.0):
+    resolution: {integrity: sha512-T9hoS6XM840W4ZUgf3kKAoBt2dsupumUxBtlxt3ddu2yRLrqsKcC3gledBB/e5NtTC8zEZyR5qWBNFT9WAWmIA==}
     engines: {node: ^16.14 || >=18}
     hasBin: true
     requiresBuild: true
@@ -4170,7 +4170,7 @@ packages:
     dependencies:
       svelte: 4.2.2
     optionalDependencies:
-      '@sveltejs/kit': 1.27.5(svelte@4.2.2)(vite@4.5.0)
+      '@sveltejs/kit': 1.28.0(svelte@4.2.2)(vite@4.5.0)
     transitivePeerDependencies:
       - supports-color
       - vite
