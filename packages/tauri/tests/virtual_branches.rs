@@ -2223,7 +2223,7 @@ mod update_base_branch {
                     assert!(branches[0].base_current);
                     assert_eq!(branches[0].files.len(), 1);
                     assert_eq!(branches[0].commits.len(), 1);
-                    assert!(branches[0].commits[0].is_remote);
+                    assert!(!branches[0].commits[0].is_remote);
                     assert!(!branches[0].commits[0].is_integrated);
                     assert!(controller
                         .can_apply_virtual_branch(&project_id, &branch_id)
