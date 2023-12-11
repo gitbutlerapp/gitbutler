@@ -55,7 +55,7 @@ pub fn resolve(repository: &Repository, path: &str) -> Result<()> {
     let file = std::fs::File::open(conflicts_path.clone())?;
     let reader = std::io::BufReader::new(file);
     let mut remaining = Vec::new();
-    for line in reader.lines().flatten() {
+    for line in reader.lines().map_while(Result::ok) {
         if line != path {
             remaining.push(line);
         }
@@ -79,7 +79,7 @@ pub fn conflicting_files(repository: &Repository) -> Result<Option<Vec<String>>>
 
     let file = std::fs::File::open(conflicts_path)?;
     let reader = std::io::BufReader::new(file);
-    Ok(Some(reader.lines().flatten().collect()))
+    Ok(Some(reader.lines().map_while(Result::ok).collect()))
 }
 
 pub fn is_conflicting(repository: &Repository, path: Option<&str>) -> Result<bool> {
@@ -90,7 +90,7 @@ pub fn is_conflicting(repository: &Repository, path: Option<&str>) -> Result<boo
 
     let file = std::fs::File::open(conflicts_path)?;
     let reader = std::io::BufReader::new(file);
-    let files = reader.lines().flatten().collect::<Vec<_>>();
+    let files = reader.lines().map_while(Result::ok).collect::<Vec<_>>();
     if let Some(pathname) = path {
         // check if pathname is one of the lines in conflicts_path file
         for line in files {

@@ -18,6 +18,7 @@ jobs:
               - 'packages/butler/**'
               - 'Cargo.lock'
               - 'Cargo.toml'
+              - 'rust-toolchain.toml'
             node:
               - 'packages/ui/**'
               - 'package.json'
