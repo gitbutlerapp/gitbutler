@@ -21,6 +21,7 @@ use gblib::{
 struct Test {
     repository: TestProject,
     project_id: ProjectId,
+    projects: projects::Controller,
     controller: Controller,
 }
 
@@ -41,6 +42,7 @@ impl Default for Test {
             repository: test_project,
             project_id: project.id,
             controller: Controller::new(&data_dir, &projects, &users, &keys, &helper),
+            projects,
         }
     }
 }
@@ -673,6 +675,7 @@ mod apply_virtual_branch {
             repository,
             project_id,
             controller,
+            ..
         } = Test::default();
 
         controller
@@ -729,6 +732,7 @@ mod apply_virtual_branch {
             repository,
             project_id,
             controller,
+            ..
         } = Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
@@ -851,6 +855,7 @@ mod apply_virtual_branch {
             repository,
             project_id,
             controller,
+            ..
         } = Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
@@ -948,6 +953,7 @@ async fn resolve_conflict_flow() {
         repository,
         project_id,
         controller,
+        ..
     } = Test::default();
 
     // make sure we have an undiscovered commit in the remote branch
@@ -2143,6 +2149,161 @@ mod update_base_branch {
             }
         }
 
+        mod no_conflicts_pushed {
+            use super::*;
+
+            #[tokio::test]
+            async fn force_push_ok() {
+                let Test {
+                    repository,
+                    project_id,
+                    controller,
+                    projects,
+                    ..
+                } = Test::default();
+
+                // make sure we have an undiscovered commit in the remote branch
+                {
+                    fs::write(repository.path().join("file.txt"), "first").unwrap();
+                    let first_commit_oid = repository.commit_all("first");
+                    fs::write(repository.path().join("file.txt"), "second").unwrap();
+                    repository.commit_all("second");
+                    repository.push();
+                    repository.reset_hard(Some(first_commit_oid));
+                }
+
+                projects
+                    .update(&projects::UpdateRequest {
+                        id: project_id,
+                        ok_with_force_push: Some(true),
+                        ..Default::default()
+                    })
+                    .await
+                    .unwrap();
+
+                controller
+                    .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                    .await
+                    .unwrap();
+
+                let branch_id = {
+                    let branch_id = controller
+                        .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+                        .await
+                        .unwrap();
+
+                    fs::write(repository.path().join("file2.txt"), "no conflict").unwrap();
+
+                    controller
+                        .create_commit(&project_id, &branch_id, "no conflicts", None)
+                        .await
+                        .unwrap();
+                    controller
+                        .push_virtual_branch(&project_id, &branch_id, false)
+                        .await
+                        .unwrap();
+
+                    fs::write(repository.path().join("file2.txt"), "still no conflict").unwrap();
+
+                    branch_id
+                };
+
+                {
+                    // fetch remote
+                    controller.update_base_branch(&project_id).await.unwrap();
+
+                    // rebases branch, since the branch is pushed and force pushing is
+                    // allowed
+
+                    let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                    assert_eq!(branches.len(), 1);
+                    assert_eq!(branches[0].id, branch_id);
+                    assert!(branches[0].active);
+                    assert!(branches[0].requires_force);
+                    assert!(branches[0].base_current);
+                    assert_eq!(branches[0].files.len(), 1);
+                    assert_eq!(branches[0].commits.len(), 1);
+                    assert!(branches[0].commits[0].is_remote);
+                    assert!(!branches[0].commits[0].is_integrated);
+                    assert!(controller
+                        .can_apply_virtual_branch(&project_id, &branch_id)
+                        .await
+                        .unwrap());
+                }
+            }
+
+            #[tokio::test]
+            async fn force_push_not_ok() {
+                let Test {
+                    repository,
+                    project_id,
+                    controller,
+                    ..
+                } = Test::default();
+
+                // make sure we have an undiscovered commit in the remote branch
+                {
+                    fs::write(repository.path().join("file.txt"), "first").unwrap();
+                    let first_commit_oid = repository.commit_all("first");
+                    fs::write(repository.path().join("file.txt"), "second").unwrap();
+                    repository.commit_all("second");
+                    repository.push();
+                    repository.reset_hard(Some(first_commit_oid));
+                }
+
+                controller
+                    .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                    .await
+                    .unwrap();
+
+                let branch_id = {
+                    let branch_id = controller
+                        .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+                        .await
+                        .unwrap();
+
+                    fs::write(repository.path().join("file2.txt"), "no conflict").unwrap();
+
+                    controller
+                        .create_commit(&project_id, &branch_id, "no conflicts", None)
+                        .await
+                        .unwrap();
+                    controller
+                        .push_virtual_branch(&project_id, &branch_id, false)
+                        .await
+                        .unwrap();
+
+                    fs::write(repository.path().join("file2.txt"), "still no conflict").unwrap();
+
+                    branch_id
+                };
+
+                {
+                    // fetch remote
+                    controller.update_base_branch(&project_id).await.unwrap();
+
+                    // creates a merge commit, since the branch is pushed
+
+                    let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                    assert_eq!(branches.len(), 1);
+                    assert_eq!(branches[0].id, branch_id);
+                    assert!(branches[0].active);
+                    assert!(!branches[0].requires_force);
+                    assert!(branches[0].base_current);
+                    assert_eq!(branches[0].files.len(), 1);
+                    assert_eq!(branches[0].commits.len(), 2);
+                    assert!(!branches[0].commits[0].is_remote);
+                    assert!(!branches[0].commits[0].is_integrated);
+                    assert!(branches[0].commits[1].is_remote);
+                    assert!(!branches[0].commits[1].is_integrated);
+                    assert!(controller
+                        .can_apply_virtual_branch(&project_id, &branch_id)
+                        .await
+                        .unwrap());
+                }
+            }
+        }
+
         #[tokio::test]
         async fn no_conflicts() {
             let Test {
@@ -2168,7 +2329,6 @@ mod update_base_branch {
                 .unwrap();
 
             let branch_id = {
-                // make a branch that conflicts with the remote branch, but doesn't know about it yet
                 let branch_id = controller
                     .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
                     .await
@@ -2206,7 +2366,6 @@ mod update_base_branch {
             }
 
             {
-                // applying the branch should produce conflict markers
                 controller
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
@@ -2395,6 +2554,7 @@ mod reset_virtual_branch {
             repository,
             project_id,
             controller,
+            ..
         } = Test::default();
 
         controller
@@ -2456,6 +2616,7 @@ mod reset_virtual_branch {
             repository,
             project_id,
             controller,
+            ..
         } = Test::default();
 
         let base_branch = controller
@@ -2514,6 +2675,7 @@ mod reset_virtual_branch {
             repository,
             project_id,
             controller,
+            ..
         } = Test::default();
 
         controller
@@ -2598,6 +2760,7 @@ mod reset_virtual_branch {
             repository,
             project_id,
             controller,
+            ..
         } = Test::default();
 
         controller
@@ -2657,6 +2820,7 @@ mod upstream {
             repository,
             project_id,
             controller,
+            ..
         } = Test::default();
 
         controller
@@ -2723,6 +2887,7 @@ mod upstream {
             repository,
             project_id,
             controller,
+            ..
         } = Test::default();
 
         controller
@@ -2809,6 +2974,7 @@ mod cherry_pick {
                 repository,
                 project_id,
                 controller,
+                ..
             } = Test::default();
 
             controller
@@ -2880,6 +3046,7 @@ mod cherry_pick {
                 repository,
                 project_id,
                 controller,
+                ..
             } = Test::default();
 
             controller
@@ -2962,6 +3129,7 @@ mod cherry_pick {
                 repository,
                 project_id,
                 controller,
+                ..
             } = Test::default();
 
             controller
@@ -3026,6 +3194,7 @@ mod cherry_pick {
                 repository,
                 project_id,
                 controller,
+                ..
             } = Test::default();
 
             controller
@@ -3136,6 +3305,7 @@ mod cherry_pick {
                 repository,
                 project_id,
                 controller,
+                ..
             } = Test::default();
 
             let commit_oid = {
