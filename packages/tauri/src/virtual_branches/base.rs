@@ -383,10 +383,10 @@ pub fn update_base_branch(
                 return Ok(Some(branch));
             }
 
-            if branch.upstream.is_some() {
-                // branch was pushed to upstream. create a merge commit to avoid need
-                // of force pushing.
-                // TODO: make this configurable
+            let ok_with_force_push = project_repository.project().ok_with_force_push;
+            if branch.upstream.is_some() && !ok_with_force_push {
+                // branch was pushed to upstream, and user doesn't like force pushing.
+                // create a merge commit to avoid the need of force pushing then.
                 let branch_head_merge_tree = repo
                     .find_tree(branch_head_merge_tree_oid)
                     .context("failed to find tree")?;

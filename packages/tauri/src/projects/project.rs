@@ -63,6 +63,8 @@ pub struct Project {
     pub path: path::PathBuf,
     #[serde(default)]
     pub preferred_key: AuthKey,
+    #[serde(default)]
+    pub ok_with_force_push: bool,
     pub api: Option<ApiProject>,
     #[serde(default)]
     pub project_data_last_fetch: Option<FetchResult>,

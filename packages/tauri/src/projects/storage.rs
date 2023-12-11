@@ -43,6 +43,7 @@ pub struct UpdateRequest {
     pub project_data_last_fetched: Option<project::FetchResult>,
     pub gitbutler_data_last_fetched: Option<project::FetchResult>,
     pub preferred_key: Option<project::AuthKey>,
+    pub ok_with_force_push: Option<bool>,
     pub gitbutler_code_push_state: Option<project::CodePushState>,
 }
 
@@ -122,6 +123,10 @@ impl Storage {
 
         if let Some(state) = update_request.gitbutler_code_push_state {
             project.gitbutler_code_push_state = Some(state);
+        }
+
+        if let Some(ok_with_force_push) = update_request.ok_with_force_push {
+            project.ok_with_force_push = ok_with_force_push;
         }
 
         self.storage
