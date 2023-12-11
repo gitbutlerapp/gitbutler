@@ -71,7 +71,7 @@
 		width: 24rem;
 		height: 100%;
 		border-radius: var(--radius-m);
-		border: 1px solid color-mix(in srgb, var(--clr-theme-container-outline-light) 40%, transparent);
+		border: 1px dashed color-mix(in srgb, var(--clr-theme-scale-ntrl-60) 50%, transparent);
 		background-color: transparent;
 		transition:
 			opacity var(--transition-medium),
