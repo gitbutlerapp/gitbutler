@@ -26,7 +26,10 @@ pub fn set_test_target(
     let remote_repo = empty_bare_repository();
     let mut remote = project_repository
         .git_repository
-        .remote("origin", remote_repo.path().to_str().unwrap())
+        .remote(
+            "origin",
+            &remote_repo.path().to_str().unwrap().parse().unwrap(),
+        )
         .expect("failed to add remote");
     remote.push(&["refs/heads/master:refs/heads/master"], None)?;
 
@@ -2019,7 +2022,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
     })?;
     project_repository
         .git_repository
-        .remote("origin", "http://origin.com/project")?;
+        .remote("origin", &"http://origin.com/project".parse().unwrap())?;
     super::integration::update_gitbutler_integration(&gb_repository, &project_repository)?;
 
     // create vbranches, one integrated, one not

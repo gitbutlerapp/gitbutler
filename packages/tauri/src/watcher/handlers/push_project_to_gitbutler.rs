@@ -436,7 +436,7 @@ mod test {
 
         let mut remote = project_repository
             .git_repository
-            .remote("tr", remote_repo.path().to_str().unwrap())
+            .remote("tr", &remote_repo.path().to_str().unwrap().parse().unwrap())
             .unwrap();
 
         remote

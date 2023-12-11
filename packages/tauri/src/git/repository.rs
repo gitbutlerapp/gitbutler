@@ -404,8 +404,11 @@ impl Repository {
         self.0.find_tree(oid).map(Into::into).map_err(Into::into)
     }
 
-    pub fn remote(&self, name: &str, url: &str) -> Result<Remote> {
-        self.0.remote(name, url).map(Into::into).map_err(Into::into)
+    pub fn remote(&self, name: &str, url: &Url) -> Result<Remote> {
+        self.0
+            .remote(name, &url.to_string())
+            .map(Into::into)
+            .map_err(Into::into)
     }
 
     pub fn references(&self) -> Result<impl Iterator<Item = Result<Reference>>> {
