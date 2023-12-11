@@ -24,6 +24,7 @@ export type Project = {
 	path: string;
 	api?: CloudProject & { sync: boolean };
 	preferred_key: Key;
+	ok_with_force_push: boolean;
 };
 
 export class ProjectService {
@@ -59,6 +60,7 @@ export class ProjectService {
 		title?: string;
 		api?: CloudProject & { sync: boolean };
 		preferred_key?: Key;
+		okWithForcePush?: boolean;
 	}) {
 		await invoke<Project>('update_project', { project: params });
 		this.reload();

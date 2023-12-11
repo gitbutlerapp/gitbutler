@@ -45,7 +45,7 @@
 
 {#if !readonly && type != 'integrated'}
 	<div class="actions">
-		{#if githubContext && !$pr$ && type == 'local'}
+		{#if githubContext && !$pr$ && type == 'local' && !branch.upstream}
 			<PushButton
 				wide
 				isLoading={isPushing || $prServiceState$?.busy}

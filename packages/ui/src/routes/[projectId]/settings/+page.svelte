@@ -4,6 +4,7 @@
 	import CloudForm from './CloudForm.svelte';
 	import DetailsForm from './DetailsForm.svelte';
 	import KeysForm from './KeysForm.svelte';
+	import PreferencesForm from './PreferencesForm.svelte';
 	import type { PageData } from './$types';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
@@ -39,6 +40,8 @@
 		projectService.updateProject({ ...$project$, ...e.detail });
 	const onCloudUpdated = (e: { detail: Project }) =>
 		projectService.updateProject({ ...$project$, ...e.detail });
+	const onPreferencesUpdated = (e: { detail: { ok_with_force_push: boolean } }) =>
+		projectService.updateProject({ ...$project$, ...e.detail });
 	const onDetailsUpdated = async (e: { detail: Project }) => {
 		const api =
 			$user$ && e.detail.api
@@ -70,6 +73,8 @@
 					<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
 					<Spacer />
 					<KeysForm project={$project$} on:updated={onKeysUpdated} />
+					<Spacer />
+					<PreferencesForm project={$project$} on:updated={onPreferencesUpdated} />
 					<Spacer />
 
 					<div class="flex gap-x-4">
