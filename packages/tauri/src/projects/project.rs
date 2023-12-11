@@ -63,6 +63,8 @@ pub struct Project {
     pub path: path::PathBuf,
     #[serde(default)]
     pub preferred_key: AuthKey,
+    /// if ok_with_force_push is true, we'll not try to avoid force pushing
+    /// for example, when updating base branch
     #[serde(default)]
     pub ok_with_force_push: bool,
     pub api: Option<ApiProject>,
