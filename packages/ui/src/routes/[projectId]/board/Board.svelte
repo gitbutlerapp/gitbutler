@@ -9,8 +9,9 @@
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { PrService } from '$lib/github/pullrequest';
 	import { cloneNode } from '$lib/utils/draggable';
+	import type { Project } from '$lib/backend/projects';
 
-	export let projectId: string;
+	export let project: Project;
 	export let projectPath: string;
 
 	export let branches: Branch[] | undefined;
@@ -107,7 +108,7 @@
 			>
 				<BranchLane
 					{branch}
-					{projectId}
+					{project}
 					{base}
 					{cloud}
 					{branchController}

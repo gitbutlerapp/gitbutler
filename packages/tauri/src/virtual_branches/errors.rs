@@ -180,8 +180,27 @@ pub enum IsVirtualBranchMergeable {
     Other(#[from] anyhow::Error),
 }
 
+#[derive(Debug)]
+pub struct ForcePushNotAllowedError {
+    pub project_id: ProjectId,
+}
+
+impl From<ForcePushNotAllowedError> for Error {
+    fn from(value: ForcePushNotAllowedError) -> Self {
+        Error::UserError {
+            code: crate::error::Code::Branches,
+            message: format!(
+                "Action will lead to force pushing, which is not allowed for project {}",
+                value.project_id
+            ),
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum AmendError {
+    #[error("force push not allowed")]
+    ForcePushNotAllowed(ForcePushNotAllowedError),
     #[error("target ownership not found")]
     TargetOwnerhshipNotFound(Ownership),
     #[error("branch has no commits")]
@@ -563,6 +582,7 @@ impl From<UnapplyOwnershipError> for Error {
 impl From<AmendError> for Error {
     fn from(value: AmendError) -> Self {
         match value {
+            AmendError::ForcePushNotAllowed(error) => error.into(),
             AmendError::Conflict(error) => error.into(),
             AmendError::BranchNotFound(error) => error.into(),
             AmendError::BranchHasNoCommits => Error::UserError {

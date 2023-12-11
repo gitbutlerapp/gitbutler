@@ -84,7 +84,7 @@
 				{branchController}
 				base={$baseBranch$}
 				{cloud}
-				{projectId}
+				project={$project$}
 				maximized={false}
 				readonly={true}
 				githubContext={$githubContext$}

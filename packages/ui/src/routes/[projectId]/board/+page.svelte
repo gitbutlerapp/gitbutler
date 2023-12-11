@@ -58,7 +58,7 @@
 			<div class="scroll-contents" bind:this={contents}>
 				<Board
 					{branchController}
-					{projectId}
+					project={$project$}
 					{cloud}
 					base={$base$}
 					branches={$activeBranches$}

@@ -2491,6 +2491,15 @@ pub fn amend(
             })
         })?;
 
+    if target_branch.upstream.is_some() && !project_repository.project().ok_with_force_push {
+        // amending to a pushed head commit will cause a force push that is not allowed
+        return Err(errors::AmendError::ForcePushNotAllowed(
+            errors::ForcePushNotAllowedError {
+                project_id: project_repository.project().id,
+            },
+        ));
+    }
+
     if project_repository
         .l(
             target_branch.head,

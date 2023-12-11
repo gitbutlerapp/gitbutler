@@ -27,10 +27,11 @@
 	import { persisted } from '@square/svelte-store';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import BranchCommits from './BranchCommits.svelte';
+	import type { Project } from '$lib/backend/projects';
 
 	export let branch: Branch;
 	export let readonly = false;
-	export let projectId: string;
+	export let project: Project;
 	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
@@ -43,13 +44,13 @@
 
 	const allExpanded = writable(false);
 	const allCollapsed = writable(false);
-	const aiGenEnabled = projectAiGenEnabled(projectId);
+	const aiGenEnabled = projectAiGenEnabled(project.id);
 
 	let rsViewport: HTMLElement;
 	let commitsScrollable = false;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const defaultBranchWidthRem = persisted<number | undefined>(24, 'defaulBranchWidth' + projectId);
+	const defaultBranchWidthRem = persisted<number | undefined>(24, 'defaulBranchWidth' + project.id);
 	const laneWidthKey = 'laneWidth_';
 	let laneWidth: number;
 
@@ -161,7 +162,7 @@
 				{branch}
 				{allCollapsed}
 				{allExpanded}
-				{projectId}
+				projectId={project.id}
 				on:action={(e) => {
 					if (e.detail == 'expand') {
 						handleExpandAll();
@@ -179,7 +180,7 @@
 					branchId={branch.id}
 					{branchController}
 					{branchCount}
-					{projectId}
+					projectId={project.id}
 					{base}
 				/>
 			{/if}
@@ -223,7 +224,7 @@
 				/>
 				{#if branch.active}
 					<CommitDialog
-						{projectId}
+						projectId={project.id}
 						{branchController}
 						{branch}
 						{cloud}
@@ -251,7 +252,7 @@
 				{base}
 				{branch}
 				{githubContext}
-				{projectId}
+				{project}
 				{prService}
 				{branchController}
 				{readonly}
