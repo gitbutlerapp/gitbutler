@@ -4043,6 +4043,162 @@ mod squash {
     }
 
     #[tokio::test]
+    async fn forcepush_allowed() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            projects,
+            ..
+        } = Test::default();
+
+        projects
+            .update(&projects::UpdateRequest {
+                id: project_id,
+                ok_with_force_push: Some(true),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branch_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        {
+            fs::write(repository.path().join("file one.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit one", None)
+                .await
+                .unwrap()
+        };
+
+        controller
+            .push_virtual_branch(&project_id, &branch_id, false)
+            .await
+            .unwrap();
+
+        let commit_two_oid = {
+            fs::write(repository.path().join("file two.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit two", None)
+                .await
+                .unwrap()
+        };
+
+        {
+            fs::write(repository.path().join("file three.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit three", None)
+                .await
+                .unwrap()
+        };
+
+        {
+            fs::write(repository.path().join("file four.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit four", None)
+                .await
+                .unwrap()
+        };
+
+        controller
+            .squash(&project_id, &branch_id, commit_two_oid)
+            .await
+            .unwrap();
+
+        let branch = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|b| b.id == branch_id)
+            .unwrap();
+
+        let descriptions = branch
+            .commits
+            .iter()
+            .map(|c| c.description.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            descriptions,
+            vec!["commit four", "commit three", "commit one\ncommit two"]
+        );
+        assert!(branch.requires_force);
+    }
+
+    #[tokio::test]
+    async fn forcepush_forbidden() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branch_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        {
+            fs::write(repository.path().join("file one.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit one", None)
+                .await
+                .unwrap()
+        };
+
+        controller
+            .push_virtual_branch(&project_id, &branch_id, false)
+            .await
+            .unwrap();
+
+        let commit_two_oid = {
+            fs::write(repository.path().join("file two.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit two", None)
+                .await
+                .unwrap()
+        };
+
+        {
+            fs::write(repository.path().join("file three.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit three", None)
+                .await
+                .unwrap()
+        };
+
+        {
+            fs::write(repository.path().join("file four.txt"), "").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit four", None)
+                .await
+                .unwrap()
+        };
+
+        assert!(matches!(
+            controller
+                .squash(&project_id, &branch_id, commit_two_oid)
+                .await
+                .unwrap_err(),
+            ControllerError::Action(errors::SquashError::ForcePushNotAllowed(_))
+        ));
+    }
+
+    #[tokio::test]
     async fn root() {
         let Test {
             repository,
