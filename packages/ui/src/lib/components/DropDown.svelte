@@ -19,7 +19,7 @@
 	}
 
 	let container: HTMLDivElement;
-	let popup: HTMLDivElement;
+	let contextMenuContainer: HTMLDivElement;
 	let iconElt: HTMLElement;
 </script>
 
@@ -50,12 +50,12 @@
 		/>
 	</div>
 	<div
-		class="context-wrapper"
+		class="context-menu-container"
 		use:clickOutside={{ trigger: iconElt, handler: () => (visible = !visible), enabled: visible }}
-		bind:this={popup}
+		bind:this={contextMenuContainer}
 		style:display={visible ? 'block' : 'none'}
 	>
-		<slot name="popup" />
+		<slot name="context-menu" />
 	</div>
 </div>
 
@@ -103,7 +103,7 @@
 		align-items: center;
 	}
 
-	.context-wrapper {
+	.context-menu-container {
 		position: absolute;
 		right: 0;
 		bottom: 100%;

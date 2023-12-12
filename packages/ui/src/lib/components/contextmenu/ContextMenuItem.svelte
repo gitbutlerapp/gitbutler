@@ -30,10 +30,14 @@
 		<Icon name={icon} />
 	{/if}
 	{#if context.type == 'checklist'}
-		<Icon name={checked ? 'tick-small' : 'empty'} />
+		{#if checked}
+			<Icon name="tick-small" />
+		{:else}
+			<Icon name="empty-checkbox-small" opacity="0.2" />
+		{/if}
 	{/if}
 
-	<div class="label">
+	<div class="label text-base-12">
 		{label}
 	</div>
 </button>
@@ -43,6 +47,7 @@
 		display: flex;
 		align-items: center;
 		color: var(--clr-theme-scale-ntrl-0);
+		height: var(--space-24);
 		padding: var(--space-4) var(--space-6);
 		border-radius: var(--radius-s);
 		gap: var(--space-8);

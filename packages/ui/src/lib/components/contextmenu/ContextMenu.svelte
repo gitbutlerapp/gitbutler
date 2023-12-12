@@ -26,8 +26,6 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--clr-theme-container-pale);
-		padding: var(--space-8);
-		gap: var(--space-2);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		border-radius: var(--radius-m);
 	}

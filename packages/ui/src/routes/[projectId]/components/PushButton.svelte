@@ -5,6 +5,7 @@
 	import DropDown from '$lib/components/DropDown.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
+	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 
 	let disabled = false;
 
@@ -37,19 +38,21 @@
 	{$selection$?.label}
 	<ContextMenu
 		type="select"
-		slot="popup"
+		slot="context-menu"
 		bind:this={contextMenu}
 		on:select={(e) => {
 			$createPr = e.detail?.id == 'pr';
 			dropDown.close();
 		}}
 	>
-		<ContextMenuItem id="push" label="Push to remote" selected={mode == 'push'} />
-		<ContextMenuItem
-			id="pr"
-			label="Create Pull Request"
-			disabled={!githubContext}
-			selected={mode == 'pr'}
-		/>
+		<ContextMenuSection>
+			<ContextMenuItem id="push" label="Push to remote" selected={mode == 'push'} />
+			<ContextMenuItem
+				id="pr"
+				label="Create Pull Request"
+				disabled={!githubContext}
+				selected={mode == 'pr'}
+			/>
+		</ContextMenuSection>
 	</ContextMenu>
 </DropDown>
