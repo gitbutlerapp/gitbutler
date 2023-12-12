@@ -1357,9 +1357,12 @@ pub fn delete_branch(
     let branch_reader = branch::Reader::new(&current_session_reader);
     let branch_writer = branch::Writer::new(gb_repository);
 
-    let branch = branch_reader
-        .read(branch_id)
-        .context("failed to read branch")?;
+    let branch = match branch_reader.read(branch_id) {
+        Ok(branch) => Ok(branch),
+        Err(reader::Error::NotFound) => return Ok(()),
+        Err(error) => Err(error),
+    }
+    .context("failed to read branch")?;
 
     if branch.applied && unapply_branch(gb_repository, project_repository, branch_id)?.is_none() {
         return Ok(());
