@@ -15,16 +15,17 @@
 	$: fileStats = computedAddedRemoved(file);
 	$: fileStatus = computeFileStatus(file);
 
-	function boldenFilename(filepath: string): string {
+	function boldenFilename(filepath: string): { filename: string; path: string } {
 		const parts = filepath.split('/');
-		if (parts.length == 0) return '';
-		return (
-			'<span class="font-semibold text-color-2 mr-1">' +
-			parts[parts.length - 1] +
-			'</span>/' +
-			parts.slice(0, -1).join('/')
-		);
+		if (parts.length === 0) return { filename: '', path: '' };
+
+		const filename = parts[parts.length - 1];
+		const path = parts.slice(0, -1).join('/');
+
+		return { filename, path };
 	}
+
+	let fileTitle = boldenFilename(file.path);
 </script>
 
 <div class="header">
@@ -37,9 +38,10 @@
 			style="width: 0.8125rem; height: 0.8125rem"
 			class="inline"
 		/>
-		<div class="header__info">
-			<div class="header__filename text-base-13">
-				{@html boldenFilename(file.path)}
+		<div class="header__info truncate">
+			<div class="header__filetitle text-base-13 truncate">
+				<span class="header__filename">{fileTitle.filename}</span>
+				<span class="header__filepath">{fileTitle.path}</span>
 			</div>
 			<div class="header__tags">
 				{#if file.conflicted || isFileLocked}
@@ -70,9 +72,7 @@
 			</div>
 		</div>
 	</div>
-	<div class="header__close">
-		<IconButton icon="cross" on:click={() => dispatch('close')} />
-	</div>
+	<IconButton icon="cross" on:click={() => dispatch('close')} />
 </div>
 
 <style lang="postcss">
@@ -86,11 +86,13 @@
 		display: flex;
 		flex-grow: 1;
 		gap: var(--space-6);
+		overflow: hidden;
 	}
 	.header__info {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-6);
+		gap: var(--space-8);
+		width: 100%;
 	}
 	.header__tags {
 		display: flex;
@@ -100,9 +102,14 @@
 		display: flex;
 		gap: var(--space-2);
 	}
-	.header__filename {
+	.header__filetitle {
+		width: 100%;
 		color: var(--clr-theme-scale-ntrl-50);
 	}
-	.header__close {
+	.header__filename {
+		color: var(--clr-theme-scale-ntrl-0);
+	}
+	.header__filepath {
+		color: var(--clr-theme-scale-ntrl-50);
 	}
 </style>
