@@ -3380,6 +3380,72 @@ mod amend {
     }
 
     #[tokio::test]
+    async fn forcepush_allowed() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            projects,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        projects
+            .update(&projects::UpdateRequest {
+                id: project_id,
+                ok_with_force_push: Some(true),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        let branch_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        {
+            // create commit
+            fs::write(repository.path().join("file.txt"), "content").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "commit one", None)
+                .await
+                .unwrap();
+        };
+
+        controller
+            .push_virtual_branch(&project_id, &branch_id, false)
+            .await
+            .unwrap();
+
+        {
+            // amend another hunk
+            fs::write(repository.path().join("file2.txt"), "content2").unwrap();
+            let to_amend: branch::Ownership = "file2.txt:1-2".parse().unwrap();
+            controller
+                .amend(&project_id, &branch_id, &to_amend)
+                .await
+                .unwrap();
+
+            let branch = controller
+                .list_virtual_branches(&project_id)
+                .await
+                .unwrap()
+                .into_iter()
+                .find(|b| b.id == branch_id)
+                .unwrap();
+            assert!(branch.requires_force);
+            assert_eq!(branch.commits.len(), 1);
+            assert_eq!(branch.files.len(), 0);
+            assert_eq!(branch.commits[0].files.len(), 2);
+        }
+    }
+
+    #[tokio::test]
     async fn forcepush_forbidden() {
         let Test {
             repository,
