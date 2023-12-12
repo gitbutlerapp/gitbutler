@@ -278,7 +278,8 @@
 	.hunk__inner {
 		display: flex;
 		flex-direction: column;
-		width: max-content;
+		width: 100%;
+		min-width: max-content;
 	}
 	.added {
 		color: #45b156;
