@@ -10,7 +10,6 @@
 	import { plainToInstance } from 'class-transformer';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import Icon from '$lib/icons/Icon.svelte';
 	import Tag from '../components/Tag.svelte';
 	import { draggableCommit, nonDraggable } from '$lib/draggables';
 	import { draggable } from '$lib/utils/draggable';
