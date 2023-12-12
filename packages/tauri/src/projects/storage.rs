@@ -126,7 +126,7 @@ impl Storage {
         }
 
         if let Some(ok_with_force_push) = update_request.ok_with_force_push {
-            project.ok_with_force_push = ok_with_force_push;
+            project.ok_with_force_push = ok_with_force_push.into();
         }
 
         self.storage

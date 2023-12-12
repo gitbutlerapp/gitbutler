@@ -55,6 +55,49 @@ pub struct CodePushState {
 
 pub type ProjectId = Id<Project>;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ForcePushPreference {
+    Allow,
+    Deny,
+}
+
+impl Default for ForcePushPreference {
+    fn default() -> Self {
+        ForcePushPreference::Allow
+    }
+}
+
+impl From<bool> for ForcePushPreference {
+    fn from(value: bool) -> Self {
+        if value {
+            ForcePushPreference::Allow
+        } else {
+            ForcePushPreference::Deny
+        }
+    }
+}
+impl From<ForcePushPreference> for bool {
+    fn from(value: ForcePushPreference) -> Self {
+        match value {
+            ForcePushPreference::Allow => true,
+            ForcePushPreference::Deny => false,
+        }
+    }
+}
+
+impl serde::Serialize for ForcePushPreference {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_bool((*self).into())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ForcePushPreference {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = bool::deserialize(deserializer)?;
+        Ok(value.into())
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Project {
     pub id: ProjectId,
@@ -66,7 +109,7 @@ pub struct Project {
     /// if ok_with_force_push is true, we'll not try to avoid force pushing
     /// for example, when updating base branch
     #[serde(default)]
-    pub ok_with_force_push: bool,
+    pub ok_with_force_push: ForcePushPreference,
     pub api: Option<ApiProject>,
     #[serde(default)]
     pub project_data_last_fetch: Option<FetchResult>,

@@ -2494,7 +2494,8 @@ pub fn amend(
             })
         })?;
 
-    if target_branch.upstream.is_some() && !project_repository.project().ok_with_force_push {
+    let ok_with_force_push: bool = project_repository.project().ok_with_force_push.into();
+    if target_branch.upstream.is_some() && !ok_with_force_push {
         // amending to a pushed head commit will cause a force push that is not allowed
         return Err(errors::AmendError::ForcePushNotAllowed(
             errors::ForcePushNotAllowedError {
@@ -2850,9 +2851,8 @@ pub fn squash(
         },
     )?;
 
-    if pushed_commit_oids.contains(&parent_commit.id())
-        && !project_repository.project().ok_with_force_push
-    {
+    let ok_with_force_push: bool = project_repository.project().ok_with_force_push.into();
+    if pushed_commit_oids.contains(&parent_commit.id()) && !ok_with_force_push {
         // squashing into a pushed commit will cause a force push that is not allowed
         return Err(errors::SquashError::ForcePushNotAllowed(
             errors::ForcePushNotAllowedError {
@@ -3037,8 +3037,8 @@ pub fn update_commit_message(
         },
     )?;
 
-    if pushed_commit_oids.contains(&commit_oid) && !project_repository.project().ok_with_force_push
-    {
+    let ok_with_force_push: bool = project_repository.project().ok_with_force_push.into();
+    if pushed_commit_oids.contains(&commit_oid) && !ok_with_force_push {
         // updating the message of a pushed commit will cause a force push that is not allowed
         return Err(errors::UpdateCommitMessageError::ForcePushNotAllowed(
             errors::ForcePushNotAllowedError {
