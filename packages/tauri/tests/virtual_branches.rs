@@ -2288,7 +2288,7 @@ mod update_base_branch {
                     assert_eq!(branches.len(), 1);
                     assert_eq!(branches[0].id, branch_id);
                     assert!(branches[0].active);
-                    assert!(!branches[0].requires_force);
+                    assert!(branches[0].requires_force);// defaults to true
                     assert!(branches[0].base_current);
                     assert_eq!(branches[0].files.len(), 1);
                     assert_eq!(branches[0].commits.len(), 2);
