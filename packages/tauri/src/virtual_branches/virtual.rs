@@ -2837,18 +2837,17 @@ pub fn squash(
         .parent(0)
         .context("failed to find parent commit")?;
 
-    if branch
-        .upstream_head
-        .map_or_else(
-            || Ok(vec![]),
-            |upstream_head| {
-                project_repository.l(
-                    upstream_head,
-                    project_repository::LogUntil::Commit(default_target.sha),
-                )
-            },
-        )?
-        .contains(&parent_commit.id())
+    let pushed_commit_oids = branch.upstream_head.map_or_else(
+        || Ok(vec![]),
+        |upstream_head| {
+            project_repository.l(
+                upstream_head,
+                project_repository::LogUntil::Commit(default_target.sha),
+            )
+        },
+    )?;
+
+    if pushed_commit_oids.contains(&parent_commit.id())
         && !project_repository.project().ok_with_force_push
     {
         // squashing into a pushed commit will cause a force push that is not allowed
@@ -3023,6 +3022,26 @@ pub fn update_commit_message(
 
     if !branch_commit_oids.contains(&commit_oid) {
         return Err(errors::UpdateCommitMessageError::CommitNotFound(commit_oid));
+    }
+
+    let pushed_commit_oids = branch.upstream_head.map_or_else(
+        || Ok(vec![]),
+        |upstream_head| {
+            project_repository.l(
+                upstream_head,
+                project_repository::LogUntil::Commit(default_target.sha),
+            )
+        },
+    )?;
+
+    if pushed_commit_oids.contains(&commit_oid) && !project_repository.project().ok_with_force_push
+    {
+        // updating the message of a pushed commit will cause a force push that is not allowed
+        return Err(errors::UpdateCommitMessageError::ForcePushNotAllowed(
+            errors::ForcePushNotAllowedError {
+                project_id: project_repository.project().id,
+            },
+        ));
     }
 
     let target_commit = project_repository

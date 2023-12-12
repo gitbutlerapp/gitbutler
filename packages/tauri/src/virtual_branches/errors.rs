@@ -246,6 +246,8 @@ pub enum SquashError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateCommitMessageError {
+    #[error("force push not allowed")]
+    ForcePushNotAllowed(ForcePushNotAllowedError),
     #[error("empty message")]
     EmptyMessage,
     #[error("default target not set")]
@@ -263,6 +265,7 @@ pub enum UpdateCommitMessageError {
 impl From<UpdateCommitMessageError> for Error {
     fn from(value: UpdateCommitMessageError) -> Self {
         match value {
+            UpdateCommitMessageError::ForcePushNotAllowed(error) => error.into(),
             UpdateCommitMessageError::EmptyMessage => Error::UserError {
                 message: "Commit message can not be empty".to_string(),
                 code: crate::error::Code::Branches,
