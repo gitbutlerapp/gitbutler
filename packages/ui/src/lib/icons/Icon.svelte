@@ -7,6 +7,7 @@
 
 	export let name: keyof typeof iconsJson;
 	export let color: IconColor = undefined;
+	export let opacity: string | undefined = undefined;
 </script>
 
 <svg
@@ -19,6 +20,7 @@
 	class:pop={color == 'pop'}
 	class:warn={color == 'warn'}
 	class:default={!color}
+	style:opacity
 >
 	<path fill="currentColor" d={iconsJson[name]}></path>
 </svg>

@@ -9,7 +9,7 @@
 		type DraggableHunk
 	} from '$lib/draggables';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
+	import { getExpandedWithCacheFallback } from './cache';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import Resizer from '$lib/components/Resizer.svelte';
@@ -63,18 +63,6 @@
 		// Exercise cache lookup for all files.
 		$allExpanded = branch.files.every((f) => getExpandedWithCacheFallback(f));
 		$allCollapsed = branch.files.every((f) => getExpandedWithCacheFallback(f) == false);
-	}
-
-	function handleCollapseAll() {
-		branch.files.forEach((f) => setExpandedWithCache(f, false));
-		$allExpanded = false;
-		branch.files = branch.files;
-	}
-
-	function handleExpandAll() {
-		branch.files.forEach((f) => setExpandedWithCache(f, true));
-		$allExpanded = true;
-		branch.files = branch.files;
 	}
 
 	let commitDialogShown = false;
@@ -160,15 +148,9 @@
 				{readonly}
 				{branchController}
 				{branch}
-				{allCollapsed}
-				{allExpanded}
 				projectId={project.id}
 				on:action={(e) => {
-					if (e.detail == 'expand') {
-						handleExpandAll();
-					} else if (e.detail == 'collapse') {
-						handleCollapseAll();
-					} else if (e.detail == 'generate-branch-name') {
+					if (e.detail == 'generate-branch-name') {
 						generateBranchName();
 					}
 				}}

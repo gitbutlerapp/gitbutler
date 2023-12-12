@@ -1,4 +1,4 @@
-export type ClickOpts = { trigger?: HTMLElement; handler: () => void; enabled: boolean };
+export type ClickOpts = { trigger?: HTMLElement; handler: () => void; enabled?: boolean };
 
 export function clickOutside(
 	node: HTMLElement,
@@ -14,13 +14,14 @@ export function clickOutside(
 			params.handler();
 		}
 	}
+	document.addEventListener('click', onClick, true);
 	return {
 		destroy() {
 			document.removeEventListener('click', onClick, true);
 		},
 		update(opts: ClickOpts) {
 			document.removeEventListener('click', onClick, true);
-			if (!opts.enabled) return;
+			if (opts.enabled !== undefined && !opts.enabled) return;
 			trigger = opts.trigger;
 			document.addEventListener('click', onClick, true);
 		}

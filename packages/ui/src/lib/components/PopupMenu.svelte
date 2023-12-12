@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { clickOutside } from '$lib/clickOutside';
+
 	let pos = { x: 0, y: 0 };
 	let menu = { h: 0, w: 0 };
 	let browser = { h: 0, w: 0 };
@@ -46,25 +48,19 @@
 
 {#if showMenu}
 	<div
+		class="popup-overlay"
 		role="menu"
 		tabindex="0"
-		class="absolute left-0 top-0 z-50 h-full w-full shadow-2xl"
-		on:click={onDismiss}
-		on:keydown={onDismiss}
+		use:recordDimensions
+		use:clickOutside={{ handler: () => onDismiss() }}
+		style="position: absolute; top:{pos.y}px; left:{pos.x}px"
 	>
-		<div
-			role="menu"
-			tabindex="0"
-			use:recordDimensions
-			on:mouseleave={onDismiss}
-			on:blur={onDismiss}
-			style="position: absolute; top:{pos.y}px; left:{pos.x}px"
-			class="flex flex-col rounded border border-light-400 bg-white p-1 drop-shadow-[0_10px_10px_rgba(0,0,0,0.30)] dark:border-dark-500 dark:bg-dark-700"
-		>
-			<slot {item} />
-		</div>
+		<slot {item} />
 	</div>
 {/if}
 
 <style>
+	.popup-overlay {
+		z-index: 50; /* Must be higher than scrollbar hover */
+	}
 </style>
