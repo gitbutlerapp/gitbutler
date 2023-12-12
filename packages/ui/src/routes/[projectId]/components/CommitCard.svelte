@@ -111,7 +111,7 @@
 	<div class="commit-modal__body">
 		{#if isLoading}
 			<div class="flex w-full justify-center">
-				<div class="border-gray-900 h-32 w-32 animate-spin rounded-full border-b-2" />
+				<div class="border-gray-900 h-8 w-8 animate-spin rounded-full border-b-2" />
 			</div>
 		{:else}
 			{#each entries as [filepath, sections]}
