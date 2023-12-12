@@ -16,10 +16,6 @@
 	export function hide() {
 		hidden = true;
 	}
-
-	function changeProject(projectId: string) {
-		goto(location.href.replace($page.params.projectId, projectId));
-	}
 </script>
 
 {#if !hidden}
@@ -33,7 +29,7 @@
 						icon={selected ? 'tick' : undefined}
 						on:click={() => {
 							hide();
-							changeProject(project.id);
+							goto(`/${project.id}/board`);
 						}}
 					>
 						{project.title}
