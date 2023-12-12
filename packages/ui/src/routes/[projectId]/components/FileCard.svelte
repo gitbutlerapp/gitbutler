@@ -165,7 +165,7 @@
 										disabled: readonly
 									}}
 									on:dblclick
-									class="hunk"
+									class="hunk custom-scrollbar"
 									class:opacity-60={section.hunk.locked && !isFileLocked}
 								>
 									<div class="hunk__inner">
@@ -270,15 +270,15 @@
 		/* my-2 flex w-full flex-col overflow-hidden rounded border */
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
+		overflow-x: auto;
+		background: var(--clr-theme-container-light);
+		border-radius: var(--radius-s);
+		border: 1px solid var(--clr-theme-container-outline-light);
 	}
 	.hunk__inner {
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
-		background: var(--clr-theme-container-light);
-		border-radius: var(--radius-s);
-		border: 1px solid var(--clr-theme-container-outline-light);
+		width: max-content;
 	}
 	.added {
 		color: #45b156;

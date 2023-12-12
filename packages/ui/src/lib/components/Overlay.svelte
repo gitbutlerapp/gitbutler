@@ -59,7 +59,7 @@
 	/* modifiers */
 
 	.s-large {
-		max-width: calc(var(--space-64) * 13);
+		max-width: calc(var(--space-64) * 8);
 	}
 
 	.s-default {

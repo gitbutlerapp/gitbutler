@@ -268,7 +268,7 @@
 		flex-direction: column;
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-theme-container-outline-light);
-		overflow-x: auto;
+		/* overflow-x: auto; */
 		overflow-y: hidden;
 	}
 
