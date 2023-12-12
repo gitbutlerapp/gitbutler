@@ -1,5 +1,7 @@
 <script lang="ts">
 	import Overlay from './Overlay.svelte';
+	import Icon from '$lib/icons/Icon.svelte';
+	import type iconsJson from '$lib/icons/icons.json';
 
 	export function show(newItem?: any) {
 		item = newItem;
@@ -11,20 +13,22 @@
 	}
 
 	export let width: 'default' | 'small' | 'large' = 'default';
+	export let title: string;
+	export let icon: keyof typeof iconsJson | undefined = undefined;
 
 	let item: any;
 	let modal: Overlay;
 </script>
 
 <Overlay bind:this={modal} let:close on:close {width}>
-	{#if $$slots.title}
+	{#if title}
 		<div class="modal__header">
 			<div class="modal__header__content" class:adjust-header={$$slots.header_controls}>
-				{#if $$slots.icon}
-					<slot name="icon" />
+				{#if icon}
+					<Icon name={icon} />
 				{/if}
 				<h2 class="text-base-14 text-semibold">
-					<slot name="title" />
+					{title}
 				</h2>
 			</div>
 			{#if $$slots.header_controls}

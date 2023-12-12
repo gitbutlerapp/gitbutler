@@ -64,8 +64,7 @@
 	</PopupMenuItem>
 </PopupMenu>
 
-<Modal width="small" bind:this={deleteBranchModal} let:item={branch}>
-	<svelte:fragment slot="title">Delete branch</svelte:fragment>
+<Modal width="small" title="Delete branch" bind:this={deleteBranchModal} let:item={branch}>
 	<div>
 		Deleting <code>{branch.name}</code> cannot be undone.
 	</div>

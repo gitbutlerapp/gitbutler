@@ -42,6 +42,7 @@
 
 <style lang="postcss">
 	.dialog-overlay {
+		display: flex;
 		flex-direction: column;
 		position: relative;
 		max-height: calc(100vh - 5rem);

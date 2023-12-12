@@ -66,8 +66,11 @@
 	</div>
 {/if}
 
-<Modal on:close={() => gitHubOauthCheckStatus(deviceCode)} bind:this={gitHubOauthModal}>
-	<svelte:fragment slot="title">Authenticate with GitHub</svelte:fragment>
+<Modal
+	on:close={() => gitHubOauthCheckStatus(deviceCode)}
+	bind:this={gitHubOauthModal}
+	title="Authenticate with GitHub"
+>
 	<div class="flex flex-col gap-4">
 		<div class="flex items-center gap-2">
 			<span class="flex-grow">1️⃣ Copy the following verification code: </span>

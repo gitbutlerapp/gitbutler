@@ -95,15 +95,7 @@
 	</div>
 </div>
 
-<Modal width="large" bind:this={previewCommitModal}>
-	<svelte:fragment slot="icon">
-		<Icon name="commit" />
-	</svelte:fragment>
-
-	<svelte:fragment slot="title">
-		{commit.description}
-	</svelte:fragment>
-
+<Modal width="large" bind:this={previewCommitModal} icon="commit" title={commit.description}>
 	<svelte:fragment slot="header_controls">
 		{#if commitUrl}
 			<Button

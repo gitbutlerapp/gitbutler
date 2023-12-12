@@ -65,8 +65,7 @@
 	}
 </script>
 
-<Modal bind:this={modal}>
-	<svelte:fragment slot="title">GitButler Cloud</svelte:fragment>
+<Modal bind:this={modal} title="GitButler Cloud">
 	{#await Promise.all([cloudProjects])}
 		<IconLoading class="m-auto animate-spin" />
 	{:then}
