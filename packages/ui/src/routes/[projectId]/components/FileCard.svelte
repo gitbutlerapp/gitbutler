@@ -135,8 +135,8 @@
 			</div>
 		{/if}
 
-		<div class="relative flex max-h-full flex-shrink overflow-hidden">
-			<ScrollableContainer wide>
+		<ScrollableContainer wide>
+			<div class="hunks">
 				{#if file.binary}
 					Binary content not shown
 				{:else if file.large}
@@ -236,8 +236,8 @@
 						{/if}
 					{/each}
 				{/if}
-			</ScrollableContainer>
-		</div>
+			</div>
+		</ScrollableContainer>
 	</div>
 	<Resizer
 		viewport={rsViewport}
@@ -260,17 +260,26 @@
 		display: flex;
 		flex-direction: column;
 	}
+	.hunks {
+		display: flex;
+		flex-direction: column;
+		position: relative;
+		max-height: 100%;
+		flex-shrink: 0;
+		padding: var(--space-16);
+		gap: var(--space-16);
+	}
 	.hunk-wrapper {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-16);
-		gap: var(--space-16);
+		gap: var(--space-10);
 	}
 	.hunk {
 		/* my-2 flex w-full flex-col overflow-hidden rounded border */
 		display: flex;
 		flex-direction: column;
 		overflow-x: auto;
+		overflow-y: hidden;
 		background: var(--clr-theme-container-light);
 		border-radius: var(--radius-s);
 		border: 1px solid var(--clr-theme-container-outline-light);
