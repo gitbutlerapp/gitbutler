@@ -186,7 +186,7 @@ pub struct ForcePushNotAllowedError {
 }
 
 impl From<ForcePushNotAllowedError> for Error {
-    fn from(value: ForcePushNotAllowedError) -> Self {
+    fn from(_value: ForcePushNotAllowedError) -> Self {
         Error::UserError {
             code: crate::error::Code::Branches,
             message: "Action will lead to force pushing, which is not allowed for this".to_string(),
