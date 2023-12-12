@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Overlay from './Overlay.svelte';
-	import type { ComponentType } from 'svelte';
 
 	export function show(newItem?: any) {
 		item = newItem;
