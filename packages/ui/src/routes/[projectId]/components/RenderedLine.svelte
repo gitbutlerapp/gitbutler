@@ -38,27 +38,25 @@
 			: 'bg-light-50 border-light-300 dark:bg-dark-700 dark:border-dark-400';
 </script>
 
-<div
-	class="flex w-full font-mono text-sm dark:bg-dark-700"
-	role="group"
-	on:contextmenu|preventDefault
->
-	<button
-		disabled={!selectable}
-		on:click={() => dispatch('selected', !selected)}
-		class="text-color-4 border-color-4 shrink-0 select-none border-r px-0.5 text-right text-xs {bgColor}"
-		style:min-width={minWidth + 'rem'}
-	>
-		{line.beforeLineNumber || ''}
-	</button>
-	<button
-		disabled={!selectable}
-		on:click={() => dispatch('selected', !selected)}
-		class="text-color-4 border-color-4 shrink-0 select-none border-r px-0.5 text-right text-xs {bgColor}"
-		style:min-width={minWidth + 'rem'}
-	>
-		{line.afterLineNumber || ''}
-	</button>
+<div class="code-line text-sm" role="group" on:contextmenu|preventDefault>
+	<div class="code-line__numbers-line">
+		<button
+			disabled={!selectable}
+			on:click={() => dispatch('selected', !selected)}
+			class="text-color-4 border-color-4 shrink-0 select-none border-r px-0.5 text-right text-xs {bgColor}"
+			style:min-width={minWidth + 'rem'}
+		>
+			{line.beforeLineNumber || ''}
+		</button>
+		<button
+			disabled={!selectable}
+			on:click={() => dispatch('selected', !selected)}
+			class="text-color-4 border-color-4 shrink-0 select-none border-r px-0.5 text-right text-xs {bgColor}"
+			style:min-width={minWidth + 'rem'}
+		>
+			{line.afterLineNumber || ''}
+		</button>
+	</div>
 	<div
 		class="line flex-grow overflow-hidden whitespace-pre pl-0.5"
 		class:diff-line-deletion={sectionType === SectionType.RemovedLines}
@@ -69,6 +67,17 @@
 </div>
 
 <style lang="postcss">
-	.line {
+	.code-line {
+		display: flex;
+		width: 100%;
+		min-width: max-content;
+		font-family: monospace;
+		background-color: var(----clr-theme-container-light);
+	}
+
+	.code-line__numbers-line {
+		position: sticky;
+		left: 0;
+		display: flex;
 	}
 </style>

@@ -394,7 +394,8 @@
 			</div>
 		</div>
 
-		<Modal bind:this={deleteConfirmationModal} title="Delete all local data?">
+		<Modal bind:this={deleteConfirmationModal}>
+			<svelte:fragment slot="title">Delete all local data?</svelte:fragment>
 			<p>Are you sure you want to delete all local data? This can’t be undone.</p>
 
 			<svelte:fragment slot="controls" let:close>

@@ -11,6 +11,10 @@
 @tailwind utilities;
 
 /* BOILERPLATE CSS */
+* {
+	box-sizing: border-box;
+}
+
 body {
 	font-family: 'Inter', sans-serif;
 	user-select: none;
@@ -24,6 +28,8 @@ body {
 	/* optimise font rendering */
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
+	-ms-overflow-style: none;
+	scrollbar-width: none;
 }
 
 a,
@@ -41,84 +47,45 @@ button {
 	background-color: var(--input-bg);
 }
 
-/* OUTLINE REMOVAL  */
-.outline-none-important {
-	@apply outline-none focus:outline-none active:outline-none;
-	outline: none;
-}
-.outline-none-important:focus {
-	outline: none;
-	-webkit-appearance: none;
-	outline: 0;
-	outline-offset: 0;
-	box-shadow:
-		rgb(255, 255, 255) 0px 0px 0px 0px,
-		rgba(37, 99, 235, 0) 0px 0px 0px 2px,
-		rgba(0, 0, 0, 0) 0px 0px 0px 0px;
-}
-.outline-none-important::before {
-	outline: none;
-	-webkit-appearance: none;
-	outline: 0;
-	outline-offset: 0;
-	box-shadow:
-		rgb(255, 255, 255) 0px 0px 0px 0px,
-		rgba(37, 99, 235, 0) 0px 0px 0px 2px,
-		rgba(0, 0, 0, 0) 0px 0px 0px 0px;
-}
-
 /* SCROLL BAR STYLING */
-/* We style the tray scrollbar separately from the lanes for now */
+/* We don't use REM here becasue we don't want
+the scrollbar to scale with the font size */
+.custom-scrollbar {
+	/* width */
+	&::-webkit-scrollbar {
+		width: 16px;
+		height: 16px;
+	}
 
-.tray-scroll::-webkit-scrollbar {
-	width: 0.75rem;
-	height: 0.5rem;
-}
+	/* Track */
+	&::-webkit-scrollbar-track {
+		background: transaparent;
+	}
 
-.tray-scroll::-webkit-scrollbar-track {
-	@apply bg-light-200 dark:bg-dark-900;
-}
+	/* Handle */
+	&::-webkit-scrollbar-thumb {
+		border-radius: 26px;
+		background: color-mix(in srgb, var(--clr-theme-scale-ntrl-0) 20%, transparent);
+		background-clip: content-box;
+		border: 5px solid rgba(0, 0, 0, 0);
+	}
 
-.tray-scroll::-webkit-scrollbar-thumb {
-	@apply bg-light-200 dark:bg-dark-900;
-	-webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.1);
-}
-
-.tray-scroll::-webkit-scrollbar-thumb:hover {
-	@apply bg-light-500 dark:bg-dark-700;
-}
-
-.dark .tray-scroll::-webkit-scrollbar-thumb {
-	-webkit-box-shadow: inset 0 0 6px rgba(255, 255255, 255, 0.2);
-}
-
-.dark .tray-scroll::-webkit-scrollbar-track {
-	-webkit-box-shadow: inset 0 0 1px rgba(255, 255255, 255, 0.5);
-}
-
-.lane-scroll::-webkit-scrollbar {
-	width: 0.75rem;
-	height: 8px;
+	/* Handle on hover */
+	&::-webkit-scrollbar-thumb:hover {
+		background: color-mix(in srgb, var(--clr-theme-scale-ntrl-0) 30%, transparent);
+		background-clip: content-box;
+		border: 5px solid rgba(0, 0, 0, 0);
+	}
 }
 
-.lane-scroll::-webkit-scrollbar-track {
-	@apply bg-light-200 dark:bg-dark-900;
-	-webkit-box-shadow: inset 0 0 0.0625rem rgba(0, 0, 0, 0.33);
-}
+/* scrollbar helpers */
+.hide-native-scrollbar {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
 
-.lane-scroll::-webkit-scrollbar-thumb {
-	-webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.1);
-	@apply bg-light-300 dark:bg-dark-800;
-}
-
-.lane-scroll::-webkit-scrollbar-thumb:hover {
-	@apply bg-light-500 dark:bg-dark-700;
-}
-.dark .lane-scroll::-webkit-scrollbar-thumb {
-	-webkit-box-shadow: inset 0 0 6px rgba(255, 255255, 255, 0.1);
-}
-.dark .lane-scroll::-webkit-scrollbar-track {
-	-webkit-box-shadow: inset 0 0 1px rgba(255, 255255, 255, 0.3);
+	&::-webkit-scrollbar {
+		display: none;
+	}
 }
 
 /* link */
@@ -147,34 +114,8 @@ button {
 	@apply pointer-events-none;
 }
 
-/* scrollbars */
-
-.hide-native-scrollbar {
-	-ms-overflow-style: none;
-	scrollbar-width: none;
-}
-
-.hide-native-scrollbar::-webkit-scrollbar {
-	/* hide scrollbar */
-	display: none;
-}
-
 /* Accordion uses this */
 
 .collapsed {
 	display: none;
-}
-
-/* Themes */
-
-/**
- * When using native drag & drop :hover events do not work, and per-component styles
- * are processed independently by svelte/postcss, so we don't have access to the colors
- * from there.
- */
-.new-dz-hover .new-dz-marker {
-	@apply border-color-2 text-color-2;
-}
-.lane-dz-hover .lane-dz-marker {
-	@apply text-color-3 outline-light-600;
 }
