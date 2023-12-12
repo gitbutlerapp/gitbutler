@@ -186,13 +186,10 @@ pub struct ForcePushNotAllowedError {
 }
 
 impl From<ForcePushNotAllowedError> for Error {
-    fn from(value: ForcePushNotAllowedError) -> Self {
+    fn from(_value: ForcePushNotAllowedError) -> Self {
         Error::UserError {
             code: crate::error::Code::Branches,
-            message: format!(
-                "Action will lead to force pushing, which is not allowed for project {}",
-                value.project_id
-            ),
+            message: "Action will lead to force pushing, which is not allowed for this".to_string(),
         }
     }
 }
@@ -228,6 +225,8 @@ pub enum CherryPickError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum SquashError {
+    #[error("force push not allowed")]
+    ForcePushNotAllowed(ForcePushNotAllowedError),
     #[error("default target not set")]
     DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error("commit {0} not in the branch")]
@@ -244,6 +243,8 @@ pub enum SquashError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateCommitMessageError {
+    #[error("force push not allowed")]
+    ForcePushNotAllowed(ForcePushNotAllowedError),
     #[error("empty message")]
     EmptyMessage,
     #[error("default target not set")]
@@ -261,6 +262,7 @@ pub enum UpdateCommitMessageError {
 impl From<UpdateCommitMessageError> for Error {
     fn from(value: UpdateCommitMessageError) -> Self {
         match value {
+            UpdateCommitMessageError::ForcePushNotAllowed(error) => error.into(),
             UpdateCommitMessageError::EmptyMessage => Error::UserError {
                 message: "Commit message can not be empty".to_string(),
                 code: crate::error::Code::Branches,
@@ -710,6 +712,7 @@ impl From<ListRemoteBranchesError> for Error {
 impl From<SquashError> for Error {
     fn from(value: SquashError) -> Self {
         match value {
+            SquashError::ForcePushNotAllowed(error) => error.into(),
             SquashError::DefaultTargetNotSet(error) => error.into(),
             SquashError::BranchNotFound(error) => error.into(),
             SquashError::Conflict(error) => error.into(),

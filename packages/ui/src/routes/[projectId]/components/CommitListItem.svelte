@@ -59,22 +59,28 @@
 
 	function acceptSquash(commit: Commit) {
 		return (data: any) => {
-			return (
-				isDraggableCommit(data) &&
-				data.branchId == branch.id &&
-				(commit.parentIds.includes(data.commit.id) || data.commit.parentIds.includes(commit.id))
-			);
+			if (!isDraggableCommit(data)) return false;
+			if (data.branchId != branch.id) return false;
+
+			if (data.commit.isParentOf(commit)) {
+				if (data.commit.isIntegrated) return false;
+				if (data.commit.isRemote && !project.ok_with_force_push) return false;
+				return true;
+			} else if (commit.isParentOf(data.commit)) {
+				if (commit.isIntegrated) return false;
+				if (commit.isRemote && !project.ok_with_force_push) return false;
+				return true;
+			} else {
+				return false;
+			}
 		};
 	}
 
 	function onSquash(commit: Commit) {
-		function isParentOf(commit: Commit, other: Commit) {
-			return commit.parentIds.includes(other.id);
-		}
 		return (data: DraggableCommit) => {
-			if (isParentOf(commit, data.commit)) {
+			if (data.commit.isParentOf(commit)) {
 				branchController.squashBranchCommit(data.branchId, commit.id);
-			} else if (isParentOf(data.commit, commit)) {
+			} else if (commit.isParentOf(data.commit)) {
 				branchController.squashBranchCommit(data.branchId, data.commit.id);
 			}
 		};

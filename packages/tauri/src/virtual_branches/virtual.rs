@@ -1357,9 +1357,12 @@ pub fn delete_branch(
     let branch_reader = branch::Reader::new(&current_session_reader);
     let branch_writer = branch::Writer::new(gb_repository);
 
-    let branch = branch_reader
-        .read(branch_id)
-        .context("failed to read branch")?;
+    let branch = match branch_reader.read(branch_id) {
+        Ok(branch) => Ok(branch),
+        Err(reader::Error::NotFound) => return Ok(()),
+        Err(error) => Err(error),
+    }
+    .context("failed to read branch")?;
 
     if branch.applied && unapply_branch(gb_repository, project_repository, branch_id)?.is_none() {
         return Ok(());
@@ -2837,6 +2840,27 @@ pub fn squash(
         .parent(0)
         .context("failed to find parent commit")?;
 
+    let pushed_commit_oids = branch.upstream_head.map_or_else(
+        || Ok(vec![]),
+        |upstream_head| {
+            project_repository.l(
+                upstream_head,
+                project_repository::LogUntil::Commit(default_target.sha),
+            )
+        },
+    )?;
+
+    if pushed_commit_oids.contains(&parent_commit.id())
+        && !project_repository.project().ok_with_force_push
+    {
+        // squashing into a pushed commit will cause a force push that is not allowed
+        return Err(errors::SquashError::ForcePushNotAllowed(
+            errors::ForcePushNotAllowedError {
+                project_id: project_repository.project().id,
+            },
+        ));
+    }
+
     if !branch_commit_oids.contains(&parent_commit.id()) {
         return Err(errors::SquashError::CantSquashRootCommit);
     }
@@ -3001,6 +3025,26 @@ pub fn update_commit_message(
 
     if !branch_commit_oids.contains(&commit_oid) {
         return Err(errors::UpdateCommitMessageError::CommitNotFound(commit_oid));
+    }
+
+    let pushed_commit_oids = branch.upstream_head.map_or_else(
+        || Ok(vec![]),
+        |upstream_head| {
+            project_repository.l(
+                upstream_head,
+                project_repository::LogUntil::Commit(default_target.sha),
+            )
+        },
+    )?;
+
+    if pushed_commit_oids.contains(&commit_oid) && !project_repository.project().ok_with_force_push
+    {
+        // updating the message of a pushed commit will cause a force push that is not allowed
+        return Err(errors::UpdateCommitMessageError::ForcePushNotAllowed(
+            errors::ForcePushNotAllowedError {
+                project_id: project_repository.project().id,
+            },
+        ));
     }
 
     let target_commit = project_repository
