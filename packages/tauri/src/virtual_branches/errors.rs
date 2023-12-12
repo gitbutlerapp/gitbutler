@@ -189,10 +189,7 @@ impl From<ForcePushNotAllowedError> for Error {
     fn from(value: ForcePushNotAllowedError) -> Self {
         Error::UserError {
             code: crate::error::Code::Branches,
-            message: format!(
-                "Action will lead to force pushing, which is not allowed for project {}",
-                value.project_id
-            ),
+            message: "Action will lead to force pushing, which is not allowed for this".to_string(),
         }
     }
 }
