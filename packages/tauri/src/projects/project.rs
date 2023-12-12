@@ -2,7 +2,7 @@ use std::{path, time};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{git, id::Id};
+use crate::{git, id::Id, types::default_true::DefaultTrue};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -66,7 +66,7 @@ pub struct Project {
     /// if ok_with_force_push is true, we'll not try to avoid force pushing
     /// for example, when updating base branch
     #[serde(default)]
-    pub ok_with_force_push: bool,
+    pub ok_with_force_push: DefaultTrue,
     pub api: Option<ApiProject>,
     #[serde(default)]
     pub project_data_last_fetch: Option<FetchResult>,
