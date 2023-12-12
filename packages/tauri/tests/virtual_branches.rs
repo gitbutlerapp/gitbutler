@@ -2238,6 +2238,7 @@ mod update_base_branch {
                     repository,
                     project_id,
                     controller,
+                    projects,
                     ..
                 } = Test::default();
 
@@ -2278,6 +2279,15 @@ mod update_base_branch {
                     branch_id
                 };
 
+                projects
+                    .update(&projects::UpdateRequest {
+                        id: project_id,
+                        ok_with_force_push: Some(false),
+                        ..Default::default()
+                    })
+                    .await
+                    .unwrap();
+
                 {
                     // fetch remote
                     controller.update_base_branch(&project_id).await.unwrap();
@@ -2288,7 +2298,7 @@ mod update_base_branch {
                     assert_eq!(branches.len(), 1);
                     assert_eq!(branches[0].id, branch_id);
                     assert!(branches[0].active);
-                    assert!(branches[0].requires_force);
+                    assert!(!branches[0].requires_force);
                     assert!(branches[0].base_current);
                     assert_eq!(branches[0].files.len(), 1);
                     assert_eq!(branches[0].commits.len(), 2);
@@ -3575,11 +3585,21 @@ mod amend {
             repository,
             project_id,
             controller,
+            projects,
             ..
         } = Test::default();
 
         controller
             .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        projects
+            .update(&projects::UpdateRequest {
+                id: project_id,
+                ok_with_force_push: Some(false),
+                ..Default::default()
+            })
             .await
             .unwrap();
 
@@ -4263,6 +4283,7 @@ mod squash {
             repository,
             project_id,
             controller,
+            projects,
             ..
         } = Test::default();
 
@@ -4286,6 +4307,15 @@ mod squash {
 
         controller
             .push_virtual_branch(&project_id, &branch_id, false)
+            .await
+            .unwrap();
+
+        projects
+            .update(&projects::UpdateRequest {
+                id: project_id,
+                ok_with_force_push: Some(false),
+                ..Default::default()
+            })
             .await
             .unwrap();
 
@@ -4582,11 +4612,21 @@ mod update_commit_message {
             repository,
             project_id,
             controller,
+            projects,
             ..
         } = Test::default();
 
         controller
             .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        projects
+            .update(&projects::UpdateRequest {
+                id: project_id,
+                ok_with_force_push: Some(false),
+                ..Default::default()
+            })
             .await
             .unwrap();
 
