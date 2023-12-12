@@ -1764,6 +1764,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "git2-hooks"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fa76beea92a16bbdf05842f0c6d9611bbb7eef764b34dde223359077463b800"
+dependencies = [
+ "git2",
+ "log",
+ "shellexpand",
+ "thiserror",
+]
+
+[[package]]
 name = "gitbutler"
 version = "0.0.0"
 dependencies = [
@@ -1778,6 +1790,7 @@ dependencies = [
  "filetime",
  "futures",
  "git2",
+ "git2-hooks",
  "governor",
  "itertools 0.12.0",
  "lazy_static",
@@ -4594,6 +4607,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "900fba806f70c630b0a382d0d825e17a0f19fcd059a2ade1ff237bcddf446b31"
 dependencies = [
  "lazy_static",
+]
+
+[[package]]
+name = "shellexpand"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da03fa3b94cc19e3ebfc88c4229c49d8f08cdbd1228870a45f0ffdf84988e14b"
+dependencies = [
+ "dirs",
 ]
 
 [[package]]

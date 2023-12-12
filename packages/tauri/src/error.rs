@@ -13,6 +13,7 @@ pub enum Code {
     ProjectConflict,
     ProjectHead,
     Menu,
+    Hook,
 }
 
 impl fmt::Display for Code {
@@ -27,6 +28,7 @@ impl fmt::Display for Code {
             Code::ProjectGitRemote => write!(f, "errors.projects.git.remote"),
             Code::ProjectHead => write!(f, "errors.projects.head"),
             Code::ProjectConflict => write!(f, "errors.projects.conflict"),
+            Code::Hook => write!(f, "errors.hook"),
         }
     }
 }

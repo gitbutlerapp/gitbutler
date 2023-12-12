@@ -1,6 +1,7 @@
 use std::{path, str};
 
 use git2::Submodule;
+use git2_hooks::HookResult;
 
 use crate::keys;
 
@@ -423,6 +424,11 @@ impl Repository {
             .references_glob(glob)
             .map(|iter| iter.map(|reference| reference.map(Into::into).map_err(Into::into)))
             .map_err(Into::into)
+    }
+
+    pub fn run_hook_pre_commit(&self) -> Result<HookResult> {
+        let res = git2_hooks::hooks_pre_commit(&self.0, Some(&["../.husky"]))?;
+        Ok(res)
     }
 }
 
