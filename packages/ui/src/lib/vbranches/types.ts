@@ -79,6 +79,10 @@ export class Commit {
 	files!: File[];
 	parentIds!: string[];
 	branchId!: string;
+
+	isParentOf(possibleChild: Commit) {
+		return possibleChild.parentIds.includes(this.id);
+	}
 }
 
 export class RemoteCommit {
