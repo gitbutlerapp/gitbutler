@@ -1,18 +1,19 @@
 <script lang="ts">
-	import PopupMenu from '$lib/components/PopupMenu.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import PopupMenuItem from '$lib/components/PopupMenuItem.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import { createEventDispatcher } from 'svelte';
-	import type { Writable } from 'svelte/store';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
+	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
+	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import type { Branch } from '$lib/vbranches/types';
 
 	export let branchController: BranchController;
+	export let branch: Branch;
 	export let projectId: string;
-	export let allCollapsed: Writable<boolean | undefined>;
-	export let allExpanded: Writable<boolean | undefined>;
-	let popupMenu: PopupMenu;
+	export let visible: boolean;
+
 	let deleteBranchModal: Modal;
 
 	const dispatch = createEventDispatcher<{
@@ -20,63 +21,55 @@
 	}>();
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
-
-	export function openByMouse(e: MouseEvent, item: any) {
-		popupMenu.openByMouse(e, item);
-	}
-	export function openByElement(elt: HTMLElement, item: any) {
-		popupMenu.openByElement(elt, item);
-	}
 </script>
 
-<PopupMenu bind:this={popupMenu} let:item={branch}>
-	<PopupMenuItem on:click={() => branch.id && branchController.unapplyBranch(branch.id)}>
-		Unapply
-	</PopupMenuItem>
+{#if visible}
+	<ContextMenu>
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Unapply"
+				on:click={() => branch.id && branchController.unapplyBranch(branch.id)}
+			/>
 
-	<PopupMenuItem on:click={() => deleteBranchModal.show(branch)}>Delete</PopupMenuItem>
+			<ContextMenuItem label="Delete" on:click={() => deleteBranchModal.show(branch)} />
 
-	<PopupMenuItem on:click={() => dispatch('action', 'expand')} disabled={$allExpanded}>
-		Expand all
-	</PopupMenuItem>
+			<ContextMenuItem
+				label="Generate branch name"
+				on:click={() => dispatch('action', 'generate-branch-name')}
+				disabled={!$aiGenEnabled}
+			/>
+		</ContextMenuSection>
 
-	<PopupMenuItem on:click={() => dispatch('action', 'collapse')} disabled={$allCollapsed}>
-		Collapse all
-	</PopupMenuItem>
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Create branch before"
+				on:click={() => branchController.createBranch({ order: branch.order })}
+			/>
 
-	<PopupMenuItem
-		on:click={() => dispatch('action', 'generate-branch-name')}
-		disabled={!$aiGenEnabled}
-	>
-		Generate branch name
-	</PopupMenuItem>
+			<ContextMenuItem
+				label="Create branch after"
+				on:click={() => branchController.createBranch({ order: branch.order + 1 })}
+			/>
+		</ContextMenuSection>
+	</ContextMenu>
 
-	<div class="mx-3">
-		<div class="bg-color-3 my-2 h-[0.0625rem] w-full" />
-	</div>
+	<Modal width="small" title="Delete branch" bind:this={deleteBranchModal} let:item={branch}>
+		<div>
+			Deleting <code>{branch.name}</code> cannot be undone.
+		</div>
+		<svelte:fragment slot="controls" let:close let:item={branch}>
+			<Button kind="outlined" on:click={close}>Cancel</Button>
+			<Button
+				color="error"
+				on:click={async () => {
+					await branchController.deleteBranch(branch.id);
+				}}
+			>
+				Delete
+			</Button>
+		</svelte:fragment>
+	</Modal>
+{/if}
 
-	<PopupMenuItem on:click={() => branchController.createBranch({ order: branch.order })}>
-		Create branch before
-	</PopupMenuItem>
-
-	<PopupMenuItem on:click={() => branchController.createBranch({ order: branch.order + 1 })}>
-		Create branch after
-	</PopupMenuItem>
-</PopupMenu>
-
-<Modal width="small" title="Delete branch" bind:this={deleteBranchModal} let:item={branch}>
-	<div>
-		Deleting <code>{branch.name}</code> cannot be undone.
-	</div>
-	<svelte:fragment slot="controls" let:close let:item={branch}>
-		<Button kind="outlined" on:click={close}>Cancel</Button>
-		<Button
-			color="error"
-			on:click={async () => {
-				await branchController.deleteBranch(branch.id);
-			}}
-		>
-			Delete
-		</Button>
-	</svelte:fragment>
-</Modal>
+<style lang="postcss">
+</style>

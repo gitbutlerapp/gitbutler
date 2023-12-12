@@ -21,6 +21,7 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { Writable } from 'svelte/store';
 	import { createEventDispatcher } from 'svelte';
+	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 
 	const dispatch = createEventDispatcher<{
 		action: 'generate-branch-name';
@@ -127,17 +128,19 @@
 				on:click={() => generateCommitMessage(branch.files)}
 			>
 				Generate message
-				<ContextMenu type="checklist" slot="popup" bind:this={contextMenu}>
-					<ContextMenuItem
-						checked={$commitGenerationExtraConcise}
-						label="Extra concise"
-						on:click={() => commitGenerationExtraConcise.update((value) => !value)}
-					/>
-					<ContextMenuItem
-						checked={$commitGenerationUseEmojis}
-						label="Use emojis 😎"
-						on:click={() => commitGenerationUseEmojis.update((value) => !value)}
-					/>
+				<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
+					<ContextMenuSection>
+						<ContextMenuItem
+							checked={$commitGenerationExtraConcise}
+							label="Extra concise"
+							on:click={() => commitGenerationExtraConcise.update((value) => !value)}
+						/>
+						<ContextMenuItem
+							checked={$commitGenerationUseEmojis}
+							label="Use emojis 😎"
+							on:click={() => commitGenerationUseEmojis.update((value) => !value)}
+						/>
+					</ContextMenuSection>
 				</ContextMenu>
 			</DropDown>
 		</Tooltip>
