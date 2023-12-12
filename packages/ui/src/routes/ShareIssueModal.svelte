@@ -79,7 +79,7 @@
 	};
 </script>
 
-<Modal bind:this={modal} title="Share debug data with GitButler team for review" on:close={onClose}>
+<Modal bind:this={modal} on:close={onClose} title="Share debug data with GitButler team for review">
 	<div class="flex flex-col gap-4">
 		<p class="text-color-3">
 			If you are having trouble, please share your project and logs with the Gitbutler team. We will

@@ -5,6 +5,8 @@
 
 	let open = false;
 
+	export let width: 'default' | 'small' | 'large' = 'default';
+
 	export function show() {
 		if (open) return;
 		dialog.showModal();
@@ -21,24 +23,54 @@
 	}
 </script>
 
-<dialog class="dialog-overlay" bind:this={dialog} on:close={close} on:close>
+<dialog
+	class="dialog"
+	class:open-modal={open}
+	class:s-default={width == 'default'}
+	class:s-small={width == 'small'}
+	class:s-large={width == 'large'}
+	bind:this={dialog}
+	on:close={close}
+	on:close
+>
 	{#if open}
 		<OutClick on:outclick={close}>
-			<div class="flex">
-				<slot {close} isOpen={open} />
-			</div>
+			<slot {close} isOpen={open} />
 		</OutClick>
 	{/if}
 </dialog>
 
 <style lang="postcss">
-	.dialog-overlay {
+	.dialog {
+		flex-direction: column;
+		position: relative;
+		width: 100%;
 		max-height: calc(100vh - 5rem);
 		border-radius: var(--radius-l);
 		background-color: var(--clr-theme-container-light);
+		border: 1px solid var(--clr-theme-container-outline-light);
+		box-shadow: var(--fx-shadow-l);
 
 		&::backdrop {
 			background-color: var(--clr-theme-overlay-bg);
 		}
+	}
+
+	/* modifiers */
+
+	.s-large {
+		max-width: calc(var(--space-64) * 13);
+	}
+
+	.s-default {
+		max-width: calc(var(--space-64) * 10);
+	}
+
+	.s-small {
+		max-width: calc(var(--space-64) * 6);
+	}
+
+	.open-modal {
+		display: flex;
 	}
 </style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { open } from '@tauri-apps/api/shell';
 	import { RemoteFile, type RemoteCommit, Commit } from '$lib/vbranches/types';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
@@ -9,7 +10,6 @@
 	import { plainToInstance } from 'class-transformer';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import Link from '$lib/components/Link.svelte';
 	import Tag from '../components/Tag.svelte';
 	import { draggableCommit, nonDraggable } from '$lib/draggables';
 	import { draggable } from '$lib/utils/draggable';
@@ -94,98 +94,100 @@
 	</div>
 </div>
 
-<Modal width="large" bind:this={previewCommitModal}>
-	<div class="flex w-full flex-col gap-4 overflow-x-hidden">
-		<div>
-			<Link target="_blank" rel="noreferrer" href={commitUrl} class="text-3">
-				{commit.description}
-			</Link>
-		</div>
-		<div class="overflow-y-scroll">
-			{#if isLoading}
-				<div class="flex w-full justify-center">
-					<div class="border-gray-900 h-32 w-32 animate-spin rounded-full border-b-2" />
-				</div>
-			{:else}
-				{#each entries as [filepath, sections]}
-					<div>
-						<div
-							class="text-color-3 flex flex-grow items-center overflow-hidden text-ellipsis whitespace-nowrap px-2 font-bold"
-							title={filepath}
-						>
-							<img
-								src={getVSIFileIcon(filepath)}
-								alt="js"
-								width="13"
-								style="width: 0.8125rem"
-								class="mr-1 inline"
-							/>
+<Modal width="large" bind:this={previewCommitModal} icon="commit" title={commit.description}>
+	<svelte:fragment slot="header_controls">
+		{#if commitUrl}
+			<Button
+				color="neutral"
+				kind="outlined"
+				icon="open-link"
+				on:click={() => {
+					if (commitUrl) open(commitUrl);
+				}}>Open commit</Button
+			>
+		{/if}
+	</svelte:fragment>
 
-							{filepath}
-						</div>
-						<div class="flex flex-col rounded px-2">
+	<div class="commit-modal__body">
+		{#if isLoading}
+			<div class="flex w-full justify-center">
+				<div class="border-gray-900 h-8 w-8 animate-spin rounded-full border-b-2" />
+			</div>
+		{:else}
+			{#each entries as [filepath, sections]}
+				<div class="commit-modal__file-section">
+					<div
+						class="text-color-3 flex flex-grow items-center overflow-hidden text-ellipsis whitespace-nowrap font-bold"
+						title={filepath}
+					>
+						<img
+							src={getVSIFileIcon(filepath)}
+							alt="js"
+							width="13"
+							style="width: 0.8125rem"
+							class="mr-1 inline"
+						/>
+
+						{filepath}
+					</div>
+					<div class="commit-modal__code-container custom-scrollbar">
+						<div class="commit-modal__code-wrapper">
 							{#each sections as section}
 								{#if 'hunk' in section}
-									<div class="border-color-4 my-1 flex w-full flex-col overflow-hidden rounded">
-										<div class="w-full overflow-hidden">
-											{#each section.subSections as subsection, sidx}
-												{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
-													<RenderedLine
-														{line}
-														{minWidth}
-														sectionType={subsection.sectionType}
-														filePath={filepath}
-													/>
-												{/each}
-												{#if !subsection.expanded}
-													<div
-														class="border-color-4 flex w-full"
-														class:border-t={sidx == section.subSections.length - 1 ||
-															(sidx > 0 && sidx < section.subSections.length - 1)}
-														class:border-b={sidx == 0 ||
-															(sidx > 0 && sidx < section.subSections.length - 1)}
+									{#each section.subSections as subsection, sidx}
+										{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
+											<RenderedLine
+												{line}
+												{minWidth}
+												sectionType={subsection.sectionType}
+												filePath={filepath}
+											/>
+										{/each}
+										{#if !subsection.expanded}
+											<div
+												class="border-color-4 flex w-full"
+												class:border-t={sidx == section.subSections.length - 1 ||
+													(sidx > 0 && sidx < section.subSections.length - 1)}
+												class:border-b={sidx == 0 ||
+													(sidx > 0 && sidx < section.subSections.length - 1)}
+											>
+												<div
+													class="bg-color-4 text-color-4 hover:text-color-2 border-color-4 border-r text-center"
+													style:min-width={`calc(${2 * minWidth}rem - 1px)`}
+												>
+													<button
+														class="flex justify-center py-0.5 text-sm"
+														style:width={`calc(${2 * minWidth}rem - 1px)`}
+														on:click={() => {
+															if ('expanded' in subsection) {
+																subsection.expanded = true;
+															}
+														}}
 													>
-														<div
-															class="bg-color-4 text-color-4 hover:text-color-2 border-color-4 border-r text-center"
-															style:min-width={`calc(${2 * minWidth}rem - 1px)`}
-														>
-															<button
-																class="flex justify-center py-0.5 text-sm"
-																style:width={`calc(${2 * minWidth}rem - 1px)`}
-																on:click={() => {
-																	if ('expanded' in subsection) {
-																		subsection.expanded = true;
-																	}
-																}}
-															>
-																{#if sidx == 0}
-																	<IconExpandUp />
-																{:else if sidx == section.subSections.length - 1}
-																	<IconExpandDown />
-																{:else}
-																	<IconExpandUpDown />
-																{/if}
-															</button>
-														</div>
-														<div class="bg-color-4 flex-grow" />
-													</div>
-												{/if}
-											{/each}
-										</div>
-									</div>
+														{#if sidx == 0}
+															<IconExpandUp />
+														{:else if sidx == section.subSections.length - 1}
+															<IconExpandDown />
+														{:else}
+															<IconExpandUpDown />
+														{/if}
+													</button>
+												</div>
+												<div class="bg-color-4 flex-grow" />
+											</div>
+										{/if}
+									{/each}
 								{/if}
 							{/each}
 						</div>
 					</div>
-				{/each}
-			{/if}
-		</div>
+				</div>
+			{/each}
+		{/if}
 	</div>
 
 	<svelte:fragment slot="controls">
-		<div class="px-4">
-			<Button color="primary" on:click={() => previewCommitModal.close()}>Close</Button>
-		</div>
+		<Button color="primary" on:click={() => previewCommitModal.close()}>Close</Button>
 	</svelte:fragment>
 </Modal>
 
@@ -258,5 +260,34 @@
 
 	.is-head-commit {
 		gap: var(--space-6);
+	}
+
+	/* modal */
+	.commit-modal__code-container {
+		display: flex;
+		flex-direction: column;
+		border-radius: var(--radius-m);
+		border: 1px solid var(--clr-theme-container-outline-light);
+		overflow-x: auto;
+		overflow-y: hidden;
+	}
+
+	.commit-modal__code-wrapper {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		min-width: max-content;
+	}
+
+	.commit-modal__file-section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-12);
+	}
+
+	.commit-modal__body {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-20);
 	}
 </style>

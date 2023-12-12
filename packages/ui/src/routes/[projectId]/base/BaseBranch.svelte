@@ -70,8 +70,7 @@
 	</div>
 </div>
 
-<Modal width="small" bind:this={updateTargetModal}>
-	<svelte:fragment slot="title">Merge Upstream Work</svelte:fragment>
+<Modal width="small" bind:this={updateTargetModal} title="Merge Upstream Work">
 	<div class="flex flex-col space-y-4">
 		<p class="text-blue-600">You are about to merge upstream work from your base branch.</p>
 		<p class="font-bold">What will this do?</p>

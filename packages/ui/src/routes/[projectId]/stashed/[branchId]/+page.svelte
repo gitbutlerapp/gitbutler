@@ -98,8 +98,7 @@
 	{/if}
 </div>
 
-<Modal width="small" bind:this={applyConflictedModal}>
-	<svelte:fragment slot="title">Merge conflicts</svelte:fragment>
+<Modal width="small" title="Merge conflicts" bind:this={applyConflictedModal}>
 	<p>Applying this branch will introduce merge conflicts.</p>
 	<svelte:fragment slot="controls" let:item let:close>
 		<Button kind="outlined" on:click={close}>Cancel</Button>
@@ -116,8 +115,7 @@
 	</svelte:fragment>
 </Modal>
 
-<Modal width="small" bind:this={deleteBranchModal} let:item>
-	<svelte:fragment slot="title">Delete branch</svelte:fragment>
+<Modal width="small" title="Delete branch" bind:this={deleteBranchModal} let:item>
 	<div>
 		Deleting <code>{item.name}</code> cannot be undone.
 	</div>
