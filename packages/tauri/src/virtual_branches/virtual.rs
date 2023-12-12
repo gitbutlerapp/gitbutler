@@ -2837,6 +2837,28 @@ pub fn squash(
         .parent(0)
         .context("failed to find parent commit")?;
 
+    if branch
+        .upstream_head
+        .map_or_else(
+            || Ok(vec![]),
+            |upstream_head| {
+                project_repository.l(
+                    upstream_head,
+                    project_repository::LogUntil::Commit(default_target.sha),
+                )
+            },
+        )?
+        .contains(&parent_commit.id())
+        && !project_repository.project().ok_with_force_push
+    {
+        // squashing into a pushed commit will cause a force push that is not allowed
+        return Err(errors::SquashError::ForcePushNotAllowed(
+            errors::ForcePushNotAllowedError {
+                project_id: project_repository.project().id,
+            },
+        ));
+    }
+
     if !branch_commit_oids.contains(&parent_commit.id()) {
         return Err(errors::SquashError::CantSquashRootCommit);
     }

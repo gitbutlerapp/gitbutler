@@ -228,6 +228,8 @@ pub enum CherryPickError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum SquashError {
+    #[error("force push not allowed")]
+    ForcePushNotAllowed(ForcePushNotAllowedError),
     #[error("default target not set")]
     DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error("commit {0} not in the branch")]
@@ -710,6 +712,7 @@ impl From<ListRemoteBranchesError> for Error {
 impl From<SquashError> for Error {
     fn from(value: SquashError) -> Self {
         match value {
+            SquashError::ForcePushNotAllowed(error) => error.into(),
             SquashError::DefaultTargetNotSet(error) => error.into(),
             SquashError::BranchNotFound(error) => error.into(),
             SquashError::Conflict(error) => error.into(),
