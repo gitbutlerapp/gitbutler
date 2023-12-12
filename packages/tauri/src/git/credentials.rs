@@ -37,6 +37,8 @@ impl From<Credential> for git2::RemoteCallbacks<'_> {
                 passphrase,
             }) => {
                 remote_callbacks.credentials(move |url, _username_from_url, _allowed_types| {
+                    use resolve_path::PathResolveExt;
+                    let key_path = key_path.resolve();
                     tracing::info!(
                         "authenticating with {} using key {}",
                         url,
@@ -172,9 +174,7 @@ impl Helper {
             flow.push((
                 ssh_remote,
                 vec![Credential::Ssh(SshCredential::Keyfile {
-                    key_path: private_key_path
-                        .canonicalize()
-                        .unwrap_or(private_key_path.clone()),
+                    key_path: private_key_path.clone(),
                     passphrase: passphrase.clone(),
                 })],
             ));
@@ -257,9 +257,7 @@ impl Helper {
             return Ok(vec![(
                 ssh_remote,
                 vec![Credential::Ssh(SshCredential::Keyfile {
-                    key_path: private_key_path
-                        .canonicalize()
-                        .unwrap_or(private_key_path.clone()),
+                    key_path: private_key_path.clone(),
                     passphrase: passphrase.clone(),
                 })],
             )]);
@@ -407,7 +405,6 @@ impl Helper {
         let mut flow = vec![];
         if let Some(home_path) = self.home_dir.as_ref() {
             let id_rsa_path = home_path.join(".ssh").join("id_rsa");
-            let id_rsa_path = id_rsa_path.canonicalize().unwrap_or(id_rsa_path);
             if id_rsa_path.exists() {
                 flow.push(SshCredential::Keyfile {
                     key_path: id_rsa_path.clone(),
@@ -416,7 +413,6 @@ impl Helper {
             }
 
             let id_ed25519_path = home_path.join(".ssh").join("id_ed25519");
-            let id_ed25519_path = id_ed25519_path.canonicalize().unwrap_or(id_ed25519_path);
             if id_ed25519_path.exists() {
                 flow.push(SshCredential::Keyfile {
                     key_path: id_ed25519_path.clone(),
@@ -425,7 +421,6 @@ impl Helper {
             }
 
             let id_ecdsa_path = home_path.join(".ssh").join("id_ecdsa");
-            let id_ecdsa_path = id_ecdsa_path.canonicalize().unwrap_or(id_ecdsa_path);
             if id_ecdsa_path.exists() {
                 flow.push(SshCredential::Keyfile {
                     key_path: id_ecdsa_path.clone(),
