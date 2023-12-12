@@ -91,7 +91,7 @@
 	.header__info {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-6);
+		gap: var(--space-8);
 		width: 100%;
 	}
 	.header__tags {
