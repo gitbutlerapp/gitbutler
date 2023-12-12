@@ -284,7 +284,8 @@
 	.commit-modal__code-wrapper {
 		display: flex;
 		flex-direction: column;
-		width: max-content;
+		width: 100%;
+		min-width: max-content;
 	}
 
 	.commit-modal__file-section {
