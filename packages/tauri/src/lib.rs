@@ -24,6 +24,7 @@ pub mod sentry;
 pub mod sessions;
 pub mod ssh;
 pub mod storage;
+pub mod types;
 pub mod users;
 pub mod virtual_branches;
 pub mod watcher;
