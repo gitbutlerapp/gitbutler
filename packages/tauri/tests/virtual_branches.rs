@@ -2492,6 +2492,130 @@ mod update_base_branch {
         }
 
         #[tokio::test]
+        async fn integrated_with_locked_hunks() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+                ..
+            } = Test::default();
+
+            controller
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                .await
+                .unwrap();
+
+            let branch_id = {
+                // make a branch that conflicts with the remote branch, but doesn't know about it yet
+                let branch_id = controller
+                    .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+                    .await
+                    .unwrap();
+
+                fs::write(repository.path().join("file.txt"), "first").unwrap();
+
+                controller
+                    .create_commit(&project_id, &branch_id, "first", None)
+                    .await
+                    .unwrap();
+
+                branch_id
+            };
+
+            controller
+                .push_virtual_branch(&project_id, &branch_id, false)
+                .await
+                .unwrap();
+
+            // another non-locked hunk
+            fs::write(repository.path().join("file.txt"), "first\nsecond").unwrap();
+
+            {
+                // push and merge branch remotely
+                let branch =
+                    controller.list_virtual_branches(&project_id).await.unwrap()[0].clone();
+                repository.merge(&branch.upstream.as_ref().unwrap().name);
+            }
+
+            repository.fetch();
+
+            {
+                controller.update_base_branch(&project_id).await.unwrap();
+
+                // removes integrated commit, leaves non commited work as is
+
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(!branches[0].active);
+                assert!(branches[0].commits.is_empty());
+                assert!(!branches[0].files.is_empty());
+            }
+        }
+
+        #[tokio::test]
+        async fn integrated_with_non_locked_hunks() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+                ..
+            } = Test::default();
+
+            controller
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                .await
+                .unwrap();
+
+            let branch_id = {
+                // make a branch that conflicts with the remote branch, but doesn't know about it yet
+                let branch_id = controller
+                    .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+                    .await
+                    .unwrap();
+
+                fs::write(repository.path().join("file.txt"), "first").unwrap();
+
+                controller
+                    .create_commit(&project_id, &branch_id, "first", None)
+                    .await
+                    .unwrap();
+
+                branch_id
+            };
+
+            controller
+                .push_virtual_branch(&project_id, &branch_id, false)
+                .await
+                .unwrap();
+
+            // another non-locked hunk
+            fs::write(repository.path().join("another_file.txt"), "first").unwrap();
+
+            {
+                // push and merge branch remotely
+                let branch =
+                    controller.list_virtual_branches(&project_id).await.unwrap()[0].clone();
+                repository.merge(&branch.upstream.as_ref().unwrap().name);
+            }
+
+            repository.fetch();
+
+            {
+                controller.update_base_branch(&project_id).await.unwrap();
+
+                // removes integrated commit, leaves non commited work as is
+
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(branches[0].active);
+                assert!(branches[0].commits.is_empty());
+                assert!(!branches[0].files.is_empty());
+            }
+        }
+
+        #[tokio::test]
         async fn all_integrated() {
             let Test {
                 repository,
