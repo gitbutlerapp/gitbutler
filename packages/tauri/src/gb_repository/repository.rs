@@ -748,16 +748,18 @@ fn add_wd_path(
     };
 
     // create a new IndexEntry from the file metadata
+    // truncation is ok https://libgit2.org/libgit2/#HEAD/type/git_index_entry
+    #[allow(clippy::cast_possible_truncation)]
     index
         .add(&git::IndexEntry {
             ctime: create_time,
             mtime: modify_time,
-            dev: metadata.dev().try_into()?,
-            ino: metadata.ino().try_into()?,
+            dev: metadata.dev() as u32,
+            ino: metadata.ino() as u32,
             mode: 33188,
             uid: metadata.uid(),
             gid: metadata.gid(),
-            file_size: metadata.len().try_into().unwrap(),
+            file_size: metadata.len() as u32,
             flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
             flags_extended: 0, // no extended flags
             path: rel_file_path.to_str().unwrap().to_string().into(),
@@ -852,16 +854,18 @@ fn add_file_to_index(
     let create_time = FileTime::from_creation_time(&metadata).unwrap_or(modified_time);
 
     // create a new IndexEntry from the file metadata
+    // truncation is ok https://libgit2.org/libgit2/#HEAD/type/git_index_entry
+    #[allow(clippy::cast_possible_truncation)]
     index
         .add(&git::IndexEntry {
             ctime: create_time,
             mtime: modified_time,
-            dev: metadata.dev().try_into()?,
-            ino: metadata.ino().try_into()?,
+            dev: metadata.dev() as u32,
+            ino: metadata.ino() as u32,
             mode: 33188,
             uid: metadata.uid(),
             gid: metadata.gid(),
-            file_size: metadata.len().try_into()?,
+            file_size: metadata.len() as u32,
             flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
             flags_extended: 0, // no extended flags
             path: rel_file_path.to_str().unwrap().into(),
