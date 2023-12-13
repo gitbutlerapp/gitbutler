@@ -80,6 +80,10 @@ export class Commit {
 	parentIds!: string[];
 	branchId!: string;
 
+	get isLocal() {
+		return !this.isRemote && !this.isIntegrated;
+	}
+
 	isParentOf(possibleChild: Commit) {
 		return possibleChild.parentIds.includes(this.id);
 	}
@@ -91,6 +95,10 @@ export class RemoteCommit {
 	description!: string;
 	@Transform((obj) => new Date(obj.value * 1000))
 	createdAt!: Date;
+
+	get isLocal() {
+		return false;
+	}
 }
 
 export class RemoteHunk {
