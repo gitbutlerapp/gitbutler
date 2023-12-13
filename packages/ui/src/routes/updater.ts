@@ -1,13 +1,10 @@
 import { asyncWritable, type Loadable } from '@square/svelte-store';
 import { checkUpdate, installUpdate } from '@tauri-apps/api/updater';
 
-export type Update =
-	| { enabled: false }
-	| { enabled: true; shouldUpdate: false }
-	| { enabled: true; shouldUpdate: true; body: string; version: string };
+export type Update = { enabled: boolean; shouldUpdate?: boolean; body?: string; version?: string };
 
 export function newUpdateStore(): Loadable<Update> {
-	return asyncWritable(
+	const updateStore = asyncWritable(
 		[],
 		async () => {
 			const update = await checkUpdate();
@@ -27,6 +24,13 @@ export function newUpdateStore(): Loadable<Update> {
 		async (data) => data,
 		{ trackState: true, reloadable: true }
 	);
+
+	setInterval(() => {
+		// Check for updates every 12h
+		if (updateStore.reload) updateStore.reload();
+	}, 43200 * 1000);
+
+	return updateStore;
 }
 
 export async function install() {
