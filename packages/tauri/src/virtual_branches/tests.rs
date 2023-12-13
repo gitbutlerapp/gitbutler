@@ -18,7 +18,7 @@ use crate::{
 };
 
 use super::*;
-use branch::{Branch, BranchCreateRequest, Ownership};
+use branch::{BranchCreateRequest, Ownership};
 
 pub fn set_test_target(
     gb_repo: &gb_repository::Repository,
@@ -731,20 +731,16 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
     let branch_reader = branch::Reader::new(&current_session_reader);
     let branch_writer = branch::Writer::new(&gb_repository);
-    let branch2 = branch_reader.read(&branch2_id)?;
-    branch_writer.write(&branch::Branch {
-        ownership: Ownership {
-            files: vec!["test.txt:1-5".parse()?],
-        },
-        ..branch2
-    })?;
-    let branch1 = branch_reader.read(&branch1_id)?;
-    branch_writer.write(&branch::Branch {
-        ownership: Ownership {
-            files: vec!["test.txt:11-15".parse()?],
-        },
-        ..branch1
-    })?;
+    let mut branch2 = branch_reader.read(&branch2_id)?;
+    branch2.ownership = Ownership {
+        files: vec!["test.txt:1-5".parse()?],
+    };
+    branch_writer.write(&mut branch2)?;
+    let mut branch1 = branch_reader.read(&branch1_id)?;
+    branch1.ownership = Ownership {
+        files: vec!["test.txt:11-15".parse()?],
+    };
+    branch_writer.write(&mut branch1)?;
 
     let statuses =
         get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
@@ -1030,7 +1026,7 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
     branch.upstream = Some(remote_branch.clone());
     branch.head = last_push;
     branch_writer
-        .write(&branch)
+        .write(&mut branch)
         .context("failed to write target branch after push")?;
 
     // create the branch
@@ -1159,7 +1155,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
     branch.upstream = Some(remote_branch.clone());
     branch.head = last_push;
     branch_writer
-        .write(&branch)
+        .write(&mut branch)
         .context("failed to write target branch after push")?;
 
     // create the branch
@@ -1667,13 +1663,11 @@ fn test_detect_mergeable_branch() -> Result<()> {
         "line1\nline2\nline3\nline4\nbranch4\n",
     )?;
 
-    let branch4 = branch_reader.read(&branch4_id)?;
-    branch_writer.write(&Branch {
-        ownership: Ownership {
-            files: vec!["test2.txt:1-6".parse()?],
-        },
-        ..branch4
-    })?;
+    let mut branch4 = branch_reader.read(&branch4_id)?;
+    branch4.ownership = Ownership {
+        files: vec!["test2.txt:1-6".parse()?],
+    };
+    branch_writer.write(&mut branch4)?;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
     assert_eq!(branches.len(), 4);

@@ -165,7 +165,7 @@ mod tests {
     fn test_write() -> Result<()> {
         let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let branch = test_branch();
+        let mut branch = test_branch();
         let target = Target {
             branch: "refs/remotes/remote name/branch name".parse().unwrap(),
             remote_url: "remote url".to_string(),
@@ -174,7 +174,7 @@ mod tests {
         };
 
         let branch_writer = branch::Writer::new(&gb_repository);
-        branch_writer.write(&branch)?;
+        branch_writer.write(&mut branch)?;
 
         let target_writer = TargetWriter::new(&gb_repository);
         target_writer.write(&branch.id, &target)?;
@@ -263,7 +263,7 @@ mod tests {
     fn test_should_update() -> Result<()> {
         let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let branch = test_branch();
+        let mut branch = test_branch();
         let target = Target {
             branch: "refs/remotes/remote name/branch name".parse().unwrap(),
             remote_url: "remote url".to_string(),
@@ -272,7 +272,7 @@ mod tests {
         };
 
         let branch_writer = branch::Writer::new(&gb_repository);
-        branch_writer.write(&branch)?;
+        branch_writer.write(&mut branch)?;
         let target_writer = TargetWriter::new(&gb_repository);
         target_writer.write(&branch.id, &target)?;
 

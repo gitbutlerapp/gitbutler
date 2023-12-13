@@ -49,6 +49,7 @@ pub struct VirtualBranch {
     pub upstream: Option<RemoteBranch>, // the upstream branch where this branch pushes to, if any
     pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
     pub ownership: Ownership,
+    pub updated_timestamp_ms: u128,
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -231,20 +232,18 @@ pub fn apply_branch(
 
         if merge_index.has_conflicts() {
             // currently we can only deal with the merge problem branch
-            for branch in super::get_status_by_branch(gb_repository, project_repository)?
+            for mut branch in super::get_status_by_branch(gb_repository, project_repository)?
                 .into_iter()
                 .map(|(branch, _)| branch)
                 .filter(|branch| branch.applied)
             {
-                writer.write(&branch::Branch {
-                    applied: false,
-                    ..branch
-                })?;
+                branch.applied = false;
+                writer.write(&mut branch)?;
             }
 
             // apply the branch
             branch.applied = true;
-            writer.write(&branch)?;
+            writer.write(&mut branch)?;
 
             // checkout the conflicts
             repo.checkout_index(&mut merge_index)
@@ -309,7 +308,7 @@ pub fn apply_branch(
             // ok, update the virtual branch
             branch.head = new_branch_head;
             branch.tree = merged_branch_tree_oid;
-            writer.write(&branch)?;
+            writer.write(&mut branch)?;
         } else {
             // branch was not pushed to upstream yet. attempt a rebase,
             let (_, committer) = project_repository.git_signatures(user)?;
@@ -401,7 +400,7 @@ pub fn apply_branch(
 
     // apply the branch
     branch.applied = true;
-    writer.write(&branch)?;
+    writer.write(&mut branch)?;
 
     // checkout the merge index
     repo.checkout_index(&mut merge_index)
@@ -468,7 +467,7 @@ pub fn unapply_ownership(
                 if taken_file_ownerships.is_empty() {
                     continue;
                 }
-                branch_writer.write(&branch)?;
+                branch_writer.write(&mut branch)?;
                 branch_files = branch_files
                     .iter_mut()
                     .filter_map(|(filepath, hunks)| {
@@ -611,7 +610,7 @@ pub fn unapply_branch(
 
         target_branch.tree = write_tree(project_repository, &default_target, files)?;
         target_branch.applied = false;
-        branch_writer.write(&target_branch)?;
+        branch_writer.write(&mut target_branch)?;
     }
 
     let repo = &project_repository.git_repository;
@@ -831,6 +830,7 @@ pub fn list_virtual_branches(
             conflicted: conflicts::is_resolving(project_repository),
             base_current,
             ownership: branch.ownership.clone(),
+            updated_timestamp_ms: branch.updated_timestamp_ms,
         };
         branches.push(branch);
     }
@@ -1049,7 +1049,7 @@ pub fn create_virtual_branch(
         if branch.order != new_order {
             branch.order = new_order;
             branch_writer
-                .write(&branch)
+                .write(&mut branch)
                 .context("failed to write branch")?;
         }
     }
@@ -1092,7 +1092,7 @@ pub fn create_virtual_branch(
     }
 
     branch_writer
-        .write(&branch)
+        .write(&mut branch)
         .context("failed to write branch")?;
 
     project_repository.add_branch_reference(&branch)?;
@@ -1255,7 +1255,7 @@ pub fn merge_virtual_branch_upstream(
         let branch_writer = branch::Writer::new(gb_repository);
         branch.head = new_branch_head;
         branch.tree = merge_tree_oid;
-        branch_writer.write(&branch)?;
+        branch_writer.write(&mut branch)?;
     }
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
@@ -1339,7 +1339,7 @@ pub fn update_branch(
     };
 
     branch_writer
-        .write(&branch)
+        .write(&mut branch)
         .context("failed to write target branch")?;
 
     Ok(branch)
@@ -1796,7 +1796,7 @@ pub fn reset_branch(
         })?;
 
     let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch = match branch_reader.read(branch_id) {
+    let mut branch = match branch_reader.read(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::ResetBranchError::BranchNotFound(
             errors::BranchNotFoundError {
@@ -1823,11 +1823,9 @@ pub fn reset_branch(
     }
 
     let branch_writer = branch::Writer::new(gb_repository);
+    branch.head = target_commit_oid;
     branch_writer
-        .write(&branch::Branch {
-            head: target_commit_oid,
-            ..branch
-        })
+        .write(&mut branch)
         .context("failed to write branch")?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)
@@ -2029,11 +2027,11 @@ pub fn commit(
         })?;
 
     // get the files to commit
-    let statuses = get_status_by_branch(gb_repository, project_repository)
+    let mut statuses = get_status_by_branch(gb_repository, project_repository)
         .context("failed to get status by branch")?;
 
-    let (branch, files) = statuses
-        .iter()
+    let (ref mut branch, files) = statuses
+        .iter_mut()
         .find(|(branch, _)| branch.id == *branch_id)
         .ok_or_else(|| {
             errors::CommitError::BranchNotFound(errors::BranchNotFoundError {
@@ -2115,13 +2113,9 @@ pub fn commit(
 
     // update the virtual branch head
     let writer = branch::Writer::new(gb_repository);
-    writer
-        .write(&Branch {
-            tree: tree_oid,
-            head: commit_oid,
-            ..branch.clone()
-        })
-        .context("failed to write branch")?;
+    branch.tree = tree_oid;
+    branch.head = commit_oid;
+    writer.write(branch).context("failed to write branch")?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)
         .context("failed to update gitbutler integration")?;
@@ -2147,7 +2141,7 @@ pub fn push(
     let branch_reader = branch::Reader::new(&current_session_reader);
     let branch_writer = branch::Writer::new(gb_repository);
 
-    let vbranch = branch_reader.read(branch_id).map_err(|error| match error {
+    let mut vbranch = branch_reader.read(branch_id).map_err(|error| match error {
         reader::Error::NotFound => errors::PushError::BranchNotFound(errors::BranchNotFoundError {
             project_id: project_repository.project().id,
             branch_id: *branch_id,
@@ -2193,12 +2187,10 @@ pub fn push(
 
     project_repository.push(&vbranch.head, &remote_branch, with_force, credentials)?;
 
+    vbranch.upstream = Some(remote_branch.clone());
+    vbranch.upstream_head = Some(vbranch.head);
     branch_writer
-        .write(&branch::Branch {
-            upstream: Some(remote_branch.clone()),
-            upstream_head: Some(vbranch.head),
-            ..vbranch
-        })
+        .write(&mut vbranch)
         .context("failed to write target branch after push")?;
 
     project_repository.fetch(remote_branch.remote(), credentials)?;
@@ -2216,11 +2208,9 @@ pub fn mark_all_unapplied(gb_repository: &gb_repository::Repository) -> Result<(
         .context("failed to read branches")?
         .into_iter()
         .filter(|branch| branch.applied)
-        .map(|branch| {
-            branch_writer.write(&super::Branch {
-                applied: false,
-                ..branch
-            })
+        .map(|mut branch| {
+            branch.applied = false;
+            branch_writer.write(&mut branch)
         })
         .collect::<Result<Vec<_>, _>>()
         .context("failed to write branches")?;
@@ -2487,15 +2477,15 @@ pub fn amend(
             })
         })?;
 
-    let applied_statuses = get_applied_status(
+    let mut applied_statuses = get_applied_status(
         gb_repository,
         project_repository,
         &default_target,
         applied_branches,
     )?;
 
-    let (target_branch, target_status) = applied_statuses
-        .iter()
+    let (ref mut target_branch, target_status) = applied_statuses
+        .iter_mut()
         .find(|(b, _)| b.id == *branch_id)
         .ok_or_else(|| {
             errors::AmendError::BranchNotFound(errors::BranchNotFoundError {
@@ -2592,10 +2582,8 @@ pub fn amend(
         .context("failed to create commit")?;
 
     let branch_writer = branch::Writer::new(gb_repository);
-    branch_writer.write(&branch::Branch {
-        head: commit_oid,
-        ..target_branch.clone()
-    })?;
+    target_branch.head = commit_oid;
+    branch_writer.write(target_branch)?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
@@ -2622,7 +2610,7 @@ pub fn cherry_pick(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
     let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch = branch_reader
+    let mut branch = branch_reader
         .read(branch_id)
         .context("failed to read branch")?;
 
@@ -2776,11 +2764,9 @@ pub fn cherry_pick(
 
         // update branch status
         let writer = branch::Writer::new(gb_repository);
+        branch.head = commit_oid;
         writer
-            .write(&Branch {
-                head: commit_oid,
-                ..branch.clone()
-            })
+            .write(&mut branch)
             .context("failed to write branch")?;
 
         Some(commit_oid)
@@ -2822,7 +2808,7 @@ pub fn squash(
             })
         })?;
 
-    let branch = branch_reader.read(branch_id).map_err(|error| match error {
+    let mut branch = branch_reader.read(branch_id).map_err(|error| match error {
         reader::Error::NotFound => {
             errors::SquashError::BranchNotFound(errors::BranchNotFoundError {
                 project_id: project_repository.project().id,
@@ -2970,11 +2956,9 @@ pub fn squash(
 
     // save new branch head
     let writer = branch::Writer::new(gb_repository);
+    branch.head = new_head_id;
     writer
-        .write(&Branch {
-            head: new_head_id,
-            ..branch.clone()
-        })
+        .write(&mut branch)
         .context("failed to write branch")?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
@@ -3018,7 +3002,7 @@ pub fn update_commit_message(
             )
         })?;
 
-    let branch = branch_reader.read(branch_id).map_err(|error| match error {
+    let mut branch = branch_reader.read(branch_id).map_err(|error| match error {
         reader::Error::NotFound => {
             errors::UpdateCommitMessageError::BranchNotFound(errors::BranchNotFoundError {
                 project_id: project_repository.project().id,
@@ -3148,11 +3132,9 @@ pub fn update_commit_message(
 
     // save new branch head
     let writer = branch::Writer::new(gb_repository);
+    branch.head = new_head_id;
     writer
-        .write(&Branch {
-            head: new_head_id,
-            ..branch.clone()
-        })
+        .write(&mut branch)
         .context("failed to write branch")?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;

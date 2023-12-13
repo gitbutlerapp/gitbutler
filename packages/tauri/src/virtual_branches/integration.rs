@@ -247,7 +247,7 @@ fn verify_head_is_clean(
         )
         .context("failed to reset to integration commit")?;
 
-    let new_branch = super::create_virtual_branch(
+    let mut new_branch = super::create_virtual_branch(
         gb_repository,
         project_repository,
         &BranchCreateRequest {
@@ -294,12 +294,10 @@ fn verify_head_is_clean(
                 rebased_commit_oid
             ))?;
 
+        new_branch.head = rebased_commit.id();
+        new_branch.tree = rebased_commit.tree_id();
         writer
-            .write(&super::Branch {
-                head: rebased_commit.id(),
-                tree: rebased_commit.tree_id(),
-                ..new_branch.clone()
-            })
+            .write(&mut new_branch)
             .context("failed to write branch")?;
 
         head = rebased_commit.id();
