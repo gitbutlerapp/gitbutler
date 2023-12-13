@@ -33,6 +33,7 @@ pub struct BaseBranch {
     pub behind: usize,
     pub upstream_commits: Vec<RemoteCommit>,
     pub recent_commits: Vec<RemoteCommit>,
+    pub last_fetched_ms: Option<u128>,
 }
 
 pub fn get_base_branch_data(
@@ -113,6 +114,7 @@ pub fn set_base_branch(
         branch: target_branch_ref.clone(),
         remote_url: remote_url.to_string(),
         sha: commit_oid,
+        last_fetched_ms: None,
     };
 
     let target_writer = target::Writer::new(gb_repository);
@@ -571,6 +573,7 @@ pub fn target_to_base_branch(
         behind: upstream_commits.len(),
         upstream_commits,
         recent_commits,
+        last_fetched_ms: target.last_fetched_ms,
     };
     Ok(base)
 }

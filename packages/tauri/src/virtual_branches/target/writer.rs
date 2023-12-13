@@ -41,6 +41,15 @@ impl<'writer> TargetWriter<'writer> {
         self.writer
             .write_string("branches/target/sha", &target.sha.to_string())
             .context("Failed to write default target sha")?;
+        if let Some(last_fetched) = target.last_fetched_ms {
+            self.writer
+                .write_u128("branches/target/last_fetched_ms", &last_fetched)
+                .context("Failed to write default target last fetched")?;
+        } else {
+            self.writer
+                .remove("branches/target/last_fetched_ms")
+                .context("Failed to remove default target last fetched")?;
+        }
         Ok(())
     }
 
@@ -75,6 +84,19 @@ impl<'writer> TargetWriter<'writer> {
                 &target.sha.to_string(),
             )
             .context("Failed to write branch target sha")?;
+
+        if let Some(last_fetched_ms) = target.last_fetched_ms {
+            self.writer
+                .write_u128(
+                    &format!("branches/{id}/target/last_fetched_ms"),
+                    &last_fetched_ms,
+                )
+                .context("Failed to write default target last fetched")?;
+        } else {
+            self.writer
+                .remove(&format!("branches/{id}/target/last_fetched_ms"))
+                .context("Failed to remove default target last fetched")?;
+        }
 
         Ok(())
     }
@@ -148,6 +170,7 @@ mod tests {
             branch: "refs/remotes/remote name/branch name".parse().unwrap(),
             remote_url: "remote url".to_string(),
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
+            last_fetched_ms: Some(1),
         };
 
         let branch_writer = branch::Writer::new(&gb_repository);
@@ -186,6 +209,17 @@ mod tests {
                 .context("Failed to read branch target sha")?,
             target.sha.to_string()
         );
+        assert_eq!(
+            fs::read_to_string(
+                root.join("target")
+                    .join("last_fetched_ms")
+                    .to_str()
+                    .unwrap()
+            )
+            .context("Failed to read branch target last fetched")?,
+            "1"
+        );
+
         assert_eq!(
             fs::read_to_string(root.join("meta").join("applied").to_str().unwrap())?
                 .parse::<bool>()
@@ -234,6 +268,7 @@ mod tests {
             branch: "refs/remotes/remote name/branch name".parse().unwrap(),
             remote_url: "remote url".to_string(),
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
+            last_fetched_ms: Some(1),
         };
 
         let branch_writer = branch::Writer::new(&gb_repository);
@@ -247,6 +282,7 @@ mod tests {
                 .unwrap(),
             remote_url: "updated remote url".to_string(),
             sha: "fedcba9876543210fedcba9876543210fedcba98".parse().unwrap(),
+            last_fetched_ms: Some(2),
         };
 
         target_writer.write(&branch.id, &updated_target)?;

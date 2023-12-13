@@ -69,8 +69,6 @@ pub struct Project {
     pub ok_with_force_push: DefaultTrue,
     pub api: Option<ApiProject>,
     #[serde(default)]
-    pub project_data_last_fetch: Option<FetchResult>,
-    #[serde(default)]
     pub gitbutler_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
     pub gitbutler_code_push_state: Option<CodePushState>,

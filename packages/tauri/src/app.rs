@@ -10,9 +10,7 @@ use crate::{
     projects::{self, ProjectId},
     reader,
     sessions::{self, SessionId},
-    users,
-    virtual_branches::target,
-    watcher,
+    users, watcher,
 };
 
 pub struct App {
@@ -21,7 +19,6 @@ pub struct App {
     users: users::Controller,
     watchers: watcher::Watchers,
     sessions_database: sessions::Database,
-    helper: git::credentials::Helper,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -46,7 +43,6 @@ impl TryFrom<&AppHandle> for App {
             users: users::Controller::from(value),
             watchers: value.state::<watcher::Watchers>().inner().clone(),
             sessions_database: sessions::Database::from(value),
-            helper: git::credentials::Helper::from(value),
         })
     }
 }
@@ -107,30 +103,6 @@ impl App {
         let project_repository = project_repository::Repository::open(&project)?;
         // mark file as resolved
         conflicts::resolve(&project_repository, path)?;
-        Ok(())
-    }
-
-    pub fn fetch_from_target(&self, project_id: &ProjectId) -> Result<(), Error> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
-        let user = self.users.get_user().context("failed to get user")?;
-        let gb_repo = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gb repository")?;
-        let current_session = gb_repo.get_or_create_current_session()?;
-        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
-        let target_reader = target::Reader::new(&current_session_reader);
-        let default_target = match target_reader.read_default() {
-            Ok(target) => Ok(target),
-            Err(reader::Error::NotFound) => Err(anyhow::anyhow!("target not set")),
-            Err(e) => Err(e).context("failed to read default target"),
-        }?;
-
-        project_repository.fetch(default_target.branch.remote(), &self.helper)?;
-
         Ok(())
     }
 

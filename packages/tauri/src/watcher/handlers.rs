@@ -97,7 +97,7 @@ impl Handler {
 
             events::Event::FetchProjectData(project_id) => self
                 .fetch_project_handler
-                .handle(project_id, &now)
+                .handle(project_id)
                 .await
                 .context("failed to fetch project data"),
 
