@@ -69,18 +69,6 @@ export class CombinedBranch {
 	get modifiedAt(): Date | undefined {
 		if (this.pr) return this.pr.modifiedAt || this.pr.createdAt;
 		if (this.remoteBranch) return this.remoteBranch.lastCommitTs;
-
-		const vbranch = this.vbranch;
-		if (vbranch) {
-			const files = vbranch.files;
-			if (files && files.length > 0) return files[0].modifiedAt;
-
-			const localCommits = vbranch.commits;
-			if (localCommits && localCommits.length > 0) return localCommits[0].createdAt;
-
-			const remoteCommits = this.vbranch?.upstream?.commits;
-			if (remoteCommits && remoteCommits.length > 0) return remoteCommits[0].createdAt;
-		}
-		return new Date(0);
+		return this.vbranch?.updatedTimestamp;
 	}
 }
