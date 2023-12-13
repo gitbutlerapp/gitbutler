@@ -67,25 +67,25 @@
 			/>
 		</ContextMenuSection>
 	</ContextMenu>
-
-	<Modal width="small" title="Delete branch" bind:this={deleteBranchModal} let:item={branch}>
-		<div>
-			Deleting <code>{branch.name}</code> cannot be undone.
-		</div>
-		<svelte:fragment slot="controls" let:close let:item={branch}>
-			<Button kind="outlined" on:click={close}>Cancel</Button>
-			<Button
-				color="error"
-				on:click={async () => {
-					await branchController.deleteBranch(branch.id);
-					visible = false;
-				}}
-			>
-				Delete
-			</Button>
-		</svelte:fragment>
-	</Modal>
 {/if}
+
+<Modal width="small" title="Delete branch" bind:this={deleteBranchModal} let:item={branch}>
+	<div>
+		Deleting <code>{branch.name}</code> cannot be undone.
+	</div>
+	<svelte:fragment slot="controls" let:close let:item={branch}>
+		<Button kind="outlined" on:click={close}>Cancel</Button>
+		<Button
+			color="error"
+			on:click={async () => {
+				await branchController.deleteBranch(branch.id);
+				visible = false;
+			}}
+		>
+			Delete
+		</Button>
+	</svelte:fragment>
+</Modal>
 
 <style lang="postcss">
 </style>
