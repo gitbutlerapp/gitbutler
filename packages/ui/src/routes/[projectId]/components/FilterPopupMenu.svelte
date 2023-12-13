@@ -19,24 +19,24 @@
 	<ContextMenu>
 		<ContextMenuSection>
 			<ContextMenuItem label="Pull requests">
-				<Checkbox bind:checked={$includePrs} slot="control" />
+				<Checkbox small bind:checked={$includePrs} slot="control" />
 			</ContextMenuItem>
 
 			<ContextMenuItem label="Remote">
-				<Checkbox bind:checked={$includeRemote} slot="control" />
+				<Checkbox small bind:checked={$includeRemote} slot="control" />
 			</ContextMenuItem>
 
 			<ContextMenuItem label="Stashed">
-				<Checkbox bind:checked={$includeStashed} slot="control" />
+				<Checkbox small bind:checked={$includeStashed} slot="control" />
 			</ContextMenuItem>
 		</ContextMenuSection>
 
 		<ContextMenuSection>
 			<ContextMenuItem label="Hide bots">
-				<Toggle slot="control" bind:checked={$hideBots} />
+				<Toggle small slot="control" bind:checked={$hideBots} />
 			</ContextMenuItem>
 			<ContextMenuItem label="Hide inactive">
-				<Toggle slot="control" bind:checked={$hideInactive} />
+				<Toggle small slot="control" bind:checked={$hideInactive} />
 			</ContextMenuItem>
 		</ContextMenuSection>
 	</ContextMenu>
