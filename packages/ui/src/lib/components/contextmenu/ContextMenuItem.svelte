@@ -21,6 +21,7 @@
 	class="menu-item"
 	class:disabled
 	{id}
+	on:click
 	on:click={(e) => {
 		e.stopPropagation();
 		if (id && !disabled) selection$.next({ id, label });
