@@ -31,11 +31,20 @@
 				on:click={() => branch.id && branchController.unapplyBranch(branch.id)}
 			/>
 
-			<ContextMenuItem label="Delete" on:click={() => deleteBranchModal.show(branch)} />
+			<ContextMenuItem
+				label="Delete"
+				on:click={() => {
+					deleteBranchModal.show(branch);
+					visible = false;
+				}}
+			/>
 
 			<ContextMenuItem
 				label="Generate branch name"
-				on:click={() => dispatch('action', 'generate-branch-name')}
+				on:click={() => {
+					dispatch('action', 'generate-branch-name');
+					visible = false;
+				}}
 				disabled={!$aiGenEnabled}
 			/>
 		</ContextMenuSection>
@@ -43,12 +52,18 @@
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Create branch before"
-				on:click={() => branchController.createBranch({ order: branch.order })}
+				on:click={() => {
+					branchController.createBranch({ order: branch.order });
+					visible = false;
+				}}
 			/>
 
 			<ContextMenuItem
 				label="Create branch after"
-				on:click={() => branchController.createBranch({ order: branch.order + 1 })}
+				on:click={() => {
+					branchController.createBranch({ order: branch.order + 1 });
+					visible = false;
+				}}
 			/>
 		</ContextMenuSection>
 	</ContextMenu>
@@ -63,6 +78,7 @@
 				color="error"
 				on:click={async () => {
 					await branchController.deleteBranch(branch.id);
+					visible = false;
 				}}
 			>
 				Delete
