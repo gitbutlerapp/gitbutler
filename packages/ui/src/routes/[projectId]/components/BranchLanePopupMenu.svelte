@@ -45,7 +45,7 @@
 					dispatch('action', 'generate-branch-name');
 					visible = false;
 				}}
-				disabled={!$aiGenEnabled}
+				disabled={!$aiGenEnabled || branch.files?.length == 0 || !branch.active}
 			/>
 		</ContextMenuSection>
 
