@@ -100,7 +100,6 @@
 
 			const modifiedAt = b.modifiedAt?.getTime();
 			const ms = currentTs - modifiedAt;
-			console.log(currentTs, modifiedAt, ms);
 			return ms < 14 * 86400 * 1000;
 		});
 	}
