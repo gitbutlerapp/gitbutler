@@ -10,7 +10,7 @@
 	import Login from '$lib/components/Login.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import Spacer from '../[projectId]/settings/Spacer.svelte';
+	import Spacer from '../../lib/components/Spacer.svelte';
 	import GithubIntegration from '../components/GithubIntegration.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
