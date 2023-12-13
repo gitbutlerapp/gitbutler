@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { persisted } from '@square/svelte-store';
+	import { persisted } from '$lib/persisted/persisted';
 
 	export let lines = 3;
 	export let fullContext = false;
 
-	const persistedLines = persisted(lines, 'CONTEXT_LINES', { storageType: 'LOCAL_STORAGE' });
+	const persistedLines = persisted(lines, 'CONTEXT_LINES');
 	persistedLines.subscribe((value) => {
 		lines = value;
 	});
-	const persistedContext = persisted(fullContext, 'FULL_CONTEXT', { storageType: 'LOCAL_STORAGE' });
+	const persistedContext = persisted(fullContext, 'FULL_CONTEXT');
 	persistedContext.subscribe((value) => {
 		fullContext = value;
 	});

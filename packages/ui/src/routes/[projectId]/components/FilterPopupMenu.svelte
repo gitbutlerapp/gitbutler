@@ -8,11 +8,11 @@
 
 	export let visible: boolean;
 
-	export let includePrs: Writable<boolean>;
-	export let includeRemote: Writable<boolean>;
-	export let includeStashed: Writable<boolean>;
-	export let hideBots: Writable<boolean>;
-	export let hideInactive: Writable<boolean>;
+	export let includePrs: Writable<boolean | undefined>;
+	export let includeRemote: Writable<boolean | undefined>;
+	export let includeStashed: Writable<boolean | undefined>;
+	export let hideBots: Writable<boolean | undefined>;
+	export let hideInactive: Writable<boolean | undefined>;
 </script>
 
 {#if visible}

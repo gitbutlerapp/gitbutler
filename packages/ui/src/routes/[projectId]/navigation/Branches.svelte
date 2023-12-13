@@ -9,12 +9,12 @@
 
 	import { getContext, onDestroy, onMount } from 'svelte';
 	import { BehaviorSubject, combineLatest } from 'rxjs';
-	import { persisted } from '@square/svelte-store';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import FilterPopupMenu from '../components/FilterPopupMenu.svelte';
 	import { derived } from 'svelte/store';
 	import { storeToObservable } from '$lib/rxjs/store';
 	import TextBox from '$lib/components/TextBox.svelte';
+	import { persisted } from '$lib/persisted/persisted';
 
 	export let branchService: BranchService;
 	export let projectId: string;

@@ -1,12 +1,12 @@
 <script lang="ts">
-	import type { Loadable } from '@square/svelte-store';
 	import { installUpdate, onUpdaterEvent } from '@tauri-apps/api/updater';
 	import * as toasts from '$lib/utils/toasts';
 	import { onMount } from 'svelte';
 	import { relaunch } from '@tauri-apps/api/process';
 	import type { Update } from '../updater';
+	import type { Observable } from 'rxjs';
 
-	export let update: Loadable<Update>;
+	export let update: Observable<Update>;
 
 	let updateStatus: {
 		error?: string;
@@ -21,18 +21,6 @@
 			}
 		});
 		return () => unsubscribe.then((unsubscribe) => unsubscribe());
-	});
-
-	let updateTimer: ReturnType<typeof setInterval>;
-	onMount(() => {
-		update.load();
-		const tenMinutes = 1000 * 60 * 10;
-		updateTimer = setInterval(() => {
-			update.reload?.();
-		}, tenMinutes);
-		return () => {
-			() => clearInterval(updateTimer);
-		};
 	});
 </script>
 

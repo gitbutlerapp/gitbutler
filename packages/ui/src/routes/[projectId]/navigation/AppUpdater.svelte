@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { Loadable } from '@square/svelte-store';
 	import UpdateButton from '../UpdateButton.svelte';
 	import type { Update } from '../../updater';
-	export let update: Loadable<Update>;
+	import type { Observable } from 'rxjs';
+	export let update: Observable<Update>;
 </script>
 
 <!-- App Updatesr -->

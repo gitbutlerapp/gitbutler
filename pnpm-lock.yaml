@@ -80,9 +80,6 @@ importers:
       '@sentry/sveltekit':
         specifier: ^7.73.0
         version: 7.73.0(@sveltejs/kit@1.27.5)(svelte@4.2.2)
-      '@square/svelte-store':
-        specifier: git+https://git@github.com/gitbutlerapp/svelte-store.git#aa299b5b011598bdcf9c20e744988ecaba050d63
-        version: github.com/gitbutlerapp/svelte-store/aa299b5b011598bdcf9c20e744988ecaba050d63(svelte@4.2.2)
       '@sveltejs/adapter-static':
         specifier: ^2.0.3
         version: 2.0.3(@sveltejs/kit@1.27.5)
@@ -2038,10 +2035,6 @@ packages:
 
   /concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
-    dev: true
-
-  /cookie-storage@6.1.0:
-    resolution: {integrity: sha512-HeVqbVy8BjXhAAuFtL6MTG+witHoLbxfky2jgVh9FmxmyL6IKa9gSSyPNjevXCCCxPu6Tzd9J8+eXTRQzYU/cg==}
     dev: true
 
   /cookie@0.5.0:
@@ -4736,16 +4729,4 @@ packages:
   /yocto-queue@1.0.0:
     resolution: {integrity: sha512-9bnSc/HEW2uRy67wc+T8UwauLuPJVn28jb+GtJY16iiKWyvmYJRXVT4UamsAEGQfPohgr2q4Tq0sQbQlxTfi1g==}
     engines: {node: '>=12.20'}
-    dev: true
-
-  github.com/gitbutlerapp/svelte-store/aa299b5b011598bdcf9c20e744988ecaba050d63(svelte@4.2.2):
-    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-store/tar.gz/aa299b5b011598bdcf9c20e744988ecaba050d63}
-    id: github.com/gitbutlerapp/svelte-store/aa299b5b011598bdcf9c20e744988ecaba050d63
-    name: '@square/svelte-store'
-    version: 1.0.17
-    peerDependencies:
-      svelte: ^4.0.0
-    dependencies:
-      cookie-storage: 6.1.0
-      svelte: 4.2.2
     dev: true

@@ -5,7 +5,7 @@
 	import type { Project, ProjectService } from '$lib/backend/projects';
 	import Footer from './Footer.svelte';
 	import AppUpdater from './AppUpdater.svelte';
-	import { persisted, type Loadable } from '@square/svelte-store';
+	import { persisted } from '$lib/persisted/persisted';
 	import type { Update } from '../../updater';
 	import DomainButton from './DomainButton.svelte';
 	import type { PrService } from '$lib/github/pullrequest';
@@ -20,13 +20,14 @@
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { getContext } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import type { Observable } from 'rxjs';
 
 	export let branchService: BranchService;
 	export let baseBranchService: BaseBranchService;
 	export let branchController: BranchController;
 	export let project: Project;
 	export let user: User | undefined;
-	export let update: Loadable<Update>;
+	export let update: Observable<Update>;
 	export let prService: PrService;
 	export let projectService: ProjectService;
 

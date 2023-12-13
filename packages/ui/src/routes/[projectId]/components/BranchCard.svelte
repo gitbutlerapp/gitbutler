@@ -24,7 +24,7 @@
 	import UpstreamCommits from './UpstreamCommits.svelte';
 	import BranchFiles from './BranchFiles.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { persisted } from '@square/svelte-store';
+	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import BranchCommits from './BranchCommits.svelte';
 	import type { Project } from '$lib/backend/projects';

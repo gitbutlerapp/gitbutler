@@ -1,4 +1,4 @@
-import { persisted, type Persisted } from '@square/svelte-store';
+import { persisted, type Persisted } from '$lib/persisted/persisted';
 
 export function projectHttpsWarningBannerDismissed(projectId: string): Persisted<boolean> {
 	const key = 'projectHttpsWarningBannerDismissed_';

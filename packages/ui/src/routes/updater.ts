@@ -1,36 +1,36 @@
-import { asyncWritable, type Loadable } from '@square/svelte-store';
 import { checkUpdate, installUpdate } from '@tauri-apps/api/updater';
+import { BehaviorSubject, switchMap, type Observable, from, map, shareReplay } from 'rxjs';
 
 export type Update = { enabled: boolean; shouldUpdate?: boolean; body?: string; version?: string };
 
-export function newUpdateStore(): Loadable<Update> {
-	const updateStore = asyncWritable(
-		[],
-		async () => {
-			const update = await checkUpdate();
-			if (update === undefined) {
-				return { enabled: false };
-			} else if (!update.shouldUpdate) {
-				return { enabled: true, shouldUpdate: false };
-			} else {
-				return {
-					enabled: true,
-					shouldUpdate: true,
-					body: update.manifest!.body,
-					version: update.manifest!.version
-				};
-			}
-		},
-		async (data) => data,
-		{ trackState: true, reloadable: true }
-	);
+export class UpdaterService {
+	update$: Observable<Update>;
+	private reload$ = new BehaviorSubject<void>(undefined);
+	constructor() {
+		this.update$ = this.reload$.pipe(
+			switchMap(() => from(checkUpdate())),
+			map((update) => {
+				if (update === undefined) {
+					return { enabled: false };
+				} else if (!update.shouldUpdate) {
+					return { enabled: true, shouldUpdate: false };
+				} else {
+					return {
+						enabled: true,
+						shouldUpdate: true,
+						body: update.manifest!.body,
+						version: update.manifest!.version
+					};
+				}
+			}),
+			shareReplay(1)
+		);
 
-	setInterval(() => {
 		// Check for updates every 12h
-		if (updateStore.reload) updateStore.reload();
-	}, 43200 * 1000);
-
-	return updateStore;
+		setInterval(() => {
+			this.reload$.next();
+		}, 43200 * 1000);
+	}
 }
 
 export async function install() {
