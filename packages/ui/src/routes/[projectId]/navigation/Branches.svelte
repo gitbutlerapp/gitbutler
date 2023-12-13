@@ -32,8 +32,8 @@
 
 	let filtersActive = derived(
 		[includePrs, includeRemote, includeStashed, hideBots, hideInactive],
-		([prs, remote, stashed, bots]) => {
-			return !prs || !remote || !stashed || !bots || !hideInactive;
+		([prs, remote, stashed, bots, inactive]) => {
+			return !prs || !remote || !stashed || bots || inactive;
 		}
 	);
 
