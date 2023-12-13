@@ -152,12 +152,12 @@ mod tests {
         target_writer.write_default(&test_target())?;
 
         let branch_writer = branch::Writer::new(&gb_repository);
-        let branch_1 = test_branch();
-        branch_writer.write(&branch_1)?;
-        let branch_2 = test_branch();
-        branch_writer.write(&branch_2)?;
-        let branch_3 = test_branch();
-        branch_writer.write(&branch_3)?;
+        let mut branch_1 = test_branch();
+        branch_writer.write(&mut branch_1)?;
+        let mut branch_2 = test_branch();
+        branch_writer.write(&mut branch_2)?;
+        let mut branch_3 = test_branch();
+        branch_writer.write(&mut branch_3)?;
 
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;

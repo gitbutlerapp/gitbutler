@@ -28,10 +28,14 @@ impl<'writer> BranchWriter<'writer> {
         Ok(())
     }
 
-    pub fn write(&self, branch: &Branch) -> Result<()> {
+    pub fn write(&self, branch: &mut Branch) -> Result<()> {
         self.repository.mark_active_session()?;
 
         let _lock = self.repository.lock();
+
+        branch.updated_timestamp_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_millis();
 
         self.writer
             .write_string(
@@ -175,10 +179,10 @@ mod tests {
     fn test_write_branch() -> Result<()> {
         let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let branch = test_branch();
+        let mut branch = test_branch();
 
         let writer = BranchWriter::new(&gb_repository);
-        writer.write(&branch)?;
+        writer.write(&mut branch)?;
 
         let root = gb_repository
             .root()
@@ -236,10 +240,10 @@ mod tests {
     fn test_should_create_session() -> Result<()> {
         let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let branch = test_branch();
+        let mut branch = test_branch();
 
         let writer = BranchWriter::new(&gb_repository);
-        writer.write(&branch)?;
+        writer.write(&mut branch)?;
 
         assert!(gb_repository.get_current_session()?.is_some());
 
@@ -250,12 +254,12 @@ mod tests {
     fn test_should_update() -> Result<()> {
         let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let branch = test_branch();
+        let mut branch = test_branch();
 
         let writer = BranchWriter::new(&gb_repository);
-        writer.write(&branch)?;
+        writer.write(&mut branch)?;
 
-        let updated_branch = Branch {
+        let mut updated_branch = Branch {
             name: "updated_name".to_string(),
             applied: false,
             upstream: Some("refs/remotes/origin/upstream_updated".parse().unwrap()),
@@ -265,7 +269,7 @@ mod tests {
             ..branch.clone()
         };
 
-        writer.write(&updated_branch)?;
+        writer.write(&mut updated_branch)?;
 
         let root = gb_repository
             .root()

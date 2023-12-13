@@ -157,7 +157,7 @@ mod tests {
     fn test_read_override_target() -> Result<()> {
         let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let branch = test_branch();
+        let mut branch = test_branch();
 
         let target = Target {
             branch: "refs/remotes/remote/branch".parse().unwrap(),
@@ -176,7 +176,7 @@ mod tests {
         };
 
         let branch_writer = branch::Writer::new(&gb_repository);
-        branch_writer.write(&branch)?;
+        branch_writer.write(&mut branch)?;
 
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;

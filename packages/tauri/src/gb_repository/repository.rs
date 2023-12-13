@@ -288,10 +288,8 @@ impl Repository {
 
         // copy branches that we don't already have
         for branch in &branches {
-            let branch_copy = branch.clone();
-            //branch_copy.applied = false;
             dst_branch_writer
-                .write(&branch_copy)
+                .write(&mut branch.clone())
                 .with_context(|| format!("{}: failed to write branch", branch.id))?;
         }
 

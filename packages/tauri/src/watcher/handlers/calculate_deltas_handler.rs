@@ -815,11 +815,11 @@ mod test {
         let target_writer = virtual_branches::target::Writer::new(&gb_repository);
         let default_target = test_target();
         target_writer.write_default(&default_target)?;
-        let vbranch0 = test_branch();
-        branch_writer.write(&vbranch0)?;
-        let vbranch1 = test_branch();
+        let mut vbranch0 = test_branch();
+        branch_writer.write(&mut vbranch0)?;
+        let mut vbranch1 = test_branch();
         let vbranch1_target = test_target();
-        branch_writer.write(&vbranch1)?;
+        branch_writer.write(&mut vbranch1)?;
         target_writer.write(&vbranch1.id, &vbranch1_target)?;
 
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
@@ -871,11 +871,11 @@ mod test {
         let target_writer = virtual_branches::target::Writer::new(&gb_repository);
         let default_target = test_target();
         target_writer.write_default(&default_target)?;
-        let vbranch0 = test_branch();
-        branch_writer.write(&vbranch0)?;
-        let vbranch1 = test_branch();
+        let mut vbranch0 = test_branch();
+        branch_writer.write(&mut vbranch0)?;
+        let mut vbranch1 = test_branch();
         let vbranch1_target = test_target();
-        branch_writer.write(&vbranch1)?;
+        branch_writer.write(&mut vbranch1)?;
         target_writer.write(&vbranch1.id, &vbranch1_target)?;
 
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
