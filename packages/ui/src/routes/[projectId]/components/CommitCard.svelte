@@ -96,7 +96,7 @@
 
 <Modal width="large" bind:this={previewCommitModal} icon="commit" title={commit.description}>
 	<svelte:fragment slot="header_controls">
-		{#if commitUrl}
+		{#if !commit.isLocal && commitUrl}
 			<Button
 				color="neutral"
 				kind="outlined"
