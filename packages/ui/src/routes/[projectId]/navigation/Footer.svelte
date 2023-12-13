@@ -28,7 +28,6 @@
 					<Icon name="spinner" />
 				</div>
 				<div slot="label">
-					hello
 					{#each loadStack as item}
 						<p>
 							{item.name}
