@@ -8,7 +8,7 @@
 	import type { PageData } from './$types';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import Spacer from './Spacer.svelte';
+	import Spacer from '../../../lib/components/Spacer.svelte';
 	import type { Key, Project } from '$lib/backend/projects';
 	import ScrollableContainer from '../../../lib/components/ScrollableContainer.svelte';
 
