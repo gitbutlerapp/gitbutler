@@ -40,6 +40,7 @@ export class PrService {
 	private reload$ = new BehaviorSubject<{ skipCache: boolean } | undefined>(undefined);
 	private fresh$ = new Subject<void>();
 	private octokit$: Observable<Octokit | undefined>;
+	private active$ = new BehaviorSubject<boolean>(false);
 
 	constructor(
 		private branchController: BranchController,
@@ -54,6 +55,7 @@ export class PrService {
 				if (!ctx || !octokit) return EMPTY;
 				const prs = loadPrs(ctx, octokit, !!reload?.skipCache);
 				this.fresh$.next();
+				this.active$.next(true);
 				return prs;
 			}),
 			shareReplay(1),
@@ -66,6 +68,7 @@ export class PrService {
 	}
 
 	async reload(): Promise<void> {
+		if (!this.active$.getValue()) return;
 		const fresh = firstValueFrom(this.fresh$);
 		this.reload$.next({ skipCache: true });
 		return await fresh;
