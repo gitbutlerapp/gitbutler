@@ -86,18 +86,6 @@ pub async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn fetch_from_target(handle: tauri::AppHandle, project_id: &str) -> Result<(), Error> {
-    let app = handle.state::<app::App>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
-    app.fetch_from_target(&project_id)?;
-    Ok(())
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
 pub async fn mark_resolved(
     handle: tauri::AppHandle,
     project_id: &str,

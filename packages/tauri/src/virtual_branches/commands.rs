@@ -12,7 +12,7 @@ use crate::{
 use super::{
     branch::BranchId,
     controller::{Controller, ControllerError},
-    RemoteBranchFile,
+    BaseBranch, RemoteBranchFile,
 };
 
 impl<E: Into<Error>> From<ControllerError<E>> for Error {
@@ -538,6 +538,24 @@ pub async fn squash_branch_commit(
         .await?;
     emit_vbranches(&handle, &project_id).await;
     Ok(())
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn fetch_from_target(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<BaseBranch, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".into(),
+    })?;
+    let base_branch = handle
+        .state::<Controller>()
+        .fetch_from_target(&project_id)
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(base_branch)
 }
 
 pub async fn update_commit_message(

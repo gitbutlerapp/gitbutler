@@ -7,7 +7,6 @@
 
 mod common;
 
-use self::common::{paths, TestProject};
 use std::{fs, path, str::FromStr};
 
 use gblib::{
@@ -17,6 +16,8 @@ use gblib::{
     users,
     virtual_branches::{branch, controller::ControllerError, errors, Controller},
 };
+
+use self::common::{paths, TestProject};
 
 struct Test {
     repository: TestProject,

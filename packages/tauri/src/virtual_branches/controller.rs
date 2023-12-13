@@ -16,7 +16,7 @@ use crate::{
 use super::{
     branch::{BranchId, Ownership},
     errors::{self, GetBaseBranchDataError, IsRemoteBranchMergableError, ListRemoteBranchesError},
-    RemoteBranchFile,
+    target, target_to_base_branch, BaseBranch, RemoteBranchFile,
 };
 
 #[derive(Clone)]
@@ -332,6 +332,10 @@ impl Controller {
             .await
             .update_commit_message(project_id, branch_id, commit_oid, message)
             .await
+    }
+
+    pub async fn fetch_from_target(&self, project_id: &ProjectId) -> Result<BaseBranch, Error> {
+        self.inner(project_id).await.fetch_from_target(project_id)
     }
 }
 
@@ -836,6 +840,44 @@ impl ControllerInner {
             )
             .map_err(Into::into)
         })
+    }
+
+    pub fn fetch_from_target(&self, project_id: &ProjectId) -> Result<BaseBranch, Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let user = self.users.get_user()?;
+        let gb_repo = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gb repo")?;
+
+        let default_target = gb_repo
+            .default_target()?
+            .ok_or(errors::DefaultTargetNotSetError {
+                project_id: *project_id,
+            })?;
+
+        project_repository.fetch(default_target.branch.remote(), &self.helper)?;
+
+        let target_writer = target::Writer::new(&gb_repo);
+        target_writer
+            .write_default(&target::Target {
+                last_fetched_ms: Some(
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis(),
+                ),
+                ..default_target.clone()
+            })
+            .context("failed to write default target")?;
+
+        let base_branch = target_to_base_branch(&project_repository, &default_target)
+            .context("failed to convert target to base branch")?;
+
+        Ok(base_branch)
     }
 }
 

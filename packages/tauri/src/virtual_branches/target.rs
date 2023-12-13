@@ -15,6 +15,7 @@ pub struct Target {
     pub branch: git::RemoteRefname,
     pub remote_url: String,
     pub sha: git::Oid,
+    pub last_fetched_ms: Option<u128>,
 }
 
 impl Serialize for Target {
@@ -27,6 +28,7 @@ impl Serialize for Target {
         state.serialize_field("remoteName", &self.branch.remote())?;
         state.serialize_field("remoteUrl", &self.remote_url)?;
         state.serialize_field("sha", &self.sha.to_string())?;
+        state.serialize_field("lastFetchedMs", &self.last_fetched_ms)?;
         state.end()
     }
 }
@@ -91,10 +93,23 @@ impl TryFrom<&dyn crate::reader::Reader> for Target {
             ))
         })?;
 
+        let last_fetched_ms: Option<u128> =
+            match reader.read(&path::PathBuf::from("last_fetched_ms")) {
+                Ok(last_fetched) => Some(last_fetched.try_into().map_err(|e| {
+                    crate::reader::Error::Io(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("last_fetched_ms: {}", e),
+                    ))
+                })?),
+                Err(crate::reader::Error::NotFound) => None,
+                Err(e) => return Err(e),
+            };
+
         Ok(Self {
             branch: format!("refs/remotes/{}", branch_name).parse().unwrap(),
             remote_url,
             sha,
+            last_fetched_ms,
         })
     }
 }

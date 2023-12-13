@@ -36,6 +36,7 @@ pub fn set_test_target(
 
     target::Writer::new(gb_repo)
         .write_default(&target::Target {
+            last_fetched_ms: None,
             branch: "refs/remotes/origin/master".parse().unwrap(),
             remote_url: remote_repo.path().to_str().unwrap().parse().unwrap(),
             sha: remote_repo.head().unwrap().target().unwrap(),
@@ -1005,6 +1006,7 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
     target::Writer::new(&gb_repository).write_default(&target::Target {
+        last_fetched_ms: None,
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: target_oid,
@@ -1134,6 +1136,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
     target::Writer::new(&gb_repository).write_default(&target::Target {
+        last_fetched_ms: None,
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: target_oid,
@@ -2017,6 +2020,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
     )?;
 
     target::Writer::new(&gb_repository).write_default(&target::Target {
+        last_fetched_ms: None,
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "http://origin.com/project".to_string(),
         sha: base_commit,

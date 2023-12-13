@@ -163,6 +163,7 @@ mod tests {
             branch: "refs/remotes/remote/branch".parse().unwrap(),
             remote_url: "remote url".to_string(),
             sha: "fedcba9876543210fedcba9876543210fedcba98".parse().unwrap(),
+            last_fetched_ms: None,
         };
 
         let default_target = Target {
@@ -171,6 +172,7 @@ mod tests {
                 .unwrap(),
             remote_url: "default remote url".to_string(),
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
+            last_fetched_ms: Some(1),
         };
 
         let branch_writer = branch::Writer::new(&gb_repository);
