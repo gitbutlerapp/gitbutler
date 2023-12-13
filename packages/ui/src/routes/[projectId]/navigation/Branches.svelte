@@ -80,11 +80,12 @@
 		}
 	): CombinedBranch[] {
 		return branches.filter((b) => {
-			if (!params.includePrs && b.pr) return false;
-			if (!params.includeRemote && b.remoteBranch) return false;
-			if (!params.includeStashed && b.vbranch) return false;
-			if (params.hideBots && b.pr?.author?.isBot) return false;
-			return true;
+			if (params.includePrs && b.pr) {
+				return !params.hideBots || !b.pr.author?.isBot;
+			}
+			if (params.includeRemote && b.remoteBranch) return true;
+			if (params.includeStashed && b.vbranch) return true;
+			return false;
 		});
 	}
 
