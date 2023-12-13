@@ -18,7 +18,7 @@
 	import FileCardHeader from './FileCardHeader.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import lscache from 'lscache';
-	import { persisted } from '@square/svelte-store';
+	import { persisted } from '$lib/persisted/persisted';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 
 	export let projectId: string;

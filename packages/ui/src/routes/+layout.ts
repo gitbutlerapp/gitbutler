@@ -4,7 +4,7 @@ import { ProjectService } from '$lib/backend/projects';
 import Posthog from '$lib/analytics/posthog';
 import Sentry from '$lib/analytics/sentry';
 import lscache from 'lscache';
-import { newUpdateStore } from './updater';
+import { UpdaterService } from './updater';
 import { UserService } from '$lib/stores/user';
 import { config } from 'rxjs';
 
@@ -22,12 +22,14 @@ export const load: LayoutLoad = ({ fetch: realFetch }: { fetch: typeof fetch }) 
 	const posthog = Posthog();
 	const sentry = Sentry();
 	const userService = new UserService(sentry, posthog);
+	const updateService = new UpdaterService();
+
 	return {
 		projectService: new ProjectService(),
 		cloud: getCloudApiClient({ fetch: realFetch }),
 		posthog: posthog,
 		sentry: sentry,
-		update: newUpdateStore(),
+		updateService,
 		userService,
 		user$: userService.user$
 	};
