@@ -103,14 +103,14 @@
 		}
 	}
 	.neutral-outline {
-		color: var(--clr-theme-scale-30);
+		color: var(--clr-theme-scale-ntrl-30);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		&:hover {
-			color: var(--clr-theme-scale-20);
+			color: var(--clr-theme-scale-ntrl-20);
 			border: 1px solid var(--clr-theme-container-outline-pale);
 		}
 		&:active {
-			color: var(--clr-theme-scale-20);
+			color: var(--clr-theme-scale-ntrl-20);
 			border: 1px solid var(--clr-theme-container-outline-pale);
 			background: var(--clr-theme-container-pale);
 		}

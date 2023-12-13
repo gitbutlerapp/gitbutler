@@ -38,7 +38,6 @@
 
 	$: base$ = baseBranchService.base$;
 
-	let branchesExpanded = true;
 	let viewport: HTMLDivElement;
 </script>
 
@@ -92,7 +91,7 @@
 			</DomainButton>
 		</div>
 	</div>
-	<Branches projectId={project.id} {branchService} bind:expanded={branchesExpanded} />
+	<Branches projectId={project.id} {branchService} />
 	<Footer {user} projectId={project.id} />
 	<AppUpdater {update} />
 	<Resizer

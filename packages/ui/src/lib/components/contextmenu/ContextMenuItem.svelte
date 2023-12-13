@@ -21,8 +21,8 @@
 	class="menu-item"
 	class:disabled
 	{id}
-	on:click
-	on:click={() => {
+	on:click={(e) => {
+		e.stopPropagation();
 		if (id && !disabled) selection$.next({ id, label });
 	}}
 >
@@ -40,6 +40,7 @@
 	<div class="label text-base-12">
 		{label}
 	</div>
+	<slot name="control" />
 </button>
 
 <style lang="postcss">
@@ -50,6 +51,7 @@
 		height: var(--space-24);
 		padding: var(--space-4) var(--space-6);
 		border-radius: var(--radius-s);
+		justify-content: space-between;
 		gap: var(--space-8);
 		&:not(.disabled):hover {
 			background: var(--clr-theme-container-sub);

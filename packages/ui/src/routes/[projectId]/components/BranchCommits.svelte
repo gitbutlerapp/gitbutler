@@ -17,8 +17,6 @@
 
 	// Intended for 2 way binding.
 	export let scrollable: boolean | undefined = undefined;
-
-	$: console.log(scrollable);
 </script>
 
 {#if branch.commits.length > 0}
