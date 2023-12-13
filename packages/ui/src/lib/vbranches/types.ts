@@ -156,7 +156,11 @@ export class BaseBranch {
 	upstreamCommits!: RemoteCommit[];
 	@Type(() => RemoteCommit)
 	recentCommits!: RemoteCommit[];
-	fetchedAt!: Date;
+	lastFetchedMs?: number;
+
+	get lastFetched(): Date | undefined {
+		return this.lastFetchedMs ? new Date(this.lastFetchedMs) : undefined;
+	}
 
 	get repoBaseUrl(): string {
 		if (this.remoteUrl.startsWith('http')) {

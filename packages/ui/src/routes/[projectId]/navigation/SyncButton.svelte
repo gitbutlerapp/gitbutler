@@ -40,12 +40,12 @@
 	{/if}
 
 	<Tooltip label="Last fetch from upstream">
-		{#if $base$?.fetchedAt}
+		{#if $base$?.lastFetched}
 			<span class="text-base-11 text-semibold sync-btn__label">
 				{#if fetching}
 					<div class="sync-btn__busy-label">busy…</div>
 				{:else}
-					<TimeAgo date={$base$?.fetchedAt} />
+					<TimeAgo date={$base$?.lastFetched} />
 				{/if}
 			</span>
 		{/if}
