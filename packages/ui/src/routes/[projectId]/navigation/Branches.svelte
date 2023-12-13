@@ -83,7 +83,7 @@
 			if (!params.includePrs && b.pr) return false;
 			if (!params.includeRemote && b.remoteBranch) return false;
 			if (!params.includeStashed && b.vbranch) return false;
-			if (!params.hideBots && b.pr?.author?.isBot) return false;
+			if (params.hideBots && b.pr?.author?.isBot) return false;
 			return true;
 		});
 	}
