@@ -136,7 +136,11 @@
 				$height = Math.min(maxHeight, e.detail / (16 * $userSettings.zoom));
 			}}
 		/>
-		<BranchesHeader {scrolled} count={$branches$?.length ?? 0} filtersActive={$filtersActive}>
+		<BranchesHeader
+			{scrolled}
+			count={$filteredBranches$?.length ?? 0}
+			filtersActive={$filtersActive}
+		>
 			<FilterPopupMenu
 				slot="context-menu"
 				let:visible
