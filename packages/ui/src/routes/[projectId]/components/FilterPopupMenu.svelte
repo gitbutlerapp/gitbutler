@@ -18,24 +18,24 @@
 {#if visible}
 	<ContextMenu>
 		<ContextMenuSection>
-			<ContextMenuItem label="Pull requests">
+			<ContextMenuItem label="Pull requests" on:click={() => ($includePrs = !$includePrs)}>
 				<Checkbox small bind:checked={$includePrs} slot="control" />
 			</ContextMenuItem>
 
-			<ContextMenuItem label="Remote">
+			<ContextMenuItem label="Remote" on:click={() => ($includeRemote = !$includeRemote)}>
 				<Checkbox small bind:checked={$includeRemote} slot="control" />
 			</ContextMenuItem>
 
-			<ContextMenuItem label="Stashed">
+			<ContextMenuItem label="Stashed" on:click={() => ($includeStashed = !$includeStashed)}>
 				<Checkbox small bind:checked={$includeStashed} slot="control" />
 			</ContextMenuItem>
 		</ContextMenuSection>
 
 		<ContextMenuSection>
-			<ContextMenuItem label="Hide bots">
+			<ContextMenuItem label="Hide bots" on:click={() => ($hideBots = !$hideBots)}>
 				<Toggle small slot="control" bind:checked={$hideBots} />
 			</ContextMenuItem>
-			<ContextMenuItem label="Hide inactive">
+			<ContextMenuItem label="Hide inactive" on:click={() => ($hideInactive = !$hideInactive)}>
 				<Toggle small slot="control" bind:checked={$hideInactive} />
 			</ContextMenuItem>
 		</ContextMenuSection>
