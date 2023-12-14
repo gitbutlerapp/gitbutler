@@ -21,7 +21,7 @@
 				<SelectProjectItem {project} />
 			{/each}
 		{:else}
-			<pre>Go ahead and add your first project. :)</pre>
+			<pre class="empty-message">Go ahead and add your first project. :)</pre>
 		{/if}
 	</ScrollableContainer>
 	<div class="card__footer">
@@ -35,5 +35,9 @@
 		align-self: center;
 		max-width: 640px;
 		max-height: 65%;
+	}
+
+	.empty-message {
+		padding: var(--space-12) var(--space-16);
 	}
 </style>

@@ -1,4 +1,4 @@
-import { BaseBranch, Branch, RemoteBranch } from './types';
+import { BaseBranch, Branch } from './types';
 import { plainToInstance } from 'class-transformer';
 import { UserError, invoke, listen } from '$lib/backend/ipc';
 import {
@@ -92,17 +92,6 @@ export class BaseBranchService {
 
 export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
 	return plainToInstance(Branch, await invoke<any[]>('list_virtual_branches', params));
-}
-
-export async function getRemoteBranchesData(params: {
-	projectId: string;
-}): Promise<RemoteBranch[]> {
-	const branches = plainToInstance(
-		RemoteBranch,
-		await invoke<any[]>('list_remote_branches', params)
-	);
-
-	return branches;
 }
 
 export async function getRemoteBranches(projectId: string | undefined) {

@@ -1,10 +1,12 @@
-import { getRemoteBranchesData } from '$lib/vbranches/branchStoresCache';
-import type { RemoteBranch } from '$lib/vbranches/types';
+import { invoke } from '$lib/backend/ipc';
+import { RemoteBranch } from '$lib/vbranches/types';
+import { plainToInstance } from 'class-transformer';
 import {
 	BehaviorSubject,
 	Observable,
 	catchError,
 	combineLatestWith,
+	map,
 	merge,
 	of,
 	shareReplay,
@@ -25,6 +27,7 @@ export class RemoteBranchService {
 		this.branches$ = merge(fetches$, head$, baseBranch$).pipe(
 			combineLatestWith(this.reload$),
 			switchMap(() => getRemoteBranchesData({ projectId })),
+			map((branches) => branches.filter((b) => b.ahead != 0)),
 			shareReplay(1),
 			catchError((e) => {
 				this.branchesError$.next(e);
@@ -36,4 +39,15 @@ export class RemoteBranchService {
 	reload() {
 		this.reload$.next();
 	}
+}
+
+export async function getRemoteBranchesData(params: {
+	projectId: string;
+}): Promise<RemoteBranch[]> {
+	const branches = plainToInstance(
+		RemoteBranch,
+		await invoke<any[]>('list_remote_branches', params)
+	);
+
+	return branches;
 }

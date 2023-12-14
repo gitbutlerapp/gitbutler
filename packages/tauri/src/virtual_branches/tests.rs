@@ -2,7 +2,6 @@ use std::{
     collections::HashMap,
     fs::{self, Permissions},
     io::Write,
-    os::unix::fs::{symlink, PermissionsExt},
     path, thread,
     time::Duration,
 };
@@ -10,6 +9,8 @@ use std::{
 use anyhow::{Context, Result};
 use git2::TreeWalkResult;
 use pretty_assertions::{assert_eq, assert_ne};
+#[cfg(target_family = "unix")]
+use std::os::unix::{fs::symlink, prelude::*};
 
 use crate::{
     gb_repository, git, project_repository, reader, sessions,

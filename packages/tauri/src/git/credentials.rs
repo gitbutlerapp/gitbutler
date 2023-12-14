@@ -15,7 +15,6 @@ pub enum SshCredential {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HttpsCredential {
-    UsernamePassword { username: String, password: String },
     CredentialHelper { username: String, password: String },
     GitHubToken(String),
 }
@@ -51,12 +50,6 @@ impl From<Credential> for git2::RemoteCallbacks<'_> {
                 remote_callbacks.credentials(move |url, _username_from_url, _allowed_types| {
                     tracing::info!("authenticating with {} using gitbutler's key", url);
                     git2::Cred::ssh_key_from_memory("git", None, &key.to_string(), None)
-                });
-            }
-            Credential::Https(HttpsCredential::UsernamePassword { username, password }) => {
-                remote_callbacks.credentials(move |url, _username_from_url, _allowed_types| {
-                    tracing::info!("authenticating with {url} as '{username}' with password");
-                    git2::Cred::userpass_plaintext(&username, &password)
                 });
             }
             Credential::Https(HttpsCredential::CredentialHelper { username, password }) => {
@@ -147,87 +140,6 @@ impl Helper {
         }
     }
 
-    /// returns all possible credentials for a remote, without trying to be smart.
-    pub fn enumerate<'a>(
-        &'a self,
-        project_repository: &'a project_repository::Repository,
-        remote: &str,
-    ) -> Result<Vec<(super::Remote, Vec<Credential>)>, HelpError> {
-        let remote = project_repository.git_repository.find_remote(remote)?;
-        let remote_url = remote.url()?.ok_or(HelpError::NoUrlSet)?;
-
-        let mut flow = vec![];
-
-        if let projects::AuthKey::Local {
-            private_key_path,
-            passphrase,
-        } = &project_repository.project().preferred_key
-        {
-            let ssh_remote = if remote_url.scheme == super::Scheme::Ssh {
-                project_repository
-                    .git_repository
-                    .remote_anonymous(&remote_url)
-            } else {
-                let ssh_url = remote_url.as_ssh()?;
-                project_repository.git_repository.remote_anonymous(&ssh_url)
-            }?;
-            flow.push((
-                ssh_remote,
-                vec![Credential::Ssh(SshCredential::Keyfile {
-                    key_path: private_key_path.clone(),
-                    passphrase: passphrase.clone(),
-                })],
-            ));
-        }
-
-        // is github is authenticated, only try github.
-        if remote_url.is_github() {
-            if let Some(github_access_token) = self
-                .users
-                .get_user()?
-                .and_then(|user| user.github_access_token)
-            {
-                let https_remote = if remote_url.scheme == super::Scheme::Https {
-                    project_repository
-                        .git_repository
-                        .remote_anonymous(&remote_url)
-                } else {
-                    let ssh_url = remote_url.as_ssh()?;
-                    project_repository.git_repository.remote_anonymous(&ssh_url)
-                }?;
-                flow.push((
-                    https_remote,
-                    vec![Credential::Https(HttpsCredential::GitHubToken(
-                        github_access_token,
-                    ))],
-                ));
-            }
-        }
-
-        if let Ok(https_url) = remote_url.as_https() {
-            flow.push((
-                project_repository
-                    .git_repository
-                    .remote_anonymous(&https_url)?,
-                Self::https_flow(project_repository, &https_url)?
-                    .into_iter()
-                    .map(Credential::Https)
-                    .collect(),
-            ));
-        }
-
-        if let Ok(ssh_url) = remote_url.as_ssh() {
-            flow.push((
-                project_repository
-                    .git_repository
-                    .remote_anonymous(&ssh_url)?,
-                self.ssh_flow()?.into_iter().map(Credential::Ssh).collect(),
-            ));
-        }
-
-        Ok(flow)
-    }
-
     pub fn help<'a>(
         &'a self,
         project_repository: &'a project_repository::Repository,
@@ -241,146 +153,174 @@ impl Helper {
             return Ok(vec![(remote, vec![Credential::Noop])]);
         }
 
-        // if prefernce set, only try that.
-        if let projects::AuthKey::Local {
-            private_key_path,
-            passphrase,
-        } = &project_repository.project().preferred_key
-        {
-            let ssh_remote = if remote_url.scheme == super::Scheme::Ssh {
-                Ok(remote)
-            } else {
-                let ssh_url = remote_url.as_ssh()?;
-                project_repository.git_repository.remote_anonymous(&ssh_url)
-            }?;
+        match &project_repository.project().preferred_key {
+            projects::AuthKey::Local {
+                private_key_path,
+                passphrase,
+            } => {
+                let ssh_remote = if remote_url.scheme == super::Scheme::Ssh {
+                    Ok(remote)
+                } else {
+                    let ssh_url = remote_url.as_ssh()?;
+                    project_repository.git_repository.remote_anonymous(&ssh_url)
+                }?;
 
-            return Ok(vec![(
-                ssh_remote,
-                vec![Credential::Ssh(SshCredential::Keyfile {
-                    key_path: private_key_path.clone(),
-                    passphrase: passphrase.clone(),
-                })],
-            )]);
-        }
+                Ok(vec![(
+                    ssh_remote,
+                    vec![Credential::Ssh(SshCredential::Keyfile {
+                        key_path: private_key_path.clone(),
+                        passphrase: passphrase.clone(),
+                    })],
+                )])
+            }
+            projects::AuthKey::Generated => {
+                let ssh_remote = if remote_url.scheme == super::Scheme::Ssh {
+                    Ok(remote)
+                } else {
+                    let ssh_url = remote_url.as_ssh()?;
+                    project_repository.git_repository.remote_anonymous(&ssh_url)
+                }?;
 
-        // is github is authenticated, only try github.
-        if remote_url.is_github() {
-            if let Some(github_access_token) = self
-                .users
-                .get_user()?
-                .and_then(|user| user.github_access_token)
-            {
+                let key = self.keys.get_or_create()?;
+                Ok(vec![(
+                    ssh_remote,
+                    vec![Credential::Ssh(SshCredential::GitButlerKey(Box::new(key)))],
+                )])
+            }
+            projects::AuthKey::GitCredentialsHelper => {
                 let https_remote = if remote_url.scheme == super::Scheme::Https {
                     Ok(remote)
                 } else {
                     let url = remote_url.as_https()?;
                     project_repository.git_repository.remote_anonymous(&url)
                 }?;
-                return Ok(vec![(
-                    https_remote,
-                    vec![Credential::Https(HttpsCredential::GitHubToken(
-                        github_access_token,
-                    ))],
-                )]);
-            }
-        }
-
-        match remote_url.scheme {
-            super::Scheme::Https => {
-                let mut flow = vec![];
-
-                let https_flow = Self::https_flow(project_repository, &remote_url)?
+                let flow = Self::https_flow(project_repository, &remote_url)?
                     .into_iter()
                     .map(Credential::Https)
                     .collect::<Vec<_>>();
-
-                if !https_flow.is_empty() {
-                    flow.push((remote, https_flow));
-                }
-
-                if let Ok(ssh_url) = remote_url.as_ssh() {
-                    let ssh_flow = self
-                        .ssh_flow()?
-                        .into_iter()
-                        .map(Credential::Ssh)
-                        .collect::<Vec<_>>();
-                    if !ssh_flow.is_empty() {
-                        flow.push((
-                            project_repository
-                                .git_repository
-                                .remote_anonymous(&ssh_url)?,
-                            ssh_flow,
-                        ));
-                    }
-                }
-
-                Ok(flow)
+                Ok(vec![(https_remote, flow)])
             }
-            super::Scheme::Ssh => {
-                let mut flow = vec![];
-
-                let ssh_flow = self
-                    .ssh_flow()?
-                    .into_iter()
-                    .map(Credential::Ssh)
-                    .collect::<Vec<_>>();
-                if !ssh_flow.is_empty() {
-                    flow.push((remote, ssh_flow));
-                }
-
-                if let Ok(https_url) = remote_url.as_https() {
-                    let https_flow = Self::https_flow(project_repository, &https_url)?
-                        .into_iter()
-                        .map(Credential::Https)
-                        .collect::<Vec<_>>();
-                    if !https_flow.is_empty() {
-                        flow.push((
-                            project_repository
-                                .git_repository
-                                .remote_anonymous(&https_url)?,
-                            https_flow,
-                        ));
+            projects::AuthKey::Default => {
+                // is github is authenticated, only try github.
+                if remote_url.is_github() {
+                    if let Some(github_access_token) = self
+                        .users
+                        .get_user()?
+                        .and_then(|user| user.github_access_token)
+                    {
+                        let https_remote = if remote_url.scheme == super::Scheme::Https {
+                            Ok(remote)
+                        } else {
+                            let url = remote_url.as_https()?;
+                            project_repository.git_repository.remote_anonymous(&url)
+                        }?;
+                        return Ok(vec![(
+                            https_remote,
+                            vec![Credential::Https(HttpsCredential::GitHubToken(
+                                github_access_token,
+                            ))],
+                        )]);
                     }
                 }
 
-                Ok(flow)
-            }
-            _ => {
-                let mut flow = vec![];
+                match remote_url.scheme {
+                    super::Scheme::Https => {
+                        let mut flow = vec![];
 
-                if let Ok(https_url) = remote_url.as_https() {
-                    let https_flow = Self::https_flow(project_repository, &https_url)?
-                        .into_iter()
-                        .map(Credential::Https)
-                        .collect::<Vec<_>>();
+                        let https_flow = Self::https_flow(project_repository, &remote_url)?
+                            .into_iter()
+                            .map(Credential::Https)
+                            .collect::<Vec<_>>();
 
-                    if !https_flow.is_empty() {
-                        flow.push((
-                            project_repository
-                                .git_repository
-                                .remote_anonymous(&https_url)?,
-                            https_flow,
-                        ));
+                        if !https_flow.is_empty() {
+                            flow.push((remote, https_flow));
+                        }
+
+                        if let Ok(ssh_url) = remote_url.as_ssh() {
+                            let ssh_flow = self
+                                .ssh_flow()?
+                                .into_iter()
+                                .map(Credential::Ssh)
+                                .collect::<Vec<_>>();
+                            if !ssh_flow.is_empty() {
+                                flow.push((
+                                    project_repository
+                                        .git_repository
+                                        .remote_anonymous(&ssh_url)?,
+                                    ssh_flow,
+                                ));
+                            }
+                        }
+
+                        Ok(flow)
+                    }
+                    super::Scheme::Ssh => {
+                        let mut flow = vec![];
+
+                        let ssh_flow = self
+                            .ssh_flow()?
+                            .into_iter()
+                            .map(Credential::Ssh)
+                            .collect::<Vec<_>>();
+                        if !ssh_flow.is_empty() {
+                            flow.push((remote, ssh_flow));
+                        }
+
+                        if let Ok(https_url) = remote_url.as_https() {
+                            let https_flow = Self::https_flow(project_repository, &https_url)?
+                                .into_iter()
+                                .map(Credential::Https)
+                                .collect::<Vec<_>>();
+                            if !https_flow.is_empty() {
+                                flow.push((
+                                    project_repository
+                                        .git_repository
+                                        .remote_anonymous(&https_url)?,
+                                    https_flow,
+                                ));
+                            }
+                        }
+
+                        Ok(flow)
+                    }
+                    _ => {
+                        let mut flow = vec![];
+
+                        if let Ok(https_url) = remote_url.as_https() {
+                            let https_flow = Self::https_flow(project_repository, &https_url)?
+                                .into_iter()
+                                .map(Credential::Https)
+                                .collect::<Vec<_>>();
+
+                            if !https_flow.is_empty() {
+                                flow.push((
+                                    project_repository
+                                        .git_repository
+                                        .remote_anonymous(&https_url)?,
+                                    https_flow,
+                                ));
+                            }
+                        }
+
+                        if let Ok(ssh_url) = remote_url.as_ssh() {
+                            let ssh_flow = self
+                                .ssh_flow()?
+                                .into_iter()
+                                .map(Credential::Ssh)
+                                .collect::<Vec<_>>();
+                            if !ssh_flow.is_empty() {
+                                flow.push((
+                                    project_repository
+                                        .git_repository
+                                        .remote_anonymous(&ssh_url)?,
+                                    ssh_flow,
+                                ));
+                            }
+                        }
+
+                        Ok(flow)
                     }
                 }
-
-                if let Ok(ssh_url) = remote_url.as_ssh() {
-                    let ssh_flow = self
-                        .ssh_flow()?
-                        .into_iter()
-                        .map(Credential::Ssh)
-                        .collect::<Vec<_>>();
-                    if !ssh_flow.is_empty() {
-                        flow.push((
-                            project_repository
-                                .git_repository
-                                .remote_anonymous(&ssh_url)?,
-                            ssh_flow,
-                        ));
-                    }
-                }
-
-                Ok(flow)
             }
         }
     }

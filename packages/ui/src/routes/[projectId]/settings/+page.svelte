@@ -48,7 +48,7 @@
 				? await cloud.projects.update($user$?.access_token, e.detail.api.repository_id, {
 						name: e.detail.title,
 						description: e.detail.description
-				  })
+					})
 				: undefined;
 
 		projectService.updateProject({

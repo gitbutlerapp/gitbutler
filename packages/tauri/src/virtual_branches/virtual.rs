@@ -1,8 +1,10 @@
 use std::{
     collections::{HashMap, HashSet},
-    os::unix::{fs::PermissionsExt, prelude::OsStrExt},
     path, time, vec,
 };
+
+#[cfg(target_family = "unix")]
+use std::os::unix::prelude::*;
 
 use anyhow::{bail, Context, Result};
 use diffy::{apply_bytes, Patch};
