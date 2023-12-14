@@ -21,6 +21,7 @@
 	import { getContext } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import type { Observable } from 'rxjs';
+	import type { GitHubIntegrationContext } from '$lib/github/types';
 
 	export let branchService: BranchService;
 	export let baseBranchService: BaseBranchService;
@@ -30,6 +31,7 @@
 	export let update: Observable<Update>;
 	export let prService: PrService;
 	export let projectService: ProjectService;
+	export let githubContext: GitHubIntegrationContext | undefined;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const defaultTrayWidthRem = persisted<number | undefined>(
@@ -92,7 +94,7 @@
 			</DomainButton>
 		</div>
 	</div>
-	<Branches projectId={project.id} {branchService} />
+	<Branches projectId={project.id} {branchService} {githubContext} />
 	<Footer {user} projectId={project.id} />
 	<AppUpdater {update} />
 	<Resizer

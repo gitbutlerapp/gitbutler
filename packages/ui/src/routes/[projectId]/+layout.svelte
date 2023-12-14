@@ -25,6 +25,7 @@
 	$: branchService = data.branchService;
 	$: userService = data.userService;
 	$: projectId = data.projectId;
+	$: githubContext$ = data.githubContext$;
 
 	$: baseBranchService = data.baseBranchService;
 	$: baseBranch$ = baseBranchService.base$;
@@ -97,6 +98,7 @@
 					update={updateService.update$}
 					{prService}
 					{projectService}
+					githubContext={$githubContext$}
 				/>
 			{:else}
 				<p>loading...</p>
