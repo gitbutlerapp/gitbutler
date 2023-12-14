@@ -13,7 +13,8 @@ pub enum Code {
     ProjectConflict,
     ProjectHead,
     Menu,
-    Hook,
+    PreCommitHook,
+    CommitMsgHook,
 }
 
 impl fmt::Display for Code {
@@ -28,7 +29,9 @@ impl fmt::Display for Code {
             Code::ProjectGitRemote => write!(f, "errors.projects.git.remote"),
             Code::ProjectHead => write!(f, "errors.projects.head"),
             Code::ProjectConflict => write!(f, "errors.projects.conflict"),
-            Code::Hook => write!(f, "errors.hook"),
+            //TODO: ranem to something more scalable on js side
+            Code::PreCommitHook => write!(f, "errors.hook"),
+            Code::CommitMsgHook => write!(f, "errors.hooks.commit.msg"),
         }
     }
 }

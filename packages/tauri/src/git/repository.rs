@@ -430,6 +430,11 @@ impl Repository {
         let res = git2_hooks::hooks_pre_commit(&self.0, Some(&["../.husky"]))?;
         Ok(res)
     }
+
+    pub fn run_hook_commit_msg(&self, msg: &mut String) -> Result<HookResult> {
+        let res = git2_hooks::hooks_commit_msg(&self.0, Some(&["../.husky"]), msg)?;
+        Ok(res)
+    }
 }
 
 pub struct CheckoutTreeBuidler<'a> {
