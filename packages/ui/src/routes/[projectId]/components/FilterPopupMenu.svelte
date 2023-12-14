@@ -7,6 +7,7 @@
 	import type { Writable } from 'svelte/store';
 
 	export let visible: boolean;
+	export let showPrCheckbox: boolean;
 
 	export let includePrs: Writable<boolean | undefined>;
 	export let includeRemote: Writable<boolean | undefined>;
@@ -18,10 +19,11 @@
 {#if visible}
 	<ContextMenu>
 		<ContextMenuSection>
-			<ContextMenuItem label="Pull requests" on:click={() => ($includePrs = !$includePrs)}>
-				<Checkbox small bind:checked={$includePrs} slot="control" />
-			</ContextMenuItem>
-
+			{#if showPrCheckbox}
+				<ContextMenuItem label="Pull requests" on:click={() => ($includePrs = !$includePrs)}>
+					<Checkbox small bind:checked={$includePrs} slot="control" />
+				</ContextMenuItem>
+			{/if}
 			<ContextMenuItem label="Remote" on:click={() => ($includeRemote = !$includeRemote)}>
 				<Checkbox small bind:checked={$includeRemote} slot="control" />
 			</ContextMenuItem>

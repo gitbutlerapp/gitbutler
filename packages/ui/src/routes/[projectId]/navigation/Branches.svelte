@@ -15,8 +15,10 @@
 	import { storeToObservable } from '$lib/rxjs/store';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import { persisted } from '$lib/persisted/persisted';
+	import type { GitHubIntegrationContext } from '$lib/github/types';
 
 	export let branchService: BranchService;
+	export let githubContext: GitHubIntegrationContext | undefined;
 	export let projectId: string;
 
 	export const textFilter$ = new BehaviorSubject<string | undefined>(undefined);
@@ -150,6 +152,7 @@
 				{includeStashed}
 				{hideBots}
 				{hideInactive}
+				showPrCheckbox={!!githubContext}
 				on:action
 			/>
 		</BranchesHeader>
