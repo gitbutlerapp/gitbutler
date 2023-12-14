@@ -2111,6 +2111,11 @@ pub fn commit(
         None => project_repository.commit(user, message, &tree, &[&parent_commit], signing_key)?,
     };
 
+    project_repository
+        .git_repository
+        .run_hook_post_commit()
+        .context("failed to run hook")?;
+
     // update the virtual branch head
     let writer = branch::Writer::new(gb_repository);
     branch.tree = tree_oid;
