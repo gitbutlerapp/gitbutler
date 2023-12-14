@@ -29,7 +29,7 @@ impl fmt::Display for Code {
             Code::ProjectGitRemote => write!(f, "errors.projects.git.remote"),
             Code::ProjectHead => write!(f, "errors.projects.head"),
             Code::ProjectConflict => write!(f, "errors.projects.conflict"),
-            //TODO: ranem to something more scalable on js side
+            //TODO: raneme to something more scalable on the js side
             Code::PreCommitHook => write!(f, "errors.hook"),
             Code::CommitMsgHook => write!(f, "errors.hooks.commit.msg"),
         }
