@@ -60,7 +60,9 @@ pub enum GetOrCreateError {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, os::unix::prelude::PermissionsExt};
+    use std::fs;
+    #[cfg(target_family = "unix")]
+    use std::os::unix::prelude::*;
 
     use crate::test_utils::Suite;
 
