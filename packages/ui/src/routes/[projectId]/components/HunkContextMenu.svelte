@@ -1,6 +1,8 @@
 <script lang="ts">
 	import PopupMenu from '$lib/components/PopupMenu.svelte';
-	import PopupMenuItem from '$lib/components/PopupMenuItem.svelte';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
+	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
+	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { File } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';
@@ -16,25 +18,18 @@
 </script>
 
 <PopupMenu bind:this={popupMenu} let:item>
-	{#if 'expanded' in item.section}
-		<PopupMenuItem
-			on:click={() => {
-				item.section.expanded = false;
-			}}
-		>
-			Collapse
-		</PopupMenuItem>
-	{/if}
-	{#if item.hunk !== undefined && !item.hunk.locked}
-		<PopupMenuItem on:click={() => branchController.unapplyHunk(item.hunk)}>Discard</PopupMenuItem>
-	{/if}
-	{#if item.lineNumber}
-		<PopupMenuItem
-			disabled={!projectPath}
-			on:click={() =>
-				projectPath && open(`vscode://file${projectPath}/${file.path}:${item.lineNumber}`)}
-		>
-			Open in Visual Studio Code
-		</PopupMenuItem>
-	{/if}
+	<ContextMenu>
+		<ContextMenuSection>
+			{#if item.hunk !== undefined && !item.hunk.locked}
+				<ContextMenuItem label="Discard" on:click={() => branchController.unapplyHunk(item.hunk)} />
+			{/if}
+			{#if item.lineNumber}
+				<ContextMenuItem
+					label="Open in VS Code"
+					on:click={() =>
+						projectPath && open(`vscode://file${projectPath}/${file.path}:${item.lineNumber}`)}
+				/>
+			{/if}
+		</ContextMenuSection>
+	</ContextMenu>
 </PopupMenu>
