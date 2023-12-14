@@ -28,10 +28,10 @@
 		project.preferred_key === 'generated'
 			? 'generated'
 			: project.preferred_key === 'default'
-			  ? 'default'
-			  : project.preferred_key === 'gitCredentialsHelper'
-			    ? 'gitCredentialsHelper'
-			    : 'local';
+				? 'default'
+				: project.preferred_key === 'gitCredentialsHelper'
+					? 'gitCredentialsHelper'
+					: 'local';
 
 	let privateKeyPath =
 		project.preferred_key === 'generated' ||

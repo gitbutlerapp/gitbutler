@@ -55,7 +55,7 @@ export function ghResponseToInstance(
 					email: pr.user.email || undefined,
 					isBot: pr.user.type.toLowerCase() == 'bot',
 					gravatarUrl: new URL(pr.user.avatar_url)
-			  }
+				}
 			: null,
 		labels: labels,
 		draft: pr.draft || false,
