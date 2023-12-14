@@ -12,7 +12,9 @@ import {
 } from 'rxjs';
 
 export type Key =
+	| 'default'
 	| 'generated'
+	| 'gitCredentialsHelper'
 	| {
 			local: { private_key_path: string; passphrase?: string };
 	  };
