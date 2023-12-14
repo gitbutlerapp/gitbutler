@@ -1771,6 +1771,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "backoff",
+ "backtrace",
  "bstr 1.8.0",
  "byteorder",
  "chrono",
