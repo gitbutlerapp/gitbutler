@@ -1,9 +1,11 @@
 use std::{
     fs,
-    os::unix::prelude::PermissionsExt,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
 };
+
+#[cfg(target_family = "unix")]
+use std::os::unix::prelude::*;
 
 use tauri::AppHandle;
 

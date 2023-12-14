@@ -2,9 +2,11 @@ use std::{
     collections::{HashMap, HashSet},
     fs::File,
     io::{BufReader, Read},
-    os::unix::prelude::{MetadataExt, OsStrExt},
     path, time,
 };
+
+#[cfg(target_family = "unix")]
+use std::os::unix::prelude::*;
 
 use anyhow::{anyhow, Context, Result};
 use filetime::FileTime;
