@@ -8,7 +8,9 @@ use crate::{git, id::Id, types::default_true::DefaultTrue};
 #[serde(rename_all = "camelCase")]
 pub enum AuthKey {
     #[default]
+    Default,
     Generated,
+    GitCredentialsHelper,
     Local {
         private_key_path: path::PathBuf,
         passphrase: Option<String>,

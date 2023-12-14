@@ -24,12 +24,28 @@
 		sshKey = key;
 	});
 
-	let selectedOption = project.preferred_key === 'generated' ? 'generated' : 'local';
+	let selectedOption =
+		project.preferred_key === 'generated'
+			? 'generated'
+			: project.preferred_key === 'default'
+			  ? 'default'
+			  : project.preferred_key === 'gitCredentialsHelper'
+			    ? 'gitCredentialsHelper'
+			    : 'local';
 
 	let privateKeyPath =
-		project.preferred_key === 'generated' ? '' : project.preferred_key.local.private_key_path;
+		project.preferred_key === 'generated' ||
+		project.preferred_key === 'default' ||
+		project.preferred_key === 'gitCredentialsHelper'
+			? ''
+			: project.preferred_key.local.private_key_path;
 	let privateKeyPassphrase =
-		project.preferred_key === 'generated' ? '' : project.preferred_key.local.passphrase;
+		project.preferred_key === 'generated' ||
+		project.preferred_key === 'default' ||
+		project.preferred_key === 'gitCredentialsHelper'
+			? ''
+			: project.preferred_key.local.passphrase;
+
 	function setLocalKey() {
 		dispatch('updated', {
 			preferred_key: {
@@ -44,6 +60,18 @@
 		});
 	}
 
+	function setGitCredentialsHelperKey() {
+		dispatch('updated', {
+			preferred_key: 'gitCredentialsHelper'
+		});
+	}
+
+	function setDefaultKey() {
+		dispatch('updated', {
+			preferred_key: 'default'
+		});
+	}
+
 	function setGeneratedKey() {
 		dispatch('updated', {
 			preferred_key: 'generated'
@@ -52,7 +80,7 @@
 </script>
 
 <div class="flex flex-col gap-1">
-	<p>Preferred SSH Key</p>
+	<p>Git Authentication</p>
 	<div class="pr-8 text-sm text-light-700 dark:text-dark-200">
 		<div>
 			Select the SSH key that GitButler will use to authenticate with your Git provider. These keys
@@ -61,8 +89,44 @@
 	</div>
 
 	<div class="grid grid-cols-2 gap-2" style="grid-template-columns: max-content 1fr;">
-		<input type="radio" bind:group={selectedOption} value="generated" on:input={setGeneratedKey} />
+		<input type="radio" bind:group={selectedOption} value="default" on:input={setDefaultKey} />
+		<div class="flex flex-col space-y-2">
+			<div>Default</div>
 
+			{#if selectedOption === 'default'}
+				<div class="pr-8">
+					<div>
+						We will try all of: your local SHH keys, git credentials helper and local GitButler key.
+					</div>
+					<div>
+						It is recommended to select a specific authenticatation flow for a better expirience.
+					</div>
+				</div>
+			{/if}
+		</div>
+
+		<input
+			type="radio"
+			bind:group={selectedOption}
+			value="gitCredentialsHelper"
+			on:input={setGitCredentialsHelperKey}
+		/>
+		<div class="flex flex-col space-y-2">
+			<div class="pr-8">
+				<div>
+					Use <a href="https://git-scm.com/doc/credential-helpers">git credentials helper</a>
+				</div>
+			</div>
+			{#if selectedOption === 'gitCredentialsHelper'}
+				<div>
+					<div>
+						We will use the system git credentials helper to authenticate with your Git provider.
+					</div>
+				</div>
+			{/if}
+		</div>
+
+		<input type="radio" bind:group={selectedOption} value="generated" on:input={setGeneratedKey} />
 		<div class="flex flex-col space-y-2">
 			<div class="pr-8">
 				<div>Use locally generated SSH key</div>
@@ -103,7 +167,7 @@
 			{/if}
 		</div>
 
-		<input type="radio" bind:group={selectedOption} value="local" on:input={() => setLocalKey} />
+		<input type="radio" bind:group={selectedOption} value="local" on:input={setLocalKey} />
 		<div class="flex flex-col space-y-2">
 			<div>Use existing SSH key</div>
 
@@ -121,7 +185,7 @@
 					<label for="path">Path to private key</label>
 
 					<TextBox
-						placeholder="/absolute/path/id_rsa"
+						placeholder="~/.ssh/id_rsa"
 						bind:value={privateKeyPath}
 						on:change={setLocalKey}
 					/>
