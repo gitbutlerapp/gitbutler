@@ -39,8 +39,8 @@
 		}
 	);
 
-	const branches$ = branchService.branches$;
-	const filteredBranches$ = combineLatest(
+	$: branches$ = branchService.branches$;
+	$: filteredBranches$ = combineLatest(
 		[
 			branches$,
 			textFilter$,

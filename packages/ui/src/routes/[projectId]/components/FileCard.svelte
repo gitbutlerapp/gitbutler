@@ -292,7 +292,8 @@
 		overscroll-behavior: none;
 	}
 	.hunk__inner_inner {
-		width: max-content;
+		width: 100%;
+		min-width: max-content;
 	}
 	.added {
 		color: #45b156;

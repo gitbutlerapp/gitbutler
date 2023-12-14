@@ -2807,3 +2807,71 @@ fn test_pre_commit_hook_rejection() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_post_commit_hook() -> Result<()> {
+    let suite = Suite::default();
+    let Case {
+        project,
+        gb_repository,
+        project_repository,
+        ..
+    } = suite.new_case_with_files(HashMap::from([
+        (
+            path::PathBuf::from("test.txt"),
+            "line1\nline2\nline3\nline4\n",
+        ),
+        (
+            path::PathBuf::from("test2.txt"),
+            "line5\nline6\nline7\nline8\n",
+        ),
+    ]));
+
+    set_test_target(&gb_repository, &project_repository)?;
+
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+
+    std::fs::write(
+        std::path::Path::new(&project.path).join("test.txt"),
+        "line0\nline1\nline2\nline3\nline4\n",
+    )?;
+
+    let hook = b"#!/bin/sh
+    touch hook_ran
+            ";
+
+    git2_hooks::create_hook(
+        (&project_repository.git_repository).into(),
+        git2_hooks::HOOK_POST_COMMIT,
+        hook,
+    );
+
+    let hook_ran_proof = project_repository
+        .git_repository
+        .path()
+        .parent()
+        .unwrap()
+        .join("hook_ran");
+
+    assert!(!hook_ran_proof.exists());
+
+    commit(
+        &gb_repository,
+        &project_repository,
+        &branch1_id,
+        "test commit",
+        None,
+        Some(suite.keys.get_or_create()?).as_ref(),
+        None,
+    )?;
+
+    assert!(hook_ran_proof.exists());
+
+    Ok(())
+}
