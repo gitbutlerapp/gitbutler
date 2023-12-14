@@ -2010,6 +2010,19 @@ pub fn commit(
     signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
 ) -> Result<git::Oid, errors::CommitError> {
+    let mut message_buffer = message.to_owned();
+
+    let hook_result = project_repository
+        .git_repository
+        .run_hook_commit_msg(&mut message_buffer)
+        .context("failed to run hook")?;
+
+    if let HookResult::RunNotSuccessful { stdout, .. } = hook_result {
+        return Err(errors::CommitError::CommitMsgHookRejected(stdout));
+    }
+
+    let message = &message_buffer;
+
     let hook_result = project_repository
         .git_repository
         .run_hook_pre_commit()

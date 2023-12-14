@@ -146,6 +146,8 @@ pub enum CommitError {
     Conflicted(ProjectConflictError),
     #[error("commit hook rejected")]
     CommitHookRejected(String),
+    #[error("commit msg hook rejected")]
+    CommitMsgHookRejected(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -413,7 +415,11 @@ impl From<CommitError> for Error {
             CommitError::DefaultTargetNotSet(error) => error.into(),
             CommitError::Conflicted(error) => error.into(),
             CommitError::CommitHookRejected(error) => Error::UserError {
-                code: crate::error::Code::Hook,
+                code: crate::error::Code::PreCommitHook,
+                message: error,
+            },
+            CommitError::CommitMsgHookRejected(error) => Error::UserError {
+                code: crate::error::Code::CommitMsgHook,
                 message: error,
             },
             CommitError::Other(error) => {

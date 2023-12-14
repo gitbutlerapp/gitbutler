@@ -338,7 +338,8 @@ mod legacy {
         ProjectConflict,
         ProjectHead,
         Menu,
-        Hook,
+        PreCommitHook,
+        CommitMsgHook,
     }
 
     impl fmt::Display for Code {
@@ -353,7 +354,9 @@ mod legacy {
                 Code::ProjectGitRemote => write!(f, "errors.projects.git.remote"),
                 Code::ProjectHead => write!(f, "errors.projects.head"),
                 Code::ProjectConflict => write!(f, "errors.projects.conflict"),
-                Code::Hook => write!(f, "errors.hook"),
+                //TODO: rename js side to be more precise what kind of hook error this is
+                Code::PreCommitHook => write!(f, "errors.hook"),
+                Code::CommitMsgHook => write!(f, "errors.hooks.commit.msg"),
             }
         }
     }

@@ -2876,3 +2876,71 @@ fn test_post_commit_hook() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_commit_msg_hook_rejection() -> Result<()> {
+    let suite = Suite::default();
+    let Case {
+        project,
+        gb_repository,
+        project_repository,
+        ..
+    } = suite.new_case_with_files(HashMap::from([
+        (
+            path::PathBuf::from("test.txt"),
+            "line1\nline2\nline3\nline4\n",
+        ),
+        (
+            path::PathBuf::from("test2.txt"),
+            "line5\nline6\nline7\nline8\n",
+        ),
+    ]));
+
+    set_test_target(&gb_repository, &project_repository)?;
+
+    let branch1_id = create_virtual_branch(
+        &gb_repository,
+        &project_repository,
+        &BranchCreateRequest::default(),
+    )
+    .expect("failed to create virtual branch")
+    .id;
+
+    std::fs::write(
+        std::path::Path::new(&project.path).join("test.txt"),
+        "line0\nline1\nline2\nline3\nline4\n",
+    )?;
+
+    let hook = b"#!/bin/sh
+    echo 'rejected'
+    exit 1
+            ";
+
+    git2_hooks::create_hook(
+        (&project_repository.git_repository).into(),
+        git2_hooks::HOOK_COMMIT_MSG,
+        hook,
+    );
+
+    let res = commit(
+        &gb_repository,
+        &project_repository,
+        &branch1_id,
+        "test commit",
+        None,
+        Some(suite.keys.get_or_create()?).as_ref(),
+        None,
+    );
+
+    let error = res.unwrap_err();
+
+    assert!(matches!(error, CommitError::CommitMsgHookRejected(_)));
+
+    let CommitError::CommitMsgHookRejected(output) = error else {
+        unreachable!()
+    };
+
+    assert_eq!(&output, "rejected\n");
+
+    Ok(())
+}
