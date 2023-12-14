@@ -69,6 +69,6 @@ export class CombinedBranch {
 	get modifiedAt(): Date | undefined {
 		if (this.pr) return this.pr.modifiedAt || this.pr.createdAt;
 		if (this.remoteBranch) return this.remoteBranch.lastCommitTs;
-		return this.vbranch?.updatedTimestamp;
+		return this.vbranch?.updatedAt;
 	}
 }

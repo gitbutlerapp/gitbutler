@@ -49,7 +49,7 @@ pub struct VirtualBranch {
     pub upstream: Option<RemoteBranch>, // the upstream branch where this branch pushes to, if any
     pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
     pub ownership: Ownership,
-    pub updated_timestamp_ms: u128,
+    pub updated_at: u128,
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -830,7 +830,7 @@ pub fn list_virtual_branches(
             conflicted: conflicts::is_resolving(project_repository),
             base_current,
             ownership: branch.ownership.clone(),
-            updated_timestamp_ms: branch.updated_timestamp_ms,
+            updated_at: branch.updated_timestamp_ms,
         };
         branches.push(branch);
     }

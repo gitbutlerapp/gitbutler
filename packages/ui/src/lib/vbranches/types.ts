@@ -61,11 +61,8 @@ export class Branch {
 	// If the branch has been already applied, then it was either performed cleanly or we generated conflict markers in the diffs.
 	// (therefore this field is applicable for stashed/unapplied or remote branches, i.e. active == false)
 	isMergeable!: Promise<boolean>;
-	updatedTimestampMs!: number;
-
-	get updatedTimestamp(): Date {
-		return new Date(this.updatedTimestampMs);
-	}
+	@Transform((obj) => new Date(obj.value))
+	updatedAt!: Date;
 
 	get upstreamName() {
 		return this.upstream?.name.split('/').slice(-1)[0];
