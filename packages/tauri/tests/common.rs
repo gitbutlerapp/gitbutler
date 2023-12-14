@@ -1,6 +1,6 @@
 #![allow(unused)]
 use gblib::git;
-use std::path;
+use std::{path, str::from_utf8};
 
 pub fn temp_dir() -> std::path::PathBuf {
     tempfile::tempdir()
@@ -140,7 +140,7 @@ impl TestProject {
             self.remote_repository.find_commit(oid).unwrap()
         };
         let merge_tree = {
-            let mut index = self
+            let mut merge_index = self
                 .remote_repository
                 .merge_trees(
                     &merge_base.tree().unwrap(),
@@ -148,7 +148,7 @@ impl TestProject {
                     &branch.peel_to_tree().unwrap(),
                 )
                 .unwrap();
-            let oid = index.write_tree_to(&self.remote_repository).unwrap();
+            let oid = merge_index.write_tree_to(&self.remote_repository).unwrap();
             self.remote_repository.find_tree(oid).unwrap()
         };
 

@@ -2409,7 +2409,6 @@ mod update_base_branch {
                 ..
             } = Test::default();
 
-            // make sure we have an undiscovered commit in the remote branch
             {
                 fs::write(repository.path().join("file.txt"), "first").unwrap();
                 repository.commit_all("first");
@@ -2503,6 +2502,112 @@ mod update_base_branch {
         }
 
         #[tokio::test]
+        async fn integrated_with_locked_conflicting_hunks() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+                ..
+            } = Test::default();
+
+            // make sure we have an undiscovered commit in the remote branch
+            {
+                fs::write(
+                    repository.path().join("file.txt"),
+                    "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n",
+                )
+                .unwrap();
+                let first_commit_oid = repository.commit_all("first");
+                fs::write(
+                    repository.path().join("file.txt"),
+                    "1\n2\n3\n4\n5\n6\n17\n8\n9\n10\n11\n12\n",
+                )
+                .unwrap();
+                repository.commit_all("second");
+                repository.push();
+                repository.reset_hard(Some(first_commit_oid));
+            }
+
+            controller
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                .await
+                .unwrap();
+
+            // branch has no conflict
+            let branch_id = {
+                let branch_id = controller
+                    .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+                    .await
+                    .unwrap();
+
+                fs::write(
+                    repository.path().join("file.txt"),
+                    "1\n2\n3\n4\n5\n6\n7\n8\n19\n10\n11\n12\n",
+                )
+                .unwrap();
+
+                controller
+                    .create_commit(&project_id, &branch_id, "first", None)
+                    .await
+                    .unwrap();
+
+                branch_id
+            };
+
+            // push the branch
+            controller
+                .push_virtual_branch(&project_id, &branch_id, false)
+                .await
+                .unwrap();
+
+            // another locked conflicing hunk
+            fs::write(
+                repository.path().join("file.txt"),
+                "1\n2\n3\n4\n5\n6\n77\n8\n19\n10\n11\n12\n",
+            )
+            .unwrap();
+
+            {
+                // merge branch remotely
+                let branch =
+                    controller.list_virtual_branches(&project_id).await.unwrap()[0].clone();
+                repository.merge(&branch.upstream.as_ref().unwrap().name);
+            }
+
+            repository.fetch();
+
+            {
+                controller.update_base_branch(&project_id).await.unwrap();
+
+                // removes integrated commit, leaves non commited work as is
+
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].id, branch_id);
+                assert!(!branches[0].active);
+                assert!(branches[0].commits.is_empty());
+                assert!(!branches[0].files.is_empty());
+            }
+
+            {
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert!(branches[0].active);
+                assert!(branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].files[0].hunks.len(), 1);
+                assert_eq!(branches[0].files[0].hunks[0].diff, "@@ -4,7 +4,11 @@\n 4\n 5\n 6\n-7\n+<<<<<<< ours\n+77\n+=======\n+17\n+>>>>>>> theirs\n 8\n 19\n 10\n");
+                assert_eq!(branches[0].commits.len(), 0);
+            }
+        }
+
+        #[tokio::test]
         async fn integrated_with_locked_hunks() {
             let Test {
                 repository,
@@ -2561,6 +2666,21 @@ mod update_base_branch {
                 assert!(!branches[0].active);
                 assert!(branches[0].commits.is_empty());
                 assert!(!branches[0].files.is_empty());
+            }
+
+            {
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert!(branches[0].active);
+                assert!(!branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 0);
+                assert_eq!(branches[0].commits.len(), 1); // merge commit
             }
         }
 
@@ -2623,6 +2743,21 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(branches[0].commits.is_empty());
                 assert!(!branches[0].files.is_empty());
+            }
+
+            {
+                controller
+                    .apply_virtual_branch(&project_id, &branch_id)
+                    .await
+                    .unwrap();
+
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 1);
+                assert!(branches[0].active);
+                assert!(!branches[0].conflicted);
+                assert!(branches[0].base_current);
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 0);
             }
         }
 
