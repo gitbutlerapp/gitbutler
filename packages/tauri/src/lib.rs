@@ -1,3 +1,5 @@
+#![feature(error_generic_member_access)]
+
 pub mod analytics;
 pub mod app;
 pub mod assets;

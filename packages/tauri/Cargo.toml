@@ -24,6 +24,7 @@ tempfile = "3.8"
 anyhow = "1.0.72"
 async-trait = "0.1.74"
 backoff = "0.4.0"
+backtrace = { version = "0.3.69", optional = true }
 bstr = "1.8.0"
 byteorder = "1.5.0"
 chrono = { version = "0.4.31", features = ["serde"] }
@@ -50,7 +51,7 @@ reqwest = "0.11.22"
 resolve-path = "0.1.0"
 rusqlite = { version = "0.29.0", features = [ "bundled", "blob" ] }
 rustix = "0.38"
-sentry = { version = "0.32", features = ["backtrace", "contexts", "panic", "transport", "anyhow", "debug-images", "reqwest", "native-tls" ] }
+sentry = { version = "0.32", optional = true, features = ["backtrace", "contexts", "panic", "transport", "anyhow", "debug-images", "reqwest", "native-tls" ] }
 sentry-tracing = "0.32.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
@@ -79,12 +80,15 @@ zip = "0.6.5"
 [features]
 # by default Tauri runs in production mode
 # when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is an URL
-default = ["custom-protocol"]
+default = ["custom-protocol", "sentry", "error-context"]
 # this feature enables devtools
 devtools = ["tauri/devtools"]
 # this feature is used used for production builds where `devPath` points to the filesystem
 # DO NOT remove this
 custom-protocol = ["tauri/custom-protocol"]
+
+sentry = ["dep:sentry", "error-context"]
+error-context = ["dep:backtrace", "sentry/backtrace"]
 
 [lints]
 workspace = true
