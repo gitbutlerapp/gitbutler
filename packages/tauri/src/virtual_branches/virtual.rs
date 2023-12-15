@@ -291,7 +291,6 @@ pub fn apply_branch(
         if branch.upstream.is_some() {
             // branch was pushed to upstream. create a merge commit to avoid need
             // of force pushing.
-            // TODO: make this configurable
 
             let new_branch_head = project_repository.commit(
                 user,
@@ -3160,4 +3159,151 @@ pub fn update_commit_message(
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     Ok(())
+}
+
+pub fn create_virtual_branch_from_branch(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    upstream: &git::Refname,
+    signing_key: Option<&keys::PrivateKey>,
+    user: Option<&users::User>,
+) -> Result<BranchId, errors::CreateVirtualBranchFromBranchError> {
+    if !matches!(upstream, git::Refname::Local(_) | git::Refname::Remote(_)) {
+        return Err(errors::CreateVirtualBranchFromBranchError::BranchNotFound(
+            upstream.clone(),
+        ));
+    }
+
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create current session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+
+    let default_target = super::get_default_target(&current_session_reader)
+        .context("failed to get default target")?
+        .ok_or_else(|| {
+            errors::CreateVirtualBranchFromBranchError::DefaultTargetNotSet(
+                errors::DefaultTargetNotSetError {
+                    project_id: project_repository.project().id,
+                },
+            )
+        })?;
+
+    if let git::Refname::Remote(remote_upstream) = upstream {
+        if default_target.branch.eq(remote_upstream) {
+            return Err(
+                errors::CreateVirtualBranchFromBranchError::CantMakeBranchFromDefaultTarget,
+            );
+        }
+    }
+
+    let repo = &project_repository.git_repository;
+    let head = match repo.find_reference(upstream) {
+        Ok(head) => Ok(head),
+        Err(git::Error::NotFound(_)) => Err(
+            errors::CreateVirtualBranchFromBranchError::BranchNotFound(upstream.clone()),
+        ),
+        Err(error) => Err(errors::CreateVirtualBranchFromBranchError::Other(
+            error.into(),
+        )),
+    }?;
+
+    let head_commit = head.peel_to_commit().context("failed to peel to commit")?;
+    let tree = head_commit.tree().context("failed to find tree")?;
+
+    let virtual_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?;
+
+    let order = virtual_branches.len();
+
+    let now = time::UNIX_EPOCH
+        .elapsed()
+        .context("failed to get elapsed time")?
+        .as_millis();
+
+    // only set upstream if it's not the default target
+    let upstream_branch = match upstream {
+        git::Refname::Other(_) | git::Refname::Virtual(_) => {
+            // we only support local or remote branches
+            return Err(errors::CreateVirtualBranchFromBranchError::BranchNotFound(
+                upstream.clone(),
+            ));
+        }
+        git::Refname::Remote(remote) => Some(remote.clone()),
+        git::Refname::Local(local) => local.remote().cloned(),
+    };
+
+    let mut branch = branch::Branch {
+        id: BranchId::generate(),
+        name: upstream
+            .branch()
+            .expect("always a branch reference")
+            .to_string(),
+        notes: String::new(),
+        applied: false,
+        upstream: upstream_branch,
+        upstream_head: Some(head_commit.id()),
+        tree: tree.id(),
+        head: head_commit.id(),
+        created_timestamp_ms: now,
+        updated_timestamp_ms: now,
+        ownership: branch::Ownership::default(),
+        order,
+    };
+
+    // add file ownership based off the diff
+    let target_commit = repo
+        .find_commit(default_target.sha)
+        .map_err(|error| errors::CreateVirtualBranchFromBranchError::Other(error.into()))?;
+    let merge_base = repo
+        .merge_base(target_commit.id(), head_commit.id())
+        .map_err(|error| errors::CreateVirtualBranchFromBranchError::Other(error.into()))?;
+    let merge_tree = repo
+        .find_commit(merge_base)
+        .map_err(|error| errors::CreateVirtualBranchFromBranchError::Other(error.into()))?
+        .tree()
+        .map_err(|error| errors::CreateVirtualBranchFromBranchError::Other(error.into()))?;
+
+    // do a diff between the head of this branch and the target base
+    let diff = diff::trees(&project_repository.git_repository, &merge_tree, &tree)
+        .context("failed to diff trees")?;
+
+    let hunks_by_filepath =
+        super::virtual_hunks_by_filepath(&project_repository.project().path, &diff);
+
+    // assign ownership to the branch
+    for hunk in hunks_by_filepath.values().flatten() {
+        branch.ownership.put(
+            &format!("{}:{}", hunk.file_path.display(), hunk.id)
+                .parse()
+                .unwrap(),
+        );
+    }
+
+    let writer = branch::Writer::new(gb_repository);
+    writer
+        .write(&mut branch)
+        .context("failed to write branch")?;
+
+    project_repository.add_branch_reference(&branch)?;
+
+    match apply_branch(
+        gb_repository,
+        project_repository,
+        &branch.id,
+        signing_key,
+        user,
+    ) {
+        Ok(()) => Ok(branch.id),
+        Err(errors::ApplyBranchError::BranchConflicts(_)) => {
+            // if branch conflicts with applied branches, it's ok. keep it unapplied
+            Ok(branch.id)
+        }
+        Err(error) => Err(errors::CreateVirtualBranchFromBranchError::ApplyBranch(
+            error,
+        )),
+    }
 }

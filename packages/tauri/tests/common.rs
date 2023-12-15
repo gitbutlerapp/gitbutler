@@ -168,7 +168,7 @@ impl TestProject {
         self.local_repository.find_commit(oid)
     }
 
-    pub fn checkout(&self, branch: git::LocalRefname) {
+    pub fn checkout(&self, branch: &git::LocalRefname) {
         let branch: git::Refname = branch.into();
         let tree = match self.local_repository.find_branch(&branch) {
             Ok(branch) => branch.peel_to_tree(),

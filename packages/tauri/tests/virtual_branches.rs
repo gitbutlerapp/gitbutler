@@ -4017,7 +4017,7 @@ mod init {
             ..
         } = Test::default();
 
-        repository.checkout("refs/heads/some-feature".parse().unwrap());
+        repository.checkout(&"refs/heads/some-feature".parse().unwrap());
 
         fs::write(repository.path().join("file.txt"), "content").unwrap();
 
@@ -4069,7 +4069,7 @@ mod init {
             ..
         } = Test::default();
 
-        repository.checkout("refs/heads/some-feature".parse().unwrap());
+        repository.checkout(&"refs/heads/some-feature".parse().unwrap());
         fs::write(repository.path().join("file.txt"), "content").unwrap();
         repository.commit_all("commit on target");
 
@@ -4096,7 +4096,7 @@ mod init {
             ..
         } = Test::default();
 
-        repository.checkout("refs/heads/some-feature".parse().unwrap());
+        repository.checkout(&"refs/heads/some-feature".parse().unwrap());
         fs::write(repository.path().join("file.txt"), "content").unwrap();
         repository.commit_all("commit on target");
         repository.push_branch(&"refs/heads/some-feature".parse().unwrap());
@@ -4903,6 +4903,221 @@ mod update_commit_message {
                 .await,
             Err(ControllerError::Action(
                 errors::UpdateCommitMessageError::EmptyMessage
+            ))
+        ));
+    }
+}
+
+mod create_virtual_branch_from_branch {
+    use super::*;
+
+    #[tokio::test]
+    async fn no_conflicts() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        {
+            // create a remote branch
+            let branch_name: git::LocalRefname = "refs/heads/branch".parse().unwrap();
+            repository.checkout(&branch_name);
+            fs::write(repository.path().join("file.txt"), "first").unwrap();
+            repository.commit_all("first");
+            repository.push_branch(&branch_name);
+            repository.checkout(&"refs/heads/master".parse().unwrap());
+        }
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert!(branches.is_empty());
+
+        let branch_id = controller
+            .create_virtual_branch_from_branch(
+                &project_id,
+                &"refs/remotes/origin/branch".parse().unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 1);
+        assert_eq!(branches[0].id, branch_id);
+        assert_eq!(branches[0].commits.len(), 1);
+        assert_eq!(branches[0].commits[0].description, "first");
+    }
+
+    #[tokio::test]
+    async fn conflicts_with_uncommited() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        {
+            // create a remote branch
+            let branch_name: git::LocalRefname = "refs/heads/branch".parse().unwrap();
+            repository.checkout(&branch_name);
+            fs::write(repository.path().join("file.txt"), "first").unwrap();
+            repository.commit_all("first");
+            repository.push_branch(&branch_name);
+            repository.checkout(&"refs/heads/master".parse().unwrap());
+        }
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        // create a local branch that conflicts with remote
+        {
+            std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+        };
+
+        // branch should be created unapplied, because of the conflict
+
+        let new_branch_id = controller
+            .create_virtual_branch_from_branch(
+                &project_id,
+                &"refs/remotes/origin/branch".parse().unwrap(),
+            )
+            .await
+            .unwrap();
+        let new_branch = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|branch| branch.id == new_branch_id)
+            .unwrap();
+        assert!(!new_branch.active);
+        assert_eq!(new_branch.commits.len(), 1);
+        assert!(new_branch.upstream.is_some());
+    }
+
+    #[tokio::test]
+    async fn conflicts_with_commited() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        {
+            // create a remote branch
+            let branch_name: git::LocalRefname = "refs/heads/branch".parse().unwrap();
+            repository.checkout(&branch_name);
+            fs::write(repository.path().join("file.txt"), "first").unwrap();
+            repository.commit_all("first");
+            repository.push_branch(&branch_name);
+            repository.checkout(&"refs/heads/master".parse().unwrap());
+        }
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        // create a local branch that conflicts with remote
+        {
+            std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
+
+            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+
+            controller
+                .create_commit(&project_id, &branches[0].id, "hej", None)
+                .await
+                .unwrap();
+        };
+
+        // branch should be created unapplied, because of the conflict
+
+        let new_branch_id = controller
+            .create_virtual_branch_from_branch(
+                &project_id,
+                &"refs/remotes/origin/branch".parse().unwrap(),
+            )
+            .await
+            .unwrap();
+        let new_branch = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|branch| branch.id == new_branch_id)
+            .unwrap();
+        assert!(!new_branch.active);
+        assert_eq!(new_branch.commits.len(), 1);
+        assert!(new_branch.upstream.is_some());
+    }
+
+    #[tokio::test]
+    async fn from_default_target() {
+        let Test {
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        // branch should be created unapplied, because of the conflict
+
+        assert!(matches!(
+            controller
+                .create_virtual_branch_from_branch(
+                    &project_id,
+                    &"refs/remotes/origin/master".parse().unwrap(),
+                )
+                .await
+                .unwrap_err(),
+            ControllerError::Action(
+                errors::CreateVirtualBranchFromBranchError::CantMakeBranchFromDefaultTarget
+            )
+        ));
+    }
+
+    #[tokio::test]
+    async fn from_non_existent_branch() {
+        let Test {
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        // branch should be created unapplied, because of the conflict
+
+        assert!(matches!(
+            controller
+                .create_virtual_branch_from_branch(
+                    &project_id,
+                    &"refs/remotes/origin/branch".parse().unwrap(),
+                )
+                .await
+                .unwrap_err(),
+            ControllerError::Action(errors::CreateVirtualBranchFromBranchError::BranchNotFound(
+                _
             ))
         ));
     }

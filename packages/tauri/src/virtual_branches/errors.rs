@@ -309,6 +309,10 @@ pub enum UpdateBaseBranchError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CreateVirtualBranchFromBranchError {
+    #[error("failed to apply")]
+    ApplyBranch(ApplyBranchError),
+    #[error("can't make branch from default target")]
+    CantMakeBranchFromDefaultTarget,
     #[error("merge conflict")]
     MergeConflict,
     #[error("default target not set")]
@@ -391,6 +395,13 @@ impl From<UpdateBranchError> for Error {
 impl From<CreateVirtualBranchFromBranchError> for Error {
     fn from(value: CreateVirtualBranchFromBranchError) -> Self {
         match value {
+            CreateVirtualBranchFromBranchError::ApplyBranch(error) => error.into(),
+            CreateVirtualBranchFromBranchError::CantMakeBranchFromDefaultTarget => {
+                Error::UserError {
+                    message: "Can not create a branch from default target".to_string(),
+                    code: crate::error::Code::Branches,
+                }
+            }
             CreateVirtualBranchFromBranchError::DefaultTargetNotSet(error) => error.into(),
             CreateVirtualBranchFromBranchError::MergeConflict => Error::UserError {
                 message: "Merge conflict".to_string(),
