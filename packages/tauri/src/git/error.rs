@@ -16,6 +16,8 @@ pub enum Error {
     Network(git2::Error),
     #[error("hook error: {0}")]
     Hooks(#[from] git2_hooks::HooksError),
+    #[error("http error: {0}")]
+    Http(git2::Error),
     #[error(transparent)]
     Other(git2::Error),
 }
@@ -27,6 +29,7 @@ impl From<git2::Error> for Error {
                 git2::ErrorCode::GenericError | git2::ErrorCode::Auth => Error::Auth(err),
                 _ => Error::Other(err),
             },
+            git2::ErrorClass::Http => Error::Http(err),
             git2::ErrorClass::Net => Error::Network(err),
             _ => match err.code() {
                 git2::ErrorCode::NotFound => Error::NotFound(err),
