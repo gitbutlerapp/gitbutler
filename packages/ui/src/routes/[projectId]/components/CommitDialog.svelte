@@ -133,12 +133,12 @@
 						<ContextMenuItem
 							checked={$commitGenerationExtraConcise}
 							label="Extra concise"
-							on:click={() => commitGenerationExtraConcise.update((value) => !value)}
+							on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
 						/>
 						<ContextMenuItem
 							checked={$commitGenerationUseEmojis}
 							label="Use emojis 😎"
-							on:click={() => commitGenerationUseEmojis.update((value) => !value)}
+							on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
 						/>
 					</ContextMenuSection>
 				</ContextMenu>
