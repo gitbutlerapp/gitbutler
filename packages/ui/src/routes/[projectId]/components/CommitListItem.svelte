@@ -154,13 +154,13 @@
 		background-color: var(--clr-theme-container-outline-light);
 	}
 	.connector {
-		width: 16px;
-		height: 18px;
+		width: 1rem;
+		height: 1.125rem;
 		position: absolute;
 		top: 0;
 		left: 0;
 		border-bottom: 1px solid var(--clr-theme-container-outline-light);
 		border-left: 1px solid var(--clr-theme-container-outline-light);
-		border-radius: 0 0 0 8px;
+		border-radius: 0 0 0 0.5rem;
 	}
 </style>
