@@ -33,7 +33,7 @@ export class CombinedBranch {
 		if (this.pr?.author) {
 			authors.push(this.pr.author);
 		}
-		if (this.remoteBranch) {
+		if (this.remoteBranch && !this.pr) {
 			// TODO: Is there a better way to filter out duplicates?
 			authors.push(
 				...this.remoteBranch.authors.filter((a) => !authors.some((b) => a.email == b.email))
