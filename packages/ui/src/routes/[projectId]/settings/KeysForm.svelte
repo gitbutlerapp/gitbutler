@@ -83,45 +83,45 @@
 	<p>Git Authentication</p>
 	<div class="pr-8 text-sm text-light-700 dark:text-dark-200">
 		<div>
-			Select the SSH key that GitButler will use to authenticate with your Git provider. These keys
-			are unique for your every GitButler client and are never sent anywhere.
+			Configure the authentication flow for GitButler when authenticating with your Git remote
+			provider.
 		</div>
 	</div>
 
 	<div class="grid grid-cols-2 gap-2" style="grid-template-columns: max-content 1fr;">
 		<input type="radio" bind:group={selectedOption} value="default" on:input={setDefaultKey} />
 		<div class="flex flex-col space-y-2">
-			<div>Default</div>
-
+			<div>Auto detect</div>
 			{#if selectedOption === 'default'}
-				<div class="pr-8">
-					<div>
-						We will try all of: your local SHH keys, git credentials helper and local GitButler key.
-					</div>
-					<div>
-						It is recommended to select a specific authenticatation flow for a better expirience.
-					</div>
+				<div class="pr-8 text-sm text-light-700 dark:text-dark-200">
+					<div>GitButler will attempt all available authentication flows automatically.</div>
 				</div>
 			{/if}
 		</div>
 
-		<input
-			type="radio"
-			bind:group={selectedOption}
-			value="gitCredentialsHelper"
-			on:input={setGitCredentialsHelperKey}
-		/>
+		<input type="radio" bind:group={selectedOption} value="local" on:input={setLocalKey} />
 		<div class="flex flex-col space-y-2">
-			<div class="pr-8">
-				<div>
-					Use <a href="https://git-scm.com/doc/credential-helpers">git credentials helper</a>
+			<div>Use existing SSH key</div>
+
+			{#if selectedOption === 'local'}
+				<div class="pr-8 text-sm text-light-700 dark:text-dark-200">
+					Add the path to an existing SSH key that GitButler can use.
 				</div>
-			</div>
-			{#if selectedOption === 'gitCredentialsHelper'}
-				<div>
-					<div>
-						We will use the system git credentials helper to authenticate with your Git provider.
-					</div>
+
+				<div
+					class="grid grid-cols-2 items-center gap-2"
+					style="grid-template-columns: max-content 1fr;"
+				>
+					<label for="path">Path to private key</label>
+
+					<TextBox
+						placeholder="for example: ~/.ssh/id_rsa"
+						bind:value={privateKeyPath}
+						on:change={setLocalKey}
+					/>
+
+					<label for="passphrase">Passphrase (optional)</label>
+					<TextBox password bind:value={privateKeyPassphrase} on:change={setLocalKey} />
 				</div>
 			{/if}
 		</div>
@@ -132,8 +132,9 @@
 				<div>Use locally generated SSH key</div>
 			</div>
 			{#if selectedOption === 'generated'}
-				<div>
-					Add the following public key to your Git provider to enable GitButler to push code.
+				<div class="pr-8 text-sm text-light-700 dark:text-dark-200">
+					GitButler will use a locally generated SSH key. For this to work you <b>need</b> to add the
+					following public key to your Git remote provider:
 				</div>
 				<div class="flex-auto overflow-y-scroll">
 					<input
@@ -167,31 +168,24 @@
 			{/if}
 		</div>
 
-		<input type="radio" bind:group={selectedOption} value="local" on:input={setLocalKey} />
+		<input
+			type="radio"
+			bind:group={selectedOption}
+			value="gitCredentialsHelper"
+			on:input={setGitCredentialsHelperKey}
+		/>
 		<div class="flex flex-col space-y-2">
-			<div>Use existing SSH key</div>
-
-			{#if selectedOption === 'local'}
-				<div class="pr-8">
-					<div>
-						Select the SSH key that GitButler will use to authenticate with your Git provider.
-					</div>
+			<div class="pr-8">
+				<div>
+					Use a
+					<Link target="_blank" rel="noreferrer" href="https://git-scm.com/doc/credential-helpers"
+						>Git credentials helper</Link
+					>
 				</div>
-
-				<div
-					class="grid grid-cols-2 items-center gap-2"
-					style="grid-template-columns: max-content 1fr;"
-				>
-					<label for="path">Path to private key</label>
-
-					<TextBox
-						placeholder="~/.ssh/id_rsa"
-						bind:value={privateKeyPath}
-						on:change={setLocalKey}
-					/>
-
-					<label for="passphrase">Passphrase</label>
-					<TextBox password bind:value={privateKeyPassphrase} on:change={setLocalKey} />
+			</div>
+			{#if selectedOption === 'gitCredentialsHelper'}
+				<div class="pr-8 text-sm text-light-700 dark:text-dark-200">
+					GitButler will use the system's git credentials helper.
 				</div>
 			{/if}
 		</div>
