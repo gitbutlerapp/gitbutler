@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use tauri::AppHandle;
 use tokio::sync::Mutex;
 
-use crate::{projects::ProjectId, virtual_branches};
+use crate::{project_repository::RemoteError, projects::ProjectId, virtual_branches};
 
 use super::events;
 
@@ -50,10 +50,15 @@ impl TryFrom<&AppHandle> for HandlerInner {
 
 impl HandlerInner {
     pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
-        self.vbranches
-            .fetch_from_target(project_id)
-            .await
-            .context("fetching from target")?;
-        Ok(vec![])
+        match self.vbranches.fetch_from_target(project_id).await {
+            Ok(_)
+            | Err(virtual_branches::controller::ControllerError::VerifyError(_))
+            | Err(virtual_branches::controller::ControllerError::Action(
+                virtual_branches::errors::FetchFromTargetError::DefaultTargetNotSet(_)
+                | virtual_branches::errors::FetchFromTargetError::Remote(RemoteError::Network)
+                | virtual_branches::errors::FetchFromTargetError::Remote(RemoteError::Auth),
+            )) => Ok(vec![]),
+            Err(error) => Err(error).context("failed to fetch project"),
+        }
     }
 }

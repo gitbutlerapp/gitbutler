@@ -432,8 +432,6 @@ pub enum RemoteError {
     Network,
     #[error("authentication failed")]
     Auth,
-    #[error("all authentication methods exhaused")]
-    NoAuthMethodsLeft,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -442,10 +440,6 @@ impl From<RemoteError> for crate::error::Error {
     fn from(value: RemoteError) -> Self {
         match value {
             RemoteError::Help(error) => error.into(),
-            RemoteError::NoAuthMethodsLeft => crate::error::Error::UserError {
-                code: crate::error::Code::ProjectGitRemote,
-                message: "We don't know how to authenticate with your remote.".to_string(),
-            },
             RemoteError::Network => crate::error::Error::UserError {
                 code: crate::error::Code::ProjectGitRemote,
                 message: "Network erorr occured".to_string(),
