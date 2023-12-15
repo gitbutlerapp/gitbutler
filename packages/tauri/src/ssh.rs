@@ -17,6 +17,10 @@ pub enum Error {
 }
 
 pub fn check_known_host(remote_url: &git::Url) -> Result<(), Error> {
+    if remote_url.scheme != git::Scheme::Ssh {
+        return Ok(());
+    }
+
     let host = if let Some(host) = remote_url.host.as_ref() {
         host
     } else {
