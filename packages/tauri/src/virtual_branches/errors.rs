@@ -1,4 +1,9 @@
-use crate::{error::Error, git, project_repository, projects::ProjectId};
+use crate::{
+    error::Error,
+    git,
+    project_repository::{self, RemoteError},
+    projects::ProjectId,
+};
 
 use super::{branch::Ownership, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
 
@@ -243,6 +248,29 @@ pub enum SquashError {
     CantSquashRootCommit,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum FetchFromTargetError {
+    #[error("default target not set")]
+    DefaultTargetNotSet(DefaultTargetNotSetError),
+    #[error("failed to fetch")]
+    Remote(RemoteError),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+impl From<FetchFromTargetError> for Error {
+    fn from(value: FetchFromTargetError) -> Self {
+        match value {
+            FetchFromTargetError::DefaultTargetNotSet(error) => error.into(),
+            FetchFromTargetError::Remote(error) => error.into(),
+            FetchFromTargetError::Other(error) => {
+                tracing::error!(?error, "fetch from target error");
+                Error::Unknown
+            }
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
