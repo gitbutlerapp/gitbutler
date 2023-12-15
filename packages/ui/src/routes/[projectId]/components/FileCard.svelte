@@ -280,6 +280,12 @@
 		display: flex;
 		flex-direction: column;
 		overflow-x: hidden;
+		&:focus-within {
+			& .hunk__inner {
+				overflow-x: auto;
+				border-color: var(--clr-theme-container-outline-pale);
+			}
+		}
 	}
 	.hunk__inner {
 		display: flex;
@@ -288,12 +294,15 @@
 		background: var(--clr-theme-container-light);
 		border-radius: var(--radius-s);
 		border: 1px solid var(--clr-theme-container-outline-light);
-		overflow-x: auto;
+		overflow-x: hidden;
 		overscroll-behavior: none;
 	}
 	.hunk__inner_inner {
+		/* TODO: Rename this class */
 		width: 100%;
 		min-width: max-content;
+		user-select: text !important;
+		cursor: grab;
 	}
 	.added {
 		color: #45b156;
