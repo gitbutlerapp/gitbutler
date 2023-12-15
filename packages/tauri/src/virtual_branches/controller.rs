@@ -91,10 +91,11 @@ impl Controller {
         branch_id: &BranchId,
         message: &str,
         ownership: Option<&Ownership>,
+        run_hooks: bool,
     ) -> Result<git::Oid, ControllerError<errors::CommitError>> {
         self.inner(project_id)
             .await
-            .create_commit(project_id, branch_id, message, ownership)
+            .create_commit(project_id, branch_id, message, ownership, run_hooks)
             .await
     }
 
@@ -407,6 +408,7 @@ impl ControllerInner {
         branch_id: &BranchId,
         message: &str,
         ownership: Option<&Ownership>,
+        run_hooks: bool,
     ) -> Result<git::Oid, ControllerError<errors::CommitError>> {
         let _permit = self.semaphore.acquire().await;
 
@@ -430,6 +432,7 @@ impl ControllerInner {
                 ownership,
                 signing_key.as_ref(),
                 user,
+                run_hooks,
             )
             .map_err(Into::into)
         })

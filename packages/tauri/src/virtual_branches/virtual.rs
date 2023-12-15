@@ -2001,6 +2001,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn commit(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
@@ -2009,28 +2010,31 @@ pub fn commit(
     ownership: Option<&branch::Ownership>,
     signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
+    run_hooks: bool,
 ) -> Result<git::Oid, errors::CommitError> {
     let mut message_buffer = message.to_owned();
 
-    let hook_result = project_repository
-        .git_repository
-        .run_hook_commit_msg(&mut message_buffer)
-        .context("failed to run hook")?;
+    if run_hooks {
+        let hook_result = project_repository
+            .git_repository
+            .run_hook_commit_msg(&mut message_buffer)
+            .context("failed to run hook")?;
 
-    if let HookResult::RunNotSuccessful { stdout, .. } = hook_result {
-        return Err(errors::CommitError::CommitMsgHookRejected(stdout));
+        if let HookResult::RunNotSuccessful { stdout, .. } = hook_result {
+            return Err(errors::CommitError::CommitMsgHookRejected(stdout));
+        }
+
+        let hook_result = project_repository
+            .git_repository
+            .run_hook_pre_commit()
+            .context("failed to run hook")?;
+
+        if let HookResult::RunNotSuccessful { stdout, .. } = hook_result {
+            return Err(errors::CommitError::CommitHookRejected(stdout));
+        }
     }
 
     let message = &message_buffer;
-
-    let hook_result = project_repository
-        .git_repository
-        .run_hook_pre_commit()
-        .context("failed to run hook")?;
-
-    if let HookResult::RunNotSuccessful { stdout, .. } = hook_result {
-        return Err(errors::CommitError::CommitHookRejected(stdout));
-    }
 
     let default_target = gb_repository
         .default_target()
@@ -2126,10 +2130,12 @@ pub fn commit(
         None => project_repository.commit(user, message, &tree, &[&parent_commit], signing_key)?,
     };
 
-    project_repository
-        .git_repository
-        .run_hook_post_commit()
-        .context("failed to run hook")?;
+    if run_hooks {
+        project_repository
+            .git_repository
+            .run_hook_post_commit()
+            .context("failed to run hook")?;
+    }
 
     // update the virtual branch head
     let writer = branch::Writer::new(gb_repository);

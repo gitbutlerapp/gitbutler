@@ -89,7 +89,7 @@ mod create_commit {
         }
 
         controller
-            .create_commit(&project_id, &branch_id, "test", None)
+            .create_commit(&project_id, &branch_id, "test", None, false)
             .await
             .unwrap();
 
@@ -352,7 +352,7 @@ mod references {
             fs::write(repository.path().join("file.txt"), "content").unwrap();
 
             controller
-                .create_commit(&project_id, &branch1_id, "test", None)
+                .create_commit(&project_id, &branch1_id, "test", None, false)
                 .await
                 .unwrap();
             controller
@@ -405,7 +405,7 @@ mod references {
                     .unwrap();
                 fs::write(repository.path().join("file.txt"), "content").unwrap();
                 controller
-                    .create_commit(&project_id, &branch1_id, "test", None)
+                    .create_commit(&project_id, &branch1_id, "test", None, false)
                     .await
                     .unwrap();
                 controller
@@ -442,7 +442,7 @@ mod references {
                     .unwrap();
                 fs::write(repository.path().join("file.txt"), "updated content").unwrap();
                 controller
-                    .create_commit(&project_id, &branch2_id, "test", None)
+                    .create_commit(&project_id, &branch2_id, "test", None, false)
                     .await
                     .unwrap();
                 controller
@@ -761,7 +761,7 @@ mod apply_virtual_branch {
             fs::write(repository.path().join("another_file.txt"), "virtual").unwrap();
 
             controller
-                .create_commit(&project_id, &branch1_id, "virtual commit", None)
+                .create_commit(&project_id, &branch1_id, "virtual commit", None, false)
                 .await
                 .unwrap();
 
@@ -1023,7 +1023,7 @@ async fn resolve_conflict_flow() {
         // can't commit conflicts
         assert!(matches!(
             controller
-                .create_commit(&project_id, &branch1_id, "commit conflicts", None)
+                .create_commit(&project_id, &branch1_id, "commit conflicts", None, false)
                 .await,
             Err(ControllerError::Action(errors::CommitError::Conflicted(_)))
         ));
@@ -1033,7 +1033,7 @@ async fn resolve_conflict_flow() {
         // fixing the conflict removes conflicted mark
         fs::write(repository.path().join("file.txt"), "resolved").unwrap();
         let commit_oid = controller
-            .create_commit(&project_id, &branch1_id, "resolution", None)
+            .create_commit(&project_id, &branch1_id, "resolution", None, false)
             .await
             .unwrap();
 
@@ -1168,7 +1168,7 @@ mod update_base_branch {
 
                 fs::write(repository.path().join("file.txt"), "conflict").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "conflicting commit", None)
+                    .create_commit(&project_id, &branch_id, "conflicting commit", None, false)
                     .await
                     .unwrap();
 
@@ -1254,7 +1254,7 @@ mod update_base_branch {
 
                 fs::write(repository.path().join("file.txt"), "conflict").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "conflicting commit", None)
+                    .create_commit(&project_id, &branch_id, "conflicting commit", None, false)
                     .await
                     .unwrap();
 
@@ -1345,7 +1345,7 @@ mod update_base_branch {
 
                 fs::write(repository.path().join("file.txt"), "conflict").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "conflicting commit", None)
+                    .create_commit(&project_id, &branch_id, "conflicting commit", None, false)
                     .await
                     .unwrap();
 
@@ -1433,7 +1433,7 @@ mod update_base_branch {
 
                 fs::write(repository.path().join("file.txt"), "conflict").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "conflicting commit", None)
+                    .create_commit(&project_id, &branch_id, "conflicting commit", None, false)
                     .await
                     .unwrap();
 
@@ -1521,7 +1521,13 @@ mod update_base_branch {
                 fs::write(repository.path().join("file2.txt"), "no conflict").unwrap();
 
                 controller
-                    .create_commit(&project_id, &branch_id, "non conflicting commit", None)
+                    .create_commit(
+                        &project_id,
+                        &branch_id,
+                        "non conflicting commit",
+                        None,
+                        false,
+                    )
                     .await
                     .unwrap();
 
@@ -1604,7 +1610,7 @@ mod update_base_branch {
 
                 fs::write(repository.path().join("file.txt"), "second").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "second", None)
+                    .create_commit(&project_id, &branch_id, "second", None, false)
                     .await
                     .unwrap();
 
@@ -1716,7 +1722,7 @@ mod update_base_branch {
                 fs::write(repository.path().join("file.txt"), "second").unwrap();
 
                 controller
-                    .create_commit(&project_id, &branch_id, "second", None)
+                    .create_commit(&project_id, &branch_id, "second", None, false)
                     .await
                     .unwrap();
 
@@ -1851,7 +1857,7 @@ mod update_base_branch {
 
                 fs::write(repository.path().join("file.txt"), "conflict").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "conflicting commit", None)
+                    .create_commit(&project_id, &branch_id, "conflicting commit", None, false)
                     .await
                     .unwrap();
 
@@ -1932,7 +1938,7 @@ mod update_base_branch {
 
                 fs::write(repository.path().join("file.txt"), "conflict").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "conflicting commit", None)
+                    .create_commit(&project_id, &branch_id, "conflicting commit", None, false)
                     .await
                     .unwrap();
 
@@ -2018,7 +2024,7 @@ mod update_base_branch {
 
                 fs::write(repository.path().join("file.txt"), "conflict").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "conflicting commit", None)
+                    .create_commit(&project_id, &branch_id, "conflicting commit", None, false)
                     .await
                     .unwrap();
 
@@ -2101,7 +2107,7 @@ mod update_base_branch {
 
                 fs::write(repository.path().join("file.txt"), "conflict").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "conflicting commit", None)
+                    .create_commit(&project_id, &branch_id, "conflicting commit", None, false)
                     .await
                     .unwrap();
 
@@ -2196,7 +2202,7 @@ mod update_base_branch {
                     fs::write(repository.path().join("file2.txt"), "no conflict").unwrap();
 
                     controller
-                        .create_commit(&project_id, &branch_id, "no conflicts", None)
+                        .create_commit(&project_id, &branch_id, "no conflicts", None, false)
                         .await
                         .unwrap();
                     controller
@@ -2267,7 +2273,7 @@ mod update_base_branch {
                     fs::write(repository.path().join("file2.txt"), "no conflict").unwrap();
 
                     controller
-                        .create_commit(&project_id, &branch_id, "no conflicts", None)
+                        .create_commit(&project_id, &branch_id, "no conflicts", None, false)
                         .await
                         .unwrap();
                     controller
@@ -2348,7 +2354,7 @@ mod update_base_branch {
                 fs::write(repository.path().join("file2.txt"), "no conflict").unwrap();
 
                 controller
-                    .create_commit(&project_id, &branch_id, "no conflicts", None)
+                    .create_commit(&project_id, &branch_id, "no conflicts", None, false)
                     .await
                     .unwrap();
 
@@ -2430,7 +2436,7 @@ mod update_base_branch {
                 fs::write(repository.path().join("file.txt"), "second").unwrap();
 
                 controller
-                    .create_commit(&project_id, &branch_id, "second", None)
+                    .create_commit(&project_id, &branch_id, "second", None, false)
                     .await
                     .unwrap();
                 controller
@@ -2547,7 +2553,7 @@ mod update_base_branch {
                 .unwrap();
 
                 controller
-                    .create_commit(&project_id, &branch_id, "first", None)
+                    .create_commit(&project_id, &branch_id, "first", None, false)
                     .await
                     .unwrap();
 
@@ -2641,7 +2647,7 @@ mod update_base_branch {
                 fs::write(repository.path().join("file.txt"), "first").unwrap();
 
                 controller
-                    .create_commit(&project_id, &branch_id, "first", None)
+                    .create_commit(&project_id, &branch_id, "first", None, false)
                     .await
                     .unwrap();
 
@@ -2718,7 +2724,7 @@ mod update_base_branch {
                 fs::write(repository.path().join("file.txt"), "first").unwrap();
 
                 controller
-                    .create_commit(&project_id, &branch_id, "first", None)
+                    .create_commit(&project_id, &branch_id, "first", None, false)
                     .await
                     .unwrap();
 
@@ -2805,7 +2811,7 @@ mod update_base_branch {
                 fs::write(repository.path().join("file.txt"), "second").unwrap();
 
                 controller
-                    .create_commit(&project_id, &branch_id, "second", None)
+                    .create_commit(&project_id, &branch_id, "second", None, false)
                     .await
                     .unwrap();
             };
@@ -2852,7 +2858,7 @@ mod reset_virtual_branch {
 
             // commit changes
             let oid = controller
-                .create_commit(&project_id, &branch1_id, "commit", None)
+                .create_commit(&project_id, &branch1_id, "commit", None, false)
                 .await
                 .unwrap();
 
@@ -2914,7 +2920,7 @@ mod reset_virtual_branch {
 
             // commit changes
             let oid = controller
-                .create_commit(&project_id, &branch1_id, "commit", None)
+                .create_commit(&project_id, &branch1_id, "commit", None, false)
                 .await
                 .unwrap();
 
@@ -2974,7 +2980,7 @@ mod reset_virtual_branch {
             fs::write(repository.path().join("file.txt"), "content").unwrap();
 
             let oid = controller
-                .create_commit(&project_id, &branch1_id, "commit", None)
+                .create_commit(&project_id, &branch1_id, "commit", None, false)
                 .await
                 .unwrap();
 
@@ -2997,7 +3003,7 @@ mod reset_virtual_branch {
             fs::write(repository.path().join("file.txt"), "more content").unwrap();
 
             let second_commit_oid = controller
-                .create_commit(&project_id, &branch1_id, "commit", None)
+                .create_commit(&project_id, &branch1_id, "commit", None, false)
                 .await
                 .unwrap();
 
@@ -3058,7 +3064,7 @@ mod reset_virtual_branch {
 
             // commit changes
             let oid = controller
-                .create_commit(&project_id, &branch1_id, "commit", None)
+                .create_commit(&project_id, &branch1_id, "commit", None, false)
                 .await
                 .unwrap();
 
@@ -3117,7 +3123,7 @@ mod upstream {
             // create first commit
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             controller
-                .create_commit(&project_id, &branch1_id, "commit", None)
+                .create_commit(&project_id, &branch1_id, "commit", None, false)
                 .await
                 .unwrap()
         };
@@ -3126,7 +3132,7 @@ mod upstream {
             // create second commit
             fs::write(repository.path().join("file.txt"), "content2").unwrap();
             controller
-                .create_commit(&project_id, &branch1_id, "commit", None)
+                .create_commit(&project_id, &branch1_id, "commit", None, false)
                 .await
                 .unwrap()
         };
@@ -3141,7 +3147,7 @@ mod upstream {
             // create third commit
             fs::write(repository.path().join("file.txt"), "content3").unwrap();
             controller
-                .create_commit(&project_id, &branch1_id, "commit", None)
+                .create_commit(&project_id, &branch1_id, "commit", None, false)
                 .await
                 .unwrap()
         };
@@ -3184,7 +3190,7 @@ mod upstream {
             // create first commit
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             controller
-                .create_commit(&project_id, &branch1_id, "commit", None)
+                .create_commit(&project_id, &branch1_id, "commit", None, false)
                 .await
                 .unwrap()
         };
@@ -3193,7 +3199,7 @@ mod upstream {
             // create second commit
             fs::write(repository.path().join("file.txt"), "content2").unwrap();
             controller
-                .create_commit(&project_id, &branch1_id, "commit", None)
+                .create_commit(&project_id, &branch1_id, "commit", None, false)
                 .await
                 .unwrap()
         };
@@ -3221,7 +3227,7 @@ mod upstream {
             // create third commit
             fs::write(repository.path().join("file.txt"), "content3").unwrap();
             controller
-                .create_commit(&project_id, &branch1_id, "commit", None)
+                .create_commit(&project_id, &branch1_id, "commit", None, false)
                 .await
                 .unwrap()
         };
@@ -3270,7 +3276,7 @@ mod cherry_pick {
             let commit_one = {
                 fs::write(repository.path().join("file.txt"), "content").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "commit", None)
+                    .create_commit(&project_id, &branch_id, "commit", None, false)
                     .await
                     .unwrap()
             };
@@ -3278,7 +3284,7 @@ mod cherry_pick {
             let commit_two = {
                 fs::write(repository.path().join("file.txt"), "content two").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "commit", None)
+                    .create_commit(&project_id, &branch_id, "commit", None, false)
                     .await
                     .unwrap()
             };
@@ -3342,7 +3348,7 @@ mod cherry_pick {
             let commit_one = {
                 fs::write(repository.path().join("file.txt"), "content").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "commit", None)
+                    .create_commit(&project_id, &branch_id, "commit", None, false)
                     .await
                     .unwrap()
             };
@@ -3350,7 +3356,7 @@ mod cherry_pick {
             let commit_two = {
                 fs::write(repository.path().join("file_two.txt"), "content two").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "commit", None)
+                    .create_commit(&project_id, &branch_id, "commit", None, false)
                     .await
                     .unwrap()
             };
@@ -3425,7 +3431,7 @@ mod cherry_pick {
             let commit_one_oid = {
                 fs::write(repository.path().join("file.txt"), "content").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "commit", None)
+                    .create_commit(&project_id, &branch_id, "commit", None, false)
                     .await
                     .unwrap()
             };
@@ -3433,7 +3439,7 @@ mod cherry_pick {
             {
                 fs::write(repository.path().join("file_two.txt"), "content two").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "commit", None)
+                    .create_commit(&project_id, &branch_id, "commit", None, false)
                     .await
                     .unwrap()
             };
@@ -3441,7 +3447,7 @@ mod cherry_pick {
             let commit_three_oid = {
                 fs::write(repository.path().join("file_three.txt"), "content three").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "commit", None)
+                    .create_commit(&project_id, &branch_id, "commit", None, false)
                     .await
                     .unwrap()
             };
@@ -3490,7 +3496,7 @@ mod cherry_pick {
             let commit_one = {
                 fs::write(repository.path().join("file.txt"), "content").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "commit one", None)
+                    .create_commit(&project_id, &branch_id, "commit one", None, false)
                     .await
                     .unwrap()
             };
@@ -3498,7 +3504,7 @@ mod cherry_pick {
             {
                 fs::write(repository.path().join("file_two.txt"), "content two").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "commit two", None)
+                    .create_commit(&project_id, &branch_id, "commit two", None, false)
                     .await
                     .unwrap()
             };
@@ -3506,7 +3512,7 @@ mod cherry_pick {
             let commit_three = {
                 fs::write(repository.path().join("file_three.txt"), "content three").unwrap();
                 controller
-                    .create_commit(&project_id, &branch_id, "commit three", None)
+                    .create_commit(&project_id, &branch_id, "commit three", None, false)
                     .await
                     .unwrap()
             };
@@ -3559,7 +3565,7 @@ mod cherry_pick {
                 // conflict can be resolved
                 fs::write(repository.path().join("file_three.txt"), "resolved").unwrap();
                 let commited_oid = controller
-                    .create_commit(&project_id, &branch_id, "resolution", None)
+                    .create_commit(&project_id, &branch_id, "resolution", None, false)
                     .await
                     .unwrap();
 
@@ -3701,7 +3707,7 @@ mod amend {
             // create commit
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap();
         };
@@ -3767,7 +3773,7 @@ mod amend {
             // create commit
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap();
         };
@@ -3813,7 +3819,7 @@ mod amend {
             // create commit
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap();
 
@@ -3874,7 +3880,7 @@ mod amend {
             // create commit
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap();
 
@@ -3944,7 +3950,7 @@ mod amend {
             // create commit
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap();
 
@@ -4213,7 +4219,7 @@ mod squash {
         {
             fs::write(repository.path().join("file one.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap()
         };
@@ -4221,7 +4227,7 @@ mod squash {
         {
             fs::write(repository.path().join("file two.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit two", None)
+                .create_commit(&project_id, &branch_id, "commit two", None, false)
                 .await
                 .unwrap()
         };
@@ -4229,7 +4235,7 @@ mod squash {
         {
             fs::write(repository.path().join("file three.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit three", None)
+                .create_commit(&project_id, &branch_id, "commit three", None, false)
                 .await
                 .unwrap()
         };
@@ -4237,7 +4243,7 @@ mod squash {
         let commit_four_oid = {
             fs::write(repository.path().join("file four.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit four", None)
+                .create_commit(&project_id, &branch_id, "commit four", None, false)
                 .await
                 .unwrap()
         };
@@ -4288,7 +4294,7 @@ mod squash {
         {
             fs::write(repository.path().join("file one.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap()
         };
@@ -4296,7 +4302,7 @@ mod squash {
         let commit_two_oid = {
             fs::write(repository.path().join("file two.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit two", None)
+                .create_commit(&project_id, &branch_id, "commit two", None, false)
                 .await
                 .unwrap()
         };
@@ -4304,7 +4310,7 @@ mod squash {
         {
             fs::write(repository.path().join("file three.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit three", None)
+                .create_commit(&project_id, &branch_id, "commit three", None, false)
                 .await
                 .unwrap()
         };
@@ -4312,7 +4318,7 @@ mod squash {
         {
             fs::write(repository.path().join("file four.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit four", None)
+                .create_commit(&project_id, &branch_id, "commit four", None, false)
                 .await
                 .unwrap()
         };
@@ -4373,7 +4379,7 @@ mod squash {
         {
             fs::write(repository.path().join("file one.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap()
         };
@@ -4386,7 +4392,7 @@ mod squash {
         let commit_two_oid = {
             fs::write(repository.path().join("file two.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit two", None)
+                .create_commit(&project_id, &branch_id, "commit two", None, false)
                 .await
                 .unwrap()
         };
@@ -4394,7 +4400,7 @@ mod squash {
         {
             fs::write(repository.path().join("file three.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit three", None)
+                .create_commit(&project_id, &branch_id, "commit three", None, false)
                 .await
                 .unwrap()
         };
@@ -4402,7 +4408,7 @@ mod squash {
         {
             fs::write(repository.path().join("file four.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit four", None)
+                .create_commit(&project_id, &branch_id, "commit four", None, false)
                 .await
                 .unwrap()
         };
@@ -4455,7 +4461,7 @@ mod squash {
         {
             fs::write(repository.path().join("file one.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap()
         };
@@ -4477,7 +4483,7 @@ mod squash {
         let commit_two_oid = {
             fs::write(repository.path().join("file two.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit two", None)
+                .create_commit(&project_id, &branch_id, "commit two", None, false)
                 .await
                 .unwrap()
         };
@@ -4485,7 +4491,7 @@ mod squash {
         {
             fs::write(repository.path().join("file three.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit three", None)
+                .create_commit(&project_id, &branch_id, "commit three", None, false)
                 .await
                 .unwrap()
         };
@@ -4493,7 +4499,7 @@ mod squash {
         {
             fs::write(repository.path().join("file four.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit four", None)
+                .create_commit(&project_id, &branch_id, "commit four", None, false)
                 .await
                 .unwrap()
         };
@@ -4529,7 +4535,7 @@ mod squash {
         let commit_one_oid = {
             fs::write(repository.path().join("file one.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap()
         };
@@ -4569,7 +4575,7 @@ mod update_commit_message {
         {
             fs::write(repository.path().join("file one.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap()
         };
@@ -4577,7 +4583,7 @@ mod update_commit_message {
         {
             fs::write(repository.path().join("file two.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit two", None)
+                .create_commit(&project_id, &branch_id, "commit two", None, false)
                 .await
                 .unwrap()
         };
@@ -4585,7 +4591,7 @@ mod update_commit_message {
         let commit_three_oid = {
             fs::write(repository.path().join("file three.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit three", None)
+                .create_commit(&project_id, &branch_id, "commit three", None, false)
                 .await
                 .unwrap()
         };
@@ -4642,7 +4648,7 @@ mod update_commit_message {
         {
             fs::write(repository.path().join("file one.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap()
         };
@@ -4650,7 +4656,7 @@ mod update_commit_message {
         let commit_two_oid = {
             fs::write(repository.path().join("file two.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit two", None)
+                .create_commit(&project_id, &branch_id, "commit two", None, false)
                 .await
                 .unwrap()
         };
@@ -4658,7 +4664,7 @@ mod update_commit_message {
         {
             fs::write(repository.path().join("file three.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit three", None)
+                .create_commit(&project_id, &branch_id, "commit three", None, false)
                 .await
                 .unwrap()
         };
@@ -4724,7 +4730,7 @@ mod update_commit_message {
         let commit_one_oid = {
             fs::write(repository.path().join("file one.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap()
         };
@@ -4793,7 +4799,7 @@ mod update_commit_message {
         let commit_one_oid = {
             fs::write(repository.path().join("file one.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap()
         };
@@ -4839,7 +4845,7 @@ mod update_commit_message {
         let commit_one_oid = {
             fs::write(repository.path().join("file one.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap()
         };
@@ -4847,7 +4853,7 @@ mod update_commit_message {
         {
             fs::write(repository.path().join("file two.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit two", None)
+                .create_commit(&project_id, &branch_id, "commit two", None, false)
                 .await
                 .unwrap()
         };
@@ -4855,7 +4861,7 @@ mod update_commit_message {
         {
             fs::write(repository.path().join("file three.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit three", None)
+                .create_commit(&project_id, &branch_id, "commit three", None, false)
                 .await
                 .unwrap()
         };
@@ -4911,7 +4917,7 @@ mod update_commit_message {
         let commit_one_oid = {
             fs::write(repository.path().join("file one.txt"), "").unwrap();
             controller
-                .create_commit(&project_id, &branch_id, "commit one", None)
+                .create_commit(&project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap()
         };
@@ -5057,7 +5063,7 @@ mod create_virtual_branch_from_branch {
             assert_eq!(branches.len(), 1);
 
             controller
-                .create_commit(&project_id, &branches[0].id, "hej", None)
+                .create_commit(&project_id, &branches[0].id, "hej", None, false)
                 .await
                 .unwrap();
         };
