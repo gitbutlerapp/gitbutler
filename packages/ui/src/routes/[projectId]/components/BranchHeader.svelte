@@ -22,35 +22,54 @@
 </script>
 
 <div class="card__header relative" data-drag-handle>
-	<div class="header__left">
-		{#if !readonly}
-			<div class="draggable" data-drag-handle>
-				<Icon name="draggable" />
-			</div>
-		{/if}
-		<BranchLabel bind:name={branch.name} on:change={handleBranchNameChange} />
+	<div class="card__row" data-drag-handle>
+		<div class="header__left">
+			{#if !readonly}
+				<div class="draggable" data-drag-handle>
+					<Icon name="draggable" />
+				</div>
+			{/if}
+			<BranchLabel bind:name={branch.name} on:change={handleBranchNameChange} />
+		</div>
+		<div class="flex items-center gap-x-1" transition:fade={{ duration: 150 }}>
+			{#if !readonly}
+				<div bind:this={meatballButton}>
+					<IconButton icon="kebab" size="m" on:click={() => (visible = !visible)} />
+				</div>
+				<div
+					class="branch-popup-menu"
+					use:clickOutside={{ trigger: meatballButton, handler: () => (visible = false) }}
+				>
+					<BranchLanePopupMenu {branchController} {branch} {projectId} bind:visible on:action />
+				</div>
+			{/if}
+		</div>
 	</div>
-	<div class="flex items-center gap-x-1" transition:fade={{ duration: 150 }}>
-		{#if !readonly}
-			<div bind:this={meatballButton}>
-				<IconButton icon="kebab" size="m" on:click={() => (visible = !visible)} />
+	{#if branch.upstream}
+		<div class="card__row text-base-11" data-drag-handle>
+			<div class="card__remote">
+				{branch.upstream.displayName}
 			</div>
-			<div
-				class="branch-popup-menu"
-				use:clickOutside={{ trigger: meatballButton, handler: () => (visible = false) }}
-			>
-				<BranchLanePopupMenu {branchController} {branch} {projectId} bind:visible on:action />
-			</div>
-		{/if}
-	</div>
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
 	.card__header {
 		position: relative;
+		flex-direction: column;
+		gap: var(--space-2);
 	}
 	.card__header:hover .draggable {
 		color: var(--clr-theme-scale-ntrl-40);
+	}
+	.card__row {
+		width: 100%;
+		display: flex;
+		justify-content: space-between;
+		gap: var(--space-8);
+		align-items: center;
+		overflow-x: hidden;
 	}
 	.header__left {
 		pointer-events: none;
@@ -73,5 +92,12 @@
 		top: calc(var(--space-2) + var(--space-40));
 		right: var(--space-12);
 		z-index: 10;
+	}
+
+	.card__remote {
+		padding-left: var(--space-28);
+		text-overflow: ellipsis;
+		overflow-x: hidden;
+		white-space: nowrap;
 	}
 </style>

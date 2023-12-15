@@ -45,7 +45,7 @@
 					href={branchUrl(base, branch.upstream?.name)}
 					class="inline-block max-w-full truncate"
 				>
-					{branch.upstream.name.split('refs/remotes/')[1]}
+					Remote
 				</Link>
 				{#if $pr$?.htmlUrl}
 					<Tag
@@ -60,7 +60,7 @@
 							e.stopPropagation();
 						}}
 					>
-						PR
+						View PR
 					</Tag>
 				{/if}
 			{/if}
