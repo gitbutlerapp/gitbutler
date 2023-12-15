@@ -2613,8 +2613,18 @@ mod update_base_branch {
                 repository,
                 project_id,
                 controller,
+                projects,
                 ..
             } = Test::default();
+
+            projects
+                .update(&projects::UpdateRequest {
+                    id: project_id,
+                    ok_with_force_push: Some(false),
+                    ..Default::default()
+                })
+                .await
+                .unwrap();
 
             controller
                 .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
@@ -3658,6 +3668,15 @@ mod amend {
             projects,
             ..
         } = Test::default();
+
+        projects
+            .update(&projects::UpdateRequest {
+                id: project_id,
+                ok_with_force_push: Some(false),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
 
         controller
             .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
