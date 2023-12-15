@@ -196,6 +196,6 @@
 		align-items: flex-start;
 		height: 100%;
 		padding: var(--space-16);
-		gap: var(--space-16);
+		gap: var(--space-12);
 	}
 </style>
