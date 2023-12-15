@@ -47,18 +47,19 @@
 <style lang="postcss">
 	.menu-item {
 		display: flex;
+		text-align: left;
 		align-items: center;
 		color: var(--clr-theme-scale-ntrl-0);
 		height: var(--space-24);
 		padding: var(--space-4) var(--space-6);
 		border-radius: var(--radius-s);
-		justify-content: space-between;
 		gap: var(--space-8);
 		&:not(.disabled):hover {
 			background: var(--clr-theme-container-sub);
 		}
 	}
 	.label {
+		flex-grow: 1;
 		white-space: nowrap;
 	}
 	.disabled {
