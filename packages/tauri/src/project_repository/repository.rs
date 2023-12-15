@@ -370,12 +370,12 @@ impl Repository {
                         );
                         return Ok(());
                     }
-                    Err(git::Error::Auth(error)) => {
-                        tracing::warn!(project_id = %self.project.id, ?error, "git push failed",);
+                    Err(git::Error::Auth(error) | git::Error::Http(error)) => {
+                        tracing::warn!(project_id = %self.project.id, ?error, "git push failed");
                         continue;
                     }
                     Err(git::Error::Network(error)) => {
-                        tracing::warn!(project_id = %self.project.id, ?error, "git push failed",);
+                        tracing::warn!(project_id = %self.project.id, ?error, "git push failed");
                         return Err(RemoteError::Network);
                     }
                     Err(error) => return Err(RemoteError::Other(error.into())),
@@ -407,7 +407,7 @@ impl Repository {
                         tracing::info!(project_id = %self.project.id, %refspec, "git fetched");
                         return Ok(());
                     }
-                    Err(git::Error::Auth(error)) => {
+                    Err(git::Error::Auth(error) | git::Error::Http(error)) => {
                         tracing::warn!(project_id = %self.project.id, ?error, "fetch failed");
                         continue;
                     }
