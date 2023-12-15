@@ -78,6 +78,7 @@ export function cloneNode(node: any) {
 }
 
 export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefined) {
+	let dragHandle: HTMLElement | null;
 	let currentOptions = { ...defaultDraggableOptions, ...opts };
 	let clone: HTMLElement;
 
@@ -86,12 +87,26 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 	const onDragEnterListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
 	const onDragOverListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
 
+	function handleMouseDown(e: MouseEvent) {
+		dragHandle = e.target as HTMLElement;
+	}
+
 	/**
 	 * The problem with the ghost element is that it gets clipped after rotation unless we enclose
 	 * it within a larger bounding box. This means we have an extra `<div>` in the html that is
 	 * only present to support the rotation
 	 */
 	function handleDragStart(e: DragEvent) {
+		let elt: HTMLElement | null = dragHandle;
+		while (elt) {
+			if (elt.dataset.noDrag !== undefined) {
+				e.stopPropagation();
+				e.preventDefault();
+				return false;
+			}
+			elt = elt.parentElement;
+		}
+
 		// Start by cloning the node for the ghost element
 		clone = cloneNode(node);
 		document.body.appendChild(clone);
@@ -200,6 +215,7 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 
 		node.addEventListener('dragstart', handleDragStart);
 		node.addEventListener('dragend', handleDragEnd);
+		node.addEventListener('mousedown', handleMouseDown, { capture: false });
 	}
 
 	function clean() {

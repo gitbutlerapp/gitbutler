@@ -62,7 +62,9 @@
 		class:diff-line-deletion={sectionType === SectionType.RemovedLines}
 		class:diff-line-addition={sectionType === SectionType.AddedLines}
 	>
-		{@html toTokens(line.content).join('')}
+		<span class="selectable-wrapper" data-no-drag>
+			{@html toTokens(line.content).join('')}
+		</span>
 	</div>
 </div>
 
@@ -79,5 +81,10 @@
 		position: sticky;
 		left: 0;
 		display: flex;
+	}
+
+	.selectable-wrapper {
+		cursor: text;
+		display: inline-block;
 	}
 </style>

@@ -112,6 +112,7 @@
 		border-right: 1px solid var(--clr-theme-container-outline-light);
 		background: var(--clr-theme-container-light);
 		max-height: 100%;
+		user-select: none;
 	}
 	.drag-region {
 		padding-top: var(--space-12);
