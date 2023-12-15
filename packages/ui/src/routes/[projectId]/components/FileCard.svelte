@@ -165,10 +165,10 @@
 										disabled: readonly
 									}}
 									on:dblclick
-									class="hunk custom-scrollbar"
+									class="hunk"
 									class:opacity-60={section.hunk.locked && !isFileLocked}
 								>
-									<div class="hunk__inner">
+									<div class="hunk__inner custom-scrollbar">
 										<div class="hunk__inner_inner">
 											{#each section.subSections as subsection, sidx}
 												{@const hunk = section.hunk}
@@ -296,6 +296,7 @@
 		border: 1px solid var(--clr-theme-container-outline-light);
 		overflow-x: hidden;
 		overscroll-behavior: none;
+		transition: border-color var(--transition-fast);
 	}
 	.hunk__inner_inner {
 		/* TODO: Rename this class */
