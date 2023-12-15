@@ -19,16 +19,16 @@
 	$: selected = href ? $page.url.href.includes(href) : false;
 </script>
 
-<a class="item" class:selected {href}>
+<a class="branch" class:selected {href}>
 	{#if branch.icon}
 		<div class="item__icon"><Icon name={branch.icon} color={branch.color} /></div>
 	{/if}
-	<div class="item__info flex flex-col gap-2">
-		<p class="text-base-13">
+	<div class="branch__info flex flex-col gap-2">
+		<p class="text-base-13 branch__name">
 			{branch.displayName}
 		</p>
-		<div class="details">
-			<span class="by-label text-base-11 details truncate">
+		<div class="branch__details">
+			<span class="branch__author text-base-11 details truncate">
 				<TimeAgo date={branch.modifiedAt} />
 				{#if branch.author}
 					by {branch.author?.name ?? 'unknown'}
@@ -40,7 +40,7 @@
 </a>
 
 <style lang="postcss">
-	.item {
+	.branch {
 		display: flex;
 		gap: var(--space-10);
 		width: 100%;
@@ -49,31 +49,37 @@
 		border-radius: var(--radius-m);
 	}
 
-	.details {
+	.branch__info {
+		display: flex;
+		flex-grow: 1;
+		flex-direction: column;
+		overflow-x: hidden;
+		gap: var(--space-6);
+	}
+
+	.branch__details {
 		display: flex;
 		align-items: center;
 		gap: var(--space-6);
 	}
 
-	.by-label {
+	.branch__name {
+		overflow-x: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.branch__author {
 		flex: 1;
 		color: var(--clr-theme-scale-ntrl-50);
 	}
 
-	.item:hover,
-	.item:focus,
+	.branch:hover,
+	.branch:focus,
 	.selected {
 		background-color: var(--clr-theme-container-pale);
 	}
 
 	.item__icon {
 		flex-shrink: 0;
-	}
-
-	.item__info {
-		display: flex;
-		flex-grow: 1;
-		flex-direction: column;
-		gap: var(--space-6);
 	}
 </style>
