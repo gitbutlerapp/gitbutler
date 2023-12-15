@@ -499,14 +499,6 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
-            let branch = super::create_virtual_branch_from_branch(
-                gb_repository,
-                project_repository,
-                branch,
-                None,
-                user,
-            )?;
-
             let signing_key = project_repository
                 .config()
                 .sign_commits()
@@ -518,17 +510,13 @@ impl ControllerInner {
                 })
                 .transpose()?;
 
-            // also apply the branch
-            super::apply_branch(
+            super::create_virtual_branch_from_branch(
                 gb_repository,
                 project_repository,
-                &branch.id,
+                branch,
                 signing_key.as_ref(),
                 user,
             )
-            .context("failed to apply branch")?;
-
-            Ok(branch.id)
         })
     }
 
