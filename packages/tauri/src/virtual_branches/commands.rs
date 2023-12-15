@@ -38,6 +38,8 @@ pub async fn commit_virtual_branch(
     message: &str,
     ownership: Option<&str>,
 ) -> Result<git::Oid, Error> {
+    // TODO: add run_hooks option to the API
+    let run_hooks = false;
     let project_id = project_id.parse().map_err(|_| Error::UserError {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
@@ -55,7 +57,13 @@ pub async fn commit_virtual_branch(
         })?;
     let oid = handle
         .state::<Controller>()
-        .create_commit(&project_id, &branch_id, message, ownership.as_ref())
+        .create_commit(
+            &project_id,
+            &branch_id,
+            message,
+            ownership.as_ref(),
+            run_hooks,
+        )
         .await?;
     emit_vbranches(&handle, &project_id).await;
     Ok(oid)

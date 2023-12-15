@@ -97,6 +97,7 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
         None,
         None,
         None,
+        false,
     )?;
 
     // status (no files)
@@ -168,6 +169,7 @@ fn test_signed_commit() -> Result<()> {
         None,
         Some(suite.keys.get_or_create()?).as_ref(),
         None,
+        false,
     )?;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository).unwrap();
@@ -258,6 +260,7 @@ fn test_track_binary_files() -> Result<()> {
         None,
         None,
         None,
+        false,
     )?;
 
     // status (no files)
@@ -287,6 +290,7 @@ fn test_track_binary_files() -> Result<()> {
         None,
         None,
         None,
+        false,
     )?;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository).unwrap();
@@ -1201,6 +1205,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
         None,
         None,
         None,
+        false,
     )?;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
@@ -1840,6 +1845,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         None,
         None,
         None,
+        false,
     )?;
     commit(
         &gb_repository,
@@ -1849,6 +1855,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         None,
         None,
         None,
+        false,
     )?;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
@@ -1914,6 +1921,7 @@ fn test_commit_same_hunk_twice() -> Result<()> {
         None,
         None,
         None,
+        false,
     )?;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
@@ -1950,6 +1958,7 @@ fn test_commit_same_hunk_twice() -> Result<()> {
         None,
         None,
         None,
+        false,
     )?;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
@@ -2013,6 +2022,7 @@ fn test_commit_same_file_twice() -> Result<()> {
         None,
         None,
         None,
+        false,
     )?;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
@@ -2049,6 +2059,7 @@ fn test_commit_same_file_twice() -> Result<()> {
         None,
         None,
         None,
+        false,
     )?;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
@@ -2112,6 +2123,7 @@ fn test_commit_partial_by_hunk() -> Result<()> {
         Some(&"test.txt:1-6".parse::<Ownership>().unwrap()),
         None,
         None,
+        false,
     )?;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
@@ -2131,6 +2143,7 @@ fn test_commit_partial_by_hunk() -> Result<()> {
         Some(&"test.txt:16-22".parse::<Ownership>().unwrap()),
         None,
         None,
+        false,
     )?;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
@@ -2197,6 +2210,7 @@ fn test_commit_partial_by_file() -> Result<()> {
         None,
         None,
         None,
+        false,
     )?;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
@@ -2272,6 +2286,7 @@ fn test_commit_add_and_delete_files() -> Result<()> {
         None,
         None,
         None,
+        false,
     )?;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
@@ -2341,6 +2356,7 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
         None,
         None,
         None,
+        false,
     )?;
 
     let branches = list_virtual_branches(&gb_repository, &project_repository)?;
@@ -2534,6 +2550,7 @@ fn test_pre_commit_hook_rejection() -> Result<()> {
         None,
         Some(suite.keys.get_or_create()?).as_ref(),
         None,
+        true,
     );
 
     let error = res.unwrap_err();
@@ -2610,6 +2627,7 @@ fn test_post_commit_hook() -> Result<()> {
         None,
         Some(suite.keys.get_or_create()?).as_ref(),
         None,
+        true,
     )?;
 
     assert!(hook_ran_proof.exists());
@@ -2670,6 +2688,7 @@ fn test_commit_msg_hook_rejection() -> Result<()> {
         None,
         Some(suite.keys.get_or_create()?).as_ref(),
         None,
+        true,
     );
 
     let error = res.unwrap_err();
