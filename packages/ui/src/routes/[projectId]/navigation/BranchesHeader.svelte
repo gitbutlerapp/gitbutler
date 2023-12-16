@@ -17,9 +17,10 @@
 	}
 </script>
 
-<div class="header font-bold" class:header-scrolled={scrolled}>
-	<div class="whitespace-nowrap font-bold">
-		Branches
+<div class="header" class:header-scrolled={scrolled}>
+	<div class="branches-title">
+		<span class="text-base-14 text-semibold">Branches</span>
+
 		{#if count !== undefined}
 			<Badge {count} />
 		{/if}
@@ -45,7 +46,7 @@
 <style lang="postcss">
 	.header {
 		display: flex;
-		color: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-theme-scale-ntrl-0);
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
@@ -65,5 +66,10 @@
 		right: var(--space-12);
 		z-index: 10;
 		min-width: 10rem;
+	}
+	.branches-title {
+		display: flex;
+		align-items: center;
+		gap: var(--space-4);
 	}
 </style>

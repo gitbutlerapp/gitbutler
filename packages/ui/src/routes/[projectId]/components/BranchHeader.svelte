@@ -48,7 +48,7 @@
 	{#if branch.upstream}
 		<div class="card__row text-base-11" data-drag-handle>
 			<div class="card__remote">
-				{branch.upstream.displayName}
+				origin/{branch.upstream.displayName}
 			</div>
 		</div>
 	{/if}
@@ -96,8 +96,10 @@
 
 	.card__remote {
 		padding-left: var(--space-28);
+		padding-bottom: var(--space-4);
 		text-overflow: ellipsis;
 		overflow-x: hidden;
 		white-space: nowrap;
+		color: var(--clr-theme-scale-ntrl-50);
 	}
 </style>
