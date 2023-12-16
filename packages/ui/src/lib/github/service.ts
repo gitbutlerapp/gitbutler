@@ -34,7 +34,7 @@ export class GitHubService {
 	private fresh$ = new Subject<void>();
 
 	private ctx$: Observable<GitHubIntegrationContext | undefined>;
-	private octokit$ = new Observable<Octokit | undefined>();
+	private octokit$: Observable<Octokit | undefined>;
 
 	private enabled = false;
 
