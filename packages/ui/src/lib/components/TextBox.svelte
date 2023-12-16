@@ -87,6 +87,7 @@
 
 		&:focus {
 			border-color: var(--clr-theme-container-outline-sub);
+			outline: none;
 		}
 
 		&:invalid {
