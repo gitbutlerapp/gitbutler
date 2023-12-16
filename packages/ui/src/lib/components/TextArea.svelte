@@ -32,6 +32,7 @@
 		color: var(--clr-theme-scale-ntrl-0);
 		outline: none;
 		resize: none;
+		background-color: transparent;
 
 		&::placeholder {
 			/* Most modern browsers support this now. */
