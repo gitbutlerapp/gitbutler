@@ -2,16 +2,22 @@
 	export let count: string | number;
 </script>
 
-<div class="badge text-bold text-base-11 inline-block rounded-full p-1">
+<div class="badge text-base-10 text-bold">
 	{count}
 </div>
 
 <style lang="postcss">
 	.badge {
-		background-color: var(--clr-theme-container-dim);
-		color: var(--clr-theme-scale-ntrl-40);
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		height: var(--space-16);
+		min-width: var(--space-16);
+		border-radius: var(--space-16);
+		padding: 0 var(--space-4);
+		color: var(--clr-theme-scale-ntrl-30);
+		background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-40) 16%, transparent);
 		line-height: 90%;
-		/* TODO: text-base-body-11 takes precedence over text-bold */
-		font-weight: 700 !important;
 	}
 </style>

@@ -34,7 +34,7 @@
 </script>
 
 <button class="header" bind:this={element} on:click={() => (expanded = !expanded)}>
-	<div class="title text-base-12 text-bold">
+	<div class="title text-base-13 text-semibold">
 		{#if type == 'local'}
 			Local
 		{:else if type == 'remote'}

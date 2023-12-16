@@ -46,8 +46,9 @@
 {/if}
 
 <div class="header" class:scrolled bind:this={headerElement}>
-	<div class="text-bold">
-		Changes <Badge count={branch.files.length} />
+	<div class="header-title text-base-13 text-semibold">
+		<span>Changes</span>
+		<Badge count={branch.files.length} />
 	</div>
 	<SegmentedControl bind:selected={selectedListMode} selectedIndex={0}>
 		<Segment id="list" icon="list-view" />
@@ -128,7 +129,6 @@
 		padding-bottom: var(--space-16);
 	}
 	.header {
-		color: var(----clr-theme-scale-ntrl-0);
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -140,5 +140,11 @@
 		&.scrolled {
 			border-bottom: 1px solid var(--clr-theme-container-outline-light);
 		}
+	}
+	.header-title {
+		display: flex;
+		align-items: center;
+		gap: var(--space-4);
+		color: var(--clr-theme-scale-ntrl-0);
 	}
 </style>

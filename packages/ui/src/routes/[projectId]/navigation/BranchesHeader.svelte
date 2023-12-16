@@ -19,7 +19,7 @@
 
 <div class="header" class:header-scrolled={scrolled}>
 	<div class="branches-title">
-		<span class="text-base-13 text-semibold">Branches</span>
+		<span class="text-base-14 text-semibold">Branches</span>
 
 		{#if count !== undefined}
 			<Badge {count} />
@@ -46,7 +46,7 @@
 <style lang="postcss">
 	.header {
 		display: flex;
-		color: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-theme-scale-ntrl-0);
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
