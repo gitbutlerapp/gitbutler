@@ -1,12 +1,15 @@
 <script lang="ts">
-	import type { Project } from '$lib/backend/projects';
+	import type { ProjectService } from '$lib/backend/projects';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { emit } from '$lib/utils/events';
 	import ListItem from './ListItem.svelte';
 
-	export let projects: Project[];
+	export let projectService: ProjectService;
+
+	$: projects$ = projectService.projects$;
+
 	let hidden = true;
+	let loading = false;
 
 	export function toggle() {
 		hidden = !hidden;
@@ -20,9 +23,9 @@
 
 {#if !hidden}
 	<div class="popup">
-		{#if projects.length > 0}
+		{#if $projects$.length > 0}
 			<div class="popup__projects">
-				{#each projects as project}
+				{#each $projects$ as project}
 					{@const selected = project.id == $page.params.projectId}
 					<ListItem
 						{selected}
@@ -38,7 +41,21 @@
 			</div>
 		{/if}
 		<div class="popup__actions">
-			<ListItem icon="plus" on:click={() => emit('openNewProjectModal')}>Add new project</ListItem>
+			<ListItem
+				icon="plus"
+				{loading}
+				on:click={async () => {
+					try {
+						const path = await projectService.promptForDirectory();
+						if (path) {
+							loading = true;
+							await projectService.addProject(path);
+						}
+					} finally {
+						loading = false;
+					}
+				}}>Add new project</ListItem
+			>
 		</div>
 	</div>
 {/if}

@@ -12,7 +12,7 @@
 {#if !$projects$}
 	Loading...
 {:else}
-	<SelectProject projects={$projects$} user={$user$} />
+	<SelectProject {projectService} user={$user$} />
 {/if}
 
 <style lang="postcss">
