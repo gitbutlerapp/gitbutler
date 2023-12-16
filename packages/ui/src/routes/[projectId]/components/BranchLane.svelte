@@ -2,7 +2,6 @@
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
-	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import BranchCard from './BranchCard.svelte';
 	import FileCard from './FileCard.svelte';
 	import { writable } from 'svelte/store';
@@ -18,7 +17,6 @@
 	export let branchController: BranchController;
 	export let maximized = false;
 	export let branchCount = 1;
-	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
 	export let projectPath: string;
 	export let githubService: GitHubService;
@@ -46,7 +44,6 @@
 		{branchController}
 		{maximized}
 		{branchCount}
-		{githubContext}
 		{user}
 		{selectedFileId}
 		{githubService}

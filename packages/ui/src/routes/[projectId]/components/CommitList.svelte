@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
-	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import CommitListItem from './CommitListItem.svelte';
 	import type { GitHubService } from '$lib/github/service';
@@ -10,7 +9,6 @@
 	import type { Project } from '$lib/backend/projects';
 
 	export let branch: Branch;
-	export let githubContext: GitHubIntegrationContext | undefined;
 	export let base: BaseBranch | undefined | null;
 	export let project: Project;
 	export let branchController: BranchController;
@@ -62,7 +60,6 @@
 					{githubService}
 					{type}
 					{base}
-					{githubContext}
 					{readonly}
 					projectId={project.id}
 				/>

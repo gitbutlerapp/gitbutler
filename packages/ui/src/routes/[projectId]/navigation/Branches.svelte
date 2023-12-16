@@ -15,14 +15,15 @@
 	import { storeToObservable } from '$lib/rxjs/store';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import { persisted } from '$lib/persisted/persisted';
-	import type { GitHubIntegrationContext } from '$lib/github/types';
+	import type { GitHubService } from '$lib/github/service';
 
 	export let branchService: BranchService;
-	export let githubContext: GitHubIntegrationContext | undefined;
+	export let githubService: GitHubService;
 	export let projectId: string;
 
 	export const textFilter$ = new BehaviorSubject<string | undefined>(undefined);
 
+	const githubEnabled$ = githubService.isEnabled$;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const height = persisted<number | undefined>(undefined, 'branchesHeight_' + projectId);
 
@@ -152,7 +153,7 @@
 				{includeStashed}
 				{hideBots}
 				{hideInactive}
-				showPrCheckbox={!!githubContext}
+				showPrCheckbox={$githubEnabled$}
 				on:action
 			/>
 		</BranchesHeader>

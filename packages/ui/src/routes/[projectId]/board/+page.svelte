@@ -8,7 +8,6 @@
 	export let data: PageData;
 
 	$: vbranchService = data.vbranchService;
-	$: githubContext$ = data.githubContext$;
 	$: branchController = data.branchController;
 	$: baseBranchService = data.baseBranchService;
 	$: cloud = data.cloud;
@@ -20,6 +19,7 @@
 	$: project$ = data.project$;
 	$: activeBranches$ = vbranchService.activeBranches$;
 	$: error$ = vbranchService.branchesError$;
+	$: githubEnabled$ = githubService.isEnabled$;
 
 	let viewport: HTMLDivElement;
 	let contents: HTMLDivElement;
@@ -29,7 +29,7 @@
 	function shouldShowHttpsWarning() {
 		if (httpsWarningBannerDismissed) return false;
 		if (!$base$?.remoteUrl.startsWith('https')) return false;
-		if ($base$?.remoteUrl.includes('github.com') && $githubContext$) return false;
+		if ($base$?.remoteUrl.includes('github.com') && $githubEnabled$) return false;
 		return true;
 	}
 </script>
@@ -63,7 +63,6 @@
 					base={$base$}
 					branches={$activeBranches$}
 					projectPath={$project$?.path}
-					githubContext={$githubContext$}
 					branchesError={$error$}
 					user={$user$}
 					{githubService}

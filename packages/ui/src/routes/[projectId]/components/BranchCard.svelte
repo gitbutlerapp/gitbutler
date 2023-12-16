@@ -18,7 +18,6 @@
 	import { writable, type Writable } from 'svelte/store';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
 	import type { GitHubService } from '$lib/github/service';
-	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import { isDraggableRemoteCommit, type DraggableRemoteCommit } from '$lib/draggables';
 	import BranchHeader from './BranchHeader.svelte';
 	import UpstreamCommits from './UpstreamCommits.svelte';
@@ -37,7 +36,6 @@
 	export let branchController: BranchController;
 	export let maximized = false;
 	export let branchCount = 1;
-	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
 	export let selectedFileId: Writable<string | undefined>;
 	export let githubService: GitHubService;
@@ -233,7 +231,6 @@
 			<BranchCommits
 				{base}
 				{branch}
-				{githubContext}
 				{project}
 				{githubService}
 				{branchController}
