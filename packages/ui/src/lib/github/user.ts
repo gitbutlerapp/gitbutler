@@ -1,7 +1,7 @@
 import { newClient } from '$lib/github/client';
 
-export async function getAuthenticated(ctx: { authToken: string }): Promise<string> {
-	const octokit = newClient(ctx);
+export async function getAuthenticated(authTokenstring: string): Promise<string> {
+	const octokit = newClient(authTokenstring);
 	try {
 		const rsp = await octokit.users.getAuthenticated();
 		return rsp.data.login;

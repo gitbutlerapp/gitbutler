@@ -1,8 +1,8 @@
 import { Octokit } from '@octokit/rest';
 
-export function newClient(ctx: { authToken: string }) {
+export function newClient(authToken: string) {
 	return new Octokit({
-		auth: ctx.authToken,
+		auth: authToken,
 		userAgent: 'GitButler Client',
 		baseUrl: 'https://api.github.com'
 	});

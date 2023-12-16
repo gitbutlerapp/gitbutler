@@ -2,7 +2,6 @@
 	import type { Project } from '$lib/backend/projects';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import type { GitHubService } from '$lib/github/service';
-	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import CommitList from './CommitList.svelte';
@@ -12,7 +11,6 @@
 	export let base: BaseBranch | undefined | null;
 	export let githubService: GitHubService;
 	export let branchController: BranchController;
-	export let githubContext: GitHubIntegrationContext | undefined;
 	export let readonly: boolean;
 
 	// Intended for 2 way binding.
@@ -24,7 +22,6 @@
 		<CommitList
 			{branch}
 			{base}
-			{githubContext}
 			{project}
 			{branchController}
 			{githubService}
@@ -34,7 +31,6 @@
 		<CommitList
 			{branch}
 			{base}
-			{githubContext}
 			{project}
 			{branchController}
 			{githubService}
@@ -44,7 +40,6 @@
 		<CommitList
 			{branch}
 			{base}
-			{githubContext}
 			{project}
 			{branchController}
 			{githubService}

@@ -16,7 +16,6 @@
 
 	$: projectId = data.projectId;
 	$: user$ = data.user$;
-	$: githubContext$ = data.githubContext$;
 	$: cloud = data.cloud;
 	$: project$ = data.project$;
 
@@ -87,7 +86,6 @@
 				project={$project$}
 				maximized={false}
 				readonly={true}
-				githubContext={$githubContext$}
 				user={$user$}
 				projectPath={$project$.path}
 				{githubService}

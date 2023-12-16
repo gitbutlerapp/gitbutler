@@ -27,7 +27,9 @@
 		try {
 			if (cloudEnabled) syncToCloud(projectId); // don't wait for this
 			await branchController.fetchFromTarget();
-			await githubService.reload();
+			if (githubService.isEnabled()) {
+				await githubService.reload();
+			}
 		} finally {
 			fetching = false;
 		}

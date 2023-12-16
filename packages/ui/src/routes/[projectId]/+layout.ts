@@ -37,7 +37,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		userService,
 		baseBranchService
 	);
-	const githubContext$ = githubService.ctx$;
 	const branchService = new BranchService(vbranchService, remoteBranchService, githubService);
 
 	return {
@@ -46,7 +45,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		baseBranchService,
 		githubService,
 		vbranchService,
-		githubContext$,
 		remoteBranchService,
 		user$,
 		project$,

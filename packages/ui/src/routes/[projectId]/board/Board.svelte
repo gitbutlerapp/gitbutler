@@ -6,7 +6,6 @@
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import { open } from '@tauri-apps/api/shell';
 	import { IconFile, IconTerminal, IconExternalLink } from '$lib/icons';
-	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { GitHubService } from '$lib/github/service';
 	import { cloneNode } from '$lib/utils/draggable';
 	import type { Project } from '$lib/backend/projects';
@@ -23,7 +22,6 @@
 	export let branchController: BranchController;
 	export let githubService: GitHubService;
 
-	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
 
 	let dragged: any;
@@ -113,7 +111,6 @@
 					{cloud}
 					{branchController}
 					branchCount={branches.filter((c) => c.active).length}
-					{githubContext}
 					{projectPath}
 					{user}
 					{githubService}

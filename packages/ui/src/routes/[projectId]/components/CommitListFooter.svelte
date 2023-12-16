@@ -4,7 +4,7 @@
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import PushButton from './PushButton.svelte';
 	import type { CommitType } from './commitList';
-	import type { GitHubIntegrationContext, PullRequest } from '$lib/github/types';
+	import type { PullRequest } from '$lib/github/types';
 	import type { GitHubService } from '$lib/github/service';
 	import toast from 'svelte-french-toast';
 
@@ -13,11 +13,11 @@
 	export let readonly: boolean;
 	export let branchController: BranchController;
 	export let githubService: GitHubService;
-	export let githubContext: GitHubIntegrationContext | undefined;
 	export let base: BaseBranch | undefined | null;
 	export let projectId: string;
 
 	$: githubServiceState$ = githubService.getState(branch.id);
+	$: githubEnabled$ = githubService.isEnabled$;
 	$: pr$ = githubService.get(branch.upstreamName);
 
 	let isPushing: boolean;
@@ -29,9 +29,8 @@
 	}
 
 	async function createPr(): Promise<PullRequest | undefined> {
-		if (githubContext && base?.shortName) {
+		if (githubService.isEnabled() && base?.shortName) {
 			return await githubService.createPullRequest(
-				githubContext,
 				base.shortName,
 				branch.name,
 				branch.notes,
@@ -45,12 +44,12 @@
 
 {#if !readonly && type != 'integrated'}
 	<div class="actions">
-		{#if githubContext && !$pr$ && type == 'local' && !branch.upstream}
+		{#if $githubEnabled$ && !$pr$ && type == 'local' && !branch.upstream}
 			<PushButton
 				wide
 				isLoading={isPushing || $githubServiceState$?.busy}
 				{projectId}
-				{githubContext}
+				githubEnabled={$githubEnabled$}
 				on:trigger={async (e) => {
 					try {
 						if (e.detail.with_pr) {
@@ -63,7 +62,7 @@
 					}
 				}}
 			/>
-		{:else if githubContext && !$pr$ && type == 'remote'}
+		{:else if $githubEnabled$ && !$pr$ && type == 'remote'}
 			<Button
 				wide
 				kind="outlined"

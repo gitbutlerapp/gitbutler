@@ -8,16 +8,7 @@ import {
 	Subject,
 	combineLatest
 } from 'rxjs';
-import {
-	catchError,
-	combineLatestWith,
-	distinct,
-	map,
-	shareReplay,
-	switchMap,
-	tap,
-	timeout
-} from 'rxjs/operators';
+import { catchError, distinct, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 
 import {
 	type PullRequest,
@@ -41,25 +32,32 @@ export class GitHubService {
 	private stateMap = new Map<string, BehaviorSubject<PrState>>();
 	private reload$ = new BehaviorSubject<{ skipCache: boolean } | undefined>(undefined);
 	private fresh$ = new Subject<void>();
-	private octokit$: Observable<Octokit | undefined>;
-	private active$ = new BehaviorSubject<boolean>(false);
-	ctx$: Observable<GitHubIntegrationContext | undefined>;
+
+	private ctx$: Observable<GitHubIntegrationContext | undefined>;
+	private octokit$ = new Observable<Octokit | undefined>();
+
+	private enabled = false;
 
 	constructor(
 		private branchController: BranchController,
-		private branchService: VirtualBranchService,
-		private userService: UserService,
-		private baseBranchService: BaseBranchService
+		private vbranchService: VirtualBranchService,
+		userService: UserService,
+		baseBranchService: BaseBranchService
 	) {
-		// Create a github context
+		// A few things will cause the baseBranch to update, so we filter for distinct
+		// changes to the remoteUrl.
 		const distinctUrl$ = baseBranchService.base$.pipe(distinct((ctx) => ctx?.remoteUrl));
+
 		this.ctx$ = combineLatest([userService.user$, distinctUrl$]).pipe(
 			switchMap(([user, baseBranch]) => {
 				const remoteUrl = baseBranch?.remoteUrl;
 				const authToken = user?.github_access_token;
 				const username = user?.github_username || '';
-				if (!remoteUrl || !remoteUrl.includes('github') || !authToken) return of();
-
+				if (!remoteUrl || !remoteUrl.includes('github') || !authToken) {
+					this.enabled = false;
+					return of();
+				}
+				this.enabled = true;
 				const [owner, repo] = remoteUrl.split('.git')[0].split(/\/|:/).slice(-2);
 				return of({ authToken, owner, repo, username });
 			}),
@@ -68,17 +66,18 @@ export class GitHubService {
 		);
 
 		// Create a github client
-		this.octokit$ = this.ctx$.pipe(map((ctx) => (ctx ? newClient(ctx) : undefined)));
+		this.octokit$ = this.ctx$.pipe(
+			map((ctx) => (ctx ? newClient(ctx.authToken) : undefined)),
+			shareReplay(1)
+		);
 
 		// Load pull requests
-		this.prs$ = this.ctx$.pipe(
-			combineLatestWith(this.octokit$, this.reload$),
+		this.prs$ = combineLatest([this.ctx$, this.octokit$, this.reload$]).pipe(
 			tap(() => this.error$.next(undefined)),
 			switchMap(([ctx, octokit, reload]) => {
 				if (!ctx || !octokit) return EMPTY;
 				const prs = loadPrs(ctx, octokit, !!reload?.skipCache);
 				this.fresh$.next();
-				this.active$.next(true);
 				return prs;
 			}),
 			shareReplay(1),
@@ -90,8 +89,15 @@ export class GitHubService {
 		);
 	}
 
+	isEnabled(): boolean {
+		return this.enabled;
+	}
+
+	get isEnabled$(): Observable<boolean> {
+		return this.octokit$.pipe(map((octokit) => !!octokit));
+	}
+
 	async reload(): Promise<void> {
-		if (!this.active$.getValue()) return;
 		const fresh = firstValueFrom(this.fresh$);
 		this.reload$.next({ skipCache: true });
 		return await fresh;
@@ -123,39 +129,46 @@ export class GitHubService {
 	}
 
 	async createPullRequest(
-		ctx: GitHubIntegrationContext,
 		base: string,
 		title: string,
 		body: string,
 		branchId: string
 	): Promise<PullRequest | undefined> {
-		this.setBusy('creating_pr', branchId);
-		const octokit = newClient(ctx);
-		try {
-			// Wait for branch to have upstream data
-			await this.branchController.pushBranch(branchId, true);
-			const branch = await firstValueFrom(
-				this.branchService.branches$.pipe(
-					timeout(10000),
-					map((branches) => branches.find((b) => b.id == branchId && b.upstream))
-				)
-			);
-			if (branch?.upstreamName) {
-				const rsp = await octokit.rest.pulls.create({
-					owner: ctx.owner,
-					repo: ctx.repo,
-					head: branch.upstreamName,
-					base,
-					title,
-					body
-				});
-				await this.reload();
-				return ghResponseToInstance(rsp.data);
-			}
-			throw `No upstream for branch ${branchId}`;
-		} finally {
-			this.setIdle(branchId);
+		if (!this.enabled) {
+			console.error("Can't create PR when service not enabled");
+			return;
 		}
+		return firstValueFrom(
+			combineLatest([this.octokit$, this.ctx$]).pipe(
+				map(async ([octokit, ctx]) => {
+					if (!octokit || !ctx) {
+						console.error("Can't create PR without credentials");
+						return;
+					}
+					this.setBusy('creating_pr', branchId);
+					try {
+						// Wait for branch to have upstream data
+						await this.branchController.pushBranch(branchId, true);
+						const branch = await this.vbranchService.getById(branchId);
+						if (branch?.upstreamName) {
+							const rsp = await octokit.rest.pulls.create({
+								owner: ctx.owner,
+								repo: ctx.repo,
+								head: branch.upstreamName,
+								base,
+								title,
+								body
+							});
+							await this.reload();
+							return ghResponseToInstance(rsp.data);
+						}
+						throw `No upstream for branch ${branchId}`;
+					} finally {
+						this.setIdle(branchId);
+					}
+				})
+			)
+		);
 	}
 
 	getStatus(ref: string | undefined): Observable<PrStatus | undefined> | undefined {

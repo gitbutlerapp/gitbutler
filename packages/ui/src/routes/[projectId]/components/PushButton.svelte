@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { projectCreatePullRequestInsteadOfPush } from '$lib/config/config';
-	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import { createEventDispatcher } from 'svelte';
 	import DropDown from '$lib/components/DropDown.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
@@ -12,7 +11,7 @@
 	export let isLoading = false;
 	export let projectId: string;
 	export let wide = false;
-	export let githubContext: GitHubIntegrationContext | undefined;
+	export let githubEnabled: boolean;
 
 	const dispatch = createEventDispatcher<{ trigger: { with_pr: boolean } }>();
 	const createPr = projectCreatePullRequestInsteadOfPush(projectId);
@@ -21,7 +20,7 @@
 	let dropDown: DropDown;
 
 	$: selection$ = contextMenu?.selection$;
-	$: mode = $createPr && githubContext ? 'pr' : 'push';
+	$: mode = $createPr && githubEnabled ? 'pr' : 'push';
 </script>
 
 <DropDown
@@ -50,7 +49,7 @@
 			<ContextMenuItem
 				id="pr"
 				label="Create Pull Request"
-				disabled={!githubContext}
+				disabled={!githubEnabled}
 				selected={mode == 'pr'}
 			/>
 		</ContextMenuSection>

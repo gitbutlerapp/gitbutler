@@ -12,7 +12,9 @@ import {
 	concat,
 	from,
 	tap,
-	map
+	map,
+	firstValueFrom,
+	timeout
 } from 'rxjs';
 
 export class VirtualBranchService {
@@ -59,6 +61,15 @@ export class VirtualBranchService {
 	reload() {
 		this.branchesError$.next(undefined);
 		this.reload$.next();
+	}
+
+	async getById(branchId: string) {
+		return await firstValueFrom(
+			this.branches$.pipe(
+				timeout(10000),
+				map((branches) => branches.find((b) => b.id == branchId && b.upstream))
+			)
+		);
 	}
 }
 
