@@ -11,6 +11,7 @@ import {
 import {
 	catchError,
 	combineLatestWith,
+	distinct,
 	map,
 	shareReplay,
 	switchMap,
@@ -26,8 +27,11 @@ import {
 } from '$lib/github/types';
 import { newClient } from '$lib/github/client';
 import type { BranchController } from '$lib/vbranches/branchController';
-import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
+import type { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 import type { Octokit } from '@octokit/rest';
+import type { UserService } from '$lib/stores/user';
+import type { User } from '$lib/backend/cloud';
+import type { BaseBranch } from '$lib/vbranches/types';
 
 export type PrAction = 'creating_pr';
 export type PrServiceState = { busy: boolean; branchId: string; action?: PrAction };
@@ -41,14 +45,35 @@ export class PrService {
 	private fresh$ = new Subject<void>();
 	private octokit$: Observable<Octokit | undefined>;
 	private active$ = new BehaviorSubject<boolean>(false);
+	ctx$: Observable<GitHubIntegrationContext | undefined>;
 
 	constructor(
 		private branchController: BranchController,
 		private branchService: VirtualBranchService,
-		private ctx$: Observable<GitHubIntegrationContext | undefined>
+		private userService: UserService,
+		private baseBranchService: BaseBranchService
 	) {
+		// Create a github context
+		const distinctUrl$ = baseBranchService.base$.pipe(distinct((ctx) => ctx?.remoteUrl));
+		this.ctx$ = combineLatest([userService.user$, distinctUrl$]).pipe(
+			switchMap(([user, baseBranch]) => {
+				const remoteUrl = baseBranch?.remoteUrl;
+				const authToken = user?.github_access_token;
+				const username = user?.github_username || '';
+				if (!remoteUrl || !remoteUrl.includes('github') || !authToken) return of();
+
+				const [owner, repo] = remoteUrl.split('.git')[0].split(/\/|:/).slice(-2);
+				return of({ authToken, owner, repo, username });
+			}),
+			distinct((val) => JSON.stringify(val)),
+			shareReplay(1)
+		);
+
+		// Create a github client
 		this.octokit$ = this.ctx$.pipe(map((ctx) => (ctx ? newClient(ctx) : undefined)));
-		this.prs$ = ctx$.pipe(
+
+		// Load pull requests
+		this.prs$ = this.ctx$.pipe(
 			combineLatestWith(this.octokit$, this.reload$),
 			tap(() => this.error$.next(undefined)),
 			switchMap(([ctx, octokit, reload]) => {
