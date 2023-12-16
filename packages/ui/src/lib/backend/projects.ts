@@ -1,5 +1,8 @@
 import { invoke } from '$lib/backend/ipc';
 import type { Project as CloudProject } from '$lib/backend/cloud';
+import { open } from '@tauri-apps/api/dialog';
+import { goto } from '$app/navigation';
+import * as toasts from '$lib/utils/toasts';
 import {
 	BehaviorSubject,
 	catchError,
@@ -32,6 +35,7 @@ export type Project = {
 export class ProjectService {
 	private reload$ = new BehaviorSubject<void>(undefined);
 	error$ = new BehaviorSubject<any>(undefined);
+
 	projects$ = this.reload$.pipe(
 		switchMap(() => from(invoke<Project[]>('list_projects'))),
 		shareReplay(1),
@@ -41,7 +45,7 @@ export class ProjectService {
 		})
 	);
 
-	constructor() {}
+	constructor(private homeDir: string | undefined) {}
 
 	getProject(projectId: string) {
 		return this.projects$.pipe(
@@ -83,5 +87,26 @@ export class ProjectService {
 		const projects = firstValueFrom(this.projects$.pipe(skip(1)));
 		this.reload$.next();
 		return projects;
+	}
+
+	async promptForDirectory(): Promise<string | undefined> {
+		return open({ directory: true, recursive: true, defaultPath: this.homeDir }).then(
+			(selectedPath) => {
+				if (selectedPath === null) return;
+				if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
+				return Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
+			}
+		);
+	}
+
+	async addProject(path: string) {
+		return this.add(path)
+			.then(async (project) => {
+				if (!project) return;
+				toasts.success(`Project ${project.title} created`);
+				// linkProjectModal?.show(project.id);
+				goto(`/${project.id}/board`);
+			})
+			.catch((e: any) => toasts.error(e.message));
 	}
 }

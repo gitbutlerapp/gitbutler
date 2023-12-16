@@ -4,6 +4,7 @@
 
 	export let icon: keyof typeof iconsJson;
 	export let size: 's' | 'm' | 'l' = 'l';
+	export let loading = false;
 
 	let className = '';
 	let selected = false;
@@ -20,7 +21,7 @@
 	{title}
 	on:click
 >
-	<Icon name={icon} />
+	<Icon name={loading ? 'spinner' : icon} />
 </button>
 
 <!-- {className} text-color-4 hover:text-color-1 outline-blue-200 focus:text-light-800 focus:outline-2 disabled:cursor-not-allowed

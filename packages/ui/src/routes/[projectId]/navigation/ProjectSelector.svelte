@@ -7,8 +7,6 @@
 	export let project: Project;
 	export let projectService: ProjectService;
 
-	$: projects$ = projectService.projects$;
-
 	let popup: ProjectsPopup;
 	let visible: boolean = false;
 </script>
@@ -36,7 +34,7 @@
 				<Icon name="select-chevron" />
 			</div>
 		</button>
-		<ProjectsPopup bind:this={popup} projects={$projects$} />
+		<ProjectsPopup bind:this={popup} {projectService} />
 	</div>
 </div>
 

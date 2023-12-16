@@ -1,14 +1,16 @@
 <script lang="ts">
-	import type { Project } from '$lib/backend/projects';
+	import type { ProjectService } from '$lib/backend/projects';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import SelectProjectItem from './SelectProjectItem.svelte';
-	import * as events from '$lib/utils/events';
 	import AccountLink from '$lib/components/AccountLink.svelte';
 	import type { User } from '$lib/backend/cloud';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 
-	export let projects: Project[] | undefined;
 	export let user: User | undefined;
+	export let loading = false;
+	export let projectService: ProjectService;
+
+	$: projects$ = projectService.projects$;
 </script>
 
 <div class="projects card">
@@ -16,8 +18,8 @@
 		<span class="card__title text-base-14 font-semibold">Projects</span>
 	</div>
 	<ScrollableContainer initiallyVisible>
-		{#if projects && projects.length > 0}
-			{#each projects || [] as project}
+		{#if $projects$?.length > 0}
+			{#each $projects$ as project}
 				<SelectProjectItem {project} />
 			{/each}
 		{:else}
@@ -25,7 +27,21 @@
 		{/if}
 	</ScrollableContainer>
 	<div class="card__footer">
-		<IconButton icon="plus" on:click={() => events.emit('openNewProjectModal')}></IconButton>
+		<IconButton
+			icon="plus"
+			{loading}
+			on:click={async () => {
+				try {
+					const path = await projectService.promptForDirectory();
+					if (path) {
+						loading = true;
+						await projectService.addProject(path);
+					}
+				} finally {
+					loading = false;
+				}
+			}}
+		></IconButton>
 		<AccountLink {user} />
 	</div>
 </div>

@@ -5,6 +5,7 @@
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let selected = false;
+	export let loading = false;
 
 	const dispatch = createEventDispatcher();
 </script>
@@ -15,7 +16,7 @@
 	</div>
 	{#if icon}
 		<div class="icon">
-			<Icon name={icon} />
+			<Icon name={loading ? 'spinner' : icon} />
 		</div>
 	{/if}
 </button>
