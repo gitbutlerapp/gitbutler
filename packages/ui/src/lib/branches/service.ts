@@ -4,7 +4,7 @@ import { CombinedBranch } from '$lib/branches/types';
 import { Observable, combineLatest } from 'rxjs';
 import { startWith, switchMap } from 'rxjs/operators';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { PrService } from '$lib/github/pullrequest';
+import type { PrService } from '$lib/github/service';
 import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 
 export class BranchService {

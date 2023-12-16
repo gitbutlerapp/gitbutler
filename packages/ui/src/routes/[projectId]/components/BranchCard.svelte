@@ -17,7 +17,7 @@
 	import CommitDialog from './CommitDialog.svelte';
 	import { writable, type Writable } from 'svelte/store';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
-	import type { PrService } from '$lib/github/pullrequest';
+	import type { PrService } from '$lib/github/service';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import { isDraggableRemoteCommit, type DraggableRemoteCommit } from '$lib/draggables';
 	import BranchHeader from './BranchHeader.svelte';

@@ -5,7 +5,7 @@
 	import PushButton from './PushButton.svelte';
 	import type { CommitType } from './commitList';
 	import type { GitHubIntegrationContext, PullRequest } from '$lib/github/types';
-	import type { PrService } from '$lib/github/pullrequest';
+	import type { PrService } from '$lib/github/service';
 	import toast from 'svelte-french-toast';
 
 	export let branch: Branch;

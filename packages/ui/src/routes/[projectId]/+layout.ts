@@ -4,7 +4,7 @@ import { BranchController } from '$lib/vbranches/branchController';
 import { getGithubContext } from '$lib/stores/github';
 import { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 import type { LayoutLoad } from './$types';
-import { PrService } from '$lib/github/pullrequest';
+import { PrService } from '$lib/github/service';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { BranchService } from '$lib/branches/service';
 

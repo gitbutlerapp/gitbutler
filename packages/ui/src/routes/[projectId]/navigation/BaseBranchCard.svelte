@@ -3,7 +3,7 @@
 	import type { Project } from '$lib/backend/projects';
 	import Badge from '$lib/components/Badge.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
-	import type { PrService } from '$lib/github/pullrequest';
+	import type { PrService } from '$lib/github/service';
 	import Icon from '$lib/icons/Icon.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';

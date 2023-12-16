@@ -7,7 +7,7 @@
 	import FileCard from './FileCard.svelte';
 	import { writable } from 'svelte/store';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import type { PrService } from '$lib/github/pullrequest';
+	import type { PrService } from '$lib/github/service';
 	import type { Project } from '$lib/backend/projects';
 
 	export let branch: Branch;

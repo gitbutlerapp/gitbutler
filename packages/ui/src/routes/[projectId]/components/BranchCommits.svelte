@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Project } from '$lib/backend/projects';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
-	import type { PrService } from '$lib/github/pullrequest';
+	import type { PrService } from '$lib/github/service';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
