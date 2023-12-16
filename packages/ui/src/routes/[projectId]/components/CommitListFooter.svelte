@@ -5,20 +5,20 @@
 	import PushButton from './PushButton.svelte';
 	import type { CommitType } from './commitList';
 	import type { GitHubIntegrationContext, PullRequest } from '$lib/github/types';
-	import type { PrService } from '$lib/github/service';
+	import type { GitHubService } from '$lib/github/service';
 	import toast from 'svelte-french-toast';
 
 	export let branch: Branch;
 	export let type: CommitType;
 	export let readonly: boolean;
 	export let branchController: BranchController;
-	export let prService: PrService;
+	export let githubService: GitHubService;
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let base: BaseBranch | undefined | null;
 	export let projectId: string;
 
-	$: prServiceState$ = prService.getState(branch.id);
-	$: pr$ = prService.get(branch.upstreamName);
+	$: githubServiceState$ = githubService.getState(branch.id);
+	$: pr$ = githubService.get(branch.upstreamName);
 
 	let isPushing: boolean;
 
@@ -30,7 +30,7 @@
 
 	async function createPr(): Promise<PullRequest | undefined> {
 		if (githubContext && base?.shortName) {
-			return await prService.createPullRequest(
+			return await githubService.createPullRequest(
 				githubContext,
 				base.shortName,
 				branch.name,
@@ -48,7 +48,7 @@
 		{#if githubContext && !$pr$ && type == 'local' && !branch.upstream}
 			<PushButton
 				wide
-				isLoading={isPushing || $prServiceState$?.busy}
+				isLoading={isPushing || $githubServiceState$?.busy}
 				{projectId}
 				{githubContext}
 				on:trigger={async (e) => {
@@ -68,7 +68,7 @@
 				wide
 				kind="outlined"
 				color="primary"
-				loading={isPushing || $prServiceState$?.busy}
+				loading={isPushing || $githubServiceState$?.busy}
 				on:click={async () => {
 					try {
 						await createPr();

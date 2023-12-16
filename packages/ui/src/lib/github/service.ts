@@ -30,17 +30,15 @@ import type { BranchController } from '$lib/vbranches/branchController';
 import type { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 import type { Octokit } from '@octokit/rest';
 import type { UserService } from '$lib/stores/user';
-import type { User } from '$lib/backend/cloud';
-import type { BaseBranch } from '$lib/vbranches/types';
 
 export type PrAction = 'creating_pr';
-export type PrServiceState = { busy: boolean; branchId: string; action?: PrAction };
+export type PrState = { busy: boolean; branchId: string; action?: PrAction };
 
-export class PrService {
+export class GitHubService {
 	prs$: Observable<PullRequest[]>;
 	error$ = new BehaviorSubject<string | undefined>(undefined);
 
-	private stateMap = new Map<string, BehaviorSubject<PrServiceState>>();
+	private stateMap = new Map<string, BehaviorSubject<PrState>>();
 	private reload$ = new BehaviorSubject<{ skipCache: boolean } | undefined>(undefined);
 	private fresh$ = new Subject<void>();
 	private octokit$: Observable<Octokit | undefined>;
@@ -108,7 +106,7 @@ export class PrService {
 	getState(branchId: string) {
 		let state$ = this.stateMap.get(branchId);
 		if (!state$) {
-			state$ = new BehaviorSubject<PrServiceState>({ busy: false, branchId });
+			state$ = new BehaviorSubject<PrState>({ busy: false, branchId });
 			this.stateMap.set(branchId, state$);
 		}
 		return state$;

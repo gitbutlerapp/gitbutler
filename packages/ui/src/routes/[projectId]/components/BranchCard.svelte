@@ -17,7 +17,7 @@
 	import CommitDialog from './CommitDialog.svelte';
 	import { writable, type Writable } from 'svelte/store';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
-	import type { PrService } from '$lib/github/service';
+	import type { GitHubService } from '$lib/github/service';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import { isDraggableRemoteCommit, type DraggableRemoteCommit } from '$lib/draggables';
 	import BranchHeader from './BranchHeader.svelte';
@@ -40,7 +40,7 @@
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
 	export let selectedFileId: Writable<string | undefined>;
-	export let prService: PrService;
+	export let githubService: GitHubService;
 
 	const allExpanded = writable(false);
 	const allCollapsed = writable(false);
@@ -235,7 +235,7 @@
 				{branch}
 				{githubContext}
 				{project}
-				{prService}
+				{githubService}
 				{branchController}
 				{readonly}
 				bind:scrollable={commitsScrollable}

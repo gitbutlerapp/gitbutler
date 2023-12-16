@@ -8,7 +8,7 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import type { Update } from '../../updater';
 	import DomainButton from './DomainButton.svelte';
-	import type { PrService } from '$lib/github/service';
+	import type { GitHubService } from '$lib/github/service';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import ProjectSelector from './ProjectSelector.svelte';
 	import Branches from './Branches.svelte';
@@ -29,7 +29,7 @@
 	export let project: Project;
 	export let user: User | undefined;
 	export let update: Observable<Update>;
-	export let prService: PrService;
+	export let githubService: GitHubService;
 	export let projectService: ProjectService;
 	export let githubContext: GitHubIntegrationContext | undefined;
 
@@ -57,7 +57,7 @@
 	<div class="domains">
 		<ProjectSelector {project} {projectService} />
 		<div class="flex flex-col gap-1">
-			<BaseBranchCard {project} {baseBranchService} {branchController} {prService} />
+			<BaseBranchCard {project} {baseBranchService} {branchController} {githubService} />
 			<DomainButton href={`/${project.id}/board`}>
 				<svg
 					width="16"

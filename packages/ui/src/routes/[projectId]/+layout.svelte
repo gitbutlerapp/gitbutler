@@ -18,7 +18,7 @@
 	$: projectService = data.projectService;
 	$: branchController = data.branchController;
 	$: updateService = data.updateService;
-	$: prService = data.prService;
+	$: githubService = data.githubService;
 	$: vbranchService = data.vbranchService;
 	$: branchesError$ = vbranchService.branchesError$;
 	$: project$ = data.project$;
@@ -96,7 +96,7 @@
 					project={$project$}
 					user={$user$}
 					update={updateService.update$}
-					{prService}
+					{githubService}
 					{projectService}
 					githubContext={$githubContext$}
 				/>

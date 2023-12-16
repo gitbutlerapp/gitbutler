@@ -4,7 +4,7 @@ import { CombinedBranch } from '$lib/branches/types';
 import { Observable, combineLatest } from 'rxjs';
 import { startWith, switchMap } from 'rxjs/operators';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { PrService } from '$lib/github/service';
+import type { GitHubService } from '$lib/github/service';
 import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 
 export class BranchService {
@@ -13,11 +13,11 @@ export class BranchService {
 	constructor(
 		vbranchService: VirtualBranchService,
 		remoteBranchService: RemoteBranchService,
-		prService: PrService
+		githubService: GitHubService
 	) {
 		const vbranchesWithEmpty$ = vbranchService.branches$.pipe(startWith([]));
 		const branchesWithEmpty$ = remoteBranchService.branches$.pipe(startWith([]));
-		const prWithEmpty$ = prService.prs$.pipe(startWith([]));
+		const prWithEmpty$ = githubService.prs$.pipe(startWith([]));
 
 		this.branches$ = combineLatest([vbranchesWithEmpty$, branchesWithEmpty$, prWithEmpty$]).pipe(
 			switchMap(

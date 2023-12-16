@@ -3,7 +3,7 @@
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import CommitListItem from './CommitListItem.svelte';
-	import type { PrService } from '$lib/github/service';
+	import type { GitHubService } from '$lib/github/service';
 	import CommitListHeader from './CommitListHeader.svelte';
 	import type { CommitType } from './commitList';
 	import CommitListFooter from './CommitListFooter.svelte';
@@ -15,7 +15,7 @@
 	export let project: Project;
 	export let branchController: BranchController;
 	export let type: CommitType;
-	export let prService: PrService;
+	export let githubService: GitHubService;
 	export let readonly: boolean;
 
 	let headerHeight: number;
@@ -31,8 +31,8 @@
 				return c.isIntegrated;
 		}
 	});
-	$: pr$ = prService.get(branch.upstreamName);
-	// $: prStatus$ = prService.getStatus($pr$?.targetBranch);
+	$: pr$ = githubService.get(branch.upstreamName);
+	// $: prStatus$ = githubService.getStatus($pr$?.targetBranch);
 
 	let expanded = true;
 </script>
@@ -59,7 +59,7 @@
 				<CommitListFooter
 					{branchController}
 					{branch}
-					{prService}
+					{githubService}
 					{type}
 					{base}
 					{githubContext}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Project } from '$lib/backend/projects';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
-	import type { PrService } from '$lib/github/service';
+	import type { GitHubService } from '$lib/github/service';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
@@ -10,7 +10,7 @@
 	export let project: Project;
 	export let branch: Branch;
 	export let base: BaseBranch | undefined | null;
-	export let prService: PrService;
+	export let githubService: GitHubService;
 	export let branchController: BranchController;
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let readonly: boolean;
@@ -27,7 +27,7 @@
 			{githubContext}
 			{project}
 			{branchController}
-			{prService}
+			{githubService}
 			{readonly}
 			type="local"
 		/>
@@ -37,7 +37,7 @@
 			{githubContext}
 			{project}
 			{branchController}
-			{prService}
+			{githubService}
 			{readonly}
 			type="remote"
 		/>
@@ -47,7 +47,7 @@
 			{githubContext}
 			{project}
 			{branchController}
-			{prService}
+			{githubService}
 			{readonly}
 			type="integrated"
 		/>
