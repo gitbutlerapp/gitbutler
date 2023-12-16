@@ -2,8 +2,10 @@
 	import { joinClassNames } from '$lib/utils/joinClassNames';
 	import Button from '$lib/components/Button.svelte';
 	import { clickOutside } from '$lib/clickOutside';
+	import type iconsJson from '$lib/icons/icons.json';
 
-	export let color: 'primary' | 'error' = 'primary';
+	export let icon: keyof typeof iconsJson | undefined = undefined;
+	export let color: 'primary' | 'neutral' | 'error' = 'primary';
 	export let kind: 'filled' | 'outlined' = 'filled';
 	export let disabled = false;
 	export let loading = false;
@@ -32,7 +34,9 @@
 				wide ? 'wide-text-btn' : ''
 			])}
 			{color}
+			{icon}
 			{kind}
+			iconAlign="left"
 			disabled={disabled || loading}
 			on:click><slot /></Button
 		>

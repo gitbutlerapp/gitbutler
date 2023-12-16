@@ -4,6 +4,7 @@
 	import Icon from '$lib/icons/Icon.svelte';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
+	export let iconAlign: 'left' | 'right' = 'right';
 	export let color: 'primary' | 'neutral' | 'error' = 'primary';
 	export let kind: 'filled' | 'outlined' = 'filled';
 	export let disabled = false;
@@ -11,6 +12,7 @@
 	export let loading = false;
 	export let tabindex = 0;
 	export let wide = false;
+	export let grow = false;
 
 	export let element: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
 
@@ -33,7 +35,9 @@
 	class:primary-filled={color == 'primary' && kind == 'filled'}
 	class:neutral-outline={color == 'neutral' && kind == 'outlined'}
 	class:pointer-events-none={loading}
+	class:icon-left={iconAlign == 'left'}
 	class:wide
+	class:grow
 	bind:this={element}
 	{disabled}
 	on:click
@@ -73,6 +77,12 @@
 		&.wide {
 			display: flex;
 			width: 100%;
+		}
+		&.grow {
+			flex-grow: 1;
+		}
+		&.icon-left {
+			flex-direction: row-reverse;
 		}
 	}
 	.label {

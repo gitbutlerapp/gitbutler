@@ -15,13 +15,13 @@
 	import Button from '$lib/components/Button.svelte';
 	import TextArea from '$lib/components/TextArea.svelte';
 	import DropDown from '$lib/components/DropDown.svelte';
-	import InfoMessage from '$lib/components/InfoMessage.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { Writable } from 'svelte/store';
 	import { createEventDispatcher } from 'svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import { persisted } from '$lib/persisted/persisted';
 
 	const dispatch = createEventDispatcher<{
 		action: 'generate-branch-name';
@@ -35,14 +35,23 @@
 	export let selectedOwnership: Writable<Ownership>;
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
+	const expanded = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
+
 	let commitMessage: string;
+	let isCommitting = false;
 
 	$: messageRows =
 		Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10) + 2;
 
 	function commit() {
+		isCommitting = true;
 		selectedOwnership.set(Ownership.fromBranch(branch));
-		branchController.commitBranch(branch.id, commitMessage, $selectedOwnership.toString());
+		branchController
+			.commitBranch(branch.id, commitMessage, $selectedOwnership.toString())
+			.then(() => {
+				isCommitting = false;
+				commitMessage = '';
+			});
 	}
 
 	export function git_get_config(params: { key: string }) {
@@ -104,52 +113,89 @@
 	let contextMenu: ContextMenu;
 </script>
 
-<div class="commit-box" transition:slide={{ duration: 150 }}>
-	{#if annotateCommits}
-		<InfoMessage color="accent-dim">
-			GitButler will be the committer of this commit. <a
-				target="_blank"
-				rel="noreferrer"
-				href="https://docs.gitbutler.com/features/virtual-branches/committer-mark">Learn more</a
-			>
-		</InfoMessage>
+<div class="commit-box">
+	{#if $expanded}
+		<div class="commit-box__expander" transition:slide={{ duration: 250 }}>
+			<div class="commit-box__textarea">
+				<TextArea
+					bind:value={commitMessage}
+					kind="plain"
+					rows={messageRows}
+					disabled={isGeneratingCommigMessage}
+					placeholder="Your commit message here"
+				/>
+				<Tooltip
+					label={$aiGenEnabled && user
+						? undefined
+						: 'You must be logged in and have summary generation enabled to use this feature'}
+				>
+					<DropDown
+						kind="outlined"
+						icon="ai-small"
+						color="neutral"
+						disabled={!$aiGenEnabled || !user}
+						loading={isGeneratingCommigMessage}
+						on:click={() => generateCommitMessage(branch.files)}
+					>
+						Generate message
+						<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
+							<ContextMenuSection>
+								<ContextMenuItem
+									checked={$commitGenerationExtraConcise}
+									label="Extra concise"
+									on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+								/>
+								<ContextMenuItem
+									checked={$commitGenerationUseEmojis}
+									label="Use emojis 😎"
+									on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+								/>
+							</ContextMenuSection>
+						</ContextMenu>
+					</DropDown>
+				</Tooltip>
+			</div>
+			{#if annotateCommits}
+				<div class="commit-box__committer text-base-11">
+					GitButler will be the committer of this commit. <a
+						class="text-bold"
+						target="_blank"
+						rel="noreferrer"
+						href="https://docs.gitbutler.com/features/virtual-branches/committer-mark">Learn more</a
+					>
+				</div>
+			{/if}
+		</div>
 	{/if}
-	<TextArea bind:value={commitMessage} rows={messageRows} placeholder="Your commit message here" />
 	<div class="actions">
-		<Tooltip
-			label={$aiGenEnabled && user
-				? undefined
-				: 'You must be logged in and have summary generation enabled to use this feature'}
-		>
-			<DropDown
-				kind="outlined"
-				disabled={!$aiGenEnabled || !user}
-				loading={isGeneratingCommigMessage}
-				on:click={() => generateCommitMessage(branch.files)}
-			>
-				Generate message
-				<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
-					<ContextMenuSection>
-						<ContextMenuItem
-							checked={$commitGenerationExtraConcise}
-							label="Extra concise"
-							on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
-						/>
-						<ContextMenuItem
-							checked={$commitGenerationUseEmojis}
-							label="Use emojis 😎"
-							on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
-						/>
-					</ContextMenuSection>
-				</ContextMenu>
-			</DropDown>
-		</Tooltip>
+		{#if $expanded && !isCommitting}
+			<div transition:slide={{ duration: 250, axis: 'x' }} style="margin-right: var(--space-6)">
+				<Button
+					color="neutral"
+					kind="outlined"
+					id="commit-to-branch"
+					on:click={() => {
+						$expanded = false;
+					}}
+				>
+					Cancel
+				</Button>
+			</div>
+		{/if}
 		<Button
+			grow
 			color="primary"
+			kind={$expanded ? 'filled' : 'outlined'}
+			disabled={(isCommitting || !commitMessage) && $expanded}
 			id="commit-to-branch"
 			on:click={() => {
-				if (commitMessage) commit();
-				commitMessage = '';
+				if ($expanded) {
+					if (commitMessage) {
+						commit();
+					}
+				} else {
+					$expanded = true;
+				}
 			}}
 		>
 			Commit
@@ -161,14 +207,47 @@
 	.commit-box {
 		display: flex;
 		flex-direction: column;
-		border-top: 1px solid var(--clr-theme-container-outline-light);
-		background: var(--clr-theme-container-pale);
 		padding: var(--space-16);
-		gap: var(--space-8);
+		background: var(--clr-theme-container-pale);
+		border-top: 1px solid var(--clr-theme-container-outline-light);
 	}
+	.commit-box__expander {
+		display: flex;
+		flex-direction: column;
+		margin-bottom: var(--space-12);
+		overflow: hidden;
+	}
+	.commit-box__textarea {
+		display: flex;
+		flex-direction: column;
+		background: var(--clr-theme-container-light);
+		padding: var(--space-12);
+		align-items: flex-end;
+		gap: var(--space-16);
+
+		border-radius: var(--radius-s) var(--radius-s) 0 0;
+		border: 1px solid var(--clr-theme-container-outline-light);
+
+		&:hover {
+			border-color: var(--clr-theme-container-outline-pale);
+		}
+		&:focus-within {
+			border-color: var(--clr-theme-container-outline-sub);
+		}
+	}
+
+	.commit-box__committer {
+		background: var(--clr-theme-container-pale);
+		padding: var(--space-12);
+
+		border-width: 0 1px 1px 1px;
+		border-style: solid;
+		border-color: var(--clr-theme-container-outline-light);
+		border-radius: 0 0 var(--radius-s) var(--radius-s);
+	}
+
 	.actions {
 		display: flex;
 		justify-content: right;
-		gap: var(--space-6);
 	}
 </style>
