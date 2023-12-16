@@ -8,7 +8,7 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import type { Update } from '../../updater';
 	import DomainButton from './DomainButton.svelte';
-	import type { PrService } from '$lib/github/pullrequest';
+	import type { PrService } from '$lib/github/service';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import ProjectSelector from './ProjectSelector.svelte';
 	import Branches from './Branches.svelte';

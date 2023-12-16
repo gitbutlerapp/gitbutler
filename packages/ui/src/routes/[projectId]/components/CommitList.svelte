@@ -3,7 +3,7 @@
 	import type { GitHubIntegrationContext } from '$lib/github/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import CommitListItem from './CommitListItem.svelte';
-	import type { PrService } from '$lib/github/pullrequest';
+	import type { PrService } from '$lib/github/service';
 	import CommitListHeader from './CommitListHeader.svelte';
 	import type { CommitType } from './commitList';
 	import CommitListFooter from './CommitListFooter.svelte';

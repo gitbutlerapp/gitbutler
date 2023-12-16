@@ -7,7 +7,7 @@
 	import { open } from '@tauri-apps/api/shell';
 	import { IconFile, IconTerminal, IconExternalLink } from '$lib/icons';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
-	import type { PrService } from '$lib/github/pullrequest';
+	import type { PrService } from '$lib/github/service';
 	import { cloneNode } from '$lib/utils/draggable';
 	import type { Project } from '$lib/backend/projects';
 
