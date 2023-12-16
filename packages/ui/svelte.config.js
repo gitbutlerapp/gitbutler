@@ -12,7 +12,8 @@ const config = {
 			precompress: true,
 			strict: false
 		})
-	}
+	},
+	compilerOptions: { css: 'injected' }
 };
 
 export default config;
