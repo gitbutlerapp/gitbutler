@@ -6,13 +6,18 @@
 	export let required = false;
 	export let rows = 4;
 	export let id: string | undefined = undefined;
+	export let disabled = false;
+
+	export let kind: 'default' | 'plain' = 'default';
 
 	const dispatch = createEventDispatcher<{ input: string; change: string }>();
 </script>
 
 <textarea
-	class="text-box text-base-13"
+	class="textarea text-base-13"
+	class:default={kind == 'default'}
 	bind:value
+	{disabled}
 	{id}
 	{placeholder}
 	{required}
@@ -22,24 +27,26 @@
 />
 
 <style lang="postcss">
-	.text-box {
-		border-radius: var(--radius-s);
-		border: 1px solid var(--clr-theme-container-outline-light);
-		background: var(--clr-theme-container-light);
-
-		display: flex;
+	.textarea {
 		width: 100%;
-		align-items: center;
-		gap: var(--space-8);
-		padding: var(--space-12);
 		color: var(--clr-theme-scale-ntrl-0);
-
+		outline: none;
 		resize: none;
 
 		&::placeholder {
 			/* Most modern browsers support this now. */
 			color: var(--clr-theme-scale-ntrl-50);
 		}
+
+		&:disabled {
+			color: var(--clr-theme-scale-ntrl-60);
+		}
+	}
+	.default {
+		background: var(--clr-theme-container-light);
+		padding: var(--space-12);
+		border: 1px solid var(--clr-theme-container-outline-light);
+		border-radius: var(--radius-s);
 
 		&:hover {
 			border-color: var(--clr-theme-container-outline-pale);
@@ -51,9 +58,8 @@
 			border-color: var(--clr-theme-err-element);
 		}
 		&:disabled {
-			color: var(--clr-theme-scale-ntrl-60);
-			border-color: var(--clr-theme-err-element);
 			background-color: var(--clr-theme-container-pale);
+			border-color: var(--clr-theme-err-element);
 		}
 	}
 </style>
