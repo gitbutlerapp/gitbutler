@@ -7,8 +7,8 @@
 	export let data: PageData;
 
 	$: branchController = data.branchController;
-	$: prService = data.prService;
-	$: pr = prService.prs$?.pipe(
+	$: githubService = data.githubService;
+	$: pr = githubService.prs$?.pipe(
 		map((prs) => prs.find((b) => b.number.toString() == $page.params.number))
 	);
 </script>

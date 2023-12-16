@@ -3,12 +3,12 @@
 	import Icon from '$lib/icons/Icon.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
-	import type { PrService } from '$lib/github/service';
+	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
 	export let branchController: BranchController;
-	export let prService: PrService;
+	export let githubService: GitHubService;
 	export let projectId: string;
 	export let baseBranchService: BaseBranchService;
 	export let cloudEnabled: boolean;
@@ -27,7 +27,7 @@
 		try {
 			if (cloudEnabled) syncToCloud(projectId); // don't wait for this
 			await branchController.fetchFromTarget();
-			await prService.reload();
+			await githubService.reload();
 		} finally {
 			fetching = false;
 		}

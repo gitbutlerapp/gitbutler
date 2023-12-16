@@ -15,7 +15,7 @@
 	$: projectId = data.projectId;
 	$: base$ = baseBranchService.base$;
 	$: user$ = data.user$;
-	$: prService = data.prService;
+	$: githubService = data.githubService;
 
 	$: project$ = data.project$;
 	$: activeBranches$ = vbranchService.activeBranches$;
@@ -66,7 +66,7 @@
 					githubContext={$githubContext$}
 					branchesError={$error$}
 					user={$user$}
-					{prService}
+					{githubService}
 				/>
 			</div>
 		</div>

@@ -7,7 +7,7 @@
 	import { open } from '@tauri-apps/api/shell';
 	import { IconFile, IconTerminal, IconExternalLink } from '$lib/icons';
 	import type { GitHubIntegrationContext } from '$lib/github/types';
-	import type { PrService } from '$lib/github/service';
+	import type { GitHubService } from '$lib/github/service';
 	import { cloneNode } from '$lib/utils/draggable';
 	import type { Project } from '$lib/backend/projects';
 
@@ -21,7 +21,7 @@
 
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
-	export let prService: PrService;
+	export let githubService: GitHubService;
 
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
@@ -116,7 +116,7 @@
 					{githubContext}
 					{projectPath}
 					{user}
-					{prService}
+					{githubService}
 				></BranchLane>
 			</div>
 		{/each}

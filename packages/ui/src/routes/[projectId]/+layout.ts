@@ -3,7 +3,7 @@ import { getHeads } from '$lib/stores/head';
 import { BranchController } from '$lib/vbranches/branchController';
 import { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 import type { LayoutLoad } from './$types';
-import { PrService } from '$lib/github/service';
+import { GitHubService } from '$lib/github/service';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { BranchService } from '$lib/branches/service';
 
@@ -31,15 +31,20 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		baseBranchService
 	);
 
-	const prService = new PrService(branchController, vbranchService, userService, baseBranchService);
-	const githubContext$ = prService.ctx$;
-	const branchService = new BranchService(vbranchService, remoteBranchService, prService);
+	const githubService = new GitHubService(
+		branchController,
+		vbranchService,
+		userService,
+		baseBranchService
+	);
+	const githubContext$ = githubService.ctx$;
+	const branchService = new BranchService(vbranchService, remoteBranchService, githubService);
 
 	return {
 		projectId,
 		branchController,
 		baseBranchService,
-		prService,
+		githubService,
 		vbranchService,
 		githubContext$,
 		remoteBranchService,

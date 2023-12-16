@@ -7,7 +7,7 @@
 	import FileCard from './FileCard.svelte';
 	import { writable } from 'svelte/store';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import type { PrService } from '$lib/github/service';
+	import type { GitHubService } from '$lib/github/service';
 	import type { Project } from '$lib/backend/projects';
 
 	export let branch: Branch;
@@ -21,7 +21,7 @@
 	export let githubContext: GitHubIntegrationContext | undefined;
 	export let user: User | undefined;
 	export let projectPath: string;
-	export let prService: PrService;
+	export let githubService: GitHubService;
 
 	const selectedOwnership = writable(Ownership.fromBranch(branch));
 	const selectedFileId = writable<string | undefined>(undefined);
@@ -49,7 +49,7 @@
 		{githubContext}
 		{user}
 		{selectedFileId}
-		{prService}
+		{githubService}
 	/>
 
 	{#if selected}
