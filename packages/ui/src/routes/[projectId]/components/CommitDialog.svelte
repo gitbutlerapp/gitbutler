@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as toasts from '$lib/utils/toasts';
-	import { slide } from 'svelte/transition';
+	import { slide, fade } from 'svelte/transition';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Branch, File } from '$lib/vbranches/types';
@@ -113,74 +113,78 @@
 	let contextMenu: ContextMenu;
 </script>
 
-<div class="commit-box">
+<div class="commit-box" class:commit-box__expanded={$expanded}>
 	{#if $expanded}
-		<div class="commit-box__expander" transition:slide={{ duration: 250 }}>
-			<div class="commit-box__textarea">
-				<TextArea
-					bind:value={commitMessage}
-					kind="plain"
-					rows={messageRows}
-					disabled={isGeneratingCommigMessage}
-					placeholder="Your commit message here"
-				/>
-				<Tooltip
-					label={$aiGenEnabled && user
-						? undefined
-						: 'You must be logged in and have summary generation enabled to use this feature'}
-				>
-					<DropDown
-						kind="outlined"
-						icon="ai-small"
-						color="neutral"
-						disabled={!$aiGenEnabled || !user}
-						loading={isGeneratingCommigMessage}
-						on:click={() => generateCommitMessage(branch.files)}
+		<div in:fade={{ duration: 200, delay: 50 }}>
+			<div class="commit-box__expander" in:slide={{ duration: 200 }}>
+				<div class="commit-box__textarea">
+					<TextArea
+						bind:value={commitMessage}
+						kind="plain"
+						rows={messageRows}
+						disabled={isGeneratingCommigMessage}
+						placeholder="Your commit message here"
+					/>
+					<Tooltip
+						label={$aiGenEnabled && user
+							? undefined
+							: 'You must be logged in and have summary generation enabled to use this feature'}
 					>
-						Generate message
-						<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
-							<ContextMenuSection>
-								<ContextMenuItem
-									checked={$commitGenerationExtraConcise}
-									label="Extra concise"
-									on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
-								/>
-								<ContextMenuItem
-									checked={$commitGenerationUseEmojis}
-									label="Use emojis 😎"
-									on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
-								/>
-							</ContextMenuSection>
-						</ContextMenu>
-					</DropDown>
-				</Tooltip>
-			</div>
-			{#if annotateCommits}
-				<div class="commit-box__committer text-base-11">
-					GitButler will be the committer of this commit. <a
-						class="text-bold"
-						target="_blank"
-						rel="noreferrer"
-						href="https://docs.gitbutler.com/features/virtual-branches/committer-mark">Learn more</a
-					>
+						<DropDown
+							kind="outlined"
+							icon="ai-small"
+							color="neutral"
+							disabled={!$aiGenEnabled || !user}
+							loading={isGeneratingCommigMessage}
+							on:click={() => generateCommitMessage(branch.files)}
+						>
+							Generate message
+							<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
+								<ContextMenuSection>
+									<ContextMenuItem
+										checked={$commitGenerationExtraConcise}
+										label="Extra concise"
+										on:click={() =>
+											($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+									/>
+									<ContextMenuItem
+										checked={$commitGenerationUseEmojis}
+										label="Use emojis 😎"
+										on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+									/>
+								</ContextMenuSection>
+							</ContextMenu>
+						</DropDown>
+					</Tooltip>
 				</div>
-			{/if}
+				{#if annotateCommits}
+					<div class="commit-box__committer text-base-11">
+						GitButler will be the committer of this commit. <a
+							class="text-bold"
+							target="_blank"
+							rel="noreferrer"
+							href="https://docs.gitbutler.com/features/virtual-branches/committer-mark"
+							>Learn more</a
+						>
+					</div>
+				{/if}
+			</div>
 		</div>
 	{/if}
 	<div class="actions">
 		{#if $expanded && !isCommitting}
-			<div transition:slide={{ duration: 250, axis: 'x' }} style="margin-right: var(--space-6)">
-				<Button
-					color="neutral"
-					kind="outlined"
-					id="commit-to-branch"
-					on:click={() => {
-						$expanded = false;
-					}}
-				>
-					Cancel
-				</Button>
-			</div>
+			<!-- <div transition:slide={{ duration: 250, axis: 'x' }} style="margin-right: var(--space-6)"> -->
+			<Button
+				color="neutral"
+				kind="outlined"
+				id="commit-to-branch"
+				on:click={() => {
+					$expanded = false;
+				}}
+			>
+				Cancel
+			</Button>
+			<!-- </div> -->
 		{/if}
 		<Button
 			grow
@@ -198,7 +202,7 @@
 				}
 			}}
 		>
-			Commit
+			{$expanded ? 'Commit' : 'Commit changes'}
 		</Button>
 	</div>
 </div>
@@ -208,8 +212,9 @@
 		display: flex;
 		flex-direction: column;
 		padding: var(--space-16);
-		background: var(--clr-theme-container-pale);
+		background: var(--clr-theme-container-light);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
+		transition: background-color var(--transition-medium);
 	}
 	.commit-box__expander {
 		display: flex;
@@ -243,11 +248,17 @@
 		border-width: 0 1px 1px 1px;
 		border-style: solid;
 		border-color: var(--clr-theme-container-outline-light);
-		border-radius: 0 0 var(--radius-s) var(--radius-s);
+		border-radius: 0 0 var(--radius-m) var(--radius-m);
 	}
 
 	.actions {
 		display: flex;
 		justify-content: right;
+		gap: var(--space-6);
+	}
+
+	/* modifiers */
+	.commit-box__expanded {
+		background-color: var(--clr-theme-container-pale);
 	}
 </style>
