@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as toasts from '$lib/utils/toasts';
-	import { slide, fade } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Branch, File } from '$lib/vbranches/types';
