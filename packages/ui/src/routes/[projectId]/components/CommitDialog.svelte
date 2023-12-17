@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as toasts from '$lib/utils/toasts';
-	import { slide, fade } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Branch, File } from '$lib/vbranches/types';
@@ -119,70 +119,66 @@
 
 <div class="commit-box" class:commit-box__expanded={$expanded}>
 	{#if $expanded}
-		<div in:fade={{ duration: 150, delay: 50 }}>
-			<div class="commit-box__expander" in:slide={{ duration: 150 }}>
-				<div class="commit-box__textarea-wrapper">
-					<textarea
-						bind:value={commitMessage}
-						use:focusTextareaOnMount
-						on:input={useAutoHeight}
-						class="commit-box__textarea text-base-body-13"
-						rows={1}
-						disabled={isGeneratingCommigMessage}
-						placeholder="Your commit message here"
-					/>
+		<div class="commit-box__expander" transition:slide={{ duration: 150 }}>
+			<div class="commit-box__textarea-wrapper">
+				<textarea
+					bind:value={commitMessage}
+					use:focusTextareaOnMount
+					on:input={useAutoHeight}
+					class="commit-box__textarea text-base-body-13"
+					rows="1"
+					disabled={isGeneratingCommigMessage}
+					placeholder="Your commit message here"
+				/>
 
-					<div class="commit-box__texarea-actions">
-						<Tooltip
-							label={$aiGenEnabled && user
-								? undefined
-								: 'You must be logged in and have summary generation enabled to use this feature'}
+				<div class="commit-box__texarea-actions">
+					<Tooltip
+						label={$aiGenEnabled && user
+							? undefined
+							: 'You must be logged in and have summary generation enabled to use this feature'}
+					>
+						<DropDown
+							kind="outlined"
+							icon="ai-small"
+							color="neutral"
+							disabled={!$aiGenEnabled || !user}
+							loading={isGeneratingCommigMessage}
+							on:click={() => generateCommitMessage(branch.files)}
 						>
-							<DropDown
-								kind="outlined"
-								icon="ai-small"
-								color="neutral"
-								disabled={!$aiGenEnabled || !user}
-								loading={isGeneratingCommigMessage}
-								on:click={() => generateCommitMessage(branch.files)}
-							>
-								Generate message
-								<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
-									<ContextMenuSection>
-										<ContextMenuItem
-											checked={$commitGenerationExtraConcise}
-											label="Extra concise"
-											on:click={() =>
-												($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
-										/>
-										<ContextMenuItem
-											checked={$commitGenerationUseEmojis}
-											label="Use emojis 😎"
-											on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
-										/>
-									</ContextMenuSection>
-								</ContextMenu>
-							</DropDown>
-						</Tooltip>
-					</div>
+							Generate message
+							<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
+								<ContextMenuSection>
+									<ContextMenuItem
+										checked={$commitGenerationExtraConcise}
+										label="Extra concise"
+										on:click={() =>
+											($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+									/>
+									<ContextMenuItem
+										checked={$commitGenerationUseEmojis}
+										label="Use emojis 😎"
+										on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+									/>
+								</ContextMenuSection>
+							</ContextMenu>
+						</DropDown>
+					</Tooltip>
 				</div>
-				{#if annotateCommits}
-					<div class="commit-box__committer text-base-11">
-						GitButler will be the committer of this commit. <a
-							class="text-bold"
-							target="_blank"
-							rel="noreferrer"
-							href="https://docs.gitbutler.com/features/virtual-branches/committer-mark"
-							>Learn more</a
-						>
-					</div>
-				{/if}
 			</div>
+			{#if annotateCommits}
+				<div class="commit-box__committer text-base-11">
+					GitButler will be the committer of this commit. <a
+						class="text-bold"
+						target="_blank"
+						rel="noreferrer"
+						href="https://docs.gitbutler.com/features/virtual-branches/committer-mark">Learn more</a
+					>
+				</div>
+			{/if}
 		</div>
 	{/if}
 	<div class="actions">
 		{#if $expanded && !isCommitting}
-			<!-- <div transition:slide={{ duration: 250, axis: 'x' }} style="margin-right: var(--space-6)"> -->
 			<Button
 				color="neutral"
 				kind="outlined"
@@ -193,12 +189,11 @@
 			>
 				Cancel
 			</Button>
-			<!-- </div> -->
 		{/if}
 		<Button
 			grow
 			color="primary"
-			kind={$expanded ? 'filled' : 'outlined'}
+			kind="filled"
 			disabled={(isCommitting || !commitMessage) && $expanded}
 			id="commit-to-branch"
 			on:click={() => {
