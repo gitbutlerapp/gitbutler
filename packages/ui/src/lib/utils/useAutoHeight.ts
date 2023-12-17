@@ -1,4 +1,4 @@
-export function useAutoHeight(event: KeyboardEvent) {
+export function useAutoHeight(event: Event) {
 	const textarea = event.target as HTMLTextAreaElement;
 
 	textarea.style.height = 'auto';
