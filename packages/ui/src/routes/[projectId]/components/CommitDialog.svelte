@@ -13,7 +13,6 @@
 	} from '$lib/config/config';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import Button from '$lib/components/Button.svelte';
-	import TextArea from '$lib/components/TextArea.svelte';
 	import DropDown from '$lib/components/DropDown.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
@@ -22,6 +21,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { persisted } from '$lib/persisted/persisted';
+	import { useAutoHeight } from '$lib/utils/useAutoHeight';
 
 	const dispatch = createEventDispatcher<{
 		action: 'generate-branch-name';
@@ -40,8 +40,11 @@
 	let commitMessage: string;
 	let isCommitting = false;
 
-	$: messageRows =
-		Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10) + 2;
+	const focusTextareaOnMount = (el: HTMLTextAreaElement) => {
+		if (el) {
+			el.focus();
+		}
+	};
 
 	function commit() {
 		isCommitting = true;
@@ -65,6 +68,7 @@
 			annotateCommits = value ? value === '0' : true;
 		});
 	}
+
 	$: checkCommitsAnnotated();
 
 	let isGeneratingCommigMessage = false;
@@ -115,47 +119,52 @@
 
 <div class="commit-box" class:commit-box__expanded={$expanded}>
 	{#if $expanded}
-		<div in:fade={{ duration: 200, delay: 50 }}>
-			<div class="commit-box__expander" in:slide={{ duration: 200 }}>
-				<div class="commit-box__textarea">
-					<TextArea
+		<div in:fade={{ duration: 150, delay: 50 }}>
+			<div class="commit-box__expander" in:slide={{ duration: 150 }}>
+				<div class="commit-box__textarea-wrapper">
+					<textarea
 						bind:value={commitMessage}
-						kind="plain"
-						rows={messageRows}
+						use:focusTextareaOnMount
+						on:input={useAutoHeight}
+						class="commit-box__textarea text-base-body-13"
+						rows={1}
 						disabled={isGeneratingCommigMessage}
 						placeholder="Your commit message here"
 					/>
-					<Tooltip
-						label={$aiGenEnabled && user
-							? undefined
-							: 'You must be logged in and have summary generation enabled to use this feature'}
-					>
-						<DropDown
-							kind="outlined"
-							icon="ai-small"
-							color="neutral"
-							disabled={!$aiGenEnabled || !user}
-							loading={isGeneratingCommigMessage}
-							on:click={() => generateCommitMessage(branch.files)}
+
+					<div class="commit-box__texarea-actions">
+						<Tooltip
+							label={$aiGenEnabled && user
+								? undefined
+								: 'You must be logged in and have summary generation enabled to use this feature'}
 						>
-							Generate message
-							<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
-								<ContextMenuSection>
-									<ContextMenuItem
-										checked={$commitGenerationExtraConcise}
-										label="Extra concise"
-										on:click={() =>
-											($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
-									/>
-									<ContextMenuItem
-										checked={$commitGenerationUseEmojis}
-										label="Use emojis 😎"
-										on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
-									/>
-								</ContextMenuSection>
-							</ContextMenu>
-						</DropDown>
-					</Tooltip>
+							<DropDown
+								kind="outlined"
+								icon="ai-small"
+								color="neutral"
+								disabled={!$aiGenEnabled || !user}
+								loading={isGeneratingCommigMessage}
+								on:click={() => generateCommitMessage(branch.files)}
+							>
+								Generate message
+								<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
+									<ContextMenuSection>
+										<ContextMenuItem
+											checked={$commitGenerationExtraConcise}
+											label="Extra concise"
+											on:click={() =>
+												($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+										/>
+										<ContextMenuItem
+											checked={$commitGenerationUseEmojis}
+											label="Use emojis 😎"
+											on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+										/>
+									</ContextMenuSection>
+								</ContextMenu>
+							</DropDown>
+						</Tooltip>
+					</div>
 				</div>
 				{#if annotateCommits}
 					<div class="commit-box__committer text-base-11">
@@ -220,25 +229,43 @@
 		display: flex;
 		flex-direction: column;
 		margin-bottom: var(--space-12);
-		overflow: hidden;
+		/* overflow: hidden; */
 	}
-	.commit-box__textarea {
+	.commit-box__textarea-wrapper {
+		position: relative;
 		display: flex;
 		flex-direction: column;
+	}
+	.commit-box__textarea {
+		overflow: hidden;
+		/* box-sizing: border-box; */
+		display: flex;
+		flex-direction: column;
+		color: var(--clr-theme-scale-ntrl-0);
 		background: var(--clr-theme-container-light);
-		padding: var(--space-12);
+		padding: var(--space-12) var(--space-12) var(--space-48) var(--space-12);
 		align-items: flex-end;
 		gap: var(--space-16);
 
 		border-radius: var(--radius-s) var(--radius-s) 0 0;
 		border: 1px solid var(--clr-theme-container-outline-light);
 
+		transition: border-color var(--transition-fast);
+		resize: none;
+
 		&:hover {
 			border-color: var(--clr-theme-container-outline-pale);
 		}
 		&:focus-within {
 			border-color: var(--clr-theme-container-outline-sub);
+			outline: none;
 		}
+	}
+	.commit-box__texarea-actions {
+		position: absolute;
+		display: flex;
+		right: var(--space-12);
+		bottom: var(--space-12);
 	}
 
 	.commit-box__committer {

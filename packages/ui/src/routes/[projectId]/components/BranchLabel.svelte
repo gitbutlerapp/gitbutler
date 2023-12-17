@@ -19,7 +19,6 @@
 		title={name}
 		class="branch-name-input text-base-13"
 		on:dblclick|stopPropagation
-		on:click={(e) => e.currentTarget.select()}
 		on:blur={() => (inputActive = false)}
 		on:keydown={(e) => {
 			if (e.key == 'Enter') {
