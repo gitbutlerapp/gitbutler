@@ -115,8 +115,8 @@
 
 <div class="commit-box" class:commit-box__expanded={$expanded}>
 	{#if $expanded}
-		<div in:fade={{ duration: 200, delay: 50 }}>
-			<div class="commit-box__expander" in:slide={{ duration: 200 }}>
+		<div in:fade={{ duration: 150, delay: 50 }}>
+			<div class="commit-box__expander" in:slide={{ duration: 150 }}>
 				<div class="commit-box__textarea">
 					<TextArea
 						bind:value={commitMessage}
