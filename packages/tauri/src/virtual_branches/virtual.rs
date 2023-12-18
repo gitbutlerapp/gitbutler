@@ -273,6 +273,7 @@ pub fn apply_branch(
                 &merge_conflicts,
                 Some(default_target.sha),
             )?;
+
             return Ok(());
         }
 
@@ -538,14 +539,6 @@ pub fn unapply_branch(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
 ) -> Result<Option<branch::Branch>, errors::UnapplyBranchError> {
-    if conflicts::is_resolving(project_repository) {
-        return Err(errors::UnapplyBranchError::Conflict(
-            errors::ProjectConflictError {
-                project_id: project_repository.project().id,
-            },
-        ));
-    }
-
     let session = &gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
@@ -577,70 +570,88 @@ pub fn unapply_branch(
             })
         })?;
 
-    let applied_branches = Iterator::new(&current_session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|b| b.applied)
-        .collect::<Vec<_>>();
-
-    let applied_statuses = get_applied_status(
-        gb_repository,
-        project_repository,
-        &default_target,
-        applied_branches,
-    )
-    .context("failed to get status by branch")?;
-
-    let status = applied_statuses
-        .iter()
-        .find(|(s, _)| s.id == target_branch.id)
-        .context("failed to find status for branch");
-
-    let branch_writer = branch::Writer::new(gb_repository);
-    if let Ok((_, files)) = status {
-        if files.is_empty() {
-            // if there is nothing to unapply, remove the branch straight away
-            branch_writer
-                .delete(&target_branch)
-                .context("Failed to remove branch")?;
-
-            project_repository.delete_branch_reference(&target_branch)?;
-            return Ok(None);
-        }
-
-        target_branch.tree = write_tree(project_repository, &default_target, files)?;
-        target_branch.applied = false;
-        branch_writer.write(&mut target_branch)?;
-    }
-
     let repo = &project_repository.git_repository;
-
     let target_commit = repo
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
 
-    // ok, update the wd with the union of the rest of the branches
-    let base_tree = target_commit.tree().context("failed to get target tree")?;
+    let final_tree = if conflicts::is_resolving(project_repository) {
+        // when applying branch leads to a conflict, all other branches are unapplied.
+        // this means we can just reset to the default target tree.
+        {
+            let branch_writer = branch::Writer::new(gb_repository);
+            target_branch.applied = false;
+            branch_writer.write(&mut target_branch)?;
+        }
 
-    // go through the other applied branches and merge them into the final tree
-    // then check that out into the working directory
-    let final_tree = applied_statuses
-        .into_iter()
-        .filter(|(branch, _)| &branch.id != branch_id)
-        .fold(
-            target_commit.tree().context("failed to get target tree"),
-            |final_tree, status| {
-                let final_tree = final_tree?;
-                let tree_oid = write_tree(project_repository, &default_target, &status.1)?;
-                let branch_tree = repo.find_tree(tree_oid)?;
-                let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
-                let final_tree_oid = result.write_tree_to(repo)?;
-                repo.find_tree(final_tree_oid)
-                    .context("failed to find tree")
-            },
-        )?;
+        conflicts::clear(project_repository).context("failed to clear conflicts")?;
+
+        target_commit.tree().context("failed to get target tree")?
+    } else {
+        // if we are not resolving, we need to merge the rest of the applied branches
+        let applied_branches = Iterator::new(&current_session_reader)
+            .context("failed to create branch iterator")?
+            .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+            .context("failed to read virtual branches")?
+            .into_iter()
+            .filter(|b| b.applied)
+            .collect::<Vec<_>>();
+
+        let applied_statuses = get_applied_status(
+            gb_repository,
+            project_repository,
+            &default_target,
+            applied_branches,
+        )
+        .context("failed to get status by branch")?;
+
+        let status = applied_statuses
+            .iter()
+            .find(|(s, _)| s.id == target_branch.id)
+            .context("failed to find status for branch");
+
+        let branch_writer = branch::Writer::new(gb_repository);
+        if let Ok((_, files)) = status {
+            if files.is_empty() {
+                // if there is nothing to unapply, remove the branch straight away
+                branch_writer
+                    .delete(&target_branch)
+                    .context("Failed to remove branch")?;
+
+                project_repository.delete_branch_reference(&target_branch)?;
+                return Ok(None);
+            }
+
+            target_branch.tree = write_tree(project_repository, &default_target, files)?;
+            target_branch.applied = false;
+            branch_writer.write(&mut target_branch)?;
+        }
+
+        let target_commit = repo
+            .find_commit(default_target.sha)
+            .context("failed to find target commit")?;
+
+        // ok, update the wd with the union of the rest of the branches
+        let base_tree = target_commit.tree().context("failed to get target tree")?;
+
+        // go through the other applied branches and merge them into the final tree
+        // then check that out into the working directory
+        applied_statuses
+            .into_iter()
+            .filter(|(branch, _)| &branch.id != branch_id)
+            .fold(
+                target_commit.tree().context("failed to get target tree"),
+                |final_tree, status| {
+                    let final_tree = final_tree?;
+                    let tree_oid = write_tree(project_repository, &default_target, &status.1)?;
+                    let branch_tree = repo.find_tree(tree_oid)?;
+                    let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
+                    let final_tree_oid = result.write_tree_to(repo)?;
+                    repo.find_tree(final_tree_oid)
+                        .context("failed to find tree")
+                },
+            )?
+    };
 
     // checkout final_tree into the working directory
     repo.checkout_tree(&final_tree)
@@ -913,21 +924,18 @@ pub fn calculate_non_commited_diffs(
     let conflicting_files = conflicts::conflicting_files(project_repository)?;
     for (file_path, non_commited_hunks) in &non_commited_diff {
         let mut conflicted = false;
-        if let Some(conflicts) = &conflicting_files {
-            if conflicts.contains(&file_path.display().to_string()) {
-                // check file for conflict markers, resolve the file if there are none in any hunk
-                for hunk in non_commited_hunks {
-                    if hunk.diff.contains("<<<<<<< ours") {
-                        conflicted = true;
-                    }
-                    if hunk.diff.contains(">>>>>>> theirs") {
-                        conflicted = true;
-                    }
+        if conflicting_files.contains(&file_path.display().to_string()) {
+            // check file for conflict markers, resolve the file if there are none in any hunk
+            for hunk in non_commited_hunks {
+                if hunk.diff.contains("<<<<<<< ours") {
+                    conflicted = true;
                 }
-                if !conflicted {
-                    conflicts::resolve(project_repository, &file_path.display().to_string())
-                        .unwrap();
+                if hunk.diff.contains(">>>>>>> theirs") {
+                    conflicted = true;
                 }
+            }
+            if !conflicted {
+                conflicts::resolve(project_repository, &file_path.display().to_string()).unwrap();
             }
         }
     }
@@ -1739,13 +1747,15 @@ fn get_applied_status(
         })
         .collect::<Vec<_>>();
 
-    // write updated state
-    let branch_writer = branch::Writer::new(gb_repository);
-    for (vbranch, files) in &mut hunks_by_branch {
-        vbranch.tree = write_tree(project_repository, default_target, files)?;
-        branch_writer
-            .write(vbranch)
-            .context(format!("failed to write virtual branch {}", vbranch.name))?;
+    // write updated state if not resolving
+    if !project_repository.is_resolving() {
+        let branch_writer = branch::Writer::new(gb_repository);
+        for (vbranch, files) in &mut hunks_by_branch {
+            vbranch.tree = write_tree(project_repository, default_target, files)?;
+            branch_writer
+                .write(vbranch)
+                .context(format!("failed to write virtual branch {}", vbranch.name))?;
+        }
     }
 
     Ok(hunks_by_branch)
