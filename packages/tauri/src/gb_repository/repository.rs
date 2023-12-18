@@ -481,7 +481,7 @@ impl Repository {
         match sessions::Session::try_from(reader) {
             Ok(session) => Ok(Some(session)),
             Err(sessions::SessionError::NoSession) => Ok(None),
-            Err(sessions::SessionError::Err(err)) => Err(err),
+            Err(sessions::SessionError::Other(err)) => Err(err),
         }
     }
 
