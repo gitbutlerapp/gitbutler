@@ -14,7 +14,7 @@
 		<Icon name="chevron-right-small" />
 	{/if}
 	<IconFolder class="h-4 w-4 scale-75 text-blue-400" />
-	<span class="name text-base-12">
+	<span class="name text-base-body-12">
 		{node.name}
 	</span>
 	<!-- {#if withCheckboxes}

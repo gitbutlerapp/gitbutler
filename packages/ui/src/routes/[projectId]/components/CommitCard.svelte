@@ -57,7 +57,7 @@
 >
 	<div class="commit__card" class:is-head-commit={isHeadCommit}>
 		<div class="commit__header">
-			<span class="commit__description text-base-12 truncate">
+			<span class="commit__description text-base-body-12 truncate">
 				{commit.description}
 			</span>
 			{#if isHeadCommit && !readonly}

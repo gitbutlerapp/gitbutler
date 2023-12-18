@@ -24,11 +24,11 @@
 		<div class="item__icon"><Icon name={branch.icon} color={branch.color} /></div>
 	{/if}
 	<div class="branch__info flex flex-col gap-2">
-		<p class="text-base-13 branch__name">
+		<p class="text-base-body-13 branch__name">
 			{branch.displayName}
 		</p>
 		<div class="branch__details">
-			<span class="branch__author text-base-11 details truncate">
+			<span class="branch__author text-base-body-11 details truncate">
 				<TimeAgo date={branch.modifiedAt} />
 				{#if branch.author}
 					by {branch.author?.name ?? 'unknown'}
