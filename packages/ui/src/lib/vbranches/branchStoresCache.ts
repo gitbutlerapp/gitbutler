@@ -32,23 +32,22 @@ export class VirtualBranchService {
 					new Observable<Branch[]>((subscriber) => {
 						return subscribeToVirtualBranches(projectId, (branches) => subscriber.next(branches));
 					})
-				).pipe(
-					tap((branches) => {
-						branches.forEach((branch) => {
-							branch.files.sort((a) => (a.conflicted ? -1 : 0));
-							branch.isMergeable = invoke<boolean>('can_apply_virtual_branch', {
-								projectId: projectId,
-								branchId: branch.id
-							});
-						});
-					}),
-					catchError((err) => {
-						this.branchesError$.next(UserError.fromError(err));
-						return [];
-					}),
-					shareReplay(1)
 				)
-			)
+			),
+			tap((branches) => {
+				branches.forEach((branch) => {
+					branch.files.sort((a) => (a.conflicted ? -1 : 0));
+					branch.isMergeable = invoke<boolean>('can_apply_virtual_branch', {
+						projectId: projectId,
+						branchId: branch.id
+					});
+				});
+			}),
+			catchError((err) => {
+				this.branchesError$.next(UserError.fromError(err));
+				return [];
+			}),
+			shareReplay(1)
 		);
 
 		this.stashedBranches$ = this.branches$.pipe(
