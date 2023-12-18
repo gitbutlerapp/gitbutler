@@ -39,6 +39,7 @@
 
 	let commitMessage: string;
 	let isCommitting = false;
+	let textareaElement: HTMLTextAreaElement;
 
 	const focusTextareaOnMount = (el: HTMLTextAreaElement) => {
 		if (el) {
@@ -103,6 +104,10 @@
 				const summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
 				const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
 				commitMessage = description.length > 0 ? `${summary}\n\n${description}` : summary;
+
+				setTimeout(() => {
+					textareaElement.focus();
+				}, 0);
 			})
 			.catch(() => {
 				toasts.error('Failed to generate commit message');
@@ -122,9 +127,11 @@
 		<div class="commit-box__expander" transition:slide={{ duration: 150 }}>
 			<div class="commit-box__textarea-wrapper">
 				<textarea
+					bind:this={textareaElement}
 					bind:value={commitMessage}
 					use:focusTextareaOnMount
 					on:input={useAutoHeight}
+					on:focus={useAutoHeight}
 					class="commit-box__textarea text-base-body-13"
 					rows="1"
 					disabled={isGeneratingCommigMessage}
