@@ -1,5 +1,17 @@
 import { checkUpdate, installUpdate } from '@tauri-apps/api/updater';
-import { BehaviorSubject, switchMap, type Observable, from, map, shareReplay } from 'rxjs';
+import {
+	BehaviorSubject,
+	switchMap,
+	Observable,
+	from,
+	map,
+	shareReplay,
+	interval,
+	timeout,
+	catchError,
+	of,
+	startWith
+} from 'rxjs';
 
 export type Update = { enabled: boolean; shouldUpdate?: boolean; body?: string; version?: string };
 
@@ -8,7 +20,13 @@ export class UpdaterService {
 	private reload$ = new BehaviorSubject<void>(undefined);
 	constructor() {
 		this.update$ = this.reload$.pipe(
-			switchMap(() => from(checkUpdate())),
+			switchMap(() => interval(6 * 60 * 60 * 1000).pipe(startWith(0))),
+			switchMap(() =>
+				from(checkUpdate()).pipe(
+					timeout(30000), // In dev mode the promise hangs indefinitely.
+					catchError(() => of({ shouldUpdate: false, manifest: undefined }))
+				)
+			),
 			map((update) => {
 				if (update === undefined) {
 					return { enabled: false };
@@ -25,11 +43,6 @@ export class UpdaterService {
 			}),
 			shareReplay(1)
 		);
-
-		// Check for updates every 12h
-		setInterval(() => {
-			this.reload$.next();
-		}, 43200 * 1000);
 	}
 }
 
