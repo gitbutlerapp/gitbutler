@@ -25,7 +25,7 @@
 
 	const githubEnabled$ = githubService.isEnabled$;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const height = persisted<number | undefined>(undefined, 'branchesHeight_' + projectId);
+	const height = persisted<number | undefined>(undefined, 'branchesHeight');
 
 	let includePrs = persisted(true, 'includePrs_' + projectId);
 	let includeRemote = persisted(true, 'includeRemote_' + projectId);
@@ -118,6 +118,13 @@
 		updateResizable();
 		observer = new ResizeObserver(() => updateResizable());
 		if (viewport) observer.observe(resizeGuard);
+
+		// Set explicit height if not found in storage. In practice this means
+		// that the height is by default maximised, and won't shift when filters
+		// are applied/unapplied.
+		if (!$height && maxHeight) {
+			$height = maxHeight;
+		}
 	});
 
 	onDestroy(() => observer.disconnect());
