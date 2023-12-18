@@ -23,19 +23,17 @@
 >
 	<div class="file-list-item" id={`file-${file.id}`} class:selected>
 		<div class="info">
-			<div class="icon">
-				<img
-					src={getVSIFileIcon(file.path)}
-					alt="js"
-					width="12"
-					style="width: 0.75rem"
-					class="mr-1 inline"
-				/>
-			</div>
-			<span class="text-base-12 name">
+			<img
+				src={getVSIFileIcon(file.path)}
+				alt="js"
+				width="12"
+				style="width: 0.75rem"
+				class="icon"
+			/>
+			<span class="text-base-body-12 name">
 				{file.filename}
 			</span>
-			<span class="text-base-12 path">
+			<span class="text-base-body-12 path">
 				{file.justpath}
 			</span>
 		</div>
@@ -60,6 +58,7 @@
 	}
 	.icon {
 		flex-shrink: 0;
+		margin-right: 0.25rem;
 	}
 	.info {
 		display: flex;
