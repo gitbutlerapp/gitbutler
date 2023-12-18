@@ -71,15 +71,15 @@ pub fn resolve(repository: &Repository, path: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn conflicting_files(repository: &Repository) -> Result<Option<Vec<String>>> {
+pub fn conflicting_files(repository: &Repository) -> Result<Vec<String>> {
     let conflicts_path = repository.git_repository.path().join("conflicts");
     if !conflicts_path.exists() {
-        return Ok(None);
+        return Ok(vec![]);
     }
 
     let file = std::fs::File::open(conflicts_path)?;
     let reader = std::io::BufReader::new(file);
-    Ok(Some(reader.lines().map_while(Result::ok).collect()))
+    Ok(reader.lines().map_while(Result::ok).collect())
 }
 
 pub fn is_conflicting(repository: &Repository, path: Option<&str>) -> Result<bool> {
@@ -117,5 +117,10 @@ pub fn is_resolving(repository: &Repository) -> bool {
 pub fn clear(repository: &Repository) -> Result<()> {
     let merge_path = repository.git_repository.path().join("base_merge_parent");
     std::fs::remove_file(merge_path)?;
+
+    for file in conflicting_files(repository)? {
+        resolve(repository, &file)?;
+    }
+
     Ok(())
 }
