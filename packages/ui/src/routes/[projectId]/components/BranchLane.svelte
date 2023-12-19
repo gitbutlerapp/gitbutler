@@ -4,7 +4,7 @@
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import BranchCard from './BranchCard.svelte';
 	import FileCard from './FileCard.svelte';
-	import { writable } from 'svelte/store';
+	import { writable, type Writable } from 'svelte/store';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import type { GitHubService } from '$lib/github/service';
 	import type { Project } from '$lib/backend/projects';
@@ -21,8 +21,12 @@
 	export let projectPath: string;
 	export let githubService: GitHubService;
 
-	const selectedOwnership = writable(Ownership.fromBranch(branch));
+	$: selectedOwnership = writable(Ownership.fromBranch(branch));
+	$: selected = setSelected($selectedFileId, branch);
+
 	const selectedFileId = writable<string | undefined>(undefined);
+
+	let commitBoxOpen: Writable<boolean>;
 
 	function setSelected(fileId: string | undefined, branch: Branch) {
 		if (!fileId) return;
@@ -30,8 +34,6 @@
 		if (!match) $selectedFileId = undefined;
 		return match;
 	}
-
-	$: selected = setSelected($selectedFileId, branch);
 </script>
 
 <div class="wrapper card">
@@ -42,6 +44,8 @@
 		{base}
 		{cloud}
 		{branchController}
+		{selectedOwnership}
+		bind:commitBoxOpen
 		{maximized}
 		{branchCount}
 		{user}
@@ -58,8 +62,7 @@
 			{projectPath}
 			{branchController}
 			{selectedOwnership}
-			selectable={false}
-			{readonly}
+			selectable={$commitBoxOpen && !readonly}
 			on:close={() => ($selectedFileId = undefined)}
 		/>
 	{/if}

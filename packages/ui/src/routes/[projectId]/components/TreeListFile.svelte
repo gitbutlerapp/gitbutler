@@ -1,15 +1,35 @@
 <script lang="ts">
+	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { draggableFile } from '$lib/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import Icon from '$lib/icons/Icon.svelte';
 	import { draggable } from '$lib/utils/draggable';
 	import type { File } from '$lib/vbranches/types';
+	import type { Writable } from 'svelte/store';
 	import FileStatusIcons from './FileStatusIcons.svelte';
+	import type { Ownership } from '$lib/vbranches/ownership';
 
 	export let branchId: string;
 	export let file: File;
 	export let selected: boolean;
 	export let readonly: boolean;
+	export let showCheckbox: boolean = false;
+	export let selectedOwnership: Writable<Ownership>;
+
+	let checked = false;
+	let indeterminate = false;
+
+	$: updateOwnership($selectedOwnership);
+
+	function updateOwnership(ownership: Ownership) {
+		const fileId = file.id;
+		checked = file.hunks.every((hunk) => ownership.containsHunk(fileId, hunk.id));
+		const selectedCount = file.hunks.filter((hunk) =>
+			ownership.containsHunk(fileId, hunk.id)
+		).length;
+		indeterminate = selectedCount > 0 && file.hunks.length - selectedCount > 0;
+		if (indeterminate) checked = false;
+	}
 </script>
 
 <div
@@ -24,18 +44,25 @@
 	tabindex="0"
 >
 	<div class="tree-list-file" class:selected>
-		<div class="dot">
-			<Icon name="dot" />
-		</div>
-		<div class="icon">
-			<img
-				src={getVSIFileIcon(file.path)}
-				alt="js"
-				width="12"
-				style="width: 0.75rem"
-				class="mr-1 inline"
+		{#if !showCheckbox}
+			<Checkbox
+				small
+				{checked}
+				{indeterminate}
+				on:change={(e) => {
+					selectedOwnership.update((ownership) => {
+						if (e.detail) file.hunks.forEach((h) => ownership.addHunk(file.id, h.id));
+						if (!e.detail) file.hunks.forEach((h) => ownership.removeHunk(file.id, h.id));
+						return ownership;
+					});
+				}}
 			/>
-		</div>
+		{:else}
+			<div class="dot">
+				<Icon name="dot" />
+			</div>
+		{/if}
+		<img src={getVSIFileIcon(file.path)} alt="js" width="12" style="width: 0.75rem" class="icon" />
 		<span class="name text-base-12">
 			{file.filename}
 		</span>
@@ -71,5 +98,8 @@
 	}
 	.selected {
 		background-color: var(--clr-theme-scale-pop-80);
+	}
+	.icon {
+		margin-right: 0.25rem;
 	}
 </style>

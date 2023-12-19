@@ -17,6 +17,7 @@
 	export let selectedFileId: Writable<string | undefined>;
 	export let forceResizable = false;
 	export let enableResizing = false;
+	export let showCheckboxes = false;
 
 	let selectedListMode: string;
 
@@ -76,8 +77,10 @@
 					{#each sortLikeFileTree(branch.files) as file (file.id)}
 						<FileListItem
 							{file}
-							branchId={branch.id}
 							{readonly}
+							branchId={branch.id}
+							{selectedOwnership}
+							showCheckbox={showCheckboxes}
 							on:click={() => {
 								if ($selectedFileId == file.id) $selectedFileId = undefined;
 								else $selectedFileId = file.id;
@@ -88,8 +91,9 @@
 				{:else}
 					<FileTree
 						node={filesToFileTree(branch.files)}
-						isRoot={true}
+						{showCheckboxes}
 						branchId={branch.id}
+						isRoot={true}
 						{selectedOwnership}
 						{selectedFileId}
 						{readonly}

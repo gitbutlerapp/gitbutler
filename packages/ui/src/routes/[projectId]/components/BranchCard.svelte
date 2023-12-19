@@ -8,7 +8,7 @@
 		type DraggableFile,
 		type DraggableHunk
 	} from '$lib/draggables';
-	import { Ownership } from '$lib/vbranches/ownership';
+	import type { Ownership } from '$lib/vbranches/ownership';
 	import { getExpandedWithCacheFallback } from './cache';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
@@ -39,6 +39,8 @@
 	export let user: User | undefined;
 	export let selectedFileId: Writable<string | undefined>;
 	export let githubService: GitHubService;
+	export let selectedOwnership: Writable<Ownership>;
+	export let commitBoxOpen: Writable<boolean>;
 
 	const allExpanded = writable(false);
 	const allCollapsed = writable(false);
@@ -63,10 +65,8 @@
 		$allCollapsed = branch.files.every((f) => getExpandedWithCacheFallback(f) == false);
 	}
 
-	let commitDialogShown = false;
-
-	$: if (commitDialogShown && branch.files.length === 0) {
-		commitDialogShown = false;
+	$: if ($commitBoxOpen && branch.files.length === 0) {
+		$commitBoxOpen = false;
 	}
 
 	function generateBranchName() {
@@ -100,9 +100,6 @@
 		expandFromCache();
 		laneWidth = lscache.get(laneWidthKey + branch.id);
 	});
-
-	const selectedOwnership = writable(Ownership.fromBranch(branch));
-	$: if (commitDialogShown) selectedOwnership.set(Ownership.fromBranch(branch));
 
 	function acceptCherrypick(data: any) {
 		return isDraggableRemoteCommit(data) && data.branchId == branch.id;
@@ -199,6 +196,7 @@
 					{readonly}
 					{selectedOwnership}
 					{selectedFileId}
+					showCheckboxes={$commitBoxOpen}
 					forceResizable={commitsScrollable}
 					enableResizing={branch.commits.length > 0}
 				/>
@@ -210,6 +208,7 @@
 						{cloud}
 						{selectedOwnership}
 						{user}
+						bind:expanded={commitBoxOpen}
 						on:action={(e) => {
 							if (e.detail == 'generate-branch-name') {
 								generateBranchName();
