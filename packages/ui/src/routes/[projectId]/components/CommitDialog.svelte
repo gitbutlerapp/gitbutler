@@ -35,7 +35,7 @@
 	export let selectedOwnership: Writable<Ownership>;
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
-	const expanded = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
+	export const expanded = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
 
 	let commitMessage: string;
 	let isCommitting = false;
@@ -75,7 +75,7 @@
 	let isGeneratingCommigMessage = false;
 	async function generateCommitMessage(files: File[]) {
 		const diff = files
-			.map((f) => f.hunks)
+			.map((f) => f.hunks.filter((h) => $selectedOwnership.containsHunk(f.id, h.id)))
 			.flat()
 			.map((h) => h.diff)
 			.flat()

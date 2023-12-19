@@ -176,9 +176,9 @@
 													<RenderedLine
 														{line}
 														{minWidth}
+														{selectable}
 														selected={$selectedOwnership.containsHunk(hunk.filePath, hunk.id)}
 														on:selected={(e) => onHunkSelected(hunk, e.detail)}
-														{selectable}
 														sectionType={subsection.sectionType}
 														filePath={file.path}
 														on:contextmenu={(e) =>

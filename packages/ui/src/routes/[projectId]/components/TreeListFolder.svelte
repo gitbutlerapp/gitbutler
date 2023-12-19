@@ -1,10 +1,36 @@
 <script lang="ts">
+	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { IconFolder } from '$lib/icons';
 	import Icon from '$lib/icons/Icon.svelte';
 	import type { TreeNode } from '$lib/vbranches/filetree';
+	import type { Ownership } from '$lib/vbranches/ownership';
+	import type { Writable } from 'svelte/store';
 
 	export let expanded: boolean;
 	export let node: TreeNode;
+	export let isChecked = false;
+	export let showCheckbox = false;
+	export let isIndeterminate = false;
+	export let selectedOwnership: Writable<Ownership>;
+
+	function idWithChildren(node: TreeNode): [string, string[]][] {
+		if (node.file) {
+			return [[node.file.id, node.file.hunks.map((h) => h.id)]];
+		}
+		return node.children.flatMap(idWithChildren);
+	}
+
+	function onCheckboxChange() {
+		idWithChildren(node).forEach(([fileId, hunkIds]) =>
+			hunkIds.forEach((hunkId) => {
+				if (isChecked) {
+					selectedOwnership.update((ownership) => ownership.removeHunk(fileId, hunkId));
+				} else {
+					selectedOwnership.update((ownership) => ownership.addHunk(fileId, hunkId));
+				}
+			})
+		);
+	}
 </script>
 
 <button class="tree-list-folder" class:expanded on:click>
@@ -17,9 +43,14 @@
 	<span class="name text-base-body-12">
 		{node.name}
 	</span>
-	<!-- {#if withCheckboxes}
-		<Checkbox checked={isChecked} indeterminate={isIndeterminate} on:change={onCheckboxChange} />
-	{/if} -->
+	{#if showCheckbox}
+		<Checkbox
+			small
+			checked={isChecked}
+			indeterminate={isIndeterminate}
+			on:change={onCheckboxChange}
+		/>
+	{/if}
 </button>
 
 <style lang="postcss">

@@ -1,14 +1,31 @@
 <script lang="ts">
+	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { draggableFile } from '$lib/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { draggable } from '$lib/utils/draggable';
+	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { File } from '$lib/vbranches/types';
+	import type { Writable } from 'svelte/store';
 	import FileStatusIcons from './FileStatusIcons.svelte';
 
 	export let branchId: string;
 	export let file: File;
 	export let readonly: boolean;
 	export let selected: boolean;
+	export let showCheckbox: boolean = false;
+	export let selectedOwnership: Writable<Ownership>;
+
+	let checked = false;
+	let indeterminate = false;
+
+	$: if (file) {
+		const fileId = file.id;
+		checked = file.hunks.every((hunk) => $selectedOwnership.containsHunk(fileId, hunk.id));
+		const selectedCount = file.hunks.filter((hunk) =>
+			$selectedOwnership.containsHunk(fileId, hunk.id)
+		).length;
+		indeterminate = selectedCount > 0 && file.hunks.length - selectedCount > 0;
+	}
 </script>
 
 <div
@@ -23,6 +40,20 @@
 >
 	<div class="file-list-item" id={`file-${file.id}`} class:selected>
 		<div class="info">
+			{#if showCheckbox}
+				<Checkbox
+					small
+					{checked}
+					{indeterminate}
+					on:change={(e) => {
+						selectedOwnership.update((ownership) => {
+							if (e.detail) file.hunks.forEach((h) => ownership.addHunk(file.id, h.id));
+							if (!e.detail) file.hunks.forEach((h) => ownership.removeHunk(file.id, h.id));
+							return ownership;
+						});
+					}}
+				/>
+			{/if}
 			<img
 				src={getVSIFileIcon(file.path)}
 				alt="js"

@@ -1,22 +1,33 @@
 <script lang="ts">
+	import { createEventDispatcher } from 'svelte';
+
 	export let name = '';
 
 	export let small = false;
 	export let disabled = false;
 	export let checked = false;
 	export let value = '';
+	export let indeterminate = false;
+
+	let input: HTMLInputElement;
+	const dispatch = createEventDispatcher<{ change: boolean }>();
+
+	$: if (input) input.indeterminate = indeterminate;
 </script>
 
 <input
+	bind:this={input}
+	bind:checked
 	on:click|stopPropagation
-	on:change
+	on:change={() => {
+		dispatch('change', checked);
+	}}
 	type="checkbox"
 	class="checkbox"
 	class:small
 	{value}
 	{name}
 	{disabled}
-	bind:checked
 />
 
 <style lang="postcss">
@@ -24,6 +35,7 @@
 		appearance: none;
 		width: var(--space-16);
 		height: var(--space-16);
+		flex-shrink: 0;
 		border-radius: var(--radius-s);
 		background-color: var(--clr-theme-container-light);
 		box-shadow: inset 0 0 0 1px var(--clr-theme-container-outline-light);
@@ -57,6 +69,15 @@
 			cursor: not-allowed;
 			background-color: var(--clr-theme-scale-ntrl-60);
 			border-color: none;
+		}
+
+		&:indeterminate {
+			background-color: lime;
+			&::after {
+				opacity: 1;
+				filter: invert(0);
+				transform: scale(1);
+			}
 		}
 
 		/* checked */
