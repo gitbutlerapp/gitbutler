@@ -28,6 +28,12 @@ use super::{
 
 type AppliedStatuses = Vec<(branch::Branch, HashMap<path::PathBuf, Vec<diff::Hunk>>)>;
 
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("path contains invalid utf-8 characters: {0}")]
+    InvalidUnicodePath(path::PathBuf),
+}
+
 // this struct is a mapping to the view `Branch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
 // it holds a materialized view for presentation purposes of the Branch struct in Rust
@@ -1917,7 +1923,12 @@ pub fn write_tree_onto_commit(
                     .strip_prefix(project_repository.path())
                     .unwrap_or(&link_target);
 
-                let blob_oid = git_repository.blob(link_target.as_os_str().as_bytes())?;
+                let blob_oid = git_repository.blob(
+                    link_target
+                        .to_str()
+                        .ok_or_else(|| Error::InvalidUnicodePath(link_target.into()))?
+                        .as_bytes(),
+                )?;
                 builder.upsert(rel_path, blob_oid, filemode);
             } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
                 if hunks.len() == 1 && hunks[0].binary {

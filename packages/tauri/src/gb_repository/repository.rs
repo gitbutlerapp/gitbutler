@@ -41,6 +41,8 @@ pub enum Error {
     Git(#[from] git::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+    #[error("path has invalid utf-8 bytes: {0}")]
+    InvalidUnicodePath(path::PathBuf),
 }
 
 impl Repository {
@@ -715,9 +717,12 @@ fn add_wd_path(
         let link_target = std::fs::read_link(&file_path)?;
         // if the link target is inside the project repository, make it relative
         let link_target = link_target.strip_prefix(dir).unwrap_or(&link_target);
-        gb_repository
-            .git_repository
-            .blob(link_target.as_os_str().as_bytes())?
+        gb_repository.git_repository.blob(
+            link_target
+                .to_str()
+                .ok_or_else(|| Error::InvalidUnicodePath(link_target.into()))?
+                .as_bytes(),
+        )?
     } else if metadata.len() > 100_000_000 {
         tracing::warn!(
             project_id = %gb_repository.project.id,
