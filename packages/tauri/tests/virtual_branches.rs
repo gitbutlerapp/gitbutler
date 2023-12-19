@@ -5259,4 +5259,49 @@ mod create_virtual_branch_from_branch {
             ))
         ));
     }
+
+    #[tokio::test]
+    async fn from_state_remote_branch() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        {
+            // create a remote branch
+            let branch_name: git::LocalRefname = "refs/heads/branch".parse().unwrap();
+            repository.checkout(&branch_name);
+            fs::write(repository.path().join("file.txt"), "branch commit").unwrap();
+            repository.commit_all("branch commit");
+            repository.push_branch(&branch_name);
+            repository.checkout(&"refs/heads/master".parse().unwrap());
+
+            // make remote branch stale
+            std::fs::write(repository.path().join("antoher_file.txt"), "master commit").unwrap();
+            repository.commit_all("master commit");
+            repository.push();
+        }
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branch_id = controller
+            .create_virtual_branch_from_branch(
+                &project_id,
+                &"refs/remotes/origin/branch".parse().unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 1);
+        assert_eq!(branches[0].id, branch_id);
+        assert_eq!(branches[0].commits.len(), 1);
+        assert!(branches[0].files.is_empty());
+        assert_eq!(branches[0].commits[0].description, "branch commit");
+    }
 }

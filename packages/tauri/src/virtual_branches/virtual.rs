@@ -213,10 +213,6 @@ pub fn apply_branch(
         .context("failed to find target commit")?;
     let target_tree = target_commit.tree().context("failed to get target tree")?;
 
-    let branch_tree = repo
-        .find_tree(branch.tree)
-        .context("failed to find branch tree")?;
-
     // calculate the merge base and make sure it's the same as the target commit
     // if not, we need to merge or rebase the branch to get it up to date
 
@@ -233,6 +229,10 @@ pub fn apply_branch(
             .context(format!("failed to find merge base commit {}", merge_base))?
             .tree()
             .context("failed to find merge base tree")?;
+
+        let branch_tree = repo
+            .find_tree(branch.tree)
+            .context("failed to find branch tree")?;
 
         let mut merge_index = repo
             .merge_trees(&merge_base_tree, &branch_tree, &target_tree)
@@ -397,6 +397,10 @@ pub fn apply_branch(
     }
 
     let wd_tree = project_repository.get_wd_tree()?;
+
+    let branch_tree = repo
+        .find_tree(branch.tree)
+        .context("failed to find branch tree")?;
 
     // check index for conflicts
     let mut merge_index = repo
@@ -3238,7 +3242,7 @@ pub fn create_virtual_branch_from_branch(
     }
 
     let repo = &project_repository.git_repository;
-    let head = match repo.find_reference(upstream) {
+    let head_reference = match repo.find_reference(upstream) {
         Ok(head) => Ok(head),
         Err(git::Error::NotFound(_)) => Err(
             errors::CreateVirtualBranchFromBranchError::BranchNotFound(upstream.clone()),
@@ -3247,16 +3251,16 @@ pub fn create_virtual_branch_from_branch(
             error.into(),
         )),
     }?;
+    let head_commit = head_reference
+        .peel_to_commit()
+        .context("failed to peel to commit")?;
+    let head_commit_tree = head_commit.tree().context("failed to find tree")?;
 
-    let head_commit = head.peel_to_commit().context("failed to peel to commit")?;
-    let tree = head_commit.tree().context("failed to find tree")?;
-
-    let virtual_branches = Iterator::new(&current_session_reader)
+    let order = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?;
-
-    let order = virtual_branches.len();
+        .context("failed to read virtual branches")?
+        .len();
 
     let now = time::UNIX_EPOCH
         .elapsed()
@@ -3275,6 +3279,43 @@ pub fn create_virtual_branch_from_branch(
         git::Refname::Local(local) => local.remote().cloned(),
     };
 
+    // add file ownership based off the diff
+    let target_commit = repo
+        .find_commit(default_target.sha)
+        .map_err(|error| errors::CreateVirtualBranchFromBranchError::Other(error.into()))?;
+    let merge_base_oid = repo
+        .merge_base(target_commit.id(), head_commit.id())
+        .map_err(|error| errors::CreateVirtualBranchFromBranchError::Other(error.into()))?;
+    let merge_base_tree = repo
+        .find_commit(merge_base_oid)
+        .map_err(|error| errors::CreateVirtualBranchFromBranchError::Other(error.into()))?
+        .tree()
+        .map_err(|error| errors::CreateVirtualBranchFromBranchError::Other(error.into()))?;
+
+    // do a diff between the head of this branch and the target base
+    let diff = diff::trees(
+        &project_repository.git_repository,
+        &merge_base_tree,
+        &head_commit_tree,
+    )
+    .context("failed to diff trees")?;
+
+    let hunks_by_filepath =
+        super::virtual_hunks_by_filepath(&project_repository.project().path, &diff);
+
+    // assign ownership to the branch
+    let ownership = hunks_by_filepath.values().flatten().fold(
+        branch::Ownership::default(),
+        |mut ownership, hunk| {
+            ownership.put(
+                &format!("{}:{}", hunk.file_path.display(), hunk.id)
+                    .parse()
+                    .unwrap(),
+            );
+            ownership
+        },
+    );
+
     let mut branch = branch::Branch {
         id: BranchId::generate(),
         name: upstream
@@ -3283,44 +3324,15 @@ pub fn create_virtual_branch_from_branch(
             .to_string(),
         notes: String::new(),
         applied: false,
+        upstream_head: upstream_branch.is_some().then_some(head_commit.id()),
         upstream: upstream_branch,
-        upstream_head: Some(head_commit.id()),
-        tree: tree.id(),
+        tree: head_commit_tree.id(),
         head: head_commit.id(),
         created_timestamp_ms: now,
         updated_timestamp_ms: now,
-        ownership: branch::Ownership::default(),
+        ownership,
         order,
     };
-
-    // add file ownership based off the diff
-    let target_commit = repo
-        .find_commit(default_target.sha)
-        .map_err(|error| errors::CreateVirtualBranchFromBranchError::Other(error.into()))?;
-    let merge_base = repo
-        .merge_base(target_commit.id(), head_commit.id())
-        .map_err(|error| errors::CreateVirtualBranchFromBranchError::Other(error.into()))?;
-    let merge_tree = repo
-        .find_commit(merge_base)
-        .map_err(|error| errors::CreateVirtualBranchFromBranchError::Other(error.into()))?
-        .tree()
-        .map_err(|error| errors::CreateVirtualBranchFromBranchError::Other(error.into()))?;
-
-    // do a diff between the head of this branch and the target base
-    let diff = diff::trees(&project_repository.git_repository, &merge_tree, &tree)
-        .context("failed to diff trees")?;
-
-    let hunks_by_filepath =
-        super::virtual_hunks_by_filepath(&project_repository.project().path, &diff);
-
-    // assign ownership to the branch
-    for hunk in hunks_by_filepath.values().flatten() {
-        branch.ownership.put(
-            &format!("{}:{}", hunk.file_path.display(), hunk.id)
-                .parse()
-                .unwrap(),
-        );
-    }
 
     let writer = branch::Writer::new(gb_repository);
     writer
