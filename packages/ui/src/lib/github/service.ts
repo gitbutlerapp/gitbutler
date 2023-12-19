@@ -6,9 +6,10 @@ import {
 	of,
 	firstValueFrom,
 	Subject,
-	combineLatest
+	combineLatest,
+	timer
 } from 'rxjs';
-import { catchError, distinct, map, shareReplay, switchMap, tap } from 'rxjs/operators';
+import { catchError, distinct, map, retry, shareReplay, switchMap, tap } from 'rxjs/operators';
 
 import {
 	type PullRequest,
@@ -19,8 +20,9 @@ import {
 import { newClient } from '$lib/github/client';
 import type { BranchController } from '$lib/vbranches/branchController';
 import type { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
-import type { Octokit } from '@octokit/rest';
+import { Octokit } from '@octokit/rest';
 import type { UserService } from '$lib/stores/user';
+import type { RequestError } from '@octokit/request-error';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
@@ -165,6 +167,13 @@ export class GitHubService {
 						throw `No upstream for branch ${branchId}`;
 					} finally {
 						this.setIdle(branchId);
+					}
+				}),
+				retry({
+					count: 3,
+					delay: (error: RequestError) => {
+						console.log('github error', error);
+						return timer(1000); // Adding a timer from RxJS to return observable to delay param.
 					}
 				})
 			)

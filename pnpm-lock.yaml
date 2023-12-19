@@ -71,6 +71,9 @@ importers:
       '@lezer/highlight':
         specifier: ^1.2.0
         version: 1.2.0
+      '@octokit/request-error':
+        specifier: ^5.0.1
+        version: 5.0.1
       '@octokit/rest':
         specifier: ^20.0.2
         version: 20.0.2
