@@ -79,6 +79,51 @@ $ pnpm tauri build --features devtools --config packages/tauri/tauri.conf.nightl
 
 This will make an asset similar to our nightly build.
 
+### Building on Windows
+
+Building on Windows is a bit of a tricky process. Here are some helpful tips.
+
+#### File permissions
+
+We use `pnpm`, which requires a relatively recent version of Node.js.
+Make sure that the latest stable version of Node.js is installed and
+on the PATH, and then `npm i -g pnpm`.
+
+This often causes file permissions. First, the AppData folder may not
+be present. Be sure to create it if it isn't.
+
+```
+mkdir %APPDATA%\npm
+```
+
+Secondly, typically folders within `Program Files` are not writable.
+You'll need to fix the security permissions for the `nodejs` folder.
+
+> **NOTE:** Under specific circumstances, depending on your usage of
+> Node.js, this may pose a security concern. Be sure to understand
+> the implications of this before proceeding.
+
+1. Right click on the `nodejs` folder in `Program Files`.
+2. Click on `Properties`.
+3. Click on the `Security` tab.
+4. Click on `Edit` next to "change permissions".
+6. Click on `Add`.  
+7. Type in the name of your user account, or type `Everyone` (case-sensitive).
+   Click `Check Names` to verify (they will be underlined if correct).
+8. Make sure that `Full Control` is checked under `Allow`.
+8. Apply / click OK as needed to close the dialogs.
+
+### Perl
+
+A Perl interpreter is required to be installed in order to configure the `openssl-sys`
+crate. We've used [Strawberry Perl](https://strawberryperl.com/) without issue.
+Make sure it's installed and `perl` is available on the `PATH` (it is by default
+after installation, just make sure to restart the terminal after installing).
+
+Note that it might appear that the build has hung or frozen on the `openssl-sys` crate.
+It's not, it's just that Cargo can't report the status of a C/C++ build happening
+under the hood, and openssl is _large_. It'll take a while to compile.
+
 ## Icon generation
 
 ```bash
