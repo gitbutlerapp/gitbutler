@@ -1666,6 +1666,7 @@ mod update_base_branch {
                 assert!(branches[0].base_current);
                 assert_eq!(branches[0].files.len(), 1);
                 assert_eq!(branches[0].commits.len(), 1);
+                assert!(branches[0].upstream.is_none());
                 assert!(controller
                     .can_apply_virtual_branch(&project_id, &branch_id)
                     .await
@@ -1768,6 +1769,7 @@ mod update_base_branch {
                 assert!(branches[0].base_current);
                 assert_eq!(branches[0].files.len(), 1);
                 assert_eq!(branches[0].commits.len(), 0);
+                assert!(branches[0].upstream.is_none());
                 assert!(controller
                     .can_apply_virtual_branch(&project_id, &branch_id)
                     .await
@@ -2792,6 +2794,7 @@ mod update_base_branch {
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
                 assert!(branches[0].commits.is_empty());
+                assert!(branches[0].upstream.is_none());
                 assert!(!branches[0].files.is_empty());
             }
 
@@ -2869,6 +2872,7 @@ mod update_base_branch {
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
                 assert!(branches[0].commits.is_empty());
+                assert!(branches[0].upstream.is_none());
                 assert!(!branches[0].files.is_empty());
             }
 

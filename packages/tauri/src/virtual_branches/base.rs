@@ -350,6 +350,9 @@ pub fn update_base_branch(
                     // after merging the branch head with the new target the tree is the
                     // same as the new target tree. meaning we can safely use the new target commit
                     // as the new branch head.
+
+                    branch.head = new_target_commit.id();
+
                     let non_commited_files = diff::trees(
                         &project_repository.git_repository,
                         &branch_head_tree,
@@ -362,15 +365,22 @@ pub fn update_base_branch(
                         project_repository.delete_branch_reference(&branch)?;
                         return Ok(None);
                     }
+
                     // there are some uncommied files left. we should put them into the branch
                     // tree.
-                    branch.head = new_target_commit.id();
                     branch.tree = branch_merge_index.write_tree_to(repo)?;
+
+                    // we also disconnect this branch from upstream branch, since it's fully
+                    // integrated
+                    branch.upstream = None;
+                    branch.upstream_head = None;
+
                     branch_writer.write(&mut branch)?;
                     return Ok(Some(branch));
                 }
 
                 let ok_with_force_push = project_repository.project().ok_with_force_push;
+
                 if branch.upstream.is_some() && !ok_with_force_push {
                     // branch was pushed to upstream, and user doesn't like force pushing.
                     // create a merge commit to avoid the need of force pushing then.
@@ -489,7 +499,7 @@ pub fn update_base_branch(
     // now we calculate and checkout new tree for the working directory
 
     let final_tree = updated_vbranches
-        .into_iter()
+        .iter()
         .filter(|branch| branch.applied)
         .fold(new_target_commit.tree(), |final_tree, branch| {
             let final_tree = final_tree?;
