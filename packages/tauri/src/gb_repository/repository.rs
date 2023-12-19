@@ -10,10 +10,11 @@ use std::os::unix::prelude::*;
 
 use anyhow::{anyhow, Context, Result};
 use filetime::FileTime;
+use fslock::LockFile;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    deltas, fs, git, lock,
+    deltas, fs, git,
     paths::DataDir,
     project_repository,
     projects::{self, ProjectId},
@@ -27,7 +28,7 @@ use crate::{
 pub struct Repository {
     git_repository: git::Repository,
     project: projects::Project,
-    lock_file: std::fs::File,
+    lock_path: path::PathBuf,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -70,7 +71,7 @@ impl Repository {
             Result::Ok(Self {
                 git_repository,
                 project: project.clone(),
-                lock_file: File::create(&lock_path).context("failed to create lock file")?,
+                lock_path,
             })
         } else {
             let git_repository = git::Repository::init_opts(
@@ -89,7 +90,7 @@ impl Repository {
             let gb_repository = Self {
                 git_repository,
                 project: project.clone(),
-                lock_file: File::create(&lock_path).context("failed to create lock file")?,
+                lock_path,
             };
 
             let _lock = gb_repository.lock();
@@ -344,8 +345,10 @@ impl Repository {
         Ok(session)
     }
 
-    pub fn lock(&self) -> lock::FileLock {
-        lock::FileLock::lock(&self.lock_file)
+    pub fn lock(&self) -> LockFile {
+        let mut lockfile = LockFile::open(&self.lock_path).expect("failed to open lock file");
+        lockfile.lock().expect("failed to obtain lock on lock file");
+        lockfile
     }
 
     pub fn mark_active_session(&self) -> Result<()> {

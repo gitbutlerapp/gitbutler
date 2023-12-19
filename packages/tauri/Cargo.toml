@@ -31,6 +31,7 @@ chrono = { version = "0.4.31", features = ["serde"] }
 console-subscriber = "0.2.0"
 diffy = "0.3.0"
 filetime = "0.2.22"
+fslock = "0.2.1"
 futures = "0.3"
 git2 = { version = "0.18.1", features = ["vendored-openssl", "vendored-libgit2"] }
 git2-hooks = "0.3"
@@ -50,7 +51,6 @@ refinery = { version = "0.8", features = [ "rusqlite" ] }
 reqwest = "0.11.22"
 resolve-path = "0.1.0"
 rusqlite = { version = "0.29.0", features = [ "bundled", "blob" ] }
-rustix = "0.38"
 sentry = { version = "0.32", optional = true, features = ["backtrace", "contexts", "panic", "transport", "anyhow", "debug-images", "reqwest", "native-tls" ] }
 sentry-tracing = "0.32.0"
 serde = { version = "1.0", features = ["derive"] }
