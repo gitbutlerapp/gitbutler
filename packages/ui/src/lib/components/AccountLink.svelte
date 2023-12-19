@@ -33,6 +33,7 @@
 	.btn {
 		display: flex;
 		align-items: center;
+		overflow-x: hidden;
 		gap: var(--space-8);
 
 		height: var(--size-btn-l);
@@ -45,6 +46,11 @@
 			background-color: var(--clr-theme-container-pale);
 			color: var(--clr-theme-scale-ntrl-40);
 		}
+	}
+	.name {
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		overflow-x: hidden;
 	}
 	.anon-icon,
 	.profile-picture {
