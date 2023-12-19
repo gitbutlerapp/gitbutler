@@ -62,6 +62,7 @@ impl<'writer> BranchWriter<'writer> {
                 &branch.applied,
             )
             .context("Failed to write branch applied")?;
+
         if let Some(upstream) = &branch.upstream {
             self.writer
                 .write_string(
@@ -69,7 +70,11 @@ impl<'writer> BranchWriter<'writer> {
                     &upstream.to_string(),
                 )
                 .context("Failed to write branch upstream")?;
-        };
+        } else {
+            self.writer
+                .remove(&format!("branches/{}/meta/upstream", branch.id))?;
+        }
+
         if let Some(upstream_head) = &branch.upstream_head {
             self.writer
                 .write_string(
@@ -77,7 +82,11 @@ impl<'writer> BranchWriter<'writer> {
                     &upstream_head.to_string(),
                 )
                 .context("Failed to write branch upstream head")?;
+        } else {
+            self.writer
+                .remove(&format!("branches/{}/meta/upstream_head", branch.id))?;
         }
+
         self.writer
             .write_string(
                 &format!("branches/{}/meta/tree", branch.id),
