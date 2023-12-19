@@ -58,11 +58,15 @@ impl Storage {
         }
         fs::write(&file_path, content).map_err(Error::IO)?;
 
-        // Set the permissions to be user-only.
-        let metadata = fs::metadata(file_path.clone())?;
-        let mut permissions = metadata.permissions();
-        permissions.set_mode(0o600); // User read/write
-        fs::set_permissions(file_path.clone(), permissions)?;
+        // Set the permissions to be user-only. We can't actually
+        // do this on Windows, so we ignore that platform.
+        #[cfg(target_family = "unix")]
+        {
+            let metadata = fs::metadata(file_path.clone())?;
+            let mut permissions = metadata.permissions();
+            permissions.set_mode(0o600); // User read/write
+            fs::set_permissions(file_path.clone(), permissions)?;
+        }
 
         Ok(())
     }

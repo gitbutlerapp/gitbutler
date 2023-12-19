@@ -6,7 +6,7 @@ use std::{
 };
 
 #[cfg(target_os = "windows")]
-use crate::windows::*;
+use crate::windows::MetadataShim;
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::*;
 

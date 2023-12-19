@@ -58,6 +58,7 @@ pub enum GetOrCreateError {
     Other(#[from] anyhow::Error),
 }
 
+#[cfg(not(target_os = "windows"))]
 #[cfg(test)]
 mod tests {
     use std::fs;

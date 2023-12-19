@@ -2312,6 +2312,7 @@ fn test_commit_add_and_delete_files() -> Result<()> {
 }
 
 #[test]
+#[cfg(target_family = "unix")]
 fn test_commit_executable_and_symlinks() -> Result<()> {
     let Case {
         project_repository,
