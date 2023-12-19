@@ -72,11 +72,20 @@
 		}
 
 		&:indeterminate {
-			background-color: lime;
 			&::after {
 				opacity: 1;
 				filter: invert(0);
 				transform: scale(1);
+			}
+			&::before {
+				content: '';
+				position: absolute;
+				width: 50%;
+				height: 2px;
+				background-color: var(--clr-theme-scale-ntrl-30);
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
 			}
 		}
 
@@ -103,23 +112,24 @@
 			}
 		}
 
-		/* tick element */
 		&::after {
 			content: '';
 			position: absolute;
 			width: 100%;
 			height: 100%;
 			border-radius: var(--radius-s);
+			transition:
+				opacity var(--transition-fast),
+				transform var(--transition-fast);
+			opacity: 0;
+		}
+
+		/* tick element */
+		&:not(:indeterminate)::after {
 			background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iNyIgdmlld0JveD0iMCAwIDEwIDciIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik05IDEuNUw0LjkyMTM5IDUuNzQ4NTVDNC41Mjc4MyA2LjE1ODUxIDMuODcyMTcgNi4xNTg1MSAzLjQ3ODYxIDUuNzQ4NTZMMSAzLjE2NjY3IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8L3N2Zz4K');
 			background-position: center;
 			background-size: 80%;
 			background-repeat: no-repeat;
-			transition:
-				opacity var(--transition-fast),
-				transform var(--transition-fast);
-			filter: invert(var(--helpers-invert-1));
-			transform: scale(0.4);
-			opacity: 0;
 		}
 
 		/* modifiers */
@@ -129,4 +139,5 @@
 			height: var(--space-14);
 		}
 	}
+	/* test */
 </style>
