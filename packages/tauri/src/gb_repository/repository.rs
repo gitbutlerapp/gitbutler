@@ -5,6 +5,8 @@ use std::{
     path, time,
 };
 
+#[cfg(target_os = "windows")]
+use crate::windows::*;
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::*;
 

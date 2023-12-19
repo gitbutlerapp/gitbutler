@@ -1,4 +1,5 @@
 #![feature(error_generic_member_access)]
+#![cfg_attr(target_os = "windows", feature(windows_by_handle))]
 
 pub mod analytics;
 pub mod app;
@@ -29,6 +30,8 @@ pub mod types;
 pub mod users;
 pub mod virtual_branches;
 pub mod watcher;
+#[cfg(target_os = "windows")]
+pub(crate) mod windows;
 pub mod writer;
 pub mod zip;
 
