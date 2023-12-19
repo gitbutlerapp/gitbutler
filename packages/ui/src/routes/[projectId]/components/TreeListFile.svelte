@@ -44,7 +44,7 @@
 	tabindex="0"
 >
 	<div class="tree-list-file" class:selected>
-		{#if !showCheckbox}
+		{#if showCheckbox}
 			<Checkbox
 				small
 				{checked}

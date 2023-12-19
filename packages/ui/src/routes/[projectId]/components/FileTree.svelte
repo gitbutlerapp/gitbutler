@@ -86,6 +86,7 @@
 		{readonly}
 		selected={node.file?.id == $selectedFileId}
 		{selectedOwnership}
+		showCheckbox={showCheckboxes}
 		on:click={() => {
 			if ($selectedFileId == node.file?.id) $selectedFileId = undefined;
 			else $selectedFileId = node.file?.id;
