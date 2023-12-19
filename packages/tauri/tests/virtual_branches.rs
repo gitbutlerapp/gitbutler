@@ -1666,6 +1666,7 @@ mod update_base_branch {
                 assert!(branches[0].base_current);
                 assert_eq!(branches[0].files.len(), 1);
                 assert_eq!(branches[0].commits.len(), 1);
+                assert!(branches[0].upstream.is_none());
                 assert!(controller
                     .can_apply_virtual_branch(&project_id, &branch_id)
                     .await
@@ -1768,6 +1769,7 @@ mod update_base_branch {
                 assert!(branches[0].base_current);
                 assert_eq!(branches[0].files.len(), 1);
                 assert_eq!(branches[0].commits.len(), 0);
+                assert!(branches[0].upstream.is_none());
                 assert!(controller
                     .can_apply_virtual_branch(&project_id, &branch_id)
                     .await
@@ -2790,9 +2792,10 @@ mod update_base_branch {
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
-                assert!(!branches[0].active);
+                assert!(branches[0].active);
                 assert!(branches[0].commits.is_empty());
-                assert!(!branches[0].files.is_empty());
+                assert!(branches[0].upstream.is_none());
+                assert_eq!(branches[0].files.len(), 1);
             }
 
             {
@@ -2806,8 +2809,8 @@ mod update_base_branch {
                 assert!(branches[0].active);
                 assert!(!branches[0].conflicted);
                 assert!(branches[0].base_current);
-                assert_eq!(branches[0].files.len(), 0);
-                assert_eq!(branches[0].commits.len(), 1); // merge commit
+                assert_eq!(branches[0].files.len(), 1);
+                assert_eq!(branches[0].commits.len(), 0); // no merge commit
             }
         }
 
@@ -2869,6 +2872,7 @@ mod update_base_branch {
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
                 assert!(branches[0].commits.is_empty());
+                assert!(branches[0].upstream.is_none());
                 assert!(!branches[0].files.is_empty());
             }
 

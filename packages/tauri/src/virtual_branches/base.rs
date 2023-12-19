@@ -246,6 +246,14 @@ pub fn update_base_branch(
     user: Option<&users::User>,
     signing_key: Option<&keys::PrivateKey>,
 ) -> Result<(), errors::UpdateBaseBranchError> {
+    if project_repository.is_resolving() {
+        return Err(errors::UpdateBaseBranchError::Conflict(
+            errors::ProjectConflictError {
+                project_id: project_repository.project().id,
+            },
+        ));
+    }
+
     // look up the target and see if there is a new oid
     let target = gb_repository
         .default_target()
@@ -295,6 +303,44 @@ pub fn update_base_branch(
             |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
                 let branch_tree = repo.find_tree(branch.tree)?;
 
+                let branch_head_commit = repo.find_commit(branch.head).context(format!(
+                    "failed to find commit {} for branch {}",
+                    branch.head, branch.id
+                ))?;
+                let branch_head_tree = branch_head_commit.tree().context(format!(
+                    "failed to find tree for commit {} for branch {}",
+                    branch.head, branch.id
+                ))?;
+
+                if branch_head_tree.id() == new_target_tree.id() {
+                    // branch head tree is the same as the new target tree.
+                    // meaning we can safely use the new target commit as the branch head.
+
+                    branch.head = new_target_commit.id();
+
+                    // it also means that the branch is fully integrated into the target.
+                    // disconnect it from the upstream
+                    branch.upstream = None;
+                    branch.upstream_head = None;
+
+                    let non_commited_files = diff::trees(
+                        &project_repository.git_repository,
+                        &branch_head_tree,
+                        &branch_tree,
+                    )?;
+                    if non_commited_files.is_empty() {
+                        // if there are no commited files, then the branch is fully merged
+                        // and we can delete it.
+                        branch_writer.delete(&branch)?;
+                        project_repository.delete_branch_reference(&branch)?;
+                        return Ok(None);
+                    }
+
+                    branch_writer.write(&mut branch)?;
+                    return Ok(Some(branch));
+                }
+
+                // try to merge branch head with new target
                 let mut branch_merge_index = repo
                     .merge_trees(&old_target_tree, &branch_tree, &new_target_tree)
                     .context(format!("failed to merge trees for branch {}", branch.id))?;
@@ -314,15 +360,6 @@ pub fn update_base_branch(
                     return Ok(Some(branch));
                 }
 
-                // try to merge branch head with new target
-                let branch_head_commit = repo.find_commit(branch.head).context(format!(
-                    "failed to find commit {} for branch {}",
-                    branch.head, branch.id
-                ))?;
-                let branch_head_tree = branch_head_commit.tree().context(format!(
-                    "failed to find tree for commit {} for branch {}",
-                    branch.head, branch.id
-                ))?;
                 let mut branch_head_merge_index = repo
                     .merge_trees(&old_target_tree, &branch_head_tree, &new_target_tree)
                     .context(format!(
@@ -346,31 +383,8 @@ pub fn update_base_branch(
                         branch.id
                     ))?;
 
-                if branch_head_merge_tree_oid == new_target_tree.id() {
-                    // after merging the branch head with the new target the tree is the
-                    // same as the new target tree. meaning we can safely use the new target commit
-                    // as the new branch head.
-                    let non_commited_files = diff::trees(
-                        &project_repository.git_repository,
-                        &branch_head_tree,
-                        &branch_tree,
-                    )?;
-                    if non_commited_files.is_empty() {
-                        // if there are no commited files, then the branch is fully merged
-                        // and we can delete it.
-                        branch_writer.delete(&branch)?;
-                        project_repository.delete_branch_reference(&branch)?;
-                        return Ok(None);
-                    }
-                    // there are some uncommied files left. we should put them into the branch
-                    // tree.
-                    branch.head = new_target_commit.id();
-                    branch.tree = branch_merge_index.write_tree_to(repo)?;
-                    branch_writer.write(&mut branch)?;
-                    return Ok(Some(branch));
-                }
-
                 let ok_with_force_push = project_repository.project().ok_with_force_push;
+
                 if branch.upstream.is_some() && !ok_with_force_push {
                     // branch was pushed to upstream, and user doesn't like force pushing.
                     // create a merge commit to avoid the need of force pushing then.
@@ -489,7 +503,7 @@ pub fn update_base_branch(
     // now we calculate and checkout new tree for the working directory
 
     let final_tree = updated_vbranches
-        .into_iter()
+        .iter()
         .filter(|branch| branch.applied)
         .fold(new_target_commit.tree(), |final_tree, branch| {
             let final_tree = final_tree?;
