@@ -4,7 +4,9 @@ use anyhow::{Context, Result};
 use tauri::AppHandle;
 use tokio::sync::Mutex;
 
-use crate::{project_repository::RemoteError, projects::ProjectId, virtual_branches};
+use crate::{
+    events as app_events, project_repository::RemoteError, projects::ProjectId, virtual_branches,
+};
 
 use super::events;
 
@@ -57,7 +59,9 @@ impl HandlerInner {
                 virtual_branches::errors::FetchFromTargetError::DefaultTargetNotSet(_)
                 | virtual_branches::errors::FetchFromTargetError::Remote(RemoteError::Network)
                 | virtual_branches::errors::FetchFromTargetError::Remote(RemoteError::Auth),
-            )) => Ok(vec![]),
+            )) => Ok(vec![events::Event::Emit(app_events::Event::git_fetch(
+                project_id,
+            ))]),
             Err(error) => Err(error).context("failed to fetch project"),
         }
     }
