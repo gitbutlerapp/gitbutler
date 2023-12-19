@@ -329,6 +329,8 @@ pub enum SetBaseBranchError {
 }
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateBaseBranchError {
+    #[error("project is in conflicting state")]
+    Conflict(ProjectConflictError),
     #[error("no default target set")]
     DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error(transparent)]
@@ -610,6 +612,7 @@ impl From<MergeVirtualBranchUpstreamError> for Error {
 impl From<UpdateBaseBranchError> for Error {
     fn from(value: UpdateBaseBranchError) -> Self {
         match value {
+            UpdateBaseBranchError::Conflict(error) => error.into(),
             UpdateBaseBranchError::DefaultTargetNotSet(error) => error.into(),
             UpdateBaseBranchError::Other(error) => {
                 tracing::error!(?error, "update base branch error");
