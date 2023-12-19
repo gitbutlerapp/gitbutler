@@ -1905,9 +1905,20 @@ pub fn write_tree_onto_commit(
             let mut filemode = git::FileMode::Blob;
             // check if full_path file is executable
             if let Ok(metadata) = std::fs::symlink_metadata(&full_path) {
-                if metadata.permissions().mode() & 0o111 != 0 {
+                #[cfg(target_family = "unix")]
+                {
+                    if metadata.permissions().mode() & 0o111 != 0 {
+                        filemode = git::FileMode::BlobExecutable;
+                    }
+                }
+                #[cfg(target_os = "windows")]
+                {
+                    // TODO(qix-): Pull from `core.filemode` config option to determine
+                    // TODO(qix-): the behavior on windows. For now, we set this to true.
+                    // TODO(qix-): It's not ideal, but it gets us to a windows build faster.
                     filemode = git::FileMode::BlobExecutable;
                 }
+
                 if metadata.file_type().is_symlink() {
                     filemode = git::FileMode::Link;
                 }
