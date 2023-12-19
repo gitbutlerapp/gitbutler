@@ -128,5 +128,28 @@
 			width: var(--space-14);
 			height: var(--space-14);
 		}
+
+		/* indeterminate state */
+		/* &:indeterminate {
+			background-color: var(--clr-theme-pop-element);
+			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
+
+			&:hover {
+				background-color: var(--clr-theme-pop-element-dim);
+				box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element-dim);
+			}
+		} */
+
+		/* indeterminate dash element */
+		/* &::before {
+			content: '';
+			position: absolute;
+			width: 50%;
+			height: 2px;
+			background-color: var(--clr-theme-scale-ntrl-100);
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%) scaleY(0.8);
+		} */
 	}
 </style>
