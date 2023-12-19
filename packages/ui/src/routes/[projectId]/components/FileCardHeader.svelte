@@ -25,7 +25,7 @@
 		return { filename, path };
 	}
 
-	let fileTitle = boldenFilename(file.path);
+	$: fileTitle = boldenFilename(file.path);
 </script>
 
 <div class="header">
