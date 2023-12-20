@@ -18,7 +18,6 @@ pub enum Error {
 pub trait Reader {
     fn read(&self, file_path: &path::Path) -> Result<Content, Error>;
     fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>>;
-    fn is_dir(&self, file_path: &path::Path) -> bool;
     fn exists(&self, file_path: &path::Path) -> bool;
 }
 
@@ -33,11 +32,6 @@ impl DirReader {
 }
 
 impl Reader for DirReader {
-    fn is_dir(&self, file_path: &path::Path) -> bool {
-        let path = self.root.join(file_path);
-        path.exists() && path.is_dir()
-    }
-
     fn exists(&self, file_path: &path::Path) -> bool {
         let path = self.root.join(file_path);
         path.exists()
@@ -87,18 +81,6 @@ impl<'reader> CommitReader<'reader> {
 }
 
 impl Reader for CommitReader<'_> {
-    fn is_dir(&self, file_path: &path::Path) -> bool {
-        let entry = match self
-            .tree
-            .get_path(std::path::Path::new(file_path))
-            .context(format!("{}: tree entry not found", file_path.display()))
-        {
-            Ok(entry) => entry,
-            Err(_) => return false,
-        };
-        entry.kind() == Some(git2::ObjectType::Tree)
-    }
-
     fn read(&self, path: &path::Path) -> Result<Content, Error> {
         let entry = match self
             .tree
@@ -162,10 +144,6 @@ impl<'reader> SubReader<'reader> {
 }
 
 impl Reader for SubReader<'_> {
-    fn is_dir(&self, file_path: &path::Path) -> bool {
-        self.reader.is_dir(&self.prefix.join(file_path))
-    }
-
     fn read(&self, path: &path::Path) -> Result<Content, Error> {
         self.reader.read(&self.prefix.join(path))
     }
@@ -334,19 +312,6 @@ mod tests {
     use crate::test_utils;
 
     #[test]
-    fn test_directory_reader_is_dir() -> Result<()> {
-        let dir = test_utils::temp_dir();
-        let reader = DirReader::open(dir.clone());
-        std::fs::create_dir_all(dir.join("dir"))?;
-        std::fs::write(dir.join("dir/test.txt"), "test")?;
-        assert!(reader.is_dir(path::Path::new(".")));
-        assert!(reader.is_dir(path::Path::new("dir")));
-        assert!(!reader.is_dir(path::Path::new("dir/test.txt")));
-        assert!(!reader.is_dir(path::Path::new("404.txt")));
-        Ok(())
-    }
-
-    #[test]
     fn test_directory_reader_read_file() -> Result<()> {
         let dir = test_utils::temp_dir();
 
@@ -356,24 +321,6 @@ mod tests {
         let reader = DirReader::open(dir.clone());
         assert_eq!(reader.read(file_path)?, Content::UTF8("test".to_string()));
 
-        Ok(())
-    }
-
-    #[test]
-    fn test_commit_reader_is_dir() -> Result<()> {
-        let repository = test_utils::test_repository();
-
-        std::fs::create_dir_all(repository.path().parent().unwrap().join("dir"))?;
-        std::fs::write(
-            repository.path().parent().unwrap().join("dir/test.txt"),
-            "test",
-        )?;
-        let oid = test_utils::commit_all(&repository);
-
-        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
-        assert!(reader.is_dir(path::Path::new("dir")));
-        assert!(!reader.is_dir(path::Path::new("dir/test.txt")));
-        assert!(!reader.is_dir(path::Path::new("404.txt")));
         Ok(())
     }
 

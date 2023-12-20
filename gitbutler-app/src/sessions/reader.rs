@@ -25,10 +25,6 @@ impl Reader for SessionReader<'_> {
         self.reader.list_files(dir_path)
     }
 
-    fn is_dir(&self, file_path: &path::Path) -> bool {
-        self.reader.is_dir(file_path)
-    }
-
     fn exists(&self, file_path: &path::Path) -> bool {
         self.reader.exists(file_path)
     }
