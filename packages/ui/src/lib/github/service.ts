@@ -6,9 +6,10 @@ import {
 	of,
 	firstValueFrom,
 	Subject,
-	combineLatest
+	combineLatest,
+	defer
 } from 'rxjs';
-import { catchError, distinct, map, shareReplay, switchMap, tap } from 'rxjs/operators';
+import { catchError, distinct, map, retry, shareReplay, switchMap, tap } from 'rxjs/operators';
 
 import {
 	type PullRequest,
@@ -19,8 +20,8 @@ import {
 import { newClient } from '$lib/github/client';
 import type { BranchController } from '$lib/vbranches/branchController';
 import type { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
-import type { Octokit } from '@octokit/rest';
 import type { UserService } from '$lib/stores/user';
+import type { Octokit } from '@octokit/rest';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
@@ -105,7 +106,9 @@ export class GitHubService {
 
 	get(branch: string | undefined): Observable<PullRequest | undefined> | undefined {
 		if (!branch) return;
-		return this.prs$.pipe(map((prs) => prs.find((pr) => pr.targetBranch == branch)));
+		return this.prs$.pipe(
+			map((prs) => prs.find((pr) => pr.targetBranch == branch && !pr.mergedAt))
+		);
 	}
 
 	/* TODO: Figure out a way to cleanup old behavior subjects */
@@ -138,18 +141,21 @@ export class GitHubService {
 			console.error("Can't create PR when service not enabled");
 			return;
 		}
+		this.setBusy('creating_pr', branchId);
 		return firstValueFrom(
-			combineLatest([this.octokit$, this.ctx$]).pipe(
-				map(async ([octokit, ctx]) => {
-					if (!octokit || !ctx) {
-						console.error("Can't create PR without credentials");
-						return;
-					}
-					this.setBusy('creating_pr', branchId);
-					try {
-						// Wait for branch to have upstream data
+			// We have to wrap with defer becasue using `async` functions with operators
+			// create a promise that will stay rejected when rejected.
+			defer(() =>
+				combineLatest([this.octokit$, this.ctx$]).pipe(
+					switchMap(async ([octokit, ctx]) => {
+						if (!octokit || !ctx) {
+							console.error("Can't create PR without credentials");
+							return;
+						}
+
 						await this.branchController.pushBranch(branchId, true);
 						const branch = await this.vbranchService.getById(branchId);
+
 						if (branch?.upstreamName) {
 							const rsp = await octokit.rest.pulls.create({
 								owner: ctx.owner,
@@ -163,9 +169,17 @@ export class GitHubService {
 							return ghResponseToInstance(rsp.data);
 						}
 						throw `No upstream for branch ${branchId}`;
-					} finally {
-						this.setIdle(branchId);
-					}
+					})
+				)
+			).pipe(
+				retry({
+					count: 3,
+					delay: 500
+				}),
+				catchError((err) => {
+					console.log('Unable to create PR despite retrying', err);
+					this.setIdle(branchId);
+					throw err;
 				})
 			)
 		);
