@@ -1,9 +1,6 @@
 use anyhow::Result;
 
-use crate::{
-    gb_repository,
-    writer::{self, Writer},
-};
+use crate::{gb_repository, writer};
 
 use super::Delta;
 

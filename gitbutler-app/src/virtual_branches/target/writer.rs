@@ -1,10 +1,6 @@
 use anyhow::{Context, Result};
 
-use crate::{
-    gb_repository,
-    virtual_branches::BranchId,
-    writer::{self, Writer},
-};
+use crate::{gb_repository, virtual_branches::BranchId, writer};
 
 use super::Target;
 

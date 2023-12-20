@@ -5,7 +5,7 @@ use anyhow::{anyhow, Context, Result};
 use crate::{
     gb_repository,
     reader::{self, Reader},
-    writer::{self, Writer},
+    writer,
 };
 
 use super::Session;
