@@ -1418,8 +1418,8 @@ pub fn delete_branch(
     Ok(())
 }
 
-fn set_ownership<R: reader::Reader>(
-    branch_reader: &R,
+fn set_ownership(
+    session_reader: &sessions::Reader,
     branch_writer: &branch::Writer,
     target_branch: &mut branch::Branch,
     ownership: &branch::Ownership,
@@ -1429,7 +1429,7 @@ fn set_ownership<R: reader::Reader>(
         return Ok(());
     }
 
-    let mut virtual_branches = Iterator::new(branch_reader)
+    let mut virtual_branches = Iterator::new(session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?

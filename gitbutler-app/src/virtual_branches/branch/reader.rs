@@ -1,20 +1,18 @@
 use std::path;
 
-use crate::reader::{self, SubReader};
+use crate::{reader, sessions};
 
 use super::{Branch, BranchId};
 
-pub struct BranchReader<'r, R: crate::reader::Reader> {
-    reader: &'r R,
+pub struct BranchReader<'r> {
+    reader: &'r reader::Reader<'r>,
 }
 
-impl<'r, R: crate::reader::Reader> BranchReader<'r, R> {
-    pub fn new(reader: &'r R) -> Self {
-        Self { reader }
-    }
-
-    pub fn reader(&self) -> &dyn reader::Reader {
-        self.reader
+impl<'r> BranchReader<'r> {
+    pub fn new(reader: &'r sessions::Reader<'r>) -> Self {
+        Self {
+            reader: reader.reader(),
+        }
     }
 
     pub fn read(&self, id: &BranchId) -> Result<Branch, reader::Error> {
@@ -25,9 +23,7 @@ impl<'r, R: crate::reader::Reader> BranchReader<'r, R> {
             return Err(reader::Error::NotFound);
         }
 
-        let single_reader: &dyn crate::reader::Reader =
-            &SubReader::new(self.reader, &format!("branches/{}", id));
-        Branch::try_from(single_reader)
+        Branch::try_from(&self.reader.sub(format!("branches/{}", id)))
     }
 }
 

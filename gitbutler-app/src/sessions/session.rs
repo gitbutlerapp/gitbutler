@@ -38,10 +38,10 @@ pub enum SessionError {
     Other(anyhow::Error),
 }
 
-impl TryFrom<&dyn reader::Reader> for Session {
+impl TryFrom<&reader::Reader<'_>> for Session {
     type Error = SessionError;
 
-    fn try_from(reader: &dyn reader::Reader) -> Result<Self, Self::Error> {
+    fn try_from(reader: &reader::Reader) -> Result<Self, Self::Error> {
         let id: String = reader
             .read(path::Path::new("session/meta/id"))
             .map_err(|error| match error {
@@ -99,35 +99,13 @@ impl TryFrom<&dyn reader::Reader> for Session {
 
         Ok(Self {
             id,
-            hash: None,
+            hash: reader.commit_id(),
             meta: Meta {
                 start_timestamp_ms,
                 last_timestamp_ms,
                 branch,
                 commit,
             },
-        })
-    }
-}
-
-impl TryFrom<reader::DirReader> for Session {
-    type Error = SessionError;
-
-    fn try_from(reader: reader::DirReader) -> Result<Self, Self::Error> {
-        let session = Session::try_from(&reader as &dyn reader::Reader)?;
-        Ok(session)
-    }
-}
-
-impl<'reader> TryFrom<reader::CommitReader<'reader>> for Session {
-    type Error = SessionError;
-
-    fn try_from(reader: reader::CommitReader<'reader>) -> Result<Self, Self::Error> {
-        let commit_oid = reader.get_commit_oid();
-        let session = Session::try_from(&reader as &dyn reader::Reader)?;
-        Ok(Session {
-            hash: Some(commit_oid),
-            ..session
         })
     }
 }

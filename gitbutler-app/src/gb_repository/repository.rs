@@ -20,8 +20,7 @@ use crate::{
     paths::DataDir,
     project_repository,
     projects::{self, ProjectId},
-    reader::{self, Reader},
-    sessions,
+    reader, sessions,
     sessions::SessionId,
     users,
     virtual_branches::{self, target},
@@ -381,8 +380,8 @@ impl Repository {
     pub fn get_or_create_current_session(&self) -> Result<sessions::Session> {
         let _lock = self.lock();
 
-        let reader = reader::DirReader::open(self.root());
-        match sessions::Session::try_from(reader) {
+        let reader = reader::Reader::open(&self.root());
+        match sessions::Session::try_from(&reader) {
             Result::Ok(session) => Ok(session),
             Err(sessions::SessionError::NoSession) => {
                 let project_repository = project_repository::Repository::open(&self.project)
@@ -484,8 +483,8 @@ impl Repository {
 
     pub fn get_current_session(&self) -> Result<Option<sessions::Session>> {
         let _lock = self.lock();
-        let reader = reader::DirReader::open(self.root());
-        match sessions::Session::try_from(reader) {
+        let reader = reader::Reader::open(&self.root());
+        match sessions::Session::try_from(&reader) {
             Ok(session) => Ok(Some(session)),
             Err(sessions::SessionError::NoSession) => Ok(None),
             Err(sessions::SessionError::Other(err)) => Err(err),
@@ -588,8 +587,8 @@ fn build_wd_tree_from_reference(
         })?;
     }
 
-    let session_reader = reader::DirReader::open(gb_repository.root());
-    let deltas = deltas::Reader::new(&session_reader)
+    let session_reader = reader::Reader::open(&gb_repository.root());
+    let deltas = deltas::Reader::from(&session_reader)
         .read(None)
         .context("failed to read deltas")?;
     let wd_files = session_reader.list_files(path::Path::new("session/wd"))?;

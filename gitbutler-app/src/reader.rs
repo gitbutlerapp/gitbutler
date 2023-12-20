@@ -15,10 +15,59 @@ pub enum Error {
     From(#[from] FromError),
 }
 
-pub trait Reader {
-    fn read(&self, file_path: &path::Path) -> Result<Content, Error>;
-    fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>>;
-    fn exists(&self, file_path: &path::Path) -> bool;
+pub enum Reader<'reader> {
+    Dir(DirReader),
+    Commit(CommitReader<'reader>),
+    Sub(SubReader<'reader>),
+}
+
+impl<'reader> Reader<'reader> {
+    pub fn open(root: &path::Path) -> Self {
+        Reader::Dir(DirReader::open(root.to_path_buf()))
+    }
+
+    pub fn sub<P: AsRef<path::Path>>(&'reader self, prefix: P) -> Self {
+        Reader::Sub(SubReader::new(self, prefix))
+    }
+
+    pub fn commit_id(&self) -> Option<git::Oid> {
+        match self {
+            Reader::Dir(_) => None,
+            Reader::Commit(reader) => Some(reader.get_commit_oid()),
+            Reader::Sub(reader) => reader.reader.commit_id(),
+        }
+    }
+
+    pub fn from_commit(
+        repository: &'reader git::Repository,
+        commit: &git::Commit<'reader>,
+    ) -> Result<Self> {
+        Ok(Reader::Commit(CommitReader::new(repository, commit)?))
+    }
+
+    pub fn exists(&self, file_path: &path::Path) -> bool {
+        match self {
+            Reader::Dir(reader) => reader.exists(file_path),
+            Reader::Commit(reader) => reader.exists(file_path),
+            Reader::Sub(reader) => reader.exists(file_path),
+        }
+    }
+
+    pub fn read(&self, path: &path::Path) -> Result<Content, Error> {
+        match self {
+            Reader::Dir(reader) => reader.read(path),
+            Reader::Commit(reader) => reader.read(path),
+            Reader::Sub(reader) => reader.read(path),
+        }
+    }
+
+    pub fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>> {
+        match self {
+            Reader::Dir(reader) => reader.list_files(dir_path),
+            Reader::Commit(reader) => reader.list_files(dir_path),
+            Reader::Sub(reader) => reader.list_files(dir_path),
+        }
+    }
 }
 
 pub struct DirReader {
@@ -26,12 +75,10 @@ pub struct DirReader {
 }
 
 impl DirReader {
-    pub fn open(root: std::path::PathBuf) -> Self {
+    fn open(root: std::path::PathBuf) -> Self {
         Self { root }
     }
-}
 
-impl Reader for DirReader {
     fn exists(&self, file_path: &path::Path) -> bool {
         let path = self.root.join(file_path);
         path.exists()
@@ -61,7 +108,7 @@ pub struct CommitReader<'reader> {
 }
 
 impl<'reader> CommitReader<'reader> {
-    pub fn from_commit(
+    fn new(
         repository: &'reader git::Repository,
         commit: &git::Commit<'reader>,
     ) -> Result<CommitReader<'reader>> {
@@ -78,9 +125,7 @@ impl<'reader> CommitReader<'reader> {
     pub fn get_commit_oid(&self) -> git::Oid {
         self.commit_oid
     }
-}
 
-impl Reader for CommitReader<'_> {
     fn read(&self, path: &path::Path) -> Result<Content, Error> {
         let entry = match self
             .tree
@@ -129,21 +174,19 @@ impl Reader for CommitReader<'_> {
     }
 }
 
-pub struct SubReader<'r, R: Reader> {
-    reader: &'r R,
+pub struct SubReader<'r> {
+    reader: &'r Reader<'r>,
     prefix: path::PathBuf,
 }
 
-impl<'r, R: Reader> SubReader<'r, R> {
-    pub fn new<P: AsRef<path::Path>>(reader: &'r R, prefix: P) -> Self {
+impl<'r> SubReader<'r> {
+    fn new<P: AsRef<path::Path>>(reader: &'r Reader, prefix: P) -> Self {
         SubReader {
             reader,
             prefix: prefix.as_ref().to_path_buf(),
         }
     }
-}
 
-impl<R: Reader> Reader for SubReader<'_, R> {
     fn read(&self, path: &path::Path) -> Result<Content, Error> {
         self.reader.read(&self.prefix.join(path))
     }
@@ -335,7 +378,7 @@ mod tests {
 
         std::fs::write(repository.path().parent().unwrap().join(file_path), "test2")?;
 
-        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
+        let reader = CommitReader::new(&repository, &repository.find_commit(oid)?)?;
         assert_eq!(reader.read(file_path)?, Content::UTF8("test".to_string()));
 
         Ok(())
@@ -397,7 +440,7 @@ mod tests {
 
         std::fs::remove_dir_all(repository.path().parent().unwrap().join("dir"))?;
 
-        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
+        let reader = CommitReader::new(&repository, &repository.find_commit(oid)?)?;
         let files = reader.list_files(path::Path::new("dir"))?;
         assert_eq!(files.len(), 1);
         assert!(files.contains(&path::Path::new("test.txt").to_path_buf()));
@@ -425,7 +468,7 @@ mod tests {
 
         std::fs::remove_dir_all(repository.path().parent().unwrap().join("dir"))?;
 
-        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
+        let reader = CommitReader::new(&repository, &repository.find_commit(oid)?)?;
         let files = reader.list_files(path::Path::new(""))?;
         assert_eq!(files.len(), 2);
         assert!(files.contains(&path::Path::new("test.txt").to_path_buf()));
@@ -457,7 +500,7 @@ mod tests {
 
         std::fs::remove_file(repository.path().parent().unwrap().join("test.txt"))?;
 
-        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
+        let reader = CommitReader::new(&repository, &repository.find_commit(oid)?)?;
         assert!(reader.exists(path::Path::new("test.txt")));
         assert!(!reader.exists(path::Path::new("test2.txt")));
 

@@ -8,8 +8,7 @@ use crate::{
     paths::DataDir,
     project_repository,
     projects::{self, ProjectId},
-    reader::{self, Reader},
-    sessions, users,
+    reader, sessions, users,
 };
 
 use super::events;
@@ -176,9 +175,7 @@ mod test {
     use once_cell::sync::Lazy;
 
     use crate::{
-        deltas,
-        reader::Reader,
-        sessions,
+        deltas, sessions,
         test_utils::{self, Case, Suite},
         virtual_branches::{self, branch},
     };
@@ -940,11 +937,9 @@ mod test {
                     .git_repository()
                     .find_commit(flushed_session.hash.unwrap())
                     .unwrap();
-                let commit_reader = reader::CommitReader::from_commit(
-                    gb_repository.git_repository(),
-                    &session_commit,
-                )
-                .unwrap();
+                let commit_reader =
+                    reader::Reader::from_commit(gb_repository.git_repository(), &session_commit)
+                        .unwrap();
                 assert_eq!(
                     commit_reader.list_files(path::Path::new("wd")).unwrap(),
                     vec![path::Path::new("test.txt")]
@@ -970,11 +965,9 @@ mod test {
                     .git_repository()
                     .find_commit(flushed_session.hash.unwrap())
                     .unwrap();
-                let commit_reader = reader::CommitReader::from_commit(
-                    gb_repository.git_repository(),
-                    &session_commit,
-                )
-                .unwrap();
+                let commit_reader =
+                    reader::Reader::from_commit(gb_repository.git_repository(), &session_commit)
+                        .unwrap();
                 assert_eq!(
                     commit_reader.list_files(path::Path::new("wd")).unwrap(),
                     vec![
@@ -1023,11 +1016,9 @@ mod test {
                     .git_repository()
                     .find_commit(flushed_session.hash.unwrap())
                     .unwrap();
-                let commit_reader = reader::CommitReader::from_commit(
-                    gb_repository.git_repository(),
-                    &session_commit,
-                )
-                .unwrap();
+                let commit_reader =
+                    reader::Reader::from_commit(gb_repository.git_repository(), &session_commit)
+                        .unwrap();
                 assert_eq!(
                     commit_reader.list_files(path::Path::new("wd")).unwrap(),
                     vec![
@@ -1063,11 +1054,9 @@ mod test {
                     .git_repository()
                     .find_commit(flushed_session.hash.unwrap())
                     .unwrap();
-                let commit_reader = reader::CommitReader::from_commit(
-                    gb_repository.git_repository(),
-                    &session_commit,
-                )
-                .unwrap();
+                let commit_reader =
+                    reader::Reader::from_commit(gb_repository.git_repository(), &session_commit)
+                        .unwrap();
                 assert!(commit_reader
                     .list_files(path::Path::new("wd"))
                     .unwrap()
@@ -1103,11 +1092,9 @@ mod test {
                     .git_repository()
                     .find_commit(flushed_session.hash.unwrap())
                     .unwrap();
-                let commit_reader = reader::CommitReader::from_commit(
-                    gb_repository.git_repository(),
-                    &session_commit,
-                )
-                .unwrap();
+                let commit_reader =
+                    reader::Reader::from_commit(gb_repository.git_repository(), &session_commit)
+                        .unwrap();
                 assert_eq!(
                     commit_reader.list_files(path::Path::new("wd")).unwrap(),
                     vec![
@@ -1144,11 +1131,9 @@ mod test {
                     .git_repository()
                     .find_commit(flushed_session.hash.unwrap())
                     .unwrap();
-                let commit_reader = reader::CommitReader::from_commit(
-                    gb_repository.git_repository(),
-                    &session_commit,
-                )
-                .unwrap();
+                let commit_reader =
+                    reader::Reader::from_commit(gb_repository.git_repository(), &session_commit)
+                        .unwrap();
                 assert_eq!(
                     commit_reader.list_files(path::Path::new("wd")).unwrap(),
                     vec![

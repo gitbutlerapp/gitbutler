@@ -1,19 +1,18 @@
 use std::path;
 
-use crate::{
-    reader::{self, SubReader},
-    virtual_branches::BranchId,
-};
+use crate::{reader, sessions, virtual_branches::BranchId};
 
 use super::Target;
 
-pub struct TargetReader<'r, R: crate::reader::Reader> {
-    reader: &'r R,
+pub struct TargetReader<'r> {
+    reader: &'r reader::Reader<'r>,
 }
 
-impl<'r, R: crate::reader::Reader> TargetReader<'r, R> {
-    pub fn new(reader: &'r R) -> Self {
-        Self { reader }
+impl<'r> TargetReader<'r> {
+    pub fn new(reader: &'r sessions::Reader<'r>) -> Self {
+        Self {
+            reader: reader.reader(),
+        }
     }
 
     pub fn read_default(&self) -> Result<Target, reader::Error> {
@@ -21,7 +20,7 @@ impl<'r, R: crate::reader::Reader> TargetReader<'r, R> {
             return Err(reader::Error::NotFound);
         }
 
-        Target::try_from(&SubReader::new(self.reader, "branches/target"))
+        Target::try_from(&self.reader.sub("branches/target"))
     }
 
     pub fn read(&self, id: &BranchId) -> Result<Target, reader::Error> {
@@ -32,10 +31,7 @@ impl<'r, R: crate::reader::Reader> TargetReader<'r, R> {
             return self.read_default();
         }
 
-        Target::try_from(&SubReader::new(
-            self.reader,
-            &format!("branches/{}/target", id),
-        ))
+        Target::try_from(&self.reader.sub(format!("branches/{}/target", id)))
     }
 }
 
@@ -50,7 +46,6 @@ mod tests {
         sessions,
         test_utils::{Case, Suite},
         virtual_branches::{branch, target::writer::TargetWriter},
-        writer::Writer,
     };
 
     use super::*;

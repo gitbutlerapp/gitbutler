@@ -2,11 +2,7 @@ use std::{path, time};
 
 use anyhow::{anyhow, Context, Result};
 
-use crate::{
-    gb_repository,
-    reader::{self, Reader},
-    writer,
-};
+use crate::{gb_repository, reader, writer};
 
 use super::Session;
 
@@ -26,7 +22,7 @@ impl<'writer> SessionWriter<'writer> {
             return Err(anyhow!("can not open writer for a session with a hash"));
         }
 
-        let reader = reader::DirReader::open(self.repository.root());
+        let reader = reader::Reader::open(&self.repository.root());
 
         let current_session_id = if let Ok(reader::Content::UTF8(current_session_id)) =
             reader.read(&path::PathBuf::from("session/meta/id"))

@@ -2,15 +2,18 @@ use std::{collections::HashSet, path};
 
 use anyhow::Result;
 
+use crate::sessions;
+
 use super::branch::{self, BranchId};
 
-pub struct BranchIterator<'i, R: crate::reader::Reader> {
-    branch_reader: branch::Reader<'i, R>,
+pub struct BranchIterator<'i> {
+    branch_reader: branch::Reader<'i>,
     ids: Vec<BranchId>,
 }
 
-impl<'i, R: crate::reader::Reader> BranchIterator<'i, R> {
-    pub fn new(reader: &'i R) -> Result<Self> {
+impl<'i> BranchIterator<'i> {
+    pub fn new(session_reader: &'i sessions::Reader<'i>) -> Result<Self> {
+        let reader = session_reader.reader();
         let ids_itarator = reader
             .list_files(&path::PathBuf::from("branches"))?
             .into_iter()
@@ -33,13 +36,13 @@ impl<'i, R: crate::reader::Reader> BranchIterator<'i, R> {
             .collect();
         ids.sort();
         Ok(Self {
-            branch_reader: branch::Reader::new(reader),
+            branch_reader: branch::Reader::new(session_reader),
             ids,
         })
     }
 }
 
-impl<R: crate::reader::Reader> Iterator for BranchIterator<'_, R> {
+impl Iterator for BranchIterator<'_> {
     type Item = Result<branch::Branch, crate::reader::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {

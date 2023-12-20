@@ -67,10 +67,10 @@ pub struct BranchCreateRequest {
     pub order: Option<usize>,
 }
 
-impl TryFrom<&dyn crate::reader::Reader> for Branch {
+impl TryFrom<&crate::reader::Reader<'_>> for Branch {
     type Error = crate::reader::Error;
 
-    fn try_from(reader: &dyn crate::reader::Reader) -> Result<Self, Self::Error> {
+    fn try_from(reader: &crate::reader::Reader) -> Result<Self, Self::Error> {
         let id: String = reader.read(&path::PathBuf::from("id"))?.try_into()?;
         let id: BranchId = id.parse().map_err(|e| {
             crate::reader::Error::Io(std::io::Error::new(

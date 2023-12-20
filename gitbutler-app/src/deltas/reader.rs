@@ -2,17 +2,25 @@ use std::{collections::HashMap, path};
 
 use anyhow::Result;
 
-use crate::reader;
+use crate::{reader, sessions};
 
 use super::Delta;
 
 pub struct DeltasReader<'reader> {
-    reader: &'reader dyn reader::Reader,
+    reader: &'reader reader::Reader<'reader>,
+}
+
+impl<'reader> From<&'reader reader::Reader<'reader>> for DeltasReader<'reader> {
+    fn from(reader: &'reader reader::Reader<'reader>) -> Self {
+        DeltasReader { reader }
+    }
 }
 
 impl<'reader> DeltasReader<'reader> {
-    pub fn new(reader: &'reader dyn reader::Reader) -> Self {
-        DeltasReader { reader }
+    pub fn new(reader: &'reader sessions::Reader<'reader>) -> Self {
+        DeltasReader {
+            reader: reader.reader(),
+        }
     }
 
     pub fn read_file<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Option<Vec<Delta>>> {
