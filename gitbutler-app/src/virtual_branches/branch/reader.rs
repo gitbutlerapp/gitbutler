@@ -1,15 +1,15 @@
 use std::path;
 
-use crate::reader::{self, Reader, SubReader};
+use crate::reader::{self, SubReader};
 
 use super::{Branch, BranchId};
 
-pub struct BranchReader<'reader> {
-    reader: &'reader dyn reader::Reader,
+pub struct BranchReader<'r, R: crate::reader::Reader> {
+    reader: &'r R,
 }
 
-impl<'reader> BranchReader<'reader> {
-    pub fn new(reader: &'reader dyn Reader) -> Self {
+impl<'r, R: crate::reader::Reader> BranchReader<'r, R> {
+    pub fn new(reader: &'r R) -> Self {
         Self { reader }
     }
 

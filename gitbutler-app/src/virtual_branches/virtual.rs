@@ -1118,9 +1118,13 @@ pub fn create_virtual_branch(
     };
 
     if let Some(ownership) = &create.ownership {
-        let branch_reader = branch::Reader::new(&current_session_reader);
-        set_ownership(&branch_reader, &branch_writer, &mut branch, ownership)
-            .context("failed to set ownership")?;
+        set_ownership(
+            &current_session_reader,
+            &branch_writer,
+            &mut branch,
+            ownership,
+        )
+        .context("failed to set ownership")?;
     }
 
     branch_writer
@@ -1321,8 +1325,13 @@ pub fn update_branch(
         })?;
 
     if let Some(ownership) = branch_update.ownership {
-        set_ownership(&branch_reader, &branch_writer, &mut branch, &ownership)
-            .context("failed to set ownership")?;
+        set_ownership(
+            &current_session_reader,
+            &branch_writer,
+            &mut branch,
+            &ownership,
+        )
+        .context("failed to set ownership")?;
     }
 
     if let Some(name) = branch_update.name {
@@ -1409,8 +1418,8 @@ pub fn delete_branch(
     Ok(())
 }
 
-fn set_ownership(
-    branch_reader: &branch::Reader,
+fn set_ownership<R: reader::Reader>(
+    branch_reader: &R,
     branch_writer: &branch::Writer,
     target_branch: &mut branch::Branch,
     ownership: &branch::Ownership,
@@ -1420,7 +1429,7 @@ fn set_ownership(
         return Ok(());
     }
 
-    let mut virtual_branches = Iterator::new(branch_reader.reader())
+    let mut virtual_branches = Iterator::new(branch_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?

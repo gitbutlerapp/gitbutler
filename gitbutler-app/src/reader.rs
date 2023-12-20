@@ -129,13 +129,13 @@ impl Reader for CommitReader<'_> {
     }
 }
 
-pub struct SubReader<'reader> {
-    reader: &'reader dyn Reader,
+pub struct SubReader<'r, R: Reader> {
+    reader: &'r R,
     prefix: path::PathBuf,
 }
 
-impl<'reader> SubReader<'reader> {
-    pub fn new<P: AsRef<path::Path>>(reader: &'reader dyn Reader, prefix: P) -> SubReader<'reader> {
+impl<'r, R: Reader> SubReader<'r, R> {
+    pub fn new<P: AsRef<path::Path>>(reader: &'r R, prefix: P) -> Self {
         SubReader {
             reader,
             prefix: prefix.as_ref().to_path_buf(),
@@ -143,7 +143,7 @@ impl<'reader> SubReader<'reader> {
     }
 }
 
-impl Reader for SubReader<'_> {
+impl<R: Reader> Reader for SubReader<'_, R> {
     fn read(&self, path: &path::Path) -> Result<Content, Error> {
         self.reader.read(&self.prefix.join(path))
     }

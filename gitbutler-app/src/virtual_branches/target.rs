@@ -34,7 +34,7 @@ impl Serialize for Target {
 }
 
 // this is a backwards compatibile with the old format
-fn read_remote_url(reader: &dyn crate::reader::Reader) -> Result<String, crate::reader::Error> {
+fn read_remote_url<R: crate::reader::Reader>(reader: &R) -> Result<String, crate::reader::Error> {
     match reader.read(&path::PathBuf::from("remote_url")) {
         Ok(url) => Ok(url.try_into()?),
         // fallback to the old format
@@ -46,8 +46,8 @@ fn read_remote_url(reader: &dyn crate::reader::Reader) -> Result<String, crate::
 }
 
 // returns (remote_name, branch_name)
-fn read_remote_name_branch_name(
-    reader: &dyn crate::reader::Reader,
+fn read_remote_name_branch_name<R: crate::reader::Reader>(
+    reader: &R,
 ) -> Result<(String, String), crate::reader::Error> {
     match reader.read(&path::PathBuf::from("name")) {
         Ok(branch) => {
@@ -69,10 +69,8 @@ fn read_remote_name_branch_name(
     }
 }
 
-impl TryFrom<&dyn crate::reader::Reader> for Target {
-    type Error = crate::reader::Error;
-
-    fn try_from(reader: &dyn crate::reader::Reader) -> Result<Self, Self::Error> {
+impl Target {
+    fn try_from<R: crate::reader::Reader>(reader: &R) -> Result<Target, crate::reader::Error> {
         let (_, branch_name) = read_remote_name_branch_name(reader).map_err(|e| {
             crate::reader::Error::Io(std::io::Error::new(
                 std::io::ErrorKind::Other,

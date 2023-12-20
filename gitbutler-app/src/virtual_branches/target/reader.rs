@@ -7,12 +7,12 @@ use crate::{
 
 use super::Target;
 
-pub struct TargetReader<'reader> {
-    reader: &'reader dyn reader::Reader,
+pub struct TargetReader<'r, R: crate::reader::Reader> {
+    reader: &'r R,
 }
 
-impl<'reader> TargetReader<'reader> {
-    pub fn new(reader: &'reader dyn reader::Reader) -> Self {
+impl<'r, R: crate::reader::Reader> TargetReader<'r, R> {
+    pub fn new(reader: &'r R) -> Self {
         Self { reader }
     }
 
@@ -21,8 +21,7 @@ impl<'reader> TargetReader<'reader> {
             return Err(reader::Error::NotFound);
         }
 
-        let reader: &dyn crate::reader::Reader = &SubReader::new(self.reader, "branches/target");
-        Target::try_from(reader)
+        Target::try_from(&SubReader::new(self.reader, "branches/target"))
     }
 
     pub fn read(&self, id: &BranchId) -> Result<Target, reader::Error> {
@@ -33,9 +32,10 @@ impl<'reader> TargetReader<'reader> {
             return self.read_default();
         }
 
-        let reader: &dyn crate::reader::Reader =
-            &SubReader::new(self.reader, &format!("branches/{}/target", id));
-        Target::try_from(reader)
+        Target::try_from(&SubReader::new(
+            self.reader,
+            &format!("branches/{}/target", id),
+        ))
     }
 }
 

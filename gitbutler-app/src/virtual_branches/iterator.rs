@@ -2,17 +2,15 @@ use std::{collections::HashSet, path};
 
 use anyhow::Result;
 
-use crate::reader;
-
 use super::branch::{self, BranchId};
 
-pub struct BranchIterator<'iterator> {
-    branch_reader: branch::Reader<'iterator>,
+pub struct BranchIterator<'i, R: crate::reader::Reader> {
+    branch_reader: branch::Reader<'i, R>,
     ids: Vec<BranchId>,
 }
 
-impl<'iterator> BranchIterator<'iterator> {
-    pub fn new(reader: &'iterator dyn reader::Reader) -> Result<Self> {
+impl<'i, R: crate::reader::Reader> BranchIterator<'i, R> {
+    pub fn new(reader: &'i R) -> Result<Self> {
         let ids_itarator = reader
             .list_files(&path::PathBuf::from("branches"))?
             .into_iter()
@@ -41,7 +39,7 @@ impl<'iterator> BranchIterator<'iterator> {
     }
 }
 
-impl<'iterator> Iterator for BranchIterator<'iterator> {
+impl<R: crate::reader::Reader> Iterator for BranchIterator<'_, R> {
     type Item = Result<branch::Branch, crate::reader::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -63,7 +61,7 @@ mod tests {
     use once_cell::sync::Lazy;
 
     use crate::{
-        sessions,
+        reader, sessions,
         test_utils::{Case, Suite},
         virtual_branches::target,
     };
