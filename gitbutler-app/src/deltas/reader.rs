@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::{reader, sessions};
 
@@ -16,6 +16,14 @@ impl<'reader> From<&'reader reader::Reader<'reader>> for DeltasReader<'reader> {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum ReadError {
+    #[error("not found")]
+    NotFound,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
 impl<'reader> DeltasReader<'reader> {
     pub fn new(reader: &'reader sessions::Reader<'reader>) -> Self {
         DeltasReader {
@@ -24,43 +32,52 @@ impl<'reader> DeltasReader<'reader> {
     }
 
     pub fn read_file<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Option<Vec<Delta>>> {
-        let path = path.as_ref();
-        let file_deltas_path = std::path::Path::new("session/deltas").join(path);
-        match self.reader.read(&file_deltas_path) {
-            Ok(reader::Content::UTF8(content)) => {
-                if content.is_empty() {
-                    // this is a leftover from some bug, shouldn't happen anymore
-                    Ok(None)
-                } else {
-                    Ok(Some(serde_json::from_str(&content)?))
-                }
-            }
-            Ok(_) => Err(anyhow::anyhow!(
-                "expected {} to be utf8 content",
-                file_deltas_path.display()
-            )),
-            Err(reader::Error::NotFound) => Ok(None),
+        match self.read(Some(&[path.as_ref()])) {
+            Ok(deltas) => Ok(deltas.into_iter().next().map(|(_, deltas)| deltas)),
+            Err(ReadError::NotFound) => Ok(None),
             Err(err) => Err(err.into()),
         }
     }
 
     pub fn read(
         &self,
-        paths: Option<&[&path::Path]>,
-    ) -> Result<HashMap<path::PathBuf, Vec<Delta>>> {
+        filter: Option<&[&path::Path]>,
+    ) -> Result<HashMap<path::PathBuf, Vec<Delta>>, ReadError> {
         let deltas_dir = path::Path::new("session/deltas");
-        let files = self.reader.list_files(deltas_dir)?;
-        let mut result = HashMap::new();
-        for file_path in files {
-            if let Some(paths) = paths.as_ref() {
-                if !paths.iter().any(|path| file_path.eq(path)) {
-                    continue;
-                }
-            }
-            if let Some(deltas) = self.read_file(file_path.clone())? {
-                result.insert(file_path, deltas);
-            }
+        let mut paths = self.reader.list_files(deltas_dir)?;
+        if let Some(filter) = filter {
+            paths = paths
+                .into_iter()
+                .filter(|file_path| filter.iter().any(|path| file_path.eq(path)))
+                .collect::<Vec<_>>();
         }
-        Ok(result)
+        paths = paths.iter().map(|path| deltas_dir.join(path)).collect();
+        let files = match self.reader.batch(&paths) {
+            Ok(files) => Ok(files),
+            Err(reader::Error::NotFound) => return Err(ReadError::NotFound),
+            Err(err) => Err(err),
+        }
+        .context("failed to read deltas")?;
+        Ok(paths
+            .into_iter()
+            .zip(files)
+            .filter_map(|(path, file)| {
+                path.strip_prefix(deltas_dir)
+                    .ok()
+                    .map(|path| (path.to_path_buf(), file))
+            })
+            .filter_map(|(path, file)| {
+                if let reader::Content::UTF8(content) = file {
+                    if content.is_empty() {
+                        // this is a leftover from some bug, shouldn't happen anymore
+                        return None;
+                    }
+                    let deltas = serde_json::from_str(&content).ok()?;
+                    Some(Ok((path, deltas)))
+                } else {
+                    Some(Err(anyhow::anyhow!("unexpected content type")))
+                }
+            })
+            .collect::<Result<HashMap<_, _>>>()?)
     }
 }
