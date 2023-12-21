@@ -1,4 +1,4 @@
-use std::{collections::HashSet, path};
+use std::collections::HashSet;
 
 use anyhow::Result;
 
@@ -15,7 +15,7 @@ impl<'i> BranchIterator<'i> {
     pub fn new(session_reader: &'i sessions::Reader<'i>) -> Result<Self> {
         let reader = session_reader.reader();
         let ids_itarator = reader
-            .list_files(&path::PathBuf::from("branches"))?
+            .list_files("branches")?
             .into_iter()
             .map(|file_path| {
                 file_path

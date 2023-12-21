@@ -1,8 +1,6 @@
 mod reader;
 mod writer;
 
-use std::path;
-
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 
 pub use reader::TargetReader as Reader;
@@ -35,12 +33,10 @@ impl Serialize for Target {
 
 // this is a backwards compatibile with the old format
 fn read_remote_url(reader: &crate::reader::Reader) -> Result<String, crate::reader::Error> {
-    match reader.read(&path::PathBuf::from("remote_url")) {
+    match reader.read("remote_url") {
         Ok(url) => Ok(url.try_into()?),
         // fallback to the old format
-        Err(crate::reader::Error::NotFound) => {
-            Ok(reader.read(&path::PathBuf::from("remote"))?.try_into()?)
-        }
+        Err(crate::reader::Error::NotFound) => Ok(reader.read("remote")?.try_into()?),
         Err(e) => Err(e),
     }
 }
@@ -49,7 +45,7 @@ fn read_remote_url(reader: &crate::reader::Reader) -> Result<String, crate::read
 fn read_remote_name_branch_name(
     reader: &crate::reader::Reader,
 ) -> Result<(String, String), crate::reader::Error> {
-    match reader.read(&path::PathBuf::from("name")) {
+    match reader.read("name") {
         Ok(branch) => {
             let branch: String = branch.try_into()?;
             let parts = branch.split('/').collect::<Vec<_>>();
@@ -57,12 +53,8 @@ fn read_remote_name_branch_name(
         }
         Err(crate::reader::Error::NotFound) => {
             // fallback to the old format
-            let remote_name: String = reader
-                .read(&path::PathBuf::from("remote_name"))?
-                .try_into()?;
-            let branch_name: String = reader
-                .read(&path::PathBuf::from("branch_name"))?
-                .try_into()?;
+            let remote_name: String = reader.read("remote_name")?.try_into()?;
+            let branch_name: String = reader.read("branch_name")?.try_into()?;
             Ok((remote_name, branch_name))
         }
         Err(e) => Err(e),
@@ -83,7 +75,7 @@ impl Target {
                 format!("remote: {}", e),
             ))
         })?;
-        let sha: String = reader.read(&path::PathBuf::from("sha"))?.try_into()?;
+        let sha: String = reader.read("sha")?.try_into()?;
         let sha = sha.parse().map_err(|e| {
             crate::reader::Error::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -91,17 +83,16 @@ impl Target {
             ))
         })?;
 
-        let last_fetched_ms: Option<u128> =
-            match reader.read(&path::PathBuf::from("last_fetched_ms")) {
-                Ok(last_fetched) => Some(last_fetched.try_into().map_err(|e| {
-                    crate::reader::Error::Io(std::io::Error::new(
-                        std::io::ErrorKind::InvalidData,
-                        format!("last_fetched_ms: {}", e),
-                    ))
-                })?),
-                Err(crate::reader::Error::NotFound) => None,
-                Err(e) => return Err(e),
-            };
+        let last_fetched_ms: Option<u128> = match reader.read("last_fetched_ms") {
+            Ok(last_fetched) => Some(last_fetched.try_into().map_err(|e| {
+                crate::reader::Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("last_fetched_ms: {}", e),
+                ))
+            })?),
+            Err(crate::reader::Error::NotFound) => None,
+            Err(e) => return Err(e),
+        };
 
         Ok(Self {
             branch: format!("refs/remotes/{}", branch_name).parse().unwrap(),

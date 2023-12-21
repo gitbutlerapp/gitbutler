@@ -22,7 +22,7 @@ impl<'reader> SessionReader<'reader> {
         let wd_reader = reader::Reader::open(&repository.root())?;
 
         if let Ok(reader::Content::UTF8(current_session_id)) =
-            wd_reader.read(&repository.session_path().join("meta").join("id"))
+            wd_reader.read(repository.session_path().join("meta").join("id"))
         {
             if current_session_id == session.id.to_string() {
                 let head_commit = repository.git_repository().head()?.peel_to_commit()?;
@@ -81,6 +81,6 @@ impl<'reader> SessionReader<'reader> {
     pub fn file<P: AsRef<path::Path>>(&self, path: P) -> Result<reader::Content, reader::Error> {
         let path = path.as_ref();
         self.previous_reader
-            .read(&std::path::Path::new("wd").join(path))
+            .read(std::path::Path::new("wd").join(path))
     }
 }

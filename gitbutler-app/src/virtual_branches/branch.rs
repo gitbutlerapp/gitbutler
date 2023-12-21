@@ -10,8 +10,6 @@ pub use ownership::Ownership;
 pub use reader::BranchReader as Reader;
 pub use writer::BranchWriter as Writer;
 
-use std::path;
-
 use serde::{Deserialize, Serialize};
 
 use anyhow::Result;
@@ -71,34 +69,34 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
     type Error = crate::reader::Error;
 
     fn try_from(reader: &crate::reader::Reader) -> Result<Self, Self::Error> {
-        let id: String = reader.read(&path::PathBuf::from("id"))?.try_into()?;
+        let id: String = reader.read("id")?.try_into()?;
         let id: BranchId = id.parse().map_err(|e| {
             crate::reader::Error::Io(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("id: {}", e),
             ))
         })?;
-        let name: String = reader.read(&path::PathBuf::from("meta/name"))?.try_into()?;
+        let name: String = reader.read("meta/name")?.try_into()?;
 
-        let notes: String = match reader.read(&path::PathBuf::from("meta/notes")) {
+        let notes: String = match reader.read("meta/notes") {
             Ok(notes) => Ok(notes.try_into()?),
             Err(crate::reader::Error::NotFound) => Ok(String::new()),
             Err(e) => Err(e),
         }?;
 
-        let applied = match reader.read(&path::PathBuf::from("meta/applied")) {
+        let applied = match reader.read("meta/applied") {
             Ok(applied) => applied.try_into(),
             _ => Ok(false),
         }
         .unwrap_or(false);
 
-        let order: usize = match reader.read(&path::PathBuf::from("meta/order")) {
+        let order: usize = match reader.read("meta/order") {
             Ok(order) => Ok(order.try_into()?),
             Err(crate::reader::Error::NotFound) => Ok(0),
             Err(e) => Err(e),
         }?;
 
-        let upstream_head = match reader.read(&path::PathBuf::from("meta/upstream_head")) {
+        let upstream_head = match reader.read("meta/upstream_head") {
             Ok(crate::reader::Content::UTF8(upstream_head)) => {
                 upstream_head.parse().map(Some).map_err(|e| {
                     crate::reader::Error::Io(std::io::Error::new(
@@ -111,7 +109,7 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
             Err(e) => Err(e),
         }?;
 
-        let upstream = match reader.read(&path::PathBuf::from("meta/upstream")) {
+        let upstream = match reader.read("meta/upstream") {
             Ok(crate::reader::Content::UTF8(upstream)) => {
                 if upstream.is_empty() {
                     Ok(None)
@@ -131,18 +129,12 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
             Err(e) => Err(e),
         }?;
 
-        let tree: String = reader.read(&path::PathBuf::from("meta/tree"))?.try_into()?;
-        let head: String = reader.read(&path::PathBuf::from("meta/head"))?.try_into()?;
-        let created_timestamp_ms = reader
-            .read(&path::PathBuf::from("meta/created_timestamp_ms"))?
-            .try_into()?;
-        let updated_timestamp_ms = reader
-            .read(&path::PathBuf::from("meta/updated_timestamp_ms"))?
-            .try_into()?;
+        let tree: String = reader.read("meta/tree")?.try_into()?;
+        let head: String = reader.read("meta/head")?.try_into()?;
+        let created_timestamp_ms = reader.read("meta/created_timestamp_ms")?.try_into()?;
+        let updated_timestamp_ms = reader.read("meta/updated_timestamp_ms")?.try_into()?;
 
-        let ownership_string: String = reader
-            .read(&path::PathBuf::from("meta/ownership"))?
-            .try_into()?;
+        let ownership_string: String = reader.read("meta/ownership")?.try_into()?;
         let ownership = ownership_string.parse().map_err(|e| {
             crate::reader::Error::Io(std::io::Error::new(
                 std::io::ErrorKind::Other,
