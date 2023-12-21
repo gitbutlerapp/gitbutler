@@ -17,7 +17,7 @@ impl<'r> BranchReader<'r> {
         if !self
             .reader
             .exists(format!("branches/{}", id))
-            .map_err(reader::Error::Io)?
+            .map_err(reader::Error::from)?
         {
             return Err(reader::Error::NotFound);
         }

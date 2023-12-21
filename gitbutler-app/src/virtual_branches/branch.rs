@@ -71,10 +71,9 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
     fn try_from(reader: &crate::reader::Reader) -> Result<Self, Self::Error> {
         let id: String = reader.read("id")?.try_into()?;
         let id: BranchId = id.parse().map_err(|e| {
-            crate::reader::Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("id: {}", e),
-            ))
+            crate::reader::Error::Io(
+                std::io::Error::new(std::io::ErrorKind::Other, format!("id: {}", e)).into(),
+            )
         })?;
         let name: String = reader.read("meta/name")?.try_into()?;
 
@@ -99,10 +98,13 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
         let upstream_head = match reader.read("meta/upstream_head") {
             Ok(crate::reader::Content::UTF8(upstream_head)) => {
                 upstream_head.parse().map(Some).map_err(|e| {
-                    crate::reader::Error::Io(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("meta/upstream_head: {}", e),
-                    ))
+                    crate::reader::Error::Io(
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!("meta/upstream_head: {}", e),
+                        )
+                        .into(),
+                    )
                 })
             }
             Ok(_) | Err(crate::reader::Error::NotFound) => Ok(None),
@@ -118,10 +120,13 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
                         .parse::<git::RemoteRefname>()
                         .map(Some)
                         .map_err(|e| {
-                            crate::reader::Error::Io(std::io::Error::new(
-                                std::io::ErrorKind::Other,
-                                format!("meta/upstream: {}", e),
-                            ))
+                            crate::reader::Error::Io(
+                                std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    format!("meta/upstream: {}", e),
+                                )
+                                .into(),
+                            )
                         })
                 }
             }
@@ -136,10 +141,10 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
 
         let ownership_string: String = reader.read("meta/ownership")?.try_into()?;
         let ownership = ownership_string.parse().map_err(|e| {
-            crate::reader::Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("meta/ownership: {}", e),
-            ))
+            crate::reader::Error::Io(
+                std::io::Error::new(std::io::ErrorKind::Other, format!("meta/ownership: {}", e))
+                    .into(),
+            )
         })?;
 
         Ok(Self {
@@ -150,16 +155,16 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
             upstream,
             upstream_head,
             tree: tree.parse().map_err(|e| {
-                crate::reader::Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("meta/tree: {}", e),
-                ))
+                crate::reader::Error::Io(
+                    std::io::Error::new(std::io::ErrorKind::Other, format!("meta/tree: {}", e))
+                        .into(),
+                )
             })?,
             head: head.parse().map_err(|e| {
-                crate::reader::Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("meta/head: {}", e),
-                ))
+                crate::reader::Error::Io(
+                    std::io::Error::new(std::io::ErrorKind::Other, format!("meta/head: {}", e))
+                        .into(),
+                )
             })?,
             created_timestamp_ms,
             updated_timestamp_ms,

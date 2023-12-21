@@ -52,12 +52,18 @@ impl<'reader> DeltasReader<'reader> {
                 .collect::<Vec<_>>();
         }
         paths = paths.iter().map(|path| deltas_dir.join(path)).collect();
-        let files = match self.reader.batch(&paths) {
-            Ok(files) => Ok(files),
-            Err(reader::Error::NotFound) => return Err(ReadError::NotFound),
-            Err(err) => Err(err),
-        }
-        .context("failed to read deltas")?;
+        let files = self.reader.batch(&paths).context("failed to batch read")?;
+
+        let files = files
+            .into_iter()
+            .map(|file| {
+                file.map_err(|error| match error {
+                    reader::Error::NotFound => ReadError::NotFound,
+                    error => ReadError::Other(error.into()),
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         Ok(paths
             .into_iter()
             .zip(files)

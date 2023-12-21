@@ -10,10 +10,10 @@ impl Dir {
         Inner::new(path).map(Arc::new).map(|inner| Self { inner })
     }
 
-    pub fn batch<R, E>(
+    pub fn batch<R>(
         &self,
-        action: impl FnOnce(&std::path::Path) -> Result<R, E>,
-    ) -> Result<R, BatchError<E>> {
+        action: impl FnOnce(&std::path::Path) -> R,
+    ) -> Result<R, std::io::Error> {
         self.inner.batch(action)
     }
 }
@@ -39,26 +39,15 @@ impl Inner {
         Ok(Self { path, flock })
     }
 
-    fn batch<R, E>(
-        &self,
-        action: impl FnOnce(&std::path::Path) -> Result<R, E>,
-    ) -> Result<R, BatchError<E>> {
+    fn batch<R>(&self, action: impl FnOnce(&std::path::Path) -> R) -> Result<R, std::io::Error> {
         let mut flock = self.flock.lock().unwrap();
 
         flock.lock()?;
-        let result = action(&self.path).map_err(BatchError::Batch);
+        let result = action(&self.path);
         flock.unlock()?;
 
-        result
+        Ok(result)
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum BatchError<E> {
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error(transparent)]
-    Batch(E),
 }
 
 #[cfg(test)]
@@ -100,6 +89,7 @@ mod tests {
             assert_eq!(std::fs::read_to_string(root.join("file.txt")).unwrap(), "1");
             std::fs::write(root.join("file.txt"), "2")
         })
+        .unwrap()
         .unwrap();
 
         assert_eq!(
@@ -145,6 +135,7 @@ mod tests {
             assert_eq!(std::fs::read_to_string(root.join("file.txt")).unwrap(), "1");
             std::fs::write(root.join("file.txt"), "2")
         })
+        .unwrap()
         .unwrap();
 
         assert_eq!(

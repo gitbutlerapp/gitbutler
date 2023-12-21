@@ -64,31 +64,31 @@ fn read_remote_name_branch_name(
 impl Target {
     fn try_from(reader: &crate::reader::Reader) -> Result<Target, crate::reader::Error> {
         let (_, branch_name) = read_remote_name_branch_name(reader).map_err(|e| {
-            crate::reader::Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("branch: {}", e),
-            ))
+            crate::reader::Error::Io(
+                std::io::Error::new(std::io::ErrorKind::Other, format!("branch: {}", e)).into(),
+            )
         })?;
         let remote_url = read_remote_url(reader).map_err(|e| {
-            crate::reader::Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("remote: {}", e),
-            ))
+            crate::reader::Error::Io(
+                std::io::Error::new(std::io::ErrorKind::Other, format!("remote: {}", e)).into(),
+            )
         })?;
         let sha: String = reader.read("sha")?.try_into()?;
         let sha = sha.parse().map_err(|e| {
-            crate::reader::Error::Io(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("sha: {}", e),
-            ))
+            crate::reader::Error::Io(
+                std::io::Error::new(std::io::ErrorKind::InvalidData, format!("sha: {}", e)).into(),
+            )
         })?;
 
         let last_fetched_ms: Option<u128> = match reader.read("last_fetched_ms") {
             Ok(last_fetched) => Some(last_fetched.try_into().map_err(|e| {
-                crate::reader::Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("last_fetched_ms: {}", e),
-                ))
+                crate::reader::Error::Io(
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("last_fetched_ms: {}", e),
+                    )
+                    .into(),
+                )
             })?),
             Err(crate::reader::Error::NotFound) => None,
             Err(e) => return Err(e),

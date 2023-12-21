@@ -17,7 +17,7 @@ impl<'r> TargetReader<'r> {
         if !self
             .reader
             .exists("branches/target")
-            .map_err(reader::Error::Io)?
+            .map_err(reader::Error::from)?
         {
             return Err(reader::Error::NotFound);
         }
@@ -29,7 +29,7 @@ impl<'r> TargetReader<'r> {
         if !self
             .reader
             .exists(format!("branches/{}/target", id))
-            .map_err(reader::Error::Io)?
+            .map_err(reader::Error::from)?
         {
             return self.read_default();
         }

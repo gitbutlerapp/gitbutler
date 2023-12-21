@@ -54,7 +54,7 @@ impl Handler {
 
         let reader = project_repository
             .get_wd_reader()
-            .map_err(reader::Error::Io)?;
+            .map_err(reader::Error::from)?;
 
         reader.read(path)
     }

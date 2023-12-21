@@ -5,14 +5,26 @@ use serde::{ser::SerializeStruct, Serialize};
 
 use crate::{fs, git, lock};
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum Error {
     #[error("file not found")]
     NotFound,
     #[error("io error: {0}")]
-    Io(#[from] std::io::Error),
+    Io(std::sync::Arc<std::io::Error>),
     #[error(transparent)]
-    From(#[from] FromError),
+    From(FromError),
+}
+
+impl From<std::io::Error> for Error {
+    fn from(error: std::io::Error) -> Self {
+        Error::Io(std::sync::Arc::new(error))
+    }
+}
+
+impl From<FromError> for Error {
+    fn from(error: FromError) -> Self {
+        Error::From(error)
+    }
 }
 
 pub enum Reader<'reader> {
@@ -54,13 +66,18 @@ impl<'reader> Reader<'reader> {
     }
 
     pub fn read<P: AsRef<path::Path>>(&self, path: P) -> Result<Content, Error> {
-        let contents = self.batch(&[path])?;
-        Ok(contents.into_iter().next().unwrap())
+        let mut contents = self.batch(&[path])?;
+        contents
+            .pop()
+            .expect("batch should return at least one result")
     }
 
-    pub fn batch<P: AsRef<path::Path>>(&self, paths: &[P]) -> Result<Vec<Content>, Error> {
+    pub fn batch<P: AsRef<path::Path>>(
+        &self,
+        paths: &[P],
+    ) -> Result<Vec<Result<Content, Error>>, std::io::Error> {
         match self {
-            Reader::Filesystem(reader) => match reader.batch(|root| {
+            Reader::Filesystem(reader) => reader.batch(|root| {
                 paths
                     .iter()
                     .map(|path| {
@@ -68,19 +85,15 @@ impl<'reader> Reader<'reader> {
                         if !path.exists() {
                             return Err(Error::NotFound);
                         }
-                        let content = Content::try_from(&path).map_err(Error::Io)?;
+                        let content = Content::try_from(&path)?;
                         Ok(content)
                     })
                     .collect()
-            }) {
-                Ok(contents) => Ok(contents),
-                Err(lock::BatchError::Io(err)) => Err(err.into()),
-                Err(lock::BatchError::Batch(err)) => Err(err),
-            },
-            Reader::Commit(reader) => paths
+            }),
+            Reader::Commit(reader) => Ok(paths
                 .iter()
                 .map(|path| reader.read(path.as_ref()))
-                .collect(),
+                .collect()),
             Reader::Prefixed(reader) => reader.batch(paths),
         }
     }
@@ -102,32 +115,19 @@ impl FilesystemReader {
     }
 
     fn exists<P: AsRef<std::path::Path>>(&self, path: P) -> Result<bool, std::io::Error> {
-        match self.0.batch(|root| root.join(path.as_ref()).try_exists()) {
-            Ok(exists) => Ok(exists),
-            Err(lock::BatchError::Batch(err)) if err.kind() == std::io::ErrorKind::NotFound => {
-                Ok(false)
-            }
-            Err(lock::BatchError::Batch(err)) | Err(lock::BatchError::Io(err)) => Err(err),
-        }
+        let exists = self.0.batch(|root| root.join(path.as_ref()).exists())?;
+        Ok(exists)
     }
 
-    fn batch<R, E>(
-        &self,
-        action: impl FnOnce(&std::path::Path) -> Result<R, E>,
-    ) -> Result<R, lock::BatchError<E>> {
+    fn batch<R>(&self, action: impl FnOnce(&std::path::Path) -> R) -> Result<R, std::io::Error> {
         self.0.batch(action)
     }
 
     fn list_files<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Vec<path::PathBuf>> {
         let path = path.as_ref();
-        match self
-            .0
-            .batch(|root| fs::list_files(root.join(path), &[path::Path::new(".git").to_path_buf()]))
-        {
-            Ok(exists) => Ok(exists),
-            Err(lock::BatchError::Io(err)) => Err(err.into()),
-            Err(lock::BatchError::Batch(err)) => Err(err),
-        }
+        self.0.batch(|root| {
+            fs::list_files(root.join(path), &[path::Path::new(".git").to_path_buf()])
+        })?
     }
 }
 
@@ -218,7 +218,10 @@ impl<'r> PrefixedReader<'r> {
         }
     }
 
-    pub fn batch<P: AsRef<path::Path>>(&self, paths: &[P]) -> Result<Vec<Content>, Error> {
+    pub fn batch<P: AsRef<path::Path>>(
+        &self,
+        paths: &[P],
+    ) -> Result<Vec<Result<Content, Error>>, std::io::Error> {
         let paths = paths
             .iter()
             .map(|path| self.prefix.join(path))
@@ -235,7 +238,7 @@ impl<'r> PrefixedReader<'r> {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum FromError {
     #[error(transparent)]
     ParseInt(#[from] num::ParseIntError),
@@ -330,12 +333,32 @@ impl From<&[u8]> for Content {
     }
 }
 
+impl TryFrom<&Content> for usize {
+    type Error = FromError;
+
+    fn try_from(content: &Content) -> Result<Self, Self::Error> {
+        match content {
+            Content::UTF8(text) => text.parse().map_err(FromError::ParseInt),
+            Content::Binary => Err(FromError::Binary),
+            Content::Large => Err(FromError::Large),
+        }
+    }
+}
+
 impl TryFrom<Content> for usize {
     type Error = FromError;
 
     fn try_from(content: Content) -> Result<Self, Self::Error> {
+        Self::try_from(&content)
+    }
+}
+
+impl TryFrom<&Content> for String {
+    type Error = FromError;
+
+    fn try_from(content: &Content) -> Result<Self, Self::Error> {
         match content {
-            Content::UTF8(text) => text.parse().map_err(FromError::ParseInt),
+            Content::UTF8(text) => Ok(text.clone()),
             Content::Binary => Err(FromError::Binary),
             Content::Large => Err(FromError::Large),
         }
@@ -346,11 +369,7 @@ impl TryFrom<Content> for String {
     type Error = FromError;
 
     fn try_from(content: Content) -> Result<Self, Self::Error> {
-        match content {
-            Content::UTF8(text) => Ok(text),
-            Content::Binary => Err(FromError::Binary),
-            Content::Large => Err(FromError::Large),
-        }
+        Self::try_from(&content)
     }
 }
 
@@ -358,6 +377,14 @@ impl TryFrom<Content> for u64 {
     type Error = FromError;
 
     fn try_from(content: Content) -> Result<Self, Self::Error> {
+        Self::try_from(&content)
+    }
+}
+
+impl TryFrom<&Content> for u64 {
+    type Error = FromError;
+
+    fn try_from(content: &Content) -> Result<Self, Self::Error> {
         let text: String = content.try_into()?;
         text.parse().map_err(FromError::ParseInt)
     }
@@ -367,6 +394,14 @@ impl TryFrom<Content> for u128 {
     type Error = FromError;
 
     fn try_from(content: Content) -> Result<Self, Self::Error> {
+        Self::try_from(&content)
+    }
+}
+
+impl TryFrom<&Content> for u128 {
+    type Error = FromError;
+
+    fn try_from(content: &Content) -> Result<Self, Self::Error> {
         let text: String = content.try_into()?;
         text.parse().map_err(FromError::ParseInt)
     }
@@ -376,6 +411,14 @@ impl TryFrom<Content> for bool {
     type Error = FromError;
 
     fn try_from(content: Content) -> Result<Self, Self::Error> {
+        Self::try_from(&content)
+    }
+}
+
+impl TryFrom<&Content> for bool {
+    type Error = FromError;
+
+    fn try_from(content: &Content) -> Result<Self, Self::Error> {
         let text: String = content.try_into()?;
         text.parse().map_err(FromError::ParseBool)
     }
@@ -397,10 +440,7 @@ mod tests {
         std::fs::write(dir.join(file_path), "test")?;
 
         let reader = Reader::open(dir.clone())?;
-        assert_eq!(
-            reader.batch(&[file_path])?,
-            vec![Content::UTF8("test".to_string())]
-        );
+        assert_eq!(reader.read(file_path)?, Content::UTF8("test".to_string()));
 
         Ok(())
     }
@@ -417,10 +457,7 @@ mod tests {
         std::fs::write(repository.path().parent().unwrap().join(file_path), "test2")?;
 
         let reader = Reader::from_commit(&repository, &repository.find_commit(oid)?)?;
-        assert_eq!(
-            reader.batch(&[file_path])?,
-            vec![Content::UTF8("test".to_string())]
-        );
+        assert_eq!(reader.read(file_path)?, Content::UTF8("test".to_string()));
 
         Ok(())
     }
