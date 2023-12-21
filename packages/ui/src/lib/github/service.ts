@@ -153,6 +153,7 @@ export class GitHubService {
 							return;
 						}
 
+						throw 'hello world';
 						await this.branchController.pushBranch(branchId, true);
 						const branch = await this.vbranchService.getById(branchId);
 
