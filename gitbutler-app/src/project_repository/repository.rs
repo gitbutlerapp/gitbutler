@@ -93,7 +93,7 @@ impl Repository {
         Ok(ignored)
     }
 
-    pub fn get_wd_reader(&self) -> reader::Reader {
+    pub fn get_wd_reader(&self) -> Result<reader::Reader, std::io::Error> {
         reader::Reader::open(self.root())
     }
 

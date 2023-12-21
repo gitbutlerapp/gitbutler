@@ -1,5 +1,3 @@
-use std::path;
-
 use crate::{reader, sessions, virtual_branches::BranchId};
 
 use super::Target;
@@ -16,7 +14,11 @@ impl<'r> TargetReader<'r> {
     }
 
     pub fn read_default(&self) -> Result<Target, reader::Error> {
-        if !self.reader.exists(&path::PathBuf::from("branches/target")) {
+        if !self
+            .reader
+            .exists("branches/target")
+            .map_err(reader::Error::Io)?
+        {
             return Err(reader::Error::NotFound);
         }
 
@@ -26,7 +28,8 @@ impl<'r> TargetReader<'r> {
     pub fn read(&self, id: &BranchId) -> Result<Target, reader::Error> {
         if !self
             .reader
-            .exists(&path::PathBuf::from(format!("branches/{}/target", id)))
+            .exists(format!("branches/{}/target", id))
+            .map_err(reader::Error::Io)?
         {
             return self.read_default();
         }

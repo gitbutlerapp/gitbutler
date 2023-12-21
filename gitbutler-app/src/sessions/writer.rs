@@ -1,4 +1,4 @@
-use std::{path, time};
+use std::time;
 
 use anyhow::{anyhow, Context, Result};
 
@@ -22,15 +22,15 @@ impl<'writer> SessionWriter<'writer> {
             return Err(anyhow!("can not open writer for a session with a hash"));
         }
 
-        let reader = reader::Reader::open(&self.repository.root());
+        let reader = reader::Reader::open(&self.repository.root())
+            .context("failed to open current session reader")?;
 
-        let current_session_id = if let Ok(reader::Content::UTF8(current_session_id)) =
-            reader.read(&path::PathBuf::from("session/meta/id"))
-        {
-            Some(current_session_id)
-        } else {
-            None
-        };
+        let current_session_id =
+            if let Ok(reader::Content::UTF8(current_session_id)) = reader.read("session/meta/id") {
+                Some(current_session_id)
+            } else {
+                None
+            };
 
         if current_session_id.is_some()
             && current_session_id.as_ref() != Some(&session.id.to_string())

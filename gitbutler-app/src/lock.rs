@@ -6,7 +6,7 @@ pub struct Dir {
 }
 
 impl Dir {
-    pub fn new<P: AsRef<std::path::Path>>(path: P) -> Result<Self, OpenError> {
+    pub fn new<P: AsRef<std::path::Path>>(path: P) -> Result<Self, std::io::Error> {
         Inner::new(path).map(Arc::new).map(|inner| Self { inner })
     }
 
@@ -25,10 +25,15 @@ struct Inner {
 }
 
 impl Inner {
-    fn new<P: AsRef<std::path::Path>>(path: P) -> Result<Self, OpenError> {
+    fn new<P: AsRef<std::path::Path>>(path: P) -> Result<Self, std::io::Error> {
         let path = path.as_ref().to_path_buf();
-        if !path.is_dir() {
-            return Err(OpenError::NotDirectory(path));
+        if !path.exists() {
+            std::fs::create_dir_all(&path)?;
+        } else if !path.is_dir() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("{} is not a directory", path.display()),
+            ));
         }
         let flock = fslock::LockFile::open(&path.with_extension("lock")).map(Mutex::new)?;
         Ok(Self { path, flock })
@@ -46,14 +51,6 @@ impl Inner {
 
         result
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum OpenError {
-    #[error("{0} is not a directory")]
-    NotDirectory(std::path::PathBuf),
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
 }
 
 #[derive(Debug, thiserror::Error)]

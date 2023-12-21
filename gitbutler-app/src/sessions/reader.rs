@@ -19,7 +19,7 @@ impl<'reader> SessionReader<'reader> {
     }
 
     pub fn open(repository: &'reader gb_repository::Repository, session: &Session) -> Result<Self> {
-        let wd_reader = reader::Reader::open(&repository.root());
+        let wd_reader = reader::Reader::open(&repository.root())?;
 
         if let Ok(reader::Content::UTF8(current_session_id)) =
             wd_reader.read(&repository.session_path().join("meta").join("id"))

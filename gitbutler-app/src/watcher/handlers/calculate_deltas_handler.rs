@@ -52,7 +52,9 @@ impl Handler {
             return Err(reader::Error::NotFound);
         }
 
-        let reader = project_repository.get_wd_reader();
+        let reader = project_repository
+            .get_wd_reader()
+            .map_err(reader::Error::Io)?;
 
         reader.read(path)
     }

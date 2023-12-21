@@ -3,7 +3,7 @@ use std::{num, path, str};
 use anyhow::{Context, Result};
 use serde::{ser::SerializeStruct, Serialize};
 
-use crate::{fs, git};
+use crate::{fs, git, lock};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -16,25 +16,25 @@ pub enum Error {
 }
 
 pub enum Reader<'reader> {
-    Dir(DirReader),
+    Filesystem(FilesystemReader),
     Commit(CommitReader<'reader>),
-    Sub(SubReader<'reader>),
+    Prefixed(PrefixedReader<'reader>),
 }
 
 impl<'reader> Reader<'reader> {
-    pub fn open(root: &path::Path) -> Self {
-        Reader::Dir(DirReader::open(root.to_path_buf()))
+    pub fn open<P: AsRef<path::Path>>(root: P) -> Result<Self, std::io::Error> {
+        FilesystemReader::open(root).map(Reader::Filesystem)
     }
 
     pub fn sub<P: AsRef<path::Path>>(&'reader self, prefix: P) -> Self {
-        Reader::Sub(SubReader::new(self, prefix))
+        Reader::Prefixed(PrefixedReader::new(self, prefix))
     }
 
     pub fn commit_id(&self) -> Option<git::Oid> {
         match self {
-            Reader::Dir(_) => None,
+            Reader::Filesystem(_) => None,
             Reader::Commit(reader) => Some(reader.get_commit_oid()),
-            Reader::Sub(reader) => reader.reader.commit_id(),
+            Reader::Prefixed(reader) => reader.reader.commit_id(),
         }
     }
 
@@ -45,59 +45,89 @@ impl<'reader> Reader<'reader> {
         Ok(Reader::Commit(CommitReader::new(repository, commit)?))
     }
 
-    pub fn exists(&self, file_path: &path::Path) -> bool {
+    pub fn exists<P: AsRef<path::Path>>(&self, file_path: P) -> Result<bool, std::io::Error> {
         match self {
-            Reader::Dir(reader) => reader.exists(file_path),
-            Reader::Commit(reader) => reader.exists(file_path),
-            Reader::Sub(reader) => reader.exists(file_path),
+            Reader::Filesystem(reader) => reader.exists(file_path),
+            Reader::Commit(reader) => Ok(reader.exists(file_path)),
+            Reader::Prefixed(reader) => reader.exists(file_path),
         }
     }
 
-    pub fn read(&self, path: &path::Path) -> Result<Content, Error> {
+    pub fn read<P: AsRef<path::Path>>(&self, path: P) -> Result<Content, Error> {
+        let contents = self.batch(&[path])?;
+        Ok(contents.into_iter().next().unwrap())
+    }
+
+    pub fn batch<P: AsRef<path::Path>>(&self, paths: &[P]) -> Result<Vec<Content>, Error> {
         match self {
-            Reader::Dir(reader) => reader.read(path),
-            Reader::Commit(reader) => reader.read(path),
-            Reader::Sub(reader) => reader.read(path),
+            Reader::Filesystem(reader) => match reader.batch(|root| {
+                paths
+                    .iter()
+                    .map(|path| {
+                        let path = root.join(path);
+                        if !path.exists() {
+                            return Err(Error::NotFound);
+                        }
+                        let content = Content::try_from(&path).map_err(Error::Io)?;
+                        Ok(content)
+                    })
+                    .collect()
+            }) {
+                Ok(contents) => Ok(contents),
+                Err(lock::BatchError::Io(err)) => Err(err.into()),
+                Err(lock::BatchError::Batch(err)) => Err(err),
+            },
+            Reader::Commit(reader) => paths
+                .iter()
+                .map(|path| reader.read(path.as_ref()))
+                .collect(),
+            Reader::Prefixed(reader) => reader.batch(paths),
         }
     }
 
-    pub fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>> {
+    pub fn list_files<P: AsRef<std::path::Path>>(&self, dir_path: P) -> Result<Vec<path::PathBuf>> {
         match self {
-            Reader::Dir(reader) => reader.list_files(dir_path),
-            Reader::Commit(reader) => reader.list_files(dir_path),
-            Reader::Sub(reader) => reader.list_files(dir_path),
+            Reader::Filesystem(reader) => reader.list_files(dir_path.as_ref()),
+            Reader::Commit(reader) => reader.list_files(dir_path.as_ref()),
+            Reader::Prefixed(reader) => reader.list_files(dir_path.as_ref()),
         }
     }
 }
 
-pub struct DirReader {
-    root: std::path::PathBuf,
-}
+pub struct FilesystemReader(lock::Dir);
 
-impl DirReader {
-    fn open(root: std::path::PathBuf) -> Self {
-        Self { root }
+impl FilesystemReader {
+    fn open<P: AsRef<std::path::Path>>(root: P) -> Result<Self, std::io::Error> {
+        lock::Dir::new(root).map(Self)
     }
 
-    fn exists(&self, file_path: &path::Path) -> bool {
-        let path = self.root.join(file_path);
-        path.exists()
-    }
-
-    fn read(&self, path: &path::Path) -> Result<Content, Error> {
-        let path = self.root.join(path);
-        if !path.exists() {
-            return Err(Error::NotFound);
+    fn exists<P: AsRef<std::path::Path>>(&self, path: P) -> Result<bool, std::io::Error> {
+        match self.0.batch(|root| root.join(path.as_ref()).try_exists()) {
+            Ok(exists) => Ok(exists),
+            Err(lock::BatchError::Batch(err)) if err.kind() == std::io::ErrorKind::NotFound => {
+                Ok(false)
+            }
+            Err(lock::BatchError::Batch(err)) | Err(lock::BatchError::Io(err)) => Err(err),
         }
-        let content = Content::try_from(&path).map_err(Error::Io)?;
-        Ok(content)
     }
 
-    fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>> {
-        fs::list_files(
-            self.root.join(dir_path),
-            &[path::Path::new(".git").to_path_buf()],
-        )
+    fn batch<R, E>(
+        &self,
+        action: impl FnOnce(&std::path::Path) -> Result<R, E>,
+    ) -> Result<R, lock::BatchError<E>> {
+        self.0.batch(action)
+    }
+
+    fn list_files<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Vec<path::PathBuf>> {
+        let path = path.as_ref();
+        match self
+            .0
+            .batch(|root| fs::list_files(root.join(path), &[path::Path::new(".git").to_path_buf()]))
+        {
+            Ok(exists) => Ok(exists),
+            Err(lock::BatchError::Io(err)) => Err(err.into()),
+            Err(lock::BatchError::Batch(err)) => Err(err),
+        }
     }
 }
 
@@ -126,7 +156,8 @@ impl<'reader> CommitReader<'reader> {
         self.commit_oid
     }
 
-    fn read(&self, path: &path::Path) -> Result<Content, Error> {
+    fn read<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Content, Error> {
+        let path = path.as_ref();
         let entry = match self
             .tree
             .get_path(std::path::Path::new(path))
@@ -142,9 +173,9 @@ impl<'reader> CommitReader<'reader> {
         Ok(Content::from(&blob))
     }
 
-    fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>> {
+    fn list_files<P: AsRef<std::path::Path>>(&self, dir_path: P) -> Result<Vec<path::PathBuf>> {
+        let dir_path = dir_path.as_ref();
         let mut files = vec![];
-        let dir_path = std::path::Path::new(dir_path);
         self.tree
             .walk(git2::TreeWalkMode::PreOrder, |root, entry| {
                 if entry.kind() == Some(git2::ObjectType::Tree) {
@@ -169,34 +200,38 @@ impl<'reader> CommitReader<'reader> {
         Ok(files)
     }
 
-    fn exists(&self, file_path: &path::Path) -> bool {
-        self.tree.get_path(file_path).is_ok()
+    fn exists<P: AsRef<std::path::Path>>(&self, file_path: P) -> bool {
+        self.tree.get_path(file_path.as_ref()).is_ok()
     }
 }
 
-pub struct SubReader<'r> {
+pub struct PrefixedReader<'r> {
     reader: &'r Reader<'r>,
     prefix: path::PathBuf,
 }
 
-impl<'r> SubReader<'r> {
+impl<'r> PrefixedReader<'r> {
     fn new<P: AsRef<path::Path>>(reader: &'r Reader, prefix: P) -> Self {
-        SubReader {
+        PrefixedReader {
             reader,
             prefix: prefix.as_ref().to_path_buf(),
         }
     }
 
-    fn read(&self, path: &path::Path) -> Result<Content, Error> {
-        self.reader.read(&self.prefix.join(path))
+    pub fn batch<P: AsRef<path::Path>>(&self, paths: &[P]) -> Result<Vec<Content>, Error> {
+        let paths = paths
+            .iter()
+            .map(|path| self.prefix.join(path))
+            .collect::<Vec<_>>();
+        self.reader.batch(paths.as_slice())
     }
 
-    fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>> {
-        self.reader.list_files(&self.prefix.join(dir_path))
+    fn list_files<P: AsRef<std::path::Path>>(&self, dir_path: P) -> Result<Vec<path::PathBuf>> {
+        self.reader.list_files(self.prefix.join(dir_path.as_ref()))
     }
 
-    fn exists(&self, file_path: &path::Path) -> bool {
-        self.reader.exists(&self.prefix.join(file_path))
+    fn exists<P: AsRef<std::path::Path>>(&self, file_path: P) -> Result<bool, std::io::Error> {
+        self.reader.exists(self.prefix.join(file_path.as_ref()))
     }
 }
 
@@ -361,8 +396,11 @@ mod tests {
         let file_path = path::Path::new("test.txt");
         std::fs::write(dir.join(file_path), "test")?;
 
-        let reader = DirReader::open(dir.clone());
-        assert_eq!(reader.read(file_path)?, Content::UTF8("test".to_string()));
+        let reader = Reader::open(dir.clone())?;
+        assert_eq!(
+            reader.batch(&[file_path])?,
+            vec![Content::UTF8("test".to_string())]
+        );
 
         Ok(())
     }
@@ -378,8 +416,11 @@ mod tests {
 
         std::fs::write(repository.path().parent().unwrap().join(file_path), "test2")?;
 
-        let reader = CommitReader::new(&repository, &repository.find_commit(oid)?)?;
-        assert_eq!(reader.read(file_path)?, Content::UTF8("test".to_string()));
+        let reader = Reader::from_commit(&repository, &repository.find_commit(oid)?)?;
+        assert_eq!(
+            reader.batch(&[file_path])?,
+            vec![Content::UTF8("test".to_string())]
+        );
 
         Ok(())
     }
@@ -392,7 +433,7 @@ mod tests {
         std::fs::create_dir_all(dir.join("dir"))?;
         std::fs::write(dir.join("dir").join("test.txt"), "test")?;
 
-        let reader = DirReader::open(dir.clone());
+        let reader = Reader::open(dir.clone())?;
         let files = reader.list_files(path::Path::new("dir"))?;
         assert_eq!(files.len(), 1);
         assert!(files.contains(&path::Path::new("test.txt").to_path_buf()));
@@ -408,7 +449,7 @@ mod tests {
         std::fs::create_dir_all(dir.join("dir"))?;
         std::fs::write(dir.join("dir").join("test.txt"), "test")?;
 
-        let reader = DirReader::open(dir.clone());
+        let reader = Reader::open(dir.clone())?;
         let files = reader.list_files(path::Path::new(""))?;
         assert_eq!(files.len(), 2);
         assert!(files.contains(&path::Path::new("test.txt").to_path_buf()));
@@ -483,9 +524,9 @@ mod tests {
 
         std::fs::write(dir.join("test.txt"), "test")?;
 
-        let reader = DirReader::open(dir.clone());
-        assert!(reader.exists(path::Path::new("test.txt")));
-        assert!(!reader.exists(path::Path::new("test2.txt")));
+        let reader = Reader::open(dir.clone())?;
+        assert!(reader.exists(path::Path::new("test.txt"))?);
+        assert!(!reader.exists(path::Path::new("test2.txt"))?);
 
         Ok(())
     }

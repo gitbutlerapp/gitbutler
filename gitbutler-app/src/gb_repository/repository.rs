@@ -380,7 +380,7 @@ impl Repository {
     pub fn get_or_create_current_session(&self) -> Result<sessions::Session> {
         let _lock = self.lock();
 
-        let reader = reader::Reader::open(&self.root());
+        let reader = reader::Reader::open(&self.root())?;
         match sessions::Session::try_from(&reader) {
             Result::Ok(session) => Ok(session),
             Err(sessions::SessionError::NoSession) => {
@@ -483,7 +483,7 @@ impl Repository {
 
     pub fn get_current_session(&self) -> Result<Option<sessions::Session>> {
         let _lock = self.lock();
-        let reader = reader::Reader::open(&self.root());
+        let reader = reader::Reader::open(&self.root())?;
         match sessions::Session::try_from(&reader) {
             Ok(session) => Ok(Some(session)),
             Err(sessions::SessionError::NoSession) => Ok(None),
@@ -587,7 +587,7 @@ fn build_wd_tree_from_reference(
         })?;
     }
 
-    let session_reader = reader::Reader::open(&gb_repository.root());
+    let session_reader = reader::Reader::open(&gb_repository.root())?;
     let deltas = deltas::Reader::from(&session_reader)
         .read(None)
         .context("failed to read deltas")?;
