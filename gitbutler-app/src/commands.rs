@@ -34,7 +34,7 @@ pub async fn list_session_files(
     handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
-    paths: Option<Vec<path::PathBuf>>,
+    paths: Option<Vec<&path::Path>>,
 ) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
     let app = handle.state::<app::App>();
     let session_id: SessionId = session_id.parse().map_err(|_| Error::UserError {

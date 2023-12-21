@@ -13,6 +13,14 @@ pub struct SessionReader<'reader> {
     previous_reader: reader::Reader<'reader>,
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum FileError {
+    #[error(transparent)]
+    Reader(#[from] reader::Error),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
 impl<'reader> SessionReader<'reader> {
     pub fn reader(&self) -> &reader::Reader<'reader> {
         &self.reader
@@ -62,20 +70,33 @@ impl<'reader> SessionReader<'reader> {
 
     pub fn files(
         &self,
-        paths: Option<&[path::PathBuf]>,
-    ) -> Result<HashMap<path::PathBuf, reader::Content>> {
-        let files = self.previous_reader.list_files(path::Path::new("wd"))?;
-        let mut files_with_content = HashMap::new();
-        for file_path in files {
-            if let Some(paths) = paths.as_ref() {
-                if !paths.iter().any(|path| file_path.eq(path)) {
-                    continue;
-                }
-            }
-            files_with_content.insert(file_path.clone(), self.file(&file_path)?);
+        filter: Option<&[&path::Path]>,
+    ) -> Result<HashMap<path::PathBuf, reader::Content>, FileError> {
+        let wd_dir = path::Path::new("wd");
+        let mut paths = self.previous_reader.list_files(wd_dir)?;
+        if let Some(filter) = filter {
+            paths = paths
+                .into_iter()
+                .filter(|file_path| filter.iter().any(|path| file_path.eq(path)))
+                .collect::<Vec<_>>();
         }
+        paths = paths.iter().map(|path| wd_dir.join(path)).collect();
+        let files = self
+            .previous_reader
+            .batch(&paths)
+            .context("failed to batch read")?;
 
-        Ok(files_with_content)
+        let files = files.into_iter().collect::<Result<Vec<_>, _>>()?;
+
+        Ok(paths
+            .into_iter()
+            .zip(files)
+            .filter_map(|(path, file)| {
+                path.strip_prefix(wd_dir)
+                    .ok()
+                    .map(|path| (path.to_path_buf(), file))
+            })
+            .collect::<HashMap<_, _>>())
     }
 
     pub fn file<P: AsRef<path::Path>>(&self, path: P) -> Result<reader::Content, reader::Error> {
