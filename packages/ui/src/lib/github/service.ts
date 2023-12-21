@@ -1,4 +1,17 @@
+import * as toasts from '$lib/utils/toasts';
 import lscache from 'lscache';
+import type { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
+import type { BranchController } from '$lib/vbranches/branchController';
+import type { UserService } from '$lib/stores/user';
+import type { Octokit } from '@octokit/rest';
+import { newClient } from '$lib/github/client';
+
+import {
+	type PullRequest,
+	type GitHubIntegrationContext,
+	ghResponseToInstance,
+	type PrStatus
+} from '$lib/github/types';
 import {
 	Observable,
 	EMPTY,
@@ -7,21 +20,20 @@ import {
 	firstValueFrom,
 	Subject,
 	combineLatest,
-	defer
+	defer,
+	TimeoutError,
+	throwError
 } from 'rxjs';
-import { catchError, distinct, map, retry, shareReplay, switchMap, tap } from 'rxjs/operators';
-
 import {
-	type PullRequest,
-	type GitHubIntegrationContext,
-	ghResponseToInstance,
-	type PrStatus
-} from '$lib/github/types';
-import { newClient } from '$lib/github/client';
-import type { BranchController } from '$lib/vbranches/branchController';
-import type { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
-import type { UserService } from '$lib/stores/user';
-import type { Octokit } from '@octokit/rest';
+	catchError,
+	distinct,
+	map,
+	retry,
+	shareReplay,
+	switchMap,
+	tap,
+	timeout
+} from 'rxjs/operators';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
@@ -99,7 +111,17 @@ export class GitHubService {
 	}
 
 	async reload(): Promise<void> {
-		const fresh = firstValueFrom(this.fresh$);
+		const fresh = firstValueFrom(
+			this.fresh$.pipe(
+				timeout(30000),
+				catchError(() => {
+					// Observable never errors for any other reasons
+					console.warn('Timed out while reloading pull requests');
+					toasts.error('Timed out while reloading pull requests');
+					return of();
+				})
+			)
+		);
 		this.reload$.next({ skipCache: true });
 		return await fresh;
 	}
@@ -173,13 +195,18 @@ export class GitHubService {
 				)
 			).pipe(
 				retry({
-					count: 3,
+					count: 2,
 					delay: 500
 				}),
+				timeout(60000), // 60 second total timeout
 				catchError((err) => {
-					console.log('Unable to create PR despite retrying', err);
+					if (err instanceof TimeoutError) {
+						console.log('Timed out while trying to create pull request');
+					} else {
+						console.log('Unable to create PR despite retrying', err);
+					}
 					this.setIdle(branchId);
-					throw err;
+					return throwError(() => err);
 				})
 			)
 		);
