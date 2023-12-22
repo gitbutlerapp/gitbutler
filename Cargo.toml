@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "packages/tauri",
+    "gitbutler-app",
 ]
 resolver = "2"
 

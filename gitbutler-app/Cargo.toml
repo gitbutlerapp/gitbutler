@@ -1,5 +1,5 @@
 [package]
-name = "gitbutler"
+name = "gitbutler-app"
 version = "0.0.0"
 edition = "2021"
 rust-version = "1.57"
@@ -9,7 +9,7 @@ name = "gblib"
 path = "src/lib.rs"
 
 [[bin]]
-name = "gitbutler"
+name = "gitbutler-app"
 path = "src/bin.rs"
 
 [build-dependencies]

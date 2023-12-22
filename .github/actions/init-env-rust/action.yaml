@@ -38,4 +38,4 @@ runs:
 
     - name: placeholder for ui assets
       shell: bash
-      run: mkdir packages/ui/build
+      run: mkdir gitbutler-ui/build
