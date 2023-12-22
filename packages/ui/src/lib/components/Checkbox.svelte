@@ -72,11 +72,8 @@
 		}
 
 		&:indeterminate {
-			&::after {
-				opacity: 1;
-				filter: invert(0);
-				transform: scale(1);
-			}
+			background-color: var(--clr-theme-container-pale);
+
 			&::before {
 				content: '';
 				position: absolute;
@@ -122,6 +119,7 @@
 				opacity var(--transition-fast),
 				transform var(--transition-fast);
 			opacity: 0;
+			filter: invert(var(--helpers-invert-1));
 		}
 
 		/* tick element */
@@ -139,5 +137,4 @@
 			height: var(--space-14);
 		}
 	}
-	/* test */
 </style>
