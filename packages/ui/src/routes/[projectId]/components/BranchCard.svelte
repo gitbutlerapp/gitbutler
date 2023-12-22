@@ -277,7 +277,7 @@
 		background: var(--clr-theme-container-light);
 		justify-content: center;
 		gap: var(--space-8);
-		padding: 0 var(--space-40);
+		padding: var(--space-24) var(--space-40);
 	}
 
 	.new-branch h1 {

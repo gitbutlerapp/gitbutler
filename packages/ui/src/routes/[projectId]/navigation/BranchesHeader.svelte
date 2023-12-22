@@ -3,7 +3,6 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
 
-	export let scrolled: boolean;
 	export let count: number | undefined;
 	export let filtersActive = false;
 
@@ -17,7 +16,7 @@
 	}
 </script>
 
-<div class="header" class:header-scrolled={scrolled}>
+<div class="header">
 	<div class="branches-title">
 		<span class="text-base-14 text-semibold">Branches</span>
 
@@ -56,9 +55,6 @@
 		border-bottom: 1px solid transparent;
 		transition: border-bottom var(--transition-fast);
 		position: relative;
-	}
-	.header-scrolled {
-		border-bottom: 1px solid var(--clr-theme-container-outline-light);
 	}
 	.filter-popup-menu {
 		position: absolute;

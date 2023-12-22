@@ -11,6 +11,7 @@
 	export let scrolled = false;
 	export let wide = false;
 	export let initiallyVisible = false;
+	export let showBorderWhenScrolled = false;
 
 	let observer: ResizeObserver;
 
@@ -28,7 +29,11 @@
 	onDestroy(() => observer.disconnect());
 </script>
 
-<div class="scrollable" style:flex-grow={wide ? 1 : 0}>
+<div
+	class="scrollable"
+	class:scrolled={showBorderWhenScrolled && scrolled}
+	style:flex-grow={wide ? 1 : 0}
+>
 	<div
 		bind:this={viewport}
 		on:scroll={(e) => {
@@ -61,5 +66,8 @@
 	.contents {
 		display: block;
 		min-width: 100%;
+	}
+	.scrolled {
+		border-top: 1px solid var(--clr-theme-container-outline-light);
 	}
 </style>

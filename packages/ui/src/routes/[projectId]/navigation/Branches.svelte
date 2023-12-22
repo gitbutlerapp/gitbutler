@@ -71,8 +71,6 @@
 	let observer: ResizeObserver;
 	let maxHeight: number;
 
-	let scrolled: boolean;
-
 	function filterByType(
 		branches: CombinedBranch[],
 		params: {
@@ -146,11 +144,7 @@
 				$height = Math.min(maxHeight, e.detail / (16 * $userSettings.zoom));
 			}}
 		/>
-		<BranchesHeader
-			{scrolled}
-			count={$filteredBranches$?.length ?? 0}
-			filtersActive={$filtersActive}
-		>
+		<BranchesHeader count={$filteredBranches$?.length ?? 0} filtersActive={$filtersActive}>
 			<FilterPopupMenu
 				slot="context-menu"
 				let:visible
@@ -164,7 +158,7 @@
 				on:action
 			/>
 		</BranchesHeader>
-		<ScrollableContainer bind:scrolled bind:viewport>
+		<ScrollableContainer bind:viewport showBorderWhenScrolled>
 			<div class="scroll-container">
 				<TextBox icon="filter" placeholder="Search" on:input={(e) => textFilter$.next(e.detail)} />
 				<div bind:this={contents} class="content">
