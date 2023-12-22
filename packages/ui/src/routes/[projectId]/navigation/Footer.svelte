@@ -23,19 +23,19 @@
 			<IconButton icon="settings" />
 		</Link>
 		{#if $isLoading}
-			<Tooltip>
-				<div class="loading-status">
+			<div class="loading-status">
+				<Tooltip>
 					<Icon name="spinner" />
-				</div>
-				<div slot="label">
-					{#each loadStack as item}
-						<p>
-							{item.name}
-							- <TimeAgo date={item.startedAt} addSuffix={true} />
-						</p>
-					{/each}
-				</div>
-			</Tooltip>
+					<div slot="label">
+						{#each loadStack as item}
+							<p>
+								{item.name}
+								- <TimeAgo date={item.startedAt} addSuffix={true} />
+							</p>
+						{/each}
+					</div>
+				</Tooltip>
+			</div>
 		{/if}
 	</div>
 	<AccountLink {user} />
