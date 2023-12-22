@@ -33,6 +33,7 @@
 	class="scrollable"
 	class:scrolled={showBorderWhenScrolled && scrolled}
 	style:flex-grow={wide ? 1 : 0}
+	style:min-height={minHeight}
 >
 	<div
 		bind:this={viewport}
@@ -41,7 +42,6 @@
 		}}
 		class="viewport hide-native-scrollbar"
 		style:height
-		style:min-height={minHeight}
 		style:overflow-y={scrollable ? 'scroll' : 'hidden'}
 	>
 		<div bind:this={contents} class="contents">

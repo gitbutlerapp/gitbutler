@@ -32,6 +32,7 @@
 	function updateResizable() {
 		// todo
 	}
+	$: console.log(forceResizable, maxHeight, height);
 </script>
 
 {#if branch.active && branch.conflicted}
@@ -57,7 +58,7 @@
 </div>
 <div
 	class="resize-viewport flex-grow"
-	class:flex-shrink-0={(scrollable || forceResizable) && branch.commits.length > 0}
+	class:flex-shrink-0={(scrollable || forceResizable) && branch.commits.length > 0 && height}
 	style:min-height={scrollable || forceResizable ? `${headerElement.offsetHeight}px` : undefined}
 	style:height={scrollable || forceResizable ? `${height}px` : undefined}
 	style:max-height={forceResizable && maxHeight ? maxHeight + 'px' : undefined}
