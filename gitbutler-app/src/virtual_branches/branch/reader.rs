@@ -14,14 +14,6 @@ impl<'r> BranchReader<'r> {
     }
 
     pub fn read(&self, id: &BranchId) -> Result<Branch, reader::Error> {
-        if !self
-            .reader
-            .exists(format!("branches/{}", id))
-            .map_err(reader::Error::from)?
-        {
-            return Err(reader::Error::NotFound);
-        }
-
         Branch::try_from(&self.reader.sub(format!("branches/{}", id)))
     }
 }
