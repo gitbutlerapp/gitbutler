@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use crate::lock;
 
@@ -11,50 +11,82 @@ impl DirWriter {
 }
 
 impl DirWriter {
-    fn write(&self, path: &str, contents: &[u8]) -> Result<()> {
-        self.0.batch(|root| {
-            let file_path = root.join(path);
-            let dir_path = file_path.parent().context("failed to get parent")?;
-            std::fs::create_dir_all(dir_path).context("failed to create directory")?;
-            std::fs::write(file_path, contents)?;
-            Ok(())
-        })?
+    fn write<P, C>(&self, path: P, contents: C) -> Result<(), std::io::Error>
+    where
+        P: AsRef<std::path::Path>,
+        C: AsRef<[u8]>,
+    {
+        self.batch(&[BatchTask::Write(path, contents)])
     }
 
-    pub fn remove(&self, path: &str) -> Result<()> {
+    pub fn remove<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), std::io::Error> {
         self.0.batch(|root| {
-            let file_path = root.join(path);
-            if file_path.is_dir() {
-                match std::fs::remove_dir_all(file_path) {
-                    Ok(()) => Ok(()),
-                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                    Err(e) => Err(e.into()),
+            let path = root.join(path);
+            if path.exists() {
+                if path.is_dir() {
+                    std::fs::remove_dir_all(path)
+                } else {
+                    std::fs::remove_file(path)
                 }
             } else {
-                match std::fs::remove_file(file_path) {
-                    Ok(()) => Ok(()),
-                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                    Err(e) => Err(e.into()),
-                }
+                Ok(())
             }
         })?
     }
 
-    pub fn write_usize(&self, path: &str, contents: &usize) -> Result<()> {
+    pub fn batch<P, C>(&self, values: &[BatchTask<P, C>]) -> Result<(), std::io::Error>
+    where
+        P: AsRef<std::path::Path>,
+        C: AsRef<[u8]>,
+    {
+        self.0.batch(|root| {
+            for value in values {
+                match value {
+                    BatchTask::Write(path, contents) => {
+                        let path = root.join(path);
+                        if let Some(dir_path) = path.parent() {
+                            if !dir_path.exists() {
+                                std::fs::create_dir_all(dir_path)?;
+                            }
+                        };
+                        std::fs::write(path, contents)?;
+                    }
+                    BatchTask::Remove(path) => {
+                        let path = root.join(path);
+                        if path.exists() {
+                            if path.is_dir() {
+                                std::fs::remove_dir_all(path)?;
+                            } else {
+                                std::fs::remove_file(path)?;
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(())
+        })?
+    }
+
+    pub fn write_usize(&self, path: &str, contents: &usize) -> Result<(), std::io::Error> {
         self.write_string(path, &contents.to_string())
     }
 
-    pub fn write_u128(&self, path: &str, contents: &u128) -> Result<()> {
+    pub fn write_u128(&self, path: &str, contents: &u128) -> Result<(), std::io::Error> {
         self.write_string(path, &contents.to_string())
     }
 
-    pub fn write_bool(&self, path: &str, contents: &bool) -> Result<()> {
+    pub fn write_bool(&self, path: &str, contents: &bool) -> Result<(), std::io::Error> {
         self.write_string(path, &contents.to_string())
     }
 
-    pub fn write_string(&self, path: &str, contents: &str) -> Result<()> {
-        self.write(path, contents.as_bytes())
+    pub fn write_string(&self, path: &str, contents: &str) -> Result<(), std::io::Error> {
+        self.write(path, contents)
     }
+}
+
+pub enum BatchTask<P: AsRef<std::path::Path>, C: AsRef<[u8]>> {
+    Write(P, C),
+    Remove(P),
 }
 
 #[cfg(test)]

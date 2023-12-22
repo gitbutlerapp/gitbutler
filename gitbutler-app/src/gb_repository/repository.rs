@@ -437,9 +437,9 @@ impl Repository {
         let _lock = self.lock();
 
         // update last timestamp
-        sessions::Writer::new(self)
-            .context("failed to create session writer")?
-            .write(session)?;
+        let session_writer =
+            sessions::Writer::new(self).context("failed to create session writer")?;
+        session_writer.write(session)?;
 
         let mut tree_builder = self.git_repository.treebuilder(None);
 
@@ -472,8 +472,7 @@ impl Repository {
             "flushed session"
         );
 
-        std::fs::remove_dir_all(self.session_path())
-            .context("failed to remove session directory")?;
+        session_writer.remove()?;
 
         let session = sessions::Session {
             hash: Some(commit_oid),

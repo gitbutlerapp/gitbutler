@@ -17,6 +17,17 @@ impl<'writer> SessionWriter<'writer> {
             .map(|writer| SessionWriter { repository, writer })
     }
 
+    pub fn remove(&self) -> Result<()> {
+        self.writer.remove("session")?;
+
+        tracing::debug!(
+            project_id = %self.repository.get_project_id(),
+            "deleted session"
+        );
+
+        Ok(())
+    }
+
     pub fn write(&self, session: &Session) -> Result<()> {
         if session.hash.is_some() {
             return Err(anyhow!("can not open writer for a session with a hash"));
@@ -43,54 +54,54 @@ impl<'writer> SessionWriter<'writer> {
             ));
         }
 
-        self.writer
-            .write_string(
-                "session/meta/last",
-                time::SystemTime::now()
-                    .duration_since(time::SystemTime::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis()
-                    .to_string()
-                    .as_str(),
-            )
-            .context("failed to write last timestamp")?;
+        let mut batch = vec![writer::BatchTask::Write(
+            "session/meta/last",
+            time::SystemTime::now()
+                .duration_since(time::SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+                .to_string(),
+        )];
 
         if current_session_id.is_some()
             && current_session_id.as_ref() == Some(&session.id.to_string())
         {
+            self.writer
+                .batch(&batch)
+                .context("failed to write last timestamp")?;
             return Ok(());
         }
 
-        self.writer
-            .write_string(
-                self.repository
-                    .session_path()
-                    .join("meta")
-                    .join("id")
-                    .to_str()
-                    .unwrap(),
-                &session.id.to_string(),
-            )
-            .context("failed to write id")?;
-
-        self.writer
-            .write_string(
-                "session/meta/start",
-                session.meta.start_timestamp_ms.to_string().as_str(),
-            )
-            .context("failed to write start timestamp")?;
+        batch.push(writer::BatchTask::Write(
+            "session/meta/id",
+            session.id.to_string(),
+        ));
+        batch.push(writer::BatchTask::Write(
+            "session/meta/start",
+            session.meta.start_timestamp_ms.to_string(),
+        ));
 
         if let Some(branch) = session.meta.branch.as_ref() {
-            self.writer
-                .write_string("session/meta/branch", branch)
-                .context("failed to write branch")?;
+            batch.push(writer::BatchTask::Write(
+                "session/meta/branch",
+                branch.to_string(),
+            ));
+        } else {
+            batch.push(writer::BatchTask::Remove("session/meta/branch"));
         }
 
         if let Some(commit) = session.meta.commit.as_ref() {
-            self.writer
-                .write_string("session/meta/commit", commit)
-                .context("failed to write commit")?;
+            batch.push(writer::BatchTask::Write(
+                "session/meta/commit",
+                commit.to_string(),
+            ));
+        } else {
+            batch.push(writer::BatchTask::Remove("session/meta/commit"));
         }
+
+        self.writer
+            .batch(&batch)
+            .context("failed to write session meta")?;
 
         Ok(())
     }

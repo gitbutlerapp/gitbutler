@@ -45,6 +45,7 @@ fn test_should_write_full_session() -> Result<()> {
 
     Writer::new(&gb_repository)?.write(&session)?;
 
+    dbg!(&gb_repository.session_path());
     assert_eq!(
         std::fs::read_to_string(gb_repository.session_path().join("meta/id"))?,
         session.id.to_string()

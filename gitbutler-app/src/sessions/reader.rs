@@ -29,9 +29,7 @@ impl<'reader> SessionReader<'reader> {
     pub fn open(repository: &'reader gb_repository::Repository, session: &Session) -> Result<Self> {
         let wd_reader = reader::Reader::open(&repository.root())?;
 
-        if let Ok(reader::Content::UTF8(current_session_id)) =
-            wd_reader.read(repository.session_path().join("meta").join("id"))
-        {
+        if let Ok(reader::Content::UTF8(current_session_id)) = wd_reader.read("session/meta/id") {
             if current_session_id == session.id.to_string() {
                 let head_commit = repository.git_repository().head()?.peel_to_commit()?;
                 return Ok(SessionReader {
