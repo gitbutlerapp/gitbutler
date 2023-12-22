@@ -18,7 +18,8 @@
 </script>
 
 {#if branch.commits.length > 0}
-	<ScrollableContainer bind:scrollable showBorderWhenScrolled>
+	<!-- Note that 11.25rem min height is just observational, it might need updating -->
+	<ScrollableContainer bind:scrollable minHeight="9rem" showBorderWhenScrolled>
 		<CommitList
 			{branch}
 			{base}
