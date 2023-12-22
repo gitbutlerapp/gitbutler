@@ -14,13 +14,12 @@ jobs:
         with:
           filters: |
             rust:
-              - 'packages/tauri/**'
-              - 'packages/butler/**'
+              - 'gitbutler-app/**'
               - 'Cargo.lock'
               - 'Cargo.toml'
               - 'rust-toolchain.toml'
             node:
-              - 'packages/ui/**'
+              - 'gitbutler-ui/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
 

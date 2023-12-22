@@ -12,7 +12,7 @@ importers:
         specifier: ^1.5.6
         version: 1.5.6
 
-  packages/ui:
+  gitbutler-ui:
     devDependencies:
       '@codemirror/lang-cpp':
         specifier: ^6.0.2
