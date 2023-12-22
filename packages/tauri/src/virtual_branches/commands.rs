@@ -37,9 +37,8 @@ pub async fn commit_virtual_branch(
     branch: &str,
     message: &str,
     ownership: Option<&str>,
+    run_hooks: bool,
 ) -> Result<git::Oid, Error> {
-    // TODO: add run_hooks option to the API
-    let run_hooks = false;
     let project_id = project_id.parse().map_err(|_| Error::UserError {
         code: Code::Validation,
         message: "Malformed project id".to_string(),

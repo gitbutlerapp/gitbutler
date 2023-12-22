@@ -9,7 +9,8 @@
 	import {
 		projectAiGenEnabled,
 		projectCommitGenerationExtraConcise,
-		projectCommitGenerationUseEmojis
+		projectCommitGenerationUseEmojis,
+		projectRunCommitHooks
 	} from '$lib/config/config';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import Button from '$lib/components/Button.svelte';
@@ -35,6 +36,7 @@
 	export let selectedOwnership: Writable<Ownership>;
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
+	const runCommitHooks = projectRunCommitHooks(projectId);
 	export const expanded = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
 
 	let commitMessage: string;
@@ -51,7 +53,7 @@
 		isCommitting = true;
 		selectedOwnership.set(Ownership.fromBranch(branch));
 		branchController
-			.commitBranch(branch.id, commitMessage, $selectedOwnership.toString())
+			.commitBranch(branch.id, commitMessage, $selectedOwnership.toString(), $runCommitHooks)
 			.then(() => {
 				isCommitting = false;
 				commitMessage = '';
