@@ -24,7 +24,6 @@
 	let scrollViewport: HTMLDivElement | undefined;
 	let rsViewport: HTMLElement;
 
-	let scrolled: boolean;
 	let scrollable: boolean | undefined;
 	let height: number | undefined = undefined;
 	let maxHeight: number | undefined;
@@ -46,7 +45,7 @@
 	</div>
 {/if}
 
-<div class="header" class:scrolled bind:this={headerElement}>
+<div class="header" bind:this={headerElement}>
 	<div class="header-title text-base-13 text-semibold">
 		<span>Changes</span>
 		<Badge count={branch.files.length} />
@@ -66,10 +65,10 @@
 >
 	{#if branch.files.length > 0}
 		<ScrollableContainer
+			showBorderWhenScrolled
 			bind:viewport={scrollViewport}
 			bind:maxHeight
 			bind:scrollable
-			bind:scrolled
 		>
 			<div class="scroll-container">
 				<!-- TODO: This is an experiment in file sorting. Accept or reject! -->
@@ -141,9 +140,6 @@
 		padding-left: var(--space-16);
 		padding-right: var(--space-12);
 		border-color: var(--clr-theme-container-outline-light);
-		&.scrolled {
-			border-bottom: 1px solid var(--clr-theme-container-outline-light);
-		}
 	}
 	.header-title {
 		display: flex;

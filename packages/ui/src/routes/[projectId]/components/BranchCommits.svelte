@@ -18,7 +18,7 @@
 </script>
 
 {#if branch.commits.length > 0}
-	<ScrollableContainer bind:scrollable>
+	<ScrollableContainer bind:scrollable showBorderWhenScrolled>
 		<CommitList
 			{branch}
 			{base}
