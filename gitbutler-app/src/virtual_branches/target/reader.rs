@@ -14,14 +14,6 @@ impl<'r> TargetReader<'r> {
     }
 
     pub fn read_default(&self) -> Result<Target, reader::Error> {
-        if !self
-            .reader
-            .exists("branches/target")
-            .map_err(reader::Error::from)?
-        {
-            return Err(reader::Error::NotFound);
-        }
-
         Target::try_from(&self.reader.sub("branches/target"))
     }
 
