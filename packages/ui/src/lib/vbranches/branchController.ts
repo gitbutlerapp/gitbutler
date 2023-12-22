@@ -44,13 +44,19 @@ export class BranchController {
 		}
 	}
 
-	async commitBranch(branch: string, message: string, ownership: string | undefined = undefined) {
+	async commitBranch(
+		branch: string,
+		message: string,
+		ownership: string | undefined = undefined,
+		runHooks = false
+	) {
 		try {
 			await invoke<void>('commit_virtual_branch', {
 				projectId: this.projectId,
 				branch,
 				message,
-				ownership
+				ownership,
+				runHooks: runHooks
 			});
 		} catch (err) {
 			toasts.error('Failed to commit branch');
