@@ -10,9 +10,8 @@ pub struct DeltasWriter<'writer> {
 }
 
 impl<'writer> DeltasWriter<'writer> {
-    pub fn new(repository: &'writer gb_repository::Repository) -> Self {
-        let writer = writer::DirWriter::open(repository.root());
-        Self { writer, repository }
+    pub fn new(repository: &'writer gb_repository::Repository) -> Result<Self, std::io::Error> {
+        writer::DirWriter::open(repository.root()).map(|writer| Self { writer, repository })
     }
 
     pub fn write<P: AsRef<std::path::Path>>(&self, path: P, deltas: &Vec<Delta>) -> Result<()> {
@@ -87,7 +86,7 @@ mod tests {
     fn write_no_vbranches() -> Result<()> {
         let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let deltas_writer = DeltasWriter::new(&gb_repository);
+        let deltas_writer = DeltasWriter::new(&gb_repository)?;
 
         let session = gb_repository.get_or_create_current_session()?;
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;

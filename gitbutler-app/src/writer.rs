@@ -1,39 +1,43 @@
 use anyhow::{Context, Result};
 
-pub struct DirWriter {
-    root: std::path::PathBuf,
-}
+use crate::lock;
+
+pub struct DirWriter(lock::Dir);
 
 impl DirWriter {
-    pub fn open(root: std::path::PathBuf) -> Self {
-        Self { root }
+    pub fn open<P: AsRef<std::path::Path>>(root: P) -> Result<Self, std::io::Error> {
+        lock::Dir::new(root).map(Self)
     }
 }
 
 impl DirWriter {
     fn write(&self, path: &str, contents: &[u8]) -> Result<()> {
-        let file_path = self.root.join(path);
-        let dir_path = file_path.parent().context("failed to get parent")?;
-        std::fs::create_dir_all(dir_path).context("failed to create directory")?;
-        std::fs::write(file_path, contents)?;
-        Ok(())
+        self.0.batch(|root| {
+            let file_path = root.join(path);
+            let dir_path = file_path.parent().context("failed to get parent")?;
+            std::fs::create_dir_all(dir_path).context("failed to create directory")?;
+            std::fs::write(file_path, contents)?;
+            Ok(())
+        })?
     }
 
     pub fn remove(&self, path: &str) -> Result<()> {
-        let file_path = self.root.join(path);
-        if file_path.is_dir() {
-            match std::fs::remove_dir_all(file_path) {
-                Ok(()) => Ok(()),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                Err(e) => Err(e.into()),
+        self.0.batch(|root| {
+            let file_path = root.join(path);
+            if file_path.is_dir() {
+                match std::fs::remove_dir_all(file_path) {
+                    Ok(()) => Ok(()),
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                    Err(e) => Err(e.into()),
+                }
+            } else {
+                match std::fs::remove_file(file_path) {
+                    Ok(()) => Ok(()),
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                    Err(e) => Err(e.into()),
+                }
             }
-        } else {
-            match std::fs::remove_file(file_path) {
-                Ok(()) => Ok(()),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                Err(e) => Err(e.into()),
-            }
-        }
+        })?
     }
 
     pub fn write_usize(&self, path: &str, contents: &usize) -> Result<()> {
@@ -60,7 +64,7 @@ mod tests {
     #[test]
     fn test_write() {
         let root = tempfile::tempdir().unwrap();
-        let writer = DirWriter::open(root.path().to_path_buf());
+        let writer = DirWriter::open(root.path()).unwrap();
         writer.write("foo/bar", b"baz").unwrap();
         assert_eq!(
             std::fs::read_to_string(root.path().join("foo/bar")).unwrap(),
@@ -71,7 +75,7 @@ mod tests {
     #[test]
     fn test_remove() {
         let root = tempfile::tempdir().unwrap();
-        let writer = DirWriter::open(root.path().to_path_buf());
+        let writer = DirWriter::open(root.path()).unwrap();
         writer.remove("foo/bar").unwrap();
         assert!(!root.path().join("foo/bar").exists());
         writer.write("foo/bar", b"baz").unwrap();

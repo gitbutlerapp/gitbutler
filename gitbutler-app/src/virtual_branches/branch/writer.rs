@@ -10,11 +10,8 @@ pub struct BranchWriter<'writer> {
 }
 
 impl<'writer> BranchWriter<'writer> {
-    pub fn new(repository: &'writer gb_repository::Repository) -> Self {
-        Self {
-            repository,
-            writer: writer::DirWriter::open(repository.root()),
-        }
+    pub fn new(repository: &'writer gb_repository::Repository) -> Result<Self, std::io::Error> {
+        writer::DirWriter::open(repository.root()).map(|writer| Self { repository, writer })
     }
 
     pub fn delete(&self, branch: &Branch) -> Result<()> {
@@ -187,7 +184,7 @@ mod tests {
 
         let mut branch = test_branch();
 
-        let writer = BranchWriter::new(&gb_repository);
+        let writer = BranchWriter::new(&gb_repository)?;
         writer.write(&mut branch)?;
 
         let root = gb_repository
@@ -248,7 +245,7 @@ mod tests {
 
         let mut branch = test_branch();
 
-        let writer = BranchWriter::new(&gb_repository);
+        let writer = BranchWriter::new(&gb_repository)?;
         writer.write(&mut branch)?;
 
         assert!(gb_repository.get_current_session()?.is_some());
@@ -262,7 +259,7 @@ mod tests {
 
         let mut branch = test_branch();
 
-        let writer = BranchWriter::new(&gb_repository);
+        let writer = BranchWriter::new(&gb_repository)?;
         writer.write(&mut branch)?;
 
         let mut updated_branch = Branch {

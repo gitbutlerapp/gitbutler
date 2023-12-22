@@ -10,11 +10,8 @@ pub struct TargetWriter<'writer> {
 }
 
 impl<'writer> TargetWriter<'writer> {
-    pub fn new(repository: &'writer gb_repository::Repository) -> Self {
-        Self {
-            repository,
-            writer: writer::DirWriter::open(repository.root()),
-        }
+    pub fn new(repository: &'writer gb_repository::Repository) -> Result<Self, std::io::Error> {
+        writer::DirWriter::open(repository.root()).map(|writer| Self { repository, writer })
     }
 
     pub fn write_default(&self, target: &Target) -> Result<()> {
@@ -169,10 +166,10 @@ mod tests {
             last_fetched_ms: Some(1),
         };
 
-        let branch_writer = branch::Writer::new(&gb_repository);
+        let branch_writer = branch::Writer::new(&gb_repository)?;
         branch_writer.write(&mut branch)?;
 
-        let target_writer = TargetWriter::new(&gb_repository);
+        let target_writer = TargetWriter::new(&gb_repository)?;
         target_writer.write(&branch.id, &target)?;
 
         let root = gb_repository
@@ -267,9 +264,9 @@ mod tests {
             last_fetched_ms: Some(1),
         };
 
-        let branch_writer = branch::Writer::new(&gb_repository);
+        let branch_writer = branch::Writer::new(&gb_repository)?;
         branch_writer.write(&mut branch)?;
-        let target_writer = TargetWriter::new(&gb_repository);
+        let target_writer = TargetWriter::new(&gb_repository)?;
         target_writer.write(&branch.id, &target)?;
 
         let updated_target = Target {

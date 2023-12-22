@@ -96,7 +96,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
     let Case { gb_repository, .. } = Suite::default().new_case();
 
     let current_session = gb_repository.get_or_create_current_session()?;
-    let writer = deltas::Writer::new(&gb_repository);
+    let writer = deltas::Writer::new(&gb_repository)?;
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
@@ -130,7 +130,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
         ..
     } = Suite::default().new_case();
 
-    let writer = deltas::Writer::new(&gb_repository);
+    let writer = deltas::Writer::new(&gb_repository)?;
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
@@ -235,7 +235,7 @@ async fn test_remote_syncronization() -> Result<()> {
         .await?;
     let case_one = case_one.refresh();
 
-    let writer = deltas::Writer::new(&case_one.gb_repository);
+    let writer = deltas::Writer::new(&case_one.gb_repository)?;
     writer.write(
         "test.txt",
         &vec![deltas::Delta {

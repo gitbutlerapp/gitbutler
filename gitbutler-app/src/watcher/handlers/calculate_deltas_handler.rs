@@ -133,7 +133,8 @@ impl Handler {
         if let Some(new_delta) = new_delta {
             let deltas = text_doc.get_deltas();
 
-            let writer = deltas::Writer::new(&gb_repository);
+            let writer =
+                deltas::Writer::new(&gb_repository).context("failed to open deltas writer")?;
             writer
                 .write(path, &deltas)
                 .context("failed to write deltas")?;
@@ -810,8 +811,8 @@ mod test {
         )]));
         let listener = Handler::from(&suite.local_app_data);
 
-        let branch_writer = virtual_branches::branch::Writer::new(&gb_repository);
-        let target_writer = virtual_branches::target::Writer::new(&gb_repository);
+        let branch_writer = virtual_branches::branch::Writer::new(&gb_repository)?;
+        let target_writer = virtual_branches::target::Writer::new(&gb_repository)?;
         let default_target = test_target();
         target_writer.write_default(&default_target)?;
         let mut vbranch0 = test_branch();
@@ -866,8 +867,8 @@ mod test {
         )]));
         let listener = Handler::from(&suite.local_app_data);
 
-        let branch_writer = virtual_branches::branch::Writer::new(&gb_repository);
-        let target_writer = virtual_branches::target::Writer::new(&gb_repository);
+        let branch_writer = virtual_branches::branch::Writer::new(&gb_repository)?;
+        let target_writer = virtual_branches::target::Writer::new(&gb_repository)?;
         let default_target = test_target();
         target_writer.write_default(&default_target)?;
         let mut vbranch0 = test_branch();

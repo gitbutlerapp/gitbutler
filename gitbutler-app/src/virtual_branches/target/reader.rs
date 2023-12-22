@@ -107,7 +107,7 @@ mod tests {
     fn test_read_deprecated_format() -> Result<()> {
         let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let writer = crate::writer::DirWriter::open(gb_repository.root());
+        let writer = crate::writer::DirWriter::open(gb_repository.root())?;
         writer
             .write_string("branches/target/name", "origin/master")
             .unwrap();
@@ -165,13 +165,13 @@ mod tests {
             last_fetched_ms: Some(1),
         };
 
-        let branch_writer = branch::Writer::new(&gb_repository);
+        let branch_writer = branch::Writer::new(&gb_repository)?;
         branch_writer.write(&mut branch)?;
 
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
-        let target_writer = TargetWriter::new(&gb_repository);
+        let target_writer = TargetWriter::new(&gb_repository)?;
         let reader = TargetReader::new(&session_reader);
 
         target_writer.write_default(&default_target)?;

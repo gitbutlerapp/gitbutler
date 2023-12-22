@@ -103,7 +103,7 @@ mod tests {
 
         let mut branch = test_branch();
 
-        let writer = Writer::new(&gb_repository);
+        let writer = Writer::new(&gb_repository)?;
         writer.write(&mut branch)?;
 
         let session = gb_repository.get_current_session()?.unwrap();
