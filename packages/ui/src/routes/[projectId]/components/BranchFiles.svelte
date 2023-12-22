@@ -32,7 +32,6 @@
 	function updateResizable() {
 		// todo
 	}
-	$: console.log(forceResizable, maxHeight, height);
 </script>
 
 {#if branch.active && branch.conflicted}
