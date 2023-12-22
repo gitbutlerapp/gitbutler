@@ -41,7 +41,7 @@ impl<'writer> DeltasWriter<'writer> {
 
         let path = path.as_ref();
         self.writer
-            .remove(&format!("session/wd/{}", path.display()))?;
+            .remove(format!("session/wd/{}", path.display()))?;
 
         tracing::debug!(
             project_id = %self.repository.get_project_id(),

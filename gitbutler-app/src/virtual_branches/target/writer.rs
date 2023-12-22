@@ -17,32 +17,32 @@ impl<'writer> TargetWriter<'writer> {
     pub fn write_default(&self, target: &Target) -> Result<()> {
         self.repository.mark_active_session()?;
 
-        let _lock = self.repository.lock();
+        let mut batch = vec![
+            writer::BatchTask::Write(
+                "branches/target/branch_name",
+                format!("{}/{}", target.branch.remote(), target.branch.branch()),
+            ),
+            writer::BatchTask::Write(
+                "branches/target/remote_name",
+                target.branch.remote().to_string(),
+            ),
+            writer::BatchTask::Write("branches/target/remote_url", target.remote_url.clone()),
+            writer::BatchTask::Write("branches/target/sha", target.sha.to_string()),
+        ];
+
+        if let Some(last_fetched) = target.last_fetched_ms {
+            batch.push(writer::BatchTask::Write(
+                "branches/target/last_fetched_ms",
+                last_fetched.to_string(),
+            ));
+        } else {
+            batch.push(writer::BatchTask::Remove("branches/target/last_fetched_ms"));
+        }
 
         self.writer
-            .write_string(
-                "branches/target/branch_name",
-                &format!("{}/{}", target.branch.remote(), target.branch.branch()),
-            )
-            .context("Failed to write default target branch name")?;
-        self.writer
-            .write_string("branches/target/remote_name", target.branch.remote())
-            .context("Failed to write default target remote name ")?;
-        self.writer
-            .write_string("branches/target/remote_url", &target.remote_url)
-            .context("Failed to write default target remote name ")?;
-        self.writer
-            .write_string("branches/target/sha", &target.sha.to_string())
-            .context("Failed to write default target sha")?;
-        if let Some(last_fetched) = target.last_fetched_ms {
-            self.writer
-                .write_u128("branches/target/last_fetched_ms", &last_fetched)
-                .context("Failed to write default target last fetched")?;
-        } else {
-            self.writer
-                .remove("branches/target/last_fetched_ms")
-                .context("Failed to remove default target last fetched")?;
-        }
+            .batch(&batch)
+            .context("Failed to write default target")?;
+
         Ok(())
     }
 
@@ -51,45 +51,40 @@ impl<'writer> TargetWriter<'writer> {
             .mark_active_session()
             .context("Failed to get or create current session")?;
 
-        let _lock = self.repository.lock();
+        let mut batch = vec![
+            writer::BatchTask::Write(
+                format!("branches/{}/target/branch_name", id),
+                format!("{}/{}", target.branch.remote(), target.branch.branch()),
+            ),
+            writer::BatchTask::Write(
+                format!("branches/{}/target/remote_name", id),
+                target.branch.remote().to_string(),
+            ),
+            writer::BatchTask::Write(
+                format!("branches/{}/target/remote_url", id),
+                target.remote_url.clone(),
+            ),
+            writer::BatchTask::Write(
+                format!("branches/{}/target/sha", id),
+                target.sha.to_string(),
+            ),
+        ];
 
-        self.writer
-            .write_string(
-                &format!("branches/{}/target/branch_name", id),
-                &format!("{}/{}", target.branch.remote(), target.branch.branch()),
-            )
-            .context("Failed to write branch target branch name")?;
-        self.writer
-            .write_string(
-                &format!("branches/{}/target/remote_name", id),
-                target.branch.remote(),
-            )
-            .context("Failed to write branch target remote")?;
-        self.writer
-            .write_string(
-                &format!("branches/{}/target/remote_url", id),
-                &target.remote_url,
-            )
-            .context("Failed to write branch target remote")?;
-        self.writer
-            .write_string(
-                &format!("branches/{}/target/sha", id),
-                &target.sha.to_string(),
-            )
-            .context("Failed to write branch target sha")?;
-
-        if let Some(last_fetched_ms) = target.last_fetched_ms {
-            self.writer
-                .write_u128(
-                    &format!("branches/{id}/target/last_fetched_ms"),
-                    &last_fetched_ms,
-                )
-                .context("Failed to write default target last fetched")?;
+        if let Some(last_fetched) = target.last_fetched_ms {
+            batch.push(writer::BatchTask::Write(
+                format!("branches/{}/target/last_fetched_ms", id),
+                last_fetched.to_string(),
+            ));
         } else {
-            self.writer
-                .remove(&format!("branches/{id}/target/last_fetched_ms"))
-                .context("Failed to remove default target last fetched")?;
+            batch.push(writer::BatchTask::Remove(format!(
+                "branches/{}/target/last_fetched_ms",
+                id
+            )));
         }
+
+        self.writer
+            .batch(&batch)
+            .context("Failed to write target")?;
 
         Ok(())
     }
