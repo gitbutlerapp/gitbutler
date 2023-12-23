@@ -20,16 +20,14 @@
 		return node.children.flatMap(idWithChildren);
 	}
 
-	function onCheckboxChange() {
-		idWithChildren(node).forEach(([fileId, hunkIds]) =>
-			hunkIds.forEach((hunkId) => {
-				if (isChecked) {
-					selectedOwnership.update((ownership) => ownership.removeHunk(fileId, hunkId));
-				} else {
-					selectedOwnership.update((ownership) => ownership.addHunk(fileId, hunkId));
-				}
-			})
-		);
+	function onSelectionChanged() {
+		idWithChildren(node).forEach(([fileId, hunkIds]) => {
+			if (isChecked) {
+				selectedOwnership.update((ownership) => ownership.removeHunk(fileId, ...hunkIds));
+			} else {
+				selectedOwnership.update((ownership) => ownership.addHunk(fileId, ...hunkIds));
+			}
+		});
 	}
 </script>
 
@@ -44,7 +42,7 @@
 			small
 			checked={isChecked}
 			indeterminate={isIndeterminate}
-			on:change={onCheckboxChange}
+			on:change={onSelectionChanged}
 		/>
 	{/if}
 	<IconFolder class="h-4 w-4 scale-75 text-blue-400" />

@@ -30,27 +30,32 @@ export class Ownership {
 		this.files = files;
 	}
 
-	removeHunk(fileId: string, hunkId: string) {
+	removeHunk(fileId: string, ...hunkIds: string[]) {
 		const hunks = this.files.get(fileId);
 		if (hunks) {
-			hunks.delete(hunkId);
+			hunkIds.forEach((hunkId) => hunks.delete(hunkId));
 			if (hunks.size === 0) this.files.delete(fileId);
 		}
 		return this;
 	}
 
-	addHunk(fileId: string, hunkId: string) {
+	addHunk(fileId: string, ...hunkIds: string[]) {
 		const hunks = this.files.get(fileId);
 		if (hunks) {
-			hunks.add(hunkId);
+			hunkIds.forEach((hunkId) => hunks.add(hunkId));
 		} else {
-			this.files.set(fileId, new Set([hunkId]));
+			this.files.set(fileId, new Set(hunkIds));
 		}
 		return this;
 	}
 
-	containsHunk(fileId: string, hunkId: string): boolean {
-		return !!this.files.get(fileId)?.has(hunkId);
+	containsHunk(fileId: string, ...hunkIds: string[]): boolean {
+		return hunkIds.every((hunkId) => !!this.files.get(fileId)?.has(hunkId));
+	}
+
+	clear() {
+		this.files.clear();
+		return this;
 	}
 
 	toString() {
