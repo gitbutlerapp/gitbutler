@@ -12,7 +12,7 @@
 		projectCommitGenerationUseEmojis,
 		projectRunCommitHooks
 	} from '$lib/config/config';
-	import { Ownership } from '$lib/vbranches/ownership';
+	import type { Ownership } from '$lib/vbranches/ownership';
 	import Button from '$lib/components/Button.svelte';
 	import DropDown from '$lib/components/DropDown.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
@@ -51,7 +51,6 @@
 
 	function commit() {
 		isCommitting = true;
-		selectedOwnership.set(Ownership.fromBranch(branch));
 		branchController
 			.commitBranch(branch.id, commitMessage, $selectedOwnership.toString(), $runCommitHooks)
 			.then(() => {
@@ -203,7 +202,7 @@
 			grow
 			color="primary"
 			kind="filled"
-			disabled={(isCommitting || !commitMessage) && $expanded}
+			disabled={(isCommitting || !commitMessage || $selectedOwnership.isEmpty()) && $expanded}
 			id="commit-to-branch"
 			on:click={() => {
 				if ($expanded) {

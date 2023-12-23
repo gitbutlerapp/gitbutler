@@ -63,4 +63,8 @@ export class Ownership {
 			.map(([fileId, hunks]) => fileId + ':' + Array.from(hunks.values()).join(','))
 			.join('\n');
 	}
+
+	isEmpty() {
+		return this.files.size == 0;
+	}
 }
