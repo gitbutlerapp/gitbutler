@@ -75,7 +75,7 @@
 
 <div class="header" bind:this={headerElement}>
 	<div class="header__left">
-		{#if showCheckboxes && selectedListMode == 'list'}
+		{#if showCheckboxes && selectedListMode == 'list' && branch.files.length > 1}
 			<Checkbox
 				small
 				{checked}
