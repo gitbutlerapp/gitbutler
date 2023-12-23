@@ -128,9 +128,7 @@ export class GitHubService {
 
 	get(branch: string | undefined): Observable<PullRequest | undefined> | undefined {
 		if (!branch) return;
-		return this.prs$.pipe(
-			map((prs) => prs.find((pr) => pr.targetBranch == branch && !pr.mergedAt))
-		);
+		return this.prs$.pipe(map((prs) => prs.find((pr) => pr.targetBranch == branch)));
 	}
 
 	/* TODO: Figure out a way to cleanup old behavior subjects */
