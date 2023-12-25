@@ -87,8 +87,8 @@ importers:
         specifier: ^1.27.5
         version: 1.27.5(svelte@4.2.2)(vite@4.5.0)
       '@tauri-apps/api':
-        specifier: ^1.5.0
-        version: 1.5.0
+        specifier: ^1.5.3
+        version: 1.5.3
       '@types/crypto-js':
         specifier: ^4.2.1
         version: 4.2.1
@@ -1308,8 +1308,8 @@ packages:
       - supports-color
     dev: true
 
-  /@tauri-apps/api@1.5.0:
-    resolution: {integrity: sha512-yQY9wpVNuiYhLLuyDlu1nBpqJELT1fGp7OctN4rW9I2W1T2p7A3tqPxsEzQprEwneQRBAlPM9vC8NsnMbct+pg==}
+  /@tauri-apps/api@1.5.3:
+    resolution: {integrity: sha512-zxnDjHHKjOsrIzZm6nO5Xapb/BxqUq1tc7cGkFXsFkGTsSWgCPH1D8mm0XS9weJY2OaR73I3k3S+b7eSzJDfqA==}
     engines: {node: '>= 14.6.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
     dev: true
 
@@ -4290,7 +4290,7 @@ packages:
   /tauri-plugin-context-menu@0.5.0:
     resolution: {integrity: sha512-CkAjSyxLx26hTXabG5Unbv+GWeH0XYNQB3zTqRxHpp257mWX8I4oASp8YF5T3zxFQEK++ZHqMZHpLrQ3usShRQ==}
     dependencies:
-      '@tauri-apps/api': 1.5.0
+      '@tauri-apps/api': 1.5.3
     dev: true
 
   /text-table@0.2.0:
