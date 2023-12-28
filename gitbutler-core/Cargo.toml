@@ -5,10 +5,10 @@ edition = "2021"
 
 [features]
 default = ["serde", "rusqlite"]
-serde = ["dep:serde"]
+serde = ["dep:serde", "uuid/serde"]
 rusqlite = ["dep:rusqlite"]
 
 [dependencies]
 rusqlite = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
-uuid = { workspace = true }
+uuid = { workspace = true, features = ["v4", "fast-rng"] }
