@@ -1,5 +1,6 @@
 use std::{fmt, hash::Hash, marker::PhantomData, str};
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
@@ -35,6 +36,7 @@ impl<T> Default for Id<T> {
     }
 }
 
+#[cfg(feature = "rusqlite")]
 impl<T> rusqlite::types::FromSql for Id<T> {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         Uuid::parse_str(value.as_str()?)
@@ -43,6 +45,7 @@ impl<T> rusqlite::types::FromSql for Id<T> {
     }
 }
 
+#[cfg(feature = "rusqlite")]
 impl<T> rusqlite::ToSql for Id<T> {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         Ok(rusqlite::types::ToSqlOutput::from(self.0.to_string()))
@@ -63,6 +66,7 @@ impl<T> From<Uuid> for Id<T> {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<'de, T> Deserialize<'de> for Id<T> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -72,6 +76,7 @@ impl<'de, T> Deserialize<'de> for Id<T> {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<T> Serialize for Id<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
