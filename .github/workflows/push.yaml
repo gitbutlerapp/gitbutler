@@ -15,6 +15,7 @@ jobs:
           filters: |
             rust:
               - 'gitbutler-app/**'
+              - 'gitbutler-core/**'
               - 'Cargo.lock'
               - 'Cargo.toml'
               - 'rust-toolchain.toml'
