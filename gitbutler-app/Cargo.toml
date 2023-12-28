@@ -30,7 +30,7 @@ byteorder = "1.5.0"
 chrono = { version = "0.4.31", features = ["serde"] }
 console-subscriber = "0.2.0"
 diffy = "0.3.0"
-filetime = "0.2.22"
+filetime = "0.2.23"
 fslock = "0.2.1"
 futures = "0.3"
 git2 = { version = "0.18.1", features = ["vendored-openssl", "vendored-libgit2"] }
