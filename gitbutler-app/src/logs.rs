@@ -56,6 +56,7 @@ pub fn init(app_handle: &AppHandle) {
             // subscriber that writes spans to a file
             tracing_subscriber::fmt::layer()
                 .event_format(format_for_humans)
+                .with_ansi(false)
                 .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
                 .with_writer(file_writer)
                 .with_filter(log_level_filter),
