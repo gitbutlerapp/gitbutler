@@ -1792,6 +1792,7 @@ dependencies = [
  "futures",
  "git2",
  "git2-hooks",
+ "gitbutler-core",
  "governor",
  "itertools 0.12.0",
  "lazy_static",
@@ -1836,6 +1837,15 @@ dependencies = [
  "uuid",
  "walkdir",
  "zip",
+]
+
+[[package]]
+name = "gitbutler-core"
+version = "0.0.0"
+dependencies = [
+ "rusqlite",
+ "serde",
+ "uuid",
 ]
 
 [[package]]

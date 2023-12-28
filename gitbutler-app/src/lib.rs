@@ -14,7 +14,6 @@ pub mod fs;
 pub mod gb_repository;
 pub mod git;
 pub mod github;
-pub mod id;
 pub mod keys;
 pub mod logs;
 pub mod menu;
@@ -37,3 +36,9 @@ pub mod zip;
 
 #[cfg(test)]
 pub mod test_utils;
+
+#[deprecated = "use `gitbutler-core` instead"]
+pub mod id {
+    #[deprecated = "use `gitbutler-core` instead"]
+    pub use gitbutler_core::id::Id;
+}
