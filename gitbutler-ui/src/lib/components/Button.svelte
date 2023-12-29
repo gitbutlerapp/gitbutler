@@ -49,8 +49,8 @@
 			<slot />
 		</span>
 	{/if}
-	{#if icon}
-		<Icon name={loading ? 'spinner' : icon} />
+	{#if icon && !loading}
+		<Icon name={icon} />
 	{:else if loading}
 		<Icon name="spinner" />
 	{/if}

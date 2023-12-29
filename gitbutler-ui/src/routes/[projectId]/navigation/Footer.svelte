@@ -49,13 +49,12 @@
 		padding: var(--space-12);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
 	}
-
 	.left-btns {
 		display: flex;
 		align-items: center;
 	}
 	.loading-status {
-		margin-left: 0.5rem;
-		margin-right: 0.5rem;
+		margin-left: var(--space-12);
+		margin-right: var(--space-12);
 	}
 </style>

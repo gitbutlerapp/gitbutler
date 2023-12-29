@@ -48,7 +48,8 @@
 			bind:element={iconElt}
 			{color}
 			{kind}
-			icon={loading ? 'spinner' : visible ? 'chevron-top' : 'chevron-down'}
+			icon={visible ? 'chevron-top' : 'chevron-down'}
+			{loading}
 			disabled={disabled || loading}
 			on:click={() => (visible = !visible)}
 		/>

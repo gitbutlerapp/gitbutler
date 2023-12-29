@@ -8,13 +8,14 @@
 	export let name: keyof typeof iconsJson;
 	export let color: IconColor = undefined;
 	export let opacity: string | undefined = undefined;
+	export let spinnerRadius: number | undefined = 5;
 </script>
 
 <svg
 	class="icon-wrapper"
-	class:spinning={name == 'spinner'}
 	viewBox="0 0 16 16"
 	fill-rule="evenodd"
+	class:spinner={name == 'spinner'}
 	class:success={color == 'success'}
 	class:error={color == 'error'}
 	class:pop={color == 'pop'}
@@ -22,7 +23,11 @@
 	class:default={!color}
 	style:opacity
 >
-	<path fill="currentColor" d={iconsJson[name]}></path>
+	{#if name == 'spinner'}
+		<circle class="spinner-path" cx="8" cy="8" r={spinnerRadius} fill="none" />
+	{:else}
+		<path fill="currentColor" d={iconsJson[name]} />
+	{/if}
 </svg>
 
 <style lang="postcss">
@@ -47,13 +52,32 @@
 		color: var(--clr-theme-scale-warn-60);
 	}
 
-	.spinning {
+	.spinner {
 		transform-origin: center;
-		animation: spinning 0.75s infinite linear;
+		animation: spinning 1s infinite linear;
 	}
 	@keyframes spinning {
 		100% {
 			transform: rotate(360deg);
+		}
+	}
+	.spinner-path {
+		stroke-width: calc(var(--space-2) / 1.3);
+		stroke: currentColor;
+		animation: spinning-path 1.5s infinite ease-in-out;
+	}
+	@keyframes spinning-path {
+		0% {
+			stroke-dasharray: 1, 200;
+			stroke-dashoffset: 0;
+		}
+		50% {
+			stroke-dasharray: 60, 200;
+			stroke-dashoffset: -12;
+		}
+		100% {
+			stroke-dasharray: 60, 200;
+			stroke-dashoffset: -34;
 		}
 	}
 </style>
