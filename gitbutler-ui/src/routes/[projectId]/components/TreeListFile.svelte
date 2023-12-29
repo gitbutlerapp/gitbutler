@@ -62,7 +62,7 @@
 				<Icon name="dot" />
 			</div>
 		{/if}
-		<img src={getVSIFileIcon(file.path)} alt="js" width="12" style="width: 0.75rem" class="icon" />
+		<img src={getVSIFileIcon(file.path)} alt="js" style="width: var(--space-12)" class="icon" />
 		<span class="name text-base-12">
 			{file.filename}
 		</span>
@@ -77,7 +77,8 @@
 	.tree-list-file {
 		display: inline-flex;
 		align-items: center;
-		padding: var(--space-4) var(--space-8) var(--space-4) var(--space-4);
+		height: var(--size-btn-m);
+		padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6);
 		gap: var(--space-6);
 		border-radius: var(--radius-s);
 		max-width: 100%;
@@ -98,8 +99,5 @@
 	}
 	.selected {
 		background-color: var(--clr-theme-scale-pop-80);
-	}
-	.icon {
-		margin-right: 0.25rem;
 	}
 </style>

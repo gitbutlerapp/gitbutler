@@ -107,8 +107,8 @@
 	<!-- We assume a folder cannot be empty -->
 	{#if expanded}
 		<div class="nested">
-			<div class="line">
-				<div class="bg-color-3 inline-block h-full w-px" />
+			<div class="line-wrapper">
+				<div class="line" />
 			</div>
 			<ul class="w-full overflow-hidden">
 				{#each node.children as childNode}
@@ -135,8 +135,14 @@
 	.nested {
 		display: flex;
 	}
-	.line {
+	.line-wrapper {
+		position: relative;
 		padding-left: var(--space-12);
-		padding-right: var(--space-8);
+		padding-right: var(--space-6);
+	}
+	.line {
+		width: var(--space-2);
+		height: 100%;
+		border-left: 1px dashed var(--clr-theme-scale-ntrl-60);
 	}
 </style>
