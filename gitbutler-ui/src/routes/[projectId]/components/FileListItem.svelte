@@ -54,13 +54,7 @@
 					}}
 				/>
 			{/if}
-			<img
-				src={getVSIFileIcon(file.path)}
-				alt="js"
-				width="12"
-				style="width: 0.75rem"
-				class="icon"
-			/>
+			<img src={getVSIFileIcon(file.path)} alt="js" style="width: var(--space-12)" />
 			<span class="text-base-body-12 name">
 				{file.filename}
 			</span>
@@ -87,10 +81,6 @@
 		&:not(.selected):hover {
 			background: var(--clr-theme-container-pale);
 		}
-	}
-	.icon {
-		flex-shrink: 0;
-		margin-right: 0.25rem;
 	}
 	/* hello */
 	.info {
