@@ -45,7 +45,7 @@
 			on:change={onSelectionChanged}
 		/>
 	{/if}
-	<IconFolder class="h-4 w-4 scale-75 text-blue-400" />
+	<IconFolder style="width: var(--space-12)" />
 	<span class="name text-base-body-12">
 		{node.name}
 	</span>
@@ -55,7 +55,8 @@
 	.tree-list-folder {
 		display: flex;
 		align-items: center;
-		padding: var(--space-4);
+		height: var(--size-btn-m);
+		padding: var(--space-4) var(--space-8) var(--space-4) var(--space-4);
 		gap: var(--space-6);
 		border-radius: var(--radius-s);
 		&:hover {
