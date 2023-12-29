@@ -50,7 +50,7 @@
 				{#if $pr$?.htmlUrl}
 					<Tag
 						icon="pr-small"
-						color="neutral-light"
+						color="ghost"
 						border
 						clickable
 						on:click={(e) => {
