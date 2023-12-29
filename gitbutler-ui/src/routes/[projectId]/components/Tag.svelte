@@ -76,7 +76,7 @@
 	.ghost {
 		color: var(--clr-theme-scale-ntrl-40);
 		&:hover {
-			background: var(--clr-theme-container-sub);
+			background: var(--clr-theme-container-pale);
 		}
 		&.tag-border {
 			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-60);
