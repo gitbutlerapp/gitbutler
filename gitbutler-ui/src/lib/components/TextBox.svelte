@@ -68,7 +68,7 @@
 
 	.textbox__input {
 		flex-grow: 1;
-		height: var(--space-32);
+		height: var(--size-btn-l);
 		width: 100%;
 		padding: var(--space-4) var(--space-12);
 		color: var(--clr-theme-scale-ntrl-0);
