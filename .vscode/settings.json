@@ -1,4 +1,4 @@
 {
-	"prettier.configPath": "gitbutler-ui/.prettierrc",
-	"prettier.prettierPath": "gitbutler-ui/node_modules/prettier/index.cjs"
+	"prettier.configPath": "./gitbutler-ui/.prettierrc",
+	"prettier.prettierPath": "./node_modules/prettier/index.cjs"
 }
