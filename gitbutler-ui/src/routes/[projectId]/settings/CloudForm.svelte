@@ -29,12 +29,8 @@
 		dispatch('updated', { ...project, api: { ...cloudProject, sync: project.api.sync } });
 	});
 
-	const onSyncChange = async (event: Event) => {
+	const onSyncChange = async (event: CustomEvent<boolean>) => {
 		if (!user) return;
-
-		const target = event.target as HTMLInputElement;
-		const sync = target.checked;
-
 		try {
 			const cloudProject =
 				project.api ??
@@ -43,7 +39,7 @@
 					description: project.description,
 					uid: project.id
 				}));
-			dispatch('updated', { ...project, api: { ...cloudProject, sync } });
+			dispatch('updated', { ...project, api: { ...cloudProject, sync: event.detail } });
 		} catch (error) {
 			console.error(`Failed to update project sync status: ${error}`);
 			toasts.error('Failed to update project sync status');
@@ -63,18 +59,16 @@
 			class="flex flex-row items-center justify-between rounded-lg border border-light-400 p-2 dark:border-dark-500"
 		>
 			<div class="flex flex-row space-x-3">
-				<div class="flex flex-row">
-					<form class="flex items-center gap-1">
-						<Checkbox
-							name="sync"
-							disabled={user === undefined}
-							checked={$aiGenEnabled}
-							on:change={() => {
-								$aiGenEnabled = !$aiGenEnabled;
-							}}
-						/>
-						<label class="ml-2" for="sync">Enable branch and commit message generation.</label>
-					</form>
+				<div class="flex flex-row items-center gap-x-1">
+					<Checkbox
+						name="sync"
+						disabled={user === undefined}
+						checked={$aiGenEnabled}
+						on:change={() => {
+							$aiGenEnabled = !$aiGenEnabled;
+						}}
+					/>
+					<label class="ml-2" for="sync">Enable branch and commit message generation.</label>
 				</div>
 			</div>
 		</div>
@@ -86,18 +80,16 @@
 				class="flex flex-row items-center justify-between rounded-lg border border-light-400 p-2 dark:border-dark-500"
 			>
 				<div class="flex flex-row space-x-3">
-					<div class="flex flex-row">
-						<form class="flex items-center gap-1">
-							<Checkbox
-								name="sync"
-								disabled={user === undefined}
-								checked={project.api?.sync || false}
-								on:change={onSyncChange}
-							/>
-							<label class="ml-2" for="sync">
-								Sync my history, repository and branch data for backup, sharing and team features.
-							</label>
-						</form>
+					<div class="flex flex-row items-center gap-1">
+						<Checkbox
+							name="sync"
+							disabled={user === undefined}
+							checked={project.api?.sync || false}
+							on:change={onSyncChange}
+						/>
+						<label class="ml-2" for="sync">
+							Sync my history, repository and branch data for backup, sharing and team features.
+						</label>
 					</div>
 				</div>
 			</div>
