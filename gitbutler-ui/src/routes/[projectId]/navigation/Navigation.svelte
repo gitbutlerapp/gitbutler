@@ -64,10 +64,14 @@
 					fill="none"
 					xmlns="http://www.w3.org/2000/svg"
 				>
-					<rect width="16" height="16" rx="4" fill="#797FE6" />
-					<path d="M5 8.8H11V4" stroke="white" stroke-width="2" />
-					<path d="M5 12V8.44444V4" stroke="white" stroke-width="2" />
+					<path
+						d="M0 6.64C0 4.17295 0 2.93942 0.525474 2.01817C0.880399 1.39592 1.39592 0.880399 2.01817 0.525474C2.93942 0 4.17295 0 6.64 0H9.36C11.8271 0 13.0606 0 13.9818 0.525474C14.6041 0.880399 15.1196 1.39592 15.4745 2.01817C16 2.93942 16 4.17295 16 6.64V9.36C16 11.8271 16 13.0606 15.4745 13.9818C15.1196 14.6041 14.6041 15.1196 13.9818 15.4745C13.0606 16 11.8271 16 9.36 16H6.64C4.17295 16 2.93942 16 2.01817 15.4745C1.39592 15.1196 0.880399 14.6041 0.525474 13.9818C0 13.0606 0 11.8271 0 9.36V6.64Z"
+						fill="#48B0AA"
+					/>
+					<rect x="2" y="3" width="6" height="10" rx="2" fill="#D9F3F2" />
+					<rect opacity="0.7" x="10" y="3" width="4" height="10" rx="2" fill="#D9F3F2" />
 				</svg>
+
 				<span>Applied branches</span>
 				{#if ($base$?.behind || 0) > 0}
 					<Tooltip label="Merge upstream commits into common base">

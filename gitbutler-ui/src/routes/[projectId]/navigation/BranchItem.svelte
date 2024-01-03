@@ -2,7 +2,8 @@
 	import { page } from '$app/stores';
 	import AuthorIcons from '$lib/components/AuthorIcons.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
-	import Icon from '$lib/icons/Icon.svelte';
+	import BranchIcon from './BranchIcon.svelte';
+	// import Icon from '$lib/icons/Icon.svelte';
 	import type { CombinedBranch } from '$lib/branches/types';
 
 	export let projectId: string;
@@ -21,7 +22,8 @@
 
 <a class="branch" class:selected {href}>
 	{#if branch.icon}
-		<div class="item__icon"><Icon name={branch.icon} color={branch.color} /></div>
+		<!-- <div class="item__icon"><Icon name={branch.icon} color={branch.color} /></div> -->
+		<BranchIcon name={branch.icon} color={branch.color} />
 	{/if}
 	<div class="branch__info flex flex-col gap-2">
 		<p class="text-base-body-13 branch__name">
@@ -77,9 +79,5 @@
 	.branch:focus,
 	.selected {
 		background-color: var(--clr-theme-container-pale);
-	}
-
-	.item__icon {
-		flex-shrink: 0;
 	}
 </style>

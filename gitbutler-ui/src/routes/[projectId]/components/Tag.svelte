@@ -84,7 +84,7 @@
 	}
 
 	.success {
-		color: var(--clr-theme-succ-outline-dark);
+		color: var(--clr-theme-scale-succ-30);
 		background: var(--clr-theme-succ-container);
 		&:hover {
 			background: var(--clr-theme-succ-container-dim);
@@ -102,7 +102,7 @@
 	}
 
 	.error {
-		color: var(--clr-theme-err-outline-dark);
+		color: var(--clr-theme-scale-err-30);
 		background: var(--clr-theme-err-container);
 		&:hover {
 			background: var(--clr-theme-err-container-dim);
@@ -120,7 +120,7 @@
 	}
 
 	.warning {
-		color: var(--clr-theme-warn-outline-dark);
+		color: var(--clr-theme-scale-warn-30);
 		background: var(--clr-theme-warn-container);
 		&:hover {
 			background: var(--clr-theme-warn-container-dim);
