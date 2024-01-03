@@ -1,9 +1,16 @@
+//! A generic UUID-based wrapper, via a newtype pattern
+//! with a few key integrations used throughout the library.
+
 use std::{fmt, hash::Hash, marker::PhantomData, str};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
+/// A generic UUID-based newtype.
+///
+/// `Default` is implemented to generate a new UUID
+/// via [`Uuid::new_v4`].
 pub struct Id<T>(Uuid, PhantomData<T>);
 
 impl<T> Hash for Id<T> {
