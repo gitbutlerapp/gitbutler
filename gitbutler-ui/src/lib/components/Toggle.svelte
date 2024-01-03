@@ -25,7 +25,7 @@
 		width: calc(var(--space-24) + var(--space-2));
 		height: var(--space-16);
 		border-radius: var(--space-16);
-		background-color: var(--clr-theme-container-mid);
+		background-color: var(--clr-theme-container-sub);
 		box-shadow: inset 0 0 0 1px var(--clr-theme-container-outline-light);
 		transition:
 			background-color var(--transition-fast),
@@ -37,7 +37,7 @@
 		/* not checked */
 		&:hover,
 		&:focus {
-			background-color: var(--clr-theme-container-dark);
+			background-color: var(--clr-theme-container-dim);
 			outline: none;
 		}
 

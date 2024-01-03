@@ -1,7 +1,5 @@
 import type { PullRequest } from '$lib/github/types';
 import type { Author, Branch, RemoteBranch } from '$lib/vbranches/types';
-import type iconsJson from '$lib/icons/icons.json';
-import type { IconColor } from '$lib/icons/Icon.svelte';
 
 export class CombinedBranch {
 	pr?: PullRequest;
@@ -52,18 +50,20 @@ export class CombinedBranch {
 		return this.authors[0];
 	}
 
-	get icon(): keyof typeof iconsJson | undefined {
-		if (this.vbranch) return 'branch';
+	get icon(): 'remote-branch' | 'virtual-branch' | 'pr' | 'pr-draft' | 'pr-closed' | undefined {
+		if (this.vbranch) return 'virtual-branch';
 		if (this.pr) return 'pr';
-		if (this.remoteBranch) return 'branch';
+		if (this.remoteBranch) return 'remote-branch';
 		return undefined; // or implement a default icon?
 	}
 
-	get color(): IconColor {
-		if (this.pr?.mergedAt) return 'pop';
-		if (this.vbranch && this.vbranch.active == false) return 'warn';
-		if (this.remoteBranch?.isMergeable) return 'success';
-		return 'pop';
+	// GH colors reference https://github.blog/changelog/2021-06-08-new-issue-and-pull-request-state-icons
+	get color(): 'neutral' | 'success' | 'pop' | 'purple' | undefined {
+		if (this.pr?.mergedAt) return 'purple'; // merged PR
+		if (this.pr) return 'success'; // open PR
+		if (this.vbranch && this.vbranch.active == false) return 'pop'; // stashed virtual branches
+		if (this.remoteBranch?.isMergeable) return 'success'; // remote branches
+		return 'neutral';
 	}
 
 	get modifiedAt(): Date | undefined {

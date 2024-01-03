@@ -1,5 +1,5 @@
 <script lang="ts" context="module">
-	export type IconColor = 'success' | 'error' | 'pop' | 'warn' | undefined;
+	export type IconColor = 'success' | 'error' | 'pop' | 'warn' | 'neutral' | undefined;
 </script>
 
 <script lang="ts">
