@@ -1,4 +1,5 @@
-use crate::error::gb::{ErrorCode, ErrorContext};
+use crate::error::new_types::{ErrorCode, ErrorContext};
+
 use sentry::{
     protocol::{value::Map, Event, Exception, Value},
     types::Uuid,
