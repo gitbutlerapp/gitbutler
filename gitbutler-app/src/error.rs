@@ -47,21 +47,21 @@ mod legacy {
     }
 
     #[derive(Debug, thiserror::Error)]
-    pub enum Error {
+    pub enum UserError {
         #[error("[{code}]: {message}")]
-        UserError { code: Code, message: String },
+        User { code: Code, message: String },
         #[error("[errors.unknown]: Something went wrong")]
         Unknown,
     }
 
-    impl Serialize for Error {
+    impl Serialize for UserError {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: serde::Serializer,
         {
             let (code, message) = match self {
-                Error::UserError { code, message } => (code.to_string(), message.to_string()),
-                Error::Unknown => (
+                UserError::User { code, message } => (code.to_string(), message.to_string()),
+                UserError::Unknown => (
                     Code::Unknown.to_string(),
                     "Something went wrong".to_string(),
                 ),
@@ -74,10 +74,10 @@ mod legacy {
         }
     }
 
-    impl From<anyhow::Error> for Error {
+    impl From<anyhow::Error> for UserError {
         fn from(error: anyhow::Error) -> Self {
             tracing::error!(?error);
-            Error::Unknown
+            UserError::Unknown
         }
     }
 }

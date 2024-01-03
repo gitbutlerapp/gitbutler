@@ -1,22 +1,22 @@
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
-use crate::error::{Code, Error};
+use crate::error::{Code, UserError};
 
 use super::{
     controller::{Controller, ListError},
     Session,
 };
 
-impl From<ListError> for Error {
+impl From<ListError> for UserError {
     fn from(value: ListError) -> Self {
         match value {
-            ListError::UsersError(error) => Error::from(error),
-            ListError::ProjectsError(error) => Error::from(error),
-            ListError::ProjectRepositoryError(error) => Error::from(error),
+            ListError::UsersError(error) => UserError::from(error),
+            ListError::ProjectsError(error) => UserError::from(error),
+            ListError::ProjectRepositoryError(error) => UserError::from(error),
             ListError::Other(error) => {
                 tracing::error!(?error);
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
@@ -28,8 +28,8 @@ pub async fn list_sessions(
     handle: AppHandle,
     project_id: &str,
     earliest_timestamp_ms: Option<u128>,
-) -> Result<Vec<Session>, Error> {
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
+) -> Result<Vec<Session>, UserError> {
+    let project_id = project_id.parse().map_err(|_| UserError::User {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;

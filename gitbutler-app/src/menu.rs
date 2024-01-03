@@ -5,7 +5,7 @@ use tauri::{
 };
 use tracing::instrument;
 
-use crate::error::{Code, Error};
+use crate::error::{Code, UserError};
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
@@ -13,20 +13,20 @@ pub async fn menu_item_set_enabled(
     handle: AppHandle,
     menu_item_id: &str,
     enabled: bool,
-) -> Result<(), Error> {
+) -> Result<(), UserError> {
     let window = handle
         .get_window("main")
         .expect("main window always present");
     let menu_item = window
         .menu_handle()
         .try_get_item(menu_item_id)
-        .ok_or_else(|| Error::UserError {
+        .ok_or_else(|| UserError::User {
             message: format!("menu item not found: {}", menu_item_id),
             code: Code::Menu,
         })?;
     menu_item.set_enabled(enabled).map_err(|error| {
         tracing::error!(error = ?error, "failed to set menu item enabled state");
-        Error::Unknown
+        UserError::Unknown
     })?;
     Ok(())
 }

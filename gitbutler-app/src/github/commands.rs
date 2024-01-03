@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use crate::error::Error;
+use crate::error::UserError;
 
 const GITHUB_CLIENT_ID: &str = "cd51880daa675d9e6452";
 
@@ -16,7 +16,7 @@ pub struct Verification {
 
 #[tauri::command(async)]
 #[instrument]
-pub async fn init_device_oauth() -> Result<Verification, Error> {
+pub async fn init_device_oauth() -> Result<Verification, UserError> {
     let mut req_body = HashMap::new();
     req_body.insert("client_id", GITHUB_CLIENT_ID);
     req_body.insert("scope", "repo");
@@ -45,7 +45,7 @@ pub async fn init_device_oauth() -> Result<Verification, Error> {
 
 #[tauri::command(async)]
 #[instrument]
-pub async fn check_auth_status(device_code: &str) -> Result<String, Error> {
+pub async fn check_auth_status(device_code: &str) -> Result<String, UserError> {
     #[derive(Debug, Deserialize, Serialize, Clone, Default)]
     struct AccessTokenContainer {
         access_token: String,

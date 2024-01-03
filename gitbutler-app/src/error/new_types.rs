@@ -1,4 +1,3 @@
-
 #[cfg(feature = "error-context")]
 pub use error_context::*;
 
@@ -62,6 +61,7 @@ mod error_context {
         }
 
         #[inline]
+        #[allow(clippy::unnecessary_wraps)]
         pub fn context(&self) -> Option<&Context> {
             Some(&self.context)
         }
@@ -166,10 +166,7 @@ mod error_context {
             let r = app_level_io();
             assert!(r.is_err());
             let e = r.unwrap_err();
-            assert_eq!(
-                e.context().unwrap().vars.get("foo"),
-                Some(&"bar".to_string())
-            );
+            assert_eq!(e.context().unwrap().vars.get("foo"), Some(&"bar".to_string()));
             assert!(e.source().is_none());
             assert!(e.to_string().starts_with("io.other-error:"));
         }
@@ -260,6 +257,7 @@ impl ErrorKind {
     }
 
     #[inline]
+    #[allow(clippy::unnecessary_wraps)]
     pub fn context(&self) -> Option<&Context> {
         None
     }

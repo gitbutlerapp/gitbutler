@@ -106,14 +106,14 @@ pub enum HelpError {
     Git(#[from] super::Error),
 }
 
-impl From<HelpError> for crate::error::Error {
+impl From<HelpError> for crate::error::UserError {
     fn from(value: HelpError) -> Self {
         match value {
-            HelpError::NoUrlSet => Self::UserError {
+            HelpError::NoUrlSet => Self::User {
                 code: crate::error::Code::ProjectGitRemote,
                 message: "no url set for remote".to_string(),
             },
-            HelpError::UrlConvertError(error) => Self::UserError {
+            HelpError::UrlConvertError(error) => Self::User {
                 code: crate::error::Code::ProjectGitRemote,
                 message: error.to_string(),
             },

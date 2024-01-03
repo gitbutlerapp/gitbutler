@@ -1,19 +1,19 @@
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
-use crate::{assets, error::Error, sentry};
+use crate::{assets, error::UserError, sentry};
 
 use super::{
     controller::{self, Controller, GetError},
     User,
 };
 
-impl From<GetError> for Error {
+impl From<GetError> for UserError {
     fn from(value: GetError) -> Self {
         match value {
             GetError::Other(error) => {
                 tracing::error!(?error, "failed to get user");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
@@ -21,7 +21,7 @@ impl From<GetError> for Error {
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn get_user(handle: AppHandle) -> Result<Option<User>, Error> {
+pub async fn get_user(handle: AppHandle) -> Result<Option<User>, UserError> {
     let app = handle.state::<Controller>();
     let proxy = handle.state::<assets::Proxy>();
 
@@ -31,12 +31,12 @@ pub async fn get_user(handle: AppHandle) -> Result<Option<User>, Error> {
     }
 }
 
-impl From<controller::SetError> for Error {
+impl From<controller::SetError> for UserError {
     fn from(value: controller::SetError) -> Self {
         match value {
             controller::SetError::Other(error) => {
                 tracing::error!(?error, "failed to set user");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
@@ -44,7 +44,7 @@ impl From<controller::SetError> for Error {
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn set_user(handle: AppHandle, user: User) -> Result<User, Error> {
+pub async fn set_user(handle: AppHandle, user: User) -> Result<User, UserError> {
     let app = handle.state::<Controller>();
     let proxy = handle.state::<assets::Proxy>();
 
@@ -55,12 +55,12 @@ pub async fn set_user(handle: AppHandle, user: User) -> Result<User, Error> {
     Ok(proxy.proxy_user(user).await)
 }
 
-impl From<controller::DeleteError> for Error {
+impl From<controller::DeleteError> for UserError {
     fn from(value: controller::DeleteError) -> Self {
         match value {
             controller::DeleteError::Other(error) => {
                 tracing::error!(?error, "failed to delete user");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
@@ -68,7 +68,7 @@ impl From<controller::DeleteError> for Error {
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn delete_user(handle: AppHandle) -> Result<(), Error> {
+pub async fn delete_user(handle: AppHandle) -> Result<(), UserError> {
     let app = handle.state::<Controller>();
 
     app.delete_user()?;

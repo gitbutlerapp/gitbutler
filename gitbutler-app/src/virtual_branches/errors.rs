@@ -1,5 +1,5 @@
 use crate::{
-    error::Error,
+    error::UserError,
     git,
     project_repository::{self, RemoteError},
     projects::ProjectId,
@@ -19,17 +19,17 @@ pub enum VerifyError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<VerifyError> for crate::error::Error {
+impl From<VerifyError> for crate::error::UserError {
     fn from(value: VerifyError) -> Self {
         match value {
-            VerifyError::DetachedHead => crate::error::Error::UserError {
+            VerifyError::DetachedHead => crate::error::UserError::User {
                 code: crate::error::Code::ProjectHead,
                 message: format!(
                     "Project in detached head state. Please checkout {0} to continue.",
                     GITBUTLER_INTEGRATION_REFERENCE.branch()
                 ),
             },
-            VerifyError::InvalidHead(head) => crate::error::Error::UserError {
+            VerifyError::InvalidHead(head) => crate::error::UserError::User {
                 code: crate::error::Code::ProjectHead,
                 message: format!(
                     "Project is on {}. Please checkout {} to continue.",
@@ -37,13 +37,13 @@ impl From<VerifyError> for crate::error::Error {
                     GITBUTLER_INTEGRATION_REFERENCE.branch()
                 ),
             },
-            VerifyError::NoIntegrationCommit => crate::error::Error::UserError {
+            VerifyError::NoIntegrationCommit => crate::error::UserError::User {
                 code: crate::error::Code::ProjectHead,
                 message: "GibButler's integration commit not found on head.".to_string(),
             },
             VerifyError::Other(error) => {
                 tracing::error!(?error);
-                crate::error::Error::Unknown
+                crate::error::UserError::Unknown
             }
         }
     }
@@ -194,9 +194,9 @@ pub struct ForcePushNotAllowedError {
     pub project_id: ProjectId,
 }
 
-impl From<ForcePushNotAllowedError> for Error {
+impl From<ForcePushNotAllowedError> for UserError {
     fn from(_value: ForcePushNotAllowedError) -> Self {
-        Error::UserError {
+        UserError::User {
             code: crate::error::Code::Branches,
             message: "Action will lead to force pushing, which is not allowed for this".to_string(),
         }
@@ -260,14 +260,14 @@ pub enum FetchFromTargetError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<FetchFromTargetError> for Error {
+impl From<FetchFromTargetError> for UserError {
     fn from(value: FetchFromTargetError) -> Self {
         match value {
             FetchFromTargetError::DefaultTargetNotSet(error) => error.into(),
             FetchFromTargetError::Remote(error) => error.into(),
             FetchFromTargetError::Other(error) => {
                 tracing::error!(?error, "fetch from target error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
@@ -291,16 +291,16 @@ pub enum UpdateCommitMessageError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<UpdateCommitMessageError> for Error {
+impl From<UpdateCommitMessageError> for UserError {
     fn from(value: UpdateCommitMessageError) -> Self {
         match value {
             UpdateCommitMessageError::ForcePushNotAllowed(error) => error.into(),
-            UpdateCommitMessageError::EmptyMessage => Error::UserError {
+            UpdateCommitMessageError::EmptyMessage => UserError::User {
                 message: "Commit message can not be empty".to_string(),
                 code: crate::error::Code::Branches,
             },
             UpdateCommitMessageError::DefaultTargetNotSet(error) => error.into(),
-            UpdateCommitMessageError::CommitNotFound(oid) => Error::UserError {
+            UpdateCommitMessageError::CommitNotFound(oid) => UserError::User {
                 message: format!("Commit {} not found", oid),
                 code: crate::error::Code::Branches,
             },
@@ -308,7 +308,7 @@ impl From<UpdateCommitMessageError> for Error {
             UpdateCommitMessageError::Conflict(error) => error.into(),
             UpdateCommitMessageError::Other(error) => {
                 tracing::error!(?error, "update commit message error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
@@ -358,9 +358,9 @@ pub struct ProjectConflictError {
     pub project_id: ProjectId,
 }
 
-impl From<ProjectConflictError> for Error {
+impl From<ProjectConflictError> for UserError {
     fn from(value: ProjectConflictError) -> Self {
-        Error::UserError {
+        UserError::User {
             code: crate::error::Code::ProjectConflict,
             message: format!("project {} is in a conflicted state", value.project_id),
         }
@@ -372,9 +372,9 @@ pub struct DefaultTargetNotSetError {
     pub project_id: ProjectId,
 }
 
-impl From<DefaultTargetNotSetError> for Error {
+impl From<DefaultTargetNotSetError> for UserError {
     fn from(value: DefaultTargetNotSetError) -> Self {
-        Error::UserError {
+        UserError::User {
             code: crate::error::Code::ProjectConflict,
             message: format!(
                 "project {} does not have a default target set",
@@ -390,9 +390,9 @@ pub struct BranchNotFoundError {
     pub branch_id: BranchId,
 }
 
-impl From<BranchNotFoundError> for Error {
+impl From<BranchNotFoundError> for UserError {
     fn from(value: BranchNotFoundError) -> Self {
-        Error::UserError {
+        UserError::User {
             code: crate::error::Code::Branches,
             message: format!("branch {} not found", value.branch_id),
         }
@@ -409,193 +409,193 @@ pub enum UpdateBranchError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<UpdateBranchError> for Error {
+impl From<UpdateBranchError> for UserError {
     fn from(value: UpdateBranchError) -> Self {
         match value {
             UpdateBranchError::DefaultTargetNotSet(error) => error.into(),
             UpdateBranchError::BranchNotFound(error) => error.into(),
             UpdateBranchError::Other(error) => {
                 tracing::error!(?error, "update branch error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<CreateVirtualBranchFromBranchError> for Error {
+impl From<CreateVirtualBranchFromBranchError> for UserError {
     fn from(value: CreateVirtualBranchFromBranchError) -> Self {
         match value {
             CreateVirtualBranchFromBranchError::ApplyBranch(error) => error.into(),
             CreateVirtualBranchFromBranchError::CantMakeBranchFromDefaultTarget => {
-                Error::UserError {
+                UserError::User {
                     message: "Can not create a branch from default target".to_string(),
                     code: crate::error::Code::Branches,
                 }
             }
             CreateVirtualBranchFromBranchError::DefaultTargetNotSet(error) => error.into(),
-            CreateVirtualBranchFromBranchError::MergeConflict => Error::UserError {
+            CreateVirtualBranchFromBranchError::MergeConflict => UserError::User {
                 message: "Merge conflict".to_string(),
                 code: crate::error::Code::Branches,
             },
-            CreateVirtualBranchFromBranchError::BranchNotFound(name) => Error::UserError {
+            CreateVirtualBranchFromBranchError::BranchNotFound(name) => UserError::User {
                 message: format!("Branch {} not found", name),
                 code: crate::error::Code::Branches,
             },
             CreateVirtualBranchFromBranchError::Other(error) => {
                 tracing::error!(?error, "create virtual branch from branch error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<CommitError> for Error {
+impl From<CommitError> for UserError {
     fn from(value: CommitError) -> Self {
         match value {
             CommitError::BranchNotFound(error) => error.into(),
             CommitError::DefaultTargetNotSet(error) => error.into(),
             CommitError::Conflicted(error) => error.into(),
-            CommitError::CommitHookRejected(error) => Error::UserError {
+            CommitError::CommitHookRejected(error) => UserError::User {
                 code: crate::error::Code::PreCommitHook,
                 message: error,
             },
-            CommitError::CommitMsgHookRejected(error) => Error::UserError {
+            CommitError::CommitMsgHookRejected(error) => UserError::User {
                 code: crate::error::Code::CommitMsgHook,
                 message: error,
             },
             CommitError::Other(error) => {
                 tracing::error!(?error, "commit error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<IsRemoteBranchMergableError> for Error {
+impl From<IsRemoteBranchMergableError> for UserError {
     fn from(value: IsRemoteBranchMergableError) -> Self {
         match value {
-            IsRemoteBranchMergableError::BranchNotFound(name) => Error::UserError {
+            IsRemoteBranchMergableError::BranchNotFound(name) => UserError::User {
                 message: format!("Remote branch {} not found", name),
                 code: crate::error::Code::Branches,
             },
             IsRemoteBranchMergableError::DefaultTargetNotSet(error) => error.into(),
             IsRemoteBranchMergableError::Other(error) => {
                 tracing::error!(?error, "is remote branch mergable error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<DeleteBranchError> for Error {
+impl From<DeleteBranchError> for UserError {
     fn from(value: DeleteBranchError) -> Self {
         match value {
             DeleteBranchError::UnapplyBranch(error) => error.into(),
             DeleteBranchError::Other(error) => {
                 tracing::error!(?error, "delete branch error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<ApplyBranchError> for Error {
+impl From<ApplyBranchError> for UserError {
     fn from(value: ApplyBranchError) -> Self {
         match value {
             ApplyBranchError::DefaultTargetNotSet(error) => error.into(),
             ApplyBranchError::Conflict(error) => error.into(),
             ApplyBranchError::BranchNotFound(error) => error.into(),
-            ApplyBranchError::BranchConflicts(id) => Error::UserError {
+            ApplyBranchError::BranchConflicts(id) => UserError::User {
                 message: format!("Branch {} is in a conflicing state", id),
                 code: crate::error::Code::Branches,
             },
             ApplyBranchError::Other(error) => {
                 tracing::error!(?error, "apply branch error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<IsVirtualBranchMergeable> for Error {
+impl From<IsVirtualBranchMergeable> for UserError {
     fn from(value: IsVirtualBranchMergeable) -> Self {
         match value {
             IsVirtualBranchMergeable::BranchNotFound(error) => error.into(),
             IsVirtualBranchMergeable::DefaultTargetNotSet(error) => error.into(),
             IsVirtualBranchMergeable::Other(error) => {
                 tracing::error!(?error, "is remote branch mergable error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<ListVirtualBranchesError> for Error {
+impl From<ListVirtualBranchesError> for UserError {
     fn from(value: ListVirtualBranchesError) -> Self {
         match value {
             ListVirtualBranchesError::DefaultTargetNotSet(error) => error.into(),
             ListVirtualBranchesError::Other(error) => {
                 tracing::error!(?error, "list virtual branches error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<CreateVirtualBranchError> for Error {
+impl From<CreateVirtualBranchError> for UserError {
     fn from(value: CreateVirtualBranchError) -> Self {
         match value {
             CreateVirtualBranchError::DefaultTargetNotSet(error) => error.into(),
             CreateVirtualBranchError::Other(error) => {
                 tracing::error!(?error, "create virtual branch error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<GetBaseBranchDataError> for Error {
+impl From<GetBaseBranchDataError> for UserError {
     fn from(value: GetBaseBranchDataError) -> Self {
         match value {
             GetBaseBranchDataError::Other(error) => {
                 tracing::error!(?error, "get base branch data error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<ListRemoteCommitFilesError> for Error {
+impl From<ListRemoteCommitFilesError> for UserError {
     fn from(value: ListRemoteCommitFilesError) -> Self {
         match value {
-            ListRemoteCommitFilesError::CommitNotFound(oid) => Error::UserError {
+            ListRemoteCommitFilesError::CommitNotFound(oid) => UserError::User {
                 message: format!("Commit {} not found", oid),
                 code: crate::error::Code::Branches,
             },
             ListRemoteCommitFilesError::Other(error) => {
                 tracing::error!(?error, "list remote commit files error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<SetBaseBranchError> for Error {
+impl From<SetBaseBranchError> for UserError {
     fn from(value: SetBaseBranchError) -> Self {
         match value {
-            SetBaseBranchError::BranchNotFound(name) => Error::UserError {
+            SetBaseBranchError::BranchNotFound(name) => UserError::User {
                 message: format!("remote branch '{}' not found", name),
                 code: crate::error::Code::Branches,
             },
             SetBaseBranchError::Other(error) => {
                 tracing::error!(?error, "set base branch error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<MergeVirtualBranchUpstreamError> for Error {
+impl From<MergeVirtualBranchUpstreamError> for UserError {
     fn from(value: MergeVirtualBranchUpstreamError) -> Self {
         match value {
             MergeVirtualBranchUpstreamError::DefaultTargetNotSet(error) => error.into(),
@@ -603,79 +603,79 @@ impl From<MergeVirtualBranchUpstreamError> for Error {
             MergeVirtualBranchUpstreamError::Conflict(error) => error.into(),
             MergeVirtualBranchUpstreamError::Other(error) => {
                 tracing::error!(?error, "merge virtual branch upstream error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<UpdateBaseBranchError> for Error {
+impl From<UpdateBaseBranchError> for UserError {
     fn from(value: UpdateBaseBranchError) -> Self {
         match value {
             UpdateBaseBranchError::Conflict(error) => error.into(),
             UpdateBaseBranchError::DefaultTargetNotSet(error) => error.into(),
             UpdateBaseBranchError::Other(error) => {
                 tracing::error!(?error, "update base branch error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<UnapplyOwnershipError> for Error {
+impl From<UnapplyOwnershipError> for UserError {
     fn from(value: UnapplyOwnershipError) -> Self {
         match value {
             UnapplyOwnershipError::DefaultTargetNotSet(error) => error.into(),
             UnapplyOwnershipError::Conflict(error) => error.into(),
             UnapplyOwnershipError::Other(error) => {
                 tracing::error!(?error, "unapply ownership error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<AmendError> for Error {
+impl From<AmendError> for UserError {
     fn from(value: AmendError) -> Self {
         match value {
             AmendError::ForcePushNotAllowed(error) => error.into(),
             AmendError::Conflict(error) => error.into(),
             AmendError::BranchNotFound(error) => error.into(),
-            AmendError::BranchHasNoCommits => Error::UserError {
+            AmendError::BranchHasNoCommits => UserError::User {
                 message: "Branch has no commits - there is nothing to amend to".to_string(),
                 code: crate::error::Code::Branches,
             },
             AmendError::DefaultTargetNotSet(error) => error.into(),
-            AmendError::TargetOwnerhshipNotFound(_) => Error::UserError {
+            AmendError::TargetOwnerhshipNotFound(_) => UserError::User {
                 message: "target ownership not found".to_string(),
                 code: crate::error::Code::Branches,
             },
             AmendError::Other(error) => {
                 tracing::error!(?error, "amend error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<ResetBranchError> for Error {
+impl From<ResetBranchError> for UserError {
     fn from(value: ResetBranchError) -> Self {
         match value {
             ResetBranchError::BranchNotFound(error) => error.into(),
             ResetBranchError::DefaultTargetNotSet(error) => error.into(),
-            ResetBranchError::CommitNotFoundInBranch(oid) => Error::UserError {
+            ResetBranchError::CommitNotFoundInBranch(oid) => UserError::User {
                 code: crate::error::Code::Branches,
                 message: format!("commit {} not found", oid),
             },
             ResetBranchError::Other(error) => {
                 tracing::error!(?error, "reset branch error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<UnapplyBranchError> for Error {
+impl From<UnapplyBranchError> for UserError {
     fn from(value: UnapplyBranchError) -> Self {
         match value {
             UnapplyBranchError::Conflict(error) => error.into(),
@@ -683,13 +683,13 @@ impl From<UnapplyBranchError> for Error {
             UnapplyBranchError::BranchNotFound(error) => error.into(),
             UnapplyBranchError::Other(error) => {
                 tracing::error!(?error, "unapply branch error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<PushError> for Error {
+impl From<PushError> for UserError {
     fn from(value: PushError) -> Self {
         match value {
             PushError::Remote(error) => error.into(),
@@ -697,39 +697,39 @@ impl From<PushError> for Error {
             PushError::DefaultTargetNotSet(error) => error.into(),
             PushError::Other(error) => {
                 tracing::error!(?error, "push error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<FlushAppliedVbranchesError> for Error {
+impl From<FlushAppliedVbranchesError> for UserError {
     fn from(value: FlushAppliedVbranchesError) -> Self {
         match value {
             FlushAppliedVbranchesError::DefaultTargetNotSet(error) => error.into(),
             FlushAppliedVbranchesError::Other(error) => {
                 tracing::error!(?error, "flush applied branches error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<CherryPickError> for Error {
+impl From<CherryPickError> for UserError {
     fn from(value: CherryPickError) -> Self {
         match value {
-            CherryPickError::NotApplied => Error::UserError {
+            CherryPickError::NotApplied => UserError::User {
                 message: "can not cherry pick non applied branch".to_string(),
                 code: crate::error::Code::Branches,
             },
             CherryPickError::Conflict(error) => error.into(),
-            CherryPickError::CommitNotFound(oid) => Error::UserError {
+            CherryPickError::CommitNotFound(oid) => UserError::User {
                 message: format!("commit {oid} not found"),
                 code: crate::error::Code::Branches,
             },
             CherryPickError::Other(error) => {
                 tracing::error!(?error, "cherry pick error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
@@ -751,36 +751,36 @@ pub enum ListRemoteBranchesError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<ListRemoteBranchesError> for Error {
+impl From<ListRemoteBranchesError> for UserError {
     fn from(value: ListRemoteBranchesError) -> Self {
         match value {
             ListRemoteBranchesError::DefaultTargetNotSet(error) => error.into(),
             ListRemoteBranchesError::Other(error) => {
                 tracing::error!(?error, "list remote branches error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
 }
 
-impl From<SquashError> for Error {
+impl From<SquashError> for UserError {
     fn from(value: SquashError) -> Self {
         match value {
             SquashError::ForcePushNotAllowed(error) => error.into(),
             SquashError::DefaultTargetNotSet(error) => error.into(),
             SquashError::BranchNotFound(error) => error.into(),
             SquashError::Conflict(error) => error.into(),
-            SquashError::CantSquashRootCommit => Error::UserError {
+            SquashError::CantSquashRootCommit => UserError::User {
                 message: "can not squash root branch commit".to_string(),
                 code: crate::error::Code::Branches,
             },
-            SquashError::CommitNotFound(oid) => Error::UserError {
+            SquashError::CommitNotFound(oid) => UserError::User {
                 message: format!("commit {oid} not found"),
                 code: crate::error::Code::Branches,
             },
             SquashError::Other(error) => {
                 tracing::error!(?error, "squash error");
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }

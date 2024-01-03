@@ -10,7 +10,7 @@ mod common;
 use std::{fs, path, str::FromStr};
 
 use gblib::{
-    error::Error,
+    error::UserError,
     git, keys,
     projects::{self, ProjectId},
     users,
@@ -596,7 +596,7 @@ mod set_base_branch {
                         &git::RemoteRefname::from_str("refs/remotes/origin/missing").unwrap(),
                     )
                     .await,
-                Err(Error::UserError { .. })
+                Err(UserError::User { .. })
             ));
         }
     }

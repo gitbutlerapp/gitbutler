@@ -5,7 +5,7 @@ use tauri::AppHandle;
 use tokio::sync::Semaphore;
 
 use crate::{
-    error::Error,
+    error::UserError,
     gb_repository, git, keys,
     paths::DataDir,
     project_repository,
@@ -113,7 +113,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool, UserError> {
         self.inner(project_id)
             .await
             .can_apply_virtual_branch(project_id, branch_id)
@@ -164,7 +164,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         commit_oid: git::Oid,
-    ) -> Result<Vec<RemoteBranchFile>, Error> {
+    ) -> Result<Vec<RemoteBranchFile>, UserError> {
         self.inner(project_id)
             .await
             .list_remote_commit_files(project_id, commit_oid)
@@ -174,7 +174,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         target_branch: &git::RemoteRefname,
-    ) -> Result<super::BaseBranch, Error> {
+    ) -> Result<super::BaseBranch, UserError> {
         self.inner(project_id)
             .await
             .set_base_branch(project_id, target_branch)
@@ -360,14 +360,14 @@ struct ControllerInner {
 #[derive(Debug, thiserror::Error)]
 pub enum ControllerError<E>
 where
-    E: Into<Error>,
+    E: Into<UserError>,
 {
     #[error(transparent)]
     VerifyError(#[from] errors::VerifyError),
     #[error(transparent)]
     Action(E),
     #[error(transparent)]
-    User(#[from] Error),
+    User(#[from] UserError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -443,10 +443,10 @@ impl ControllerInner {
         project_id: &ProjectId,
         branch_name: &git::RemoteRefname,
     ) -> Result<bool, ControllerError<IsRemoteBranchMergableError>> {
-        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let project = self.projects.get(project_id).map_err(UserError::from)?;
         let project_repository =
-            project_repository::Repository::open(&project).map_err(Error::from)?;
-        let user = self.users.get_user().map_err(Error::from)?;
+            project_repository::Repository::open(&project).map_err(UserError::from)?;
+        let user = self.users.get_user().map_err(UserError::from)?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -461,7 +461,7 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool, UserError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         let user = self.users.get_user().context("failed to get user")?;
@@ -533,10 +533,10 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
     ) -> Result<Option<super::BaseBranch>, ControllerError<GetBaseBranchDataError>> {
-        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let project = self.projects.get(project_id).map_err(UserError::from)?;
         let project_repository =
-            project_repository::Repository::open(&project).map_err(Error::from)?;
-        let user = self.users.get_user().map_err(Error::from)?;
+            project_repository::Repository::open(&project).map_err(UserError::from)?;
+        let user = self.users.get_user().map_err(UserError::from)?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -552,7 +552,7 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         commit_oid: git::Oid,
-    ) -> Result<Vec<RemoteBranchFile>, Error> {
+    ) -> Result<Vec<RemoteBranchFile>, UserError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
 
@@ -564,7 +564,7 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         target_branch: &git::RemoteRefname,
-    ) -> Result<super::BaseBranch, Error> {
+    ) -> Result<super::BaseBranch, UserError> {
         let project = self.projects.get(project_id)?;
         let user = self.users.get_user()?;
         let project_repository = project_repository::Repository::open(&project)?;
@@ -791,10 +791,10 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
     ) -> Result<Vec<super::RemoteBranch>, ControllerError<ListRemoteBranchesError>> {
-        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let project = self.projects.get(project_id).map_err(UserError::from)?;
         let project_repository =
-            project_repository::Repository::open(&project).map_err(Error::from)?;
-        let user = self.users.get_user().map_err(Error::from)?;
+            project_repository::Repository::open(&project).map_err(UserError::from)?;
+        let user = self.users.get_user().map_err(UserError::from)?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -879,7 +879,7 @@ impl ControllerInner {
 }
 
 impl ControllerInner {
-    fn with_verify_branch<T, E: Into<Error>>(
+    fn with_verify_branch<T, E: Into<UserError>>(
         &self,
         project_id: &ProjectId,
         action: impl FnOnce(
@@ -888,10 +888,10 @@ impl ControllerInner {
             Option<&users::User>,
         ) -> Result<T, E>,
     ) -> Result<T, ControllerError<E>> {
-        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let project = self.projects.get(project_id).map_err(UserError::from)?;
         let project_repository =
-            project_repository::Repository::open(&project).map_err(Error::from)?;
-        let user = self.users.get_user().map_err(Error::from)?;
+            project_repository::Repository::open(&project).map_err(UserError::from)?;
+        let user = self.users.get_user().map_err(UserError::from)?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,

@@ -6,7 +6,7 @@ use tracing::instrument;
 
 use crate::{
     app,
-    error::{Code, Error},
+    error::{Code, UserError},
     gb_repository, git,
     paths::DataDir,
     project_repository, projects, reader,
@@ -14,15 +14,15 @@ use crate::{
     users, watcher,
 };
 
-impl From<app::Error> for Error {
+impl From<app::Error> for UserError {
     fn from(value: app::Error) -> Self {
         match value {
-            app::Error::GetProject(error) => Error::from(error),
-            app::Error::ProjectRemote(error) => Error::from(error),
-            app::Error::OpenProjectRepository(error) => Error::from(error),
+            app::Error::GetProject(error) => UserError::from(error),
+            app::Error::ProjectRemote(error) => UserError::from(error),
+            app::Error::OpenProjectRepository(error) => UserError::from(error),
             app::Error::Other(error) => {
                 tracing::error!(?error);
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
@@ -35,13 +35,13 @@ pub async fn list_session_files(
     project_id: &str,
     session_id: &str,
     paths: Option<Vec<path::PathBuf>>,
-) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
+) -> Result<HashMap<path::PathBuf, reader::Content>, UserError> {
     let app = handle.state::<app::App>();
-    let session_id: SessionId = session_id.parse().map_err(|_| Error::UserError {
+    let session_id: SessionId = session_id.parse().map_err(|_| UserError::User {
         message: "Malformed session id".to_string(),
         code: Code::Validation,
     })?;
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
+    let project_id = project_id.parse().map_err(|_| UserError::User {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
@@ -54,9 +54,9 @@ pub async fn list_session_files(
 pub async fn git_remote_branches(
     handle: tauri::AppHandle,
     project_id: &str,
-) -> Result<Vec<git::RemoteRefname>, Error> {
+) -> Result<Vec<git::RemoteRefname>, UserError> {
     let app = handle.state::<app::App>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
+    let project_id = project_id.parse().map_err(|_| UserError::User {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
@@ -66,9 +66,9 @@ pub async fn git_remote_branches(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, UserError> {
     let app = handle.state::<app::App>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
+    let project_id = project_id.parse().map_err(|_| UserError::User {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
@@ -78,7 +78,7 @@ pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<Stri
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
+pub async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), UserError> {
     let app = handle.state::<app::App>();
     app.delete_all_data().await?;
     Ok(())
@@ -90,9 +90,9 @@ pub async fn mark_resolved(
     handle: tauri::AppHandle,
     project_id: &str,
     path: &str,
-) -> Result<(), Error> {
+) -> Result<(), UserError> {
     let app = handle.state::<app::App>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
+    let project_id = project_id.parse().map_err(|_| UserError::User {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
@@ -106,7 +106,7 @@ pub async fn git_set_global_config(
     handle: tauri::AppHandle,
     key: &str,
     value: &str,
-) -> Result<String, Error> {
+) -> Result<String, UserError> {
     let app = handle.state::<app::App>();
     let result = app.git_set_global_config(key, value)?;
     Ok(result)
@@ -117,7 +117,7 @@ pub async fn git_set_global_config(
 pub async fn git_get_global_config(
     handle: tauri::AppHandle,
     key: &str,
-) -> Result<Option<String>, Error> {
+) -> Result<Option<String>, UserError> {
     let app = handle.state::<app::App>();
     let result = app.git_get_global_config(key)?;
     Ok(result)
@@ -125,8 +125,8 @@ pub async fn git_get_global_config(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
-    let project_id = id.parse().map_err(|_| Error::UserError {
+pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Result<(), UserError> {
+    let project_id = id.parse().map_err(|_| UserError::User {
         code: Code::Validation,
         message: "Malformed project id".into(),
     })?;

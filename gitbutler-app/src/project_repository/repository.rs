@@ -26,16 +26,16 @@ pub enum OpenError {
     Other(anyhow::Error),
 }
 
-impl From<OpenError> for crate::error::Error {
+impl From<OpenError> for crate::error::UserError {
     fn from(value: OpenError) -> Self {
         match value {
-            OpenError::NotFound(path) => crate::error::Error::UserError {
+            OpenError::NotFound(path) => crate::error::UserError::User {
                 code: crate::error::Code::Projects,
                 message: format!("{} not found", path.display()),
             },
             OpenError::Other(error) => {
                 tracing::error!(?error);
-                crate::error::Error::Unknown
+                crate::error::UserError::Unknown
             }
         }
     }
@@ -436,21 +436,21 @@ pub enum RemoteError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<RemoteError> for crate::error::Error {
+impl From<RemoteError> for crate::error::UserError {
     fn from(value: RemoteError) -> Self {
         match value {
             RemoteError::Help(error) => error.into(),
-            RemoteError::Network => crate::error::Error::UserError {
+            RemoteError::Network => crate::error::UserError::User {
                 code: crate::error::Code::ProjectGitRemote,
                 message: "Network erorr occured".to_string(),
             },
-            RemoteError::Auth => crate::error::Error::UserError {
+            RemoteError::Auth => crate::error::UserError::User {
                 code: crate::error::Code::ProjectGitAuth,
                 message: "Project remote authentication error".to_string(),
             },
             RemoteError::Other(error) => {
                 tracing::error!(?error);
-                crate::error::Error::Unknown
+                crate::error::UserError::Unknown
             }
         }
     }

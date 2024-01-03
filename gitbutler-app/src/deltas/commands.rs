@@ -3,16 +3,16 @@ use std::collections::HashMap;
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
-use crate::error::{Code, Error};
+use crate::error::{Code, UserError};
 
 use super::{controller::ListError, Controller, Delta};
 
-impl From<ListError> for Error {
+impl From<ListError> for UserError {
     fn from(value: ListError) -> Self {
         match value {
             ListError::Other(error) => {
                 tracing::error!(?error);
-                Error::Unknown
+                UserError::Unknown
             }
         }
     }
@@ -25,12 +25,12 @@ pub async fn list_deltas(
     project_id: &str,
     session_id: &str,
     paths: Option<Vec<&str>>,
-) -> Result<HashMap<String, Vec<Delta>>, Error> {
-    let session_id = session_id.parse().map_err(|_| Error::UserError {
+) -> Result<HashMap<String, Vec<Delta>>, UserError> {
+    let session_id = session_id.parse().map_err(|_| UserError::User {
         message: "Malformed session id".to_string(),
         code: Code::Validation,
     })?;
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
+    let project_id = project_id.parse().map_err(|_| UserError::User {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
