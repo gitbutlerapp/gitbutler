@@ -64,7 +64,7 @@
 		border-radius: var(--radius-s);
 
 		& path {
-			fill: var(--clr-theme-container-pale);
+			fill: var(--clr-theme-container-light);
 		}
 	}
 
