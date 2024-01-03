@@ -1,3 +1,7 @@
+<script lang="ts" context="module">
+	export type ButtonColor = 'primary' | 'neutral' | 'error' | 'warn';
+</script>
+
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
@@ -5,7 +9,7 @@
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let iconAlign: 'left' | 'right' = 'right';
-	export let color: 'primary' | 'neutral' | 'error' = 'primary';
+	export let color: ButtonColor = 'primary';
 	export let kind: 'filled' | 'outlined' = 'filled';
 	export let disabled = false;
 	export let id: string | undefined = undefined;
@@ -31,8 +35,10 @@
 	class={`btn ${className}`}
 	class:error-outline={color == 'error' && kind == 'outlined'}
 	class:primary-outline={color == 'primary' && kind == 'outlined'}
+	class:warn-outline={color == 'warn' && kind == 'outlined'}
 	class:error-filled={color == 'error' && kind == 'filled'}
 	class:primary-filled={color == 'primary' && kind == 'filled'}
+	class:warn-filled={color == 'warn' && kind == 'filled'}
 	class:neutral-outline={color == 'neutral' && kind == 'outlined'}
 	class:pointer-events-none={loading}
 	class:icon-left={iconAlign == 'left'}
@@ -123,6 +129,29 @@
 			color: var(--clr-theme-scale-ntrl-20);
 			border: 1px solid var(--clr-theme-container-outline-pale);
 			background: var(--clr-theme-container-pale);
+		}
+	}
+	.warn-filled {
+		color: var(--clr-theme-warn-on-element);
+		background: var(--clr-theme-warn-element);
+		&:hover {
+			background: var(--clr-theme-warn-element-dim);
+		}
+		&:active {
+			background: var(--clr-theme-warn-element-dark);
+		}
+	}
+	.warn-outline {
+		color: var(--clr-theme-warn-outline);
+		border: 1px solid var(--clr-theme-warn-outline);
+		&:hover {
+			color: var(--clr-theme-warn-outline-dim);
+			border: 1px solid var(--clr-theme-warn-outline-dim);
+		}
+		&:active {
+			color: var(--clr-theme-warn-outline-dim);
+			border: 1px solid var(--clr-theme-warn-outline-dim);
+			background: var(--clr-theme-warn-container);
 		}
 	}
 	.error-filled {
