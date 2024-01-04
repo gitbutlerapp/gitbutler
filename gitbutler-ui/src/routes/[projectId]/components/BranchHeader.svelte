@@ -19,6 +19,8 @@
 	function handleBranchNameChange() {
 		branchController.updateBranchName(branch.id, branch.name);
 	}
+
+	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
 </script>
 
 <div class="card__header relative" data-drag-handle>
@@ -48,7 +50,13 @@
 	{#if branch.upstreamName}
 		<div class="card__row text-base-11" data-drag-handle>
 			<div class="card__remote">
-				{#if !branch.upstream}<div class="pending">pending</div>{/if}
+				{#if !branch.upstream}
+					{#if hasIntegratedCommits}
+						<div class="status-tag deleted">deleted</div>
+					{:else}
+						<div class="status-tag pending">pending</div>
+					{/if}
+				{/if}
 				<div>origin/{branch.upstreamName}</div>
 			</div>
 		</div>
@@ -106,10 +114,16 @@
 		align-items: center;
 	}
 
+	.status-tag {
+		padding: var(--space-2) var(--space-4);
+		border-radius: var(--radius-s);
+	}
 	.pending {
 		color: var(--clr-theme-scale-ntrl-40);
 		background: var(--clr-theme-container-sub);
-		padding: var(--space-2) var(--space-4);
-		border-radius: var(--radius-s);
+	}
+	.deleted {
+		color: var(--clr-theme-scale-warn-30);
+		background: var(--clr-theme-warn-container-dim);
 	}
 </style>
