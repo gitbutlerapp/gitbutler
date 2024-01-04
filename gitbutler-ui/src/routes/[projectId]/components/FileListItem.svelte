@@ -109,6 +109,7 @@
 	}
 	.path {
 		color: var(--clr-theme-scale-ntrl-40);
+		line-height: 120%;
 		flex-shrink: 1;
 		white-space: nowrap;
 		text-overflow: ellipsis;

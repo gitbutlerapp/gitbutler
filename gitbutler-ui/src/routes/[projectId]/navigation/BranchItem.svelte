@@ -68,6 +68,7 @@
 		white-space: nowrap;
 		overflow-x: hidden;
 		text-overflow: ellipsis;
+		line-height: 120%;
 	}
 
 	.branch__author {
