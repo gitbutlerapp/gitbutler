@@ -8,6 +8,13 @@
 	import { dropzone } from '$lib/utils/draggable';
 	import type { BranchController } from '$lib/vbranches/branchController';
 
+	import Button from '$lib/components/Button.svelte';
+
+	import HandImg from './empty-state-img/HandImg.svelte';
+	import TopSheetImg from './empty-state-img/TopSheetImg.svelte';
+	import MiddleSheetImg from './empty-state-img/MiddleSheetImg.svelte';
+	import BottomSheetImg from './empty-state-img/BottomSheetImg.svelte';
+
 	export let branchController: BranchController;
 
 	function accepts(data: any) {
@@ -34,29 +41,39 @@
 		accepts
 	}}
 >
-	<button
-		id="new-branch-dz"
-		class="new-virtual-branch"
-		on:click={() => branchController.createBranch({})}
-	>
+	<div id="new-branch-dz" class="new-virtual-branch">
 		<div class="new-virtual-branch__content">
-			<svg
-				width="20"
-				height="20"
-				viewBox="0 0 20 20"
-				fill="currentcolor"
-				xmlns="http://www.w3.org/2000/svg"
-			>
-				<path
-					fill-rule="evenodd"
-					clip-rule="evenodd"
-					d="M10.75 10.75V20H9.25V10.75H0V9.25H9.25V0H10.75V9.25H20V10.75H10.75Z"
-				/>
-			</svg>
+			<div class="stimg">
+				<div class="stimg__hand">
+					<HandImg />
+				</div>
+				<div class="stimg__top-sheet">
+					<TopSheetImg />
+				</div>
+				<div class="stimg__middle-sheet">
+					<MiddleSheetImg />
+				</div>
+				<div class="stimg__bottom-sheet">
+					<BottomSheetImg />
+				</div>
 
-			<span class="text-base-12 text-semibold" />
+				<div class="stimg__branch">
+					<div class="stimg__branch-plus" />
+				</div>
+			</div>
+
+			<span class="text-base-body-12 new-branch-caption"
+				>Drag and drop files to create a new branch</span
+			>
+
+			<Button
+				color="neutral"
+				kind="outlined"
+				icon="plus-small"
+				on:click={() => branchController.createBranch({})}>New branch</Button
+			>
 		</div>
-	</button>
+	</div>
 </div>
 
 <style lang="postcss">
@@ -66,34 +83,15 @@
 	}
 
 	.new-virtual-branch {
-		color: color-mix(in srgb, var(--clr-theme-scale-ntrl-0) 30%, transparent);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
 		width: 24rem;
 		height: 100%;
 		border-radius: var(--radius-m);
-		border: 1px dashed color-mix(in srgb, var(--clr-theme-scale-ntrl-60) 50%, transparent);
+		border: 1px dashed color-mix(in srgb, var(--clr-theme-container-outline-pale) 50%, transparent);
 		background-color: transparent;
-		transition:
-			opacity var(--transition-medium),
-			background-color var(--transition-medium),
-			border-color var(--transition-medium),
-			color var(--transition-medium);
-
-		&:hover {
-			opacity: 0.8;
-			background-color: color-mix(in srgb, var(--clr-theme-container-sub) 60%, transparent);
-			border: 1px solid color-mix(in srgb, var(--clr-theme-container-sub) 60%, transparent);
-			color: var(--clr-theme-scale-ntrl-40);
-
-			& .new-virtual-branch__content {
-				opacity: 1;
-				transform: translateY(0);
-
-				& span {
-					opacity: 0.5;
-					transform: translateY(0);
-				}
-			}
-		}
 	}
 
 	.new-virtual-branch__content {
@@ -102,56 +100,97 @@
 		align-items: center;
 		justify-content: center;
 		gap: var(--space-16);
-		transform: translateY(calc(var(--space-10)));
-		transition:
-			transform var(--transition-medium),
-			opacity var(--transition-medium);
+	}
 
-		& span {
-			opacity: 0;
-			transition:
-				opacity var(--transition-medium),
-				transform var(--transition-medium);
+	/* ILLUSTRATION */
+	.stimg {
+		position: relative;
+		width: 120px;
+		height: 130px;
+		opacity: 0.8;
 
-			&:after {
-				content: 'New Branch';
-			}
+		& div {
+			position: absolute;
+			background-size: cover;
+			background-repeat: no-repeat;
+		}
+	}
+
+	.stimg__hand {
+		z-index: 5;
+		top: 85px;
+		left: 25px;
+	}
+
+	.stimg__top-sheet {
+		z-index: 4;
+		top: 56px;
+		left: 8px;
+	}
+
+	.stimg__middle-sheet {
+		z-index: 3;
+		top: 42px;
+		left: 29px;
+	}
+
+	.stimg__bottom-sheet {
+		z-index: 2;
+		top: 66px;
+		left: 50px;
+	}
+
+	.stimg__branch {
+		z-index: 1;
+		top: 0;
+		left: 45px;
+		width: 66px;
+		height: 95px;
+		background-color: color-mix(in srgb, var(--clr-core-pop-55) 12%, transparent);
+		border-radius: 12px;
+	}
+
+	.stimg__branch-plus {
+		position: absolute;
+		top: 14px;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 34px;
+		height: 34px;
+		opacity: 0.2;
+
+		&::before,
+		&::after {
+			content: '';
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			width: 100%;
+			height: 2px;
+			background-color: var(--clr-theme-scale-pop-40);
 		}
 
-		& svg {
-			transition: fill var(--transition-medium);
+		&::after {
+			transform: translate(-50%, -50%) rotate(90deg);
 		}
+	}
+
+	/* OTHER */
+
+	.new-branch-caption {
+		color: var(--clr-theme-scale-ntrl-0);
+		text-align: center;
+		opacity: 0.3;
+		max-width: 130px;
 	}
 
 	/* DRAGZONE MODIEFIERS */
 	.canvas-dropzone {
 		&:global(.new-dz-active > .new-virtual-branch) {
-			background-color: color-mix(in srgb, var(--clr-theme-pop-container-dark) 30%, transparent);
-			border: 1px solid color-mix(in srgb, var(--clr-theme-pop-container-dark) 30%, transparent);
+			background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 4%, transparent);
+			/* border: 1px dashed color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 100%, transparent); */
 			color: var(--clr-theme-scale-pop-50);
-
-			& .new-virtual-branch__content {
-				& span {
-					&:after {
-						content: 'Drop to create new branch';
-					}
-				}
-			}
-		}
-
-		&:global(.new-dz-hover > .new-virtual-branch) {
-			background-color: color-mix(in srgb, var(--clr-theme-pop-container-dark) 60%, transparent);
-			border: 1px solid color-mix(in srgb, var(--clr-theme-pop-container-dark) 60%, transparent);
-			color: var(--clr-theme-scale-pop-50);
-
-			& .new-virtual-branch__content {
-				opacity: 1;
-				transform: translateY(0);
-
-				& span {
-					opacity: 0.6;
-				}
-			}
 		}
 	}
 </style>
