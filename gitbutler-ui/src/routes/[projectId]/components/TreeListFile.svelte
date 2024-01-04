@@ -2,7 +2,6 @@
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { draggableFile } from '$lib/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
-	import Icon from '$lib/icons/Icon.svelte';
 	import { draggable } from '$lib/utils/draggable';
 	import type { File } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
@@ -102,10 +101,6 @@
 		color: var(--clr-theme-scale-ntrl-0);
 		text-overflow: ellipsis;
 		overflow: hidden;
-	}
-	.dot {
-		color: var(--clr-theme-scale-ntrl-0);
-		opacity: 0.3;
 	}
 	.selected {
 		background-color: var(--clr-theme-scale-pop-80);
