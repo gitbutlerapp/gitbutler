@@ -9,9 +9,10 @@
 	import Button, { type ButtonColor } from './Button.svelte';
 
 	export let style: MessageStyle = 'neutral';
-	export let title: string;
+	export let title: string | undefined;
 	export let primary: string | undefined = undefined;
 	export let secondary: string | undefined = undefined;
+	export let shadow = false;
 
 	const dispatch = createEventDispatcher<{ primary: void; secondary: void }>();
 
@@ -50,31 +51,36 @@
 	class:error={style == 'error'}
 	class:pop={style == 'pop'}
 	class:warn={style == 'warn'}
+	class:shadow
 >
 	<Icon name={iconMap[style]} color={iconColorMap[style]} />
 	<div class="info-message__inner">
 		<div class="info-message__content">
-			<div class="info-message__title text-base-13 text-semibold">{title}</div>
-			<div class="info-message__text text-base-12">
+			{#if title}
+				<div class="info-message__title text-base-13 text-semibold">{title}</div>
+			{/if}
+			<div class="info-message__text text-base-body-12">
 				<slot />
 			</div>
 		</div>
-		<div class="info-message__actions">
-			{#if secondary}
-				<Button
-					color={secondaryButtonMap[style]}
-					kind="outlined"
-					on:click={() => dispatch('secondary')}
-				>
-					{secondary}
-				</Button>
-			{/if}
-			{#if primary}
-				<Button color={primaryButtonMap[style]} on:click={() => dispatch('primary')}>
-					{primary}
-				</Button>
-			{/if}
-		</div>
+		{#if primary || secondary}
+			<div class="info-message__actions">
+				{#if secondary}
+					<Button
+						color={secondaryButtonMap[style]}
+						kind="outlined"
+						on:click={() => dispatch('secondary')}
+					>
+						{secondary}
+					</Button>
+				{/if}
+				{#if primary}
+					<Button color={primaryButtonMap[style]} on:click={() => dispatch('primary')}>
+						{primary}
+					</Button>
+				{/if}
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -85,6 +91,7 @@
 		padding: var(--space-16);
 		border-radius: var(--radius-m);
 		gap: var(--space-12);
+		max-width: 22rem;
 	}
 	.info-message__inner {
 		display: flex;
@@ -117,5 +124,8 @@
 	.warn {
 		background-color: var(--clr-theme-warn-container);
 		border: 1px solid var(--clr-theme-scale-warn-70);
+	}
+	.shadow {
+		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
 	}
 </style>
