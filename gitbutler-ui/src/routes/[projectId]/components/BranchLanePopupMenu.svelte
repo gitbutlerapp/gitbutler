@@ -8,6 +8,7 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import type { Branch } from '$lib/vbranches/types';
+	import TextBox from '$lib/components/TextBox.svelte';
 
 	export let branchController: BranchController;
 	export let branch: Branch;
@@ -15,6 +16,8 @@
 	export let visible: boolean;
 
 	let deleteBranchModal: Modal;
+	let renameRemoteModal: Modal;
+	let newRemoteName: string;
 
 	const dispatch = createEventDispatcher<{
 		action: 'expand' | 'collapse' | 'generate-branch-name';
@@ -48,7 +51,16 @@
 				disabled={!$aiGenEnabled || branch.files?.length == 0 || !branch.active}
 			/>
 		</ContextMenuSection>
-
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Set branch name"
+				on:click={() => {
+					newRemoteName = branch.upstreamName || '';
+					visible = false;
+					renameRemoteModal.show(branch);
+				}}
+			/>
+		</ContextMenuSection>
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Create branch before"
@@ -68,6 +80,24 @@
 		</ContextMenuSection>
 	</ContextMenu>
 {/if}
+
+<Modal width="small" bind:this={renameRemoteModal}>
+	<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName}></TextBox>
+
+	<svelte:fragment slot="controls" let:close>
+		<Button kind="outlined" on:click={close}>Cancel</Button>
+		<Button
+			color="primary"
+			on:click={() => {
+				branchController.updateBranchRemoteName(branch.id, newRemoteName);
+				close();
+				visible = false;
+			}}
+		>
+			Rename
+		</Button>
+	</svelte:fragment>
+</Modal>
 
 <Modal width="small" title="Delete branch" bind:this={deleteBranchModal} let:item={branch}>
 	<div>

@@ -67,6 +67,17 @@ impl Refname {
             Self::Virtual(r#virtual) => Some(r#virtual.branch()),
         }
     }
+
+    pub fn simple_name(&self) -> String {
+        match self {
+            Refname::Virtual(virtual_refname) => virtual_refname.branch().to_string(),
+            Refname::Local(local) => local.branch().to_string(),
+            Refname::Remote(remote) => {
+                format!("{}/{}", remote.remote(), remote.branch())
+            }
+            Refname::Other(raw) => raw.to_string(),
+        }
+    }
 }
 
 impl FromStr for Refname {

@@ -3,11 +3,12 @@
 	import Icon from '$lib/icons/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 
-	export let id: string | undefined = undefined;
+	export let id: string | undefined = undefined; // Required to make label clickable
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let value: string | undefined = undefined;
 	export let placeholder: string | undefined = undefined;
 	export let iconPosition: 'left' | 'right' = 'left';
+	export let label: string | undefined = undefined;
 	export let disabled = false;
 	export let readonly = false;
 	export let required = false;
@@ -17,6 +18,11 @@
 </script>
 
 <div class="textbox">
+	{#if label}
+		<label class="textbox__label font-base-13 text-semibold" for={id}>
+			{label}
+		</label>
+	{/if}
 	<div
 		class="textbox__input-wrap"
 		class:textbox__left-orient={icon && iconPosition == 'left'}
@@ -60,6 +66,7 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
+		gap: var(--space-6);
 	}
 
 	.textbox__input-wrap {
@@ -99,6 +106,10 @@
 			border-color: var(--clr-theme-err-element);
 			background-color: var(--clr-theme-container-pale);
 		}
+	}
+
+	.textbox__label {
+		color: var(--clr-theme-scale-ntrl-50);
 	}
 
 	.textbox__icon {
