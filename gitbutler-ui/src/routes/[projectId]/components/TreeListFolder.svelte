@@ -32,23 +32,25 @@
 </script>
 
 <button class="tree-list-folder" class:expanded on:click>
-	{#if expanded}
+	<div class="chevron-icon" class:chevron-expanded={expanded}>
 		<Icon name="chevron-down-small" />
-	{:else}
-		<Icon name="chevron-right-small" />
-	{/if}
-	{#if showCheckbox}
-		<Checkbox
-			small
-			checked={isChecked}
-			indeterminate={isIndeterminate}
-			on:change={onSelectionChanged}
-		/>
-	{/if}
-	<IconFolder style="width: var(--space-12)" />
-	<span class="name text-base-body-12">
-		{node.name}
-	</span>
+	</div>
+	<div class="content-wrapper">
+		{#if showCheckbox}
+			<Checkbox
+				small
+				checked={isChecked}
+				indeterminate={isIndeterminate}
+				on:change={onSelectionChanged}
+			/>
+		{/if}
+		<div class="name-wrapper">
+			<IconFolder style="width: var(--space-12)" />
+			<span class="name text-base-12">
+				{node.name}
+			</span>
+		</div>
+	</div>
 </button>
 
 <style lang="postcss">
@@ -61,9 +63,33 @@
 		border-radius: var(--radius-s);
 		&:hover {
 			background: var(--clr-theme-container-pale);
+
+			& .chevron-icon {
+				opacity: 0.7;
+			}
 		}
+	}
+	.content-wrapper {
+		display: flex;
+		align-items: center;
+		gap: var(--space-10);
+	}
+	.name-wrapper {
+		display: flex;
+		align-items: center;
+		gap: var(--space-6);
 	}
 	.name {
 		color: var(--clr-theme-scale-ntrl-0);
+	}
+	.chevron-icon {
+		opacity: 0.5;
+		transform: rotate(-90deg);
+		transition:
+			opacity var(--transition-fast),
+			transform var(--transition-fast);
+	}
+	.chevron-expanded {
+		transform: rotate(0deg);
 	}
 </style>

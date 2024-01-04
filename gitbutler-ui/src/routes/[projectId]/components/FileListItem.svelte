@@ -39,7 +39,7 @@
 	tabindex="0"
 >
 	<div class="file-list-item" id={`file-${file.id}`} class:selected>
-		<div class="info">
+		<div class="info-wrap">
 			{#if showCheckbox}
 				<Checkbox
 					small
@@ -54,13 +54,15 @@
 					}}
 				/>
 			{/if}
-			<img src={getVSIFileIcon(file.path)} alt="js" style="width: var(--space-12)" />
-			<span class="text-base-body-12 name">
-				{file.filename}
-			</span>
-			<span class="text-base-body-12 path">
-				{file.justpath}
-			</span>
+			<div class="info">
+				<img src={getVSIFileIcon(file.path)} alt="js" style="width: var(--space-12)" />
+				<span class="text-base-12 name">
+					{file.filename}
+				</span>
+				<span class="text-base-12 path">
+					{file.justpath}
+				</span>
+			</div>
 		</div>
 		<FileStatusIcons {file} />
 	</div>
@@ -82,7 +84,14 @@
 			background: var(--clr-theme-container-pale);
 		}
 	}
-	/* hello */
+	.info-wrap {
+		display: flex;
+		align-items: center;
+		flex-grow: 1;
+		flex-shrink: 1;
+		gap: var(--space-10);
+		overflow: hidden;
+	}
 	.info {
 		display: flex;
 		align-items: center;
