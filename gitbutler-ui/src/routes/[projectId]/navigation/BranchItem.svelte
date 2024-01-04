@@ -22,15 +22,14 @@
 
 <a class="branch" class:selected {href}>
 	{#if branch.icon}
-		<!-- <div class="item__icon"><Icon name={branch.icon} color={branch.color} /></div> -->
 		<BranchIcon name={branch.icon} color={branch.color} />
 	{/if}
 	<div class="branch__info flex flex-col gap-2">
-		<p class="text-base-body-13 branch__name">
+		<p class="text-base-13 branch__name">
 			{branch.displayName}
 		</p>
 		<div class="branch__details">
-			<span class="branch__author text-base-body-11 details truncate">
+			<span class="branch__author text-base-11 details truncate">
 				<TimeAgo date={branch.modifiedAt} />
 				{#if branch.author}
 					by {branch.author?.name ?? 'unknown'}
@@ -55,8 +54,8 @@
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
-		overflow-x: hidden;
 		gap: var(--space-6);
+		overflow: hidden;
 	}
 
 	.branch__details {
@@ -66,6 +65,7 @@
 	}
 
 	.branch__name {
+		white-space: nowrap;
 		overflow-x: hidden;
 		text-overflow: ellipsis;
 	}

@@ -44,29 +44,29 @@
 	tabindex="0"
 >
 	<div class="tree-list-file" class:selected>
-		{#if showCheckbox}
-			<Checkbox
-				small
-				{checked}
-				{indeterminate}
-				on:change={(e) => {
-					selectedOwnership.update((ownership) => {
-						if (e.detail) file.hunks.forEach((h) => ownership.addHunk(file.id, h.id));
-						if (!e.detail) file.hunks.forEach((h) => ownership.removeHunk(file.id, h.id));
-						return ownership;
-					});
-				}}
-			/>
-		{:else}
-			<div class="dot">
-				<Icon name="dot" />
+		<div class="content-wrapper">
+			{#if showCheckbox}
+				<Checkbox
+					small
+					{checked}
+					{indeterminate}
+					on:change={(e) => {
+						selectedOwnership.update((ownership) => {
+							if (e.detail) file.hunks.forEach((h) => ownership.addHunk(file.id, h.id));
+							if (!e.detail) file.hunks.forEach((h) => ownership.removeHunk(file.id, h.id));
+							return ownership;
+						});
+					}}
+				/>
+			{/if}
+			<div class="name-wrapper">
+				<img src={getVSIFileIcon(file.path)} alt="js" style="width: var(--space-12)" class="icon" />
+				<span class="name text-base-12">
+					{file.filename}
+				</span>
+				<FileStatusIcons {file} />
 			</div>
-		{/if}
-		<img src={getVSIFileIcon(file.path)} alt="js" style="width: var(--space-12)" class="icon" />
-		<span class="name text-base-12">
-			{file.filename}
-		</span>
-		<FileStatusIcons {file} />
+		</div>
 	</div>
 </div>
 
@@ -87,6 +87,16 @@
 			background: var(--clr-theme-container-pale);
 		}
 		overflow: hidden;
+	}
+	.content-wrapper {
+		display: flex;
+		align-items: center;
+		gap: var(--space-10);
+	}
+	.name-wrapper {
+		display: flex;
+		align-items: center;
+		gap: var(--space-6);
 	}
 	.name {
 		color: var(--clr-theme-scale-ntrl-0);
