@@ -1,8 +1,6 @@
 <script lang="ts">
 	export let name: 'remote-branch' | 'virtual-branch' | 'pr' | 'pr-draft' | 'pr-closed' | undefined;
 	export let color: 'neutral' | 'success' | 'pop' | 'purple' | undefined;
-
-	console.log(name, color);
 </script>
 
 <div
