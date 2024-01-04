@@ -30,14 +30,7 @@
 
 <div class="header">
 	<div class="header__inner">
-		<img
-			src={getVSIFileIcon(file.path)}
-			alt="js"
-			width="13"
-			height="13"
-			style="width: 0.8125rem; height: 0.8125rem"
-			class="inline"
-		/>
+		<img src={getVSIFileIcon(file.path)} alt="js" width="13" height="13" class="icon" />
 		<div class="header__info truncate">
 			<div class="header__filetitle text-base-13 truncate">
 				<span class="header__filename">{fileTitle.filename}</span>
@@ -72,7 +65,7 @@
 			</div>
 		</div>
 	</div>
-	<IconButton icon="cross" on:click={() => dispatch('close')} />
+	<IconButton icon="cross" size="m" on:click={() => dispatch('close')} />
 </div>
 
 <style lang="postcss">
@@ -104,12 +97,18 @@
 	}
 	.header__filetitle {
 		width: 100%;
-		color: var(--clr-theme-scale-ntrl-50);
 	}
 	.header__filename {
 		color: var(--clr-theme-scale-ntrl-0);
+		line-height: 120%;
 	}
 	.header__filepath {
 		color: var(--clr-theme-scale-ntrl-50);
+	}
+	.icon {
+		flex-shrink: 0;
+		width: var(--space-14);
+		height: var(--space-14);
+		margin-top: calc(var(--space-2) / 2);
 	}
 </style>

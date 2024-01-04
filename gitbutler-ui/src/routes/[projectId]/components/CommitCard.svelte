@@ -226,6 +226,7 @@
 		flex: 1;
 		display: block;
 		color: var(--clr-theme-scale-ntrl-0);
+		line-height: 120%;
 		width: 100%;
 	}
 
