@@ -335,14 +335,7 @@ impl Repository {
     pub fn find_branch(&self, name: &Refname) -> Result<Branch> {
         self.0
             .find_branch(
-                &match name {
-                    Refname::Virtual(virtual_refname) => virtual_refname.branch().to_string(),
-                    Refname::Local(local) => local.branch().to_string(),
-                    Refname::Remote(remote) => {
-                        format!("{}/{}", remote.remote(), remote.branch())
-                    }
-                    Refname::Other(raw) => raw.to_string(),
-                },
+                &name.simple_name(),
                 match name {
                     Refname::Virtual(_) | Refname::Local(_) | Refname::Other(_) => {
                         git2::BranchType::Local

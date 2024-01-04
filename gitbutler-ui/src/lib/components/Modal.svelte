@@ -13,7 +13,7 @@
 	}
 
 	export let width: 'default' | 'small' | 'large' = 'default';
-	export let title: string;
+	export let title: string | undefined = undefined;
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 
 	let item: any;

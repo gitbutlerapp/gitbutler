@@ -56,6 +56,7 @@ export class Branch {
 	order!: number;
 	@Type(() => RemoteBranch)
 	upstream?: RemoteBranch;
+	upstreamName?: string;
 	conflicted!: boolean;
 	// TODO: to be removed from the API
 	baseCurrent!: boolean;
@@ -67,10 +68,6 @@ export class Branch {
 	isMergeable!: Promise<boolean>;
 	@Transform((obj) => new Date(obj.value))
 	updatedAt!: Date;
-
-	get upstreamName() {
-		return this.upstream?.name.split('/').slice(-1)[0];
-	}
 }
 
 export class Commit {

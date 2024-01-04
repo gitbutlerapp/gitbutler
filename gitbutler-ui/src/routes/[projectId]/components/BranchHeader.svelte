@@ -45,10 +45,11 @@
 			{/if}
 		</div>
 	</div>
-	{#if branch.upstream}
+	{#if branch.upstreamName}
 		<div class="card__row text-base-11" data-drag-handle>
 			<div class="card__remote">
-				origin/{branch.upstream.displayName}
+				{#if !branch.upstream}<div class="pending">pending</div>{/if}
+				<div>origin/{branch.upstreamName}</div>
 			</div>
 		</div>
 	{/if}
@@ -96,10 +97,19 @@
 
 	.card__remote {
 		padding-left: var(--space-28);
-		padding-bottom: var(--space-4);
+		display: flex;
+		gap: var(--space-4);
 		text-overflow: ellipsis;
 		overflow-x: hidden;
 		white-space: nowrap;
 		color: var(--clr-theme-scale-ntrl-50);
+		align-items: center;
+	}
+
+	.pending {
+		color: var(--clr-theme-scale-ntrl-40);
+		background: var(--clr-theme-container-sub);
+		padding: var(--space-2) var(--space-4);
+		border-radius: var(--radius-s);
 	}
 </style>

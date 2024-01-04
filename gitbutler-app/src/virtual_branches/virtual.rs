@@ -15,7 +15,7 @@ use slug::slugify;
 use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
-    git::{self, diff, Commit, RemoteRefname},
+    git::{self, diff, Commit, Refname, RemoteRefname},
     keys,
     project_repository::{self, conflicts, LogUntil},
     reader, sessions, users,
@@ -55,6 +55,7 @@ pub struct VirtualBranch {
     pub conflicted: bool, // is this branch currently in a conflicted state (only for applied branches)
     pub order: usize,     // the order in which this branch should be displayed in the UI
     pub upstream: Option<RemoteBranch>, // the upstream branch where this branch pushes to, if any
+    pub upstream_name: Option<String>, // the upstream branch where this branch will push to on next push
     pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
     pub ownership: Ownership,
     pub updated_at: u128,
@@ -850,6 +851,10 @@ pub fn list_virtual_branches(
             commits,
             requires_force,
             upstream,
+            upstream_name: branch
+                .upstream
+                .clone()
+                .and_then(|r| Refname::from(r).branch().map(Into::into)),
             conflicted: conflicts::is_resolving(project_repository),
             base_current,
             ownership: branch.ownership.clone(),
