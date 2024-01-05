@@ -85,7 +85,7 @@
 	<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName}></TextBox>
 
 	<svelte:fragment slot="controls" let:close>
-		<Button kind="outlined" on:click={close}>Cancel</Button>
+		<Button color="neutral" kind="outlined" on:click={close}>Cancel</Button>
 		<Button
 			color="primary"
 			on:click={() => {
@@ -104,7 +104,7 @@
 		Deleting <code>{branch.name}</code> cannot be undone.
 	</div>
 	<svelte:fragment slot="controls" let:close let:item={branch}>
-		<Button kind="outlined" on:click={close}>Cancel</Button>
+		<Button kind="outlined" color="neutral" on:click={close}>Cancel</Button>
 		<Button
 			color="error"
 			on:click={async () => {

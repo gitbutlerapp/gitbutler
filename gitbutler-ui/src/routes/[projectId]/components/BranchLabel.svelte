@@ -65,7 +65,7 @@
 	}
 	.branch-name-input {
 		width: 100%;
-		/* background-color: var(--clr-theme-container-pale); */
+		background-color: var(--clr-theme-container-light);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		&:focus {
 			outline: none;

@@ -24,9 +24,6 @@
 	<Icon name={loading ? 'spinner' : icon} />
 </button>
 
-<!-- {className} text-color-4 hover:text-color-1 outline-blue-200 focus:text-light-800 focus:outline-2 disabled:cursor-not-allowed
-disabled:text-light-200 dark:text-dark-400 hover:dark:text-dark-100 focus:dark:text-dark-600 dark:disabled:text-dark-400 -->
-
 <style lang="postcss">
 	.icon-btn {
 		display: inline-flex;

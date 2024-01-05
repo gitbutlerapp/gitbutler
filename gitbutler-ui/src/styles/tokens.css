@@ -54,16 +54,16 @@
 	--clr-core-pop-30: #0e7c76;
 	--clr-core-pop-35: #108e88;
 	--clr-core-pop-40: #12a19a;
-	--clr-core-pop-45: #14b8af;
-	--clr-core-pop-50: #1eccc3;
-	--clr-core-pop-55: #6cdad5;
-	--clr-core-pop-60: #91e3df;
-	--clr-core-pop-65: #a5e9e5;
-	--clr-core-pop-70: #baeeeb;
-	--clr-core-pop-75: #c6f1ef;
-	--clr-core-pop-80: #d2f4f2;
-	--clr-core-pop-85: #e2f8f7;
-	--clr-core-pop-90: #ebfaf9;
+	--clr-core-pop-45: #20b6af;
+	--clr-core-pop-50: #2cc9c1;
+	--clr-core-pop-55: #6cd5d0;
+	--clr-core-pop-60: #94e1dd;
+	--clr-core-pop-65: #a7e6e3;
+	--clr-core-pop-70: #bbece9;
+	--clr-core-pop-75: #c7efed;
+	--clr-core-pop-80: #d3f3f1;
+	--clr-core-pop-85: #e3f7f6;
+	--clr-core-pop-90: #ebf9f9;
 	--clr-core-pop-95: #f3fcfb;
 	--clr-core-succ-5: #112c1f;
 	--clr-core-succ-10: #153727;
@@ -228,7 +228,7 @@
 	--space-48: 3rem; /* 48px / 16px = 3rem */
 	--space-56: 3.5rem; /* 56px / 16px = 3.5rem */
 	--space-64: 4rem; /* 64px / 16px = 4rem */
-	--transition-fast: 0.05s ease-in-out;
+	--transition-fast: 0.06s ease-in-out;
 	--transition-medium: 0.1s ease-in-out;
 	--transition-slow: 0.25s ease-in-out;
 	--helpers-invert-0: 0;
