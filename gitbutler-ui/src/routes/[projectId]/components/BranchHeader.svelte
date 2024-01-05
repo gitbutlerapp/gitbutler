@@ -135,6 +135,7 @@
 		align-items: center;
 		padding-left: var(--space-28);
 		margin-top: var(--space-8);
+		margin-bottom: var(--space-4);
 		fill: var(--clr-core-ntrl-50);
 	}
 
@@ -170,6 +171,7 @@
 	.status-tag {
 		padding: var(--space-2) var(--space-4);
 		border-radius: var(--radius-s);
+		margin-right: var(--space-2);
 	}
 
 	.pending {
