@@ -16,8 +16,10 @@ export function computedAddedRemoved(...files: File[]) {
 }
 
 export function computeFileStatus(file: File): FileStatus {
-	const { added, removed } = computedAddedRemoved(file);
-	// TODO: How should we handle this for binary files? See: https://git-scm.com/docs/git-status
-	const contentLineCount = file.content?.trim().split('\n').length;
-	return added == contentLineCount ? 'A' : removed == contentLineCount ? 'D' : 'M';
+	if (file.hunks.length == 1) {
+		const diff = file.hunks[0].diff;
+		if (/^@@ -0,0 /.test(diff)) return 'A';
+		if (/^@@ -\d+,\d+ \+0,0/.test(diff)) return 'D';
+	}
+	return 'M';
 }
