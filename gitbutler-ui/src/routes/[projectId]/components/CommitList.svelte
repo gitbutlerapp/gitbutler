@@ -29,15 +29,12 @@
 				return c.isIntegrated;
 		}
 	});
-	$: pr$ = githubService.get(branch.upstreamName);
-	// $: prStatus$ = githubService.getStatus($pr$?.targetBranch);
-
 	let expanded = true;
 </script>
 
 {#if commits.length > 0}
 	<div class="commit-list" style:min-height={expanded ? `${2 * headerHeight}px` : undefined}>
-		<CommitListHeader bind:expanded {branch} {pr$} {type} {base} bind:height={headerHeight} />
+		<CommitListHeader bind:expanded {type} bind:height={headerHeight} />
 		{#if expanded}
 			<div class="commit-list__content">
 				<div class="commits">
