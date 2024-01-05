@@ -10,6 +10,11 @@
 
 	import Button from '$lib/components/Button.svelte';
 
+	import HandImg from './assets/hand.svelte';
+	import TopSheetImg from './assets/top-sheet.svelte';
+	import MiddleSheetImg from './assets/middle-sheet.svelte';
+	import BottomSheetImg from './assets/bottom-sheet.svelte';
+
 	export let branchController: BranchController;
 
 	function accepts(data: any) {
@@ -39,10 +44,18 @@
 	<div id="new-branch-dz" class="new-virtual-branch">
 		<div class="new-virtual-branch__content">
 			<div class="stimg">
-				<div class="stimg__hand"></div>
-				<div class="stimg__top-sheet"></div>
-				<div class="stimg__middle-sheet"></div>
-				<div class="stimg__bottom-sheet"></div>
+				<div class="stimg__hand">
+					<HandImg />
+				</div>
+				<div class="stimg__top-sheet">
+					<TopSheetImg />
+				</div>
+				<div class="stimg__middle-sheet">
+					<MiddleSheetImg />
+				</div>
+				<div class="stimg__bottom-sheet">
+					<BottomSheetImg />
+				</div>
 
 				<div class="stimg__branch">
 					<div class="stimg__branch-plus" />
@@ -114,28 +127,17 @@
 
 		& div {
 			position: absolute;
-			background-size: cover;
-			background-repeat: no-repeat;
 			transition:
 				transform var(--transition-medium),
 				opacity var(--transition-medium),
 				filter var(--transition-medium);
 		}
-
-		/* image variables */
-		--hand-src: url('$lib/assets/empty-states/new-branch/hand-light.svg');
-		--topsheet-src: url('$lib/assets/empty-states/new-branch/top-sheet-light.svg');
-		--middlesheet-src: url('$lib/assets/empty-states/new-branch/middle-sheet-light.svg');
-		--bottomsheet-src: url('$lib/assets/empty-states/new-branch/bottom-sheet-light.svg');
 	}
 
 	.stimg__hand {
 		z-index: 5;
 		top: 85px;
 		left: 25px;
-		width: 42px;
-		height: 42px;
-		background-image: var(--hand-src);
 	}
 
 	.stimg__top-sheet {
@@ -206,16 +208,6 @@
 
 		&::after {
 			transform: translate(-50%, -50%) rotate(90deg);
-		}
-	}
-
-	/* dark mode */
-	:global(.dark) {
-		& .stimg {
-			--hand-src: url('$lib/assets/empty-states/new-branch/hand-dark.svg');
-			--topsheet-src: url('$lib/assets/empty-states/new-branch/top-sheet-dark.svg');
-			--middlesheet-src: url('$lib/assets/empty-states/new-branch/middle-sheet-dark.svg');
-			--bottomsheet-src: url('$lib/assets/empty-states/new-branch/bottom-sheet-dark.svg');
 		}
 	}
 
