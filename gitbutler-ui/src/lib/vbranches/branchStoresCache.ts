@@ -2,7 +2,6 @@ import { BaseBranch, Branch } from './types';
 import { plainToInstance } from 'class-transformer';
 import { UserError, invoke, listen } from '$lib/backend/ipc';
 import {
-	merge,
 	switchMap,
 	Observable,
 	shareReplay,
@@ -14,7 +13,8 @@ import {
 	tap,
 	map,
 	firstValueFrom,
-	timeout
+	timeout,
+	combineLatest
 } from 'rxjs';
 
 export class VirtualBranchService {
@@ -83,8 +83,8 @@ export class BaseBranchService {
 	error$ = new BehaviorSubject<any>(undefined);
 	private reload$ = new BehaviorSubject<void>(undefined);
 
-	constructor(projectId: string, fetches$: Observable<void>, head$: Observable<string>) {
-		this.base$ = merge(fetches$, head$, this.reload$).pipe(
+	constructor(projectId: string, fetches$: Observable<unknown>, head$: Observable<string>) {
+		this.base$ = combineLatest([fetches$, head$, this.reload$]).pipe(
 			debounceTime(100),
 			switchMap(() => getBaseBranch({ projectId })),
 			catchError((e) => {
