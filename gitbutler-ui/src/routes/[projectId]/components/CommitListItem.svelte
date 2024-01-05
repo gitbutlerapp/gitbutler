@@ -12,6 +12,7 @@
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
 	import CommitCard from './CommitCard.svelte';
+	import DropzoneOverlay from './DropzoneOverlay.svelte';
 
 	export let branch: Branch;
 	export let project: Project;
@@ -115,16 +116,9 @@
 			onDrop: onSquash(commit)
 		}}
 	>
-		<div
-			class="amend-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
-		>
-			<div class="hover-text font-semibold">Amend</div>
-		</div>
-		<div
-			class="squash-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
-		>
-			<div class="hover-text font-semibold">Squash</div>
-		</div>
+		<!-- DROPZONES -->
+		<DropzoneOverlay class="amend-dz-marker" label="Amend" />
+		<DropzoneOverlay class="squash-dz-marker" label="Squash" />
 
 		<CommitCard
 			{commit}

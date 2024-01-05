@@ -83,6 +83,17 @@
 		border-radius: var(--radius-m);
 		border: 1px dashed color-mix(in srgb, var(--clr-theme-container-outline-pale) 50%, transparent);
 		background-color: transparent;
+
+		outline-color: color-mix(in srgb, var(--clr-theme-scale-pop-40) 0%, transparent);
+		outline-style: dashed;
+		outline-width: 1px;
+		outline-offset: -1px;
+
+		transition:
+			outline-offset var(--transition-medium),
+			outline-color var(--transition-medium),
+			border var(--transition-medium),
+			background-color var(--transition-medium);
 	}
 
 	.new-virtual-branch__content {
@@ -176,8 +187,7 @@
 	.stimg__branch-plus {
 		position: absolute;
 		top: 14px;
-		left: 50%;
-		transform: translateX(-50%);
+		left: 16px;
 		width: 34px;
 		height: 34px;
 		opacity: 0.3;
@@ -216,6 +226,7 @@
 		text-align: center;
 		opacity: 0.3;
 		max-width: 130px;
+		transition: opacity var(--transition-medium);
 	}
 
 	.new-branch-button {
@@ -226,14 +237,25 @@
 	.canvas-dropzone {
 		&:global(.new-dz-active) {
 			& .new-virtual-branch {
-				background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 6%, transparent);
-				border: 1px solid color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 16%, transparent);
+				/* background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 6%, transparent); */
+				background-color: color-mix(in srgb, var(--clr-theme-scale-pop-90) 20%, transparent);
+				/* border: 1px dashed color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 80%, transparent); */
+				border: 1px dashed color-mix(in srgb, var(--clr-theme-scale-pop-40) 80%, transparent);
 				color: var(--clr-theme-scale-pop-50);
+
+				/* outline-color: var(--clr-theme-scale-pop-40);
+				outline-style: dashed;
+				outline-width: 1px;
+				outline-offset: -10px; */
 			}
 
 			& .new-virtual-branch__content {
 				transform: translateY(0.5rem);
 			}
+
+			/* & .new-branch-caption {
+				opacity: 0.4;
+			} */
 
 			& .new-branch-button {
 				opacity: 0;
@@ -244,11 +266,11 @@
 			}
 
 			& .stimg__hand {
-				transform: translate(0, -6px);
+				transform: translate(0, 6px);
 			}
 
 			& .stimg__top-sheet {
-				transform: translate(3px, 2px);
+				transform: translate(3px, 4px);
 			}
 
 			& .stimg__middle-sheet {
@@ -262,13 +284,15 @@
 			& .stimg__branch-back {
 				opacity: 0.6;
 				transform: scale(1.2) translate(0, -5px);
-				/* filter: blur(30px); */
 			}
 
 			& .stimg__branch-plus {
+				transform: translateY(-5px);
+				opacity: 0.4;
+
 				&::before,
 				&::after {
-					width: 120%;
+					width: 140%;
 				}
 			}
 		}

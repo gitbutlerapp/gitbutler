@@ -28,6 +28,8 @@
 	import BranchCommits from './BranchCommits.svelte';
 	import type { Project } from '$lib/backend/projects';
 
+	import DropzoneOverlay from './DropzoneOverlay.svelte';
+
 	export let branch: Branch;
 	export let readonly = false;
 	export let project: Project;
@@ -177,19 +179,9 @@
 				onDrop: onBranchDrop
 			}}
 		>
-			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
-			<div
-				class="cherrypick-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
-			>
-				<div class="hover-text font-semibold">Apply here</div>
-			</div>
-
-			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
-			<div
-				class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
-			>
-				<div class="hover-text font-semibold">Move here</div>
-			</div>
+			<!-- DROPZONES -->
+			<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
+			<DropzoneOverlay class="lane-dz-marker" label="Move here" />
 
 			{#if branch.files?.length > 0}
 				<BranchFiles
@@ -298,25 +290,16 @@
 
 	/* hunks drop zone */
 	:global(.lane-dz-active .lane-dz-marker) {
-		@apply flex;
-	}
-	:global(.lane-dz-hover .hover-text) {
-		@apply visible;
+		display: flex;
 	}
 
 	/* cherry pick drop zone */
 	:global(.cherrypick-dz-active .cherrypick-dz-marker) {
 		@apply flex;
 	}
-	:global(.cherrypick-dz-hover .hover-text) {
-		@apply visible;
-	}
 
 	/* squash drop zone */
 	:global(.squash-dz-active .squash-dz-marker) {
 		@apply flex;
-	}
-	:global(.squash-dz-hover .hover-text) {
-		@apply visible;
 	}
 </style>
