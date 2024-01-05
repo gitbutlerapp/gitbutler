@@ -109,12 +109,10 @@
 
 <style lang="postcss">
 	.card__header {
+		user-select: none;
 		position: relative;
 		flex-direction: column;
 		gap: var(--space-2);
-	}
-	.card__header:hover .draggable {
-		color: var(--clr-theme-scale-ntrl-40);
 	}
 	.header__row {
 		width: 100%;
@@ -124,7 +122,6 @@
 		overflow-x: hidden;
 	}
 	.header__left {
-		pointer-events: none;
 		overflow-x: hidden;
 		display: flex;
 		flex-grow: 1;
@@ -134,10 +131,10 @@
 
 	.header__links {
 		display: flex;
-		gap: var(--space-6);
+		gap: var(--space-4);
 		align-items: center;
 		padding-left: var(--space-28);
-		margin-top: var(--space-10);
+		margin-top: var(--space-8);
 		fill: var(--clr-core-ntrl-50);
 	}
 
@@ -146,6 +143,10 @@
 		cursor: grab;
 		color: var(--clr-theme-scale-ntrl-60);
 		transition: color var(--transition-medium);
+
+		&:hover {
+			color: var(--clr-theme-scale-ntrl-40);
+		}
 	}
 
 	.branch-popup-menu {
