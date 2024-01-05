@@ -5,9 +5,8 @@ import {
 	BehaviorSubject,
 	Observable,
 	catchError,
-	combineLatestWith,
+	combineLatest,
 	map,
-	merge,
 	of,
 	shareReplay,
 	switchMap
@@ -24,8 +23,7 @@ export class RemoteBranchService {
 		head$: Observable<any>,
 		baseBranch$: Observable<any>
 	) {
-		this.branches$ = merge(fetches$, head$, baseBranch$).pipe(
-			combineLatestWith(this.reload$),
+		this.branches$ = combineLatest([baseBranch$, this.reload$, head$, fetches$]).pipe(
 			switchMap(() => getRemoteBranchesData({ projectId })),
 			map((branches) => branches.filter((b) => b.ahead != 0)),
 			shareReplay(1),
