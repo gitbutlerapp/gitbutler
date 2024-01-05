@@ -99,7 +99,7 @@
 <Modal width="small" title="Merge conflicts" bind:this={applyConflictedModal}>
 	<p>Applying this branch will introduce merge conflicts.</p>
 	<svelte:fragment slot="controls" let:item let:close>
-		<Button kind="outlined" on:click={close}>Cancel</Button>
+		<Button kind="outlined" color="neutral" on:click={close}>Cancel</Button>
 		<Button
 			color="primary"
 			on:click={() => {
@@ -118,7 +118,7 @@
 		Deleting <code>{item.name}</code> cannot be undone.
 	</div>
 	<svelte:fragment slot="controls" let:close let:item>
-		<Button kind="outlined" on:click={close}>Cancel</Button>
+		<Button kind="outlined" color="neutral" on:click={close}>Cancel</Button>
 		<Button
 			color="error"
 			on:click={() => {
