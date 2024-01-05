@@ -10,11 +10,6 @@
 
 	import Button from '$lib/components/Button.svelte';
 
-	import HandImg from './empty-state-img/HandImg.svelte';
-	import TopSheetImg from './empty-state-img/TopSheetImg.svelte';
-	import MiddleSheetImg from './empty-state-img/MiddleSheetImg.svelte';
-	import BottomSheetImg from './empty-state-img/BottomSheetImg.svelte';
-
 	export let branchController: BranchController;
 
 	function accepts(data: any) {
@@ -44,21 +39,14 @@
 	<div id="new-branch-dz" class="new-virtual-branch">
 		<div class="new-virtual-branch__content">
 			<div class="stimg">
-				<div class="stimg__hand">
-					<HandImg />
-				</div>
-				<div class="stimg__top-sheet">
-					<TopSheetImg />
-				</div>
-				<div class="stimg__middle-sheet">
-					<MiddleSheetImg />
-				</div>
-				<div class="stimg__bottom-sheet">
-					<BottomSheetImg />
-				</div>
+				<div class="stimg__hand"></div>
+				<div class="stimg__top-sheet"></div>
+				<div class="stimg__middle-sheet"></div>
+				<div class="stimg__bottom-sheet"></div>
 
 				<div class="stimg__branch">
 					<div class="stimg__branch-plus" />
+					<div class="stimg__branch-back"></div>
 				</div>
 			</div>
 
@@ -66,18 +54,21 @@
 				>Drag and drop files to create a new branch</span
 			>
 
-			<Button
-				color="neutral"
-				kind="outlined"
-				icon="plus-small"
-				on:click={() => branchController.createBranch({})}>New branch</Button
-			>
+			<div class="new-branch-button">
+				<Button
+					color="neutral"
+					kind="outlined"
+					icon="plus-small"
+					on:click={() => branchController.createBranch({})}>New branch</Button
+				>
+			</div>
 		</div>
 	</div>
 </div>
 
 <style lang="postcss">
 	.canvas-dropzone {
+		user-select: none;
 		display: flex;
 		height: 100%;
 	}
@@ -100,6 +91,7 @@
 		align-items: center;
 		justify-content: center;
 		gap: var(--space-16);
+		transition: transform var(--transition-medium);
 	}
 
 	/* ILLUSTRATION */
@@ -113,31 +105,53 @@
 			position: absolute;
 			background-size: cover;
 			background-repeat: no-repeat;
+			transition:
+				transform var(--transition-medium),
+				opacity var(--transition-medium),
+				filter var(--transition-medium);
 		}
+
+		/* image variables */
+		--hand-src: url('$lib/assets/empty-states/new-branch/hand-light.svg');
+		--topsheet-src: url('$lib/assets/empty-states/new-branch/top-sheet-light.svg');
+		--middlesheet-src: url('$lib/assets/empty-states/new-branch/middle-sheet-light.svg');
+		--bottomsheet-src: url('$lib/assets/empty-states/new-branch/bottom-sheet-light.svg');
 	}
 
 	.stimg__hand {
 		z-index: 5;
 		top: 85px;
 		left: 25px;
+		width: 42px;
+		height: 42px;
+		background-image: var(--hand-src);
 	}
 
 	.stimg__top-sheet {
 		z-index: 4;
 		top: 56px;
 		left: 8px;
+		width: 44px;
+		height: 53px;
+		background-image: var(--topsheet-src);
 	}
 
 	.stimg__middle-sheet {
 		z-index: 3;
 		top: 42px;
 		left: 29px;
+		width: 44px;
+		height: 40px;
+		background-image: var(--middlesheet-src);
 	}
 
 	.stimg__bottom-sheet {
 		z-index: 2;
 		top: 66px;
 		left: 50px;
+		width: 44px;
+		height: 41px;
+		background-image: var(--bottomsheet-src);
 	}
 
 	.stimg__branch {
@@ -146,8 +160,17 @@
 		left: 45px;
 		width: 66px;
 		height: 95px;
-		background-color: color-mix(in srgb, var(--clr-core-pop-55) 12%, transparent);
+	}
+
+	.stimg__branch-back {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background-color: color-mix(in srgb, var(--clr-core-pop-55) 20%, transparent);
 		border-radius: 12px;
+		opacity: 0.5;
 	}
 
 	.stimg__branch-plus {
@@ -157,7 +180,7 @@
 		transform: translateX(-50%);
 		width: 34px;
 		height: 34px;
-		opacity: 0.2;
+		opacity: 0.3;
 
 		&::before,
 		&::after {
@@ -176,6 +199,16 @@
 		}
 	}
 
+	/* dark mode */
+	:global(.dark) {
+		& .stimg {
+			--hand-src: url('$lib/assets/empty-states/new-branch/hand-dark.svg');
+			--topsheet-src: url('$lib/assets/empty-states/new-branch/top-sheet-dark.svg');
+			--middlesheet-src: url('$lib/assets/empty-states/new-branch/middle-sheet-dark.svg');
+			--bottomsheet-src: url('$lib/assets/empty-states/new-branch/bottom-sheet-dark.svg');
+		}
+	}
+
 	/* OTHER */
 
 	.new-branch-caption {
@@ -185,12 +218,59 @@
 		max-width: 130px;
 	}
 
+	.new-branch-button {
+		transition: opacity var(--transition-medium);
+	}
+
 	/* DRAGZONE MODIEFIERS */
 	.canvas-dropzone {
-		&:global(.new-dz-active > .new-virtual-branch) {
-			background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 4%, transparent);
-			/* border: 1px dashed color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 100%, transparent); */
-			color: var(--clr-theme-scale-pop-50);
+		&:global(.new-dz-active) {
+			& .new-virtual-branch {
+				background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 6%, transparent);
+				border: 1px solid color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 16%, transparent);
+				color: var(--clr-theme-scale-pop-50);
+			}
+
+			& .new-virtual-branch__content {
+				transform: translateY(0.5rem);
+			}
+
+			& .new-branch-button {
+				opacity: 0;
+			}
+
+			& .stimg {
+				opacity: 1;
+			}
+
+			& .stimg__hand {
+				transform: translate(0, -6px);
+			}
+
+			& .stimg__top-sheet {
+				transform: translate(3px, 2px);
+			}
+
+			& .stimg__middle-sheet {
+				transform: translate(-2px, 7px);
+			}
+
+			& .stimg__bottom-sheet {
+				transform: translate(-5px, 0);
+			}
+
+			& .stimg__branch-back {
+				opacity: 0.6;
+				transform: scale(1.2) translate(0, -5px);
+				/* filter: blur(30px); */
+			}
+
+			& .stimg__branch-plus {
+				&::before,
+				&::after {
+					width: 120%;
+				}
+			}
 		}
 	}
 </style>

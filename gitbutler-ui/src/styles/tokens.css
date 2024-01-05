@@ -228,7 +228,7 @@
 	--space-48: 3rem; /* 48px / 16px = 3rem */
 	--space-56: 3.5rem; /* 56px / 16px = 3.5rem */
 	--space-64: 4rem; /* 64px / 16px = 4rem */
-	--transition-fast: 0.05s ease-in-out;
+	--transition-fast: 0.06s ease-in-out;
 	--transition-medium: 0.1s ease-in-out;
 	--transition-slow: 0.25s ease-in-out;
 	--helpers-invert-0: 0;

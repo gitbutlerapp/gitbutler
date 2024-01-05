@@ -181,15 +181,16 @@
 			<div
 				class="cherrypick-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
 			>
-				<div class="hover-text invisible font-semibold">Apply here</div>
+				<div class="hover-text font-semibold">Apply here</div>
 			</div>
 
 			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
 			<div
 				class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
 			>
-				<div class="hover-text invisible font-semibold">Move here</div>
+				<div class="hover-text font-semibold">Move here</div>
 			</div>
+
 			{#if branch.files?.length > 0}
 				<BranchFiles
 					{branch}
