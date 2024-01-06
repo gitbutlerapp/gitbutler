@@ -80,6 +80,10 @@
 <style lang="postcss">
 	.draggable-wrapper {
 		display: inline-block;
+		margin-bottom: var(--space-2);
+		&:last-child {
+			margin-bottom: 0;
+		}
 	}
 	.tree-list-file {
 		display: inline-flex;
