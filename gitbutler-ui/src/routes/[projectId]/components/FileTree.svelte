@@ -121,23 +121,21 @@
 			<div class="line-wrapper">
 				<div class="line" />
 			</div>
-			<ul class="w-full overflow-hidden">
+			<div class="flex w-full flex-col overflow-hidden">
 				{#each node.children as childNode}
-					<li>
-						<svelte:self
-							node={childNode}
-							expanded={true}
-							{selectedOwnership}
-							{showCheckboxes}
-							{selectedFiles}
-							{branchId}
-							{readonly}
-							on:checked
-							on:unchecked
-						/>
-					</li>
+					<svelte:self
+						node={childNode}
+						expanded={true}
+						{selectedOwnership}
+						{showCheckboxes}
+						{selectedFiles}
+						{branchId}
+						{readonly}
+						on:checked
+						on:unchecked
+					/>
 				{/each}
-			</ul>
+			</div>
 		</div>
 	{/if}
 {/if}
