@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { BaseBranch, Branch } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
 	import { getContext, onMount } from 'svelte';
 	import { dropzone } from '$lib/utils/draggable';
 	import {
@@ -8,14 +8,14 @@
 		type DraggableFile,
 		type DraggableHunk
 	} from '$lib/draggables';
-	import type { Ownership } from '$lib/vbranches/ownership';
+	import { filesToOwnership, type Ownership } from '$lib/vbranches/ownership';
 	import { getExpandedWithCacheFallback } from './cache';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import lscache from 'lscache';
 	import CommitDialog from './CommitDialog.svelte';
-	import { writable, type Writable } from 'svelte/store';
+	import { get, writable, type Writable } from 'svelte/store';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
 	import type { GitHubService } from '$lib/github/service';
 	import { isDraggableRemoteCommit, type DraggableRemoteCommit } from '$lib/draggables';
@@ -39,7 +39,7 @@
 	export let maximized = false;
 	export let branchCount = 1;
 	export let user: User | undefined;
-	export let selectedFileId: Writable<string | undefined>;
+	export let selectedFiles: Writable<File[]>;
 	export let githubService: GitHubService;
 	export let selectedOwnership: Writable<Ownership>;
 	export let commitBoxOpen: Writable<boolean>;
@@ -129,7 +129,11 @@
 				(newOwnership + '\n' + branch.ownership).trim()
 			);
 		} else if (isDraggableFile(data)) {
-			const newOwnership = `${data.file.path}:${data.file.hunks.map(({ id }) => id).join(',')}`;
+			let files = get(data.files);
+			if (files.length == 0) {
+				files = [data.current];
+			}
+			const newOwnership = filesToOwnership(files);
 			branchController.updateBranchOwnership(
 				branch.id,
 				(newOwnership + '\n' + branch.ownership).trim()
@@ -190,7 +194,7 @@
 					{branch}
 					{readonly}
 					{selectedOwnership}
-					{selectedFileId}
+					{selectedFiles}
 					showCheckboxes={$commitBoxOpen}
 					forceResizable={commitsScrollable}
 					enableResizing={branch.commits.length > 0}
@@ -237,7 +241,7 @@
 		<Resizer
 			viewport={rsViewport}
 			direction="right"
-			inside={!$selectedFileId}
+			inside={$selectedFiles.length > 0}
 			minWidth={320}
 			on:width={(e) => {
 				laneWidth = e.detail / (16 * $userSettings.zoom);

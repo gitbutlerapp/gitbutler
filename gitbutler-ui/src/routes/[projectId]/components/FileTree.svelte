@@ -4,6 +4,7 @@
 
 <script lang="ts">
 	import type { Writable } from 'svelte/store';
+	import type { File } from '$lib/vbranches/types';
 	import type { TreeNode } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import TreeListFile from './TreeListFile.svelte';
@@ -14,7 +15,7 @@
 	export let isRoot = false;
 	export let showCheckboxes = false;
 	export let selectedOwnership: Writable<Ownership>;
-	export let selectedFileId: Writable<string | undefined>;
+	export let selectedFiles: Writable<File[]>;
 	export let branchId: string;
 	export let readonly: boolean;
 
@@ -69,7 +70,7 @@
 					node={childNode}
 					{selectedOwnership}
 					{showCheckboxes}
-					{selectedFileId}
+					{selectedFiles}
 					{branchId}
 					{readonly}
 					on:checked
@@ -79,17 +80,27 @@
 		{/each}
 	</ul>
 {:else if node.file}
+	{@const file = node.file}
 	<!-- Node is a file -->
 	<TreeListFile
 		file={node.file}
 		{branchId}
 		{readonly}
-		selected={node.file?.id == $selectedFileId}
+		selected={$selectedFiles.includes(file)}
 		{selectedOwnership}
+		{selectedFiles}
 		showCheckbox={showCheckboxes}
-		on:click={() => {
-			if ($selectedFileId == node.file?.id) $selectedFileId = undefined;
-			else $selectedFileId = node.file?.id;
+		on:click={(e) => {
+			const isAlreadySelected = $selectedFiles.includes(file);
+			if (isAlreadySelected && e.shiftKey) {
+				selectedFiles.update((fileIds) => fileIds.filter((f) => f.id != file.id));
+			} else if (isAlreadySelected) {
+				$selectedFiles = [];
+			} else if (e.shiftKey) {
+				selectedFiles.update((files) => [file, ...files]);
+			} else {
+				$selectedFiles = [file];
+			}
 		}}
 	/>
 {:else if node.children.length > 0}
@@ -118,7 +129,7 @@
 							expanded={true}
 							{selectedOwnership}
 							{showCheckboxes}
-							{selectedFileId}
+							{selectedFiles}
 							{branchId}
 							{readonly}
 							on:checked

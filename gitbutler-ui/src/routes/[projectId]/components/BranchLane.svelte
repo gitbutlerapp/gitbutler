@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { BaseBranch, Branch } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import BranchCard from './BranchCard.svelte';
@@ -22,16 +22,16 @@
 	export let githubService: GitHubService;
 
 	$: selectedOwnership = writable(Ownership.fromBranch(branch));
-	$: selected = setSelected($selectedFileId, branch);
+	$: selected = setSelected($selectedFiles, branch);
 
-	const selectedFileId = writable<string | undefined>(undefined);
+	const selectedFiles = writable<File[]>([]);
 
 	let commitBoxOpen: Writable<boolean>;
 
-	function setSelected(fileId: string | undefined, branch: Branch) {
-		if (!fileId) return;
-		const match = branch.files?.find((f) => f.id == fileId);
-		if (!match) $selectedFileId = undefined;
+	function setSelected(files: File[], branch: Branch) {
+		if (files.length == 0) return undefined;
+		const match = branch.files?.find((f) => files[0].id == f.id);
+		if (!match) $selectedFiles = [];
 		return match;
 	}
 </script>
@@ -49,7 +49,7 @@
 		{maximized}
 		{branchCount}
 		{user}
-		{selectedFileId}
+		{selectedFiles}
 		{githubService}
 	/>
 
@@ -63,7 +63,10 @@
 			{branchController}
 			{selectedOwnership}
 			selectable={$commitBoxOpen && !readonly}
-			on:close={() => ($selectedFileId = undefined)}
+			on:close={() => {
+				const selectedId = selected?.id;
+				selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
+			}}
 		/>
 	{/if}
 </div>

@@ -9,6 +9,8 @@
 	import type { BranchController } from '$lib/vbranches/branchController';
 
 	import Button from '$lib/components/Button.svelte';
+	import { get } from 'svelte/store';
+	import { filesToOwnership } from '$lib/vbranches/ownership';
 
 	export let branchController: BranchController;
 
@@ -21,7 +23,7 @@
 			const ownership = `${data.hunk.filePath}:${data.hunk.id}`;
 			branchController.createBranch({ ownership });
 		} else if (isDraggableFile(data)) {
-			const ownership = `${data.file.path}:${data.file.hunks.map(({ id }) => id).join(',')}`;
+			const ownership = filesToOwnership(get(data.files));
 			branchController.createBranch({ ownership });
 		}
 	}

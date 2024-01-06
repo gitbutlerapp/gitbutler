@@ -14,6 +14,7 @@
 	export let selected: boolean;
 	export let showCheckbox: boolean = false;
 	export let selectedOwnership: Writable<Ownership>;
+	export let selectedFiles: Writable<File[]>;
 
 	let checked = false;
 	let indeterminate = false;
@@ -31,9 +32,16 @@
 <div
 	on:click
 	on:keydown
+	on:dragstart={() => {
+		// Reset selection if the file being dragged is not in the selected list
+		if ($selectedFiles.length > 0 && !$selectedFiles.find((f) => f.id == file.id)) {
+			$selectedFiles = [];
+		}
+	}}
 	use:draggable={{
-		...draggableFile(branchId, file),
-		disabled: readonly
+		...draggableFile(branchId, file, selectedFiles),
+		disabled: readonly,
+		selector: '.selected'
 	}}
 	role="button"
 	tabindex="0"
@@ -80,10 +88,12 @@
 		overflow: hidden;
 		background: var(--clr-theme-container-light);
 		text-align: left;
+		user-select: none;
 		&:not(.selected):hover {
 			background: var(--clr-theme-container-pale);
 		}
 	}
+
 	.info-wrap {
 		display: flex;
 		align-items: center;

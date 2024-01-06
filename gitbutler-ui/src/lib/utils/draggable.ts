@@ -52,35 +52,68 @@ function unregister(dropzone: Dropzone) {
 	if (index >= 0) registry.splice(index, 1);
 }
 
-export interface Draggable {
+export interface DraggableOptions {
 	data: any;
 	disabled: boolean;
+	selector?: string;
+	fileId?: string;
 }
 
-const defaultDraggableOptions: Draggable = {
+const defaultDraggableOptions: DraggableOptions = {
 	data: 'default',
 	disabled: false
 };
 
-export function cloneNode(node: any) {
+export function applyGhostStyle(element: HTMLElement) {
+	element.style.position = 'absolute';
+	element.style.top = '-9999px'; // Element has to be in the DOM so we move it out of sight
+	element.style.display = 'inline-block';
+	element.style.padding = '30px'; // To prevent clipping of rotated element
+}
+
+export function createContainerForMultiDrag(children: Element[]): HTMLDivElement {
+	const clone = document.createElement('div');
+	const inner = document.createElement('div');
+	clone.appendChild(inner);
+	applyGhostStyle(clone);
+	inner.style.display = 'flex';
+	inner.style.flexDirection = 'column';
+	inner.style.gap = 'var(--space-2)';
+	rotateInnerElement(clone);
+
+	children.forEach((child) => {
+		clone.children[0].appendChild(cloneWithPreservedDimensions(child));
+	});
+	return clone;
+}
+
+export function cloneWithPreservedDimensions(node: any) {
 	const clone = node.cloneNode(true) as HTMLElement;
-	clone.style.position = 'absolute';
-	clone.style.top = '-9999px'; // Element has to be in the DOM so we move it out of sight
-	clone.style.display = 'inline-block';
-	clone.style.padding = '30px'; // To prevent clipping of rotated element
+	clone.style.height = node.clientHeight + 'px';
+	clone.style.width = node.clientWidth + 'px';
+	return clone;
+}
+
+export function cloneWithRotation(node: any) {
+	const clone = node.cloneNode(true) as HTMLElement;
+	applyGhostStyle(clone);
 
 	// Style the inner node so it retains the shape and then rotate
-	const inner = clone.children[0] as HTMLElement;
-	inner.style.height = node.clientHeight + 'px';
-	inner.style.width = node.clientWidth + 'px';
-	inner.style.rotate = `${Math.floor(Math.random() * 3)}deg`;
+	// TODO: This rotation puts a requirement on draggables to have
+	// an outer container, which feels extra. Consider refactoring.
+	rotateInnerElement(clone);
 	return clone as HTMLElement;
 }
 
-export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefined) {
+function rotateInnerElement(element: HTMLElement) {
+	const inner = element.children[0] as HTMLElement;
+	inner.style.rotate = `${Math.floor(Math.random() * 3)}deg`;
+}
+
+export function draggable(node: HTMLElement, opts: Partial<DraggableOptions> | undefined) {
 	let dragHandle: HTMLElement | null;
-	let currentOptions = { ...defaultDraggableOptions, ...opts };
-	let clone: HTMLElement;
+	let currentOptions: DraggableOptions = { ...defaultDraggableOptions, ...opts };
+	let clone: HTMLElement | undefined;
 
 	const onDropListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
 	const onDragLeaveListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
@@ -107,8 +140,20 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 			elt = elt.parentElement;
 		}
 
-		// Start by cloning the node for the ghost element
-		clone = cloneNode(node);
+		// If the draggable specifies a selector then we check if we're dragging selected
+		// elements, falling back to the single node executing the drag.
+		if (currentOptions.selector) {
+			const selectedElements = Array.from(
+				document.querySelectorAll(currentOptions.selector).values()
+			);
+			if (selectedElements.length > 0) {
+				clone = createContainerForMultiDrag(selectedElements);
+			}
+		}
+		if (!clone) {
+			clone = cloneWithRotation(node);
+		}
+
 		document.body.appendChild(clone);
 
 		// Dim the original element while dragging
@@ -179,7 +224,10 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 
 	function handleDragEnd(e: DragEvent) {
 		node.style.opacity = '1';
-		clone.remove();
+		if (clone) {
+			clone.remove();
+			clone = undefined;
+		}
 
 		// deactivate destination zones
 		registry
@@ -206,7 +254,7 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 		e.stopPropagation();
 	}
 
-	function setup(opts: Partial<Draggable> | undefined) {
+	function setup(opts: Partial<DraggableOptions> | undefined) {
 		currentOptions = { ...defaultDraggableOptions, ...opts };
 
 		if (currentOptions.disabled) return;
@@ -227,7 +275,7 @@ export function draggable(node: HTMLElement, opts: Partial<Draggable> | undefine
 	setup(opts);
 
 	return {
-		update(opts: Partial<Draggable> | undefined) {
+		update(opts: Partial<DraggableOptions> | undefined) {
 			clean();
 			setup(opts);
 		},
