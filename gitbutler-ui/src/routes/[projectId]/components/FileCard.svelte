@@ -4,7 +4,7 @@
 	import type { File, Hunk } from '$lib/vbranches/types';
 	import { draggable } from '$lib/utils/draggable';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { Writable } from 'svelte/store';
+	import { writable, type Writable } from 'svelte/store';
 	import RenderedLine from './RenderedLine.svelte';
 	import { IconExpandUpDown, IconExpandUp, IconExpandDown } from '$lib/icons';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -113,7 +113,7 @@
 	bind:this={rsViewport}
 	transition:slide={{ duration: 170, easing: quintOut, axis: 'x' }}
 	use:draggable={{
-		...draggableFile(branchId, file),
+		...draggableFile(branchId, file, writable([file])),
 		disabled: readonly
 	}}
 >

@@ -11,8 +11,10 @@
 	import { dropzone } from '$lib/utils/draggable';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
+	import { get } from 'svelte/store';
 	import CommitCard from './CommitCard.svelte';
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
+	import { filesToOwnership } from '$lib/vbranches/ownership';
 
 	export let branch: Branch;
 	export let project: Project;
@@ -53,7 +55,7 @@
 			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
 			branchController.amendBranch(branch.id, newOwnership);
 		} else if (isDraggableFile(data)) {
-			const newOwnership = `${data.file.path}:${data.file.hunks.map(({ id }) => id).join(',')}`;
+			const newOwnership = filesToOwnership(get(data.files));
 			branchController.amendBranch(branch.id, newOwnership);
 		}
 	}

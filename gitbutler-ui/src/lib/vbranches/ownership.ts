@@ -1,4 +1,8 @@
-import type { Branch } from './types';
+import type { Branch, File } from './types';
+
+export function filesToOwnership(files: File[]) {
+	return files.map((f) => `${f.path}:${f.hunks.map(({ id }) => id).join(',')}`).join('\n');
+}
 
 export class Ownership {
 	files: Map<string, Set<string>>;

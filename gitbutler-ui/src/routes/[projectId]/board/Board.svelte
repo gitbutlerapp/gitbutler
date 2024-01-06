@@ -7,7 +7,7 @@
 	import { open } from '@tauri-apps/api/shell';
 	import { IconFile, IconTerminal, IconExternalLink } from '$lib/icons';
 	import type { GitHubService } from '$lib/github/service';
-	import { cloneNode } from '$lib/utils/draggable';
+	import { cloneWithRotation } from '$lib/utils/draggable';
 	import type { Project } from '$lib/backend/projects';
 
 	export let project: Project;
@@ -93,7 +93,7 @@
 						e.stopPropagation();
 						return;
 					}
-					clone = cloneNode(e.target);
+					clone = cloneWithRotation(e.target);
 					document.body.appendChild(clone);
 					e.dataTransfer?.setDragImage(clone, e.offsetX + 30, e.offsetY + 30); // Adds the padding
 					dragged = e.currentTarget;

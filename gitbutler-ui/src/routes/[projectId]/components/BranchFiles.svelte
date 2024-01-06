@@ -15,7 +15,7 @@
 	export let branch: Branch;
 	export let readonly: boolean;
 	export let selectedOwnership: Writable<Ownership>;
-	export let selectedFileId: Writable<string | undefined>;
+	export let selectedFiles: Writable<File[]>;
 	export let forceResizable = false;
 	export let enableResizing = false;
 	export let showCheckboxes = false;
@@ -120,7 +120,7 @@
 					<BranchFilesList
 						{branch}
 						{selectedOwnership}
-						{selectedFileId}
+						{selectedFiles}
 						{showCheckboxes}
 						{readonly}
 					/>
@@ -131,7 +131,7 @@
 						branchId={branch.id}
 						isRoot={true}
 						{selectedOwnership}
-						{selectedFileId}
+						{selectedFiles}
 						{readonly}
 					/>
 				{/if}
