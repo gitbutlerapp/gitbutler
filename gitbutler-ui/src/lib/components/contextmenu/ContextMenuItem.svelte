@@ -20,6 +20,7 @@
 <button
 	class="menu-item"
 	class:disabled
+	{disabled}
 	{id}
 	on:click
 	on:click={(e) => {
