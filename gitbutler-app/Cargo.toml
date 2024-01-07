@@ -49,6 +49,7 @@ r2d2 = "0.8.10"
 r2d2_sqlite = "0.22.0"
 rand = "0.8.5"
 refinery = { version = "0.8", features = [ "rusqlite" ] }
+regex = "1.5"
 reqwest = "0.11.23"
 resolve-path = "0.1.0"
 rusqlite = { workspace = true }

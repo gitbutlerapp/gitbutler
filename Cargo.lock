@@ -1807,6 +1807,7 @@ dependencies = [
  "r2d2_sqlite",
  "rand 0.8.5",
  "refinery",
+ "regex",
  "reqwest",
  "resolve-path",
  "rusqlite",

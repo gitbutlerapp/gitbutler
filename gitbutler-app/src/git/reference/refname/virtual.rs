@@ -2,6 +2,7 @@ use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
+use crate::virtual_branches::normalize_branch_name;
 use crate::virtual_branches::Branch;
 
 use super::error::Error;
@@ -21,7 +22,7 @@ impl Refname {
 impl From<&Branch> for Refname {
     fn from(value: &Branch) -> Self {
         Self {
-            branch: slug::slugify(&value.name),
+            branch: normalize_branch_name(&value.name),
         }
     }
 }
