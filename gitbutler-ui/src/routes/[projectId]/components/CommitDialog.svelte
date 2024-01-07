@@ -202,6 +202,7 @@
 			grow
 			color="primary"
 			kind="filled"
+			loading={isCommitting}
 			disabled={(isCommitting || !commitMessage || $selectedOwnership.isEmpty()) && $expanded}
 			id="commit-to-branch"
 			on:click={() => {
