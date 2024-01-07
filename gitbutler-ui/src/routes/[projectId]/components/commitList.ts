@@ -1,7 +1,5 @@
 import type { BaseBranch } from '$lib/vbranches/types';
 
-export type CommitType = 'local' | 'remote' | 'integrated';
-
 export function branchUrl(
 	target: BaseBranch | undefined | null,
 	upstreamBranchName: string | undefined

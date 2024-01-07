@@ -70,6 +70,8 @@ export class Branch {
 	updatedAt!: Date;
 }
 
+export type CommitStatus = 'local' | 'remote' | 'integrated';
+
 export class Commit {
 	id!: string;
 	author!: Author;
@@ -85,6 +87,16 @@ export class Commit {
 
 	get isLocal() {
 		return !this.isRemote && !this.isIntegrated;
+	}
+
+	get status() {
+		if (!this.isIntegrated && !this.isRemote) {
+			return 'local';
+		} else if (!this.isIntegrated && this.isRemote) {
+			return 'remote';
+		} else if (this.isIntegrated) {
+			return 'integrated';
+		}
 	}
 
 	isParentOf(possibleChild: Commit) {
