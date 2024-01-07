@@ -1,15 +1,14 @@
 <script lang="ts">
 	import Button from '$lib/components/Button.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, Branch } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, CommitStatus } from '$lib/vbranches/types';
 	import PushButton from './PushButton.svelte';
-	import type { CommitType } from './commitList';
 	import type { PullRequest } from '$lib/github/types';
 	import type { GitHubService } from '$lib/github/service';
 	import toast from 'svelte-french-toast';
 
 	export let branch: Branch;
-	export let type: CommitType;
+	export let type: CommitStatus;
 	export let readonly: boolean;
 	export let branchController: BranchController;
 	export let githubService: GitHubService;

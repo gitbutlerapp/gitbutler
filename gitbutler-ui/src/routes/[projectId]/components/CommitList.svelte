@@ -1,10 +1,9 @@
 <script lang="ts">
-	import type { BaseBranch, Branch } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, CommitStatus } from '$lib/vbranches/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import CommitListItem from './CommitListItem.svelte';
 	import type { GitHubService } from '$lib/github/service';
 	import CommitListHeader from './CommitListHeader.svelte';
-	import type { CommitType } from './commitList';
 	import CommitListFooter from './CommitListFooter.svelte';
 	import type { Project } from '$lib/backend/projects';
 
@@ -12,23 +11,14 @@
 	export let base: BaseBranch | undefined | null;
 	export let project: Project;
 	export let branchController: BranchController;
-	export let type: CommitType;
+	export let type: CommitStatus;
 	export let githubService: GitHubService;
 	export let readonly: boolean;
 
 	let headerHeight: number;
 
 	$: headCommit = branch.commits[0];
-	$: commits = branch.commits.filter((c) => {
-		switch (type) {
-			case 'local':
-				return !c.isIntegrated && !c.isRemote;
-			case 'remote':
-				return !c.isIntegrated && c.isRemote;
-			case 'integrated':
-				return c.isIntegrated;
-		}
-	});
+	$: commits = branch.commits.filter((c) => c.status == type);
 	let expanded = true;
 </script>
 

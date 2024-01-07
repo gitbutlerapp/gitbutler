@@ -1,10 +1,10 @@
 <script lang="ts">
 	import Icon from '$lib/icons/Icon.svelte';
+	import type { CommitStatus } from '$lib/vbranches/types';
 	import { onMount } from 'svelte';
-	import type { CommitType } from './commitList';
 
 	export let expanded: boolean;
-	export let type: CommitType;
+	export let type: CommitStatus;
 	export let height: number | undefined;
 
 	let element: HTMLButtonElement | undefined = undefined;

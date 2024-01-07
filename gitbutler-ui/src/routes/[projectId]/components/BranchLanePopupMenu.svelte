@@ -24,6 +24,10 @@
 	}>();
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
+
+	$: commits = branch.commits;
+	$: hasIntegratedCommits =
+		commits.length > 0 ? commits.some((c) => c.status == 'integrated') : false;
 </script>
 
 {#if visible}
@@ -54,6 +58,7 @@
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Set branch name"
+				disabled={hasIntegratedCommits}
 				on:click={() => {
 					newRemoteName = branch.upstreamName || '';
 					visible = false;
