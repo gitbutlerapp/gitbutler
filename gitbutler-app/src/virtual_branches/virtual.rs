@@ -9,8 +9,8 @@ use std::os::unix::prelude::*;
 use anyhow::{bail, Context, Result};
 use diffy::{apply_bytes, Patch};
 use git2_hooks::HookResult;
+use regex::Regex;
 use serde::Serialize;
-use slug::slugify;
 
 use crate::{
     dedup::{dedup, dedup_fmt},
@@ -149,6 +149,13 @@ impl From<git::Signature<'_>> for Author {
             gravatar_url,
         }
     }
+}
+
+pub fn normalize_branch_name(name: &str) -> String {
+    // Technically this pattern should include ".", but it makes libgit2 throws an error
+    let pattern = Regex::new("[^A-Za-z0-9_/]+").unwrap();
+    let replaced_name = pattern.replace_all(name, "-").to_string();
+    replaced_name.to_lowercase()
 }
 
 pub fn get_default_target(
@@ -1337,7 +1344,7 @@ pub fn update_branch(
         project_repository.add_branch_reference(&branch)?;
     };
 
-    if let Some(upstream_branch_name) = branch_update.upstream {
+    if let Some(updated_upstream) = branch_update.upstream {
         let default_target = get_default_target(&current_session_reader)
             .context("failed to get default target")?
             .ok_or_else(|| {
@@ -1348,7 +1355,7 @@ pub fn update_branch(
         let remote_branch = format!(
             "refs/remotes/{}/{}",
             default_target.branch.remote(),
-            slugify(upstream_branch_name)
+            normalize_branch_name(&updated_upstream)
         )
         .parse::<git::RemoteRefname>()
         .unwrap();
@@ -2230,7 +2237,7 @@ pub fn push(
         let remote_branch = format!(
             "refs/remotes/{}/{}",
             default_target.branch.remote(),
-            slugify(&vbranch.name)
+            normalize_branch_name(&vbranch.name)
         )
         .parse::<git::RemoteRefname>()
         .context("failed to parse remote branch name")?;
