@@ -12,7 +12,7 @@ pub struct TargetReader<'reader> {
 }
 
 impl<'reader> TargetReader<'reader> {
-    pub fn new(reader: &'reader dyn reader::Reader) -> Self {
+    pub fn with_reader(reader: &'reader dyn reader::Reader) -> Self {
         Self { reader }
     }
 
@@ -105,7 +105,7 @@ mod tests {
         let session = gb_repository.get_or_create_current_session()?;
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
-        let reader = TargetReader::new(&session_reader);
+        let reader = TargetReader::with_reader(&session_reader);
         let result = reader.read(&BranchId::generate());
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "file not found");
@@ -136,7 +136,7 @@ mod tests {
 
         let session = gb_repository.get_or_create_current_session()?;
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
-        let reader = TargetReader::new(&session_reader);
+        let reader = TargetReader::with_reader(&session_reader);
 
         let read = reader.read_default().unwrap();
         assert_eq!(read.branch.branch(), "master");
@@ -175,14 +175,14 @@ mod tests {
             last_fetched_ms: Some(1),
         };
 
-        let branch_writer = branch::Writer::new(&gb_repository);
+        let branch_writer = branch::Writer::open(&gb_repository);
         branch_writer.write(&mut branch)?;
 
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
-        let target_writer = TargetWriter::new(&gb_repository);
-        let reader = TargetReader::new(&session_reader);
+        let target_writer = TargetWriter::open(&gb_repository);
+        let reader = TargetReader::with_reader(&session_reader);
 
         target_writer.write_default(&default_target)?;
         assert_eq!(default_target, reader.read(&branch.id)?);

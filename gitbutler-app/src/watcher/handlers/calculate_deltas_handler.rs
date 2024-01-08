@@ -115,7 +115,7 @@ impl Handler {
             Err(err) => Err(err).context("failed to get file content")?,
         };
 
-        let deltas_reader = deltas::Reader::new(&current_session_reader);
+        let deltas_reader = deltas::Reader::with_reader(&current_session_reader);
         let current_deltas = deltas_reader
             .read_file(path)
             .context("failed to get file deltas")?;
@@ -132,7 +132,7 @@ impl Handler {
         if let Some(new_delta) = new_delta {
             let deltas = text_doc.get_deltas();
 
-            let writer = deltas::Writer::new(&gb_repository);
+            let writer = deltas::Writer::open(&gb_repository);
             writer
                 .write(path, &deltas)
                 .context("failed to write deltas")?;
@@ -262,7 +262,7 @@ mod test {
 
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
-        let deltas_reader = deltas::Reader::new(&session_reader);
+        let deltas_reader = deltas::Reader::with_reader(&session_reader);
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
         assert_eq!(deltas.len(), 1);
         assert_eq!(deltas[0].operations.len(), 1);
@@ -338,7 +338,7 @@ mod test {
 
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
-        let deltas_reader = deltas::Reader::new(&session_reader);
+        let deltas_reader = deltas::Reader::with_reader(&session_reader);
         let deltas = deltas_reader.read_file("test.bin")?.unwrap();
 
         assert_eq!(deltas.len(), 1);
@@ -367,7 +367,7 @@ mod test {
 
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
-        let deltas_reader = deltas::Reader::new(&session_reader);
+        let deltas_reader = deltas::Reader::with_reader(&session_reader);
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
         assert_eq!(deltas.len(), 1);
         assert_eq!(deltas[0].operations.len(), 0);
@@ -395,7 +395,7 @@ mod test {
 
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
-        let deltas_reader = deltas::Reader::new(&session_reader);
+        let deltas_reader = deltas::Reader::with_reader(&session_reader);
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
         assert_eq!(deltas.len(), 1);
         assert_eq!(deltas[0].operations.len(), 1);
@@ -455,7 +455,7 @@ mod test {
 
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
-        let deltas_reader = deltas::Reader::new(&session_reader);
+        let deltas_reader = deltas::Reader::with_reader(&session_reader);
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
         assert_eq!(deltas.len(), 1);
         assert_eq!(deltas[0].operations.len(), 1);
@@ -512,7 +512,7 @@ mod test {
             // current session must have the deltas, but not the file (it didn't exist)
             let session = gb_repository.get_current_session()?.unwrap();
             let session_reader = sessions::Reader::open(&gb_repository, &session)?;
-            let deltas_reader = deltas::Reader::new(&session_reader);
+            let deltas_reader = deltas::Reader::with_reader(&session_reader);
             let deltas = deltas_reader.read_file("test.txt")?.unwrap();
             assert_eq!(deltas.len(), 1);
             assert_eq!(deltas[0].operations.len(), 1);
@@ -542,7 +542,7 @@ mod test {
                 reader::Content::UTF8("test".to_string())
             );
 
-            let deltas_reader = deltas::Reader::new(&session_reader);
+            let deltas_reader = deltas::Reader::with_reader(&session_reader);
             let deltas = deltas_reader.read(None)?;
             assert!(deltas.is_empty());
 
@@ -621,7 +621,7 @@ mod test {
             let mut operations: Vec<deltas::Operation> = vec![];
             for session in &mut *sessions_slice {
                 let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
-                let deltas_reader = deltas::Reader::new(&session_reader);
+                let deltas_reader = deltas::Reader::with_reader(&session_reader);
                 let deltas_by_filepath = deltas_reader.read(None).unwrap();
                 for deltas in deltas_by_filepath.values() {
                     for delta in deltas {
@@ -707,7 +707,7 @@ mod test {
             let mut operations: Vec<deltas::Operation> = vec![];
             for session in &mut *sessions_slice {
                 let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
-                let deltas_reader = deltas::Reader::new(&session_reader);
+                let deltas_reader = deltas::Reader::with_reader(&session_reader);
                 let deltas_by_filepath = deltas_reader.read(None).unwrap();
                 for deltas in deltas_by_filepath.values() {
                     for delta in deltas {
@@ -770,7 +770,7 @@ mod test {
         let mut operations: Vec<deltas::Operation> = vec![];
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session).unwrap();
-        let deltas_reader = deltas::Reader::new(&session_reader);
+        let deltas_reader = deltas::Reader::with_reader(&session_reader);
         let deltas_by_filepath = deltas_reader.read(None).unwrap();
         for deltas in deltas_by_filepath.values() {
             for delta in deltas {
@@ -811,8 +811,8 @@ mod test {
         )]));
         let listener = Handler::from(&suite.local_app_data);
 
-        let branch_writer = virtual_branches::branch::Writer::new(&gb_repository);
-        let target_writer = virtual_branches::target::Writer::new(&gb_repository);
+        let branch_writer = virtual_branches::branch::Writer::open(&gb_repository);
+        let target_writer = virtual_branches::target::Writer::open(&gb_repository);
         let default_target = test_target();
         target_writer.write_default(&default_target)?;
         let mut vbranch0 = test_branch();
@@ -845,7 +845,7 @@ mod test {
         assert!(branch_ids.contains(&vbranch0.id));
         assert!(branch_ids.contains(&vbranch1.id));
 
-        let target_reader = virtual_branches::target::Reader::new(&session_reader);
+        let target_reader = virtual_branches::target::Reader::with_reader(&session_reader);
         assert_eq!(target_reader.read_default().unwrap(), default_target);
         assert_eq!(target_reader.read(&vbranch0.id).unwrap(), default_target);
         assert_eq!(target_reader.read(&vbranch1.id).unwrap(), vbranch1_target);
@@ -867,8 +867,8 @@ mod test {
         )]));
         let listener = Handler::from(&suite.local_app_data);
 
-        let branch_writer = virtual_branches::branch::Writer::new(&gb_repository);
-        let target_writer = virtual_branches::target::Writer::new(&gb_repository);
+        let branch_writer = virtual_branches::branch::Writer::open(&gb_repository);
+        let target_writer = virtual_branches::target::Writer::open(&gb_repository);
         let default_target = test_target();
         target_writer.write_default(&default_target)?;
         let mut vbranch0 = test_branch();
@@ -904,7 +904,7 @@ mod test {
         assert!(branch_ids.contains(&vbranch0.id));
         assert!(branch_ids.contains(&vbranch1.id));
 
-        let target_reader = virtual_branches::target::Reader::new(&session_reader);
+        let target_reader = virtual_branches::target::Reader::with_reader(&session_reader);
         assert_eq!(target_reader.read_default().unwrap(), default_target);
         assert_eq!(target_reader.read(&vbranch0.id).unwrap(), default_target);
         assert_eq!(target_reader.read(&vbranch1.id).unwrap(), vbranch1_target);

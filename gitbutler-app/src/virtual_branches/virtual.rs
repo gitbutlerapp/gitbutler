@@ -161,7 +161,7 @@ pub fn normalize_branch_name(name: &str) -> String {
 pub fn get_default_target(
     current_session_reader: &sessions::Reader,
 ) -> Result<Option<target::Target>, reader::Error> {
-    let target_reader = target::Reader::new(current_session_reader);
+    let target_reader = target::Reader::with_reader(current_session_reader);
     match target_reader.read_default() {
         Ok(target) => Ok(Some(target)),
         Err(reader::Error::NotFound) => Ok(None),
@@ -199,9 +199,9 @@ pub fn apply_branch(
             })
         })?;
 
-    let writer = branch::Writer::new(gb_repository);
+    let writer = branch::Writer::open(gb_repository);
 
-    let mut branch = match branch::Reader::new(&current_session_reader).read(branch_id) {
+    let mut branch = match branch::Reader::with_reader(&current_session_reader).read(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::ApplyBranchError::BranchNotFound(
             errors::BranchNotFoundError {
@@ -477,7 +477,7 @@ pub fn unapply_ownership(
     .context("failed to get status by branch")?;
 
     // remove the ownership from the applied branches, and write them out
-    let branch_writer = branch::Writer::new(gb_repository);
+    let branch_writer = branch::Writer::open(gb_repository);
     let applied_statuses = applied_statuses
         .into_iter()
         .map(|(branch, branch_files)| {
@@ -564,7 +564,7 @@ pub fn unapply_branch(
     let current_session_reader =
         sessions::Reader::open(gb_repository, session).context("failed to open current session")?;
 
-    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch_reader = branch::Reader::with_reader(&current_session_reader);
 
     let mut target_branch = branch_reader.read(branch_id).map_err(|error| match error {
         reader::Error::NotFound => {
@@ -597,7 +597,7 @@ pub fn unapply_branch(
         // when applying branch leads to a conflict, all other branches are unapplied.
         // this means we can just reset to the default target tree.
         {
-            let branch_writer = branch::Writer::new(gb_repository);
+            let branch_writer = branch::Writer::open(gb_repository);
             target_branch.applied = false;
             branch_writer.write(&mut target_branch)?;
         }
@@ -628,7 +628,7 @@ pub fn unapply_branch(
             .find(|(s, _)| s.id == target_branch.id)
             .context("failed to find status for branch");
 
-        let branch_writer = branch::Writer::new(gb_repository);
+        let branch_writer = branch::Writer::open(gb_repository);
         if let Ok((_, files)) = status {
             if files.is_empty() {
                 // if there is nothing to unapply, remove the branch straight away
@@ -1072,7 +1072,7 @@ pub fn create_virtual_branch(
         .unwrap_or(all_virtual_branches.len())
         .clamp(0, all_virtual_branches.len());
 
-    let branch_writer = branch::Writer::new(gb_repository);
+    let branch_writer = branch::Writer::open(gb_repository);
 
     // make space for the new branch
     for (i, branch) in all_virtual_branches.iter().enumerate() {
@@ -1118,7 +1118,7 @@ pub fn create_virtual_branch(
     };
 
     if let Some(ownership) = &create.ownership {
-        let branch_reader = branch::Reader::new(&current_session_reader);
+        let branch_reader = branch::Reader::with_reader(&current_session_reader);
         set_ownership(&branch_reader, &branch_writer, &mut branch, ownership)
             .context("failed to set ownership")?;
     }
@@ -1154,7 +1154,7 @@ pub fn merge_virtual_branch_upstream(
         .context("failed to open current session")?;
 
     // get the branch
-    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch_reader = branch::Reader::with_reader(&current_session_reader);
     let mut branch = match branch_reader.read(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(
@@ -1284,7 +1284,7 @@ pub fn merge_virtual_branch_upstream(
             .context("failed to checkout tree")?;
 
         // write the branch data
-        let branch_writer = branch::Writer::new(gb_repository);
+        let branch_writer = branch::Writer::open(gb_repository);
         branch.head = new_branch_head;
         branch.tree = merge_tree_oid;
         branch_writer.write(&mut branch)?;
@@ -1305,8 +1305,8 @@ pub fn update_branch(
         .context("failed to get or create currnt session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
-    let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch_writer = branch::Writer::new(gb_repository);
+    let branch_reader = branch::Reader::with_reader(&current_session_reader);
+    let branch_writer = branch::Writer::open(gb_repository);
 
     let mut branch = branch_reader
         .read(&branch_update.id)
@@ -1387,8 +1387,8 @@ pub fn delete_branch(
         .context("failed to get or create currnt session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
-    let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch_writer = branch::Writer::new(gb_repository);
+    let branch_reader = branch::Reader::with_reader(&current_session_reader);
+    let branch_writer = branch::Writer::open(gb_repository);
 
     let branch = match branch_reader.read(branch_id) {
         Ok(branch) => Ok(branch),
@@ -1771,7 +1771,7 @@ fn get_applied_status(
 
     // write updated state if not resolving
     if !project_repository.is_resolving() {
-        let branch_writer = branch::Writer::new(gb_repository);
+        let branch_writer = branch::Writer::open(gb_repository);
         for (vbranch, files) in &mut hunks_by_branch {
             vbranch.tree = write_tree(project_repository, default_target, files)?;
             branch_writer
@@ -1829,7 +1829,7 @@ pub fn reset_branch(
             })
         })?;
 
-    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch_reader = branch::Reader::with_reader(&current_session_reader);
     let mut branch = match branch_reader.read(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::ResetBranchError::BranchNotFound(
@@ -1856,7 +1856,7 @@ pub fn reset_branch(
         ));
     }
 
-    let branch_writer = branch::Writer::new(gb_repository);
+    let branch_writer = branch::Writer::open(gb_repository);
     branch.head = target_commit_oid;
     branch_writer
         .write(&mut branch)
@@ -2186,7 +2186,7 @@ pub fn commit(
     }
 
     // update the virtual branch head
-    let writer = branch::Writer::new(gb_repository);
+    let writer = branch::Writer::open(gb_repository);
     branch.tree = tree_oid;
     branch.head = commit_oid;
     writer.write(branch).context("failed to write branch")?;
@@ -2212,8 +2212,8 @@ pub fn push(
         .context("failed to open current session")
         .map_err(errors::PushError::Other)?;
 
-    let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch_writer = branch::Writer::new(gb_repository);
+    let branch_reader = branch::Reader::with_reader(&current_session_reader);
+    let branch_writer = branch::Writer::open(gb_repository);
 
     let mut vbranch = branch_reader.read(branch_id).map_err(|error| match error {
         reader::Error::NotFound => errors::PushError::BranchNotFound(errors::BranchNotFoundError {
@@ -2276,7 +2276,7 @@ pub fn mark_all_unapplied(gb_repository: &gb_repository::Repository) -> Result<(
     let current_session = gb_repository.get_or_create_current_session()?;
     let session_reader = sessions::Reader::open(gb_repository, &current_session)?;
     let branch_iterator = super::Iterator::new(&session_reader)?;
-    let branch_writer = super::branch::Writer::new(gb_repository);
+    let branch_writer = super::branch::Writer::open(gb_repository);
     branch_iterator
         .collect::<Result<Vec<_>, _>>()
         .context("failed to read branches")?
@@ -2426,7 +2426,7 @@ pub fn is_virtual_branch_mergeable(
         .context("failed to get or create currnt session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session reader")?;
-    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch_reader = branch::Reader::with_reader(&current_session_reader);
     let branch = match branch_reader.read(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::IsVirtualBranchMergeable::BranchNotFound(
@@ -2655,7 +2655,7 @@ pub fn amend(
         )
         .context("failed to create commit")?;
 
-    let branch_writer = branch::Writer::new(gb_repository);
+    let branch_writer = branch::Writer::open(gb_repository);
     target_branch.head = commit_oid;
     branch_writer.write(target_branch)?;
 
@@ -2683,7 +2683,7 @@ pub fn cherry_pick(
         .context("failed to get or create current session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
-    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch_reader = branch::Reader::with_reader(&current_session_reader);
     let mut branch = branch_reader
         .read(branch_id)
         .context("failed to read branch")?;
@@ -2837,7 +2837,7 @@ pub fn cherry_pick(
             .context("failed to checkout final tree")?;
 
         // update branch status
-        let writer = branch::Writer::new(gb_repository);
+        let writer = branch::Writer::open(gb_repository);
         branch.head = commit_oid;
         writer
             .write(&mut branch)
@@ -2872,7 +2872,7 @@ pub fn squash(
         .context("failed to get or create current session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
-    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch_reader = branch::Reader::with_reader(&current_session_reader);
 
     let default_target = get_default_target(&current_session_reader)
         .context("failed to read default target")?
@@ -3029,7 +3029,7 @@ pub fn squash(
     };
 
     // save new branch head
-    let writer = branch::Writer::new(gb_repository);
+    let writer = branch::Writer::open(gb_repository);
     branch.head = new_head_id;
     writer
         .write(&mut branch)
@@ -3064,7 +3064,7 @@ pub fn update_commit_message(
         .context("failed to get or create current session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
-    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch_reader = branch::Reader::with_reader(&current_session_reader);
 
     let default_target = get_default_target(&current_session_reader)
         .context("failed to read default target")?
@@ -3205,7 +3205,7 @@ pub fn update_commit_message(
     };
 
     // save new branch head
-    let writer = branch::Writer::new(gb_repository);
+    let writer = branch::Writer::open(gb_repository);
     branch.head = new_head_id;
     writer
         .write(&mut branch)
@@ -3346,7 +3346,7 @@ pub fn create_virtual_branch_from_branch(
         order,
     };
 
-    let writer = branch::Writer::new(gb_repository);
+    let writer = branch::Writer::open(gb_repository);
     writer
         .write(&mut branch)
         .context("failed to write branch")?;

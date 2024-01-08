@@ -13,7 +13,7 @@ pub struct DeltasWriter<'writer> {
 }
 
 impl<'writer> DeltasWriter<'writer> {
-    pub fn new(repository: &'writer gb_repository::Repository) -> Self {
+    pub fn open(repository: &'writer gb_repository::Repository) -> Self {
         let writer = writer::DirWriter::open(repository.root());
         Self { writer, repository }
     }
@@ -90,11 +90,11 @@ mod tests {
     fn write_no_vbranches() -> Result<()> {
         let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let deltas_writer = DeltasWriter::new(&gb_repository);
+        let deltas_writer = DeltasWriter::open(&gb_repository);
 
         let session = gb_repository.get_or_create_current_session()?;
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
-        let deltas_reader = deltas::Reader::new(&session_reader);
+        let deltas_reader = deltas::Reader::with_reader(&session_reader);
 
         let path = "test.txt";
         let deltas = vec![
