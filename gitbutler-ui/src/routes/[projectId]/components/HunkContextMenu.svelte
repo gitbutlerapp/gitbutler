@@ -20,7 +20,7 @@
 <PopupMenu bind:this={popupMenu} let:item>
 	<ContextMenu>
 		<ContextMenuSection>
-			{#if item.hunk !== undefined && !item.hunk.locked}
+			{#if item.hunk !== undefined}
 				<ContextMenuItem label="Discard" on:click={() => branchController.unapplyHunk(item.hunk)} />
 			{/if}
 			{#if item.lineNumber}

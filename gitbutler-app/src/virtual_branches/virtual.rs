@@ -437,7 +437,7 @@ pub fn apply_branch(
 pub fn unapply_ownership(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    ownership: &Ownership,
+    target_ownership: &Ownership,
 ) -> Result<(), errors::UnapplyOwnershipError> {
     if conflicts::is_resolving(project_repository) {
         return Err(errors::UnapplyOwnershipError::Conflict(
@@ -476,18 +476,68 @@ pub fn unapply_ownership(
     )
     .context("failed to get status by branch")?;
 
-    // remove the ownership from the applied branches, and write them out
+    // remove non locked hunks directly from the branch ownership
     let branch_writer = branch::Writer::open(gb_repository);
     let applied_statuses = applied_statuses
-        .into_iter()
+        .iter()
         .map(|(branch, branch_files)| {
             let mut branch = branch.clone();
             let mut branch_files = branch_files.clone();
-            for file_ownership_to_take in &ownership.files {
-                let taken_file_ownerships = branch.ownership.take(file_ownership_to_take);
+
+            let non_commited_hunks = calculate_non_commited_diffs(
+                project_repository,
+                &branch,
+                &default_target,
+                &branch_files,
+            )?;
+
+            let non_locked_non_commited_hunks = non_commited_hunks
+                .iter()
+                .filter_map(|(filepath, hunks)| {
+                    let hunks = hunks
+                        .iter()
+                        .filter(|hunk| {
+                            branch_files.get(filepath).map_or(false, |hunks| {
+                                hunks
+                                    .iter()
+                                    .any(|branch_hunk| branch_hunk.diff == hunk.diff)
+                            })
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>();
+                    if hunks.is_empty() {
+                        None
+                    } else {
+                        Some((filepath.clone(), hunks))
+                    }
+                })
+                .collect::<HashMap<_, _>>();
+
+            for target_file_ownership in &target_ownership.files {
+                let taken_file_ownerships = branch.ownership.take(target_file_ownership);
                 if taken_file_ownerships.is_empty() {
                     continue;
                 }
+
+                // only consider non locked, non commited hunks
+                let taken_file_ownerships = taken_file_ownerships
+                    .iter()
+                    .filter(|taken_file_ownership| {
+                        non_locked_non_commited_hunks.iter().any(|hunk| {
+                            taken_file_ownership.file_path.eq(hunk.0)
+                                && hunk.1.iter().any(|h| {
+                                    h.new_start == taken_file_ownership.hunks[0].start
+                                        && h.new_start + h.new_lines
+                                            == taken_file_ownership.hunks[0].end
+                                })
+                        })
+                    })
+                    .collect::<Vec<_>>();
+
+                if taken_file_ownerships.is_empty() {
+                    continue;
+                }
+
                 branch_writer.write(&mut branch)?;
                 branch_files = branch_files
                     .iter_mut()
@@ -517,6 +567,67 @@ pub fn unapply_ownership(
         })
         .collect::<Result<Vec<_>>>()?;
 
+    let hunks_to_unapply = applied_statuses
+        .iter()
+        .map(|(branch, branch_files)| {
+            let non_commited_hunks = calculate_reverse_non_commited_diffs(
+                project_repository,
+                branch,
+                &default_target,
+                branch_files,
+            )?;
+
+            let locked_non_commited_hunks = non_commited_hunks
+                .iter()
+                .filter_map(|(filepath, hunks)| {
+                    let hunks = hunks
+                        .iter()
+                        .filter(|hunk| {
+                            branch_files.get(filepath).map_or(false, |hunks| {
+                                !hunks
+                                    .iter()
+                                    .any(|branch_hunk| branch_hunk.diff == hunk.diff)
+                            })
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>();
+                    if hunks.is_empty() {
+                        None
+                    } else {
+                        Some((filepath.clone(), hunks))
+                    }
+                })
+                .collect::<HashMap<_, _>>();
+
+            let hunks_to_unapply = locked_non_commited_hunks
+                .into_iter()
+                .filter_map(|(file_path, hunks)| {
+                    target_ownership
+                        .files
+                        .iter()
+                        .find(|o| o.file_path == *file_path)
+                        .map(|target_hunks| {
+                            let hunks = hunks
+                                .iter()
+                                .filter(|hunk| {
+                                    target_hunks.hunks.iter().any(|target_hunk| {
+                                        target_hunk.start == hunk.old_start
+                                            && target_hunk.end == hunk.old_start + hunk.old_lines
+                                    })
+                                })
+                                .cloned()
+                                .collect::<Vec<_>>();
+                            (file_path.clone(), hunks)
+                        })
+                })
+                .collect::<Vec<_>>();
+            Ok(hunks_to_unapply)
+        })
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect::<HashMap<_, _>>();
+
     let repo = &project_repository.git_repository;
 
     let target_commit = repo
@@ -527,7 +638,7 @@ pub fn unapply_ownership(
     let base_tree = target_commit.tree().context("failed to get target tree")?;
 
     // construst a new working directory tree, without the removed ownerships
-    let final_tree = applied_statuses.into_iter().fold(
+    let cumulative_tree = applied_statuses.into_iter().fold(
         target_commit.tree().context("failed to get target tree"),
         |final_tree, status| {
             let final_tree = final_tree?;
@@ -539,6 +650,12 @@ pub fn unapply_ownership(
                 .context("failed to find tree")
         },
     )?;
+
+    let final_tree_oid =
+        write_tree_onto_tree(project_repository, &cumulative_tree, &hunks_to_unapply)?;
+    let final_tree = repo
+        .find_tree(final_tree_oid)
+        .context("failed to find tree")?;
 
     repo.checkout_tree(&final_tree)
         .force()
@@ -907,6 +1024,46 @@ fn is_requires_force(
     Ok(merge_base != upstream_commit.id())
 }
 
+// returns a diff to apply to the working directory to cancel out non commited changes
+pub fn calculate_reverse_non_commited_diffs(
+    project_repository: &project_repository::Repository,
+    branch: &branch::Branch,
+    default_target: &target::Target,
+    files: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
+) -> Result<HashMap<path::PathBuf, Vec<diff::Hunk>>> {
+    if default_target.sha == branch.head && !branch.applied {
+        return Ok(files.clone());
+    };
+
+    let branch_tree = if branch.applied {
+        let target_plus_wd_oid = write_tree(project_repository, default_target, files)?;
+        project_repository
+            .git_repository
+            .find_tree(target_plus_wd_oid)
+    } else {
+        project_repository.git_repository.find_tree(branch.tree)
+    }?;
+
+    let branch_head = project_repository
+        .git_repository
+        .find_commit(branch.head)?
+        .tree()?;
+
+    // do a diff between branch.head and the tree we _would_ commit
+    let non_commited_diff = diff::trees(
+        &project_repository.git_repository,
+        &branch_head,
+        &branch_tree,
+        &diff::Options {
+            reverse: true,
+            ..Default::default()
+        },
+    )
+    .context("failed to diff trees")?;
+
+    Ok(non_commited_diff)
+}
+
 // given a virtual branch and it's files that are calculated off of a default target,
 // return files adjusted to the branch's head commit
 pub fn calculate_non_commited_diffs(
@@ -938,6 +1095,7 @@ pub fn calculate_non_commited_diffs(
         &project_repository.git_repository,
         &branch_head,
         &branch_tree,
+        &diff::Options::default(),
     )
     .context("failed to diff trees")?;
 
@@ -979,6 +1137,7 @@ fn list_virtual_commit_files(
         &project_repository.git_repository,
         &parent_tree,
         &commit_tree,
+        &diff::Options::default(),
     )?;
     let hunks_by_filepath = virtual_hunks_by_filepath(&project_repository.project().path, &diff);
     Ok(virtual_hunks_to_virtual_files(
@@ -1594,6 +1753,7 @@ fn get_non_applied_status(
                     &project_repository.git_repository,
                     &target_tree,
                     &branch_tree,
+                    &diff::Options::default(),
                 )?;
 
                 Ok((branch, diff))
@@ -1901,11 +2061,18 @@ pub fn write_tree_onto_commit(
 ) -> Result<git::Oid> {
     // read the base sha into an index
     let git_repository = &project_repository.git_repository;
-
     let head_commit = git_repository.find_commit(commit_oid)?;
     let base_tree = head_commit.tree()?;
+    write_tree_onto_tree(project_repository, &base_tree, files)
+}
 
-    let mut builder = git_repository.treebuilder(Some(&base_tree));
+pub fn write_tree_onto_tree(
+    project_repository: &project_repository::Repository,
+    base_tree: &git::Tree,
+    files: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
+) -> Result<git::Oid> {
+    let git_repository = &project_repository.git_repository;
+    let mut builder = git_repository.treebuilder(Some(base_tree));
     // now update the index with content in the working directory for each file
     for (filepath, hunks) in files {
         // convert this string to a Path
@@ -3309,6 +3476,7 @@ pub fn create_virtual_branch_from_branch(
         &project_repository.git_repository,
         &merge_base_tree,
         &head_commit_tree,
+        &diff::Options::default(),
     )
     .context("failed to diff trees")?;
 
