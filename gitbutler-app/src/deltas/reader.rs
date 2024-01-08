@@ -11,7 +11,7 @@ pub struct DeltasReader<'reader> {
 }
 
 impl<'reader> DeltasReader<'reader> {
-    pub fn new(reader: &'reader dyn reader::Reader) -> Self {
+    pub fn with_reader(reader: &'reader dyn reader::Reader) -> Self {
         DeltasReader { reader }
     }
 

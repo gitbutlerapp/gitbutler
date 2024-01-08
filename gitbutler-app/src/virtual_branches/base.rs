@@ -114,7 +114,7 @@ pub fn set_base_branch(
         last_fetched_ms: None,
     };
 
-    let target_writer = target::Writer::new(gb_repository);
+    let target_writer = target::Writer::open(gb_repository);
     target_writer.write_default(&target)?;
 
     if !head_name
@@ -192,7 +192,7 @@ pub fn set_base_branch(
                 order: 0,
             };
 
-            let branch_writer = branch::Writer::new(gb_repository);
+            let branch_writer = branch::Writer::open(gb_repository);
             branch_writer.write(&mut branch)?;
         }
     }
@@ -293,7 +293,7 @@ pub fn update_base_branch(
             target.sha
         ))?;
 
-    let branch_writer = branch::Writer::new(gb_repository);
+    let branch_writer = branch::Writer::open(gb_repository);
 
     // try to update every branch
     let updated_vbranches = super::get_status_by_branch(gb_repository, project_repository)?
@@ -519,7 +519,7 @@ pub fn update_base_branch(
     )?;
 
     // write new target oid
-    let target_writer = target::Writer::new(gb_repository);
+    let target_writer = target::Writer::open(gb_repository);
     target_writer.write_default(&target::Target {
         sha: new_target_commit.id(),
         ..target

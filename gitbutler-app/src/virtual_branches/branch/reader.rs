@@ -9,7 +9,7 @@ pub struct BranchReader<'reader> {
 }
 
 impl<'reader> BranchReader<'reader> {
-    pub fn new(reader: &'reader dyn Reader) -> Self {
+    pub fn with_reader(reader: &'reader dyn Reader) -> Self {
         Self { reader }
     }
 
@@ -102,7 +102,7 @@ mod tests {
         let session = gb_repository.get_or_create_current_session()?;
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
-        let reader = BranchReader::new(&session_reader);
+        let reader = BranchReader::with_reader(&session_reader);
         let result = reader.read(&BranchId::generate());
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "file not found");
@@ -116,13 +116,13 @@ mod tests {
 
         let mut branch = test_branch();
 
-        let writer = Writer::new(&gb_repository);
+        let writer = Writer::open(&gb_repository);
         writer.write(&mut branch)?;
 
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
-        let reader = BranchReader::new(&session_reader);
+        let reader = BranchReader::with_reader(&session_reader);
 
         assert_eq!(branch, reader.read(&branch.id).unwrap());
 

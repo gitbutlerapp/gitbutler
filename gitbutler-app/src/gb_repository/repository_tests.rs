@@ -96,7 +96,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
     let Case { gb_repository, .. } = Suite::default().new_case();
 
     let current_session = gb_repository.get_or_create_current_session()?;
-    let writer = deltas::Writer::new(&gb_repository);
+    let writer = deltas::Writer::open(&gb_repository);
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
@@ -106,7 +106,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
     )?;
 
     let session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
-    let deltas_reader = deltas::Reader::new(&session_reader);
+    let deltas_reader = deltas::Reader::with_reader(&session_reader);
     let deltas = deltas_reader.read(None)?;
 
     assert_eq!(deltas.len(), 1);
@@ -130,7 +130,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
         ..
     } = Suite::default().new_case();
 
-    let writer = deltas::Writer::new(&gb_repository);
+    let writer = deltas::Writer::open(&gb_repository);
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
@@ -141,7 +141,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     let session = gb_repository.flush(&project_repository, None)?;
 
     let session_reader = sessions::Reader::open(&gb_repository, &session.unwrap())?;
-    let deltas_reader = deltas::Reader::new(&session_reader);
+    let deltas_reader = deltas::Reader::with_reader(&session_reader);
     let deltas = deltas_reader.read(None)?;
 
     assert_eq!(deltas.len(), 1);
@@ -235,7 +235,7 @@ async fn test_remote_syncronization() -> Result<()> {
         .await?;
     let case_one = case_one.refresh();
 
-    let writer = deltas::Writer::new(&case_one.gb_repository);
+    let writer = deltas::Writer::open(&case_one.gb_repository);
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
@@ -273,7 +273,7 @@ async fn test_remote_syncronization() -> Result<()> {
     assert_eq!(sessions_two[0].id, session_one.id);
 
     let session_reader = sessions::Reader::open(&case_two.gb_repository, &sessions_two[0])?;
-    let deltas_reader = deltas::Reader::new(&session_reader);
+    let deltas_reader = deltas::Reader::with_reader(&session_reader);
     let deltas = deltas_reader.read(None)?;
     let files = session_reader.files(None)?;
     assert_eq!(deltas.len(), 1);

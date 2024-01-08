@@ -261,8 +261,8 @@ impl Repository {
             .into_iter()
             .collect::<Vec<_>>();
 
-        let src_target_reader = virtual_branches::target::Reader::new(&last_session_reader);
-        let dst_target_writer = virtual_branches::target::Writer::new(self);
+        let src_target_reader = virtual_branches::target::Reader::with_reader(&last_session_reader);
+        let dst_target_writer = virtual_branches::target::Writer::open(self);
 
         // copy default target
         let default_target = match src_target_reader.read_default() {
@@ -291,7 +291,7 @@ impl Repository {
                 .with_context(|| format!("{}: failed to write target", branch.id))?;
         }
 
-        let dst_branch_writer = virtual_branches::branch::Writer::new(self);
+        let dst_branch_writer = virtual_branches::branch::Writer::open(self);
 
         // copy branches that we don't already have
         for branch in &branches {
@@ -334,7 +334,7 @@ impl Repository {
         };
 
         // write session to disk
-        sessions::Writer::new(self)
+        sessions::Writer::open(self)
             .write(&session)
             .context("failed to write session")?;
 
@@ -371,7 +371,7 @@ impl Repository {
             ..current_session
         };
 
-        sessions::Writer::new(self)
+        sessions::Writer::open(self)
             .write(&updated_session)
             .context("failed to write session")?;
 
@@ -434,7 +434,7 @@ impl Repository {
         let _lock = self.lock();
 
         // update last timestamp
-        sessions::Writer::new(self).write(session)?;
+        sessions::Writer::open(self).write(session)?;
 
         let mut tree_builder = self.git_repository.treebuilder(None);
 
@@ -510,7 +510,7 @@ impl Repository {
             .context("failed to get current session")?;
         let current_session_reader = sessions::Reader::open(self, &current_session)
             .context("failed to open current session")?;
-        let target_reader = target::Reader::new(&current_session_reader);
+        let target_reader = target::Reader::with_reader(&current_session_reader);
         match target_reader.read_default() {
             Result::Ok(target) => Ok(Some(target)),
             Err(reader::Error::NotFound) => Ok(None),
@@ -589,7 +589,7 @@ fn build_wd_tree_from_reference(
     }
 
     let session_reader = reader::DirReader::open(gb_repository.root());
-    let deltas = deltas::Reader::new(&session_reader)
+    let deltas = deltas::Reader::with_reader(&session_reader)
         .read(None)
         .context("failed to read deltas")?;
     let wd_files = session_reader.list_files(path::Path::new("session/wd"))?;

@@ -16,7 +16,7 @@ pub struct SessionWriter<'writer> {
 }
 
 impl<'writer> SessionWriter<'writer> {
-    pub fn new(repository: &'writer gb_repository::Repository) -> Self {
+    pub fn open(repository: &'writer gb_repository::Repository) -> Self {
         let writer = writer::DirWriter::open(repository.root());
         SessionWriter { repository, writer }
     }
