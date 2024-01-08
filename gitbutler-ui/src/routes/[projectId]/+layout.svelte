@@ -50,7 +50,9 @@
 	<div class="text-color-3 flex h-full w-full items-center justify-center">
 		{#if $branchesError$.code === Code.ProjectHead}
 			<div class="flex max-w-xl flex-col justify-center gap-y-3 p-4 text-center">
-				<h2 class="text-lg font-semibold">Looks like you've switched from gitbutler/integration</h2>
+				<h2 class="text-lg font-semibold">
+					Looks like you've switched away from gitbutler/integration
+				</h2>
 
 				<p>
 					Due to GitButler managing multiple virtual branches, you cannot switch back and forth
