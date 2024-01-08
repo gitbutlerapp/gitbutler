@@ -327,6 +327,7 @@ pub fn update_base_branch(
                         &project_repository.git_repository,
                         &branch_head_tree,
                         &branch_tree,
+                        &diff::Options::default(),
                     )?;
                     if non_commited_files.is_empty() {
                         // if there are no commited files, then the branch is fully merged
