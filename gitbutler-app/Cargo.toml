@@ -22,7 +22,7 @@ tempfile = "3.8"
 
 [dependencies]
 anyhow = "1.0.72"
-async-trait = "0.1.74"
+async-trait = "0.1.77"
 backoff = "0.4.0"
 backtrace = { version = "0.3.69", optional = true }
 bstr = "1.9.0"
