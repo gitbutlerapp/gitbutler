@@ -14,7 +14,7 @@
 	} from '$lib/config/config';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import Button from '$lib/components/Button.svelte';
-	import DropDown from '$lib/components/DropDown.svelte';
+	import DropDownButton from '$lib/components/DropDownButton.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
@@ -145,7 +145,7 @@
 							? undefined
 							: 'You must be logged in and have summary generation enabled to use this feature'}
 					>
-						<DropDown
+						<DropDownButton
 							kind="outlined"
 							icon="ai-small"
 							color="neutral"
@@ -169,7 +169,7 @@
 									/>
 								</ContextMenuSection>
 							</ContextMenu>
-						</DropDown>
+						</DropDownButton>
 					</Tooltip>
 				</div>
 			</div>
