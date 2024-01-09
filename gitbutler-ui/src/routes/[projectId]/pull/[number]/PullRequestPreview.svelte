@@ -24,7 +24,7 @@
 					</span>
 				</span>
 				{#if pullrequest.draft}
-					<Tag color="neutral-dim" icon="pr-draft">Draft</Tag>
+					<Tag color="neutral-light" icon="pr-draft">Draft</Tag>
 				{:else}
 					<Tag color="success" icon="pr-draft" filled>Open</Tag>
 				{/if}
