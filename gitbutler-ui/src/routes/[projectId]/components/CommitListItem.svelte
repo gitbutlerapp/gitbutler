@@ -55,7 +55,7 @@
 			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
 			branchController.amendBranch(branch.id, newOwnership);
 		} else if (isDraggableFile(data)) {
-			const newOwnership = filesToOwnership(get(data.files));
+			const newOwnership = filesToOwnership([data.current, ...get(data.files)]);
 			branchController.amendBranch(branch.id, newOwnership);
 		}
 	}
