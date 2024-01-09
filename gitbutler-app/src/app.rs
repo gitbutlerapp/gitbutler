@@ -74,7 +74,7 @@ impl App {
         &self,
         project_id: &ProjectId,
         session_id: &SessionId,
-        paths: Option<&[path::PathBuf]>,
+        paths: Option<&[&path::Path]>,
     ) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
         let session = self
             .sessions_database

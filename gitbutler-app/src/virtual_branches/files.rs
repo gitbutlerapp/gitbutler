@@ -34,12 +34,7 @@ pub fn list_remote_commit_files(
     let parent = commit.parent(0).context("failed to get parent commit")?;
     let commit_tree = commit.tree().context("failed to get commit tree")?;
     let parent_tree = parent.tree().context("failed to get parent tree")?;
-    let diff = diff::trees(
-        repository,
-        &parent_tree,
-        &commit_tree,
-        &diff::Options::default(),
-    )?;
+    let diff = diff::trees(repository, &parent_tree, &commit_tree)?;
 
     let files = diff
         .into_iter()

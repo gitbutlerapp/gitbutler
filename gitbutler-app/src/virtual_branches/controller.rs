@@ -857,7 +857,8 @@ impl ControllerInner {
                 .fetch(default_target.branch.remote(), &self.helper)
                 .map_err(errors::FetchFromTargetError::Remote)?;
 
-            let target_writer = target::Writer::open(gb_repository);
+            let target_writer =
+                target::Writer::new(gb_repository).context("failed to open target writer")?;
             target_writer
                 .write_default(&target::Target {
                     last_fetched_ms: Some(

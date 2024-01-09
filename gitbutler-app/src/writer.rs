@@ -1,74 +1,92 @@
-use std::io::Write;
+use anyhow::Result;
 
-use anyhow::{Context, Result};
+use crate::lock;
 
-pub trait Writer {
-    fn write(&self, path: &str, contents: &[u8]) -> Result<()>;
-    fn append_string(&self, path: &str, contents: &str) -> Result<()>;
-    fn remove(&self, path: &str) -> Result<()>;
+pub struct DirWriter(lock::Dir);
 
-    fn write_usize(&self, path: &str, contents: &usize) -> Result<()> {
-        self.write_string(path, &contents.to_string())
+impl DirWriter {
+    pub fn open<P: AsRef<std::path::Path>>(root: P) -> Result<Self, std::io::Error> {
+        lock::Dir::new(root).map(Self)
     }
-    fn write_u128(&self, path: &str, contents: &u128) -> Result<()> {
-        self.write_string(path, &contents.to_string())
-    }
-    fn write_bool(&self, path: &str, contents: &bool) -> Result<()> {
-        self.write_string(path, &contents.to_string())
-    }
-    fn write_string(&self, path: &str, contents: &str) -> Result<()> {
-        self.write(path, contents.as_bytes())
-    }
-}
-
-pub struct DirWriter {
-    root: std::path::PathBuf,
 }
 
 impl DirWriter {
-    pub fn open(root: std::path::PathBuf) -> Self {
-        Self { root }
+    fn write<P, C>(&self, path: P, contents: C) -> Result<(), std::io::Error>
+    where
+        P: AsRef<std::path::Path>,
+        C: AsRef<[u8]>,
+    {
+        self.batch(&[BatchTask::Write(path, contents)])
+    }
+
+    pub fn remove<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), std::io::Error> {
+        self.0.batch(|root| {
+            let path = root.join(path);
+            if path.exists() {
+                if path.is_dir() {
+                    std::fs::remove_dir_all(path)
+                } else {
+                    std::fs::remove_file(path)
+                }
+            } else {
+                Ok(())
+            }
+        })?
+    }
+
+    pub fn batch<P, C>(&self, values: &[BatchTask<P, C>]) -> Result<(), std::io::Error>
+    where
+        P: AsRef<std::path::Path>,
+        C: AsRef<[u8]>,
+    {
+        self.0.batch(|root| {
+            for value in values {
+                match value {
+                    BatchTask::Write(path, contents) => {
+                        let path = root.join(path);
+                        if let Some(dir_path) = path.parent() {
+                            if !dir_path.exists() {
+                                std::fs::create_dir_all(dir_path)?;
+                            }
+                        };
+                        std::fs::write(path, contents)?;
+                    }
+                    BatchTask::Remove(path) => {
+                        let path = root.join(path);
+                        if path.exists() {
+                            if path.is_dir() {
+                                std::fs::remove_dir_all(path)?;
+                            } else {
+                                std::fs::remove_file(path)?;
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(())
+        })?
+    }
+
+    pub fn write_usize(&self, path: &str, contents: &usize) -> Result<(), std::io::Error> {
+        self.write_string(path, &contents.to_string())
+    }
+
+    pub fn write_u128(&self, path: &str, contents: &u128) -> Result<(), std::io::Error> {
+        self.write_string(path, &contents.to_string())
+    }
+
+    pub fn write_bool(&self, path: &str, contents: &bool) -> Result<(), std::io::Error> {
+        self.write_string(path, &contents.to_string())
+    }
+
+    pub fn write_string(&self, path: &str, contents: &str) -> Result<(), std::io::Error> {
+        self.write(path, contents)
     }
 }
 
-impl Writer for DirWriter {
-    fn write(&self, path: &str, contents: &[u8]) -> Result<()> {
-        let file_path = self.root.join(path);
-        let dir_path = file_path.parent().context("failed to get parent")?;
-        std::fs::create_dir_all(dir_path).context("failed to create directory")?;
-        std::fs::write(file_path, contents)?;
-        Ok(())
-    }
-
-    fn append_string(&self, path: &str, contents: &str) -> Result<()> {
-        let file_path = self.root.join(path);
-        let dir_path = file_path.parent().context("failed to get parent")?;
-        std::fs::create_dir_all(dir_path).context("failed to create directory")?;
-        let mut file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(file_path)
-            .with_context(|| format!("failed to open file: {}", path))?;
-        file.write_all(contents.as_bytes())?;
-        Ok(())
-    }
-
-    fn remove(&self, path: &str) -> Result<()> {
-        let file_path = self.root.join(path);
-        if file_path.is_dir() {
-            match std::fs::remove_dir_all(file_path) {
-                Ok(()) => Ok(()),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                Err(e) => Err(e.into()),
-            }
-        } else {
-            match std::fs::remove_file(file_path) {
-                Ok(()) => Ok(()),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                Err(e) => Err(e.into()),
-            }
-        }
-    }
+pub enum BatchTask<P: AsRef<std::path::Path>, C: AsRef<[u8]>> {
+    Write(P, C),
+    Remove(P),
 }
 
 #[cfg(test)]
@@ -78,7 +96,7 @@ mod tests {
     #[test]
     fn test_write() {
         let root = tempfile::tempdir().unwrap();
-        let writer = DirWriter::open(root.path().to_path_buf());
+        let writer = DirWriter::open(root.path()).unwrap();
         writer.write("foo/bar", b"baz").unwrap();
         assert_eq!(
             std::fs::read_to_string(root.path().join("foo/bar")).unwrap(),
@@ -87,21 +105,9 @@ mod tests {
     }
 
     #[test]
-    fn test_append_string() {
-        let root = tempfile::tempdir().unwrap();
-        let writer = DirWriter::open(root.path().to_path_buf());
-        writer.append_string("foo/bar", "baz").unwrap();
-        writer.append_string("foo/bar", "qux").unwrap();
-        assert_eq!(
-            std::fs::read_to_string(root.path().join("foo/bar")).unwrap(),
-            "bazqux"
-        );
-    }
-
-    #[test]
     fn test_remove() {
         let root = tempfile::tempdir().unwrap();
-        let writer = DirWriter::open(root.path().to_path_buf());
+        let writer = DirWriter::open(root.path()).unwrap();
         writer.remove("foo/bar").unwrap();
         assert!(!root.path().join("foo/bar").exists());
         writer.write("foo/bar", b"baz").unwrap();

@@ -35,99 +35,92 @@ pub enum SessionError {
     #[error("session does not exist")]
     NoSession,
     #[error("{0}")]
-    Other(anyhow::Error),
+    Other(#[from] anyhow::Error),
 }
 
-impl TryFrom<&dyn reader::Reader> for Session {
+impl TryFrom<&reader::Reader<'_>> for Session {
     type Error = SessionError;
 
-    fn try_from(reader: &dyn reader::Reader) -> Result<Self, Self::Error> {
-        let id: String = reader
-            .read(path::Path::new("session/meta/id"))
-            .map_err(|error| match error {
-                reader::Error::NotFound => SessionError::NoSession,
-                _ => SessionError::Other(error.into()),
-            })?
+    fn try_from(reader: &reader::Reader) -> Result<Self, Self::Error> {
+        let results = reader
+            .batch(&[
+                path::Path::new("session/meta/id"),
+                path::Path::new("session/meta/start"),
+                path::Path::new("session/meta/last"),
+                path::Path::new("session/meta/branch"),
+                path::Path::new("session/meta/commit"),
+            ])
+            .context("failed to batch read")?;
+
+        let id = &results[0];
+        let start_timestamp_ms = &results[1];
+        let last_timestamp_ms = &results[2];
+        let branch = &results[3];
+        let commit = &results[4];
+
+        let id = id.clone().map_err(|error| match error {
+            reader::Error::NotFound => SessionError::NoSession,
+            error => SessionError::Other(error.into()),
+        })?;
+        let id: String = id
             .try_into()
             .context("failed to parse session id as string")
             .map_err(SessionError::Other)?;
+        let id: SessionId = id.parse().context("failed to parse session id as uuid")?;
 
-        let id: SessionId = id
-            .parse()
-            .context("failed to parse session id as id")
-            .map_err(SessionError::Other)?;
+        let start_timestamp_ms = start_timestamp_ms.clone().map_err(|error| match error {
+            reader::Error::NotFound => SessionError::NoSession,
+            error => SessionError::Other(error.into()),
+        })?;
 
-        let start_timestamp_ms = reader
-            .read(path::Path::new("session/meta/start"))
-            .map_err(|error| match error {
-                reader::Error::NotFound => SessionError::NoSession,
-                _ => SessionError::Other(error.into()),
-            })?
+        let start_timestamp_ms: u128 = start_timestamp_ms
             .try_into()
             .context("failed to parse session start timestamp as number")
             .map_err(SessionError::Other)?;
 
-        let last_timestamp_ms = reader
-            .read(path::Path::new("session/meta/last"))
-            .map_err(|error| match error {
-                reader::Error::NotFound => SessionError::NoSession,
-                _ => SessionError::Other(error.into()),
-            })?
+        let last_timestamp_ms = last_timestamp_ms.clone().map_err(|error| match error {
+            reader::Error::NotFound => SessionError::NoSession,
+            error => SessionError::Other(error.into()),
+        })?;
+
+        let last_timestamp_ms: u128 = last_timestamp_ms
             .try_into()
             .context("failed to parse session last timestamp as number")
             .map_err(SessionError::Other)?;
 
-        let branch = match reader.read(path::Path::new("session/meta/branch")) {
-            Ok(reader::Content::UTF8(branch)) => Some(branch.clone()),
-            Err(reader::Error::NotFound) => None,
-            _ => {
-                return Err(SessionError::Other(anyhow::anyhow!(
-                    "failed to read branch"
-                )))
+        let branch = match branch.clone() {
+            Ok(branch) => {
+                let branch = branch
+                    .try_into()
+                    .context("failed to parse session branch as string")?;
+                Ok(Some(branch))
             }
-        };
+            Err(reader::Error::NotFound) => Ok(None),
+            Err(e) => Err(e),
+        }
+        .context("failed to parse session branch as string")?;
 
-        let commit = match reader.read(path::Path::new("session/meta/commit")) {
-            Ok(reader::Content::UTF8(commit)) => Some(commit.clone()),
-            Err(reader::Error::NotFound) => None,
-            _ => {
-                return Err(SessionError::Other(anyhow::anyhow!(
-                    "failed to read commit"
-                )))
+        let commit = match commit.clone() {
+            Ok(commit) => {
+                let commit = commit
+                    .try_into()
+                    .context("failed to parse session commit as string")?;
+                Ok(Some(commit))
             }
-        };
+            Err(reader::Error::NotFound) => Ok(None),
+            Err(e) => Err(e),
+        }
+        .context("failed to parse session commit as string")?;
 
         Ok(Self {
             id,
-            hash: None,
+            hash: reader.commit_id(),
             meta: Meta {
                 start_timestamp_ms,
                 last_timestamp_ms,
                 branch,
                 commit,
             },
-        })
-    }
-}
-
-impl TryFrom<reader::DirReader> for Session {
-    type Error = SessionError;
-
-    fn try_from(reader: reader::DirReader) -> Result<Self, Self::Error> {
-        let session = Session::try_from(&reader as &dyn reader::Reader)?;
-        Ok(session)
-    }
-}
-
-impl<'reader> TryFrom<reader::CommitReader<'reader>> for Session {
-    type Error = SessionError;
-
-    fn try_from(reader: reader::CommitReader<'reader>) -> Result<Self, Self::Error> {
-        let commit_oid = reader.get_commit_oid();
-        let session = Session::try_from(&reader as &dyn reader::Reader)?;
-        Ok(Session {
-            hash: Some(commit_oid),
-            ..session
         })
     }
 }

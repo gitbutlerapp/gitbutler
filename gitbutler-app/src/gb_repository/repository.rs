@@ -20,8 +20,7 @@ use crate::{
     paths::DataDir,
     project_repository,
     projects::{self, ProjectId},
-    reader::{self, Reader},
-    sessions,
+    reader, sessions,
     sessions::SessionId,
     users,
     virtual_branches::{self, target},
@@ -261,8 +260,9 @@ impl Repository {
             .into_iter()
             .collect::<Vec<_>>();
 
-        let src_target_reader = virtual_branches::target::Reader::with_reader(&last_session_reader);
-        let dst_target_writer = virtual_branches::target::Writer::open(self);
+        let src_target_reader = virtual_branches::target::Reader::new(&last_session_reader);
+        let dst_target_writer = virtual_branches::target::Writer::new(self)
+            .context("failed to open target writer for current session")?;
 
         // copy default target
         let default_target = match src_target_reader.read_default() {
@@ -291,7 +291,8 @@ impl Repository {
                 .with_context(|| format!("{}: failed to write target", branch.id))?;
         }
 
-        let dst_branch_writer = virtual_branches::branch::Writer::open(self);
+        let dst_branch_writer = virtual_branches::branch::Writer::new(self)
+            .context("failed to open branch writer for current session")?;
 
         // copy branches that we don't already have
         for branch in &branches {
@@ -334,7 +335,8 @@ impl Repository {
         };
 
         // write session to disk
-        sessions::Writer::open(self)
+        sessions::Writer::new(self)
+            .context("failed to create session writer")?
             .write(&session)
             .context("failed to write session")?;
 
@@ -371,7 +373,8 @@ impl Repository {
             ..current_session
         };
 
-        sessions::Writer::open(self)
+        sessions::Writer::new(self)
+            .context("failed to create session writer")?
             .write(&updated_session)
             .context("failed to write session")?;
 
@@ -381,8 +384,8 @@ impl Repository {
     pub fn get_or_create_current_session(&self) -> Result<sessions::Session> {
         let _lock = self.lock();
 
-        let reader = reader::DirReader::open(self.root());
-        match sessions::Session::try_from(reader) {
+        let reader = reader::Reader::open(&self.root())?;
+        match sessions::Session::try_from(&reader) {
             Result::Ok(session) => Ok(session),
             Err(sessions::SessionError::NoSession) => {
                 let project_repository = project_repository::Repository::open(&self.project)
@@ -434,7 +437,9 @@ impl Repository {
         let _lock = self.lock();
 
         // update last timestamp
-        sessions::Writer::open(self).write(session)?;
+        let session_writer =
+            sessions::Writer::new(self).context("failed to create session writer")?;
+        session_writer.write(session)?;
 
         let mut tree_builder = self.git_repository.treebuilder(None);
 
@@ -467,8 +472,7 @@ impl Repository {
             "flushed session"
         );
 
-        std::fs::remove_dir_all(self.session_path())
-            .context("failed to remove session directory")?;
+        session_writer.remove()?;
 
         let session = sessions::Session {
             hash: Some(commit_oid),
@@ -484,8 +488,8 @@ impl Repository {
 
     pub fn get_current_session(&self) -> Result<Option<sessions::Session>> {
         let _lock = self.lock();
-        let reader = reader::DirReader::open(self.root());
-        match sessions::Session::try_from(reader) {
+        let reader = reader::Reader::open(&self.root())?;
+        match sessions::Session::try_from(&reader) {
             Ok(session) => Ok(Some(session)),
             Err(sessions::SessionError::NoSession) => Ok(None),
             Err(sessions::SessionError::Other(err)) => Err(err),
@@ -510,7 +514,7 @@ impl Repository {
             .context("failed to get current session")?;
         let current_session_reader = sessions::Reader::open(self, &current_session)
             .context("failed to open current session")?;
-        let target_reader = target::Reader::with_reader(&current_session_reader);
+        let target_reader = target::Reader::new(&current_session_reader);
         match target_reader.read_default() {
             Result::Ok(target) => Ok(Some(target)),
             Err(reader::Error::NotFound) => Ok(None),
@@ -588,8 +592,8 @@ fn build_wd_tree_from_reference(
         })?;
     }
 
-    let session_reader = reader::DirReader::open(gb_repository.root());
-    let deltas = deltas::Reader::with_reader(&session_reader)
+    let session_reader = reader::Reader::open(&gb_repository.root())?;
+    let deltas = deltas::Reader::from(&session_reader)
         .read(None)
         .context("failed to read deltas")?;
     let wd_files = session_reader.list_files(path::Path::new("session/wd"))?;

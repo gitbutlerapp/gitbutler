@@ -1,20 +1,21 @@
-use std::{collections::HashSet, path};
+use std::collections::HashSet;
 
 use anyhow::Result;
 
-use crate::reader;
+use crate::sessions;
 
 use super::branch::{self, BranchId};
 
-pub struct BranchIterator<'iterator> {
-    branch_reader: branch::Reader<'iterator>,
+pub struct BranchIterator<'i> {
+    branch_reader: branch::Reader<'i>,
     ids: Vec<BranchId>,
 }
 
-impl<'iterator> BranchIterator<'iterator> {
-    pub fn new(reader: &'iterator dyn reader::Reader) -> Result<Self> {
+impl<'i> BranchIterator<'i> {
+    pub fn new(session_reader: &'i sessions::Reader<'i>) -> Result<Self> {
+        let reader = session_reader.reader();
         let ids_itarator = reader
-            .list_files(&path::PathBuf::from("branches"))?
+            .list_files("branches")?
             .into_iter()
             .map(|file_path| {
                 file_path
@@ -35,13 +36,13 @@ impl<'iterator> BranchIterator<'iterator> {
             .collect();
         ids.sort();
         Ok(Self {
-            branch_reader: branch::Reader::with_reader(reader),
+            branch_reader: branch::Reader::new(session_reader),
             ids,
         })
     }
 }
 
-impl<'iterator> Iterator for BranchIterator<'iterator> {
+impl Iterator for BranchIterator<'_> {
     type Item = Result<branch::Branch, crate::reader::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -63,7 +64,7 @@ mod tests {
     use once_cell::sync::Lazy;
 
     use crate::{
-        sessions,
+        reader, sessions,
         test_utils::{Case, Suite},
         virtual_branches::target,
     };
@@ -148,10 +149,10 @@ mod tests {
     fn test_iterate_all() -> Result<()> {
         let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let target_writer = target::Writer::open(&gb_repository);
+        let target_writer = target::Writer::new(&gb_repository)?;
         target_writer.write_default(&test_target())?;
 
-        let branch_writer = branch::Writer::open(&gb_repository);
+        let branch_writer = branch::Writer::new(&gb_repository)?;
         let mut branch_1 = test_branch();
         branch_writer.write(&mut branch_1)?;
         let mut branch_2 = test_branch();

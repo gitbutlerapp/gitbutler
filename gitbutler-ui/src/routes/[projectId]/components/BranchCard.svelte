@@ -217,15 +217,13 @@
 				{/if}
 			{:else if branch.commits.length == 0}
 				<div class="new-branch" data-dnd-ignore>
-					<h1 class="text-base-body-16 text-semibold">
-						This is a new branch. Let's start creating!
-					</h1>
-					<p class="px-12">Get some work done, then throw some files this way!</p>
+					<h1 class="text-base-16 text-semibold">This is a new branch. Let's start creating!</h1>
+					<p class="px-12">Get some work done, then throw some files my way!</p>
 				</div>
 			{:else}
 				<!-- attention: these markers have custom css at the bottom of thise file -->
 				<div class="no-changes" data-dnd-ignore>
-					<h1 class="text-base-body-16 text-semibold">No uncommitted changes on this branch</h1>
+					<h1 class="text-base-16 text-semibold">No uncommitted changes on this branch</h1>
 				</div>
 			{/if}
 			<BranchCommits

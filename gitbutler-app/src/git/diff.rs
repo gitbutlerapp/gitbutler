@@ -17,44 +17,13 @@ pub struct Hunk {
     pub binary: bool,
 }
 
-impl Hunk {
-    pub fn reverse(&self) -> Hunk {
-        let diff = self
-            .diff
-            .lines()
-            .map(|line| {
-                if let Some(content) = line.strip_prefix('+') {
-                    format!("-{}", content)
-                } else if let Some(content) = line.strip_prefix('-') {
-                    format!("+{}", content)
-                } else {
-                    line.to_string()
-                }
-            })
-            .collect::<Vec<String>>()
-            .join("\n");
-        Hunk {
-            old_start: self.new_start,
-            old_lines: self.new_lines,
-            new_start: self.old_start,
-            new_lines: self.old_lines,
-            diff,
-            binary: self.binary,
-        }
-    }
-}
-
 pub struct Options {
-    pub reverse: bool,
     pub context_lines: u32,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Self {
-            context_lines: 3,
-            reverse: false,
-        }
+        Self { context_lines: 3 }
     }
 }
 
@@ -75,8 +44,7 @@ pub fn workdir(
         .show_binary(true)
         .show_untracked_content(true)
         .ignore_submodules(true)
-        .context_lines(opts.context_lines)
-        .reverse(opts.reverse);
+        .context_lines(opts.context_lines);
 
     let diff = repository.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
 
@@ -87,17 +55,14 @@ pub fn trees(
     repository: &Repository,
     old_tree: &git::Tree,
     new_tree: &git::Tree,
-    opts: &Options,
 ) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
     let mut diff_opts = git2::DiffOptions::new();
     diff_opts
         .recurse_untracked_dirs(true)
         .include_untracked(true)
         .show_binary(true)
-        .show_untracked_content(true)
         .ignore_submodules(true)
-        .context_lines(opts.context_lines)
-        .reverse(opts.reverse);
+        .show_untracked_content(true);
 
     let diff =
         repository.diff_tree_to_tree(Some(old_tree), Some(new_tree), Some(&mut diff_opts))?;

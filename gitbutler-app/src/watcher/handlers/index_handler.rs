@@ -108,7 +108,7 @@ impl Handler {
             .context("failed to insert session into database")?;
 
         let session_reader = sessions::Reader::open(gb_repository, session)?;
-        let deltas_reader = deltas::Reader::with_reader(&session_reader);
+        let deltas_reader = deltas::Reader::new(&session_reader);
         for (file_path, deltas) in deltas_reader
             .read(None)
             .context("could not list deltas for session")?

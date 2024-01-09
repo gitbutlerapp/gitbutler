@@ -1,9 +1,6 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 
-use crate::{
-    gb_repository,
-    writer::{self, Writer},
-};
+use crate::{gb_repository, writer};
 
 use super::Branch;
 
@@ -13,111 +10,102 @@ pub struct BranchWriter<'writer> {
 }
 
 impl<'writer> BranchWriter<'writer> {
-    pub fn open(repository: &'writer gb_repository::Repository) -> Self {
-        Self {
-            repository,
-            writer: writer::DirWriter::open(repository.root()),
-        }
+    pub fn new(repository: &'writer gb_repository::Repository) -> Result<Self, std::io::Error> {
+        writer::DirWriter::open(repository.root()).map(|writer| Self { repository, writer })
     }
 
     pub fn delete(&self, branch: &Branch) -> Result<()> {
         self.repository.mark_active_session()?;
 
         let _lock = self.repository.lock();
-        self.writer.remove(&format!("branches/{}", branch.id))?;
+        self.writer.remove(format!("branches/{}", branch.id))?;
         Ok(())
     }
 
     pub fn write(&self, branch: &mut Branch) -> Result<()> {
         self.repository.mark_active_session()?;
 
-        let _lock = self.repository.lock();
-
         branch.updated_timestamp_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_millis();
 
-        self.writer
-            .write_string(
-                &format!("branches/{}/id", branch.id),
-                &branch.id.to_string(),
-            )
-            .context("Failed to write branch id")?;
+        let mut batch = vec![];
 
-        self.writer
-            .write_string(&format!("branches/{}/meta/name", branch.id), &branch.name)
-            .context("Failed to write branch name")?;
+        batch.push(writer::BatchTask::Write(
+            format!("branches/{}/id", branch.id),
+            branch.id.to_string(),
+        ));
 
-        self.writer
-            .write_string(&format!("branches/{}/meta/notes", branch.id), &branch.notes)
-            .context("Failed to write notes")?;
+        batch.push(writer::BatchTask::Write(
+            format!("branches/{}/meta/name", branch.id),
+            branch.name.clone(),
+        ));
 
-        self.writer
-            .write_usize(&format!("branches/{}/meta/order", branch.id), &branch.order)
-            .context("Failed to write branch order")?;
+        batch.push(writer::BatchTask::Write(
+            format!("branches/{}/meta/notes", branch.id),
+            branch.notes.clone(),
+        ));
 
-        self.writer
-            .write_bool(
-                &format!("branches/{}/meta/applied", branch.id),
-                &branch.applied,
-            )
-            .context("Failed to write branch applied")?;
+        batch.push(writer::BatchTask::Write(
+            format!("branches/{}/meta/order", branch.id),
+            branch.order.to_string(),
+        ));
+
+        batch.push(writer::BatchTask::Write(
+            format!("branches/{}/meta/applied", branch.id),
+            branch.applied.to_string(),
+        ));
 
         if let Some(upstream) = &branch.upstream {
-            self.writer
-                .write_string(
-                    &format!("branches/{}/meta/upstream", branch.id),
-                    &upstream.to_string(),
-                )
-                .context("Failed to write branch upstream")?;
+            batch.push(writer::BatchTask::Write(
+                format!("branches/{}/meta/upstream", branch.id),
+                upstream.to_string(),
+            ));
         } else {
-            self.writer
-                .remove(&format!("branches/{}/meta/upstream", branch.id))?;
+            batch.push(writer::BatchTask::Remove(format!(
+                "branches/{}/meta/upstream",
+                branch.id
+            )));
         }
 
         if let Some(upstream_head) = &branch.upstream_head {
-            self.writer
-                .write_string(
-                    &format!("branches/{}/meta/upstream_head", branch.id),
-                    &upstream_head.to_string(),
-                )
-                .context("Failed to write branch upstream head")?;
+            batch.push(writer::BatchTask::Write(
+                format!("branches/{}/meta/upstream_head", branch.id),
+                upstream_head.to_string(),
+            ));
         } else {
-            self.writer
-                .remove(&format!("branches/{}/meta/upstream_head", branch.id))?;
+            batch.push(writer::BatchTask::Remove(format!(
+                "branches/{}/meta/upstream_head",
+                branch.id
+            )));
         }
 
-        self.writer
-            .write_string(
-                &format!("branches/{}/meta/tree", branch.id),
-                &branch.tree.to_string(),
-            )
-            .context("Failed to write branch tree")?;
-        self.writer
-            .write_string(
-                &format!("branches/{}/meta/head", branch.id),
-                &branch.head.to_string(),
-            )
-            .context("Failed to write branch head")?;
-        self.writer
-            .write_u128(
-                &format!("branches/{}/meta/created_timestamp_ms", branch.id),
-                &branch.created_timestamp_ms,
-            )
-            .context("Failed to write branch created timestamp")?;
-        self.writer
-            .write_u128(
-                &format!("branches/{}/meta/updated_timestamp_ms", branch.id),
-                &branch.updated_timestamp_ms,
-            )
-            .context("Failed to write branch updated timestamp")?;
+        batch.push(writer::BatchTask::Write(
+            format!("branches/{}/meta/tree", branch.id),
+            branch.tree.to_string(),
+        ));
 
-        self.writer
-            .write_string(
-                &format!("branches/{}/meta/ownership", branch.id),
-                &branch.ownership.to_string(),
-            )
-            .context("Failed to write branch ownership")?;
+        batch.push(writer::BatchTask::Write(
+            format!("branches/{}/meta/head", branch.id),
+            branch.head.to_string(),
+        ));
+
+        batch.push(writer::BatchTask::Write(
+            format!("branches/{}/meta/created_timestamp_ms", branch.id),
+            branch.created_timestamp_ms.to_string(),
+        ));
+
+        batch.push(writer::BatchTask::Write(
+            format!("branches/{}/meta/updated_timestamp_ms", branch.id),
+            branch.updated_timestamp_ms.to_string(),
+        ));
+
+        batch.push(writer::BatchTask::Write(
+            format!("branches/{}/meta/ownership", branch.id),
+            branch.ownership.to_string(),
+        ));
+
+        self.writer.batch(&batch)?;
 
         Ok(())
     }
@@ -130,6 +118,7 @@ mod tests {
         sync::atomic::{AtomicUsize, Ordering},
     };
 
+    use anyhow::Context;
     use once_cell::sync::Lazy;
 
     use crate::{
@@ -190,7 +179,7 @@ mod tests {
 
         let mut branch = test_branch();
 
-        let writer = BranchWriter::open(&gb_repository);
+        let writer = BranchWriter::new(&gb_repository)?;
         writer.write(&mut branch)?;
 
         let root = gb_repository
@@ -251,7 +240,7 @@ mod tests {
 
         let mut branch = test_branch();
 
-        let writer = BranchWriter::open(&gb_repository);
+        let writer = BranchWriter::new(&gb_repository)?;
         writer.write(&mut branch)?;
 
         assert!(gb_repository.get_current_session()?.is_some());
@@ -265,7 +254,7 @@ mod tests {
 
         let mut branch = test_branch();
 
-        let writer = BranchWriter::open(&gb_repository);
+        let writer = BranchWriter::new(&gb_repository)?;
         writer.write(&mut branch)?;
 
         let mut updated_branch = Branch {

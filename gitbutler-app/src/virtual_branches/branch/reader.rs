@@ -1,33 +1,20 @@
-use std::path;
-
-use crate::reader::{self, Reader, SubReader};
+use crate::{reader, sessions};
 
 use super::{Branch, BranchId};
 
-pub struct BranchReader<'reader> {
-    reader: &'reader dyn reader::Reader,
+pub struct BranchReader<'r> {
+    reader: &'r reader::Reader<'r>,
 }
 
-impl<'reader> BranchReader<'reader> {
-    pub fn with_reader(reader: &'reader dyn Reader) -> Self {
-        Self { reader }
-    }
-
-    pub fn reader(&self) -> &dyn reader::Reader {
-        self.reader
+impl<'r> BranchReader<'r> {
+    pub fn new(reader: &'r sessions::Reader<'r>) -> Self {
+        Self {
+            reader: reader.reader(),
+        }
     }
 
     pub fn read(&self, id: &BranchId) -> Result<Branch, reader::Error> {
-        if !self
-            .reader
-            .exists(&path::PathBuf::from(format!("branches/{}", id)))
-        {
-            return Err(reader::Error::NotFound);
-        }
-
-        let single_reader: &dyn crate::reader::Reader =
-            &SubReader::new(self.reader, &format!("branches/{}", id));
-        Branch::try_from(single_reader)
+        Branch::try_from(&self.reader.sub(format!("branches/{}", id)))
     }
 }
 
@@ -102,7 +89,7 @@ mod tests {
         let session = gb_repository.get_or_create_current_session()?;
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
-        let reader = BranchReader::with_reader(&session_reader);
+        let reader = BranchReader::new(&session_reader);
         let result = reader.read(&BranchId::generate());
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "file not found");
@@ -116,13 +103,13 @@ mod tests {
 
         let mut branch = test_branch();
 
-        let writer = Writer::open(&gb_repository);
+        let writer = Writer::new(&gb_repository)?;
         writer.write(&mut branch)?;
 
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
-        let reader = BranchReader::with_reader(&session_reader);
+        let reader = BranchReader::new(&session_reader);
 
         assert_eq!(branch, reader.read(&branch.id).unwrap());
 

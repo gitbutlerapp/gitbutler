@@ -93,8 +93,8 @@ impl Repository {
         Ok(ignored)
     }
 
-    pub fn get_wd_reader(&self) -> reader::DirReader {
-        reader::DirReader::open(self.root().to_path_buf())
+    pub fn get_wd_reader(&self) -> Result<reader::Reader, std::io::Error> {
+        reader::Reader::open(self.root())
     }
 
     pub fn root(&self) -> &std::path::Path {

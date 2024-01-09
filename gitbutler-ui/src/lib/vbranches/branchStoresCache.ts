@@ -14,8 +14,7 @@ import {
 	map,
 	firstValueFrom,
 	timeout,
-	combineLatest,
-	of
+	combineLatest
 } from 'rxjs';
 
 export class VirtualBranchService {
@@ -44,11 +43,11 @@ export class VirtualBranchService {
 					});
 				});
 			}),
-			shareReplay(1),
 			catchError((err) => {
 				this.branchesError$.next(UserError.fromError(err));
-				return of([]);
-			})
+				return [];
+			}),
+			shareReplay(1)
 		);
 
 		this.stashedBranches$ = this.branches$.pipe(

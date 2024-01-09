@@ -1,41 +1,32 @@
-use std::path;
-
-use crate::{
-    reader::{self, SubReader},
-    virtual_branches::BranchId,
-};
+use crate::{reader, sessions, virtual_branches::BranchId};
 
 use super::Target;
 
-pub struct TargetReader<'reader> {
-    reader: &'reader dyn reader::Reader,
+pub struct TargetReader<'r> {
+    reader: &'r reader::Reader<'r>,
 }
 
-impl<'reader> TargetReader<'reader> {
-    pub fn with_reader(reader: &'reader dyn reader::Reader) -> Self {
-        Self { reader }
+impl<'r> TargetReader<'r> {
+    pub fn new(reader: &'r sessions::Reader<'r>) -> Self {
+        Self {
+            reader: reader.reader(),
+        }
     }
 
     pub fn read_default(&self) -> Result<Target, reader::Error> {
-        if !self.reader.exists(&path::PathBuf::from("branches/target")) {
-            return Err(reader::Error::NotFound);
-        }
-
-        let reader: &dyn crate::reader::Reader = &SubReader::new(self.reader, "branches/target");
-        Target::try_from(reader)
+        Target::try_from(&self.reader.sub("branches/target"))
     }
 
     pub fn read(&self, id: &BranchId) -> Result<Target, reader::Error> {
         if !self
             .reader
-            .exists(&path::PathBuf::from(format!("branches/{}/target", id)))
+            .exists(format!("branches/{}/target", id))
+            .map_err(reader::Error::from)?
         {
             return self.read_default();
         }
 
-        let reader: &dyn crate::reader::Reader =
-            &SubReader::new(self.reader, &format!("branches/{}/target", id));
-        Target::try_from(reader)
+        Target::try_from(&self.reader.sub(format!("branches/{}/target", id)))
     }
 }
 
@@ -50,7 +41,6 @@ mod tests {
         sessions,
         test_utils::{Case, Suite},
         virtual_branches::{branch, target::writer::TargetWriter},
-        writer::Writer,
     };
 
     use super::*;
@@ -105,7 +95,7 @@ mod tests {
         let session = gb_repository.get_or_create_current_session()?;
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
-        let reader = TargetReader::with_reader(&session_reader);
+        let reader = TargetReader::new(&session_reader);
         let result = reader.read(&BranchId::generate());
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "file not found");
@@ -117,7 +107,7 @@ mod tests {
     fn test_read_deprecated_format() -> Result<()> {
         let Case { gb_repository, .. } = Suite::default().new_case();
 
-        let writer = crate::writer::DirWriter::open(gb_repository.root());
+        let writer = crate::writer::DirWriter::open(gb_repository.root())?;
         writer
             .write_string("branches/target/name", "origin/master")
             .unwrap();
@@ -136,7 +126,7 @@ mod tests {
 
         let session = gb_repository.get_or_create_current_session()?;
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
-        let reader = TargetReader::with_reader(&session_reader);
+        let reader = TargetReader::new(&session_reader);
 
         let read = reader.read_default().unwrap();
         assert_eq!(read.branch.branch(), "master");
@@ -175,14 +165,14 @@ mod tests {
             last_fetched_ms: Some(1),
         };
 
-        let branch_writer = branch::Writer::open(&gb_repository);
+        let branch_writer = branch::Writer::new(&gb_repository)?;
         branch_writer.write(&mut branch)?;
 
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
-        let target_writer = TargetWriter::open(&gb_repository);
-        let reader = TargetReader::with_reader(&session_reader);
+        let target_writer = TargetWriter::new(&gb_repository)?;
+        let reader = TargetReader::new(&session_reader);
 
         target_writer.write_default(&default_target)?;
         assert_eq!(default_target, reader.read(&branch.id)?);

@@ -15,6 +15,7 @@ pub mod gb_repository;
 pub mod git;
 pub mod github;
 pub mod keys;
+pub mod lock;
 pub mod logs;
 pub mod menu;
 pub mod paths;

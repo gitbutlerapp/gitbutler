@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 
-use crate::{git, reader::CommitReader};
+use crate::{git, reader};
 
 use super::{Session, SessionError};
 
@@ -49,11 +49,12 @@ impl<'iterator> Iterator for SessionsIterator<'iterator> {
                     return self.next();
                 }
 
-                let commit_reader = match CommitReader::from_commit(self.git_repository, &commit) {
+                let commit_reader = match reader::Reader::from_commit(self.git_repository, &commit)
+                {
                     Result::Ok(commit_reader) => commit_reader,
                     Err(err) => return Some(Err(err)),
                 };
-                let session = match Session::try_from(commit_reader) {
+                let session = match Session::try_from(&commit_reader) {
                     Result::Ok(session) => session,
                     Err(SessionError::NoSession) => return None,
                     Err(err) => return Some(Err(err.into())),
