@@ -66,11 +66,7 @@
 		{#if primary || secondary}
 			<div class="info-message__actions">
 				{#if secondary}
-					<Button
-						color={secondaryButtonMap[style]}
-						kind="outlined"
-						on:click={() => dispatch('secondary')}
-					>
+					<Button color="neutral" kind="outlined" on:click={() => dispatch('secondary')}>
 						{secondary}
 					</Button>
 				{/if}
@@ -114,16 +110,16 @@
 		border: 1px solid var(--clr-theme-container-outline-light);
 	}
 	.error {
-		background-color: var(--clr-theme-err-container);
-		border: 1px solid var(--clr-theme-scale-err-70);
+		background-color: var(--clr-theme-container-light);
+		border: 1px solid var(--clr-theme-scale-err-60);
 	}
 	.pop {
-		background-color: var(--clr-theme-pop-container);
+		background-color: var(--clr-theme-container-light);
 		border: 1px solid var(--clr-theme-scale-pop-60);
 	}
 	.warn {
-		background-color: var(--clr-theme-warn-container);
-		border: 1px solid var(--clr-theme-scale-warn-70);
+		background-color: var(--clr-theme-container-light);
+		border: 1px solid var(--clr-theme-scale-warn-60);
 	}
 	.shadow {
 		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
