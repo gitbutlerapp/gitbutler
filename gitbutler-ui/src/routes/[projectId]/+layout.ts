@@ -6,6 +6,7 @@ import type { LayoutLoad } from './$types';
 import { GitHubService } from '$lib/github/service';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { BranchService } from '$lib/branches/service';
+import { map } from 'rxjs';
 
 export const prerender = false;
 
@@ -15,8 +16,9 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const project$ = projectService.getProject(projectId);
 	const fetches$ = getFetchNotifications(projectId);
 	const heads$ = getHeads(projectId);
+	const gbBranchActive$ = heads$.pipe(map((head) => head == 'gitbutler/integration'));
 	const baseBranchService = new BaseBranchService(projectId, fetches$, heads$);
-	const vbranchService = new VirtualBranchService(projectId);
+	const vbranchService = new VirtualBranchService(projectId, gbBranchActive$);
 
 	const remoteBranchService = new RemoteBranchService(
 		projectId,
@@ -48,6 +50,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		remoteBranchService,
 		user$,
 		project$,
-		branchService
+		branchService,
+		gbBranchActive$
 	};
 };
