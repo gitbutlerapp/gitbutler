@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { projectCreatePullRequestInsteadOfPush } from '$lib/config/config';
 	import { createEventDispatcher } from 'svelte';
-	import DropDown from '$lib/components/DropDown.svelte';
+	import DropDownButton from '$lib/components/DropDownButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
@@ -17,13 +17,13 @@
 	const createPr = projectCreatePullRequestInsteadOfPush(projectId);
 
 	let contextMenu: ContextMenu;
-	let dropDown: DropDown;
+	let dropDown: DropDownButton;
 
 	$: selection$ = contextMenu?.selection$;
 	$: mode = $createPr && githubEnabled ? 'pr' : 'push';
 </script>
 
-<DropDown
+<DropDownButton
 	color="primary"
 	kind="outlined"
 	loading={isLoading}
@@ -54,4 +54,4 @@
 			/>
 		</ContextMenuSection>
 	</ContextMenu>
-</DropDown>
+</DropDownButton>
