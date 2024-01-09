@@ -36,13 +36,6 @@
 		warn: 'warn',
 		error: 'error'
 	};
-
-	const secondaryButtonMap: { [Key in MessageStyle]: ButtonColor } = {
-		neutral: 'neutral',
-		pop: 'primary',
-		warn: 'warn',
-		error: 'error'
-	};
 </script>
 
 <div
