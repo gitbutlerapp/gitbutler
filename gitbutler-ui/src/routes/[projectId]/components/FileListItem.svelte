@@ -116,6 +116,7 @@
 		flex-shrink: 0;
 		text-overflow: ellipsis;
 		overflow: hidden;
+		line-height: 120%;
 	}
 	.path {
 		color: var(--clr-theme-scale-ntrl-40);
@@ -124,6 +125,7 @@
 		white-space: nowrap;
 		text-overflow: ellipsis;
 		overflow: hidden;
+		line-height: 120%;
 	}
 	.selected {
 		background-color: var(--clr-theme-scale-pop-80);
