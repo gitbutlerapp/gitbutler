@@ -1,12 +1,5 @@
 <script lang="ts" context="module">
-	export type TagColor =
-		| 'success'
-		| 'error'
-		| 'warning'
-		| 'neutral-light'
-		| 'neutral-mid'
-		| 'neutral-dim'
-		| 'ghost';
+	export type TagColor = 'success' | 'error' | 'warning' | 'neutral-light' | 'ghost';
 </script>
 
 <script lang="ts">
@@ -26,8 +19,6 @@
 	class:error={color == 'error'}
 	class:warning={color == 'warning'}
 	class:neutral-light={color == 'neutral-light'}
-	class:neutral-mid={color == 'neutral-mid'}
-	class:neutral-dim={color == 'neutral-dim'}
 	class:ghost={color == 'ghost'}
 	class:tag-border={border}
 	class:filled
@@ -145,40 +136,6 @@
 		}
 		&.tag-border {
 			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-60);
-		}
-	}
-
-	.neutral-mid {
-		color: var(--clr-theme-scale-ntrl-40);
-		background: var(--clr-theme-container-mid);
-		&:hover {
-			background: var(--clr-theme-container-dim);
-		}
-		&.tag-border {
-			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-60);
-		}
-		&.filled {
-			background: var(--clr-theme-scale-ntrl-40);
-			&:hover {
-				background: var(--clr-theme-scale-ntrl-30);
-			}
-		}
-	}
-
-	.neutral-dim {
-		color: var(--clr-theme-scale-ntrl-20);
-		background: var(--clr-theme-container-dim);
-		&:hover {
-			background: var(--clr-theme-container-dark);
-		}
-		&.tag-border {
-			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-40);
-		}
-		&.filled {
-			background: var(--clr-theme-scale-ntrl-30);
-			&:hover {
-				background: var(--clr-theme-scale-ntrl-10);
-			}
 		}
 	}
 
