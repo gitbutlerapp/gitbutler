@@ -4,9 +4,10 @@
 	import Icon from '$lib/icons/Icon.svelte';
 
 	export let user: User | undefined;
+	export let pop = false;
 </script>
 
-<button class="btn" on:click={() => goto('/settings/')}>
+<button class="btn" class:pop on:click={() => goto('/settings/')}>
 	<span class="name text-base-13 text-semibold">
 		{#if user}
 			{#if user.name}
@@ -41,6 +42,10 @@
 		border-radius: var(--radius-m);
 
 		color: var(--clr-theme-scale-ntrl-50);
+
+		&.pop {
+			background: var(--clr-theme-scale-pop-90);
+		}
 
 		&:hover {
 			background-color: var(--clr-theme-container-pale);

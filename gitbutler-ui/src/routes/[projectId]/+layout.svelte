@@ -2,7 +2,7 @@
 	import type { LayoutData } from './$types';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import BaseBranchSelect from './BaseBranchSelect.svelte';
+	import ProjectSetup from './ProjectSetup.svelte';
 	import { unsubscribe } from '$lib/utils/random';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import Navigation from './navigation/Navigation.svelte';
@@ -44,7 +44,7 @@
 
 {#if $baseBranch$ === null}
 	{#if $project$}
-		<BaseBranchSelect {branchController} {userService} {projectId} />
+		<ProjectSetup {branchController} {userService} {projectId} />
 	{/if}
 {:else if !$gbBranchActive$}
 	<div class="text-color-3 flex h-full w-full items-center justify-center">
