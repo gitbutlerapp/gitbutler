@@ -12,7 +12,6 @@
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { summarizeHunk } from './summaries';
 	import HunkContextMenu from './HunkContextMenu.svelte';
 	import { draggableFile, draggableHunk } from '$lib/draggables';
 	import FileCardHeader from './FileCardHeader.svelte';
@@ -145,13 +144,6 @@
 					{#each sections as section}
 						{@const { added, removed } = computedAddedRemoved(section)}
 						{#if 'hunk' in section}
-							{#if $userSettings.aiSummariesEnabled && !file.binary}
-								{#await summarizeHunk(section.hunk.diff) then description}
-									<div class="text-color-3 truncate whitespace-normal pb-1 pl-1 pt-2">
-										{description}
-									</div>
-								{/await}
-							{/if}
 							<div class="hunk-wrapper">
 								<div class="stats text-base-11">
 									<span class="added">+{added}</span>
