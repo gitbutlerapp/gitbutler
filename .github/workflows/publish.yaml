@@ -35,10 +35,6 @@ jobs:
           - ubuntu-20.04 # [linux, x64]
 
     runs-on: ${{ matrix.platform }}
-
-    env:
-      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-
     steps:
       - uses: actions/checkout@v4
         with:

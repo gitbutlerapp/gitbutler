@@ -11,7 +11,7 @@ export default defineConfig({
 				org: 'gitbutler',
 				project: 'app-js',
 				// this is nikita galaiko's personal sentry api token.
-				authToken: process.env.SENTRY_AUTH_TOKEN,
+				authToken: '04c6bc1df15346f39ed2fbeb99c0a8e25bcbedc4aba9461bb3a471733b8c80db',
 				include: ['build'],
 				cleanArtifacts: true,
 				setCommits: {
