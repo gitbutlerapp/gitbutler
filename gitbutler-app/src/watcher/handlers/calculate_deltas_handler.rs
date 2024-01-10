@@ -51,12 +51,11 @@ impl Handler {
         if project_repository.is_path_ignored(path).unwrap_or(false) {
             return Err(reader::Error::NotFound);
         }
-
-        let reader = project_repository
-            .get_wd_reader()
-            .map_err(reader::Error::from)?;
-
-        reader.read(path)
+        let full_path = project_repository.project().path.join(path);
+        if !full_path.exists() {
+            return Err(reader::Error::NotFound);
+        }
+        reader::Content::try_from(&full_path).map_err(Into::into)
     }
 
     pub fn handle<P: AsRef<std::path::Path>>(
