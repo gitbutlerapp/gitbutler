@@ -86,20 +86,20 @@
 <style lang="postcss">
 	.resizer {
 		position: absolute;
+		transition: background-color 0.1s ease-out;
 		&:hover {
-			transition: background-color 0.2s;
 			transition-delay: 0.3s;
 		}
 		z-index: 40;
 		&:hover,
 		&.dragging {
-			background-color: var(--resizer-bg-active);
+			background-color: var(--clr-theme-container-outline-light);
 		}
 	}
 	.horizontal {
 		width: var(--space-4);
 		height: 100%;
-		cursor: ew-resize;
+		cursor: col-resize;
 		&:hover {
 			width: var(--space-4);
 		}
@@ -107,7 +107,7 @@
 	.vertical {
 		height: var(--space-4);
 		width: 100%;
-		cursor: ns-resize;
+		cursor: row-resize;
 		&:hover {
 			height: var(--space-4);
 		}
