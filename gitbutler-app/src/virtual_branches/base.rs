@@ -315,50 +315,61 @@ pub fn update_base_branch(
                     branch.head, branch.id
                 ))?;
 
+                let result_integrated_detected =
+                    |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
+                        // branch head tree is the same as the new target tree.
+                        // meaning we can safely use the new target commit as the branch head.
+
+                        branch.head = new_target_commit.id();
+
+                        // it also means that the branch is fully integrated into the target.
+                        // disconnect it from the upstream
+                        branch.upstream = None;
+                        branch.upstream_head = None;
+
+                        let non_commited_files = diff::trees(
+                            &project_repository.git_repository,
+                            &branch_head_tree,
+                            &branch_tree,
+                        )?;
+                        if non_commited_files.is_empty() {
+                            // if there are no commited files, then the branch is fully merged
+                            // and we can delete it.
+                            branch_writer.delete(&branch)?;
+                            project_repository.delete_branch_reference(&branch)?;
+                            Ok(None)
+                        } else {
+                            branch_writer.write(&mut branch)?;
+                            Ok(Some(branch))
+                        }
+                    };
+
                 if branch_head_tree.id() == new_target_tree.id() {
-                    // branch head tree is the same as the new target tree.
-                    // meaning we can safely use the new target commit as the branch head.
-
-                    branch.head = new_target_commit.id();
-
-                    // it also means that the branch is fully integrated into the target.
-                    // disconnect it from the upstream
-                    branch.upstream = None;
-                    branch.upstream_head = None;
-
-                    let non_commited_files = diff::trees(
-                        &project_repository.git_repository,
-                        &branch_head_tree,
-                        &branch_tree,
-                    )?;
-                    if non_commited_files.is_empty() {
-                        // if there are no commited files, then the branch is fully merged
-                        // and we can delete it.
-                        branch_writer.delete(&branch)?;
-                        project_repository.delete_branch_reference(&branch)?;
-                        return Ok(None);
-                    }
-
-                    branch_writer.write(&mut branch)?;
-                    return Ok(Some(branch));
+                    return result_integrated_detected(branch);
                 }
 
                 // try to merge branch head with new target
-                let mut branch_merge_index = repo
+                let mut branch_tree_merge_index = repo
                     .merge_trees(&old_target_tree, &branch_tree, &new_target_tree)
                     .context(format!("failed to merge trees for branch {}", branch.id))?;
 
-                if branch_merge_index.has_conflicts() {
+                if branch_tree_merge_index.has_conflicts() {
                     // branch tree conflicts with new target, unapply branch for now. we'll handle it later, when user applies it back.
                     branch.applied = false;
                     branch_writer.write(&mut branch)?;
                     return Ok(Some(branch));
                 }
 
+                let branch_merge_index_tree_oid = branch_tree_merge_index.write_tree_to(repo)?;
+
+                if branch_merge_index_tree_oid == new_target_tree.id() {
+                    return result_integrated_detected(branch);
+                }
+
                 if branch.head == target.sha {
                     // there are no commits on the branch, so we can just update the head to the new target and calculate the new tree
                     branch.head = new_target_commit.id();
-                    branch.tree = branch_merge_index.write_tree_to(repo)?;
+                    branch.tree = branch_merge_index_tree_oid;
                     branch_writer.write(&mut branch)?;
                     return Ok(Some(branch));
                 }
@@ -388,7 +399,7 @@ pub fn update_base_branch(
 
                 let ok_with_force_push = project_repository.project().ok_with_force_push;
 
-                if branch.upstream.is_some() && !ok_with_force_push {
+                let result_merge = |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
                     // branch was pushed to upstream, and user doesn't like force pushing.
                     // create a merge commit to avoid the need of force pushing then.
                     let branch_head_merge_tree = repo
@@ -412,9 +423,13 @@ pub fn update_base_branch(
                         .context("failed to commit merge")?;
 
                     branch.head = new_target_head;
-                    branch.tree = branch_merge_index.write_tree_to(repo)?;
+                    branch.tree = branch_merge_index_tree_oid;
                     branch_writer.write(&mut branch)?;
-                    return Ok(Some(branch));
+                    Ok(Some(branch))
+                };
+
+                if branch.upstream.is_some() && !ok_with_force_push {
+                    return result_merge(branch);
                 }
 
                 // branch was not pushed to upstream yet. attempt a rebase,
@@ -461,7 +476,7 @@ pub fn update_base_branch(
                     // rebase worked out, rewrite the branch head
                     rebase.finish(None).context("failed to finish rebase")?;
                     branch.head = last_rebase_head;
-                    branch.tree = branch_merge_index.write_tree_to(repo)?;
+                    branch.tree = branch_merge_index_tree_oid;
                     branch_writer.write(&mut branch)?;
                     return Ok(Some(branch));
                 }
@@ -469,32 +484,7 @@ pub fn update_base_branch(
                 // rebase failed, do a merge commit
                 rebase.abort().context("failed to abort rebase")?;
 
-                // get tree from merge_tree_oid
-                let merge_tree = repo
-                    .find_tree(branch_head_merge_tree_oid)
-                    .context("failed to find tree")?;
-
-                // commit the merge tree oid
-                let new_branch_head = project_repository
-                    .commit(
-                        user,
-                        format!(
-                            "Merged {}/{} into {}",
-                            target.branch.remote(),
-                            target.branch.branch(),
-                            branch.name
-                        )
-                        .as_str(),
-                        &merge_tree,
-                        &[&branch_head_commit, &new_target_commit],
-                        signing_key,
-                    )
-                    .context("failed to commit merge")?;
-
-                branch.head = new_branch_head;
-                branch.tree = branch_merge_index.write_tree_to(repo)?;
-                branch_writer.write(&mut branch)?;
-                Ok(Some(branch))
+                result_merge(branch)
             },
         )
         .collect::<Result<Vec<_>>>()?

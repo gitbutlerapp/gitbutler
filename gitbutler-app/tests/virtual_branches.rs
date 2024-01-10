@@ -1985,6 +1985,71 @@ mod update_base_branch {
                 assert_eq!(branches.len(), 0);
             }
         }
+
+        #[tokio::test]
+        async fn integrate_work_while_being_behind() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+                ..
+            } = Test::default();
+
+            // make sure we have an undiscovered commit in the remote branch
+            {
+                fs::write(repository.path().join("file.txt"), "first").unwrap();
+                let first_commit_oid = repository.commit_all("first");
+                fs::write(repository.path().join("file.txt"), "second").unwrap();
+                repository.commit_all("second");
+                repository.push();
+                repository.reset_hard(Some(first_commit_oid));
+            }
+
+            controller
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                .await
+                .unwrap();
+
+            let branch_id = controller
+                .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+                .await
+                .unwrap();
+
+            {
+                // open pr
+                fs::write(repository.path().join("file2.txt"), "new file").unwrap();
+                controller
+                    .create_commit(&project_id, &branch_id, "second", None, false)
+                    .await
+                    .unwrap();
+                controller
+                    .push_virtual_branch(&project_id, &branch_id, false)
+                    .await
+                    .unwrap();
+            }
+
+            controller
+                .unapply_virtual_branch(&project_id, &branch_id)
+                .await
+                .unwrap();
+
+            {
+                // merge pr
+                let branch =
+                    controller.list_virtual_branches(&project_id).await.unwrap()[0].clone();
+                repository.merge(&branch.upstream.as_ref().unwrap().name);
+                repository.fetch();
+            }
+
+            {
+                // fetch remote
+                controller.update_base_branch(&project_id).await.unwrap();
+
+                // just removes integrated branch
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 0);
+            }
+        }
     }
 
     mod applied_branch {
@@ -2881,7 +2946,6 @@ mod update_base_branch {
                 .unwrap();
 
             let branch_id = {
-                // make a branch that conflicts with the remote branch, but doesn't know about it yet
                 let branch_id = controller
                     .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
                     .await
@@ -3067,6 +3131,66 @@ mod update_base_branch {
 
                 // just removes integrated branch
 
+                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                assert_eq!(branches.len(), 0);
+            }
+        }
+
+        #[tokio::test]
+        async fn integrate_work_while_being_behind() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+                ..
+            } = Test::default();
+
+            // make sure we have an undiscovered commit in the remote branch
+            {
+                fs::write(repository.path().join("file.txt"), "first").unwrap();
+                let first_commit_oid = repository.commit_all("first");
+                fs::write(repository.path().join("file.txt"), "second").unwrap();
+                repository.commit_all("second");
+                repository.push();
+                repository.reset_hard(Some(first_commit_oid));
+            }
+
+            controller
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                .await
+                .unwrap();
+
+            let branch_id = controller
+                .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+                .await
+                .unwrap();
+
+            {
+                // open pr
+                fs::write(repository.path().join("file2.txt"), "new file").unwrap();
+                controller
+                    .create_commit(&project_id, &branch_id, "second", None, false)
+                    .await
+                    .unwrap();
+                controller
+                    .push_virtual_branch(&project_id, &branch_id, false)
+                    .await
+                    .unwrap();
+            }
+
+            {
+                // merge pr
+                let branch =
+                    controller.list_virtual_branches(&project_id).await.unwrap()[0].clone();
+                repository.merge(&branch.upstream.as_ref().unwrap().name);
+                repository.fetch();
+            }
+
+            {
+                // fetch remote
+                controller.update_base_branch(&project_id).await.unwrap();
+
+                // just removes integrated branch
                 let branches = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 0);
             }
