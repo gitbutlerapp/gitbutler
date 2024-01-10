@@ -28,7 +28,11 @@
 			const ownership = `${data.hunk.filePath}:${data.hunk.id}`;
 			branchController.createBranch({ ownership });
 		} else if (isDraggableFile(data)) {
-			const ownership = filesToOwnership(get(data.files));
+			let files = get(data.files);
+			if (files.length == 0) {
+				files = [data.current];
+			}
+			const ownership = filesToOwnership(files);
 			branchController.createBranch({ ownership });
 		}
 	}
