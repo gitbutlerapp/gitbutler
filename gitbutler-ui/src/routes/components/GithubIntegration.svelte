@@ -31,16 +31,23 @@
 			}
 		});
 	}
+
+	function forgetGitHub(): void {
+		let u = $user$;
+		if (u) {
+			u.github_access_token = '';
+			u.github_username = '';
+			userService.set(u);
+		}
+	}
 </script>
 
 {#if minimal}
-	<Button kind="filled" color="primary" on:click={gitHubStartOauth}>
-		{#if $user$?.github_access_token}
-			Reauthenticate
-		{:else}
-			Authenticate
-		{/if}
-	</Button>
+	{#if $user$?.github_access_token}
+		<Button kind="filled" color="primary" on:click={forgetGitHub}>Forget</Button>
+	{:else}
+		<Button kind="filled" color="primary" on:click={gitHubStartOauth}>Authenticate</Button>
+	{/if}
 {:else}
 	<div class="flex items-center">
 		<div class="flex-grow">
