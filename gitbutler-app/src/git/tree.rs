@@ -27,19 +27,30 @@ impl<'repo> Tree<'repo> {
         self.tree.get_path(path).map(Into::into).map_err(Into::into)
     }
 
-    pub fn walk<C, T>(&self, mode: git2::TreeWalkMode, mut callback: C) -> Result<()>
+    pub fn walk<C>(&self, mut callback: C) -> Result<()>
     where
-        C: FnMut(&str, &TreeEntry) -> T,
-        T: Into<i32>,
+        C: FnMut(&str, &TreeEntry) -> TreeWalkResult,
     {
         self.tree
-            .walk(mode, |root, entry| callback(root, &entry.clone().into()))
+            .walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+                match callback(root, &entry.clone().into()) {
+                    TreeWalkResult::Continue => git2::TreeWalkResult::Ok,
+                    TreeWalkResult::Skip => git2::TreeWalkResult::Skip,
+                    TreeWalkResult::Stop => git2::TreeWalkResult::Abort,
+                }
+            })
             .map_err(Into::into)
     }
 
     pub fn get_name(&self, filename: &str) -> Option<TreeEntry> {
         self.tree.get_name(filename).map(Into::into)
     }
+}
+
+pub enum TreeWalkResult {
+    Continue,
+    Skip,
+    Stop,
 }
 
 pub struct TreeEntry<'repo> {

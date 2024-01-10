@@ -177,23 +177,23 @@ impl<'reader> CommitReader<'reader> {
         let dir_path = dir_path.as_ref();
         let mut files = vec![];
         self.tree
-            .walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+            .walk(|root, entry| {
                 if entry.kind() == Some(git2::ObjectType::Tree) {
-                    return git2::TreeWalkResult::Ok;
+                    return git::TreeWalkResult::Continue;
                 }
 
                 if entry.name().is_none() {
-                    return git2::TreeWalkResult::Ok;
+                    return git::TreeWalkResult::Continue;
                 }
                 let entry_path = std::path::Path::new(root).join(entry.name().unwrap());
 
                 if !entry_path.starts_with(dir_path) {
-                    return git2::TreeWalkResult::Ok;
+                    return git::TreeWalkResult::Continue;
                 }
 
                 files.push(entry_path.strip_prefix(dir_path).unwrap().to_path_buf());
 
-                git2::TreeWalkResult::Ok
+                git::TreeWalkResult::Continue
             })
             .with_context(|| format!("{}: tree walk failed", dir_path.display()))?;
 

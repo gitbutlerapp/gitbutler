@@ -7,7 +7,6 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use git2::TreeWalkResult;
 use pretty_assertions::{assert_eq, assert_ne};
 #[cfg(target_family = "unix")]
 use std::os::unix::{fs::symlink, prelude::*};
@@ -2387,14 +2386,14 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
 
 fn tree_to_file_list(repository: &git::Repository, tree: &git::Tree) -> Vec<String> {
     let mut file_list = Vec::new();
-    tree.walk(git2::TreeWalkMode::PreOrder, |_, entry| {
+    tree.walk(|_, entry| {
         let path = entry.name().unwrap();
         let entry = tree.get_path(std::path::Path::new(path)).unwrap();
         let object = entry.to_object(repository).unwrap();
         if object.kind() == Some(git2::ObjectType::Blob) {
             file_list.push(path.to_string());
         }
-        TreeWalkResult::Ok
+        git::TreeWalkResult::Continue
     })
     .expect("failed to walk tree");
     file_list
@@ -2405,7 +2404,7 @@ fn tree_to_entry_list(
     tree: &git::Tree,
 ) -> Vec<(String, String, String, String)> {
     let mut file_list = Vec::new();
-    tree.walk(git2::TreeWalkMode::PreOrder, |_root, entry| {
+    tree.walk(|_root, entry| {
         let path = entry.name().unwrap();
         let entry = tree.get_path(std::path::Path::new(path)).unwrap();
         let object = entry.to_object(repository).unwrap();
@@ -2429,7 +2428,7 @@ fn tree_to_entry_list(
                 blob.id().to_string(),
             ));
         }
-        TreeWalkResult::Ok
+        git::TreeWalkResult::Continue
     })
     .expect("failed to walk tree");
     file_list
