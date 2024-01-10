@@ -86,6 +86,10 @@
 <style lang="postcss">
 	.resizer {
 		position: absolute;
+		&:hover {
+			transition: background-color 0.2s;
+			transition-delay: 0.3s;
+		}
 		z-index: 40;
 		&:hover,
 		&.dragging {
