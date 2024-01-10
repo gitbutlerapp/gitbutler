@@ -93,7 +93,7 @@
 	--clr-core-warn-35: #8e5229;
 	--clr-core-warn-40: #a35d2e;
 	--clr-core-warn-45: #bf6d36;
-	--clr-core-warn-50: #ca773f;
+	--clr-core-warn-50: #d97d3f;
 	--clr-core-warn-55: #ef985d;
 	--clr-core-warn-60: #f5af80;
 	--clr-core-warn-65: #fcc29c;
@@ -103,10 +103,10 @@
 	--clr-core-warn-85: #ffece0;
 	--clr-core-warn-90: #fff1e2;
 	--clr-core-warn-95: #fdf7ed;
-	--clr-theme-container-light: var(--clr-core-ntrl-100);
 	--clr-theme-container-dim: var(--clr-core-ntrl-75);
-	--clr-theme-container-outline-light: var(--clr-core-ntrl-65);
+	--clr-theme-container-light: var(--clr-core-ntrl-100);
 	--clr-theme-container-outline-dim: var(--clr-core-ntrl-40);
+	--clr-theme-container-outline-light: var(--clr-core-ntrl-65);
 	--clr-theme-container-outline-pale: var(--clr-core-ntrl-55);
 	--clr-theme-container-outline-sub: var(--clr-core-ntrl-50);
 	--clr-theme-container-pale: var(--clr-core-ntrl-90);
@@ -233,10 +233,10 @@
 
 :root.dark,
 :root.dark ::backdrop {
-	--clr-theme-container-light: var(--clr-core-ntrl-25);
 	--clr-theme-container-dim: var(--clr-core-ntrl-10);
-	--clr-theme-container-outline-light: var(--clr-core-ntrl-40);
+	--clr-theme-container-light: var(--clr-core-ntrl-25);
 	--clr-theme-container-outline-dim: var(--clr-core-ntrl-55);
+	--clr-theme-container-outline-light: var(--clr-core-ntrl-40);
 	--clr-theme-container-outline-pale: var(--clr-core-ntrl-45);
 	--clr-theme-container-outline-sub: var(--clr-core-ntrl-50);
 	--clr-theme-container-pale: var(--clr-core-ntrl-20);
