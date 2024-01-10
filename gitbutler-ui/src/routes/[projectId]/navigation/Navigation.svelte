@@ -4,9 +4,9 @@
 	import BaseBranchCard from './BaseBranchCard.svelte';
 	import type { Project, ProjectService } from '$lib/backend/projects';
 	import Footer from './Footer.svelte';
-	import AppUpdater from './AppUpdater.svelte';
+	// import AppUpdater from '../../../lib/components/AppUpdater.svelte';
 	import { persisted } from '$lib/persisted/persisted';
-	import type { Update } from '../../updater';
+	// import type { Update } from '../../updater';
 	import DomainButton from './DomainButton.svelte';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
@@ -20,14 +20,14 @@
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { getContext } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import type { Observable } from 'rxjs';
+	// import type { Observable } from 'rxjs';
 
 	export let branchService: BranchService;
 	export let baseBranchService: BaseBranchService;
 	export let branchController: BranchController;
 	export let project: Project;
 	export let user: User | undefined;
-	export let update: Observable<Update>;
+	// export let update: Observable<Update>;
 	export let githubService: GitHubService;
 	export let projectService: ProjectService;
 
@@ -98,7 +98,7 @@
 	</div>
 	<Branches projectId={project.id} {branchService} {githubService} />
 	<Footer {user} projectId={project.id} />
-	<AppUpdater {update} />
+	<!-- <AppUpdater {update} /> -->
 	<Resizer
 		{viewport}
 		direction="right"
