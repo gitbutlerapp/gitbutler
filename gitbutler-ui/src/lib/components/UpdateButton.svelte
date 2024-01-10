@@ -80,7 +80,11 @@
 					fill="none"
 					xmlns="http://www.w3.org/2000/svg"
 				>
-					<path d="M1 4.07692L5.57143 9L13 1" stroke="white" stroke-width="1.5" />
+					<path
+						d="M1 4.07692L5.57143 9L13 1"
+						stroke="var(--clr-theme-scale-ntrl-100)"
+						stroke-width="1.5"
+					/>
 				</svg>
 			{/if}
 		</div>
