@@ -14,8 +14,7 @@ import {
 	map,
 	firstValueFrom,
 	timeout,
-	combineLatest,
-	of
+	combineLatest
 } from 'rxjs';
 
 export class VirtualBranchService {
@@ -25,20 +24,15 @@ export class VirtualBranchService {
 	branchesError$ = new BehaviorSubject<any>(undefined);
 	private reload$ = new BehaviorSubject<void>(undefined);
 
-	constructor(projectId: string, gbBranchActive$: Observable<boolean>) {
+	constructor(projectId: string) {
 		this.branches$ = this.reload$.pipe(
-			switchMap(() => gbBranchActive$),
-			switchMap((gbBranchActive) =>
-				gbBranchActive
-					? concat(
-							from(listVirtualBranches({ projectId })),
-							new Observable<Branch[]>((subscriber) => {
-								return subscribeToVirtualBranches(projectId, (branches) =>
-									subscriber.next(branches)
-								);
-							})
-						)
-					: of([])
+			switchMap(() =>
+				concat(
+					from(listVirtualBranches({ projectId })),
+					new Observable<Branch[]>((subscriber) => {
+						return subscribeToVirtualBranches(projectId, (branches) => subscriber.next(branches));
+					})
+				)
 			),
 			tap((branches) => {
 				branches.forEach((branch) => {
@@ -49,11 +43,11 @@ export class VirtualBranchService {
 					});
 				});
 			}),
-			shareReplay(1),
 			catchError((err) => {
 				this.branchesError$.next(UserError.fromError(err));
 				return [];
-			})
+			}),
+			shareReplay(1)
 		);
 
 		this.stashedBranches$ = this.branches$.pipe(
