@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 
 use crate::{
     git::{self, credentials::HelpError, Url},
-    keys, projects, reader, ssh, users,
+    keys, projects, ssh, users,
     virtual_branches::Branch,
 };
 
@@ -91,10 +91,6 @@ impl Repository {
         let path = path.as_ref();
         let ignored = self.git_repository.is_path_ignored(path)?;
         Ok(ignored)
-    }
-
-    pub fn get_wd_reader(&self) -> Result<reader::Reader, std::io::Error> {
-        reader::Reader::open(self.root())
     }
 
     pub fn root(&self) -> &std::path::Path {
