@@ -54,9 +54,9 @@
 		branchController
 			.commitBranch(branch.id, commitMessage, $selectedOwnership.toString(), $runCommitHooks)
 			.then(() => {
-				isCommitting = false;
 				commitMessage = '';
-			});
+			})
+			.finally(() => (isCommitting = false));
 	}
 
 	export function git_get_config(params: { key: string }) {
