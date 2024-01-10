@@ -13,7 +13,13 @@
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
 	import { initTheme } from './settings/theme';
 
+	import type { Update } from './updater';
+	import type { Observable } from 'rxjs';
+	// import AppUpdater from '$lib/components/AppUpdater.svelte';
+	import UpdateButton from '$lib/components/UpdateButton.svelte';
+
 	export let data: LayoutData;
+	export let update: Observable<Update>;
 	const { projectService, cloud, user$ } = data;
 
 	const userSettings = loadUserSettings();
@@ -50,6 +56,7 @@
 	<div data-tauri-drag-region class="flex flex-grow justify-center overflow-hidden">
 		<slot />
 	</div>
+	<UpdateButton {update} />
 	<Toaster />
 	<LinkProjectModal bind:this={linkProjectModal} {cloud} {projectService} user={$user$} />
 	<ShareIssueModal bind:this={shareIssueModal} user={$user$} {cloud} />
