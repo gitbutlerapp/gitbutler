@@ -5559,3 +5559,107 @@ mod create_virtual_branch_from_branch {
         assert_eq!(branches[0].commits[0].description, "branch commit");
     }
 }
+
+mod default_branch {
+    use super::*;
+
+    #[tokio::test]
+    async fn create_virtual_branch_should_set_is_default() {
+        let Test {
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        // first branch should be created as default
+        let b_id = controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest::default()).await.unwrap();
+        let branch = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b_id).unwrap();
+        assert!(branch.is_default);
+
+        // if default branch exists, new branch should not be created as default
+        let b_id = controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest::default()).await.unwrap();
+        let branch = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b_id).unwrap();
+        assert!(!branch.is_default);
+
+        // explicitly don't make this one default
+        let b_id = controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest{
+            is_default: Some(false),
+            ..Default::default()
+        }).await.unwrap();
+        let branch = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b_id).unwrap();
+        assert!(!branch.is_default);
+
+        // explicitly make this one default
+        let b_id = controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest{
+            is_default: Some(true),
+            ..Default::default()
+        }).await.unwrap();
+        let branch = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b_id).unwrap();
+        assert!(branch.is_default);
+    }
+
+    #[tokio::test]
+    async fn update_virtual_branch_should_reset_is_default() {
+        let Test {
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let b1_id = controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest::default()).await.unwrap();
+        let b1 = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b1_id).unwrap();
+        assert!(b1.is_default);
+
+        let b2_id = controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest::default()).await.unwrap();
+        let b2 = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b2_id).unwrap();
+        assert!(!b2.is_default);
+
+        controller.update_virtual_branch(&project_id, branch::BranchUpdateRequest {
+            id: b2_id,
+            is_default: Some(true),
+            ..Default::default() 
+        }).await.unwrap();
+
+        let b1 = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b1_id).unwrap();
+        assert!(!b1.is_default);
+
+        let b2 = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b2_id).unwrap();
+        assert!(b2.is_default);
+    }
+
+    #[tokio::test]
+    async fn unapply_virtual_branch_should_reset_is_default() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let b1_id = controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest::default()).await.unwrap();
+        std::fs::write(repository.path().join("file.txt"), "content").unwrap();
+
+        let b1 = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b1_id).unwrap();
+        assert!(b1.is_default);
+
+        controller.unapply_virtual_branch(&project_id, &b1_id).await.unwrap();
+
+        let b1 = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b1_id).unwrap();
+        assert!(!b1.is_default);
+    }
+}

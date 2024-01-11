@@ -59,6 +59,7 @@ pub struct VirtualBranch {
     pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
     pub ownership: Ownership,
     pub updated_at: u128,
+    pub is_default: bool,
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -600,6 +601,7 @@ pub fn unapply_branch(
         // this means we can just reset to the default target tree.
         {
             target_branch.applied = false;
+            target_branch.is_default = false;
             branch_writer.write(&mut target_branch)?;
         }
 
@@ -642,6 +644,7 @@ pub fn unapply_branch(
 
             target_branch.tree = write_tree(project_repository, &default_target, files)?;
             target_branch.applied = false;
+            target_branch.is_default = false;
             branch_writer.write(&mut target_branch)?;
         }
 
@@ -866,6 +869,7 @@ pub fn list_virtual_branches(
             base_current,
             ownership: branch.ownership.clone(),
             updated_at: branch.updated_timestamp_ms,
+            is_default: branch.is_default,
         };
         branches.push(branch);
     }
@@ -1074,6 +1078,22 @@ pub fn create_virtual_branch(
 
     let branch_writer = branch::Writer::new(gb_repository).context("failed to create writer")?;
 
+    let is_default = if let Some(is_default) = create.is_default {
+        if is_default {
+            for mut other_branch in Iterator::new(&current_session_reader)
+                .context("failed to create branch iterator")?
+                .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+                .context("failed to read virtual branches")?
+            {
+                other_branch.is_default = false;
+                branch_writer.write(&mut other_branch)?;
+            }
+        }
+        is_default
+    } else {
+        !all_virtual_branches.iter().any(|b| b.is_default)
+    };
+
     // make space for the new branch
     for (i, branch) in all_virtual_branches.iter().enumerate() {
         let mut branch = branch.clone();
@@ -1115,6 +1135,7 @@ pub fn create_virtual_branch(
         updated_timestamp_ms: now,
         ownership: Ownership::default(),
         order,
+        is_default,
     };
 
     if let Some(ownership) = &create.ownership {
@@ -1378,6 +1399,22 @@ pub fn update_branch(
 
     if let Some(order) = branch_update.order {
         branch.order = order;
+    };
+
+    if let Some(is_default) = branch_update.is_default {
+        if is_default {
+            for mut other_branch in Iterator::new(&current_session_reader)
+                .context("failed to create branch iterator")?
+                .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+                .context("failed to read virtual branches")?
+                .into_iter()
+                .filter(|b| b.id != branch.id)
+            {
+                other_branch.is_default = false;
+                branch_writer.write(&mut other_branch)?;
+            }
+        }
+        branch.is_default = is_default;
     };
 
     branch_writer
@@ -3280,11 +3317,16 @@ pub fn create_virtual_branch_from_branch(
         .context("failed to peel to commit")?;
     let head_commit_tree = head_commit.tree().context("failed to find tree")?;
 
-    let order = Iterator::new(&current_session_reader)
+    let all_virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?
-        .len();
+        .into_iter()
+        .collect::<Vec<branch::Branch>>();
+
+    let order = all_virtual_branches.len();
+
+    let is_default = !all_virtual_branches.iter().any(|b| b.is_default);
 
     let now = time::UNIX_EPOCH
         .elapsed()
@@ -3356,6 +3398,7 @@ pub fn create_virtual_branch_from_branch(
         updated_timestamp_ms: now,
         ownership,
         order,
+        is_default,
     };
 
     let writer = branch::Writer::new(gb_repository).context("failed to create writer")?;

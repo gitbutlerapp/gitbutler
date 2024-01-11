@@ -105,6 +105,11 @@ impl<'writer> BranchWriter<'writer> {
             branch.ownership.to_string(),
         ));
 
+        batch.push(writer::BatchTask::Write(
+            format!("branches/{}/meta/is_default", branch.id),
+            branch.is_default.to_string(),
+        ));
+
         self.writer.batch(&batch)?;
 
         Ok(())
@@ -170,6 +175,7 @@ mod tests {
                 }],
             },
             order: TEST_INDEX.load(Ordering::Relaxed),
+            is_default: false,
         }
     }
 

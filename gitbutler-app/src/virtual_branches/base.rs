@@ -191,6 +191,7 @@ pub fn set_base_branch(
                 )?,
                 ownership,
                 order: 0,
+                is_default: false,
             };
 
             let branch_writer =

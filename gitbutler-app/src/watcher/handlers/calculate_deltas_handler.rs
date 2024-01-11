@@ -243,6 +243,7 @@ mod test {
             .unwrap(),
             ownership: branch::Ownership::default(),
             order: TEST_INDEX.load(Ordering::Relaxed),
+            is_default: false,
         }
     }
 
