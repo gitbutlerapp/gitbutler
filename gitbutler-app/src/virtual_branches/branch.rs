@@ -40,10 +40,9 @@ pub struct Branch {
     pub ownership: Ownership,
     // order is the number by which UI should sort branches
     pub order: usize,
-    // is true, this branch will become an owner of any new hunks.
-    // when more then one branch has this field set to true (shouldn't happen)
-    // the branch with the lowest order will be selected
-    pub selected_for_changes: bool,
+    // is Some(timestamp), the branch is considered a default destination for new changes.
+    // if more than one branch is selected, the branch with the highest timestamp wins.
+    pub selected_for_changes: Option<i64>,
 }
 
 impl Branch {
@@ -170,16 +169,19 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
         })?;
 
         let selected_for_changes = match results[12].clone() {
-            Ok(default) => default.try_into().map_err(|e| {
-                crate::reader::Error::Io(
-                    std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("meta/selected_for_changes: {}", e),
+            Ok(raw_ts) => {
+                let ts = raw_ts.try_into().map_err(|e| {
+                    crate::reader::Error::Io(
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!("meta/selected_for_changes: {}", e),
+                        )
+                        .into(),
                     )
-                    .into(),
-                )
-            }),
-            Err(crate::reader::Error::NotFound) => Ok(false),
+                })?;
+                Ok(Some(ts))
+            }
+            Err(crate::reader::Error::NotFound) => Ok(None),
             Err(e) => Err(e),
         }?;
 

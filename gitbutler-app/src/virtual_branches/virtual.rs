@@ -601,7 +601,7 @@ pub fn unapply_branch(
         // this means we can just reset to the default target tree.
         {
             target_branch.applied = false;
-            target_branch.selected_for_changes = false;
+            target_branch.selected_for_changes = None;
             branch_writer.write(&mut target_branch)?;
         }
 
@@ -644,7 +644,7 @@ pub fn unapply_branch(
 
             target_branch.tree = write_tree(project_repository, &default_target, files)?;
             target_branch.applied = false;
-            target_branch.selected_for_changes = false;
+            target_branch.selected_for_changes = None;
             branch_writer.write(&mut target_branch)?;
         }
 
@@ -728,6 +728,11 @@ pub fn list_virtual_branches(
         })?;
 
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
+    let max_selected_for_changes = statuses
+        .iter()
+        .filter_map(|(branch, _)| branch.selected_for_changes)
+        .max()
+        .unwrap_or(-1);
     for (branch, files) in &statuses {
         let file_diffs = files
             .iter()
@@ -869,7 +874,7 @@ pub fn list_virtual_branches(
             base_current,
             ownership: branch.ownership.clone(),
             updated_at: branch.updated_timestamp_ms,
-            selected_for_changes: branch.selected_for_changes,
+            selected_for_changes: branch.selected_for_changes == Some(max_selected_for_changes),
         };
         branches.push(branch);
     }
@@ -1085,13 +1090,18 @@ pub fn create_virtual_branch(
                 .collect::<Result<Vec<branch::Branch>, reader::Error>>()
                 .context("failed to read virtual branches")?
             {
-                other_branch.selected_for_changes = false;
+                other_branch.selected_for_changes = None;
                 branch_writer.write(&mut other_branch)?;
             }
+            Some(chrono::Utc::now().timestamp_millis())
+        } else {
+            None
         }
-        selected_for_changes
     } else {
-        !all_virtual_branches.iter().any(|b| b.selected_for_changes)
+        (!all_virtual_branches
+            .iter()
+            .any(|b| b.selected_for_changes.is_some()))
+        .then_some(chrono::Utc::now().timestamp_millis())
     };
 
     // make space for the new branch
@@ -1402,7 +1412,7 @@ pub fn update_branch(
     };
 
     if let Some(selected_for_changes) = branch_update.selected_for_changes {
-        if selected_for_changes {
+        branch.selected_for_changes = if selected_for_changes {
             for mut other_branch in Iterator::new(&current_session_reader)
                 .context("failed to create branch iterator")?
                 .collect::<Result<Vec<branch::Branch>, reader::Error>>()
@@ -1410,11 +1420,13 @@ pub fn update_branch(
                 .into_iter()
                 .filter(|b| b.id != branch.id)
             {
-                other_branch.selected_for_changes = false;
+                other_branch.selected_for_changes = None;
                 branch_writer.write(&mut other_branch)?;
             }
-        }
-        branch.selected_for_changes = selected_for_changes;
+            Some(chrono::Utc::now().timestamp_millis())
+        } else {
+            None
+        };
     };
 
     branch_writer
@@ -1784,9 +1796,14 @@ fn get_applied_status(
             .for_each(|file_ownership| branch.ownership.put(file_ownership));
     }
 
+    let max_selected_for_changes = virtual_branches
+        .iter()
+        .filter_map(|b| b.selected_for_changes)
+        .max()
+        .unwrap_or(-1);
     let default_vbranch_pos = virtual_branches
         .iter()
-        .position(|b| b.selected_for_changes)
+        .position(|b| b.selected_for_changes == Some(max_selected_for_changes))
         .unwrap_or(0);
 
     // put the remaining hunks into the default (first) branch
@@ -3333,7 +3350,10 @@ pub fn create_virtual_branch_from_branch(
 
     let order = all_virtual_branches.len();
 
-    let selected_for_changes = !all_virtual_branches.iter().any(|b| b.selected_for_changes);
+    let selected_for_changes = (!all_virtual_branches
+        .iter()
+        .any(|b| b.selected_for_changes.is_some()))
+    .then_some(chrono::Utc::now().timestamp_millis());
 
     let now = time::UNIX_EPOCH
         .elapsed()

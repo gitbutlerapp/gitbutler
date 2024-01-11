@@ -106,7 +106,7 @@ mod tests {
             .unwrap(),
             ownership: branch::Ownership::default(),
             order: TEST_INDEX.load(Ordering::Relaxed),
-            selected_for_changes: false,
+            selected_for_changes: Some(1),
         }
     }
 
