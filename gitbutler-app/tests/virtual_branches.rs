@@ -5577,29 +5577,71 @@ mod default_branch {
             .unwrap();
 
         // first branch should be created as default
-        let b_id = controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest::default()).await.unwrap();
-        let branch = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b_id).unwrap();
+        let b_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+        let branch = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|b| b.id == b_id)
+            .unwrap();
         assert!(branch.is_default);
 
         // if default branch exists, new branch should not be created as default
-        let b_id = controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest::default()).await.unwrap();
-        let branch = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b_id).unwrap();
+        let b_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+        let branch = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|b| b.id == b_id)
+            .unwrap();
         assert!(!branch.is_default);
 
         // explicitly don't make this one default
-        let b_id = controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest{
-            is_default: Some(false),
-            ..Default::default()
-        }).await.unwrap();
-        let branch = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b_id).unwrap();
+        let b_id = controller
+            .create_virtual_branch(
+                &project_id,
+                &branch::BranchCreateRequest {
+                    is_default: Some(false),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        let branch = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|b| b.id == b_id)
+            .unwrap();
         assert!(!branch.is_default);
 
         // explicitly make this one default
-        let b_id = controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest{
-            is_default: Some(true),
-            ..Default::default()
-        }).await.unwrap();
-        let branch = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b_id).unwrap();
+        let b_id = controller
+            .create_virtual_branch(
+                &project_id,
+                &branch::BranchCreateRequest {
+                    is_default: Some(true),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        let branch = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|b| b.id == b_id)
+            .unwrap();
         assert!(branch.is_default);
     }
 
@@ -5616,24 +5658,60 @@ mod default_branch {
             .await
             .unwrap();
 
-        let b1_id = controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest::default()).await.unwrap();
-        let b1 = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b1_id).unwrap();
+        let b1_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+        let b1 = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|b| b.id == b1_id)
+            .unwrap();
         assert!(b1.is_default);
 
-        let b2_id = controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest::default()).await.unwrap();
-        let b2 = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b2_id).unwrap();
+        let b2_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+        let b2 = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|b| b.id == b2_id)
+            .unwrap();
         assert!(!b2.is_default);
 
-        controller.update_virtual_branch(&project_id, branch::BranchUpdateRequest {
-            id: b2_id,
-            is_default: Some(true),
-            ..Default::default() 
-        }).await.unwrap();
+        controller
+            .update_virtual_branch(
+                &project_id,
+                branch::BranchUpdateRequest {
+                    id: b2_id,
+                    is_default: Some(true),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
 
-        let b1 = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b1_id).unwrap();
+        let b1 = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|b| b.id == b1_id)
+            .unwrap();
         assert!(!b1.is_default);
 
-        let b2 = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b2_id).unwrap();
+        let b2 = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|b| b.id == b2_id)
+            .unwrap();
         assert!(b2.is_default);
     }
 
@@ -5651,15 +5729,33 @@ mod default_branch {
             .await
             .unwrap();
 
-        let b1_id = controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest::default()).await.unwrap();
+        let b1_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
         std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-        let b1 = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b1_id).unwrap();
+        let b1 = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|b| b.id == b1_id)
+            .unwrap();
         assert!(b1.is_default);
 
-        controller.unapply_virtual_branch(&project_id, &b1_id).await.unwrap();
+        controller
+            .unapply_virtual_branch(&project_id, &b1_id)
+            .await
+            .unwrap();
 
-        let b1 = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b1_id).unwrap();
+        let b1 = controller
+            .list_virtual_branches(&project_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|b| b.id == b1_id)
+            .unwrap();
         assert!(!b1.is_default);
     }
 
@@ -5682,10 +5778,16 @@ mod default_branch {
         let branches = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches[0].files.len(), 1);
 
-        controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest{
-            is_default: Some(true),
-            ..Default::default()
-        }).await.unwrap();
+        controller
+            .create_virtual_branch(
+                &project_id,
+                &branch::BranchCreateRequest {
+                    is_default: Some(true),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
         std::fs::write(repository.path().join("another_file.txt"), "content").unwrap();
         let branches = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches[0].files.len(), 1);
