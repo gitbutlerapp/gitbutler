@@ -1784,17 +1784,24 @@ fn get_applied_status(
             .for_each(|file_ownership| branch.ownership.put(file_ownership));
     }
 
+    let default_vbranch_pos = virtual_branches
+        .iter()
+        .position(|b| b.is_default)
+        .unwrap_or(0);
+
     // put the remaining hunks into the default (first) branch
     for (filepath, hunks) in diff {
         for hunk in hunks {
-            virtual_branches[0].ownership.put(&FileOwnership {
-                file_path: filepath.clone(),
-                hunks: vec![Hunk::from(&hunk)
-                    .with_timestamp(get_mtime(&mut mtimes, &filepath))
-                    .with_hash(diff_hash(hunk.diff.as_str()).as_str())],
-            });
+            virtual_branches[default_vbranch_pos]
+                .ownership
+                .put(&FileOwnership {
+                    file_path: filepath.clone(),
+                    hunks: vec![Hunk::from(&hunk)
+                        .with_timestamp(get_mtime(&mut mtimes, &filepath))
+                        .with_hash(diff_hash(hunk.diff.as_str()).as_str())],
+                });
             hunks_by_branch_id
-                .entry(virtual_branches[0].id)
+                .entry(virtual_branches[default_vbranch_pos].id)
                 .or_default()
                 .entry(filepath.clone())
                 .or_default()

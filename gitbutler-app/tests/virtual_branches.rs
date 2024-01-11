@@ -5662,4 +5662,33 @@ mod default_branch {
         let b1 = controller.list_virtual_branches(&project_id).await.unwrap().into_iter().find(|b| b.id == b1_id).unwrap();
         assert!(!b1.is_default);
     }
+
+    #[tokio::test]
+    async fn hunks_distribution() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        std::fs::write(repository.path().join("file.txt"), "content").unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches[0].files.len(), 1);
+
+        controller.create_virtual_branch(&project_id, &branch::BranchCreateRequest{
+            is_default: Some(true),
+            ..Default::default()
+        }).await.unwrap();
+        std::fs::write(repository.path().join("another_file.txt"), "content").unwrap();
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches[0].files.len(), 1);
+        assert_eq!(branches[1].files.len(), 1);
+    }
 }
