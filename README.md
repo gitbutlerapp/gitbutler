@@ -1,146 +1,67 @@
-# Development
+# [GitButler](https://gitbutler.com)
 
-## Prerequisites
+<img width="200px" src="https://app.gitbutler.com/assets/gb-logo-c5e20a2be4fe4a7d2dbc8b5c0048782608bb5dbc58b7343cd5e7a49183ff961e.svg" />
 
-[see here](https://tauri.app/v1/guides/getting-started/prerequisites)
-for the list of software required to build / develope the app.
+[![CI][s0]][l0] [![TWEET][s6]][l6]
 
-### Setup
+[s0]: https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/push.yaml/badge.svg
+[l0]: https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/push.yaml
+[s6]: https://img.shields.io/twitter/follow/gitbutler?label=follow&style=social
+[l6]: https://twitter.com/intent/follow?screen_name=gitbutler
 
-Then, make sure to install app dependencies:
+**[GitButler](https://gitbutler.com) is a new approach to version control tooling, using Git as a backend**
 
-```bash
-$ pnpm install
-```
+It is an open source [Tauri](https://tauri.app/)-based
+Git client. It's UI is written in [Svelte](https://svelte.dev/) using [TypeScript](https://www.typescriptlang.org)
+and it's backend is written in [Rust](https://www.rust-lang.org/).
 
-### Run the app
+![gitbutler_client](https://github.com/gitbutlerapp/gitbutler-client/assets/70/89466226-fc0b-4d42-951c-67d95590e00c)
 
-Now you should be able to run the app in development mode:
+## Downloading a Build
 
-```bash
-$ pnpm tauri dev
-```
+You can download the newest client build from [our downloads page](https://app.gitbutler.com/downloads).
 
-By default it will not print debug logs to console. If you want debug logs, set `LOG_LEVEL` environment variable:
+Currently we have builds for Mac and Linux. A Windows build is on the way.
 
-```bash
-$ LOG_LEVEL=debug pnpm tauri dev
-```
+## Why GitButler?
 
-### Lint & format
+Git's user interface has hardly been touched for 15 years. While it was written
+for Linux kernel devs sending patches to each other over mailing lists, most
+modern developers have different workflows and needs.
 
-Javascript:
+GitButler aims to rethink the version control concept, while still storing data
+in Git and being able to push trees to Git servers.
 
-```bash
-$ pnpm lint
-$ pnpm format
-```
+## Main Features
 
-Rust:
+- **Virtual Branches**
+  - Organize work on multiple branches simultaneously, rather than constantly switching branches
+  - Automatically create new branches when needed
+- **Easy Commit Management**
+  - Undo, Amend and Squash commits by dragging and dropping
+- **GitHub Integration**
+  - Authenticate to GitHub to open Pull Requests, list branches and statuses and more
+- **Easy SSH Key Management**
+  - GitButler can generate an SSH key to upload to GitHub automatically
+- **AI Tools**
+  - Automatically write commit messages based on your work in progress
+  - Automatically create descriptive branch names
+- **Commit Signing**
+  - Easy commit signing with our generated SSH key
 
-```bash
-$ cargo clippy   # see linting errors
-$ cargo fmt      # format code
-```
+## Documentation
 
-## Debug
+You can find our end user documentation at: https://docs.gitbutler.com
 
-### Logs
+## Bugs and Feature Requests
 
-App writes logs into:
+If you have a bug or feature request, feel free to open an [issue](https://github.com/gitbutlerapp/gitbutler-client/issues/new),
+or [join our Discord server](https://discord.gg/wDKZCPEjXC).
 
-1. stdout in development mode
-2. [Logs](https://tauri.app/v1/api/js/path/#platform-specific) directory
+## Contributing
 
-### Tokio
+So you want to help out? Please check out the [CONTRIBUTING.md](CONTRIBUTING.md)
+document.
 
-We are also collecting tokio's runtime tracing information that could be viewed using [tokio-console](https://github.com/tokio-rs/console#tokio-console-prototypes):
-
-- developlent:
-  ```bash
-  $ tokio-console
-  ```
-- nightly:
-  ```bash
-  $ tokio-console http://127.0.0.1:6668
-  ```
-- production:
-  ```bash
-  $ tokio-console http://127.0.0.1:6667
-  ```
-
-## Build
-
-To build the app in production mode, run:
-
-```bash
-$ pnpm tauri build --features devtools --config gitbutler-app/tauri.conf.nightly.json
-```
-
-This will make an asset similar to our nightly build.
-
-### Building on Windows
-
-Building on Windows is a bit of a tricky process. Here are some helpful tips.
-
-#### File permissions
-
-We use `pnpm`, which requires a relatively recent version of Node.js.
-Make sure that the latest stable version of Node.js is installed and
-on the PATH, and then `npm i -g pnpm`.
-
-This often causes file permissions. First, the AppData folder may not
-be present. Be sure to create it if it isn't.
-
-```
-mkdir %APPDATA%\npm
-```
-
-Secondly, typically folders within `Program Files` are not writable.
-You'll need to fix the security permissions for the `nodejs` folder.
-
-> **NOTE:** Under specific circumstances, depending on your usage of
-> Node.js, this may pose a security concern. Be sure to understand
-> the implications of this before proceeding.
-
-1. Right click on the `nodejs` folder in `Program Files`.
-2. Click on `Properties`.
-3. Click on the `Security` tab.
-4. Click on `Edit` next to "change permissions".
-6. Click on `Add`.  
-7. Type in the name of your user account, or type `Everyone` (case-sensitive).
-   Click `Check Names` to verify (they will be underlined if correct).
-8. Make sure that `Full Control` is checked under `Allow`.
-8. Apply / click OK as needed to close the dialogs.
-
-### Perl
-
-A Perl interpreter is required to be installed in order to configure the `openssl-sys`
-crate. We've used [Strawberry Perl](https://strawberryperl.com/) without issue.
-Make sure it's installed and `perl` is available on the `PATH` (it is by default
-after installation, just make sure to restart the terminal after installing).
-
-Note that it might appear that the build has hung or frozen on the `openssl-sys` crate.
-It's not, it's just that Cargo can't report the status of a C/C++ build happening
-under the hood, and openssl is _large_. It'll take a while to compile.
-
-## Icon generation
-
-```bash
-$ pnpm tauri icon path/to/icon.png
-```
-
-## Release
-
-Building is done via [GitHub Action](https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/publish.yaml).
-Go to the link and select `Run workflow` from the desired branch.
-
-### Versioning
-
-When running the [release action](https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/publish.yaml),
-you will have to choose one of `major`, `minor`, or `patch` release type. Action will generate a new version based on your input and current
-version found at `https://app.gitbutler.com/releases`.
-
-### Publishing
-
-To publish a version that you've just build, use [Release Manager](https://gitbutler.retool.com/apps/cb9cbed6-ae0a-11ed-918c-736c4335d3af/Release%20Manager).
+If you want to skip right to getting the code to actually compile, take a look
+at the [DEVELOPMENT.md](DEVELOPMENT.md) file.
