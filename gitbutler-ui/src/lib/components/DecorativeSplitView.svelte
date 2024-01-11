@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { User } from '$lib/backend/cloud';
-	import Icon from '$lib/icons/Icon.svelte';
 	import AccountLink from './AccountLink.svelte';
+	import IconLink from './IconLink.svelte';
 
 	export let user: User | undefined;
 </script>
@@ -12,9 +12,12 @@
 	</div>
 	<div class="decorative-split-view__right">
 		<div class="links text-semibold">
-			<a target="_blank" href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes">
-				<Icon name="docs" opacity="0.5" /> GitButler Docs
-			</a>
+			<IconLink
+				icon="docs"
+				href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
+			>
+				GitButler Docs
+			</IconLink>
 			<!-- <a href="/">
 				<Icon name="video" opacity="0.5" /> Watch Tutorial
 			</a> -->
@@ -94,14 +97,5 @@
 		left: var(--space-32);
 		bottom: var(--space-32);
 		gap: var(--space-16);
-
-		& a {
-			display: flex;
-			align-items: center;
-			gap: var(--space-12);
-			& svg {
-				opacity: 0.5;
-			}
-		}
 	}
 </style>
