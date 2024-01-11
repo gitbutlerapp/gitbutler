@@ -40,8 +40,10 @@ pub struct Branch {
     pub ownership: Ownership,
     // order is the number by which UI should sort branches
     pub order: usize,
-    // is default is true, this branch will become an owner of any new hunks.
-    pub is_default: bool,
+    // is true, this branch will become an owner of any new hunks.
+    // when more then one branch has this field set to true (shouldn't happen)
+    // the branch with the lowest order will be selected
+    pub selected_for_changes: bool,
 }
 
 impl Branch {
@@ -58,7 +60,7 @@ pub struct BranchUpdateRequest {
     pub ownership: Option<Ownership>,
     pub order: Option<usize>,
     pub upstream: Option<String>, // just the branch name, so not refs/remotes/origin/branchA, just branchA
-    pub is_default: Option<bool>,
+    pub selected_for_changes: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -66,7 +68,7 @@ pub struct BranchCreateRequest {
     pub name: Option<String>,
     pub ownership: Option<Ownership>,
     pub order: Option<usize>,
-    pub is_default: Option<bool>,
+    pub selected_for_changes: Option<bool>,
 }
 
 impl TryFrom<&crate::reader::Reader<'_>> for Branch {
@@ -86,7 +88,7 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
             "meta/created_timestamp_ms",
             "meta/updated_timestamp_ms",
             "meta/ownership",
-            "meta/is_default",
+            "meta/selected_for_changes",
         ])?;
 
         let id: String = results[0].clone()?.try_into()?;
@@ -167,11 +169,14 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
             )
         })?;
 
-        let default = match results[12].clone() {
+        let selected_for_changes = match results[12].clone() {
             Ok(default) => default.try_into().map_err(|e| {
                 crate::reader::Error::Io(
-                    std::io::Error::new(std::io::ErrorKind::Other, format!("meta/default: {}", e))
-                        .into(),
+                    std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("meta/selected_for_changes: {}", e),
+                    )
+                    .into(),
                 )
             }),
             Err(crate::reader::Error::NotFound) => Ok(false),
@@ -201,7 +206,7 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
             updated_timestamp_ms,
             ownership,
             order,
-            is_default: default,
+            selected_for_changes,
         })
     }
 }

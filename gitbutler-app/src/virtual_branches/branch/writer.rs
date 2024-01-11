@@ -106,8 +106,8 @@ impl<'writer> BranchWriter<'writer> {
         ));
 
         batch.push(writer::BatchTask::Write(
-            format!("branches/{}/meta/is_default", branch.id),
-            branch.is_default.to_string(),
+            format!("branches/{}/meta/selected_for_changes", branch.id),
+            branch.selected_for_changes.to_string(),
         ));
 
         self.writer.batch(&batch)?;
@@ -175,7 +175,7 @@ mod tests {
                 }],
             },
             order: TEST_INDEX.load(Ordering::Relaxed),
-            is_default: false,
+            selected_for_changes: false,
         }
     }
 

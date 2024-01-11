@@ -5560,11 +5560,11 @@ mod create_virtual_branch_from_branch {
     }
 }
 
-mod default_branch {
+mod selected_for_changes {
     use super::*;
 
     #[tokio::test]
-    async fn create_virtual_branch_should_set_is_default() {
+    async fn create_virtual_branch_should_set_selected_for_changes() {
         let Test {
             project_id,
             controller,
@@ -5588,7 +5588,7 @@ mod default_branch {
             .into_iter()
             .find(|b| b.id == b_id)
             .unwrap();
-        assert!(branch.is_default);
+        assert!(branch.selected_for_changes);
 
         // if default branch exists, new branch should not be created as default
         let b_id = controller
@@ -5602,14 +5602,14 @@ mod default_branch {
             .into_iter()
             .find(|b| b.id == b_id)
             .unwrap();
-        assert!(!branch.is_default);
+        assert!(!branch.selected_for_changes);
 
         // explicitly don't make this one default
         let b_id = controller
             .create_virtual_branch(
                 &project_id,
                 &branch::BranchCreateRequest {
-                    is_default: Some(false),
+                    selected_for_changes: Some(false),
                     ..Default::default()
                 },
             )
@@ -5622,14 +5622,14 @@ mod default_branch {
             .into_iter()
             .find(|b| b.id == b_id)
             .unwrap();
-        assert!(!branch.is_default);
+        assert!(!branch.selected_for_changes);
 
         // explicitly make this one default
         let b_id = controller
             .create_virtual_branch(
                 &project_id,
                 &branch::BranchCreateRequest {
-                    is_default: Some(true),
+                    selected_for_changes: Some(true),
                     ..Default::default()
                 },
             )
@@ -5642,11 +5642,11 @@ mod default_branch {
             .into_iter()
             .find(|b| b.id == b_id)
             .unwrap();
-        assert!(branch.is_default);
+        assert!(branch.selected_for_changes);
     }
 
     #[tokio::test]
-    async fn update_virtual_branch_should_reset_is_default() {
+    async fn update_virtual_branch_should_reset_selected_for_changes() {
         let Test {
             project_id,
             controller,
@@ -5669,7 +5669,7 @@ mod default_branch {
             .into_iter()
             .find(|b| b.id == b1_id)
             .unwrap();
-        assert!(b1.is_default);
+        assert!(b1.selected_for_changes);
 
         let b2_id = controller
             .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
@@ -5682,14 +5682,14 @@ mod default_branch {
             .into_iter()
             .find(|b| b.id == b2_id)
             .unwrap();
-        assert!(!b2.is_default);
+        assert!(!b2.selected_for_changes);
 
         controller
             .update_virtual_branch(
                 &project_id,
                 branch::BranchUpdateRequest {
                     id: b2_id,
-                    is_default: Some(true),
+                    selected_for_changes: Some(true),
                     ..Default::default()
                 },
             )
@@ -5703,7 +5703,7 @@ mod default_branch {
             .into_iter()
             .find(|b| b.id == b1_id)
             .unwrap();
-        assert!(!b1.is_default);
+        assert!(!b1.selected_for_changes);
 
         let b2 = controller
             .list_virtual_branches(&project_id)
@@ -5712,11 +5712,11 @@ mod default_branch {
             .into_iter()
             .find(|b| b.id == b2_id)
             .unwrap();
-        assert!(b2.is_default);
+        assert!(b2.selected_for_changes);
     }
 
     #[tokio::test]
-    async fn unapply_virtual_branch_should_reset_is_default() {
+    async fn unapply_virtual_branch_should_reset_selected_for_changes() {
         let Test {
             repository,
             project_id,
@@ -5742,7 +5742,7 @@ mod default_branch {
             .into_iter()
             .find(|b| b.id == b1_id)
             .unwrap();
-        assert!(b1.is_default);
+        assert!(b1.selected_for_changes);
 
         controller
             .unapply_virtual_branch(&project_id, &b1_id)
@@ -5756,7 +5756,7 @@ mod default_branch {
             .into_iter()
             .find(|b| b.id == b1_id)
             .unwrap();
-        assert!(!b1.is_default);
+        assert!(!b1.selected_for_changes);
     }
 
     #[tokio::test]
@@ -5782,7 +5782,7 @@ mod default_branch {
             .create_virtual_branch(
                 &project_id,
                 &branch::BranchCreateRequest {
-                    is_default: Some(true),
+                    selected_for_changes: Some(true),
                     ..Default::default()
                 },
             )

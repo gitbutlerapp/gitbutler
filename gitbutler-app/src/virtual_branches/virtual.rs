@@ -59,7 +59,7 @@ pub struct VirtualBranch {
     pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
     pub ownership: Ownership,
     pub updated_at: u128,
-    pub is_default: bool,
+    pub selected_for_changes: bool,
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -601,7 +601,7 @@ pub fn unapply_branch(
         // this means we can just reset to the default target tree.
         {
             target_branch.applied = false;
-            target_branch.is_default = false;
+            target_branch.selected_for_changes = false;
             branch_writer.write(&mut target_branch)?;
         }
 
@@ -644,7 +644,7 @@ pub fn unapply_branch(
 
             target_branch.tree = write_tree(project_repository, &default_target, files)?;
             target_branch.applied = false;
-            target_branch.is_default = false;
+            target_branch.selected_for_changes = false;
             branch_writer.write(&mut target_branch)?;
         }
 
@@ -869,7 +869,7 @@ pub fn list_virtual_branches(
             base_current,
             ownership: branch.ownership.clone(),
             updated_at: branch.updated_timestamp_ms,
-            is_default: branch.is_default,
+            selected_for_changes: branch.selected_for_changes,
         };
         branches.push(branch);
     }
@@ -1078,20 +1078,20 @@ pub fn create_virtual_branch(
 
     let branch_writer = branch::Writer::new(gb_repository).context("failed to create writer")?;
 
-    let is_default = if let Some(is_default) = create.is_default {
-        if is_default {
+    let selected_for_changes = if let Some(selected_for_changes) = create.selected_for_changes {
+        if selected_for_changes {
             for mut other_branch in Iterator::new(&current_session_reader)
                 .context("failed to create branch iterator")?
                 .collect::<Result<Vec<branch::Branch>, reader::Error>>()
                 .context("failed to read virtual branches")?
             {
-                other_branch.is_default = false;
+                other_branch.selected_for_changes = false;
                 branch_writer.write(&mut other_branch)?;
             }
         }
-        is_default
+        selected_for_changes
     } else {
-        !all_virtual_branches.iter().any(|b| b.is_default)
+        !all_virtual_branches.iter().any(|b| b.selected_for_changes)
     };
 
     // make space for the new branch
@@ -1135,7 +1135,7 @@ pub fn create_virtual_branch(
         updated_timestamp_ms: now,
         ownership: Ownership::default(),
         order,
-        is_default,
+        selected_for_changes,
     };
 
     if let Some(ownership) = &create.ownership {
@@ -1401,8 +1401,8 @@ pub fn update_branch(
         branch.order = order;
     };
 
-    if let Some(is_default) = branch_update.is_default {
-        if is_default {
+    if let Some(selected_for_changes) = branch_update.selected_for_changes {
+        if selected_for_changes {
             for mut other_branch in Iterator::new(&current_session_reader)
                 .context("failed to create branch iterator")?
                 .collect::<Result<Vec<branch::Branch>, reader::Error>>()
@@ -1410,11 +1410,11 @@ pub fn update_branch(
                 .into_iter()
                 .filter(|b| b.id != branch.id)
             {
-                other_branch.is_default = false;
+                other_branch.selected_for_changes = false;
                 branch_writer.write(&mut other_branch)?;
             }
         }
-        branch.is_default = is_default;
+        branch.selected_for_changes = selected_for_changes;
     };
 
     branch_writer
@@ -1786,7 +1786,7 @@ fn get_applied_status(
 
     let default_vbranch_pos = virtual_branches
         .iter()
-        .position(|b| b.is_default)
+        .position(|b| b.selected_for_changes)
         .unwrap_or(0);
 
     // put the remaining hunks into the default (first) branch
@@ -3333,7 +3333,7 @@ pub fn create_virtual_branch_from_branch(
 
     let order = all_virtual_branches.len();
 
-    let is_default = !all_virtual_branches.iter().any(|b| b.is_default);
+    let selected_for_changes = !all_virtual_branches.iter().any(|b| b.selected_for_changes);
 
     let now = time::UNIX_EPOCH
         .elapsed()
@@ -3405,7 +3405,7 @@ pub fn create_virtual_branch_from_branch(
         updated_timestamp_ms: now,
         ownership,
         order,
-        is_default,
+        selected_for_changes,
     };
 
     let writer = branch::Writer::new(gb_repository).context("failed to create writer")?;
