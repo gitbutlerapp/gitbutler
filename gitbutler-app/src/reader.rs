@@ -373,6 +373,23 @@ impl TryFrom<Content> for String {
     }
 }
 
+impl TryFrom<Content> for i64 {
+    type Error = FromError;
+
+    fn try_from(content: Content) -> Result<Self, Self::Error> {
+        Self::try_from(&content)
+    }
+}
+
+impl TryFrom<&Content> for i64 {
+    type Error = FromError;
+
+    fn try_from(content: &Content) -> Result<Self, Self::Error> {
+        let text: String = content.try_into()?;
+        text.parse().map_err(FromError::ParseInt)
+    }
+}
+
 impl TryFrom<Content> for u64 {
     type Error = FromError;
 

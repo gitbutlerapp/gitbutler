@@ -105,6 +105,18 @@ impl<'writer> BranchWriter<'writer> {
             branch.ownership.to_string(),
         ));
 
+        if let Some(selected_for_changes) = branch.selected_for_changes {
+            batch.push(writer::BatchTask::Write(
+                format!("branches/{}/meta/selected_for_changes", branch.id),
+                selected_for_changes.to_string(),
+            ));
+        } else {
+            batch.push(writer::BatchTask::Remove(format!(
+                "branches/{}/meta/selected_for_changes",
+                branch.id
+            )));
+        }
+
         self.writer.batch(&batch)?;
 
         Ok(())
@@ -170,6 +182,7 @@ mod tests {
                 }],
             },
             order: TEST_INDEX.load(Ordering::Relaxed),
+            selected_for_changes: Some(1),
         }
     }
 

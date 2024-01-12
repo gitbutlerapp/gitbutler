@@ -85,6 +85,7 @@ mod tests {
                 }],
             },
             order: TEST_INDEX.load(Ordering::Relaxed),
+            selected_for_changes: None,
         }
     }
 

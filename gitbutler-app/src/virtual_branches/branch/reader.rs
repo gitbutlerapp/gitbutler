@@ -79,6 +79,7 @@ mod tests {
                     .parse()
                     .unwrap()],
             },
+            selected_for_changes: Some(1),
         }
     }
 

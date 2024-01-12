@@ -40,6 +40,9 @@ pub struct Branch {
     pub ownership: Ownership,
     // order is the number by which UI should sort branches
     pub order: usize,
+    // is Some(timestamp), the branch is considered a default destination for new changes.
+    // if more than one branch is selected, the branch with the highest timestamp wins.
+    pub selected_for_changes: Option<i64>,
 }
 
 impl Branch {
@@ -56,6 +59,7 @@ pub struct BranchUpdateRequest {
     pub ownership: Option<Ownership>,
     pub order: Option<usize>,
     pub upstream: Option<String>, // just the branch name, so not refs/remotes/origin/branchA, just branchA
+    pub selected_for_changes: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -63,6 +67,7 @@ pub struct BranchCreateRequest {
     pub name: Option<String>,
     pub ownership: Option<Ownership>,
     pub order: Option<usize>,
+    pub selected_for_changes: Option<bool>,
 }
 
 impl TryFrom<&crate::reader::Reader<'_>> for Branch {
@@ -82,6 +87,7 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
             "meta/created_timestamp_ms",
             "meta/updated_timestamp_ms",
             "meta/ownership",
+            "meta/selected_for_changes",
         ])?;
 
         let id: String = results[0].clone()?.try_into()?;
@@ -162,6 +168,23 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
             )
         })?;
 
+        let selected_for_changes = match results[12].clone() {
+            Ok(raw_ts) => {
+                let ts = raw_ts.try_into().map_err(|e| {
+                    crate::reader::Error::Io(
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!("meta/selected_for_changes: {}", e),
+                        )
+                        .into(),
+                    )
+                })?;
+                Ok(Some(ts))
+            }
+            Err(crate::reader::Error::NotFound) => Ok(None),
+            Err(e) => Err(e),
+        }?;
+
         Ok(Self {
             id,
             name,
@@ -185,6 +208,7 @@ impl TryFrom<&crate::reader::Reader<'_>> for Branch {
             updated_timestamp_ms,
             ownership,
             order,
+            selected_for_changes,
         })
     }
 }
