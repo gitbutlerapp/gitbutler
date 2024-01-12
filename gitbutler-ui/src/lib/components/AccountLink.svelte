@@ -30,6 +30,8 @@
 	{/if}
 </button>
 
+<!-- REMOVE IF IT'S NOT NEEDED -->
+
 <style lang="postcss">
 	.btn {
 		display: flex;
@@ -42,9 +44,29 @@
 		border-radius: var(--radius-m);
 
 		color: var(--clr-theme-scale-ntrl-50);
+		transition:
+			background-color var(--transition-fast),
+			color var(--transition-fast),
+			filter var(--transition-fast);
 
 		&.pop {
-			background: var(--clr-theme-scale-pop-90);
+			color: var(--clr-theme-scale-pop-10);
+			background: color-mix(
+				in srgb,
+				var(--clr-theme-scale-pop-80) 70%,
+				var(--clr-theme-scale-ntrl-100)
+			);
+			/* filter: brightness(1.05); */
+
+			&:hover {
+				color: var(--clr-theme-scale-pop-10);
+				background: color-mix(
+					in srgb,
+					var(--clr-theme-scale-pop-80) 40%,
+					var(--clr-theme-scale-ntrl-100)
+				);
+				/* filter: brightness(1.1); */
+			}
 		}
 
 		&:hover {
