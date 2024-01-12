@@ -23,7 +23,7 @@
 
 ![gitbutler_client](https://github.com/gitbutlerapp/gitbutler-client/assets/70/89466226-fc0b-4d42-951c-67d95590e00c)
 
-[![CI][s0]][l0] ![SIZE][s4] [![TWEET][s1]][l1] [![DISCORD][s2]][l2] [![INSTA][s3]][l3] [![YOUTUBE][s5]][l5]
+[![CI][s0]][l0] [![TWEET][s1]][l1] [![DISCORD][s2]][l2] [![INSTA][s3]][l3] [![YOUTUBE][s5]][l5]
 
 [s0]: https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/push.yaml/badge.svg
 [l0]: https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/push.yaml
@@ -33,7 +33,6 @@
 [l2]: https://discord.gg/MmFkmaJ42D
 [s3]: https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white
 [l3]: https://instagram.com/gitbutlerapp
-[s4]: https://img.shields.io/static/v1?label=Bundled%20Size&message=20MB&color=0974B4
 [s5]: https://img.shields.io/youtube/channel/subscribers/UCQiEMslIPy6ylW_TJXZ7nUQ
 [l5]: https://www.youtube.com/@gitbutlerapp
 
