@@ -1,27 +1,45 @@
-# [GitButler](https://gitbutler.com)
+<p align="center">
+  <p align="center">
+   <img width="128px" src="gitbutler-app/icons/128x128@2x.png" />
+  </p>
+	<h1 align="center"><b>GitButler Client</b></h1>
+	<p align="center">
+		Git based Version Control graphical client, built from the ground up for modern workflows
+    <br />
+    <a href="https://gitbutler.com"><strong>gitbutler.com »</strong></a>
+    <br />
+    <br />
+    <b>Download for </b>
+    macOS (<a href="https://app.gitbutler.com/downloads/release/darwin/aarch64/dmg">Apple Silicon</a> |
+      <a href="https://app.gitbutler.com/downloads/release/darwin/x86_64/dmg">Intel</a>) ·
+		Linux (<a href="https://app.gitbutler.com/downloads/release/linux/x86_64/gz">AppImage</a> |
+       <a href="https://app.gitbutler.com/downloads/release/linux/x86_64/deb">deb</a>)
+    <br />
+    <i>~ Link for Windows will be added once a release is available. ~</i>
+  </p>
+</p>
 
-<img width="200px" src="https://app.gitbutler.com/assets/gb-logo-c5e20a2be4fe4a7d2dbc8b5c0048782608bb5dbc58b7343cd5e7a49183ff961e.svg" />
-
-[![CI][s0]][l0] [![TWEET][s6]][l6]
-
-[s0]: https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/push.yaml/badge.svg
-[l0]: https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/push.yaml
-[s6]: https://img.shields.io/twitter/follow/gitbutler?label=follow&style=social
-[l6]: https://twitter.com/intent/follow?screen_name=gitbutler
-
-**[GitButler](https://gitbutler.com) is a new approach to version control tooling, using Git as a backend**
-
-It is an open source [Tauri](https://tauri.app/)-based
-Git client. It's UI is written in [Svelte](https://svelte.dev/) using [TypeScript](https://www.typescriptlang.org)
-and it's backend is written in [Rust](https://www.rust-lang.org/).
+<br/>
 
 ![gitbutler_client](https://github.com/gitbutlerapp/gitbutler-client/assets/70/89466226-fc0b-4d42-951c-67d95590e00c)
 
-## Downloading a Build
+[![CI][s0]][l0] ![SIZE][s4] [![TWEET][s1]][l1] [![DISCORD][s2]][l2] [![INSTA][s3]][l3] [![YOUTUBE][s5]][l5]
 
-You can download the newest client build from [our downloads page](https://app.gitbutler.com/downloads).
+[s0]: https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/push.yaml/badge.svg
+[l0]: https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/push.yaml
+[s1]: https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white
+[l1]: https://twitter.com/intent/follow?screen_name=gitbutler
+[s2]: https://img.shields.io/discord/1060193121130000425?label=Discord&color=5865F2
+[l2]: https://discord.gg/MmFkmaJ42D
+[s3]: https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white
+[l3]: https://instagram.com/gitbutlerapp
+[s4]: https://img.shields.io/static/v1?label=Bundled%20Size&message=20MB&color=0974B4
+[s5]: https://img.shields.io/youtube/channel/subscribers/UCQiEMslIPy6ylW_TJXZ7nUQ
+[l5]: https://www.youtube.com/@gitbutlerapp
 
-Currently we have builds for Mac and Linux. A Windows build is on the way.
+GitButler is an open source [Tauri](https://tauri.app/)-based
+Git client. It's UI is written in [Svelte](https://svelte.dev/) using [TypeScript](https://www.typescriptlang.org)
+and it's backend is written in [Rust](https://www.rust-lang.org/).
 
 ## Why GitButler?
 
@@ -43,7 +61,7 @@ in Git and being able to push trees to Git servers.
   - Authenticate to GitHub to open Pull Requests, list branches and statuses and more
 - **Easy SSH Key Management**
   - GitButler can generate an SSH key to upload to GitHub automatically
-- **AI Tools**
+- **AI Tooling**
   - Automatically write commit messages based on your work in progress
   - Automatically create descriptive branch names
 - **Commit Signing**
