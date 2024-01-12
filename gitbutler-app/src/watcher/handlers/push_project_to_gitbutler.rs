@@ -220,9 +220,8 @@ fn push_all_refs(
 
     let all_refs = all_refs.iter().map(String::as_str).collect::<Vec<_>>();
 
-    let anything_pushed = project_repository
-        .push_to_gitbutler_server(user.as_ref(), all_refs.as_slice())
-        .context("failed to push project (all refs) to gitbutler")?;
+    let anything_pushed =
+        project_repository.push_to_gitbutler_server(user.as_ref(), all_refs.as_slice())?;
 
     if anything_pushed {
         tracing::info!(
