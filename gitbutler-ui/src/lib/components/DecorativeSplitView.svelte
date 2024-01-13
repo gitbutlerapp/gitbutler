@@ -23,7 +23,7 @@
 				</div>
 			</div>
 
-			<div class="right-side__img-wrapper">
+			<div class="img-wrapper">
 				<ImgThemed {imgSet} />
 			</div>
 
@@ -166,12 +166,13 @@
 		opacity: 0.7;
 	}
 
-	.right-side__img-wrapper {
-		height: 100%;
-		flex: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
+	.img-wrapper {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: 100%;
+		max-width: 26.25rem;
 	}
 
 	/* global */

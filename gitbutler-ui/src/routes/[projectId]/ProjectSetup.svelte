@@ -36,8 +36,8 @@
 <DecorativeSplitView
 	user={$user$}
 	imgSet={{
-		light: '/images/setup-art-light.svg',
-		dark: '/images/setup-art-dark.svg'
+		light: '/images/img_moon-door-light.webp',
+		dark: '/images/img_moon-door-dark.webp'
 	}}
 >
 	<div class="project-setup">
