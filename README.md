@@ -21,12 +21,12 @@
 
 <br/>
 
-![gitbutler_client](https://github.com/gitbutlerapp/gitbutler-client/assets/70/89466226-fc0b-4d42-951c-67d95590e00c)
+![gitbutler_client](https://github.com/gitbutlerapp/gitbutler/assets/70/89466226-fc0b-4d42-951c-67d95590e00c)
 
 [![CI][s0]][l0] [![TWEET][s1]][l1] [![DISCORD][s2]][l2] [![INSTA][s3]][l3] [![YOUTUBE][s5]][l5]
 
-[s0]: https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/push.yaml/badge.svg
-[l0]: https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/push.yaml
+[s0]: https://github.com/gitbutlerapp/gitbutler/actions/workflows/push.yaml/badge.svg
+[l0]: https://github.com/gitbutlerapp/gitbutler/actions/workflows/push.yaml
 [s1]: https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white
 [l1]: https://twitter.com/intent/follow?screen_name=gitbutler
 [s2]: https://img.shields.io/discord/1060193121130000425?label=Discord&color=5865F2
@@ -72,7 +72,7 @@ You can find our end user documentation at: https://docs.gitbutler.com
 
 ## Bugs and Feature Requests
 
-If you have a bug or feature request, feel free to open an [issue](https://github.com/gitbutlerapp/gitbutler-client/issues/new),
+If you have a bug or feature request, feel free to open an [issue](https://github.com/gitbutlerapp/gitbutler/issues/new),
 or [join our Discord server](https://discord.gg/wDKZCPEjXC).
 
 ## Contributing
