@@ -218,6 +218,9 @@ export function draggable(node: HTMLElement, opts: Partial<DraggableOptions> | u
 				target.addEventListener('dragover', onDragOver);
 			});
 
+		// Get chromium to fire dragover & drop events
+		// https://stackoverflow.com/questions/6481094/html5-drag-and-drop-ondragover-not-firing-in-chrome/6483205#6483205
+		e.dataTransfer?.setData('text/html', 'd'); // cannot be empty string
 		e.dataTransfer?.setDragImage(clone, e.offsetX + 30, e.offsetY + 30); // Adds the padding
 		e.stopPropagation();
 	}
