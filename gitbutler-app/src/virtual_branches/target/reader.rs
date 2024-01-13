@@ -115,7 +115,7 @@ mod tests {
         writer
             .write_string(
                 "branches/target/remote",
-                "git@github.com:gitbutlerapp/gitbutler-client.git",
+                "git@github.com:gitbutlerapp/gitbutler.git",
             )
             .unwrap();
         writer
@@ -132,10 +132,7 @@ mod tests {
         let read = reader.read_default().unwrap();
         assert_eq!(read.branch.branch(), "master");
         assert_eq!(read.branch.remote(), "origin");
-        assert_eq!(
-            read.remote_url,
-            "git@github.com:gitbutlerapp/gitbutler-client.git"
-        );
+        assert_eq!(read.remote_url, "git@github.com:gitbutlerapp/gitbutler.git");
         assert_eq!(
             read.sha.to_string(),
             "dd945831869e9593448aa622fa4342bbfb84813d"

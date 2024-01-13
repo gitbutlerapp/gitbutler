@@ -571,7 +571,7 @@ mod tests {
             #[test]
             fn https() {
                 let test_case = TestCase {
-                    remote_url: "https://github.com/gitbutlerapp/gitbutler-client.git",
+                    remote_url: "https://github.com/gitbutlerapp/gitbutler.git",
                     github_access_token: Some("token"),
                     ..Default::default()
                 };
@@ -579,7 +579,7 @@ mod tests {
                 assert_eq!(flow.len(), 1);
                 assert_eq!(
                     flow[0].0,
-                    "https://github.com/gitbutlerapp/gitbutler-client.git".to_string(),
+                    "https://github.com/gitbutlerapp/gitbutler.git".to_string(),
                 );
                 assert_eq!(
                     flow[0].1,
@@ -592,7 +592,7 @@ mod tests {
             #[test]
             fn ssh() {
                 let test_case = TestCase {
-                    remote_url: "git@github.com:gitbutlerapp/gitbutler-client.git",
+                    remote_url: "git@github.com:gitbutlerapp/gitbutler.git",
                     github_access_token: Some("token"),
                     ..Default::default()
                 };
@@ -600,7 +600,7 @@ mod tests {
                 assert_eq!(flow.len(), 1);
                 assert_eq!(
                     flow[0].0,
-                    "https://github.com/gitbutlerapp/gitbutler-client.git".to_string(),
+                    "https://github.com/gitbutlerapp/gitbutler.git".to_string(),
                 );
                 assert_eq!(
                     flow[0].1,
@@ -620,7 +620,7 @@ mod tests {
                 #[test]
                 fn https() {
                     let test_case = TestCase {
-                        remote_url: "https://github.com/gitbutlerapp/gitbutler-client.git",
+                        remote_url: "https://github.com/gitbutlerapp/gitbutler.git",
                         ..Default::default()
                     };
                     let flow = test_case.run();
@@ -629,7 +629,7 @@ mod tests {
 
                     assert_eq!(
                         flow[0].0,
-                        "git@github.com:gitbutlerapp/gitbutler-client.git".to_string(),
+                        "git@github.com:gitbutlerapp/gitbutler.git".to_string(),
                     );
                     assert_eq!(flow[0].1.len(), 1);
                     assert!(matches!(
@@ -641,7 +641,7 @@ mod tests {
                 #[test]
                 fn ssh() {
                     let test_case = TestCase {
-                        remote_url: "git@github.com:gitbutlerapp/gitbutler-client.git",
+                        remote_url: "git@github.com:gitbutlerapp/gitbutler.git",
                         ..Default::default()
                     };
                     let flow = test_case.run();
@@ -650,7 +650,7 @@ mod tests {
 
                     assert_eq!(
                         flow[0].0,
-                        "git@github.com:gitbutlerapp/gitbutler-client.git".to_string(),
+                        "git@github.com:gitbutlerapp/gitbutler.git".to_string(),
                     );
                     assert_eq!(flow[0].1.len(), 1);
                     assert!(matches!(
@@ -666,7 +666,7 @@ mod tests {
                 #[test]
                 fn https() {
                     let test_case = TestCase {
-                        remote_url: "https://github.com/gitbutlerapp/gitbutler-client.git",
+                        remote_url: "https://github.com/gitbutlerapp/gitbutler.git",
                         github_access_token: Some("token"),
                         preferred_key: projects::AuthKey::Local {
                             private_key_path: path::PathBuf::from("/tmp/id_rsa"),
@@ -678,7 +678,7 @@ mod tests {
                     assert_eq!(flow.len(), 1);
                     assert_eq!(
                         flow[0].0,
-                        "git@github.com:gitbutlerapp/gitbutler-client.git".to_string(),
+                        "git@github.com:gitbutlerapp/gitbutler.git".to_string(),
                     );
                     assert_eq!(
                         flow[0].1,
@@ -692,7 +692,7 @@ mod tests {
                 #[test]
                 fn ssh() {
                     let test_case = TestCase {
-                        remote_url: "git@github.com:gitbutlerapp/gitbutler-client.git",
+                        remote_url: "git@github.com:gitbutlerapp/gitbutler.git",
                         github_access_token: Some("token"),
                         preferred_key: projects::AuthKey::Local {
                             private_key_path: path::PathBuf::from("/tmp/id_rsa"),
@@ -704,7 +704,7 @@ mod tests {
                     assert_eq!(flow.len(), 1);
                     assert_eq!(
                         flow[0].0,
-                        "git@github.com:gitbutlerapp/gitbutler-client.git".to_string(),
+                        "git@github.com:gitbutlerapp/gitbutler.git".to_string(),
                     );
                     assert_eq!(
                         flow[0].1,

@@ -62,20 +62,20 @@ mod tests {
     fn to_https_url_test() {
         for (input, expected) in [
             (
-                "https://github.com/gitbutlerapp/gitbutler-client.git",
-                "https://github.com/gitbutlerapp/gitbutler-client.git",
+                "https://github.com/gitbutlerapp/gitbutler.git",
+                "https://github.com/gitbutlerapp/gitbutler.git",
             ),
             (
-                "http://github.com/gitbutlerapp/gitbutler-client.git",
-                "https://github.com/gitbutlerapp/gitbutler-client.git",
+                "http://github.com/gitbutlerapp/gitbutler.git",
+                "https://github.com/gitbutlerapp/gitbutler.git",
             ),
             (
-                "git@github.com:gitbutlerapp/gitbutler-client.git",
-                "https://github.com/gitbutlerapp/gitbutler-client.git",
+                "git@github.com:gitbutlerapp/gitbutler.git",
+                "https://github.com/gitbutlerapp/gitbutler.git",
             ),
             (
-                "ssh://git@github.com/gitbutlerapp/gitbutler-client.git",
-                "https://github.com/gitbutlerapp/gitbutler-client.git",
+                "ssh://git@github.com/gitbutlerapp/gitbutler.git",
+                "https://github.com/gitbutlerapp/gitbutler.git",
             ),
             (
                 "git@bitbucket.org:gitbutler-nikita/test.git",
@@ -96,20 +96,20 @@ mod tests {
     fn to_ssh_url_test() {
         for (input, expected) in [
             (
-                "git@github.com:gitbutlerapp/gitbutler-client.git",
-                "git@github.com:gitbutlerapp/gitbutler-client.git",
+                "git@github.com:gitbutlerapp/gitbutler.git",
+                "git@github.com:gitbutlerapp/gitbutler.git",
             ),
             (
-                "https://github.com/gitbutlerapp/gitbutler-client.git",
-                "git@github.com:gitbutlerapp/gitbutler-client.git",
+                "https://github.com/gitbutlerapp/gitbutler.git",
+                "git@github.com:gitbutlerapp/gitbutler.git",
             ),
             (
-                "https://github.com/gitbutlerapp/gitbutler-client.git",
-                "git@github.com:gitbutlerapp/gitbutler-client.git",
+                "https://github.com/gitbutlerapp/gitbutler.git",
+                "git@github.com:gitbutlerapp/gitbutler.git",
             ),
             (
-                "ssh://git@github.com/gitbutlerapp/gitbutler-client.git",
-                "ssh://git@github.com/gitbutlerapp/gitbutler-client.git",
+                "ssh://git@github.com/gitbutlerapp/gitbutler.git",
+                "ssh://git@github.com/gitbutlerapp/gitbutler.git",
             ),
             (
                 "https://bitbucket.org/gitbutler-nikita/test.git",
