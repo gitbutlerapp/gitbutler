@@ -27,7 +27,7 @@
 			if (u) {
 				u.github_access_token = access_token;
 				u.github_username = await getAuthenticated(access_token);
-				userService.set(u);
+				userService.setUser(u);
 			}
 		});
 	}
@@ -37,7 +37,7 @@
 		if (u) {
 			u.github_access_token = '';
 			u.github_username = '';
-			userService.set(u);
+			userService.setUser(u);
 		}
 	}
 </script>

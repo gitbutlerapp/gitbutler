@@ -1,18 +1,45 @@
 <script lang="ts">
-	import type { LayoutData } from './$types';
-	import SelectProject from './components/SelectProject.svelte';
+	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
+	import Welcome from './[projectId]/components/Welcome.svelte';
+	import type { PageData } from './$types';
+	import { goto } from '$app/navigation';
+	import { map } from 'rxjs';
+	import { page } from '$app/stores';
 
-	export let data: LayoutData;
+	export let data: PageData;
 
 	const { projectService, userService } = data;
-	$: projects$ = projectService.projects$;
+	const projects$ = projectService.projects$;
 	$: user$ = userService.user$;
+	$: debug = $page.url.searchParams.get('debug');
+
+	const persistedId = projectService.getLastOpenedProject();
+	const redirect$ = projects$.pipe(
+		map((projects) => {
+			if (debug) return null;
+			const projectId = projects.find((p) => p.id == persistedId)?.id;
+			if (projectId) return projectId;
+			if (projects.length > 0) return projects[0].id;
+			return null;
+		})
+	);
 </script>
 
-{#if !$projects$}
+{#if $redirect$ === undefined}
 	Loading...
+{:else if $redirect$}
+	<!-- TODO: Is this a valid form of redirect? -->
+	{goto(`/${$redirect$}/`)}
 {:else}
-	<SelectProject {projectService} user={$user$} />
+	<DecorativeSplitView
+		user={$user$}
+		imgSet={{
+			light: '/images/img_moon-door-light.webp',
+			dark: '/images/img_moon-door-dark.webp'
+		}}
+	>
+		<Welcome {projectService} {userService} />
+	</DecorativeSplitView>
 {/if}
 
 <style lang="postcss">

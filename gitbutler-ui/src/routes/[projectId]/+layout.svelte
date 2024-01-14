@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import ProjectSetup from './ProjectSetup.svelte';
 	import { unsubscribe } from '$lib/utils/random';
 	import * as hotkeys from '$lib/utils/hotkeys';
@@ -11,6 +10,8 @@
 	import { syncToCloud } from '$lib/backend/cloud';
 	import { handleMenuActions } from '$lib/backend/menu_actions';
 	import { subscribe as menuSubscribe } from '$lib/menu';
+	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
+	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
 
 	export let data: LayoutData;
 
@@ -44,46 +45,59 @@
 
 {#if $baseBranch$ === null}
 	{#if $project$}
-		<ProjectSetup {branchController} {userService} {projectId} />
+		{#await getRemoteBranches(projectId)}
+			<p>loading...</p>
+		{:then remoteBranches}
+			{#if remoteBranches.length == 0}
+				<ProblemLoadingRepo {userService} {projectService} project={$project$}>
+					<p class="mt-6 text-red-500">You don't have any remote branches.</p>
+					<p class="text-color-3 mt-6 text-sm">
+						Currently, GitButler requires a remote branch to base it's virtual branch work on. To
+						use virtual branches, please push your code to a remote branch to use as a base.
+						<a
+							target="_blank"
+							rel="noreferrer"
+							class="font-bold"
+							href="https://docs.gitbutler.com/features/virtual-branches/butler-flow"
+						>
+							Learn more
+						</a>
+					</p>
+				</ProblemLoadingRepo>
+			{:else}
+				<ProjectSetup {branchController} {userService} {projectId} {remoteBranches} />
+			{/if}
+		{/await}
 	{/if}
 {:else if !$gbBranchActive$}
-	<div class="text-color-3 flex h-full w-full items-center justify-center">
-		<div class="flex max-w-xl flex-col justify-center gap-y-3 p-4 text-center">
-			<h2 class="text-lg font-semibold">Looks like you've switched from gitbutler/integration</h2>
+	<ProblemLoadingRepo {userService} {projectService} project={$project$} alternativeArt>
+		<svelte:fragment slot="title">
+			Looks like you've switched from gitbutler/integration
+		</svelte:fragment>
 
-			<p>
-				Due to GitButler managing multiple virtual branches, you cannot switch back and forth
-				between git branches and virtual branches easily.
-			</p>
+		Due to GitButler managing multiple virtual branches, you cannot switch back and forth between
+		git branches and virtual branches easily.
 
-			<Link href="https://docs.gitbutler.com/features/virtual-branches/integration-branch">
-				Learn more
-			</Link>
+		<Link href="https://docs.gitbutler.com/features/virtual-branches/integration-branch">
+			Learn more
+		</Link>
 
-			<div class="flex flex-col items-center">
-				<Button
-					color="primary"
-					on:click={() => {
-						if ($baseBranch$) branchController.setTarget($baseBranch$.branchName);
-					}}
-				>
-					Go back to gitbutler/integration
-				</Button>
-			</div>
-		</div>
-	</div>
+		<svelte:fragment slot="actions">
+			<Button
+				color="primary"
+				icon="undo-small"
+				on:click={() => {
+					if ($baseBranch$) branchController.setTarget($baseBranch$.branchName);
+				}}
+			>
+				Go back to gitbutler/integration
+			</Button>
+		</svelte:fragment>
+	</ProblemLoadingRepo>
 {:else if $branchesError$}
-	<div class="text-color-3 flex h-full w-full items-center justify-center">
-		<div class="flex max-w-xl flex-col gap-y-3 p-4">
-			<div>
-				<h1 class="text-lg font-semibold">There was a problem loading this repo</h1>
-				<p>{$branchesError$.message}</p>
-			</div>
-			<div class="text-center">
-				<Button icon="home" on:click={() => goto('/')}>Home</Button>
-			</div>
-		</div>
-	</div>
+	<ProblemLoadingRepo {projectService} {userService} project={$project$}>
+		{$branchesError$}
+	</ProblemLoadingRepo>
 {:else if $baseBranch$}
 	<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
 		<div bind:this={trayViewport} class="z-30 flex flex-shrink">

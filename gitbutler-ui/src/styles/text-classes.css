@@ -137,6 +137,12 @@
 	line-height: var(--text-body-line-height);
 }
 
+.text-serif-24 {
+	font-family: var(--serif-font-family);
+	font-size: 1.5rem;
+	line-height: var(--text-body-line-height);
+}
+
 /* modifiers */
 
 .text-light {

@@ -4,7 +4,7 @@
 	import Icon from '$lib/icons/Icon.svelte';
 	import ProjectsPopup from './ProjectsPopup.svelte';
 
-	export let project: Project;
+	export let project: Project | undefined;
 	export let projectService: ProjectService;
 
 	let popup: ProjectsPopup;
@@ -29,7 +29,7 @@
 				e.preventDefault();
 			}}
 		>
-			<span class="button__label text-base-14 text-bold">{project.title}</span>
+			<span class="button__label text-base-14 text-bold">{project?.title}</span>
 			<div class="button__icon">
 				<Icon name="select-chevron" />
 			</div>

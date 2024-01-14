@@ -15,7 +15,6 @@
 
 <div class="footer" style:border-color="var(--clr-theme-container-outline-light)">
 	<div class="left-btns">
-		<Link href="/"><IconButton icon="home" /></Link>
 		<Tooltip label="Send feedback">
 			<IconButton icon="mail" on:click={() => events.emit('openSendIssueModal')}></IconButton>
 		</Tooltip>

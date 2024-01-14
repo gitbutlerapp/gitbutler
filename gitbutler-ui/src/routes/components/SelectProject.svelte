@@ -31,12 +31,9 @@
 			icon="plus"
 			{loading}
 			on:click={async () => {
+				loading = true;
 				try {
-					const path = await projectService.promptForDirectory();
-					if (path) {
-						loading = true;
-						await projectService.addProject(path);
-					}
+					await projectService.addProject();
 				} finally {
 					loading = false;
 				}

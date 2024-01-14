@@ -13,6 +13,8 @@ import {
 	skip,
 	switchMap
 } from 'rxjs';
+import { persisted } from '$lib/persisted/persisted';
+import { get } from 'svelte/store';
 
 export type Key =
 	| 'default'
@@ -34,6 +36,7 @@ export type Project = {
 
 export class ProjectService {
 	private reload$ = new BehaviorSubject<void>(undefined);
+	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
 	error$ = new BehaviorSubject<any>(undefined);
 
 	projects$ = this.reload$.pipe(
@@ -99,7 +102,9 @@ export class ProjectService {
 		);
 	}
 
-	async addProject(path: string) {
+	async addProject() {
+		const path = await this.promptForDirectory();
+		if (!path) return;
 		return this.add(path)
 			.then(async (project) => {
 				if (!project) return;
@@ -108,5 +113,13 @@ export class ProjectService {
 				goto(`/${project.id}/board`);
 			})
 			.catch((e: any) => toasts.error(e.message));
+	}
+
+	getLastOpenedProject() {
+		return get(this.persistedId);
+	}
+
+	setLastOpenedProject(projectId: string) {
+		this.persistedId.set(projectId);
 	}
 }
