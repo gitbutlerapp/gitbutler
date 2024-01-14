@@ -1,6 +1,8 @@
 pub mod branch;
 pub use branch::{Branch, BranchId};
+pub mod context;
 pub mod target;
+pub use context::*;
 
 pub mod errors;
 

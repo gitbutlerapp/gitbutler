@@ -164,7 +164,7 @@ mod create_commit {
         {
             // hunk before the commited part is not locked
             let mut changed_lines = lines.clone();
-            changed_lines[0] = "updated line".to_string();
+            changed_lines[0] = "updated line\nwith extra line".to_string();
             fs::write(repository.path().join("file.txt"), changed_lines.join("\n")).unwrap();
             let branch = controller
                 .list_virtual_branches(&project_id)
@@ -214,8 +214,7 @@ mod create_commit {
             assert_eq!(branch.files.len(), 1);
             assert_eq!(branch.files[0].path.display().to_string(), "file.txt");
             assert_eq!(branch.files[0].hunks.len(), 1);
-            // TODO: We lock this hunk, but can we afford not lock it?
-            assert!(branch.files[0].hunks[0].locked);
+            assert!(!branch.files[0].hunks[0].locked);
             // cleanup
             fs::write(repository.path().join("file.txt"), lines.clone().join("\n")).unwrap();
         }
@@ -234,8 +233,7 @@ mod create_commit {
             assert_eq!(branch.files.len(), 1);
             assert_eq!(branch.files[0].path.display().to_string(), "file.txt");
             assert_eq!(branch.files[0].hunks.len(), 1);
-            // TODO: We lock this hunk, but can we afford not lock it?
-            assert!(branch.files[0].hunks[0].locked);
+            assert!(!branch.files[0].hunks[0].locked);
             // cleanup
             fs::write(repository.path().join("file.txt"), lines.clone().join("\n")).unwrap();
         }
@@ -799,7 +797,7 @@ mod unapply {
             assert_eq!(branches.len(), 1);
             assert!(branches[0].base_current);
             assert!(branches[0].active);
-            assert_eq!(branches[0].files[0].hunks[0].diff, "@@ -1 +1 @@\n-first\n\\ No newline at end of file\n+conflict\n\\ No newline at end of file\n");
+            assert_eq!(branches[0].files[0].hunks[0].diff, "@@ -1,1 +1,1 @@\n-first\n\\ No newline at end of file\n+conflict\n\\ No newline at end of file\n");
 
             controller
                 .unapply_virtual_branch(&project_id, &branches[0].id)
@@ -850,7 +848,7 @@ mod unapply {
                 .unwrap();
             assert!(branch.base_current);
             assert!(branch.conflicted);
-            assert_eq!(branch.files[0].hunks[0].diff, "@@ -1 +1,5 @@\n-first\n\\ No newline at end of file\n+<<<<<<< ours\n+conflict\n+=======\n+second\n+>>>>>>> theirs\n");
+            assert_eq!(branch.files[0].hunks[0].diff, "@@ -1,1 +1,5 @@\n-first\n\\ No newline at end of file\n+<<<<<<< ours\n+conflict\n+=======\n+second\n+>>>>>>> theirs\n");
         }
 
         {
@@ -874,7 +872,7 @@ mod unapply {
             assert!(!branch.active);
             assert!(!branch.base_current);
             assert!(!branch.conflicted);
-            assert_eq!(branch.files[0].hunks[0].diff, "@@ -1 +1 @@\n-first\n\\ No newline at end of file\n+conflict\n\\ No newline at end of file\n");
+            assert_eq!(branch.files[0].hunks[0].diff, "@@ -1,1 +1,1 @@\n-first\n\\ No newline at end of file\n+conflict\n\\ No newline at end of file\n");
         }
     }
 
