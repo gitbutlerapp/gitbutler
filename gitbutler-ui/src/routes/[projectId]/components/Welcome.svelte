@@ -126,7 +126,7 @@
 
 <style lang="postcss">
 	.welcome {
-		width: 27.25rem;
+		max-width: 27.25rem;
 	}
 
 	.welcome__actions {
