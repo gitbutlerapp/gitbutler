@@ -1,5 +1,6 @@
 <script lang="ts">
 	import IconButton from '$lib/components/IconButton.svelte';
+	import Icon from '$lib/icons/Icon.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { fade } from 'svelte/transition';
@@ -35,20 +36,7 @@
 <div class="card__header">
 	{#if !readonly}
 		<div class="draggable" data-drag-handle>
-			<svg
-				width="14"
-				height="16"
-				viewBox="0 0 14 16"
-				fill="currentColor"
-				xmlns="http://www.w3.org/2000/svg"
-			>
-				<rect x="4" y="3" width="2" height="2" rx="1" />
-				<rect x="8" y="3" width="2" height="2" rx="1" />
-				<rect x="4" y="7" width="2" height="2" rx="1" />
-				<rect x="8" y="7" width="2" height="2" rx="1" />
-				<rect x="4" y="11" width="2" height="2" rx="1" />
-				<rect x="8" y="11" width="2" height="2" rx="1" />
-			</svg>
+			<Icon name="draggable-narrow" />
 		</div>
 	{/if}
 	<div class="header__content">
@@ -171,8 +159,8 @@
 
 	.draggable {
 		position: absolute;
-		left: var(--space-6);
-		top: var(--space-8);
+		left: var(--space-4);
+		top: var(--space-6);
 		opacity: 0;
 		display: flex;
 		cursor: grab;
