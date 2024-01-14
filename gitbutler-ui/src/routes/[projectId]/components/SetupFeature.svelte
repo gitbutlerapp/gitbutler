@@ -3,6 +3,8 @@
 	export let success = false;
 	export let topBorder = false;
 	const SLOTS = $$props.$$slots;
+
+	console.log(SLOTS);
 </script>
 
 <div class="setup-feature" class:success class:disabled class:top-border={topBorder}>
@@ -13,8 +15,9 @@
 		<div class="setup-feature__title text-base-14 text-bold">
 			<slot name="title" />
 		</div>
+
 		<div class="setup-feature__row">
-			<div class="setup-feature__body text-base-12">
+			<div class="setup-feature__body text-base-body-12">
 				<slot name="body" />
 			</div>
 			{#if SLOTS.actions}
@@ -23,6 +26,7 @@
 				</div>
 			{/if}
 		</div>
+
 		{#if SLOTS.actions}
 			<div class="setup-feature__actions">
 				<slot name="actions" />
@@ -46,10 +50,10 @@
 	}
 
 	.setup-feature__content {
-		/* display: flex;
+		display: flex;
 		flex-direction: column;
 		flex-grow: 1;
-		gap: var(--space-10); */
+		gap: var(--space-10);
 	}
 
 	.setup-feature__title {
@@ -70,13 +74,12 @@
 	}
 
 	.setup-feature__actions {
-		margin-top: var(--space-16);
+		margin-top: var(--space-6);
 	}
 
 	.setup-feature__row {
 		display: flex;
 		gap: var(--space-10);
-		margin-top: var(--space-10);
 		align-items: center;
 	}
 

@@ -49,7 +49,7 @@
 		color: var(--clr-theme-scale-pop-50);
 	}
 	.warn {
-		color: var(--clr-theme-scale-warn-60);
+		color: var(--clr-theme-scale-warn-50);
 	}
 
 	.spinner {

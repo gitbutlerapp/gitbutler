@@ -62,7 +62,7 @@
 
 	.left-side__content {
 		width: 100%;
-		max-width: 40rem;
+		max-width: 36rem;
 		display: flex;
 		flex-direction: column;
 	}
@@ -111,6 +111,7 @@
 		position: absolute;
 		color: var(--clr-theme-scale-pop-30);
 		opacity: 0.6;
+		line-height: 1;
 		right: var(--space-32);
 		bottom: var(--space-32);
 	}
