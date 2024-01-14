@@ -18,8 +18,6 @@
 
 	$: user$ = userService.user$;
 
-	let test = false;
-
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 
 	let aiGenCheckbox: Toggle;
