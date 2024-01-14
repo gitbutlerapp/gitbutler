@@ -1,6 +1,5 @@
 <script lang="ts">
 	import IconButton from '$lib/components/IconButton.svelte';
-	import Icon from '$lib/icons/Icon.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { fade } from 'svelte/transition';
@@ -33,78 +32,93 @@
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
 </script>
 
-<div class="card__header relative" data-drag-handle>
-	<div class="header__row" data-drag-handle>
-		<div class="header__left">
-			{#if !readonly}
-				<div class="draggable" data-drag-handle>
-					<Icon name="draggable" />
-				</div>
-			{/if}
-			<BranchLabel bind:name={branch.name} on:change={handleBranchNameChange} />
-		</div>
-		<div class="flex items-center gap-x-1" transition:fade={{ duration: 150 }}>
-			{#if !readonly}
-				<div bind:this={meatballButton}>
-					<IconButton icon="kebab" size="m" on:click={() => (visible = !visible)} />
-				</div>
-				<div
-					class="branch-popup-menu"
-					use:clickOutside={{ trigger: meatballButton, handler: () => (visible = false) }}
-				>
-					<BranchLanePopupMenu {branchController} {branch} {projectId} bind:visible on:action />
-				</div>
-			{/if}
-		</div>
-	</div>
-	{#if branch.upstreamName}
-		<div class="header__remote-branch text-base-body-11" data-drag-handle>
-			{#if !branch.upstream}
-				{#if hasIntegratedCommits}
-					<div class="status-tag deleted">deleted</div>
-				{:else}
-					<div class="status-tag pending">pending</div>
-				{/if}
-			{/if}
-			<div>origin/{branch.upstreamName}</div>
+<div class="card__header">
+	{#if !readonly}
+		<div class="draggable" data-drag-handle>
+			<svg
+				width="14"
+				height="16"
+				viewBox="0 0 14 16"
+				fill="currentColor"
+				xmlns="http://www.w3.org/2000/svg"
+			>
+				<rect x="4" y="3" width="2" height="2" rx="1" />
+				<rect x="8" y="3" width="2" height="2" rx="1" />
+				<rect x="4" y="7" width="2" height="2" rx="1" />
+				<rect x="8" y="7" width="2" height="2" rx="1" />
+				<rect x="4" y="11" width="2" height="2" rx="1" />
+				<rect x="8" y="11" width="2" height="2" rx="1" />
+			</svg>
 		</div>
 	{/if}
-	{#if branch.upstream}
-		<div class="header__links">
-			<BranchIcon name="remote-branch" color="neutral" />
+	<div class="header__content">
+		<div class="header__row">
+			<div class="header__label">
+				<BranchLabel bind:name={branch.name} on:change={handleBranchNameChange} />
+			</div>
+			<div class="flex items-center gap-x-1" transition:fade={{ duration: 150 }}>
+				{#if !readonly}
+					<div bind:this={meatballButton}>
+						<IconButton icon="kebab" size="m" on:click={() => (visible = !visible)} />
+					</div>
+					<div
+						class="branch-popup-menu"
+						use:clickOutside={{ trigger: meatballButton, handler: () => (visible = false) }}
+					>
+						<BranchLanePopupMenu {branchController} {branch} {projectId} bind:visible on:action />
+					</div>
+				{/if}
+			</div>
+		</div>
+		{#if branch.upstreamName}
+			<div class="header__remote-branch text-base-body-11">
+				{#if !branch.upstream}
+					{#if hasIntegratedCommits}
+						<div class="status-tag deleted">deleted</div>
+					{:else}
+						<div class="status-tag pending">pending</div>
+					{/if}
+				{/if}
+				<div>origin/{branch.upstreamName}</div>
+			</div>
+		{/if}
+		{#if branch.upstream}
+			<div class="header__links">
+				<BranchIcon name="remote-branch" color="neutral" />
 
-			<Tag
-				icon="open-link"
-				color="ghost"
-				border
-				clickable
-				on:click={(e) => {
-					const url = branchUrl(base, branch.upstream?.name);
-					if (url) open(url);
-					e.preventDefault();
-					e.stopPropagation();
-				}}
-			>
-				View remote branch
-			</Tag>
-			{#if $pr$?.htmlUrl}
 				<Tag
-					icon="pr-small"
+					icon="open-link"
 					color="ghost"
 					border
 					clickable
 					on:click={(e) => {
-						const url = $pr$?.htmlUrl;
+						const url = branchUrl(base, branch.upstream?.name);
 						if (url) open(url);
 						e.preventDefault();
 						e.stopPropagation();
 					}}
 				>
-					View PR
+					View remote branch
 				</Tag>
-			{/if}
-		</div>
-	{/if}
+				{#if $pr$?.htmlUrl}
+					<Tag
+						icon="pr-small"
+						color="ghost"
+						border
+						clickable
+						on:click={(e) => {
+							const url = $pr$?.htmlUrl;
+							if (url) open(url);
+							e.preventDefault();
+							e.stopPropagation();
+						}}
+					>
+						View PR
+					</Tag>
+				{/if}
+			</div>
+		{/if}
+	</div>
 </div>
 
 <style lang="postcss">
@@ -113,6 +127,22 @@
 		position: relative;
 		flex-direction: column;
 		gap: var(--space-2);
+		padding: var(--space-12);
+
+		&:hover {
+			& .header__content {
+				margin-left: var(--space-6);
+			}
+
+			& .draggable {
+				opacity: 1;
+			}
+		}
+	}
+	.header__content {
+		display: flex;
+		flex-direction: column;
+		transition: margin var(--transition-slow);
 	}
 	.header__row {
 		width: 100%;
@@ -121,7 +151,7 @@
 		gap: var(--space-8);
 		overflow-x: hidden;
 	}
-	.header__left {
+	.header__label {
 		overflow-x: hidden;
 		display: flex;
 		flex-grow: 1;
@@ -133,20 +163,30 @@
 		display: flex;
 		gap: var(--space-4);
 		align-items: center;
-		padding-left: var(--space-28);
+		padding-left: var(--space-4);
 		margin-top: var(--space-8);
 		margin-bottom: var(--space-4);
 		fill: var(--clr-core-ntrl-50);
 	}
 
 	.draggable {
+		position: absolute;
+		left: var(--space-6);
+		top: var(--space-8);
+		opacity: 0;
 		display: flex;
 		cursor: grab;
-		color: var(--clr-theme-scale-ntrl-60);
-		transition: color var(--transition-medium);
+		color: var(--clr-theme-scale-ntrl-50);
+		transition:
+			opacity var(--transition-slow),
+			color var(--transition-slow);
 
 		&:hover {
 			color: var(--clr-theme-scale-ntrl-40);
+		}
+
+		& svg {
+			pointer-events: none;
 		}
 	}
 
@@ -159,7 +199,7 @@
 
 	.header__remote-branch {
 		color: var(--clr-theme-scale-ntrl-50);
-		padding-left: var(--space-28);
+		padding-left: var(--space-4);
 		display: flex;
 		gap: var(--space-4);
 		text-overflow: ellipsis;
