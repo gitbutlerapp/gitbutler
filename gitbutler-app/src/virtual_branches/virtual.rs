@@ -15,7 +15,7 @@ use serde::Serialize;
 use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
-    git::{self, diff, Commit, Refname, RemoteRefname},
+    git::{self, diff, show, Commit, Refname, RemoteRefname},
     keys,
     project_repository::{self, conflicts, LogUntil},
     reader, sessions, users,
@@ -23,7 +23,7 @@ use crate::{
 
 use super::{
     branch::{self, Branch, BranchCreateRequest, BranchId, FileOwnership, Hunk, Ownership},
-    branch_to_remote_branch, errors, target, Iterator, RemoteBranch,
+    branch_to_remote_branch, context, errors, target, Iterator, RemoteBranch,
 };
 
 type AppliedStatuses = Vec<(branch::Branch, HashMap<path::PathBuf, Vec<diff::Hunk>>)>;
@@ -855,6 +855,9 @@ pub fn list_virtual_branches(
             });
         }
 
+        files = files_with_hunk_context(&project_repository.git_repository, files, 3)
+            .context("failed to add hunk context")?;
+
         let requires_force = is_requires_force(project_repository, branch)?;
         let branch = VirtualBranch {
             id: branch.id,
@@ -883,6 +886,57 @@ pub fn list_virtual_branches(
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     Ok(branches)
+}
+
+fn files_with_hunk_context(
+    repository: &git::Repository,
+    mut files: Vec<VirtualBranchFile>,
+    context_lines: usize,
+) -> Result<Vec<VirtualBranchFile>> {
+    for file in &mut files {
+        if file.binary {
+            continue;
+        }
+        // Get file content as it looked before the diffs
+        let file_content_before = show::show_file_at_head(repository, file.path.clone())
+            .context("failed to get file contents at HEAD")?;
+        let file_lines_before = file_content_before.split('\n').collect::<Vec<_>>();
+
+        // Update each hunk with contex lines before & after
+        file.hunks = file
+            .hunks
+            .iter()
+            .map(|hunk| {
+                if hunk.diff.is_empty() {
+                    // noop on empty diff
+                    Ok(hunk.clone())
+                } else {
+                    let hunk_with_ctx = context::hunk_with_context(
+                        &hunk.diff,
+                        hunk.start as usize,
+                        hunk.binary,
+                        context_lines,
+                        &file_lines_before,
+                    );
+                    to_virtual_branch_hunk(hunk.clone(), hunk_with_ctx)
+                }
+            })
+            .collect::<Result<Vec<VirtualBranchHunk>>>()
+            .context("failed to add context to hunk")?;
+    }
+    Ok(files)
+}
+
+fn to_virtual_branch_hunk(
+    mut hunk: VirtualBranchHunk,
+    diff_with_context: Result<diff::Hunk>,
+) -> Result<VirtualBranchHunk> {
+    diff_with_context.map(|diff| {
+        hunk.diff = diff.diff;
+        hunk.start = diff.new_start;
+        hunk.end = diff.new_start + diff.new_lines;
+        hunk
+    })
 }
 
 fn is_requires_force(
@@ -1671,12 +1725,8 @@ fn get_applied_status(
     default_target: &target::Target,
     mut virtual_branches: Vec<branch::Branch>,
 ) -> Result<AppliedStatuses> {
-    let mut diff = diff::workdir(
-        &project_repository.git_repository,
-        &default_target.sha,
-        &diff::Options::default(),
-    )
-    .context("failed to diff workdir")?;
+    let mut diff = diff::workdir(&project_repository.git_repository, &default_target.sha)
+        .context("failed to diff workdir")?;
 
     // sort by order, so that the default branch is first (left in the ui)
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));

@@ -7,7 +7,7 @@ use crate::{
     gb_repository,
     git::{
         self,
-        diff::{self, Options},
+        diff::{self},
     },
     keys,
     project_repository::{self, LogUntil},
@@ -125,7 +125,7 @@ pub fn set_base_branch(
         // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
         // put them into a virtual branch
 
-        let wd_diff = diff::workdir(repo, &head_commit.id(), &Options::default())?;
+        let wd_diff = diff::workdir(repo, &head_commit.id())?;
 
         if !wd_diff.is_empty() || head_commit.id() != commit_oid {
             let hunks_by_filepath =

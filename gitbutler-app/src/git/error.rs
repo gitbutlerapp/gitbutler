@@ -1,3 +1,5 @@
+use std::str::Utf8Error;
+
 use crate::keys;
 
 #[derive(Debug, thiserror::Error)]
@@ -20,6 +22,8 @@ pub enum Error {
     Http(git2::Error),
     #[error(transparent)]
     Other(git2::Error),
+    #[error(transparent)]
+    Utf8(#[from] Utf8Error),
 }
 
 impl From<git2::Error> for Error {
