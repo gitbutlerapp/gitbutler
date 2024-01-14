@@ -16,7 +16,7 @@
 	const pollForUser = async (token: string) => {
 		const apiUser = await cloud.login.user.get(token).catch(() => null);
 		if (apiUser) {
-			userService.set(apiUser);
+			userService.setUser(apiUser);
 			return;
 		}
 		return new Promise((resolve) => {

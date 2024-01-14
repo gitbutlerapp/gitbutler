@@ -1,18 +1,14 @@
 import { setUser } from '@sentry/sveltekit';
 import type { User } from '../backend/cloud';
 
-export default () => {
-	return {
-		identify: (user: User | undefined) => {
-			if (user) {
-				setUser({
-					id: user.id.toString(),
-					email: user.email,
-					username: user.name
-				});
-			} else {
-				setUser(null);
-			}
-		}
-	};
-};
+export function setSentryUser(user: User) {
+	setUser({
+		id: user.id.toString(),
+		email: user.email,
+		username: user.name
+	});
+}
+
+export function resetSentry() {
+	setUser(null);
+}

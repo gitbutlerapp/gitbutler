@@ -47,7 +47,7 @@
 		loaded = true;
 		cloud.user.get($user$?.access_token).then((cloudUser) => {
 			cloudUser.github_access_token = $user$?.github_access_token; // prevent overwriting with null
-			userService.set(cloudUser);
+			userService.setUser(cloudUser);
 		});
 		newName = $user$?.name || '';
 	}
@@ -65,7 +65,7 @@
 				name: newName,
 				picture: picture
 			});
-			userService.set(updatedUser);
+			userService.setUser(updatedUser);
 			toasts.success('Profile updated');
 		} catch (e) {
 			console.error(e);

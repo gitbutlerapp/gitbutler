@@ -1,35 +1,77 @@
-import type { User } from '$lib/backend/cloud';
-import * as users from '$lib/backend/users';
-import { Observable, Subject, merge, shareReplay } from 'rxjs';
+import { open } from '@tauri-apps/api/shell';
+import { BehaviorSubject, Observable, Subject, merge, shareReplay } from 'rxjs';
+import { getCloudApiClient, type User } from '$lib/backend/cloud';
+import { sleep } from '$lib/utils/sleep';
+import { invoke } from '$lib/backend/ipc';
+import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
+import { resetPostHog, setPostHogUser } from '$lib/analytics/posthog';
 
 export class UserService {
+	private cloud = getCloudApiClient();
+
 	reset$ = new Subject<User | undefined>();
+	loading$ = new BehaviorSubject(false);
+
 	user$ = merge(
 		new Observable<User | undefined>((subscriber) => {
-			users.get().then((user) => {
+			invoke<User | undefined>('get_user').then((user) => {
 				if (user) {
 					subscriber.next(user);
-					this.posthog.then((client) => client.identify(user));
-					this.sentry.identify(user);
+					setPostHogUser(user);
+					setSentryUser(user);
 				}
 			});
 		}),
 		this.reset$
 	).pipe(shareReplay(1));
 
-	constructor(
-		private sentry: any,
-		private posthog: Promise<any>
-	) {}
+	constructor() {}
 
-	async set(user: User) {
-		await users.set({ user });
+	async setUser(user: User | undefined) {
+		if (user) await invoke('set_user', { user });
+		else await this.clearUser();
 		this.reset$.next(user);
 	}
 
+	async clearUser() {
+		await invoke('delete_user');
+	}
+
 	async logout() {
-		await users.delete();
+		await this.clearUser();
 		this.reset$.next(undefined);
-		// TODO: Un-identify from sentry and posthog
+		resetPostHog();
+		resetSentry();
+	}
+
+	async login(): Promise<User | undefined> {
+		this.logout();
+		this.loading$.next(true);
+		try {
+			const token = await this.cloud.login.token.create();
+			open(token.url);
+
+			// Assumed min time for login flow
+			await sleep(4000);
+
+			const user = await this.pollForUser(token.token);
+			this.setUser(user);
+
+			return user;
+		} finally {
+			this.loading$.next(false);
+		}
+	}
+
+	private async pollForUser(token: string): Promise<User | undefined> {
+		let apiUser: User | null;
+		for (let i = 0; i < 120; i++) {
+			apiUser = await this.cloud.login.user.get(token).catch(() => null);
+			if (apiUser) {
+				this.setUser(apiUser);
+				return apiUser;
+			}
+			await sleep(1000);
+		}
 	}
 }
