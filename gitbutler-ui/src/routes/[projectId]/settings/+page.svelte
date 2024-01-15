@@ -11,6 +11,7 @@
 	import Spacer from '../../../lib/components/Spacer.svelte';
 	import type { Key, Project } from '$lib/backend/projects';
 	import ScrollableContainer from '../../../lib/components/ScrollableContainer.svelte';
+	import type { UserError } from '$lib/backend/ipc';
 
 	export let data: PageData;
 
@@ -37,7 +38,12 @@
 			.finally(() => (isDeleting = false));
 
 	const onKeysUpdated = (e: { detail: { preferred_key: Key } }) =>
-		projectService.updateProject({ ...$project$, ...e.detail });
+		projectService
+			.updateProject({ ...$project$, ...e.detail })
+			.then(() => toasts.success('Preferred key updated'))
+			.catch((e: UserError) => {
+				toasts.error(e.message);
+			});
 	const onCloudUpdated = (e: { detail: Project }) =>
 		projectService.updateProject({ ...$project$, ...e.detail });
 	const onPreferencesUpdated = (e: { detail: { ok_with_force_push: boolean } }) =>
