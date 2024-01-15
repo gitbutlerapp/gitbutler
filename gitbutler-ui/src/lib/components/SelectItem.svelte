@@ -6,12 +6,13 @@
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let selected = false;
 	export let loading = false;
+	export let value: string | undefined = undefined;
 
-	const dispatch = createEventDispatcher<{ click: void }>();
+	const dispatch = createEventDispatcher<{ click: string | undefined }>();
 </script>
 
-<button disabled={selected} class="button" class:selected on:click={() => dispatch('click')}>
-	<div class="label text-base-14 text-bold">
+<button disabled={selected} class="button" class:selected on:click={() => dispatch('click', value)}>
+	<div class="label text-base-13">
 		<slot />
 	</div>
 	{#if icon || selected}
@@ -31,7 +32,7 @@
 		align-items: center;
 		color: var(--clr-theme-scale-ntrl-10);
 		font-weight: 700;
-		padding: var(--space-10) var(--space-10);
+		padding: var(--space-8) var(--space-8);
 		justify-content: space-between;
 		border-radius: var(--radius-m);
 		width: 100%;
