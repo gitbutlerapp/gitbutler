@@ -3,6 +3,7 @@
 	import { invoke } from '$lib/backend/ipc';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { createEventDispatcher } from 'svelte';
+	import { debounce } from '$lib/utils/debounce';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
@@ -39,6 +40,7 @@
 		project.preferred_key === 'gitCredentialsHelper'
 			? ''
 			: project.preferred_key.local.private_key_path;
+
 	let privateKeyPassphrase =
 		project.preferred_key === 'generated' ||
 		project.preferred_key === 'default' ||
@@ -47,17 +49,19 @@
 			: project.preferred_key.local.passphrase;
 
 	function setLocalKey() {
-		dispatch('updated', {
-			preferred_key: {
-				local: {
-					private_key_path: privateKeyPath,
-					passphrase:
-						privateKeyPassphrase && privateKeyPassphrase.length > 0
-							? privateKeyPassphrase
-							: undefined
+		if (privateKeyPath.length) {
+			dispatch('updated', {
+				preferred_key: {
+					local: {
+						private_key_path: privateKeyPath,
+						passphrase:
+							privateKeyPassphrase && privateKeyPassphrase.length > 0
+								? privateKeyPassphrase
+								: undefined
+					}
 				}
-			}
-		});
+			});
+		}
 	}
 
 	function setGitCredentialsHelperKey() {
@@ -99,7 +103,7 @@
 			{/if}
 		</div>
 
-		<input type="radio" bind:group={selectedOption} value="local" on:input={setLocalKey} />
+		<input type="radio" bind:group={selectedOption} value="local" />
 		<div class="flex flex-col space-y-2">
 			<div>Use existing SSH key</div>
 
@@ -117,11 +121,15 @@
 					<TextBox
 						placeholder="for example: ~/.ssh/id_rsa"
 						bind:value={privateKeyPath}
-						on:change={setLocalKey}
+						on:input={debounce(setLocalKey, 600)}
 					/>
 
 					<label for="passphrase">Passphrase (optional)</label>
-					<TextBox password bind:value={privateKeyPassphrase} on:change={setLocalKey} />
+					<TextBox
+						password
+						bind:value={privateKeyPassphrase}
+						on:input={debounce(setLocalKey, 600)}
+					/>
 				</div>
 			{/if}
 		</div>
