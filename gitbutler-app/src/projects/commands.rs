@@ -13,6 +13,12 @@ use super::controller::{self, Controller};
 impl From<controller::UpdateError> for Error {
     fn from(value: controller::UpdateError) -> Self {
         match value {
+            controller::UpdateError::Validation(
+                controller::UpdateValidationError::KeyNotFound(path)
+            ) => Error::UserError {
+                code: Code::Projects,
+                message: format!("key '{}' not found", path.display()),
+            },
             controller::UpdateError::NotFound => Error::UserError {
                 code: Code::Projects,
                 message: "Project not found".into(),

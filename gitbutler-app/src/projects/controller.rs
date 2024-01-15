@@ -92,6 +92,16 @@ impl Controller {
     }
 
     pub async fn update(&self, project: &UpdateRequest) -> Result<Project, UpdateError> {
+        if let Some(super::AuthKey::Local { private_key_path, .. }) = &project.preferred_key {
+            use resolve_path::PathResolveExt;
+            let private_key_path = private_key_path.resolve();
+            if !private_key_path.exists() {
+                return Err(UpdateError::Validation(
+                    UpdateValidationError::KeyNotFound(private_key_path.to_path_buf()),
+                ));
+            }
+        }
+
         let updated = self
             .projects_storage
             .update(project)
@@ -203,7 +213,15 @@ pub enum UpdateError {
     #[error("project not found")]
     NotFound,
     #[error(transparent)]
+    Validation(UpdateValidationError),
+    #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum UpdateValidationError {
+    #[error("{0} not found")]
+    KeyNotFound(path::PathBuf),
 }
 
 #[derive(Debug, thiserror::Error)]
