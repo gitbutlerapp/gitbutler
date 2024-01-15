@@ -1,0 +1,2 @@
+This is entirely different text. There should be no similarities
+between them.
