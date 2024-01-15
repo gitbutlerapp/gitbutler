@@ -60,13 +60,13 @@ pub fn hunk_with_context(
         .parse::<isize>()
         .context("failed to parse unidiff header value for start line before")?
         .unsigned_abs()
-        - context_before.len();
+        .saturating_sub(context_before.len());
     let line_count_before = removed_count + context_before.len() + context_after.len();
     let start_line_after = header[1].split(',').collect::<Vec<_>>()[0]
         .parse::<isize>()
         .context("failed to parse unidiff header value for start line after")?
         .unsigned_abs()
-        - context_before.len();
+        .saturating_sub(context_before.len());
     let line_count_after = added_count + context_before.len() + context_after.len();
     let header = format!(
         "@@ -{},{} +{},{} @@",
