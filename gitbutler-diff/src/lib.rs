@@ -45,9 +45,6 @@
 #![deny(missing_docs)]
 #![feature(impl_trait_in_assoc_type, iter_map_windows, slice_as_chunks)]
 
-mod changeset;
-mod diff;
-mod hunk;
 mod linefile;
 mod signature;
 mod span;
@@ -55,8 +52,6 @@ mod span;
 #[cfg(feature = "mmap")]
 pub use self::linefile::mmap::MmapLineFile;
 pub use self::{
-    changeset::{Changeset, HunkConflict},
-    hunk::Hunk,
     linefile::{memory::MemoryLineFile, CrlfBehavior, LineEndings, LineFile},
     signature::Signature,
     span::LineSpan,
