@@ -28,9 +28,11 @@ pub fn hunk_with_context(
         if hunk_start_line > i {
             let idx = hunk_start_line - i - 1;
             if idx < file_lines_before.len() {
-                let mut s = file_lines_before[idx].to_string();
-                s.insert(0, ' ');
-                context_before.push(s);
+                if let Some(l) = file_lines_before.get(idx) {
+                    let mut s = (*l).to_string();
+                    s.insert(0, ' ');
+                    context_before.push(s);
+                }
             }
         }
     }
@@ -42,9 +44,11 @@ pub fn hunk_with_context(
     for i in 0..=end {
         let idx = hunk_start_line + removed_count + i - 1;
         if idx < file_lines_before.len() {
-            let mut s = file_lines_before[idx].to_string();
-            s.insert(0, ' ');
-            context_after.push(s);
+            if let Some(l) = file_lines_before.get(idx) {
+                let mut s = (*l).to_string();
+                s.insert(0, ' ');
+                context_after.push(s);
+            }
         }
     }
 
