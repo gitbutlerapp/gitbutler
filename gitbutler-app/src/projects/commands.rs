@@ -14,10 +14,16 @@ impl From<controller::UpdateError> for Error {
     fn from(value: controller::UpdateError) -> Self {
         match value {
             controller::UpdateError::Validation(
-                controller::UpdateValidationError::KeyNotFound(path)
+                controller::UpdateValidationError::KeyNotFound(path),
             ) => Error::UserError {
                 code: Code::Projects,
-                message: format!("key '{}' not found", path.display()),
+                message: format!("'{}' not found", path.display()),
+            },
+            controller::UpdateError::Validation(controller::UpdateValidationError::KeyNotFile(
+                path,
+            )) => Error::UserError {
+                code: Code::Projects,
+                message: format!("'{}' is not a file", path.display()),
             },
             controller::UpdateError::NotFound => Error::UserError {
                 code: Code::Projects,
