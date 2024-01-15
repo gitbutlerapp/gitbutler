@@ -14,6 +14,10 @@
 //! Otherwise, neither the length prefix imposed by `(de)serialize_bytes()` nor the
 //! terrible compaction and optimization of `(de)serialize_tuple()` are acceptable.
 
+// FIXME(qix-): There are a ton of identifiers in here that make no sense and
+// FIXME(qix-): were copied over from the exploratory data-science-ey code that
+// FIXME(qix-): need to be cleaned up. PR welcome!
+
 const BITS: usize = 3;
 const SHIFT: usize = 8 - BITS;
 const SIG_ENTRIES: usize = (1 << BITS) * (1 << BITS);
@@ -26,12 +30,18 @@ const TOTAL_BYTES: usize = SIG_BYTES + 4 + 1; // we encode a 4-byte length at th
 // NOTE: slices directly.
 type SigBucket = u16;
 
-/// Similarity signatures are fixed-width bigram histograms
-/// from the Sorenson-Dice coefficient algorithm. They act
-/// as fixed-length fingerprints for a file's contents,
-/// usable to check similarity between two hunks, using the
-/// fingerprint of the old hunk and the string contents
-/// of a new hunk.
+/// Similarity signatures are fixed-width bigram histograms from the
+/// [Sørensen-Dice coefficient algorithm](https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient).
+/// They act as fixed-length fingerprints for a file's contents, usable
+/// to check similarity between two hunks, using the fingerprint of the
+/// old hunk and the string contents of a new hunk.
+/// 
+/// This implementation is based on the crate [`strsim`](https://crates.io/crates/strsim),
+/// but has been modified to be two-step (first, create a signature from
+/// a string, then compare the signature to another string), as well as
+/// to use bytes instead of `char`s, quantize the input bytes, and then
+/// to use saturating arithmetic to avoid overflows and reduce total
+/// memory usage.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Signature([u8; TOTAL_BYTES]);
 
