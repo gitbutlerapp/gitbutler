@@ -13,11 +13,13 @@
 	export let readonly = false;
 	export let required = false;
 	export let password = false;
+	export let noselect = false;
+	export let element: HTMLElement | undefined = undefined;
 
 	const dispatch = createEventDispatcher<{ input: string; change: string }>();
 </script>
 
-<div class="textbox">
+<div class="textbox" bind:this={element}>
 	{#if label}
 		<label class="textbox__label font-base-13 text-semibold" for={id}>
 			{label}
@@ -37,23 +39,27 @@
 		{#if password}
 			<input
 				{id}
-				type="password"
-				class="textbox__input text-base-13"
-				{placeholder}
 				{readonly}
 				{required}
+				{placeholder}
+				type="password"
+				class="textbox__input text-base-13"
+				class:select-none={noselect}
 				bind:value
+				on:click
 				on:input={(e) => dispatch('input', e.currentTarget.value)}
 				on:change={(e) => dispatch('change', e.currentTarget.value)}
 			/>
 		{:else}
 			<input
 				{id}
-				class="textbox__input text-base-13"
-				{placeholder}
 				{readonly}
 				{required}
+				{placeholder}
+				class="textbox__input text-base-13"
+				class:select-none={noselect}
 				bind:value
+				on:click
 				on:input={(e) => dispatch('input', e.currentTarget.value)}
 				on:change={(e) => dispatch('change', e.currentTarget.value)}
 			/>
