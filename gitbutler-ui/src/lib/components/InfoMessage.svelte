@@ -9,7 +9,7 @@
 	import Button, { type ButtonColor } from './Button.svelte';
 
 	export let style: MessageStyle = 'neutral';
-	export let title: string | undefined;
+	export let title: string | undefined = undefined;
 	export let primary: string | undefined = undefined;
 	export let secondary: string | undefined = undefined;
 	export let shadow = false;

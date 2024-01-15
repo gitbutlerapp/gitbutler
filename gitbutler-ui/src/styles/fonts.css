@@ -2,3 +2,12 @@
 	font-family: 'PP Editorial New';
 	src: url('/fonts/PPEditorialNew-Regular.woff2') format('woff2');
 }
+
+@font-face {
+	src: url('/fonts/iosevka-bold.woff2') format('woff2');
+	font-family: 'Iosevka';
+	font-display: swap;
+	font-weight: 700;
+	font-stretch: normal;
+	font-style: normal;
+}

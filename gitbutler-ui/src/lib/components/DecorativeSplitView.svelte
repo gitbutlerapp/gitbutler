@@ -4,7 +4,7 @@
 	import ImgThemed from './ImgThemed.svelte';
 
 	export let user: User | undefined;
-	export let imgSet: { light: string; dark: string };
+	export let imgSet: { light: string; dark: string } | undefined = undefined;
 </script>
 
 <div class="decorative-split-view">
@@ -21,9 +21,11 @@
 				</div>
 			</div>
 
-			<div class="img-wrapper">
-				<ImgThemed {imgSet} />
-			</div>
+			{#if imgSet}
+				<div class="img-wrapper">
+					<ImgThemed {imgSet} />
+				</div>
+			{/if}
 
 			<div class="right-side__footer">
 				<div class="right-side__links">
@@ -56,7 +58,7 @@
 		align-items: center;
 		justify-content: center;
 		padding: var(--space-32) calc(var(--space-40) * 2);
-		flex: 1.3;
+		flex: 1;
 		background-color: var(--clr-theme-container-light);
 	}
 
@@ -69,7 +71,7 @@
 
 	.right-side {
 		flex: 1;
-		min-width: 560px;
+		min-width: 20rem;
 		background-color: var(--clr-theme-container-light);
 		padding: var(--space-20) var(--space-20) var(--space-20) 0;
 	}
@@ -136,6 +138,7 @@
 		transform: translate(-50%, -50%);
 		width: 100%;
 		max-width: 26.25rem;
+		overflow: hidden;
 	}
 
 	/* global */
