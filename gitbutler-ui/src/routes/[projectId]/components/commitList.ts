@@ -8,5 +8,5 @@ export function branchUrl(
 	const baseBranchName = target.branchName.split('/')[1];
 	const parts = upstreamBranchName.split('/');
 	const branchName = parts[parts.length - 1];
-	return `${target.repoBaseUrl}/compare/${baseBranchName}...${branchName}`;
+	return `${target.repoBaseUrl.trim()}/compare/${baseBranchName}...${branchName}`;
 }
