@@ -39,7 +39,7 @@ pub fn hunk_with_context(
     let end = context_lines - 1;
     for i in 0..=end {
         let idx = hunk_start_line + removed_count + i - 1;
-        if idx <= file_lines_before.len() {
+        if idx < file_lines_before.len() {
             let mut s = file_lines_before[idx].to_string();
             s.insert(0, ' ');
             context_after.push(s);
