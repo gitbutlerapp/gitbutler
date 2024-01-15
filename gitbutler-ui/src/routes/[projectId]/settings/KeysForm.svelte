@@ -49,7 +49,6 @@
 			: project.preferred_key.local.passphrase;
 
 	function setLocalKey() {
-		console.log({ privateKeyPath, privateKeyPassphrase });
 		if (privateKeyPath.length) {
 			dispatch('updated', {
 				preferred_key: {
