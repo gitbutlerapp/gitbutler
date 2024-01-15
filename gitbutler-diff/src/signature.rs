@@ -1,3 +1,19 @@
+//! A note about serialization:
+//!
+//! You may serialize the signature however you'd like; it's just a fixed-length byte array.
+//! We _would_ support `serde` but currently fixed-length arrays have terrible, quasi-non-existent
+//! support.
+//!
+//! Related issues:
+//!
+//! - https://github.com/serde-rs/serde/issues/2120
+//! - https://github.com/serde-rs/serde/issues/1937
+//! - https://github.com/serde-rs/serde/issues/1272
+//!
+//! If/when those are fixed, we should be able to (trivially) add `serde` support.
+//! Otherwise, neither the length prefix imposed by `(de)serialize_bytes()` nor the
+//! terrible compaction and optimization of `(de)serialize_tuple()` are acceptable.
+
 const BITS: usize = 3;
 const SHIFT: usize = 8 - BITS;
 const SIG_ENTRIES: usize = (1 << BITS) * (1 << BITS);
