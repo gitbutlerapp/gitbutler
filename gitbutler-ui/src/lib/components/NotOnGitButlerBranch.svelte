@@ -65,7 +65,7 @@
 						// if (baseBranch) branchController.setTarget(baseBranch.branchName);
 					}}
 				>
-					Switch to another project...
+					Switch to another project
 				</Button>
 			{/if}
 		</div>

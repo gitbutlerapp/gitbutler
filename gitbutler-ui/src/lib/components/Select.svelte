@@ -36,7 +36,7 @@
 
 <div class="select-wrapper" class:wide>
 	{#if label}
-		<label for={id} class="select__label text-base-body-13 text-semibold">{label}</label>
+		<label class="select__label text-base-body-13 text-semibold">{label}</label>
 	{/if}
 	<TextBox
 		{id}
@@ -95,6 +95,7 @@
 	}
 
 	.select__label {
+		text-align: left;
 		color: var(--clr-theme-scale-ntrl-50);
 	}
 
@@ -107,7 +108,7 @@
 		margin-top: var(--space-4);
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-theme-container-outline-light);
-		background: var(--container-light, #fff);
+		background: var(--clr-theme-container-light);
 		box-shadow: var(--fx-shadow-s);
 	}
 
