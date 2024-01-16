@@ -36,7 +36,7 @@
 
 <div class="select-wrapper" class:wide>
 	{#if label}
-		<label class="select__label text-base-body-13 text-semibold">{label}</label>
+		<label for={id} class="select__label text-base-body-13 text-semibold">{label}</label>
 	{/if}
 	<TextBox
 		{id}
