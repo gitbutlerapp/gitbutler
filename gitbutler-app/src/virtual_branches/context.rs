@@ -12,6 +12,17 @@ pub fn hunk_with_context(
         .lines()
         .map(std::string::ToString::to_string)
         .collect::<Vec<_>>();
+    if diff_lines.is_empty() {
+        #[allow(clippy::cast_possible_truncation)]
+        return Ok(diff::Hunk {
+            diff: hunk_diff.to_owned(),
+            old_start: hunk_start_line as u32,
+            old_lines: 0,
+            new_start: hunk_start_line as u32,
+            new_lines: 0,
+            binary: is_binary,
+        });
+    }
 
     let removed_count = diff_lines
         .iter()
@@ -202,6 +213,75 @@ mod tests {
         assert_eq!(with_ctx.old_lines, 5);
         assert_eq!(with_ctx.new_start, 10);
         assert_eq!(with_ctx.new_lines, 5);
+    }
+
+    #[test]
+    fn replace_with_more_lines() {
+        let hunk_diff = r#"@@ -8 +8,4 @@
+-serde = ["dep:serde", "uuid/serde"]
++one
++two
++three
++four
+"#;
+        let with_ctx = hunk_with_context(hunk_diff, 8, false, 3, &file_lines()).unwrap();
+        assert_eq!(
+            with_ctx.diff,
+            r#"@@ -5,7 +5,10 @@
+ 
+ [features]
+ default = ["serde", "rusqlite"]
+-serde = ["dep:serde", "uuid/serde"]
++one
++two
++three
++four
+ rusqlite = ["dep:rusqlite"]
+ 
+ [dependencies]
+"#
+        );
+        assert_eq!(with_ctx.old_start, 5);
+        assert_eq!(with_ctx.old_lines, 7);
+        assert_eq!(with_ctx.new_start, 5);
+        assert_eq!(with_ctx.new_lines, 10);
+    }
+
+    #[test]
+    fn replace_with_less_lines() {
+        let hunk_diff = r#"@@ -7,3 +7 @@
+-default = ["serde", "rusqlite"]
+-serde = ["dep:serde", "uuid/serde"]
+-rusqlite = ["dep:rusqlite"]
++foo = ["foo"]
+"#;
+        let with_ctx = hunk_with_context(hunk_diff, 7, false, 3, &file_lines()).unwrap();
+        assert_eq!(
+            with_ctx.diff,
+            r#"@@ -4,9 +4,7 @@
+ edition = "2021"
+ 
+ [features]
+-default = ["serde", "rusqlite"]
+-serde = ["dep:serde", "uuid/serde"]
+-rusqlite = ["dep:rusqlite"]
++foo = ["foo"]
+ 
+ [dependencies]
+ rusqlite = { workspace = true, optional = true }
+"#
+        );
+        assert_eq!(with_ctx.old_start, 4);
+        assert_eq!(with_ctx.old_lines, 9);
+        assert_eq!(with_ctx.new_start, 4);
+        assert_eq!(with_ctx.new_lines, 7);
+    }
+
+    #[test]
+    fn empty_string_doesnt_panic() {
+        let hunk_diff = "";
+        let with_ctx = hunk_with_context(hunk_diff, 1, false, 3, &file_lines()).unwrap();
+        assert_eq!(with_ctx.diff, "");
     }
 
     fn file_lines() -> Vec<&'static str> {
