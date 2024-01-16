@@ -5,13 +5,19 @@
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let selected = false;
+	export let disabled = false;
 	export let loading = false;
 	export let value: string | undefined = undefined;
 
 	const dispatch = createEventDispatcher<{ click: string | undefined }>();
 </script>
 
-<button disabled={selected} class="button" class:selected on:click={() => dispatch('click', value)}>
+<button
+	disabled={selected || disabled}
+	class="button"
+	class:selected
+	on:click={() => dispatch('click', value)}
+>
 	<div class="label text-base-13">
 		<slot />
 	</div>
