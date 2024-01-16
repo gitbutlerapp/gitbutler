@@ -18,7 +18,6 @@
 
 	$: projectService = data.projectService;
 	$: branchController = data.branchController;
-	$: updateService = data.updateService;
 	$: githubService = data.githubService;
 	$: vbranchService = data.vbranchService;
 	$: branchesError$ = vbranchService.branchesError$;
@@ -74,7 +73,7 @@
 	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$branchesError$} />
 {:else if $baseBranch$}
 	<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
-		<div bind:this={trayViewport} class="z-30 flex flex-shrink">
+		<div bind:this={trayViewport} class="flex flex-shrink">
 			{#if $project$}
 				<Navigation
 					{branchService}
@@ -82,7 +81,6 @@
 					{branchController}
 					project={$project$}
 					user={$user$}
-					update={updateService.update$}
 					{githubService}
 					{projectService}
 				/>
