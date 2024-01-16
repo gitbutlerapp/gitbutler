@@ -15,7 +15,13 @@
 	$: user$ = userService.user$;
 </script>
 
-<DecorativeSplitView user={$user$}>
+<DecorativeSplitView
+	user={$user$}
+	imgSet={{
+		light: '/images/img_repo-load-error-light.webp',
+		dark: '/images/img_repo-load-error-dark.webp'
+	}}
+>
 	<div class="problem" data-tauri-drag-region>
 		<p class="problem__project text-bold"><Icon name="repo-book" /> {project?.title}</p>
 		<p class="problem__title text-base-body-18 text-bold" data-tauri-drag-region>
