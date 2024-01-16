@@ -284,6 +284,48 @@ mod tests {
         assert_eq!(with_ctx.diff, "");
     }
 
+    #[test]
+    fn removed_file() {
+        let hunk_diff = r#"@@ -1,14 +0,0 @@
+-[package]
+-name = "gitbutler-core"
+-version = "0.0.0"
+-edition = "2021"
+-
+-[features]
+-default = ["serde", "rusqlite"]
+-serde = ["dep:serde", "uuid/serde"]
+-rusqlite = ["dep:rusqlite"]
+-
+-[dependencies]
+-rusqlite = { workspace = true, optional = true }
+-serde = { workspace = true, optional = true }
+-uuid = { workspace = true, features = ["v4", "fast-rng"] }
+"#;
+        let with_ctx = hunk_with_context(hunk_diff, 1, false, 3, &file_lines()).unwrap();
+        assert_eq!(with_ctx.diff, hunk_diff);
+        assert_eq!(with_ctx.old_start, 1);
+        assert_eq!(with_ctx.old_lines, 14);
+        assert_eq!(with_ctx.new_start, 0);
+        assert_eq!(with_ctx.new_lines, 0);
+    }
+    #[test]
+    fn new_file() {
+        let hunk_diff = "@@ -0,0 +1,5 @@
++line 1
++line 2
++line 3
++line 4
++line 5
+";
+        let with_ctx = hunk_with_context(hunk_diff, 1, false, 3, &Vec::new()).unwrap();
+        assert_eq!(with_ctx.diff, hunk_diff);
+        assert_eq!(with_ctx.old_start, 0);
+        assert_eq!(with_ctx.old_lines, 0);
+        assert_eq!(with_ctx.new_start, 1);
+        assert_eq!(with_ctx.new_lines, 5);
+    }
+
     fn file_lines() -> Vec<&'static str> {
         let file_lines_before = r#"[package]
 name = "gitbutler-core"
