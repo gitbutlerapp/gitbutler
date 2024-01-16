@@ -6,6 +6,7 @@
 	import type { PullRequest } from '$lib/github/types';
 	import type { GitHubService } from '$lib/github/service';
 	import toast from 'svelte-french-toast';
+	import { instrument } from '$lib/analytics/sentry';
 
 	export let branch: Branch;
 	export let type: CommitStatus;
@@ -28,16 +29,18 @@
 	}
 
 	async function createPr(): Promise<PullRequest | undefined> {
-		if (githubService.isEnabled() && base?.shortName) {
-			return await githubService.createPullRequest(
-				base.shortName,
-				branch.name,
-				branch.notes,
-				branch.id
-			);
-		} else {
-			console.log('Unable to create pull request');
-		}
+		return instrument('pull_request_create', async () => {
+			if (githubService.isEnabled() && base?.shortName) {
+				return await githubService.createPullRequest(
+					base.shortName,
+					branch.name,
+					branch.notes,
+					branch.id
+				);
+			} else {
+				console.log('Unable to create pull request');
+			}
+		});
 	}
 </script>
 
