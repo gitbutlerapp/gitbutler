@@ -7,9 +7,10 @@
 	import type iconsJson from '$lib/icons/icons.json';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let color: TagColor;
+	export let color: TagColor = 'neutral-light';
 	export let border = false;
 	export let filled = false;
+	export let disabled = false;
 	export let clickable = false;
 </script>
 
@@ -22,6 +23,7 @@
 	class:ghost={color == 'ghost'}
 	class:tag-border={border}
 	class:filled
+	class:disabled
 	class:not-button={!clickable}
 	on:click
 	role={clickable ? 'button' : undefined}
@@ -143,5 +145,11 @@
 
 	.not-button {
 		pointer-events: none;
+	}
+
+	.disabled {
+		pointer-events: none;
+		background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 10%, transparent);
+		color: var(--clr-core-ntrl-50);
 	}
 </style>
