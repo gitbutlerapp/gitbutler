@@ -157,6 +157,53 @@ mod tests {
         assert_eq!(with_ctx.new_lines, 5);
     }
 
+    #[test]
+    fn replace_line_start_file() {
+        let hunk_diff = "@@ -1 +1 @@
+-[package]
++[PACKAGE]
+";
+        let with_ctx = hunk_with_context(hunk_diff, 1, false, 3, &file_lines()).unwrap();
+        assert_eq!(
+            with_ctx.diff,
+            r#"@@ -1,4 +1,4 @@
+-[package]
++[PACKAGE]
+ name = "gitbutler-core"
+ version = "0.0.0"
+ edition = "2021"
+"#
+        );
+        assert_eq!(with_ctx.old_start, 1);
+        assert_eq!(with_ctx.old_lines, 4);
+        assert_eq!(with_ctx.new_start, 1);
+        assert_eq!(with_ctx.new_lines, 4);
+    }
+
+    #[test]
+    fn replace_line_bottom_file() {
+        let hunk_diff = "@@ -13 +13 @@
+-serde = { workspace = true, optional = true }
++SERDE = { workspace = true, optional = true }
+";
+        let with_ctx = hunk_with_context(hunk_diff, 13, false, 3, &file_lines()).unwrap();
+        assert_eq!(
+            with_ctx.diff,
+            r#"@@ -10,5 +10,5 @@
+ 
+ [dependencies]
+ rusqlite = { workspace = true, optional = true }
+-serde = { workspace = true, optional = true }
++SERDE = { workspace = true, optional = true }
+ uuid = { workspace = true, features = ["v4", "fast-rng"] }
+"#
+        );
+        assert_eq!(with_ctx.old_start, 10);
+        assert_eq!(with_ctx.old_lines, 5);
+        assert_eq!(with_ctx.new_start, 10);
+        assert_eq!(with_ctx.new_lines, 5);
+    }
+
     fn file_lines() -> Vec<&'static str> {
         let file_lines_before = r#"[package]
 name = "gitbutler-core"
