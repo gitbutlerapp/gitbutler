@@ -11,10 +11,11 @@
 	export let items: any[];
 	export let labelId = 'label';
 	export let itemId = 'value';
-	export let value: any;
+	export let value: any = undefined;
+	export let placeholder = '';
 
 	const SLOTS = $$props.$$slots;
-	const dispatch = createEventDispatcher<{ select: { item: any } }>();
+	const dispatch = createEventDispatcher<{ select: { value: any } }>();
 
 	let listOpen = false;
 	let element: HTMLElement;
@@ -24,7 +25,8 @@
 		if (item?.selectable === false) return;
 		if (value && value[itemId] === item[itemId]) return closeList();
 		value = item;
-		dispatch('select', { item: value });
+		dispatch('select', { value });
+		listOpen = false;
 	}
 
 	function closeList() {
@@ -38,14 +40,15 @@
 	{/if}
 	<TextBox
 		{id}
+		{placeholder}
 		noselect
 		readonly
-		value={value?.[labelId]}
-		bind:element
 		iconPosition="right"
-		disabled={disabled || loading}
-		on:click={() => (listOpen = !listOpen)}
 		icon="select-chevron"
+		value={value?.[labelId]}
+		disabled={disabled || loading}
+		bind:element
+		on:click={() => (listOpen = !listOpen)}
 	/>
 	<div
 		class="options card"
