@@ -43,6 +43,7 @@ export class UpdaterService {
 			}),
 			shareReplay(1)
 		);
+		// this.update$ = of({ enabled: true, shouldUpdate: true, version: '1.0.0', body: 'blah' });
 	}
 }
 

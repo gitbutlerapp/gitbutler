@@ -43,7 +43,7 @@
 </script>
 
 <div
-	class="navigation relative z-30 flex w-80 shrink-0 flex-col border-r"
+	class="navigation relative flex w-80 shrink-0 flex-col border-r"
 	style:width={$defaultTrayWidthRem ? $defaultTrayWidthRem + 'rem' : null}
 	bind:this={viewport}
 	role="menu"
