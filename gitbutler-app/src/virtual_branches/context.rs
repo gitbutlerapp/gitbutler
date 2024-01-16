@@ -103,3 +103,76 @@ pub fn hunk_with_context(
     };
     Ok(hunk)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn replace_line_mid_file() {
+        let hunk_diff = r#"@@ -8 +8 @@ default = ["serde", "rusqlite"]
+-serde = ["dep:serde", "uuid/serde"]
++SERDE = ["dep:serde", "uuid/serde"]
+"#;
+        let with_ctx = hunk_with_context(hunk_diff, 8, false, 3, &file_lines()).unwrap();
+        assert_eq!(
+            with_ctx.diff,
+            r#"@@ -5,7 +5,7 @@
+ 
+ [features]
+ default = ["serde", "rusqlite"]
+-serde = ["dep:serde", "uuid/serde"]
++SERDE = ["dep:serde", "uuid/serde"]
+ rusqlite = ["dep:rusqlite"]
+ 
+ [dependencies]
+"#
+        );
+        assert_eq!(with_ctx.old_start, 5);
+        assert_eq!(with_ctx.old_lines, 7);
+        assert_eq!(with_ctx.new_start, 5);
+        assert_eq!(with_ctx.new_lines, 7);
+    }
+
+    #[test]
+    fn replace_line_top_file() {
+        let hunk_diff = r#"@@ -2 +2 @@
+-name = "gitbutler-core"
++NAME = "gitbutler-core"
+"#;
+        let with_ctx = hunk_with_context(hunk_diff, 2, false, 3, &file_lines()).unwrap();
+        assert_eq!(
+            with_ctx.diff,
+            r#"@@ -1,5 +1,5 @@
+ [package]
+-name = "gitbutler-core"
++NAME = "gitbutler-core"
+ version = "0.0.0"
+ edition = "2021"
+ 
+"#
+        );
+        assert_eq!(with_ctx.old_start, 1);
+        assert_eq!(with_ctx.old_lines, 5);
+        assert_eq!(with_ctx.new_start, 1);
+        assert_eq!(with_ctx.new_lines, 5);
+    }
+
+    fn file_lines() -> Vec<&'static str> {
+        let file_lines_before = r#"[package]
+name = "gitbutler-core"
+version = "0.0.0"
+edition = "2021"
+
+[features]
+default = ["serde", "rusqlite"]
+serde = ["dep:serde", "uuid/serde"]
+rusqlite = ["dep:rusqlite"]
+
+[dependencies]
+rusqlite = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+uuid = { workspace = true, features = ["v4", "fast-rng"] }
+"#;
+        file_lines_before.lines().collect::<Vec<_>>()
+    }
+}
