@@ -16,7 +16,10 @@
 	onMount(() => {
 		updateImage();
 		observer = new MutationObserver(updateImage);
-		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+		observer.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ['style']
+		});
 	});
 
 	onDestroy(() => {

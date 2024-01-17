@@ -141,8 +141,8 @@
 			</div>
 			{#if selectedOption === 'generated'}
 				<div class="pr-8 text-sm text-light-700 dark:text-dark-200">
-					GitButler will use a locally generated SSH key. For this to work you <b>need</b> to add the
-					following public key to your Git remote provider:
+					GitButler will use a locally generated SSH key. For this to work you <b>need</b>
+					to add the following public key to your Git remote provider:
 				</div>
 				<div class="flex-auto overflow-y-scroll">
 					<input

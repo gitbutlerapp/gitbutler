@@ -56,7 +56,11 @@
 	</div>
 	<div
 		class="context-menu-container"
-		use:clickOutside={{ trigger: iconElt, handler: () => (visible = !visible), enabled: visible }}
+		use:clickOutside={{
+			trigger: iconElt,
+			handler: () => (visible = !visible),
+			enabled: visible
+		}}
 		bind:this={contextMenuContainer}
 		style:display={visible ? 'block' : 'none'}
 	>

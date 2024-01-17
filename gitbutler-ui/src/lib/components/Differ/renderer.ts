@@ -123,10 +123,16 @@ export function buildDiffRows(
 					continue;
 				}
 				if (type !== diff.Operation.Insert) {
-					deletionRows[deletionRows.length - 1].tokens.push({ text: lines[i], className });
+					deletionRows[deletionRows.length - 1].tokens.push({
+						text: lines[i],
+						className
+					});
 				}
 				if (type !== diff.Operation.Delete) {
-					insertionRows[insertionRows.length - 1].tokens.push({ text: lines[i], className });
+					insertionRows[insertionRows.length - 1].tokens.push({
+						text: lines[i],
+						className
+					});
 				}
 			}
 		}
