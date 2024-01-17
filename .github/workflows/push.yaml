@@ -77,3 +77,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-rust
       - run: cargo clippy --all-targets --all-features --tests
+      - run: cargo clippy --no-default-features --tests -p gitbutler-git
