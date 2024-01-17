@@ -6,13 +6,16 @@
 	import IconLink from './IconLink.svelte';
 	import Button from './Button.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
+	import { goto } from '$app/navigation';
 
 	export let projectService: ProjectService;
-	export let project: Project | undefined;
+	export let project: Project;
 	export let userService: UserService;
 	export let error: any = undefined;
 
 	$: user$ = userService.user$;
+
+	let loading = false;
 </script>
 
 <DecorativeSplitView
@@ -40,7 +43,22 @@
 		</div>
 
 		<div class="problem__delete">
-			<Button wide kind="outlined" color="error" icon="bin-small">
+			<Button
+				wide
+				on:click={() => {
+					loading = true;
+					try {
+						goto('/');
+						projectService.deleteProject(project.id);
+					} finally {
+						loading = false;
+					}
+				}}
+				{loading}
+				kind="outlined"
+				color="error"
+				icon="bin-small"
+			>
 				Remove project from GitButler
 			</Button>
 		</div>

@@ -43,24 +43,24 @@
 	});
 </script>
 
-{#if $baseBranch$ === null}
-	{#if $project$}
-		{#await getRemoteBranches(projectId)}
-			<p>loading...</p>
-		{:then remoteBranches}
-			{#if remoteBranches.length == 0}
-				<ProblemLoadingRepo
-					{userService}
-					{projectService}
-					project={$project$}
-					error="Currently, GitButler requires a remote branch to base it's virtual branch work on. To
+{#if !$project$}
+	<p>Project not found!</p>
+{:else if $baseBranch$ === null}
+	{#await getRemoteBranches(projectId)}
+		<p>loading...</p>
+	{:then remoteBranches}
+		{#if remoteBranches.length == 0}
+			<ProblemLoadingRepo
+				{userService}
+				{projectService}
+				project={$project$}
+				error="Currently, GitButler requires a remote branch to base it's virtual branch work on. To
 						use virtual branches, please push your code to a remote branch to use as a base"
-				/>
-			{:else}
-				<ProjectSetup {branchController} {userService} {projectId} {remoteBranches} />
-			{/if}
-		{/await}
-	{/if}
+			/>
+		{:else}
+			<ProjectSetup {branchController} {userService} {projectId} {remoteBranches} />
+		{/if}
+	{/await}
 {:else if !$gbBranchActive$}
 	<NotOnGitButlerBranch
 		{userService}
@@ -74,19 +74,15 @@
 {:else if $baseBranch$}
 	<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
 		<div bind:this={trayViewport} class="flex flex-shrink">
-			{#if $project$}
-				<Navigation
-					{branchService}
-					{baseBranchService}
-					{branchController}
-					project={$project$}
-					user={$user$}
-					{githubService}
-					{projectService}
-				/>
-			{:else}
-				<p>loading...</p>
-			{/if}
+			<Navigation
+				{branchService}
+				{baseBranchService}
+				{branchController}
+				project={$project$}
+				user={$user$}
+				{githubService}
+				{projectService}
+			/>
 		</div>
 		<div class="absolute h-4 w-full" data-tauri-drag-region></div>
 		<slot />

@@ -1,13 +1,11 @@
 <script>
-	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
 	import { goto } from '$app/navigation';
-
-	let className = '';
-	export { className as class };
+	import Button from './Button.svelte';
 </script>
 
-<button
-	class={className}
+<Button
+	kind="outlined"
+	color="neutral"
 	on:click={() => {
 		if (history.length > 0) {
 			history.back();
@@ -16,5 +14,5 @@
 		}
 	}}
 >
-	<IconChevronLeft />
-</button>
+	<slot />
+</Button>
