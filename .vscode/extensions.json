@@ -5,6 +5,7 @@
     "rust-lang.rust-analyzer",
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
-    "ZixuanChen.vitest-explorer"
+    "ZixuanChen.vitest-explorer",
+    "EditorConfig.EditorConfig"
   ]
 }
