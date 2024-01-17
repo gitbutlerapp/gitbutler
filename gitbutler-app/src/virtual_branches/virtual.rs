@@ -913,6 +913,7 @@ fn files_with_hunk_context(
                 } else {
                     let hunk_with_ctx = context::hunk_with_context(
                         &hunk.diff,
+                        None,
                         hunk.start as usize,
                         hunk.binary,
                         context_lines,
