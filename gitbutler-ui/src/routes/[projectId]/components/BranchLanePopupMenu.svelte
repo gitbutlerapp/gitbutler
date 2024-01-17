@@ -68,7 +68,7 @@
 		</ContextMenuSection>
 		<ContextMenuSection>
 			<ContextMenuItem
-				label="Create branch before"
+				label="Create branch to the left"
 				on:click={() => {
 					branchController.createBranch({ order: branch.order });
 					visible = false;
@@ -76,7 +76,7 @@
 			/>
 
 			<ContextMenuItem
-				label="Create branch after"
+				label="Create branch to the right"
 				on:click={() => {
 					branchController.createBranch({ order: branch.order + 1 });
 					visible = false;
