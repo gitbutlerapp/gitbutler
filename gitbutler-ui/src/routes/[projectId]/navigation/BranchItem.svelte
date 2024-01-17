@@ -5,6 +5,7 @@
 	import BranchIcon from './BranchIcon.svelte';
 	// import Icon from '$lib/icons/Icon.svelte';
 	import type { CombinedBranch } from '$lib/branches/types';
+	import AheadBehind from '../components/AheadBehind.svelte';
 
 	export let projectId: string;
 	export let branch: CombinedBranch;
@@ -25,9 +26,12 @@
 		<BranchIcon name={branch.icon} color={branch.color} />
 	{/if}
 	<div class="branch__info flex flex-col gap-2">
-		<p class="text-base-13 branch__name">
-			{branch.displayName}
-		</p>
+		<div class="branch__details">
+			<p class="text-base-13 branch__name">
+				{branch.displayName}
+			</p>
+			<AheadBehind ahead={branch.remoteBranch?.ahead} behind={branch.remoteBranch?.behind} />
+		</div>
 		<div class="branch__details">
 			<span class="branch__author text-base-11 details truncate">
 				<TimeAgo date={branch.modifiedAt} />
@@ -62,6 +66,7 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-6);
+		justify-content: space-between;
 	}
 
 	.branch__name {
@@ -72,7 +77,6 @@
 	}
 
 	.branch__author {
-		flex: 1;
 		color: var(--clr-theme-scale-ntrl-50);
 	}
 
