@@ -18,6 +18,8 @@ mod repository;
 
 pub(crate) mod prelude;
 
+#[cfg(feature = "cli")]
+pub use backend::cli;
 #[cfg(feature = "git2")]
 pub use backend::git2;
 

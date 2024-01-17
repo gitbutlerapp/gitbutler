@@ -1878,6 +1878,7 @@ dependencies = [
  "git2",
  "serde",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]

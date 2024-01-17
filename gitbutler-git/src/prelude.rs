@@ -1,2 +1,7 @@
 #[cfg(not(feature = "std"))]
-pub use alloc::string::{String, ToString};
+#[allow(unused_imports)]
+pub use alloc::{
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
