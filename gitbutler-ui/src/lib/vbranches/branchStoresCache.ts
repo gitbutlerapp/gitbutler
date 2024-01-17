@@ -1,6 +1,6 @@
 import { BaseBranch, Branch } from './types';
 import { plainToInstance } from 'class-transformer';
-import { UserError, invoke, listen } from '$lib/backend/ipc';
+import { invoke, listen } from '$lib/backend/ipc';
 import {
 	switchMap,
 	Observable,
@@ -51,7 +51,7 @@ export class VirtualBranchService {
 			}),
 			shareReplay(1),
 			catchError((err) => {
-				this.branchesError$.next(UserError.fromError(err));
+				this.branchesError$.next(err);
 				return [];
 			})
 		);

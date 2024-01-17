@@ -34,7 +34,7 @@
 	}
 </script>
 
-<div class="select-wrapper" class:wide>
+<div class="select-wrapper" class:wide bind:this={element}>
 	{#if label}
 		<label for={id} class="select__label text-base-body-13 text-semibold">{label}</label>
 	{/if}
@@ -47,7 +47,6 @@
 		icon="select-chevron"
 		value={value?.[labelId]}
 		disabled={disabled || loading}
-		bind:element
 		on:click={() => (listOpen = !listOpen)}
 	/>
 	<div

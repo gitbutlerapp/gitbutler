@@ -1,15 +1,17 @@
 <script async lang="ts">
-	import Button from '$lib/components/Button.svelte';
-	import type { BranchController } from '$lib/vbranches/branchController';
-	import { goto } from '$app/navigation';
-	import Login from '$lib/components/Login.svelte';
 	import type { UserService } from '$lib/stores/user';
-	import GithubIntegration from '../components/GithubIntegration.svelte';
+	import type { BranchController } from '$lib/vbranches/branchController';
+
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
-	import SetupFeature from './components/SetupFeature.svelte';
+
+	import Login from '$lib/components/Login.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import IconLink from '$lib/components/IconLink.svelte';
+	import BackButton from '$lib/components/BackButton.svelte';
+	import SetupFeature from './components/SetupFeature.svelte';
+	import GithubIntegration from '../components/GithubIntegration.svelte';
+	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 
 	export let branchController: BranchController;
 	export let userService: UserService;
@@ -171,7 +173,7 @@
 			</SetupFeature>
 		</div>
 		<div class="floating-buttons">
-			<Button kind="outlined" color="neutral" on:click={() => goto('/')}>Back</Button>
+			<BackButton>Back</BackButton>
 			<Button {loading} on:click={onSetTargetClick} icon="chevron-right-small" id="set-base-branch"
 				>Let's go!</Button
 			>

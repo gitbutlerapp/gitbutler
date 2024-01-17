@@ -27,13 +27,13 @@
 	const onDeleteClicked = () =>
 		Promise.resolve()
 			.then(() => (isDeleting = true))
+			.then(() => goto('/'))
 			.then(() => projectService.deleteProject($project$?.id))
 			.then(() => deleteConfirmationModal.close())
 			.catch((e) => {
 				console.error(e);
 				toasts.error('Failed to delete project');
 			})
-			.then(() => goto('/'))
 			.then(() => toasts.success('Project deleted'))
 			.finally(() => (isDeleting = false));
 
