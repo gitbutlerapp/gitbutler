@@ -1,0 +1,15 @@
+[package]
+name = "gitbutler-git"
+version = "0.0.0"
+edition = "2021"
+
+[features]
+default = ["git2", "serde"]
+git2 = ["dep:git2", "std"]
+serde = ["dep:serde"]
+std = []
+
+[dependencies]
+git2 = { workspace = true, optional = true }
+thiserror.workspace = true
+serde = { workspace = true, optional = true }
