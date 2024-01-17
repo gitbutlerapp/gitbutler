@@ -6,12 +6,10 @@
 	import type { GitHubService } from '$lib/github/service';
 	import Icon from '$lib/icons/Icon.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import SyncButton from './SyncButton.svelte';
 
 	export let project: Project;
-	export let branchController: BranchController;
 	export let baseBranchService: BaseBranchService;
 	export let githubService: GitHubService;
 
@@ -44,7 +42,6 @@
 			{/if}
 			<SyncButton
 				projectId={project.id}
-				{branchController}
 				{baseBranchService}
 				{githubService}
 				cloudEnabled={project?.api?.sync || false}

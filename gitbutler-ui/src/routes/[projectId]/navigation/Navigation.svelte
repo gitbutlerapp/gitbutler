@@ -55,7 +55,7 @@
 	<div class="domains">
 		<ProjectSelector {project} {projectService} />
 		<div class="flex flex-col gap-1">
-			<BaseBranchCard {project} {baseBranchService} {branchController} {githubService} />
+			<BaseBranchCard {project} {baseBranchService} {githubService} />
 			<DomainButton href={`/${project.id}/board`}>
 				<svg
 					width="16"

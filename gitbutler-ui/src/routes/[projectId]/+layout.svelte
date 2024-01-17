@@ -28,6 +28,7 @@
 
 	$: baseBranchService = data.baseBranchService;
 	$: baseBranch$ = baseBranchService.base$;
+	$: baseError$ = baseBranchService.error$;
 	$: gbBranchActive$ = data.gbBranchActive$;
 
 	$: user$ = data.user$;
@@ -61,7 +62,11 @@
 			<ProjectSetup {branchController} {userService} {projectId} {remoteBranches} />
 		{/if}
 	{/await}
-{:else if !$gbBranchActive$}
+{:else if $baseError$}
+	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$baseError$} />
+{:else if $branchesError$}
+	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$branchesError$} />
+{:else if !$gbBranchActive$ && $baseBranch$}
 	<NotOnGitButlerBranch
 		{userService}
 		{projectService}
@@ -69,8 +74,6 @@
 		project={$project$}
 		baseBranch={$baseBranch$}
 	/>
-{:else if $branchesError$}
-	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$branchesError$} />
 {:else if $baseBranch$}
 	<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
 		<div bind:this={trayViewport} class="flex flex-shrink">

@@ -1,4 +1,4 @@
-import type { BaseBranch, Hunk } from './types';
+import type { Hunk } from './types';
 import * as toasts from '$lib/utils/toasts';
 import { invoke } from '$lib/backend/ipc';
 import type { BaseBranchService, VirtualBranchService } from './branchStoresCache';
@@ -14,7 +14,7 @@ export class BranchController {
 
 	async setTarget(branch: string) {
 		try {
-			await invoke<BaseBranch>('set_base_branch', { projectId: this.projectId, branch });
+			await this.targetBranchService.setTarget(branch);
 			// TODO: Reloading seems to trigger 4 invocations of `list_virtual_branches`
 		} catch (err) {
 			toasts.error('Failed to set base branch');
@@ -197,18 +197,6 @@ export class BranchController {
 		} finally {
 			this.remoteBranchService.reload();
 			this.targetBranchService.reload();
-		}
-	}
-
-	async fetchFromTarget() {
-		try {
-			await invoke<void>('fetch_from_target', { projectId: this.projectId });
-		} catch (err: any) {
-			if (err.code === 'errors.git.authentication') {
-				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
-			} else {
-				toasts.error(`Failed to fetch branch: ${err.message}`);
-			}
 		}
 	}
 

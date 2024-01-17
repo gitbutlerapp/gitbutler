@@ -29,7 +29,6 @@
 			.then(() => (isDeleting = true))
 			.then(() => goto('/'))
 			.then(() => projectService.deleteProject($project$?.id))
-			.then(() => deleteConfirmationModal.close())
 			.catch((e) => {
 				console.error(e);
 				toasts.error('Failed to delete project');
