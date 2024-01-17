@@ -35,7 +35,7 @@ type SigBucket = u16;
 /// They act as fixed-length fingerprints for a file's contents, usable
 /// to check similarity between two hunks, using the fingerprint of the
 /// old hunk and the string contents of a new hunk.
-/// 
+///
 /// This implementation is based on the crate [`strsim`](https://crates.io/crates/strsim),
 /// but has been modified to be two-step (first, create a signature from
 /// a string, then compare the signature to another string), as well as
