@@ -46,6 +46,8 @@
 
 {#if !$project$}
 	<p>Project not found!</p>
+{:else if $baseError$}
+	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$baseError$} />
 {:else if $baseBranch$ === null}
 	{#await getRemoteBranches(projectId)}
 		<p>loading...</p>
@@ -62,8 +64,6 @@
 			<ProjectSetup {branchController} {userService} {projectId} {remoteBranches} />
 		{/if}
 	{/await}
-{:else if $baseError$}
-	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$baseError$} />
 {:else if $branchesError$}
 	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$branchesError$} />
 {:else if !$gbBranchActive$ && $baseBranch$}

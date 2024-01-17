@@ -58,8 +58,8 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 	// return new Promise<T>((resolve, reject) => {
 	// 	if (command.startsWith('apply')) {
 	// 		setTimeout(() => {
-	// 			reject('rejected');
-	// 		}, 2000);
+	// 			reject('testing the error page');
+	// 		}, 500);
 	// 	} else {
 	// 		resolve(invokeTauri<T>(command, params));
 	// 	}

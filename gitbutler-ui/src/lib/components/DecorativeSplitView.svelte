@@ -8,13 +8,13 @@
 </script>
 
 <div class="decorative-split-view">
-	<div class="left-side">
+	<div class="left-side" data-tauri-drag-region>
 		<div class="left-side__content">
 			<slot />
 		</div>
 	</div>
 	<div class="right-side">
-		<div class="right-side-wrapper">
+		<div class="right-side-wrapper" data-tauri-drag-region>
 			<div class="right-side__header">
 				<div class="account-button">
 					<AccountLink {user} pop />

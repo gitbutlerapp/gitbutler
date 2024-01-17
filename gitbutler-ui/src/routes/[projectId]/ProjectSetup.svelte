@@ -174,9 +174,9 @@
 		</div>
 		<div class="floating-buttons">
 			<BackButton>Back</BackButton>
-			<Button {loading} on:click={onSetTargetClick} icon="chevron-right-small" id="set-base-branch"
-				>Let's go!</Button
-			>
+			<Button {loading} on:click={onSetTargetClick} icon="chevron-right-small" id="set-base-branch">
+				Let's go!
+			</Button>
 		</div>
 	</div>
 	<svelte:fragment slot="links">

@@ -107,7 +107,7 @@ export class BaseBranchService {
 			shareReplay(1),
 			catchError((e) => {
 				this.error$.next(e);
-				return of(undefined);
+				return of(null);
 			})
 		);
 	}

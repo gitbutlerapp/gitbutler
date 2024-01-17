@@ -1,4 +1,5 @@
 <script lang="ts">
+	import * as toasts from '$lib/utils/toasts';
 	import type { Project, ProjectService } from '$lib/backend/projects';
 	import type { UserService } from '$lib/stores/user';
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
@@ -7,6 +8,7 @@
 	import Button from './Button.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import { goto } from '$app/navigation';
+	import Modal from './Modal.svelte';
 
 	export let projectService: ProjectService;
 	export let project: Project;
@@ -16,6 +18,23 @@
 	$: user$ = userService.user$;
 
 	let loading = false;
+	let deleteConfirmationModal: Modal;
+
+	async function onDeleteClicked() {
+		loading = true;
+		try {
+			deleteConfirmationModal.close();
+			await projectService.deleteProject(project.id);
+			toasts.success('Project deleted');
+			goto('/');
+		} catch (e) {
+			console.error(e);
+			toasts.error('Failed to delete project');
+		} finally {
+			loading = false;
+			projectService.reload();
+		}
+	}
 </script>
 
 <DecorativeSplitView
@@ -45,15 +64,7 @@
 		<div class="problem__delete">
 			<Button
 				wide
-				on:click={() => {
-					loading = true;
-					try {
-						goto('/');
-						projectService.deleteProject(project.id);
-					} finally {
-						loading = false;
-					}
-				}}
+				on:click={() => deleteConfirmationModal.show()}
 				{loading}
 				kind="outlined"
 				color="error"
@@ -70,6 +81,18 @@
 		<IconLink icon="video" href="https://www.youtube.com/@gitbutlerapp">Watch tutorial</IconLink>
 	</svelte:fragment>
 </DecorativeSplitView>
+
+<Modal bind:this={deleteConfirmationModal} title="Delete {project.title}?">
+	<p>
+		Are you sure you want to delete
+		<span class="font-bold">{project.title}</span>? This can’t be undone.
+	</p>
+
+	<svelte:fragment slot="controls" let:close>
+		<Button kind="outlined" on:click={close}>Cancel</Button>
+		<Button color="error" {loading} on:click={onDeleteClicked}>Delete project</Button>
+	</svelte:fragment>
+</Modal>
 
 <style lang="postcss">
 	.problem__project {

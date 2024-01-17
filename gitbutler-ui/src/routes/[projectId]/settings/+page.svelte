@@ -27,14 +27,17 @@
 	const onDeleteClicked = () =>
 		Promise.resolve()
 			.then(() => (isDeleting = true))
-			.then(() => goto('/'))
 			.then(() => projectService.deleteProject($project$?.id))
 			.catch((e) => {
 				console.error(e);
 				toasts.error('Failed to delete project');
 			})
 			.then(() => toasts.success('Project deleted'))
-			.finally(() => (isDeleting = false));
+			.then(() => goto('/'))
+			.finally(() => {
+				isDeleting = false;
+				projectService.reload();
+			});
 
 	const onKeysUpdated = (e: { detail: { preferred_key: Key } }) =>
 		projectService
