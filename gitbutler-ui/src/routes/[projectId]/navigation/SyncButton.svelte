@@ -4,18 +4,15 @@
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { GitHubService } from '$lib/github/service';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
-	export let branchController: BranchController;
 	export let githubService: GitHubService;
 	export let projectId: string;
 	export let baseBranchService: BaseBranchService;
 	export let cloudEnabled: boolean;
 
 	$: base$ = baseBranchService.base$;
-
-	let fetching = false;
+	$: baseServiceBusy$ = baseBranchService.busy$;
 </script>
 
 <button
@@ -23,34 +20,27 @@
 	on:click={async (e) => {
 		e.preventDefault();
 		e.stopPropagation();
-		fetching = true;
-		try {
-			if (cloudEnabled) syncToCloud(projectId); // don't wait for this
-			await branchController.fetchFromTarget();
-			if (githubService.isEnabled()) {
-				await githubService.reload();
-			}
-		} finally {
-			fetching = false;
+		if (cloudEnabled) syncToCloud(projectId); // don't wait for this
+		await baseBranchService.fetchFromTarget();
+		if (githubService.isEnabled()) {
+			await githubService.reload();
 		}
 	}}
 >
-	{#if !fetching}
+	{#if !$baseServiceBusy$}
 		<div class="sync-btn__icon">
 			<Icon name="update-small" />
 		</div>
 	{/if}
 
 	<Tooltip label="Last fetch from upstream">
-		{#if $base$?.lastFetched}
-			<span class="text-base-11 text-semibold sync-btn__label">
-				{#if fetching}
-					<div class="sync-btn__busy-label">busy…</div>
-				{:else}
-					<TimeAgo date={$base$?.lastFetched} />
-				{/if}
-			</span>
-		{/if}
+		<span class="text-base-11 text-semibold sync-btn__label">
+			{#if $baseServiceBusy$}
+				<div class="sync-btn__busy-label">busy…</div>
+			{:else if $base$?.lastFetched}
+				<TimeAgo date={$base$?.lastFetched} />
+			{/if}
+		</span>
 	</Tooltip>
 </button>
 

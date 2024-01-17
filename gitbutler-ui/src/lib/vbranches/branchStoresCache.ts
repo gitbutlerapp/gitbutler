@@ -1,3 +1,5 @@
+import * as toasts from '$lib/utils/toasts';
+
 import { BaseBranch, Branch } from './types';
 import { plainToInstance } from 'class-transformer';
 import { invoke, listen } from '$lib/backend/ipc';
@@ -85,23 +87,54 @@ function subscribeToVirtualBranches(projectId: string, callback: (branches: Bran
 }
 
 export class BaseBranchService {
-	base$: Observable<BaseBranch | null>;
+	base$: Observable<BaseBranch | null | undefined>;
+	busy$ = new BehaviorSubject(false);
 	error$ = new BehaviorSubject<any>(undefined);
 	private reload$ = new BehaviorSubject<void>(undefined);
 
-	constructor(projectId: string, fetches$: Observable<unknown>, head$: Observable<string>) {
+	constructor(
+		private projectId: string,
+		fetches$: Observable<unknown>,
+		head$: Observable<string>
+	) {
 		this.base$ = combineLatest([fetches$, head$, this.reload$]).pipe(
 			debounceTime(100),
-			switchMap(() => getBaseBranch({ projectId })),
+			switchMap(async () => {
+				this.busy$.next(true);
+				return await getBaseBranch({ projectId });
+			}),
+			tap(() => this.busy$.next(false)),
+			shareReplay(1),
 			catchError((e) => {
 				this.error$.next(e);
-				throw e;
-			}),
-			shareReplay(1)
+				return of(undefined);
+			})
 		);
 	}
 
+	async fetchFromTarget() {
+		this.busy$.next(true);
+		try {
+			// Note that we expect the back end to emit new fetches event, and therefore
+			// trigger a base branch reload. It feels a bit awkward and should be improved.
+			await invoke<void>('fetch_from_target', { projectId: this.projectId });
+		} catch (err: any) {
+			if (err.code === 'errors.git.authentication') {
+				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
+			} else {
+				toasts.error(`Failed to fetch branch: ${err.message}`);
+			}
+		}
+	}
+
+	async setTarget(branch: string) {
+		this.busy$.next(true);
+		await invoke<BaseBranch>('set_base_branch', { projectId: this.projectId, branch });
+		await this.fetchFromTarget();
+	}
+
 	reload() {
+		this.busy$.next(true);
 		this.reload$.next();
 	}
 }
