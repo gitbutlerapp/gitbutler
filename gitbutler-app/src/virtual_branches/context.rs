@@ -3,11 +3,13 @@ use anyhow::{Context, Result};
 
 pub fn hunk_with_context(
     hunk_diff: &str,
-    hunk_start_line: usize,
+    hunk_old_start_line: Option<usize>, // TODO: make this required
+    hunk_new_start_line: usize,
     is_binary: bool,
     context_lines: usize,
     file_lines_before: &[&str],
 ) -> Result<diff::Hunk> {
+    let hunk_old_start_line = hunk_old_start_line.unwrap_or(hunk_new_start_line);
     let diff_lines = hunk_diff
         .lines()
         .map(std::string::ToString::to_string)
@@ -16,9 +18,9 @@ pub fn hunk_with_context(
         #[allow(clippy::cast_possible_truncation)]
         return Ok(diff::Hunk {
             diff: hunk_diff.to_owned(),
-            old_start: hunk_start_line as u32,
+            old_start: hunk_old_start_line as u32,
             old_lines: 0,
-            new_start: hunk_start_line as u32,
+            new_start: hunk_new_start_line as u32,
             new_lines: 0,
             binary: is_binary,
         });
@@ -36,8 +38,10 @@ pub fn hunk_with_context(
     // Get context lines before the diff
     let mut context_before = Vec::new();
     for i in 1..=context_lines {
-        if hunk_start_line > i {
-            let idx = hunk_start_line - i - 1;
+        if hunk_new_start_line > i {
+            let idx = hunk_new_start_line
+                .max(hunk_old_start_line)
+                .saturating_sub(i + 1); // +1
             if idx < file_lines_before.len() {
                 if let Some(l) = file_lines_before.get(idx) {
                     let mut s = (*l).to_string();
@@ -53,7 +57,9 @@ pub fn hunk_with_context(
     let mut context_after = Vec::new();
     let end = context_lines - 1;
     for i in 0..=end {
-        let idx = hunk_start_line + removed_count + i - 1;
+        let idx = i
+            + hunk_new_start_line.min(hunk_old_start_line)
+            + removed_count.saturating_sub(added_count);
         if idx < file_lines_before.len() {
             if let Some(l) = file_lines_before.get(idx) {
                 let mut s = (*l).to_string();
@@ -71,17 +77,29 @@ pub fn hunk_with_context(
         .split(|c| c == ' ' || c == '@')
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>();
-    let start_line_before = header[0].split(',').collect::<Vec<_>>()[0]
+
+    let start_line_before_no_ctx = header[0].split(',').collect::<Vec<_>>()[0]
         .parse::<isize>()
         .context("failed to parse unidiff header value for start line before")?
-        .unsigned_abs()
-        .saturating_sub(context_before.len());
-    let line_count_before = removed_count + context_before.len() + context_after.len();
-    let start_line_after = header[1].split(',').collect::<Vec<_>>()[0]
+        .unsigned_abs();
+    let start_line_after_no_ctx = header[1].split(',').collect::<Vec<_>>()[0]
         .parse::<isize>()
         .context("failed to parse unidiff header value for start line after")?
-        .unsigned_abs()
+        .unsigned_abs();
+
+    let mut start_line_before = start_line_before_no_ctx
+        .max(start_line_after_no_ctx)
         .saturating_sub(context_before.len());
+    let mut start_line_after = start_line_before_no_ctx
+        .max(start_line_after_no_ctx)
+        .saturating_sub(context_before.len());
+    // if there is no context to add (entire file is added / removed), leave the header as is
+    if context_after.len() + context_after.len() == 0 {
+        start_line_before = start_line_before_no_ctx;
+        start_line_after = start_line_after_no_ctx;
+    }
+
+    let line_count_before = removed_count + context_before.len() + context_after.len();
     let line_count_after = added_count + context_before.len() + context_after.len();
     let header = format!(
         "@@ -{},{} +{},{} @@",
@@ -124,10 +142,8 @@ mod tests {
 -serde = ["dep:serde", "uuid/serde"]
 +SERDE = ["dep:serde", "uuid/serde"]
 "#;
-        let with_ctx = hunk_with_context(hunk_diff, 8, false, 3, &file_lines()).unwrap();
-        assert_eq!(
-            with_ctx.diff,
-            r#"@@ -5,7 +5,7 @@
+        let with_ctx = hunk_with_context(hunk_diff, None, 8, false, 3, &file_lines()).unwrap();
+        let expected = r#"@@ -5,7 +5,7 @@
  
  [features]
  default = ["serde", "rusqlite"]
@@ -136,8 +152,8 @@ mod tests {
  rusqlite = ["dep:rusqlite"]
  
  [dependencies]
-"#
-        );
+"#;
+        assert_eq!(with_ctx.diff, expected);
         assert_eq!(with_ctx.old_start, 5);
         assert_eq!(with_ctx.old_lines, 7);
         assert_eq!(with_ctx.new_start, 5);
@@ -150,7 +166,7 @@ mod tests {
 -name = "gitbutler-core"
 +NAME = "gitbutler-core"
 "#;
-        let with_ctx = hunk_with_context(hunk_diff, 2, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(hunk_diff, None, 2, false, 3, &file_lines()).unwrap();
         assert_eq!(
             with_ctx.diff,
             r#"@@ -1,5 +1,5 @@
@@ -174,7 +190,7 @@ mod tests {
 -[package]
 +[PACKAGE]
 ";
-        let with_ctx = hunk_with_context(hunk_diff, 1, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(hunk_diff, None, 1, false, 3, &file_lines()).unwrap();
         assert_eq!(
             with_ctx.diff,
             r#"@@ -1,4 +1,4 @@
@@ -197,7 +213,7 @@ mod tests {
 -serde = { workspace = true, optional = true }
 +SERDE = { workspace = true, optional = true }
 ";
-        let with_ctx = hunk_with_context(hunk_diff, 13, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(hunk_diff, None, 13, false, 3, &file_lines()).unwrap();
         assert_eq!(
             with_ctx.diff,
             r#"@@ -10,5 +10,5 @@
@@ -224,7 +240,7 @@ mod tests {
 +three
 +four
 "#;
-        let with_ctx = hunk_with_context(hunk_diff, 8, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(hunk_diff, None, 8, false, 3, &file_lines()).unwrap();
         assert_eq!(
             with_ctx.diff,
             r#"@@ -5,7 +5,10 @@
@@ -255,7 +271,7 @@ mod tests {
 -rusqlite = ["dep:rusqlite"]
 +foo = ["foo"]
 "#;
-        let with_ctx = hunk_with_context(hunk_diff, 7, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(hunk_diff, None, 7, false, 3, &file_lines()).unwrap();
         assert_eq!(
             with_ctx.diff,
             r#"@@ -4,9 +4,7 @@
@@ -280,7 +296,7 @@ mod tests {
     #[test]
     fn empty_string_doesnt_panic() {
         let hunk_diff = "";
-        let with_ctx = hunk_with_context(hunk_diff, 1, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(hunk_diff, None, 1, false, 3, &file_lines()).unwrap();
         assert_eq!(with_ctx.diff, "");
     }
 
@@ -302,7 +318,7 @@ mod tests {
 -serde = { workspace = true, optional = true }
 -uuid = { workspace = true, features = ["v4", "fast-rng"] }
 "#;
-        let with_ctx = hunk_with_context(hunk_diff, 1, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(hunk_diff, None, 1, false, 3, &file_lines()).unwrap();
         assert_eq!(with_ctx.diff, hunk_diff);
         assert_eq!(with_ctx.old_start, 1);
         assert_eq!(with_ctx.old_lines, 14);
@@ -318,12 +334,89 @@ mod tests {
 +line 4
 +line 5
 ";
-        let with_ctx = hunk_with_context(hunk_diff, 1, false, 3, &Vec::new()).unwrap();
+        let with_ctx = hunk_with_context(hunk_diff, None, 1, false, 3, &Vec::new()).unwrap();
         assert_eq!(with_ctx.diff, hunk_diff);
         assert_eq!(with_ctx.old_start, 0);
         assert_eq!(with_ctx.old_lines, 0);
         assert_eq!(with_ctx.new_start, 1);
         assert_eq!(with_ctx.new_lines, 5);
+    }
+
+    #[test]
+    fn only_add_lines() {
+        let hunk_diff = "@@ -8,0 +9,3 @@
++one
++two
++three
+";
+        let with_ctx = hunk_with_context(hunk_diff, Some(8), 9, false, 3, &file_lines()).unwrap();
+        let expected = r#"@@ -6,6 +6,9 @@
+ [features]
+ default = ["serde", "rusqlite"]
+ serde = ["dep:serde", "uuid/serde"]
++one
++two
++three
+ rusqlite = ["dep:rusqlite"]
+ 
+ [dependencies]
+"#;
+        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.old_start, 6);
+        assert_eq!(with_ctx.old_lines, 6);
+        assert_eq!(with_ctx.new_start, 6);
+        assert_eq!(with_ctx.new_lines, 9);
+    }
+
+    #[test]
+    fn only_remove_lines() {
+        let hunk_diff = r#"@@ -7,3 +6,0 @@
+-default = ["serde", "rusqlite"]
+-serde = ["dep:serde", "uuid/serde"]
+-rusqlite = ["dep:rusqlite"]
+"#;
+        let expected = r#"@@ -4,9 +4,6 @@
+ edition = "2021"
+ 
+ [features]
+-default = ["serde", "rusqlite"]
+-serde = ["dep:serde", "uuid/serde"]
+-rusqlite = ["dep:rusqlite"]
+ 
+ [dependencies]
+ rusqlite = { workspace = true, optional = true }
+"#;
+        let with_ctx = hunk_with_context(hunk_diff, Some(7), 6, false, 3, &file_lines()).unwrap();
+        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.old_start, 4);
+        assert_eq!(with_ctx.old_lines, 9);
+        assert_eq!(with_ctx.new_start, 4);
+        assert_eq!(with_ctx.new_lines, 6);
+    }
+
+    #[test]
+    fn weird_testcase() {
+        let hunk_diff = "@@ -11,2 +10,0 @@
+-
+-    @waiting_users = User.where(approved: false).count
+";
+        let with_ctx =
+            hunk_with_context(hunk_diff, Some(11), 10, false, 3, &file_lines_2()).unwrap();
+        let expected = "@@ -8,8 +8,6 @@
+                                  .order(:created_at)
+                                  .page params[:page]
+     @total = @registrations.total_count
+-
+-    @waiting_users = User.where(approved: false).count
+   end
+ 
+   def invite
+";
+        assert!(with_ctx.diff == expected);
+        assert_eq!(with_ctx.old_start, 8);
+        assert_eq!(with_ctx.old_lines, 8);
+        assert_eq!(with_ctx.new_start, 8);
+        assert_eq!(with_ctx.new_lines, 6);
     }
 
     fn file_lines() -> Vec<&'static str> {
@@ -341,6 +434,28 @@ rusqlite = ["dep:rusqlite"]
 rusqlite = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 uuid = { workspace = true, features = ["v4", "fast-rng"] }
+"#;
+        file_lines_before.lines().collect::<Vec<_>>()
+    }
+
+    fn file_lines_2() -> Vec<&'static str> {
+        let file_lines_before = r#"class Admin::WaitingController < Admin::AdminController
+  def index
+    @registrations = Registration.where(invited_at: nil)
+    if params[:q]
+      @registrations = @registrations.where("email LIKE ?", "%#{params[:q]}%")
+    end
+    @registrations = @registrations.includes(:invite_code)
+                                 .order(:created_at)
+                                 .page params[:page]
+    @total = @registrations.total_count
+
+    @waiting_users = User.where(approved: false).count
+  end
+
+  def invite
+    if params[:id]
+      @registrations = Registration.where(id: params[:id])
 "#;
         file_lines_before.lines().collect::<Vec<_>>()
     }

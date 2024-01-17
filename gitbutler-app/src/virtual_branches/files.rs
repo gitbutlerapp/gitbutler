@@ -77,6 +77,7 @@ fn files_with_hunk_context(
                 } else {
                     context::hunk_with_context(
                         &hunk.diff,
+                        Some(hunk.old_start as usize),
                         hunk.new_start as usize,
                         hunk.binary,
                         context_lines,
