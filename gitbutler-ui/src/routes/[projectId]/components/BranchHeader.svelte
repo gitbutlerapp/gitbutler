@@ -51,7 +51,10 @@
 					</div>
 					<div
 						class="branch-popup-menu"
-						use:clickOutside={{ trigger: meatballButton, handler: () => (visible = false) }}
+						use:clickOutside={{
+							trigger: meatballButton,
+							handler: () => (visible = false)
+						}}
 					>
 						<BranchLanePopupMenu {branchController} {branch} {projectId} bind:visible on:action />
 					</div>

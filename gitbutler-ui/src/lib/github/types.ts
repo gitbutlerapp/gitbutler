@@ -41,7 +41,11 @@ export function ghResponseToInstance(
 		| RestEndpointMethodTypes['pulls']['list']['response']['data'][number]
 ): PullRequest {
 	const labels: Label[] = pr.labels.map((label) => {
-		return { name: label.name, description: label.description || undefined, color: label.color };
+		return {
+			name: label.name,
+			description: label.description || undefined,
+			color: label.color
+		};
 	});
 
 	return {

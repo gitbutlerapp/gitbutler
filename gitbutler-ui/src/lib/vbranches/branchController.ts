@@ -65,7 +65,10 @@ export class BranchController {
 
 	async mergeUpstream(branch: string) {
 		try {
-			await invoke<void>('merge_virtual_branch_upstream', { projectId: this.projectId, branch });
+			await invoke<void>('merge_virtual_branch_upstream', {
+				projectId: this.projectId,
+				branch
+			});
 		} catch (err) {
 			toasts.error('Failed to merge upstream branch');
 		}
@@ -155,7 +158,11 @@ export class BranchController {
 
 	async pushBranch(branchId: string, withForce: boolean) {
 		try {
-			await invoke<void>('push_virtual_branch', { projectId: this.projectId, branchId, withForce });
+			await invoke<void>('push_virtual_branch', {
+				projectId: this.projectId,
+				branchId,
+				withForce
+			});
 		} catch (err: any) {
 			if (err.code === 'errors.git.authentication') {
 				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
