@@ -5,6 +5,6 @@
 
 	$: projectId = $page.params.projectId;
 	$: if (projectId) {
-		goto(`/${projectId}/base`);
+		goto(`/${projectId}/base`, { replaceState: true });
 	}
 </script>
