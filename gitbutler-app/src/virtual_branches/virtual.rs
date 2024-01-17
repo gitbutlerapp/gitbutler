@@ -330,19 +330,13 @@ pub fn apply_branch(
         } else {
             // branch was not pushed to upstream yet. attempt a rebase,
             let (_, committer) = project_repository.git_signatures(user)?;
-            let annotated_branch_head = repo
-                .find_annotated_commit(branch.head)
-                .context("failed to find annotated branch head commit")?;
-            let annotated_upstream_base = repo
-                .find_annotated_commit(target_commit.id())
-                .context("failed to find annotated target commit")?;
             let mut rebase_options = git2::RebaseOptions::new();
             rebase_options.quiet(true);
             rebase_options.inmemory(true);
             let mut rebase = repo
                 .rebase(
-                    Some(&annotated_branch_head),
-                    Some(&annotated_upstream_base),
+                    Some(branch.head),
+                    Some(target_commit.id()),
                     None,
                     Some(&mut rebase_options),
                 )
