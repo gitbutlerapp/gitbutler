@@ -31,7 +31,7 @@
 		<SelectItem
 			slot="template"
 			let:item
-			selected={item.id == project?.id}
+			selected={item.id == selectValue?.id}
 			disabled={item.id == project?.id}
 		>
 			{item.title}

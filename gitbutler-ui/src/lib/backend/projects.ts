@@ -83,7 +83,6 @@ export class ProjectService {
 
 	async deleteProject(id: string) {
 		await invoke('delete_project', { id });
-		this.reload();
 	}
 
 	async reload(): Promise<Project[]> {

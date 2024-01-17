@@ -12,12 +12,7 @@
 	const dispatch = createEventDispatcher<{ click: string | undefined }>();
 </script>
 
-<button
-	disabled={selected || disabled}
-	class="button"
-	class:selected
-	on:click={() => dispatch('click', value)}
->
+<button {disabled} class="button" class:selected on:click={() => dispatch('click', value)}>
 	<div class="label text-base-13">
 		<slot />
 	</div>
