@@ -6,8 +6,8 @@ use git2_hooks::HookResult;
 use crate::keys;
 
 use super::{
-    AnnotatedCommit, Blob, Branch, Commit, Config, Index, Oid, Reference, Refname, Remote, Result,
-    Signature, Tree, TreeBuilder, Url,
+    Blob, Branch, Commit, Config, Index, Oid, Reference, Refname, Remote, Result, Signature, Tree,
+    TreeBuilder, Url,
 };
 
 // wrapper around git2::Repository to get control over how it's used.
@@ -66,25 +66,36 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn find_annotated_commit(&self, id: Oid) -> Result<AnnotatedCommit<'_>> {
-        self.0
-            .find_annotated_commit(id.into())
-            .map(AnnotatedCommit::from)
-            .map_err(Into::into)
-    }
-
     pub fn rebase(
         &self,
-        branch: Option<&AnnotatedCommit<'_>>,
-        upstream: Option<&AnnotatedCommit<'_>>,
-        onto: Option<&AnnotatedCommit<'_>>,
+        branch_oid: Option<Oid>,
+        upstream_oid: Option<Oid>,
+        onto_oid: Option<Oid>,
         opts: Option<&mut git2::RebaseOptions<'_>>,
     ) -> Result<git2::Rebase<'_>> {
+        let annotated_branch = if let Some(branch) = branch_oid {
+            Some(self.0.find_annotated_commit(branch.into())?)
+        } else {
+            None
+        };
+
+        let annotated_upstream = if let Some(upstream) = upstream_oid {
+            Some(self.0.find_annotated_commit(upstream.into())?)
+        } else {
+            None
+        };
+
+        let annotated_onto = if let Some(onto) = onto_oid {
+            Some(self.0.find_annotated_commit(onto.into())?)
+        } else {
+            None
+        };
+
         self.0
             .rebase(
-                branch.map(Into::into),
-                upstream.map(Into::into),
-                onto.map(Into::into),
+                annotated_branch.as_ref(),
+                annotated_upstream.as_ref(),
+                annotated_onto.as_ref(),
                 opts,
             )
             .map_err(Into::into)
