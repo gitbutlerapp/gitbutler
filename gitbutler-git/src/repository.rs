@@ -21,7 +21,7 @@ pub enum ConfigScope {
 /// A handle to an open Git repository.
 pub trait Repository {
     /// The type of error returned by this repository.
-    type Error: core::error::Error + Send + Sync + 'static;
+    type Error: core::error::Error + core::fmt::Debug + Send + Sync + 'static;
 
     /// Reads a configuration value.
     ///

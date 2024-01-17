@@ -4,12 +4,15 @@ version = "0.0.0"
 edition = "2021"
 
 [features]
-default = ["git2", "serde"]
+default = ["git2", "cli", "serde", "tokio"]
+cli = ["std"]
 git2 = ["dep:git2", "std"]
 serde = ["dep:serde"]
-std = []
+std = ["dep:thiserror"]
+tokio = ["dep:tokio"]
 
 [dependencies]
 git2 = { workspace = true, optional = true }
-thiserror.workspace = true
+thiserror = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true, features = ["process"]}
