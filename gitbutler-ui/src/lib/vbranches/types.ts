@@ -1,14 +1,13 @@
 import 'reflect-metadata';
 import { Type, Transform } from 'class-transformer';
 
-export enum ChangeType {
+export type ChangeType =
 	/// Entry does not exist in old version
-	added,
+	| 'added'
 	/// Entry does not exist in new version
-	deleted,
+	| 'deleted'
 	/// Entry content changed between old and new
-	modified
-}
+	| 'modified';
 
 export class Hunk {
 	id!: string;

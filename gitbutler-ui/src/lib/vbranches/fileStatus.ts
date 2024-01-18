@@ -17,9 +17,12 @@ export function computedAddedRemoved(...files: File[]) {
 
 export function computeFileStatus(file: File): FileStatus {
 	if (file.hunks.length == 1) {
-		const diff = file.hunks[0].diff;
-		if (/^@@ -0,0 /.test(diff)) return 'A';
-		if (/^@@ -\d+,\d+ \+0,0/.test(diff)) return 'D';
+		const changeType = file.hunks[0].changeType;
+		if (changeType == 'added') {
+			return 'A';
+		} else if (changeType == 'deleted') {
+			return 'D';
+		}
 	}
 	return 'M';
 }
