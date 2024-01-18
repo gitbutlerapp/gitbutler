@@ -16,8 +16,8 @@
 	}
 	.ahead,
 	.behind {
-		min-width: 12px;
-		padding: 2px;
+		min-width: var(--space-12);
+		padding: var(--space-2);
 		text-align: center;
 	}
 	.ahead {
