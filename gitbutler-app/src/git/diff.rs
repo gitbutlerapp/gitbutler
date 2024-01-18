@@ -10,43 +10,26 @@ use super::Repository;
 /// The type of change
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ChangeType {
-    /// No changes
-    Unmodified,
     /// Entry does not exist in old version
     Added,
     /// Entry does not exist in new version
     Deleted,
     /// Entry content changed between old and new
     Modified,
-    /// Entry was renamed between old and new
-    Renamed,
-    /// Entry was copied from another old entry
-    Copied,
-    /// Entry is ignored item in workdir
-    Ignored,
-    /// Entry is untracked item in workdir
-    Untracked,
-    /// Type of entry changed between old and new
-    Typechange,
-    /// Entry is unreadable
-    Unreadable,
-    /// Entry in the index is conflicted
-    Conflicted,
 }
 impl From<git2::Delta> for ChangeType {
     fn from(v: git2::Delta) -> Self {
+        use git2::Delta as D;
+        use ChangeType as C;
         match v {
-            git2::Delta::Unmodified => ChangeType::Unmodified,
-            git2::Delta::Added => ChangeType::Added,
-            git2::Delta::Deleted => ChangeType::Deleted,
-            git2::Delta::Modified => ChangeType::Modified,
-            git2::Delta::Renamed => ChangeType::Renamed,
-            git2::Delta::Copied => ChangeType::Copied,
-            git2::Delta::Ignored => ChangeType::Ignored,
-            git2::Delta::Untracked => ChangeType::Untracked,
-            git2::Delta::Typechange => ChangeType::Typechange,
-            git2::Delta::Unreadable => ChangeType::Unreadable,
-            git2::Delta::Conflicted => ChangeType::Conflicted,
+            D::Untracked | D::Added => C::Added,
+            D::Modified
+            | D::Unmodified
+            | D::Renamed
+            | D::Copied
+            | D::Typechange
+            | D::Conflicted => C::Modified,
+            D::Ignored | D::Unreadable | D::Deleted => C::Deleted,
         }
     }
 }
@@ -265,7 +248,7 @@ fn hunks_by_filepath(
                         new_lines: 0,
                         diff: String::new(),
                         binary: false,
-                        change_type: ChangeType::Unmodified,
+                        change_type: ChangeType::Modified,
                     }],
                 )
             } else {
@@ -299,7 +282,7 @@ mod tests {
                 new_lines: 1,
                 diff: "@@ -0,0 +1 @@\n+hello\n\\ No newline at end of file\n".to_string(),
                 binary: false,
-                change_type: ChangeType::Untracked,
+                change_type: ChangeType::Modified,
             }]
         );
     }
@@ -322,7 +305,7 @@ mod tests {
                 new_lines: 0,
                 diff: String::new(),
                 binary: false,
-                change_type: ChangeType::Unmodified,
+                change_type: ChangeType::Modified,
             }]
         );
     }
@@ -346,7 +329,7 @@ mod tests {
                 new_lines: 0,
                 diff: String::new(),
                 binary: false,
-                change_type: ChangeType::Unmodified,
+                change_type: ChangeType::Modified,
             }]
         );
         assert_eq!(
@@ -358,7 +341,7 @@ mod tests {
                 new_lines: 0,
                 diff: String::new(),
                 binary: false,
-                change_type: ChangeType::Unmodified,
+                change_type: ChangeType::Modified,
             }]
         );
     }
@@ -389,7 +372,7 @@ mod tests {
                 new_lines: 0,
                 diff: "71ae6e216f38164b6633e25d35abb043c3785af6".to_string(),
                 binary: true,
-                change_type: ChangeType::Untracked,
+                change_type: ChangeType::Modified,
             }]
         );
     }
@@ -432,7 +415,7 @@ mod tests {
                 new_lines: 0,
                 diff: "3fc41b9ae6836a94f41c78b4ce69d78b6e7080f1".to_string(),
                 binary: true,
-                change_type: ChangeType::Untracked,
+                change_type: ChangeType::Modified,
             }]
         );
     }
