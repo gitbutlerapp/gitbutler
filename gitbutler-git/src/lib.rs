@@ -12,6 +12,11 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
+#[cfg(test)]
+mod integration_tests;
+#[cfg(test)]
+pub(crate) use integration_tests::*;
+
 mod backend;
 pub mod ops;
 mod repository;
