@@ -1,13 +1,20 @@
 <script lang="ts">
+	import Tooltip from '$lib/components/Tooltip.svelte';
+
 	export let ahead: number | undefined;
 	export let behind: number | undefined;
+
+	$: behindMessage = `${behind} commit${behind != 1 ? 's' : ''} behind`;
+	$: aheadMessage = `${ahead} commit${ahead != 1 ? 's' : ''} ahead`;
 </script>
 
 {#if ahead !== undefined && behind !== undefined}
-	<div class="ahead-behind text-base-9 text-bold">
-		<div class="behind" class:neutral={behind == 0}>{behind == 0 ? '0' : '-' + behind}</div>
-		<div class="ahead" class:neutral={ahead == 0}>{ahead == 0 ? '0' : '+' + ahead}</div>
-	</div>
+	<Tooltip label={`This branch is ${behindMessage} and ${aheadMessage}`}>
+		<div class="ahead-behind text-base-9 text-bold">
+			<div class="behind" class:neutral={behind == 0}>{behind == 0 ? '0' : '-' + behind}</div>
+			<div class="ahead" class:neutral={ahead == 0}>{ahead == 0 ? '0' : '+' + ahead}</div>
+		</div>
+	</Tooltip>
 {/if}
 
 <style lang="postcss">
