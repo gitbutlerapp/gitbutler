@@ -12,12 +12,11 @@
 	let initialName = name;
 
 	let mesureEl: HTMLSpanElement;
-	let inputPadding = 10;
 	let inputWidth = 0;
 
 	$: {
 		if (mesureEl) {
-			inputWidth = mesureEl.getBoundingClientRect().width + inputPadding;
+			inputWidth = mesureEl.getBoundingClientRect().width;
 		}
 	}
 </script>
@@ -31,7 +30,7 @@
 		on:change
 		on:input={() => {
 			if (input.value.length > 0) {
-				inputWidth = mesureEl.getBoundingClientRect().width + inputPadding;
+				inputWidth = mesureEl.getBoundingClientRect().width;
 			} else {
 				inputWidth = 0;
 			}
@@ -55,7 +54,7 @@
 		autocomplete="off"
 		autocorrect="off"
 		spellcheck="false"
-		style={`width: ${inputWidth}px`}
+		style={`width: calc(${inputWidth}px + var(--space-12))`}
 	/>
 {:else}
 	<div

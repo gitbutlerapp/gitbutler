@@ -28,8 +28,6 @@
 	.behind {
 		border-right: 1px solid var(--clr-theme-container-outline-light);
 	}
-	.ahead {
-	}
 	.neutral {
 		color: var(--clr-theme-scale-ntrl-50);
 	}
