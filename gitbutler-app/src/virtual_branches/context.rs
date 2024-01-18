@@ -8,6 +8,7 @@ pub fn hunk_with_context(
     is_binary: bool,
     context_lines: usize,
     file_lines_before: &[&str],
+    change_type: diff::ChangeType,
 ) -> Result<diff::Hunk> {
     let hunk_old_start_line = hunk_old_start_line.unwrap_or(hunk_new_start_line);
     let diff_lines = hunk_diff
@@ -23,6 +24,7 @@ pub fn hunk_with_context(
             new_start: hunk_new_start_line as u32,
             new_lines: 0,
             binary: is_binary,
+            change_type,
         });
     }
 
@@ -129,6 +131,7 @@ pub fn hunk_with_context(
         new_start: start_line_after as u32,
         new_lines: line_count_after as u32,
         binary: is_binary,
+        change_type,
     };
     Ok(hunk)
 }
@@ -142,7 +145,16 @@ mod tests {
 -serde = ["dep:serde", "uuid/serde"]
 +SERDE = ["dep:serde", "uuid/serde"]
 "#;
-        let with_ctx = hunk_with_context(hunk_diff, None, 8, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            None,
+            8,
+            false,
+            3,
+            &file_lines(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
         let expected = r#"@@ -5,7 +5,7 @@
  
  [features]
@@ -166,7 +178,16 @@ mod tests {
 -name = "gitbutler-core"
 +NAME = "gitbutler-core"
 "#;
-        let with_ctx = hunk_with_context(hunk_diff, None, 2, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            None,
+            2,
+            false,
+            3,
+            &file_lines(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
         assert_eq!(
             with_ctx.diff,
             r#"@@ -1,5 +1,5 @@
@@ -190,7 +211,16 @@ mod tests {
 -[package]
 +[PACKAGE]
 ";
-        let with_ctx = hunk_with_context(hunk_diff, None, 1, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            None,
+            1,
+            false,
+            3,
+            &file_lines(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
         assert_eq!(
             with_ctx.diff,
             r#"@@ -1,4 +1,4 @@
@@ -213,7 +243,16 @@ mod tests {
 -serde = { workspace = true, optional = true }
 +SERDE = { workspace = true, optional = true }
 ";
-        let with_ctx = hunk_with_context(hunk_diff, None, 13, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            None,
+            13,
+            false,
+            3,
+            &file_lines(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
         assert_eq!(
             with_ctx.diff,
             r#"@@ -10,5 +10,5 @@
@@ -240,7 +279,16 @@ mod tests {
 +three
 +four
 "#;
-        let with_ctx = hunk_with_context(hunk_diff, None, 8, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            None,
+            8,
+            false,
+            3,
+            &file_lines(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
         assert_eq!(
             with_ctx.diff,
             r#"@@ -5,7 +5,10 @@
@@ -271,7 +319,16 @@ mod tests {
 -rusqlite = ["dep:rusqlite"]
 +foo = ["foo"]
 "#;
-        let with_ctx = hunk_with_context(hunk_diff, None, 7, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            None,
+            7,
+            false,
+            3,
+            &file_lines(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
         assert_eq!(
             with_ctx.diff,
             r#"@@ -4,9 +4,7 @@
@@ -296,7 +353,16 @@ mod tests {
     #[test]
     fn empty_string_doesnt_panic() {
         let hunk_diff = "";
-        let with_ctx = hunk_with_context(hunk_diff, None, 1, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            None,
+            1,
+            false,
+            3,
+            &file_lines(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
         assert_eq!(with_ctx.diff, "");
     }
 
@@ -318,7 +384,16 @@ mod tests {
 -serde = { workspace = true, optional = true }
 -uuid = { workspace = true, features = ["v4", "fast-rng"] }
 "#;
-        let with_ctx = hunk_with_context(hunk_diff, None, 1, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            None,
+            1,
+            false,
+            3,
+            &file_lines(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
         assert_eq!(with_ctx.diff, hunk_diff);
         assert_eq!(with_ctx.old_start, 1);
         assert_eq!(with_ctx.old_lines, 14);
@@ -334,7 +409,16 @@ mod tests {
 +line 4
 +line 5
 ";
-        let with_ctx = hunk_with_context(hunk_diff, None, 1, false, 3, &Vec::new()).unwrap();
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            None,
+            1,
+            false,
+            3,
+            &Vec::new(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
         assert_eq!(with_ctx.diff, hunk_diff);
         assert_eq!(with_ctx.old_start, 0);
         assert_eq!(with_ctx.old_lines, 0);
@@ -349,7 +433,16 @@ mod tests {
 +two
 +three
 ";
-        let with_ctx = hunk_with_context(hunk_diff, Some(8), 9, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            Some(8),
+            9,
+            false,
+            3,
+            &file_lines(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
         let expected = r#"@@ -6,6 +6,9 @@
  [features]
  default = ["serde", "rusqlite"]
@@ -386,7 +479,16 @@ mod tests {
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 "#;
-        let with_ctx = hunk_with_context(hunk_diff, Some(7), 6, false, 3, &file_lines()).unwrap();
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            Some(7),
+            6,
+            false,
+            3,
+            &file_lines(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
         assert_eq!(with_ctx.diff, expected);
         assert_eq!(with_ctx.old_start, 4);
         assert_eq!(with_ctx.old_lines, 9);
@@ -400,8 +502,16 @@ mod tests {
 -
 -    @waiting_users = User.where(approved: false).count
 ";
-        let with_ctx =
-            hunk_with_context(hunk_diff, Some(11), 10, false, 3, &file_lines_2()).unwrap();
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            Some(11),
+            10,
+            false,
+            3,
+            &file_lines_2(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
         let expected = "@@ -8,8 +8,6 @@
                                   .order(:created_at)
                                   .page params[:page]
