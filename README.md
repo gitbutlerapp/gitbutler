@@ -37,8 +37,8 @@
 [l5]: https://www.youtube.com/@gitbutlerapp
 
 GitButler is an open source [Tauri](https://tauri.app/)-based
-Git client. It's UI is written in [Svelte](https://svelte.dev/) using [TypeScript](https://www.typescriptlang.org)
-and it's backend is written in [Rust](https://www.rust-lang.org/).
+Git client. Its UI is written in [Svelte](https://svelte.dev/) using [TypeScript](https://www.typescriptlang.org)
+and its backend is written in [Rust](https://www.rust-lang.org/).
 
 ## Why GitButler?
 
