@@ -283,7 +283,7 @@ mod tests {
                 new_lines: 1,
                 diff: "@@ -0,0 +1 @@\n+hello\n\\ No newline at end of file\n".to_string(),
                 binary: false,
-                change_type: ChangeType::Modified,
+                change_type: ChangeType::Added,
             }]
         );
     }
@@ -373,7 +373,7 @@ mod tests {
                 new_lines: 0,
                 diff: "71ae6e216f38164b6633e25d35abb043c3785af6".to_string(),
                 binary: true,
-                change_type: ChangeType::Modified,
+                change_type: ChangeType::Added,
             }]
         );
     }
@@ -416,7 +416,7 @@ mod tests {
                 new_lines: 0,
                 diff: "3fc41b9ae6836a94f41c78b4ce69d78b6e7080f1".to_string(),
                 binary: true,
-                change_type: ChangeType::Modified,
+                change_type: ChangeType::Added,
             }]
         );
     }
