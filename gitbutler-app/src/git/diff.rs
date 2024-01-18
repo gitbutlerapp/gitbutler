@@ -9,6 +9,7 @@ use super::Repository;
 
 /// The type of change
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ChangeType {
     /// Entry does not exist in old version
     Added,
