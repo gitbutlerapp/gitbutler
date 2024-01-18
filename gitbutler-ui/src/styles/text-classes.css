@@ -58,6 +58,13 @@
 	line-height: var(--base-line-height);
 }
 
+.text-base-15 {
+	font-family: var(--base-font-family);
+	font-size: 0.938rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--base-line-height);
+}
+
 .text-base-16 {
 	font-family: var(--base-font-family);
 	font-size: 1rem;
@@ -104,6 +111,13 @@
 .text-base-body-14 {
 	font-family: var(--base-font-family);
 	font-size: 0.875rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--text-body-line-height);
+}
+
+.text-base-body-15 {
+	font-family: var(--base-font-family);
+	font-size: 0.938rem;
 	font-weight: var(--base-font-weight);
 	line-height: var(--text-body-line-height);
 }

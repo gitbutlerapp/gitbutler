@@ -27,6 +27,7 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import BranchCommits from './BranchCommits.svelte';
 	import type { Project } from '$lib/backend/projects';
+	import ImgThemed from '$lib/components/ImgThemed.svelte';
 
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
 
@@ -217,13 +218,39 @@
 				{/if}
 			{:else if branch.commits.length == 0}
 				<div class="new-branch" data-dnd-ignore>
-					<h1 class="text-base-16 text-semibold">This is a new branch. Let's start creating!</h1>
-					<p class="px-12">Get some work done, then throw some files my way!</p>
+					<div class="new-branch__content">
+						<div class="new-branch__image">
+							<ImgThemed
+								imgSet={{
+									light: '/images/lane-new-light.webp',
+									dark: '/images/lane-new-dark.webp'
+								}}
+							/>
+						</div>
+						<h2 class="new-branch__title text-base-body-15 text-semibold">
+							This is a new branch.<br />Let's start creating!
+						</h2>
+						<p class="new-branch__caption text-base-body-12">
+							Get some work done,<br />then throw some files my way
+						</p>
+					</div>
 				</div>
 			{:else}
 				<!-- attention: these markers have custom css at the bottom of thise file -->
 				<div class="no-changes" data-dnd-ignore>
-					<h1 class="text-base-16 text-semibold">No uncommitted changes on this branch</h1>
+					<div class="new-branch__content">
+						<div class="new-branch__image">
+							<ImgThemed
+								imgSet={{
+									light: '/images/lane-no-changes-light.webp',
+									dark: '/images/lane-no-changes-dark.webp'
+								}}
+							/>
+						</div>
+						<h2 class="new-branch__title-caption text-base-body-16 text-semibold">
+							No uncommitted changes on this branch
+						</h2>
+					</div>
 				</div>
 			{/if}
 			<BranchCommits
@@ -275,23 +302,37 @@
 		color: var(--clr-theme-scale-ntrl-60);
 		background: var(--clr-theme-container-light);
 		justify-content: center;
-		gap: var(--space-8);
+		align-items: center;
 		padding: var(--space-24) var(--space-40);
 	}
 
-	.new-branch h1 {
+	.new-branch__content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-8);
+		max-width: 14rem;
+	}
+
+	.new-branch__image {
+		width: 7.5rem;
+		margin-bottom: var(--space-12);
+	}
+
+	.new-branch__title {
 		color: var(--clr-theme-scale-ntrl-40);
 		text-align: center;
 	}
 
-	.new-branch p {
-		text-align: center;
+	.new-branch__caption {
 		color: var(--clr-theme-scale-ntrl-50);
+		text-align: center;
 	}
 
-	.no-changes h1 {
+	.new-branch__title-caption {
+		color: var(--clr-theme-scale-ntrl-60);
 		text-align: center;
-		text-align: center;
+		max-width: 12rem;
 	}
 
 	/* hunks drop zone */
