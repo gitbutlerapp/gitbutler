@@ -116,7 +116,7 @@
 	}
 
 	.repo-name {
-		font-family: Iosevka, monospace;
+		font-family: Spline Sans Mono, monospace;
 		border-radius: var(--radius-s);
 		background: var(--clr-theme-container-sub);
 		padding: var(--space-2) var(--space-4);
