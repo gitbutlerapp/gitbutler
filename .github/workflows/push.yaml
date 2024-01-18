@@ -16,6 +16,8 @@ jobs:
             rust:
               - 'gitbutler-app/**'
               - 'gitbutler-core/**'
+              - 'gitbutler-git/**'
+              - 'gitbutler-diff/**'
               - 'Cargo.lock'
               - 'Cargo.toml'
               - 'rust-toolchain.toml'
