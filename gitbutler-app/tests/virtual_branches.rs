@@ -5399,12 +5399,9 @@ mod create_virtual_branch_from_branch {
             repository.rebase_and_merge(&branch_name);
         }
 
-
         {
             // should mark commits as integrated
             controller.fetch_from_target(&project_id).await.unwrap();
-
-            let base = controller.get_base_branch_data(&project_id).await.unwrap();
 
             let branch = controller
                 .list_virtual_branches(&project_id)
@@ -5413,7 +5410,6 @@ mod create_virtual_branch_from_branch {
                 .into_iter()
                 .find(|branch| branch.id == branch_id)
                 .unwrap();
-
 
             assert!(branch.commits[0].is_remote);
             assert!(branch.commits[0].is_integrated);

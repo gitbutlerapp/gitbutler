@@ -784,18 +784,26 @@ pub fn list_virtual_branches(
             }
         }
 
+        let mut is_integrated = false;
         // find all commits on head that are not on target.sha
         let commits = project_repository
             .log(branch.head, LogUntil::Commit(default_target.sha))
             .context(format!("failed to get log for branch {}", branch.name))?
             .iter()
             .map(|commit| {
+                // only check for integration if we haven't already found an integration
+                is_integrated = if !is_integrated {
+                    is_commit_integrated(project_repository, &default_target, commit)?
+                } else {
+                    is_integrated
+                };
+
                 commit_to_vbranch_commit(
                     project_repository,
                     branch,
-                    &default_target,
                     commit,
                     Some(&pushed_commits),
+                    is_integrated,
                 )
             })
             .collect::<Result<Vec<_>>>()?;
@@ -1049,12 +1057,12 @@ fn list_virtual_commit_files(
     ))
 }
 
-pub fn commit_to_vbranch_commit(
+fn commit_to_vbranch_commit(
     repository: &project_repository::Repository,
     branch: &branch::Branch,
-    target: &target::Target,
     commit: &git::Commit,
     upstream_commits: Option<&HashMap<git::Oid, bool>>,
+    is_integrated: bool,
 ) -> Result<VirtualBranchCommit> {
     let timestamp = u128::try_from(commit.time().seconds())?;
     let signature = commit.author();
@@ -1067,8 +1075,6 @@ pub fn commit_to_vbranch_commit(
 
     let files =
         list_virtual_commit_files(repository, commit).context("failed to list commit files")?;
-
-    let is_integrated = is_commit_integrated(repository, target, commit)?;
 
     let parent_ids = commit.parents()?.iter().map(Commit::id).collect::<Vec<_>>();
 
@@ -2437,27 +2443,33 @@ fn is_commit_integrated(
         return Ok(true);
     }
 
-    let merge_base = project_repository
+    let merge_base_id = project_repository
         .git_repository
         .merge_base(target.sha, commit.id())?;
-    if merge_base.eq(&commit.id()) {
+    if merge_base_id.eq(&commit.id()) {
         // if merge branch is the same as branch head and there are upstream commits
         // then it's integrated
         return Ok(true);
     }
 
-    let merge_commit = project_repository.git_repository.find_commit(merge_base)?;
-    let merge_tree = merge_commit.tree()?;
+    let merge_base = project_repository
+        .git_repository
+        .find_commit(merge_base_id)?;
+    let merge_base_tree = merge_base.tree()?;
     let upstream = project_repository
         .git_repository
         .find_commit(remote_head.id())?;
     let upstream_tree = upstream.tree()?;
-    let upstream_tree_oid = upstream_tree.id();
+
+    if merge_base_tree.id() == upstream_tree.id() {
+        // if merge base is the same as upstream tree, then it's integrated
+        return Ok(true);
+    }
 
     // try to merge our tree into the upstream tree
     let mut merge_index = project_repository
         .git_repository
-        .merge_trees(&merge_tree, &upstream_tree, &commit.tree()?)
+        .merge_trees(&merge_base_tree, &commit.tree()?, &upstream_tree)
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
@@ -2470,7 +2482,7 @@ fn is_commit_integrated(
 
     // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
     // then the vbranch is fully merged
-    Ok(merge_tree_oid == upstream_tree_oid)
+    Ok(merge_tree_oid == upstream_tree.id())
 }
 
 pub fn is_remote_branch_mergeable(
