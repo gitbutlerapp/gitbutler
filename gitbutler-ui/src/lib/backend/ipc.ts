@@ -19,8 +19,6 @@ export class UserError extends Error {
 
 	constructor(message: string, code: Code, cause: Error | undefined) {
 		super(message);
-
-		this.name = 'UserError';
 		this.cause = cause;
 		this.code = code;
 	}
@@ -28,7 +26,7 @@ export class UserError extends Error {
 	static fromError(error: any): UserError {
 		const cause = error instanceof Error ? error : undefined;
 		const code = error.code ?? Code.Unknown;
-		const message = error.message ?? 'Unknown error';
+		const message = error.message ?? error;
 		return new UserError(message, code, cause);
 	}
 }
