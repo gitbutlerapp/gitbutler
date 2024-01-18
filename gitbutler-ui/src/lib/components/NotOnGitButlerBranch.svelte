@@ -34,12 +34,14 @@
 	<div class="switchrepo">
 		<p class="project-name text-bold"><Icon name="repo-book" /> {project?.title}</p>
 		<p class="switchrepo__title text-base-body-18 text-bold">
-			Looks like you've switched away from <span class="repo-name"> gitbutler/integration </span>
+			Looks like you've switched away from <span class="repo-name">
+				gitbutler/integration
+			</span>
 		</p>
 
 		<p class="switchrepo__message text-base-body-13">
-			Due to GitButler managing multiple virtual branches, you cannot switch back and forth between
-			git branches and virtual branches easily.
+			Due to GitButler managing multiple virtual branches, you cannot switch back and forth
+			between git branches and virtual branches easily.
 			<Link href="https://docs.gitbutler.com/features/virtual-branches/integration-branch">
 				Learn more
 			</Link>
@@ -77,10 +79,14 @@
 		{/if}
 	</div>
 	<svelte:fragment slot="links">
-		<IconLink icon="docs" href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes">
+		<IconLink
+			icon="docs"
+			href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
+		>
 			GitButler Docs
 		</IconLink>
-		<IconLink icon="video" href="https://www.youtube.com/@gitbutlerapp">Watch tutorial</IconLink>
+		<IconLink icon="video" href="https://www.youtube.com/@gitbutlerapp">Watch tutorial</IconLink
+		>
 	</svelte:fragment>
 </DecorativeSplitView>
 
@@ -116,7 +122,7 @@
 	}
 
 	.repo-name {
-		font-family: "Spline Sans Mono", monospace;
+		font-family: 'Spline Sans Mono', monospace;
 		border-radius: var(--radius-s);
 		background: var(--clr-theme-container-sub);
 		padding: var(--space-2) var(--space-4);
