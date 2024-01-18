@@ -1,11 +1,55 @@
 use std::{collections::HashMap, path, str};
 
 use anyhow::{Context, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::git;
 
 use super::Repository;
+
+/// The type of change
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ChangeType {
+    /// No changes
+    Unmodified,
+    /// Entry does not exist in old version
+    Added,
+    /// Entry does not exist in new version
+    Deleted,
+    /// Entry content changed between old and new
+    Modified,
+    /// Entry was renamed between old and new
+    Renamed,
+    /// Entry was copied from another old entry
+    Copied,
+    /// Entry is ignored item in workdir
+    Ignored,
+    /// Entry is untracked item in workdir
+    Untracked,
+    /// Type of entry changed between old and new
+    Typechange,
+    /// Entry is unreadable
+    Unreadable,
+    /// Entry in the index is conflicted
+    Conflicted,
+}
+impl From<git2::Delta> for ChangeType {
+    fn from(v: git2::Delta) -> Self {
+        match v {
+            git2::Delta::Unmodified => ChangeType::Unmodified,
+            git2::Delta::Added => ChangeType::Added,
+            git2::Delta::Deleted => ChangeType::Deleted,
+            git2::Delta::Modified => ChangeType::Modified,
+            git2::Delta::Renamed => ChangeType::Renamed,
+            git2::Delta::Copied => ChangeType::Copied,
+            git2::Delta::Ignored => ChangeType::Ignored,
+            git2::Delta::Untracked => ChangeType::Untracked,
+            git2::Delta::Typechange => ChangeType::Typechange,
+            git2::Delta::Unreadable => ChangeType::Unreadable,
+            git2::Delta::Conflicted => ChangeType::Conflicted,
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct Hunk {
@@ -15,6 +59,7 @@ pub struct Hunk {
     pub new_lines: u32,
     pub diff: String,
     pub binary: bool,
+    pub change_type: ChangeType,
 }
 
 pub struct Options {
@@ -77,83 +122,97 @@ fn hunks_by_filepath(
     // find all the hunks
     let mut hunks_by_filepath: HashMap<path::PathBuf, Vec<Hunk>> = HashMap::new();
 
-    diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
-        let file_path = delta.new_file().path().unwrap_or_else(|| {
-            delta
-                .old_file()
-                .path()
-                .expect("failed to get file name from diff")
-        });
+    diff.print(
+        git2::DiffFormat::Patch,
+        |delta, hunk, line: git2::DiffLine<'_>| {
+            let change_type: ChangeType = delta.status().into();
+            let file_path = delta.new_file().path().unwrap_or_else(|| {
+                delta
+                    .old_file()
+                    .path()
+                    .expect("failed to get file name from diff")
+            });
 
-        hunks_by_filepath
-            .entry(file_path.to_path_buf())
-            .or_default();
-
-        let new_start = hunk.as_ref().map_or(0, git2::DiffHunk::new_start);
-        let new_lines = hunk.as_ref().map_or(0, git2::DiffHunk::new_lines);
-        let old_start = hunk.as_ref().map_or(0, git2::DiffHunk::old_start);
-        let old_lines = hunk.as_ref().map_or(0, git2::DiffHunk::old_lines);
-
-        if let Some((line, is_binary)) = match line.origin() {
-            '+' | '-' | ' ' => {
-                if let Ok(content) = str::from_utf8(line.content()) {
-                    Some((format!("{}{}", line.origin(), content), false))
-                } else {
-                    let full_path = repository.workdir().unwrap().join(file_path);
-                    // save the file_path to the odb
-                    if !delta.new_file().id().is_zero() && full_path.exists() {
-                        // the binary file wasnt deleted
-                        repository.blob_path(full_path.as_path()).unwrap();
-                    }
-                    Some((delta.new_file().id().to_string(), true))
-                }
-            }
-            'B' => {
-                let full_path = repository.workdir().unwrap().join(file_path);
-                // save the file_path to the odb
-                if !delta.new_file().id().is_zero() && full_path.exists() {
-                    // the binary file wasnt deleted
-                    repository.blob_path(full_path.as_path()).unwrap();
-                }
-                Some((delta.new_file().id().to_string(), true))
-            }
-            'F' => None,
-            _ => {
-                if let Ok(content) = str::from_utf8(line.content()) {
-                    Some((content.to_string(), false))
-                } else {
-                    let full_path = repository.workdir().unwrap().join(file_path);
-                    // save the file_path to the odb
-                    if !delta.new_file().id().is_zero() && full_path.exists() {
-                        // the binary file wasnt deleted
-                        repository.blob_path(full_path.as_path()).unwrap();
-                    }
-                    Some((delta.new_file().id().to_string(), true))
-                }
-            }
-        } {
-            let hunks = hunks_by_filepath
+            hunks_by_filepath
                 .entry(file_path.to_path_buf())
                 .or_default();
 
-            if let Some(previous_hunk) = hunks.last_mut() {
-                let hunk_did_not_change = previous_hunk.old_start == old_start
-                    && previous_hunk.old_lines == old_lines
-                    && previous_hunk.new_start == new_start
-                    && previous_hunk.new_lines == new_lines;
+            let new_start = hunk.as_ref().map_or(0, git2::DiffHunk::new_start);
+            let new_lines = hunk.as_ref().map_or(0, git2::DiffHunk::new_lines);
+            let old_start = hunk.as_ref().map_or(0, git2::DiffHunk::old_start);
+            let old_lines = hunk.as_ref().map_or(0, git2::DiffHunk::old_lines);
 
-                if hunk_did_not_change {
-                    if is_binary {
-                        // binary overrides the diff
-                        previous_hunk.binary = true;
-                        previous_hunk.old_start = 0;
-                        previous_hunk.old_lines = 0;
-                        previous_hunk.new_start = 0;
-                        previous_hunk.new_lines = 0;
-                        previous_hunk.diff = line;
-                    } else if !previous_hunk.binary {
-                        // append non binary hunks
-                        previous_hunk.diff.push_str(&line);
+            if let Some((line, is_binary)) = match line.origin() {
+                '+' | '-' | ' ' => {
+                    if let Ok(content) = str::from_utf8(line.content()) {
+                        Some((format!("{}{}", line.origin(), content), false))
+                    } else {
+                        let full_path = repository.workdir().unwrap().join(file_path);
+                        // save the file_path to the odb
+                        if !delta.new_file().id().is_zero() && full_path.exists() {
+                            // the binary file wasnt deleted
+                            repository.blob_path(full_path.as_path()).unwrap();
+                        }
+                        Some((delta.new_file().id().to_string(), true))
+                    }
+                }
+                'B' => {
+                    let full_path = repository.workdir().unwrap().join(file_path);
+                    // save the file_path to the odb
+                    if !delta.new_file().id().is_zero() && full_path.exists() {
+                        // the binary file wasnt deleted
+                        repository.blob_path(full_path.as_path()).unwrap();
+                    }
+                    Some((delta.new_file().id().to_string(), true))
+                }
+                'F' => None,
+                _ => {
+                    if let Ok(content) = str::from_utf8(line.content()) {
+                        Some((content.to_string(), false))
+                    } else {
+                        let full_path = repository.workdir().unwrap().join(file_path);
+                        // save the file_path to the odb
+                        if !delta.new_file().id().is_zero() && full_path.exists() {
+                            // the binary file wasnt deleted
+                            repository.blob_path(full_path.as_path()).unwrap();
+                        }
+                        Some((delta.new_file().id().to_string(), true))
+                    }
+                }
+            } {
+                let hunks = hunks_by_filepath
+                    .entry(file_path.to_path_buf())
+                    .or_default();
+
+                if let Some(previous_hunk) = hunks.last_mut() {
+                    let hunk_did_not_change = previous_hunk.old_start == old_start
+                        && previous_hunk.old_lines == old_lines
+                        && previous_hunk.new_start == new_start
+                        && previous_hunk.new_lines == new_lines;
+
+                    if hunk_did_not_change {
+                        if is_binary {
+                            // binary overrides the diff
+                            previous_hunk.binary = true;
+                            previous_hunk.old_start = 0;
+                            previous_hunk.old_lines = 0;
+                            previous_hunk.new_start = 0;
+                            previous_hunk.new_lines = 0;
+                            previous_hunk.diff = line;
+                        } else if !previous_hunk.binary {
+                            // append non binary hunks
+                            previous_hunk.diff.push_str(&line);
+                        }
+                    } else {
+                        hunks.push(Hunk {
+                            old_start,
+                            old_lines,
+                            new_start,
+                            new_lines,
+                            diff: line,
+                            binary: is_binary,
+                            change_type,
+                        });
                     }
                 } else {
                     hunks.push(Hunk {
@@ -163,22 +222,14 @@ fn hunks_by_filepath(
                         new_lines,
                         diff: line,
                         binary: is_binary,
+                        change_type,
                     });
                 }
-            } else {
-                hunks.push(Hunk {
-                    old_start,
-                    old_lines,
-                    new_start,
-                    new_lines,
-                    diff: line,
-                    binary: is_binary,
-                });
             }
-        }
 
-        true
-    })
+            true
+        },
+    )
     .context("failed to print diff")?;
 
     Ok(hunks_by_filepath
@@ -197,6 +248,7 @@ fn hunks_by_filepath(
                             new_lines: 0,
                             diff: binary_hunk.diff.clone(),
                             binary: true,
+                            change_type: binary_hunk.change_type,
                         }],
                     )
                 } else {
@@ -213,6 +265,7 @@ fn hunks_by_filepath(
                         new_lines: 0,
                         diff: String::new(),
                         binary: false,
+                        change_type: ChangeType::Unmodified,
                     }],
                 )
             } else {
@@ -246,6 +299,7 @@ mod tests {
                 new_lines: 1,
                 diff: "@@ -0,0 +1 @@\n+hello\n\\ No newline at end of file\n".to_string(),
                 binary: false,
+                change_type: ChangeType::Untracked,
             }]
         );
     }
@@ -268,6 +322,7 @@ mod tests {
                 new_lines: 0,
                 diff: String::new(),
                 binary: false,
+                change_type: ChangeType::Unmodified,
             }]
         );
     }
@@ -291,6 +346,7 @@ mod tests {
                 new_lines: 0,
                 diff: String::new(),
                 binary: false,
+                change_type: ChangeType::Unmodified,
             }]
         );
         assert_eq!(
@@ -302,6 +358,7 @@ mod tests {
                 new_lines: 0,
                 diff: String::new(),
                 binary: false,
+                change_type: ChangeType::Unmodified,
             }]
         );
     }
@@ -332,6 +389,7 @@ mod tests {
                 new_lines: 0,
                 diff: "71ae6e216f38164b6633e25d35abb043c3785af6".to_string(),
                 binary: true,
+                change_type: ChangeType::Untracked,
             }]
         );
     }
@@ -374,6 +432,7 @@ mod tests {
                 new_lines: 0,
                 diff: "3fc41b9ae6836a94f41c78b4ce69d78b6e7080f1".to_string(),
                 binary: true,
+                change_type: ChangeType::Untracked,
             }]
         );
     }

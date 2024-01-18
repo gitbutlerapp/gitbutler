@@ -82,6 +82,7 @@ fn files_with_hunk_context(
                         hunk.binary,
                         context_lines,
                         &file_lines_before,
+                        hunk.change_type,
                     )
                 }
             })

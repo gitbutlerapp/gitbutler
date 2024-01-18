@@ -123,6 +123,7 @@ pub struct VirtualBranchHunk {
     pub end: u32,
     pub binary: bool,
     pub locked: bool,
+    pub change_type: diff::ChangeType,
 }
 
 #[derive(Debug, Serialize, Hash, Clone, PartialEq, Eq)]
@@ -920,6 +921,7 @@ fn files_with_hunk_context(
                         hunk.binary,
                         context_lines,
                         &file_lines_before,
+                        hunk.change_type,
                     );
                     to_virtual_branch_hunk(hunk.clone(), hunk_with_ctx)
                 }
@@ -1612,6 +1614,7 @@ pub fn virtual_hunks_by_filepath(
                     binary: hunk.binary,
                     hash: diff_hash(&hunk.diff),
                     locked: false,
+                    change_type: hunk.change_type,
                 })
                 .collect::<Vec<_>>();
             (file_path.clone(), hunks)
