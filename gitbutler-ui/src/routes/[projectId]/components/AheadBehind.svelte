@@ -17,21 +17,18 @@
 		flex-shrink: 0;
 		line-height: 120%;
 		border-radius: var(--radius-s);
-		border: 1px solid var(--clr-theme-container-outline-light);
+		color: var(--clr-theme-scale-ntrl-40);
+		background: color-mix(in srgb, var(--clr-theme-scale-ntrl-60) 30%, transparent);
 	}
 	.ahead,
 	.behind {
-		text-align: center;
 		padding: var(--space-2);
 		min-width: var(--space-12);
 	}
 	.behind {
-		color: var(--clr-theme-scale-err-30);
-		background: var(--clr-theme-err-container);
 		border-right: 1px solid var(--clr-theme-container-outline-light);
 	}
 	.ahead {
-		color: var(--clr-theme-scale-ntrl-40);
 	}
 	.neutral {
 		color: var(--clr-theme-scale-ntrl-50);
