@@ -3,11 +3,11 @@ import { Type, Transform } from 'class-transformer';
 
 export enum ChangeType {
 	/// Entry does not exist in old version
-	Added,
+	added,
 	/// Entry does not exist in new version
-	Deleted,
+	deleted,
 	/// Entry content changed between old and new
-	Modified
+	modified
 }
 
 export class Hunk {
