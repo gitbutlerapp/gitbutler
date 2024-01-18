@@ -9,6 +9,13 @@
 }
 
 /* text Base Classes */
+.text-base-8 {
+	font-family: var(--base-font-family);
+	font-size: 0.5rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--base-line-height);
+}
+
 .text-base-9 {
 	font-family: var(--base-font-family);
 	font-size: 0.563rem;
