@@ -16,3 +16,6 @@ git2 = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = ["process"]}
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "rt-multi-thread"]}

@@ -14,16 +14,17 @@ use crate::{ConfigScope, Repository};
 /// utmost discretion enabled.
 pub async fn has_utmost_discretion<R: Repository>(repo: &R) -> Result<bool, R::Error> {
     let config = repo
-        .config_get("gitbutler.utmostDiscretion", ConfigScope::Auto)
+        .config_get("gitbutler.utmostDiscretion", ConfigScope::default())
         .await?;
-    Ok(config == Some("true".to_string()))
+
+    Ok(config.map(|v| v == "1").unwrap_or(false))
 }
 
 /// Sets whether or not the repository has GitButler's utmost discretion.
 pub async fn set_utmost_discretion<R: Repository>(repo: &R, value: bool) -> Result<(), R::Error> {
     repo.config_set(
         "gitbutler.utmostDiscretion",
-        if value { "true" } else { "false" },
+        if value { "1" } else { "0" },
         ConfigScope::Local,
     )
     .await
