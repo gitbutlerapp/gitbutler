@@ -15,6 +15,8 @@
 	import { storeToObservable } from '$lib/rxjs/store';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import { persisted } from '$lib/persisted/persisted';
+	import ImgThemed from '$lib/components/ImgThemed.svelte';
+
 	import type { GitHubService } from '$lib/github/service';
 
 	export let branchService: BranchService;
@@ -158,22 +160,50 @@
 				on:action
 			/>
 		</BranchesHeader>
-		<ScrollableContainer bind:viewport showBorderWhenScrolled>
-			<div class="scroll-container">
-				<TextBox icon="filter" placeholder="Search" on:input={(e) => textFilter$.next(e.detail)} />
-				<div bind:this={contents} class="content">
-					{#if $filteredBranches$?.length > 0}
+		{#if $filteredBranches$?.length > 0}
+			<ScrollableContainer bind:viewport showBorderWhenScrolled>
+				<div class="scroll-container">
+					<TextBox
+						icon="filter"
+						placeholder="Search"
+						on:input={(e) => textFilter$.next(e.detail)}
+					/>
+					<div bind:this={contents} class="content">
 						{#each $filteredBranches$ as branch}
 							<BranchItem {projectId} {branch} />
 						{/each}
-					{:else if $branches$?.length > 0}
-						No branches match your filter
-					{:else}
-						You have no branches
-					{/if}
+					</div>
 				</div>
+			</ScrollableContainer>
+		{:else if $branches$.length > 0}
+			<div class="branch-list__empty-state">
+				<div class="branch-list__empty-state__image">
+					<ImgThemed
+						imgSet={{
+							light: '/images/no-branches-light.webp',
+							dark: '/images/no-branches-dark.webp'
+						}}
+					/>
+				</div>
+				<span class="branch-list__empty-state__caption text-base-body-14 text-semibold"
+					>No branches match your filter</span
+				>
 			</div>
-		</ScrollableContainer>
+		{:else}
+			<div class="branch-list__empty-state">
+				<div class="branch-list__empty-state__image">
+					<ImgThemed
+						imgSet={{
+							light: '/images/no-branches-light.webp',
+							dark: '/images/no-branches-dark.webp'
+						}}
+					/>
+				</div>
+				<span class="branch-list__empty-state__caption text-base-body-14 text-semibold"
+					>You have no branches</span
+				>
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -203,6 +233,28 @@
 	.content {
 		display: flex;
 		flex-direction: column;
+		justify-content: center;
+		align-items: center;
 		gap: var(--space-2);
+	}
+
+	/* EMPTY STATE */
+	.branch-list__empty-state {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		gap: var(--space-10);
+	}
+
+	.branch-list__empty-state__image {
+		width: 8.125rem;
+	}
+
+	.branch-list__empty-state__caption {
+		color: var(--clr-theme-scale-ntrl-60);
+		text-align: center;
+		max-width: 10rem;
 	}
 </style>
