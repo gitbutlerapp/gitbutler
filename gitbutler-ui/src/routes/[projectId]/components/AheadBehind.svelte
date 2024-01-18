@@ -13,23 +13,27 @@
 <style lang="postcss">
 	.ahead-behind {
 		display: flex;
+		overflow: hidden;
+		flex-shrink: 0;
+		line-height: 120%;
+		border-radius: var(--radius-s);
+		border: 1px solid var(--clr-theme-container-outline-light);
 	}
 	.ahead,
 	.behind {
-		min-width: var(--space-12);
-		padding: var(--space-2);
 		text-align: center;
-	}
-	.ahead {
-		color: var(--clr-theme-scale-succ-30);
-		border-radius: 0 var(--radius-s) var(--radius-s) 0;
-		background: var(--clr-theme-scale-succ-80);
+		padding: var(--space-2);
+		min-width: var(--space-12);
 	}
 	.behind {
 		color: var(--clr-theme-scale-err-30);
-		border-radius: var(--radius-s) 0 0 var(--radius-s);
-		background: var(--clr-theme-scale-err-80);
+		background: var(--clr-theme-err-container);
+		border-right: 1px solid var(--clr-theme-container-outline-light);
+	}
+	.ahead {
+		color: var(--clr-theme-scale-ntrl-40);
 	}
 	.neutral {
+		color: var(--clr-theme-scale-ntrl-50);
 	}
 </style>
