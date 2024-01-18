@@ -15,6 +15,7 @@ extern crate alloc;
 #[cfg(test)]
 mod integration_tests;
 #[cfg(test)]
+#[allow(unused_imports)]
 pub(crate) use integration_tests::*;
 
 mod backend;

@@ -1,4 +1,4 @@
-#[cfg(feature = "tokio")]
+#[cfg(any(test, feature = "tokio"))]
 pub mod tokio;
 
 /// Provides a means for executing Git CLI commands.

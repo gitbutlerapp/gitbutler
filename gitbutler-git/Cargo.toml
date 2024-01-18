@@ -18,4 +18,4 @@ serde = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = ["process"]}
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt", "rt-multi-thread"]}
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "process"]}

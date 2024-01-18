@@ -18,6 +18,7 @@
 ///    crate::gitbutler_git_integration_tests!(make_repo);
 /// }
 /// ```
+#[allow(unused_macros)]
 macro_rules! gitbutler_git_integration_tests {
     ($create_repo:expr) => {
         $crate::gitbutler_git_integration_tests! {
@@ -60,4 +61,5 @@ macro_rules! gitbutler_git_integration_tests {
     }
 }
 
+#[allow(unused_imports)]
 pub(crate) use gitbutler_git_integration_tests;
