@@ -36,27 +36,29 @@ export class BranchService {
 }
 
 function mergeBranchesAndPrs(
-	vbranches: Branch[],
+	vbranches: Branch[] | undefined,
 	pullRequests: PullRequest[],
 	remoteBranches: RemoteBranch[]
 ): CombinedBranch[] {
 	const contributions: CombinedBranch[] = [];
 
 	// First we add everything with a virtual branch
-	contributions.push(
-		...vbranches.map((vb) => {
-			const upstream = vb.upstream?.upstream;
-			const pr = upstream
-				? pullRequests.find((pr) => isBranchNameMatch(pr.targetBranch, upstream))
-				: undefined;
-			return new CombinedBranch({ vbranch: vb, remoteBranch: vb.upstream, pr });
-		})
-	);
+	if (vbranches) {
+		contributions.push(
+			...vbranches.map((vb) => {
+				const upstream = vb.upstream?.upstream;
+				const pr = upstream
+					? pullRequests.find((pr) => isBranchNameMatch(pr.targetBranch, upstream))
+					: undefined;
+				return new CombinedBranch({ vbranch: vb, remoteBranch: vb.upstream, pr });
+			})
+		);
+	}
 
 	// Then remote branches that have no virtual branch, combined with pull requests if present
 	contributions.push(
 		...remoteBranches
-			.filter((rb) => !vbranches.some((vb) => isBranchNameMatch(rb.name, vb.upstreamName)))
+			.filter((rb) => !vbranches?.some((vb) => isBranchNameMatch(rb.name, vb.upstreamName)))
 			.map((rb) => {
 				const pr = pullRequests.find((pr) => isBranchNameMatch(pr.targetBranch, rb.name));
 				return new CombinedBranch({ remoteBranch: rb, pr });

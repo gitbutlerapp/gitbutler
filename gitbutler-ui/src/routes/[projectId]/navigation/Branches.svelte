@@ -166,7 +166,7 @@
 						{#each $filteredBranches$ as branch}
 							<BranchItem {projectId} {branch} />
 						{/each}
-					{:else if $branches$.length > 0}
+					{:else if $branches$?.length > 0}
 						No branches match your filter
 					{:else}
 						You have no branches

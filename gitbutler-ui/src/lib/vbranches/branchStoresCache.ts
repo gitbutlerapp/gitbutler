@@ -21,9 +21,9 @@ import {
 } from 'rxjs';
 
 export class VirtualBranchService {
-	branches$: Observable<Branch[]>;
-	stashedBranches$: Observable<Branch[]>;
-	activeBranches$: Observable<Branch[]>;
+	branches$: Observable<Branch[] | undefined>;
+	stashedBranches$: Observable<Branch[] | undefined>;
+	activeBranches$: Observable<Branch[] | undefined>;
 	branchesError$ = new BehaviorSubject<any>(undefined);
 	private reload$ = new BehaviorSubject<void>(undefined);
 
@@ -59,10 +59,12 @@ export class VirtualBranchService {
 		);
 
 		this.stashedBranches$ = this.branches$.pipe(
-			map((branches) => branches.filter((b) => !b.active))
+			map((branches) => branches?.filter((b) => !b.active))
 		);
 
-		this.activeBranches$ = this.branches$.pipe(map((branches) => branches.filter((b) => b.active)));
+		this.activeBranches$ = this.branches$.pipe(
+			map((branches) => branches?.filter((b) => b.active))
+		);
 	}
 
 	reload() {
@@ -74,7 +76,7 @@ export class VirtualBranchService {
 		return await firstValueFrom(
 			this.branches$.pipe(
 				timeout(10000),
-				map((branches) => branches.find((b) => b.id == branchId && b.upstream))
+				map((branches) => branches?.find((b) => b.id == branchId && b.upstream))
 			)
 		);
 	}

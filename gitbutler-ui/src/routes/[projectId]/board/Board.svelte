@@ -9,6 +9,7 @@
 	import type { GitHubService } from '$lib/github/service';
 	import { cloneWithRotation } from '$lib/utils/draggable';
 	import type { Project } from '$lib/backend/projects';
+	import Icon from '$lib/icons/Icon.svelte';
 
 	export let project: Project;
 	export let projectPath: string;
@@ -36,7 +37,7 @@
 {#if branchesError}
 	<div class="p-4">Something went wrong...</div>
 {:else if !branches}
-	<div class="p-4">Loading...</div>
+	<div class="loading"><Icon name="spinner" /></div>
 {:else}
 	<div
 		class="board"
@@ -118,7 +119,7 @@
 			</div>
 		{/each}
 
-		{#if !branches || branches.length == 0}
+		{#if branches.length == 0}
 			<div
 				class="text-color-2 m-auto mx-10 flex w-full flex-grow items-center justify-center rounded border p-8"
 				style:background-color="var(--bg-surface-highlight)"
@@ -194,5 +195,11 @@
 		height: 100%;
 		padding: var(--space-16);
 		gap: var(--space-12);
+	}
+	.loading {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		width: 100%;
 	}
 </style>
