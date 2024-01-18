@@ -114,6 +114,69 @@ impl TestProject {
             .unwrap();
     }
 
+    pub fn rebase_and_merge(&self, branch_name: &git::Refname) {
+        let branch_name: git::Refname = match branch_name {
+            git::Refname::Local(local) => format!("refs/heads/{}", local.branch()).parse().unwrap(),
+            git::Refname::Remote(remote) => {
+                format!("refs/heads/{}", remote.branch()).parse().unwrap()
+            }
+            _ => "INVALID".parse().unwrap(), // todo
+        };
+        let branch = self.remote_repository.find_branch(&branch_name).unwrap();
+        let branch_commit = branch.peel_to_commit().unwrap();
+
+        let master_branch = {
+            let name: git::Refname = "refs/heads/master".parse().unwrap();
+            self.remote_repository.find_branch(&name).unwrap()
+        };
+        let master_branch_commit = master_branch.peel_to_commit().unwrap();
+
+        let mut rebase_options = git2::RebaseOptions::new();
+        rebase_options.quiet(true);
+        rebase_options.inmemory(true);
+
+        let mut rebase = self
+            .remote_repository
+            .rebase(
+                Some(branch_commit.id()),
+                Some(master_branch_commit.id()),
+                None,
+                Some(&mut rebase_options),
+            )
+            .unwrap();
+
+        let mut rebase_success = true;
+        let mut last_rebase_head = branch_commit.id();
+        while let Some(Ok(op)) = rebase.next() {
+            let commit = self.remote_repository.find_commit(op.id().into()).unwrap();
+            let index = rebase.inmemory_index().unwrap();
+            if index.has_conflicts() {
+                rebase_success = false;
+                break;
+            }
+
+            if let Ok(commit_id) = rebase.commit(None, &commit.committer().into(), None) {
+                last_rebase_head = commit_id.into();
+            } else {
+                rebase_success = false;
+                break;
+            };
+        }
+
+        if rebase_success {
+            self.remote_repository
+                .reference(
+                    &"refs/heads/master".parse().unwrap(),
+                    last_rebase_head,
+                    true,
+                    &format!("rebase: {}", branch_name),
+                )
+                .unwrap();
+        } else {
+            rebase.abort().unwrap();
+        }
+    }
+
     /// works like if we'd open and merge a PR on github. does not update local.
     pub fn merge(&self, branch_name: &git::Refname) {
         let branch_name: git::Refname = match branch_name {

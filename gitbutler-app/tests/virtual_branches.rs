@@ -5302,6 +5302,123 @@ mod create_virtual_branch_from_branch {
     use super::*;
 
     #[tokio::test]
+    async fn integration() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branch_name = {
+            // make a remote branch
+
+            let branch_id = controller
+                .create_virtual_branch(&project_id, &super::branch::BranchCreateRequest::default())
+                .await
+                .unwrap();
+
+            std::fs::write(repository.path().join("file.txt"), "first\n").unwrap();
+            controller
+                .create_commit(&project_id, &branch_id, "first", None, false)
+                .await
+                .unwrap();
+            controller
+                .push_virtual_branch(&project_id, &branch_id, false)
+                .await
+                .unwrap();
+
+            let branch = controller
+                .list_virtual_branches(&project_id)
+                .await
+                .unwrap()
+                .into_iter()
+                .find(|branch| branch.id == branch_id)
+                .unwrap();
+
+            let name = branch.upstream.unwrap().name;
+
+            controller
+                .delete_virtual_branch(&project_id, &branch_id)
+                .await
+                .unwrap();
+
+            name
+        };
+
+        // checkout a existing remote branch
+        let branch_id = controller
+            .create_virtual_branch_from_branch(&project_id, &branch_name)
+            .await
+            .unwrap();
+
+        {
+            // add a commit
+            std::fs::write(repository.path().join("file.txt"), "first\nsecond").unwrap();
+
+            controller
+                .create_commit(&project_id, &branch_id, "second", None, false)
+                .await
+                .unwrap();
+        }
+
+        {
+            // meanwhile, there is a new commit on master
+            repository.checkout(&"refs/heads/master".parse().unwrap());
+            std::fs::write(repository.path().join("another.txt"), "").unwrap();
+            repository.commit_all("another");
+            repository.push_branch(&"refs/heads/master".parse().unwrap());
+            repository.checkout(&"refs/heads/gitbutler/integration".parse().unwrap());
+        }
+
+        {
+            // merge branch into master
+            controller
+                .push_virtual_branch(&project_id, &branch_id, false)
+                .await
+                .unwrap();
+
+            let branch = controller
+                .list_virtual_branches(&project_id)
+                .await
+                .unwrap()
+                .into_iter()
+                .find(|branch| branch.id == branch_id)
+                .unwrap();
+
+            assert!(branch.commits[0].is_remote);
+            assert!(!branch.commits[0].is_integrated);
+            assert!(branch.commits[1].is_remote);
+            assert!(!branch.commits[1].is_integrated);
+
+            repository.rebase_and_merge(&branch_name);
+        }
+
+        {
+            // should mark commits as integrated
+            controller.fetch_from_target(&project_id).await.unwrap();
+
+            let branch = controller
+                .list_virtual_branches(&project_id)
+                .await
+                .unwrap()
+                .into_iter()
+                .find(|branch| branch.id == branch_id)
+                .unwrap();
+
+            assert!(branch.commits[0].is_remote);
+            assert!(branch.commits[0].is_integrated);
+            assert!(branch.commits[1].is_remote);
+            assert!(branch.commits[1].is_integrated);
+        }
+    }
+
+    #[tokio::test]
     async fn no_conflicts() {
         let Test {
             repository,
