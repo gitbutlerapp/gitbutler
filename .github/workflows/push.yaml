@@ -78,5 +78,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-rust
-      - run: cargo clippy --all-targets --all-features --tests
-      - run: cargo clippy --no-default-features --tests -p gitbutler-git
+      - run: cargo clippy -p gitbutler-git --all-targets --all-features --tests
+      - run: cargo clippy -p gitbutler-git --tests
+      - run: cargo clippy -p gitbutler-git --no-default-features
+      - run: cargo clippy -p gitbutler-git --no-default-features --tests
+      - run: cargo clippy -p gitbutler-git --no-default-features --features git2
+      - run: cargo clippy -p gitbutler-git --no-default-features --features git2 --tests
+      - run: cargo clippy -p gitbutler-git --no-default-features --features cli
+      - run: cargo clippy -p gitbutler-git --no-default-features --features cli --tests
