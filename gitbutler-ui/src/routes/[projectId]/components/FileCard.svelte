@@ -19,6 +19,7 @@
 	import lscache from 'lscache';
 	import { persisted } from '$lib/persisted/persisted';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
+	import Icon from '$lib/icons/Icon.svelte';
 
 	export let projectId: string;
 	export let branchId: string;
@@ -145,9 +146,12 @@
 						{@const { added, removed } = computedAddedRemoved(section)}
 						{#if 'hunk' in section}
 							<div class="hunk-wrapper">
-								<div class="stats text-base-11">
+								<div class="indicators text-base-11">
 									<span class="added">+{added}</span>
 									<span class="removed">+{removed}</span>
+									{#if section.hunk.locked}
+										<Icon name="locked-small" color="warn" />
+									{/if}
 								</div>
 								<div
 									tabindex="0"
@@ -296,6 +300,11 @@
 		min-width: max-content;
 		user-select: text !important;
 		cursor: grab;
+	}
+	.indicators {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
 	}
 	.added {
 		color: #45b156;
