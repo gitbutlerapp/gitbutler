@@ -17,7 +17,8 @@ import {
 	firstValueFrom,
 	timeout,
 	combineLatest,
-	of
+	of,
+	startWith
 } from 'rxjs';
 
 export class VirtualBranchService {
@@ -51,6 +52,7 @@ export class VirtualBranchService {
 					});
 				});
 			}),
+			startWith(undefined),
 			shareReplay(1),
 			catchError((err) => {
 				this.branchesError$.next(err);
