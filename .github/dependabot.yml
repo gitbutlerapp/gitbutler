@@ -10,7 +10,8 @@ updates:
     schedule:
       interval: "weekly"
     ignore:
-      - update-types: ["version-update:semver-major"]
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-updates:
         update-types: [minor]
@@ -22,7 +23,8 @@ updates:
     schedule:
       interval: "weekly"
     ignore:
-      - update-types: ["version-update:semver-major"]
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       rust-minor-updates:
         update-types: [minor]
