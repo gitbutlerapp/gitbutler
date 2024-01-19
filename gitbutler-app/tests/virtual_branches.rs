@@ -5679,6 +5679,105 @@ mod selected_for_changes {
     use super::*;
 
     #[tokio::test]
+    async fn unapplying_selected_branch_selects_anther() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        std::fs::write(repository.path().join("file one.txt"), "").unwrap();
+
+        // first branch should be created as default
+        let b_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        // if default branch exists, new branch should not be created as default
+        let b2_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+
+        let b = branches.iter().find(|b| b.id == b_id).unwrap();
+
+        let b2 = branches.iter().find(|b| b.id == b2_id).unwrap();
+
+        assert!(b.selected_for_changes);
+        assert!(!b2.selected_for_changes);
+
+        controller
+            .unapply_virtual_branch(&project_id, &b_id)
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+
+        assert_eq!(branches.len(), 2);
+        assert_eq!(branches[0].id, b.id);
+        assert!(!branches[0].selected_for_changes);
+        assert!(!branches[0].active);
+        assert_eq!(branches[1].id, b2.id);
+        assert!(branches[1].selected_for_changes);
+        assert!(branches[1].active);
+    }
+
+    #[tokio::test]
+    async fn deleting_selected_branch_selects_anther() {
+        let Test {
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        // first branch should be created as default
+        let b_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        // if default branch exists, new branch should not be created as default
+        let b2_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+
+        let b = branches.iter().find(|b| b.id == b_id).unwrap();
+
+        let b2 = branches.iter().find(|b| b.id == b2_id).unwrap();
+
+        assert!(b.selected_for_changes);
+        assert!(!b2.selected_for_changes);
+
+        controller
+            .delete_virtual_branch(&project_id, &b_id)
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+
+        assert_eq!(branches.len(), 1);
+        assert_eq!(branches[0].id, b2.id);
+        assert!(branches[0].selected_for_changes);
+    }
+
+    #[tokio::test]
     async fn create_virtual_branch_should_set_selected_for_changes() {
         let Test {
             project_id,

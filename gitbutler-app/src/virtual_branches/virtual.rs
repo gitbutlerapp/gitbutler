@@ -633,6 +633,9 @@ pub fn unapply_branch(
                     .delete(&target_branch)
                     .context("Failed to remove branch")?;
 
+                ensure_selected_for_changes(&current_session_reader, &branch_writer)
+                    .context("failed to ensure selected for changes")?;
+
                 project_repository.delete_branch_reference(&target_branch)?;
                 return Ok(None);
             }
@@ -652,7 +655,7 @@ pub fn unapply_branch(
 
         // go through the other applied branches and merge them into the final tree
         // then check that out into the working directory
-        applied_statuses
+        let final_tree = applied_statuses
             .into_iter()
             .filter(|(branch, _)| &branch.id != branch_id)
             .fold(
@@ -666,7 +669,12 @@ pub fn unapply_branch(
                     repo.find_tree(final_tree_oid)
                         .context("failed to find tree")
                 },
-            )?
+            )?;
+
+        ensure_selected_for_changes(&current_session_reader, &branch_writer)
+            .context("failed to ensure selected for changes")?;
+
+        final_tree
     };
 
     // checkout final_tree into the working directory
@@ -1525,6 +1533,42 @@ pub fn delete_branch(
         .context("Failed to remove branch")?;
 
     project_repository.delete_branch_reference(&branch)?;
+
+    ensure_selected_for_changes(&current_session_reader, &branch_writer)
+        .context("failed to ensure selected for changes")?;
+
+    Ok(())
+}
+
+fn ensure_selected_for_changes(
+    current_session_reader: &sessions::Reader,
+    branch_writer: &branch::Writer,
+) -> Result<()> {
+    let mut applied_branches = Iterator::new(current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
+
+    if applied_branches.is_empty() {
+        println!("no applied branches");
+        return Ok(());
+    }
+
+    if applied_branches
+        .iter()
+        .any(|b| b.selected_for_changes.is_some())
+    {
+        println!("some branches already selected for changes");
+        return Ok(());
+    }
+
+    applied_branches.sort_by_key(|branch| branch.order);
+
+    applied_branches[0].selected_for_changes = Some(chrono::Utc::now().timestamp_millis());
+    branch_writer.write(&mut applied_branches[0])?;
     Ok(())
 }
 
