@@ -23,7 +23,7 @@ runs:
         FEATURES: ${{ inputs.features }}
       shell: bash
 
-    - run: cargo test --locked -p ${{ inputs.crate }} $(cat /tmp/features)
+    - run: cargo test --locked -p ${{ inputs.crate }} --all-targets $(cat /tmp/features)
       if: inputs.action == 'test'
       shell: bash
 
