@@ -24,9 +24,7 @@ runs:
       name: Setup pnpm cache
       with:
         path: ${{ env.STORE_PATH }}
-        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-store-
+        key: github-client-${{ runner.os }}-pnpm-store
 
     - name: Git config
       shell: bash
