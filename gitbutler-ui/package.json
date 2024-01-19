@@ -30,7 +30,7 @@
 		"@codemirror/lang-vue": "^0.1.2",
 		"@codemirror/lang-wast": "^6.0.1",
 		"@codemirror/lang-xml": "^6.0.2",
-		"@codemirror/language": "^6.9.3",
+		"@codemirror/language": "^6.10.0",
 		"@codemirror/legacy-modes": "^6.3.3",
 		"@codemirror/state": "^6.4.0",
 		"@codemirror/view": "^6.22.0",
