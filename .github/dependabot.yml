@@ -10,8 +10,6 @@ updates:
     schedule:
       interval: "weekly"
     groups:
-      major:
-        update-types: [major]
       minor:
         update-types: [minor]
       patch:
@@ -22,8 +20,6 @@ updates:
     schedule:
       interval: "weekly"
     groups:
-      major:
-        update-types: [major]
       minor:
         update-types: [minor]
       patch:
