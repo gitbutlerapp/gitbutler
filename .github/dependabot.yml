@@ -10,9 +10,9 @@ updates:
     schedule:
       interval: "weekly"
     groups:
-      minor:
+      npm-minor-updates:
         update-types: [minor]
-      patch:
+      npm-patch-updates:
         update-types: [patch]
 
   - package-ecosystem: "cargo"
@@ -20,7 +20,7 @@ updates:
     schedule:
       interval: "weekly"
     groups:
-      minor:
+      rust-minor-updates:
         update-types: [minor]
-      patch:
+      rust-patch-updates:
         update-types: [patch]
