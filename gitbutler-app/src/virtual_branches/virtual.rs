@@ -123,6 +123,7 @@ pub struct VirtualBranchHunk {
     pub end: u32,
     pub binary: bool,
     pub locked: bool,
+    pub locked_to: Option<git::Oid>,
     pub change_type: diff::ChangeType,
 }
 
@@ -862,21 +863,6 @@ pub fn list_virtual_branches(
                 )
         });
 
-        // mark locked hunks
-        for file in &mut files {
-            file.hunks.iter_mut().for_each(|hunk| {
-                // we consider a hunk to be locked if it's not seen verbatim
-                // non-commited. reason beging - we can't partialy move hunks between
-                // branches just yet.
-                hunk.locked = file_diffs
-                    .get(&file.path)
-                    .map_or(false, |h| !h.contains(&hunk.diff));
-            });
-        }
-
-        files = files_with_hunk_context(&project_repository.git_repository, files, 3)
-            .context("failed to add hunk context")?;
-
         let requires_force = is_requires_force(project_repository, branch)?;
         let branch = VirtualBranch {
             id: branch.id,
@@ -900,11 +886,70 @@ pub fn list_virtual_branches(
         };
         branches.push(branch);
     }
+
+    let mut branches = branches_with_hunk_locks(branches, project_repository)?;
+    for branch in &mut branches {
+        branch.files =
+            files_with_hunk_context(&project_repository.git_repository, branch.files.clone(), 3)
+                .context("failed to add hunk context")?;
+    }
+
     branches.sort_by(|a, b| a.order.cmp(&b.order));
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     Ok(branches)
+}
+
+fn branches_with_hunk_locks(
+    mut branches: Vec<VirtualBranch>,
+    project_repository: &project_repository::Repository,
+) -> Result<Vec<VirtualBranch>> {
+    let all_commits: Vec<VirtualBranchCommit> = branches
+        .clone()
+        .iter()
+        .flat_map(|vbranch| vbranch.commits.clone())
+        .collect();
+
+    for commit in all_commits {
+        let commit = project_repository.git_repository.find_commit(commit.id)?;
+        let parent = commit.parent(0).context("failed to get parent commit")?;
+        let commit_tree = commit.tree().context("failed to get commit tree")?;
+        let parent_tree = parent.tree().context("failed to get parent tree")?;
+        let commited_file_diffs = diff::trees(
+            &project_repository.git_repository,
+            &parent_tree,
+            &commit_tree,
+        )?;
+        for branch in &mut branches {
+            for file in &mut branch.files {
+                for hunk in &mut file.hunks {
+                    let locked =
+                        commited_file_diffs
+                            .get(&file.path)
+                            .map_or(false, |committed_hunks| {
+                                committed_hunks.iter().any(|committed_hunk| {
+                                    joined(
+                                        committed_hunk.old_start,
+                                        committed_hunk.old_start + committed_hunk.new_lines,
+                                        hunk.start,
+                                        hunk.end,
+                                    )
+                                })
+                            });
+                    if locked {
+                        hunk.locked = true;
+                        hunk.locked_to = Some(commit.id());
+                    }
+                }
+            }
+        }
+    }
+    Ok(branches)
+}
+
+fn joined(start_a: u32, end_a: u32, start_b: u32, end_b: u32) -> bool {
+    (start_a <= start_b && end_a >= start_b) || (start_a <= end_b && end_a >= end_b)
 }
 
 fn files_with_hunk_context(
@@ -1661,6 +1706,7 @@ pub fn virtual_hunks_by_filepath(
                     binary: hunk.binary,
                     hash: diff_hash(&hunk.diff),
                     locked: false,
+                    locked_to: None,
                     change_type: hunk.change_type,
                 })
                 .collect::<Vec<_>>();
@@ -3557,5 +3603,22 @@ pub fn create_virtual_branch_from_branch(
         Err(error) => Err(errors::CreateVirtualBranchFromBranchError::ApplyBranch(
             error,
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn joined_test() {
+        assert!(!joined(10, 13, 6, 9));
+        assert!(joined(10, 13, 7, 10));
+        assert!(joined(10, 13, 8, 11));
+        assert!(joined(10, 13, 9, 12));
+        assert!(joined(10, 13, 10, 13));
+        assert!(joined(10, 13, 11, 14));
+        assert!(joined(10, 13, 12, 15));
+        assert!(joined(10, 13, 13, 16));
+        assert!(!joined(10, 13, 14, 17));
     }
 }
