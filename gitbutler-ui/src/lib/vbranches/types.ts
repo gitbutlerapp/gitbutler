@@ -18,6 +18,7 @@ export class Hunk {
 	modifiedAt!: Date;
 	filePath!: string;
 	locked!: boolean;
+	lockedTo!: string | undefined;
 	changeType!: ChangeType;
 }
 
