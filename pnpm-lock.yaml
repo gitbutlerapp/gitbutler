@@ -144,8 +144,8 @@ importers:
         specifier: ^2.35.1
         version: 2.35.1(eslint@8.56.0)(svelte@4.2.2)
       inter-ui:
-        specifier: ^3.19.3
-        version: 3.19.3
+        specifier: ^4.0.1
+        version: 4.0.1
       leven:
         specifier: ^4.0.0
         version: 4.0.0
@@ -2923,8 +2923,9 @@ packages:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
     dev: true
 
-  /inter-ui@3.19.3:
-    resolution: {integrity: sha512-5FG9fjuYOXocIfjzcCBhICL5cpvwEetseL3FU6tP3d6Bn7g8wODhB+I9RNGRTizCT7CUG4GOK54OPxqq3msQgg==}
+  /inter-ui@4.0.1:
+    resolution: {integrity: sha512-hg6LBzJIYSDDpEX45b4X90ieGh0CJ7XnaaXRt9zZS65y/fiW2WwAEyXArjToJJKFO8H6MSozLO2T35WVOhJFrg==}
+    engines: {node: '>=16.0.0'}
     dev: true
 
   /internal-slot@1.0.5:
