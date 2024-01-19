@@ -52,7 +52,7 @@
 		"autoprefixer": "^10.4.16",
 		"class-transformer": "^0.5.1",
 		"crypto-js": "^4.2.0",
-		"date-fns": "^2.30.0",
+		"date-fns": "^3.2.0",
 		"diff-match-patch": "^1.0.5",
 		"eslint": "^8.56.0",
 		"eslint-config-prettier": "^9.1.0",
