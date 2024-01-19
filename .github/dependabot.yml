@@ -9,6 +9,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      - update-types: ["version-update:semver-major"]
     groups:
       npm-minor-updates:
         update-types: [minor]
@@ -19,6 +21,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      - update-types: ["version-update:semver-major"]
     groups:
       rust-minor-updates:
         update-types: [minor]
