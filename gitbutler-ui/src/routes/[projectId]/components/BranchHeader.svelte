@@ -143,7 +143,7 @@
 
 <style lang="postcss">
 	.wrapper {
-		padding: 0 var(--space-8) var(--space-16) var(--space-8);
+		padding: 0 var(--space-8) var(--space-8) var(--space-8);
 		position: absolute;
 		z-index: 10;
 		width: 100%;

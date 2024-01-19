@@ -292,11 +292,20 @@
 		position: relative;
 	}
 
+	.new-branch__content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-8);
+		max-width: 14rem;
+	}
+
 	.new-branch,
 	.no-changes {
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
+		align-items: center;
 		color: var(--clr-theme-scale-ntrl-60);
 		background: var(--clr-theme-container-light);
 		justify-content: center;
@@ -325,6 +334,7 @@
 	}
 
 	.new-branch__image {
+		width: 7.5rem;
 		margin-bottom: var(--space-20);
 	}
 
