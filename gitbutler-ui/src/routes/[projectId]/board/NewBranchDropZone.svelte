@@ -222,7 +222,7 @@
 	.new-branch-caption {
 		color: var(--clr-theme-scale-ntrl-0);
 		text-align: center;
-		opacity: 0.3;
+		opacity: 0.25;
 		transition: opacity var(--transition-medium);
 	}
 
