@@ -72,15 +72,15 @@
 			<span class="text-base-body-13 new-branch-caption"
 				>Drag and drop files<br />to create a new branch</span
 			>
-
-			<div class="new-branch-button">
-				<Button
-					color="neutral"
-					kind="outlined"
-					icon="plus-small"
-					on:click={() => branchController.createBranch({})}>New branch</Button
-				>
-			</div>
+		</div>
+		<div class="new-branch-button">
+			<Button
+				wide
+				color="neutral"
+				kind="outlined"
+				icon="plus-small"
+				on:click={() => branchController.createBranch({})}>New branch</Button
+			>
 		</div>
 	</div>
 </div>
@@ -89,19 +89,18 @@
 	.canvas-dropzone {
 		user-select: none;
 		display: flex;
-		height: 100%;
+		padding: var(--space-16) var(--space-16) var(--space-16) var(--space-4);
 	}
 
 	.new-virtual-branch {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		justify-content: center;
 		width: 24rem;
-		height: 100%;
 		border-radius: var(--radius-m);
 		border: 1px dashed color-mix(in srgb, var(--clr-theme-container-outline-pale) 50%, transparent);
 		background-color: transparent;
+		padding: var(--space-20);
+		gap: var(--space-20);
 
 		outline-color: color-mix(in srgb, var(--clr-theme-scale-pop-40) 0%, transparent);
 		outline-style: dashed;
@@ -120,8 +119,9 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: var(--space-16);
+		gap: var(--space-12);
 		transition: transform var(--transition-medium);
+		padding: var(--space-20) var(--space-24) var(--space-16) var(--space-24);
 	}
 
 	/* ILLUSTRATION */

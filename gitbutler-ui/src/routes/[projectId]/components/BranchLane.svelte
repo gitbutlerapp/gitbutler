@@ -15,7 +15,6 @@
 	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
-	export let maximized = false;
 	export let branchCount = 1;
 	export let user: User | undefined;
 	export let projectPath: string;
@@ -36,7 +35,7 @@
 	}
 </script>
 
-<div class="wrapper card">
+<div class="wrapper">
 	<BranchCard
 		{branch}
 		{readonly}
@@ -46,7 +45,6 @@
 		{branchController}
 		{selectedOwnership}
 		bind:commitBoxOpen
-		{maximized}
 		{branchCount}
 		{user}
 		{selectedFiles}
@@ -73,11 +71,10 @@
 
 <style lang="postcss">
 	.wrapper {
+		display: flex;
 		height: 100%;
+		align-items: self-start;
 		flex-shrink: 0;
-	}
-
-	.card {
-		flex-direction: row;
+		position: relative;
 	}
 </style>

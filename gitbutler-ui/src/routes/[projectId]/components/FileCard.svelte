@@ -116,13 +116,9 @@
 		...draggableFile(branchId, file, writable([file])),
 		disabled: readonly
 	}}
+	style:width={`${fileWidth || $defaultFileWidthRem}rem`}
 >
-	<div
-		id={`file-${file.id}`}
-		class="file-card"
-		style:width={`${fileWidth || $defaultFileWidthRem}rem`}
-		class:opacity-80={isFileLocked}
-	>
+	<div id={`file-${file.id}`} class="file-card card">
 		<FileCardHeader {file} {isFileLocked} on:close />
 		{#if conflicted}
 			<div class="mb-2 bg-red-500 px-2 py-0 font-bold text-white">
@@ -251,12 +247,20 @@
 </div>
 
 <style lang="postcss">
+	.resize-viewport {
+		position: relative;
+		display: flex;
+		height: 100%;
+		align-items: self-start;
+		overflow: hidden;
+		padding: var(--space-16) var(--space-6);
+	}
 	.file-card {
 		background: var(--clr-theme-container-light);
-		border-left: 1px solid var(--clr-theme-container-outline-light);
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
+		max-height: 100%;
 	}
 	.hunks {
 		display: flex;
@@ -291,7 +295,6 @@
 		border-radius: var(--radius-s);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		overflow-x: hidden;
-		overscroll-behavior: none;
 		transition: border-color var(--transition-fast);
 	}
 	.hunk__inner_inner {
@@ -311,10 +314,6 @@
 	}
 	.removed {
 		color: #ff3e00;
-	}
-	.resize-viewport {
-		position: relative;
-		display: flex;
 	}
 
 	@keyframes wiggle {

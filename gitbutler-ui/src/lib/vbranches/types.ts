@@ -77,9 +77,11 @@ export class Branch {
 	isMergeable!: Promise<boolean>;
 	@Transform((obj) => new Date(obj.value))
 	updatedAt!: Date;
+	// Indicates that branch is default target for new changes
+	selectedForChanges!: boolean;
 }
 
-export type CommitStatus = 'local' | 'remote' | 'integrated';
+export type CommitStatus = 'local' | 'remote' | 'integrated' | 'upstream';
 
 export class Commit {
 	id!: string;

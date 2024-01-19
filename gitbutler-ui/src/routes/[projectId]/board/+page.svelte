@@ -53,7 +53,7 @@
 			<button on:click={() => httpsWarningBannerDismissed.set(true)}>Dismiss</button>
 		</div>
 	{/if}
-	<div class="relative h-full flex-grow overscroll-none">
+	<div class="relative h-full flex-grow">
 		<div class="scroll-viewport hide-native-scrollbar" bind:this={viewport}>
 			<div class="scroll-contents" bind:this={contents}>
 				<Board
@@ -76,7 +76,6 @@
 <style lang="postcss">
 	.scroll-viewport {
 		overflow-x: scroll;
-		overscroll-behavior: none;
 		height: 100%;
 		width: 100%;
 	}

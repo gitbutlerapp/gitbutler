@@ -6,6 +6,7 @@
 	export let expanded: boolean;
 	export let type: CommitStatus;
 	export let height: number | undefined;
+	export let upstreamCommitCount = 0;
 
 	let element: HTMLButtonElement | undefined = undefined;
 
@@ -31,6 +32,9 @@
 			Remote branch
 		{:else if type == 'integrated'}
 			Integrated
+		{:else if type == 'upstream'}
+			{upstreamCommitCount} upstream {upstreamCommitCount == 1 ? 'commit' : 'commits'}
+			<Icon name="warning" color="warn" />
 		{/if}
 	</div>
 	<div class="expander">

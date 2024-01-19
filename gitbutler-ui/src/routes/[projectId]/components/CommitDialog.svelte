@@ -228,6 +228,7 @@
 		background: var(--clr-theme-container-light);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
 		transition: background-color var(--transition-medium);
+		border-radius: 0 0 var(--radius-m) var(--radius-m);
 	}
 	.commit-box__expander {
 		display: flex;

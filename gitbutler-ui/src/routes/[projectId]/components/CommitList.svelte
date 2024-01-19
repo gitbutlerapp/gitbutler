@@ -14,33 +14,48 @@
 	export let type: CommitStatus;
 	export let githubService: GitHubService;
 	export let readonly: boolean;
+	export let branchCount: number = 0;
 
 	let headerHeight: number;
 
 	$: headCommit = branch.commits[0];
-	$: commits = branch.commits.filter((c) => c.status == type);
+	$: upstreamCommitCount = branch.upstream?.commits.length;
+
+	$: commits =
+		type == 'upstream' ? branch.upstream?.commits : branch.commits.filter((c) => c.status == type);
 	let expanded = true;
 </script>
 
-{#if commits.length > 0}
-	<div class="commit-list" style:min-height={expanded ? `${2 * headerHeight}px` : undefined}>
-		<CommitListHeader bind:expanded {type} bind:height={headerHeight} />
+{#if commits && commits.length > 0}
+	<div
+		class="commit-list card"
+		class:upstream={type == 'upstream'}
+		style:min-height={expanded ? `${2 * headerHeight}px` : undefined}
+	>
+		<CommitListHeader {type} {upstreamCommitCount} bind:expanded bind:height={headerHeight} />
 		{#if expanded}
 			<div class="commit-list__content">
 				<div class="commits">
-					{#each commits as commit, idx (commit.id)}
-						<CommitListItem
-							{branch}
-							{branchController}
-							{commit}
-							{base}
-							{project}
-							{readonly}
-							isChained={idx != commits.length - 1}
-							isHeadCommit={commit.id === headCommit?.id}
-						/>
-					{/each}
+					{#if commits}
+						{#each commits as commit, idx (commit.id)}
+							<CommitListItem
+								{branch}
+								{branchController}
+								{commit}
+								{base}
+								{project}
+								{readonly}
+								isChained={idx != commits.length - 1}
+								isHeadCommit={commit.id === headCommit?.id}
+							/>
+						{/each}
+					{/if}
 				</div>
+				{#if type == 'upstream' && branchCount > 1}
+					<div class="upstream-message text-base-body-11">
+						You have {branchCount} active branches. To merge upstream work, we will unapply all other
+						branches.
+					</div>{/if}
 				<CommitListFooter
 					{branchController}
 					{branch}
@@ -57,10 +72,13 @@
 
 <style lang="postcss">
 	.commit-list {
+		&.upstream {
+			background-color: var(--clr-theme-container-pale);
+		}
 		background-color: var(--clr-theme-container-light);
 		display: flex;
 		flex-direction: column;
-		border-top: 1px solid var(--clr-theme-container-outline-light);
+		/* border-top: 1px solid var(--clr-theme-container-outline-light); */
 		position: relative;
 		flex-shrink: 0;
 	}
@@ -69,5 +87,12 @@
 		flex-direction: column;
 		padding: 0 var(--space-16) var(--space-20) var(--space-16);
 		gap: var(--space-8);
+	}
+	.upstream-message {
+		color: var(--clr-theme-scale-warn-30);
+		border-radius: var(--radius-m);
+		background: var(--clr-theme-scale-warn-80);
+		padding: var(--space-12);
+		margin-left: var(--space-16);
 	}
 </style>
