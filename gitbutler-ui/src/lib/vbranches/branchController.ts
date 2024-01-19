@@ -107,6 +107,17 @@ export class BranchController {
 		}
 	}
 
+	async setSelectedForChanges(branchId: string) {
+		try {
+			await invoke<void>('update_virtual_branch', {
+				projectId: this.projectId,
+				branch: { id: branchId, selected_for_changes: true }
+			});
+		} catch (err) {
+			toasts.error('Failed to set as target');
+		}
+	}
+
 	async updateBranchOrder(branchId: string, order: number) {
 		try {
 			await invoke<void>('update_virtual_branch', {

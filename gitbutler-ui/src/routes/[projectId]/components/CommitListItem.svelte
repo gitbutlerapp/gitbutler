@@ -10,7 +10,7 @@
 	} from '$lib/draggables';
 	import { dropzone } from '$lib/utils/draggable';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
+	import { RemoteCommit, type BaseBranch, type Branch, type Commit } from '$lib/vbranches/types';
 	import { get } from 'svelte/store';
 	import CommitCard from './CommitCard.svelte';
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
@@ -18,14 +18,17 @@
 
 	export let branch: Branch;
 	export let project: Project;
-	export let commit: Commit;
+	export let commit: Commit | RemoteCommit;
 	export let base: BaseBranch | undefined | null;
 	export let isHeadCommit: boolean;
 	export let isChained: boolean;
 	export let readonly = false;
 	export let branchController: BranchController;
 
-	function acceptAmend(commit: Commit) {
+	function acceptAmend(commit: Commit | RemoteCommit) {
+		if (commit instanceof RemoteCommit) {
+			return () => false;
+		}
 		return (data: any) => {
 			if (!project.ok_with_force_push && commit.isRemote) {
 				return false;
@@ -60,7 +63,10 @@
 		}
 	}
 
-	function acceptSquash(commit: Commit) {
+	function acceptSquash(commit: Commit | RemoteCommit) {
+		if (commit instanceof RemoteCommit) {
+			return () => false;
+		}
 		return (data: any) => {
 			if (!isDraggableCommit(data)) return false;
 			if (data.branchId != branch.id) return false;
@@ -79,7 +85,10 @@
 		};
 	}
 
-	function onSquash(commit: Commit) {
+	function onSquash(commit: Commit | RemoteCommit) {
+		if (commit instanceof RemoteCommit) {
+			return () => false;
+		}
 		return (data: DraggableCommit) => {
 			if (data.commit.isParentOf(commit)) {
 				branchController.squashBranchCommit(data.branchId, commit.id);

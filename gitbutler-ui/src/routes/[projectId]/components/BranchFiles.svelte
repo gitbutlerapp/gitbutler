@@ -7,8 +7,6 @@
 	import SegmentedControl from '$lib/components/SegmentControl/SegmentedControl.svelte';
 	import Segment from '$lib/components/SegmentControl/Segment.svelte';
 	import FileTree from './FileTree.svelte';
-	import Resizer from '$lib/components/Resizer.svelte';
-	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import BranchFilesList from './BranchFilesList.svelte';
 
@@ -16,18 +14,10 @@
 	export let readonly: boolean;
 	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<File[]>;
-	export let forceResizable = false;
-	export let enableResizing = false;
 	export let showCheckboxes = false;
 
 	let selectedListMode: string;
 
-	let scrollViewport: HTMLDivElement | undefined;
-	let rsViewport: HTMLElement;
-
-	let scrollable: boolean | undefined;
-	let height: number | undefined = undefined;
-	let maxHeight: number | undefined;
 	let headerElement: HTMLDivElement;
 
 	function isAllChecked(selectedOwnership: Ownership): boolean {
@@ -73,90 +63,57 @@
 	</div>
 {/if}
 
-<div class="header" bind:this={headerElement}>
-	<div class="header__left">
-		{#if showCheckboxes && selectedListMode == 'list' && branch.files.length > 1}
-			<Checkbox
-				small
-				{checked}
-				{indeterminate}
-				on:change={(e) => {
-					if (e.detail) {
-						selectAll(selectedOwnership, branch.files);
-					} else {
-						selectedOwnership.update((ownership) => ownership.clear());
-					}
-				}}
-			/>
-		{/if}
-		<div class="header__title text-base-13 text-semibold">
-			<span>Changes</span>
-			<Badge count={branch.files.length} />
-		</div>
-	</div>
-	<SegmentedControl bind:selected={selectedListMode} selectedIndex={0}>
-		<Segment id="list" icon="list-view" />
-		<Segment id="tree" icon="tree-view" />
-	</SegmentedControl>
-</div>
-<div
-	class="resize-viewport flex-grow"
-	class:flex-shrink-0={(scrollable || forceResizable) && branch.commits.length > 0 && height}
-	style:min-height={scrollable || forceResizable ? `${headerElement.offsetHeight}px` : undefined}
-	style:height={scrollable || forceResizable ? `${height}px` : undefined}
-	style:max-height={forceResizable && maxHeight ? maxHeight + 'px' : undefined}
-	bind:this={rsViewport}
->
-	{#if branch.files.length > 0}
-		<ScrollableContainer
-			showBorderWhenScrolled
-			bind:viewport={scrollViewport}
-			bind:maxHeight
-			bind:scrollable
-		>
-			<div class="scroll-container">
-				<!-- TODO: This is an experiment in file sorting. Accept or reject! -->
-				{#if selectedListMode == 'list'}
-					<BranchFilesList
-						{branch}
-						{selectedOwnership}
-						{selectedFiles}
-						{showCheckboxes}
-						{readonly}
-					/>
-				{:else}
-					<FileTree
-						node={filesToFileTree(branch.files)}
-						{showCheckboxes}
-						branchId={branch.id}
-						isRoot={true}
-						{selectedOwnership}
-						{selectedFiles}
-						{readonly}
-					/>
-				{/if}
+<div class="branch-files">
+	<div class="header" bind:this={headerElement}>
+		<div class="header__left">
+			{#if showCheckboxes && selectedListMode == 'list' && branch.files.length > 1}
+				<Checkbox
+					small
+					{checked}
+					{indeterminate}
+					on:change={(e) => {
+						if (e.detail) {
+							selectAll(selectedOwnership, branch.files);
+						} else {
+							selectedOwnership.update((ownership) => ownership.clear());
+						}
+					}}
+				/>
+			{/if}
+			<div class="header__title text-base-13 text-semibold">
+				<span>Changes</span>
+				<Badge count={branch.files.length} />
 			</div>
-		</ScrollableContainer>
-	{/if}
-	<!-- Resizing makes no sense if there are no branch commits. -->
-	{#if (forceResizable || scrollable) && enableResizing}
-		<Resizer
-			inside
-			direction="down"
-			viewport={rsViewport}
-			on:height={(e) => {
-				height = e.detail;
-			}}
-		/>
+		</div>
+		<SegmentedControl bind:selected={selectedListMode} selectedIndex={0}>
+			<Segment id="list" icon="list-view" />
+			<Segment id="tree" icon="tree-view" />
+		</SegmentedControl>
+	</div>
+	{#if branch.files.length > 0}
+		<div class="scroll-container">
+			<!-- TODO: This is an experiment in file sorting. Accept or reject! -->
+			{#if selectedListMode == 'list'}
+				<BranchFilesList {branch} {selectedOwnership} {selectedFiles} {showCheckboxes} {readonly} />
+			{:else}
+				<FileTree
+					node={filesToFileTree(branch.files)}
+					{showCheckboxes}
+					branchId={branch.id}
+					isRoot={true}
+					{selectedOwnership}
+					{selectedFiles}
+					{readonly}
+				/>
+			{/if}
+		</div>
 	{/if}
 </div>
 
 <style lang="postcss">
-	.resize-viewport {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
+	.branch-files {
+		background: var(--clr-theme-container-light);
+		border-radius: var(--radius-m) var(--radius-m) 0 0;
 	}
 	.scroll-container {
 		display: flex;

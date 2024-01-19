@@ -20,6 +20,7 @@
 	$: pr$ = githubService.get(branch.upstreamName);
 
 	let isPushing: boolean;
+	let isMerging: boolean;
 
 	async function push() {
 		isPushing = true;
@@ -96,6 +97,24 @@
 				{:else}
 					Push
 				{/if}
+			</Button>
+		{:else if type == 'upstream'}
+			<Button
+				wide
+				color="warn"
+				loading={isMerging}
+				on:click={async () => {
+					isMerging = true;
+					try {
+						await branchController.mergeUpstream(branch.id);
+					} catch (err) {
+						toast.error('Failed to merge upstream commits');
+					} finally {
+						isMerging = false;
+					}
+				}}
+			>
+				Merge upstream commits
 			</Button>
 		{/if}
 	</div>

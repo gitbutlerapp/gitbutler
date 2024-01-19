@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { Project } from '$lib/backend/projects';
-	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
@@ -12,40 +11,45 @@
 	export let githubService: GitHubService;
 	export let branchController: BranchController;
 	export let readonly: boolean;
-
-	// Intended for 2 way binding.
-	export let scrollable: boolean | undefined = undefined;
+	export let branchCount: number;
 </script>
 
-{#if branch.commits.length > 0}
-	<!-- Note that 11.25rem min height is just observational, it might need updating -->
-	<ScrollableContainer bind:scrollable minHeight="9rem" showBorderWhenScrolled>
-		<CommitList
-			{branch}
-			{base}
-			{project}
-			{branchController}
-			{githubService}
-			{readonly}
-			type="local"
-		/>
-		<CommitList
-			{branch}
-			{base}
-			{project}
-			{branchController}
-			{githubService}
-			{readonly}
-			type="remote"
-		/>
-		<CommitList
-			{branch}
-			{base}
-			{project}
-			{branchController}
-			{githubService}
-			{readonly}
-			type="integrated"
-		/>
-	</ScrollableContainer>
+{#if branch.commits.length > 0 || (branch.upstream && branch.upstream.commits.length > 0)}
+	<CommitList
+		{branch}
+		{base}
+		{project}
+		{branchController}
+		{branchCount}
+		{githubService}
+		{readonly}
+		type="upstream"
+	/>
+	<CommitList
+		{branch}
+		{base}
+		{project}
+		{branchController}
+		{githubService}
+		{readonly}
+		type="local"
+	/>
+	<CommitList
+		{branch}
+		{base}
+		{project}
+		{branchController}
+		{githubService}
+		{readonly}
+		type="remote"
+	/>
+	<CommitList
+		{branch}
+		{base}
+		{project}
+		{branchController}
+		{githubService}
+		{readonly}
+		type="integrated"
+	/>
 {/if}

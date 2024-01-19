@@ -3,21 +3,22 @@
 	import Icon from '$lib/icons/Icon.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
-	import { fade } from 'svelte/transition';
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import { clickOutside } from '$lib/clickOutside';
 	import Tag from './Tag.svelte';
 	import { branchUrl } from './commitList';
 	import type { GitHubService } from '$lib/github/service';
-	import BranchIcon from '../navigation/BranchIcon.svelte';
 	import { open } from '@tauri-apps/api/shell';
+	import Button from '$lib/components/Button.svelte';
+	import { onMount } from 'svelte';
 
 	export let readonly = false;
 	export let branch: Branch;
 	export let base: BaseBranch | undefined | null;
 	export let branchController: BranchController;
 	export let projectId: string;
+	export let height: number | undefined;
 
 	export let githubService: GitHubService;
 	$: pr$ = githubService.get(branch.upstreamName);
@@ -25,125 +26,168 @@
 
 	let meatballButton: HTMLDivElement;
 	let visible = false;
+	let observer: ResizeObserver;
+	let container: HTMLDivElement;
+
+	onMount(() => {
+		observer = new ResizeObserver(() => {
+			if (container) {
+				height = container.offsetHeight;
+			}
+		});
+		return observer.observe(container);
+	});
 
 	function handleBranchNameChange() {
 		branchController.updateBranchName(branch.id, branch.name);
 	}
 
+	function normalizeBranchName(value: string) {
+		return value.toLowerCase().replace(/[^0-9a-z/_]/g, '-');
+	}
+
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
 </script>
 
-<div class="card__header">
-	{#if !readonly}
-		<div class="draggable" data-drag-handle>
-			<Icon name="draggable-narrow" />
-		</div>
-	{/if}
-	<div class="header__content">
-		<div class="header__row">
-			<div class="header__label">
-				<BranchLabel bind:name={branch.name} on:change={handleBranchNameChange} />
-			</div>
-			<div class="flex items-center gap-x-1" transition:fade={{ duration: 150 }}>
-				{#if !readonly}
-					<div bind:this={meatballButton}>
-						<IconButton icon="kebab" size="m" on:click={() => (visible = !visible)} />
-					</div>
-					<div
-						class="branch-popup-menu"
-						use:clickOutside={{
-							trigger: meatballButton,
-							handler: () => (visible = false)
-						}}
-					>
-						<BranchLanePopupMenu {branchController} {branch} {projectId} bind:visible on:action />
-					</div>
-				{/if}
-			</div>
-		</div>
-		{#if branch.upstreamName}
-			<div class="header__remote-branch text-base-body-11">
-				{#if !branch.upstream}
-					{#if hasIntegratedCommits}
-						<div class="status-tag deleted">deleted</div>
+<div class="wrapper" bind:this={container}>
+	<div class="concealer">
+		<div class="header card">
+			<div class="header__info">
+				<div class="header__label">
+					<BranchLabel bind:name={branch.name} on:change={handleBranchNameChange} />
+				</div>
+				<div class="header__remote-branch text-base-body-11">
+					{#if !branch.upstream}
+						{#if hasIntegratedCommits}
+							<div class="status-tag deleted"><Icon name="remote-branch-small" /> deleted</div>
+						{:else}
+							<div class="status-tag pending"><Icon name="remote-branch-small" /> new</div>
+						{/if}
+						<div class="text-semibold pending-name text-base-11">
+							origin/{branch.upstreamName ? branch.upstreamName : normalizeBranchName(branch.name)}
+						</div>
 					{:else}
-						<div class="status-tag pending">pending</div>
+						<div class="status-tag remote"><Icon name="remote-branch-small" /> remote</div>
+						<Tag
+							icon="open-link"
+							color="ghost"
+							border
+							clickable
+							on:click={(e) => {
+								const url = branchUrl(base, branch.upstream?.name);
+								if (url) open(url);
+								e.preventDefault();
+								e.stopPropagation();
+							}}
+						>
+							origin/{branch.upstreamName}
+						</Tag>
+						{#if $pr$?.htmlUrl}
+							<Tag
+								icon="pr-small"
+								color="ghost"
+								border
+								clickable
+								on:click={(e) => {
+									const url = $pr$?.htmlUrl;
+									if (url) open(url);
+									e.preventDefault();
+									e.stopPropagation();
+								}}
+							>
+								View PR
+							</Tag>
+						{/if}
 					{/if}
-				{/if}
-				<div>origin/{branch.upstreamName}</div>
-			</div>
-		{/if}
-		{#if branch.upstream}
-			<div class="header__links">
-				<BranchIcon name="remote-branch" color="neutral" />
-
-				<Tag
-					icon="open-link"
-					color="ghost"
-					border
-					clickable
-					on:click={(e) => {
-						const url = branchUrl(base, branch.upstream?.name);
-						if (url) open(url);
-						e.preventDefault();
-						e.stopPropagation();
-					}}
-				>
-					View remote branch
-				</Tag>
-				{#if $pr$?.htmlUrl}
-					<Tag
-						icon="pr-small"
-						color="ghost"
-						border
-						clickable
-						on:click={(e) => {
-							const url = $pr$?.htmlUrl;
-							if (url) open(url);
-							e.preventDefault();
-							e.stopPropagation();
-						}}
-					>
-						View PR
-					</Tag>
+				</div>
+				{#if !readonly}
+					<div class="draggable" data-drag-handle>
+						<Icon name="draggable-narrow" />
+					</div>
 				{/if}
 			</div>
-		{/if}
+			<div class="header__actions">
+				<div class="header__buttons">
+					{#if branch.selectedForChanges}
+						<Button icon="target">Target branch</Button>
+					{:else}
+						<Button
+							icon="target"
+							kind="outlined"
+							on:click={async () => {
+								await branchController.setSelectedForChanges(branch.id);
+							}}
+						>
+							Make target
+						</Button>
+					{/if}
+				</div>
+				{#if !readonly}
+					<div class="relative" bind:this={meatballButton}>
+						<IconButton border icon="kebab" size="m" on:click={() => (visible = !visible)} />
+						<div
+							class="branch-popup-menu"
+							use:clickOutside={{
+								trigger: meatballButton,
+								handler: () => (visible = false)
+							}}
+						>
+							<BranchLanePopupMenu {branchController} {branch} {projectId} bind:visible on:action />
+						</div>
+					</div>
+				{/if}
+			</div>
+		</div>
 	</div>
 </div>
 
 <style lang="postcss">
-	.card__header {
+	.wrapper {
+		padding: 0 var(--space-8) var(--space-16) var(--space-8);
+		position: absolute;
+		z-index: 10;
+		width: 100%;
+	}
+	.concealer {
+		background: var(--clr-theme-container-pale);
+		border-radius: 0 0 var(--radius-m) var(--radius-m);
+		padding-top: var(--space-16);
+	}
+	.header {
 		user-select: none;
 		position: relative;
 		flex-direction: column;
 		gap: var(--space-2);
-		padding: var(--space-12);
+		top: 0;
 
 		&:hover {
-			& .header__content {
-				margin-left: var(--space-6);
-			}
-
 			& .draggable {
 				opacity: 1;
 			}
 		}
 	}
-	.header__content {
+
+	.header__info {
 		display: flex;
 		flex-direction: column;
 		transition: margin var(--transition-slow);
+		padding: var(--space-12);
+		gap: var(--space-10);
 	}
-	.header__row {
-		width: 100%;
+	.header__actions {
 		display: flex;
+		gap: var(--space-4);
+		background: var(--clr-theme-container-pale);
+		padding: var(--space-12);
 		justify-content: space-between;
-		gap: var(--space-8);
-		overflow-x: hidden;
+		border-radius: 0 0 var(--radius-m) var(--radius-m);
+	}
+	.header__buttons {
+		display: flex;
+		position: relative;
+		gap: var(--space-4);
 	}
 	.header__label {
-		overflow-x: hidden;
 		display: flex;
 		flex-grow: 1;
 		align-items: center;
@@ -162,7 +206,7 @@
 
 	.draggable {
 		position: absolute;
-		left: var(--space-4);
+		right: var(--space-4);
 		top: var(--space-6);
 		opacity: 0;
 		display: flex;
@@ -183,8 +227,8 @@
 
 	.branch-popup-menu {
 		position: absolute;
-		top: calc(var(--space-2) + var(--space-40));
-		right: var(--space-12);
+		top: calc(100% + var(--space-4));
+		right: 0;
 		z-index: 10;
 	}
 
@@ -192,6 +236,7 @@
 		color: var(--clr-theme-scale-ntrl-50);
 		padding-left: var(--space-4);
 		display: flex;
+		flex-wrap: wrap;
 		gap: var(--space-4);
 		text-overflow: ellipsis;
 		overflow-x: hidden;
@@ -200,18 +245,35 @@
 	}
 
 	.status-tag {
-		padding: var(--space-2) var(--space-4);
+		display: flex;
+		gap: var(--space-2);
+		padding: var(--space-2) var(--space-6) var(--space-2) var(--space-4);
 		border-radius: var(--radius-s);
 		margin-right: var(--space-2);
 	}
 
 	.pending {
-		color: var(--clr-theme-scale-ntrl-40);
-		background: var(--clr-theme-container-sub);
+		color: var(--clr-theme-scale-pop-30);
+		background: var(--clr-theme-scale-pop-80);
+	}
+
+	.pending-name {
+		background: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 10%, transparent);
+		border-radius: var(--radius-m);
+		line-height: 120%;
+		height: var(--space-20);
+		display: flex;
+		align-items: center;
+		padding: 0 var(--space-6);
 	}
 
 	.deleted {
 		color: var(--clr-theme-scale-warn-30);
 		background: var(--clr-theme-warn-container-dim);
+	}
+
+	.remote {
+		color: var(--clr-theme-scale-ntrl-100);
+		background: var(--clr-theme-scale-ntrl-40);
 	}
 </style>

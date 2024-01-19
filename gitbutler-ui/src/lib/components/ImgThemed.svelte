@@ -27,4 +27,4 @@
 	});
 </script>
 
-<img src={imgSrc} alt="Decorative Art" />
+<img src={imgSrc} alt="Decorative Art" class="inline-block" />

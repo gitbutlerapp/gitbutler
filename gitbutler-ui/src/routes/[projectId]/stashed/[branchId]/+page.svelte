@@ -84,7 +84,6 @@
 				base={$baseBranch$}
 				{cloud}
 				project={$project$}
-				maximized={false}
 				readonly={true}
 				user={$user$}
 				projectPath={$project$.path}

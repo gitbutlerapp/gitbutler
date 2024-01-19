@@ -42,13 +42,13 @@
 		}}
 		class="viewport hide-native-scrollbar"
 		style:height
-		style:overflow-y={scrollable ? 'scroll' : 'hidden'}
+		style:overflow-y={scrollable ? 'auto' : 'hidden'}
 	>
 		<div bind:this={contents} class="contents">
 			<slot />
 		</div>
 	</div>
-	<Scrollbar {viewport} {contents} thickness="0.4rem" {initiallyVisible} />
+	<Scrollbar {viewport} {contents} thickness="0.375rem" {initiallyVisible} />
 </div>
 
 <style lang="postcss">
@@ -59,7 +59,6 @@
 		overflow: hidden;
 	}
 	.viewport {
-		overscroll-behavior: none;
 		height: 100%;
 		width: 100%;
 	}
