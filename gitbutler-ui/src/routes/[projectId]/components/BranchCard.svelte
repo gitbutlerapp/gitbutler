@@ -230,7 +230,7 @@
 						<h2 class="new-branch__title text-base-body-15 text-semibold">
 							This is a new branch.<br />Let's start creating!
 						</h2>
-						<p class="new-branch__caption text-base-body-12">
+						<p class="new-branch__caption text-base-body-13">
 							Get some work done,<br />then throw some files my way
 						</p>
 					</div>
@@ -247,8 +247,8 @@
 								}}
 							/>
 						</div>
-						<h2 class="new-branch__title-caption text-base-body-16 text-semibold">
-							No uncommitted changes on this branch
+						<h2 class="new-branch__title-caption text-base-body-13">
+							No uncommitted changes<br />on this branch
 						</h2>
 					</div>
 				</div>
@@ -296,6 +296,7 @@
 
 	.new-branch,
 	.no-changes {
+		user-select: none;
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
@@ -324,15 +325,11 @@
 		text-align: center;
 	}
 
-	.new-branch__caption {
+	.new-branch__caption,
+	.new-branch__title-caption {
 		color: var(--clr-theme-scale-ntrl-50);
 		text-align: center;
-	}
-
-	.new-branch__title-caption {
-		color: var(--clr-theme-scale-ntrl-60);
-		text-align: center;
-		max-width: 12rem;
+		opacity: 0.6;
 	}
 
 	/* hunks drop zone */
