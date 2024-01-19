@@ -21,33 +21,24 @@ jobs:
               - 'gitbutler-ui/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
-            rust:
-              - 'gitbutler-*/**'
-              - '!gitbutler-ui/**'
+            common-rust: &rust
               - 'Cargo.lock'
               - 'Cargo.toml'
               - 'rust-toolchain.toml'
+            rust: &any-rust
+              - *rust
+              - 'gitbutler-!(ui)/**'
             gitbutler-app:
-              - 'gitbutler-*/**'
-              - '!gitbutler-ui/**'
-              - 'Cargo.lock'
-              - 'Cargo.toml'
-              - 'rust-toolchain.toml'
+              - *any-rust
             gitbutler-core:
+              - *rust
               - 'gitbutler-core/**'
-              - 'Cargo.lock'
-              - 'Cargo.toml'
-              - 'rust-toolchain.toml'
             gitbutler-git:
+              - *rust
               - 'gitbutler-git/**'
-              - 'Cargo.lock'
-              - 'Cargo.toml'
-              - 'rust-toolchain.toml'
             gitbutler-diff:
+              - *rust
               - 'gitbutler-diff/**'
-              - 'Cargo.lock'
-              - 'Cargo.toml'
-              - 'rust-toolchain.toml'
 
   lint-node:
     needs: changes
