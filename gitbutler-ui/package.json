@@ -39,7 +39,7 @@
 		"@octokit/rest": "^20.0.2",
 		"@replit/codemirror-lang-svelte": "^6.0.0",
 		"@sentry/sveltekit": "^7.73.0",
-		"@sveltejs/adapter-static": "^2.0.3",
+		"@sveltejs/adapter-static": "^3.0.1",
 		"@sveltejs/kit": "^1.27.5",
 		"@tauri-apps/api": "^1.5.3",
 		"@types/crypto-js": "^4.2.1",
@@ -52,7 +52,7 @@
 		"autoprefixer": "^10.4.16",
 		"class-transformer": "^0.5.1",
 		"crypto-js": "^4.2.0",
-		"date-fns": "^2.30.0",
+		"date-fns": "^3.2.0",
 		"diff-match-patch": "^1.0.5",
 		"eslint": "^8.56.0",
 		"eslint-config-prettier": "^9.1.0",
@@ -63,7 +63,7 @@
 		"inter-ui": "^4.0.1",
 		"leven": "^4.0.0",
 		"lscache": "^1.3.2",
-		"marked": "^10.0.0",
+		"marked": "^11.1.1",
 		"mm-jsr": "^3.0.2",
 		"nanoevents": "^9.0.0",
 		"nanoid": "^5.0.4",
@@ -87,7 +87,7 @@
 		"tinykeys": "^2.1.0",
 		"tslib": "^2.6.2",
 		"typescript": "^5.2.2",
-		"vite": "^4.5.1",
+		"vite": "^5.0.12",
 		"vitest": "^0.34.6"
 	}
 }
