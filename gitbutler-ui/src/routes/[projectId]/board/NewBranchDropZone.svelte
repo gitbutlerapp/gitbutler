@@ -69,8 +69,8 @@
 				</div>
 			</div>
 
-			<span class="text-base-body-12 new-branch-caption"
-				>Drag and drop files to create a new branch</span
+			<span class="text-base-body-13 new-branch-caption"
+				>Drag and drop files<br />to create a new branch</span
 			>
 
 			<div class="new-branch-button">
@@ -223,7 +223,6 @@
 		color: var(--clr-theme-scale-ntrl-0);
 		text-align: center;
 		opacity: 0.3;
-		max-width: 130px;
 		transition: opacity var(--transition-medium);
 	}
 
