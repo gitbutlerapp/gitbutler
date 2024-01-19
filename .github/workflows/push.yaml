@@ -5,26 +5,49 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      rust: ${{ steps.filter.outputs.rust }}
       node: ${{ steps.filter.outputs.node }}
+      rust: ${{ steps.filter.outputs.rust }}
+      gitbutler-app: ${{ steps.filter.outputs.gitbutler-app }}
+      gitbutler-core: ${{ steps.filter.outputs.gitbutler-core }}
+      gitbutler-git: ${{ steps.filter.outputs.gitbutler-git }}
+      gitbutler-diff: ${{ steps.filter.outputs.gitbutler-diff }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v2
         id: filter
         with:
           filters: |
-            rust:
-              - 'gitbutler-app/**'
-              - 'gitbutler-core/**'
-              - 'gitbutler-git/**'
-              - 'gitbutler-diff/**'
-              - 'Cargo.lock'
-              - 'Cargo.toml'
-              - 'rust-toolchain.toml'
             node:
               - 'gitbutler-ui/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
+            rust:
+              - 'gitbutler-*/**'
+              - '!gitbutler-ui/**'
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+              - 'rust-toolchain.toml'
+            gitbutler-app:
+              - 'gitbutler-*/**'
+              - '!gitbutler-ui/**'
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+              - 'rust-toolchain.toml'
+            gitbutler-core:
+              - 'gitbutler-core/**'
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+              - 'rust-toolchain.toml'
+            gitbutler-git:
+              - 'gitbutler-git/**'
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+              - 'rust-toolchain.toml'
+            gitbutler-diff:
+              - 'gitbutler-diff/**'
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+              - 'rust-toolchain.toml'
 
   lint-node:
     needs: changes
@@ -53,36 +76,130 @@ jobs:
       - uses: ./.github/actions/init-env-node
       - run: pnpm test
 
-  lint-rust:
+  rust-init:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-rust
-      - run: cargo fmt --check
+      - run: cargo fmt --check --all
+      - run: cargo build --locked --all-targets --tests
 
-  test-rust:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+  check-gitbutler-app:
+    needs: [changes, rust-init]
+    if: ${{ needs.changes.outputs.gitbutler-app == 'true' }}
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    strategy:
+      matrix:
+        action:
+          - test
+          - check
+          - check-tests
+        features:
+          - ''
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-rust
-      - run: cargo test --locked
+      - uses: ./.github/actions/check-crate
+        with:
+          crate: gitbutler-app
+          features: ${{ toJson(matrix.features) }}
+          action: ${{ matrix.action }}
+
+  check-gitbutler-git:
+    needs: [changes, rust-init]
+    if: ${{ needs.changes.outputs.gitbutler-git == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    strategy:
+      matrix:
+        action:
+          - test
+          - check
+          - check-tests
+        features:
+          - ''
+          - '*'
+          - []
+          - [cli]
+          - [cli, tokio]
+          - [serde]
+          - [git2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/check-crate
+        with:
+          crate: gitbutler-git
+          features: ${{ toJson(matrix.features) }}
+          action: ${{ matrix.action }}
+
+  check-gitbutler-diff:
+    needs: [changes, rust-init]
+    if: ${{ needs.changes.outputs.gitbutler-diff == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    strategy:
+      matrix:
+        action:
+          - test
+          - check
+          - check-tests
+        features:
+          - ''
+          - '*'
+          - []
+          - [git2]
+          - [mmap]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/check-crate
+        with:
+          crate: gitbutler-diff
+          features: ${{ toJson(matrix.features) }}
+          action: ${{ matrix.action }}
+
+  check-gitbutler-core:
+    needs: [changes, rust-init]
+    if: ${{ needs.changes.outputs.gitbutler-core == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    strategy:
+      matrix:
+        action:
+          - test
+          - check
+          - check-tests
+        features:
+          - ''
+          - '*'
+          - []
+          - [serde]
+          - [rusqlite]
+          - [serde, rusqlite]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/check-crate
+        with:
+          crate: gitbutler-core
+          features: ${{ toJson(matrix.features) }}
+          action: ${{ matrix.action }}
 
   check-rust:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    needs:
+      - changes
+      - check-gitbutler-app
+      - check-gitbutler-git
+      - check-gitbutler-diff
+      - check-gitbutler-core
     runs-on: ubuntu-latest
+    if: ${{ needs.changes.outputs.rust == 'true' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-rust
-      - run: cargo clippy -p gitbutler-git --all-targets --all-features --tests
-      - run: cargo clippy -p gitbutler-git --tests
-      - run: cargo clippy -p gitbutler-git --no-default-features
-      - run: cargo clippy -p gitbutler-git --no-default-features --tests
-      - run: cargo clippy -p gitbutler-git --no-default-features --features git2
-      - run: cargo clippy -p gitbutler-git --no-default-features --features git2 --tests
-      - run: cargo clippy -p gitbutler-git --no-default-features --features cli
-      - run: cargo clippy -p gitbutler-git --no-default-features --features cli --tests
+      - run: ':'
+        shell: bash

@@ -1,0 +1,36 @@
+name: check-crate
+description: tests a core lib crate
+inputs:
+  crate:
+    description: "the name of the crate to check"
+    required: true
+  features:
+    description: "the features to enable (can be an array, or '*' for all, '' for defaults, or [] for none)"
+    required: false
+  action:
+    description: "the action to run"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - uses: ./.github/actions/init-env-rust
+
+    - run: |
+        printf '%s\n' "$JSON_DOC" > /tmp/features.json
+        cat /tmp/features.json | jq -r 'if . == "*" then "--all-features" elif . == "" then "" elif type == "array" then if length == 0 then "--no-default-features" else "--no-default-features --features " + join(",") end else . end' > /tmp/features
+        cat /tmp/features
+      env:
+        FEATURES: ${{ inputs.features }}
+      shell: bash
+
+    - run: cargo test --locked -p ${{ inputs.crate }} $(cat /tmp/features)
+      if: inputs.action == 'test'
+      shell: bash
+
+    - run: cargo clippy -p ${{ inputs.crate }} --all-targets $(cat /tmp/features)
+      if: inputs.action == 'check'
+      shell: bash
+
+    - run: cargo clippy -p ${{ inputs.crate }} --all-targets --tests $(cat /tmp/features)
+      if: inputs.action == 'check-tests'
+      shell: bash
