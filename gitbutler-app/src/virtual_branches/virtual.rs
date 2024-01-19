@@ -786,12 +786,20 @@ pub fn list_virtual_branches(
         }
 
         let mut is_integrated = false;
+        let mut is_remote = false;
+
         // find all commits on head that are not on target.sha
         let commits = project_repository
             .log(branch.head, LogUntil::Commit(default_target.sha))
             .context(format!("failed to get log for branch {}", branch.name))?
             .iter()
             .map(|commit| {
+                is_remote = if !is_remote {
+                    pushed_commits.contains_key(&commit.id())
+                } else {
+                    is_remote
+                };
+
                 // only check for integration if we haven't already found an integration
                 is_integrated = if !is_integrated {
                     is_commit_integrated(project_repository, &default_target, commit)?
@@ -803,8 +811,8 @@ pub fn list_virtual_branches(
                     project_repository,
                     branch,
                     commit,
-                    Some(&pushed_commits),
                     is_integrated,
+                    is_remote,
                 )
             })
             .collect::<Result<Vec<_>>>()?;
@@ -1063,17 +1071,12 @@ fn commit_to_vbranch_commit(
     repository: &project_repository::Repository,
     branch: &branch::Branch,
     commit: &git::Commit,
-    upstream_commits: Option<&HashMap<git::Oid, bool>>,
     is_integrated: bool,
+    is_remote: bool,
 ) -> Result<VirtualBranchCommit> {
     let timestamp = u128::try_from(commit.time().seconds())?;
     let signature = commit.author();
     let message = commit.message().unwrap().to_string();
-
-    let is_remote = match upstream_commits {
-        Some(commits) => commits.contains_key(&commit.id()),
-        None => true,
-    };
 
     let files =
         list_virtual_commit_files(repository, commit).context("failed to list commit files")?;
