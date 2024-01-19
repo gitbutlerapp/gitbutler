@@ -335,7 +335,7 @@
 
 	.new-branch__image {
 		width: 7.5rem;
-		margin-bottom: var(--space-20);
+		margin-bottom: var(--space-10);
 	}
 
 	/* hunks drop zone */
