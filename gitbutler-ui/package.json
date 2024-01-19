@@ -68,7 +68,7 @@
 		"nanoevents": "^9.0.0",
 		"nanoid": "^5.0.4",
 		"postcss": "^8.4.31",
-		"postcss-load-config": "^4.0.1",
+		"postcss-load-config": "^5.0.2",
 		"posthog-js": "1.96.1",
 		"prettier": "^3.1.1",
 		"prettier-plugin-svelte": "^3.1.2",
