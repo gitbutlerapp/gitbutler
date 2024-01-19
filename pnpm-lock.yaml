@@ -99,8 +99,8 @@ importers:
         specifier: ^1.0.36
         version: 1.0.36
       '@types/lscache':
-        specifier: ^1.3.2
-        version: 1.3.2
+        specifier: ^1.3.4
+        version: 1.3.4
       '@types/marked':
         specifier: ^5.0.2
         version: 5.0.2
@@ -1492,8 +1492,8 @@ packages:
     resolution: {integrity: sha512-dRLjCWHYg4oaA77cxO64oO+7JwCwnIzkZPdrrC71jQmQtlhM556pwKo5bUzqvZndkVbeFLIIi+9TC40JNF5hNQ==}
     dev: true
 
-  /@types/lscache@1.3.2:
-    resolution: {integrity: sha512-H/9TxOgI74+y12Vcx/kfmuESR1cJfPfqKa/Jzfubl925lS9IWiBKOfTvdZHqWr/k8SKFBQf3MqDTEaSSOr/ztw==}
+  /@types/lscache@1.3.4:
+    resolution: {integrity: sha512-boZGIpx9t9lISW2EllC4APDwMQAouwViERSZU2T1p5gYs/SVM1ohq29+eBDb8g6D3FDPgeUsOALZIH0IGwLNvw==}
     dev: true
 
   /@types/marked@5.0.2:
