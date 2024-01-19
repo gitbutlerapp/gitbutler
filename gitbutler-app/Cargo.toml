@@ -25,7 +25,7 @@ anyhow = "1.0.79"
 async-trait = "0.1.77"
 backoff = "0.4.0"
 backtrace = { version = "0.3.69", optional = true }
-bstr = "1.8.0"
+bstr = "1.9.0"
 byteorder = "1.5.0"
 chrono = { version = "0.4.31", features = ["serde"] }
 console-subscriber = "0.2.0"
@@ -49,7 +49,7 @@ r2d2 = "0.8.10"
 r2d2_sqlite = "0.22.0"
 rand = "0.8.5"
 refinery = { version = "0.8", features = [ "rusqlite" ] }
-regex = "1.5"
+regex = "1.10"
 reqwest = "0.11.23"
 resolve-path = "0.1.0"
 rusqlite = { workspace = true }
@@ -73,7 +73,7 @@ tokio-util = "0.7.10"
 tracing = "0.1.40"
 tracing-appender = "0.2.3"
 tracing-subscriber = "0.3.17"
-url = "2.4"
+url = "2.5"
 urlencoding = "2.1.3"
 uuid = { workspace = true }
 walkdir = "2.3.2"
