@@ -183,8 +183,8 @@ importers:
         specifier: ^0.5.6
         version: 0.5.6(prettier-plugin-svelte@3.1.2)(prettier@3.1.1)
       reflect-metadata:
-        specifier: ^0.1.13
-        version: 0.1.13
+        specifier: ^0.2.1
+        version: 0.2.1
       rxjs:
         specifier: ^7.8.1
         version: 7.8.1
@@ -3841,8 +3841,8 @@ packages:
       tslib: 2.6.2
     dev: true
 
-  /reflect-metadata@0.1.13:
-    resolution: {integrity: sha512-Ts1Y/anZELhSsjMcU605fU9RE4Oi3p5ORujwbIKXfWa+0Zxs510Qrmrce5/Jowq3cHSZSJqBjypxmHarc+vEWg==}
+  /reflect-metadata@0.2.1:
+    resolution: {integrity: sha512-i5lLI6iw9AU3Uu4szRNPPEkomnkjRTaVt9hy/bn5g/oSzekBSMeLZblcjP74AW0vBabqERLLIrz+gR8QYR54Tw==}
     dev: true
 
   /regenerator-runtime@0.14.0:
