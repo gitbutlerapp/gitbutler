@@ -39,7 +39,7 @@
 		"@octokit/rest": "^20.0.2",
 		"@replit/codemirror-lang-svelte": "^6.0.0",
 		"@sentry/sveltekit": "^7.73.0",
-		"@sveltejs/adapter-static": "^2.0.3",
+		"@sveltejs/adapter-static": "^3.0.1",
 		"@sveltejs/kit": "^1.27.5",
 		"@tauri-apps/api": "^1.5.3",
 		"@types/crypto-js": "^4.2.1",

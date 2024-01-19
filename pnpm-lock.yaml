@@ -81,8 +81,8 @@ importers:
         specifier: ^7.73.0
         version: 7.73.0(@sveltejs/kit@1.27.5)(svelte@4.2.2)
       '@sveltejs/adapter-static':
-        specifier: ^2.0.3
-        version: 2.0.3(@sveltejs/kit@1.27.5)
+        specifier: ^3.0.1
+        version: 3.0.1(@sveltejs/kit@1.27.5)
       '@sveltejs/kit':
         specifier: ^1.27.5
         version: 1.27.5(svelte@4.2.2)(vite@4.5.1)
@@ -1270,10 +1270,10 @@ packages:
     resolution: {integrity: sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==}
     dev: true
 
-  /@sveltejs/adapter-static@2.0.3(@sveltejs/kit@1.27.5):
-    resolution: {integrity: sha512-VUqTfXsxYGugCpMqQv1U0LIdbR3S5nBkMMDmpjGVJyM6Q2jHVMFtdWJCkeHMySc6mZxJ+0eZK3T7IgmUCDrcUQ==}
+  /@sveltejs/adapter-static@3.0.1(@sveltejs/kit@1.27.5):
+    resolution: {integrity: sha512-6lMvf7xYEJ+oGeR5L8DFJJrowkefTK6ZgA4JiMqoClMkKq0s6yvsd3FZfCFvX1fQ0tpCD7fkuRVHsnUVgsHyNg==}
     peerDependencies:
-      '@sveltejs/kit': ^1.5.0
+      '@sveltejs/kit': ^2.0.0
     dependencies:
       '@sveltejs/kit': 1.27.5(svelte@4.2.2)(vite@4.5.1)
     dev: true
