@@ -58,7 +58,7 @@
 		padding: 0 var(--space-2);
 	}
 	.clickable {
-		cursor: pointer;
+		cursor: default;
 		&:hover {
 			background: var(--clr-theme-container-sub);
 		}
