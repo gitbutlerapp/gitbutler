@@ -158,21 +158,6 @@
 					}
 				}}
 			/>
-			<!-- <div
-				class="branch-card__sections"
-				use:dropzone={{
-					hover: 'cherrypick-dz-hover',
-					active: 'cherrypick-dz-active',
-					accepts: acceptCherrypick,
-					onDrop: onCherrypicked
-				}}
-				use:dropzone={{
-					hover: 'lane-dz-hover',
-					active: 'lane-dz-active',
-					accepts: acceptBranchDrop,
-					onDrop: onBranchDrop
-				}}
-			> -->
 			<!-- DROPZONES -->
 			<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
 			<DropzoneOverlay class="lane-dz-marker" label="Move here" />
@@ -268,7 +253,6 @@
 				{readonly}
 			/>
 		</div>
-		<!-- </div> -->
 	</ScrollableContainer>
 
 	<Resizer
@@ -303,7 +287,8 @@
 	.branch-card__contents {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-6);
+		padding-top: 20px;
+		gap: var(--space-4);
 		padding: var(--space-16) var(--space-8) var(--space-16) var(--space-8);
 	}
 
