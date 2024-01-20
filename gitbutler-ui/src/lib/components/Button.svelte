@@ -12,6 +12,7 @@
 	export let color: ButtonColor = 'primary';
 	export let kind: 'filled' | 'outlined' = 'filled';
 	export let disabled = false;
+	export let notClickable = false;
 	export let id: string | undefined = undefined;
 	export let loading = false;
 	export let tabindex = 0;
@@ -44,11 +45,12 @@
 	class:icon-left={iconAlign == 'left'}
 	class:wide
 	class:grow
+	class:not-clickable={notClickable}
 	bind:this={element}
 	{disabled}
 	on:click
 	{id}
-	{tabindex}
+	tabindex={notClickable ? -1 : tabindex}
 >
 	{#if SLOTS}
 		<span class="label text-base-12">
@@ -90,6 +92,9 @@
 		&.icon-left {
 			flex-direction: row-reverse;
 		}
+		&.not-clickable {
+			pointer-events: none;
+		}
 	}
 	.label {
 		display: inline-flex;
@@ -98,7 +103,8 @@
 	.primary-filled {
 		background: var(--clr-theme-pop-element);
 		color: var(--clr-theme-pop-on-element);
-		&:hover {
+		&:hover,
+		&:focus {
 			background: var(--clr-theme-pop-element-dim);
 		}
 		&:active {
@@ -108,7 +114,8 @@
 	.primary-outline {
 		color: var(--clr-theme-pop-outline);
 		border: 1px solid var(--clr-theme-pop-outline);
-		&:hover {
+		&:hover,
+		&:focus {
 			color: var(--clr-theme-pop-outline-dim);
 			border: 1px solid var(--clr-theme-pop-outline-dim);
 		}
@@ -121,7 +128,8 @@
 	.neutral-outline {
 		color: var(--clr-theme-scale-ntrl-30);
 		border: 1px solid var(--clr-theme-container-outline-light);
-		&:hover {
+		&:hover,
+		&:focus {
 			color: var(--clr-theme-scale-ntrl-20);
 			border: 1px solid var(--clr-theme-container-outline-pale);
 		}
@@ -134,7 +142,8 @@
 	.warn-filled {
 		color: var(--clr-theme-warn-on-element);
 		background: var(--clr-theme-warn-element);
-		&:hover {
+		&:hover,
+		&:focus {
 			background: var(--clr-theme-warn-element-dim);
 		}
 		&:active {
@@ -144,7 +153,8 @@
 	.warn-outline {
 		color: var(--clr-theme-warn-outline);
 		border: 1px solid var(--clr-theme-warn-outline);
-		&:hover {
+		&:hover,
+		&:focus {
 			color: var(--clr-theme-warn-outline-dim);
 			border: 1px solid var(--clr-theme-warn-outline-dim);
 		}
@@ -157,7 +167,8 @@
 	.error-filled {
 		color: var(--clr-theme-err-on-element);
 		background: var(--clr-theme-err-element);
-		&:hover {
+		&:hover,
+		&:focus {
 			background: var(--clr-theme-err-element-dim);
 		}
 		&:active {
@@ -167,7 +178,8 @@
 	.error-outline {
 		color: var(--clr-theme-err-outline);
 		border: 1px solid var(--clr-theme-err-outline);
-		&:hover {
+		&:hover,
+		&:focus {
 			color: var(--clr-theme-err-outline-dim);
 			border: 1px solid var(--clr-theme-err-outline-dim);
 		}

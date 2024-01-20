@@ -109,7 +109,7 @@
 			<div class="header__actions">
 				<div class="header__buttons">
 					{#if branch.selectedForChanges}
-						<Button icon="target">Target branch</Button>
+						<Button icon="target" notClickable>Target branch</Button>
 					{:else}
 						<Button
 							icon="target"
@@ -143,15 +143,15 @@
 
 <style lang="postcss">
 	.wrapper {
-		padding: 0 var(--space-8) var(--space-8) var(--space-8);
-		position: absolute;
-		z-index: 10;
+		/* padding: 0 var(--space-8) var(--space-8) var(--space-8); */
+		/* position: absolute; */
+		/* z-index: 10; */
 		width: 100%;
 	}
 	.concealer {
 		background: var(--clr-theme-container-pale);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
-		padding-top: var(--space-16);
+		/* padding-top: var(--space-16); */
 	}
 	.header {
 		user-select: none;
