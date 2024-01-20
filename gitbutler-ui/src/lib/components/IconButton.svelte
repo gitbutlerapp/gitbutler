@@ -5,7 +5,6 @@
 	export let icon: keyof typeof iconsJson;
 	export let size: 's' | 'm' | 'l' = 'l';
 	export let loading = false;
-	export let border = false;
 
 	let className = '';
 	let selected = false;
@@ -16,7 +15,6 @@
 <button
 	class="icon-btn {className}"
 	class:selected
-	class:border
 	class:small={size == 's'}
 	class:medium={size == 'm'}
 	class:large={size == 'l'}
@@ -38,9 +36,6 @@
 			background-color: var(--clr-theme-container-pale);
 			color: var(--clr-theme-scale-ntrl-40);
 		}
-	}
-	.border {
-		border: 1px solid var(--clr-theme-container-outline-light);
 	}
 	.selected {
 		background-color: var(--clr-theme-container-sub);

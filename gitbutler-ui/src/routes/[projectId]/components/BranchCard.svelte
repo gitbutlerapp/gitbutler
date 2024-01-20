@@ -55,8 +55,6 @@
 	const laneWidthKey = 'laneWidth_';
 
 	let laneWidth: number;
-	let headerHeight: number | undefined;
-	$: console.log(headerHeight);
 
 	$: {
 		// On refresh we need to check expansion status from localStorage
@@ -153,7 +151,6 @@
 				{branch}
 				{base}
 				{githubService}
-				bind:height={headerHeight}
 				projectId={project.id}
 				on:action={(e) => {
 					if (e.detail == 'generate-branch-name') {
@@ -306,7 +303,7 @@
 	.branch-card__contents {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-4);
+		gap: var(--space-6);
 		padding: var(--space-16) var(--space-8) var(--space-16) var(--space-8);
 	}
 
