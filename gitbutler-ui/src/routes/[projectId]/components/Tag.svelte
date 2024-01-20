@@ -157,7 +157,6 @@
 
 	.shrinkable {
 		overflow: hidden;
-		text-overflow: ellipsis;
 
 		& span {
 			overflow: hidden;
