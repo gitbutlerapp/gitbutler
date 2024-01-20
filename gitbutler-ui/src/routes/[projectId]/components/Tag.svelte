@@ -12,6 +12,7 @@
 	export let filled = false;
 	export let disabled = false;
 	export let clickable = false;
+	export let shrinkable = false;
 </script>
 
 <div
@@ -24,6 +25,7 @@
 	class:tag-border={border}
 	class:filled
 	class:disabled
+	class:shrinkable
 	class:not-button={!clickable}
 	on:click
 	role={clickable ? 'button' : undefined}
@@ -151,5 +153,15 @@
 		pointer-events: none;
 		background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 10%, transparent);
 		color: var(--clr-core-ntrl-50);
+	}
+
+	.shrinkable {
+		overflow: hidden;
+		text-overflow: ellipsis;
+
+		& span {
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
 	}
 </style>

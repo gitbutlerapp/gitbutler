@@ -65,6 +65,7 @@
 						color="ghost"
 						border
 						clickable
+						shrinkable
 						on:click={(e) => {
 							const url = branchUrl(base, branch.upstream?.name);
 							if (url) open(url);
@@ -226,7 +227,6 @@
 		color: var(--clr-theme-scale-ntrl-50);
 		padding-left: var(--space-4);
 		display: flex;
-		flex-wrap: wrap;
 		gap: var(--space-4);
 		text-overflow: ellipsis;
 		overflow-x: hidden;
@@ -240,7 +240,7 @@
 		align-items: center;
 		gap: var(--space-2);
 		padding: var(--space-2) var(--space-6) var(--space-2) var(--space-4);
-		border-radius: var(--radius-s);
+		border-radius: var(--radius-m);
 		margin-right: var(--space-2);
 	}
 
