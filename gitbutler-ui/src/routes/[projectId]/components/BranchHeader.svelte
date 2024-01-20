@@ -136,11 +136,8 @@
 			{/if}
 		</div>
 	</div>
-	<div class="header__top-overlay" />
+	<div class="header__top-overlay" data-remove-from-draggable />
 </div>
-
-<!-- </div>
-</div> -->
 
 <style lang="postcss">
 	.header__wrapper {

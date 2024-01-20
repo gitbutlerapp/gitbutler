@@ -96,6 +96,13 @@ export function cloneWithPreservedDimensions(node: any) {
 
 export function cloneWithRotation(node: any) {
 	const clone = node.cloneNode(true) as HTMLElement;
+
+	// exclude all ignored elements from the clone
+	const ignoredElements = clone.querySelectorAll('[data-remove-from-draggable]');
+	ignoredElements.forEach((element) => {
+		element.remove();
+	});
+
 	applyGhostStyle(clone);
 
 	// Style the inner node so it retains the shape and then rotate
