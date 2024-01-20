@@ -42,18 +42,24 @@
 			<div class="header__label">
 				<BranchLabel bind:name={branch.name} on:change={handleBranchNameChange} />
 			</div>
-			<div class="header__remote-branch text-base-body-11">
+			<div class="header__remote-branch">
 				{#if !branch.upstream}
 					{#if hasIntegratedCommits}
-						<div class="status-tag deleted"><Icon name="remote-branch-small" /> deleted</div>
+						<div class="status-tag text-base-11 text-semibold deleted">
+							<Icon name="removed-branch-small" /> deleted
+						</div>
 					{:else}
-						<div class="status-tag pending"><Icon name="remote-branch-small" /> new</div>
+						<div class="status-tag text-base-11 text-semibold pending">
+							<Icon name="virtual-branch-small" /> new
+						</div>
 					{/if}
 					<div class="text-semibold pending-name text-base-11">
 						origin/{branch.upstreamName ? branch.upstreamName : normalizeBranchName(branch.name)}
 					</div>
 				{:else}
-					<div class="status-tag remote"><Icon name="remote-branch-small" /> remote</div>
+					<div class="status-tag text-base-11 text-semibold remote">
+						<Icon name="remote-branch-small" /> remote
+					</div>
 					<Tag
 						icon="open-link"
 						color="ghost"
@@ -234,6 +240,7 @@
 	.status-tag {
 		cursor: default;
 		display: flex;
+		align-items: center;
 		gap: var(--space-2);
 		padding: var(--space-2) var(--space-6) var(--space-2) var(--space-4);
 		border-radius: var(--radius-s);
@@ -256,8 +263,8 @@
 	}
 
 	.deleted {
-		color: var(--clr-theme-scale-warn-30);
-		background: var(--clr-theme-warn-container-dim);
+		color: var(--clr-theme-scale-ntrl-100);
+		background: var(--clr-theme-scale-err-50);
 	}
 
 	.remote {
