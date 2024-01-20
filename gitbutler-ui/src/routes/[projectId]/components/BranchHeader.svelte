@@ -53,8 +53,12 @@
 							<Icon name="virtual-branch-small" /> new
 						</div>
 					{/if}
-					<div class="text-semibold pending-name text-base-11">
-						origin/{branch.upstreamName ? branch.upstreamName : normalizeBranchName(branch.name)}
+					<div class="pending-name">
+						<span class="text-base-11 text-semibold"
+							>origin/{branch.upstreamName
+								? branch.upstreamName
+								: normalizeBranchName(branch.name)}</span
+						>
 					</div>
 				{:else}
 					<div class="status-tag text-base-11 text-semibold remote">
@@ -257,6 +261,12 @@
 		display: flex;
 		align-items: center;
 		padding: 0 var(--space-6);
+		overflow: hidden;
+
+		& span {
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
 	}
 
 	.deleted {

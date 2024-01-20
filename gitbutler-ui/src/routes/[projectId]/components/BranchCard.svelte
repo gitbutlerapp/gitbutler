@@ -306,6 +306,7 @@
 
 	.new-branch,
 	.no-changes {
+		user-select: none;
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
@@ -334,7 +335,6 @@
 	.new-branch__caption,
 	.new-branch__title {
 		text-align: center;
-		opacity: 0.6;
 	}
 
 	.new-branch__image {
