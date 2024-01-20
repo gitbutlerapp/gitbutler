@@ -145,28 +145,43 @@
 </script>
 
 <div bind:this={rsViewport} class="branch-card resize-viewport">
-	<BranchHeader
-		{readonly}
-		{branchController}
-		{branch}
-		{base}
-		{githubService}
-		bind:height={headerHeight}
-		projectId={project.id}
-		on:action={(e) => {
-			if (e.detail == 'generate-branch-name') {
-				generateBranchName();
-			}
-		}}
-	/>
 	<ScrollableContainer>
-		<div
-			style:width={`${laneWidth || $defaultBranchWidthRem}rem`}
-			class="branch-card__contents"
-			style:padding-top={`${headerHeight}px`}
-		>
+		<div style:width={`${laneWidth || $defaultBranchWidthRem}rem`} class="branch-card__contents">
+			<BranchHeader
+				{readonly}
+				{branchController}
+				{branch}
+				{base}
+				{githubService}
+				bind:height={headerHeight}
+				projectId={project.id}
+				on:action={(e) => {
+					if (e.detail == 'generate-branch-name') {
+						generateBranchName();
+					}
+				}}
+			/>
+			<!-- <div
+				class="branch-card__sections"
+				use:dropzone={{
+					hover: 'cherrypick-dz-hover',
+					active: 'cherrypick-dz-active',
+					accepts: acceptCherrypick,
+					onDrop: onCherrypicked
+				}}
+				use:dropzone={{
+					hover: 'lane-dz-hover',
+					active: 'lane-dz-active',
+					accepts: acceptBranchDrop,
+					onDrop: onBranchDrop
+				}}
+			> -->
+			<!-- DROPZONES -->
+			<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
+			<DropzoneOverlay class="lane-dz-marker" label="Move here" />
+
 			<div
-				class="relative flex flex-grow flex-col gap-1 overflow-y-hidden"
+				class="branch-card__dropzone-wrapper"
 				use:dropzone={{
 					hover: 'cherrypick-dz-hover',
 					active: 'cherrypick-dz-active',
@@ -180,10 +195,8 @@
 					onDrop: onBranchDrop
 				}}
 			>
-				<!-- DROPZONES -->
 				<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
 				<DropzoneOverlay class="lane-dz-marker" label="Move here" />
-
 				{#if branch.files?.length > 0}
 					<div class="card">
 						<BranchFiles
@@ -247,17 +260,18 @@
 						</div>
 					</div>
 				{/if}
-				<BranchCommits
-					{base}
-					{branch}
-					{project}
-					{githubService}
-					{branchController}
-					{branchCount}
-					{readonly}
-				/>
 			</div>
+			<BranchCommits
+				{base}
+				{branch}
+				{project}
+				{githubService}
+				{branchController}
+				{branchCount}
+				{readonly}
+			/>
 		</div>
+		<!-- </div> -->
 	</ScrollableContainer>
 
 	<Resizer
@@ -284,7 +298,15 @@
 		display: flex;
 		flex-direction: column;
 	}
+
+	.branch-card__dropzone-wrapper {
+		position: relative;
+	}
+
 	.branch-card__contents {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
 		padding: var(--space-16) var(--space-8) var(--space-16) var(--space-8);
 	}
 
