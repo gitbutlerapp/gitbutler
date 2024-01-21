@@ -5,11 +5,11 @@
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import { open } from '@tauri-apps/api/shell';
-	import { IconFile, IconTerminal, IconExternalLink } from '$lib/icons';
 	import type { GitHubService } from '$lib/github/service';
 	import { cloneWithRotation } from '$lib/utils/draggable';
 	import type { Project } from '$lib/backend/projects';
 	import Icon from '$lib/icons/Icon.svelte';
+	import ImgThemed from '$lib/components/ImgThemed.svelte';
 
 	export let project: Project;
 	export let projectPath: string;
@@ -120,61 +120,73 @@
 		{/each}
 
 		{#if branches.length == 0}
-			<div
-				class="text-color-2 m-auto mx-10 flex w-full flex-grow items-center justify-center rounded border p-8"
-				style:background-color="var(--bg-surface-highlight)"
-				style:border-color="var(--border-surface)"
-			>
-				<div class="inline-flex w-[35rem] flex-col items-center gap-y-4">
-					<h3 class="text-xl font-medium">You are up to date</h3>
-					<p class="text-color-3">
-						This means that your working directory looks exactly like your base branch. There isn't
-						anything locally that is not in your production code!
+			<div class="empty-board">
+				<div class="empty-board__image">
+					<ImgThemed
+						imgSet={{
+							light: '/images/dzen-pc-light.webp',
+							dark: '/images/dzen-pc-dark.webp'
+						}}
+					/>
+				</div>
+
+				<div class="empty-board__about">
+					<h3 class="text-serif-40">You are up to date</h3>
+					<p class="text-base-body-14">
+						Your working directory matches the base branch.
+						<br />
+						Any edits auto-create a virtual branch for easy management.
 					</p>
-					<p class="text-color-3">
-						If you start editing files in your working directory, a new virtual branch will
-						automatically be created and you can manage it here.
-					</p>
-					<div class="flex w-full">
-						<div class="w-1/2">
-							<h3 class="mb-2 text-xl font-medium">Start</h3>
-							<div class="text-color-3 flex flex-col gap-1">
-								<a
-									class="hover:text-color-1 inline-flex items-center gap-2"
-									target="_blank"
-									rel="noreferrer"
-									href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
-								>
-									<IconFile class="h-4 w-4" />
-									GitButler Docs
-								</a>
-								<div
-									class="inline-flex items-center gap-2 hover:text-light-800 dark:hover:text-dark-100"
-									role="button"
-									tabindex="0"
-									on:keypress={() => open(`vscode://file${projectPath}/`)}
-									on:click={() => open(`vscode://file${projectPath}/`)}
-								>
-									<IconTerminal class="h-4 w-4" />
-									Open in VSCode
+				</div>
+
+				<div class="empty-board__suggestions">
+					<div class="empty-board__suggestions__block">
+						<h3 class="text-base-14 text-bold">Start</h3>
+						<div class="empty-board__suggestions__links">
+							<a
+								class="empty-board__suggestions__link"
+								target="_blank"
+								rel="noreferrer"
+								href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
+							>
+								<div class="empty-board__suggestions__link__icon">
+									<Icon name="docs" />
 								</div>
+
+								<span class="text-base-12">GitButler Docs</span>
+							</a>
+							<div
+								class="empty-board__suggestions__link"
+								role="button"
+								tabindex="0"
+								on:keypress={() => open(`vscode://file${projectPath}/`)}
+								on:click={() => open(`vscode://file${projectPath}/`)}
+							>
+								<div class="empty-board__suggestions__link__icon">
+									<Icon name="vscode" />
+								</div>
+								<span class="text-base-12">Open in VSCode</span>
 							</div>
 						</div>
-						<div class="w-1/2">
-							<h3 class="mb-2 text-xl font-medium">Recent</h3>
+					</div>
+
+					<div class="empty-board__suggestions__block">
+						<h3 class="text-base-14 text-bold">Recent commits</h3>
+						<div class="empty-board__suggestions__links">
 							{#each (base?.recentCommits || []).slice(0, 4) as commit}
-								<div class="text-color-3 w-full truncate">
-									<a
-										class="hover:text-color-2 inline-flex items-center gap-2"
-										href={base?.commitUrl(commit.id)}
-										target="_blank"
-										rel="noreferrer"
-										title="Open in browser"
-									>
-										<IconExternalLink class="h-4 w-4" />
-										{commit.description}
-									</a>
-								</div>
+								<a
+									class="empty-board__suggestions__link"
+									href={base?.commitUrl(commit.id)}
+									target="_blank"
+									rel="noreferrer"
+									title="Open in browser"
+								>
+									<div class="empty-board__suggestions__link__icon">
+										<Icon name="commit" />
+									</div>
+
+									<span class="text-base-12">{commit.description}</span>
+								</a>
 							{/each}
 						</div>
 					</div>
@@ -200,5 +212,88 @@
 		justify-content: center;
 		align-items: center;
 		width: 100%;
+	}
+
+	/* Empty board */
+
+	.empty-board {
+		user-select: none;
+		display: flex;
+		flex-direction: column;
+		margin: auto;
+		background-color: var(--clr-theme-container-light);
+		border: 1px solid var(--clr-theme-container-outline-light);
+		border-radius: var(--radius-l);
+		width: 86%;
+		max-width: 40rem;
+		padding: var(--space-32);
+	}
+
+	.empty-board__image {
+		width: 14.25rem;
+		margin-top: var(--space-10);
+		margin-bottom: var(--space-20);
+		transform: translateX(-3rem);
+	}
+
+	.empty-board__about {
+		display: flex;
+		flex-direction: column;
+		margin-bottom: var(--space-32);
+	}
+
+	.empty-board__about h3 {
+		color: var(--clr-theme-scale-ntrl-0);
+	}
+
+	.empty-board__about p {
+		color: var(--clr-theme-scale-ntrl-40);
+	}
+
+	.empty-board__suggestions {
+		display: flex;
+		flex-direction: row;
+		gap: var(--space-80);
+	}
+
+	.empty-board__suggestions__block {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-16);
+	}
+
+	.empty-board__suggestions__block h3 {
+		color: var(--clr-theme-scale-ntrl-0);
+	}
+
+	.empty-board__suggestions__links {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-6);
+		margin-left: calc(var(--space-4) * -1);
+	}
+
+	.empty-board__suggestions__link {
+		cursor: default;
+		display: flex;
+		align-items: center;
+		width: fit-content;
+		padding: var(--space-2) var(--space-6) var(--space-2) var(--space-4);
+		border-radius: var(--radius-s);
+		gap: var(--space-10);
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			background-color: var(--clr-theme-container-pale);
+			/* transition: background-color 0s ease; */
+		}
+
+		& span {
+			color: var(--clr-theme-scale-ntrl-40);
+		}
+	}
+
+	.empty-board__suggestions__link__icon {
+		color: var(--clr-theme-scale-ntrl-50);
 	}
 </style>
