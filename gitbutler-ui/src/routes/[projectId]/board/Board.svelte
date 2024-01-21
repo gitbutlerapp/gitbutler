@@ -225,7 +225,7 @@
 		border: 1px solid var(--clr-theme-container-outline-light);
 		border-radius: var(--radius-l);
 		width: 86%;
-		max-width: 40rem;
+		max-width: 45rem;
 		padding: var(--space-32);
 	}
 
@@ -260,6 +260,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-16);
+		min-width: 8rem;
 	}
 
 	.empty-board__suggestions__block h3 {
@@ -276,12 +277,14 @@
 	.empty-board__suggestions__link {
 		cursor: default;
 		display: flex;
-		align-items: center;
+		/* align-items: center; */
 		width: fit-content;
+		max-width: 100%;
 		padding: var(--space-2) var(--space-6) var(--space-2) var(--space-4);
 		border-radius: var(--radius-s);
 		gap: var(--space-10);
 		transition: background-color var(--transition-fast);
+		overflow: hidden;
 
 		&:hover {
 			background-color: var(--clr-theme-container-pale);
@@ -290,6 +293,10 @@
 
 		& span {
 			color: var(--clr-theme-scale-ntrl-40);
+			margin-top: calc(var(--space-6) / 2);
+			white-space: nowrap;
+			text-overflow: ellipsis;
+			overflow: hidden;
 		}
 	}
 
