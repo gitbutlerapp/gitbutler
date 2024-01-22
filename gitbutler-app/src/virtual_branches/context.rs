@@ -3,14 +3,13 @@ use anyhow::{Context, Result};
 
 pub fn hunk_with_context(
     hunk_diff: &str,
-    hunk_old_start_line: Option<usize>, // TODO: make this required
+    hunk_old_start_line: usize, // TODO: make this required
     hunk_new_start_line: usize,
     is_binary: bool,
     context_lines: usize,
     file_lines_before: &[&str],
     change_type: diff::ChangeType,
 ) -> Result<diff::Hunk> {
-    let hunk_old_start_line = hunk_old_start_line.unwrap_or(hunk_new_start_line);
     let diff_lines = hunk_diff
         .lines()
         .map(std::string::ToString::to_string)
@@ -147,7 +146,7 @@ mod tests {
 "#;
         let with_ctx = hunk_with_context(
             hunk_diff,
-            None,
+            8,
             8,
             false,
             3,
@@ -180,7 +179,7 @@ mod tests {
 "#;
         let with_ctx = hunk_with_context(
             hunk_diff,
-            None,
+            2,
             2,
             false,
             3,
@@ -213,7 +212,7 @@ mod tests {
 ";
         let with_ctx = hunk_with_context(
             hunk_diff,
-            None,
+            1,
             1,
             false,
             3,
@@ -245,7 +244,7 @@ mod tests {
 ";
         let with_ctx = hunk_with_context(
             hunk_diff,
-            None,
+            13,
             13,
             false,
             3,
@@ -281,7 +280,7 @@ mod tests {
 "#;
         let with_ctx = hunk_with_context(
             hunk_diff,
-            None,
+            8,
             8,
             false,
             3,
@@ -321,7 +320,7 @@ mod tests {
 "#;
         let with_ctx = hunk_with_context(
             hunk_diff,
-            None,
+            7,
             7,
             false,
             3,
@@ -355,7 +354,7 @@ mod tests {
         let hunk_diff = "";
         let with_ctx = hunk_with_context(
             hunk_diff,
-            None,
+            1,
             1,
             false,
             3,
@@ -386,8 +385,8 @@ mod tests {
 "#;
         let with_ctx = hunk_with_context(
             hunk_diff,
-            None,
             1,
+            0,
             false,
             3,
             &file_lines(),
@@ -411,7 +410,7 @@ mod tests {
 ";
         let with_ctx = hunk_with_context(
             hunk_diff,
-            None,
+            0,
             1,
             false,
             3,
@@ -435,7 +434,7 @@ mod tests {
 ";
         let with_ctx = hunk_with_context(
             hunk_diff,
-            Some(8),
+            8,
             9,
             false,
             3,
@@ -481,7 +480,7 @@ mod tests {
 "#;
         let with_ctx = hunk_with_context(
             hunk_diff,
-            Some(7),
+            7,
             6,
             false,
             3,
@@ -504,7 +503,7 @@ mod tests {
 ";
         let with_ctx = hunk_with_context(
             hunk_diff,
-            Some(11),
+            11,
             10,
             false,
             3,
@@ -527,6 +526,31 @@ mod tests {
         assert_eq!(with_ctx.old_lines, 8);
         assert_eq!(with_ctx.new_start, 8);
         assert_eq!(with_ctx.new_lines, 6);
+    }
+
+    #[test]
+    fn new_line_added() {
+        let hunk_diff = "@@ -2,0 +3 @@ alias(
++    newstuff
+";
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            2,
+            3,
+            false,
+            3,
+            &file_lines_3(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
+        let expected = r#"@@ -1,4 +1,5 @@
+ alias(
+     name = "rdeps",
++    newstuff
+     actual = "//java/com/videlov/rdeps:rdeps",
+ )
+"#;
+        assert_eq!(with_ctx.diff, expected);
     }
 
     fn file_lines() -> Vec<&'static str> {
@@ -566,6 +590,15 @@ uuid = { workspace = true, features = ["v4", "fast-rng"] }
   def invite
     if params[:id]
       @registrations = Registration.where(id: params[:id])
+"#;
+        file_lines_before.lines().collect::<Vec<_>>()
+    }
+
+    fn file_lines_3() -> Vec<&'static str> {
+        let file_lines_before = r#"alias(
+    name = "rdeps",
+    actual = "//java/com/videlov/rdeps:rdeps",
+)
 "#;
         file_lines_before.lines().collect::<Vec<_>>()
     }

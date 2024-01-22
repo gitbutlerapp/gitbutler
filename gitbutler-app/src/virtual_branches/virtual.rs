@@ -116,6 +116,7 @@ pub struct VirtualBranchHunk {
     pub modified_at: u128,
     pub file_path: path::PathBuf,
     pub hash: String,
+    pub old_start: u32,
     pub start: u32,
     pub end: u32,
     pub binary: bool,
@@ -967,7 +968,7 @@ fn files_with_hunk_context(
                 } else {
                     let hunk_with_ctx = context::hunk_with_context(
                         &hunk.diff,
-                        None,
+                        hunk.old_start as usize,
                         hunk.start as usize,
                         hunk.binary,
                         context_lines,
@@ -1691,6 +1692,7 @@ pub fn virtual_hunks_by_filepath(
                     modified_at: get_mtime(&mut mtimes, &project_path.join(file_path)),
                     file_path: file_path.clone(),
                     diff: hunk.diff.clone(),
+                    old_start: hunk.old_start,
                     start: hunk.new_start,
                     end: hunk.new_start + hunk.new_lines,
                     binary: hunk.binary,
