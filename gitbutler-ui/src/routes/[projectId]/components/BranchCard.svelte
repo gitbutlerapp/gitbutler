@@ -217,10 +217,10 @@
 								/>
 							</div>
 							<h2 class="new-branch__title text-base-body-15 text-semibold">
-								This is a new branch.<br />Let's start creating!
+								This is a new branch.
 							</h2>
 							<p class="new-branch__caption text-base-body-13">
-								Get some work done,<br />then throw some files my way
+								You can drag and drop files or parts of files here.
 							</p>
 						</div>
 					</div>
