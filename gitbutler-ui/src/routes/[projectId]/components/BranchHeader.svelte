@@ -103,24 +103,24 @@
 				</div>
 			{/if}
 		</div>
-		<div class="header__actions">
-			<div class="header__buttons">
-				{#if branch.selectedForChanges}
-					<Button icon="target" notClickable>Target branch</Button>
-				{:else}
-					<Button
-						icon="target"
-						kind="outlined"
-						color="neutral"
-						on:click={async () => {
-							await branchController.setSelectedForChanges(branch.id);
-						}}
-					>
-						Make target
-					</Button>
-				{/if}
-			</div>
-			{#if !readonly}
+		{#if !readonly}
+			<div class="header__actions">
+				<div class="header__buttons">
+					{#if branch.selectedForChanges}
+						<Button icon="target" notClickable>Target branch</Button>
+					{:else}
+						<Button
+							icon="target"
+							kind="outlined"
+							color="neutral"
+							on:click={async () => {
+								await branchController.setSelectedForChanges(branch.id);
+							}}
+						>
+							Make target
+						</Button>
+					{/if}
+				</div>
 				<div class="relative" bind:this={meatballButton}>
 					<Button
 						icon="kebab"
@@ -138,8 +138,8 @@
 						<BranchLanePopupMenu {branchController} {branch} {projectId} bind:visible on:action />
 					</div>
 				</div>
-			{/if}
-		</div>
+			</div>
+		{/if}
 	</div>
 	<div class="header__top-overlay" data-remove-from-draggable />
 </div>
