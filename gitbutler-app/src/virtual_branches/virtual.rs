@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    path, time, vec,
-};
+use std::{collections::HashMap, path, time, vec};
 
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::*;
@@ -741,16 +738,6 @@ pub fn list_virtual_branches(
         .max()
         .unwrap_or(-1);
     for (branch, files) in &statuses {
-        let file_diffs = files
-            .iter()
-            .map(|(filepath, hunks)| {
-                (
-                    filepath,
-                    hunks.iter().map(|hunk| &hunk.diff).collect::<HashSet<_>>(),
-                )
-            })
-            .collect::<HashMap<_, _>>();
-
         // check if head tree does not match target tree
         // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
         let files =
