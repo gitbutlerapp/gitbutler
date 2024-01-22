@@ -20,6 +20,7 @@ pub(crate) use integration_tests::*;
 
 mod backend;
 pub mod ops;
+mod refspec;
 mod repository;
 
 pub(crate) mod prelude;
@@ -29,4 +30,7 @@ pub use backend::cli;
 #[cfg(feature = "git2")]
 pub use backend::git2;
 
-pub use self::repository::{ConfigScope, Repository};
+pub use self::{
+    refspec::{Error as RefSpecError, RefSpec},
+    repository::{ConfigScope, Repository},
+};
