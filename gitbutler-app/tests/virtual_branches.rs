@@ -6007,4 +6007,38 @@ mod selected_for_changes {
         assert_eq!(branches[0].files.len(), 1);
         assert_eq!(branches[1].files.len(), 1);
     }
+
+    #[tokio::test]
+    async fn applying_first_branch() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        std::fs::write(repository.path().join("file.txt"), "content").unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 1);
+
+        controller
+            .unapply_virtual_branch(&project_id, &branches[0].id)
+            .await
+            .unwrap();
+        controller
+            .apply_virtual_branch(&project_id, &branches[0].id)
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 1);
+        assert!(branches[0].active);
+        assert!(branches[0].selected_for_changes);
+    }
 }
