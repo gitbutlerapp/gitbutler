@@ -142,7 +142,7 @@
 	}
 </script>
 
-<div bind:this={rsViewport} class="branch-card resize-viewport">
+<div bind:this={rsViewport} class="branch-card resize-viewport" data-tauri-drag-region>
 	<ScrollableContainer>
 		<div style:width={`${laneWidth || $defaultBranchWidthRem}rem`} class="branch-card__contents">
 			<BranchHeader

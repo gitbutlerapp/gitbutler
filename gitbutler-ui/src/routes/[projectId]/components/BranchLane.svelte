@@ -35,7 +35,7 @@
 	}
 </script>
 
-<div class="wrapper">
+<div class="wrapper" data-tauri-drag-region>
 	<BranchCard
 		{branch}
 		{readonly}

@@ -35,9 +35,9 @@
 </script>
 
 {#if branchesError}
-	<div class="p-4">Something went wrong...</div>
+	<div class="p-4" data-tauri-drag-region>Something went wrong...</div>
 {:else if !branches}
-	<div class="loading"><Icon name="spinner" /></div>
+	<div class="loading" data-tauri-drag-region><Icon name="spinner" /></div>
 {:else}
 	<div
 		class="board"

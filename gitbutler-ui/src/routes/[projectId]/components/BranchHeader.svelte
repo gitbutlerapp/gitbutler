@@ -141,7 +141,7 @@
 			</div>
 		{/if}
 	</div>
-	<div class="header__top-overlay" data-remove-from-draggable />
+	<div class="header__top-overlay" data-remove-from-draggable data-tauri-drag-region />
 </div>
 
 <style lang="postcss">
