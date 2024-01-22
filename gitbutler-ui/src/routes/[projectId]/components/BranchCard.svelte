@@ -278,6 +278,7 @@
 	.branch-card {
 		display: flex;
 		flex-direction: column;
+		user-select: none;
 	}
 
 	.branch-card__dropzone-wrapper {

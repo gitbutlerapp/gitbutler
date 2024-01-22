@@ -296,6 +296,7 @@
 		border: 1px solid var(--clr-theme-container-outline-light);
 		overflow-x: hidden;
 		transition: border-color var(--transition-fast);
+		user-select: text;
 	}
 	.hunk__inner_inner {
 		/* TODO: Rename this class */
