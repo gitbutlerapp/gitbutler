@@ -94,7 +94,13 @@
 	</div>
 </div>
 
-<Modal width="large" bind:this={previewCommitModal} icon="commit" title={commit.description}>
+<Modal
+	width="large"
+	bind:this={previewCommitModal}
+	icon="commit"
+	title={commit.description}
+	hoverText={commit.id}
+>
 	<svelte:fragment slot="header_controls">
 		{#if !commit.isLocal && commitUrl}
 			<Button
