@@ -420,6 +420,9 @@ pub fn apply_branch(
     branch.applied = true;
     writer.write(&mut branch)?;
 
+    ensure_selected_for_changes(&current_session_reader, &writer)
+        .context("failed to ensure selected for changes")?;
+
     // checkout the merge index
     repo.checkout_index(&mut merge_index)
         .force()
