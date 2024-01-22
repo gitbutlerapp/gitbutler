@@ -1,23 +1,37 @@
 use anyhow::{Context, Result};
 
-use crate::{gb_repository, virtual_branches::BranchId, writer};
+use crate::{gb_repository, reader, virtual_branches::BranchId, writer};
 
 use super::Target;
 
 pub struct TargetWriter<'writer> {
     repository: &'writer gb_repository::Repository,
     writer: writer::DirWriter,
+    reader: reader::Reader<'writer>,
 }
 
 impl<'writer> TargetWriter<'writer> {
     pub fn new(repository: &'writer gb_repository::Repository) -> Result<Self, std::io::Error> {
-        writer::DirWriter::open(repository.root()).map(|writer| Self { repository, writer })
+        let reader = reader::Reader::open(&repository.root())?;
+        let writer = writer::DirWriter::open(repository.root())?;
+        Ok(Self {
+            repository,
+            writer,
+            reader,
+        })
     }
 
     pub fn write_default(&self, target: &Target) -> Result<()> {
+        let reader = self.reader.sub("branches/target");
+        match Target::try_from(&reader) {
+            Ok(existing) if existing.eq(target) => return Ok(()),
+            Ok(_) | Err(reader::Error::NotFound) => {}
+            Err(e) => return Err(e.into()),
+        };
+
         self.repository.mark_active_session()?;
 
-        let mut batch = vec![
+        let batch = vec![
             writer::BatchTask::Write(
                 "branches/target/branch_name",
                 format!("{}/{}", target.branch.remote(), target.branch.branch()),
@@ -30,15 +44,6 @@ impl<'writer> TargetWriter<'writer> {
             writer::BatchTask::Write("branches/target/sha", target.sha.to_string()),
         ];
 
-        if let Some(last_fetched) = target.last_fetched_ms {
-            batch.push(writer::BatchTask::Write(
-                "branches/target/last_fetched_ms",
-                last_fetched.to_string(),
-            ));
-        } else {
-            batch.push(writer::BatchTask::Remove("branches/target/last_fetched_ms"));
-        }
-
         self.writer
             .batch(&batch)
             .context("Failed to write default target")?;
@@ -47,11 +52,18 @@ impl<'writer> TargetWriter<'writer> {
     }
 
     pub fn write(&self, id: &BranchId, target: &Target) -> Result<()> {
+        let reader = self.reader.sub(format!("branches/{}/target", id));
+        match Target::try_from(&reader) {
+            Ok(existing) if existing.eq(target) => return Ok(()),
+            Ok(_) | Err(reader::Error::NotFound) => {}
+            Err(e) => return Err(e.into()),
+        };
+
         self.repository
             .mark_active_session()
             .context("Failed to get or create current session")?;
 
-        let mut batch = vec![
+        let batch = vec![
             writer::BatchTask::Write(
                 format!("branches/{}/target/branch_name", id),
                 format!("{}/{}", target.branch.remote(), target.branch.branch()),
@@ -69,18 +81,6 @@ impl<'writer> TargetWriter<'writer> {
                 target.sha.to_string(),
             ),
         ];
-
-        if let Some(last_fetched) = target.last_fetched_ms {
-            batch.push(writer::BatchTask::Write(
-                format!("branches/{}/target/last_fetched_ms", id),
-                last_fetched.to_string(),
-            ));
-        } else {
-            batch.push(writer::BatchTask::Remove(format!(
-                "branches/{}/target/last_fetched_ms",
-                id
-            )));
-        }
 
         self.writer
             .batch(&batch)
@@ -159,7 +159,6 @@ mod tests {
             branch: "refs/remotes/remote name/branch name".parse().unwrap(),
             remote_url: "remote url".to_string(),
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
-            last_fetched_ms: Some(1),
         };
 
         let branch_writer = branch::Writer::new(&gb_repository)?;
@@ -197,16 +196,6 @@ mod tests {
             fs::read_to_string(root.join("target").join("sha").to_str().unwrap())
                 .context("Failed to read branch target sha")?,
             target.sha.to_string()
-        );
-        assert_eq!(
-            fs::read_to_string(
-                root.join("target")
-                    .join("last_fetched_ms")
-                    .to_str()
-                    .unwrap()
-            )
-            .context("Failed to read branch target last fetched")?,
-            "1"
         );
 
         assert_eq!(
@@ -257,7 +246,6 @@ mod tests {
             branch: "refs/remotes/remote name/branch name".parse().unwrap(),
             remote_url: "remote url".to_string(),
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
-            last_fetched_ms: Some(1),
         };
 
         let branch_writer = branch::Writer::new(&gb_repository)?;
@@ -271,7 +259,6 @@ mod tests {
                 .unwrap(),
             remote_url: "updated remote url".to_string(),
             sha: "fedcba9876543210fedcba9876543210fedcba98".parse().unwrap(),
-            last_fetched_ms: Some(2),
         };
 
         target_writer.write(&branch.id, &updated_target)?;

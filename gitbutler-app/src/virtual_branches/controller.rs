@@ -19,7 +19,7 @@ use super::{
         self, FetchFromTargetError, GetBaseBranchDataError, IsRemoteBranchMergableError,
         ListRemoteBranchesError,
     },
-    target, target_to_base_branch, BaseBranch, RemoteBranchFile,
+    target_to_base_branch, BaseBranch, RemoteBranchFile,
 };
 
 #[derive(Clone)]
@@ -342,7 +342,10 @@ impl Controller {
         &self,
         project_id: &ProjectId,
     ) -> Result<BaseBranch, ControllerError<errors::FetchFromTargetError>> {
-        self.inner(project_id).await.fetch_from_target(project_id)
+        self.inner(project_id)
+            .await
+            .fetch_from_target(project_id)
+            .await
     }
 }
 
@@ -839,43 +842,60 @@ impl ControllerInner {
         })
     }
 
-    pub fn fetch_from_target(
+    pub async fn fetch_from_target(
         &self,
         project_id: &ProjectId,
     ) -> Result<BaseBranch, ControllerError<errors::FetchFromTargetError>> {
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            let default_target = gb_repository
-                .default_target()
-                .context("failed to get default target")?
-                .ok_or(FetchFromTargetError::DefaultTargetNotSet(
-                    errors::DefaultTargetNotSetError {
-                        project_id: *project_id,
-                    },
-                ))?;
+        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let mut project_repository =
+            project_repository::Repository::open(&project).map_err(Error::from)?;
+        let user = self.users.get_user().map_err(Error::from)?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gitbutler repository")?;
 
-            project_repository
-                .fetch(default_target.branch.remote(), &self.helper)
-                .map_err(errors::FetchFromTargetError::Remote)?;
+        let default_target = gb_repository
+            .default_target()
+            .context("failed to get default target")?
+            .ok_or(FetchFromTargetError::DefaultTargetNotSet(
+                errors::DefaultTargetNotSetError {
+                    project_id: *project_id,
+                },
+            ))
+            .map_err(ControllerError::Action)?;
 
-            let target_writer =
-                target::Writer::new(gb_repository).context("failed to open target writer")?;
-            target_writer
-                .write_default(&target::Target {
-                    last_fetched_ms: Some(
-                        std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis(),
-                    ),
-                    ..default_target.clone()
-                })
-                .context("failed to write default target")?;
+        let project_data_last_fetched = match project_repository
+            .fetch(default_target.branch.remote(), &self.helper)
+            .map_err(errors::FetchFromTargetError::Remote)
+        {
+            Ok(()) => projects::FetchResult::Fetched {
+                timestamp: std::time::SystemTime::now(),
+            },
+            Err(error) => projects::FetchResult::Error {
+                timestamp: std::time::SystemTime::now(),
+                error: error.to_string(),
+            },
+        };
 
-            let base_branch = target_to_base_branch(project_repository, &default_target)
-                .context("failed to convert target to base branch")?;
+        let updated_project = self
+            .projects
+            .update(&projects::UpdateRequest {
+                id: *project_id,
+                project_data_last_fetched: Some(project_data_last_fetched),
+                ..Default::default()
+            })
+            .await
+            .context("failed to update project")?;
 
-            Ok(base_branch)
-        })
+        project_repository.set_project(&updated_project);
+
+        let base_branch = target_to_base_branch(&project_repository, &default_target)
+            .context("failed to convert target to base branch")?;
+
+        Ok(base_branch)
     }
 }
 

@@ -13,7 +13,6 @@ pub struct Target {
     pub branch: git::RemoteRefname,
     pub remote_url: String,
     pub sha: git::Oid,
-    pub last_fetched_ms: Option<u128>,
 }
 
 impl Serialize for Target {
@@ -26,28 +25,19 @@ impl Serialize for Target {
         state.serialize_field("remoteName", &self.branch.remote())?;
         state.serialize_field("remoteUrl", &self.remote_url)?;
         state.serialize_field("sha", &self.sha.to_string())?;
-        state.serialize_field("lastFetchedMs", &self.last_fetched_ms)?;
         state.end()
     }
 }
 
 impl Target {
     fn try_from(reader: &crate::reader::Reader) -> Result<Target, crate::reader::Error> {
-        let results = reader.batch(&[
-            "name",
-            "branch_name",
-            "remote",
-            "remote_url",
-            "sha",
-            "last_fetched_ms",
-        ])?;
+        let results = reader.batch(&["name", "branch_name", "remote", "remote_url", "sha"])?;
 
         let name = results[0].clone();
         let branch_name = results[1].clone();
         let remote = results[2].clone();
         let remote_url = results[3].clone();
         let sha = results[4].clone();
-        let last_fetched_ms = results[5].clone();
 
         let branch_name = match name {
             Ok(branch) => {
@@ -80,25 +70,10 @@ impl Target {
             )
         })?;
 
-        let last_fetched_ms: Option<u128> = match last_fetched_ms {
-            Ok(last_fetched) => Some(last_fetched.try_into().map_err(|e| {
-                crate::reader::Error::Io(
-                    std::io::Error::new(
-                        std::io::ErrorKind::InvalidData,
-                        format!("last_fetched_ms: {}", e),
-                    )
-                    .into(),
-                )
-            })?),
-            Err(crate::reader::Error::NotFound) => None,
-            Err(e) => return Err(e),
-        };
-
         Ok(Self {
             branch: format!("refs/remotes/{}", branch_name).parse().unwrap(),
             remote_url,
             sha,
-            last_fetched_ms,
         })
     }
 }

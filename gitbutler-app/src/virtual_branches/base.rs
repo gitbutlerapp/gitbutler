@@ -11,6 +11,7 @@ use crate::{
     },
     keys,
     project_repository::{self, LogUntil},
+    projects::FetchResult,
     users,
     virtual_branches::branch::Ownership,
 };
@@ -111,7 +112,6 @@ pub fn set_base_branch(
         branch: target_branch_ref.clone(),
         remote_url: remote_url.to_string(),
         sha: commit_oid,
-        last_fetched_ms: None,
     };
 
     let target_writer =
@@ -553,7 +553,13 @@ pub fn target_to_base_branch(
         behind: upstream_commits.len(),
         upstream_commits,
         recent_commits,
-        last_fetched_ms: target.last_fetched_ms,
+        last_fetched_ms: project_repository
+            .project()
+            .project_data_last_fetch
+            .as_ref()
+            .map(FetchResult::timestamp)
+            .copied()
+            .map(|t| t.duration_since(time::UNIX_EPOCH).unwrap().as_millis()),
     };
     Ok(base)
 }

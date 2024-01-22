@@ -1,28 +1,51 @@
 use anyhow::Result;
 
-use crate::{gb_repository, writer};
+use crate::{gb_repository, reader, writer};
 
 use super::Branch;
 
 pub struct BranchWriter<'writer> {
     repository: &'writer gb_repository::Repository,
     writer: writer::DirWriter,
+    reader: reader::Reader<'writer>,
 }
 
 impl<'writer> BranchWriter<'writer> {
     pub fn new(repository: &'writer gb_repository::Repository) -> Result<Self, std::io::Error> {
-        writer::DirWriter::open(repository.root()).map(|writer| Self { repository, writer })
+        let reader = reader::Reader::open(repository.root())?;
+        let writer = writer::DirWriter::open(repository.root())?;
+        Ok(Self {
+            repository,
+            writer,
+            reader,
+        })
     }
 
     pub fn delete(&self, branch: &Branch) -> Result<()> {
-        self.repository.mark_active_session()?;
-
-        let _lock = self.repository.lock();
-        self.writer.remove(format!("branches/{}", branch.id))?;
-        Ok(())
+        match self
+            .reader
+            .sub(format!("branches/{}", branch.id))
+            .read("id")
+        {
+            Ok(_) => {
+                self.repository.mark_active_session()?;
+                let _lock = self.repository.lock();
+                self.writer.remove(format!("branches/{}", branch.id))?;
+                Ok(())
+            }
+            Err(reader::Error::NotFound) => Ok(()),
+            Err(err) => Err(err.into()),
+        }
     }
 
     pub fn write(&self, branch: &mut Branch) -> Result<()> {
+        let reader = self.reader.sub(format!("branches/{}", branch.id));
+        match Branch::try_from(&reader) {
+            Ok(existing) if existing.eq(branch) => return Ok(()),
+            Ok(_) | Err(reader::Error::NotFound) => {}
+            Err(err) => return Err(err.into()),
+        }
+
         self.repository.mark_active_session()?;
 
         branch.updated_timestamp_ms = std::time::SystemTime::now()
@@ -177,7 +200,7 @@ mod tests {
             .unwrap(),
             ownership: branch::Ownership {
                 files: vec![branch::FileOwnership {
-                    file_path: format!("file/{}", TEST_INDEX.load(Ordering::Relaxed)).into(),
+                    file_path: format!("file/{}:1-2", TEST_INDEX.load(Ordering::Relaxed)).into(),
                     hunks: vec![],
                 }],
             },
