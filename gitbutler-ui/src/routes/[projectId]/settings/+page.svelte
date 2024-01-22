@@ -67,7 +67,7 @@
 </script>
 
 <ScrollableContainer wide>
-	<div class="settings">
+	<div class="settings" data-tauri-drag-region>
 		<div class="card">
 			{#if !$project$}
 				loading...
