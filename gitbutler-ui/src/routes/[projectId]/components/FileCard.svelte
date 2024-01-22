@@ -146,7 +146,9 @@
 									<span class="added">+{added}</span>
 									<span class="removed">+{removed}</span>
 									{#if section.hunk.locked}
-										<Icon name="locked-small" color="warn" />
+										<div title={section.hunk.lockedTo}>
+											<Icon name="locked-small" color="warn" />
+										</div>
 									{/if}
 								</div>
 								<div

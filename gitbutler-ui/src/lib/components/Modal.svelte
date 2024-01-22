@@ -15,6 +15,7 @@
 	export let width: 'default' | 'small' | 'large' = 'default';
 	export let title: string | undefined = undefined;
 	export let icon: keyof typeof iconsJson | undefined = undefined;
+	export let hoverText: string | undefined = undefined;
 
 	let item: any;
 	let modal: Overlay;
@@ -27,7 +28,7 @@
 				{#if icon}
 					<Icon name={icon} />
 				{/if}
-				<h2 class="text-base-14 text-semibold">
+				<h2 class="text-base-14 text-semibold" title={hoverText}>
 					{title}
 				</h2>
 			</div>
