@@ -206,6 +206,7 @@
 		align-items: flex-start;
 		height: 100%;
 		padding: 0 var(--space-8);
+		user-select: none;
 	}
 	.loading {
 		display: flex;

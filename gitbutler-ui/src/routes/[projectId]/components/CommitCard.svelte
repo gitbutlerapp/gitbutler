@@ -271,6 +271,7 @@
 		border: 1px solid var(--clr-theme-container-outline-light);
 		overflow-x: auto;
 		overflow-y: hidden;
+		user-select: text;
 	}
 
 	.commit-modal__code-wrapper {
