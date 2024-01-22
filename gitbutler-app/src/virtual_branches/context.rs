@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 
 pub fn hunk_with_context(
     hunk_diff: &str,
-    hunk_old_start_line: usize, // TODO: make this required
+    hunk_old_start_line: usize,
     hunk_new_start_line: usize,
     is_binary: bool,
     context_lines: usize,
