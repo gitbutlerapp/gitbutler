@@ -142,143 +142,164 @@
 	}
 </script>
 
-<div bind:this={rsViewport} class="branch-card resize-viewport" data-tauri-drag-region>
-	<ScrollableContainer>
-		<div style:width={`${laneWidth || $defaultBranchWidthRem}rem`} class="branch-card__contents">
-			<BranchHeader
-				{readonly}
-				{branchController}
-				{branch}
-				{base}
-				{githubService}
-				projectId={project.id}
-				on:action={(e) => {
-					if (e.detail == 'generate-branch-name') {
-						generateBranchName();
-					}
-				}}
-			/>
-			<!-- DROPZONES -->
+<div class="branch-card" data-tauri-drag-region class:target-branch={branch.selectedForChanges}>
+	<div
+		bind:this={rsViewport}
+		style:width={`${laneWidth || $defaultBranchWidthRem}rem`}
+		class="branch-card__contents"
+		class:first-child={branch.order == 0}
+	>
+		<BranchHeader
+			{readonly}
+			{branchController}
+			{branch}
+			{base}
+			{githubService}
+			projectId={project.id}
+			on:action={(e) => {
+				if (e.detail == 'generate-branch-name') {
+					generateBranchName();
+				}
+			}}
+		/>
+		<!-- DROPZONES -->
+		<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
+		<DropzoneOverlay class="lane-dz-marker" label="Move here" />
+
+		<div
+			class="branch-card__dropzone-wrapper"
+			use:dropzone={{
+				hover: 'cherrypick-dz-hover',
+				active: 'cherrypick-dz-active',
+				accepts: acceptCherrypick,
+				onDrop: onCherrypicked
+			}}
+			use:dropzone={{
+				hover: 'lane-dz-hover',
+				active: 'lane-dz-active',
+				accepts: acceptBranchDrop,
+				onDrop: onBranchDrop
+			}}
+		>
 			<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
 			<DropzoneOverlay class="lane-dz-marker" label="Move here" />
-
-			<div
-				class="branch-card__dropzone-wrapper"
-				use:dropzone={{
-					hover: 'cherrypick-dz-hover',
-					active: 'cherrypick-dz-active',
-					accepts: acceptCherrypick,
-					onDrop: onCherrypicked
-				}}
-				use:dropzone={{
-					hover: 'lane-dz-hover',
-					active: 'lane-dz-active',
-					accepts: acceptBranchDrop,
-					onDrop: onBranchDrop
-				}}
-			>
-				<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
-				<DropzoneOverlay class="lane-dz-marker" label="Move here" />
-				{#if branch.files?.length > 0}
-					<div class="card">
-						<BranchFiles
+			{#if branch.files?.length > 0}
+				<div class="card">
+					<BranchFiles
+						{branch}
+						{readonly}
+						{selectedOwnership}
+						{selectedFiles}
+						showCheckboxes={$commitBoxOpen}
+					/>
+					{#if branch.active}
+						<CommitDialog
+							projectId={project.id}
+							{branchController}
 							{branch}
-							{readonly}
+							{cloud}
 							{selectedOwnership}
-							{selectedFiles}
-							showCheckboxes={$commitBoxOpen}
+							{user}
+							bind:expanded={commitBoxOpen}
+							on:action={(e) => {
+								if (e.detail == 'generate-branch-name') {
+									generateBranchName();
+								}
+							}}
 						/>
-						{#if branch.active}
-							<CommitDialog
-								projectId={project.id}
-								{branchController}
-								{branch}
-								{cloud}
-								{selectedOwnership}
-								{user}
-								bind:expanded={commitBoxOpen}
-								on:action={(e) => {
-									if (e.detail == 'generate-branch-name') {
-										generateBranchName();
-									}
+					{/if}
+				</div>
+			{:else if branch.commits.length == 0}
+				<div class="new-branch card" data-dnd-ignore>
+					<div class="new-branch__content">
+						<div class="new-branch__image">
+							<ImgThemed
+								imgSet={{
+									light: '/images/lane-new-light.webp',
+									dark: '/images/lane-new-dark.webp'
 								}}
 							/>
-						{/if}
-					</div>
-				{:else if branch.commits.length == 0}
-					<div class="new-branch card" data-dnd-ignore>
-						<div class="new-branch__content">
-							<div class="new-branch__image">
-								<ImgThemed
-									imgSet={{
-										light: '/images/lane-new-light.webp',
-										dark: '/images/lane-new-dark.webp'
-									}}
-								/>
-							</div>
-							<h2 class="new-branch__title text-base-body-15 text-semibold">
-								This is a new branch.
-							</h2>
-							<p class="new-branch__caption text-base-body-13">
-								You can drag and drop files or parts of files here.
-							</p>
 						</div>
+						<h2 class="new-branch__title text-base-body-15 text-semibold">This is a new branch.</h2>
+						<p class="new-branch__caption text-base-body-13">
+							You can drag and drop files or parts of files here.
+						</p>
 					</div>
-				{:else}
-					<!-- attention: these markers have custom css at the bottom of thise file -->
-					<div class="no-changes card" data-dnd-ignore>
-						<div class="new-branch__content">
-							<div class="new-branch__image">
-								<ImgThemed
-									imgSet={{
-										light: '/images/lane-no-changes-light.webp',
-										dark: '/images/lane-no-changes-dark.webp'
-									}}
-								/>
-							</div>
-							<h2 class="new-branch__caption text-base-body-13">
-								No uncommitted changes<br />on this branch
-							</h2>
+				</div>
+			{:else}
+				<!-- attention: these markers have custom css at the bottom of thise file -->
+				<div class="no-changes card" data-dnd-ignore>
+					<div class="new-branch__content">
+						<div class="new-branch__image">
+							<ImgThemed
+								imgSet={{
+									light: '/images/lane-no-changes-light.webp',
+									dark: '/images/lane-no-changes-dark.webp'
+								}}
+							/>
 						</div>
+						<h2 class="new-branch__caption text-base-body-13">
+							No uncommitted changes<br />on this branch
+						</h2>
 					</div>
-				{/if}
-			</div>
-			<BranchCommits
-				{base}
-				{branch}
-				{project}
-				{githubService}
-				{branchController}
-				{branchCount}
-				{readonly}
-			/>
+				</div>
+			{/if}
 		</div>
-	</ScrollableContainer>
+		<BranchCommits
+			{base}
+			{branch}
+			{project}
+			{githubService}
+			{branchController}
+			{branchCount}
+			{readonly}
+		/>
 
-	<Resizer
-		viewport={rsViewport}
-		direction="right"
-		inside={$selectedFiles.length > 0}
-		minWidth={320}
-		on:width={(e) => {
-			laneWidth = e.detail / (16 * $userSettings.zoom);
-			lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
-			$defaultBranchWidthRem = laneWidth;
-		}}
-	/>
+		<Resizer
+			viewport={rsViewport}
+			direction="right"
+			inside={$selectedFiles.length > 0}
+			minWidth={320}
+			on:width={(e) => {
+				laneWidth = e.detail / (16 * $userSettings.zoom);
+				lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
+				$defaultBranchWidthRem = laneWidth;
+			}}
+		/>
+	</div>
+
+	<slot name="file-view" />
 </div>
 
 <style lang="postcss">
-	.resize-viewport {
+	.branch-card {
 		height: 100%;
 		position: relative;
 		display: flex;
+		--target-branch-background: var(--clr-theme-container-pale);
+		display: flex;
+		/* flex-direction: column; */
+		user-select: none;
+		overflow-x: hidden;
+		overflow-y: scroll;
+		/* padding: 8px; */
+		/* border-radius: var(--radius-l); */
+		background-color: var(--target-branch-background);
+
+		/* remover scrollbar */
+
+		&::-webkit-scrollbar {
+			width: 0px;
+			background: transparent; /* Chrome/Safari/Webkit */
+		}
 	}
 
-	.branch-card {
-		display: flex;
-		flex-direction: column;
-		user-select: none;
+	.target-branch {
+		--target-branch-background: color-mix(
+			in srgb,
+			var(--clr-theme-scale-pop-60) 30%,
+			var(--clr-theme-container-pale)
+		);
 	}
 
 	.branch-card__dropzone-wrapper {
@@ -286,15 +307,15 @@
 	}
 
 	.branch-card__contents {
+		position: relative;
 		display: flex;
 		flex-direction: column;
-		padding-top: 20px;
 		gap: var(--space-4);
-		padding: var(--space-16) var(--space-8) var(--space-16) var(--space-8);
+		padding: var(--space-8);
 	}
 
-	.resize-viewport {
-		position: relative;
+	.first-child {
+		/* padding-left: var(--space-16); */
 	}
 
 	.new-branch__content {

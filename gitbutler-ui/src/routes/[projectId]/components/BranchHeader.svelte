@@ -148,7 +148,7 @@
 	.header__wrapper {
 		z-index: 10;
 		position: sticky;
-		top: var(--space-16);
+		top: var(--space-8);
 	}
 	.header {
 		z-index: 2;
@@ -170,7 +170,7 @@
 		left: 0;
 		width: 100%;
 		height: var(--space-20);
-		background: var(--clr-theme-container-pale);
+		background: var(--target-branch-background);
 		/* background-color: red; */
 	}
 	.header__info {
