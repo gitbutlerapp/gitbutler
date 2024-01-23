@@ -30,7 +30,7 @@
 	}
 
 	function normalizeBranchName(value: string) {
-		return value.toLowerCase().replace(/[^0-9a-z/_]/g, '-');
+		return value.toLowerCase().replace(/[^0-9a-z/_]+/g, '-');
 	}
 
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
