@@ -264,6 +264,7 @@
 		flex-direction: column;
 		width: 100%;
 		max-height: 100%;
+		flex-grow: 1;
 	}
 	.hunks {
 		display: flex;
