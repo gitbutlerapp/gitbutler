@@ -45,16 +45,22 @@
 			return;
 		}
 
+		let pushedBranch: Branch | undefined;
 		// Push if local commits
 		if (branch.commits.some((c) => !c.isRemote)) {
 			const pushBranchSpan = txn.startChild({ op: 'branch_push' });
-			await branchController.pushBranch(branch.id, branch.requiresForce);
+			pushedBranch = await branchController.pushBranch(branch.id, branch.requiresForce);
 			pushBranchSpan.finish();
+		}
+
+		if (!pushedBranch) {
+			console.error('Branch push failed');
+			return;
 		}
 
 		let waitRetries = 0;
 
-		while (!branch.upstreamName) {
+		while (!pushedBranch.upstreamName) {
 			await sleep(200);
 			if (++waitRetries == 100) break;
 		}
@@ -64,7 +70,7 @@
 			capture('branch push wait', { count: waitRetries });
 		}
 
-		if (!branch.upstreamName) {
+		if (!pushedBranch.upstreamName) {
 			toast.error('Cannot create PR without remote branch name');
 			return;
 		}
@@ -72,10 +78,10 @@
 		const createPrSpan = txn.startChild({ op: 'pr_api_create' });
 		const resp = await githubService.createPullRequest(
 			base.shortName,
-			branch.name,
-			branch.notes,
-			branch.id,
-			branch.upstreamName
+			pushedBranch.name,
+			pushedBranch.notes,
+			pushedBranch.id,
+			pushedBranch.upstreamName
 		);
 
 		createPrSpan.finish();
