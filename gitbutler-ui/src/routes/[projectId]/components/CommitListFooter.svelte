@@ -6,6 +6,7 @@
 	import type { PullRequest } from '$lib/github/types';
 	import type { GitHubService } from '$lib/github/service';
 	import toast from 'svelte-french-toast';
+	import { startTransaction } from '@sentry/sveltekit';
 
 	export let branch: Branch;
 	export let type: CommitStatus;
@@ -29,15 +30,28 @@
 	}
 
 	async function createPr(): Promise<PullRequest | undefined> {
-		if (githubService.isEnabled() && base?.shortName) {
-			return await githubService.createPullRequest(
-				base.shortName,
-				branch.name,
-				branch.notes,
-				branch.id
-			);
-		} else {
-			console.log('Unable to create pull request');
+		const txn = startTransaction({ name: 'pull_request_create' });
+
+		if (!githubService.isEnabled()) {
+			toast.error('Cannot create PR without GitHub credentials');
+			return;
+		}
+
+		if (!base?.shortName) {
+			toast.error('Cannot create PR without base branch');
+			return;
+		}
+
+		// Push if local commits
+		if (branch.commits.some((c) => !c.isRemote)) {
+			const pushBranchSpan = txn.startChild({ op: 'branch_push' });
+			await branchController.pushBranch(branch.id, branch.requiresForce);
+			pushBranchSpan.finish();
+		}
+
+		if (!branch.upstreamName) {
+			toast.error('Cannot create PR without remote branch name');
+			return;
 		}
 	}
 </script>
