@@ -255,7 +255,7 @@
 		align-items: self-start;
 		overflow: hidden;
 		padding: var(--space-8) var(--space-8) var(--space-8) 0;
-		margin-left: calc(var(--space-4) * -1);
+		/* margin-left: calc(var(--space-4) * -1); */
 	}
 	.file-card {
 		background: var(--clr-theme-container-light);

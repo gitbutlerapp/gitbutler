@@ -36,91 +36,33 @@
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
 </script>
 
-<div class="header__wrapper">
-	<div class="header card" bind:this={container}>
-		<div class="header__info">
-			<div class="header__label">
-				<BranchLabel bind:name={branch.name} on:change={handleBranchNameChange} />
-			</div>
-			<div class="header__remote-branch">
-				{#if !branch.upstream}
-					{#if hasIntegratedCommits}
-						<div class="status-tag text-base-11 text-semibold integrated">
-							<Icon name="pr-small" /> integrated
-						</div>
-					{:else}
-						<div class="status-tag text-base-11 text-semibold pending">
-							<Icon name="virtual-branch-small" /> virtual
-						</div>
-					{/if}
-					<div class="pending-name">
-						<span class="text-base-11 text-semibold"
-							>origin/{branch.upstreamName
-								? branch.upstreamName
-								: normalizeBranchName(branch.name)}</span
-						>
+<!-- <div class="header__wrapper"> -->
+<div class="header card" bind:this={container}>
+	{#if !readonly}
+		<div class="header__actions">
+			<div class="header__buttons">
+				{#if !readonly}
+					<div class="draggable" data-drag-handle>
+						<Icon name="draggable-narrow" />
 					</div>
+				{/if}
+				{#if branch.selectedForChanges}
+					<Button icon="target" notClickable>Target branch</Button>
 				{:else}
-					<div class="status-tag text-base-11 text-semibold remote">
-						<Icon name="remote-branch-small" /> remote
-					</div>
-					<Tag
-						icon="open-link"
-						color="ghost"
-						border
-						clickable
-						shrinkable
-						on:click={(e) => {
-							const url = branchUrl(base, branch.upstream?.name);
-							if (url) open(url);
-							e.preventDefault();
-							e.stopPropagation();
+					<Button
+						icon="target"
+						kind="outlined"
+						color="neutral"
+						on:click={async () => {
+							await branchController.setSelectedForChanges(branch.id);
 						}}
 					>
-						origin/{branch.upstreamName}
-					</Tag>
-					{#if $pr$?.htmlUrl}
-						<Tag
-							icon="pr-small"
-							color="ghost"
-							border
-							clickable
-							on:click={(e) => {
-								const url = $pr$?.htmlUrl;
-								if (url) open(url);
-								e.preventDefault();
-								e.stopPropagation();
-							}}
-						>
-							View PR
-						</Tag>
-					{/if}
+						Make target
+					</Button>
 				{/if}
 			</div>
-			{#if !readonly}
-				<div class="draggable" data-drag-handle>
-					<Icon name="draggable-narrow" />
-				</div>
-			{/if}
-		</div>
-		{#if !readonly}
-			<div class="header__actions">
-				<div class="header__buttons">
-					{#if branch.selectedForChanges}
-						<Button icon="target" notClickable>Target branch</Button>
-					{:else}
-						<Button
-							icon="target"
-							kind="outlined"
-							color="neutral"
-							on:click={async () => {
-								await branchController.setSelectedForChanges(branch.id);
-							}}
-						>
-							Make target
-						</Button>
-					{/if}
-				</div>
+
+			<div class="header__buttons">
 				<div class="relative" bind:this={meatballButton}>
 					<Button
 						icon="kebab"
@@ -128,6 +70,7 @@
 						color="neutral"
 						on:click={() => (visible = !visible)}
 					/>
+
 					<div
 						class="branch-popup-menu"
 						use:clickOutside={{
@@ -139,10 +82,73 @@
 					</div>
 				</div>
 			</div>
-		{/if}
+		</div>
+	{/if}
+
+	<div class="header__info">
+		<div class="header__label">
+			<BranchLabel bind:name={branch.name} on:change={handleBranchNameChange} />
+		</div>
+		<div class="header__remote-branch">
+			{#if !branch.upstream}
+				{#if hasIntegratedCommits}
+					<div class="status-tag text-base-11 text-semibold integrated">
+						<Icon name="pr-small" /> integrated
+					</div>
+				{:else}
+					<div class="status-tag text-base-11 text-semibold pending">
+						<Icon name="virtual-branch-small" /> virtual
+					</div>
+				{/if}
+				<div class="pending-name">
+					<span class="text-base-11 text-semibold"
+						>origin/{branch.upstreamName
+							? branch.upstreamName
+							: normalizeBranchName(branch.name)}</span
+					>
+				</div>
+			{:else}
+				<div class="status-tag text-base-11 text-semibold remote">
+					<Icon name="remote-branch-small" /> remote
+				</div>
+				<Tag
+					icon="open-link"
+					color="ghost"
+					border
+					clickable
+					shrinkable
+					on:click={(e) => {
+						const url = branchUrl(base, branch.upstream?.name);
+						if (url) open(url);
+						e.preventDefault();
+						e.stopPropagation();
+					}}
+				>
+					origin/{branch.upstreamName}
+				</Tag>
+				{#if $pr$?.htmlUrl}
+					<Tag
+						icon="pr-small"
+						color="ghost"
+						border
+						clickable
+						on:click={(e) => {
+							const url = $pr$?.htmlUrl;
+							if (url) open(url);
+							e.preventDefault();
+							e.stopPropagation();
+						}}
+					>
+						View PR
+					</Tag>
+				{/if}
+			{/if}
+		</div>
 	</div>
-	<div class="header__top-overlay" data-remove-from-draggable data-tauri-drag-region />
 </div>
+
+<!-- <div class="header__top-overlay" data-remove-from-draggable data-tauri-drag-region />
+</div> -->
 
 <style lang="postcss">
 	.header__wrapper {
@@ -174,10 +180,11 @@
 		/* background-color: red; */
 	}
 	.header__info {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		transition: margin var(--transition-slow);
-		padding: var(--space-12);
+		padding: var(--space-12) var(--space-12) var(--space-16) var(--space-12);
 		gap: var(--space-10);
 	}
 	.header__actions {
@@ -186,10 +193,11 @@
 		background: var(--clr-theme-container-pale);
 		padding: var(--space-12);
 		justify-content: space-between;
-		border-radius: 0 0 var(--radius-m) var(--radius-m);
+		border-radius: var(--radius-m) var(--radius-m) 0 0;
 	}
 	.header__buttons {
 		display: flex;
+		align-items: center;
 		position: relative;
 		gap: var(--space-4);
 	}
@@ -200,10 +208,11 @@
 		gap: var(--space-4);
 	}
 	.draggable {
-		position: absolute;
-		right: var(--space-4);
-		top: var(--space-6);
-		opacity: 0;
+		/* position: absolute; */
+		/* right: var(--space-4);
+		top: var(--space-6); */
+		/* opacity: 0; */
+		margin-right: var(--space-4);
 		display: flex;
 		cursor: grab;
 		color: var(--clr-theme-scale-ntrl-50);
