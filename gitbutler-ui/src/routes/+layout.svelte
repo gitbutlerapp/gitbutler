@@ -16,7 +16,7 @@
 	import UpdateButton from '$lib/components/UpdateButton.svelte';
 
 	export let data: LayoutData;
-	const { projectService, cloud, user$, updateService } = data;
+	const { projectService, cloud, user$, updaterService } = data;
 
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
@@ -54,4 +54,4 @@
 <Toaster />
 <LinkProjectModal bind:this={linkProjectModal} {cloud} {projectService} user={$user$} />
 <ShareIssueModal bind:this={shareIssueModal} user={$user$} {cloud} />
-<UpdateButton update$={updateService.update$} />
+<UpdateButton {updaterService} />

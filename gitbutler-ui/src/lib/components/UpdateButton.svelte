@@ -1,42 +1,20 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
 
-	import { installUpdate, onUpdaterEvent } from '@tauri-apps/api/updater';
-	import * as toasts from '$lib/utils/toasts';
-	import { onMount } from 'svelte';
+	import { installUpdate } from '@tauri-apps/api/updater';
 	import { relaunch } from '@tauri-apps/api/process';
-	import type { Update } from '../../routes/updater';
-	import type { Observable } from 'rxjs';
-
 	import Button from './Button.svelte';
+	import type { UpdaterService } from '$lib/backend/updater';
 
-	export let update$: Observable<Update>;
-
-	let updateStatus: {
-		error?: string;
-		status: 'PENDING' | 'DOWNLOADED' | 'ERROR' | 'DONE' | 'UPTODATE';
-	};
-
-	onMount(() => {
-		const unsubscribe = onUpdaterEvent((status) => {
-			updateStatus = status;
-			if (updateStatus.error) {
-				toasts.error(updateStatus.error);
-			}
-		});
-		return () => unsubscribe.then((unsubscribe) => unsubscribe());
-	});
+	export let updaterService: UpdaterService;
+	$: update$ = updaterService.update$;
 </script>
 
-{JSON.stringify($update$)}
-{#if $update$?.enabled && $update$?.shouldUpdate}
-	<div
-		class="update-banner"
-		class:busy={updateStatus?.status == 'PENDING' || updateStatus?.status == 'DOWNLOADED'}
-	>
+{#if $update$?.version}
+	<div class="update-banner" class:busy={$update$?.status == 'PENDING'}>
 		<div class="img">
 			<div class="circle-img">
-				{#if updateStatus?.status != 'DONE'}
+				{#if $update$?.status != 'DONE'}
 					<svg
 						class="arrow-img"
 						width="12"
@@ -103,23 +81,27 @@
 		</div>
 
 		<h4 class="text-base-13 label">
-			{#if !updateStatus}
+			{#if !$update$.status}
 				New version available
-			{:else if updateStatus.status === 'PENDING'}
+			{:else if $update$.status === 'PENDING'}
 				Downloading update...
-			{:else if updateStatus.status === 'DOWNLOADED'}
+			{:else if $update$.status === 'DONE'}
 				Installing update...
+			{:else if $update$.status === 'ERROR'}
+				Error occurred...
+			{:else if $update$.status === 'UPTODATE'}
+				Everything up-to-date
 			{/if}
 		</h4>
 
 		<div class="status-section">
 			<div class="sliding-gradient" />
 
-			{#if !updateStatus}
+			{#if !$update$.status}
 				<div class="cta-btn" transition:fade={{ duration: 100 }}>
 					<Button wide on:click={() => installUpdate()}>Download {$update$.version}</Button>
 				</div>
-			{:else if updateStatus.status === 'DONE'}
+			{:else if $update$.status == 'DONE'}
 				<div class="cta-btn" transition:fade={{ duration: 100 }}>
 					<Button wide on:click={() => relaunch()}>Restart to update</Button>
 				</div>
