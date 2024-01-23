@@ -18,7 +18,8 @@ import {
 	timeout,
 	combineLatest,
 	of,
-	startWith
+	startWith,
+	Subject
 } from 'rxjs';
 
 export class VirtualBranchService {
@@ -27,6 +28,7 @@ export class VirtualBranchService {
 	activeBranches$: Observable<Branch[] | undefined>;
 	branchesError$ = new BehaviorSubject<any>(undefined);
 	private reload$ = new BehaviorSubject<void>(undefined);
+	private fresh$ = new Subject<void>();
 
 	constructor(projectId: string, gbBranchActive$: Observable<boolean>) {
 		this.branches$ = this.reload$.pipe(
@@ -51,6 +53,7 @@ export class VirtualBranchService {
 						branchId: branch.id
 					});
 				});
+				this.fresh$.next(); // Notification for fresh reload
 			}),
 			startWith(undefined),
 			shareReplay(1),
@@ -69,9 +72,22 @@ export class VirtualBranchService {
 		);
 	}
 
-	reload() {
+	async reload() {
 		this.branchesError$.next(undefined);
+		const fresh = firstValueFrom(
+			this.fresh$.pipe(
+				timeout(10000),
+				catchError(() => {
+					// Observable never errors for any other reasons
+					const err = 'Timed out while reloading pull requests';
+					console.warn(err);
+					toasts.error(err);
+					return of();
+				})
+			)
+		);
 		this.reload$.next();
+		return await fresh;
 	}
 
 	async getById(branchId: string) {

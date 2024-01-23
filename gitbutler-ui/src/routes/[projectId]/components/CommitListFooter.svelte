@@ -7,7 +7,6 @@
 	import type { GitHubService } from '$lib/github/service';
 	import toast from 'svelte-french-toast';
 	import { startTransaction } from '@sentry/sveltekit';
-	import { sleep } from '$lib/utils/sleep';
 	import { capture } from '$lib/analytics/posthog';
 
 	export let branch: Branch;
@@ -45,26 +44,26 @@
 			return;
 		}
 
+		let newBranch: Branch | undefined;
 		// Push if local commits
 		if (branch.commits.some((c) => !c.isRemote)) {
 			const pushBranchSpan = txn.startChild({ op: 'branch_push' });
-			await branchController.pushBranch(branch.id, branch.requiresForce);
+			newBranch = await branchController.pushBranch(branch.id, branch.requiresForce);
 			pushBranchSpan.finish();
+		} else {
+			newBranch = branch;
 		}
 
-		let waitRetries = 0;
-
-		while (!branch.upstreamName) {
-			await sleep(200);
-			if (++waitRetries == 100) break;
+		if (newBranch?.upstreamName != branch.upstreamName) {
+			capture('branch push mismatch', { new: newBranch?.upstreamName, old: branch.upstreamName });
 		}
 
-		// TODO: Remove me after validating if async behavior works correctly.
-		if (waitRetries > 0) {
-			capture('branch push wait', { count: waitRetries });
+		if (!newBranch) {
+			console.error('Branch push failed');
+			return;
 		}
 
-		if (!branch.upstreamName) {
+		if (!newBranch.upstreamName) {
 			toast.error('Cannot create PR without remote branch name');
 			return;
 		}
@@ -72,10 +71,10 @@
 		const createPrSpan = txn.startChild({ op: 'pr_api_create' });
 		const resp = await githubService.createPullRequest(
 			base.shortName,
-			branch.name,
-			branch.notes,
-			branch.id,
-			branch.upstreamName
+			newBranch.name,
+			newBranch.notes,
+			newBranch.id,
+			newBranch.upstreamName
 		);
 
 		createPrSpan.finish();

@@ -1,4 +1,4 @@
-import type { Hunk } from './types';
+import type { Branch, Hunk } from './types';
 import * as toasts from '$lib/utils/toasts';
 import { invoke } from '$lib/backend/ipc';
 import type { BaseBranchService, VirtualBranchService } from './branchStoresCache';
@@ -167,13 +167,15 @@ export class BranchController {
 		}
 	}
 
-	async pushBranch(branchId: string, withForce: boolean) {
+	async pushBranch(branchId: string, withForce: boolean): Promise<Branch | undefined> {
 		try {
 			await invoke<void>('push_virtual_branch', {
 				projectId: this.projectId,
 				branchId,
 				withForce
 			});
+			await this.vbranchService.reload();
+			return await this.vbranchService.getById(branchId);
 		} catch (err: any) {
 			if (err.code === 'errors.git.authentication') {
 				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
