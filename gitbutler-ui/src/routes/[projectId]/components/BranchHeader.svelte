@@ -45,12 +45,12 @@
 			<div class="header__remote-branch">
 				{#if !branch.upstream}
 					{#if hasIntegratedCommits}
-						<div class="status-tag text-base-11 text-semibold deleted">
-							<Icon name="removed-branch-small" /> deleted
+						<div class="status-tag text-base-11 text-semibold integrated">
+							<Icon name="pr-small" /> integrated
 						</div>
 					{:else}
 						<div class="status-tag text-base-11 text-semibold pending">
-							<Icon name="virtual-branch-small" /> new
+							<Icon name="virtual-branch-small" /> virtual
 						</div>
 					{/if}
 					<div class="pending-name">
@@ -245,7 +245,6 @@
 		gap: var(--space-2);
 		padding: var(--space-2) var(--space-6) var(--space-2) var(--space-4);
 		border-radius: var(--radius-m);
-		margin-right: var(--space-2);
 	}
 
 	.pending {
@@ -269,9 +268,14 @@
 		}
 	}
 
-	.deleted {
-		color: var(--clr-theme-scale-ntrl-100);
-		background: var(--clr-theme-scale-err-50);
+	.pending {
+		color: var(--clr-theme-scale-ntrl-30);
+		background: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 20%, transparent);
+	}
+
+	.integrated {
+		color: var(--clr-theme-succ-on-element);
+		background: var(--clr-theme-succ-element);
 	}
 
 	.remote {
