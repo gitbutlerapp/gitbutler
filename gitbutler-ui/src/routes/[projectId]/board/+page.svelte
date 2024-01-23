@@ -78,7 +78,6 @@
 		overflow-x: scroll;
 		height: 100%;
 		width: 100%;
-		user-select: none;
 	}
 	.scroll-contents {
 		display: flex;
