@@ -49,7 +49,8 @@
 {:else if $baseError$}
 	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$baseError$} />
 {:else if $baseBranch$ === null}
-	{#await getRemoteBranches(projectId)}
+	{@const remoteBranches = getRemoteBranches(projectId)}
+	{#await remoteBranches}
 		<p>loading...</p>
 	{:then remoteBranches}
 		{#if remoteBranches.length == 0}

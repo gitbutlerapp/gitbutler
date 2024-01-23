@@ -2,6 +2,7 @@
 	import { clickOutside } from '$lib/clickOutside';
 	import { createEventDispatcher } from 'svelte';
 	import TextBox from './TextBox.svelte';
+	import ScrollableContainer from './ScrollableContainer.svelte';
 
 	export let id: undefined | string = undefined;
 	export let label = '';
@@ -16,10 +17,12 @@
 
 	const SLOTS = $$props.$$slots;
 	const dispatch = createEventDispatcher<{ select: { value: any } }>();
+	const maxPadding = 10;
 
 	let listOpen = false;
 	let element: HTMLElement;
 	let options: HTMLDivElement;
+	let maxHeight = 200;
 
 	function handleItemClick(item: any) {
 		if (item?.selectable === false) return;
@@ -27,6 +30,26 @@
 		value = item;
 		dispatch('select', { value });
 		listOpen = false;
+	}
+
+	function scrollIntoView() {
+		const selected = element.querySelector('.selected');
+		if (selected) selected.scrollIntoView();
+	}
+
+	function setMaxHeight() {
+		maxHeight = window.innerHeight - element.getBoundingClientRect().bottom - maxPadding;
+	}
+
+	function toggleList() {
+		if (listOpen) closeList();
+		else openList();
+	}
+
+	function openList() {
+		setMaxHeight();
+		listOpen = true;
+		setTimeout(() => scrollIntoView(), 50);
 	}
 
 	function closeList() {
@@ -47,40 +70,42 @@
 		icon="select-chevron"
 		value={value?.[labelId]}
 		disabled={disabled || loading}
-		on:click={() => (listOpen = !listOpen)}
+		on:click={() => toggleList()}
 	/>
 	<div
 		class="options card"
 		style:display={listOpen ? undefined : 'none'}
 		bind:this={options}
+		style:max-height={`${maxHeight}px`}
 		use:clickOutside={{
 			trigger: element,
 			handler: () => (listOpen = !listOpen),
 			enabled: listOpen
 		}}
 	>
-		{#if items}
-			<div class="options__group">
-				{#each items as item}
-					<div
-						class="option"
-						tabindex="-1"
-						role="none"
-						on:click={() => handleItemClick(item)}
-						on:keydown|preventDefault|stopPropagation
-					>
-						<slot name="template" {item}>
-							{item?.[labelId]}
-						</slot>
-					</div>
-				{/each}
-			</div>
-		{/if}
-		{#if SLOTS.append}
-			<div class="options__group">
-				<slot name="append" />
-			</div>
-		{/if}
+		<ScrollableContainer initiallyVisible>
+			{#if items}
+				<div class="options__group">
+					{#each items as item}
+						<div
+							class="option"
+							class:selected={item == value}
+							tabindex="-1"
+							role="none"
+							on:click={() => handleItemClick(item)}
+							on:keydown|preventDefault|stopPropagation
+						>
+							<slot name="template" {item} selected={item == value} />
+						</div>
+					{/each}
+				</div>
+			{/if}
+			{#if SLOTS?.append}
+				<div class="options__group">
+					<slot name="append" />
+				</div>
+			{/if}
+		</ScrollableContainer>
 	</div>
 </div>
 

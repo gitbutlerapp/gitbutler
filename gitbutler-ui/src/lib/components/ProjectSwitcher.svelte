@@ -12,8 +12,8 @@
 	$: projects$ = projectService.projects$;
 
 	let loading = false;
-	let selectValue: any;
 	let select: Select;
+	let selectValue = project;
 </script>
 
 <div class="project-switcher">
@@ -28,12 +28,7 @@
 		bind:value={selectValue}
 		bind:this={select}
 	>
-		<SelectItem
-			slot="template"
-			let:item
-			selected={item.id == selectValue?.id}
-			disabled={item.id == project?.id}
-		>
+		<SelectItem slot="template" let:item let:selected {selected}>
 			{item.title}
 		</SelectItem>
 		<SelectItem
@@ -54,9 +49,13 @@
 	</Select>
 	<Button
 		icon="chevron-right-small"
-		disabled={!selectValue}
-		on:click={() => goto(`/${selectValue.id}/`)}>Open project</Button
+		disabled={selectValue == project}
+		on:click={() => {
+			if (selectValue) goto(`/${selectValue.id}/`);
+		}}
 	>
+		Open project
+	</Button>
 </div>
 
 <style lang="postcss">

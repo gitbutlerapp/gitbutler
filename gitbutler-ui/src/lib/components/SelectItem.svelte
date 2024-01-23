@@ -37,6 +37,7 @@
 		justify-content: space-between;
 		border-radius: var(--radius-m);
 		width: 100%;
+		white-space: nowrap;
 		&:hover:enabled,
 		&:focus:enabled {
 			background-color: var(--clr-theme-container-pale);
