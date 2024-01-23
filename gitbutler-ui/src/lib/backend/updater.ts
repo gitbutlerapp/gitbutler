@@ -18,7 +18,8 @@ import {
 	catchError,
 	of,
 	startWith,
-	combineLatestWith
+	combineLatestWith,
+	tap
 } from 'rxjs';
 
 export type Update = { version?: string; status?: UpdateStatus } | undefined;
@@ -42,6 +43,7 @@ export class UpdaterService {
 
 		this.update$ = this.reload$.pipe(
 			switchMap(() => interval(60 * 1000).pipe(startWith(0))),
+			tap(() => this.status$.next(undefined)),
 			switchMap(() =>
 				from(checkUpdate()).pipe(
 					timeout(10000), // In dev mode the promise hangs indefinitely.
@@ -61,7 +63,7 @@ export class UpdaterService {
 			}),
 			shareReplay(1)
 		);
-		// this.update$ = of({ version: '1.0.0', status: 'DONE' });
+		this.update$ = of({ version: '1.0.0', status: 'UPTODATE' });
 	}
 
 	async install() {
