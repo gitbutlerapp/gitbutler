@@ -8,6 +8,7 @@
 	import toast from 'svelte-french-toast';
 	import { startTransaction } from '@sentry/sveltekit';
 	import { sleep } from '$lib/utils/sleep';
+	import { capture } from '$lib/analytics/posthog';
 
 	export let branch: Branch;
 	export let type: CommitStatus;
@@ -53,10 +54,14 @@
 			}
 
 			let waitRetries = 0;
+			console.log(branch);
 			while (!branch.upstreamName) {
 				console.log('waiting for branch name');
 				await sleep(200);
-				if (waitRetries++ > 100) break;
+				if (++waitRetries == 100) break;
+			}
+			if (waitRetries > 0) {
+				capture('branch push wait', { count: waitRetries });
 			}
 
 			if (!branch.upstreamName) {
