@@ -57,6 +57,7 @@
 		flex-direction: column;
 		position: relative;
 		overflow: hidden;
+		height: 100%;
 	}
 	.viewport {
 		height: 100%;
