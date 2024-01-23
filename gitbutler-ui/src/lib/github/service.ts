@@ -1,7 +1,6 @@
 import * as toasts from '$lib/utils/toasts';
 import lscache from 'lscache';
-import type { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
-import type { BranchController } from '$lib/vbranches/branchController';
+import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 import type { UserService } from '$lib/stores/user';
 import type { Octokit } from '@octokit/rest';
 import { newClient } from '$lib/github/client';
@@ -51,12 +50,7 @@ export class GitHubService {
 
 	private enabled = false;
 
-	constructor(
-		private branchController: BranchController,
-		private vbranchService: VirtualBranchService,
-		userService: UserService,
-		baseBranchService: BaseBranchService
-	) {
+	constructor(userService: UserService, baseBranchService: BaseBranchService) {
 		// A few things will cause the baseBranch to update, so we filter for distinct
 		// changes to the remoteUrl.
 		const distinctUrl$ = baseBranchService.base$.pipe(distinct((ctx) => ctx?.remoteUrl));
