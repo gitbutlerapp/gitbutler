@@ -5,7 +5,6 @@ import type { BranchController } from '$lib/vbranches/branchController';
 import type { UserService } from '$lib/stores/user';
 import type { Octokit } from '@octokit/rest';
 import { newClient } from '$lib/github/client';
-import { startTransaction } from '@sentry/sveltekit';
 
 import {
 	type PullRequest,
@@ -156,13 +155,13 @@ export class GitHubService {
 		base: string,
 		title: string,
 		body: string,
-		branchId: string
+		branchId: string,
+		upstreamName: string
 	): Promise<PullRequest | undefined> {
 		if (!this.enabled) {
 			console.error("Can't create PR when service not enabled");
 			return;
 		}
-		const txn = startTransaction({ name: 'pull_request_create' });
 		this.setBusy('creating_pr', branchId);
 		return firstValueFrom(
 			// We have to wrap with defer becasue using `async` functions with operators
@@ -174,28 +173,16 @@ export class GitHubService {
 							console.error("Can't create PR without credentials");
 							return;
 						}
-
-						const pushBranchSpan = txn.startChild({ op: 'branch_push' });
-						await this.branchController.pushBranch(branchId, true);
-						pushBranchSpan.finish();
-						const branch = await this.vbranchService.getById(branchId);
-
-						const createPrSpan = txn.startChild({ op: 'pr_api_create' });
-						if (branch?.upstreamName) {
-							const rsp = await octokit.rest.pulls.create({
-								owner: ctx.owner,
-								repo: ctx.repo,
-								head: branch.upstreamName,
-								base,
-								title,
-								body
-							});
-							await this.reload();
-							txn?.finish();
-							return ghResponseToInstance(rsp.data);
-						}
-						createPrSpan.finish();
-						throw `No upstream for branch ${branchId}`;
+						const rsp = await octokit.rest.pulls.create({
+							owner: ctx.owner,
+							repo: ctx.repo,
+							head: upstreamName,
+							base,
+							title,
+							body
+						});
+						await this.reload();
+						return ghResponseToInstance(rsp.data);
 					})
 				)
 			).pipe(
@@ -211,7 +198,6 @@ export class GitHubService {
 						console.log('Unable to create PR despite retrying', err);
 					}
 					this.setIdle(branchId);
-					txn?.finish();
 					return throwError(() => err);
 				})
 			)
