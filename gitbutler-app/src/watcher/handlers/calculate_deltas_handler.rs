@@ -190,7 +190,6 @@ mod test {
 
     fn test_target() -> virtual_branches::target::Target {
         virtual_branches::target::Target {
-            last_fetched_ms: None,
             branch: format!(
                 "refs/remotes/remote name {}/branch name {}",
                 TEST_TARGET_INDEX.load(Ordering::Relaxed),

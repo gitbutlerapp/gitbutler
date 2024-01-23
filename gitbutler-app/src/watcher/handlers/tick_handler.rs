@@ -61,15 +61,14 @@ impl Handler {
 
         let mut events = vec![];
 
-        let last_fetched_ms = gb_repo
-            .default_target()
-            .context("failed to get default target")?
-            .and_then(|target| target.last_fetched_ms)
-            .unwrap_or(0);
-        let last_fetched =
-            time::UNIX_EPOCH + time::Duration::from_millis(last_fetched_ms.try_into()?);
+        let project_data_last_fetch = project
+            .project_data_last_fetch
+            .as_ref()
+            .map(FetchResult::timestamp)
+            .copied()
+            .unwrap_or(time::UNIX_EPOCH);
 
-        if now.duration_since(last_fetched)? > PROJECT_FETCH_INTERVAL {
+        if now.duration_since(project_data_last_fetch)? > PROJECT_FETCH_INTERVAL {
             events.push(events::Event::FetchProjectData(*project_id));
         }
 

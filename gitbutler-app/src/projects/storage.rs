@@ -44,6 +44,7 @@ pub struct UpdateRequest {
     pub preferred_key: Option<project::AuthKey>,
     pub ok_with_force_push: Option<bool>,
     pub gitbutler_code_push_state: Option<project::CodePushState>,
+    pub project_data_last_fetched: Option<project::FetchResult>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -114,6 +115,10 @@ impl Storage {
             update_request.gitbutler_data_last_fetched.as_ref()
         {
             project.gitbutler_data_last_fetch = Some(gitbutler_data_last_fetched.clone());
+        }
+
+        if let Some(project_data_last_fetched) = update_request.project_data_last_fetched.as_ref() {
+            project.project_data_last_fetch = Some(project_data_last_fetched.clone());
         }
 
         if let Some(state) = update_request.gitbutler_code_push_state {

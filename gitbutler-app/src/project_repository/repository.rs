@@ -77,6 +77,10 @@ impl Repository {
         &self.project
     }
 
+    pub fn set_project(&mut self, project: &projects::Project) {
+        self.project = project.clone();
+    }
+
     pub fn get_head(&self) -> Result<git::Reference, git::Error> {
         let head = self.git_repository.head()?;
         Ok(head)

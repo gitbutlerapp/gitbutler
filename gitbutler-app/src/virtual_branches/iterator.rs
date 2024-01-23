@@ -114,7 +114,6 @@ mod tests {
 
     fn test_target() -> target::Target {
         target::Target {
-            last_fetched_ms: None,
             branch: format!(
                 "refs/remotes/branch name{}/remote name {}",
                 TEST_TARGET_INDEX.load(Ordering::Relaxed),
