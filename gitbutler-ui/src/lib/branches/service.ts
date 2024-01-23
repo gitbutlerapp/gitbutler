@@ -15,7 +15,7 @@ export class BranchService {
 		remoteBranchService: RemoteBranchService,
 		githubService: GitHubService
 	) {
-		const vbranchesWithEmpty$ = vbranchService.branches$.pipe(startWith([]));
+		const vbranchesWithEmpty$ = vbranchService.activeBranches$.pipe(startWith([]));
 		const branchesWithEmpty$ = remoteBranchService.branches$.pipe(startWith([]));
 		const prWithEmpty$ = githubService.prs$.pipe(startWith([]));
 

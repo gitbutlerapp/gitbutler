@@ -1,10 +1,12 @@
 <script lang="ts">
 	export let name: string;
+	export let disabled = false;
 	let inputActive = false;
 	let label: HTMLDivElement;
 	let input: HTMLInputElement;
 
 	function activateInput() {
+		if (disabled) return;
 		inputActive = true;
 		setTimeout(() => input.select(), 0);
 	}
@@ -25,6 +27,7 @@
 	<span class="branch-name-mesure-el text-base-13" bind:this={mesureEl}>{name}</span>
 	<input
 		type="text"
+		{disabled}
 		bind:this={input}
 		bind:value={name}
 		on:change

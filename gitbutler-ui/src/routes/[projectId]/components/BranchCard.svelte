@@ -168,13 +168,15 @@
 					hover: 'cherrypick-dz-hover',
 					active: 'cherrypick-dz-active',
 					accepts: acceptCherrypick,
-					onDrop: onCherrypicked
+					onDrop: onCherrypicked,
+					disabled: readonly
 				}}
 				use:dropzone={{
 					hover: 'lane-dz-hover',
 					active: 'lane-dz-active',
 					accepts: acceptBranchDrop,
-					onDrop: onBranchDrop
+					onDrop: onBranchDrop,
+					disabled: readonly
 				}}
 			>
 				<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />

@@ -60,6 +60,7 @@
 			{projectPath}
 			{branchController}
 			{selectedOwnership}
+			{readonly}
 			selectable={$commitBoxOpen && !readonly}
 			on:close={() => {
 				const selectedId = selected?.id;
