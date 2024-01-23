@@ -8,6 +8,7 @@
 	import toast from 'svelte-french-toast';
 	import { startTransaction } from '@sentry/sveltekit';
 	import { sleep } from '$lib/utils/sleep';
+	import { capture } from '$lib/analytics/posthog';
 
 	export let branch: Branch;
 	export let type: CommitStatus;
@@ -59,10 +60,17 @@
 				if (waitRetries++ > 100) break;
 			}
 
-			if (!branch.upstreamName) {
-				toast.error('Cannot create PR without remote branch name');
-				return;
-			}
+		let waitRetries = 0;
+		console.log(branch);
+		while (!branch.upstreamName) {
+			console.log('waiting for branch name');
+			await sleep(200);
+			if (++waitRetries == 100) break;
+		}
+		console.log(branch);
+		if (waitRetries > 0) {
+			capture('branch push wait', { count: waitRetries });
+		}
 
 			const createPrSpan = txn.startChild({ op: 'pr_api_create' });
 			const resp = await githubService.createPullRequest(
