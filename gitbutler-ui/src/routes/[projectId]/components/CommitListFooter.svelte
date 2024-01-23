@@ -7,6 +7,7 @@
 	import type { GitHubService } from '$lib/github/service';
 	import toast from 'svelte-french-toast';
 	import { startTransaction } from '@sentry/sveltekit';
+	import { sleep } from '$lib/utils/sleep';
 
 	export let branch: Branch;
 	export let type: CommitStatus;
@@ -33,39 +34,53 @@
 		isPushing = true;
 		const txn = startTransaction({ name: 'pull_request_create' });
 
-		if (!githubService.isEnabled()) {
-			toast.error('Cannot create PR without GitHub credentials');
-			return;
-		}
+		try {
+			if (!githubService.isEnabled()) {
+				toast.error('Cannot create PR without GitHub credentials');
+				return;
+			}
 
-		if (!base?.shortName) {
-			toast.error('Cannot create PR without base branch');
-			return;
-		}
+			if (!base?.shortName) {
+				toast.error('Cannot create PR without base branch');
+				return;
+			}
 
-		// Push if local commits
-		if (branch.commits.some((c) => !c.isRemote)) {
-			const pushBranchSpan = txn.startChild({ op: 'branch_push' });
-			await branchController.pushBranch(branch.id, branch.requiresForce);
-			pushBranchSpan.finish();
-		}
+			// Push if local commits
+			if (branch.commits.some((c) => !c.isRemote)) {
+				const pushBranchSpan = txn.startChild({ op: 'branch_push' });
+				await branchController.pushBranch(branch.id, branch.requiresForce);
+				pushBranchSpan.finish();
+			}
 
-		if (!branch.upstreamName) {
-			toast.error('Cannot create PR without remote branch name');
-			return;
-		}
+			let waitRetries = 0;
+			while (!branch.upstreamName) {
+				console.log('waiting for branch name');
+				await sleep(200);
+				if (waitRetries++ > 100) break;
+			}
 
-		const createPrSpan = txn.startChild({ op: 'pr_api_create' });
-		const resp = await githubService.createPullRequest(
-			base.shortName,
-			branch.name,
-			branch.notes,
-			branch.id,
-			branch.upstreamName
-		);
-		createPrSpan.finish();
-		isPushing = false;
-		return resp;
+			if (!branch.upstreamName) {
+				toast.error('Cannot create PR without remote branch name');
+				return;
+			}
+
+			const createPrSpan = txn.startChild({ op: 'pr_api_create' });
+			const resp = await githubService.createPullRequest(
+				base.shortName,
+				branch.name,
+				branch.notes,
+				branch.id,
+				branch.upstreamName
+			);
+			createPrSpan.finish();
+			return resp;
+		} catch (e) {
+			console.error('Failed to create PR', e);
+			toast.error('Failed to create pull request');
+		} finally {
+			isPushing = false;
+			txn.finish();
+		}
 	}
 </script>
 
