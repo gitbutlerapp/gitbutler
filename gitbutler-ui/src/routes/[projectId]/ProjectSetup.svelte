@@ -12,26 +12,28 @@
 	import SetupFeature from './components/SetupFeature.svelte';
 	import GithubIntegration from '../components/GithubIntegration.svelte';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
+	import Select from '$lib/components/Select.svelte';
+	import SelectItem from '$lib/components/SelectItem.svelte';
 
 	export let branchController: BranchController;
 	export let userService: UserService;
 	export let projectId: string;
-	export let remoteBranches: string[];
+	export let remoteBranches: { name: string }[];
 
 	$: user$ = userService.user$;
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 
 	let aiGenCheckbox: Toggle;
-	let targetChoice: string | undefined;
 	let loading = false;
+	let selectedBranch = remoteBranches.find(
+		(b) => b.name == 'origin/master' || b.name == 'origin/main'
+	);
 
 	function onSetTargetClick() {
-		if (!targetChoice) {
-			return;
-		}
+		if (!selectedBranch) return;
 		loading = true;
-		branchController.setTarget(targetChoice).finally(() => (loading = false));
+		branchController.setTarget(selectedBranch.name).finally(() => (loading = false));
 	}
 </script>
 
@@ -50,18 +52,11 @@
 				or "origin/main".
 			</p>
 		</div>
-		<select class="select" bind:value={targetChoice} disabled={loading}>
-			{#each remoteBranches
-				.map((name) => name.substring(13))
-				.sort((a, b) => a.localeCompare(b)) as branch}
-				{#if branch == 'origin/master' || branch == 'origin/main'}
-					<option value={branch} selected>{branch}</option>
-				{:else}
-					<option value={branch}>{branch}</option>
-				{/if}
-			{/each}
-		</select>
-
+		<Select items={remoteBranches} bind:value={selectedBranch} itemId="name" labelId="name">
+			<SelectItem slot="template" let:item let:selected {selected}>
+				{item.name}
+			</SelectItem>
+		</Select>
 		<div class="card">
 			<SetupFeature>
 				<svelte:fragment slot="icon">

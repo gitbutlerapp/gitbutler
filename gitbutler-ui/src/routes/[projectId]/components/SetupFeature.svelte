@@ -3,8 +3,6 @@
 	export let success = false;
 	export let topBorder = false;
 	const SLOTS = $$props.$$slots;
-
-	console.log(SLOTS);
 </script>
 
 <div class="setup-feature" class:success class:disabled class:top-border={topBorder}>
