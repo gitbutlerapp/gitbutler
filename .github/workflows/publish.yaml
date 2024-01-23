@@ -71,6 +71,10 @@ jobs:
           gpg_private_key: ${{ secrets.APPIMAGE_PRIVATE_KEY }}
           passphrase: ${{ secrets.APPIMAGE_KEY_PASSPHRASE }}
 
+      - name: install linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y libgtk-3-dev
+
       - name: Build binary
         run: |
           ./scripts/release.sh \
