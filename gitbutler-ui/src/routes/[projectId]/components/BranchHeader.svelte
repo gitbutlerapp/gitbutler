@@ -153,7 +153,6 @@
 	.header {
 		z-index: 2;
 		position: relative;
-		user-select: none;
 		flex-direction: column;
 		gap: var(--space-2);
 

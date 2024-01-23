@@ -61,7 +61,6 @@
 	.viewport {
 		height: 100%;
 		width: 100%;
-		user-select: none;
 	}
 	.contents {
 		display: block;
