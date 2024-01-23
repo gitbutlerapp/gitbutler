@@ -6,6 +6,7 @@ import { UpdaterService } from '$lib/backend/updater';
 import { UserService } from '$lib/stores/user';
 import { config } from 'rxjs';
 import { initPostHog } from '$lib/analytics/posthog';
+import { initSentry } from '$lib/analytics/sentry';
 
 // call on startup so we don't accumulate old items
 lscache.flushExpired();
@@ -20,6 +21,7 @@ export const csr = true;
 let homeDir: () => Promise<string>;
 
 export const load: LayoutLoad = async ({ fetch: realFetch }: { fetch: typeof fetch }) => {
+	initSentry();
 	initPostHog();
 	const userService = new UserService();
 	const updaterService = new UpdaterService();
