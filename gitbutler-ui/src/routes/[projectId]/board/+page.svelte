@@ -17,7 +17,7 @@
 	$: githubService = data.githubService;
 
 	$: project$ = data.project$;
-	$: activeBranches$ = vbranchService.activeBranches$;
+	$: branches = vbranchService.branches$;
 	$: error$ = vbranchService.branchesError$;
 	$: githubEnabled$ = githubService.isEnabled$;
 
@@ -61,7 +61,7 @@
 					project={$project$}
 					{cloud}
 					base={$base$}
-					branches={$activeBranches$}
+					branches={$branches}
 					projectPath={$project$?.path}
 					branchesError={$error$}
 					user={$user$}

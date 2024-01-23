@@ -14,6 +14,7 @@
 	export let branch: Branch;
 	export let projectId: string;
 	export let visible: boolean;
+	export let readonly = false;
 
 	let deleteBranchModal: Modal;
 	let renameRemoteModal: Modal;
@@ -33,10 +34,15 @@
 {#if visible}
 	<ContextMenu>
 		<ContextMenuSection>
-			<ContextMenuItem
-				label="Unapply"
-				on:click={() => branch.id && branchController.unapplyBranch(branch.id)}
-			/>
+			{#if !readonly}
+				<ContextMenuItem
+					label="Unapply"
+					on:click={() => {
+						if (branch.id) branchController.unapplyBranch(branch.id);
+						visible = false;
+					}}
+				/>
+			{/if}
 
 			<ContextMenuItem
 				label="Delete"
@@ -52,13 +58,13 @@
 					dispatch('action', 'generate-branch-name');
 					visible = false;
 				}}
-				disabled={!$aiGenEnabled || branch.files?.length == 0 || !branch.active}
+				disabled={readonly || !$aiGenEnabled || branch.files?.length == 0 || !branch.active}
 			/>
 		</ContextMenuSection>
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Set branch name"
-				disabled={hasIntegratedCommits}
+				disabled={readonly || hasIntegratedCommits}
 				on:click={() => {
 					newRemoteName = branch.upstreamName || '';
 					visible = false;
