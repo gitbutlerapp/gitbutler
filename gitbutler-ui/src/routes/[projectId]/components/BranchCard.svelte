@@ -303,6 +303,9 @@
 	}
 
 	.branch-card__dropzone-wrapper {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
 		position: relative;
 	}
 
@@ -311,11 +314,15 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-4);
-		padding: var(--space-8);
+		padding: var(--space-12);
 	}
 
 	.first-child {
 		/* padding-left: var(--space-16); */
+	}
+
+	.card {
+		flex: 1;
 	}
 
 	.new-branch__content {
