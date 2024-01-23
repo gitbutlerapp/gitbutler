@@ -156,7 +156,7 @@
 									role="cell"
 									use:draggable={{
 										...draggableHunk(branchId, section.hunk),
-										disabled: readonly
+										disabled: readonly || section.hunk.locked
 									}}
 									on:dblclick
 									class="hunk"
