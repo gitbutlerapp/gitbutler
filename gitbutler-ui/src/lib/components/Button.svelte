@@ -47,7 +47,7 @@
 	class:grow
 	class:not-clickable={notClickable}
 	bind:this={element}
-	{disabled}
+	disabled={disabled || loading}
 	on:click
 	{id}
 	tabindex={notClickable ? -1 : tabindex}
