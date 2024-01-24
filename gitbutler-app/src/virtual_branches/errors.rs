@@ -708,7 +708,7 @@ impl From<FlushAppliedVbranchesError> for Error {
         match value {
             FlushAppliedVbranchesError::DefaultTargetNotSet(error) => error.into(),
             FlushAppliedVbranchesError::Other(error) => {
-                tracing::error!(?error, "flush applied branches error");
+                tracing::error!(?error, "flush workspace error");
                 Error::Unknown
             }
         }

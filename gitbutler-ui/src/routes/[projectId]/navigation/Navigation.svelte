@@ -72,7 +72,7 @@
 					<rect opacity="0.7" x="10" y="3" width="4" height="10" rx="2" fill="#D9F3F2" />
 				</svg>
 
-				<span>Applied branches</span>
+				<span>Workspace</span>
 				{#if ($base$?.behind || 0) > 0}
 					<Tooltip label="Merge upstream commits into common base">
 						<Tag

@@ -32,7 +32,7 @@ export class File {
 	modifiedAt!: Date;
 	// This indicates if a file has merge conflict markers generated and not yet resolved.
 	// This is true for files after a branch which does not apply cleanly (Branch.isMergeable == false) is applied.
-	// (therefore this field is applicable only for applied branches, i.e. active == true)
+	// (therefore this field is applicable only for the workspace, i.e. active == true)
 	conflicted!: boolean;
 	content!: string;
 	binary!: boolean;
@@ -55,7 +55,7 @@ export class Branch {
 	id!: string;
 	name!: string;
 	notes!: string;
-	// Active means the branch has been applied to the working directory (i.e. "Applied Branches")
+	// Active means the branch has been applied to the workspace
 	active!: boolean;
 	@Type(() => File)
 	files!: File[];
