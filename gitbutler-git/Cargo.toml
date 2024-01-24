@@ -28,11 +28,11 @@ tokio = ["dep:tokio"]
 git2 = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
-tokio = { workspace = true, optional = true, features = ["process"]}
+tokio = { workspace = true, optional = true, features = ["process", "rt", "process", "time", "io-util", "net", "fs"]}
 rand = { version = "0.8.5", optional = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt", "rt-multi-thread", "process"]}
+tokio = { workspace = true, features = ["rt-multi-thread"]}
 
 [target."cfg(unix)".dependencies]
-nix = { version = "0.27.1", optional = true, features = ["process", "socket", "user", "rt"] }
+nix = { version = "0.27.1", optional = true, features = ["process", "socket", "user"] }

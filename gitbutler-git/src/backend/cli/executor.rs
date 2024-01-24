@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use core::{future::Future, pin::Pin};
+use core::time::Duration;
 
 #[cfg(any(test, feature = "tokio"))]
 pub mod tokio;
@@ -47,10 +47,6 @@ pub unsafe trait GitExecutor {
     /// The type of the handle returned by [`GitExecutor::create_askpass_server`].
     type ServerHandle: AskpassServer + Send + Sync + 'static;
 
-    /// The type of socket passed to the connection handler
-    /// provided to [`GitExecutor::create_askpass_server`].
-    type SocketHandle: Socket + Send + Sync + 'static;
-
     /// Executes the given Git command with the given arguments.
     /// `git` is never passed as the first argument (arg 0).
     ///
@@ -91,10 +87,6 @@ pub unsafe trait GitExecutor {
     /// the `askpass` utility (see `bin/askpass.rs` and platform-specific
     /// adjacent sources).
     ///
-    /// Servers created should be non-blocking and exist in either
-    /// another thread or an async task; the method should return
-    /// immediately with a handle to the server, as described below.
-    ///
     /// ## Unix
     ///
     /// On Unix-like systems (including MacOS), this is a unix
@@ -104,10 +96,6 @@ pub unsafe trait GitExecutor {
     ///
     /// The socket itself should be created as read/write for the user
     /// with no access to group or everyone (`0600` or `u+rw ag-a`).
-    ///
-    /// Further, the callback is invoked with the credentials for
-    /// the socket upon a connection and is awaited. After the callback
-    /// returns, the connection must be closed.
     ///
     /// Upon the handle being dropped, the socket must be closed and
     /// the socket file SHOULD be best-effort unlinked.
@@ -125,10 +113,6 @@ pub unsafe trait GitExecutor {
     /// The pipe name MUST start with `\.\pipe\LOCAL\`. Given that this
     /// invariant must be upheld, this method is marked as unsafe.
     ///
-    /// The callback is invoked with the process ID of the client
-    /// upon a connection, and is awaited. After the callback returns,
-    /// the connection must be closed.
-    ///
     /// Upon the handle being dropped, the pipe must be closed.
     ///
     /// # Safety
@@ -142,21 +126,7 @@ pub unsafe trait GitExecutor {
     ///
     /// If for some reason these invariants are not possible to uphold,
     /// please open an issue on the repository to discuss this issue.
-    unsafe fn create_askpass_server<F>(
-        &self,
-        callback: F,
-    ) -> Result<Self::ServerHandle, Self::Error>
-    where
-        F: Fn(
-                Self::SocketHandle,
-            ) -> Pin<
-                Box<
-                    dyn Future<Output = Result<(), <Self as GitExecutor>::SocketHandle>>
-                        + Send
-                        + 'static,
-                >,
-            > + Send
-            + 'static;
+    async unsafe fn create_askpass_server<F>(&self) -> Result<Self::ServerHandle, Self::Error>;
 }
 
 /// A handle to a server created by [`GitExecutor::create_askpass_server`].
@@ -167,10 +137,19 @@ pub unsafe trait GitExecutor {
 /// more information).
 ///
 /// Upon dropping the handle, the server should be closed.
-pub trait AskpassServer: Drop + core::fmt::Display {}
+pub trait AskpassServer: core::fmt::Display {
+    /// The type of error that is returned by [`AskpassServer::next`].
+    type Error: core::error::Error + core::fmt::Debug + Send + Sync + 'static;
+
+    /// The type of the socket yielded by the incoming iterator.
+    type SocketHandle: Socket + Send + Sync + 'static;
+
+    /// Waits for a connection to the server to be established.
+    async fn next(&self, timeout: Option<Duration>) -> Result<Self::SocketHandle, Self::Error>;
+}
 
 #[cfg(unix)]
-type PidInner = ::nix::unistd::Pid;
+type PidInner = i32;
 
 #[cfg(windows)]
 type PidInner = u32;
@@ -180,7 +159,7 @@ pub type Pid = PidInner;
 
 /// The type of a user ID (unix-specific).
 #[cfg(unix)]
-pub type Uid = ::nix::unistd::Uid;
+pub type Uid = u32;
 
 /// Platform-specific credentials for a connection to a server created by
 /// [`GitExecutor::create_askpass_server`]. This is passed to the callback
