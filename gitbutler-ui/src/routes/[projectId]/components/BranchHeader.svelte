@@ -52,7 +52,7 @@
 			<div class="header__remote-branch">
 				{#if !branch.upstream}
 					{#if !branch.active}
-						<Tooltip label="These changes are stashed away. Apply the lane to bring them back.">
+						<Tooltip label="These changes are stashed away from your working directory.">
 							<div class="status-tag text-base-11 text-semibold unapplied">
 								<Icon name="removed-branch-small" /> unapplied
 							</div>
@@ -66,7 +66,7 @@
 							</div>
 						</Tooltip>
 					{:else}
-						<Tooltip label="These changes are in a virtual branch.">
+						<Tooltip label="These changes are in your working directory.">
 							<div class="status-tag text-base-11 text-semibold pending">
 								<Icon name="virtual-branch-small" /> virtual
 							</div>
