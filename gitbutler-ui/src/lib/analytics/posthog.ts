@@ -5,10 +5,6 @@ import { getVersion, getName } from '@tauri-apps/api/app';
 
 export async function initPostHog() {
 	const [appName, appVersion] = await Promise.all([getName(), getVersion()]);
-	posthog.register_for_session({
-		appName,
-		appVersion
-	});
 	posthog.init(PUBLIC_POSTHOG_API_KEY, {
 		api_host: 'https://eu.posthog.com',
 		disable_session_recording: appName !== 'GitButler', // only record sessions in production
@@ -18,6 +14,10 @@ export async function initPostHog() {
 		on_xhr_error: (e) => {
 			console.log('posthog error', e);
 		}
+	});
+	posthog.register({
+		appName,
+		appVersion
 	});
 }
 
