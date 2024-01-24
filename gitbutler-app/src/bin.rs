@@ -66,6 +66,14 @@ fn main() {
                     #[cfg(debug_assertions)]
                     window.open_devtools();
 
+                    tokio::task::spawn(async move {
+                        let mut six_hours = tokio::time::interval(tokio::time::Duration::new(6 * 60 * 60, 0));
+                        loop {
+                            six_hours.tick().await;
+                            _ = window.emit_and_trigger("tauri://update", ());
+                        }
+                    });
+
                     let app_handle = tauri_app.handle();
 
                     logs::init(&app_handle);
