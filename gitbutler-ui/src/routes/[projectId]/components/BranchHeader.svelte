@@ -141,19 +141,26 @@
 		<div class="header__actions">
 			<div class="header__buttons">
 				{#if branch.selectedForChanges}
-					<Button icon="target" notClickable disabled={readonly}>Target branch</Button>
+					<Tooltip timeoutMilliseconds={1000} label="New changes will land here">
+						<Button class="w-32" icon="target" notClickable disabled={readonly}
+							>Default branch</Button
+						>
+					</Tooltip>
 				{:else}
-					<Button
-						icon="target"
-						kind="outlined"
-						color="neutral"
-						disabled={readonly}
-						on:click={async () => {
-							await branchController.setSelectedForChanges(branch.id);
-						}}
-					>
-						Make target
-					</Button>
+					<Tooltip timeoutMilliseconds={1000} label="When selected, new changes will land here">
+						<Button
+							class="w-32"
+							icon="target"
+							kind="outlined"
+							color="neutral"
+							disabled={readonly}
+							on:click={async () => {
+								await branchController.setSelectedForChanges(branch.id);
+							}}
+						>
+							Set as default
+						</Button>
+					</Tooltip>
 				{/if}
 				{#if !readonly}
 					<Button
