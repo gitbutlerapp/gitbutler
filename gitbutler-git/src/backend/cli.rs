@@ -22,7 +22,7 @@ mod tests {
             .join(test_name);
         let _ = std::fs::remove_dir_all(&repo_path);
         std::fs::create_dir_all(&repo_path).unwrap();
-        Repository::open_or_init(executor::tokio::TokioExecutor, repo_path)
+        Repository::open_or_init(executor::tokio::TokioExecutor, repo_path.to_str().unwrap())
             .await
             .unwrap()
     }
