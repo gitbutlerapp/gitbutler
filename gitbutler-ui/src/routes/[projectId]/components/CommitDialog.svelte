@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as toasts from '$lib/utils/toasts';
 	import { slide } from 'svelte/transition';
+	import { quintOut } from 'svelte/easing';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Branch, File } from '$lib/vbranches/types';
@@ -125,7 +126,7 @@
 
 <div class="commit-box" class:commit-box__expanded={$expanded}>
 	{#if $expanded}
-		<div class="commit-box__expander" transition:slide={{ duration: 150 }}>
+		<div class="commit-box__expander" transition:slide={{ duration: 150, easing: quintOut }}>
 			<div class="commit-box__textarea-wrapper">
 				<textarea
 					bind:this={textareaElement}

@@ -202,8 +202,4 @@
 		width: 100%;
 		gap: var(--space-8);
 	}
-
-	.select {
-		width: 100%;
-	}
 </style>

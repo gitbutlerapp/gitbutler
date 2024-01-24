@@ -211,8 +211,9 @@
 		flex-shrink: 1;
 		align-items: flex-start;
 		height: 100%;
-		padding: 0 var(--space-8);
+		user-select: none;
 	}
+
 	.loading {
 		display: flex;
 		justify-content: center;
@@ -283,7 +284,6 @@
 	.empty-board__suggestions__link {
 		cursor: default;
 		display: flex;
-		/* align-items: center; */
 		width: fit-content;
 		max-width: 100%;
 		padding: var(--space-2) var(--space-6) var(--space-2) var(--space-4);
@@ -294,7 +294,6 @@
 
 		&:hover {
 			background-color: var(--clr-theme-container-pale);
-			/* transition: background-color 0s ease; */
 		}
 
 		& span {

@@ -37,7 +37,12 @@
 	}
 </script>
 
-<div class="wrapper" data-tauri-drag-region>
+<div
+	class="wrapper"
+	data-tauri-drag-region
+	class:target-branch={branch.selectedForChanges}
+	class:selected
+>
 	<BranchCard
 		{branch}
 		{readonly}
@@ -80,5 +85,22 @@
 		align-items: self-start;
 		flex-shrink: 0;
 		position: relative;
+		--target-branch-background: var(--clr-theme-container-pale);
+		--selected-resize-shift: 0;
+		--selected-opacity: 1;
+		background-color: var(--target-branch-background);
+	}
+
+	.target-branch {
+		--target-branch-background: color-mix(
+			in srgb,
+			var(--clr-theme-scale-pop-60) 20%,
+			var(--clr-theme-container-pale)
+		);
+	}
+
+	.selected {
+		--selected-resize-shift: calc(var(--space-6) * -1);
+		--selected-opacity: 0;
 	}
 </style>

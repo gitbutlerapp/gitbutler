@@ -75,7 +75,6 @@
 		</div>
 		<div class="new-branch-button">
 			<Button
-				wide
 				color="neutral"
 				kind="outlined"
 				icon="plus-small"
@@ -87,20 +86,23 @@
 
 <style lang="postcss">
 	.canvas-dropzone {
+		height: 100%;
 		user-select: none;
 		display: flex;
-		padding: var(--space-16) var(--space-16) var(--space-16) var(--space-4);
+		padding: var(--space-12);
 	}
 
 	.new-virtual-branch {
 		display: flex;
 		flex-direction: column;
+		align-items: center;
+		justify-content: center;
 		width: 24rem;
 		border-radius: var(--radius-m);
 		border: 1px dashed color-mix(in srgb, var(--clr-theme-container-outline-pale) 50%, transparent);
 		background-color: transparent;
 		padding: var(--space-20);
-		gap: var(--space-20);
+		gap: var(--space-8);
 
 		outline-color: color-mix(in srgb, var(--clr-theme-scale-pop-40) 0%, transparent);
 		outline-style: dashed;

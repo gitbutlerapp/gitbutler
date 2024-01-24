@@ -10,6 +10,8 @@
 	// Needed when overflow is hidden
 	export let inside = false;
 
+	export let sticky = false;
+
 	//
 	export let minWidth = 0;
 	export let minHeight = 0;
@@ -81,14 +83,16 @@
 	class:down={direction == 'down'}
 	class:left={direction == 'left'}
 	class:right={direction == 'right'}
+	class:sticky
 />
 
 <style lang="postcss">
 	.resizer {
 		position: absolute;
 		transition: background-color 0.1s ease-out;
+		/* background-color: var(--clr-theme-container-outline-light); */
 		&:hover {
-			transition-delay: 0.3s;
+			transition-delay: 0.1s;
 		}
 		z-index: 40;
 		&:hover,
@@ -138,5 +142,9 @@
 		&.inside {
 			bottom: 0;
 		}
+	}
+	.sticky {
+		position: sticky;
+		top: 0;
 	}
 </style>

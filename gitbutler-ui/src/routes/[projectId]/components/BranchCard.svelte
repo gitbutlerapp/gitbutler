@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { BranchService } from '$lib/branches/service';
 	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
 	import { getContext, onMount } from 'svelte';
 	import { dropzone } from '$lib/utils/draggable';
@@ -29,16 +30,14 @@
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
-	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
-	import type { BranchService } from '$lib/branches/service';
 
 	export let branch: Branch;
 	export let readonly = false;
 	export let project: Project;
 	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
-	export let branchController: BranchController;
 	export let branchService: BranchService;
+	export let branchController: BranchController;
 	export let branchCount = 1;
 	export let user: User | undefined;
 	export let selectedFiles: Writable<File[]>;
@@ -144,9 +143,13 @@
 	}
 </script>
 
-<div bind:this={rsViewport} class="branch-card resize-viewport" data-tauri-drag-region>
-	<ScrollableContainer>
-		<div style:width={`${laneWidth || $defaultBranchWidthRem}rem`} class="branch-card__contents">
+<div class="branch-card-wrapper">
+	<div class="branch-card" data-tauri-drag-region class:target-branch={branch.selectedForChanges}>
+		<div
+			bind:this={rsViewport}
+			style:width={`${laneWidth || $defaultBranchWidthRem}rem`}
+			class="branch-card__contents"
+		>
 			<BranchHeader
 				{readonly}
 				{branchController}
@@ -247,6 +250,7 @@
 					</div>
 				{/if}
 			</div>
+
 			<BranchCommits
 				{base}
 				{branch}
@@ -258,48 +262,82 @@
 				{readonly}
 			/>
 		</div>
-	</ScrollableContainer>
-
-	<Resizer
-		viewport={rsViewport}
-		direction="right"
-		inside={$selectedFiles.length > 0}
-		minWidth={320}
-		on:width={(e) => {
-			laneWidth = e.detail / (16 * $userSettings.zoom);
-			lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
-			$defaultBranchWidthRem = laneWidth;
-		}}
-	/>
+	</div>
+	<div class="divider-line">
+		<Resizer
+			viewport={rsViewport}
+			direction="right"
+			inside={$selectedFiles.length > 0}
+			minWidth={320}
+			sticky
+			on:width={(e) => {
+				laneWidth = e.detail / (16 * $userSettings.zoom);
+				lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
+				$defaultBranchWidthRem = laneWidth;
+			}}
+		/>
+	</div>
 </div>
 
 <style lang="postcss">
-	.resize-viewport {
-		height: 100%;
+	.branch-card-wrapper {
 		position: relative;
 		display: flex;
+		height: 100%;
+	}
+	.branch-card {
+		height: 100%;
+		position: relative;
+		user-select: none;
+		overflow-x: hidden;
+		overflow-y: scroll;
+
+		&::-webkit-scrollbar {
+			width: 0px;
+			background: transparent; /* Chrome/Safari/Webkit */
+		}
 	}
 
-	.branch-card {
-		display: flex;
-		flex-direction: column;
-		user-select: none;
+	.divider-line {
+		position: absolute;
+		top: 0;
+		right: 0;
+		width: var(--space-4);
+		height: 100%;
+		transform: translateX(var(--selected-resize-shift));
+
+		&:after {
+			pointer-events: none;
+			content: '';
+			position: absolute;
+			top: 0;
+			right: 0;
+			width: 1px;
+			height: 100%;
+			opacity: var(--selected-opacity);
+			background-color: var(--clr-theme-container-outline-light);
+		}
 	}
 
 	.branch-card__dropzone-wrapper {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
 		position: relative;
 	}
 
 	.branch-card__contents {
+		position: relative;
 		display: flex;
 		flex-direction: column;
-		padding-top: 20px;
-		gap: var(--space-4);
-		padding: var(--space-16) var(--space-8) var(--space-16) var(--space-8);
+		flex: 1;
+		min-height: 100%;
+		gap: var(--space-8);
+		padding: var(--space-12);
 	}
 
-	.resize-viewport {
-		position: relative;
+	.card {
+		flex: 1;
 	}
 
 	.new-branch__content {
@@ -361,5 +399,11 @@
 	/* squash drop zone */
 	:global(.squash-dz-active .squash-dz-marker) {
 		@apply flex;
+	}
+
+	.branch-card :global(.contents) {
+		display: flex;
+		flex-direction: column;
+		min-height: 100%;
 	}
 </style>
