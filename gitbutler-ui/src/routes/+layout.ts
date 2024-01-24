@@ -2,7 +2,6 @@ import type { LayoutLoad } from './$types';
 import { getCloudApiClient } from '$lib/backend/cloud';
 import { ProjectService } from '$lib/backend/projects';
 import lscache from 'lscache';
-import { UpdaterService } from '$lib/backend/updater';
 import { UserService } from '$lib/stores/user';
 import { config } from 'rxjs';
 import { initPostHog } from '$lib/analytics/posthog';
@@ -24,7 +23,6 @@ export const load: LayoutLoad = async ({ fetch: realFetch }: { fetch: typeof fet
 	initSentry();
 	initPostHog();
 	const userService = new UserService();
-	const updaterService = new UpdaterService();
 
 	// TODO: Find a workaround to avoid this dynamic import
 	// https://github.com/sveltejs/kit/issues/905
@@ -34,7 +32,6 @@ export const load: LayoutLoad = async ({ fetch: realFetch }: { fetch: typeof fet
 	return {
 		projectService: new ProjectService(defaultPath),
 		cloud: getCloudApiClient({ fetch: realFetch }),
-		updaterService,
 		userService,
 		user$: userService.user$
 	};
