@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Project } from '$lib/backend/projects';
+	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
@@ -10,6 +11,7 @@
 	export let base: BaseBranch | undefined | null;
 	export let githubService: GitHubService;
 	export let branchController: BranchController;
+	export let branchService: BranchService;
 	export let readonly: boolean;
 	export let branchCount: number;
 </script>
@@ -20,6 +22,7 @@
 		{base}
 		{project}
 		{branchController}
+		{branchService}
 		{branchCount}
 		{githubService}
 		{readonly}
@@ -30,6 +33,7 @@
 		{base}
 		{project}
 		{branchController}
+		{branchService}
 		{githubService}
 		{readonly}
 		type="local"
@@ -39,6 +43,7 @@
 		{base}
 		{project}
 		{branchController}
+		{branchService}
 		{githubService}
 		{readonly}
 		type="remote"
@@ -48,6 +53,7 @@
 		{base}
 		{project}
 		{branchController}
+		{branchService}
 		{githubService}
 		{readonly}
 		type="integrated"
