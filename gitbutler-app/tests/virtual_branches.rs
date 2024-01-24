@@ -6084,4 +6084,93 @@ mod selected_for_changes {
         assert!(branches[0].active);
         assert!(branches[0].selected_for_changes);
     }
+
+    #[tokio::test]
+    async fn test() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        {
+            std::fs::write(
+                repository.path().join("file.txt"),
+                "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n",
+            )
+            .unwrap();
+            repository.commit_all("commit one");
+            repository.push();
+        }
+
+        controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branch_one_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        let branch_two_id = controller
+            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        {
+            std::fs::write(
+                repository.path().join("file.txt"),
+                "1\n2\n3\n4\n5\n6\n7\n8\ntest2\n10\n",
+            )
+            .unwrap();
+            controller
+                .create_commit(&project_id, &branch_one_id, "commit one", None, false)
+                .await
+                .unwrap();
+            controller
+                .push_virtual_branch(&project_id, &branch_one_id, false)
+                .await
+                .unwrap();
+            let branch_one = controller
+                .list_virtual_branches(&project_id)
+                .await
+                .unwrap()
+                .into_iter()
+                .find(|b| b.id == branch_one_id)
+                .unwrap();
+            repository.merge(&branch_one.upstream.unwrap().name);
+            controller.fetch_from_target(&project_id).await.unwrap();
+        }
+
+        controller
+            .update_virtual_branch(
+                &project_id,
+                branch::BranchUpdateRequest {
+                    id: branch_two_id,
+                    selected_for_changes: Some(true),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+
+        std::fs::write(
+            repository.path().join("file.txt"),
+            "1\nanother\n3\n4\n5\n6\n7\n8\ntest2\n10\n",
+        )
+        .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 2);
+
+        let branch_one = branches.iter().find(|b| b.id == branch_one_id).unwrap();
+        assert_eq!(branch_one.files.len(), 0);
+        assert_eq!(branch_one.commits.len(), 1);
+
+        let branch_two = branches.iter().find(|b| b.id == branch_two_id).unwrap();
+        assert_eq!(branch_two.files.len(), 1);
+        assert_eq!(branch_two.files[0].hunks.len(), 1);
+    }
 }
