@@ -11,7 +11,6 @@
 
 	export let includePrs: Writable<boolean | undefined>;
 	export let includeRemote: Writable<boolean | undefined>;
-	export let includeStashed: Writable<boolean | undefined>;
 	export let hideBots: Writable<boolean | undefined>;
 	export let hideInactive: Writable<boolean | undefined>;
 </script>
@@ -26,10 +25,6 @@
 			{/if}
 			<ContextMenuItem label="Remote" on:click={() => ($includeRemote = !$includeRemote)}>
 				<Checkbox small bind:checked={$includeRemote} slot="control" />
-			</ContextMenuItem>
-
-			<ContextMenuItem label="Stashed" on:click={() => ($includeStashed = !$includeStashed)}>
-				<Checkbox small bind:checked={$includeStashed} slot="control" />
 			</ContextMenuItem>
 		</ContextMenuSection>
 
