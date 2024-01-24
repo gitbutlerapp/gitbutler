@@ -29,7 +29,6 @@
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
-	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 
 	export let branch: Branch;
 	export let readonly = false;
