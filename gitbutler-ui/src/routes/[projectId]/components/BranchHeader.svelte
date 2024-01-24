@@ -163,47 +163,57 @@
 					</Tooltip>
 				{/if}
 				{#if !readonly}
-					<Button
-						icon="cross-small"
-						color="primary"
-						kind="outlined"
-						loading={isApplying}
-						on:click={async () => {
-							isApplying = true;
-							try {
-								await branchController.unapplyBranch(branch.id);
-							} catch (e) {
-								const err = 'Failed to apply branch';
-								toast.error(err);
-								console.error(err, e);
-							} finally {
-								isApplying = false;
-							}
-						}}
+					<Tooltip
+						timeoutMilliseconds={1000}
+						label="Stashes these changes away from your working directory"
 					>
-						Unapply
-					</Button>
+						<Button
+							icon="cross-small"
+							color="primary"
+							kind="outlined"
+							loading={isApplying}
+							on:click={async () => {
+								isApplying = true;
+								try {
+									await branchController.unapplyBranch(branch.id);
+								} catch (e) {
+									const err = 'Failed to apply branch';
+									toast.error(err);
+									console.error(err, e);
+								} finally {
+									isApplying = false;
+								}
+							}}
+						>
+							Unapply
+						</Button>
+					</Tooltip>
 				{:else}
-					<Button
-						icon="plus-small"
-						color="primary"
-						kind="outlined"
-						loading={isApplying}
-						on:click={async () => {
-							isApplying = true;
-							try {
-								await branchController.applyBranch(branch.id);
-							} catch (e) {
-								const err = 'Failed to apply branch';
-								toast.error(err);
-								console.error(err, e);
-							} finally {
-								isApplying = false;
-							}
-						}}
+					<Tooltip
+						timeoutMilliseconds={1000}
+						label="Restores these changes into your working directory"
 					>
-						Apply
-					</Button>
+						<Button
+							icon="plus-small"
+							color="primary"
+							kind="outlined"
+							loading={isApplying}
+							on:click={async () => {
+								isApplying = true;
+								try {
+									await branchController.applyBranch(branch.id);
+								} catch (e) {
+									const err = 'Failed to apply branch';
+									toast.error(err);
+									console.error(err, e);
+								} finally {
+									isApplying = false;
+								}
+							}}
+						>
+							Apply
+						</Button>
+					</Tooltip>
 				{/if}
 			</div>
 			<div class="relative" bind:this={meatballButton}>
