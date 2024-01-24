@@ -59,7 +59,7 @@
 						</Tooltip>
 					{:else if hasIntegratedCommits}
 						<Tooltip
-							label="These changes have been integrated upstream, update your applied branches to make this lane disappear."
+							label="These changes have been integrated upstream, update your workspace to make this lane disappear."
 						>
 							<div class="status-tag text-base-11 text-semibold integrated">
 								<Icon name="removed-branch-small" /> integrated

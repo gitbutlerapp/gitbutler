@@ -51,7 +51,7 @@ pub struct VirtualBranch {
     pub files: Vec<VirtualBranchFile>,
     pub commits: Vec<VirtualBranchCommit>,
     pub requires_force: bool, // does this branch require a force push to the upstream?
-    pub conflicted: bool, // is this branch currently in a conflicted state (only for applied branches)
+    pub conflicted: bool, // is this branch currently in a conflicted state (only for the workspace)
     pub order: usize,     // the order in which this branch should be displayed in the UI
     pub upstream: Option<RemoteBranch>, // the upstream branch where this branch pushes to, if any
     pub upstream_name: Option<String>, // the upstream branch where this branch will push to on next push
@@ -3601,7 +3601,7 @@ pub fn create_virtual_branch_from_branch(
     ) {
         Ok(()) => Ok(branch.id),
         Err(errors::ApplyBranchError::BranchConflicts(_)) => {
-            // if branch conflicts with applied branches, it's ok. keep it unapplied
+            // if branch conflicts with the workspace, it's ok. keep it unapplied
             Ok(branch.id)
         }
         Err(error) => Err(errors::CreateVirtualBranchFromBranchError::ApplyBranch(
