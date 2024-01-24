@@ -1,14 +1,18 @@
 //! A [Tokio](https://tokio.rs)-based [`GitExecutor`] implementation.
 
 use crate::prelude::*;
+use core::time::Duration;
+use std::{fs::Permissions, os::unix::fs::PermissionsExt};
 use tokio::process::Command;
 
 /// A [`GitExecutor`] implementation using the `git` command-line tool
 /// via [`tokio::process::Command`].
 pub struct TokioExecutor;
 
-impl super::GitExecutor for TokioExecutor {
+#[allow(unsafe_code)]
+unsafe impl super::GitExecutor for TokioExecutor {
     type Error = std::io::Error;
+    type ServerHandle = TokioAskpassServer;
 
     async fn execute_raw(
         &self,
@@ -28,5 +32,93 @@ impl super::GitExecutor for TokioExecutor {
             String::from_utf8_lossy(&output.stdout).trim().into(),
             String::from_utf8_lossy(&output.stderr).trim().into(),
         ))
+    }
+
+    #[cfg(unix)]
+    async unsafe fn create_askpass_server<F>(&self) -> Result<Self::ServerHandle, Self::Error> {
+        let connection_string =
+            std::env::temp_dir().join(format!("gitbutler-askpass-{}", rand::random::<u64>()));
+
+        let listener = tokio::net::UnixListener::bind(&connection_string)?;
+
+        tokio::fs::set_permissions(&connection_string, Permissions::from_mode(0o0600)).await?;
+
+        Ok(TokioAskpassServer {
+            server: Some(listener),
+            connection_string: connection_string.to_string_lossy().into(),
+        })
+    }
+}
+
+#[cfg(unix)]
+impl super::Socket for tokio::io::BufStream<tokio::net::UnixStream> {
+    type Error = std::io::Error;
+
+    fn pid(&self) -> Result<super::Pid, Self::Error> {
+        self.get_ref()
+            .peer_cred()
+            .unwrap()
+            .pid()
+            .ok_or(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "no pid available for peer connection",
+            ))
+    }
+
+    fn uid(&self) -> Result<super::Uid, Self::Error> {
+        Ok(self.get_ref().peer_cred().unwrap().uid())
+    }
+
+    async fn read_line(&mut self) -> Result<String, Self::Error> {
+        let mut buf = String::new();
+        <Self as tokio::io::AsyncBufReadExt>::read_line(self, &mut buf).await?;
+        Ok(buf)
+    }
+
+    async fn write_line(&mut self, line: &str) -> Result<(), Self::Error> {
+        <Self as tokio::io::AsyncWriteExt>::write_all(self, line.as_bytes()).await?;
+        <Self as tokio::io::AsyncWriteExt>::write_all(self, b"\n").await?;
+        Ok(())
+    }
+}
+
+/// A tokio-based [`AskpassServer`] implementation.
+#[cfg(unix)]
+pub struct TokioAskpassServer {
+    // Always Some until dropped.
+    server: Option<tokio::net::UnixListener>,
+    connection_string: String,
+}
+
+#[cfg(unix)]
+impl super::AskpassServer for TokioAskpassServer {
+    type Error = std::io::Error;
+    #[cfg(unix)]
+    type SocketHandle = tokio::io::BufStream<tokio::net::UnixStream>;
+
+    async fn next(&self, timeout: Option<Duration>) -> Result<Self::SocketHandle, Self::Error> {
+        let res = if let Some(timeout) = timeout {
+            tokio::time::timeout(timeout, self.server.as_ref().unwrap().accept()).await?
+        } else {
+            self.server.as_ref().unwrap().accept().await
+        };
+
+        Ok(res.map(|(s, _)| tokio::io::BufStream::new(s))?)
+    }
+}
+
+#[cfg(unix)]
+impl core::fmt::Display for TokioAskpassServer {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.connection_string.fmt(f)
+    }
+}
+
+#[cfg(unix)]
+impl Drop for TokioAskpassServer {
+    fn drop(&mut self) {
+        drop(self.server.take());
+        // best-effort
+        std::fs::remove_file(&self.connection_string).ok();
     }
 }
