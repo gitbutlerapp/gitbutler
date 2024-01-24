@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { BranchService } from '$lib/branches/service';
 	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
 	import { getContext, onMount } from 'svelte';
 	import { dropzone } from '$lib/utils/draggable';
@@ -35,6 +36,7 @@
 	export let project: Project;
 	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
+	export let branchService: BranchService;
 	export let branchController: BranchController;
 	export let branchCount = 1;
 	export let user: User | undefined;
@@ -256,6 +258,7 @@
 				{project}
 				{githubService}
 				{branchController}
+				{branchService}
 				{branchCount}
 				{readonly}
 			/>
