@@ -18,7 +18,7 @@
 	}
 
 	$: href = getBranchLink(branch);
-	$: selected = href ? $page.url.href.includes(href) : false;
+	$: selected = href ? $page.url.href.endsWith(href) : false;
 </script>
 
 <a class="branch" class:selected {href}>
