@@ -149,7 +149,6 @@
 			bind:this={rsViewport}
 			style:width={`${laneWidth || $defaultBranchWidthRem}rem`}
 			class="branch-card__contents"
-			class:first-child={branch.order == 0}
 		>
 			<BranchHeader
 				{readonly}
@@ -289,17 +288,9 @@
 	.branch-card {
 		height: 100%;
 		position: relative;
-		/* display: flex; */
-		/* flex-direction: column; */
-
 		user-select: none;
 		overflow-x: hidden;
 		overflow-y: scroll;
-		/* padding: 8px; */
-		/* border-radius: var(--radius-l); */
-		/* background-color: var(--target-branch-background); */
-
-		/* remover scrollbar */
 
 		&::-webkit-scrollbar {
 			width: 0px;
@@ -307,21 +298,13 @@
 		}
 	}
 
-	/* .branch-card-resize-container {
-		display: flex;
-	} */
-
 	.divider-line {
 		position: absolute;
 		top: 0;
 		right: 0;
 		width: var(--space-4);
-		/* margin-left: calc(var(--space-4) * -1); */
 		height: 100%;
-		/* margin-left: var(--selected-resize-shift); */
 		transform: translateX(var(--selected-resize-shift));
-		/* background-color: red; */
-		/* background-color: var(--clr-theme-container-outline-light); */
 
 		&:after {
 			pointer-events: none;
@@ -351,12 +334,6 @@
 		min-height: 100%;
 		gap: var(--space-8);
 		padding: var(--space-12);
-		/* transition: padding var(--transition-fast);
-		will-change: padding; */
-	}
-
-	.first-child {
-		/* padding-left: var(--space-16); */
 	}
 
 	.card {

@@ -281,8 +281,6 @@
 		align-items: self-start;
 		overflow: hidden;
 		padding: var(--space-12) var(--space-12) var(--space-12) 0;
-		/* margin-left: calc(var(--selected-file-shift) * -1); */
-		/* background-color: var(--target-branch-background); */
 	}
 	.file-card {
 		background: var(--clr-theme-container-light);

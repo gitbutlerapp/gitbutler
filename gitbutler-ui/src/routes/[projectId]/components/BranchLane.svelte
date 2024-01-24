@@ -88,7 +88,6 @@
 		--target-branch-background: var(--clr-theme-container-pale);
 		--selected-resize-shift: 0;
 		--selected-opacity: 1;
-		--selected-file-shift: 0;
 		background-color: var(--target-branch-background);
 	}
 
@@ -102,7 +101,6 @@
 
 	.selected {
 		--selected-resize-shift: calc(var(--space-6) * -1);
-		--selected-file-shift: var(--space-4);
 		--selected-opacity: 0;
 	}
 </style>
