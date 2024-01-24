@@ -49,6 +49,12 @@
 		padding: var(--space-16) var(--space-12) var(--space-16) var(--space-16);
 		justify-content: space-between;
 		gap: var(--space-8);
+
+		&:hover {
+			& .expander {
+				opacity: 1;
+			}
+		}
 	}
 	.title {
 		display: flex;
@@ -56,5 +62,11 @@
 		color: var(--clr-theme-scale-ntrl-0);
 		gap: var(--space-8);
 		overflow-x: hidden;
+	}
+
+	.expander {
+		color: var(--clr-theme-scale-ntrl-50);
+		opacity: 0.5;
+		transition: opacity var(--transition-fast);
 	}
 </style>

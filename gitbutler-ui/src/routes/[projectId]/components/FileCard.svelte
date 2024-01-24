@@ -235,27 +235,54 @@
 			</div>
 		</ScrollableContainer>
 	</div>
-	<Resizer
-		viewport={rsViewport}
-		direction="right"
-		inside
-		minWidth={240}
-		on:width={(e) => {
-			fileWidth = e.detail / (16 * $userSettings.zoom);
-			lscache.set(fileWidthKey + file.id, fileWidth, 7 * 1440); // 7 day ttl
-			$defaultFileWidthRem = fileWidth;
-		}}
-	/>
+
+	<div class="divider-line">
+		<Resizer
+			viewport={rsViewport}
+			direction="right"
+			inside
+			minWidth={240}
+			on:width={(e) => {
+				fileWidth = e.detail / (16 * $userSettings.zoom);
+				lscache.set(fileWidthKey + file.id, fileWidth, 7 * 1440); // 7 day ttl
+				$defaultFileWidthRem = fileWidth;
+			}}
+		/>
+	</div>
 </div>
 
 <style lang="postcss">
+	.divider-line {
+		position: absolute;
+		top: 0;
+		right: 0;
+		width: 1px;
+		height: 100%;
+
+		/* background-color: red; */
+		/* background-color: var(--clr-theme-container-outline-light); */
+
+		&:after {
+			pointer-events: none;
+			content: '';
+			position: absolute;
+			top: 0;
+			right: 50%;
+			transform: translateX(50%);
+			width: 1px;
+			height: 100%;
+			background-color: var(--clr-theme-container-outline-light);
+		}
+	}
 	.resize-viewport {
 		position: relative;
 		display: flex;
 		height: 100%;
 		align-items: self-start;
 		overflow: hidden;
-		padding: var(--space-12);
+		padding: var(--space-12) var(--space-12) var(--space-12) 0;
+		margin-left: calc(var(--selected-file-shift) * -1);
+		/* background-color: var(--target-branch-background); */
 	}
 	.file-card {
 		background: var(--clr-theme-container-light);

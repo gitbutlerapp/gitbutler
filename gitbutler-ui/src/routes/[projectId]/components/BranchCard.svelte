@@ -30,7 +30,6 @@
 
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
-	import type { BranchService } from '$lib/branches/service';
 
 	export let branch: Branch;
 	export let readonly = false;
@@ -38,7 +37,6 @@
 	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
-	export let branchService: BranchService;
 	export let branchCount = 1;
 	export let user: User | undefined;
 	export let selectedFiles: Writable<File[]>;
@@ -144,8 +142,9 @@
 	}
 </script>
 
-<div class="branch-card" data-tauri-drag-region class:target-branch={branch.selectedForChanges}>
-	<div class="branch-card-resize-container">
+<div class="branch-card-wrapper">
+	<div class="branch-card" data-tauri-drag-region class:target-branch={branch.selectedForChanges}>
+		<!-- <div> -->
 		<div
 			bind:this={rsViewport}
 			style:width={`${laneWidth || $defaultBranchWidthRem}rem`}
@@ -252,19 +251,19 @@
 					</div>
 				{/if}
 			</div>
+
 			<BranchCommits
 				{base}
 				{branch}
 				{project}
 				{githubService}
 				{branchController}
-				{branchService}
 				{branchCount}
 				{readonly}
 			/>
 		</div>
+		<!-- </div> -->
 	</div>
-
 	<div class="divider-line">
 		<Resizer
 			viewport={rsViewport}
@@ -279,24 +278,26 @@
 			}}
 		/>
 	</div>
-
-	<slot name="file-view" />
 </div>
 
 <style lang="postcss">
+	.branch-card-wrapper {
+		position: relative;
+		display: flex;
+		height: 100%;
+	}
 	.branch-card {
 		height: 100%;
 		position: relative;
-		display: flex;
-		--target-branch-background: var(--clr-theme-container-pale);
-		display: flex;
+		/* display: flex; */
 		/* flex-direction: column; */
+
 		user-select: none;
 		overflow-x: hidden;
 		overflow-y: scroll;
 		/* padding: 8px; */
 		/* border-radius: var(--radius-l); */
-		background-color: var(--target-branch-background);
+		/* background-color: var(--target-branch-background); */
 
 		/* remover scrollbar */
 
@@ -306,16 +307,19 @@
 		}
 	}
 
-	.branch-card-resize-container {
+	/* .branch-card-resize-container {
 		display: flex;
-	}
+	} */
 
 	.divider-line {
-		position: sticky;
+		position: absolute;
 		top: 0;
 		right: 0;
-		width: 3px;
+		width: var(--space-4);
+		/* margin-left: calc(var(--space-4) * -1); */
 		height: 100%;
+		/* margin-left: var(--selected-resize-shift); */
+		transform: translateX(var(--selected-resize-shift));
 		/* background-color: red; */
 		/* background-color: var(--clr-theme-container-outline-light); */
 
@@ -324,20 +328,12 @@
 			content: '';
 			position: absolute;
 			top: 0;
-			right: 50%;
-			transform: translateX(50%);
+			right: 0;
 			width: 1px;
 			height: 100%;
+			opacity: var(--selected-opacity);
 			background-color: var(--clr-theme-container-outline-light);
 		}
-	}
-
-	.target-branch {
-		--target-branch-background: color-mix(
-			in srgb,
-			var(--clr-theme-scale-pop-60) 20%,
-			var(--clr-theme-container-pale)
-		);
 	}
 
 	.branch-card__dropzone-wrapper {
@@ -351,8 +347,12 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
+		flex: 1;
+		min-height: 100%;
 		gap: var(--space-8);
 		padding: var(--space-12);
+		/* transition: padding var(--transition-fast);
+		will-change: padding; */
 	}
 
 	.first-child {
@@ -422,5 +422,11 @@
 	/* squash drop zone */
 	:global(.squash-dz-active .squash-dz-marker) {
 		@apply flex;
+	}
+
+	.branch-card :global(.contents) {
+		display: flex;
+		flex-direction: column;
+		min-height: 100%;
 	}
 </style>

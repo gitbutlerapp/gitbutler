@@ -92,7 +92,7 @@
 		transition: background-color 0.1s ease-out;
 		/* background-color: var(--clr-theme-container-outline-light); */
 		&:hover {
-			transition-delay: 0.3s;
+			transition-delay: 0.1s;
 		}
 		z-index: 40;
 		&:hover,
