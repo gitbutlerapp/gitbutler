@@ -111,7 +111,7 @@
 <div
 	class="resize-viewport"
 	bind:this={rsViewport}
-	transition:slide={{ duration: 170, easing: quintOut, axis: 'x' }}
+	in:slide={{ duration: 180, easing: quintOut, axis: 'x' }}
 	use:draggable={{
 		...draggableFile(branchId, file, writable([file])),
 		disabled: readonly
@@ -281,7 +281,7 @@
 		align-items: self-start;
 		overflow: hidden;
 		padding: var(--space-12) var(--space-12) var(--space-12) 0;
-		margin-left: calc(var(--selected-file-shift) * -1);
+		/* margin-left: calc(var(--selected-file-shift) * -1); */
 		/* background-color: var(--target-branch-background); */
 	}
 	.file-card {
