@@ -2,7 +2,7 @@ import type { PullRequest } from '$lib/github/types';
 import type { Branch, RemoteBranch } from '$lib/vbranches/types';
 import { CombinedBranch } from '$lib/branches/types';
 import { Observable, combineLatest } from 'rxjs';
-import { startWith, switchMap } from 'rxjs/operators';
+import { map, startWith, switchMap } from 'rxjs/operators';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { GitHubService } from '$lib/github/service';
 import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
@@ -30,7 +30,8 @@ export class BranchService {
 						);
 						observer.next(contributions);
 					})
-			)
+			),
+			map((branches) => branches.filter((b) => !b.vbranch || b.vbranch.active))
 		);
 	}
 }

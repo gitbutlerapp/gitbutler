@@ -1,7 +1,8 @@
 use core::fmt;
 
 /// An error that can occur while parsing a refspec from a string.
-#[derive(Debug, thiserror::Error, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum Error {
     /// Encountered an unexpected character when parsing a [`RefSpec`] from a string.
     #[error("unexpected character {0:?} (offset {1})")]

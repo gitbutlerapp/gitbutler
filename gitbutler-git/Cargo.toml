@@ -3,9 +3,22 @@ name = "gitbutler-git"
 version = "0.0.0"
 edition = "2021"
 
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gitbutler-git-askpass"
+path = "src/backend/cli/bin/askpass.rs"
+required-features = ["cli"]
+
+[[bin]]
+name = "gitbutler-git-setsid"
+path = "src/backend/cli/bin/setsid.rs"
+required-features = ["cli"]
+
 [features]
 default = ["git2", "cli", "serde", "tokio"]
-cli = ["std"]
+cli = ["std", "dep:nix", "dep:rand"]
 git2 = ["dep:git2", "std"]
 serde = ["dep:serde"]
 std = ["dep:thiserror"]
@@ -16,6 +29,10 @@ git2 = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = ["process"]}
+rand = { version = "0.8.5", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "process"]}
+
+[target."cfg(unix)".dependencies]
+nix = { version = "0.27.1", optional = true, features = ["process", "socket"] }

@@ -27,7 +27,7 @@
 	export let conflicted: boolean;
 	export let projectPath: string | undefined;
 	export let branchController: BranchController;
-	export let readonly = false;
+	export let readonly: boolean;
 	export let selectable = false;
 	export let selectedOwnership: Writable<Ownership>;
 

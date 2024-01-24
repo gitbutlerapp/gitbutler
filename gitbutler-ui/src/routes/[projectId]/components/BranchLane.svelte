@@ -49,26 +49,25 @@
 		{user}
 		{selectedFiles}
 		{githubService}
-	>
-		<svelte:fragment slot="file-view">
-			{#if selected}
-				<FileCard
-					conflicted={selected.conflicted}
-					branchId={branch.id}
-					file={selected}
-					projectId={project.id}
-					{projectPath}
-					{branchController}
-					{selectedOwnership}
-					selectable={$commitBoxOpen && !readonly}
-					on:close={() => {
-						const selectedId = selected?.id;
-						selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
-					}}
-				/>
-			{/if}
-		</svelte:fragment>
-	</BranchCard>
+	/>
+
+	{#if selected}
+		<FileCard
+			conflicted={selected.conflicted}
+			branchId={branch.id}
+			file={selected}
+			projectId={project.id}
+			{projectPath}
+			{branchController}
+			{selectedOwnership}
+			{readonly}
+			selectable={$commitBoxOpen && !readonly}
+			on:close={() => {
+				const selectedId = selected?.id;
+				selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
+			}}
+		/>
+	{/if}
 </div>
 
 <style lang="postcss">

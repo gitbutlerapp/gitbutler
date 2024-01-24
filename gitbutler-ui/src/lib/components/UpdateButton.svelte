@@ -10,7 +10,7 @@
 	$: update$ = updaterService.update$;
 </script>
 
-{#if $update$?.version}
+{#if $update$?.version && $update$.status != 'UPTODATE'}
 	<div class="update-banner" class:busy={$update$?.status == 'PENDING'}>
 		<div class="img">
 			<div class="circle-img">

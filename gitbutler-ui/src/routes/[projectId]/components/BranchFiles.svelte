@@ -63,7 +63,7 @@
 	</div>
 {/if}
 
-<div class="branch-files">
+<div class="branch-files" class:readonly>
 	<div class="header" bind:this={headerElement}>
 		<div class="header__left">
 			{#if showCheckboxes && selectedListMode == 'list' && branch.files.length > 1}
@@ -115,6 +115,9 @@
 		flex: 1;
 		background: var(--clr-theme-container-light);
 		border-radius: var(--radius-m) var(--radius-m) 0 0;
+		&.readonly {
+			border-radius: var(--radius-m);
+		}
 	}
 	.scroll-container {
 		display: flex;

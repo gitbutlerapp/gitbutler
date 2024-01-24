@@ -57,11 +57,11 @@
 		flex-direction: column;
 		position: relative;
 		overflow: hidden;
+		height: 100%;
 	}
 	.viewport {
 		height: 100%;
 		width: 100%;
-		user-select: none;
 	}
 	.contents {
 		display: block;
