@@ -5,3 +5,7 @@ pub use alloc::{
     vec,
     vec::Vec,
 };
+
+#[cfg(feature = "std")]
+#[allow(unused_imports)]
+pub use std::collections::BTreeMap;

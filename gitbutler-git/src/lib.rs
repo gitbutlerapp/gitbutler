@@ -3,6 +3,26 @@
 //! This library houses a number of Git implementations,
 //! over which we abstract a common interface and provide
 //! higher-level operations that are implementation-agnostic.
+//!
+//! # Libgit2 Support
+//! This library supports libgit2 via the `git2` feature.
+//! Not much in the way of assumptions are made about the environment;
+//! it's a fairly clean and safe Git backend.
+//!
+//! # Fork/Exec (CLI) Support
+//! This library supports the Git CLI via the `cli` feature.
+//! Note that this is a fairly experimental implementation that
+//! uses some (ideally portable) hacks for authentication,
+//! including a custom executable (or two, in the case of
+//! *nix systems) for handling automatic authentication
+//! via the API.
+//!
+//! This means those executables must be situated next to
+//! the executable that is running them (as sibling files),
+//! for security purposes. They may not be symlinked.
+//!
+//! This hampers certain use cases, such as implementing
+//! [`cli::GitExecutor`] for e.g. remote connections.
 
 #![cfg_attr(not(feature = "std"), no_std)] // must be first
 #![feature(error_in_core)]
