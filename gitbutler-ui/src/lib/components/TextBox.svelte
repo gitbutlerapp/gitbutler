@@ -14,6 +14,7 @@
 	export let required = false;
 	export let password = false;
 	export let noselect = false;
+	export let selectall = false;
 	export let element: HTMLElement | undefined = undefined;
 
 	const dispatch = createEventDispatcher<{ input: string; change: string }>();
@@ -58,6 +59,7 @@
 				{placeholder}
 				class="textbox__input text-base-13"
 				class:select-none={noselect}
+				class:select-all={selectall}
 				bind:value
 				on:click
 				on:input={(e) => dispatch('input', e.currentTarget.value)}

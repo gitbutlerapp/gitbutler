@@ -14,6 +14,8 @@
 	import GithubIntegration from '../components/GithubIntegration.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
+	import TextBox from '$lib/components/TextBox.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
 
 	export let data: PageData;
 	const { cloud, user$, userService } = data;
@@ -198,33 +200,11 @@
 
 						<div id="contact-info" class="flex flex-1 flex-wrap">
 							<div class="basis-full pr-4">
-								<label for="fullName" class="text-zinc-400">Full name</label>
-								<input
-									autocomplete="off"
-									autocorrect="off"
-									spellcheck="false"
-									name="firstName"
-									bind:value={newName}
-									type="text"
-									class="input w-full"
-									placeholder="Name can't be empty"
-									required
-								/>
+								<TextBox label="Full name" bind:value={newName} required />
 							</div>
 
 							<div class="mt-4 basis-full pr-4">
-								<label for="email" class="text-zinc-400">Email</label>
-								<input
-									autocomplete="off"
-									autocorrect="off"
-									spellcheck="false"
-									readonly
-									id="email"
-									name="email"
-									bind:value={$user$.email}
-									type="text"
-									class="input w-full"
-								/>
+								<TextBox label="Email" bind:value={$user$.email} readonly />
 							</div>
 							<div class="mt-4 basis-full pr-4 text-right">
 								<Button loading={saving} color="primary">Update profile</Button>
@@ -257,18 +237,11 @@
 						</div>
 					</div>
 					<div>
-						<label class="relative inline-flex cursor-pointer items-center">
-							<input
-								type="checkbox"
-								disabled={!$user$?.supporter}
-								checked={annotateCommits}
-								on:change={(e) => setCommitterSetting(!!e.currentTarget?.checked)}
-								class="peer sr-only"
-							/>
-							<div
-								class="peer-focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800 peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-disabled:bg-zinc-300"
-							/>
-						</label>
+						<Toggle
+							checked={annotateCommits}
+							disabled={!$user$?.supporter}
+							on:change={() => setCommitterSetting(!annotateCommits)}
+						/>
 					</div>
 				</div>
 
@@ -281,11 +254,7 @@
 						</div>
 					</div>
 					<div class="flex-auto overflow-y-scroll">
-						<input
-							bind:value={sshKey}
-							class="
-                        whitespece-pre input w-full select-all p-2 font-mono"
-						/>
+						<TextBox readonly selectall bind:value={sshKey} />
 					</div>
 					<div class="flex flex-row justify-end space-x-2">
 						<div>
@@ -319,17 +288,7 @@
 						</div>
 					</div>
 					<div>
-						<label class="relative inline-flex cursor-pointer items-center">
-							<input
-								type="checkbox"
-								checked={signCommits}
-								on:change={(e) => setSigningSetting(!!e.currentTarget?.checked)}
-								class="peer sr-only"
-							/>
-							<div
-								class="peer-focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800 peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-disabled:bg-zinc-300"
-							/>
-						</label>
+						<Toggle checked={signCommits} on:change={() => setSigningSetting(!signCommits)} />
 					</div>
 				</div>
 
