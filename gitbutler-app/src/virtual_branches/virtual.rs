@@ -20,7 +20,9 @@ use crate::{
 
 use super::{
     branch::{self, Branch, BranchCreateRequest, BranchId, FileOwnership, Hunk, Ownership},
-    branch_to_remote_branch, context, errors, target, Iterator, RemoteBranch,
+    branch_to_remote_branch, context, errors,
+    target::{self, Target},
+    Iterator, RemoteBranch,
 };
 
 type AppliedStatuses = Vec<(branch::Branch, HashMap<path::PathBuf, Vec<diff::Hunk>>)>;
@@ -57,6 +59,7 @@ pub struct VirtualBranch {
     pub ownership: Ownership,
     pub updated_at: u128,
     pub selected_for_changes: bool,
+    pub head: git::Oid,
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -874,15 +877,20 @@ pub fn list_virtual_branches(
             ownership: branch.ownership.clone(),
             updated_at: branch.updated_timestamp_ms,
             selected_for_changes: branch.selected_for_changes == Some(max_selected_for_changes),
+            head: branch.head,
         };
         branches.push(branch);
     }
 
     let mut branches = branches_with_hunk_locks(branches, project_repository)?;
     for branch in &mut branches {
-        branch.files =
-            files_with_hunk_context(&project_repository.git_repository, branch.files.clone(), 3)
-                .context("failed to add hunk context")?;
+        branch.files = files_with_hunk_context(
+            &project_repository.git_repository,
+            branch.files.clone(),
+            3,
+            branch.head,
+        )
+        .context("failed to add hunk context")?;
     }
 
     branches.sort_by(|a, b| a.order.cmp(&b.order));
@@ -947,14 +955,18 @@ fn files_with_hunk_context(
     repository: &git::Repository,
     mut files: Vec<VirtualBranchFile>,
     context_lines: usize,
+    branch_head: git::Oid,
 ) -> Result<Vec<VirtualBranchFile>> {
     for file in &mut files {
         if file.binary {
             continue;
         }
         // Get file content as it looked before the diffs
-        let file_content_before = show::show_file_at_head(repository, file.path.clone())
-            .context("failed to get file contents at HEAD")?;
+        let branch_head_commit = repository.find_commit(branch_head)?;
+        let head_tree = branch_head_commit.tree()?;
+        let file_content_before =
+            show::show_file_at_tree(repository, file.path.clone(), &head_tree)
+                .context("failed to get file contents at base")?;
         let file_lines_before = file_content_before.split('\n').collect::<Vec<_>>();
 
         // Update each hunk with contex lines before & after
