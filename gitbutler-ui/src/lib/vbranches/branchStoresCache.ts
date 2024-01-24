@@ -30,7 +30,10 @@ export class VirtualBranchService {
 	private reload$ = new BehaviorSubject<void>(undefined);
 	private fresh$ = new Subject<void>();
 
-	constructor(projectId: string, gbBranchActive$: Observable<boolean>) {
+	constructor(
+		private projectId: string,
+		gbBranchActive$: Observable<boolean>
+	) {
 		this.branches$ = this.reload$.pipe(
 			switchMap(() => gbBranchActive$),
 			switchMap((gbBranchActive) =>
@@ -97,6 +100,24 @@ export class VirtualBranchService {
 				map((branches) => branches?.find((b) => b.id == branchId && b.upstream))
 			)
 		);
+	}
+
+	async pushBranch(branchId: string, withForce: boolean): Promise<Branch | undefined> {
+		try {
+			await invoke<void>('push_virtual_branch', {
+				projectId: this.projectId,
+				branchId,
+				withForce
+			});
+			await this.reload();
+			return await this.getById(branchId);
+		} catch (err: any) {
+			if (err.code === 'errors.git.authentication') {
+				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
+			} else {
+				toasts.error(`Failed to push branch: ${err.message}`);
+			}
+		}
 	}
 }
 

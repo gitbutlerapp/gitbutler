@@ -6,16 +6,18 @@ import { map, startWith, switchMap } from 'rxjs/operators';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { GitHubService } from '$lib/github/service';
 import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
+import type { Transaction } from '@sentry/sveltekit';
+import { capture } from '$lib/analytics/posthog';
 
 export class BranchService {
 	public branches$: Observable<CombinedBranch[]>;
 
 	constructor(
-		vbranchService: VirtualBranchService,
+		private vbranchService: VirtualBranchService,
 		remoteBranchService: RemoteBranchService,
-		githubService: GitHubService
+		private githubService: GitHubService
 	) {
-		const vbranchesWithEmpty$ = vbranchService.branches$.pipe(startWith([]));
+		const vbranchesWithEmpty$ = vbranchService.activeBranches$.pipe(startWith([]));
 		const branchesWithEmpty$ = remoteBranchService.branches$.pipe(startWith([]));
 		const prWithEmpty$ = githubService.prs$.pipe(startWith([]));
 
@@ -33,6 +35,50 @@ export class BranchService {
 			),
 			map((branches) => branches.filter((b) => !b.vbranch || b.vbranch.active))
 		);
+	}
+
+	async createPr(
+		branch: Branch,
+		baseBranch: string,
+		sentryTxn: Transaction
+	): Promise<PullRequest | undefined> {
+		// Using this mutable variable while investigating why branch variable
+		// does not seem to update reliably.
+		// TODO: This needs to be fixed and removed.
+		let newBranch: Branch | undefined;
+
+		// Push if local commits
+		if (branch.commits.some((c) => !c.isRemote)) {
+			const pushBranchSpan = sentryTxn.startChild({ op: 'branch_push' });
+			newBranch = await this.vbranchService.pushBranch(branch.id, branch.requiresForce);
+			pushBranchSpan.finish();
+		} else {
+			newBranch = branch;
+		}
+
+		if (!newBranch) {
+			const err = 'branch push failed';
+			capture(err, { upstream: branch.upstreamName });
+			throw err;
+		}
+
+		if (!newBranch.upstreamName) {
+			throw 'Cannot create PR without remote branch name';
+		}
+
+		const createPrSpan = sentryTxn.startChild({ op: 'pr_api_create' });
+
+		try {
+			return await this.githubService.createPullRequest(
+				baseBranch,
+				newBranch.name,
+				newBranch.notes,
+				newBranch.id,
+				newBranch.upstreamName
+			);
+		} finally {
+			createPrSpan.finish();
+		}
 	}
 }
 

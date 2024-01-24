@@ -1,15 +1,18 @@
 <script lang="ts" async="true">
-	import BranchLane from '../components/BranchLane.svelte';
-	import NewBranchDropZone from './NewBranchDropZone.svelte';
+	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { User, getCloudApiClient } from '$lib/backend/cloud';
-	import { open } from '@tauri-apps/api/shell';
+	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
-	import { cloneWithRotation } from '$lib/utils/draggable';
 	import type { Project } from '$lib/backend/projects';
-	import Icon from '$lib/icons/Icon.svelte';
+
+	import { cloneWithRotation } from '$lib/utils/draggable';
+	import { open } from '@tauri-apps/api/shell';
+
+	import NewBranchDropZone from './NewBranchDropZone.svelte';
+	import BranchLane from '../components/BranchLane.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
+	import Icon from '$lib/icons/Icon.svelte';
 
 	export let project: Project;
 	export let projectPath: string;
@@ -21,6 +24,7 @@
 
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
+	export let branchService: BranchService;
 	export let githubService: GitHubService;
 
 	export let user: User | undefined;
@@ -111,6 +115,7 @@
 					{base}
 					{cloud}
 					{branchController}
+					{branchService}
 					branchCount={branches.filter((c) => c.active).length}
 					{projectPath}
 					{user}

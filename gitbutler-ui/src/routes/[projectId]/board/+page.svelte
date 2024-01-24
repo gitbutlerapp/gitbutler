@@ -15,6 +15,7 @@
 	$: base$ = baseBranchService.base$;
 	$: user$ = data.user$;
 	$: githubService = data.githubService;
+	$: branchService = data.branchService;
 
 	$: project$ = data.project$;
 	$: branches = vbranchService.branches$;
@@ -58,6 +59,7 @@
 			<div class="scroll-contents" bind:this={contents}>
 				<Board
 					{branchController}
+					{branchService}
 					project={$project$}
 					{cloud}
 					base={$base$}

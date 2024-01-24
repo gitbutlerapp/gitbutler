@@ -8,6 +8,7 @@
 	import { Ownership } from '$lib/vbranches/ownership';
 	import type { GitHubService } from '$lib/github/service';
 	import type { Project } from '$lib/backend/projects';
+	import type { BranchService } from '$lib/branches/service';
 
 	export let branch: Branch;
 	export let readonly = false;
@@ -15,6 +16,7 @@
 	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
+	export let branchService: BranchService;
 	export let branchCount = 1;
 	export let user: User | undefined;
 	export let projectPath: string;
@@ -43,6 +45,7 @@
 		{base}
 		{cloud}
 		{branchController}
+		{branchService}
 		{selectedOwnership}
 		bind:commitBoxOpen
 		{branchCount}
