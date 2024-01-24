@@ -35,4 +35,4 @@ rand = { version = "0.8.5", optional = true }
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "process"]}
 
 [target."cfg(unix)".dependencies]
-nix = { version = "0.27.1", optional = true, features = ["process", "socket", "user"] }
+nix = { version = "0.27.1", optional = true, features = ["process", "socket", "user", "rt"] }

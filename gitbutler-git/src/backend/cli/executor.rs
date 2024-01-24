@@ -191,16 +191,19 @@ pub trait Socket {
     type Error: core::error::Error + core::fmt::Debug + Send + Sync + 'static;
 
     /// The process ID of the connecting client.
-    fn pid(&self) -> Pid;
+    fn pid(&self) -> Result<Pid, Self::Error>;
 
     /// The user ID of the connecting client.
     #[cfg(unix)]
-    fn uid(&self) -> Uid;
+    fn uid(&self) -> Result<Uid, Self::Error>;
 
     /// Reads a line from the socket. Must not include the newline.
     ///
     /// The returned line must not include a newline, and any
     /// trailing carriage return (`\r`) must be stripped.
+    ///
+    /// Implementations are allowed to simply call `.trim()` on the
+    /// line, as whitespace is not significant in the protocol.
     async fn read_line(&mut self) -> Result<String, Self::Error>;
 
     /// Writes a line to the socket. The write must
@@ -209,5 +212,8 @@ pub trait Socket {
     ///
     /// The input line will not include a newline; one must be
     /// added. Newlines should never include a carriage return (`\r`).
+    ///
+    /// Unlike `read_line`, implementations are not allowed to
+    /// modify the line prior to sending aside from appending a newline.
     async fn write_line(&mut self, line: &str) -> Result<(), Self::Error>;
 }
