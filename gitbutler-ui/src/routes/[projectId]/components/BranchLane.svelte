@@ -50,7 +50,6 @@
 		{base}
 		{cloud}
 		{branchController}
-		{branchService}
 		{selectedOwnership}
 		bind:commitBoxOpen
 		{branchCount}

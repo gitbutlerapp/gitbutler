@@ -143,7 +143,6 @@
 
 <div class="branch-card-wrapper">
 	<div class="branch-card" data-tauri-drag-region class:target-branch={branch.selectedForChanges}>
-		<!-- <div> -->
 		<div
 			bind:this={rsViewport}
 			style:width={`${laneWidth || $defaultBranchWidthRem}rem`}
@@ -261,7 +260,6 @@
 				{readonly}
 			/>
 		</div>
-		<!-- </div> -->
 	</div>
 	<div class="divider-line">
 		<Resizer

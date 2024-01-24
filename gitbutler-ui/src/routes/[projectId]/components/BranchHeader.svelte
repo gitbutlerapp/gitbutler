@@ -304,10 +304,6 @@
 		&:hover {
 			color: var(--clr-theme-scale-ntrl-40);
 		}
-
-		& svg {
-			pointer-events: none;
-		}
 	}
 
 	.branch-popup-menu {
