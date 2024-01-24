@@ -131,138 +131,137 @@
 			</div>
 		{/if}
 
-		<div class="hunks">
-			{#if file.binary}
-				Binary content not shown
-			{:else if file.large}
-				Diff too large to be shown
-			{:else}
-				{#each sections as section}
-					{@const { added, removed } = computedAddedRemoved(section)}
-					{#if 'hunk' in section}
-						<div class="hunk-wrapper">
-							<div class="indicators text-base-11">
-								<span class="added">+{added}</span>
-								<span class="removed">+{removed}</span>
-								{#if section.hunk.locked}
-									<div title={section.hunk.lockedTo}>
-										<Icon name="locked-small" color="warn" />
-									</div>
-								{/if}
-							</div>
-							<div
-								tabindex="0"
-								role="cell"
-								use:draggable={{
-									...draggableHunk(branchId, section.hunk),
-									disabled: readonly || section.hunk.locked
-								}}
-								on:dblclick
-								class="hunk"
-								class:opacity-60={section.hunk.locked && !isFileLocked}
-							>
-								<div class="hunk__inner custom-scrollbar">
-									<div class="hunk__inner_inner">
-										{#each section.subSections as subsection, sidx}
-											{@const hunk = section.hunk}
-											{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
-												<RenderedLine
-													{line}
-													{minWidth}
-													{selectable}
-													selected={$selectedOwnership.containsHunk(hunk.filePath, hunk.id)}
-													on:selected={(e) => onHunkSelected(hunk, e.detail)}
-													sectionType={subsection.sectionType}
-													filePath={file.path}
-													on:contextmenu={(e) =>
-														popupMenu.openByMouse(e, {
-															hunk,
-															section: subsection,
-															lineNumber: line.afterLineNumber
-																? line.afterLineNumber
-																: line.beforeLineNumber
-														})}
-												/>
-											{/each}
-											{#if !subsection.expanded}
-												<div
-													role="group"
-													class="border-color-3 flex w-full"
-													class:border-t={sidx == section.subSections.length - 1 ||
-														(sidx > 0 && sidx < section.subSections.length - 1)}
-													class:border-b={sidx == 0 ||
-														(sidx > 0 && sidx < section.subSections.length - 1)}
-													on:contextmenu|preventDefault={(e) =>
-														popupMenu.openByMouse(e, {
-															section: section,
-															hunk
-														})}
-												>
+		<ScrollableContainer wide>
+			<div class="hunks">
+				{#if file.binary}
+					Binary content not shown
+				{:else if file.large}
+					Diff too large to be shown
+				{:else}
+					{#each sections as section}
+						{@const { added, removed } = computedAddedRemoved(section)}
+						{#if 'hunk' in section}
+							<div class="hunk-wrapper">
+								<div class="indicators text-base-11">
+									<span class="added">+{added}</span>
+									<span class="removed">+{removed}</span>
+									{#if section.hunk.locked}
+										<div title={section.hunk.lockedTo}>
+											<Icon name="locked-small" color="warn" />
+										</div>
+									{/if}
+								</div>
+								<div
+									tabindex="0"
+									role="cell"
+									use:draggable={{
+										...draggableHunk(branchId, section.hunk),
+										disabled: readonly || section.hunk.locked
+									}}
+									on:dblclick
+									class="hunk"
+									class:opacity-60={section.hunk.locked && !isFileLocked}
+								>
+									<div class="hunk__inner custom-scrollbar">
+										<div class="hunk__inner_inner">
+											{#each section.subSections as subsection, sidx}
+												{@const hunk = section.hunk}
+												{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
+													<RenderedLine
+														{line}
+														{minWidth}
+														{selectable}
+														selected={$selectedOwnership.containsHunk(hunk.filePath, hunk.id)}
+														on:selected={(e) => onHunkSelected(hunk, e.detail)}
+														sectionType={subsection.sectionType}
+														filePath={file.path}
+														on:contextmenu={(e) =>
+															popupMenu.openByMouse(e, {
+																hunk,
+																section: subsection,
+																lineNumber: line.afterLineNumber
+																	? line.afterLineNumber
+																	: line.beforeLineNumber
+															})}
+													/>
+												{/each}
+												{#if !subsection.expanded}
 													<div
-														class="bg-color-4 text-color-4 hover:text-color-2 border-color-3 border-r text-center"
-														style:min-width={`calc(${2 * minWidth}rem - 1px)`}
+														role="group"
+														class="border-color-3 flex w-full"
+														class:border-t={sidx == section.subSections.length - 1 ||
+															(sidx > 0 && sidx < section.subSections.length - 1)}
+														class:border-b={sidx == 0 ||
+															(sidx > 0 && sidx < section.subSections.length - 1)}
+														on:contextmenu|preventDefault={(e) =>
+															popupMenu.openByMouse(e, {
+																section: section,
+																hunk
+															})}
 													>
-														<button
-															class="flex justify-center py-0.5 text-sm"
-															style:width={`calc(${2 * minWidth}rem - 1px)`}
-															on:click={() => {
-																if ('expanded' in subsection) {
-																	subsection.expanded = true;
-																}
-															}}
+														<div
+															class="bg-color-4 text-color-4 hover:text-color-2 border-color-3 border-r text-center"
+															style:min-width={`calc(${2 * minWidth}rem - 1px)`}
 														>
-															{#if sidx == 0}
-																<IconExpandUp />
-															{:else if sidx == section.subSections.length - 1}
-																<IconExpandDown />
-															{:else}
-																<IconExpandUpDown />
-															{/if}
-														</button>
+															<button
+																class="flex justify-center py-0.5 text-sm"
+																style:width={`calc(${2 * minWidth}rem - 1px)`}
+																on:click={() => {
+																	if ('expanded' in subsection) {
+																		subsection.expanded = true;
+																	}
+																}}
+															>
+																{#if sidx == 0}
+																	<IconExpandUp />
+																{:else if sidx == section.subSections.length - 1}
+																	<IconExpandDown />
+																{:else}
+																	<IconExpandUpDown />
+																{/if}
+															</button>
+														</div>
+														<div class="bg-color-4 flex-grow" />
 													</div>
-													<div class="bg-color-4 flex-grow" />
-												</div>
-											{/if}
-										{/each}
+												{/if}
+											{/each}
+										</div>
 									</div>
 								</div>
 							</div>
-						</div>
-					{/if}
-				{/each}
-			{/if}
-		</div>
-		<Resizer
-			viewport={rsViewport}
-			direction="right"
-			inside
-			minWidth={240}
-			on:width={(e) => {
-				fileWidth = e.detail / (16 * $userSettings.zoom);
-				lscache.set(fileWidthKey + file.id, fileWidth, 7 * 1440); // 7 day ttl
-				$defaultFileWidthRem = fileWidth;
-			}}
-		/>
+						{/if}
+					{/each}
+				{/if}
+			</div>
+		</ScrollableContainer>
 	</div>
+	<Resizer
+		viewport={rsViewport}
+		direction="right"
+		inside
+		minWidth={240}
+		on:width={(e) => {
+			fileWidth = e.detail / (16 * $userSettings.zoom);
+			lscache.set(fileWidthKey + file.id, fileWidth, 7 * 1440); // 7 day ttl
+			$defaultFileWidthRem = fileWidth;
+		}}
+	/>
 </div>
 
 <style lang="postcss">
 	.resize-viewport {
-		position: sticky;
-		top: 0;
+		position: relative;
 		display: flex;
 		height: 100%;
 		align-items: self-start;
 		overflow: hidden;
-		padding: var(--space-8) var(--space-8) var(--space-8) 0;
-		/* margin-left: calc(var(--space-4) * -1); */
+		padding: var(--space-12);
 	}
 	.file-card {
 		background: var(--clr-theme-container-light);
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-		width: 100%;
 		max-height: 100%;
 		flex-grow: 1;
 	}
