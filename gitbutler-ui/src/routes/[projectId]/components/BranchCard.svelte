@@ -30,6 +30,7 @@
 
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
+	import type { BranchService } from '$lib/branches/service';
 
 	export let branch: Branch;
 	export let readonly = false;
@@ -37,6 +38,7 @@
 	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
+	export let branchService: BranchService;
 	export let branchCount = 1;
 	export let user: User | undefined;
 	export let selectedFiles: Writable<File[]>;
@@ -256,6 +258,7 @@
 				{project}
 				{githubService}
 				{branchController}
+				{branchService}
 				{branchCount}
 				{readonly}
 			/>

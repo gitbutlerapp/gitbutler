@@ -7,12 +7,13 @@
 	import type { GitHubService } from '$lib/github/service';
 	import toast from 'svelte-french-toast';
 	import { startTransaction } from '@sentry/sveltekit';
-	import { capture } from '$lib/analytics/posthog';
+	import type { BranchService } from '$lib/branches/service';
 
 	export let branch: Branch;
 	export let type: CommitStatus;
 	export let readonly: boolean;
 	export let branchController: BranchController;
+	export let branchService: BranchService;
 	export let githubService: GitHubService;
 	export let base: BaseBranch | undefined | null;
 	export let projectId: string;
@@ -31,9 +32,6 @@
 	}
 
 	async function createPr(): Promise<PullRequest | undefined> {
-		isPushing = true;
-		const txn = startTransaction({ name: 'pull_request_create' });
-
 		if (!githubService.isEnabled()) {
 			toast.error('Cannot create PR without GitHub credentials');
 			return;
@@ -44,43 +42,19 @@
 			return;
 		}
 
-		let newBranch: Branch | undefined;
-		// Push if local commits
-		if (branch.commits.some((c) => !c.isRemote)) {
-			const pushBranchSpan = txn.startChild({ op: 'branch_push' });
-			newBranch = await branchController.pushBranch(branch.id, branch.requiresForce);
-			pushBranchSpan.finish();
-		} else {
-			newBranch = branch;
+		// Sentry transaction for measuring pr creation latency
+		const sentryTxn = startTransaction({ name: 'pull_request_create' });
+
+		isPushing = true;
+		try {
+			return await branchService.createPr(branch, base.shortName, sentryTxn);
+		} catch (err) {
+			toast.error(err as string);
+			console.error(err);
+		} finally {
+			sentryTxn.finish();
+			isPushing = false;
 		}
-
-		if (newBranch?.upstreamName != branch.upstreamName) {
-			capture('branch push mismatch', { new: newBranch?.upstreamName, old: branch.upstreamName });
-		}
-
-		if (!newBranch) {
-			console.error('Branch push failed');
-			return;
-		}
-
-		if (!newBranch.upstreamName) {
-			toast.error('Cannot create PR without remote branch name');
-			return;
-		}
-
-		const createPrSpan = txn.startChild({ op: 'pr_api_create' });
-		const resp = await githubService.createPullRequest(
-			base.shortName,
-			newBranch.name,
-			newBranch.notes,
-			newBranch.id,
-			newBranch.upstreamName
-		);
-
-		createPrSpan.finish();
-		txn.finish();
-		isPushing = false;
-		return resp;
 	}
 </script>
 

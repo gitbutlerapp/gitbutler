@@ -6,6 +6,7 @@
 	import CommitListHeader from './CommitListHeader.svelte';
 	import CommitListFooter from './CommitListFooter.svelte';
 	import type { Project } from '$lib/backend/projects';
+	import type { BranchService } from '$lib/branches/service';
 
 	export let branch: Branch;
 	export let base: BaseBranch | undefined | null;
@@ -13,6 +14,7 @@
 	export let branchController: BranchController;
 	export let type: CommitStatus;
 	export let githubService: GitHubService;
+	export let branchService: BranchService;
 	export let readonly: boolean;
 	export let branchCount: number = 0;
 
@@ -58,6 +60,7 @@
 					</div>{/if}
 				<CommitListFooter
 					{branchController}
+					{branchService}
 					{branch}
 					{githubService}
 					{type}
