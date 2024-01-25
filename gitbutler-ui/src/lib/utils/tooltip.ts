@@ -5,9 +5,9 @@ export interface ToolTipOptions {
 	// hotkey?: string;
 }
 
-export function tooltip(node: HTMLElement, optsOrText: ToolTipOptions | string) {
+export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string) {
 	// The tooltip element we are adding to the dom
-	let element: HTMLDivElement | undefined;
+	let tooltip: HTMLDivElement | undefined;
 
 	// Text for the tooltip
 	let text: string;
@@ -17,24 +17,24 @@ export function tooltip(node: HTMLElement, optsOrText: ToolTipOptions | string) 
 
 	// Most use cases only involve passing a string, so we allow either opts of
 	// simple text.
-	if (typeof optsOrText == 'string') {
-		text = optsOrText;
+	if (typeof optsOrString == 'string') {
+		text = optsOrString;
 	} else {
-		text = optsOrText.text;
+		text = optsOrString.text;
 	}
 
 	if (!text) return;
 
 	function onMouseOver() {
 		// If tooltip is displayed we clear hide timeout
-		if (element && timeoutId) clearTimeout(timeoutId);
+		if (tooltip && timeoutId) clearTimeout(timeoutId);
 		// If no tooltip and no timeout id we set a show timeout
-		else if (!element && !timeoutId) timeoutId = setTimeout(() => show(), 1500);
+		else if (!tooltip && !timeoutId) timeoutId = setTimeout(() => show(), 1500);
 	}
 
 	function onMouseLeave() {
 		// If tooltip shown when mouse out then we hide after delay
-		if (element) hideAfterDelay();
+		if (tooltip) hideAfterDelay();
 		// But if we mouse out before tooltip is shown, we cancel the show timer
 		else if (timeoutId) {
 			clearTimeout(timeoutId);
@@ -43,18 +43,17 @@ export function tooltip(node: HTMLElement, optsOrText: ToolTipOptions | string) 
 	}
 
 	function show() {
-		element = document.createElement('div') as HTMLDivElement;
+		tooltip = document.createElement('div') as HTMLDivElement;
 		// TODO: Can we co-locate tooltip.js & tooltip.postcss?
-		element.classList.add('tooltip'); // see tooltip.postcss
-		element.innerText = text;
-		document.body.appendChild(element);
+		tooltip.classList.add('tooltip'); // see tooltip.postcss
+		tooltip.innerText = text;
+		document.body.appendChild(tooltip);
 		adjustPosition();
 	}
 
 	function hide() {
-		console.log('hide');
-		if (element) element.remove();
-		element = undefined;
+		if (tooltip) tooltip.remove();
+		tooltip = undefined;
 		timeoutId = undefined;
 	}
 
@@ -66,10 +65,14 @@ export function tooltip(node: HTMLElement, optsOrText: ToolTipOptions | string) 
 	}
 
 	function adjustPosition() {
-		if (!element) return;
+		if (!tooltip) return;
 
 		// Dimensions and position of target element
 		const nodeRect = node.getBoundingClientRect();
+		const nodeHeight = nodeRect.height;
+		const nodeWidth = nodeRect.width;
+		const nodeLeft = nodeRect.left;
+		const nodeTop = nodeRect.top;
 
 		// Padding
 		const padding = 4;
@@ -78,26 +81,25 @@ export function tooltip(node: HTMLElement, optsOrText: ToolTipOptions | string) 
 		const windowHeight = window.innerHeight;
 		const windowWidth = window.innerWidth;
 
-		const tipHeight = element.offsetHeight;
-		const tipWidth = element.offsetWidth;
+		const tooltipHeight = tooltip.offsetHeight;
+		const tooltipWidth = tooltip.offsetWidth;
 
-		const showBelow = windowHeight > nodeRect.top + nodeRect.height + tipHeight + padding;
+		const showBelow = windowHeight > nodeTop + nodeHeight + tooltipHeight + padding;
 
 		// Note that we don't check if width of tooltip is wider than the window.
 
 		if (showBelow) {
-			element.style.top = `${(nodeRect.top + nodeRect.height + padding) / 16}rem`;
+			tooltip.style.top = `${(nodeTop + nodeHeight + padding) / 16}rem`;
 		} else {
-			element.style.top = `${(nodeRect.top - padding - tipHeight) / 16}rem`;
+			tooltip.style.top = `${(nodeTop - padding - tooltipHeight) / 16}rem`;
 		}
 
-		let leftPos = nodeRect.left - (tipWidth - nodeRect.width) / 2;
+		let leftPos = nodeLeft - (tooltipWidth - nodeWidth) / 2;
 		if (leftPos < padding) leftPos = padding;
-		if (leftPos + tipWidth > windowWidth) leftPos = windowWidth - tipWidth - padding;
-		element.style.left = `${leftPos / 16}rem`;
+		if (leftPos + tooltipWidth > windowWidth) leftPos = windowWidth - tooltipWidth - padding;
+		tooltip.style.left = `${leftPos / 16}rem`;
 	}
 
-	console.log('listening');
 	node.addEventListener('mouseover', onMouseOver);
 	node.addEventListener('mouseleave', onMouseLeave);
 
@@ -106,7 +108,7 @@ export function tooltip(node: HTMLElement, optsOrText: ToolTipOptions | string) 
 			({ text } = opts);
 		},
 		destroy() {
-			element?.remove();
+			tooltip?.remove();
 			timeoutId && clearTimeout(timeoutId);
 			node.removeEventListener('mouseover', onMouseOver);
 			node.removeEventListener('mouseleave', onMouseLeave);
