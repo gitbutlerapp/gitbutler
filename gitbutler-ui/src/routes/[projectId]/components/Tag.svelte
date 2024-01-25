@@ -5,7 +5,9 @@
 <script lang="ts">
 	import Icon from '$lib/icons/Icon.svelte';
 	import type iconsJson from '$lib/icons/icons.json';
+	import { tooltip } from '$lib/utils/tooltip';
 
+	export let help = '';
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let color: TagColor = 'neutral-light';
 	export let border = false;
@@ -30,6 +32,7 @@
 	on:click
 	role={clickable ? 'button' : undefined}
 	class:clickable
+	use:tooltip={help}
 >
 	<span class="label">
 		<slot />

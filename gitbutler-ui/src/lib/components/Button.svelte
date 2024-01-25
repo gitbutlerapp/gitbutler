@@ -6,6 +6,7 @@
 	import { onMount } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 	import Icon from '$lib/icons/Icon.svelte';
+	import { tooltip } from '$lib/utils/tooltip';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let iconAlign: 'left' | 'right' = 'right';
@@ -18,6 +19,7 @@
 	export let tabindex = 0;
 	export let wide = false;
 	export let grow = false;
+	export let help = '';
 
 	export let element: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
 
@@ -43,6 +45,7 @@
 	class:neutral-outline={color == 'neutral' && kind == 'outlined'}
 	class:pointer-events-none={loading}
 	class:icon-left={iconAlign == 'left'}
+	use:tooltip={help}
 	class:wide
 	class:grow
 	class:not-clickable={notClickable}

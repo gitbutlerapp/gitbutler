@@ -3,7 +3,6 @@
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { PullRequest } from '$lib/github/types';
 	import Link from '$lib/components/Link.svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Tag from '../../components/Tag.svelte';
 	import { marked } from 'marked';
 
@@ -51,16 +50,15 @@
 				{/if}
 			</div>
 			<div class="card__footer">
-				<Tooltip label="Does not create a commit. Can be toggled.">
-					<Button
-						color="primary"
-						on:click={() =>
-							pullrequest &&
-							branchController.createvBranchFromBranch(
-								'refs/remotes/origin/' + pullrequest.targetBranch
-							)}>Apply</Button
-					>
-				</Tooltip>
+				<Button
+					help="Does not create a commit. Can be toggled."
+					color="primary"
+					on:click={() =>
+						pullrequest &&
+						branchController.createvBranchFromBranch(
+							'refs/remotes/origin/' + pullrequest.targetBranch
+						)}>Apply</Button
+				>
 			</div>
 		</div>
 	</div>

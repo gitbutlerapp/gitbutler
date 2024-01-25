@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { tooltip } from '$lib/utils/tooltip';
+
 	export let count: string | number;
+	export let help = '';
 </script>
 
-<div class="badge text-base-10 text-bold">
+<div class="badge text-base-10 text-bold" use:tooltip={help}>
 	{count}
 </div>
 

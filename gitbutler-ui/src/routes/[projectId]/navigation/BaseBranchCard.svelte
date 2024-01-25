@@ -2,7 +2,6 @@
 	import { page } from '$app/stores';
 	import type { Project } from '$lib/backend/projects';
 	import Badge from '$lib/components/Badge.svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { GitHubService } from '$lib/github/service';
 	import Icon from '$lib/icons/Icon.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
@@ -36,9 +35,7 @@
 		<div class="row_1">
 			<span class="text-base-14 text-semibold trunk-label">Trunk</span>
 			{#if ($base$?.behind || 0) > 0}
-				<Tooltip label="Unmerged upstream commits">
-					<Badge count={$base$?.behind || 0} />
-				</Tooltip>
+				<Badge count={$base$?.behind || 0} help="Unmerged upstream commits" />
 			{/if}
 			<SyncButton
 				projectId={project.id}

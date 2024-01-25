@@ -14,7 +14,6 @@
 	import Branches from './Branches.svelte';
 	import type { BranchService } from '$lib/branches/service';
 	import Header from './Header.svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Tag from '../components/Tag.svelte';
 	import * as toasts from '$lib/utils/toasts';
 	import Resizer from '$lib/components/Resizer.svelte';
@@ -74,24 +73,23 @@
 
 				<span>Workspace</span>
 				{#if ($base$?.behind || 0) > 0}
-					<Tooltip label="Merge upstream commits into common base">
-						<Tag
-							color="error"
-							filled
-							clickable
-							on:click={async (e) => {
-								e.preventDefault();
-								e.stopPropagation();
-								try {
-									await branchController.updateBaseBranch();
-								} catch {
-									toasts.error('Failed update working directory');
-								}
-							}}
-						>
-							Update
-						</Tag>
-					</Tooltip>
+					<Tag
+						color="error"
+						help="Merge upstream commits into common base"
+						filled
+						clickable
+						on:click={async (e) => {
+							e.preventDefault();
+							e.stopPropagation();
+							try {
+								await branchController.updateBaseBranch();
+							} catch {
+								toasts.error('Failed update working directory');
+							}
+						}}
+					>
+						Update
+					</Tag>
 				{/if}
 			</DomainButton>
 		</div>

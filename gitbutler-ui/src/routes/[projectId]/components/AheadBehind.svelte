@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Tooltip from '$lib/components/Tooltip.svelte';
+	import { tooltip } from '$lib/utils/tooltip';
 
 	export let ahead: number | undefined;
 	export let behind: number | undefined;
@@ -9,12 +9,13 @@
 </script>
 
 {#if ahead !== undefined && behind !== undefined}
-	<Tooltip label={`This branch is ${behindMessage} and ${aheadMessage}`}>
-		<div class="ahead-behind text-base-9 text-bold">
-			<div class="behind" class:neutral={behind == 0}>{behind == 0 ? '0' : '-' + behind}</div>
-			<div class="ahead" class:neutral={ahead == 0}>{ahead == 0 ? '0' : '+' + ahead}</div>
-		</div>
-	</Tooltip>
+	<div
+		class="ahead-behind text-base-9 text-bold"
+		use:tooltip={`This branch is ${behindMessage} and ${aheadMessage}`}
+	>
+		<div class="behind" class:neutral={behind == 0}>{behind == 0 ? '0' : '-' + behind}</div>
+		<div class="ahead" class:neutral={ahead == 0}>{ahead == 0 ? '0' : '+' + ahead}</div>
+	</div>
 {/if}
 
 <style lang="postcss">

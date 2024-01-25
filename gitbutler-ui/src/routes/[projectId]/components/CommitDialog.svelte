@@ -18,12 +18,12 @@
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { Writable } from 'svelte/store';
 	import { createEventDispatcher } from 'svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { useAutoHeight } from '$lib/utils/useAutoHeight';
+	import { tooltip } from '$lib/utils/tooltip';
 
 	const dispatch = createEventDispatcher<{
 		action: 'generate-branch-name';
@@ -140,38 +140,36 @@
 					placeholder="Your commit message here"
 				/>
 
-				<div class="commit-box__texarea-actions">
-					<Tooltip
-						label={$aiGenEnabled && user
-							? undefined
-							: 'You must be logged in and have summary generation enabled to use this feature'}
+				<div
+					class="commit-box__texarea-actions"
+					use:tooltip={$aiGenEnabled && user
+						? ''
+						: 'You must be logged in and have summary generation enabled to use this feature'}
+				>
+					<DropDownButton
+						kind="outlined"
+						icon="ai-small"
+						color="neutral"
+						disabled={!$aiGenEnabled || !user}
+						loading={isGeneratingCommigMessage}
+						on:click={() => generateCommitMessage(branch.files)}
 					>
-						<DropDownButton
-							kind="outlined"
-							icon="ai-small"
-							color="neutral"
-							disabled={!$aiGenEnabled || !user}
-							loading={isGeneratingCommigMessage}
-							on:click={() => generateCommitMessage(branch.files)}
-						>
-							Generate message
-							<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
-								<ContextMenuSection>
-									<ContextMenuItem
-										checked={$commitGenerationExtraConcise}
-										label="Extra concise"
-										on:click={() =>
-											($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
-									/>
-									<ContextMenuItem
-										checked={$commitGenerationUseEmojis}
-										label="Use emojis 😎"
-										on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
-									/>
-								</ContextMenuSection>
-							</ContextMenu>
-						</DropDownButton>
-					</Tooltip>
+						Generate message
+						<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
+							<ContextMenuSection>
+								<ContextMenuItem
+									checked={$commitGenerationExtraConcise}
+									label="Extra concise"
+									on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+								/>
+								<ContextMenuItem
+									checked={$commitGenerationUseEmojis}
+									label="Use emojis 😎"
+									on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+								/>
+							</ContextMenuSection>
+						</ContextMenu>
+					</DropDownButton>
 				</div>
 			</div>
 			{#if annotateCommits}

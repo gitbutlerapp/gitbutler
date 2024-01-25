@@ -2,9 +2,9 @@
 	import { syncToCloud } from '$lib/backend/cloud';
 	import Icon from '$lib/icons/Icon.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { tooltip } from '$lib/utils/tooltip';
 
 	export let githubService: GitHubService;
 	export let projectId: string;
@@ -33,15 +33,13 @@
 		</div>
 	{/if}
 
-	<Tooltip label="Last fetch from upstream">
-		<span class="text-base-11 text-semibold sync-btn__label">
-			{#if $baseServiceBusy$}
-				<div class="sync-btn__busy-label">busy…</div>
-			{:else if $base$?.lastFetched}
-				<TimeAgo date={$base$?.lastFetched} />
-			{/if}
-		</span>
-	</Tooltip>
+	<span class="text-base-11 text-semibold sync-btn__label" use:tooltip={'Last fetch from upstream'}>
+		{#if $baseServiceBusy$}
+			<div class="sync-btn__busy-label">busy…</div>
+		{:else if $base$?.lastFetched}
+			<TimeAgo date={$base$?.lastFetched} />
+		{/if}
+	</span>
 </button>
 
 <style lang="postcss">
