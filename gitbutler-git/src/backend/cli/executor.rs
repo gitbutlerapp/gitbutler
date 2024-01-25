@@ -75,6 +75,10 @@ pub unsafe trait GitExecutor {
         args.insert(0, "--no-pager");
         // TODO(qix-): Test the performance impact of this.
         args.insert(0, "--no-optional-locks");
+        // '-c' arguments must be inserted in reverse order; Git does not support
+        // shortflags for '-c' arguments, so they must be separated.
+        args.insert(0, "protocol.version=2");
+        args.insert(0, "-c");
 
         let mut envs = envs.unwrap_or_default();
         envs.insert("GIT_TERMINAL_PROMPT".into(), "0".into());
