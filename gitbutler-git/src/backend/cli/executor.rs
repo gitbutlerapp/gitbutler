@@ -127,6 +127,34 @@ pub unsafe trait GitExecutor {
     /// If for some reason these invariants are not possible to uphold,
     /// please open an issue on the repository to discuss this issue.
     async unsafe fn create_askpass_server<F>(&self) -> Result<Self::ServerHandle, Self::Error>;
+
+    /// Gets some basic information about a file on the filesystem.
+    ///
+    /// This is used to perform some basic security checks
+    /// during askpass authentication.
+    ///
+    /// **Do not follow symbolic links.**
+    async fn stat(&self, path: &str) -> Result<FileStat, Self::Error>;
+}
+
+/// Stats for a file on the filesystem.
+///
+/// This is returned by [`GitExecutor::stat`],
+/// and is just a small subset of the information
+/// typically returned by `stat(2)` and the like,
+/// as we only need a small subset of the information
+/// to perform some baseline security checks during
+/// the authentication process.
+#[derive(Debug, Clone)]
+pub struct FileStat {
+    /// The device number of the filesystem containing the file.
+    ///
+    /// On Windows, this is (probably) always 0.
+    pub dev: u64,
+    /// The inode number of the file.
+    pub ino: u64,
+    /// If the file is a regular file (not a symlink).
+    pub is_regular_file: bool,
 }
 
 /// A handle to a server created by [`GitExecutor::create_askpass_server`].

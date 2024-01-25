@@ -59,3 +59,37 @@ pub trait Repository {
         scope: ConfigScope,
     ) -> Result<(), Self::Error>;
 }
+
+/// Provides authentication credentials when performing
+/// an operation that interacts with a remote.
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Authorization {
+    /// Performs no attempt to authorize; uses the system's
+    /// default authorization mechanism, if any.
+    #[default]
+    Auto,
+    /// Performs HTTP(S) Basic authentication with a username
+    /// and password.
+    ///
+    /// Note that certain remotes may use this mechanism
+    /// for passing tokens as well; consult the respective
+    /// remote's documentation for what information to supply.
+    Basic {
+        /// The username to use for authentication.
+        username: String,
+        /// The password to use for authentication.
+        password: String,
+    },
+    /// Specifies a set of credentials for logging in with SSH.
+    /// If
+    Ssh {
+        /// The path to the SSH private key to use for authentication.
+        /// If `None`, the default SSH key will be used (i.e. `-i` will not
+        /// be passed to `ssh`).
+        private_key: Option<String>,
+        /// The passphrase to use for the SSH private key.
+        /// If `None`, the key is assumed to be unencrypted.
+        /// A prompt for a passphrase will result in an error.
+        passphrase: Option<String>,
+    },
+}

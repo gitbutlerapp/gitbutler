@@ -2,6 +2,8 @@
 
 use crate::prelude::*;
 use core::time::Duration;
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
 use std::{fs::Permissions, os::unix::fs::PermissionsExt};
 use tokio::process::Command;
 
@@ -46,6 +48,17 @@ unsafe impl super::GitExecutor for TokioExecutor {
         Ok(TokioAskpassServer {
             server: Some(listener),
             connection_string: connection_string.to_string_lossy().into(),
+        })
+    }
+
+    #[cfg(unix)]
+    async fn stat(&self, path: &str) -> Result<super::FileStat, Self::Error> {
+        let metadata = tokio::fs::symlink_metadata(path).await?;
+
+        Ok(super::FileStat {
+            dev: metadata.dev(),
+            ino: metadata.ino(),
+            is_regular_file: metadata.is_file(),
         })
     }
 }

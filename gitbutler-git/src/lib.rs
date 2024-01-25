@@ -52,5 +52,5 @@ pub use backend::git2;
 
 pub use self::{
     refspec::{Error as RefSpecError, RefSpec},
-    repository::{ConfigScope, Repository},
+    repository::{Authorization, ConfigScope, Repository},
 };
