@@ -1,6 +1,5 @@
 <script lang="ts">
 	import IconButton from '$lib/components/IconButton.svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import type { File } from '$lib/vbranches/types';
 	import { createEventDispatcher } from 'svelte';
@@ -40,11 +39,12 @@
 				{#if file.conflicted || isFileLocked}
 					<div class="header__tag-group">
 						{#if isFileLocked}
-							<Tooltip
-								label="File changes cannot be moved because part of this file was already committed into this branch"
+							<Tag
+								icon="locked-small"
+								color="warning"
+								help="File changes cannot be moved because part of this file was already committed into this branch"
+								border>Locked</Tag
 							>
-								<Tag icon="locked-small" color="warning" border>Locked</Tag>
-							</Tooltip>
 						{/if}
 						{#if file.conflicted}
 							<Tag icon="warning-small" color="error" border>Has conflicts</Tag>

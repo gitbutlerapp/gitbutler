@@ -1,10 +1,12 @@
 <script lang="ts">
 	import Icon from '$lib/icons/Icon.svelte';
 	import type iconsJson from '$lib/icons/icons.json';
+	import { tooltip } from '$lib/utils/tooltip';
 
 	export let icon: keyof typeof iconsJson;
 	export let size: 's' | 'm' | 'l' = 'l';
 	export let loading = false;
+	export let help = '';
 
 	let className = '';
 	let selected = false;
@@ -18,6 +20,7 @@
 	class:small={size == 's'}
 	class:medium={size == 'm'}
 	class:large={size == 'l'}
+	use:tooltip={help}
 	{title}
 	on:click
 >

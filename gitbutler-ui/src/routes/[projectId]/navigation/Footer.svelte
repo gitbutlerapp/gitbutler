@@ -1,11 +1,7 @@
 <script lang="ts">
 	import type { User } from '$lib/backend/cloud';
-	import { isLoading, loadStack } from '$lib/backend/ipc';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import Link from '$lib/components/Link.svelte';
-	import TimeAgo from '$lib/components/TimeAgo.svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
-	import Icon from '$lib/icons/Icon.svelte';
 	import * as events from '$lib/utils/events';
 	import AccountLink from '$lib/components/AccountLink.svelte';
 
@@ -15,27 +11,14 @@
 
 <div class="footer" style:border-color="var(--clr-theme-container-outline-light)">
 	<div class="left-btns">
-		<Tooltip label="Send feedback">
-			<IconButton icon="mail" on:click={() => events.emit('openSendIssueModal')}></IconButton>
-		</Tooltip>
+		<IconButton
+			icon="mail"
+			help="Send feedback"
+			on:click={() => events.emit('openSendIssueModal')}
+		/>
 		<Link href={`/${projectId}/settings`}>
 			<IconButton icon="settings" />
 		</Link>
-		{#if $isLoading}
-			<div class="loading-status">
-				<Tooltip>
-					<Icon name="spinner" />
-					<div slot="label">
-						{#each loadStack as item}
-							<p>
-								{item.name}
-								- <TimeAgo date={item.startedAt} addSuffix={true} />
-							</p>
-						{/each}
-					</div>
-				</Tooltip>
-			</div>
-		{/if}
 	</div>
 	<AccountLink {user} />
 </div>
@@ -51,9 +34,5 @@
 	.left-btns {
 		display: flex;
 		align-items: center;
-	}
-	.loading-status {
-		margin-left: var(--space-12);
-		margin-right: var(--space-12);
 	}
 </style>

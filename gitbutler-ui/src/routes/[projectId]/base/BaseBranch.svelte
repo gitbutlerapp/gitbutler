@@ -3,9 +3,9 @@
 	import CommitCard from '../components/CommitCard.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
-	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import { tooltip } from '$lib/utils/tooltip';
 
 	export let base: BaseBranch;
 	export let projectId: string;
@@ -28,24 +28,21 @@
 	</div>
 	{#if base.upstreamCommits?.length > 0}
 		<div>
-			<Tooltip
-				label={'Merges the commits from ' +
+			<Button
+				color="primary"
+				help={'Merges the commits from ' +
 					base.branchName +
 					' into the base of all applied virtual branches'}
+				on:click={() => {
+					if ($mergeUpstreamWarningDismissed) {
+						branchController.updateBaseBranch();
+					} else {
+						updateTargetModal.show();
+					}
+				}}
 			>
-				<Button
-					color="primary"
-					on:click={() => {
-						if ($mergeUpstreamWarningDismissed) {
-							branchController.updateBaseBranch();
-						} else {
-							updateTargetModal.show();
-						}
-					}}
-				>
-					Merge into common base
-				</Button>
-			</Tooltip>
+				Merge into common base
+			</Button>
 		</div>
 		<div class="flex h-full">
 			<div class="z-20 flex w-full flex-col gap-2">
@@ -59,9 +56,12 @@
 		/>
 	{/if}
 	<div>
-		<Tooltip label="This is the current base for your virtual branches.">
-			<h1 class="inline-block font-bold text-light-700 dark:text-dark-100">Local</h1>
-		</Tooltip>
+		<h1
+			class="inline-block font-bold text-light-700 dark:text-dark-100"
+			use:tooltip={'This is the current base for your virtual branches.'}
+		>
+			Local
+		</h1>
 	</div>
 	<div class="flex flex-col gap-y-2">
 		{#each base.recentCommits as commit}

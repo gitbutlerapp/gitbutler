@@ -11,7 +11,7 @@
 	import { open } from '@tauri-apps/api/shell';
 	import Button from '$lib/components/Button.svelte';
 	import toast from 'svelte-french-toast';
-	import Tooltip from '$lib/components/Tooltip.svelte';
+	import { tooltip } from '$lib/utils/tooltip';
 
 	export let readonly = false;
 	export let branch: Branch;
@@ -52,45 +52,46 @@
 			<div class="header__remote-branch">
 				{#if !branch.upstream}
 					{#if !branch.active}
-						<Tooltip label="These changes are stashed away from your working directory.">
-							<div class="status-tag text-base-11 text-semibold unapplied">
-								<Icon name="removed-branch-small" /> unapplied
-							</div>
-						</Tooltip>
-					{:else if hasIntegratedCommits}
-						<Tooltip
-							label="These changes have been integrated upstream, update your workspace to make this lane disappear."
+						<div
+							class="status-tag text-base-11 text-semibold unapplied"
+							use:tooltip={'These changes are stashed away from your working directory.'}
 						>
-							<div class="status-tag text-base-11 text-semibold integrated">
-								<Icon name="removed-branch-small" /> integrated
-							</div>
-						</Tooltip>
+							<Icon name="removed-branch-small" /> unapplied
+						</div>
+					{:else if hasIntegratedCommits}
+						<div
+							class="status-tag text-base-11 text-semibold integrated"
+							use:tooltip={'These changes have been integrated upstream, update your workspace to make this lane disappear.'}
+						>
+							<Icon name="removed-branch-small" /> integrated
+						</div>
 					{:else}
-						<Tooltip label="These changes are in your working directory.">
-							<div class="status-tag text-base-11 text-semibold pending">
-								<Icon name="virtual-branch-small" /> virtual
-							</div>
-						</Tooltip>
+						<div
+							class="status-tag text-base-11 text-semibold pending"
+							use:tooltip={'These changes are in your working directory.'}
+						>
+							<Icon name="virtual-branch-small" /> virtual
+						</div>
 					{/if}
 					{#if !readonly}
-						<div class="pending-name">
-							<Tooltip
-								label="Branch name that will be used when pushing. You can change it from the lane menu."
-							>
-								<span class="text-base-11 text-semibold">
-									origin/{branch.upstreamName
-										? branch.upstreamName
-										: normalizeBranchName(branch.name)}
-								</span>
-							</Tooltip>
+						<div
+							class="pending-name"
+							use:tooltip={'Branch name that will be used when pushing. You can change it from the lane menu.'}
+						>
+							<span class="text-base-11 text-semibold">
+								origin/{branch.upstreamName
+									? branch.upstreamName
+									: normalizeBranchName(branch.name)}
+							</span>
 						</div>
 					{/if}
 				{:else}
-					<Tooltip label="At least some of your changes have been pushed">
-						<div class="status-tag text-base-11 text-semibold remote">
-							<Icon name="remote-branch-small" /> remote
-						</div>
-					</Tooltip>
+					<div
+						class="status-tag text-base-11 text-semibold remote"
+						use:tooltip={'At least some of your changes have been pushed'}
+					>
+						<Icon name="remote-branch-small" /> remote
+					</div>
 					<Tag
 						icon="open-link"
 						color="ghost"
@@ -125,12 +126,13 @@
 				{/if}
 				{#await branch.isMergeable then isMergeable}
 					{#if !isMergeable}
-						<Tooltip
-							timeoutMilliseconds={100}
-							label="Applying this branch will add merge conflict markers that you will have to resolve"
+						<Tag
+							icon="locked-small"
+							color="warning"
+							help="Applying this branch will add merge conflict markers that you will have to resolve"
 						>
-							<Tag icon="locked-small" color="warning">Conflict</Tag>
-						</Tooltip>
+							Conflict
+						</Tag>
 					{/if}
 				{/await}
 			</div>
@@ -141,79 +143,67 @@
 		<div class="header__actions">
 			<div class="header__buttons">
 				{#if branch.selectedForChanges}
-					<Tooltip timeoutMilliseconds={1000} label="New changes will land here">
-						<Button class="w-32" icon="target" notClickable disabled={readonly}
-							>Default branch</Button
-						>
-					</Tooltip>
+					<Button help="New changes will land here" icon="target" notClickable disabled={readonly}
+						>Default branch</Button
+					>
 				{:else}
-					<Tooltip timeoutMilliseconds={1000} label="When selected, new changes will land here">
-						<Button
-							class="w-32"
-							icon="target"
-							kind="outlined"
-							color="neutral"
-							disabled={readonly}
-							on:click={async () => {
-								await branchController.setSelectedForChanges(branch.id);
-							}}
-						>
-							Set as default
-						</Button>
-					</Tooltip>
+					<Button
+						help="When selected, new changes will land here"
+						icon="target"
+						kind="outlined"
+						color="neutral"
+						disabled={readonly}
+						on:click={async () => {
+							await branchController.setSelectedForChanges(branch.id);
+						}}
+					>
+						Set as default
+					</Button>
 				{/if}
 				{#if !readonly}
-					<Tooltip
-						timeoutMilliseconds={1000}
-						label="Stashes these changes away from your working directory"
+					<Button
+						icon="cross-small"
+						color="primary"
+						kind="outlined"
+						help="Stashes these changes away from your working directory"
+						loading={isApplying}
+						on:click={async () => {
+							isApplying = true;
+							try {
+								await branchController.unapplyBranch(branch.id);
+							} catch (e) {
+								const err = 'Failed to apply branch';
+								toast.error(err);
+								console.error(err, e);
+							} finally {
+								isApplying = false;
+							}
+						}}
 					>
-						<Button
-							icon="cross-small"
-							color="primary"
-							kind="outlined"
-							loading={isApplying}
-							on:click={async () => {
-								isApplying = true;
-								try {
-									await branchController.unapplyBranch(branch.id);
-								} catch (e) {
-									const err = 'Failed to apply branch';
-									toast.error(err);
-									console.error(err, e);
-								} finally {
-									isApplying = false;
-								}
-							}}
-						>
-							Unapply
-						</Button>
-					</Tooltip>
+						Unapply
+					</Button>
 				{:else}
-					<Tooltip
-						timeoutMilliseconds={1000}
-						label="Restores these changes into your working directory"
+					<Button
+						help="Restores these changes into your working directory"
+						icon="plus-small"
+						color="primary"
+						kind="outlined"
+						loading={isApplying}
+						on:click={async () => {
+							isApplying = true;
+							try {
+								await branchController.applyBranch(branch.id);
+							} catch (e) {
+								const err = 'Failed to apply branch';
+								toast.error(err);
+								console.error(err, e);
+							} finally {
+								isApplying = false;
+							}
+						}}
 					>
-						<Button
-							icon="plus-small"
-							color="primary"
-							kind="outlined"
-							loading={isApplying}
-							on:click={async () => {
-								isApplying = true;
-								try {
-									await branchController.applyBranch(branch.id);
-								} catch (e) {
-									const err = 'Failed to apply branch';
-									toast.error(err);
-									console.error(err, e);
-								} finally {
-									isApplying = false;
-								}
-							}}
-						>
-							Apply
-						</Button>
-					</Tooltip>
+						Apply
+					</Button>
 				{/if}
 			</div>
 			<div class="relative" bind:this={meatballButton}>
