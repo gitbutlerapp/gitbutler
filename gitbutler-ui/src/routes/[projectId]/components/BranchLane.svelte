@@ -100,7 +100,7 @@
 	}
 
 	.selected {
-		--selected-resize-shift: calc(var(--space-6) * -1);
+		--selected-resize-shift: calc(var(--space-4) * -1);
 		--selected-opacity: 0;
 	}
 </style>
