@@ -1,4 +1,4 @@
-//! A [Tokio](https://tokio.rs)-based [`GitExecutor`] implementation.
+//! A [Tokio](https://tokio.rs)-based [`super::GitExecutor`] implementation.
 
 use crate::prelude::*;
 use core::time::Duration;
@@ -7,7 +7,7 @@ use std::os::unix::fs::MetadataExt;
 use std::{fs::Permissions, os::unix::fs::PermissionsExt};
 use tokio::process::Command;
 
-/// A [`GitExecutor`] implementation using the `git` command-line tool
+/// A [`super::GitExecutor`] implementation using the `git` command-line tool
 /// via [`tokio::process::Command`].
 pub struct TokioExecutor;
 
@@ -95,7 +95,7 @@ impl super::Socket for tokio::io::BufStream<tokio::net::UnixStream> {
     }
 }
 
-/// A tokio-based [`AskpassServer`] implementation.
+/// A tokio-based [`super::AskpassServer`] implementation.
 #[cfg(unix)]
 pub struct TokioAskpassServer {
     // Always Some until dropped.

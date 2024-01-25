@@ -5,7 +5,12 @@
 mod executor;
 mod repository;
 
-pub use self::{executor::GitExecutor, repository::Repository};
+#[cfg(unix)]
+pub use self::executor::Uid;
+pub use self::{
+    executor::{AskpassServer, FileStat, GitExecutor, Pid, Socket},
+    repository::Repository,
+};
 
 #[cfg(feature = "tokio")]
 pub use self::executor::tokio;

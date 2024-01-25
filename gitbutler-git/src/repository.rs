@@ -81,7 +81,6 @@ pub enum Authorization {
         password: String,
     },
     /// Specifies a set of credentials for logging in with SSH.
-    /// If
     Ssh {
         /// The path to the SSH private key to use for authentication.
         /// If `None`, the default SSH key will be used (i.e. `-i` will not
