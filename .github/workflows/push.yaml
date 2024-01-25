@@ -79,6 +79,21 @@ jobs:
       - run: cargo fmt --check --all
       - run: cargo build --locked --all-targets --tests
 
+  rust-docs:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-rust
+      # TODO(qix-): we have to exclude the app here for now because for some
+      # TODO(qix-): reason it doesn't build with the docs feature enabled.
+      - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-core -p gitbutler-git -p gitbutler-diff
+        env:
+          RUSTDOCFLAGS: -Dwarnings
+
   check-gitbutler-app:
     needs: [changes, rust-init]
     if: ${{ needs.changes.outputs.gitbutler-app == 'true' }}

@@ -23,7 +23,6 @@
 //!
 //! This hampers certain use cases, such as implementing
 //! [`cli::GitExecutor`] for e.g. remote connections.
-
 #![cfg_attr(not(feature = "std"), no_std)] // must be first
 #![feature(error_in_core)]
 #![deny(missing_docs, unsafe_code)]

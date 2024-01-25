@@ -6,9 +6,9 @@
 //!
 //! Related issues:
 //!
-//! - https://github.com/serde-rs/serde/issues/2120
-//! - https://github.com/serde-rs/serde/issues/1937
-//! - https://github.com/serde-rs/serde/issues/1272
+//! - <https://github.com/serde-rs/serde/issues/2120>
+//! - <https://github.com/serde-rs/serde/issues/1937>
+//! - <https://github.com/serde-rs/serde/issues/1272>
 //!
 //! If/when those are fixed, we should be able to (trivially) add `serde` support.
 //! Otherwise, neither the length prefix imposed by `(de)serialize_bytes()` nor the
