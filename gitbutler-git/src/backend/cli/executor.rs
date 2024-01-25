@@ -52,6 +52,9 @@ pub unsafe trait GitExecutor {
     ///
     /// Returns a tuple of `(exit_code, stdout, stderr)`.
     ///
+    /// To the best of their abilities, child processes should
+    /// be killed if the future is dropped.
+    ///
     /// `Err` is returned if the command could not be executed,
     /// **not** if the command returned a non-zero exit code.
     async fn execute_raw(
@@ -130,7 +133,7 @@ pub unsafe trait GitExecutor {
     ///
     /// If for some reason these invariants are not possible to uphold,
     /// please open an issue on the repository to discuss this issue.
-    async unsafe fn create_askpass_server<F>(&self) -> Result<Self::ServerHandle, Self::Error>;
+    async unsafe fn create_askpass_server(&self) -> Result<Self::ServerHandle, Self::Error>;
 
     /// Gets some basic information about a file on the filesystem.
     ///
@@ -170,14 +173,14 @@ pub struct FileStat {
 ///
 /// Upon dropping the handle, the server should be closed.
 pub trait AskpassServer: core::fmt::Display {
-    /// The type of error that is returned by [`AskpassServer::next`].
+    /// The type of error that is returned by [`AskpassServer::accept`].
     type Error: core::error::Error + core::fmt::Debug + Send + Sync + 'static;
 
     /// The type of the socket yielded by the incoming iterator.
     type SocketHandle: Socket + Send + Sync + 'static;
 
     /// Waits for a connection to the server to be established.
-    async fn next(&self, timeout: Option<Duration>) -> Result<Self::SocketHandle, Self::Error>;
+    async fn accept(&self, timeout: Option<Duration>) -> Result<Self::SocketHandle, Self::Error>;
 }
 
 #[cfg(unix)]

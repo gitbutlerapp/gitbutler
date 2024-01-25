@@ -22,7 +22,10 @@ unsafe impl super::GitExecutor for TokioExecutor {
         envs: Option<BTreeMap<String, String>>,
     ) -> Result<(usize, String, String), Self::Error> {
         let mut cmd = Command::new("git");
+
+        cmd.kill_on_drop(true);
         cmd.args(args);
+
         if let Some(envs) = envs {
             cmd.envs(envs);
         }
@@ -37,7 +40,7 @@ unsafe impl super::GitExecutor for TokioExecutor {
     }
 
     #[cfg(unix)]
-    async unsafe fn create_askpass_server<F>(&self) -> Result<Self::ServerHandle, Self::Error> {
+    async unsafe fn create_askpass_server(&self) -> Result<Self::ServerHandle, Self::Error> {
         let connection_string =
             std::env::temp_dir().join(format!("gitbutler-askpass-{}", rand::random::<u64>()));
 
@@ -109,7 +112,7 @@ impl super::AskpassServer for TokioAskpassServer {
     #[cfg(unix)]
     type SocketHandle = tokio::io::BufStream<tokio::net::UnixStream>;
 
-    async fn next(&self, timeout: Option<Duration>) -> Result<Self::SocketHandle, Self::Error> {
+    async fn accept(&self, timeout: Option<Duration>) -> Result<Self::SocketHandle, Self::Error> {
         let res = if let Some(timeout) = timeout {
             tokio::time::timeout(timeout, self.server.as_ref().unwrap().accept()).await?
         } else {
