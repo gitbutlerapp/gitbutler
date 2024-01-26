@@ -41,12 +41,12 @@
 	use:draggable={{
 		...draggableFile(branchId, file, selectedFiles),
 		disabled: readonly,
-		selector: '.selected'
+		selector: '.selected-draggable'
 	}}
 	role="button"
 	tabindex="0"
 >
-	<div class="file-list-item" id={`file-${file.id}`} class:selected>
+	<div class="file-list-item" id={`file-${file.id}`} class:selected-draggable={selected}>
 		<div class="info-wrap">
 			{#if showCheckbox}
 				<Checkbox
@@ -89,7 +89,7 @@
 		background: var(--clr-theme-container-light);
 		text-align: left;
 		user-select: none;
-		&:not(.selected):hover {
+		&:not(.selected-draggable):hover {
 			background: var(--clr-theme-container-pale);
 		}
 	}
@@ -127,7 +127,7 @@
 		overflow: hidden;
 		line-height: 120%;
 	}
-	.selected {
+	.selected-draggable {
 		background-color: var(--clr-theme-scale-pop-80);
 	}
 </style>
