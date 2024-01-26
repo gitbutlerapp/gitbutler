@@ -45,7 +45,7 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 	function show() {
 		tooltip = document.createElement('div') as HTMLDivElement;
 		// TODO: Can we co-locate tooltip.js & tooltip.postcss?
-		tooltip.classList.add('tooltip'); // see tooltip.postcss
+		tooltip.classList.add('tooltip', 'text-base-11'); // see tooltip.postcss
 		tooltip.innerText = text;
 		document.body.appendChild(tooltip);
 		adjustPosition();
