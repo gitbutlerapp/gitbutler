@@ -1,15 +1,19 @@
 <script lang="ts">
+	import { tooltip } from '$lib/utils/tooltip';
+
 	export let name = '';
 
 	export let small = false;
 	export let disabled = false;
 	export let checked = false;
 	export let value = '';
+	export let help = '';
 </script>
 
 <input
 	on:click|stopPropagation
 	on:change
+	use:tooltip={help}
 	type="checkbox"
 	class="toggle"
 	class:small
