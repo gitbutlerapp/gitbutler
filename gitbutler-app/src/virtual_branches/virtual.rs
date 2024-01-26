@@ -161,9 +161,9 @@ pub fn normalize_branch_name(name: &str) -> String {
 }
 
 pub fn get_default_target(
-    current_session_reader: &sessions::Reader,
+    session_reader: &sessions::Reader,
 ) -> Result<Option<target::Target>, reader::Error> {
-    let target_reader = target::Reader::new(current_session_reader);
+    let target_reader = target::Reader::new(session_reader);
     match target_reader.read_default() {
         Ok(target) => Ok(Some(target)),
         Err(reader::Error::NotFound) => Ok(None),
@@ -716,14 +716,9 @@ pub fn list_virtual_branches(
     project_repository: &project_repository::Repository,
 ) -> Result<Vec<VirtualBranch>, errors::ListVirtualBranchesError> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
 
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session reader")?;
-
-    let default_target = get_default_target(&current_session_reader)
+    let default_target = gb_repository
+        .default_target()
         .context("failed to get default target")?
         .ok_or_else(|| {
             errors::ListVirtualBranchesError::DefaultTargetNotSet(
