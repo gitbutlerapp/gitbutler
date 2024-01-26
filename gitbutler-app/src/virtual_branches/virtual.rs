@@ -20,9 +20,7 @@ use crate::{
 
 use super::{
     branch::{self, Branch, BranchCreateRequest, BranchId, FileOwnership, Hunk, Ownership},
-    branch_to_remote_branch, context, errors,
-    target::{self, Target},
-    Iterator, RemoteBranch,
+    branch_to_remote_branch, context, errors, target, Iterator, RemoteBranch,
 };
 
 type AppliedStatuses = Vec<(branch::Branch, HashMap<path::PathBuf, Vec<diff::Hunk>>)>;

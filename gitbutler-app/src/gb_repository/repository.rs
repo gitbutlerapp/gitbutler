@@ -381,6 +381,18 @@ impl Repository {
         Ok(())
     }
 
+    pub fn get_latest_session(&self) -> Result<Option<sessions::Session>> {
+        if let Some(current_session) = self.get_current_session()? {
+            Ok(Some(current_session))
+        } else {
+            let mut sessions_iterator = self.get_sessions_iterator()?;
+            sessions_iterator
+                .next()
+                .transpose()
+                .context("failed to get latest session")
+        }
+    }
+
     pub fn get_or_create_current_session(&self) -> Result<sessions::Session> {
         let _lock = self.lock();
 
@@ -509,16 +521,17 @@ impl Repository {
     }
 
     pub fn default_target(&self) -> Result<Option<target::Target>> {
-        let current_session = self
-            .get_or_create_current_session()
-            .context("failed to get current session")?;
-        let current_session_reader = sessions::Reader::open(self, &current_session)
-            .context("failed to open current session")?;
-        let target_reader = target::Reader::new(&current_session_reader);
-        match target_reader.read_default() {
-            Result::Ok(target) => Ok(Some(target)),
-            Err(reader::Error::NotFound) => Ok(None),
-            Err(err) => Err(err.into()),
+        if let Some(latest_session) = self.get_latest_session()? {
+            let latest_session_reader = sessions::Reader::open(self, &latest_session)
+                .context("failed to open current session")?;
+            let target_reader = target::Reader::new(&latest_session_reader);
+            match target_reader.read_default() {
+                Result::Ok(target) => Ok(Some(target)),
+                Err(reader::Error::NotFound) => Ok(None),
+                Err(err) => Err(err.into()),
+            }
+        } else {
+            Ok(None)
         }
     }
 
