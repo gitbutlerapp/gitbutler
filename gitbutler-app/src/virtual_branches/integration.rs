@@ -71,14 +71,15 @@ pub fn update_gitbutler_integration(
     repo.set_head(&GITBUTLER_INTEGRATION_REFERENCE.clone().into())
         .context("failed to set head")?;
 
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+    let latest_session = gb_repository
+        .get_latest_session()
+        .context("failed to get latest session")?
+        .context("latest session not found")?;
+    let session_reader = sessions::Reader::open(gb_repository, &latest_session)
         .context("failed to open current session")?;
 
     // get all virtual branches, we need to try to update them all
-    let all_virtual_branches = super::iterator::BranchIterator::new(&current_session_reader)
+    let all_virtual_branches = super::iterator::BranchIterator::new(&session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<super::branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?;
