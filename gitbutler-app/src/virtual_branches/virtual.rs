@@ -1719,22 +1719,22 @@ pub fn get_status_by_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<Vec<(branch::Branch, BranchStatus)>> {
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+    let latest_session = gb_repository
+        .get_latest_session()
+        .context("failed to get latest session")?
+        .context("latest session not found")?;
+    let session_reader = sessions::Reader::open(gb_repository, &latest_session)
         .context("failed to open current session")?;
 
-    let default_target = match get_default_target(&current_session_reader)
-        .context("failed to read default target")?
-    {
-        Some(target) => target,
-        None => {
-            return Ok(vec![]);
-        }
-    };
+    let default_target =
+        match get_default_target(&session_reader).context("failed to read default target")? {
+            Some(target) => target,
+            None => {
+                return Ok(vec![]);
+            }
+        };
 
-    let virtual_branches = Iterator::new(&current_session_reader)
+    let virtual_branches = Iterator::new(&session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?;
@@ -2584,13 +2584,15 @@ pub fn is_remote_branch_mergeable(
     branch_name: &git::RemoteRefname,
 ) -> Result<bool, errors::IsRemoteBranchMergableError> {
     // get the current target
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+    let latest_session = gb_repository.get_latest_session()?.ok_or_else(|| {
+        errors::IsRemoteBranchMergableError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+            project_id: project_repository.project().id,
+        })
+    })?;
+    let session_reader = sessions::Reader::open(gb_repository, &latest_session)
         .context("failed to open current session")?;
 
-    let default_target = get_default_target(&current_session_reader)
+    let default_target = get_default_target(&session_reader)
         .context("failed to get default target")?
         .ok_or_else(|| {
             errors::IsRemoteBranchMergableError::DefaultTargetNotSet(
@@ -2644,12 +2646,14 @@ pub fn is_virtual_branch_mergeable(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
 ) -> Result<bool, errors::IsVirtualBranchMergeable> {
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+    let latest_session = gb_repository.get_latest_session()?.ok_or_else(|| {
+        errors::IsVirtualBranchMergeable::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+            project_id: project_repository.project().id,
+        })
+    })?;
+    let session_reader = sessions::Reader::open(gb_repository, &latest_session)
         .context("failed to open current session reader")?;
-    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch_reader = branch::Reader::new(&session_reader);
     let branch = match branch_reader.read(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::IsVirtualBranchMergeable::BranchNotFound(
@@ -2665,7 +2669,7 @@ pub fn is_virtual_branch_mergeable(
         return Ok(true);
     }
 
-    let default_target = get_default_target(&current_session_reader)
+    let default_target = get_default_target(&session_reader)
         .context("failed to read default target")?
         .ok_or_else(|| {
             errors::IsVirtualBranchMergeable::DefaultTargetNotSet(
