@@ -32,6 +32,10 @@ pub fn init(package_info: &PackageInfo) -> ClientInitGuard {
         before_send: Some({
             Arc::new(|event| SENTRY_LIMIT.get_or_init(|| RateLimiter::direct(SENTRY_QUOTA)).check().is_ok().then_some(event))}),
         attach_stacktrace: true,
+        traces_sample_rate: match package_info.name.as_str() {
+            "GitButler Dev" | "GitButler Nightly" => 0.2_f32,
+            _ => 0.0_f32,
+        },
         default_integrations: true,
         ..Default::default()
     }))
