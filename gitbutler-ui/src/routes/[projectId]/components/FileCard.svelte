@@ -4,7 +4,7 @@
 	import type { File, Hunk } from '$lib/vbranches/types';
 	import { draggable } from '$lib/utils/draggable';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import { writable, type Writable } from 'svelte/store';
+	import type { Writable } from 'svelte/store';
 	import RenderedLine from './RenderedLine.svelte';
 	import { IconExpandUpDown, IconExpandUp, IconExpandDown } from '$lib/icons';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -13,7 +13,7 @@
 	import { quintOut } from 'svelte/easing';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import HunkContextMenu from './HunkContextMenu.svelte';
-	import { draggableFile, draggableHunk } from '$lib/draggables';
+	import { draggableHunk } from '$lib/draggables';
 	import FileCardHeader from './FileCardHeader.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import lscache from 'lscache';
@@ -112,10 +112,6 @@
 	class="resize-viewport"
 	bind:this={rsViewport}
 	in:slide={{ duration: 180, easing: quintOut, axis: 'x' }}
-	use:draggable={{
-		...draggableFile(branchId, file, writable([file])),
-		disabled: readonly
-	}}
 	style:width={`${fileWidth || $defaultFileWidthRem}rem`}
 >
 	<div id={`file-${file.id}`} class="file-card card">
