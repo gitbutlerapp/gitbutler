@@ -211,7 +211,6 @@
 		flex-shrink: 1;
 		align-items: flex-start;
 		height: 100%;
-		user-select: none;
 	}
 
 	.loading {
