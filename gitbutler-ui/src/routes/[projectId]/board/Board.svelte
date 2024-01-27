@@ -120,7 +120,6 @@
 					{projectPath}
 					{user}
 					{githubService}
-					readonly={!branch.active}
 				></BranchLane>
 			</div>
 		{/each}
