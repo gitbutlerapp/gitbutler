@@ -31,13 +31,14 @@
 
 	let includePrs = persisted(true, 'includePrs_' + projectId);
 	let includeRemote = persisted(true, 'includeRemote_' + projectId);
+	let includeStashed = persisted(true, 'includeStashed_' + projectId);
 	let hideBots = persisted(false, 'hideBots_' + projectId);
 	let hideInactive = persisted(false, 'hideInactive_' + projectId);
 
 	let filtersActive = derived(
-		[includePrs, includeRemote, hideBots, hideInactive],
-		([prs, remote, bots, inactive]) => {
-			return !prs || !remote || bots || inactive;
+		[includePrs, includeRemote, includeStashed, hideBots, hideInactive],
+		([prs, remote, stashed, bots, inactive]) => {
+			return !prs || !remote || !stashed || bots || inactive;
 		}
 	);
 
@@ -48,16 +49,19 @@
 			textFilter$,
 			storeToObservable(includePrs),
 			storeToObservable(includeRemote),
+			storeToObservable(includeStashed),
 			storeToObservable(hideBots),
 			storeToObservable(hideInactive)
 		],
-		(branches, search, includePrs, includeRemote, hideBots, hideInactive) => {
+		(branches, search, includePrs, includeRemote, includeStashed, hideBots, hideInactive) => {
 			const filteredByType = filterByType(branches, {
 				includePrs,
 				includeRemote,
+				includeStashed,
 				hideBots
 			});
 			const filteredBySearch = filterByText(filteredByType, search);
+			console.log(branches);
 			return hideInactive ? filterInactive(filteredBySearch) : filteredBySearch;
 		}
 	);
@@ -75,6 +79,7 @@
 		params: {
 			includePrs: boolean;
 			includeRemote: boolean;
+			includeStashed: boolean;
 			hideBots: boolean;
 		}
 	): CombinedBranch[] {
@@ -83,6 +88,7 @@
 				return !params.hideBots || !b.pr.author?.isBot;
 			}
 			if (params.includeRemote && b.remoteBranch) return true;
+			if (params.includeStashed && b.vbranch) return true;
 			return false;
 		});
 	}
@@ -149,6 +155,7 @@
 				{visible}
 				{includePrs}
 				{includeRemote}
+				{includeStashed}
 				{hideBots}
 				{hideInactive}
 				showPrCheckbox={$githubEnabled$}

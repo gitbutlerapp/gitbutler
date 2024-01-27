@@ -12,7 +12,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import toast from 'svelte-french-toast';
 	import { tooltip } from '$lib/utils/tooltip';
-	import Toggle from '$lib/components/Toggle.svelte';
+	import { goto } from '$app/navigation';
 
 	export let readonly = false;
 	export let branch: Branch;
@@ -27,6 +27,7 @@
 	let meatballButton: HTMLDivElement;
 	let visible = false;
 	let container: HTMLDivElement;
+	let isApplying = false;
 
 	function handleBranchNameChange() {
 		branchController.updateBranchName(branch.id, branch.name);
@@ -160,44 +161,55 @@
 						Set as default
 					</Button>
 				{/if}
-				<Toggle
-					checked={!readonly}
-					help="Toggle to stash branch"
-					on:change={async () => {
-						try {
-							if (readonly) await branchController.applyBranch(branch.id);
-							else await branchController.unapplyBranch(branch.id);
-						} catch (e) {
-							const err = 'Failed to apply/unapply branch';
-							toast.error(err);
-							console.error(err, e);
-						}
-					}}
-				/>
 			</div>
 			<div class="relative" bind:this={meatballButton}>
-				<Button
-					icon="kebab"
-					kind="outlined"
-					color="neutral"
-					on:click={() => (visible = !visible)}
-				/>
-				<div
-					class="branch-popup-menu"
-					use:clickOutside={{
-						trigger: meatballButton,
-						handler: () => (visible = false)
-					}}
-				>
-					<BranchLanePopupMenu
-						{branchController}
-						{branch}
-						{projectId}
-						{readonly}
-						bind:visible
-						on:action
+				{#if readonly}
+					<Button
+						help="Restores these changes into your working directory"
+						icon="plus-small"
+						color="primary"
+						kind="outlined"
+						loading={isApplying}
+						on:click={async () => {
+							isApplying = true;
+							try {
+								await branchController.applyBranch(branch.id);
+								goto(`/${projectId}/board`);
+							} catch (e) {
+								const err = 'Failed to apply branch';
+								toast.error(err);
+								console.error(err, e);
+							} finally {
+								isApplying = false;
+							}
+						}}
+					>
+						Apply
+					</Button>
+				{:else}
+					<Button
+						icon="kebab"
+						kind="outlined"
+						color="neutral"
+						on:click={() => (visible = !visible)}
 					/>
-				</div>
+					<div
+						class="branch-popup-menu"
+						use:clickOutside={{
+							trigger: meatballButton,
+							handler: () => (visible = false)
+						}}
+					>
+						<BranchLanePopupMenu
+							{branchController}
+							{branch}
+							{projectId}
+							{readonly}
+							bind:visible
+							on:action
+						/>
+					</div>
+				{/if}
 			</div>
 		</div>
 	</div>
@@ -257,8 +269,7 @@
 	.header__buttons {
 		display: flex;
 		position: relative;
-		align-items: center;
-		gap: var(--space-10);
+		gap: var(--space-4);
 	}
 	.header__label {
 		display: flex;
