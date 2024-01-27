@@ -58,7 +58,7 @@
 				hideBots
 			});
 			const filteredBySearch = filterByText(filteredByType, search);
-			return hideInactive ? filterInactive(filteredBySearch) : filteredByType;
+			return hideInactive ? filterInactive(filteredBySearch) : filteredBySearch;
 		}
 	);
 
@@ -88,6 +88,7 @@
 	}
 
 	function filterByText(branches: CombinedBranch[], search: string | undefined) {
+		console.log(search);
 		if (search == undefined) return branches;
 		return branches.filter((b) => b.displayName.includes(search));
 	}
