@@ -16,7 +16,7 @@
 	function toTokens(codeString: string): string[] {
 		function sanitize(text: string) {
 			var element = document.createElement('div');
-			element.innerText = text.replace('   ', ' ').replace(/\t/g, ' ');
+			element.innerText = text;
 			return element.innerHTML;
 		}
 
