@@ -62,7 +62,7 @@
 	}
 </script>
 
-{#if !readonly && type != 'integrated' && type != 'upstream' && type != 'remote'}
+{#if !readonly && type != 'integrated'}
 	<div class="actions">
 		{#if $githubEnabled$ && !$pr$ && type == 'local' && !branch.upstream}
 			<PushButton
@@ -143,5 +143,9 @@
 <style lang="postcss">
 	.actions {
 		padding-left: var(--space-16);
+
+		&:empty {
+			display: none;
+		}
 	}
 </style>
