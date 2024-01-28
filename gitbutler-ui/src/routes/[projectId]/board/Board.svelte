@@ -235,7 +235,7 @@
 	}
 
 	.empty-board__image {
-		width: 14.25rem;
+		width: 14.125rem;
 		margin-top: var(--space-10);
 		margin-bottom: var(--space-20);
 		transform: translateX(-3rem);
