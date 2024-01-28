@@ -128,6 +128,6 @@
 		line-height: 120%;
 	}
 	.selected-draggable {
-		background-color: var(--clr-theme-scale-pop-80);
+		background-color: var(--clr-theme-pop-container);
 	}
 </style>

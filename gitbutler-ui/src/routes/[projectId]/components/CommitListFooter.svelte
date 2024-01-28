@@ -56,9 +56,13 @@
 			isPushing = false;
 		}
 	}
+
+	$: {
+		console.log('branch type', type);
+	}
 </script>
 
-{#if !readonly && type != 'integrated'}
+{#if !readonly && type != 'integrated' && type != 'upstream' && type != 'remote'}
 	<div class="actions">
 		{#if $githubEnabled$ && !$pr$ && type == 'local' && !branch.upstream}
 			<PushButton
