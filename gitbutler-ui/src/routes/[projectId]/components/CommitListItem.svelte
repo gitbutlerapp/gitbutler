@@ -149,6 +149,10 @@
 	.commit-list-item {
 		padding: 0 0 var(--space-6) var(--space-16);
 		position: relative;
+
+		&:last-child {
+			padding-bottom: 0;
+		}
 	}
 	.line {
 		position: absolute;

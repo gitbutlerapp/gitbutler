@@ -56,6 +56,10 @@
 			isPushing = false;
 		}
 	}
+
+	$: {
+		console.log('branch type', type);
+	}
 </script>
 
 {#if !readonly && type != 'integrated'}
@@ -139,5 +143,9 @@
 <style lang="postcss">
 	.actions {
 		padding-left: var(--space-16);
+
+		&:empty {
+			display: none;
+		}
 	}
 </style>

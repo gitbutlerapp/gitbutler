@@ -73,6 +73,10 @@
 
 	.setup-feature__actions {
 		margin-top: var(--space-6);
+
+		&:empty {
+			display: none;
+		}
 	}
 
 	.setup-feature__row {
