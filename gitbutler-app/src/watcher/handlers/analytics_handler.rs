@@ -13,8 +13,14 @@ pub struct Handler {
 
 impl From<&AppHandle> for Handler {
     fn from(value: &AppHandle) -> Self {
+        let client = value
+            .try_state::<analytics::Client>()
+            .map_or(analytics::Client::default(), |client| {
+                client.inner().clone()
+            });
+
         Self {
-            client: value.state::<analytics::Client>().inner().clone(),
+            client,
             users: users::Controller::from(value),
         }
     }

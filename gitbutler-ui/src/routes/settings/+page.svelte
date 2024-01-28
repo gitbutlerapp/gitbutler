@@ -16,6 +16,7 @@
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
+	import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
 
 	export let data: PageData;
 	const { cloud, user$, userService } = data;
@@ -137,6 +138,10 @@
 			.then(() => deleteConfirmationModal.close())
 			.then(() => goto('/', { replaceState: true, invalidateAll: true }))
 			.finally(() => (isDeleting = false));
+
+	const errorReportingEnabled = appErrorReportingEnabled();
+	const metricsEnabled = appMetricsEnabled();
+	let updatedTelemetrySettings = false;
 </script>
 
 <ScrollableContainer wide>
@@ -307,6 +312,66 @@
 				</div>
 
 				<Spacer />
+				<div>
+					<h2 class="mb-2 text-lg font-medium">Telemetry</h2>
+				</div>
+				<div class="flex flex-col gap-2">
+					<p class="text-sm text-light-700 dark:text-dark-200">
+						GitButler uses telemetry strictly to help us improve the client. We do not collect any
+						personal information.
+					</p>
+					<p class="text-sm text-light-700 dark:text-dark-200">
+						We kindly ask you to consider keeping these settings enabled as it helps us catch issues
+						more quickly. If you choose to disable them, please feel to share your feedback on our <Link
+							target="_blank"
+							rel="noreferrer"
+							href="https://discord.gg/MmFkmaJ42D"
+						>
+							Discord
+						</Link>.
+					</p>
+
+					{#if updatedTelemetrySettings}
+						<p class="text-sm text-red-500">
+							Changes will take effect on the next application start
+						</p>
+					{/if}
+				</div>
+				<div class="flex items-center">
+					<div class="flex-grow">
+						<p>Error reporting</p>
+						<p class="text-sm text-light-700 dark:text-dark-200">
+							Toggle reporting of application crashes and errors.
+						</p>
+					</div>
+					<div>
+						<Toggle
+							checked={$errorReportingEnabled}
+							on:change={() => {
+								$errorReportingEnabled = !$errorReportingEnabled;
+								updatedTelemetrySettings = true;
+							}}
+						/>
+					</div>
+				</div>
+				<div class="flex items-center">
+					<div class="flex-grow">
+						<p>Usage metrics</p>
+						<p class="text-sm text-light-700 dark:text-dark-200">
+							Toggle sharing of usage statistics.
+						</p>
+					</div>
+					<div>
+						<Toggle
+							checked={$metricsEnabled}
+							on:change={() => {
+								$metricsEnabled = !$metricsEnabled;
+								updatedTelemetrySettings = true;
+							}}
+						/>
+					</div>
+				</div>
+				<Spacer />
 
 				{#if $user$}
 					<div>
@@ -320,7 +385,7 @@
 				</div>
 				<div class="flex gap-x-4">
 					<a
-						href="https://discord.gg/wDKZCPEjXC"
+						href="https://discord.gg/MmFkmaJ42D"
 						target="_blank"
 						rel="noreferrer"
 						class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
