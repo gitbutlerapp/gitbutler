@@ -11,10 +11,13 @@
 {#if ahead !== undefined && behind !== undefined}
 	<div
 		class="ahead-behind text-base-9 text-bold"
-		use:tooltip={`This branch is ${behindMessage} and ${aheadMessage}`}
 	>
-		<div class="behind" class:neutral={behind == 0}>{behind == 0 ? '0' : '-' + behind}</div>
-		<div class="ahead" class:neutral={ahead == 0}>{ahead == 0 ? '0' : '+' + ahead}</div>
+		<div
+		use:tooltip={`${behindMessage}`}
+        class="behind" class:neutral={behind == 0}>{behind}</div>
+		<div
+		use:tooltip={`${aheadMessage}`}
+        class="ahead" class:neutral={ahead == 0}>{ahead}</div>
 	</div>
 {/if}
 
