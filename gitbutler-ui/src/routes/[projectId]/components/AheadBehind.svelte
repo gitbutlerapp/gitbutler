@@ -9,15 +9,17 @@
 </script>
 
 {#if ahead !== undefined && behind !== undefined}
-	<div
-		class="ahead-behind text-base-9 text-bold"
-	>
+	<div class="ahead-behind text-base-9 text-bold">
 		<div
-		use:tooltip={`${behindMessage}`}
-        class="behind" class:neutral={behind == 0}>{behind}</div>
-		<div
-		use:tooltip={`${aheadMessage}`}
-        class="ahead" class:neutral={ahead == 0}>{ahead}</div>
+			use:tooltip={{ text: behindMessage, delay: 1000 }}
+			class="behind"
+			class:neutral={behind == 0}
+		>
+			{behind}
+		</div>
+		<div use:tooltip={{ text: aheadMessage, delay: 1000 }} class="ahead" class:neutral={ahead == 0}>
+			{ahead}
+		</div>
 	</div>
 {/if}
 

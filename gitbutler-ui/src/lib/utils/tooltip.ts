@@ -1,9 +1,11 @@
 export interface ToolTipOptions {
 	text: string;
-	// In the near future we'll need the ability to specify multiple
-	// options for the tooltip, such as a hotkey.
-	// hotkey?: string;
+	delay?: number;
 }
+
+const defaultOptions: Partial<ToolTipOptions> = {
+	delay: 1500
+};
 
 export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string) {
 	// The tooltip element we are adding to the dom
@@ -15,12 +17,15 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 	// Note that we use this both for delaying show, as well as delaying hide
 	let timeoutId: any;
 
+	// Options
+	let { delay } = defaultOptions;
+
 	// Most use cases only involve passing a string, so we allow either opts of
 	// simple text.
 	if (typeof optsOrString == 'string') {
 		text = optsOrString;
 	} else {
-		text = optsOrString.text;
+		({ text, delay } = optsOrString);
 	}
 
 	if (!text) return;
@@ -29,7 +34,7 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 		// If tooltip is displayed we clear hide timeout
 		if (tooltip && timeoutId) clearTimeout(timeoutId);
 		// If no tooltip and no timeout id we set a show timeout
-		else if (!tooltip && !timeoutId) timeoutId = setTimeout(() => show(), 1500);
+		else if (!tooltip && !timeoutId) timeoutId = setTimeout(() => show(), delay);
 	}
 
 	function onMouseLeave() {
