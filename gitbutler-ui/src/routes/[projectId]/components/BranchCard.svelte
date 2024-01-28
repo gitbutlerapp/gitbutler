@@ -10,13 +10,12 @@
 		type DraggableHunk
 	} from '$lib/draggables';
 	import { filesToOwnership, type Ownership } from '$lib/vbranches/ownership';
-	import { getExpandedWithCacheFallback } from './cache';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import lscache from 'lscache';
 	import CommitDialog from './CommitDialog.svelte';
-	import { get, writable, type Writable } from 'svelte/store';
+	import { get, type Writable } from 'svelte/store';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
 	import type { GitHubService } from '$lib/github/service';
 	import { isDraggableRemoteCommit, type DraggableRemoteCommit } from '$lib/draggables';
@@ -45,8 +44,6 @@
 	export let selectedOwnership: Writable<Ownership>;
 	export let commitBoxOpen: Writable<boolean>;
 
-	const allExpanded = writable(false);
-	const allCollapsed = writable(false);
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 
 	let rsViewport: HTMLElement;
@@ -56,17 +53,6 @@
 	const laneWidthKey = 'laneWidth_';
 
 	let laneWidth: number;
-
-	$: {
-		// On refresh we need to check expansion status from localStorage
-		branch.files && expandFromCache();
-	}
-
-	function expandFromCache() {
-		// Exercise cache lookup for all files.
-		$allExpanded = branch.files.every((f) => getExpandedWithCacheFallback(f));
-		$allCollapsed = branch.files.every((f) => getExpandedWithCacheFallback(f) == false);
-	}
 
 	$: if ($commitBoxOpen && branch.files.length === 0) {
 		$commitBoxOpen = false;
@@ -100,7 +86,6 @@
 	}
 
 	onMount(() => {
-		expandFromCache();
 		laneWidth = lscache.get(laneWidthKey + branch.id);
 	});
 
