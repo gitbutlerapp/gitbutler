@@ -6,6 +6,7 @@ import { UserService } from '$lib/stores/user';
 import { config } from 'rxjs';
 import { initPostHog } from '$lib/analytics/posthog';
 import { initSentry } from '$lib/analytics/sentry';
+import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
 
 // call on startup so we don't accumulate old items
 lscache.flushExpired();
@@ -20,8 +21,16 @@ export const csr = true;
 let homeDir: () => Promise<string>;
 
 export const load: LayoutLoad = async ({ fetch: realFetch }: { fetch: typeof fetch }) => {
-	initSentry();
-	initPostHog();
+	appErrorReportingEnabled()
+		.onDisk()
+		.then((enabled) => {
+			if (enabled) initSentry();
+		});
+	appMetricsEnabled()
+		.onDisk()
+		.then((enabled) => {
+			if (enabled) initPostHog();
+		});
 	const userService = new UserService();
 
 	// TODO: Find a workaround to avoid this dynamic import

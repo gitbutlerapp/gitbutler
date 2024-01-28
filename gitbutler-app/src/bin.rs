@@ -1,16 +1,19 @@
+use std::path::PathBuf;
+
 use anyhow::Context;
-use tauri::{generate_context, Manager};
+use tauri::{generate_context, Manager, Wry};
 
 use gblib::{
     analytics, app, assets, commands, database, deltas, github, keys, logs, menu, projects, sentry,
     sessions, storage, users, virtual_branches, watcher, zip,
 };
+use tauri_plugin_store::{with_store, JsonValue, StoreCollection};
 
 fn main() {
     let tauri_context = generate_context!();
 
-    let _guard = sentry::init(tauri_context.package_info());
-
+    let app_name = tauri_context.package_info().name.clone();
+    let app_version = tauri_context.package_info().version.clone().to_string();
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -80,18 +83,6 @@ fn main() {
 
                     tracing::info!(version = %app_handle.package_info().version, name = %app_handle.package_info().name, "starting app");
 
-                    let analytics_cfg = if cfg!(debug_assertions) {
-                        analytics::Config {
-                            posthog_token: Some("phc_t7VDC9pQELnYep9IiDTxrq2HLseY5wyT7pn0EpHM7rr"),
-                        }
-                    } else {
-                        analytics::Config {
-                            posthog_token: Some("phc_yJx46mXv6kA5KTuM2eEQ6IwNTgl5YW3feKV5gi7mfGG"),
-                        }
-                    };
-                    let analytics_client = analytics::Client::new(&app_handle, &analytics_cfg);
-                    tauri_app.manage(analytics_client);
-
                     let watchers = watcher::Watchers::try_from(&app_handle)
                         .expect("failed to initialize watchers");
                     tauri_app.manage(watchers);
@@ -132,7 +123,39 @@ fn main() {
                     app_handle.manage(keys_controller);
 
                     let users_controller = users::Controller::from(&app_handle);
-                    sentry::configure_scope(users_controller.get_user().context("failed to get user")?.as_ref());
+
+                    let stores = tauri_app.state::<StoreCollection<Wry>>();
+                    if let Some(path) = app_handle.path_resolver().app_config_dir().map(|path| path.join(PathBuf::from("settings.json"))) {
+                        if let Ok((metrics_enabled, error_reporting_enabled)) = with_store(app_handle.clone(), stores, path, |store| {
+                            let metrics_enabled = store.get("appMetricsEnabled")
+                                .and_then(JsonValue::as_bool)
+                                .unwrap_or(true);
+                            let error_reporting_enabled = store.get("appErrorReportingEnabled")
+                                .and_then(JsonValue::as_bool)
+                                .unwrap_or(true);
+                            Ok((metrics_enabled, error_reporting_enabled))
+                        }) {
+                            if metrics_enabled {
+                                let analytics_cfg = if cfg!(debug_assertions) {
+                                    analytics::Config {
+                                        posthog_token: Some("phc_t7VDC9pQELnYep9IiDTxrq2HLseY5wyT7pn0EpHM7rr"),
+                                    }
+                                } else {
+                                    analytics::Config {
+                                        posthog_token: Some("phc_yJx46mXv6kA5KTuM2eEQ6IwNTgl5YW3feKV5gi7mfGG"),
+                                    }
+                                };
+                                let analytics_client = analytics::Client::new(&app_handle, &analytics_cfg);
+                                tauri_app.manage(analytics_client);
+                            }
+
+                            if error_reporting_enabled {
+                                let _guard = sentry::init(app_name.as_str(), app_version);
+                                sentry::configure_scope(users_controller.get_user().context("failed to get user")?.as_ref());
+                            }
+                        };
+                    }
+
                     app_handle.manage(users_controller);
 
                     let app: app::App = app::App::try_from(&tauri_app.app_handle())
@@ -147,6 +170,7 @@ fn main() {
                 .plugin(tauri_plugin_window_state::Builder::default().build())
                 .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
                 .plugin(tauri_plugin_context_menu::init())
+                .plugin(tauri_plugin_store::Builder::default().build())
                 .invoke_handler(tauri::generate_handler![
                     commands::list_session_files,
                     commands::git_remote_branches,

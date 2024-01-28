@@ -90,3 +90,11 @@ impl Client {
         }
     }
 }
+
+impl Default for Client {
+    fn default() -> Self {
+        Self {
+            client: Arc::new(Box::<posthog::mock::Client>::default()),
+        }
+    }
+}
