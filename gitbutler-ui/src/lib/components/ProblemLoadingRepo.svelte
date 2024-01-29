@@ -3,7 +3,7 @@
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
 	import Modal from './Modal.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
-	import Icon from '$lib/icons/Icon.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import * as toasts from '$lib/utils/toasts';
 	import type { Project, ProjectService } from '$lib/backend/projects';
 	import type { UserService } from '$lib/stores/user';

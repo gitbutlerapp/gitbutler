@@ -3,7 +3,7 @@
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
 	import Link from './Link.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
-	import Icon from '$lib/icons/Icon.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import { slide } from 'svelte/transition';
 	import type { Project, ProjectService } from '$lib/backend/projects';
 	import type { UserService } from '$lib/stores/user';

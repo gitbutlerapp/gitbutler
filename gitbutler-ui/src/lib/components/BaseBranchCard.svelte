@@ -1,7 +1,7 @@
 <script lang="ts">
 	import SyncButton from './SyncButton.svelte';
 	import Badge from '$lib/components/Badge.svelte';
-	import Icon from '$lib/icons/Icon.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import type { Project } from '$lib/backend/projects';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';

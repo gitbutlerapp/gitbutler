@@ -2,11 +2,11 @@
 	import FileCardHeader from './FileCardHeader.svelte';
 	import HunkContextMenu from './HunkContextMenu.svelte';
 	import RenderedLine from './RenderedLine.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableHunk } from '$lib/dragging/draggables';
-	import Icon from '$lib/icons/Icon.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';

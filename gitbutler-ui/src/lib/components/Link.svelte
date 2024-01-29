@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '$lib/icons/Icon.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import { open } from '@tauri-apps/api/shell';
 	import { onMount } from 'svelte';
 
