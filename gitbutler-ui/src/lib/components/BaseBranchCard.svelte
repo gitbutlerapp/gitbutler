@@ -47,7 +47,7 @@
 			{#if $base$?.remoteUrl.includes('github.com')}
 				<!-- GitHub logo -->
 				<svg
-					style="height: 0.75rem; width: 0.75rem;"
+					style="width:0.75rem; height: 0.75rem"
 					viewBox="0 0 14 14"
 					fill="none"
 					xmlns="http://www.w3.org/2000/svg"

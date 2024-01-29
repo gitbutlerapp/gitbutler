@@ -56,10 +56,6 @@
 			isPushing = false;
 		}
 	}
-
-	$: {
-		console.log('branch type', type);
-	}
 </script>
 
 {#if !isUnapplied && type != 'integrated'}
