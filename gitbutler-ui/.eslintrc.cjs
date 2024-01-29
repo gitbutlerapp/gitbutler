@@ -32,6 +32,20 @@ module.exports = {
 	},
 	rules: {
 		'import/no-cycle': 'error',
+		'import/order': [
+			'error',
+			{
+				alphabetize: { order: 'asc', orderImportKind: 'asc', caseInsensitive: false },
+				groups: ['index', 'sibling', 'parent', 'internal', 'external', 'builtin', 'object', 'type'],
+				'newlines-between': 'never'
+			}
+		],
+		'import/no-unresolved': [
+			'error',
+			{
+				ignore: ['^\\$app', '^\\$env']
+			}
+		],
 		'svelte/no-at-html-tags': 'off',
 		'@typescript-eslint/no-namespace': 'off',
 		'@typescript-eslint/no-empty-function': 'off',
