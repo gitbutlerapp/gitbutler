@@ -1,9 +1,12 @@
 <script lang="ts">
 	import AccountLink from './AccountLink.svelte';
 	import ImgThemed from './ImgThemed.svelte';
+	import IconLink from './IconLink.svelte';
+	import wordmarkSvg from '/static/images/wordmark.svg?raw';
 	import type { User } from '$lib/backend/cloud';
 
 	export let user: User | undefined;
+	export let showLinks: boolean = true;
 	export let imgSet: { light: string; dark: string } | undefined = undefined;
 </script>
 
@@ -27,13 +30,23 @@
 				</div>
 			{/if}
 
-			<div class="right-side__footer">
-				<div class="right-side__links">
-					<slot name="links" />
-				</div>
+			{#if showLinks}
+				<div class="right-side__footer">
+					<div class="right-side__links">
+						<IconLink
+							icon="docs"
+							href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
+						>
+							<span class="text-base-14 text-semibold">GitButler Docs</span>
+						</IconLink>
+						<IconLink icon="video" href="https://www.youtube.com/@gitbutlerapp">
+							<span class="text-base-14 text-semibold">Watch tutorials</span>
+						</IconLink>
+					</div>
 
-				<div class="wordmark text-serif-24">GitButler</div>
-			</div>
+					<div class="wordmark">{@html wordmarkSvg}</div>
+				</div>
+			{/if}
 		</div>
 	</div>
 </div>
@@ -112,8 +125,6 @@
 	.wordmark {
 		position: absolute;
 		color: var(--clr-theme-scale-pop-30);
-		opacity: 0.6;
-		line-height: 1;
 		right: var(--space-32);
 		bottom: var(--space-32);
 	}
@@ -129,7 +140,7 @@
 		color: var(--clr-theme-scale-pop-20);
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-6);
+		gap: var(--space-12);
 	}
 
 	.img-wrapper {

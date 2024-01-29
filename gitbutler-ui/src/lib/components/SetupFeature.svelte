@@ -64,7 +64,6 @@
 		align-items: center;
 		width: 100%;
 		gap: var(--space-10);
-		justify-content: space-between;
 	}
 
 	.disabled .setup-feature__icon {

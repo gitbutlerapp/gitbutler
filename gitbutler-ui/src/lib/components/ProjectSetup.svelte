@@ -3,7 +3,6 @@
 	import Button from '$lib/components/Button.svelte';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
-	import IconLink from '$lib/components/IconLink.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SelectItem from '$lib/components/SelectItem.svelte';
@@ -93,12 +92,16 @@
 					</svg>
 				</svelte:fragment>
 				<svelte:fragment slot="title">GitButler features</svelte:fragment>
+
 				<svelte:fragment slot="body">
-					Enable automatic branch and commit message generation.
+					<label class="project-setup__toggle-label" for="aiGenEnabled"
+						>Enable automatic branch and commit message generation.</label
+					>
 				</svelte:fragment>
 				<svelte:fragment slot="toggle">
 					{#if $user$}
 						<Toggle
+							name="aiGenEnabled"
 							bind:this={aiGenCheckbox}
 							checked={$aiGenEnabled}
 							on:change={() => {
@@ -107,6 +110,7 @@
 						/>
 					{/if}
 				</svelte:fragment>
+
 				<svelte:fragment slot="actions">
 					{#if !$user$}
 						<Login {userService} />
@@ -172,12 +176,6 @@
 			</Button>
 		</div>
 	</div>
-	<svelte:fragment slot="links">
-		<IconLink icon="docs" href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes">
-			GitButler Docs
-		</IconLink>
-		<IconLink icon="video" href="https://www.youtube.com/@gitbutlerapp">Watch tutorial</IconLink>
-	</svelte:fragment>
 </DecorativeSplitView>
 
 <style lang="postcss">
@@ -189,7 +187,6 @@
 
 	.project-setup__info {
 		display: flex;
-
 		flex-direction: column;
 		gap: var(--space-12);
 	}
@@ -199,5 +196,9 @@
 		justify-content: flex-end;
 		width: 100%;
 		gap: var(--space-8);
+	}
+
+	.project-setup__toggle-label {
+		width: 100%;
 	}
 </style>

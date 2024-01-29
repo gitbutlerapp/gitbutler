@@ -19,6 +19,7 @@
 	class:small
 	{value}
 	{name}
+	id={name}
 	{disabled}
 	bind:checked
 />

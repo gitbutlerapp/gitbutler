@@ -7,7 +7,7 @@
 
 	export let name: keyof typeof iconsJson;
 	export let color: IconColor = undefined;
-	export let opacity: string | undefined = undefined;
+	export let opacity: number | undefined = 1;
 	export let spinnerRadius: number | undefined = 5;
 </script>
 
@@ -21,7 +21,7 @@
 	class:pop={color == 'pop'}
 	class:warn={color == 'warn'}
 	class:default={!color}
-	style:opacity
+	style:fill-opacity={opacity}
 >
 	{#if name == 'spinner'}
 		<circle class="spinner-path" cx="8" cy="8" r={spinnerRadius} fill="none" />
