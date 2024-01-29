@@ -1,37 +1,37 @@
 {
-  "build": {
-    "beforeBuildCommand": "pnpm build"
-  },
-  "package": {
-    "productName": "GitButler"
-  },
-  "tauri": {
-    "bundle": {
-      "identifier": "com.gitbutler.app",
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ]
-    },
-    "security": {
-      "csp": {
-        "default-src": "'self'",
-        "img-src": "'self' asset: https://asset.localhost data: tauri://localhost https://avatars.githubusercontent.com",
-        "connect-src": "'self' https://eu.posthog.com https://app.gitbutler.com https://o4504644069687296.ingest.sentry.io ws://localhost:7703 https://github.com https://api.github.com",
-        "script-src": "'self' https://eu.posthog.com",
-        "style-src": "'self' 'unsafe-inline'"
-      }
-    },
-    "updater": {
-      "active": true,
-      "dialog": true,
-      "endpoints": [
-        "https://app.gitbutler.com/releases/release/{{target}}-{{arch}}/{{current_version}}"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYwNTc2RDhBM0U0MjM4RUIKUldUck9FSStpbTFYWUE5UkJ3eXhuekZOL2V2RnpKaFUxbGJRNzBMVmF5V0gzV1JvN3hRblJMRDIK"
-    }
-  }
+	"build": {
+		"beforeBuildCommand": "pnpm build"
+	},
+	"package": {
+		"productName": "GitButler"
+	},
+	"tauri": {
+		"bundle": {
+			"identifier": "com.gitbutler.app",
+			"icon": [
+				"icons/32x32.png",
+				"icons/128x128.png",
+				"icons/128x128@2x.png",
+				"icons/icon.icns",
+				"icons/icon.ico"
+			]
+		},
+		"security": {
+			"csp": {
+				"default-src": "'self'",
+				"img-src": "'self' asset: https://asset.localhost data: tauri://localhost https://avatars.githubusercontent.com",
+				"connect-src": "'self' https://eu.posthog.com https://app.gitbutler.com https://o4504644069687296.ingest.sentry.io ws://localhost:7703 https://github.com https://api.github.com",
+				"script-src": "'self' https://eu.posthog.com",
+				"style-src": "'self' 'unsafe-inline'"
+			}
+		},
+		"updater": {
+			"active": true,
+			"dialog": true,
+			"endpoints": [
+				"https://app.gitbutler.com/releases/release/{{target}}-{{arch}}/{{current_version}}"
+			],
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYwNTc2RDhBM0U0MjM4RUIKUldUck9FSStpbTFYWUE5UkJ3eXhuekZOL2V2RnpKaFUxbGJRNzBMVmF5V0gzV1JvN3hRblJMRDIK"
+		}
+	}
 }
