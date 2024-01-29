@@ -5,9 +5,9 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
-	import { draggableCommit, nonDraggable } from '$lib/draggables';
+	import { draggable } from '$lib/dragging/draggable';
+	import { draggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
-	import { draggable } from '$lib/utils/draggable';
 	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
 	import { RemoteFile, type RemoteCommit, Commit } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';

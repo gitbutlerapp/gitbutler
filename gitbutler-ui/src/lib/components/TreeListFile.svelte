@@ -1,9 +1,9 @@
 <script lang="ts">
 	import FileStatusIcons from './FileStatusIcons.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
-	import { draggableFile } from '$lib/draggables';
+	import { draggable } from '$lib/dragging/draggable';
+	import { draggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
-	import { draggable } from '$lib/utils/draggable';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { File } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';

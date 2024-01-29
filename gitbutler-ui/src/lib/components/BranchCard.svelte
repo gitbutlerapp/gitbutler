@@ -14,10 +14,10 @@
 		type DraggableFile,
 		type DraggableHunk,
 		type DraggableRemoteCommit
-	} from '$lib/draggables';
+	} from '$lib/dragging/draggables';
+	import { dropzone } from '$lib/dragging/dropzone';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { dropzone } from '$lib/utils/draggable';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
 	import { filesToOwnership, type Ownership } from '$lib/vbranches/ownership';
 	import lscache from 'lscache';

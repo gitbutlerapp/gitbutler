@@ -4,11 +4,11 @@
 	import RenderedLine from './RenderedLine.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
-	import { draggableHunk } from '$lib/draggables';
+	import { draggable } from '$lib/dragging/draggable';
+	import { draggableHunk } from '$lib/dragging/draggables';
 	import Icon from '$lib/icons/Icon.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { draggable } from '$lib/utils/draggable';
 	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
 	import lscache from 'lscache';
 	import { onDestroy, getContext } from 'svelte';

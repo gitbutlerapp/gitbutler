@@ -8,8 +8,8 @@
 		type DraggableHunk,
 		isDraggableFile,
 		isDraggableCommit
-	} from '$lib/draggables';
-	import { dropzone } from '$lib/utils/draggable';
+	} from '$lib/dragging/draggables';
+	import { dropzone } from '$lib/dragging/dropzone';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
 	import { RemoteCommit, type BaseBranch, type Branch, type Commit } from '$lib/vbranches/types';
 	import { get } from 'svelte/store';

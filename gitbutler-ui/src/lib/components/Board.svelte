@@ -2,8 +2,8 @@
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import BranchLane from '$lib/components/BranchLane.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
+	import { cloneWithRotation } from '$lib/dragging/draggable';
 	import Icon from '$lib/icons/Icon.svelte';
-	import { cloneWithRotation } from '$lib/utils/draggable';
 	import { open } from '@tauri-apps/api/shell';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
