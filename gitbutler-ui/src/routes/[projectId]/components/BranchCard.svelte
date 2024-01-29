@@ -31,7 +31,7 @@
 	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
 
 	export let branch: Branch;
-	export let readonly = false;
+	export let isUnapplied = false;
 	export let project: Project;
 	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
@@ -136,7 +136,7 @@
 			class="branch-card__contents"
 		>
 			<BranchHeader
-				{readonly}
+				{isUnapplied}
 				{branchController}
 				{branch}
 				{base}
@@ -159,14 +159,14 @@
 					active: 'cherrypick-dz-active',
 					accepts: acceptCherrypick,
 					onDrop: onCherrypicked,
-					disabled: readonly
+					disabled: isUnapplied
 				}}
 				use:dropzone={{
 					hover: 'lane-dz-hover',
 					active: 'lane-dz-active',
 					accepts: acceptBranchDrop,
 					onDrop: onBranchDrop,
-					disabled: readonly
+					disabled: isUnapplied
 				}}
 			>
 				<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
@@ -175,7 +175,7 @@
 					<div class="card">
 						<BranchFiles
 							{branch}
-							{readonly}
+							{isUnapplied}
 							{selectedOwnership}
 							{selectedFiles}
 							showCheckboxes={$commitBoxOpen}
@@ -244,7 +244,7 @@
 				{branchController}
 				{branchService}
 				{branchCount}
-				{readonly}
+				{isUnapplied}
 			/>
 		</div>
 	</div>

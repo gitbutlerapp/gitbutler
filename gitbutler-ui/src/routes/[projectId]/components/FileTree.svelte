@@ -17,7 +17,7 @@
 	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<File[]>;
 	export let branchId: string;
-	export let readonly: boolean;
+	export let isUnapplied: boolean;
 
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
@@ -72,7 +72,7 @@
 					{showCheckboxes}
 					{selectedFiles}
 					{branchId}
-					{readonly}
+					{isUnapplied}
 					on:checked
 					on:unchecked
 				/>
@@ -85,7 +85,7 @@
 	<TreeListFile
 		file={node.file}
 		{branchId}
-		{readonly}
+		{isUnapplied}
 		selected={$selectedFiles.includes(file)}
 		{selectedOwnership}
 		{selectedFiles}
@@ -130,7 +130,7 @@
 						{showCheckboxes}
 						{selectedFiles}
 						{branchId}
-						{readonly}
+						{isUnapplied}
 						on:checked
 						on:unchecked
 					/>

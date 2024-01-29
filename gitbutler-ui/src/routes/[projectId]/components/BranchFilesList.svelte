@@ -7,7 +7,7 @@
 
 	export let branch: Branch;
 	export let selectedOwnership: Writable<Ownership>;
-	export let readonly = false;
+	export let isUnapplied = false;
 	export let showCheckboxes = false;
 	export let selectedFiles: Writable<File[]>;
 </script>
@@ -15,7 +15,7 @@
 {#each sortLikeFileTree(branch.files) as file (file.id)}
 	<FileListItem
 		{file}
-		{readonly}
+		{isUnapplied}
 		branchId={branch.id}
 		{selectedOwnership}
 		showCheckbox={showCheckboxes}

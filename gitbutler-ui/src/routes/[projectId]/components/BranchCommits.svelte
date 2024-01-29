@@ -12,7 +12,7 @@
 	export let githubService: GitHubService;
 	export let branchController: BranchController;
 	export let branchService: BranchService;
-	export let readonly: boolean;
+	export let isUnapplied: boolean;
 	export let branchCount: number;
 </script>
 
@@ -25,7 +25,7 @@
 		{branchService}
 		{branchCount}
 		{githubService}
-		{readonly}
+		{isUnapplied}
 		type="upstream"
 	/>
 	<CommitList
@@ -35,7 +35,7 @@
 		{branchController}
 		{branchService}
 		{githubService}
-		{readonly}
+		{isUnapplied}
 		type="local"
 	/>
 	<CommitList
@@ -45,7 +45,7 @@
 		{branchController}
 		{branchService}
 		{githubService}
-		{readonly}
+		{isUnapplied}
 		type="remote"
 	/>
 	<CommitList
@@ -55,7 +55,7 @@
 		{branchController}
 		{branchService}
 		{githubService}
-		{readonly}
+		{isUnapplied}
 		type="integrated"
 	/>
 {/if}

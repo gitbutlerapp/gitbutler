@@ -11,7 +11,7 @@
 	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
 
 	export let branch: Branch;
-	export let readonly = false;
+	export let isUnapplied = false;
 	export let project: Project;
 	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
@@ -45,7 +45,7 @@
 >
 	<BranchCard
 		{branch}
-		{readonly}
+		{isUnapplied}
 		{project}
 		{base}
 		{cloud}
@@ -68,8 +68,8 @@
 			{projectPath}
 			{branchController}
 			{selectedOwnership}
-			{readonly}
-			selectable={$commitBoxOpen && !readonly}
+			{isUnapplied}
+			selectable={$commitBoxOpen && !isUnapplied}
 			on:close={() => {
 				const selectedId = selected?.id;
 				selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));

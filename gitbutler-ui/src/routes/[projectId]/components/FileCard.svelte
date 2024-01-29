@@ -26,7 +26,7 @@
 	export let conflicted: boolean;
 	export let projectPath: string | undefined;
 	export let branchController: BranchController;
-	export let readonly: boolean;
+	export let isUnapplied: boolean;
 	export let selectable = false;
 	export let selectedOwnership: Writable<Ownership>;
 
@@ -151,7 +151,7 @@
 									role="cell"
 									use:draggable={{
 										...draggableHunk(branchId, section.hunk),
-										disabled: readonly || section.hunk.locked
+										disabled: isUnapplied || section.hunk.locked
 									}}
 									on:dblclick
 									class="hunk"

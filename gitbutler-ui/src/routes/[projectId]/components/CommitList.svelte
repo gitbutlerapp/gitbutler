@@ -15,7 +15,7 @@
 	export let type: CommitStatus;
 	export let githubService: GitHubService;
 	export let branchService: BranchService;
-	export let readonly: boolean;
+	export let isUnapplied: boolean;
 	export let branchCount: number = 0;
 
 	let headerHeight: number;
@@ -46,7 +46,7 @@
 								{commit}
 								{base}
 								{project}
-								{readonly}
+								{isUnapplied}
 								isChained={idx != commits.length - 1}
 								isHeadCommit={commit.id === headCommit?.id}
 							/>
@@ -65,7 +65,7 @@
 					{githubService}
 					{type}
 					{base}
-					{readonly}
+					{isUnapplied}
 					projectId={project.id}
 				/>
 			</div>

@@ -11,7 +11,7 @@
 	import type { Writable } from 'svelte/store';
 
 	export let branch: Branch;
-	export let readonly: boolean;
+	export let isUnapplied: boolean;
 	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<File[]>;
 	export let showCheckboxes = false;
@@ -63,7 +63,7 @@
 	</div>
 {/if}
 
-<div class="branch-files" class:readonly>
+<div class="branch-files" class:isUnapplied>
 	<div class="header" bind:this={headerElement}>
 		<div class="header__left">
 			{#if showCheckboxes && selectedListMode == 'list' && branch.files.length > 1}
@@ -94,7 +94,13 @@
 		<div class="scroll-container">
 			<!-- TODO: This is an experiment in file sorting. Accept or reject! -->
 			{#if selectedListMode == 'list'}
-				<BranchFilesList {branch} {selectedOwnership} {selectedFiles} {showCheckboxes} {readonly} />
+				<BranchFilesList
+					{branch}
+					{selectedOwnership}
+					{selectedFiles}
+					{showCheckboxes}
+					{isUnapplied}
+				/>
 			{:else}
 				<FileTree
 					node={filesToFileTree(branch.files)}
@@ -103,7 +109,7 @@
 					isRoot={true}
 					{selectedOwnership}
 					{selectedFiles}
-					{readonly}
+					{isUnapplied}
 				/>
 			{/if}
 		</div>
@@ -115,7 +121,7 @@
 		flex: 1;
 		background: var(--clr-theme-container-light);
 		border-radius: var(--radius-m) var(--radius-m) 0 0;
-		&.readonly {
+		&.isUnapplied {
 			border-radius: var(--radius-m);
 		}
 	}

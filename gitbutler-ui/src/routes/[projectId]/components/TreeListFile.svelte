@@ -11,7 +11,7 @@
 	export let branchId: string;
 	export let file: File;
 	export let selected: boolean;
-	export let readonly: boolean;
+	export let isUnapplied: boolean;
 	export let showCheckbox: boolean = false;
 	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<File[]>;
@@ -41,7 +41,7 @@
 	}}
 	use:draggable={{
 		...draggableFile(branchId, file, selectedFiles),
-		disabled: readonly,
+		disabled: isUnapplied,
 		selector: '.selected'
 	}}
 	on:click

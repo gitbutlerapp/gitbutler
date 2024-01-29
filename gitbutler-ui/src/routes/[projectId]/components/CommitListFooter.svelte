@@ -11,7 +11,7 @@
 
 	export let branch: Branch;
 	export let type: CommitStatus;
-	export let readonly: boolean;
+	export let isUnapplied: boolean;
 	export let branchController: BranchController;
 	export let branchService: BranchService;
 	export let githubService: GitHubService;
@@ -62,7 +62,7 @@
 	}
 </script>
 
-{#if !readonly && type != 'integrated'}
+{#if !isUnapplied && type != 'integrated'}
 	<div class="actions">
 		{#if $githubEnabled$ && !$pr$ && type == 'local' && !branch.upstream}
 			<PushButton
