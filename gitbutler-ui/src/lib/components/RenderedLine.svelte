@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { SectionType } from '$lib/utils/fileSections';
 	import { create } from '$lib/components/Differ/CodeHighlighter';
+	import { SectionType } from '$lib/utils/fileSections';
 	import { createEventDispatcher } from 'svelte';
 	import type { Line } from '$lib/utils/fileSections';
 
