@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-	import Icon from '$lib/icons/Icon.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { onMount } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';

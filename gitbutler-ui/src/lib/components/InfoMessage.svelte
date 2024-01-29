@@ -4,7 +4,7 @@
 
 <script lang="ts">
 	import Button, { type ButtonColor } from './Button.svelte';
-	import Icon, { type IconColor } from '$lib/icons/Icon.svelte';
+	import Icon, { type IconColor } from '$lib/components/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '../icons/icons.json';
 

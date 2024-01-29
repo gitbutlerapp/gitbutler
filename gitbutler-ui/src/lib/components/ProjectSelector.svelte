@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ProjectsPopup from './ProjectsPopup.svelte';
 	import { clickOutside } from '$lib/clickOutside';
-	import Icon from '$lib/icons/Icon.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import type { Project, ProjectService } from '$lib/backend/projects';
 
 	export let project: Project | undefined;

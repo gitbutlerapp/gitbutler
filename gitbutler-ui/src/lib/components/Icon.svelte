@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-	import iconsJson from './icons.json';
+	import iconsJson from '../icons/icons.json';
 
 	export let name: keyof typeof iconsJson;
 	export let color: IconColor = undefined;
