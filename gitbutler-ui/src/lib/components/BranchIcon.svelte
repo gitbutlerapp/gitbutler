@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { tooltip } from '$lib/utils/tooltip';
+
 	export let name: 'remote-branch' | 'virtual-branch' | 'pr' | 'pr-draft' | 'pr-closed' | undefined;
 	export let color: 'neutral' | 'success' | 'pop' | 'purple' | undefined;
+	export let help: string | undefined;
 </script>
 
 <div
@@ -9,6 +12,7 @@
 	class:neutral={color == 'neutral'}
 	class:success={color == 'success'}
 	class:purple={color == 'purple'}
+	use:tooltip={help}
 >
 	{#if name == 'virtual-branch'}
 		<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
