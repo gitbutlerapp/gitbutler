@@ -71,7 +71,6 @@ export class CombinedBranch {
 
 	get tooltip(): string | undefined {
 		const currentState = this.currentState();
-		console.log('currentState', currentState);
 		switch (currentState) {
 			case BranchState.VirtualBranch:
 				return 'Virtual branch';
