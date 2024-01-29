@@ -1,7 +1,7 @@
 <script lang="ts">
+	import RemoteBranchPreview from './RemoteBranchPreview.svelte';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
-	import RemoteBranchPreview from './RemoteBranchPreview.svelte';
 
 	export let data: PageData;
 	$: projectId = data.projectId;

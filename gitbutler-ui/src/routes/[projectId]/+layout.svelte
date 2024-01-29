@@ -1,18 +1,16 @@
 <script lang="ts">
-	import * as hotkeys from '$lib/utils/hotkeys';
-	import type { LayoutData } from './$types';
-
-	import { onMount } from 'svelte';
-	import { unsubscribe } from '$lib/utils/random';
+	import ProjectSetup from './ProjectSetup.svelte';
+	import Navigation from './navigation/Navigation.svelte';
 	import { syncToCloud } from '$lib/backend/cloud';
 	import { handleMenuActions } from '$lib/backend/menu_actions';
-	import { subscribe as menuSubscribe } from '$lib/menu';
-	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
-
-	import Navigation from './navigation/Navigation.svelte';
-	import ProjectSetup from './ProjectSetup.svelte';
-	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
+	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
+	import { subscribe as menuSubscribe } from '$lib/menu';
+	import * as hotkeys from '$lib/utils/hotkeys';
+	import { unsubscribe } from '$lib/utils/random';
+	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
+	import { onMount } from 'svelte';
+	import type { LayoutData } from './$types';
 
 	export let data: LayoutData;
 

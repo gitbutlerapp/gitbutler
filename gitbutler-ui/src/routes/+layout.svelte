@@ -1,17 +1,17 @@
 <script lang="ts">
 	import '../styles/main.postcss';
 
-	import * as hotkeys from '$lib/utils/hotkeys';
-	import * as events from '$lib/utils/events';
-	import { Toaster } from 'svelte-french-toast';
-	import type { LayoutData } from './$types';
-	import { onMount, setContext } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { unsubscribe } from '$lib/utils/random';
 	import LinkProjectModal from './LinkProjectModal.svelte';
 	import ShareIssueModal from './ShareIssueModal.svelte';
-	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
 	import { initTheme } from './settings/theme';
+	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
+	import * as events from '$lib/utils/events';
+	import * as hotkeys from '$lib/utils/hotkeys';
+	import { unsubscribe } from '$lib/utils/random';
+	import { onMount, setContext } from 'svelte';
+	import { Toaster } from 'svelte-french-toast';
+	import type { LayoutData } from './$types';
+	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
 	const { projectService, cloud, user$ } = data;

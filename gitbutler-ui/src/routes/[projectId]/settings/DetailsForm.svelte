@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { Project } from '$lib/backend/projects';
 	import TextArea from '$lib/components/TextArea.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import { createEventDispatcher } from 'svelte';
+	import type { Project } from '$lib/backend/projects';
 
 	export let project: Project;
 

@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { filesToFileTree } from '$lib/vbranches/filetree';
-	import type { Branch, File } from '$lib/vbranches/types';
-	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { Writable } from 'svelte/store';
-	import Badge from '$lib/components/Badge.svelte';
-	import SegmentedControl from '$lib/components/SegmentControl/SegmentedControl.svelte';
-	import Segment from '$lib/components/SegmentControl/Segment.svelte';
-	import FileTree from './FileTree.svelte';
-	import Checkbox from '$lib/components/Checkbox.svelte';
 	import BranchFilesList from './BranchFilesList.svelte';
+	import FileTree from './FileTree.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import Checkbox from '$lib/components/Checkbox.svelte';
+	import Segment from '$lib/components/SegmentControl/Segment.svelte';
+	import SegmentedControl from '$lib/components/SegmentControl/SegmentedControl.svelte';
+	import { filesToFileTree } from '$lib/vbranches/filetree';
+	import type { Ownership } from '$lib/vbranches/ownership';
+	import type { Branch, File } from '$lib/vbranches/types';
+	import type { Writable } from 'svelte/store';
 
 	export let branch: Branch;
 	export let readonly: boolean;

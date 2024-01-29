@@ -1,17 +1,15 @@
 <script lang="ts">
-	import type { Project, ProjectService } from '$lib/backend/projects';
-	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { UserService } from '$lib/stores/user';
-	import type { BaseBranch } from '$lib/vbranches/types';
-
-	import { slide } from 'svelte/transition';
-
+	import Button from './Button.svelte';
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
+	import IconLink from './IconLink.svelte';
+	import Link from './Link.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
-	import IconLink from './IconLink.svelte';
-	import Button from './Button.svelte';
-	import Link from './Link.svelte';
+	import { slide } from 'svelte/transition';
+	import type { Project, ProjectService } from '$lib/backend/projects';
+	import type { UserService } from '$lib/stores/user';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { BaseBranch } from '$lib/vbranches/types';
 
 	export let projectService: ProjectService;
 	export let branchController: BranchController;

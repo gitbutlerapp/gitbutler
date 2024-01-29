@@ -1,8 +1,7 @@
 import { invoke } from '$lib/backend/ipc';
-import type { Project as CloudProject } from '$lib/backend/cloud';
-import { open } from '@tauri-apps/api/dialog';
-import { goto } from '$app/navigation';
+import { persisted } from '$lib/persisted/persisted';
 import * as toasts from '$lib/utils/toasts';
+import { open } from '@tauri-apps/api/dialog';
 import {
 	BehaviorSubject,
 	catchError,
@@ -13,8 +12,9 @@ import {
 	skip,
 	switchMap
 } from 'rxjs';
-import { persisted } from '$lib/persisted/persisted';
 import { get } from 'svelte/store';
+import type { Project as CloudProject } from '$lib/backend/cloud';
+import { goto } from '$app/navigation';
 
 export type Key =
 	| 'default'

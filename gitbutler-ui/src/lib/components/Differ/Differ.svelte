@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { create } from './CodeHighlighter';
 	import { buildDiffRows, documentMap, RowType, type Row } from './renderer';
-
 	import type { DiffArray } from '$lib/diff';
 
 	export let filepath: string;

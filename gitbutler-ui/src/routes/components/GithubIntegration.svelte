@@ -3,8 +3,8 @@
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import { getAuthenticated } from '$lib/github/user';
-	import type { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
+	import type { UserService } from '$lib/stores/user';
 
 	export let userService: UserService;
 	export let minimal = false;

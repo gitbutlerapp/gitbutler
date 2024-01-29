@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Author } from '$lib/vbranches/types';
 	import AuthorIcon from './AuthorIcon.svelte';
+	import type { Author } from '$lib/vbranches/types';
 
 	export let authors: Author[];
 

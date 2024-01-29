@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { PageData } from './$types';
-	import { page } from '$app/stores';
 	import PullRequestPreview from './PullRequestPreview.svelte';
 	import { map } from 'rxjs';
+	import type { PageData } from './$types';
+	import { page } from '$app/stores';
 
 	export let data: PageData;
 

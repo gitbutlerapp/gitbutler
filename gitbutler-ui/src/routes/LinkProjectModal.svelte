@@ -1,15 +1,15 @@
 <script lang="ts">
-	import leven from 'leven';
-	import { compareDesc, formatDistanceToNow } from 'date-fns';
+	import Button from '$lib/components/Button.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import { IconFolder, IconLoading } from '$lib/icons';
+	import IconFolderPlus from '$lib/icons/IconFolderPlus.svelte';
+	import * as toasts from '$lib/utils/toasts';
+	import { compareDesc, formatDistanceToNow } from 'date-fns';
+	import leven from 'leven';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project, ProjectService } from '$lib/backend/projects';
-	import * as toasts from '$lib/utils/toasts';
-	import IconFolderPlus from '$lib/icons/IconFolderPlus.svelte';
-	import { goto } from '$app/navigation';
-	import Modal from '$lib/components/Modal.svelte';
-	import Button from '$lib/components/Button.svelte';
 	import type { Observable } from 'rxjs';
+	import { goto } from '$app/navigation';
 
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let projectService: ProjectService;

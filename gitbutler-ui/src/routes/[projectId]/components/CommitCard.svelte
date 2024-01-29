@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { open } from '@tauri-apps/api/shell';
-	import { RemoteFile, type RemoteCommit, Commit } from '$lib/vbranches/types';
-	import TimeAgo from '$lib/components/TimeAgo.svelte';
-	import { getVSIFileIcon } from '$lib/ext-icons';
-	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
 	import RenderedLine from './RenderedLine.svelte';
-	import { IconExpandUpDown, IconExpandUp, IconExpandDown } from '$lib/icons';
-	import { invoke } from '$lib/backend/ipc';
-	import { plainToInstance } from 'class-transformer';
-	import Modal from '$lib/components/Modal.svelte';
-	import Button from '$lib/components/Button.svelte';
+	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
 	import Tag from '../components/Tag.svelte';
+	import { invoke } from '$lib/backend/ipc';
+	import Button from '$lib/components/Button.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { draggableCommit, nonDraggable } from '$lib/draggables';
+	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { IconExpandUpDown, IconExpandUp, IconExpandDown } from '$lib/icons';
 	import { draggable } from '$lib/utils/draggable';
+	import { RemoteFile, type RemoteCommit, Commit } from '$lib/vbranches/types';
+	import { open } from '@tauri-apps/api/shell';
+	import { plainToInstance } from 'class-transformer';
 
 	export let commit: Commit | RemoteCommit;
 	export let projectId: string;

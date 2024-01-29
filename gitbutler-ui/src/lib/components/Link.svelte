@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { open } from '@tauri-apps/api/shell';
 	import Icon from '$lib/icons/Icon.svelte';
+	import { open } from '@tauri-apps/api/shell';
+	import { onMount } from 'svelte';
 
 	let classes = '';
 	export { classes as class };

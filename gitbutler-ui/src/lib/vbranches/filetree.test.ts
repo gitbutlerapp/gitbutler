@@ -1,7 +1,7 @@
-import { expect, test } from 'vitest';
-import { File } from '$lib/vbranches/types';
 import { filesToFileTree } from './filetree';
+import { File } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
+import { expect, test } from 'vitest';
 
 test('creates a file tree', () => {
 	const files = [

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { createEventDispatcher, getContext, onMount } from 'svelte';
-	import type { SegmentContext } from './segment';
-	import type iconsJson from '$lib/icons/icons.json';
 	import Icon from '$lib/icons/Icon.svelte';
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
+	import type iconsJson from '$lib/icons/icons.json';
+	import type { SegmentContext } from './segment';
 
 	export let id: string;
 	export let disabled = false;

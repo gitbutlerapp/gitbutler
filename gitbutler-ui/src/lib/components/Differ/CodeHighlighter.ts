@@ -2,24 +2,24 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import { HighlightStyle, StreamLanguage } from '@codemirror/language';
-import { tags, highlightTree } from '@lezer/highlight';
-import { NodeType, Tree, Parser } from '@lezer/common';
-import { javascript } from '@codemirror/lang-javascript';
+import { cpp } from '@codemirror/lang-cpp';
 import { css } from '@codemirror/lang-css';
 import { html } from '@codemirror/lang-html';
-import { xml } from '@codemirror/lang-xml';
-import { cpp } from '@codemirror/lang-cpp';
 import { java } from '@codemirror/lang-java';
+import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
+import { markdown } from '@codemirror/lang-markdown';
 import { php } from '@codemirror/lang-php';
 import { python } from '@codemirror/lang-python';
-import { markdown } from '@codemirror/lang-markdown';
-import { wast } from '@codemirror/lang-wast';
 // import { svelte } from '@replit/codemirror-lang-svelte';
-import { vue } from '@codemirror/lang-vue';
 import { rust } from '@codemirror/lang-rust';
+import { vue } from '@codemirror/lang-vue';
+import { wast } from '@codemirror/lang-wast';
+import { xml } from '@codemirror/lang-xml';
+import { HighlightStyle, StreamLanguage } from '@codemirror/language';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
+import { NodeType, Tree, Parser } from '@lezer/common';
+import { tags, highlightTree } from '@lezer/highlight';
 
 const t = tags;
 

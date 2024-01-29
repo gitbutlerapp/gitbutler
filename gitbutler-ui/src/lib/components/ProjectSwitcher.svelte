@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import type { Project, ProjectService } from '$lib/backend/projects';
-
 	import Button from './Button.svelte';
 	import Select from './Select.svelte';
 	import SelectItem from './SelectItem.svelte';
+	import type { Project, ProjectService } from '$lib/backend/projects';
+	import { goto } from '$app/navigation';
 
 	export let projectService: ProjectService;
 	export let project: Project | undefined;

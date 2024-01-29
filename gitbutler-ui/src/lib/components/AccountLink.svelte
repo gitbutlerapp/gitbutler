@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import type { User } from '$lib/backend/cloud';
 	import Icon from '$lib/icons/Icon.svelte';
+	import type { User } from '$lib/backend/cloud';
+	import { goto } from '$app/navigation';
 
 	export let user: User | undefined;
 	export let pop = false;

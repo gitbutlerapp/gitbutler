@@ -1,10 +1,10 @@
 <script lang="ts">
-	import Button from '$lib/components/Button.svelte';
-	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { PullRequest } from '$lib/github/types';
-	import Link from '$lib/components/Link.svelte';
 	import Tag from '../../components/Tag.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Link from '$lib/components/Link.svelte';
 	import { marked } from 'marked';
+	import type { PullRequest } from '$lib/github/types';
+	import type { BranchController } from '$lib/vbranches/branchController';
 
 	export let pullrequest: PullRequest | undefined;
 	export let branchController: BranchController;

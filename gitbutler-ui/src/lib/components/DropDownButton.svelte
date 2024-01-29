@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { joinClassNames } from '$lib/utils/joinClassNames';
-	import Button from '$lib/components/Button.svelte';
 	import { clickOutside } from '$lib/clickOutside';
+	import Button from '$lib/components/Button.svelte';
+	import { joinClassNames } from '$lib/utils/joinClassNames';
 	import type iconsJson from '$lib/icons/icons.json';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;

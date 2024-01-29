@@ -1,19 +1,17 @@
 <script async lang="ts">
-	import type { UserService } from '$lib/stores/user';
-	import type { BranchController } from '$lib/vbranches/branchController';
-
-	import { projectAiGenEnabled } from '$lib/config/config';
-
-	import Login from '$lib/components/Login.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
-	import IconLink from '$lib/components/IconLink.svelte';
-	import BackButton from '$lib/components/BackButton.svelte';
 	import SetupFeature from './components/SetupFeature.svelte';
 	import GithubIntegration from '../components/GithubIntegration.svelte';
+	import BackButton from '$lib/components/BackButton.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
+	import IconLink from '$lib/components/IconLink.svelte';
+	import Login from '$lib/components/Login.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SelectItem from '$lib/components/SelectItem.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
+	import { projectAiGenEnabled } from '$lib/config/config';
+	import type { UserService } from '$lib/stores/user';
+	import type { BranchController } from '$lib/vbranches/branchController';
 
 	export let branchController: BranchController;
 	export let userService: UserService;

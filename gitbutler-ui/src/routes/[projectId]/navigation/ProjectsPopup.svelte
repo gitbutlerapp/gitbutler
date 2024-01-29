@@ -1,8 +1,8 @@
 <script lang="ts">
+	import ListItem from './ListItem.svelte';
 	import type { ProjectService } from '$lib/backend/projects';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import ListItem from './ListItem.svelte';
 
 	export let projectService: ProjectService;
 

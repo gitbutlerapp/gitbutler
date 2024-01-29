@@ -1,10 +1,10 @@
 <script lang="ts">
+	import CommitCard from './CommitCard.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import { draggableRemoteCommit } from '$lib/draggables';
 	import { draggable } from '$lib/utils/draggable';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, RemoteBranch } from '$lib/vbranches/types';
-	import CommitCard from './CommitCard.svelte';
 
 	export let branchId: string;
 	export let projectId: string;

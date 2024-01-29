@@ -1,10 +1,10 @@
 <script lang="ts">
+	import CommitList from './CommitList.svelte';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
-	import CommitList from './CommitList.svelte';
 
 	export let project: Project;
 	export let branch: Branch;

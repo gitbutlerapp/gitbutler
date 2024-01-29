@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { Project } from '$lib/backend/projects';
+	import CommitCard from './CommitCard.svelte';
+	import DropzoneOverlay from './DropzoneOverlay.svelte';
 	import {
 		isDraggableHunk,
 		type DraggableCommit,
@@ -9,12 +10,11 @@
 		isDraggableCommit
 	} from '$lib/draggables';
 	import { dropzone } from '$lib/utils/draggable';
-	import type { BranchController } from '$lib/vbranches/branchController';
+	import { filesToOwnership } from '$lib/vbranches/ownership';
 	import { RemoteCommit, type BaseBranch, type Branch, type Commit } from '$lib/vbranches/types';
 	import { get } from 'svelte/store';
-	import CommitCard from './CommitCard.svelte';
-	import DropzoneOverlay from './DropzoneOverlay.svelte';
-	import { filesToOwnership } from '$lib/vbranches/ownership';
+	import type { Project } from '$lib/backend/projects';
+	import type { BranchController } from '$lib/vbranches/branchController';
 
 	export let branch: Branch;
 	export let project: Project;

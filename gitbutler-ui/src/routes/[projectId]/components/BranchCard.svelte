@@ -1,34 +1,34 @@
 <script lang="ts">
-	import type { BranchService } from '$lib/branches/service';
-	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
-	import { getContext, onMount } from 'svelte';
-	import { dropzone } from '$lib/utils/draggable';
-	import {
-		isDraggableHunk,
-		isDraggableFile,
-		type DraggableFile,
-		type DraggableHunk
-	} from '$lib/draggables';
-	import { filesToOwnership, type Ownership } from '$lib/vbranches/ownership';
-	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { User, getCloudApiClient } from '$lib/backend/cloud';
-	import Resizer from '$lib/components/Resizer.svelte';
-	import lscache from 'lscache';
-	import CommitDialog from './CommitDialog.svelte';
-	import { get, type Writable } from 'svelte/store';
-	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
-	import type { GitHubService } from '$lib/github/service';
-	import { isDraggableRemoteCommit, type DraggableRemoteCommit } from '$lib/draggables';
-	import BranchHeader from './BranchHeader.svelte';
+	import BranchCommits from './BranchCommits.svelte';
 	import BranchFiles from './BranchFiles.svelte';
+	import BranchHeader from './BranchHeader.svelte';
+	import CommitDialog from './CommitDialog.svelte';
+	import DropzoneOverlay from './DropzoneOverlay.svelte';
+	import ImgThemed from '$lib/components/ImgThemed.svelte';
+	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import {
+		isDraggableFile,
+		isDraggableHunk,
+		isDraggableRemoteCommit,
+		type DraggableFile,
+		type DraggableHunk,
+		type DraggableRemoteCommit
+	} from '$lib/draggables';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import BranchCommits from './BranchCommits.svelte';
+	import { dropzone } from '$lib/utils/draggable';
+	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
+	import { filesToOwnership, type Ownership } from '$lib/vbranches/ownership';
+	import lscache from 'lscache';
+	import { getContext, onMount } from 'svelte';
+	import { get, type Writable } from 'svelte/store';
+	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
-	import ImgThemed from '$lib/components/ImgThemed.svelte';
-
-	import DropzoneOverlay from './DropzoneOverlay.svelte';
+	import type { BranchService } from '$lib/branches/service';
+	import type { GitHubService } from '$lib/github/service';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
 
 	export let branch: Branch;
 	export let readonly = false;

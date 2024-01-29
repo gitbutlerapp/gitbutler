@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { BehaviorSubject } from 'rxjs';
 	import { createEventDispatcher, onDestroy, setContext } from 'svelte';
 	import type { ContextMenuContext, ContextMenuItem, ContextMenuType } from './contextMenu';
-	import { BehaviorSubject } from 'rxjs';
 
 	export let type: ContextMenuType = 'normal';
 	export const selection$ = new BehaviorSubject<ContextMenuItem | undefined>(undefined);

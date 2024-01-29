@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import BranchIcon from './BranchIcon.svelte';
+	import AheadBehind from '../components/AheadBehind.svelte';
 	import AuthorIcons from '$lib/components/AuthorIcons.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
-	import BranchIcon from './BranchIcon.svelte';
-	// import Icon from '$lib/icons/Icon.svelte';
 	import type { CombinedBranch } from '$lib/branches/types';
-	import AheadBehind from '../components/AheadBehind.svelte';
+	import { page } from '$app/stores';
 
 	export let projectId: string;
 	export let branch: CombinedBranch;

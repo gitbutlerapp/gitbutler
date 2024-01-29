@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type iconsJson from '$lib/icons/icons.json';
 	import Icon from '$lib/icons/Icon.svelte';
 	import { getContext } from 'svelte';
+	import type iconsJson from '$lib/icons/icons.json';
 	import type { ContextMenuContext } from './contextMenu';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;

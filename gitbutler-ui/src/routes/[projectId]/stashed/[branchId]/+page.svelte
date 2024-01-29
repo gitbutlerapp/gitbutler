@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { PageData } from './$types';
-	import { page } from '$app/stores';
 	import BranchLane from '../../components/BranchLane.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 
 	export let data: PageData;
 

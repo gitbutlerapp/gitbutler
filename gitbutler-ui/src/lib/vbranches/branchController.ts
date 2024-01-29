@@ -1,8 +1,8 @@
-import type { Branch, Hunk } from './types';
-import * as toasts from '$lib/utils/toasts';
 import { invoke } from '$lib/backend/ipc';
-import type { BaseBranchService, VirtualBranchService } from './branchStoresCache';
+import * as toasts from '$lib/utils/toasts';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
+import type { BaseBranchService, VirtualBranchService } from './branchStoresCache';
+import type { Branch, Hunk } from './types';
 
 export class BranchController {
 	constructor(

@@ -1,16 +1,12 @@
-import * as toasts from '$lib/utils/toasts';
-import lscache from 'lscache';
-import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
-import type { UserService } from '$lib/stores/user';
-import type { Octokit } from '@octokit/rest';
 import { newClient } from '$lib/github/client';
-
 import {
 	type PullRequest,
 	type GitHubIntegrationContext,
 	ghResponseToInstance,
 	type PrStatus
 } from '$lib/github/types';
+import * as toasts from '$lib/utils/toasts';
+import lscache from 'lscache';
 import {
 	Observable,
 	EMPTY,
@@ -33,6 +29,9 @@ import {
 	tap,
 	timeout
 } from 'rxjs/operators';
+import type { UserService } from '$lib/stores/user';
+import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+import type { Octokit } from '@octokit/rest';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };

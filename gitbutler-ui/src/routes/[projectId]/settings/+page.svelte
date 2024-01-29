@@ -1,17 +1,17 @@
 <script lang="ts">
-	import * as toasts from '$lib/utils/toasts';
-	import { goto } from '$app/navigation';
 	import CloudForm from './CloudForm.svelte';
 	import DetailsForm from './DetailsForm.svelte';
 	import KeysForm from './KeysForm.svelte';
 	import PreferencesForm from './PreferencesForm.svelte';
-	import type { PageData } from './$types';
-	import Modal from '$lib/components/Modal.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import Spacer from '../../../lib/components/Spacer.svelte';
-	import type { Key, Project } from '$lib/backend/projects';
 	import ScrollableContainer from '../../../lib/components/ScrollableContainer.svelte';
+	import Spacer from '../../../lib/components/Spacer.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import * as toasts from '$lib/utils/toasts';
 	import type { UserError } from '$lib/backend/ipc';
+	import type { Key, Project } from '$lib/backend/projects';
+	import type { PageData } from './$types';
+	import { goto } from '$app/navigation';
 
 	export let data: PageData;
 

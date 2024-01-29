@@ -1,12 +1,12 @@
 <script lang="ts">
+	import FileStatusIcons from './FileStatusIcons.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { draggableFile } from '$lib/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { draggable } from '$lib/utils/draggable';
+	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { File } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
-	import FileStatusIcons from './FileStatusIcons.svelte';
-	import type { Ownership } from '$lib/vbranches/ownership';
 
 	export let branchId: string;
 	export let file: File;

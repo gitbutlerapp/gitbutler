@@ -3,12 +3,12 @@
 </script>
 
 <script lang="ts">
-	import type { Writable } from 'svelte/store';
-	import type { File } from '$lib/vbranches/types';
-	import type { TreeNode } from '$lib/vbranches/filetree';
-	import type { Ownership } from '$lib/vbranches/ownership';
 	import TreeListFile from './TreeListFile.svelte';
 	import TreeListFolder from './TreeListFolder.svelte';
+	import type { TreeNode } from '$lib/vbranches/filetree';
+	import type { Ownership } from '$lib/vbranches/ownership';
+	import type { File } from '$lib/vbranches/types';
+	import type { Writable } from 'svelte/store';
 
 	export let expanded = true;
 	export let node: TreeNode;

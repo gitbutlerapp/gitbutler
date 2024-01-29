@@ -1,10 +1,9 @@
 <script lang="ts">
-	import type { ProjectService } from '$lib/backend/projects';
-	import IconLink from '$lib/components/IconLink.svelte';
-	import type { UserService } from '$lib/stores/user';
 	import WelcomeAction from './WelcomeAction.svelte';
-
+	import IconLink from '$lib/components/IconLink.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
+	import type { ProjectService } from '$lib/backend/projects';
+	import type { UserService } from '$lib/stores/user';
 
 	export let projectService: ProjectService;
 	export let userService: UserService;

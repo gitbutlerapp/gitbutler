@@ -1,13 +1,13 @@
-import type { PullRequest } from '$lib/github/types';
-import type { Branch, RemoteBranch } from '$lib/vbranches/types';
+import { capture } from '$lib/analytics/posthog';
 import { CombinedBranch } from '$lib/branches/types';
 import { Observable, combineLatest } from 'rxjs';
 import { startWith, switchMap } from 'rxjs/operators';
-import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { GitHubService } from '$lib/github/service';
+import type { PullRequest } from '$lib/github/types';
+import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
+import type { Branch, RemoteBranch } from '$lib/vbranches/types';
 import type { Transaction } from '@sentry/sveltekit';
-import { capture } from '$lib/analytics/posthog';
 
 export class BranchService {
 	public branches$: Observable<CombinedBranch[]>;

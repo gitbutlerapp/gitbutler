@@ -3,9 +3,9 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import { open } from '@tauri-apps/api/shell';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { File } from '$lib/vbranches/types';
-	import { open } from '@tauri-apps/api/shell';
 
 	export let file: File;
 	export let projectPath: string | undefined;

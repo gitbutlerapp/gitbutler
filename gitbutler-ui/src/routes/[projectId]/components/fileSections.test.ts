@@ -1,8 +1,8 @@
-import { expect, test } from 'vitest';
-import { File, Hunk } from '$lib/vbranches/types';
 import { parseHunkSection, parseFileSections, SectionType } from './fileSections';
-import type { ContentSection, HunkSection } from './fileSections';
+import { File, Hunk } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
+import { expect, test } from 'vitest';
+import type { ContentSection, HunkSection } from './fileSections';
 
 const fileContent = `<!DOCTYPE html>
 <html lang="en">

@@ -1,9 +1,9 @@
 <script lang="ts">
+	import FileListItem from './FileListItem.svelte';
+	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Branch, File } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
-	import FileListItem from './FileListItem.svelte';
-	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 
 	export let branch: Branch;
 	export let selectedOwnership: Writable<Ownership>;

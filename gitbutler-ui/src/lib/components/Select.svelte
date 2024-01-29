@@ -1,8 +1,8 @@
 <script lang="ts">
+	import ScrollableContainer from './ScrollableContainer.svelte';
+	import TextBox from './TextBox.svelte';
 	import { clickOutside } from '$lib/clickOutside';
 	import { createEventDispatcher } from 'svelte';
-	import TextBox from './TextBox.svelte';
-	import ScrollableContainer from './ScrollableContainer.svelte';
 
 	export let id: undefined | string = undefined;
 	export let label = '';

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { User } from '$lib/backend/cloud';
 	import AccountLink from './AccountLink.svelte';
 	import ImgThemed from './ImgThemed.svelte';
+	import type { User } from '$lib/backend/cloud';
 
 	export let user: User | undefined;
 	export let imgSet: { light: string; dark: string } | undefined = undefined;

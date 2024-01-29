@@ -1,7 +1,7 @@
 <script lang="ts">
+	import BaseBranch from './BaseBranch.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import type { PageData } from './$types';
-	import BaseBranch from './BaseBranch.svelte';
 
 	export let data: PageData;
 	$: projectId = data.projectId;

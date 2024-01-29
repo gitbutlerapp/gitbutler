@@ -1,14 +1,14 @@
 <script lang="ts">
-	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
-	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import BranchCard from './BranchCard.svelte';
 	import FileCard from './FileCard.svelte';
-	import { writable, type Writable } from 'svelte/store';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import type { GitHubService } from '$lib/github/service';
+	import { writable, type Writable } from 'svelte/store';
+	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
+	import type { GitHubService } from '$lib/github/service';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
 
 	export let branch: Branch;
 	export let readonly = false;

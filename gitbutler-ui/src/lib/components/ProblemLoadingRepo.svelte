@@ -1,14 +1,14 @@
 <script lang="ts">
+	import Button from './Button.svelte';
+	import DecorativeSplitView from './DecorativeSplitView.svelte';
+	import IconLink from './IconLink.svelte';
+	import Modal from './Modal.svelte';
+	import ProjectSwitcher from './ProjectSwitcher.svelte';
+	import Icon from '$lib/icons/Icon.svelte';
 	import * as toasts from '$lib/utils/toasts';
 	import type { Project, ProjectService } from '$lib/backend/projects';
 	import type { UserService } from '$lib/stores/user';
-	import DecorativeSplitView from './DecorativeSplitView.svelte';
-	import Icon from '$lib/icons/Icon.svelte';
-	import IconLink from './IconLink.svelte';
-	import Button from './Button.svelte';
-	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import { goto } from '$app/navigation';
-	import Modal from './Modal.svelte';
 
 	export let projectService: ProjectService;
 	export let project: Project;

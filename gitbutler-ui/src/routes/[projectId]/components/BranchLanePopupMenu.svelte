@@ -1,14 +1,14 @@
 <script lang="ts">
-	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import { projectAiGenEnabled } from '$lib/config/config';
-	import type { BranchController } from '$lib/vbranches/branchController';
-	import { createEventDispatcher } from 'svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import TextBox from '$lib/components/TextBox.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import { projectAiGenEnabled } from '$lib/config/config';
+	import { createEventDispatcher } from 'svelte';
+	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Branch } from '$lib/vbranches/types';
-	import TextBox from '$lib/components/TextBox.svelte';
 
 	export let branchController: BranchController;
 	export let branch: Branch;
