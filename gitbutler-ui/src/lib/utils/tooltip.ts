@@ -7,28 +7,27 @@ const defaultOptions: Partial<ToolTipOptions> = {
 	delay: 1500
 };
 
-export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string) {
+export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string | undefined) {
 	// The tooltip element we are adding to the dom
 	let tooltip: HTMLDivElement | undefined;
-
-	// Text for the tooltip
-	let text: string;
 
 	// Note that we use this both for delaying show, as well as delaying hide
 	let timeoutId: any;
 
 	// Options
-	let { delay } = defaultOptions;
+	let { text, delay } = defaultOptions;
 
 	// Most use cases only involve passing a string, so we allow either opts of
 	// simple text.
-	if (typeof optsOrString == 'string') {
-		text = optsOrString;
-	} else {
-		({ text, delay } = optsOrString);
+	function setOpts(opts: ToolTipOptions | string | undefined) {
+		if (typeof opts == 'string') {
+			text = opts;
+		} else {
+			({ text, delay } = opts || {});
+		}
 	}
 
-	if (!text) return;
+	setOpts(optsOrString);
 
 	function onMouseOver() {
 		// If tooltip is displayed we clear hide timeout
@@ -48,6 +47,7 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 	}
 
 	function show() {
+		if (!text) return;
 		tooltip = document.createElement('div') as HTMLDivElement;
 		// TODO: Can we co-locate tooltip.js & tooltip.postcss?
 		tooltip.classList.add('tooltip', 'text-base-11'); // see tooltip.postcss
@@ -96,7 +96,7 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 		if (showBelow) {
 			tooltip.style.top = `${(nodeTop + nodeHeight + padding) / 16}rem`;
 		} else {
-			tooltip.style.top = `${(nodeTop - padding - tooltipHeight) / 16}rem`;
+			tooltip.style.top = `${(nodeTop - tooltipHeight - padding) / 16}rem`;
 		}
 
 		let leftPos = nodeLeft - (tooltipWidth - nodeWidth) / 2;
@@ -109,8 +109,8 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 	node.addEventListener('mouseleave', onMouseLeave);
 
 	return {
-		update(opts: ToolTipOptions) {
-			({ text } = opts);
+		update(opts: ToolTipOptions | string | undefined) {
+			setOpts(opts);
 		},
 		destroy() {
 			tooltip?.remove();
