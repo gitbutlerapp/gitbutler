@@ -94,9 +94,13 @@
 				<svelte:fragment slot="title">GitButler features</svelte:fragment>
 
 				<svelte:fragment slot="body">
-					<label class="project-setup__toggle-label" for="aiGenEnabled"
-						>Enable automatic branch and commit message generation.</label
-					>
+					{#if $user$}
+						<label class="project-setup__toggle-label" for="aiGenEnabled"
+							>Enable automatic branch and commit message generation.</label
+						>
+					{:else}
+						Enable automatic branch and commit message generation.
+					{/if}
 				</svelte:fragment>
 				<svelte:fragment slot="toggle">
 					{#if $user$}
