@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Tag from '../../components/Tag.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
+	import Tag from '$lib/components/Tag.svelte';
 	import { marked } from 'marked';
 	import type { PullRequest } from '$lib/github/types';
 	import type { BranchController } from '$lib/vbranches/branchController';

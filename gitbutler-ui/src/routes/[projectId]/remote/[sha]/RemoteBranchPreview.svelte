@@ -1,6 +1,6 @@
 <script lang="ts">
-	import CommitCard from '../../components/CommitCard.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import CommitCard from '$lib/components/CommitCard.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { RemoteBranch } from '$lib/vbranches/types';
 

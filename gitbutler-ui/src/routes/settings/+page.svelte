@@ -1,7 +1,5 @@
 <script lang="ts">
 	import ThemeSelector from './ThemeSelector.svelte';
-	import Spacer from '../../lib/components/Spacer.svelte';
-	import GithubIntegration from '../components/GithubIntegration.svelte';
 	import { deleteAllData } from '$lib/backend/data';
 	import Button from '$lib/components/Button.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
@@ -9,6 +7,7 @@
 	import Login from '$lib/components/Login.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
+	import Spacer from '$lib/components/Spacer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
@@ -17,6 +16,7 @@
 	import { invoke } from '@tauri-apps/api/tauri';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
+	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
 
 	export let data: PageData;
 	const { cloud, user$, userService } = data;
