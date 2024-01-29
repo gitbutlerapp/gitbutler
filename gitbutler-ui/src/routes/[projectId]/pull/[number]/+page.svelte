@@ -1,5 +1,5 @@
 <script lang="ts">
-	import PullRequestPreview from './PullRequestPreview.svelte';
+	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
 	import { map } from 'rxjs';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';

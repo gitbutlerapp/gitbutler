@@ -1,10 +1,10 @@
 <script lang="ts">
-	import CloudForm from './CloudForm.svelte';
-	import DetailsForm from './DetailsForm.svelte';
-	import KeysForm from './KeysForm.svelte';
-	import PreferencesForm from './PreferencesForm.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import CloudForm from '$lib/components/CloudForm.svelte';
+	import DetailsForm from '$lib/components/DetailsForm.svelte';
+	import KeysForm from '$lib/components/KeysForm.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import PreferencesForm from '$lib/components/PreferencesForm.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import * as toasts from '$lib/utils/toasts';

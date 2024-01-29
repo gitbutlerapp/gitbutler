@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Board from './Board.svelte';
+	import Board from '$lib/components/Board.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import IconExternalLink from '$lib/icons/IconExternalLink.svelte';
