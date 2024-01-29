@@ -1,8 +1,8 @@
 <script lang="ts">
-	import BottomSheetImg from './assets/bottom-sheet.svelte';
-	import HandImg from './assets/hand.svelte';
-	import MiddleSheetImg from './assets/middle-sheet.svelte';
-	import TopSheetImg from './assets/top-sheet.svelte';
+	import BottomSheetSvg from './BottomSheetSvg.svelte';
+	import HandSvg from './HandSvg.svelte';
+	import MiddleSheetSvg from './MiddleSheetSvg.svelte';
+	import TopSheetSvg from './TopSheetSvg.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import {
 		isDraggableHunk,
@@ -49,16 +49,16 @@
 		<div class="new-virtual-branch__content">
 			<div class="stimg">
 				<div class="stimg__hand">
-					<HandImg />
+					<HandSvg />
 				</div>
 				<div class="stimg__top-sheet">
-					<TopSheetImg />
+					<TopSheetSvg />
 				</div>
 				<div class="stimg__middle-sheet">
-					<MiddleSheetImg />
+					<MiddleSheetSvg />
 				</div>
 				<div class="stimg__bottom-sheet">
-					<BottomSheetImg />
+					<BottomSheetSvg />
 				</div>
 
 				<div class="stimg__branch">

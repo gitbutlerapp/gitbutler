@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BaseBranch from './BaseBranch.svelte';
+	import BaseBranch from '$lib/components/BaseBranch.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import type { PageData } from './$types';
 

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ThemeSelector from './ThemeSelector.svelte';
 	import { deleteAllData } from '$lib/backend/data';
 	import Button from '$lib/components/Button.svelte';
 	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
@@ -10,6 +9,7 @@
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
+	import ThemeSelector from '$lib/components/ThemeSelector.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
 	import { copyToClipboard } from '$lib/utils/clipboard';

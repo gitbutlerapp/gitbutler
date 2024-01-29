@@ -1,5 +1,5 @@
 <script lang="ts">
-	import RemoteBranchPreview from './RemoteBranchPreview.svelte';
+	import RemoteBranchPreview from '$lib/components/RemoteBranchPreview.svelte';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 

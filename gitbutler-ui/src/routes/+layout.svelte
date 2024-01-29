@@ -1,9 +1,9 @@
 <script lang="ts">
 	import '../styles/main.postcss';
 
-	import LinkProjectModal from './LinkProjectModal.svelte';
-	import ShareIssueModal from './ShareIssueModal.svelte';
-	import { initTheme } from './settings/theme';
+	import LinkProjectModal from '$lib/components/LinkProjectModal.svelte';
+	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
+	import { initTheme } from '$lib/components/theme';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
 	import * as events from '$lib/utils/events';
 	import * as hotkeys from '$lib/utils/hotkeys';
