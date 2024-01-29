@@ -3,10 +3,10 @@
 	import DetailsForm from './DetailsForm.svelte';
 	import KeysForm from './KeysForm.svelte';
 	import PreferencesForm from './PreferencesForm.svelte';
-	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
-	import Spacer from '$lib/components/Spacer.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
+	import Spacer from '$lib/components/Spacer.svelte';
 	import * as toasts from '$lib/utils/toasts';
 	import type { UserError } from '$lib/backend/ipc';
 	import type { Key, Project } from '$lib/backend/projects';

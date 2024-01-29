@@ -2,6 +2,7 @@
 	import ThemeSelector from './ThemeSelector.svelte';
 	import { deleteAllData } from '$lib/backend/data';
 	import Button from '$lib/components/Button.svelte';
+	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Login from '$lib/components/Login.svelte';
@@ -16,7 +17,6 @@
 	import { invoke } from '@tauri-apps/api/tauri';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
-	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
 
 	export let data: PageData;
 	const { cloud, user$, userService } = data;
