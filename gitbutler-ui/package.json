@@ -13,6 +13,7 @@
 		"check:watch": "pnpm check --watch",
 		"lint": "prettier --no-editorconfig --check . && eslint .",
 		"format": "prettier --no-editorconfig --write .",
+		"fix": "eslint --fix .",
 		"tauri": "tauri",
 		"prepare": "svelte-kit sync"
 	},
