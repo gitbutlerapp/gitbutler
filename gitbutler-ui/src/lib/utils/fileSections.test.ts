@@ -1,8 +1,8 @@
-import { parseHunkSection, parseFileSections, SectionType } from './fileSections';
+import { parseHunkSection, parseFileSections, SectionType } from '$lib/utils/fileSections';
 import { File, Hunk } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { expect, test } from 'vitest';
-import type { ContentSection, HunkSection } from './fileSections';
+import type { ContentSection, HunkSection } from '$lib/utils/fileSections';
 
 const fileContent = `<!DOCTYPE html>
 <html lang="en">
@@ -100,7 +100,7 @@ const conflitMarkersHunk = `@@ -3,7 +3,11 @@
 +		%Sveltekit.head%
 +>>>>>>> theirs
  	</head>
- 
+
  	<body`;
 
 test('handle broken diffs', () => {

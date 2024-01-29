@@ -2,7 +2,6 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import Tag from './Tag.svelte';
-	import { branchUrl } from './commitList';
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
@@ -100,7 +99,7 @@
 						clickable
 						shrinkable
 						on:click={(e) => {
-							const url = branchUrl(base, branch.upstream?.name);
+							const url = base?.branchUrl(branch.upstream?.name);
 							if (url) open(url);
 							e.preventDefault();
 							e.stopPropagation();

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import RenderedLine from './RenderedLine.svelte';
-	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
+	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
 	import { invoke } from '$lib/backend/ipc';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';

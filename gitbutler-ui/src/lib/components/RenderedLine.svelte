@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { SectionType } from './fileSections';
+	import { SectionType } from '$lib/utils/fileSections';
 	import { create } from '$lib/components/Differ/CodeHighlighter';
 	import { createEventDispatcher } from 'svelte';
-	import type { Line } from './fileSections';
+	import type { Line } from '$lib/utils/fileSections';
 
 	export let line: Line;
 	export let sectionType: SectionType;
