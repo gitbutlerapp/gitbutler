@@ -13,7 +13,7 @@ jobs:
       gitbutler-diff: ${{ steps.filter.outputs.gitbutler-diff }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
