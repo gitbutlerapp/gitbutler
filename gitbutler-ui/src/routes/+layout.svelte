@@ -1,7 +1,6 @@
 <script lang="ts">
 	import '../styles/main.postcss';
 
-	import LinkProjectModal from '$lib/components/LinkProjectModal.svelte';
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
 	import * as events from '$lib/utils/events';
@@ -14,13 +13,12 @@
 	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
-	const { projectService, cloud, user$ } = data;
+	const { cloud, user$ } = data;
 
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
 	setContext(SETTINGS_CONTEXT, userSettings);
 
-	let linkProjectModal: LinkProjectModal;
 	let shareIssueModal: ShareIssueModal;
 
 	$: zoom = $userSettings.zoom || 1;
@@ -50,5 +48,4 @@
 	<slot />
 </div>
 <Toaster />
-<LinkProjectModal bind:this={linkProjectModal} {cloud} {projectService} user={$user$} />
 <ShareIssueModal bind:this={shareIssueModal} user={$user$} {cloud} />

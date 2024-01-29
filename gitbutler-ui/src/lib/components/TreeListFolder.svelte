@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Checkbox from '$lib/components/Checkbox.svelte';
-	import { IconFolder } from '$lib/icons';
 	import Icon from '$lib/icons/Icon.svelte';
+	import IconFolder from '$lib/icons/IconFolder.svelte';
 	import type { TreeNode } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Writable } from 'svelte/store';

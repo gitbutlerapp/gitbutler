@@ -1,6 +1,5 @@
 <script lang="ts">
 	import RenderedLine from './RenderedLine.svelte';
-	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
 	import { invoke } from '$lib/backend/ipc';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -8,8 +7,8 @@
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { draggableCommit, nonDraggable } from '$lib/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
-	import { IconExpandUpDown, IconExpandUp, IconExpandDown } from '$lib/icons';
 	import { draggable } from '$lib/utils/draggable';
+	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
 	import { RemoteFile, type RemoteCommit, Commit } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';
 	import { plainToInstance } from 'class-transformer';
@@ -140,7 +139,7 @@
 						<div class="commit-modal__code-wrapper">
 							{#each sections as section}
 								{#if 'hunk' in section}
-									{#each section.subSections as subsection, sidx}
+									{#each section.subSections as subsection}
 										{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
 											<RenderedLine
 												{line}
@@ -149,39 +148,6 @@
 												filePath={filepath}
 											/>
 										{/each}
-										{#if !subsection.expanded}
-											<div
-												class="border-color-4 flex w-full"
-												class:border-t={sidx == section.subSections.length - 1 ||
-													(sidx > 0 && sidx < section.subSections.length - 1)}
-												class:border-b={sidx == 0 ||
-													(sidx > 0 && sidx < section.subSections.length - 1)}
-											>
-												<div
-													class="bg-color-4 text-color-4 hover:text-color-2 border-color-4 border-r text-center"
-													style:min-width={`calc(${2 * minWidth}rem - 1px)`}
-												>
-													<button
-														class="flex justify-center py-0.5 text-sm"
-														style:width={`calc(${2 * minWidth}rem - 1px)`}
-														on:click={() => {
-															if ('expanded' in subsection) {
-																subsection.expanded = true;
-															}
-														}}
-													>
-														{#if sidx == 0}
-															<IconExpandUp />
-														{:else if sidx == section.subSections.length - 1}
-															<IconExpandDown />
-														{:else}
-															<IconExpandUpDown />
-														{/if}
-													</button>
-												</div>
-												<div class="bg-color-4 flex-grow" />
-											</div>
-										{/if}
 									{/each}
 								{/if}
 							{/each}

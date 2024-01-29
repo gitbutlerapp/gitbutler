@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Board from '$lib/components/Board.svelte';
+	import IconLink from '$lib/components/IconLink.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
-	import IconExternalLink from '$lib/icons/IconExternalLink.svelte';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -40,16 +40,10 @@
 		<div class="w-full bg-yellow-200/70 px-2 py-1 dark:bg-yellow-700/70">
 			HTTPS remote detected. In order to push & fetch, you may need to&nbsp;
 			<a class="font-bold" href="/settings"> set up </a>&nbsp;an SSH key (
-			<a
-				target="_blank"
-				rel="noreferrer"
-				class="font-bold"
+			<IconLink
 				href="https://docs.gitbutler.com/features/virtual-branches/pushing-and-fetching#the-ssh-keys"
+				icon="open-link">docs</IconLink
 			>
-				docs
-			</a>
-			&nbsp;
-			<IconExternalLink class="inline h-4 w-4" />
 			).
 			<button on:click={() => httpsWarningBannerDismissed.set(true)}>Dismiss</button>
 		</div>

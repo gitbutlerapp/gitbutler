@@ -2,15 +2,14 @@
 	import FileCardHeader from './FileCardHeader.svelte';
 	import HunkContextMenu from './HunkContextMenu.svelte';
 	import RenderedLine from './RenderedLine.svelte';
-	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import { draggableHunk } from '$lib/draggables';
-	import { IconExpandUpDown, IconExpandUp, IconExpandDown } from '$lib/icons';
 	import Icon from '$lib/icons/Icon.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { draggable } from '$lib/utils/draggable';
+	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
 	import lscache from 'lscache';
 	import { onDestroy, getContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
@@ -159,7 +158,7 @@
 								>
 									<div class="hunk__inner custom-scrollbar">
 										<div class="hunk__inner_inner">
-											{#each section.subSections as subsection, sidx}
+											{#each section.subSections as subsection}
 												{@const hunk = section.hunk}
 												{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
 													<RenderedLine
@@ -180,45 +179,6 @@
 															})}
 													/>
 												{/each}
-												{#if !subsection.expanded}
-													<div
-														role="group"
-														class="border-color-3 flex w-full"
-														class:border-t={sidx == section.subSections.length - 1 ||
-															(sidx > 0 && sidx < section.subSections.length - 1)}
-														class:border-b={sidx == 0 ||
-															(sidx > 0 && sidx < section.subSections.length - 1)}
-														on:contextmenu|preventDefault={(e) =>
-															popupMenu.openByMouse(e, {
-																section: section,
-																hunk
-															})}
-													>
-														<div
-															class="bg-color-4 text-color-4 hover:text-color-2 border-color-3 border-r text-center"
-															style:min-width={`calc(${2 * minWidth}rem - 1px)`}
-														>
-															<button
-																class="flex justify-center py-0.5 text-sm"
-																style:width={`calc(${2 * minWidth}rem - 1px)`}
-																on:click={() => {
-																	if ('expanded' in subsection) {
-																		subsection.expanded = true;
-																	}
-																}}
-															>
-																{#if sidx == 0}
-																	<IconExpandUp />
-																{:else if sidx == section.subSections.length - 1}
-																	<IconExpandDown />
-																{:else}
-																	<IconExpandUpDown />
-																{/if}
-															</button>
-														</div>
-														<div class="bg-color-4 flex-grow" />
-													</div>
-												{/if}
 											{/each}
 										</div>
 									</div>
