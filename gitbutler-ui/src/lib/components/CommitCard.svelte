@@ -1,10 +1,10 @@
 <script lang="ts">
 	import RenderedLine from './RenderedLine.svelte';
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
-	import Tag from '../components/Tag.svelte';
 	import { invoke } from '$lib/backend/ipc';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { draggableCommit, nonDraggable } from '$lib/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';

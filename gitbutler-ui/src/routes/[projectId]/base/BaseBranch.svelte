@@ -1,6 +1,6 @@
 <script lang="ts">
-	import CommitCard from '../components/CommitCard.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import CommitCard from '$lib/components/CommitCard.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { tooltip } from '$lib/utils/tooltip';

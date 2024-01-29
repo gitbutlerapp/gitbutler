@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchIcon from './BranchIcon.svelte';
-	import AheadBehind from '../components/AheadBehind.svelte';
+	import AheadBehind from '$lib/components/AheadBehind.svelte';
 	import AuthorIcons from '$lib/components/AuthorIcons.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import type { CombinedBranch } from '$lib/branches/types';

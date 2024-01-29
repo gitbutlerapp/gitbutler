@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BranchLane from '../../components/BranchLane.svelte';
+	import BranchLane from '$lib/components//BranchLane.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import type { PageData } from './$types';

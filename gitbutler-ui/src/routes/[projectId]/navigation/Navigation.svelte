@@ -5,8 +5,8 @@
 	import Footer from './Footer.svelte';
 	import Header from './Header.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
-	import Tag from '../components/Tag.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
+	import Tag from '$lib/components/Tag.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import * as toasts from '$lib/utils/toasts';

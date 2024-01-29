@@ -1,13 +1,13 @@
 <script async lang="ts">
-	import SetupFeature from './components/SetupFeature.svelte';
-	import GithubIntegration from '../components/GithubIntegration.svelte';
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
+	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
 	import IconLink from '$lib/components/IconLink.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SelectItem from '$lib/components/SelectItem.svelte';
+	import SetupFeature from '$lib/components/SetupFeature.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import type { UserService } from '$lib/stores/user';

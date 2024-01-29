@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BranchItem from './BranchItem.svelte';
 	import BranchesHeader from './BranchesHeader.svelte';
-	import FilterPopupMenu from '../components/FilterPopupMenu.svelte';
+	import FilterPopupMenu from '$lib/components/FilterPopupMenu.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';

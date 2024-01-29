@@ -2,7 +2,7 @@
 </script>
 
 <script lang="ts">
-	import InfoMessage from '../components/InfoMessage.svelte';
+	import InfoMessage from '$lib/components/InfoMessage.svelte';
 	import { dismissToast, toastStore } from '$lib/notifications/toasts';
 	import { slide } from 'svelte/transition';
 </script>

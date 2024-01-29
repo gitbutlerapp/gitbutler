@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Welcome from './[projectId]/components/Welcome.svelte';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
+	import Welcome from '$lib/components/Welcome.svelte';
 	import { map } from 'rxjs';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';

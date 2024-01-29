@@ -1,6 +1,6 @@
 <script lang="ts" async="true">
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
-	import BranchLane from '../components/BranchLane.svelte';
+	import BranchLane from '$lib/components/BranchLane.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
 	import { cloneWithRotation } from '$lib/utils/draggable';
