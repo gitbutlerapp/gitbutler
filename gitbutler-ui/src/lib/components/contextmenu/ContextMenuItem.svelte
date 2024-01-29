@@ -35,7 +35,7 @@
 		{#if checked}
 			<Icon name="tick-small" />
 		{:else}
-			<Icon name="empty-checkbox-small" opacity="0.2" />
+			<Icon name="empty-checkbox-small" opacity={0.2} />
 		{/if}
 	{/if}
 
