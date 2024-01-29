@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Button from './Button.svelte';
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
-	import IconLink from './IconLink.svelte';
 	import Link from './Link.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
@@ -74,12 +73,6 @@
 			</div>
 		{/if}
 	</div>
-	<svelte:fragment slot="links">
-		<IconLink icon="docs" href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes">
-			GitButler Docs
-		</IconLink>
-		<IconLink icon="video" href="https://www.youtube.com/@gitbutlerapp">Watch tutorial</IconLink>
-	</svelte:fragment>
 </DecorativeSplitView>
 
 <style lang="postcss">

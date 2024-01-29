@@ -3,7 +3,7 @@
 	import Icon from '$lib/icons/Icon.svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 
-	export let iconOpacity: string = '0.5';
+	export let iconOpacity: number = 0.7;
 	export let icon: keyof typeof iconsJson;
 </script>
 
