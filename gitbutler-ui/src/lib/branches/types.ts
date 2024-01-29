@@ -51,10 +51,7 @@ export class CombinedBranch {
 	}
 
 	get icon(): 'remote-branch' | 'virtual-branch' | 'pr' | 'pr-draft' | 'pr-closed' | undefined {
-		if (this.vbranch) return 'virtual-branch';
-		if (this.pr) return 'pr';
-		if (this.remoteBranch) return 'remote-branch';
-		return undefined; // or implement a default icon?
+		return this.currentState();
 	}
 
 	// GH colors reference https://github.blog/changelog/2021-06-08-new-issue-and-pull-request-state-icons
@@ -71,4 +68,36 @@ export class CombinedBranch {
 		if (this.vbranch) return this.vbranch.updatedAt;
 		if (this.remoteBranch) return this.remoteBranch.lastCommitTs;
 	}
+
+	get tooltip(): string | undefined {
+		const currentState = this.currentState();
+		console.log('currentState', currentState);
+		switch (currentState) {
+			case BranchState.VirtualBranch:
+				return 'Virtual branch';
+			case BranchState.RemoteBranch:
+				return 'Remote branch';
+			case BranchState.PR:
+				return 'Pull Request';
+			case BranchState.PRClosed:
+				return 'Closed Pull Request';
+			case BranchState.PRDraft:
+				return 'Draft Pull Request';
+		}
+	}
+
+	currentState(): BranchState | undefined {
+		if (this.vbranch) return BranchState.VirtualBranch;
+		if (this.pr) return BranchState.PR;
+		if (this.remoteBranch) return BranchState.RemoteBranch;
+		return undefined;
+	}
+}
+
+enum BranchState {
+	RemoteBranch = 'remote-branch',
+	VirtualBranch = 'virtual-branch',
+	PR = 'pr',
+	PRDraft = 'pr-draft',
+	PRClosed = 'pr-closed'
 }
