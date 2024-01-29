@@ -1,4 +1,5 @@
 import { invoke } from '$lib/backend/ipc';
+import * as toasts from '$lib/utils/toasts';
 import { RemoteBranch } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import {
@@ -28,7 +29,9 @@ export class RemoteBranchService {
 			map((branches) => branches.filter((b) => b.ahead != 0)),
 			shareReplay(1),
 			catchError((e) => {
+				console.log(e);
 				this.branchesError$.next(e);
+				toasts.error(`Failed load remote branches`);
 				return of([]);
 			})
 		);
