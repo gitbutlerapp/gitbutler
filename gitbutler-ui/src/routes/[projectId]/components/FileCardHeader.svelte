@@ -1,11 +1,11 @@
 <script lang="ts">
+	import FileStatusTag from './FileStatusTag.svelte';
+	import Tag from './Tag.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
-	import type { File } from '$lib/vbranches/types';
-	import { createEventDispatcher } from 'svelte';
-	import Tag from './Tag.svelte';
 	import { computeFileStatus, computedAddedRemoved } from '$lib/vbranches/fileStatus';
-	import FileStatusTag from './FileStatusTag.svelte';
+	import { createEventDispatcher } from 'svelte';
+	import type { File } from '$lib/vbranches/types';
 
 	export let file: File;
 	export let isFileLocked: boolean;

@@ -1,10 +1,10 @@
 <script lang="ts">
+	import Button from './Button.svelte';
 	import { getCloudApiClient, type LoginToken } from '$lib/backend/cloud';
 	import * as toasts from '$lib/utils/toasts';
 	import { open } from '@tauri-apps/api/shell';
-	import Button from './Button.svelte';
-	import type { UserService } from '$lib/stores/user';
 	import { derived, writable } from 'svelte/store';
+	import type { UserService } from '$lib/stores/user';
 
 	const cloud = getCloudApiClient();
 

@@ -1,10 +1,10 @@
+import { resetPostHog, setPostHogUser } from '$lib/analytics/posthog';
+import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
+import { getCloudApiClient, type User } from '$lib/backend/cloud';
+import { invoke } from '$lib/backend/ipc';
+import { sleep } from '$lib/utils/sleep';
 import { open } from '@tauri-apps/api/shell';
 import { BehaviorSubject, Observable, Subject, merge, shareReplay } from 'rxjs';
-import { getCloudApiClient, type User } from '$lib/backend/cloud';
-import { sleep } from '$lib/utils/sleep';
-import { invoke } from '$lib/backend/ipc';
-import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
-import { resetPostHog, setPostHogUser } from '$lib/analytics/posthog';
 
 export class UserService {
 	private cloud = getCloudApiClient();

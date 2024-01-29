@@ -1,18 +1,16 @@
 <script lang="ts" async="true">
-	import type { User, getCloudApiClient } from '$lib/backend/cloud';
-	import type { BaseBranch, Branch } from '$lib/vbranches/types';
-	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BranchService } from '$lib/branches/service';
-	import type { GitHubService } from '$lib/github/service';
-	import type { Project } from '$lib/backend/projects';
-
-	import { cloneWithRotation } from '$lib/utils/draggable';
-	import { open } from '@tauri-apps/api/shell';
-
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import BranchLane from '../components/BranchLane.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
+	import { cloneWithRotation } from '$lib/utils/draggable';
+	import { open } from '@tauri-apps/api/shell';
+	import type { User, getCloudApiClient } from '$lib/backend/cloud';
+	import type { Project } from '$lib/backend/projects';
+	import type { BranchService } from '$lib/branches/service';
+	import type { GitHubService } from '$lib/github/service';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 
 	export let project: Project;
 	export let projectPath: string;

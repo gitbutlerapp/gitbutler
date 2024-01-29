@@ -1,12 +1,12 @@
+import { BranchService } from '$lib/branches/service';
+import { GitHubService } from '$lib/github/service';
 import { getFetchNotifications } from '$lib/stores/fetches';
 import { getHeads } from '$lib/stores/head';
+import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { BranchController } from '$lib/vbranches/branchController';
 import { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
-import type { LayoutLoad } from './$types';
-import { GitHubService } from '$lib/github/service';
-import { RemoteBranchService } from '$lib/stores/remoteBranches';
-import { BranchService } from '$lib/branches/service';
 import { map } from 'rxjs';
+import type { LayoutLoad } from './$types';
 
 export const prerender = false;
 

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
-	import type { PageData } from './$types';
-	import IconExternalLink from '$lib/icons/IconExternalLink.svelte';
 	import Board from './Board.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
+	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
+	import IconExternalLink from '$lib/icons/IconExternalLink.svelte';
+	import type { PageData } from './$types';
 
 	export let data: PageData;
 

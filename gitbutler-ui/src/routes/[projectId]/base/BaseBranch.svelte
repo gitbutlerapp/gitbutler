@@ -1,11 +1,11 @@
 <script lang="ts">
-	import type { BaseBranch } from '$lib/vbranches/types';
 	import CommitCard from '../components/CommitCard.svelte';
-	import type { BranchController } from '$lib/vbranches/branchController';
-	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { tooltip } from '$lib/utils/tooltip';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { BaseBranch } from '$lib/vbranches/types';
 
 	export let base: BaseBranch;
 	export let projectId: string;

@@ -1,7 +1,7 @@
-import type { EventCallback, EventName } from '@tauri-apps/api/event';
-import { invoke as invokeTauri } from '@tauri-apps/api/tauri';
 import { listen as listenTauri } from '@tauri-apps/api/event';
+import { invoke as invokeTauri } from '@tauri-apps/api/tauri';
 import { writable } from 'svelte/store';
+import type { EventCallback, EventName } from '@tauri-apps/api/event';
 
 export enum Code {
 	Unknown = 'errors.unknown',

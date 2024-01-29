@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { ProjectService } from '$lib/backend/projects';
-	import IconButton from '$lib/components/IconButton.svelte';
 	import SelectProjectItem from './SelectProjectItem.svelte';
 	import AccountLink from '$lib/components/AccountLink.svelte';
-	import type { User } from '$lib/backend/cloud';
+	import IconButton from '$lib/components/IconButton.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
+	import type { User } from '$lib/backend/cloud';
+	import type { ProjectService } from '$lib/backend/projects';
 
 	export let user: User | undefined;
 	export let loading = false;

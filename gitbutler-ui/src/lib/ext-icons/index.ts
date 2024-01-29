@@ -1,7 +1,13 @@
 /**
  * https://github.com/gitbutlerapp/file-extension-icon-JS
  */
+import { vsiFileExtensionsToIcons, vsiFileNamesToIcons } from './vsi/typeMap';
 import { vsiFileIcons1 } from './vsi/vsiFileIcons1';
+import { vsiFileIcons10 } from './vsi/vsiFileIcons10';
+import { vsiFileIcons11 } from './vsi/vsiFileIcons11';
+import { vsiFileIcons12 } from './vsi/vsiFileIcons12';
+import { vsiFileIcons13 } from './vsi/vsiFileIcons13';
+import { vsiFileIcons14 } from './vsi/vsiFileIcons14';
 import { vsiFileIcons2 } from './vsi/vsiFileIcons2';
 import { vsiFileIcons3 } from './vsi/vsiFileIcons3';
 import { vsiFileIcons4 } from './vsi/vsiFileIcons4';
@@ -10,12 +16,6 @@ import { vsiFileIcons6 } from './vsi/vsiFileIcons6';
 import { vsiFileIcons7 } from './vsi/vsiFileIcons7';
 import { vsiFileIcons8 } from './vsi/vsiFileIcons8';
 import { vsiFileIcons9 } from './vsi/vsiFileIcons9';
-import { vsiFileIcons10 } from './vsi/vsiFileIcons10';
-import { vsiFileIcons11 } from './vsi/vsiFileIcons11';
-import { vsiFileIcons12 } from './vsi/vsiFileIcons12';
-import { vsiFileIcons13 } from './vsi/vsiFileIcons13';
-import { vsiFileIcons14 } from './vsi/vsiFileIcons14';
-import { vsiFileExtensionsToIcons, vsiFileNamesToIcons } from './vsi/typeMap';
 
 export const vsiFileIcons: { [key: string]: string } = {
 	...vsiFileIcons1,

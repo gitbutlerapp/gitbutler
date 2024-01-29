@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { FileStatus } from '$lib/vbranches/fileStatus';
 	import Tag, { type TagColor } from './Tag.svelte';
+	import type { FileStatus } from '$lib/vbranches/fileStatus';
 
 	export let status: FileStatus;
 

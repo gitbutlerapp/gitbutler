@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { page } from '$app/stores';
 	import Icon from '$lib/icons/Icon.svelte';
-	import type { Branch } from '$lib/vbranches/types';
 	import { slide } from 'svelte/transition';
+	import type { Branch } from '$lib/vbranches/types';
+	import { page } from '$app/stores';
 
 	export let branch: Branch;
 	export let projectId: string;

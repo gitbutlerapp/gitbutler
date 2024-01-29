@@ -1,9 +1,9 @@
 <script lang="ts">
-	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import Welcome from './[projectId]/components/Welcome.svelte';
+	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
+	import { map } from 'rxjs';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
-	import { map } from 'rxjs';
 	import { page } from '$app/stores';
 
 	export let data: PageData;

@@ -3,10 +3,10 @@
 </script>
 
 <script lang="ts">
+	import Button, { type ButtonColor } from './Button.svelte';
 	import Icon, { type IconColor } from '$lib/icons/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '../icons/icons.json';
-	import Button, { type ButtonColor } from './Button.svelte';
 
 	export let style: MessageStyle = 'neutral';
 	export let title: string | undefined = undefined;

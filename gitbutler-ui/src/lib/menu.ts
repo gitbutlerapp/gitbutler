@@ -1,5 +1,5 @@
-import { emit } from '$lib/utils/events';
 import { invoke, listen as listenIpc } from '$lib/backend/ipc';
+import { emit } from '$lib/utils/events';
 
 export function subscribe(projectId: string) {
 	invoke('menu_item_set_enabled', {

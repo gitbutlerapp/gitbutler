@@ -1,12 +1,12 @@
-import type { LayoutLoad } from './$types';
-import { getCloudApiClient } from '$lib/backend/cloud';
-import { ProjectService } from '$lib/backend/projects';
-import lscache from 'lscache';
-import { UserService } from '$lib/stores/user';
-import { config } from 'rxjs';
 import { initPostHog } from '$lib/analytics/posthog';
 import { initSentry } from '$lib/analytics/sentry';
+import { getCloudApiClient } from '$lib/backend/cloud';
+import { ProjectService } from '$lib/backend/projects';
 import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
+import { UserService } from '$lib/stores/user';
+import lscache from 'lscache';
+import { config } from 'rxjs';
+import type { LayoutLoad } from './$types';
 
 // call on startup so we don't accumulate old items
 lscache.flushExpired();

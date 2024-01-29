@@ -1,7 +1,7 @@
-import { posthog } from 'posthog-js';
-import { PUBLIC_POSTHOG_API_KEY } from '$env/static/public';
-import type { User } from '../backend/cloud';
 import { getVersion, getName } from '@tauri-apps/api/app';
+import { posthog } from 'posthog-js';
+import type { User } from '../backend/cloud';
+import { PUBLIC_POSTHOG_API_KEY } from '$env/static/public';
 
 export async function initPostHog() {
 	const [appName, appVersion] = await Promise.all([getName(), getVersion()]);

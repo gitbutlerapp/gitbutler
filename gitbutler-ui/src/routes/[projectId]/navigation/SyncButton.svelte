@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { syncToCloud } from '$lib/backend/cloud';
-	import Icon from '$lib/icons/Icon.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
+	import Icon from '$lib/icons/Icon.svelte';
+	import { tooltip } from '$lib/utils/tooltip';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
-	import { tooltip } from '$lib/utils/tooltip';
 
 	export let githubService: GitHubService;
 	export let projectId: string;

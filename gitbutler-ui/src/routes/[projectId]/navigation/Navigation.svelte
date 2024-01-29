@@ -1,32 +1,28 @@
 <script lang="ts">
-	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { User } from '$lib/backend/cloud';
 	import BaseBranchCard from './BaseBranchCard.svelte';
-	import type { Project, ProjectService } from '$lib/backend/projects';
-	import Footer from './Footer.svelte';
-	// import AppUpdater from '../../../lib/components/AppUpdater.svelte';
-	import { persisted } from '$lib/persisted/persisted';
-	// import type { Update } from '../../updater';
-	import DomainButton from './DomainButton.svelte';
-	import type { GitHubService } from '$lib/github/service';
-	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
-	import ProjectSelector from './ProjectSelector.svelte';
 	import Branches from './Branches.svelte';
-	import type { BranchService } from '$lib/branches/service';
+	import DomainButton from './DomainButton.svelte';
+	import Footer from './Footer.svelte';
 	import Header from './Header.svelte';
+	import ProjectSelector from './ProjectSelector.svelte';
 	import Tag from '../components/Tag.svelte';
-	import * as toasts from '$lib/utils/toasts';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import { getContext } from 'svelte';
+	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	// import type { Observable } from 'rxjs';
+	import * as toasts from '$lib/utils/toasts';
+	import { getContext } from 'svelte';
+	import type { User } from '$lib/backend/cloud';
+	import type { Project, ProjectService } from '$lib/backend/projects';
+	import type { BranchService } from '$lib/branches/service';
+	import type { GitHubService } from '$lib/github/service';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
 	export let branchService: BranchService;
 	export let baseBranchService: BaseBranchService;
 	export let branchController: BranchController;
 	export let project: Project;
 	export let user: User | undefined;
-	// export let update: Observable<Update>;
 	export let githubService: GitHubService;
 	export let projectService: ProjectService;
 

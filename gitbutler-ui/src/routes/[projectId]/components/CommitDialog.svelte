@@ -1,29 +1,28 @@
 <script lang="ts">
-	import * as toasts from '$lib/utils/toasts';
-	import { slide } from 'svelte/transition';
-	import { quintOut } from 'svelte/easing';
-	import { invoke } from '@tauri-apps/api/tauri';
-	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { Branch, File } from '$lib/vbranches/types';
-	import type { getCloudApiClient } from '$lib/backend/cloud';
-	import type { User } from '$lib/backend/cloud';
+	import Button from '$lib/components/Button.svelte';
+	import DropDownButton from '$lib/components/DropDownButton.svelte';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
+	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
+	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import {
 		projectAiGenEnabled,
 		projectCommitGenerationExtraConcise,
 		projectCommitGenerationUseEmojis,
 		projectRunCommitHooks
 	} from '$lib/config/config';
-	import type { Ownership } from '$lib/vbranches/ownership';
-	import Button from '$lib/components/Button.svelte';
-	import DropDownButton from '$lib/components/DropDownButton.svelte';
-	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
-	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import type { Writable } from 'svelte/store';
-	import { createEventDispatcher } from 'svelte';
-	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { persisted } from '$lib/persisted/persisted';
-	import { useAutoHeight } from '$lib/utils/useAutoHeight';
+	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
+	import { useAutoHeight } from '$lib/utils/useAutoHeight';
+	import { invoke } from '@tauri-apps/api/tauri';
+	import { createEventDispatcher } from 'svelte';
+	import { quintOut } from 'svelte/easing';
+	import { slide } from 'svelte/transition';
+	import type { User, getCloudApiClient } from '$lib/backend/cloud';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { Ownership } from '$lib/vbranches/ownership';
+	import type { Branch, File } from '$lib/vbranches/types';
+	import type { Writable } from 'svelte/store';
 
 	const dispatch = createEventDispatcher<{
 		action: 'generate-branch-name';

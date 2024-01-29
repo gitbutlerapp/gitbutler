@@ -1,14 +1,14 @@
 <script lang="ts">
-	import * as toasts from '$lib/utils/toasts';
 	import { getCloudApiClient, type User } from '$lib/backend/cloud';
-	import type { Project } from '$lib/backend/projects';
-	import { createEventDispatcher, onMount } from 'svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
-	import Login from '$lib/components/Login.svelte';
-	import type { UserService } from '$lib/stores/user';
 	import Link from '$lib/components/Link.svelte';
-	import { PUBLIC_API_BASE_URL } from '$env/static/public';
+	import Login from '$lib/components/Login.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import * as toasts from '$lib/utils/toasts';
+	import { createEventDispatcher, onMount } from 'svelte';
+	import type { Project } from '$lib/backend/projects';
+	import type { UserService } from '$lib/stores/user';
+	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	export let project: Project;
 	export let user: User | undefined;

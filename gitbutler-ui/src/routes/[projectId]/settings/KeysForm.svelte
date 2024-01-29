@@ -1,12 +1,12 @@
 <script lang="ts">
-	import type { Key, Project } from '$lib/backend/projects';
 	import { invoke } from '$lib/backend/ipc';
-	import { copyToClipboard } from '$lib/utils/clipboard';
-	import { createEventDispatcher } from 'svelte';
-	import { debounce } from '$lib/utils/debounce';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
+	import { copyToClipboard } from '$lib/utils/clipboard';
+	import { debounce } from '$lib/utils/debounce';
+	import { createEventDispatcher } from 'svelte';
+	import type { Key, Project } from '$lib/backend/projects';
 
 	export let project: Project;
 

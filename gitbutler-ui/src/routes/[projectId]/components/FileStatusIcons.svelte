@@ -1,8 +1,8 @@
 <script lang="ts">
+	import FileStatusCircle from './FileStatusCircle.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
 	import { computeFileStatus } from '$lib/vbranches/fileStatus';
 	import type { File } from '$lib/vbranches/types';
-	import FileStatusCircle from './FileStatusCircle.svelte';
 
 	export let file: File;
 	$: isLocked = file.hunks.some((h) => h.locked);

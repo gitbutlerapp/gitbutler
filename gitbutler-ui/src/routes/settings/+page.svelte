@@ -1,22 +1,22 @@
 <script lang="ts">
-	import type { PageData } from './$types';
-	import * as toasts from '$lib/utils/toasts';
-	import { deleteAllData } from '$lib/backend/data';
-	import { goto } from '$app/navigation';
 	import ThemeSelector from './ThemeSelector.svelte';
-	import { invoke } from '@tauri-apps/api/tauri';
-	import { copyToClipboard } from '$lib/utils/clipboard';
-	import Link from '$lib/components/Link.svelte';
-	import Login from '$lib/components/Login.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import Modal from '$lib/components/Modal.svelte';
 	import Spacer from '../../lib/components/Spacer.svelte';
 	import GithubIntegration from '../components/GithubIntegration.svelte';
+	import { deleteAllData } from '$lib/backend/data';
+	import Button from '$lib/components/Button.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
+	import Link from '$lib/components/Link.svelte';
+	import Login from '$lib/components/Login.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
+	import { copyToClipboard } from '$lib/utils/clipboard';
+	import * as toasts from '$lib/utils/toasts';
+	import { invoke } from '@tauri-apps/api/tauri';
+	import type { PageData } from './$types';
+	import { goto } from '$app/navigation';
 
 	export let data: PageData;
 	const { cloud, user$, userService } = data;

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import type { Project } from '$lib/backend/projects';
 	import IconButton from '$lib/components/IconButton.svelte';
+	import type { Project } from '$lib/backend/projects';
+	import { goto } from '$app/navigation';
 
 	export let project: Project;
 </script>

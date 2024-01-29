@@ -1,17 +1,17 @@
 <script lang="ts">
-	import Icon from '$lib/icons/Icon.svelte';
-	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
-	import { clickOutside } from '$lib/clickOutside';
 	import Tag from './Tag.svelte';
 	import { branchUrl } from './commitList';
-	import type { GitHubService } from '$lib/github/service';
-	import { open } from '@tauri-apps/api/shell';
+	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
-	import toast from 'svelte-french-toast';
+	import Icon from '$lib/icons/Icon.svelte';
 	import { tooltip } from '$lib/utils/tooltip';
+	import { open } from '@tauri-apps/api/shell';
+	import toast from 'svelte-french-toast';
+	import type { GitHubService } from '$lib/github/service';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
 	export let readonly = false;

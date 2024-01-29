@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type iconsJson from '$lib/icons/icons.json';
 	import Icon from '$lib/icons/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
+	import type iconsJson from '$lib/icons/icons.json';
 
 	export let id: string | undefined = undefined; // Required to make label clickable
 	export let icon: keyof typeof iconsJson | undefined = undefined;

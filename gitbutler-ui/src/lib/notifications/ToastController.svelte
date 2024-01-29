@@ -2,10 +2,9 @@
 </script>
 
 <script lang="ts">
-	import { slide } from 'svelte/transition';
-
 	import InfoMessage from '../components/InfoMessage.svelte';
 	import { dismissToast, toastStore } from '$lib/notifications/toasts';
+	import { slide } from 'svelte/transition';
 </script>
 
 <div class="toast-controller">

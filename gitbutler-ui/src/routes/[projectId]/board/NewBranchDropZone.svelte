@@ -1,4 +1,9 @@
 <script lang="ts">
+	import BottomSheetImg from './assets/bottom-sheet.svelte';
+	import HandImg from './assets/hand.svelte';
+	import MiddleSheetImg from './assets/middle-sheet.svelte';
+	import TopSheetImg from './assets/top-sheet.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import {
 		isDraggableHunk,
 		isDraggableFile,
@@ -6,16 +11,9 @@
 		type DraggableHunk
 	} from '$lib/draggables';
 	import { dropzone } from '$lib/utils/draggable';
-	import type { BranchController } from '$lib/vbranches/branchController';
-
-	import Button from '$lib/components/Button.svelte';
-	import { get } from 'svelte/store';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
-
-	import HandImg from './assets/hand.svelte';
-	import TopSheetImg from './assets/top-sheet.svelte';
-	import MiddleSheetImg from './assets/middle-sheet.svelte';
-	import BottomSheetImg from './assets/bottom-sheet.svelte';
+	import { get } from 'svelte/store';
+	import type { BranchController } from '$lib/vbranches/branchController';
 
 	export let branchController: BranchController;
 

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { Project } from '$lib/backend/projects';
 	import Checkbox from '$lib/components/Checkbox.svelte';
-	import { createEventDispatcher } from 'svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
+	import { createEventDispatcher } from 'svelte';
+	import type { Project } from '$lib/backend/projects';
 
 	export let project: Project;
 

@@ -1,22 +1,19 @@
 <script lang="ts">
-	import type { BranchService } from '$lib/branches/service';
-	import type { CombinedBranch } from '$lib/branches/types';
-
 	import BranchItem from './BranchItem.svelte';
-	import Resizer from '$lib/components/Resizer.svelte';
 	import BranchesHeader from './BranchesHeader.svelte';
-	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
-
-	import { getContext, onDestroy, onMount } from 'svelte';
-	import { BehaviorSubject, combineLatest } from 'rxjs';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import FilterPopupMenu from '../components/FilterPopupMenu.svelte';
-	import { derived } from 'svelte/store';
-	import { storeToObservable } from '$lib/rxjs/store';
+	import ImgThemed from '$lib/components/ImgThemed.svelte';
+	import Resizer from '$lib/components/Resizer.svelte';
+	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import { persisted } from '$lib/persisted/persisted';
-	import ImgThemed from '$lib/components/ImgThemed.svelte';
-
+	import { storeToObservable } from '$lib/rxjs/store';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import { BehaviorSubject, combineLatest } from 'rxjs';
+	import { getContext, onDestroy, onMount } from 'svelte';
+	import { derived } from 'svelte/store';
+	import type { BranchService } from '$lib/branches/service';
+	import type { CombinedBranch } from '$lib/branches/types';
 	import type { GitHubService } from '$lib/github/service';
 
 	export let branchService: BranchService;

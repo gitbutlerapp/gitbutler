@@ -4,8 +4,8 @@
 
 <script lang="ts">
 	import Icon from '$lib/icons/Icon.svelte';
-	import type iconsJson from '$lib/icons/icons.json';
 	import { tooltip } from '$lib/utils/tooltip';
+	import type iconsJson from '$lib/icons/icons.json';
 
 	export let help = '';
 	export let icon: keyof typeof iconsJson | undefined = undefined;

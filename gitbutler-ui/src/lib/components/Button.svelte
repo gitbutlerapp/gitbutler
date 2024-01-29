@@ -3,10 +3,10 @@
 </script>
 
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import type iconsJson from '$lib/icons/icons.json';
 	import Icon from '$lib/icons/Icon.svelte';
 	import { tooltip } from '$lib/utils/tooltip';
+	import { onMount } from 'svelte';
+	import type iconsJson from '$lib/icons/icons.json';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let iconAlign: 'left' | 'right' = 'right';

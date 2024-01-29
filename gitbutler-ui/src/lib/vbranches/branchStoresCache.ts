@@ -1,8 +1,7 @@
-import * as toasts from '$lib/utils/toasts';
-
 import { BaseBranch, Branch } from './types';
-import { plainToInstance } from 'class-transformer';
 import { invoke, listen } from '$lib/backend/ipc';
+import * as toasts from '$lib/utils/toasts';
+import { plainToInstance } from 'class-transformer';
 import {
 	switchMap,
 	Observable,

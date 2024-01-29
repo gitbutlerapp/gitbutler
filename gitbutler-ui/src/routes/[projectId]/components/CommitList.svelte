@@ -1,12 +1,12 @@
 <script lang="ts">
-	import type { BaseBranch, Branch, CommitStatus } from '$lib/vbranches/types';
-	import type { BranchController } from '$lib/vbranches/branchController';
-	import CommitListItem from './CommitListItem.svelte';
-	import type { GitHubService } from '$lib/github/service';
-	import CommitListHeader from './CommitListHeader.svelte';
 	import CommitListFooter from './CommitListFooter.svelte';
+	import CommitListHeader from './CommitListHeader.svelte';
+	import CommitListItem from './CommitListItem.svelte';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
+	import type { GitHubService } from '$lib/github/service';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { BaseBranch, Branch, CommitStatus } from '$lib/vbranches/types';
 
 	export let branch: Branch;
 	export let base: BaseBranch | undefined | null;

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { projectCreatePullRequestInsteadOfPush } from '$lib/config/config';
-	import { createEventDispatcher } from 'svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import { projectCreatePullRequestInsteadOfPush } from '$lib/config/config';
+	import { createEventDispatcher } from 'svelte';
 
 	let disabled = false;
 

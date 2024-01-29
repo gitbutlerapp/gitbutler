@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import type { Project } from '$lib/backend/projects';
+	import SyncButton from './SyncButton.svelte';
 	import Badge from '$lib/components/Badge.svelte';
-	import type { GitHubService } from '$lib/github/service';
 	import Icon from '$lib/icons/Icon.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
+	import type { Project } from '$lib/backend/projects';
+	import type { GitHubService } from '$lib/github/service';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
-	import SyncButton from './SyncButton.svelte';
+	import { page } from '$app/stores';
 
 	export let project: Project;
 	export let baseBranchService: BaseBranchService;

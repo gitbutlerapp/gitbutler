@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { User } from '$lib/backend/cloud';
+	import AccountLink from '$lib/components/AccountLink.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import * as events from '$lib/utils/events';
-	import AccountLink from '$lib/components/AccountLink.svelte';
+	import type { User } from '$lib/backend/cloud';
 
 	export let user: User | undefined;
 	export let projectId: string | undefined;
