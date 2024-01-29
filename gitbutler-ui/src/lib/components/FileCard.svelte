@@ -2,7 +2,7 @@
 	import FileCardHeader from './FileCardHeader.svelte';
 	import HunkContextMenu from './HunkContextMenu.svelte';
 	import RenderedLine from './RenderedLine.svelte';
-	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
+	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import { draggableHunk } from '$lib/draggables';

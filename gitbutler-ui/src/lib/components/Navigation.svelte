@@ -2,7 +2,6 @@
 	import Branches from './Branches.svelte';
 	import DomainButton from './DomainButton.svelte';
 	import Footer from './Footer.svelte';
-	import Header from './Header.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
 	import BaseBranchCard from '$lib/components/BaseBranchCard.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
@@ -44,9 +43,7 @@
 	role="menu"
 	tabindex="0"
 >
-	<div class="drag-region" data-tauri-drag-region>
-		<Header />
-	</div>
+	<div class="drag-region" data-tauri-drag-region></div>
 	<div class="domains">
 		<ProjectSelector {project} {projectService} />
 		<div class="flex flex-col gap-1">
@@ -111,9 +108,8 @@
 		user-select: none;
 	}
 	.drag-region {
-		padding-top: var(--space-12);
-		padding-left: var(--space-12);
-		padding-right: var(--space-12);
+		flex-shrink: 0;
+		height: var(--space-24);
 	}
 	.domains {
 		padding-bottom: var(--space-24);

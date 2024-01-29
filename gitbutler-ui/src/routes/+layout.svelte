@@ -3,11 +3,11 @@
 
 	import LinkProjectModal from '$lib/components/LinkProjectModal.svelte';
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
-	import { initTheme } from '$lib/components/theme';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
 	import * as events from '$lib/utils/events';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/random';
+	import { initTheme } from '$lib/utils/theme';
 	import { onMount, setContext } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
