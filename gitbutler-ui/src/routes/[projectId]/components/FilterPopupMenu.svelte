@@ -28,7 +28,7 @@
 				<Checkbox small bind:checked={$includeRemote} slot="control" />
 			</ContextMenuItem>
 
-			<ContextMenuItem label="Stashed" on:click={() => ($includeStashed = !$includeStashed)}>
+			<ContextMenuItem label="Unapplied" on:click={() => ($includeStashed = !$includeStashed)}>
 				<Checkbox small bind:checked={$includeStashed} slot="control" />
 			</ContextMenuItem>
 		</ContextMenuSection>
