@@ -14,7 +14,7 @@
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
-	export let readonly = false;
+	export let isUnapplied = false;
 	export let branch: Branch;
 	export let base: BaseBranch | undefined | null;
 	export let branchController: BranchController;
@@ -41,13 +41,13 @@
 </script>
 
 <div class="header__wrapper">
-	<div class="header card" bind:this={container} class:readonly>
+	<div class="header card" bind:this={container} class:isUnapplied>
 		<div class="header__info">
 			<div class="header__label">
 				<BranchLabel
 					bind:name={branch.name}
 					on:change={handleBranchNameChange}
-					disabled={readonly}
+					disabled={isUnapplied}
 				/>
 			</div>
 			<div class="header__remote-branch">
@@ -74,7 +74,7 @@
 							<Icon name="virtual-branch-small" /> virtual
 						</div>
 					{/if}
-					{#if !readonly}
+					{#if !isUnapplied}
 						<div
 							class="pending-name"
 							use:tooltip={'Branch name that will be used when pushing. You can change it from the lane menu.'}
@@ -144,8 +144,11 @@
 		<div class="header__actions">
 			<div class="header__buttons">
 				{#if branch.selectedForChanges}
-					<Button help="New changes will land here" icon="target" notClickable disabled={readonly}
-						>Default branch</Button
+					<Button
+						help="New changes will land here"
+						icon="target"
+						notClickable
+						disabled={isUnapplied}>Default branch</Button
 					>
 				{:else}
 					<Button
@@ -153,7 +156,7 @@
 						icon="target"
 						kind="outlined"
 						color="neutral"
-						disabled={readonly}
+						disabled={isUnapplied}
 						on:click={async () => {
 							await branchController.setSelectedForChanges(branch.id);
 						}}
@@ -163,7 +166,7 @@
 				{/if}
 			</div>
 			<div class="relative" bind:this={meatballButton}>
-				{#if readonly}
+				{#if isUnapplied}
 					<Button
 						help="Restores these changes into your working directory"
 						icon="plus-small"
@@ -204,7 +207,7 @@
 							{branchController}
 							{branch}
 							{projectId}
-							{readonly}
+							{isUnapplied}
 							bind:visible
 							on:action
 						/>
@@ -233,7 +236,7 @@
 				opacity: 1;
 			}
 		}
-		&.readonly {
+		&.isUnapplied {
 			background: var(--clr-theme-container-pale);
 		}
 	}
@@ -263,7 +266,7 @@
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 		user-select: none;
 	}
-	.readonly .header__actions {
+	.isUnapplied .header__actions {
 		background: var(--clr-theme-container-dim);
 	}
 	.header__buttons {

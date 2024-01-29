@@ -40,7 +40,7 @@
 		base={$baseBranch$}
 		{cloud}
 		project={$project$}
-		readonly={!branch.active}
+		isUnapplied={!branch.active}
 		user={$user$}
 		projectPath={$project$.path}
 		{githubService}

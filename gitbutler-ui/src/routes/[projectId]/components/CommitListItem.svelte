@@ -22,7 +22,7 @@
 	export let base: BaseBranch | undefined | null;
 	export let isHeadCommit: boolean;
 	export let isChained: boolean;
-	export let readonly = false;
+	export let isUnapplied = false;
 	export let branchController: BranchController;
 
 	function acceptAmend(commit: Commit | RemoteCommit) {
@@ -137,7 +137,7 @@
 			commitUrl={base?.commitUrl(commit.id)}
 			{isHeadCommit}
 			{resetHeadCommit}
-			{readonly}
+			{isUnapplied}
 		/>
 	</div>
 	<!-- <div class="reset-head">
