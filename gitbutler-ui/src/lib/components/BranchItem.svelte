@@ -3,6 +3,7 @@
 	import AheadBehind from '$lib/components/AheadBehind.svelte';
 	import AuthorIcons from '$lib/components/AuthorIcons.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
+	import { tooltip } from '$lib/utils/tooltip';
 	import type { CombinedBranch } from '$lib/branches/types';
 	import { page } from '$app/stores';
 
@@ -22,7 +23,15 @@
 
 <a class="branch" class:selected {href}>
 	{#if branch.icon}
-		<BranchIcon name={branch.icon} color={branch.color} />
+		{#if branch.tooltip}
+			<div use:tooltip={branch.tooltip}>
+				<BranchIcon name={branch.icon} color={branch.color} />
+			</div>
+		{:else}
+			<div>
+				<BranchIcon name={branch.icon} color={branch.color} />
+			</div>
+		{/if}
 	{/if}
 	<div class="branch__info flex flex-col gap-2">
 		<div class="branch__details">
