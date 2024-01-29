@@ -1,4 +1,4 @@
-import type { Commit, File, Hunk, RemoteCommit } from './vbranches/types';
+import type { Commit, File, Hunk, RemoteCommit } from '../vbranches/types';
 import type { Writable } from 'svelte/store';
 
 export function nonDraggable() {

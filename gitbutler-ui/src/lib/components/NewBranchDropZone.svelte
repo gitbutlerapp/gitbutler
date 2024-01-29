@@ -9,8 +9,8 @@
 		isDraggableFile,
 		type DraggableFile,
 		type DraggableHunk
-	} from '$lib/draggables';
-	import { dropzone } from '$lib/utils/draggable';
+	} from '$lib/dragging/draggables';
+	import { dropzone } from '$lib/dragging/dropzone';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
 	import { get } from 'svelte/store';
 	import type { BranchController } from '$lib/vbranches/branchController';
