@@ -189,6 +189,7 @@ export class BranchController {
 		try {
 			// TODO: make this optimistic again.
 			await invoke<void>('delete_virtual_branch', { projectId: this.projectId, branchId });
+			toasts.success('Branch deleted successfully');
 		} catch (err) {
 			toasts.error('Failed to delete branch');
 		} finally {
