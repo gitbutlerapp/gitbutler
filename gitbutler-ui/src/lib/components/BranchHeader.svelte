@@ -5,6 +5,7 @@
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/icons/Icon.svelte';
+	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { open } from '@tauri-apps/api/shell';
 	import toast from 'svelte-french-toast';
@@ -27,6 +28,7 @@
 	let visible = false;
 	let container: HTMLDivElement;
 	let isApplying = false;
+	let isDeleting = false;
 
 	function handleBranchNameChange() {
 		branchController.updateBranchName(branch.id, branch.name);
@@ -166,6 +168,28 @@
 			</div>
 			<div class="relative" bind:this={meatballButton}>
 				{#if isUnapplied}
+					<Button
+						help="Deletes the local virtual branch (only)"
+						icon="bin-small"
+						color="neutral"
+						kind="outlined"
+						loading={isDeleting}
+						on:click={async () => {
+							isDeleting = true;
+							try {
+								await branchController.applyBranch(branch.id);
+								goto(`/${projectId}/board`);
+							} catch (e) {
+								const err = 'Failed to delete branch';
+								toasts.error(err);
+								console.error(err, e);
+							} finally {
+								isDeleting = false;
+							}
+						}}
+					>
+						Delete
+					</Button>
 					<Button
 						help="Restores these changes into your working directory"
 						icon="plus-small"
