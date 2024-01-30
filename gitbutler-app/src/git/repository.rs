@@ -101,6 +101,12 @@ impl Repository {
             .map_err(Into::into)
     }
 
+    pub fn is_descendant_of(&self, a: Oid, b: Oid) -> Result<bool> {
+        self.0
+            .graph_descendant_of(a.into(), b.into())
+            .map_err(Into::into)
+    }
+
     pub fn merge_base(&self, one: Oid, two: Oid) -> Result<Oid> {
         self.0
             .merge_base(one.into(), two.into())
@@ -387,6 +393,12 @@ impl Repository {
 
     pub fn set_head(&self, refname: &Refname) -> Result<()> {
         self.0.set_head(&refname.to_string()).map_err(Into::into)
+    }
+
+    pub fn set_head_detached(&self, commitish: Oid) -> Result<()> {
+        self.0
+            .set_head_detached(commitish.into())
+            .map_err(Into::into)
     }
 
     pub fn reference(
