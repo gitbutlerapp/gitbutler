@@ -95,7 +95,7 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		width: 24rem;
+		width: 22rem;
 		border-radius: var(--radius-m);
 		border: 1px dashed color-mix(in srgb, var(--clr-theme-container-outline-pale) 50%, transparent);
 		background-color: transparent;
@@ -234,16 +234,9 @@
 	.canvas-dropzone {
 		&:global(.new-dz-active) {
 			& .new-virtual-branch {
-				/* background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 6%, transparent); */
 				background-color: color-mix(in srgb, var(--clr-theme-scale-pop-70) 10%, transparent);
-				/* border: 1px dashed color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 80%, transparent); */
 				border: 1px dashed color-mix(in srgb, var(--clr-theme-scale-pop-40) 80%, transparent);
 				color: var(--clr-theme-scale-pop-50);
-
-				/* outline-color: var(--clr-theme-scale-pop-40);
-				outline-style: dashed;
-				outline-width: 1px;
-				outline-offset: -10px; */
 			}
 
 			& .new-virtual-branch__content {
