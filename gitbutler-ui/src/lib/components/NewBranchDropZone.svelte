@@ -97,8 +97,7 @@
 		justify-content: center;
 		width: 22rem;
 		border-radius: var(--radius-m);
-		border: 1px dashed
-			color-mix(in srgb, var(--clr-theme-container-outline-pale) 50%, transparent);
+		border: 1px dashed color-mix(in srgb, var(--clr-theme-container-outline-pale) 50%, transparent);
 		background-color: transparent;
 		padding: var(--space-20);
 		gap: var(--space-8);
@@ -235,13 +234,8 @@
 	.canvas-dropzone {
 		&:global(.new-dz-active) {
 			& .new-virtual-branch {
-				background-color: color-mix(
-					in srgb,
-					var(--clr-theme-scale-pop-70) 10%,
-					transparent
-				);
-				border: 1px dashed
-					color-mix(in srgb, var(--clr-theme-scale-pop-40) 80%, transparent);
+				background-color: color-mix(in srgb, var(--clr-theme-scale-pop-70) 10%, transparent);
+				border: 1px dashed color-mix(in srgb, var(--clr-theme-scale-pop-40) 80%, transparent);
 				color: var(--clr-theme-scale-pop-50);
 			}
 
