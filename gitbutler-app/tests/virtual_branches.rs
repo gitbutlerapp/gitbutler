@@ -692,6 +692,8 @@ mod delete_virtual_branch {
 mod set_base_branch {
     use super::*;
 
+    use pretty_assertions::assert_eq;
+
     #[tokio::test]
     async fn success() {
         let Test {
@@ -727,6 +729,44 @@ mod set_base_branch {
                 Err(Error::UserError { .. })
             ));
         }
+    }
+
+    #[tokio::test]
+    async fn go_back_to_integration() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = Test::default();
+
+        std::fs::write(repository.path().join("file.txt"), "one").unwrap();
+        let oid_one = repository.commit_all("one");
+        std::fs::write(repository.path().join("file.txt"), "two").unwrap();
+        repository.commit_all("two");
+        repository.push();
+
+        println!("{}", repository.path().display());
+
+        let base = controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert!(branches.is_empty());
+
+        repository.checkout_commit(oid_one);
+
+        let base_two = controller
+            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        assert_eq!(branches.len(), 1);
+
+        assert_eq!(base_two, base);
     }
 }
 

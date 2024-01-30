@@ -67,22 +67,17 @@ pub fn set_base_branch(
         Err(error) => Err(errors::SetBaseBranchError::Other(error.into())),
     }?;
 
-    let remote_name = repo
-        .branch_remote_name(target_branch.refname().unwrap())
+    let remote = repo
+        .find_remote(target_branch_ref.remote())
         .context(format!(
-            "failed to get remote name for branch {}",
+            "failed to find remote for branch {}",
             target_branch.name().unwrap()
         ))?;
-    let remote = repo.find_remote(&remote_name).context(format!(
-        "failed to find remote {} for branch {}",
-        remote_name,
-        target_branch.name().unwrap()
-    ))?;
     let remote_url = remote
         .url()
         .context(format!(
-            "failed to get remote url for remote {}",
-            remote_name
+            "failed to get remote url for {}",
+            target_branch_ref.remote()
         ))?
         .unwrap();
 
@@ -91,22 +86,34 @@ pub fn set_base_branch(
         target_branch.name().unwrap()
     ))?;
 
-    let head_ref = repo.head().context("Failed to get HEAD reference")?;
-    let head_name: git::Refname = head_ref
-        .name()
-        .context("Failed to get HEAD reference name")?;
-    let head_commit = head_ref
+    let current_head = repo.head().context("Failed to get HEAD reference")?;
+    let current_head_commit = current_head
         .peel_to_commit()
         .context("Failed to peel HEAD reference to commit")?;
 
     // calculate the commit as the merge-base between HEAD in project_repository and this target commit
     let commit_oid = repo
-        .merge_base(head_commit.id(), target_branch_head.id())
+        .merge_base(current_head_commit.id(), target_branch_head.id())
         .context(format!(
             "Failed to calculate merge base between {} and {}",
-            head_commit.id(),
+            current_head_commit.id(),
             target_branch_head.id()
         ))?;
+
+    // if default target was already set, and the new target is a descendant of the current head, then we want to
+    // keep the current target to avoid unnecessary rebases
+    let commit_oid = if let Some(current_target) = gb_repository.default_target()? {
+        if repo
+            .is_descendant_of(current_target.sha, commit_oid)
+            .context("failed to check if target branch is descendant of current head")?
+        {
+            current_target.sha
+        } else {
+            commit_oid
+        }
+    } else {
+        commit_oid
+    };
 
     let target = target::Target {
         branch: target_branch_ref.clone(),
@@ -118,6 +125,9 @@ pub fn set_base_branch(
         target::Writer::new(gb_repository).context("failed to create target writer")?;
     target_writer.write_default(&target)?;
 
+    let head_name: git::Refname = current_head
+        .name()
+        .context("Failed to get HEAD reference name")?;
     if !head_name
         .to_string()
         .eq(&GITBUTLER_INTEGRATION_REFERENCE.to_string())
@@ -125,9 +135,8 @@ pub fn set_base_branch(
         // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
         // put them into a virtual branch
 
-        let wd_diff = diff::workdir(repo, &head_commit.id())?;
-
-        if !wd_diff.is_empty() || head_commit.id() != commit_oid {
+        let wd_diff = diff::workdir(repo, &current_head_commit.id())?;
+        if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
             let hunks_by_filepath =
                 super::virtual_hunks_by_filepath(&project_repository.project().path, &wd_diff);
 
@@ -183,10 +192,10 @@ pub fn set_base_branch(
                 upstream_head,
                 created_timestamp_ms: now_ms,
                 updated_timestamp_ms: now_ms,
-                head: head_commit.id(),
+                head: current_head_commit.id(),
                 tree: super::write_tree_onto_commit(
                     project_repository,
-                    head_commit.id(),
+                    current_head_commit.id(),
                     &wd_diff,
                 )?,
                 ownership,

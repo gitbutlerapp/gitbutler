@@ -85,7 +85,7 @@ impl TestProject {
     }
 
     /// git add -A
-    /// git reset --hard
+    /// git reset --hard <oid>
     pub fn reset_hard(&self, oid: Option<git::Oid>) {
         let mut index = self.local_repository.index().expect("failed to get index");
         index
@@ -93,14 +93,14 @@ impl TestProject {
             .expect("failed to add all");
         index.write().expect("failed to write index");
 
-        let commit = oid.map_or(
-            self.local_repository
-                .head()
-                .unwrap()
-                .peel_to_commit()
-                .unwrap(),
-            |oid| self.local_repository.find_commit(oid).unwrap(),
-        );
+        let head = self.local_repository.head().unwrap();
+        let commit = oid.map_or(head.peel_to_commit().unwrap(), |oid| {
+            self.local_repository.find_commit(oid).unwrap()
+        });
+
+        let head_ref = head.name().unwrap();
+        let head_ref = self.local_repository.find_reference(&head_ref).unwrap();
+
         self.local_repository
             .reset(&commit, git2::ResetType::Hard, None)
             .unwrap();
@@ -229,6 +229,18 @@ impl TestProject {
 
     pub fn find_commit(&self, oid: git::Oid) -> Result<git::Commit, git::Error> {
         self.local_repository.find_commit(oid)
+    }
+
+    pub fn checkout_commit(&self, commit_oid: git::Oid) {
+        let commit = self.local_repository.find_commit(commit_oid).unwrap();
+        let commit_tree = commit.tree().unwrap();
+
+        self.local_repository.set_head_detached(commit_oid).unwrap();
+        self.local_repository
+            .checkout_tree(&commit_tree)
+            .force()
+            .checkout()
+            .unwrap();
     }
 
     pub fn checkout(&self, branch: &git::LocalRefname) {
