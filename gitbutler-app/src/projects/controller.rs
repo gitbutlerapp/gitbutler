@@ -3,13 +3,13 @@ use std::path;
 use anyhow::Context;
 use tauri::{AppHandle, Manager};
 
-use crate::{gb_repository, paths::DataDir, project_repository, users, watcher};
+use crate::{gb_repository, project_repository, users, watcher};
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
 
 #[derive(Clone)]
 pub struct Controller {
-    local_data_dir: DataDir,
+    local_data_dir: path::PathBuf,
     projects_storage: storage::Storage,
     users: users::Controller,
     watchers: Option<watcher::Watchers>,
@@ -19,8 +19,12 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        let path = value
+            .path_resolver()
+            .app_data_dir()
+            .context("failed to get app data dir")?;
         Ok(Self {
-            local_data_dir: DataDir::try_from(value)?,
+            local_data_dir: path,
             projects_storage: storage::Storage::from(value),
             users: users::Controller::from(value),
             watchers: Some(value.state::<watcher::Watchers>().inner().clone()),
@@ -28,8 +32,8 @@ impl TryFrom<&AppHandle> for Controller {
     }
 }
 
-impl From<&DataDir> for Controller {
-    fn from(value: &DataDir) -> Self {
+impl From<&path::PathBuf> for Controller {
+    fn from(value: &path::PathBuf) -> Self {
         Self {
             local_data_dir: value.clone(),
             projects_storage: storage::Storage::from(value),

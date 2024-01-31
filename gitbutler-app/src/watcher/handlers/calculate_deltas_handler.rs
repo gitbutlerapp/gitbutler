@@ -1,12 +1,10 @@
-use std::vec;
+use std::{path, vec};
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
 use crate::{
-    deltas, gb_repository,
-    paths::DataDir,
-    project_repository,
+    deltas, gb_repository, project_repository,
     projects::{self, ProjectId},
     reader, sessions, users,
 };
@@ -15,13 +13,13 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    local_data_dir: DataDir,
+    local_data_dir: path::PathBuf,
     projects: projects::Controller,
     users: users::Controller,
 }
 
-impl From<&DataDir> for Handler {
-    fn from(value: &DataDir) -> Self {
+impl From<&path::PathBuf> for Handler {
+    fn from(value: &path::PathBuf) -> Self {
         Self {
             local_data_dir: value.clone(),
             projects: projects::Controller::from(value),
@@ -34,8 +32,12 @@ impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        let path = value
+            .path_resolver()
+            .app_data_dir()
+            .context("failed to get app data dir")?;
         Ok(Self {
-            local_data_dir: DataDir::try_from(value)?,
+            local_data_dir: path,
             projects: projects::Controller::try_from(value)?,
             users: users::Controller::from(value),
         })

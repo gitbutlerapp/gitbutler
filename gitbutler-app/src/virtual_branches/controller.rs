@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, path, sync::Arc};
 
 use anyhow::Context;
 use tauri::AppHandle;
@@ -6,9 +6,7 @@ use tokio::sync::Semaphore;
 
 use crate::{
     error::Error,
-    gb_repository, git, keys,
-    paths::DataDir,
-    project_repository,
+    gb_repository, git, keys, project_repository,
     projects::{self, ProjectId},
     users,
 };
@@ -24,7 +22,7 @@ use super::{
 
 #[derive(Clone)]
 pub struct Controller {
-    local_data_dir: DataDir,
+    local_data_dir: path::PathBuf,
     projects: projects::Controller,
     users: users::Controller,
     keys: keys::Controller,
@@ -37,21 +35,23 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        DataDir::try_from(value).map(|data_dir| {
-            Self::new(
-                &data_dir,
-                &projects::Controller::from(&data_dir),
-                &users::Controller::from(&data_dir),
-                &keys::Controller::from(&data_dir),
-                &git::credentials::Helper::from(&data_dir),
-            )
-        })
+        let data_dir = value
+            .path_resolver()
+            .app_data_dir()
+            .context("failed to get app data dir")?;
+        Ok(Self::new(
+            &data_dir,
+            &projects::Controller::from(&data_dir),
+            &users::Controller::from(&data_dir),
+            &keys::Controller::from(&data_dir),
+            &git::credentials::Helper::from(&data_dir),
+        ))
     }
 }
 
 impl Controller {
     pub fn new(
-        data_dir: &DataDir,
+        data_dir: &path::PathBuf,
         projects: &projects::Controller,
         users: &users::Controller,
         keys: &keys::Controller,
@@ -351,7 +351,7 @@ impl Controller {
 
 #[derive(Clone)]
 struct ControllerInner {
-    local_data_dir: DataDir,
+    local_data_dir: path::PathBuf,
     semaphore: Arc<Semaphore>,
 
     projects: projects::Controller,
@@ -375,8 +375,8 @@ where
     Other(#[from] anyhow::Error),
 }
 
-impl From<&DataDir> for ControllerInner {
-    fn from(value: &DataDir) -> Self {
+impl From<&path::PathBuf> for ControllerInner {
+    fn from(value: &path::PathBuf) -> Self {
         Self::new(
             value,
             &projects::Controller::from(value),
@@ -389,7 +389,7 @@ impl From<&DataDir> for ControllerInner {
 
 impl ControllerInner {
     pub fn new(
-        data_dir: &DataDir,
+        data_dir: &path::PathBuf,
         projects: &projects::Controller,
         users: &users::Controller,
         keys: &keys::Controller,

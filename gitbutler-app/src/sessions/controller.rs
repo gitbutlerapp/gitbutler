@@ -1,8 +1,10 @@
+use std::path;
+
 use anyhow::Context;
 use tauri::AppHandle;
 
 use crate::{
-    gb_repository, paths, project_repository,
+    gb_repository, project_repository,
     projects::{self, ProjectId},
     users,
 };
@@ -10,7 +12,7 @@ use crate::{
 use super::{Database, Session};
 
 pub struct Controller {
-    local_data_dir: paths::DataDir,
+    local_data_dir: path::PathBuf,
     sessions_database: Database,
 
     projects: projects::Controller,
@@ -21,8 +23,12 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        let path = value
+            .path_resolver()
+            .app_data_dir()
+            .context("failed to get app data dir")?;
         Ok(Self {
-            local_data_dir: paths::DataDir::try_from(value)?,
+            local_data_dir: path,
             sessions_database: Database::from(value),
             projects: projects::Controller::try_from(value)?,
             users: users::Controller::from(value),

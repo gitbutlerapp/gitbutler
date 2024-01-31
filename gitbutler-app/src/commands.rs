@@ -7,9 +7,7 @@ use tracing::instrument;
 use crate::{
     app,
     error::{Code, Error},
-    gb_repository, git,
-    paths::DataDir,
-    project_repository, projects, reader,
+    gb_repository, git, project_repository, projects, reader,
     sessions::SessionId,
     users, watcher,
 };
@@ -133,7 +131,10 @@ pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Resul
 
     let users = handle.state::<users::Controller>().inner().clone();
     let projects = handle.state::<projects::Controller>().inner().clone();
-    let local_data_dir = DataDir::try_from(&handle)?;
+    let local_data_dir = handle
+        .path_resolver()
+        .app_data_dir()
+        .context("failed to get app data dir")?;
 
     let project = projects.get(&project_id).context("failed to get project")?;
     let user = users.get_user()?;

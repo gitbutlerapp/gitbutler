@@ -330,9 +330,9 @@ impl TestProject {
 
 pub mod paths {
     use super::temp_dir;
-    use gblib::paths::DataDir;
+    use std::path;
 
-    pub fn data_dir() -> DataDir {
-        DataDir::from(temp_dir())
+    pub fn data_dir() -> path::PathBuf {
+        temp_dir()
     }
 }
