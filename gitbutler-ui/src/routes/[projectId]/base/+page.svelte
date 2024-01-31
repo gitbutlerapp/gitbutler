@@ -9,6 +9,7 @@
 	$: baseBranchService = data.baseBranchService;
 	$: base$ = baseBranchService.base$;
 	$: error$ = baseBranchService.error$;
+	$: project$ = data.project$;
 </script>
 
 <ScrollableContainer wide>
@@ -18,7 +19,7 @@
 		{:else if !$base$}
 			<p>Loading...</p>
 		{:else}
-			<BaseBranch {projectId} base={$base$} {branchController} />
+			<BaseBranch {projectId} base={$base$} {branchController} projectPath={$project$.path} />
 		{/if}
 	</div>
 </ScrollableContainer>

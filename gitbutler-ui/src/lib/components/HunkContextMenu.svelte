@@ -5,9 +5,8 @@
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { open } from '@tauri-apps/api/shell';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { File } from '$lib/vbranches/types';
 
-	export let file: File;
+	export let filePath: string;
 	export let projectPath: string | undefined;
 	export let branchController: BranchController;
 	let popupMenu: PopupMenu;
@@ -27,7 +26,7 @@
 				<ContextMenuItem
 					label="Open in VS Code"
 					on:click={() =>
-						projectPath && open(`vscode://file${projectPath}/${file.path}:${item.lineNumber}`)}
+						projectPath && open(`vscode://file${projectPath}/${filePath}:${item.lineNumber}`)}
 				/>
 			{/if}
 		</ContextMenuSection>

@@ -8,6 +8,7 @@
 
 	export let branchId: string;
 	export let projectId: string;
+	export let projectPath: string;
 	export let branchCount: number;
 	export let upstream: RemoteBranch | undefined;
 	export let branchController: BranchController;
@@ -53,7 +54,13 @@
 		>
 			{#each upstream.commits as commit (commit.id)}
 				<div use:draggable={draggableRemoteCommit(branchId, commit)}>
-					<CommitCard {commit} {projectId} commitUrl={base?.commitUrl(commit.id)} />
+					<CommitCard
+						{commit}
+						{projectId}
+						commitUrl={base?.commitUrl(commit.id)}
+						{branchController}
+						{projectPath}
+					/>
 				</div>
 			{/each}
 			<div class="flex justify-end p-2">

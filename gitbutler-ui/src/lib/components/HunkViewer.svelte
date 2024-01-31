@@ -7,13 +7,12 @@
 	import type { HunkSection } from '$lib/utils/fileSections';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { File } from '$lib/vbranches/types';
 	import type { Hunk } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	export let file: File;
+	export let filePath: string;
 	export let section: HunkSection;
-	export let branchId: string;
+	export let branchId: string | undefined;
 	export let projectPath: string | undefined;
 
 	export let minWidth: number;
@@ -22,9 +21,10 @@
 	export let isFileLocked: boolean;
 
 	export let branchController: BranchController;
-	export let selectedOwnership: Writable<Ownership>;
+	export let selectedOwnership: Writable<Ownership> | undefined = undefined;
 
 	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
+		if (!selectedOwnership) return;
 		if (isSelected) {
 			selectedOwnership.update((ownership) => ownership.addHunk(hunk.filePath, hunk.id));
 		} else {
@@ -32,15 +32,15 @@
 		}
 	}
 
-	function updateContextMenu(file: File) {
+	function updateContextMenu(filePath: string) {
 		if (popupMenu) popupMenu.$destroy();
 		return new HunkContextMenu({
 			target: document.body,
-			props: { projectPath, file, branchController }
+			props: { projectPath, filePath, branchController }
 		});
 	}
 
-	$: popupMenu = updateContextMenu(file);
+	$: popupMenu = updateContextMenu(filePath);
 
 	onDestroy(() => {
 		if (popupMenu) {
@@ -54,7 +54,7 @@
 	role="cell"
 	use:draggable={{
 		...draggableHunk(branchId, section.hunk),
-		disabled: isUnapplied || section.hunk.locked
+		disabled: isUnapplied || section.hunk.locked || !branchId
 	}}
 	on:contextmenu|preventDefault
 	class="hunk"
@@ -66,12 +66,12 @@
 			{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
 				<HunkLine
 					{line}
+					{filePath}
 					{minWidth}
 					{selectable}
-					selected={$selectedOwnership.containsHunk(hunk.filePath, hunk.id)}
+					selected={$selectedOwnership?.containsHunk(hunk.filePath, hunk.id)}
 					on:selected={(e) => onHunkSelected(hunk, e.detail)}
 					sectionType={subsection.sectionType}
-					filePath={file.path}
 					on:contextmenu={(e) =>
 						popupMenu.openByMouse(e, {
 							hunk,
