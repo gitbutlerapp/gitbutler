@@ -1,8 +1,9 @@
+use std::path;
+
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    paths::DataDir,
     projects::{project, ProjectId},
     storage,
 };
@@ -22,8 +23,8 @@ impl From<&storage::Storage> for Storage {
     }
 }
 
-impl From<&DataDir> for Storage {
-    fn from(value: &DataDir) -> Self {
+impl From<&path::PathBuf> for Storage {
+    fn from(value: &path::PathBuf) -> Self {
         Self::from(&storage::Storage::from(value))
     }
 }

@@ -1,4 +1,4 @@
-use std::{sync::Arc, time};
+use std::{path, sync::Arc, time};
 
 use anyhow::{Context, Result};
 use itertools::Itertools;
@@ -8,7 +8,6 @@ use tokio::sync::Mutex;
 use crate::{
     gb_repository,
     git::{self, Oid, Repository},
-    paths::DataDir,
     project_repository,
     projects::{self, CodePushState, ProjectId},
     users,
@@ -43,7 +42,7 @@ impl Handler {
 }
 
 pub struct HandlerInner {
-    local_data_dir: DataDir,
+    local_data_dir: path::PathBuf,
     project_store: projects::Controller,
     users: users::Controller,
     batch_size: usize,
@@ -53,9 +52,13 @@ impl TryFrom<&AppHandle> for HandlerInner {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+        let path = value
+            .path_resolver()
+            .app_data_dir()
+            .context("failed to get app data dir")?;
         Ok(Self {
             batch_size: 1000,
-            local_data_dir: DataDir::try_from(value)?,
+            local_data_dir: path,
             project_store: projects::Controller::try_from(value)?,
             users: users::Controller::from(value),
         })

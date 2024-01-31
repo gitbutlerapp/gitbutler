@@ -1,7 +1,9 @@
+use std::path;
+
 use anyhow::Context;
 use tauri::AppHandle;
 
-use crate::{paths::DataDir, storage};
+use crate::storage;
 
 use super::{storage::Storage, PrivateKey};
 
@@ -10,8 +12,8 @@ pub struct Controller {
     storage: Storage,
 }
 
-impl From<&DataDir> for Controller {
-    fn from(value: &DataDir) -> Self {
+impl From<&path::PathBuf> for Controller {
+    fn from(value: &path::PathBuf) -> Self {
         Self {
             storage: Storage::from(value),
         }

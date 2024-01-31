@@ -2,13 +2,10 @@ use std::{collections::HashMap, fs, path};
 
 use tempfile::tempdir;
 
-use crate::{
-    database, gb_repository, git, keys, paths::DataDir, project_repository, projects, storage,
-    users,
-};
+use crate::{database, gb_repository, git, keys, project_repository, projects, storage, users};
 
 pub struct Suite {
-    pub local_app_data: DataDir,
+    pub local_app_data: path::PathBuf,
     pub storage: storage::Storage,
     pub users: users::Controller,
     pub projects: projects::Controller,
@@ -17,7 +14,7 @@ pub struct Suite {
 
 impl Default for Suite {
     fn default() -> Self {
-        let local_app_data = DataDir::from(temp_dir());
+        let local_app_data = temp_dir();
         let storage = storage::Storage::from(&local_app_data);
         let users = users::Controller::from(&storage);
         let projects = projects::Controller::from(&local_app_data);
@@ -126,7 +123,6 @@ impl<'a> Case<'a> {
 
 pub fn test_database() -> database::Database {
     let path = temp_dir().join("test.db");
-    let path = DataDir::from(path);
     database::Database::try_from(&path).unwrap()
 }
 

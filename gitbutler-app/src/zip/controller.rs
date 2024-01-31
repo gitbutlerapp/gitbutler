@@ -3,14 +3,14 @@ use std::path;
 use tauri::AppHandle;
 
 use crate::{
-    paths::{DataDir, LogsDir},
+    paths::LogsDir,
     projects::{self, ProjectId},
 };
 
 use super::Zipper;
 
 pub struct Controller {
-    local_data_dir: DataDir,
+    local_data_dir: path::PathBuf,
     logs_dir: LogsDir,
     zipper: Zipper,
     projects_controller: projects::Controller,
@@ -20,14 +20,19 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        let local_data_dir = DataDir::try_from(value)?;
-        let logs_dir = LogsDir::try_from(value)?;
-        Ok(Self {
-            local_data_dir,
-            logs_dir,
-            zipper: Zipper::try_from(value)?,
-            projects_controller: projects::Controller::try_from(value)?,
-        })
+        let local_data_dir = value.path_resolver().app_data_dir();
+        match local_data_dir {
+            Some(local_data_dir) => {
+                let logs_dir = LogsDir::try_from(value)?;
+                Ok(Self {
+                    local_data_dir,
+                    logs_dir,
+                    zipper: Zipper::try_from(value)?,
+                    projects_controller: projects::Controller::try_from(value)?,
+                })
+            }
+            None => Err(anyhow::anyhow!("failed to get app data dir")),
+        }
     }
 }
 

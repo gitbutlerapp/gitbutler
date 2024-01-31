@@ -1,6 +1,8 @@
+use std::path;
+
 use tauri::{AppHandle, Manager};
 
-use crate::{paths::DataDir, storage};
+use crate::storage;
 
 use super::PrivateKey;
 
@@ -31,8 +33,8 @@ impl From<&AppHandle> for Storage {
     }
 }
 
-impl From<&DataDir> for Storage {
-    fn from(value: &DataDir) -> Self {
+impl From<&path::PathBuf> for Storage {
+    fn from(value: &path::PathBuf) -> Self {
         Self::from(&storage::Storage::from(value))
     }
 }

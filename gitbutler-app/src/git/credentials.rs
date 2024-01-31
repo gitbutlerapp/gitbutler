@@ -2,7 +2,7 @@ use std::{env, path};
 
 use tauri::AppHandle;
 
-use crate::{keys, paths, project_repository, projects, users};
+use crate::{keys, project_repository, projects, users};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SshCredential {
@@ -84,8 +84,8 @@ impl From<&AppHandle> for Helper {
     }
 }
 
-impl From<&paths::DataDir> for Helper {
-    fn from(value: &paths::DataDir) -> Self {
+impl From<&path::PathBuf> for Helper {
+    fn from(value: &path::PathBuf) -> Self {
         let keys = keys::Controller::from(value);
         let users = users::Controller::from(value);
         Self::new(keys, users, env::var_os("HOME").map(path::PathBuf::from))
@@ -417,7 +417,7 @@ mod tests {
 
     impl TestCase<'_> {
         fn run(&self) -> Vec<(String, Vec<Credential>)> {
-            let local_app_data = paths::DataDir::from(test_utils::temp_dir());
+            let local_app_data = test_utils::temp_dir();
 
             let users = users::Controller::from(&local_app_data);
             let user = users::User {

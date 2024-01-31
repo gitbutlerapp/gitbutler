@@ -5,7 +5,6 @@ use tauri::{AppHandle, Manager};
 
 use crate::{
     gb_repository, git,
-    paths::DataDir,
     project_repository::{self, conflicts},
     projects::{self, ProjectId},
     reader,
@@ -14,7 +13,7 @@ use crate::{
 };
 
 pub struct App {
-    local_data_dir: DataDir,
+    local_data_dir: path::PathBuf,
     projects: projects::Controller,
     users: users::Controller,
     watchers: watcher::Watchers,
@@ -37,8 +36,12 @@ impl TryFrom<&AppHandle> for App {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+        let path = value
+            .path_resolver()
+            .app_data_dir()
+            .context("failed to get app data dir")?;
         Ok(Self {
-            local_data_dir: DataDir::try_from(value)?,
+            local_data_dir: path,
             projects: projects::Controller::try_from(value)?,
             users: users::Controller::from(value),
             watchers: value.state::<watcher::Watchers>().inner().clone(),

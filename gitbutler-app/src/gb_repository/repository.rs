@@ -16,9 +16,7 @@ use fslock::LockFile;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    deltas, fs, git,
-    paths::DataDir,
-    project_repository,
+    deltas, fs, git, project_repository,
     projects::{self, ProjectId},
     reader, sessions,
     sessions::SessionId,
@@ -48,7 +46,7 @@ pub enum Error {
 
 impl Repository {
     pub fn open(
-        root: &DataDir,
+        root: &path::PathBuf,
         project_repository: &project_repository::Repository,
         user: Option<&users::User>,
     ) -> Result<Self, Error> {
@@ -58,7 +56,7 @@ impl Repository {
             return Err(Error::ProjectPathNotFound(project_objects_path));
         }
 
-        let projects_dir = root.to_path_buf().join("projects");
+        let projects_dir = root.join("projects");
 
         let path = projects_dir.join(project.id.to_string());
         let lock_path = projects_dir.join(format!("{}.lock", project.id));

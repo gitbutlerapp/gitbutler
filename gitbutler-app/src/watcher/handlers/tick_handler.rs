@@ -1,12 +1,10 @@
-use std::time;
+use std::{path, time};
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
 use crate::{
-    gb_repository,
-    paths::DataDir,
-    project_repository,
+    gb_repository, project_repository,
     projects::{self, FetchResult, ProjectId},
     sessions, users,
 };
@@ -15,7 +13,7 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    local_data_dir: DataDir,
+    local_data_dir: path::PathBuf,
     projects: projects::Controller,
     users: users::Controller,
 }
@@ -24,8 +22,12 @@ impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+        let path = value
+            .path_resolver()
+            .app_data_dir()
+            .context("failed to get app data dir")?;
         Ok(Self {
-            local_data_dir: DataDir::try_from(value)?,
+            local_data_dir: path,
             projects: projects::Controller::try_from(value)?,
             users: users::Controller::from(value),
         })

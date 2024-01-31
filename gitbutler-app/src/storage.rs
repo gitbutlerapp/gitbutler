@@ -1,6 +1,6 @@
 use std::{
     fs,
-    path::{Path, PathBuf},
+    path::{self, Path, PathBuf},
     sync::{Arc, RwLock},
 };
 
@@ -8,8 +8,6 @@ use std::{
 use std::os::unix::prelude::*;
 
 use tauri::AppHandle;
-
-use crate::paths::DataDir;
 
 #[derive(Debug, Default, Clone)]
 pub struct Storage {
@@ -26,14 +24,20 @@ impl TryFrom<&AppHandle> for Storage {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        Ok(Self::from(&DataDir::try_from(value)?))
+        let path = value.path_resolver().app_data_dir();
+        match path {
+            Some(path) => Ok(Self::from(&path)),
+            // None => Error::new("failed to get app data dir"),
+            None => Err(anyhow::anyhow!("failed to get app data dir")),
+            // None => Ok(Self::default()),
+        }
     }
 }
 
-impl From<&DataDir> for Storage {
-    fn from(value: &DataDir) -> Self {
+impl From<&path::PathBuf> for Storage {
+    fn from(value: &path::PathBuf) -> Self {
         Storage {
-            local_data_dir: Arc::new(RwLock::new(value.to_path_buf())),
+            local_data_dir: Arc::new(RwLock::new(value.clone())),
         }
     }
 }

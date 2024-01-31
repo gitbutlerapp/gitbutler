@@ -1,12 +1,10 @@
-use std::{sync::Arc, time};
+use std::{path, sync::Arc, time};
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 use tokio::sync::Mutex;
 
-use crate::{
-    gb_repository, paths::DataDir, project_repository, projects, projects::ProjectId, users,
-};
+use crate::{gb_repository, project_repository, projects, projects::ProjectId, users};
 
 use super::events;
 
@@ -41,7 +39,7 @@ impl Handler {
 }
 
 struct HandlerInner {
-    local_data_dir: DataDir,
+    local_data_dir: path::PathBuf,
     projects: projects::Controller,
     users: users::Controller,
 }
@@ -50,7 +48,10 @@ impl TryFrom<&AppHandle> for HandlerInner {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let local_data_dir = DataDir::try_from(value)?;
+        let local_data_dir = value
+            .path_resolver()
+            .app_data_dir()
+            .context("failed to get app data dir")?;
         Ok(Self {
             local_data_dir,
             projects: projects::Controller::try_from(value)?,
