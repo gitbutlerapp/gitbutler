@@ -5,12 +5,13 @@ use tracing::{metadata::LevelFilter, subscriber::set_global_default};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, Layer};
 
-use crate::{paths::LogsDir, sentry};
+use crate::sentry;
 
 pub fn init(app_handle: &AppHandle) {
-    let logs_dir = LogsDir::try_from(app_handle)
-        .expect("failed to get logs dir")
-        .to_path_buf();
+    let logs_dir = app_handle
+        .path_resolver()
+        .app_log_dir()
+        .expect("failed to get logs dir");
     fs::create_dir_all(&logs_dir).expect("failed to create logs dir");
 
     let file_appender = RollingFileAppender::builder()
