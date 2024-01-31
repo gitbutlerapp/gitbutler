@@ -27,7 +27,7 @@ backoff = "0.4.0"
 backtrace = { version = "0.3.69", optional = true }
 bstr = "1.9.0"
 byteorder = "1.5.0"
-chrono = { version = "0.4.31", features = ["serde"] }
+chrono = { version = "0.4.33", features = ["serde"] }
 console-subscriber = "0.2.0"
 diffy = "0.3.0"
 filetime = "0.2.23"
