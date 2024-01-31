@@ -1,22 +1,19 @@
 <script lang="ts">
 	import FileCardHeader from './FileCardHeader.svelte';
-	import HunkContextMenu from './HunkContextMenu.svelte';
-	import RenderedLine from './RenderedLine.svelte';
+	import HunkViewer from './HunkViewer.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
-	import { draggable } from '$lib/dragging/draggable';
-	import { draggableHunk } from '$lib/dragging/draggables';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
 	import lscache from 'lscache';
-	import { onDestroy, getContext } from 'svelte';
+	import { getContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { File, Hunk } from '$lib/vbranches/types';
+	import type { File } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let projectId: string;
@@ -36,16 +33,6 @@
 	let fileWidth: number;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-
-	function updateContextMenu(file: File) {
-		if (popupMenu) popupMenu.$destroy();
-		return new HunkContextMenu({
-			target: document.body,
-			props: { projectPath, file, branchController }
-		});
-	}
-
-	$: popupMenu = updateContextMenu(file);
 
 	let sections: (HunkSection | ContentSection)[] = [];
 
@@ -71,20 +58,6 @@
 	$: isFileLocked = sections
 		.filter((section): section is HunkSection => section instanceof HunkSection)
 		.some((section) => section.hunk.locked);
-
-	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
-		if (isSelected) {
-			selectedOwnership.update((ownership) => ownership.addHunk(hunk.filePath, hunk.id));
-		} else {
-			selectedOwnership.update((ownership) => ownership.removeHunk(hunk.filePath, hunk.id));
-		}
-	}
-
-	onDestroy(() => {
-		if (popupMenu) {
-			popupMenu.$destroy();
-		}
-	});
 
 	function computedAddedRemoved(section: HunkSection | ContentSection): {
 		added: any;
@@ -145,44 +118,18 @@
 										</div>
 									{/if}
 								</div>
-								<div
-									tabindex="0"
-									role="cell"
-									use:draggable={{
-										...draggableHunk(branchId, section.hunk),
-										disabled: isUnapplied || section.hunk.locked
-									}}
-									on:dblclick
-									class="hunk"
-									class:opacity-60={section.hunk.locked && !isFileLocked}
-								>
-									<div class="hunk__inner custom-scrollbar">
-										<div class="hunk__inner_inner">
-											{#each section.subSections as subsection}
-												{@const hunk = section.hunk}
-												{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
-													<RenderedLine
-														{line}
-														{minWidth}
-														{selectable}
-														selected={$selectedOwnership.containsHunk(hunk.filePath, hunk.id)}
-														on:selected={(e) => onHunkSelected(hunk, e.detail)}
-														sectionType={subsection.sectionType}
-														filePath={file.path}
-														on:contextmenu={(e) =>
-															popupMenu.openByMouse(e, {
-																hunk,
-																section: subsection,
-																lineNumber: line.afterLineNumber
-																	? line.afterLineNumber
-																	: line.beforeLineNumber
-															})}
-													/>
-												{/each}
-											{/each}
-										</div>
-									</div>
-								</div>
+								<HunkViewer
+									{file}
+									{section}
+									{branchId}
+									{selectable}
+									{isUnapplied}
+									{projectPath}
+									{selectedOwnership}
+									{branchController}
+									{isFileLocked}
+									{minWidth}
+								/>
 							</div>
 						{/if}
 					{/each}
@@ -258,35 +205,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-10);
-	}
-	.hunk {
-		display: flex;
-		flex-direction: column;
-		overflow-x: hidden;
-		&:focus-within {
-			& .hunk__inner {
-				overflow-x: auto;
-				border-color: var(--clr-theme-container-outline-pale);
-			}
-		}
-	}
-	.hunk__inner {
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		background: var(--clr-theme-container-light);
-		border-radius: var(--radius-s);
-		border: 1px solid var(--clr-theme-container-outline-light);
-		overflow-x: hidden;
-		transition: border-color var(--transition-fast);
-		user-select: text;
-	}
-	.hunk__inner_inner {
-		/* TODO: Rename this class */
-		width: 100%;
-		min-width: max-content;
-		user-select: text !important;
-		cursor: grab;
 	}
 	.indicators {
 		display: flex;
