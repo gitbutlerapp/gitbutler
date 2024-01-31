@@ -22,8 +22,7 @@ impl TryFrom<&path::PathBuf> for Database {
     type Error = anyhow::Error;
 
     fn try_from(path: &path::PathBuf) -> Result<Self, Self::Error> {
-        let path = path.to_path_buf();
-        fs::create_dir_all(&path).context("Failed to create local data dir")?;
+        fs::create_dir_all(path).context("Failed to create local data dir")?;
         Self::open(path.join("database.sqlite3"))
     }
 }

@@ -46,7 +46,7 @@ pub enum Error {
 
 impl Repository {
     pub fn open(
-        root: &path::PathBuf,
+        root: &path::Path,
         project_repository: &project_repository::Repository,
         user: Option<&users::User>,
     ) -> Result<Self, Error> {
