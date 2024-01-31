@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { FileStatus } from '$lib/vbranches/fileStatus';
+	import type { FileStatus } from '$lib/utils/fileStatus';
 
 	export let status: FileStatus;
 </script>

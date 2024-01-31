@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FileStatusCircle from './FileStatusCircle.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import { computeFileStatus } from '$lib/vbranches/fileStatus';
+	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import type { File } from '$lib/vbranches/types';
 
 	export let file: File;

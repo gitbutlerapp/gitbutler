@@ -3,7 +3,8 @@
 	import Tag from './Tag.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
-	import { computeFileStatus, computedAddedRemoved } from '$lib/vbranches/fileStatus';
+	import { computeFileStatus } from '$lib/utils/fileStatus';
+	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import { createEventDispatcher } from 'svelte';
 	import type { File } from '$lib/vbranches/types';
 
@@ -11,7 +12,7 @@
 	export let isFileLocked: boolean;
 
 	const dispatch = createEventDispatcher<{ close: void }>();
-	$: fileStats = computedAddedRemoved(file);
+	$: fileStats = computeAddedRemovedByFiles(file);
 	$: fileStatus = computeFileStatus(file);
 
 	function boldenFilename(filepath: string): { filename: string; path: string } {
