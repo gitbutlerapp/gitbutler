@@ -1,7 +1,5 @@
 <script lang="ts">
 	import FileCardHeader from './FileCardHeader.svelte';
-	import HunkViewer from './HunkViewer.svelte';
-	import Icon from '$lib/components/Icon.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import { persisted } from '$lib/persisted/persisted';
@@ -15,6 +13,7 @@
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { File } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
+	import FileDiff from './FileDiff.svelte';
 
 	export let projectId: string;
 	export let branchId: string;
@@ -59,23 +58,6 @@
 		.filter((section): section is HunkSection => section instanceof HunkSection)
 		.some((section) => section.hunk.locked);
 
-	function computedAddedRemoved(section: HunkSection | ContentSection): {
-		added: any;
-		removed: any;
-	} {
-		if (section instanceof HunkSection) {
-			const lines = section.hunk.diff.split('\n');
-			return {
-				added: lines.filter((l) => l.startsWith('+')).length,
-				removed: lines.filter((l) => l.startsWith('-')).length
-			};
-		}
-		return {
-			added: 0,
-			removed: 0
-		};
-	}
-
 	fileWidth = lscache.get(fileWidthKey + file.id);
 </script>
 
@@ -99,42 +81,16 @@
 		{/if}
 
 		<ScrollableContainer wide>
-			<div class="hunks">
-				{#if file.binary}
-					Binary content not shown
-				{:else if file.large}
-					Diff too large to be shown
-				{:else}
-					{#each sections as section}
-						{@const { added, removed } = computedAddedRemoved(section)}
-						{#if 'hunk' in section}
-							<div class="hunk-wrapper">
-								<div class="indicators text-base-11">
-									<span class="added">+{added}</span>
-									<span class="removed">+{removed}</span>
-									{#if section.hunk.locked}
-										<div title={section.hunk.lockedTo}>
-											<Icon name="locked-small" color="warn" />
-										</div>
-									{/if}
-								</div>
-								<HunkViewer
-									{file}
-									{section}
-									{branchId}
-									{selectable}
-									{isUnapplied}
-									{projectPath}
-									{selectedOwnership}
-									{branchController}
-									{isFileLocked}
-									{minWidth}
-								/>
-							</div>
-						{/if}
-					{/each}
-				{/if}
-			</div>
+			<FileDiff
+				{file}
+				{projectPath}
+				{isFileLocked}
+				{isUnapplied}
+				{branchController}
+				{selectable}
+				{branchId}
+				{selectedOwnership}
+			/>
 		</ScrollableContainer>
 	</div>
 

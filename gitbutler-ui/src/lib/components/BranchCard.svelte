@@ -18,7 +18,7 @@
 	import { dropzone } from '$lib/dragging/dropzone';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
+	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import { filesToOwnership, type Ownership } from '$lib/vbranches/ownership';
 	import lscache from 'lscache';
 	import { getContext, onMount } from 'svelte';
@@ -77,7 +77,7 @@
 		}
 	}
 
-	$: linesTouched = computedAddedRemoved(...branch.files);
+	$: linesTouched = computeAddedRemovedByFiles(...branch.files);
 	$: if (
 		branch.name.toLowerCase().includes('virtual branch') &&
 		linesTouched.added + linesTouched.removed > 4
