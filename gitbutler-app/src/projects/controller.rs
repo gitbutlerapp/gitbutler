@@ -191,7 +191,6 @@ impl Controller {
 
         if let Err(error) = std::fs::remove_dir_all(
             self.local_data_dir
-                .to_path_buf()
                 .join("projects")
                 .join(project.id.to_string()),
         ) {

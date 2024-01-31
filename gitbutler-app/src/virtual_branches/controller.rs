@@ -51,7 +51,7 @@ impl TryFrom<&AppHandle> for Controller {
 
 impl Controller {
     pub fn new(
-        data_dir: &path::PathBuf,
+        data_dir: &path::Path,
         projects: &projects::Controller,
         users: &users::Controller,
         keys: &keys::Controller,
@@ -60,7 +60,7 @@ impl Controller {
         Self {
             by_project_id: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
 
-            local_data_dir: data_dir.clone(),
+            local_data_dir: data_dir.to_path_buf(),
             projects: projects.clone(),
             users: users.clone(),
             keys: keys.clone(),
@@ -389,14 +389,14 @@ impl From<&path::PathBuf> for ControllerInner {
 
 impl ControllerInner {
     pub fn new(
-        data_dir: &path::PathBuf,
+        data_dir: &path::Path,
         projects: &projects::Controller,
         users: &users::Controller,
         keys: &keys::Controller,
         helper: &git::credentials::Helper,
     ) -> Self {
         Self {
-            local_data_dir: data_dir.clone(),
+            local_data_dir: data_dir.to_path_buf(),
             semaphore: Arc::new(Semaphore::new(1)),
             projects: projects.clone(),
             users: users.clone(),

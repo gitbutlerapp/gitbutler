@@ -47,7 +47,6 @@ impl Controller {
         self.zipper
             .zip(
                 self.local_data_dir
-                    .to_path_buf()
                     .join("projects")
                     .join(project.id.to_string()),
             )
