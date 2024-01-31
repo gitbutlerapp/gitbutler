@@ -58,7 +58,7 @@
 		</button>
 	</div>
 	<div
-		class="line flex-grow overflow-hidden whitespace-pre pl-0.5"
+		class="line"
 		class:diff-line-deletion={sectionType === SectionType.RemovedLines}
 		class:diff-line-addition={sectionType === SectionType.AddedLines}
 	>
@@ -75,6 +75,12 @@
 		min-width: max-content;
 		font-family: monospace;
 		background-color: var(----clr-theme-container-light);
+		white-space: pre;
+	}
+
+	.line {
+		flex-grow: 1;
+		cursor: grab;
 	}
 
 	.code-line__numbers-line {
@@ -86,5 +92,6 @@
 	.selectable-wrapper {
 		cursor: text;
 		display: inline-block;
+		padding-left: var(--space-4);
 	}
 </style>
