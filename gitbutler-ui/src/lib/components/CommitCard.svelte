@@ -1,6 +1,5 @@
 <script lang="ts">
-	import HunkLine from './HunkLine.svelte';
-	import { invoke } from '$lib/backend/ipc';
+	import FileDiff from './FileDiff.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Tag from '$lib/components/Tag.svelte';
@@ -8,10 +7,11 @@
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
-	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
-	import { RemoteFile, type RemoteCommit, Commit } from '$lib/vbranches/types';
+	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
+	import { RemoteCommit, Commit, RemoteFile } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';
-	import { plainToInstance } from 'class-transformer';
+	import type { ContentSection, HunkSection } from '$lib/utils/fileSections';
+	import type { BranchController } from '$lib/vbranches/branchController';
 
 	export let commit: Commit | RemoteCommit;
 	export let projectId: string;
@@ -19,23 +19,17 @@
 	export let isHeadCommit: boolean = false;
 	export let resetHeadCommit: () => void | undefined = () => undefined;
 	export let isUnapplied = false;
+	export let branchController: BranchController;
+	export let projectPath: string;
 
 	let previewCommitModal: Modal;
-	let minWidth = 2;
 
-	let entries: [string, (ContentSection | HunkSection)[]][] = [];
+	let entries: [RemoteFile, (ContentSection | HunkSection)[]][] = [];
 	let isLoading = false;
 
 	async function loadEntries() {
 		isLoading = true;
-		entries = plainToInstance(
-			RemoteFile,
-			await invoke<any[]>('list_remote_commit_files', { projectId, commitOid: commit.id })
-		)
-			.map(
-				(file) => [file.path, parseFileSections(file)] as [string, (ContentSection | HunkSection)[]]
-			)
-			.sort((a, b) => a[0].localeCompare(b[0]));
+		entries = await listRemoteCommitFiles(projectId, commit.id);
 		isLoading = false;
 	}
 
@@ -119,38 +113,35 @@
 				<div class="border-gray-900 h-8 w-8 animate-spin rounded-full border-b-2" />
 			</div>
 		{:else}
-			{#each entries as [filepath, sections]}
+			{#each entries as [remoteFile, sections]}
 				<div class="commit-modal__file-section">
 					<div
 						class="text-color-3 flex flex-grow items-center overflow-hidden text-ellipsis whitespace-nowrap font-bold"
-						title={filepath}
+						title={remoteFile.path}
 					>
 						<img
-							src={getVSIFileIcon(filepath)}
+							src={getVSIFileIcon(remoteFile.path)}
 							alt="js"
 							width="13"
 							style="width: 0.8125rem"
 							class="mr-1 inline"
 						/>
 
-						{filepath}
+						{remoteFile.path}
 					</div>
 					<div class="commit-modal__code-container custom-scrollbar">
 						<div class="commit-modal__code-wrapper">
-							{#each sections as section}
-								{#if 'hunk' in section}
-									{#each section.subSections as subsection}
-										{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
-											<HunkLine
-												{line}
-												{minWidth}
-												sectionType={subsection.sectionType}
-												filePath={filepath}
-											/>
-										{/each}
-									{/each}
-								{/if}
-							{/each}
+							<FileDiff
+								filePath={remoteFile.path}
+								isBinary={remoteFile.binary}
+								isLarge={false}
+								{projectPath}
+								{isUnapplied}
+								{branchController}
+								selectable={false}
+								branchId={commit instanceof Commit ? commit.branchId : undefined}
+								{sections}
+							/>
 						</div>
 					</div>
 				</div>

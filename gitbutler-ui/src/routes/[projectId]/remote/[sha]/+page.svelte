@@ -4,7 +4,7 @@
 	import { page } from '$app/stores';
 
 	export let data: PageData;
-	$: projectId = data.projectId;
+	$: project$ = data.project$;
 	$: branchController = data.branchController;
 	$: remoteBranchService = data.remoteBranchService;
 	$: branches$ = remoteBranchService.branches$;
@@ -24,7 +24,12 @@
 		{:else if !$branches$}
 			<p>Loading...</p>
 		{:else if branch}
-			<RemoteBranchPreview {projectId} {branchController} {branch} />
+			<RemoteBranchPreview
+				projectId={$project$.id}
+				projectPath={$project$.path}
+				{branchController}
+				{branch}
+			/>
 		{:else}
 			<p>Branch doesn't seem to exist</p>
 		{/if}

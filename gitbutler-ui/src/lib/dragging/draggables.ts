@@ -13,7 +13,7 @@ export type DraggableHunk = {
 	hunk: Hunk;
 };
 
-export function draggableHunk(branchId: string, hunk: Hunk) {
+export function draggableHunk(branchId: string | undefined, hunk: Hunk) {
 	return { data: { branchId, hunk } };
 }
 

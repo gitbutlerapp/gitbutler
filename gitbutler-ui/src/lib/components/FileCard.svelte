@@ -1,5 +1,6 @@
 <script lang="ts">
 	import FileCardHeader from './FileCardHeader.svelte';
+	import FileDiff from './FileDiff.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import { persisted } from '$lib/persisted/persisted';
@@ -13,7 +14,6 @@
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { File } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
-	import FileDiff from './FileDiff.svelte';
 
 	export let projectId: string;
 	export let branchId: string;
@@ -43,17 +43,6 @@
 	}
 	$: parseFile(file);
 
-	$: maxLineNumber = sections[sections.length - 1]?.maxLineNumber;
-
-	function getGutterMinWidth(max: number) {
-		if (max >= 1000) return 2;
-		if (max >= 100) return 1.5;
-		if (max >= 10) return 1.25;
-		return 1;
-	}
-
-	$: minWidth = getGutterMinWidth(maxLineNumber);
-
 	$: isFileLocked = sections
 		.filter((section): section is HunkSection => section instanceof HunkSection)
 		.some((section) => section.hunk.locked);
@@ -82,7 +71,10 @@
 
 		<ScrollableContainer wide>
 			<FileDiff
-				{file}
+				filePath={file.path}
+				isLarge={file.large}
+				isBinary={file.binary}
+				{sections}
 				{projectPath}
 				{isFileLocked}
 				{isUnapplied}
@@ -147,31 +139,6 @@
 		flex-direction: column;
 		max-height: 100%;
 		flex-grow: 1;
-	}
-	.hunks {
-		display: flex;
-		flex-direction: column;
-		position: relative;
-		max-height: 100%;
-		flex-shrink: 0;
-		padding: var(--space-16);
-		gap: var(--space-16);
-	}
-	.hunk-wrapper {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-10);
-	}
-	.indicators {
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
-	}
-	.added {
-		color: #45b156;
-	}
-	.removed {
-		color: #ff3e00;
 	}
 
 	@keyframes wiggle {

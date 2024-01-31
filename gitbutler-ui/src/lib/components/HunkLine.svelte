@@ -81,6 +81,7 @@
 	.line {
 		flex-grow: 1;
 		cursor: grab;
+		padding-left: var(--space-4);
 	}
 
 	.code-line__numbers-line {
@@ -92,6 +93,5 @@
 	.selectable-wrapper {
 		cursor: text;
 		display: inline-block;
-		padding-left: var(--space-4);
 	}
 </style>

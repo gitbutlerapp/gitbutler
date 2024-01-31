@@ -10,6 +10,8 @@
 	export let base: BaseBranch;
 	export let projectId: string;
 	export let branchController: BranchController;
+	export let projectPath: string;
+
 	const mergeUpstreamWarningDismissed = projectMergeUpstreamWarningDismissed(
 		branchController.projectId
 	);
@@ -47,7 +49,13 @@
 		<div class="flex h-full">
 			<div class="z-20 flex w-full flex-col gap-2">
 				{#each base.upstreamCommits as commit}
-					<CommitCard {commit} {projectId} commitUrl={base.commitUrl(commit.id)} />
+					<CommitCard
+						{commit}
+						{projectId}
+						commitUrl={base.commitUrl(commit.id)}
+						{projectPath}
+						{branchController}
+					/>
 				{/each}
 			</div>
 		</div>
@@ -65,7 +73,13 @@
 	</div>
 	<div class="flex flex-col gap-y-2">
 		{#each base.recentCommits as commit}
-			<CommitCard {commit} {projectId} commitUrl={base.commitUrl(commit.id)} />
+			<CommitCard
+				{commit}
+				{projectId}
+				commitUrl={base.commitUrl(commit.id)}
+				{projectPath}
+				{branchController}
+			/>
 		{/each}
 	</div>
 </div>

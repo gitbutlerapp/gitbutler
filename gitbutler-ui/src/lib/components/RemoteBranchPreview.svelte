@@ -6,6 +6,7 @@
 
 	export let branch: RemoteBranch | undefined;
 	export let projectId: string;
+	export let projectPath: string;
 	export let branchController: BranchController;
 </script>
 
@@ -23,7 +24,7 @@
 			{#if branch.commits && branch.commits.length > 0}
 				<div class="flex w-full flex-col gap-y-2">
 					{#each branch.commits as commit}
-						<CommitCard {commit} {projectId} />
+						<CommitCard {commit} {projectId} {branchController} {projectPath} />
 					{/each}
 				</div>
 			{/if}

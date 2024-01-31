@@ -138,6 +138,8 @@
 			{isHeadCommit}
 			{resetHeadCommit}
 			{isUnapplied}
+			{branchController}
+			projectPath={project.path}
 		/>
 	</div>
 	<!-- <div class="reset-head">
