@@ -12,7 +12,7 @@ const defaultDraggableOptions: DraggableOptions = {
 	disabled: false
 };
 
-export function applyGhostStyle(element: HTMLElement) {
+export function applyContainerStyle(element: HTMLElement) {
 	element.style.position = 'absolute';
 	element.style.top = '-9999px'; // Element has to be in the DOM so we move it out of sight
 	element.style.display = 'inline-block';
@@ -20,19 +20,20 @@ export function applyGhostStyle(element: HTMLElement) {
 }
 
 export function createContainerForMultiDrag(children: Element[]): HTMLDivElement {
-	const clone = document.createElement('div');
 	const inner = document.createElement('div');
-	clone.appendChild(inner);
-	applyGhostStyle(clone);
 	inner.style.display = 'flex';
 	inner.style.flexDirection = 'column';
 	inner.style.gap = 'var(--space-2)';
-	rotateInnerElement(clone);
-
 	children.forEach((child) => {
-		clone.children[0].appendChild(cloneWithPreservedDimensions(child));
+		inner.appendChild(cloneWithPreservedDimensions(child));
 	});
-	return clone;
+	rotateElement(inner);
+
+	const container = document.createElement('div');
+	container.appendChild(inner);
+	applyContainerStyle(container);
+
+	return container;
 }
 
 export function cloneWithPreservedDimensions(node: any) {
@@ -43,26 +44,27 @@ export function cloneWithPreservedDimensions(node: any) {
 }
 
 export function cloneWithRotation(node: any) {
-	const clone = node.cloneNode(true) as HTMLElement;
+	const container = document.createElement('div');
+	const clone = cloneWithPreservedDimensions(node) as HTMLElement;
+	container.appendChild(clone);
 
 	// exclude all ignored elements from the clone
-	const ignoredElements = clone.querySelectorAll('[data-remove-from-draggable]');
+	const ignoredElements = container.querySelectorAll('[data-remove-from-draggable]');
 	ignoredElements.forEach((element) => {
 		element.remove();
 	});
 
-	applyGhostStyle(clone);
+	applyContainerStyle(container);
 
 	// Style the inner node so it retains the shape and then rotate
 	// TODO: This rotation puts a requirement on draggables to have
 	// an outer container, which feels extra. Consider refactoring.
-	rotateInnerElement(clone);
-	return clone as HTMLElement;
+	rotateElement(clone);
+	return container as HTMLElement;
 }
 
-function rotateInnerElement(element: HTMLElement) {
-	const inner = element.children[0] as HTMLElement;
-	inner.style.rotate = `${Math.floor(Math.random() * 3)}deg`;
+function rotateElement(element: HTMLElement) {
+	element.style.rotate = `${Math.floor(Math.random() * 3)}deg`;
 }
 
 export function draggable(node: HTMLElement, opts: Partial<DraggableOptions> | undefined) {
