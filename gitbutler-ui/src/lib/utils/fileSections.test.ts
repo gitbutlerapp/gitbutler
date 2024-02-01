@@ -1,5 +1,5 @@
 import { parseHunkSection, parseFileSections, SectionType } from '$lib/utils/fileSections';
-import { File, Hunk } from '$lib/vbranches/types';
+import { LocalFile, Hunk } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { expect, test } from 'vitest';
 import type { ContentSection, HunkSection } from '$lib/utils/fileSections';
@@ -417,7 +417,7 @@ test('parses file with one hunk and balanced add-remove', () => {
 		filePath: 'foo.py',
 		locked: false
 	});
-	const file = plainToInstance(File, {
+	const file = plainToInstance(LocalFile, {
 		id: '1',
 		path: 'foo.py',
 		hunks: [hunk],
@@ -476,7 +476,7 @@ test('parses file with one hunk with more added than removed', () => {
 		filePath: 'foo.py',
 		locked: false
 	});
-	const file = plainToInstance(File, {
+	const file = plainToInstance(LocalFile, {
 		id: '1',
 		path: 'foo.py',
 		hunks: [hunk],
@@ -538,7 +538,7 @@ test('parses file with two hunks ordered by position in file', () => {
 		filePath: 'foo.py',
 		locked: false
 	});
-	const file = plainToInstance(File, {
+	const file = plainToInstance(LocalFile, {
 		id: '1',
 		path: 'foo.py',
 		hunks: [bottomHunk, topHunk],
@@ -611,7 +611,7 @@ test('parses whole file deleted', () => {
 		filePath: 'foo.py',
 		locked: false
 	});
-	const file = plainToInstance(File, {
+	const file = plainToInstance(LocalFile, {
 		id: '1',
 		path: 'foo.py',
 		hunks: [deleteHunk],
@@ -638,7 +638,7 @@ test('parses new file created', () => {
 		filePath: 'foo.py',
 		locked: false
 	});
-	const file = plainToInstance(File, {
+	const file = plainToInstance(LocalFile, {
 		id: '1',
 		path: 'foo.py',
 		hunks: [newFileHunk],

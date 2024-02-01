@@ -13,7 +13,7 @@
 	import { filesToFileTree } from '$lib/vbranches/filetree';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
-	import { File, RemoteCommit, Commit, RemoteFile } from '$lib/vbranches/types';
+	import { LocalFile, RemoteCommit, Commit, RemoteFile } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';
 	import { writable, type Writable } from 'svelte/store';
 	import type { ContentSection, HunkSection } from '$lib/utils/fileSections';
@@ -27,7 +27,7 @@
 	export let isUnapplied = false;
 	export let branchController: BranchController;
 	export let projectPath: string;
-	export let selectedFiles: Writable<(File | RemoteFile)[]>;
+	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
 
 	const selectedOwnership = writable(Ownership.default());
 

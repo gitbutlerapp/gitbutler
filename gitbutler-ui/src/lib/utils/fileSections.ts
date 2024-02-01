@@ -1,4 +1,4 @@
-import { File } from '$lib/vbranches/types';
+import { LocalFile } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import type { Hunk, RemoteFile, RemoteHunk } from '$lib/vbranches/types';
 
@@ -146,13 +146,13 @@ export function parseHunkSection(hunk: Hunk | RemoteHunk): HunkSection {
 	return hunkSection;
 }
 
-export function parseFileSections(file: File | RemoteFile): (ContentSection | HunkSection)[] {
+export function parseFileSections(file: LocalFile | RemoteFile): (ContentSection | HunkSection)[] {
 	const hunkSections = file.hunks
 		.map(parseHunkSection)
 		.filter((hunkSection) => hunkSection !== undefined)
 		.sort((a, b) => a.header.beforeStart - b.header.beforeStart);
 
-	const content = file instanceof File ? file.content : undefined;
+	const content = file instanceof LocalFile ? file.content : undefined;
 
 	if (!content) return hunkSections;
 

@@ -23,7 +23,7 @@ export class Hunk {
 	changeType!: ChangeType;
 }
 
-export class File {
+export class LocalFile {
 	id!: string;
 	path!: string;
 	@Type(() => Hunk)
@@ -58,8 +58,8 @@ export class Branch {
 	notes!: string;
 	// Active means the branch has been applied to the workspace
 	active!: boolean;
-	@Type(() => File)
-	files!: File[];
+	@Type(() => LocalFile)
+	files!: LocalFile[];
 	@Type(() => Commit)
 	commits!: Commit[];
 	requiresForce!: boolean;
@@ -93,8 +93,8 @@ export class Commit {
 	createdAt!: Date;
 	isRemote!: boolean;
 	isIntegrated!: boolean;
-	@Type(() => File)
-	files!: File[];
+	@Type(() => LocalFile)
+	files!: LocalFile[];
 	parentIds!: string[];
 	branchId!: string;
 

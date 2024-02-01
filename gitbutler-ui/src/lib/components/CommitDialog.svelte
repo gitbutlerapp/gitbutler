@@ -21,7 +21,7 @@
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { Branch, File } from '$lib/vbranches/types';
+	import type { Branch, LocalFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	const dispatch = createEventDispatcher<{
@@ -74,7 +74,7 @@
 	$: checkCommitsAnnotated();
 
 	let isGeneratingCommigMessage = false;
-	async function generateCommitMessage(files: File[]) {
+	async function generateCommitMessage(files: LocalFile[]) {
 		const diff = files
 			.map((f) => f.hunks.filter((h) => $selectedOwnership.containsHunk(f.id, h.id)))
 			.flat()

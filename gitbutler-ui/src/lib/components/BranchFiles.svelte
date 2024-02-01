@@ -4,13 +4,13 @@
 	import FileTree from './FileTree.svelte';
 	import { filesToFileTree } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { Branch, File } from '$lib/vbranches/types';
+	import type { Branch, LocalFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let branch: Branch;
 	export let isUnapplied: boolean;
 	export let selectedOwnership: Writable<Ownership>;
-	export let selectedFiles: Writable<File[]>;
+	export let selectedFiles: Writable<LocalFile[]>;
 	export let showCheckboxes = false;
 
 	let selectedListMode: string;

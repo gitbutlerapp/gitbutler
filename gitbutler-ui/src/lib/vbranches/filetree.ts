@@ -4,11 +4,11 @@
  * This module provides support for tranforming a list of files into a
  * hirerarchical structure for easy rendering.
  */
-import type { File, RemoteFile } from './types';
+import type { LocalFile, RemoteFile } from './types';
 
 export interface TreeNode {
 	name: string;
-	file?: File | RemoteFile;
+	file?: LocalFile | RemoteFile;
 	children: TreeNode[];
 	parent?: TreeNode;
 }
@@ -40,7 +40,7 @@ export function sortChildren(node: TreeNode) {
 	}
 }
 
-export function filesToFileTree(files: (File | RemoteFile)[]): TreeNode {
+export function filesToFileTree(files: (LocalFile | RemoteFile)[]): TreeNode {
 	const acc: TreeNode = { name: 'root', children: [] };
 	files.forEach((f) => {
 		const pathParts = f.path.split('/');
@@ -51,8 +51,8 @@ export function filesToFileTree(files: (File | RemoteFile)[]): TreeNode {
 	return acc;
 }
 
-function fileTreeToList(node: TreeNode): (File | RemoteFile)[] {
-	const list: (File | RemoteFile)[] = [];
+function fileTreeToList(node: TreeNode): (LocalFile | RemoteFile)[] {
+	const list: (LocalFile | RemoteFile)[] = [];
 	if (node.file) list.push(node.file);
 	node.children.forEach((child) => {
 		list.push(...fileTreeToList(child));
@@ -61,6 +61,6 @@ function fileTreeToList(node: TreeNode): (File | RemoteFile)[] {
 }
 
 // Sorts a file list the same way it is sorted in a file tree
-export function sortLikeFileTree(files: (File | RemoteFile)[]): (File | RemoteFile)[] {
+export function sortLikeFileTree(files: (LocalFile | RemoteFile)[]): (LocalFile | RemoteFile)[] {
 	return fileTreeToList(filesToFileTree(files));
 }
