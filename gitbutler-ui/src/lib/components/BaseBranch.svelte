@@ -4,8 +4,9 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { tooltip } from '$lib/utils/tooltip';
+	import { writable } from 'svelte/store';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch } from '$lib/vbranches/types';
+	import type { BaseBranch, File, RemoteFile } from '$lib/vbranches/types';
 
 	export let base: BaseBranch;
 	export let projectId: string;
@@ -15,6 +16,7 @@
 	const mergeUpstreamWarningDismissed = projectMergeUpstreamWarningDismissed(
 		branchController.projectId
 	);
+	const selectedFiles = writable<(File | RemoteFile)[]>([]);
 
 	let updateTargetModal: Modal;
 	let mergeUpstreamWarningDismissedCheckbox = false;
@@ -52,6 +54,7 @@
 					<CommitCard
 						{commit}
 						{projectId}
+						{selectedFiles}
 						commitUrl={base.commitUrl(commit.id)}
 						{projectPath}
 						{branchController}
@@ -76,6 +79,7 @@
 			<CommitCard
 				{commit}
 				{projectId}
+				{selectedFiles}
 				commitUrl={base.commitUrl(commit.id)}
 				{projectPath}
 				{branchController}

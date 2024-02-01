@@ -1,7 +1,7 @@
 import { HunkSection, type ContentSection } from './fileSections';
-import type { File } from '$lib/vbranches/types';
+import type { File, RemoteFile } from '$lib/vbranches/types';
 
-export function computeAddedRemovedByFiles(...files: File[]) {
+export function computeAddedRemovedByFiles(...files: (File | RemoteFile)[]) {
 	return files
 		.flatMap((f) => f.hunks)
 		.map((h) => h.diff.split('\n'))

@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { Type, Transform } from 'class-transformer';
+import { hashCode } from '$lib/utils/string';
 
 export type ChangeType =
 	/// Entry does not exist in old version
@@ -130,6 +131,14 @@ export class RemoteCommit {
 
 export class RemoteHunk {
 	diff!: string;
+
+	get id(): string {
+		return hashCode(this.diff);
+	}
+
+	get locked() {
+		return false;
+	}
 }
 
 export class RemoteFile {
@@ -137,6 +146,34 @@ export class RemoteFile {
 	@Type(() => RemoteHunk)
 	hunks!: RemoteHunk[];
 	binary!: boolean;
+
+	get id(): string {
+		return this.path;
+	}
+
+	get filename(): string {
+		return this.path.replace(/^.*[\\/]/, '');
+	}
+
+	get justpath() {
+		return this.path.split('/').slice(0, -1).join('/');
+	}
+
+	get locked() {
+		return false;
+	}
+
+	get large() {
+		return false;
+	}
+
+	get conflicted() {
+		return false;
+	}
+
+	get hunkIds() {
+		return this.hunks.map((h) => h.id);
+	}
 }
 
 export interface Author {

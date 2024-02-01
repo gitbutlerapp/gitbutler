@@ -2,12 +2,15 @@
 	import Button from '$lib/components/Button.svelte';
 	import CommitCard from '$lib/components/CommitCard.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { RemoteBranch } from '$lib/vbranches/types';
+	import type { File, RemoteBranch, RemoteFile } from '$lib/vbranches/types';
+	import { writable } from 'svelte/store';
 
 	export let branch: RemoteBranch | undefined;
 	export let projectId: string;
 	export let projectPath: string;
 	export let branchController: BranchController;
+
+	const selectedFiles = writable<(File | RemoteFile)[]>([]);
 </script>
 
 {#if branch != undefined}
@@ -24,7 +27,7 @@
 			{#if branch.commits && branch.commits.length > 0}
 				<div class="flex w-full flex-col gap-y-2">
 					{#each branch.commits as commit}
-						<CommitCard {commit} {projectId} {branchController} {projectPath} />
+						<CommitCard {commit} {projectId} {branchController} {projectPath} {selectedFiles} />
 					{/each}
 				</div>
 			{/if}
