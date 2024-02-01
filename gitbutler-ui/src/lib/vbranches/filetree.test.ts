@@ -1,11 +1,11 @@
 import { filesToFileTree } from './filetree';
-import { File } from '$lib/vbranches/types';
+import { LocalFile } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { expect, test } from 'vitest';
 
 test('creates a file tree', () => {
 	const files = [
-		plainToInstance(File, {
+		plainToInstance(LocalFile, {
 			id: '1234',
 			path: 'test/foo.py',
 			hunks: [],
@@ -15,7 +15,7 @@ test('creates a file tree', () => {
 			content: undefined,
 			binary: false
 		}),
-		plainToInstance(File, {
+		plainToInstance(LocalFile, {
 			id: '1234',
 			path: 'test/bar.rs',
 			hunks: [],
@@ -25,7 +25,7 @@ test('creates a file tree', () => {
 			content: undefined,
 			binary: false
 		}),
-		plainToInstance(File, {
+		plainToInstance(LocalFile, {
 			id: '1234',
 			path: 'src/hello/world.txt',
 			hunks: [],

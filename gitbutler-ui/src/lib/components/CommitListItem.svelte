@@ -16,7 +16,7 @@
 		type BaseBranch,
 		type Branch,
 		type Commit,
-		type File,
+		type LocalFile,
 		RemoteFile
 	} from '$lib/vbranches/types';
 	import { get, type Writable } from 'svelte/store';
@@ -31,7 +31,7 @@
 	export let isChained: boolean;
 	export let isUnapplied = false;
 	export let branchController: BranchController;
-	export let selectedFiles: Writable<(File | RemoteFile)[]>;
+	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
 
 	function acceptAmend(commit: Commit | RemoteCommit) {
 		if (commit instanceof RemoteCommit) {

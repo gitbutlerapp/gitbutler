@@ -28,7 +28,7 @@
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, Branch, File, RemoteFile } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, LocalFile, RemoteFile } from '$lib/vbranches/types';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
@@ -39,7 +39,7 @@
 	export let branchController: BranchController;
 	export let branchCount = 1;
 	export let user: User | undefined;
-	export let selectedFiles: Writable<File[]>;
+	export let selectedFiles: Writable<LocalFile[]>;
 	export let githubService: GitHubService;
 	export let selectedOwnership: Writable<Ownership>;
 	export let commitBoxOpen: Writable<boolean>;

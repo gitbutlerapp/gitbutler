@@ -1,6 +1,6 @@
-import type { Branch, File, RemoteFile } from './types';
+import type { Branch, LocalFile, RemoteFile } from './types';
 
-export function filesToOwnership(files: (File | RemoteFile)[]) {
+export function filesToOwnership(files: (LocalFile | RemoteFile)[]) {
 	return files.map((f) => `${f.path}:${f.hunks.map(({ id }) => id).join(',')}`).join('\n');
 }
 

@@ -2,15 +2,15 @@
 	import FileListItem from './FileListItem.svelte';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { File, RemoteFile } from '$lib/vbranches/types';
+	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let branchId: string;
-	export let files: (File | RemoteFile)[];
+	export let files: (LocalFile | RemoteFile)[];
 	export let selectedOwnership: Writable<Ownership>;
 	export let isUnapplied = false;
 	export let showCheckboxes = false;
-	export let selectedFiles: Writable<(File | RemoteFile)[]>;
+	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
 	export let allowMultiple = false;
 
 	$: console.log(selectedFiles);

@@ -6,7 +6,7 @@
 	import { tooltip } from '$lib/utils/tooltip';
 	import { writable } from 'svelte/store';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, File, RemoteFile } from '$lib/vbranches/types';
+	import type { BaseBranch, LocalFile, RemoteFile } from '$lib/vbranches/types';
 
 	export let base: BaseBranch;
 	export let projectId: string;
@@ -16,7 +16,7 @@
 	const mergeUpstreamWarningDismissed = projectMergeUpstreamWarningDismissed(
 		branchController.projectId
 	);
-	const selectedFiles = writable<(File | RemoteFile)[]>([]);
+	const selectedFiles = writable<(LocalFile | RemoteFile)[]>([]);
 
 	let updateTargetModal: Modal;
 	let mergeUpstreamWarningDismissedCheckbox = false;
