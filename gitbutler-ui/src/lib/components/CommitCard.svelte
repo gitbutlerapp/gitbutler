@@ -16,6 +16,7 @@
 	import { LocalFile, RemoteCommit, Commit, RemoteFile } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';
 	import { writable, type Writable } from 'svelte/store';
+	import { slide } from 'svelte/transition';
 	import type { ContentSection, HunkSection } from '$lib/utils/fileSections';
 	import type { BranchController } from '$lib/vbranches/branchController';
 
@@ -57,46 +58,48 @@
 	use:draggable={commit instanceof Commit
 		? draggableCommit(commit.branchId, commit)
 		: nonDraggable()}
+	class="commit"
+	class:is-head-commit={isHeadCommit}
 >
-	<div class="commit__card" class:is-head-commit={isHeadCommit}>
-		<div on:click={onClick} on:keyup={onClick} role="button" tabindex="0">
-			<div class="commit__header">
-				<span class="commit__description text-base-12 truncate">
-					{commit.description}
-				</span>
-				{#if isHeadCommit && !isUnapplied}
-					<Tag
-						color="ghost"
-						icon="undo-small"
-						border
-						clickable
-						on:click={(e) => {
-							e.stopPropagation();
-							resetHeadCommit();
-						}}>Undo</Tag
-					>
-				{/if}
-			</div>
-
-			<div class="commit__details">
-				<div class="commit__author">
-					<img
-						class="commit__avatar"
-						title="Gravatar for {commit.author.email}"
-						alt="Gravatar for {commit.author.email}"
-						srcset="{commit.author.gravatarUrl} 2x"
-						width="100"
-						height="100"
-						on:error
-					/>
-					<span class="commit__author-name text-base-12 truncate">{commit.author.name}</span>
-				</div>
-				<span class="commit__time text-base-11">
-					<TimeAgo date={commit.createdAt} />
-				</span>
-			</div>
+	<div class="commit__header" on:click={onClick} on:keyup={onClick} role="button" tabindex="0">
+		<div class="commit__row">
+			<span class="commit__description text-base-12 truncate">
+				{commit.description}
+			</span>
+			{#if isHeadCommit && !isUnapplied}
+				<Tag
+					color="ghost"
+					icon="undo-small"
+					border
+					clickable
+					on:click={(e) => {
+						e.stopPropagation();
+						resetHeadCommit();
+					}}>Undo</Tag
+				>
+			{/if}
 		</div>
-		{#if showFiles}
+		<div class="commit__row">
+			<div class="commit__author">
+				<img
+					class="commit__avatar"
+					title="Gravatar for {commit.author.email}"
+					alt="Gravatar for {commit.author.email}"
+					srcset="{commit.author.gravatarUrl} 2x"
+					width="100"
+					height="100"
+					on:error
+				/>
+				<span class="commit__author-name text-base-12 truncate">{commit.author.name}</span>
+			</div>
+			<span class="commit__time text-base-11">
+				<TimeAgo date={commit.createdAt} />
+			</span>
+		</div>
+	</div>
+
+	{#if showFiles}
+		<div transition:slide={{ duration: 100 }}>
 			<div class="commit__files-header">
 				<BranchFilesHeader
 					{files}
@@ -126,8 +129,8 @@
 					/>
 				{/if}
 			</div>
-		{/if}
-	</div>
+		</div>
+	{/if}
 </div>
 
 <Modal
@@ -207,7 +210,7 @@
 		@apply visible;
 	}
 
-	.commit__card {
+	.commit {
 		display: flex;
 		flex-direction: column;
 		cursor: default;
@@ -224,9 +227,9 @@
 
 	.commit__header {
 		display: flex;
-		align-items: center;
-		gap: var(--space-8);
-		padding: var(--space-12) var(--space-12) 0 var(--space-12);
+		flex-direction: column;
+		gap: var(--space-10);
+		padding: var(--space-12);
 	}
 
 	.commit__description {
@@ -237,11 +240,10 @@
 		width: 100%;
 	}
 
-	.commit__details {
+	.commit__row {
 		display: flex;
 		align-items: center;
 		gap: var(--space-8);
-		padding: 0 var(--space-12) var(--space-12) var(--space-12);
 	}
 
 	.commit__files {
