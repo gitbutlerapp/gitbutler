@@ -4,16 +4,16 @@
 	import Segment from '$lib/components/SegmentControl/Segment.svelte';
 	import SegmentedControl from '$lib/components/SegmentControl/SegmentedControl.svelte';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
+	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	export let files: (LocalFile | RemoteFile)[];
+	export let files: AnyFile[];
 	export let selectedOwnership: Writable<Ownership>;
 	export let showCheckboxes = false;
 
 	export let selectedListMode: string;
 
-	function selectAll(selectedOwnership: Writable<Ownership>, files: (LocalFile | RemoteFile)[]) {
+	function selectAll(selectedOwnership: Writable<Ownership>, files: AnyFile[]) {
 		files.forEach((f) =>
 			selectedOwnership.update((ownership) => ownership.addHunk(f.id, ...f.hunks.map((h) => h.id)))
 		);

@@ -1,6 +1,6 @@
 import 'reflect-metadata';
-import { Type, Transform } from 'class-transformer';
 import { hashCode } from '$lib/utils/string';
+import { Type, Transform } from 'class-transformer';
 
 export type ChangeType =
 	/// Entry does not exist in old version
@@ -23,6 +23,8 @@ export class Hunk {
 	changeType!: ChangeType;
 }
 
+export type AnyFile = LocalFile | RemoteFile;
+
 export class LocalFile {
 	id!: string;
 	path!: string;
@@ -39,8 +41,9 @@ export class LocalFile {
 	binary!: boolean;
 	large!: boolean;
 
-	get filename() {
-		return this.path.split('/').at(-1);
+	get filename(): string {
+		const parts = this.path.split('/');
+		return parts[parts.length - 1];
 	}
 
 	get justpath() {
@@ -157,10 +160,6 @@ export class RemoteFile {
 
 	get justpath() {
 		return this.path.split('/').slice(0, -1).join('/');
-	}
-
-	get locked() {
-		return false;
 	}
 
 	get large() {

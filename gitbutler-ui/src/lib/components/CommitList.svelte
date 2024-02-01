@@ -6,13 +6,7 @@
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type {
-		BaseBranch,
-		Branch,
-		CommitStatus,
-		LocalFile,
-		RemoteFile
-	} from '$lib/vbranches/types';
+	import type { AnyFile, BaseBranch, Branch, CommitStatus } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let branch: Branch;
@@ -22,7 +16,7 @@
 	export let type: CommitStatus;
 	export let githubService: GitHubService;
 	export let branchService: BranchService;
-	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
+	export let selectedFiles: Writable<AnyFile[]>;
 	export let isUnapplied: boolean;
 	export let branchCount: number = 0;
 
