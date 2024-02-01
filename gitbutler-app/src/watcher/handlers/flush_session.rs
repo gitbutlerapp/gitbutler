@@ -1,10 +1,16 @@
 use std::{path, sync::Arc};
 
 use anyhow::{Context, Result};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
-use crate::{gb_repository, project_repository, projects, projects::ProjectId, sessions, users};
+use crate::{
+    app,
+    appstate::{self, AppState},
+    gb_repository, project_repository, projects,
+    projects::ProjectId,
+    sessions, users,
+};
 
 use super::events;
 
@@ -25,13 +31,13 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    pub fn handle(
+    pub async fn handle(
         &self,
         project_id: &ProjectId,
         session: &sessions::Session,
     ) -> Result<Vec<events::Event>> {
         if let Ok(inner) = self.inner.try_lock() {
-            inner.handle(project_id, session)
+            inner.handle(project_id, session).await
         } else {
             Ok(vec![])
         }
@@ -41,7 +47,7 @@ impl Handler {
 struct HandlerInner {
     local_data_dir: path::PathBuf,
     project_store: projects::Controller,
-    users: users::Controller,
+    users_controller: Arc<Mutex<users::Controller>>,
 }
 
 impl TryFrom<&AppHandle> for HandlerInner {
@@ -55,13 +61,13 @@ impl TryFrom<&AppHandle> for HandlerInner {
         Ok(Self {
             local_data_dir: path,
             project_store: projects::Controller::try_from(value)?,
-            users: users::Controller::from(value),
+            users_controller: Arc::clone(&value.state::<appstate::AppState>().users_controller),
         })
     }
 }
 
 impl HandlerInner {
-    pub fn handle(
+    pub async fn handle(
         &self,
         project_id: &ProjectId,
         session: &sessions::Session,
@@ -71,7 +77,11 @@ impl HandlerInner {
             .get(project_id)
             .context("failed to get project")?;
 
-        let user = self.users.get_user()?;
+        let user = async {
+            let users_controller = self.users_controller.lock().await;
+            users_controller.get_user()
+        }
+        .await?;
         let project_repository =
             project_repository::Repository::open(&project).context("failed to open repository")?;
         let gb_repo = gb_repository::Repository::open(

@@ -1,10 +1,10 @@
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
-use crate::{assets, error::Error, sentry};
+use crate::{appstate::AppState, assets, error::Error, sentry};
 
 use super::{
-    controller::{self, Controller, GetError},
+    controller::{self, GetError},
     User,
 };
 
@@ -22,10 +22,12 @@ impl From<GetError> for Error {
 #[tauri::command(async)]
 #[instrument(skip(handle))]
 pub async fn get_user(handle: AppHandle) -> Result<Option<User>, Error> {
-    let app = handle.state::<Controller>();
+    let app_state = handle.state::<AppState>();
+    let controller = app_state.users_controller.lock().await;
+
     let proxy = handle.state::<assets::Proxy>();
 
-    match app.get_user()? {
+    match controller.get_user()? {
         Some(user) => Ok(Some(proxy.proxy_user(user).await)),
         None => Ok(None),
     }
@@ -45,10 +47,11 @@ impl From<controller::SetError> for Error {
 #[tauri::command(async)]
 #[instrument(skip(handle))]
 pub async fn set_user(handle: AppHandle, user: User) -> Result<User, Error> {
-    let app = handle.state::<Controller>();
+    let app_state = handle.state::<AppState>();
+    let controller = app_state.users_controller.lock().await;
     let proxy = handle.state::<assets::Proxy>();
 
-    app.set_user(&user)?;
+    controller.set_user(&user)?;
 
     sentry::configure_scope(Some(&user));
 
@@ -69,9 +72,10 @@ impl From<controller::DeleteError> for Error {
 #[tauri::command(async)]
 #[instrument(skip(handle))]
 pub async fn delete_user(handle: AppHandle) -> Result<(), Error> {
-    let app = handle.state::<Controller>();
+    let app_state = handle.state::<AppState>();
+    let controller = app_state.users_controller.lock().await;
 
-    app.delete_user()?;
+    controller.delete_user()?;
 
     sentry::configure_scope(None);
 

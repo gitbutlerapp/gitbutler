@@ -3,6 +3,7 @@
 
 pub mod analytics;
 pub mod app;
+pub mod appstate;
 pub mod assets;
 pub mod commands;
 pub mod database;

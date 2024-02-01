@@ -37,6 +37,12 @@ impl From<&AppHandle> for Controller {
 }
 
 impl Controller {
+    pub fn new(data_dir: &path::PathBuf) -> Self {
+        Self {
+            storage: Storage::from(data_dir),
+        }
+    }
+
     pub fn get_user(&self) -> Result<Option<User>, GetError> {
         self.storage
             .get()

@@ -6,6 +6,7 @@ use tracing::instrument;
 
 use crate::{
     app,
+    appstate::AppState,
     error::{Code, Error},
     gb_repository, git, project_repository, projects, reader,
     sessions::SessionId,
@@ -129,7 +130,8 @@ pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Resul
         message: "Malformed project id".into(),
     })?;
 
-    let users = handle.state::<users::Controller>().inner().clone();
+    let app_state = handle.state::<AppState>();
+    let users = app_state.users_controller.lock().await;
     let projects = handle.state::<projects::Controller>().inner().clone();
     let local_data_dir = handle
         .path_resolver()

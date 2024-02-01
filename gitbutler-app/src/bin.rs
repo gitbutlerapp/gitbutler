@@ -1,11 +1,12 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
+use tokio::sync::Mutex;
 
 use anyhow::Context;
 use tauri::{generate_context, Manager, Wry};
 
 use gblib::{
-    analytics, app, assets, commands, database, deltas, github, keys, logs, menu, projects, sentry,
-    sessions, storage, users, virtual_branches, watcher, zip,
+    analytics, app, appstate::AppState, assets, commands, database, deltas, github, keys, logs,
+    menu, projects, sentry, sessions, storage, users, virtual_branches, watcher, zip,
 };
 use tauri_plugin_store::{with_store, JsonValue, StoreCollection};
 
@@ -82,6 +83,12 @@ fn main() {
                     logs::init(&app_handle);
 
                     tracing::info!(version = %app_handle.package_info().version, name = %app_handle.package_info().name, "starting app");
+
+                    let data_dir = app_handle.path_resolver().app_data_dir().expect("failed to get app data dir"); // TODO: can we also log it or are we too early to be able to?
+                    let appstate = AppState {
+                        users_controller: Arc::new(Mutex::new(users::Controller::new(&data_dir))),
+                    };
+                    tauri_app.manage(appstate);
 
                     let watchers = watcher::Watchers::try_from(&app_handle)
                         .expect("failed to initialize watchers");
