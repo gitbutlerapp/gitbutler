@@ -7,7 +7,7 @@
 	import TreeListFolder from './TreeListFolder.svelte';
 	import type { TreeNode } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
+	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let expanded = true;
@@ -15,7 +15,7 @@
 	export let isRoot = false;
 	export let showCheckboxes = false;
 	export let selectedOwnership: Writable<Ownership>;
-	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
+	export let selectedFiles: Writable<AnyFile[]>;
 	export let branchId: string;
 	export let isUnapplied: boolean;
 	export let allowMultiple = false;

@@ -28,7 +28,7 @@
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, Branch, LocalFile, RemoteFile } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, LocalFile } from '$lib/vbranches/types';
 
 	export let branch: Branch;
 	export let isUnapplied = false;

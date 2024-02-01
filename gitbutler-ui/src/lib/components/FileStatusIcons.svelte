@@ -2,9 +2,9 @@
 	import FileStatusCircle from './FileStatusCircle.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
-	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
+	import type { AnyFile } from '$lib/vbranches/types';
 
-	export let file: LocalFile | RemoteFile;
+	export let file: AnyFile;
 	$: isLocked = file.hunks.some((h) => h.locked);
 </script>
 

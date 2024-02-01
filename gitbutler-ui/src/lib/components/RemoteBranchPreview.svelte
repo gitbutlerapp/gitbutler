@@ -1,16 +1,16 @@
 <script lang="ts">
 	import Button from '$lib/components/Button.svelte';
 	import CommitCard from '$lib/components/CommitCard.svelte';
-	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { LocalFile, RemoteBranch, RemoteFile } from '$lib/vbranches/types';
 	import { writable } from 'svelte/store';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { AnyFile, RemoteBranch } from '$lib/vbranches/types';
 
 	export let branch: RemoteBranch | undefined;
 	export let projectId: string;
 	export let projectPath: string;
 	export let branchController: BranchController;
 
-	const selectedFiles = writable<(LocalFile | RemoteFile)[]>([]);
+	const selectedFiles = writable<AnyFile[]>([]);
 </script>
 
 {#if branch != undefined}

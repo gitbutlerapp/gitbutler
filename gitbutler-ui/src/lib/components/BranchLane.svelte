@@ -2,7 +2,13 @@
 	import BranchCard from './BranchCard.svelte';
 	import FileCard from './FileCard.svelte';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { RemoteFile, type BaseBranch, type Branch, type LocalFile } from '$lib/vbranches/types';
+	import {
+		RemoteFile,
+		type BaseBranch,
+		type Branch,
+		type LocalFile,
+		type AnyFile
+	} from '$lib/vbranches/types';
 	import { writable, type Writable } from 'svelte/store';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
@@ -29,7 +35,7 @@
 
 	let commitBoxOpen: Writable<boolean>;
 
-	function setSelected(files: (LocalFile | RemoteFile)[], branch: Branch) {
+	function setSelected(files: AnyFile[], branch: Branch) {
 		if (files.length == 0) return undefined;
 		if (files.length == 1 && files[0] instanceof RemoteFile) return files[0];
 

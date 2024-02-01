@@ -12,12 +12,12 @@
 	import { slide } from 'svelte/transition';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
+	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let projectId: string;
 	export let branchId: string;
-	export let file: LocalFile | RemoteFile;
+	export let file: AnyFile;
 	export let conflicted: boolean;
 	export let projectPath: string | undefined;
 	export let branchController: BranchController;
@@ -35,7 +35,7 @@
 
 	let sections: (HunkSection | ContentSection)[] = [];
 
-	function parseFile(file: LocalFile | RemoteFile) {
+	function parseFile(file: AnyFile) {
 		// When we toggle expansion status on sections we need to assign
 		// `sections = sections` to redraw, and why we do not use a reactive
 		// variable.

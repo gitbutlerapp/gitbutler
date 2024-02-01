@@ -1,4 +1,4 @@
-import type { Commit, LocalFile, Hunk, RemoteCommit, RemoteFile } from '../vbranches/types';
+import type { AnyFile, Commit, LocalFile, Hunk, RemoteCommit } from '../vbranches/types';
 import type { Writable } from 'svelte/store';
 
 export function nonDraggable() {
@@ -23,15 +23,11 @@ export function isDraggableHunk(obj: any): obj is DraggableHunk {
 
 export type DraggableFile = {
 	branchId: string;
-	files: Writable<(LocalFile | RemoteFile)[]>;
+	files: Writable<AnyFile[]>;
 	current: LocalFile;
 };
 
-export function draggableFile(
-	branchId: string,
-	current: LocalFile | RemoteFile,
-	files: Writable<(LocalFile | RemoteFile)[]>
-) {
+export function draggableFile(branchId: string, current: AnyFile, files: Writable<AnyFile[]>) {
 	return { data: { branchId, current, files } };
 }
 
