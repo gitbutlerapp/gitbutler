@@ -5,16 +5,16 @@
 	import { draggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { File } from '$lib/vbranches/types';
+	import type { File, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let branchId: string;
-	export let file: File;
+	export let file: File | RemoteFile;
 	export let isUnapplied: boolean;
 	export let selected: boolean;
 	export let showCheckbox: boolean = false;
 	export let selectedOwnership: Writable<Ownership>;
-	export let selectedFiles: Writable<File[]>;
+	export let selectedFiles: Writable<(File | RemoteFile)[]>;
 
 	let checked = false;
 	let indeterminate = false;

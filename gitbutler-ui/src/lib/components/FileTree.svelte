@@ -7,7 +7,7 @@
 	import TreeListFolder from './TreeListFolder.svelte';
 	import type { TreeNode } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { File } from '$lib/vbranches/types';
+	import type { File, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let expanded = true;
@@ -15,9 +15,10 @@
 	export let isRoot = false;
 	export let showCheckboxes = false;
 	export let selectedOwnership: Writable<Ownership>;
-	export let selectedFiles: Writable<File[]>;
+	export let selectedFiles: Writable<(File | RemoteFile)[]>;
 	export let branchId: string;
 	export let isUnapplied: boolean;
+	export let allowMultiple = false;
 
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
@@ -91,12 +92,13 @@
 		{selectedFiles}
 		showCheckbox={showCheckboxes}
 		on:click={(e) => {
+			e.stopPropagation();
 			const isAlreadySelected = $selectedFiles.includes(file);
 			if (isAlreadySelected && e.shiftKey) {
 				selectedFiles.update((fileIds) => fileIds.filter((f) => f.id != file.id));
 			} else if (isAlreadySelected) {
 				$selectedFiles = [];
-			} else if (e.shiftKey) {
+			} else if (e.shiftKey && allowMultiple) {
 				selectedFiles.update((files) => [file, ...files]);
 			} else {
 				$selectedFiles = [file];

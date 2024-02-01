@@ -2,13 +2,13 @@
 	import BranchCard from './BranchCard.svelte';
 	import FileCard from './FileCard.svelte';
 	import { Ownership } from '$lib/vbranches/ownership';
+	import { RemoteFile, type BaseBranch, type Branch, type File } from '$lib/vbranches/types';
 	import { writable, type Writable } from 'svelte/store';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
@@ -29,8 +29,11 @@
 
 	let commitBoxOpen: Writable<boolean>;
 
-	function setSelected(files: File[], branch: Branch) {
+	function setSelected(files: (File | RemoteFile)[], branch: Branch) {
 		if (files.length == 0) return undefined;
+		if (files.length == 1 && files[0] instanceof RemoteFile) return files[0];
+
+		// If regular file selected but not found in branch files then clear selection.
 		const match = branch.files?.find((f) => files[0].id == f.id);
 		if (!match) $selectedFiles = [];
 		return match;

@@ -2,21 +2,25 @@
 	import FileListItem from './FileListItem.svelte';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { Branch, File } from '$lib/vbranches/types';
+	import type { File, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	export let branch: Branch;
+	export let branchId: string;
+	export let files: (File | RemoteFile)[];
 	export let selectedOwnership: Writable<Ownership>;
 	export let isUnapplied = false;
 	export let showCheckboxes = false;
-	export let selectedFiles: Writable<File[]>;
+	export let selectedFiles: Writable<(File | RemoteFile)[]>;
+	export let allowMultiple = false;
+
+	$: console.log(selectedFiles);
 </script>
 
-{#each sortLikeFileTree(branch.files) as file (file.id)}
+{#each sortLikeFileTree(files) as file (file.id)}
 	<FileListItem
 		{file}
 		{isUnapplied}
-		branchId={branch.id}
+		{branchId}
 		{selectedOwnership}
 		showCheckbox={showCheckboxes}
 		{selectedFiles}
@@ -26,7 +30,7 @@
 				selectedFiles.update((fileIds) => fileIds.filter((f) => f.id != file.id));
 			} else if (isAlreadySelected) {
 				$selectedFiles = [];
-			} else if (e.shiftKey) {
+			} else if (e.shiftKey && allowMultiple) {
 				selectedFiles.update((files) => [file, ...files]);
 			} else {
 				$selectedFiles = [file];

@@ -6,9 +6,9 @@
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import { createEventDispatcher } from 'svelte';
-	import type { File } from '$lib/vbranches/types';
+	import type { File, RemoteFile } from '$lib/vbranches/types';
 
-	export let file: File;
+	export let file: File | RemoteFile;
 	export let isFileLocked: boolean;
 
 	const dispatch = createEventDispatcher<{ close: void }>();
