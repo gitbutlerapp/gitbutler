@@ -4,7 +4,7 @@
   </p>
 	<h1 align="center"><b>GitButler</b></h1>
 	<p align="center">
-		Git based Version Control graphical client, built from the ground up for modern workflows
+		Git branch management GUI, built from the ground up for modern workflows
     <br />
     <a href="https://gitbutler.com"><strong>gitbutler.com »</strong></a>
     <br />
