@@ -4,7 +4,12 @@ export type FileStatus = 'A' | 'M' | 'D';
 
 export function computeFileStatus(file: AnyFile): FileStatus {
 	if (file instanceof RemoteFile) {
-		// TODO: How do we compute this for remote files?
+		const diff = file.hunks[0].diff;
+		if (/^@@ -1,1 /.test(diff)) return 'A';
+		if (/^@@ -0,0 /.test(diff)) return 'A';
+		if (/^@@ -\d+,\d+ \+0,0/.test(diff)) return 'D';
+		if (/^@@ -\d+,\d+ \+1,1/.test(diff)) return 'D';
+		console.log('defaulting to m');
 		return 'M';
 	}
 	if (file.hunks.length == 1) {
