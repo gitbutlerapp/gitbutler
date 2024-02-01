@@ -10,6 +10,7 @@
 	export let minWidth = 1.75;
 	export let selectable: boolean = false;
 	export let selected: boolean = true;
+	export let readonly: boolean = false;
 
 	const dispatch = createEventDispatcher<{ selected: boolean }>();
 
@@ -59,6 +60,7 @@
 	</div>
 	<div
 		class="line"
+		class:readonly
 		class:diff-line-deletion={sectionType === SectionType.RemovedLines}
 		class:diff-line-addition={sectionType === SectionType.AddedLines}
 	>
@@ -80,8 +82,9 @@
 
 	.line {
 		flex-grow: 1;
-		cursor: grab;
-		padding-left: var(--space-4);
+		&:not(.readonly) {
+			cursor: grab;
+		}
 	}
 
 	.code-line__numbers-line {
@@ -93,5 +96,6 @@
 	.selectable-wrapper {
 		cursor: text;
 		display: inline-block;
+		text-indent: var(--space-4);
 	}
 </style>
