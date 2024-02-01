@@ -177,7 +177,7 @@
 						on:click={async () => {
 							isDeleting = true;
 							try {
-								await branchController.applyBranch(branch.id);
+								await branchController.deleteBranch(branch.id);
 								goto(`/${projectId}/board`);
 							} catch (e) {
 								const err = 'Failed to delete branch';
