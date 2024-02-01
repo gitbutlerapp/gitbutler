@@ -1,33 +1,123 @@
 <script lang="ts">
 	import BaseBranch from '$lib/components/BaseBranch.svelte';
+	import FileCard from '$lib/components/FileCard.svelte';
+	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import { Ownership } from '$lib/vbranches/ownership';
+	import lscache from 'lscache';
+	import { getContext, onMount } from 'svelte';
+	import { writable } from 'svelte/store';
+	import type { AnyFile } from '$lib/vbranches/types';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
+
+	const defaultBranchWidthRem = 30;
+	const laneWidthKey = 'historyLaneWidth';
+	const selectedFiles = writable<AnyFile[]>([]);
+	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
+
+	let rsViewport: HTMLDivElement;
+	let laneWidth: number;
+
+	$: project$ = data.project$;
 	$: projectId = data.projectId;
 	$: branchController = data.branchController;
 	$: baseBranchService = data.baseBranchService;
 	$: base$ = baseBranchService.base$;
 	$: error$ = baseBranchService.error$;
-	$: project$ = data.project$;
+
+	$: projectPath = $project$.path;
+
+	$: selectedOwnership = writable(Ownership.default());
+	$: selected = setSelected($selectedFiles);
+
+	function setSelected(files: AnyFile[]) {
+		if (files.length == 0) return undefined;
+		return files[0];
+	}
+
+	onMount(() => {
+		laneWidth = lscache.get(laneWidthKey);
+	});
 </script>
 
-<ScrollableContainer wide>
-	<div class="card">
-		{#if $error$}
-			<p>Error...</p>
-		{:else if !$base$}
-			<p>Loading...</p>
-		{:else}
-			<BaseBranch {projectId} base={$base$} {branchController} projectPath={$project$.path} />
+<div class="base">
+	<div
+		class="base__left"
+		bind:this={rsViewport}
+		style:width={`${laneWidth || defaultBranchWidthRem}rem`}
+	>
+		<ScrollableContainer>
+			<div class="card">
+				{#if $error$}
+					<p>Error...</p>
+				{:else if !$base$}
+					<p>Loading...</p>
+				{:else}
+					<BaseBranch
+						{projectId}
+						base={$base$}
+						{branchController}
+						projectPath={$project$.path}
+						{selectedFiles}
+					/>
+				{/if}
+			</div>
+		</ScrollableContainer>
+		<Resizer
+			viewport={rsViewport}
+			direction="right"
+			minWidth={320}
+			on:width={(e) => {
+				laneWidth = e.detail / (16 * $userSettings.zoom);
+				lscache.set(laneWidthKey, laneWidth, 7 * 1440); // 7 day ttl
+			}}
+		/>
+	</div>
+	<div class="base__right">
+		{#if selected}
+			<FileCard
+				conflicted={selected.conflicted}
+				branchId={'blah'}
+				file={selected}
+				{projectId}
+				{projectPath}
+				{branchController}
+				{selectedOwnership}
+				isUnapplied={false}
+				readonly={true}
+				on:close={() => {
+					const selectedId = selected?.id;
+					selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
+				}}
+			/>
 		{/if}
 	</div>
-</ScrollableContainer>
+</div>
 
 <style lang="postcss">
+	.base {
+		display: flex;
+		flex-grow: 1;
+		overflow-x: auto;
+		padding-right: var(--space-16);
+	}
+	.base__left {
+		display: flex;
+		flex-grow: 0;
+		flex-shrink: 0;
+		overflow-x: hidden;
+		position: relative;
+	}
+	.base__right {
+		flex-basis: 50%;
+		display: flex;
+		padding-left: var(--space-6);
+	}
 	.card {
-		margin: var(--space-16);
+		margin: var(--space-12) var(--space-6) var(--space-12) var(--space-12);
 		padding: var(--space-16);
-		max-width: 50rem;
 	}
 </style>
