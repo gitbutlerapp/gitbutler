@@ -23,6 +23,7 @@
 	export let branchController: BranchController;
 	export let isUnapplied: boolean;
 	export let selectable = false;
+	export let readonly = false;
 	export let selectedOwnership: Writable<Ownership>;
 
 	let rsViewport: HTMLElement;
@@ -74,6 +75,7 @@
 				filePath={file.path}
 				isLarge={file.large}
 				isBinary={file.binary}
+				{readonly}
 				{sections}
 				{projectPath}
 				{isFileLocked}

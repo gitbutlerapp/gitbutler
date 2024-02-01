@@ -18,6 +18,7 @@
 	export let selectable = false;
 	export let selectedOwnership: Writable<Ownership> | undefined = undefined;
 	export let isFileLocked = false;
+	export let readonly: boolean = false;
 
 	function getGutterMinWidth(max: number) {
 		if (max >= 10000) return 2.5;
@@ -61,6 +62,7 @@
 						{branchController}
 						{isFileLocked}
 						{minWidth}
+						{readonly}
 					/>
 				</div>
 			{/if}

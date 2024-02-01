@@ -19,6 +19,7 @@
 	export let selectable = false;
 	export let isUnapplied: boolean;
 	export let isFileLocked: boolean;
+	export let readonly: boolean = false;
 
 	export let branchController: BranchController;
 	export let selectedOwnership: Writable<Ownership> | undefined = undefined;
@@ -54,10 +55,11 @@
 	role="cell"
 	use:draggable={{
 		...draggableHunk(branchId, section.hunk),
-		disabled: isUnapplied || section.hunk.locked || !branchId
+		disabled: readonly || isUnapplied || section.hunk.locked || !branchId
 	}}
 	on:contextmenu|preventDefault
 	class="hunk"
+	class:readonly
 	class:opacity-60={section.hunk.locked && !isFileLocked}
 >
 	<div class="hunk__bg-stretch">
@@ -67,6 +69,7 @@
 				<HunkLine
 					{line}
 					{filePath}
+					{readonly}
 					{minWidth}
 					{selectable}
 					selected={$selectedOwnership?.containsHunk(hunk.filePath, hunk.id)}
@@ -89,7 +92,6 @@
 		display: flex;
 		flex-direction: column;
 		overflow-x: auto;
-		cursor: grab;
 
 		background: var(--clr-theme-container-light);
 		border-radius: var(--radius-s);

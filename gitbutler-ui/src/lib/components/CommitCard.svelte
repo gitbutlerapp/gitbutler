@@ -113,6 +113,7 @@
 						{selectedOwnership}
 						{selectedFiles}
 						{isUnapplied}
+						readonly={true}
 					/>
 				{:else}
 					<FileTree
@@ -174,6 +175,7 @@
 					<div class="commit-modal__code-container custom-scrollbar">
 						<div class="commit-modal__code-wrapper">
 							<FileDiff
+								readonly={true}
 								filePath={remoteFile.path}
 								isBinary={remoteFile.binary}
 								isLarge={false}

@@ -12,18 +12,18 @@
 	export let showCheckboxes = false;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let allowMultiple = false;
-
-	$: console.log(selectedFiles);
+	export let readonly = false;
 </script>
 
 {#each sortLikeFileTree(files) as file (file.id)}
 	<FileListItem
 		{file}
-		{isUnapplied}
+		{readonly}
 		{branchId}
+		{isUnapplied}
+		{selectedFiles}
 		{selectedOwnership}
 		showCheckbox={showCheckboxes}
-		{selectedFiles}
 		on:click={(e) => {
 			const isAlreadySelected = $selectedFiles.includes(file);
 			if (isAlreadySelected && e.shiftKey) {

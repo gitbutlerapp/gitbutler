@@ -78,6 +78,7 @@
 			{branchController}
 			{selectedOwnership}
 			{isUnapplied}
+			readonly={selected instanceof RemoteFile}
 			selectable={$commitBoxOpen && !isUnapplied}
 			on:close={() => {
 				const selectedId = selected?.id;
