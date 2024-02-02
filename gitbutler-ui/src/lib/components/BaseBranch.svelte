@@ -11,7 +11,6 @@
 	export let base: BaseBranch;
 	export let projectId: string;
 	export let branchController: BranchController;
-	export let projectPath: string;
 	export let selectedFiles: Writable<AnyFile[]>;
 
 	const mergeUpstreamWarningDismissed = projectMergeUpstreamWarningDismissed(
@@ -51,14 +50,7 @@
 		<div class="flex h-full">
 			<div class="z-20 flex w-full flex-col gap-2">
 				{#each base.upstreamCommits as commit}
-					<CommitCard
-						{commit}
-						{projectId}
-						{selectedFiles}
-						commitUrl={base.commitUrl(commit.id)}
-						{projectPath}
-						{branchController}
-					/>
+					<CommitCard {commit} {projectId} {selectedFiles} commitUrl={base.commitUrl(commit.id)} />
 				{/each}
 			</div>
 		</div>
@@ -76,14 +68,7 @@
 	</div>
 	<div class="flex flex-col gap-y-2">
 		{#each base.recentCommits as commit}
-			<CommitCard
-				{commit}
-				{projectId}
-				{selectedFiles}
-				commitUrl={base.commitUrl(commit.id)}
-				{projectPath}
-				{branchController}
-			/>
+			<CommitCard {commit} {projectId} {selectedFiles} commitUrl={base.commitUrl(commit.id)} />
 		{/each}
 	</div>
 </div>

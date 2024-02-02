@@ -145,9 +145,7 @@
 			{isHeadCommit}
 			{resetHeadCommit}
 			{isUnapplied}
-			{branchController}
 			{selectedFiles}
-			projectPath={project.path}
 		/>
 	</div>
 	<!-- <div class="reset-head">
