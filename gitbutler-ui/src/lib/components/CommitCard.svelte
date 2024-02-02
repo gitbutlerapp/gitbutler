@@ -1,24 +1,19 @@
 <script lang="ts">
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
 	import BranchFilesList from './BranchFilesList.svelte';
-	import FileDiff from './FileDiff.svelte';
 	import FileTree from './FileTree.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import Modal from '$lib/components/Modal.svelte';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableCommit, nonDraggable } from '$lib/dragging/draggables';
-	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { filesToFileTree } from '$lib/vbranches/filetree';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { listRemoteCommitFiles, parseRemoteFiles } from '$lib/vbranches/remoteCommits';
+	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { LocalFile, RemoteCommit, Commit, RemoteFile } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';
 	import { writable, type Writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
-	import type { ContentSection, HunkSection } from '$lib/utils/fileSections';
-	import type { BranchController } from '$lib/vbranches/branchController';
 
 	export let commit: Commit | RemoteCommit;
 	export let projectId: string;
@@ -26,31 +21,22 @@
 	export let isHeadCommit: boolean = false;
 	export let resetHeadCommit: () => void | undefined = () => undefined;
 	export let isUnapplied = false;
-	export let branchController: BranchController;
-	export let projectPath: string;
 	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
 
 	const selectedOwnership = writable(Ownership.default());
 
-	let previewCommitModal: Modal;
 	let showFiles = false;
 	let selectedListMode: string;
 
 	let files: RemoteFile[] = [];
-	let parsedFiles: [RemoteFile, (ContentSection | HunkSection)[]][];
-	let isLoading = false;
 
 	async function loadFiles() {
-		isLoading = true;
 		files = await listRemoteCommitFiles(projectId, commit.id);
-		parsedFiles = parseRemoteFiles(files);
-		isLoading = false;
 	}
 
 	function onClick() {
 		showFiles = !showFiles;
 		if (showFiles) loadFiles();
-		// previewCommitModal.show();
 	}
 </script>
 
@@ -100,7 +86,7 @@
 
 	{#if showFiles}
 		<div transition:slide={{ duration: 100 }}>
-			<div class="commit__files-header">
+			<div class="files__header">
 				<BranchFilesHeader
 					{files}
 					{selectedOwnership}
@@ -108,7 +94,7 @@
 					bind:selectedListMode
 				/>
 			</div>
-			<div class="commit__files">
+			<div class="files">
 				{#if selectedListMode == 'list'}
 					<BranchFilesList
 						branchId="blah"
@@ -129,77 +115,21 @@
 					/>
 				{/if}
 			</div>
+			{#if !commit.isLocal && commitUrl}
+				<div class="files__footer">
+					<Button
+						color="neutral"
+						kind="outlined"
+						icon="open-link"
+						on:click={() => {
+							if (commitUrl) open(commitUrl);
+						}}>Open commit</Button
+					>
+				</div>
+			{/if}
 		</div>
 	{/if}
 </div>
-
-<Modal
-	width="large"
-	bind:this={previewCommitModal}
-	icon="commit"
-	title={commit.description}
-	hoverText={commit.id}
->
-	<svelte:fragment slot="header_controls">
-		{#if !commit.isLocal && commitUrl}
-			<Button
-				color="neutral"
-				kind="outlined"
-				icon="open-link"
-				on:click={() => {
-					if (commitUrl) open(commitUrl);
-				}}>Open commit</Button
-			>
-		{/if}
-	</svelte:fragment>
-
-	<div class="commit-modal__body">
-		{#if isLoading}
-			<div class="flex w-full justify-center">
-				<div class="border-gray-900 h-8 w-8 animate-spin rounded-full border-b-2" />
-			</div>
-		{:else}
-			{#each parsedFiles as [remoteFile, sections] (remoteFile.id)}
-				<div class="commit-modal__file-section">
-					<div
-						class="text-color-3 flex flex-grow items-center overflow-hidden text-ellipsis whitespace-nowrap font-bold"
-						title={remoteFile.path}
-					>
-						<img
-							src={getVSIFileIcon(remoteFile.path)}
-							alt="js"
-							width="13"
-							style="width: 0.8125rem"
-							class="mr-1 inline"
-						/>
-
-						{remoteFile.path}
-					</div>
-					<div class="commit-modal__code-container custom-scrollbar">
-						<div class="commit-modal__code-wrapper">
-							<FileDiff
-								readonly={true}
-								filePath={remoteFile.path}
-								isBinary={remoteFile.binary}
-								isLarge={false}
-								{projectPath}
-								{isUnapplied}
-								{branchController}
-								selectable={false}
-								branchId={commit instanceof Commit ? commit.branchId : undefined}
-								{sections}
-							/>
-						</div>
-					</div>
-				</div>
-			{/each}
-		{/if}
-	</div>
-
-	<svelte:fragment slot="controls">
-		<Button color="primary" on:click={() => previewCommitModal.close()}>Close</Button>
-	</svelte:fragment>
-</Modal>
 
 <style lang="postcss">
 	/* amend drop zone */
@@ -246,21 +176,6 @@
 		gap: var(--space-8);
 	}
 
-	.commit__files {
-		padding-top: 0;
-		padding-left: var(--space-12);
-		padding-right: var(--space-12);
-		padding-bottom: var(--space-12);
-	}
-
-	.commit__files-header {
-		border-top: 1px solid var(--clr-theme-container-outline-light);
-		padding-top: var(--space-12);
-		padding-bottom: var(--space-12);
-		padding-left: var(--space-20);
-		padding-right: var(--space-12);
-	}
-
 	.commit__author {
 		display: block;
 		flex: 1;
@@ -288,33 +203,24 @@
 		gap: var(--space-6);
 	}
 
-	/* modal */
-	.commit-modal__code-container {
-		display: flex;
-		flex-direction: column;
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-theme-container-outline-light);
-		overflow-x: auto;
-		overflow-y: hidden;
-		user-select: text;
+	.files {
+		padding-top: 0;
+		padding-left: var(--space-12);
+		padding-right: var(--space-12);
+		padding-bottom: var(--space-12);
 	}
 
-	.commit-modal__code-wrapper {
-		display: flex;
-		flex-direction: column;
-		width: 100%;
-		min-width: max-content;
+	.files__header {
+		border-top: 1px solid var(--clr-theme-container-outline-light);
+		padding-top: var(--space-12);
+		padding-bottom: var(--space-12);
+		padding-left: var(--space-20);
+		padding-right: var(--space-12);
 	}
 
-	.commit-modal__file-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-12);
-	}
-
-	.commit-modal__body {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-20);
+	.files__footer {
+		text-align: right;
+		padding: var(--space-12);
+		border-top: 1px solid var(--clr-theme-container-outline-light);
 	}
 </style>

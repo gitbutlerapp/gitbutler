@@ -62,7 +62,12 @@
 				{#if branch.commits && branch.commits.length > 0}
 					<div class="flex w-full flex-col gap-y-2">
 						{#each branch.commits as commit (commit.id)}
-							<CommitCard {commit} {projectId} {branchController} {projectPath} {selectedFiles} />
+							<CommitCard
+								{commit}
+								{projectId}
+								{selectedFiles}
+								commitUrl={base?.commitUrl(commit.id)}
+							/>
 						{/each}
 					</div>
 				{/if}

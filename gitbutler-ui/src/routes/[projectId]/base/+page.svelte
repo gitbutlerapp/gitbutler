@@ -56,13 +56,7 @@
 				{:else if !$base$}
 					<p>Loading...</p>
 				{:else}
-					<BaseBranch
-						{projectId}
-						base={$base$}
-						{branchController}
-						projectPath={$project$.path}
-						{selectedFiles}
-					/>
+					<BaseBranch {projectId} base={$base$} {branchController} {selectedFiles} />
 				{/if}
 			</div>
 		</ScrollableContainer>
