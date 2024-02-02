@@ -10,10 +10,10 @@
 	export let branch: CombinedBranch;
 
 	function getBranchLink(b: CombinedBranch): string | undefined {
-		if (b.pr) return `/${projectId}/pull/${b.pr.number}`;
 		if (b.vbranch?.active) return `/${projectId}/board/`;
 		if (b.vbranch) return `/${projectId}/stashed/${b.vbranch.id}`;
 		if (b.remoteBranch) return `/${projectId}/remote/${branch?.remoteBranch?.sha}`;
+		if (b.pr) return `/${projectId}/pull/${b.pr.number}`;
 	}
 
 	$: href = getBranchLink(branch);
