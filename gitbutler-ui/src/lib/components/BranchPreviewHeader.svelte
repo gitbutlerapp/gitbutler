@@ -1,0 +1,246 @@
+<script lang="ts">
+	import BranchLabel from './BranchLabel.svelte';
+	import Tag from './Tag.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Icon from '$lib/components/Icon.svelte';
+	import { tooltip } from '$lib/utils/tooltip';
+	import { open } from '@tauri-apps/api/shell';
+	import toast from 'svelte-french-toast';
+	import type { PullRequest } from '$lib/github/types';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { BaseBranch, RemoteBranch } from '$lib/vbranches/types';
+	import { goto } from '$app/navigation';
+
+	export let branch: RemoteBranch;
+	export let base: BaseBranch | undefined | null;
+	export let branchController: BranchController;
+	export let projectId: string;
+	export let pr: PullRequest | undefined;
+
+	// $: prStatus$ = githubService.getStatus($pr$?.targetBranch);
+
+	let meatballButton: HTMLDivElement;
+	let container: HTMLDivElement;
+	let isApplying = false;
+</script>
+
+<div class="header__wrapper">
+	<div class="header card" bind:this={container}>
+		<div class="header__info">
+			<div class="header__label">
+				<BranchLabel bind:name={branch.name} />
+			</div>
+			<div class="header__remote-branch">
+				<div
+					class="status-tag text-base-11 text-semibold remote"
+					use:tooltip={'At least some of your changes have been pushed'}
+				>
+					<Icon name="remote-branch-small" /> remote
+				</div>
+				<Tag
+					icon="open-link"
+					color="ghost"
+					border
+					clickable
+					shrinkable
+					on:click={(e) => {
+						const url = base?.branchUrl(branch.name);
+						if (url) open(url);
+						e.preventDefault();
+						e.stopPropagation();
+					}}
+				>
+					origin/{branch.displayName}
+				</Tag>
+				{#if pr?.htmlUrl}
+					<Tag
+						icon="pr-small"
+						color="ghost"
+						border
+						clickable
+						on:click={(e) => {
+							const url = pr?.htmlUrl;
+							if (url) open(url);
+							e.preventDefault();
+							e.stopPropagation();
+						}}
+					>
+						View PR
+					</Tag>
+				{/if}
+			</div>
+			<div class="draggable" data-drag-handle>
+				<Icon name="draggable-narrow" />
+			</div>
+		</div>
+		<div class="header__actions">
+			<div class="header__buttons"></div>
+			<div class="relative" bind:this={meatballButton}>
+				<Button
+					help="Restores these changes into your working directory"
+					icon="plus-small"
+					color="primary"
+					kind="outlined"
+					loading={isApplying}
+					on:click={async () => {
+						isApplying = true;
+						try {
+							await branchController.createvBranchFromBranch(branch.name);
+							goto(`/${projectId}/board`);
+						} catch (e) {
+							const err = 'Failed to apply branch';
+							toast.error(err);
+							console.error(err, e);
+						} finally {
+							isApplying = false;
+						}
+					}}
+				>
+					Apply
+				</Button>
+			</div>
+		</div>
+	</div>
+	<div class="header__top-overlay" data-remove-from-draggable data-tauri-drag-region />
+</div>
+
+<style lang="postcss">
+	.header__wrapper {
+		z-index: 10;
+		position: sticky;
+		top: var(--space-12);
+	}
+	.header {
+		z-index: 2;
+		position: relative;
+		flex-direction: column;
+		gap: var(--space-2);
+
+		&:hover {
+			& .draggable {
+				opacity: 1;
+			}
+		}
+	}
+	.header__top-overlay {
+		z-index: 1;
+		position: absolute;
+		top: calc(var(--space-16) * -1);
+		left: 0;
+		width: 100%;
+		height: var(--space-20);
+		background: var(--target-branch-background);
+		/* background-color: red; */
+	}
+	.header__info {
+		display: flex;
+		flex-direction: column;
+		transition: margin var(--transition-slow);
+		padding: var(--space-12);
+		gap: var(--space-10);
+	}
+	.header__actions {
+		display: flex;
+		gap: var(--space-4);
+		background: var(--clr-theme-container-pale);
+		padding: var(--space-12);
+		justify-content: space-between;
+		border-radius: 0 0 var(--radius-m) var(--radius-m);
+		user-select: none;
+	}
+	.header__buttons {
+		display: flex;
+		position: relative;
+		gap: var(--space-4);
+	}
+	.header__label {
+		display: flex;
+		flex-grow: 1;
+		align-items: center;
+		gap: var(--space-4);
+	}
+	.draggable {
+		position: absolute;
+		right: var(--space-4);
+		top: var(--space-6);
+		opacity: 0;
+		display: flex;
+		cursor: grab;
+		color: var(--clr-theme-scale-ntrl-50);
+		transition:
+			opacity var(--transition-slow),
+			color var(--transition-slow);
+
+		&:hover {
+			color: var(--clr-theme-scale-ntrl-40);
+		}
+	}
+
+	.branch-popup-menu {
+		position: absolute;
+		top: calc(100% + var(--space-4));
+		right: 0;
+		z-index: 10;
+	}
+
+	.header__remote-branch {
+		color: var(--clr-theme-scale-ntrl-50);
+		padding-left: var(--space-4);
+		display: flex;
+		gap: var(--space-4);
+		text-overflow: ellipsis;
+		overflow-x: hidden;
+		white-space: nowrap;
+		align-items: center;
+	}
+
+	.status-tag {
+		cursor: default;
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-2) var(--space-6) var(--space-2) var(--space-4);
+		border-radius: var(--radius-m);
+	}
+
+	.pending {
+		color: var(--clr-theme-scale-pop-30);
+		background: var(--clr-theme-scale-pop-80);
+	}
+
+	.pending-name {
+		background: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 10%, transparent);
+		border-radius: var(--radius-m);
+		line-height: 120%;
+		height: var(--space-20);
+		display: flex;
+		align-items: center;
+		padding: 0 var(--space-6);
+		overflow: hidden;
+
+		& span {
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+	}
+
+	.pending {
+		color: var(--clr-theme-scale-ntrl-30);
+		background: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 20%, transparent);
+	}
+
+	.integrated {
+		color: var(--clr-theme-succ-on-element);
+		background: var(--clr-theme-succ-element);
+	}
+
+	.remote {
+		color: var(--clr-theme-scale-ntrl-100);
+		background: var(--clr-theme-scale-ntrl-40);
+	}
+
+	.unapplied {
+		color: var(--clr-theme-scale-ntrl-30);
+		background: var(--clr-theme-scale-ntrl-80);
+	}
+</style>

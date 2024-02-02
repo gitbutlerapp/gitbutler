@@ -12,7 +12,7 @@
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { filesToFileTree } from '$lib/vbranches/filetree';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
+	import { listRemoteCommitFiles, parseRemoteFiles } from '$lib/vbranches/remoteCommits';
 	import { LocalFile, RemoteCommit, Commit, RemoteFile } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';
 	import { writable, type Writable } from 'svelte/store';
@@ -36,20 +36,20 @@
 	let showFiles = false;
 	let selectedListMode: string;
 
-	let entries: [RemoteFile, (ContentSection | HunkSection)[]][] = [];
+	let files: RemoteFile[] = [];
+	let parsedFiles: [RemoteFile, (ContentSection | HunkSection)[]][];
 	let isLoading = false;
 
-	async function loadEntries() {
+	async function loadFiles() {
 		isLoading = true;
-		entries = await listRemoteCommitFiles(projectId, commit.id);
+		files = await listRemoteCommitFiles(projectId, commit.id);
+		parsedFiles = parseRemoteFiles(files);
 		isLoading = false;
 	}
 
-	$: files = entries.map((entry) => entry[0]);
-
 	function onClick() {
-		loadEntries();
 		showFiles = !showFiles;
+		if (showFiles) loadFiles();
 		// previewCommitModal.show();
 	}
 </script>
@@ -159,7 +159,7 @@
 				<div class="border-gray-900 h-8 w-8 animate-spin rounded-full border-b-2" />
 			</div>
 		{:else}
-			{#each entries as [remoteFile, sections]}
+			{#each parsedFiles as [remoteFile, sections] (remoteFile.id)}
 				<div class="commit-modal__file-section">
 					<div
 						class="text-color-3 flex flex-grow items-center overflow-hidden text-ellipsis whitespace-nowrap font-bold"

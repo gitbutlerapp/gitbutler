@@ -7,31 +7,28 @@
 	$: project$ = data.project$;
 	$: branchController = data.branchController;
 	$: remoteBranchService = data.remoteBranchService;
+	$: githubService = data.githubService;
 	$: branches$ = remoteBranchService.branches$;
 	$: error$ = remoteBranchService.branchesError$;
+	$: base$ = data.baseBranchService.base$;
 
 	$: branch = $branches$?.find((b) => b.sha == $page.params.sha);
+	$: pr$ = githubService.get(branch?.displayName);
 </script>
 
-<div class="h-full max-w-xl flex-grow flex-col overflow-y-auto overscroll-none p-4">
-	<div
-		class="rounded-lg border"
-		style:background-color="var(--bg-surface)"
-		style:border-color="var(--border-surface)"
-	>
-		{#if $error$}
-			<p>Error...</p>
-		{:else if !$branches$}
-			<p>Loading...</p>
-		{:else if branch}
-			<RemoteBranchPreview
-				projectId={$project$.id}
-				projectPath={$project$.path}
-				{branchController}
-				{branch}
-			/>
-		{:else}
-			<p>Branch doesn't seem to exist</p>
-		{/if}
-	</div>
-</div>
+{#if $error$}
+	<p>Error...</p>
+{:else if !$branches$}
+	<p>Loading...</p>
+{:else if branch}
+	<RemoteBranchPreview
+		projectId={$project$.id}
+		projectPath={$project$.path}
+		base={$base$}
+		pr={$pr$}
+		{branchController}
+		{branch}
+	/>
+{:else}
+	<p>Branch doesn't seem to exist</p>
+{/if}
