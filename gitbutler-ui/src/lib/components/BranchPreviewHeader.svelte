@@ -69,9 +69,6 @@
 					</Tag>
 				{/if}
 			</div>
-			<div class="draggable" data-drag-handle>
-				<Icon name="draggable-narrow" />
-			</div>
 		</div>
 		<div class="header__actions">
 			<div class="header__buttons"></div>
@@ -101,7 +98,7 @@
 			</div>
 		</div>
 	</div>
-	<div class="header__top-overlay" data-remove-from-draggable data-tauri-drag-region />
+	<div class="header__top-overlay" data-tauri-drag-region />
 </div>
 
 <style lang="postcss">
@@ -115,12 +112,6 @@
 		position: relative;
 		flex-direction: column;
 		gap: var(--space-2);
-
-		&:hover {
-			& .draggable {
-				opacity: 1;
-			}
-		}
 	}
 	.header__top-overlay {
 		z-index: 1;
@@ -158,22 +149,6 @@
 		flex-grow: 1;
 		align-items: center;
 		gap: var(--space-4);
-	}
-	.draggable {
-		position: absolute;
-		right: var(--space-4);
-		top: var(--space-6);
-		opacity: 0;
-		display: flex;
-		cursor: grab;
-		color: var(--clr-theme-scale-ntrl-50);
-		transition:
-			opacity var(--transition-slow),
-			color var(--transition-slow);
-
-		&:hover {
-			color: var(--clr-theme-scale-ntrl-40);
-		}
 	}
 
 	.header__remote-branch {
