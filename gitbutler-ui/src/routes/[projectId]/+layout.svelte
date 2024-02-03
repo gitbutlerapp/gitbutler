@@ -56,7 +56,7 @@
 				{userService}
 				{projectService}
 				project={$project$}
-				error="Currently, GitButler requires a remote branch to base it's virtual branch work on. To
+				error="Currently, GitButler requires a remote branch to base its virtual branch work on. To
 						use virtual branches, please push your code to a remote branch to use as a base"
 			/>
 		{:else}
