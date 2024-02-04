@@ -104,6 +104,7 @@
 		width: var(--space-4);
 		height: 100%;
 		cursor: col-resize;
+		top: 0;
 		&:hover {
 			width: var(--space-4);
 		}

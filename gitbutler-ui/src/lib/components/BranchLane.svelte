@@ -1,6 +1,9 @@
 <script lang="ts">
 	import BranchCard from './BranchCard.svelte';
 	import FileCard from './FileCard.svelte';
+	import Resizer from '$lib/components/Resizer.svelte';
+	import { persisted } from '$lib/persisted/persisted';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import {
 		RemoteFile,
@@ -9,7 +12,11 @@
 		type LocalFile,
 		type AnyFile
 	} from '$lib/vbranches/types';
+	import lscache from 'lscache';
+	import { getContext } from 'svelte';
+	import { quintOut } from 'svelte/easing';
 	import { writable, type Writable } from 'svelte/store';
+	import { slide } from 'svelte/transition';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
@@ -34,6 +41,15 @@
 	const selectedFiles = writable<LocalFile[]>([]);
 
 	let commitBoxOpen: Writable<boolean>;
+	let rsViewport: HTMLElement;
+
+	const defaultFileWidthRem = persisted<number | undefined>(30, 'defaulFileWidth' + project.id);
+	const fileWidthKey = 'fileWidth_';
+	let fileWidth: number;
+
+	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
+
+	fileWidth = lscache.get(fileWidthKey + branch.id);
 
 	function setSelected(files: AnyFile[], branch: Branch) {
 		if (files.length == 0) return undefined;
@@ -69,22 +85,39 @@
 	/>
 
 	{#if selected}
-		<FileCard
-			conflicted={selected.conflicted}
-			branchId={branch.id}
-			file={selected}
-			projectId={project.id}
-			{projectPath}
-			{branchController}
-			{selectedOwnership}
-			{isUnapplied}
-			readonly={selected instanceof RemoteFile}
-			selectable={$commitBoxOpen && !isUnapplied}
-			on:close={() => {
-				const selectedId = selected?.id;
-				selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
-			}}
-		/>
+		<div
+			class="file-preview resize-viewport"
+			bind:this={rsViewport}
+			in:slide={{ duration: 180, easing: quintOut, axis: 'x' }}
+			style:width={`${fileWidth || $defaultFileWidthRem}rem`}
+		>
+			<FileCard
+				conflicted={selected.conflicted}
+				branchId={branch.id}
+				file={selected}
+				{projectPath}
+				{branchController}
+				{selectedOwnership}
+				{isUnapplied}
+				readonly={selected instanceof RemoteFile}
+				selectable={$commitBoxOpen && !isUnapplied}
+				on:close={() => {
+					const selectedId = selected?.id;
+					selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
+				}}
+			/>
+			<Resizer
+				viewport={rsViewport}
+				direction="right"
+				inside
+				minWidth={240}
+				on:width={(e) => {
+					fileWidth = e.detail / (16 * $userSettings.zoom);
+					lscache.set(fileWidthKey + branch.id, fileWidth, 7 * 1440); // 7 day ttl
+					$defaultFileWidthRem = fileWidth;
+				}}
+			/>
+		</div>
 	{/if}
 </div>
 
@@ -112,5 +145,17 @@
 	.selected {
 		--selected-resize-shift: calc(var(--space-4) * -1);
 		--selected-opacity: 0;
+	}
+
+	.file-preview {
+		display: flex;
+		position: relative;
+		height: 100%;
+
+		overflow: hidden;
+		align-items: self-start;
+
+		padding: var(--space-12) var(--space-12) var(--space-12) 0;
+		border-right: 1px solid var(--clr-theme-container-outline-light);
 	}
 </style>
