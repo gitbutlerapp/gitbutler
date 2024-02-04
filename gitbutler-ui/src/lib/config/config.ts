@@ -20,11 +20,6 @@ export function projectCommitGenerationUseEmojis(projectId: string): Persisted<b
 	return persisted(false, key + projectId);
 }
 
-export function projectCreatePullRequestInsteadOfPush(projectId: string): Persisted<boolean> {
-	const key = 'projectCreatePullRequestInsteadOfPush_';
-	return persisted(false, key + projectId);
-}
-
 export enum ListPRsFilter {
 	All = 'ALL',
 	ExcludeBots = 'EXCLUDE_BOTS',
