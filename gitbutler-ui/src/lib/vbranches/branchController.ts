@@ -200,8 +200,6 @@ export class BranchController {
 	async updateBaseBranch() {
 		try {
 			await invoke<object>('update_base_branch', { projectId: this.projectId });
-		} catch (err) {
-			toasts.error('Failed to update target');
 		} finally {
 			this.targetBranchService.reload();
 		}
