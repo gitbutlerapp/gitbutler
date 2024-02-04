@@ -83,6 +83,10 @@ export class BranchService {
 			createPrSpan.finish();
 		}
 	}
+
+	async reloadVirtualBranches() {
+		await this.vbranchService.reload();
+	}
 }
 
 function mergeBranchesAndPrs(

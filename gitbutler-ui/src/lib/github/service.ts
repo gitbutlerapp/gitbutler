@@ -47,6 +47,10 @@ export class GitHubService {
 	private ctx$: Observable<GitHubIntegrationContext | undefined>;
 	private octokit$: Observable<Octokit | undefined>;
 
+	// For use with user initiated actions like merging
+	private ctx: GitHubIntegrationContext | undefined;
+	private octokit: Octokit | undefined;
+
 	private enabled = false;
 
 	constructor(userService: UserService, baseBranchService: BaseBranchService) {
@@ -68,12 +72,14 @@ export class GitHubService {
 				return of({ authToken, owner, repo, username });
 			}),
 			distinct((val) => JSON.stringify(val)),
+			tap((ctx) => (this.ctx = ctx)),
 			shareReplay(1)
 		);
 
 		// Create a github client
 		this.octokit$ = this.ctx$.pipe(
 			map((ctx) => (ctx ? newClient(ctx.authToken) : undefined)),
+			tap((octokit) => (this.octokit = octokit)),
 			shareReplay(1)
 		);
 
@@ -242,6 +248,19 @@ export class GitHubService {
 				};
 			})
 		);
+	}
+
+	async merge(pullNumber: number) {
+		if (!this.octokit || !this.ctx) return;
+		try {
+			await this.octokit.pulls.merge({
+				owner: this.ctx.owner,
+				repo: this.ctx.repo,
+				pull_number: pullNumber
+			});
+		} finally {
+			this.reload();
+		}
 	}
 }
 
