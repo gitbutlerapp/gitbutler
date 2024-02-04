@@ -39,6 +39,7 @@ export class BranchService {
 	async createPr(
 		branch: Branch,
 		baseBranch: string,
+		draft: boolean,
 		sentryTxn: Transaction
 	): Promise<PullRequest | undefined> {
 		// Using this mutable variable while investigating why branch variable
@@ -68,13 +69,16 @@ export class BranchService {
 		const createPrSpan = sentryTxn.startChild({ op: 'pr_api_create' });
 
 		try {
-			return await this.githubService.createPullRequest(
+			const resp = await this.githubService.createPullRequest(
 				baseBranch,
 				newBranch.name,
 				newBranch.notes,
 				newBranch.id,
-				newBranch.upstreamName
+				newBranch.upstreamName,
+				draft
 			);
+			if ('pr' in resp) return resp.pr;
+			if ('err' in resp) throw resp.err;
 		} finally {
 			createPrSpan.finish();
 		}

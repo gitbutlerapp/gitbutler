@@ -1,6 +1,7 @@
 <script lang="ts">
-	import PushButton from './PushButton.svelte';
+	import PushButton, { BranchAction } from './PushButton.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import * as toasts from '$lib/utils/toasts';
 	import { startTransaction } from '@sentry/sveltekit';
 	import toast from 'svelte-french-toast';
 	import type { BranchService } from '$lib/branches/service';
@@ -25,13 +26,22 @@
 	let isPushing: boolean;
 	let isMerging: boolean;
 
+	interface CreatePrOpts {
+		draft: boolean;
+	}
+
+	const defaultPrOpts: CreatePrOpts = {
+		draft: true
+	};
+
 	async function push() {
 		isPushing = true;
 		await branchController.pushBranch(branch.id, branch.requiresForce);
 		isPushing = false;
 	}
 
-	async function createPr(): Promise<PullRequest | undefined> {
+	async function createPr(createPrOpts: CreatePrOpts): Promise<PullRequest | undefined> {
+		const opts = { ...defaultPrOpts, ...createPrOpts };
 		if (!githubService.isEnabled()) {
 			toast.error('Cannot create PR without GitHub credentials');
 			return;
@@ -47,9 +57,10 @@
 
 		isPushing = true;
 		try {
-			return await branchService.createPr(branch, base.shortName, sentryTxn);
-		} catch (err) {
-			toast.error(err as string);
+			return await branchService.createPr(branch, base.shortName, opts.draft, sentryTxn);
+		} catch (err: any) {
+			isPushing = false;
+			toasts.error(err);
 			console.error(err);
 		} finally {
 			sentryTxn.finish();
@@ -60,16 +71,19 @@
 
 {#if !isUnapplied && type != 'integrated'}
 	<div class="actions">
-		{#if $githubEnabled$ && !$pr$ && type == 'local' && !branch.upstream}
+		{#if $githubEnabled$ && !$pr$ && (type == 'local' || type == 'remote')}
 			<PushButton
 				wide
 				isLoading={isPushing || $githubServiceState$?.busy}
+				isPushed={type == 'remote'}
 				{projectId}
 				githubEnabled={$githubEnabled$}
 				on:trigger={async (e) => {
 					try {
-						if (e.detail.with_pr) {
-							await createPr();
+						if (e.detail.action == BranchAction.Pr) {
+							await createPr({ draft: false });
+						} else if (e.detail.action == BranchAction.DraftPr) {
+							await createPr({ draft: true });
 						} else {
 							await push();
 						}
@@ -78,22 +92,6 @@
 					}
 				}}
 			/>
-		{:else if $githubEnabled$ && !$pr$ && type == 'remote'}
-			<Button
-				wide
-				kind="outlined"
-				color="primary"
-				loading={isPushing || $githubServiceState$?.busy}
-				on:click={async () => {
-					try {
-						await createPr();
-					} catch (e) {
-						toast.error('Failed to create pull request');
-					}
-				}}
-			>
-				Create Pull Request
-			</Button>
 		{:else if type == 'local'}
 			<Button
 				wide

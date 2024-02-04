@@ -149,11 +149,11 @@ export class GitHubService {
 		title: string,
 		body: string,
 		branchId: string,
-		upstreamName: string
-	): Promise<PullRequest | undefined> {
+		upstreamName: string,
+		draft: boolean
+	): Promise<{ pr: PullRequest } | { err: string }> {
 		if (!this.enabled) {
-			console.error("Can't create PR when service not enabled");
-			return;
+			throw "Can't create PR when service not enabled";
 		}
 		this.setBusy('creating_pr', branchId);
 		return firstValueFrom(
@@ -163,19 +163,29 @@ export class GitHubService {
 				combineLatest([this.octokit$, this.ctx$]).pipe(
 					switchMap(async ([octokit, ctx]) => {
 						if (!octokit || !ctx) {
-							console.error("Can't create PR without credentials");
-							return;
+							throw "Can't create PR without credentials";
 						}
-						const rsp = await octokit.rest.pulls.create({
-							owner: ctx.owner,
-							repo: ctx.repo,
-							head: upstreamName,
-							base,
-							title,
-							body
-						});
-						await this.reload();
-						return ghResponseToInstance(rsp.data);
+						try {
+							const rsp = await octokit.rest.pulls.create({
+								owner: ctx.owner,
+								repo: ctx.repo,
+								head: upstreamName,
+								base,
+								title,
+								body,
+								draft
+							});
+							await this.reload();
+							return { pr: ghResponseToInstance(rsp.data) };
+						} catch (err: any) {
+							// Any error that should not be retried needs to be handled here.
+							if (
+								err.status == 422 &&
+								err.message.includes('Draft pull requests are not supported')
+							)
+								return { err: 'Draft pull requests are not enabled in your repository' };
+							else throw err;
+						}
 					})
 				)
 			).pipe(
@@ -185,12 +195,13 @@ export class GitHubService {
 				}),
 				timeout(60000), // 60 second total timeout
 				catchError((err) => {
+					this.setIdle(branchId);
 					if (err instanceof TimeoutError) {
 						console.log('Timed out while trying to create pull request');
 					} else {
 						console.log('Unable to create PR despite retrying', err);
 					}
-					return throwError(() => err);
+					return throwError(() => err.message);
 				}),
 				tap(() => this.setIdle(branchId))
 			)
