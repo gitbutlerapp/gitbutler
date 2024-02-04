@@ -10,6 +10,7 @@
 	export let disabled = false;
 	export let loading = false;
 	export let wide = false;
+	export let help = '';
 	let visible = false;
 
 	export function show() {
@@ -36,6 +37,7 @@
 			{color}
 			{icon}
 			{kind}
+			{help}
 			iconAlign="left"
 			disabled={disabled || loading}
 			on:click><slot /></Button
@@ -48,6 +50,7 @@
 			bind:element={iconElt}
 			{color}
 			{kind}
+			{help}
 			icon={visible ? 'chevron-top' : 'chevron-down'}
 			{loading}
 			disabled={disabled || loading}

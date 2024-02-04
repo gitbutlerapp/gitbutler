@@ -70,3 +70,9 @@ export function ghResponseToInstance(
 		mergedAt: pr.merged_at ? new Date(pr.merged_at) : undefined
 	};
 }
+
+export enum MergeMethod {
+	Merge = 'merge',
+	Rebase = 'rebase',
+	Squash = 'squash'
+}
