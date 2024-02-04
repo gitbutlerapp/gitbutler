@@ -5,6 +5,7 @@
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { normalizeBranchName } from '$lib/utils/branch';
 	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { open } from '@tauri-apps/api/shell';
@@ -32,10 +33,6 @@
 
 	function handleBranchNameChange() {
 		branchController.updateBranchName(branch.id, branch.name);
-	}
-
-	function normalizeBranchName(value: string) {
-		return value.toLowerCase().replace(/[^0-9a-z/_]+/g, '-');
 	}
 
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);

@@ -6,6 +6,7 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { normalizeBranchName } from '$lib/utils/branch';
 	import { createEventDispatcher } from 'svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Branch } from '$lib/vbranches/types';
@@ -66,7 +67,7 @@
 				label="Set branch name"
 				disabled={isUnapplied || hasIntegratedCommits}
 				on:click={() => {
-					newRemoteName = branch.upstreamName || '';
+					newRemoteName = branch.upstreamName || normalizeBranchName(branch.name) || '';
 					visible = false;
 					renameRemoteModal.show(branch);
 				}}
