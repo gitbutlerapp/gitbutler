@@ -214,40 +214,31 @@ export class GitHubService {
 		);
 	}
 
-	getStatus(ref: string | undefined): Observable<PrStatus | undefined> | undefined {
-		if (!ref) return;
-		return combineLatest([this.octokit$, this.ctx$]).pipe(
-			switchMap(async ([octokit, ctx]) => {
-				if (!octokit || !ctx) return;
-				return await octokit.checks.listForRef({
-					owner: ctx.owner,
-					repo: ctx.repo,
-					ref: ref,
-					headers: {
-						'X-GitHub-Api-Version': '2022-11-28'
-					}
-				});
-			}),
-			map((resp) => {
-				if (!resp) return;
-				const checks = resp?.data.check_runs;
-				if (!checks) return;
+	async getStatus(ref: string | undefined): Promise<PrStatus | undefined> {
+		if (!ref || !this.octokit || !this.ctx) return;
+		const resp = await this.octokit.checks.listForRef({
+			owner: this.ctx.owner,
+			repo: this.ctx.repo,
+			ref: ref,
+			headers: {
+				'X-GitHub-Api-Version': '2022-11-28'
+			}
+		});
+		if (!resp) return;
+		const checks = resp?.data.check_runs;
+		if (!checks) return;
 
-				const skipped = checks.filter((c) => c.conclusion == 'skipped');
-				const succeeded = checks.filter((c) => c.conclusion == 'success');
-				const failed = checks.filter((c) => c.conclusion == 'failure');
-				const completed = checks.every((check) => !!check.completed_at);
+		const skipped = checks.filter((c) => c.conclusion == 'skipped');
+		const succeeded = checks.filter((c) => c.conclusion == 'success');
+		// const failed = checks.filter((c) => c.conclusion == 'failure');
+		const completed = checks.every((check) => !!check.completed_at);
 
-				const count = resp?.data.total_count;
-				return {
-					success: skipped.length + succeeded.length == count,
-					hasChecks: !!count,
-					completed,
-					failed,
-					skipped
-				};
-			})
-		);
+		const count = resp?.data.total_count;
+		return {
+			success: skipped.length + succeeded.length == count,
+			hasChecks: !!count,
+			completed
+		};
 	}
 
 	async merge(pullNumber: number) {

@@ -27,7 +27,6 @@
 
 	export let githubService: GitHubService;
 	$: pr$ = githubService.get(branch.upstreamName);
-	$: prStatus$ = githubService.getStatus($pr$?.targetBranch);
 
 	let meatballButton: HTMLDivElement;
 	let visible = false;
@@ -35,13 +34,22 @@
 	let isApplying = false;
 	let isDeleting = false;
 	let isMerging = false;
+	let isUpdating = false;
+	let prStatus: PrStatus | undefined;
 
 	function handleBranchNameChange() {
 		branchController.updateBranchName(branch.id, branch.name);
 	}
 
-	$: prColor = statusToColor($prStatus$);
-	$: prIcon = statusToIcon($prStatus$);
+	async function updatePrStatus() {
+		isUpdating = true;
+		prStatus = await githubService.getStatus($pr$?.targetBranch);
+		isUpdating = false;
+	}
+
+	$: prColor = statusToColor(prStatus);
+	$: prIcon = statusToIcon(prStatus);
+	$: if ($pr$) updatePrStatus();
 
 	function statusToColor(status: PrStatus | undefined): IconColor {
 		if (!status) return 'neutral';
@@ -59,6 +67,15 @@
 			return status.success ? 'success' : 'error';
 		}
 		return 'warning';
+	}
+
+	function statusToTooltip(status: PrStatus | undefined): string | undefined {
+		if (!status) return;
+		if (status && !status.hasChecks) return;
+		if (status.completed) {
+			return status.success ? 'All checks succeeded' : 'Some check(s) have failed';
+		}
+		return 'Checks are running';
 	}
 
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
@@ -149,7 +166,20 @@
 						</Tag>
 					{/if}
 					{#if prIcon}
-						<Icon name={prIcon} color={prColor} />
+						<div
+							class="pr-status"
+							role="button"
+							tabindex="0"
+							on:click={updatePrStatus}
+							on:keypress={updatePrStatus}
+							use:tooltip={statusToTooltip(prStatus)}
+						>
+							{#if isUpdating}
+								<Icon name="spinner" />
+							{:else}
+								<Icon name={prIcon} color={prColor} />
+							{/if}
+						</div>
 					{/if}
 				{/if}
 				{#await branch.isMergeable then isMergeable}
@@ -191,7 +221,7 @@
 						Set as default
 					</Button>
 				{/if}
-				{#if $prStatus$?.success}
+				{#if prStatus?.success}
 					<Button
 						help="Merge pull request and refresh"
 						disabled={isUnapplied}
@@ -432,5 +462,9 @@
 	.unapplied {
 		color: var(--clr-theme-scale-ntrl-30);
 		background: var(--clr-theme-scale-ntrl-80);
+	}
+
+	.pr-status {
+		cursor: default;
 	}
 </style>
