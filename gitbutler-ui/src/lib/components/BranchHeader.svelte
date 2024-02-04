@@ -4,35 +4,61 @@
 	import Tag from './Tag.svelte';
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
-	import Icon from '$lib/components/Icon.svelte';
+	import Icon, { type IconColor } from '$lib/components/Icon.svelte';
 	import { normalizeBranchName } from '$lib/utils/branch';
 	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { open } from '@tauri-apps/api/shell';
 	import toast from 'svelte-french-toast';
+	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
+	import type { PrStatus } from '$lib/github/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
+	import type iconsJson from '../icons/icons.json';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied = false;
 	export let branch: Branch;
 	export let base: BaseBranch | undefined | null;
 	export let branchController: BranchController;
+	export let branchService: BranchService;
 	export let projectId: string;
 
 	export let githubService: GitHubService;
 	$: pr$ = githubService.get(branch.upstreamName);
-	// $: prStatus$ = githubService.getStatus($pr$?.targetBranch);
+	$: prStatus$ = githubService.getStatus($pr$?.targetBranch);
 
 	let meatballButton: HTMLDivElement;
 	let visible = false;
 	let container: HTMLDivElement;
 	let isApplying = false;
 	let isDeleting = false;
+	let isMerging = false;
 
 	function handleBranchNameChange() {
 		branchController.updateBranchName(branch.id, branch.name);
+	}
+
+	$: prColor = statusToColor($prStatus$);
+	$: prIcon = statusToIcon($prStatus$);
+
+	function statusToColor(status: PrStatus | undefined): IconColor {
+		if (!status) return 'neutral';
+		if (status && !status.hasChecks) return 'neutral';
+		if (status.completed) {
+			return status.success ? 'success' : 'error';
+		}
+		return 'warn';
+	}
+
+	function statusToIcon(status: PrStatus | undefined): keyof typeof iconsJson | undefined {
+		if (!status) return;
+		if (status && !status.hasChecks) return;
+		if (status.completed) {
+			return status.success ? 'success' : 'error';
+		}
+		return 'warning';
 	}
 
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
@@ -122,6 +148,9 @@
 							View PR
 						</Tag>
 					{/if}
+					{#if prIcon}
+						<Icon name={prIcon} color={prColor} />
+					{/if}
 				{/if}
 				{#await branch.isMergeable then isMergeable}
 					{#if !isMergeable}
@@ -160,6 +189,26 @@
 						}}
 					>
 						Set as default
+					</Button>
+				{/if}
+				{#if $prStatus$?.success}
+					<Button
+						help="Merge pull request and refresh"
+						disabled={isUnapplied}
+						loading={isMerging}
+						on:click={async () => {
+							isMerging = true;
+							try {
+								if ($pr$) await githubService.merge($pr$.number);
+								branchService.reloadVirtualBranches();
+							} catch {
+								toasts.error('Failed to merge pull request');
+							} finally {
+								isMerging = false;
+							}
+						}}
+					>
+						Merge
 					</Button>
 				{/if}
 			</div>

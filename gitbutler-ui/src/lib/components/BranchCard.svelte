@@ -141,6 +141,7 @@
 				{branch}
 				{base}
 				{githubService}
+				{branchService}
 				projectId={project.id}
 				on:action={(e) => {
 					if (e.detail == 'generate-branch-name') {

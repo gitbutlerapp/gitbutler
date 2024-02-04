@@ -10,17 +10,6 @@
 
 	let element: HTMLButtonElement | undefined = undefined;
 
-	// $: prColor = statusToColor($prStatus$);
-
-	// function statusToColor(status: PrStatus | undefined): TagColor {
-	// 	if (!status) return 'neutral-light';
-	// 	if (status && !status.hasChecks) return 'neutral-light';
-	// 	if (status.completed) {
-	// 		return status.success ? 'success' : 'error';
-	// 	}
-	// 	return 'warning';
-	// }
-
 	onMount(() => (height = element?.offsetHeight));
 </script>
 
