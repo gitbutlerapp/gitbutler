@@ -4,11 +4,13 @@ export type FileStatus = 'A' | 'M' | 'D';
 
 export function computeFileStatus(file: AnyFile): FileStatus {
 	if (file instanceof RemoteFile) {
-		const diff = file.hunks[0].diff;
-		if (/^@@ -1,1 /.test(diff)) return 'A';
-		if (/^@@ -0,0 /.test(diff)) return 'A';
-		if (/^@@ -\d+,\d+ \+0,0/.test(diff)) return 'D';
-		if (/^@@ -\d+,\d+ \+1,1/.test(diff)) return 'D';
+		if (file.hunks.length == 1) {
+			const diff = file.hunks[0].diff;
+			if (/^@@ -1,1 /.test(diff)) return 'A';
+			if (/^@@ -0,0 /.test(diff)) return 'A';
+			if (/^@@ -\d+,\d+ \+0,0/.test(diff)) return 'D';
+			if (/^@@ -\d+,\d+ \+1,1/.test(diff)) return 'D';
+		}
 		return 'M';
 	}
 	if (file.hunks.length == 1) {
