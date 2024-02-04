@@ -43,8 +43,16 @@
 
 	async function updatePrStatus() {
 		isUpdating = true;
-		prStatus = await githubService.getStatus($pr$?.targetBranch);
-		isUpdating = false;
+		try {
+			prStatus = await githubService.getStatus($pr$?.targetBranch);
+		} catch (e: any) {
+			if (!e.message.includes('No commit found')) {
+				toasts.error('Failed to update PR status');
+				console.error(e);
+			}
+		} finally {
+			isUpdating = false;
+		}
 	}
 
 	$: prColor = statusToColor(prStatus);
