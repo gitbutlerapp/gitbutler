@@ -233,22 +233,28 @@
 				{#if prStatus?.success}
 					<Button
 						help="Merge pull request and refresh"
-						disabled={isUnapplied}
+						disabled={isUnapplied || !$pr$}
 						loading={isMerging}
 						on:click={async () => {
 							isMerging = true;
 							try {
-								if ($pr$) await githubService.merge($pr$.number);
-								branchService.reloadVirtualBranches();
-								fetchPrStatus();
+								if ($pr$) {
+									await githubService.merge($pr$.number);
+								}
 							} catch {
 								toasts.error('Failed to merge pull request');
 							} finally {
 								isMerging = false;
+								await fetchPrStatus();
+								await branchService.reloadVirtualBranches();
 							}
 						}}
 					>
-						Merge
+						{#if $pr$}
+							Merge
+						{:else}
+							Merged
+						{/if}
 					</Button>
 				{/if}
 			</div>
