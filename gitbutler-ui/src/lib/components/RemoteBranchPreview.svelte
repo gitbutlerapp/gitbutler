@@ -89,7 +89,6 @@
 				conflicted={selected.conflicted}
 				branchId={'blah'}
 				file={selected}
-				{projectId}
 				{projectPath}
 				{branchController}
 				{selectedOwnership}
@@ -109,7 +108,6 @@
 		display: flex;
 		flex-grow: 1;
 		overflow-x: auto;
-		padding-right: var(--space-16);
 	}
 	.base__left {
 		display: flex;
@@ -119,9 +117,10 @@
 		position: relative;
 	}
 	.base__right {
-		flex-basis: 50%;
 		display: flex;
-		padding-left: var(--space-6);
+		overflow-x: auto;
+		align-items: flex-start;
+		padding: var(--space-12) var(--space-12) var(--space-12) var(--space-6);
 	}
 
 	.branch-preview {

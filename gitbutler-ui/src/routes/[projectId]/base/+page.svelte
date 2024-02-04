@@ -43,60 +43,58 @@
 	});
 </script>
 
-<div class="base">
-	<div
-		class="base__left"
-		bind:this={rsViewport}
-		style:width={`${laneWidth || defaultBranchWidthRem}rem`}
-	>
-		<ScrollableContainer>
-			<div class="card">
-				{#if $error$}
-					<p>Error...</p>
-				{:else if !$base$}
-					<p>Loading...</p>
-				{:else}
+{#if $error$}
+	<p>Error...</p>
+{:else if !$base$}
+	<p>Loading...</p>
+{:else}
+	<div class="base">
+		<div
+			class="base__left"
+			bind:this={rsViewport}
+			style:width={`${laneWidth || defaultBranchWidthRem}rem`}
+		>
+			<ScrollableContainer>
+				<div class="card">
 					<BaseBranch {projectId} base={$base$} {branchController} {selectedFiles} />
-				{/if}
-			</div>
-		</ScrollableContainer>
-		<Resizer
-			viewport={rsViewport}
-			direction="right"
-			minWidth={320}
-			on:width={(e) => {
-				laneWidth = e.detail / (16 * $userSettings.zoom);
-				lscache.set(laneWidthKey, laneWidth, 7 * 1440); // 7 day ttl
-			}}
-		/>
-	</div>
-	<div class="base__right">
-		{#if selected}
-			<FileCard
-				conflicted={selected.conflicted}
-				branchId={'blah'}
-				file={selected}
-				{projectId}
-				{projectPath}
-				{branchController}
-				{selectedOwnership}
-				isUnapplied={false}
-				readonly={true}
-				on:close={() => {
-					const selectedId = selected?.id;
-					selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
+				</div>
+			</ScrollableContainer>
+			<Resizer
+				viewport={rsViewport}
+				direction="right"
+				minWidth={320}
+				on:width={(e) => {
+					laneWidth = e.detail / (16 * $userSettings.zoom);
+					lscache.set(laneWidthKey, laneWidth, 7 * 1440); // 7 day ttl
 				}}
 			/>
-		{/if}
+		</div>
+		<div class="base__right">
+			{#if selected}
+				<FileCard
+					conflicted={selected.conflicted}
+					branchId={'blah'}
+					file={selected}
+					{projectPath}
+					{branchController}
+					{selectedOwnership}
+					isUnapplied={false}
+					readonly={true}
+					on:close={() => {
+						const selectedId = selected?.id;
+						selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
+					}}
+				/>
+			{/if}
+		</div>
 	</div>
-</div>
+{/if}
 
 <style lang="postcss">
 	.base {
 		display: flex;
 		flex-grow: 1;
 		overflow-x: auto;
-		padding-right: var(--space-16);
 	}
 	.base__left {
 		display: flex;
@@ -106,9 +104,11 @@
 		position: relative;
 	}
 	.base__right {
-		flex-basis: 50%;
 		display: flex;
-		padding-left: var(--space-6);
+		overflow-x: auto;
+		align-items: flex-start;
+		padding: var(--space-12) var(--space-12) var(--space-12) var(--space-6);
+		width: 50rem;
 	}
 	.card {
 		margin: var(--space-12) var(--space-6) var(--space-12) var(--space-12);

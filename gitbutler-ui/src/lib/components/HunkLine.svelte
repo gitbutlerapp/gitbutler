@@ -97,5 +97,6 @@
 		cursor: text;
 		display: inline-block;
 		text-indent: var(--space-4);
+		margin-right: var(--space-4);
 	}
 </style>
