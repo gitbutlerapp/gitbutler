@@ -34,15 +34,15 @@
 	let isApplying = false;
 	let isDeleting = false;
 	let isMerging = false;
-	let isUpdating = false;
+	let isFetching = false;
 	let prStatus: PrStatus | undefined;
 
 	function handleBranchNameChange() {
 		branchController.updateBranchName(branch.id, branch.name);
 	}
 
-	async function updatePrStatus() {
-		isUpdating = true;
+	async function fetchPrStatus() {
+		isFetching = true;
 		try {
 			prStatus = await githubService.getStatus($pr$?.targetBranch);
 		} catch (e: any) {
@@ -50,14 +50,15 @@
 				toasts.error('Failed to update PR status');
 				console.error(e);
 			}
+			prStatus = undefined;
 		} finally {
-			isUpdating = false;
+			isFetching = false;
 		}
 	}
 
 	$: prColor = statusToColor(prStatus);
 	$: prIcon = statusToIcon(prStatus);
-	$: if ($pr$) updatePrStatus();
+	$: if ($pr$) fetchPrStatus();
 
 	function statusToColor(status: PrStatus | undefined): IconColor {
 		if (!status) return 'neutral';
@@ -178,11 +179,11 @@
 							class="pr-status"
 							role="button"
 							tabindex="0"
-							on:click={updatePrStatus}
-							on:keypress={updatePrStatus}
+							on:click={fetchPrStatus}
+							on:keypress={fetchPrStatus}
 							use:tooltip={statusToTooltip(prStatus)}
 						>
-							{#if isUpdating}
+							{#if isFetching}
 								<Icon name="spinner" />
 							{:else}
 								<Icon name={prIcon} color={prColor} />
@@ -239,6 +240,7 @@
 							try {
 								if ($pr$) await githubService.merge($pr$.number);
 								branchService.reloadVirtualBranches();
+								fetchPrStatus();
 							} catch {
 								toasts.error('Failed to merge pull request');
 							} finally {
