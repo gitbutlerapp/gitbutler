@@ -3,12 +3,11 @@
 	import DomainButton from './DomainButton.svelte';
 	import Footer from './Footer.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
+	import UpdateBaseButton from './UpdateBaseButton.svelte';
 	import BaseBranchCard from '$lib/components/BaseBranchCard.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import Tag from '$lib/components/Tag.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import * as toasts from '$lib/utils/toasts';
 	import { getContext } from 'svelte';
 	import type { User } from '$lib/backend/cloud';
 	import type { Project, ProjectService } from '$lib/backend/projects';
@@ -66,23 +65,7 @@
 
 				<span>Workspace</span>
 				{#if ($base$?.behind || 0) > 0}
-					<Tag
-						color="error"
-						help="Merge upstream commits into common base"
-						filled
-						clickable
-						on:click={async (e) => {
-							e.preventDefault();
-							e.stopPropagation();
-							try {
-								await branchController.updateBaseBranch();
-							} catch {
-								toasts.error('Failed update working directory');
-							}
-						}}
-					>
-						Update
-					</Tag>
+					<UpdateBaseButton {branchController} />
 				{/if}
 			</DomainButton>
 		</div>
