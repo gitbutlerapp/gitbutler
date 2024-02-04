@@ -3,7 +3,8 @@ import {
 	type PullRequest,
 	type GitHubIntegrationContext,
 	ghResponseToInstance,
-	type PrStatus
+	type PrStatus,
+	MergeMethod
 } from '$lib/github/types';
 import * as toasts from '$lib/utils/toasts';
 import lscache from 'lscache';
@@ -241,13 +242,14 @@ export class GitHubService {
 		};
 	}
 
-	async merge(pullNumber: number) {
+	async merge(pullNumber: number, method: MergeMethod) {
 		if (!this.octokit || !this.ctx) return;
 		try {
 			await this.octokit.pulls.merge({
 				owner: this.ctx.owner,
 				repo: this.ctx.repo,
-				pull_number: pullNumber
+				pull_number: pullNumber,
+				merge_method: method
 			});
 		} finally {
 			this.reload();

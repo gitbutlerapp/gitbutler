@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
+	import MergeButton from './MergeButton.svelte';
 	import Tag from './Tag.svelte';
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
@@ -230,18 +231,21 @@
 						Set as default
 					</Button>
 				{/if}
-				{#if prStatus?.success}
-					<Button
-						help="Merge pull request and refresh"
+				{#if $pr$ && prStatus?.success}
+					<MergeButton
+						{projectId}
 						disabled={isUnapplied || !$pr$}
 						loading={isMerging}
-						on:click={async () => {
+						help="Merge pull request and refresh"
+						on:click={async (e) => {
 							isMerging = true;
+							const method = e.detail.method;
 							try {
 								if ($pr$) {
-									await githubService.merge($pr$.number);
+									await githubService.merge($pr$.number, method);
 								}
 							} catch {
+								// TODO: Should we show the error from GitHub?
 								toasts.error('Failed to merge pull request');
 							} finally {
 								isMerging = false;
@@ -249,13 +253,7 @@
 								await branchService.reloadVirtualBranches();
 							}
 						}}
-					>
-						{#if $pr$}
-							Merge
-						{:else}
-							Merged
-						{/if}
-					</Button>
+					/>
 				{/if}
 			</div>
 			<div class="relative" bind:this={meatballButton}>
