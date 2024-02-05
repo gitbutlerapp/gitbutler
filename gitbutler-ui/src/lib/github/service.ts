@@ -55,7 +55,10 @@ export class GitHubService {
 
 	private enabled = false;
 
-	constructor(userService: UserService, baseBranchService: BaseBranchService) {
+	constructor(
+		userService: UserService,
+		private baseBranchService: BaseBranchService
+	) {
 		// A few things will cause the baseBranch to update, so we filter for distinct
 		// changes to the remoteUrl.
 		const distinctUrl$ = baseBranchService.base$.pipe(distinct((ctx) => ctx?.remoteUrl));
@@ -286,6 +289,7 @@ export class GitHubService {
 				pull_number: pullNumber,
 				merge_method: method
 			});
+			await this.baseBranchService.fetchFromTarget();
 		} finally {
 			this.reload();
 		}
