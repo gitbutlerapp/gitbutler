@@ -14,7 +14,7 @@ uuid = "1.7.0"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0.56"
 rusqlite = { version = "0.29.0", features = [ "bundled", "blob" ] }
-tokio = { version = "1.35.1" }
+tokio = { version = "1.36.0" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
