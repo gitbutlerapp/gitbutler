@@ -89,14 +89,14 @@ GitButler is a [Tauri](https://tauri.app/)-based application. Its UI is written 
 
 Using Git you can stash your changes and switch to another branch, where you can commit, and push your fix.
 
-*With GitButler* you simply assign your fix to a separate virtual branch, which you can individually push (or directly create a PR). An additional benefit is that you can retain the fix in your working directory while waiting for CI and/or code review.
+_With GitButler_ you simply assign your fix to a separate virtual branch, which you can individually push (or directly create a PR). An additional benefit is that you can retain the fix in your working directory while waiting for CI and/or code review.
 
 ### Trying someone else's branch together with my work in progress
 
 > Say you want to test a branch from someone else for the purpose of code review.
 
 Using Git trying out someone else's branch is a full context switch away from your own work.
-*With GitButler* you can apply and unapply (add / remove) any remote branch directly into your working directory.
+_With GitButler_ you can apply and unapply (add / remove) any remote branch directly into your working directory.
 
 ## Documentation
 
@@ -114,3 +114,5 @@ document.
 
 If you want to skip right to getting the code to actually compile, take a look
 at the [DEVELOPMENT.md](DEVELOPMENT.md) file.
+
+this is a test
