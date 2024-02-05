@@ -6,16 +6,18 @@ use governor::{
     Quota, RateLimiter,
 };
 use nonzero_ext::nonzero;
-use once_cell::sync::OnceCell;
 use sentry::ClientInitGuard;
 use sentry_tracing::SentryLayer;
 use tracing::Subscriber;
-use tracing_subscriber::registry::LookupSpan;
+use tracing_subscriber::{filter::FilterExt, registry::LookupSpan};
 
 use crate::users;
 
-static SENTRY_QUOTA: Quota = Quota::per_second(nonzero!(1_u32)); // 1 per second at most.
-static SENTRY_LIMIT: OnceCell<RateLimiter<NotKeyed, InMemoryState, QuantaClock>> = OnceCell::new();
+static SENTRY_BURST: once_cell::sync::Lazy<RateLimiter<NotKeyed, InMemoryState, QuantaClock>> =
+    once_cell::sync::Lazy::new(|| RateLimiter::direct(Quota::per_second(nonzero!(15_u32))));
+
+static SENTRY_HOUR_LIMIT: once_cell::sync::Lazy<RateLimiter<NotKeyed, InMemoryState, QuantaClock>> =
+    once_cell::sync::Lazy::new(|| RateLimiter::direct(Quota::per_hour(nonzero!(100_u32))));
 
 /// Should be called once on application startup, and the returned guard should be kept alive for
 /// the lifetime of the application.
@@ -29,7 +31,9 @@ pub fn init(name: &str, version: String) -> ClientInitGuard {
         }.into()),
         release: Some(version.into()),
         before_send: Some({
-            Arc::new(|event| SENTRY_LIMIT.get_or_init(|| RateLimiter::direct(SENTRY_QUOTA)).check().is_ok().then_some(event))}),
+            Arc::new(|event|
+                SENTRY_BURST.check().and(SENTRY_HOUR_LIMIT.check()).is_ok().then_some(event)
+            )}),
         attach_stacktrace: true,
         traces_sample_rate: match name {
             "GitButler Dev" | "GitButler Nightly" => 0.2_f32,
