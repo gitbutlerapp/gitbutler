@@ -257,7 +257,13 @@
 						Set as default
 					</Button>
 				{/if}
-				{#if $pr$ && prStatus?.success}
+				<!-- We can't show the merge button until we've waited for checks
+
+                We use a octokit.checks.listForRef to find checks running for a PR, but right after
+                creation this request succeeds but returns an empty array. So we need a better way
+                determining "no checks will run for this PR" such that we can show the merge button
+                immediately.  -->
+				{#if $pr$ && !isFetching && (!prStatus || prStatus?.success)}
 					<MergeButton
 						{projectId}
 						disabled={isUnapplied || !$pr$}
