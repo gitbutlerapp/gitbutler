@@ -6,6 +6,7 @@ import {
 	type PrStatus,
 	MergeMethod
 } from '$lib/github/types';
+import { sleep } from '$lib/utils/sleep';
 import * as toasts from '$lib/utils/toasts';
 import lscache from 'lscache';
 import {
@@ -217,17 +218,26 @@ export class GitHubService {
 
 	async getStatus(ref: string | undefined): Promise<PrStatus | undefined> {
 		if (!ref || !this.octokit || !this.ctx) return;
-		const resp = await this.octokit.checks.listForRef({
-			owner: this.ctx.owner,
-			repo: this.ctx.repo,
-			ref: ref,
-			headers: {
-				'X-GitHub-Api-Version': '2022-11-28'
-			}
-		});
+
+		// Fetch with retries since checks might not be available _right_ after
+		// the pull request has been created.
+		const resp = await this.fetchChecksWithRetries(ref, 5, 2000);
 		if (!resp) return;
-		const checks = resp?.data.check_runs;
-		if (!checks) return;
+
+		// If there are no checks then there is no status to report
+		const checks = resp.data.check_runs;
+		if (checks.length == 0) return;
+
+		// Establish when the first check started running, useful for showing
+		// how long something has been running.
+		const starts = resp.data.check_runs
+			.map((run) => run.started_at)
+			.filter((startedAt) => startedAt !== null) as string[];
+		const earliestStart = starts.map((startedAt) => new Date(startedAt));
+
+		// TODO: This is wrong, we should not return here.
+		if (earliestStart.length == 0) return;
+		const firstStart = new Date(Math.min(...earliestStart.map((date) => date.getTime())));
 
 		const skipped = checks.filter((c) => c.conclusion == 'skipped');
 		const succeeded = checks.filter((c) => c.conclusion == 'success');
@@ -236,10 +246,35 @@ export class GitHubService {
 
 		const count = resp?.data.total_count;
 		return {
+			startedAt: firstStart,
 			success: skipped.length + succeeded.length == count,
 			hasChecks: !!count,
 			completed
 		};
+	}
+
+	async fetchChecksWithRetries(ref: string, retries: number, delayMs: number) {
+		let resp = await this.fetchChecks(ref);
+		let retried = 0;
+
+		while (retried < retries && (!resp || resp.data.total_count == 0)) {
+			await sleep(delayMs);
+			resp = await this.fetchChecks(ref);
+			retried++;
+		}
+		return resp;
+	}
+
+	async fetchChecks(ref: string) {
+		if (!ref || !this.octokit || !this.ctx) return;
+		return await this.octokit.checks.listForRef({
+			owner: this.ctx.owner,
+			repo: this.ctx.repo,
+			ref: ref,
+			headers: {
+				'X-GitHub-Api-Version': '2022-11-28'
+			}
+		});
 	}
 
 	async merge(pullNumber: number, method: MergeMethod) {

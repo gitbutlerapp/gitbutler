@@ -55,6 +55,32 @@
 		} finally {
 			isFetching = false;
 		}
+
+		if (prStatus) scheduleNextPrFetch();
+	}
+
+	function scheduleNextPrFetch() {
+		if (!prStatus || prStatus.completed) {
+			return;
+		}
+		const startedAt = prStatus.startedAt;
+		const secondsAgo = (new Date().getTime() - startedAt.getTime()) / 1000;
+
+		let timeUntilUdate: number | undefined = undefined;
+		if (secondsAgo < 600) {
+			timeUntilUdate = 30;
+		} else if (secondsAgo < 1200) {
+			timeUntilUdate = 60;
+		} else if (secondsAgo < 3600) {
+			timeUntilUdate = 120;
+		}
+
+		if (!timeUntilUdate) {
+			// Stop polling for status.
+			return;
+		}
+
+		setTimeout(() => fetchPrStatus(), timeUntilUdate * 1000);
 	}
 
 	$: prColor = statusToColor(prStatus);

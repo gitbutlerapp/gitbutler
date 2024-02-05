@@ -30,6 +30,7 @@ export interface PullRequest {
 }
 
 export interface PrStatus {
+	startedAt: Date;
 	completed?: boolean;
 	success?: boolean;
 	hasChecks: boolean;
