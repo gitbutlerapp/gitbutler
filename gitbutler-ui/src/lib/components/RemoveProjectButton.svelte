@@ -36,8 +36,8 @@
 		</p>
 
 		<p class="text-base-body-12 details-text">
-			When you delete your project from GitButler, your repository doesn't get deleted. It
-			just removes the project from the list, keeping your repository safe and easy to access.
+			When you delete your project from GitButler, your repository doesn't get deleted. It just
+			removes the project from the list, keeping your repository safe and easy to access.
 		</p>
 	</div>
 
