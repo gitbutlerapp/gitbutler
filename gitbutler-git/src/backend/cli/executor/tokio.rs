@@ -1,10 +1,8 @@
 //! A [Tokio](https://tokio.rs)-based [`super::GitExecutor`] implementation.
 
-use crate::prelude::*;
-use core::time::Duration;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
-use std::{fs::Permissions, os::unix::fs::PermissionsExt};
+use std::{collections::HashMap, fs::Permissions, os::unix::fs::PermissionsExt, time::Duration};
 use tokio::process::Command;
 
 /// A [`super::GitExecutor`] implementation using the `git` command-line tool
@@ -19,9 +17,23 @@ unsafe impl super::GitExecutor for TokioExecutor {
     async fn execute_raw(
         &self,
         args: &[&str],
-        envs: Option<BTreeMap<String, String>>,
+        envs: Option<HashMap<String, String>>,
     ) -> Result<(usize, String, String), Self::Error> {
         let mut cmd = Command::new("git");
+
+        // Output the command being executed to stderr, for debugging purposes
+        // (only on test configs).
+        #[cfg(test)]
+        {
+            let mut envs_str = String::new();
+            if let Some(envs) = &envs {
+                for (key, value) in envs.iter() {
+                    envs_str.push_str(&format!("{}={} ", key, value));
+                }
+            }
+            let args_str = args.join(" ");
+            eprintln!("env {envs_str} git {args_str}");
+        }
 
         cmd.kill_on_drop(true);
         cmd.args(args);
@@ -88,12 +100,13 @@ impl super::Socket for tokio::io::BufStream<tokio::net::UnixStream> {
     async fn read_line(&mut self) -> Result<String, Self::Error> {
         let mut buf = String::new();
         <Self as tokio::io::AsyncBufReadExt>::read_line(self, &mut buf).await?;
-        Ok(buf)
+        Ok(buf.trim_end_matches(|c| c == '\r' || c == '\n').into())
     }
 
     async fn write_line(&mut self, line: &str) -> Result<(), Self::Error> {
         <Self as tokio::io::AsyncWriteExt>::write_all(self, line.as_bytes()).await?;
         <Self as tokio::io::AsyncWriteExt>::write_all(self, b"\n").await?;
+        <Self as tokio::io::AsyncWriteExt>::flush(self).await?;
         Ok(())
     }
 }
@@ -119,7 +132,7 @@ impl super::AskpassServer for TokioAskpassServer {
             self.server.as_ref().unwrap().accept().await
         };
 
-        Ok(res.map(|(s, _)| tokio::io::BufStream::new(s))?)
+        res.map(|(s, _)| tokio::io::BufStream::new(s))
     }
 }
 

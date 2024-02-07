@@ -1,36 +1,33 @@
-use std::io::{Read, Write};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::os::unix::net::UnixStream;
 
 pub fn main(sock_path: &str, secret: &str, prompt: &str) {
-    let mut stream = UnixStream::connect(sock_path).expect("connect():");
+    let raw_stream = UnixStream::connect(sock_path).expect("connect():");
 
     // Set a timer for 10s.
-    stream
+    raw_stream
         .set_read_timeout(Some(std::time::Duration::from_secs(10)))
         .expect("set_read_timeout():");
 
+    let mut reader = BufReader::new(raw_stream.try_clone().unwrap());
+    let mut writer = BufWriter::new(raw_stream);
+
     // Write the secret.
-    stream
-        .write_all(secret.as_bytes())
-        .expect("write_all(secret):");
+    writeln!(writer, "{secret}").expect("write(secret):");
 
     // Write the prompt that Git gave us.
-    stream
-        .write_all(prompt.as_bytes())
-        .expect("write_all(prompt):");
+    writeln!(writer, "{prompt}").expect("write(prompt):");
+
+    writer.flush().expect("flush():");
 
     // Wait for the response.
-    let mut buf = [0; 2048];
-    let n = stream.read(&mut buf).expect("read():");
-
-    // TODO(qix-): Figure out a way to do a single timeout
-    // TODO(qix-): but allow any response size.
-    if n == buf.len() {
-        panic!("response too long");
+    let mut password = String::new();
+    let nread = reader.read_line(&mut password).expect("read_line():");
+    if nread == 0 {
+        panic!("read_line() returned 0");
     }
 
     // Write the response back to Git.
-    std::io::stdout()
-        .write_all(&buf[..n])
-        .expect("write_all(stdout):");
+    // `password` already has a newline at the end.
+    write!(std::io::stdout(), "{password}").expect("write(password):");
 }

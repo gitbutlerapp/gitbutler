@@ -1,4 +1,6 @@
 #[cfg(feature = "cli")]
 pub mod cli;
-#[cfg(feature = "git2")]
+
+// We use the libgit2 backend for tests as well.
+#[cfg(any(test, feature = "git2"))]
 pub mod git2;

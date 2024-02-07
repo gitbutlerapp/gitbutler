@@ -5,14 +5,13 @@
 //! into more complex operations, without caring about the
 //! underlying implementation.
 
-#[allow(unused_imports)]
-use crate::prelude::*;
-
 use crate::{ConfigScope, Repository};
 
 /// Returns whether or not the repository has GitButler's
 /// utmost discretion enabled.
-pub async fn has_utmost_discretion<R: Repository>(repo: &R) -> Result<bool, R::Error> {
+pub async fn has_utmost_discretion<R: Repository>(
+    repo: &R,
+) -> Result<bool, crate::Error<R::Error>> {
     let config = repo
         .config_get("gitbutler.utmostDiscretion", ConfigScope::default())
         .await?;
@@ -21,7 +20,10 @@ pub async fn has_utmost_discretion<R: Repository>(repo: &R) -> Result<bool, R::E
 }
 
 /// Sets whether or not the repository has GitButler's utmost discretion.
-pub async fn set_utmost_discretion<R: Repository>(repo: &R, value: bool) -> Result<(), R::Error> {
+pub async fn set_utmost_discretion<R: Repository>(
+    repo: &R,
+    value: bool,
+) -> Result<(), crate::Error<R::Error>> {
     repo.config_set(
         "gitbutler.utmostDiscretion",
         if value { "1" } else { "0" },
