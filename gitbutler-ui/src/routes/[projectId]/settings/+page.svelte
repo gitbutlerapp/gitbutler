@@ -1,10 +1,9 @@
 <script lang="ts">
-	import Button from '$lib/components/Button.svelte';
 	import CloudForm from '$lib/components/CloudForm.svelte';
 	import DetailsForm from '$lib/components/DetailsForm.svelte';
 	import KeysForm from '$lib/components/KeysForm.svelte';
-	import Modal from '$lib/components/Modal.svelte';
 	import PreferencesForm from '$lib/components/PreferencesForm.svelte';
+	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import * as toasts from '$lib/utils/toasts';
@@ -21,7 +20,7 @@
 	$: user$ = data.user$;
 	$: cloud = data.cloud;
 
-	let deleteConfirmationModal: Modal;
+	let deleteConfirmationModal: RemoveProjectButton;
 	let isDeleting = false;
 
 	const onDeleteClicked = () =>
@@ -110,26 +109,17 @@
 					</div>
 				</div>
 				<div class="card__footer">
-					<Button color="error" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
-						Delete project
-					</Button>
+					<RemoveProjectButton
+						bind:this={deleteConfirmationModal}
+						projectTitle={$project$?.title}
+						{isDeleting}
+						{onDeleteClicked}
+					/>
 				</div>
 			{/if}
 		</div>
 	</div>
 </ScrollableContainer>
-
-<Modal bind:this={deleteConfirmationModal} title="Delete {$project$?.title}?">
-	<p>
-		Are you sure you want to delete
-		<span class="font-bold">{$project$?.title}</span>? This can’t be undone.
-	</p>
-
-	<svelte:fragment slot="controls" let:close>
-		<Button kind="outlined" on:click={close}>Cancel</Button>
-		<Button color="error" loading={isDeleting} on:click={onDeleteClicked}>Delete project</Button>
-	</svelte:fragment>
-</Modal>
 
 <style lang="postcss">
 	.settings {
