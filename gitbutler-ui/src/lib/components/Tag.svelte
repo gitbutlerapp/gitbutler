@@ -9,6 +9,7 @@
 
 	export let help = '';
 	export let icon: keyof typeof iconsJson | undefined = undefined;
+	export let reversedDirection = false;
 	export let color: TagColor = 'neutral-light';
 	export let border = false;
 	export let filled = false;
@@ -28,6 +29,7 @@
 	class:filled
 	class:disabled
 	class:shrinkable
+	class:iconLeft={reversedDirection}
 	class:not-button={!clickable}
 	on:click
 	role={clickable ? 'button' : undefined}
@@ -156,6 +158,10 @@
 		pointer-events: none;
 		background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 10%, transparent);
 		color: var(--clr-core-ntrl-50);
+	}
+
+	.iconLeft {
+		flex-direction: row-reverse;
 	}
 
 	.shrinkable {
