@@ -103,7 +103,9 @@
 				selectable={$commitBoxOpen && !isUnapplied}
 				on:close={() => {
 					const selectedId = selected?.id;
-					selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
+					selectedFiles.update((fileIds) =>
+						fileIds.filter((file) => file.id != selectedId)
+					);
 				}}
 			/>
 			<Resizer
@@ -130,6 +132,7 @@
 		position: relative;
 		--target-branch-background: var(--clr-theme-container-pale);
 		--selected-resize-shift: 0;
+		--selected-target-branch-right-padding: 0;
 		--selected-opacity: 1;
 		background-color: var(--target-branch-background);
 	}
@@ -143,7 +146,8 @@
 	}
 
 	.selected {
-		--selected-resize-shift: calc(var(--space-4) * -1);
+		--selected-resize-shift: calc(var(--space-6) * -1);
+		--selected-target-branch-right-padding: calc(var(--space-4) * -1);
 		--selected-opacity: 0;
 	}
 
@@ -157,5 +161,6 @@
 
 		padding: var(--space-12) var(--space-12) var(--space-12) 0;
 		border-right: 1px solid var(--clr-theme-container-outline-light);
+		margin-left: var(--selected-target-branch-right-padding);
 	}
 </style>
