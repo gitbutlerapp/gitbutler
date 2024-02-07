@@ -1,5 +1,13 @@
 <script lang="ts" context="module">
-	export type TagColor = 'success' | 'error' | 'warning' | 'neutral-light' | 'ghost';
+	export type TagColor =
+		| 'success'
+		| 'error'
+		| 'warning'
+		| 'ghost'
+		| 'light'
+		| 'dark'
+		| 'pop'
+		| 'purple';
 </script>
 
 <script lang="ts">
@@ -9,7 +17,8 @@
 
 	export let help = '';
 	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let color: TagColor = 'neutral-light';
+	export let reversedDirection = false;
+	export let color: TagColor = 'light';
 	export let border = false;
 	export let filled = false;
 	export let disabled = false;
@@ -19,15 +28,19 @@
 
 <div
 	class="tag text-base-11 text-semibold"
+	class:ghost={color == 'ghost'}
+	class:light={color == 'light'}
+	class:dark={color == 'dark'}
 	class:success={color == 'success'}
 	class:error={color == 'error'}
 	class:warning={color == 'warning'}
-	class:neutral-light={color == 'neutral-light'}
-	class:ghost={color == 'ghost'}
+	class:purple={color == 'purple'}
+	class:pop={color == 'pop'}
 	class:tag-border={border}
 	class:filled
 	class:disabled
 	class:shrinkable
+	class:iconLeft={reversedDirection}
 	class:not-button={!clickable}
 	on:click
 	role={clickable ? 'button' : undefined}
@@ -74,18 +87,37 @@
 	.ghost {
 		color: var(--clr-theme-scale-ntrl-40);
 		&:hover {
-			background: var(--clr-theme-container-pale);
+			background: color-mix(in srgb, var(--clr-core-ntrl-50), transparent 85%);
 		}
 		&.tag-border {
 			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-60);
 		}
 	}
 
-	.success {
-		color: var(--clr-theme-scale-succ-30);
-		background: var(--clr-theme-succ-container);
+	.light {
+		color: var(--clr-theme-scale-ntrl-40);
+		background: color-mix(in srgb, var(--clr-core-ntrl-50), transparent 85%);
 		&:hover {
-			background: var(--clr-theme-succ-container-dim);
+			background: color-mix(in srgb, var(--clr-core-ntrl-50), transparent 75%);
+		}
+		&.tag-border {
+			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-60);
+		}
+	}
+
+	.dark {
+		color: var(--clr-theme-scale-ntrl-100);
+		background: var(--clr-theme-scale-ntrl-40);
+		&:hover {
+			background: var(--clr-theme-scale-ntrl-30);
+		}
+	}
+
+	.success {
+		color: var(--clr-theme-scale-succ-20);
+		background: color-mix(in srgb, var(--clr-core-succ-50), transparent 80%);
+		&:hover {
+			background: color-mix(in srgb, var(--clr-core-succ-50), transparent 70%);
 		}
 		&.tag-border {
 			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-succ-60);
@@ -100,10 +132,10 @@
 	}
 
 	.error {
-		color: var(--clr-theme-scale-err-30);
-		background: var(--clr-theme-err-container);
+		color: var(--clr-theme-scale-err-20);
+		background: color-mix(in srgb, var(--clr-core-err-50), transparent 80%);
 		&:hover {
-			background: var(--clr-theme-err-container-dim);
+			background: color-mix(in srgb, var(--clr-core-err-50), transparent 70%);
 		}
 		&.tag-border {
 			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-err-60);
@@ -118,10 +150,10 @@
 	}
 
 	.warning {
-		color: var(--clr-theme-scale-warn-30);
-		background: var(--clr-theme-warn-container);
+		color: var(--clr-theme-scale-warn-20);
+		background: color-mix(in srgb, var(--clr-core-warn-50), transparent 80%);
 		&:hover {
-			background: var(--clr-theme-warn-container-dim);
+			background: color-mix(in srgb, var(--clr-core-warn-50), transparent 70%);
 		}
 		&.tag-border {
 			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-warn-60);
@@ -135,14 +167,39 @@
 		}
 	}
 
-	.neutral-light {
-		color: var(--clr-theme-scale-ntrl-40);
-		background: var(--clr-theme-container-pale);
+	.purple {
+		color: var(--clr-theme-scale-purple-20);
+		background: color-mix(in srgb, var(--clr-core-purple-50), transparent 80%);
 		&:hover {
-			background: var(--clr-theme-container-sub);
+			background: color-mix(in srgb, var(--clr-core-purple-50), transparent 70%);
 		}
 		&.tag-border {
-			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-60);
+			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-purple-60);
+		}
+		&.filled {
+			color: var(--clr-theme-purple-on-element);
+			background: var(--clr-theme-purple-element);
+			&:hover {
+				background: var(--clr-theme-purple-element-dim);
+			}
+		}
+	}
+
+	.pop {
+		color: var(--clr-theme-scale-pop-20);
+		background: color-mix(in srgb, var(--clr-core-pop-50), transparent 80%);
+		&:hover {
+			background: color-mix(in srgb, var(--clr-core-pop-50), transparent 70%);
+		}
+		&.tag-border {
+			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-pop-60);
+		}
+		&.filled {
+			color: var(--clr-theme-pop-on-element);
+			background: var(--clr-theme-pop-element);
+			&:hover {
+				background: var(--clr-theme-pop-element-dim);
+			}
 		}
 	}
 
@@ -156,6 +213,10 @@
 		pointer-events: none;
 		background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 10%, transparent);
 		color: var(--clr-core-ntrl-50);
+	}
+
+	.iconLeft {
+		flex-direction: row-reverse;
 	}
 
 	.shrinkable {
