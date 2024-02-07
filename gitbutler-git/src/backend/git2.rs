@@ -4,8 +4,15 @@
 //! The entry point for this module is the [`Repository`] struct.
 
 mod repository;
+mod thread_resource;
 
-pub use self::repository::Repository;
+#[cfg(feature = "tokio")]
+pub use self::thread_resource::tokio;
+
+pub use self::{
+    repository::Repository,
+    thread_resource::{ThreadedResource, ThreadedResourceHandle},
+};
 
 #[cfg(test)]
 mod tests {
@@ -19,8 +26,11 @@ mod tests {
             .join(test_name);
         let _ = std::fs::remove_dir_all(&repo_path);
         std::fs::create_dir_all(&repo_path).unwrap();
-        Repository::open_or_init(&repo_path).unwrap()
+
+        Repository::<tokio::TokioThreadedResource>::open_or_init(&repo_path)
+            .await
+            .unwrap()
     }
 
-    crate::gitbutler_git_integration_tests!(make_repo);
+    crate::gitbutler_git_integration_tests!(make_repo, disable_io);
 }

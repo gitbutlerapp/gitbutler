@@ -13,7 +13,7 @@ pub fn main() {
 #[cfg(not(target_os = "windows"))]
 pub fn main() {
     let has_pipe_var = std::env::var("GITBUTLER_ASKPASS_PIPE")
-        .map(|v| v != "")
+        .map(|v| !v.is_empty())
         .unwrap_or(false);
     if !has_pipe_var {
         panic!("This binary is only meant to be run by GitButler; please do not use it yourself as it's entirely unstable.");

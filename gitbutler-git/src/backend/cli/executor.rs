@@ -1,5 +1,4 @@
-use crate::prelude::*;
-use core::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 #[cfg(any(test, feature = "tokio"))]
 pub mod tokio;
@@ -42,7 +41,7 @@ pub unsafe trait GitExecutor {
     ///
     /// Otherwise, `Ok` is returned in call cases, even when
     /// the exit code is non-zero.
-    type Error: core::error::Error + core::fmt::Debug + Send + Sync + 'static;
+    type Error: std::error::Error + core::fmt::Debug + Send + Sync + 'static;
 
     /// The type of the handle returned by [`GitExecutor::create_askpass_server`].
     type ServerHandle: AskpassServer + Send + Sync + 'static;
@@ -60,7 +59,7 @@ pub unsafe trait GitExecutor {
     async fn execute_raw(
         &self,
         args: &[&str],
-        envs: Option<BTreeMap<String, String>>,
+        envs: Option<HashMap<String, String>>,
     ) -> Result<(usize, String, String), Self::Error>;
 
     /// Executes the given Git command with sane defaults.
@@ -71,7 +70,7 @@ pub unsafe trait GitExecutor {
     async fn execute(
         &self,
         args: &[&str],
-        envs: Option<BTreeMap<String, String>>,
+        envs: Option<HashMap<String, String>>,
     ) -> Result<(usize, String, String), Self::Error> {
         let mut args = args.as_ref().to_vec();
 
@@ -174,7 +173,7 @@ pub struct FileStat {
 /// Upon dropping the handle, the server should be closed.
 pub trait AskpassServer: core::fmt::Display {
     /// The type of error that is returned by [`AskpassServer::accept`].
-    type Error: core::error::Error + core::fmt::Debug + Send + Sync + 'static;
+    type Error: std::error::Error + core::fmt::Debug + Send + Sync + 'static;
 
     /// The type of the socket yielded by the incoming iterator.
     type SocketHandle: Socket + Send + Sync + 'static;
@@ -202,7 +201,7 @@ pub type Uid = u32;
 /// is established.
 pub trait Socket {
     /// The error type returned by I/O operations on this socket.
-    type Error: core::error::Error + core::fmt::Debug + Send + Sync + 'static;
+    type Error: std::error::Error + core::fmt::Debug + Send + Sync + 'static;
 
     /// The process ID of the connecting client.
     fn pid(&self) -> Result<Pid, Self::Error>;

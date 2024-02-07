@@ -23,13 +23,10 @@
 //!
 //! This hampers certain use cases, such as implementing
 //! [`cli::GitExecutor`] for e.g. remote connections.
-#![cfg_attr(not(feature = "std"), no_std)] // must be first
-#![feature(error_in_core)]
 #![deny(missing_docs, unsafe_code)]
 #![allow(async_fn_in_trait)]
-
-#[cfg(not(feature = "std"))]
-extern crate alloc;
+#![cfg_attr(test, feature(async_closure))]
+#![feature(impl_trait_in_assoc_type)]
 
 #[cfg(test)]
 mod integration_tests;
@@ -42,8 +39,6 @@ pub mod ops;
 mod refspec;
 mod repository;
 
-pub(crate) mod prelude;
-
 #[cfg(feature = "cli")]
 pub use backend::cli;
 #[cfg(feature = "git2")]
@@ -51,5 +46,5 @@ pub use backend::git2;
 
 pub use self::{
     refspec::{Error as RefSpecError, RefSpec},
-    repository::{Authorization, ConfigScope, Repository},
+    repository::{Authorization, ConfigScope, Error, Repository},
 };
