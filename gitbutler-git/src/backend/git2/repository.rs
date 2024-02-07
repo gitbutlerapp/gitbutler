@@ -325,4 +325,78 @@ impl<R: ThreadedResource> crate::Repository for Repository<R> {
             .await
             .await
     }
+
+    async fn push(
+        &self,
+        remote: &str,
+        refspec: RefSpec,
+        authorization: &Authorization,
+    ) -> Result<(), crate::Error<Self::Error>> {
+        let remote = remote.to_owned();
+        let authorization = authorization.clone();
+
+        self.repo
+            .with(move |repo| {
+                let mut remote = repo.find_remote(&remote)?;
+
+                let mut callbacks = git2::RemoteCallbacks::new();
+
+                callbacks.credentials(|_url, username, _allowed| {
+                    let auth = match &authorization {
+                        Authorization::Auto => {
+                            let cred = git2::Cred::default()?;
+                            Ok(cred)
+                        }
+                        Authorization::Basic { username, password } => {
+                            let username = username.as_deref().unwrap_or_default();
+                            let password = password.as_deref().unwrap_or_default();
+
+                            git2::Cred::userpass_plaintext(username, password)
+                        }
+                        Authorization::Ssh {
+                            passphrase,
+                            private_key,
+                        } => {
+                            let private_key =
+                                private_key.as_ref().map(PathBuf::from).unwrap_or_else(|| {
+                                    let mut path = dirs::home_dir().unwrap();
+                                    path.push(".ssh");
+                                    path.push("id_rsa");
+                                    path
+                                });
+
+                            let username = username
+                                .map(ToOwned::to_owned)
+                                .unwrap_or_else(|| std::env::var("USER").unwrap_or_default());
+
+                            git2::Cred::ssh_key(
+                                &username,
+                                None,
+                                &private_key,
+                                passphrase.clone().as_deref(),
+                            )
+                        }
+                    };
+
+                    auth
+                });
+
+                let mut push_options = git2::PushOptions::new();
+                push_options.remote_callbacks(callbacks);
+
+                let refspec = refspec.to_string();
+
+                let r = remote.push(&[&refspec], Some(&mut push_options));
+
+                r.map_err(|e| {
+                    if e.code() == git2::ErrorCode::NotFound {
+                        crate::Error::RefNotFound(refspec)
+                    } else {
+                        e.into()
+                    }
+                })
+            })
+            .await
+            .await
+    }
 }

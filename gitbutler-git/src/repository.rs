@@ -115,6 +115,17 @@ pub trait Repository {
 
     /// Gets the URI for a remote.
     async fn remote(&self, remote: &str) -> Result<String, Error<Self::Error>>;
+
+    /// Pushes the given refspec to the given remote.
+    ///
+    /// This is an authorized operation; the given authorization
+    /// credentials will be used to authenticate with the remote.
+    async fn push(
+        &self,
+        remote: &str,
+        refspec: RefSpec,
+        authorization: &Authorization,
+    ) -> Result<(), Error<Self::Error>>;
 }
 
 /// Provides authentication credentials when performing

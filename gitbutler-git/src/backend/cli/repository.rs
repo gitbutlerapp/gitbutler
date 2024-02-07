@@ -566,4 +566,41 @@ impl<E: GitExecutor + 'static> crate::Repository for Repository<E> {
             })?
         }
     }
+
+    async fn push(
+        &self,
+        remote: &str,
+        refspec: RefSpec,
+        authorization: &Authorization,
+    ) -> Result<(), crate::Error<Self::Error>> {
+        let mut args = vec!["-C", &self.path, "push", "--quiet"];
+
+        let refspec_string = refspec.to_string();
+
+        args.push(remote);
+        args.push(&refspec_string);
+
+        let (status, stdout, stderr) = self
+            .execute_with_auth_harness(&args, None, authorization)
+            .await?;
+
+        if status == 0 {
+            Ok(())
+        } else {
+            // Did the ref not match?
+            if stderr.to_lowercase().contains("does not match any") {
+                // FIXME(qix-): this fallback doesn't make much sense; might need to be reworked.
+                Err(crate::Error::RefNotFound(
+                    refspec.source.unwrap_or(refspec_string),
+                ))?
+            } else {
+                Err(Error::<E>::Failed {
+                    status,
+                    args: args.into_iter().map(Into::into).collect(),
+                    stdout,
+                    stderr,
+                })?
+            }
+        }
+    }
 }

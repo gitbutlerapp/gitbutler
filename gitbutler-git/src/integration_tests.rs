@@ -123,6 +123,36 @@ macro_rules! gitbutler_git_integration_tests {
                     }
                 }).await
             }
+
+            async fn push_with_ssh_basic_no_master(repo, server, server_repo) {
+                use crate::*;
+
+                let auth = Authorization::Basic {
+                    username: Some("my_username".to_owned()),
+                    password: Some("my_password".to_owned()),
+                };
+                server.allow_authorization(auth.clone());
+
+                server.run_with_server(async move |port| {
+                    repo.create_remote("origin", &format!("[my_username@localhost:{port}]:test.git")).await.unwrap();
+
+                    let err = repo.push(
+                        "origin",
+                        RefSpec{
+                            source: Some("refs/heads/master".to_owned()),
+                            destination: Some("refs/heads/master".to_owned()),
+                            ..Default::default()
+                        },
+                        &auth
+                    ).await.unwrap_err();
+
+                    if let Error::RefNotFound(refname) = err {
+                        assert_eq!(refname, "refs/heads/master");
+                    } else {
+                        panic!("expected RefNotFound, got {:?}", err);
+                    }
+                }).await
+            }
         }
     };
 }
