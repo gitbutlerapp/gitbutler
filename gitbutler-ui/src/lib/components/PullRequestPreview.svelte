@@ -17,12 +17,7 @@
 				<span class="card__title whitespace-pre-wrap">
 					{pullrequest.title}
 					<span class="text-color-4">
-						<Link
-							target="_blank"
-							rel="noreferrer"
-							href={pullrequest.htmlUrl}
-							class="text-3"
-						>
+						<Link target="_blank" rel="noreferrer" href={pullrequest.htmlUrl} class="text-3">
 							#{pullrequest.number}
 						</Link>
 					</span>

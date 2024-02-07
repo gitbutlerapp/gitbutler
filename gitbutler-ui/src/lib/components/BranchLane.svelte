@@ -122,43 +122,43 @@
 </div>
 
 <style lang="postcss">
-  .wrapper {
-      display: flex;
-      height: 100%;
-      align-items: self-start;
-      flex-shrink: 0;
-      position: relative;
-      --target-branch-background: var(--clr-theme-container-pale);
-      --selected-resize-shift: 0;
-      --selected-target-branch-right-padding: 0;
-      --selected-opacity: 1;
-      background-color: var(--target-branch-background);
-  }
+	.wrapper {
+		display: flex;
+		height: 100%;
+		align-items: self-start;
+		flex-shrink: 0;
+		position: relative;
+		--target-branch-background: var(--clr-theme-container-pale);
+		--selected-resize-shift: 0;
+		--selected-target-branch-right-padding: 0;
+		--selected-opacity: 1;
+		background-color: var(--target-branch-background);
+	}
 
-  .target-branch {
-      --target-branch-background: color-mix(
-          in srgb,
-          var(--clr-theme-scale-pop-60) 15%,
-          var(--clr-theme-container-pale)
-      );
-  }
+	.target-branch {
+		--target-branch-background: color-mix(
+			in srgb,
+			var(--clr-theme-scale-pop-60) 15%,
+			var(--clr-theme-container-pale)
+		);
+	}
 
-  .selected {
-      --selected-resize-shift: calc(var(--space-6) * -1);
-      --selected-target-branch-right-padding: calc(var(--space-4) * -1);
-      --selected-opacity: 0;
-  }
+	.selected {
+		--selected-resize-shift: calc(var(--space-6) * -1);
+		--selected-target-branch-right-padding: calc(var(--space-4) * -1);
+		--selected-opacity: 0;
+	}
 
-  .file-preview {
-      display: flex;
-      position: relative;
-      height: 100%;
+	.file-preview {
+		display: flex;
+		position: relative;
+		height: 100%;
 
-      overflow: hidden;
-      align-items: self-start;
+		overflow: hidden;
+		align-items: self-start;
 
-      padding: var(--space-12) var(--space-12) var(--space-12) 0;
-      border-right: 1px solid var(--clr-theme-container-outline-light);
-      margin-left: var(--selected-target-branch-right-padding);
-  }
+		padding: var(--space-12) var(--space-12) var(--space-12) 0;
+		border-right: 1px solid var(--clr-theme-container-outline-light);
+		margin-left: var(--selected-target-branch-right-padding);
+	}
 </style>
