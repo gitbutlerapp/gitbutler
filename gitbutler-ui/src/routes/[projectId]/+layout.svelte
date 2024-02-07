@@ -40,6 +40,7 @@
 			hotkeys.on('Meta+Shift+S', () => syncToCloud($project$?.id))
 		);
 	});
+	let remoteBranches = getRemoteBranches(projectId);
 </script>
 
 {#if !$project$}
@@ -47,7 +48,6 @@
 {:else if $baseError$}
 	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$baseError$} />
 {:else if $baseBranch$ === null}
-	{@const remoteBranches = getRemoteBranches(projectId)}
 	{#await remoteBranches}
 		<p>loading...</p>
 	{:then remoteBranches}
