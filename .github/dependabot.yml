@@ -8,25 +8,21 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
     groups:
-      npm-minor-updates:
-        update-types: [minor]
-      npm-patch-updates:
-        update-types: [patch]
+      npm-updates:
+        update-types: [minor, patch]
 
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
     groups:
-      rust-minor-updates:
-        update-types: [minor]
-      rust-patch-updates:
-        update-types: [patch]
+      rust-updates:
+        update-types: [minor, patch]
