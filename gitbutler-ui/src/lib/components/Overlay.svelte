@@ -63,7 +63,7 @@
 	}
 
 	.s-default {
-		max-width: calc(var(--space-64) * 10);
+		max-width: calc(var(--space-64) * 9);
 	}
 
 	.s-small {

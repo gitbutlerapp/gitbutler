@@ -1,8 +1,7 @@
 <script lang="ts">
-	import Button from './Button.svelte';
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
-	import Modal from './Modal.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
+	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import * as toasts from '$lib/utils/toasts';
 	import type { Project, ProjectService } from '$lib/backend/projects';
@@ -17,7 +16,7 @@
 	$: user$ = userService.user$;
 
 	let loading = false;
-	let deleteConfirmationModal: Modal;
+	let deleteConfirmationModal: RemoveProjectButton;
 
 	async function onDeleteClicked() {
 		loading = true;
@@ -49,43 +48,25 @@
 			There was a problem loading this repo
 		</p>
 
-		{#if error}
-			<div class="problem__error text-base-body-12">
-				<Icon name="error" color="error" />
-				{error}
-			</div>
-		{/if}
+		<div class="problem__error text-base-body-12">
+			<Icon name="error" color="error" />
+			{error ? error.message : 'An unknown error occurred'}
+		</div>
+
+		<div class="remove-project-btn">
+			<RemoveProjectButton
+				bind:this={deleteConfirmationModal}
+				projectTitle={project.title}
+				isDeleting={loading}
+				{onDeleteClicked}
+			/>
+		</div>
 
 		<div class="problem__switcher">
 			<ProjectSwitcher {projectService} {project} />
 		</div>
-
-		<div class="problem__delete">
-			<Button
-				wide
-				on:click={() => deleteConfirmationModal.show()}
-				{loading}
-				kind="outlined"
-				color="error"
-				icon="bin-small"
-			>
-				Remove project from GitButler
-			</Button>
-		</div>
 	</div>
 </DecorativeSplitView>
-
-<Modal bind:this={deleteConfirmationModal} title="Delete {project.title}?">
-	<p>
-		Are you sure you want to delete
-		<span class="font-bold">{project.title}</span>? This can’t be undone.
-	</p>
-
-	<svelte:fragment slot="controls" let:close>
-		<Button kind="outlined" on:click={close}>Cancel</Button>
-		<Button color="error" {loading} on:click={onDeleteClicked}>Delete project</Button>
-	</svelte:fragment>
-</Modal>
 
 <style lang="postcss">
 	.problem__project {
@@ -104,9 +85,7 @@
 
 	.problem__switcher {
 		text-align: right;
-		margin-top: var(--space-10);
-		padding-bottom: var(--space-32);
-		border-bottom: 1px dashed var(--clr-theme-scale-ntrl-60);
+		margin-top: var(--space-24);
 	}
 
 	.problem__error {
@@ -116,10 +95,13 @@
 		padding: var(--space-20);
 		background-color: var(--clr-theme-err-container);
 		border-radius: var(--radius-m);
-		margin-bottom: var(--space-24);
+		margin-bottom: var(--space-12);
 	}
 
-	.problem__delete {
-		margin-top: var(--space-32);
+	.remove-project-btn {
+		display: flex;
+		justify-content: flex-end;
+		padding-bottom: var(--space-24);
+		border-bottom: 1px dashed var(--clr-theme-scale-ntrl-60);
 	}
 </style>

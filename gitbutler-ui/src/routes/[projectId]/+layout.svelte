@@ -72,7 +72,12 @@
 		/>
 	{/await}
 {:else if $branchesError$}
-	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$branchesError$} />
+	<ProblemLoadingRepo
+		{projectService}
+		{userService}
+		project={$project$}
+		error={$branchesError$}
+	/>
 {:else if !$gbBranchActive$ && $baseBranch$}
 	<NotOnGitButlerBranch
 		{userService}
