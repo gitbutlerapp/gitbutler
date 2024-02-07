@@ -16,4 +16,4 @@
 	}
 </script>
 
-<Tag color={statusToColor(status)} border>{status}</Tag>
+<Tag color={statusToColor(status)}>{status}</Tag>

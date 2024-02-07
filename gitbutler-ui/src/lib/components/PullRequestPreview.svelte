@@ -17,13 +17,18 @@
 				<span class="card__title whitespace-pre-wrap">
 					{pullrequest.title}
 					<span class="text-color-4">
-						<Link target="_blank" rel="noreferrer" href={pullrequest.htmlUrl} class="text-3">
+						<Link
+							target="_blank"
+							rel="noreferrer"
+							href={pullrequest.htmlUrl}
+							class="text-3"
+						>
 							#{pullrequest.number}
 						</Link>
 					</span>
 				</span>
 				{#if pullrequest.draft}
-					<Tag color="neutral-light" icon="pr-draft">Draft</Tag>
+					<Tag color="light" icon="pr-draft">Draft</Tag>
 				{:else}
 					<Tag color="success" icon="pr-draft" filled>Open</Tag>
 				{/if}

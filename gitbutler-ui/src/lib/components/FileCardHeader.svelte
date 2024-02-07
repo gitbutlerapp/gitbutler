@@ -54,10 +54,10 @@
 				{/if}
 				<div class="header__tag-group">
 					{#if fileStats.added}
-						<Tag color="success" border>+{fileStats.added}</Tag>
+						<Tag color="success">+{fileStats.added}</Tag>
 					{/if}
 					{#if fileStats.removed}
-						<Tag color="error" border>-{fileStats.removed}</Tag>
+						<Tag color="error">-{fileStats.removed}</Tag>
 					{/if}
 					{#if fileStatus}
 						<FileStatusTag status={fileStatus} />
