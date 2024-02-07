@@ -9,7 +9,7 @@ resolver = "2"
 
 [workspace.dependencies]
 gitbutler-core = { path = "gitbutler-core" }
-git2 = { version = "0.18.1", features = ["vendored-openssl", "vendored-libgit2"] }
+git2 = { version = "0.18.2", features = ["vendored-openssl", "vendored-libgit2"] }
 uuid = "1.7.0"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0.56"
