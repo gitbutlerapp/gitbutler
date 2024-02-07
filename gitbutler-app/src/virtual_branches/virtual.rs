@@ -445,13 +445,20 @@ pub fn unapply_ownership(
             },
         ));
     }
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create current session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+
+    let latest_session = gb_repository
+        .get_latest_session()
+        .context("failed to get or create current session")?
+        .ok_or_else(|| {
+            errors::UnapplyOwnershipError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                project_id: project_repository.project().id,
+            })
+        })?;
+
+    let latest_session_reader = sessions::Reader::open(gb_repository, &latest_session)
         .context("failed to open current session")?;
 
-    let default_target = get_default_target(&current_session_reader)
+    let default_target = get_default_target(&latest_session_reader)
         .context("failed to get default target")?
         .ok_or_else(|| {
             errors::UnapplyOwnershipError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
@@ -459,7 +466,7 @@ pub fn unapply_ownership(
             })
         })?;
 
-    let applied_branches = Iterator::new(&current_session_reader)
+    let applied_branches = Iterator::new(&latest_session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?
@@ -475,46 +482,48 @@ pub fn unapply_ownership(
     )
     .context("failed to get status by branch")?;
 
-    // remove the ownership from the applied branches, and write them out
-    let branch_writer = branch::Writer::new(gb_repository).context("failed to create writer")?;
-    let applied_statuses = applied_statuses
-        .into_iter()
-        .map(|(branch, branch_files)| {
-            let mut branch = branch.clone();
-            let mut branch_files = branch_files.clone();
-            for file_ownership_to_take in &ownership.files {
-                let taken_file_ownerships = branch.ownership.take(file_ownership_to_take);
-                if taken_file_ownerships.is_empty() {
-                    continue;
-                }
-                branch_writer.write(&mut branch)?;
-                branch_files = branch_files
-                    .iter_mut()
-                    .filter_map(|(filepath, hunks)| {
-                        let hunks = hunks
-                            .clone()
-                            .into_iter()
-                            .filter(|hunk| {
-                                !taken_file_ownerships.iter().any(|taken| {
-                                    taken.file_path.eq(filepath)
-                                        && taken.hunks.iter().any(|taken_hunk| {
-                                            taken_hunk.start == hunk.new_start
-                                                && taken_hunk.end == hunk.new_start + hunk.new_lines
-                                        })
-                                })
-                            })
-                            .collect::<Vec<_>>();
-                        if hunks.is_empty() {
-                            None
-                        } else {
-                            Some((filepath.clone(), hunks))
+    let hunks_to_unapply = applied_statuses
+        .iter()
+        .map(
+            |(branch, branch_files)| -> Result<Vec<(std::path::PathBuf, diff::Hunk)>> {
+                let branch_files = calculate_non_commited_diffs(
+                    project_repository,
+                    branch,
+                    &default_target,
+                    branch_files,
+                )?;
+
+                let mut hunks_to_unapply = Vec::new();
+                for (path, hunks) in branch_files {
+                    if let Some(ownership) = ownership.files.iter().find(|o| o.file_path == path) {
+                        for hunk in hunks {
+                            if ownership.hunks.contains(&Hunk::from(&hunk)) {
+                                hunks_to_unapply.push((path.clone(), hunk));
+                            }
                         }
-                    })
-                    .collect::<HashMap<_, _>>();
-            }
-            Ok((branch, branch_files))
-        })
-        .collect::<Result<Vec<_>>>()?;
+                    }
+                }
+
+                hunks_to_unapply.sort_by(|a, b| a.1.old_start.cmp(&b.1.old_start));
+
+                Ok(hunks_to_unapply)
+            },
+        )
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+
+    let mut diff = HashMap::new();
+    for h in hunks_to_unapply {
+        if let Some(reversed_hunk) = diff::reverse_hunk(&h.1) {
+            diff.entry(h.0).or_insert_with(Vec::new).push(reversed_hunk);
+        } else {
+            return Err(errors::UnapplyOwnershipError::Other(anyhow::anyhow!(
+                "failed to reverse hunk"
+            )));
+        }
+    }
 
     let repo = &project_repository.git_repository;
 
@@ -522,10 +531,7 @@ pub fn unapply_ownership(
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
 
-    // ok, update the wd with the union of the rest of the branches
     let base_tree = target_commit.tree().context("failed to get target tree")?;
-
-    // construst a new working directory tree, without the removed ownerships
     let final_tree = applied_statuses.into_iter().fold(
         target_commit.tree().context("failed to get target tree"),
         |final_tree, status| {
@@ -538,6 +544,11 @@ pub fn unapply_ownership(
                 .context("failed to find tree")
         },
     )?;
+
+    let final_tree_oid = write_tree_onto_tree(project_repository, &final_tree, &diff)?;
+    let final_tree = repo
+        .find_tree(final_tree_oid)
+        .context("failed to find tree")?;
 
     repo.checkout_tree(&final_tree)
         .force()
@@ -2121,7 +2132,16 @@ pub fn write_tree_onto_commit(
     let head_commit = git_repository.find_commit(commit_oid)?;
     let base_tree = head_commit.tree()?;
 
-    let mut builder = git_repository.treebuilder(Some(&base_tree));
+    write_tree_onto_tree(project_repository, &base_tree, files)
+}
+
+pub fn write_tree_onto_tree(
+    project_repository: &project_repository::Repository,
+    base_tree: &git::Tree,
+    files: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
+) -> Result<git::Oid> {
+    let git_repository = &project_repository.git_repository;
+    let mut builder = git_repository.treebuilder(Some(base_tree));
     // now update the index with content in the working directory for each file
     for (filepath, hunks) in files {
         // convert this string to a Path

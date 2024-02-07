@@ -259,6 +259,74 @@ fn hunks_by_filepath(
         .collect())
 }
 
+// returns None if cannot reverse the patch header
+fn reverse_patch_header(header: &str) -> Option<String> {
+    use itertools::Itertools;
+
+    let mut parts = header.split_whitespace();
+
+    match parts.next() {
+        Some("@@") => {}
+        _ => return None,
+    };
+
+    let old_range = parts.next()?;
+    let new_range = parts.next()?;
+
+    match parts.next() {
+        Some("@@") => {}
+        _ => return None,
+    };
+
+    Some(format!(
+        "@@ {} {} @@ {}",
+        new_range.replace('+', "-"),
+        old_range.replace('-', "+"),
+        parts.join(" ")
+    ))
+}
+
+fn reverse_patch(patch: &str) -> Option<String> {
+    let mut reversed = String::new();
+    for line in patch.lines() {
+        if line.starts_with("@@") {
+            if let Some(header) = reverse_patch_header(line) {
+                reversed.push_str(&header);
+                reversed.push('\n');
+            } else {
+                return None;
+            }
+        } else if line.starts_with('+') {
+            reversed.push_str(&line.replace('+', "-"));
+            reversed.push('\n');
+        } else if line.starts_with('-') {
+            reversed.push_str(&line.replace('-', "+"));
+            reversed.push('\n');
+        } else {
+            reversed.push_str(line);
+            reversed.push('\n');
+        }
+    }
+    Some(reversed)
+}
+
+// returns None if cannot reverse the hunk
+pub fn reverse_hunk(hunk: &Hunk) -> Option<Hunk> {
+    if hunk.binary {
+        None
+    } else {
+        reverse_patch(&hunk.diff).map(|diff| Hunk {
+            old_start: hunk.new_start,
+            old_lines: hunk.new_lines,
+            new_start: hunk.old_start,
+            new_lines: hunk.old_lines,
+            diff,
+            binary: hunk.binary,
+            change_type: hunk.change_type,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::test_utils;

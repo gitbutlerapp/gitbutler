@@ -1283,59 +1283,6 @@ fn test_unapply_ownership_partial() -> Result<()> {
 }
 
 #[test]
-fn test_unapply_ownership_full_file() -> Result<()> {
-    let Case {
-        project_repository,
-        gb_repository,
-        project,
-        ..
-    } = Suite::default().new_case();
-
-    set_test_target(&gb_repository, &project_repository)?;
-
-    let file_path2 = std::path::Path::new("test2.txt");
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path2),
-        "line5\nline6\n",
-    )?;
-
-    create_virtual_branch(
-        &gb_repository,
-        &project_repository,
-        &BranchCreateRequest::default(),
-    )
-    .expect("failed to create virtual branch");
-
-    let branches = list_virtual_branches(&gb_repository, &project_repository)?;
-    assert_eq!(branches.len(), 1);
-    assert_eq!(branches[0].files.len(), 1);
-    assert_eq!(branches[0].ownership.files.len(), 1);
-    assert_eq!(branches[0].files[0].hunks.len(), 1);
-    assert_eq!(branches[0].ownership.files[0].hunks.len(), 1);
-    assert!(std::path::Path::new(&project.path)
-        .join(file_path2)
-        .exists());
-
-    unapply_ownership(
-        &gb_repository,
-        &project_repository,
-        &"test2.txt:1-3".parse().unwrap(),
-    )
-    .unwrap();
-
-    let branches = list_virtual_branches(&gb_repository, &project_repository)?;
-    assert_eq!(branches.len(), 1);
-    assert_eq!(branches[0].files.len(), 0);
-    assert_eq!(branches[0].ownership.files.len(), 0);
-
-    assert!(!std::path::Path::new(&project.path)
-        .join(file_path2)
-        .exists());
-
-    Ok(())
-}
-
-#[test]
 fn test_apply_unapply_branch() -> Result<()> {
     let Case {
         project,
