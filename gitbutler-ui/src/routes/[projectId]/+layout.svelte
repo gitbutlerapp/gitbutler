@@ -40,7 +40,6 @@
 			hotkeys.on('Meta+Shift+S', () => syncToCloud($project$?.id))
 		);
 	});
-	let remoteBranches = getRemoteBranches(projectId);
 </script>
 
 {#if !$project$}
@@ -48,6 +47,7 @@
 {:else if $baseError$}
 	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$baseError$} />
 {:else if $baseBranch$ === null}
+	{@const remoteBranches = getRemoteBranches(projectId)}
 	{#await remoteBranches}
 		<p>loading...</p>
 	{:then remoteBranches}
@@ -62,6 +62,14 @@
 		{:else}
 			<ProjectSetup {branchController} {userService} {projectId} {remoteBranches} />
 		{/if}
+	{:catch}
+		<ProblemLoadingRepo
+			{userService}
+			{projectService}
+			project={$project$}
+			error="Currently, GitButler requires a remote branch to base its virtual branch work on. To
+						use virtual branches, please push your code to a remote branch to use as a base"
+		/>
 	{/await}
 {:else if $branchesError$}
 	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$branchesError$} />
