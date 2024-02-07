@@ -44,11 +44,11 @@
 								icon="locked-small"
 								color="warning"
 								help="File changes cannot be moved because part of this file was already committed into this branch"
-								border>Locked</Tag
+								>Locked</Tag
 							>
 						{/if}
 						{#if file.conflicted}
-							<Tag icon="warning-small" color="error" border>Has conflicts</Tag>
+							<Tag icon="warning-small" color="error">Has conflicts</Tag>
 						{/if}
 					</div>
 				{/if}
