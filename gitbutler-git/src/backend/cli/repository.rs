@@ -367,7 +367,7 @@ impl<E: GitExecutor + 'static> crate::Repository for Repository<E> {
 
         if exit_code == 0 {
             Ok(Some(stdout))
-        } else if exit_code == 1 && stderr.is_empty() {
+        } else if exit_code != 0 && stderr.is_empty() {
             Ok(None)
         } else {
             Err(Error::<E>::Failed {
@@ -557,6 +557,29 @@ impl<E: GitExecutor + 'static> crate::Repository for Repository<E> {
                     stderr,
                 },
             ))?
+        } else {
+            Err(Error::<E>::Failed {
+                status,
+                args: args.into_iter().map(Into::into).collect(),
+                stdout,
+                stderr,
+            })?
+        }
+    }
+
+    async fn head(&self) -> Result<Option<String>, crate::Error<Self::Error>> {
+        let args = vec!["-C", &self.path, "rev-parse", "HEAD"];
+
+        let (status, stdout, stderr) = self
+            .exec
+            .execute(&args, None)
+            .await
+            .map_err(Error::<E>::Exec)?;
+
+        if status == 0 {
+            Ok(Some(stdout.to_owned()))
+        } else if status != 0 && stderr.to_lowercase().contains("ambiguous argument") {
+            Ok(None)
         } else {
             Err(Error::<E>::Failed {
                 status,

@@ -325,4 +325,18 @@ impl<R: ThreadedResource> crate::Repository for Repository<R> {
             .await
             .await
     }
+
+    async fn head(&self) -> Result<Option<String>, crate::Error<Self::Error>> {
+        self.repo
+            .with(|repo| {
+                let head = repo.head()?;
+
+                Ok(head
+                    .symbolic_target()
+                    .map(ToOwned::to_owned)
+                    .or_else(|| head.target().map(|oid| oid.to_string())))
+            })
+            .await
+            .await
+    }
 }
