@@ -58,6 +58,18 @@ macro_rules! gitbutler_git_integration_tests {
 
                 assert_eq!(repo.remote("origin").await.unwrap(), "https://example.com/test.git".to_owned());
             }
+
+            async fn get_head_no_commits(repo) {
+                use crate::*;
+                assert!(repo.head().await.is_err());
+            }
+
+            async fn get_symbolic_head_no_commits(repo) {
+                use crate::*;
+                assert!(repo.symbolic_head().await.is_err());
+            }
+
+            // DO NOT ADD IO TESTS HERE. THIS IS THE WRONG SPOT.
         }
 
         $crate::private::test_impl! {
@@ -124,10 +136,7 @@ macro_rules! gitbutler_git_integration_tests {
                 }).await
             }
 
-            async fn get_head_no_commits(repo) {
-                use crate::*;
-                assert_eq!(repo.head().await.unwrap(), None);
-            }
+            // DO NOT ADD NON-IO TESTS HERE. THIS IS THE WRONG SPOT.
         }
     };
 }

@@ -117,8 +117,18 @@ pub trait Repository {
     async fn remote(&self, remote: &str) -> Result<String, Error<Self::Error>>;
 
     /// Gets the current HEAD ref of the repository.
-    /// If the repository is empty, this will return `None`.
-    async fn head(&self) -> Result<Option<String>, Error<Self::Error>>;
+    ///
+    /// Errors if the repository is empty.
+    async fn head(&self) -> Result<String, Error<Self::Error>>;
+
+    /// Gets the symbolic HEAD of the repository.
+    ///
+    /// Returns `"HEAD"` if the current HEAD
+    /// is not a symbolic ref (e.g. a detached head state
+    /// or a direct reference to a commit).
+    ///
+    /// Errors if the repository is empty.
+    async fn symbolic_head(&self) -> Result<String, Error<Self::Error>>;
 }
 
 /// Provides authentication credentials when performing
