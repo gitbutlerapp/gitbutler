@@ -3,6 +3,9 @@ on:
   - push
   - pull_request
 
+env:
+  RUST_BACKTRACE: full
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -140,6 +143,8 @@ jobs:
           - [git2]
     steps:
       - uses: actions/checkout@v4
+      # FIXME(qix-): figure out a way to make these build automatically with tests
+      - run: cargo build --locked -p gitbutler-git --bin gitbutler-git-askpass --bin gitbutler-git-setsid
       - uses: ./.github/actions/check-crate
         with:
           crate: gitbutler-git

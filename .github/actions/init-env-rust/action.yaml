@@ -10,6 +10,19 @@ runs:
         prefix-key: gitbutler-client
         shared-key: rust
 
-    - name: placeholder for ui assets
+    - name: Placeholder for ui assets
       shell: bash
       run: mkdir gitbutler-ui/build
+
+    - name: Check versions
+      shell: bash
+      run: |
+        rustc --version
+        cargo --version
+        cargo fmt --version
+        cargo clippy --version
+        git --version
+        which git-upload-pack
+        which git-upload-archive
+        which git-receive-pack
+        ssh -V

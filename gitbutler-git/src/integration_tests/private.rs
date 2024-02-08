@@ -331,8 +331,15 @@ macro_rules! test_impl {
                         .join(test_name)
                         .to_string_lossy()
                         .into_owned();
-                    let repo = $crate::backend::git2::Repository::<$crate::backend::git2::tokio::TokioThreadedResource>::open_or_init_bare(repo_path.clone());
+
+                    ::std::fs::create_dir_all(&repo_path).unwrap();
+
+                    let repo = $crate::backend::git2::Repository::<
+                            $crate::backend::git2::tokio::TokioThreadedResource
+                        >::open_or_init_bare(repo_path.clone()).await.unwrap();
+
                     let server = $crate::private::TestSshServer::new(repo_path);
+
                     (server, repo)
                 }.await;
 
