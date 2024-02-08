@@ -326,16 +326,21 @@ impl<R: ThreadedResource> crate::Repository for Repository<R> {
             .await
     }
 
-    async fn head(&self) -> Result<Option<String>, crate::Error<Self::Error>> {
+    async fn head(&self) -> Result<String, crate::Error<Self::Error>> {
         self.repo
             .with(|repo| {
-                let head = repo.head()?;
-
-                Ok(head
-                    .symbolic_target()
-                    .map(ToOwned::to_owned)
-                    .or_else(|| head.target().map(|oid| oid.to_string())))
+                // We can unwrap here because we assert that the target of the
+                // `.target()` call is a direct reference due to calling
+                // `.resolve()` immediately before it.
+                Ok(repo.head()?.resolve()?.target().unwrap().to_string())
             })
+            .await
+            .await
+    }
+
+    async fn symbolic_head(&self) -> Result<String, crate::Error<Self::Error>> {
+        self.repo
+            .with(|repo| Ok(String::from_utf8_lossy(repo.head()?.name_bytes()).to_string()))
             .await
             .await
     }
