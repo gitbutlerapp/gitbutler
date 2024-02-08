@@ -65,13 +65,26 @@ pub async fn git_remote_branches(
 #[tauri::command(async)]
 #[instrument(skip(handle))]
 pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
-    let app = handle.state::<app::App>();
+    use gitbutler_git::Repository;
     let project_id = project_id.parse().map_err(|_| Error::UserError {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
-    let head = app.git_head(&project_id)?;
-    Ok(head)
+    let project = handle.state::<projects::Controller>().get(&project_id)?;
+    let repo =
+        gitbutler_git::git2::Repository::<gitbutler_git::git2::tokio::TokioThreadedResource>::open(
+            &project.path,
+        )
+        .await
+        .map_err(|e| Error::UserError {
+            code: Code::Projects,
+            message: format!("could not open repository: {e}"),
+        })?;
+
+    repo.symbolic_head().await.map_err(|e| Error::UserError {
+        code: Code::ProjectHead,
+        message: format!("could not get symbolic head: {e}"),
+    })
 }
 
 #[tauri::command(async)]
