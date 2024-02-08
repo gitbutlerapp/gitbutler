@@ -123,6 +123,11 @@ macro_rules! gitbutler_git_integration_tests {
                     }
                 }).await
             }
+
+            async fn get_head_no_commits(repo) {
+                use crate::*;
+                assert_eq!(repo.head().await.unwrap(), None);
+            }
         }
     };
 }

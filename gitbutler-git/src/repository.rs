@@ -115,6 +115,10 @@ pub trait Repository {
 
     /// Gets the URI for a remote.
     async fn remote(&self, remote: &str) -> Result<String, Error<Self::Error>>;
+
+    /// Gets the current HEAD ref of the repository.
+    /// If the repository is empty, this will return `None`.
+    async fn head(&self) -> Result<Option<String>, Error<Self::Error>>;
 }
 
 /// Provides authentication credentials when performing
