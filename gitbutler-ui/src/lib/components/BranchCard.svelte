@@ -129,7 +129,11 @@
 </script>
 
 <div class="branch-card-wrapper">
-	<div class="branch-card" data-tauri-drag-region class:target-branch={branch.selectedForChanges}>
+	<div
+		class="branch-card"
+		data-tauri-drag-region
+		class:target-branch={branch.active && branch.selectedForChanges}
+	>
 		<div
 			bind:this={rsViewport}
 			style:width={`${laneWidth || $defaultBranchWidthRem}rem`}
