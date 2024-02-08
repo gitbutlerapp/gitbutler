@@ -157,7 +157,7 @@
 				on:action
 			/>
 		</BranchesHeader>
-		{#if $filteredBranches$?.length > 0}
+		{#if $branches$?.length > 0}
 			<ScrollableContainer bind:viewport showBorderWhenScrolled>
 				<div class="scroll-container">
 					<TextBox
