@@ -65,7 +65,7 @@
 <div
 	class="wrapper"
 	data-tauri-drag-region
-	class:target-branch={branch.selectedForChanges}
+	class:target-branch={branch.active && branch.selectedForChanges}
 	class:selected
 >
 	<BranchCard

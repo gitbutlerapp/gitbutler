@@ -236,26 +236,28 @@
 		</div>
 		<div class="header__actions">
 			<div class="header__buttons">
-				{#if branch.selectedForChanges}
-					<Button
-						help="New changes will land here"
-						icon="target"
-						notClickable
-						disabled={isUnapplied}>Default branch</Button
-					>
-				{:else}
-					<Button
-						help="When selected, new changes will land here"
-						icon="target"
-						kind="outlined"
-						color="neutral"
-						disabled={isUnapplied}
-						on:click={async () => {
-							await branchController.setSelectedForChanges(branch.id);
-						}}
-					>
-						Set as default
-					</Button>
+				{#if branch.active}
+					{#if branch.selectedForChanges}
+						<Button
+							help="New changes will land here"
+							icon="target"
+							notClickable
+							disabled={isUnapplied}>Default branch</Button
+						>
+					{:else}
+						<Button
+							help="When selected, new changes will land here"
+							icon="target"
+							kind="outlined"
+							color="neutral"
+							disabled={isUnapplied}
+							on:click={async () => {
+								await branchController.setSelectedForChanges(branch.id);
+							}}
+						>
+							Set as default
+						</Button>
+					{/if}
 				{/if}
 				<!-- We can't show the merge button until we've waited for checks
 
