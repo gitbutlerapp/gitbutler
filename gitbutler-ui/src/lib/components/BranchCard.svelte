@@ -430,8 +430,4 @@
 		height: 100%;
 		border-right: 1px solid var(--clr-theme-container-outline-light);
 	}
-
-	/* .brach-collapsed {
-		display: none;
-	} */
 </style>

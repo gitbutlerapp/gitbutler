@@ -531,7 +531,7 @@
 		align-items: center;
 		height: 100%;
 		gap: var(--space-16);
-		padding: var(--space-8) var(--space-8) var(--space-16);
+		padding: var(--space-8) var(--space-8) var(--space-20);
 	}
 
 	.collapsed-lane__actions {
@@ -555,9 +555,6 @@
 
 		writing-mode: vertical-rl;
 		gap: var(--space-8);
-		/* flex-direction: column-reverse; */
-		/* writing-mode: vertical-rl;
-		background-color: aquamarine; */
 	}
 
 	.collapsed-lane__info__details {
@@ -570,6 +567,5 @@
 	.collapsed-lane__label {
 		color: var(--clr-theme-scale-ntrl-0);
 		transform: rotate(180deg);
-		padding: var(--space-8) 0;
 	}
 </style>
