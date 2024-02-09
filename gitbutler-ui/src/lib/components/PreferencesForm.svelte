@@ -7,11 +7,13 @@
 	export let project: Project;
 
 	let allowForcePushing = project?.ok_with_force_push;
+	let omitCertificateCheck = project?.omit_certificate_check;
 
 	const runCommitHooks = projectRunCommitHooks(project.id);
 	const dispatch = createEventDispatcher<{
 		updated: {
-			ok_with_force_push: boolean;
+			ok_with_force_push?: boolean;
+			omit_certificate_check?: boolean;
 		};
 	}>();
 </script>
@@ -33,6 +35,23 @@
 	<p class="ml-7 text-light-700 dark:text-dark-200">
 		Force pushing allows GitButler to override branches even if they were pushed to remote. We will
 		never force push to the trunk.
+	</p>
+
+	<form class="flex items-center gap-1">
+		<Checkbox
+			name="omit-certificate-check"
+			checked={omitCertificateCheck}
+			on:change={() => {
+				omitCertificateCheck = !omitCertificateCheck;
+				dispatch('updated', { omit_certificate_check: omitCertificateCheck });
+			}}
+		/>
+		<label class="ml-2" for="allow-force-pushing">
+			<div>Ignore host certificate checks</div>
+		</label>
+	</form>
+	<p class="ml-7 text-light-700 dark:text-dark-200">
+		Enabling this will ignore host certificate checks when authenticating with ssh.
 	</p>
 
 	<form class="flex items-center gap-1">

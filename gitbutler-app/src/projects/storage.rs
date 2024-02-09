@@ -46,6 +46,7 @@ pub struct UpdateRequest {
     pub ok_with_force_push: Option<bool>,
     pub gitbutler_code_push_state: Option<project::CodePushState>,
     pub project_data_last_fetched: Option<project::FetchResult>,
+    pub omit_certificate_check: Option<bool>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -128,6 +129,10 @@ impl Storage {
 
         if let Some(ok_with_force_push) = update_request.ok_with_force_push {
             *project.ok_with_force_push = ok_with_force_push;
+        }
+
+        if let Some(omit_certificate_check) = update_request.omit_certificate_check {
+            project.omit_certificate_check = Some(omit_certificate_check);
         }
 
         self.storage

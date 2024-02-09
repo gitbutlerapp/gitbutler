@@ -143,6 +143,9 @@ impl Repository {
         };
 
         let mut callbacks = git2::RemoteCallbacks::new();
+        if self.project.omit_certificate_check.unwrap_or(false) {
+            callbacks.certificate_check(|_, _| Ok(git2::CertificateCheckStatus::CertificateOk));
+        }
         callbacks.push_update_reference(move |refname, message| {
             tracing::debug!(
                 project_id = %self.project.id,
@@ -194,6 +197,9 @@ impl Repository {
 
         // Set the remote's callbacks
         let mut callbacks = git2::RemoteCallbacks::new();
+        if self.project.omit_certificate_check.unwrap_or(false) {
+            callbacks.certificate_check(|_, _| Ok(git2::CertificateCheckStatus::CertificateOk));
+        }
         callbacks.push_update_reference(move |refname, message| {
             tracing::debug!(
                 project_id = %self.project.id,
