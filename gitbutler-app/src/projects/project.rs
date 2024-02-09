@@ -76,6 +76,8 @@ pub struct Project {
     pub gitbutler_code_push_state: Option<CodePushState>,
     #[serde(default)]
     pub project_data_last_fetch: Option<FetchResult>,
+    #[serde(default)]
+    pub omit_certificate_check: Option<bool>,
 }
 
 impl AsRef<Project> for Project {

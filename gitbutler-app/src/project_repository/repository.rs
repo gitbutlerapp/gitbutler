@@ -287,6 +287,9 @@ impl Repository {
             .ok_or(RemoteError::Auth)?;
 
         let mut callbacks = git2::RemoteCallbacks::new();
+        if self.project.omit_certificate_check.unwrap_or(false) {
+            callbacks.certificate_check(|_, _| Ok(git2::CertificateCheckStatus::CertificateOk));
+        }
         let bytes_pushed = Arc::new(AtomicUsize::new(0));
         let total_objects = Arc::new(AtomicUsize::new(0));
         {
@@ -353,12 +356,18 @@ impl Repository {
         let auth_flows = credentials.help(self, branch.remote())?;
         for (mut remote, callbacks) in auth_flows {
             if let Some(url) = remote.url().context("failed to get remote url")? {
-                ssh::check_known_host(&url).context("failed to check known host")?;
+                if !self.project.omit_certificate_check.unwrap_or(false) {
+                    ssh::check_known_host(&url).context("failed to check known host")?;
+                }
             }
             for callback in callbacks {
+                let mut cbs: git2::RemoteCallbacks = callback.into();
+                if self.project.omit_certificate_check.unwrap_or(false) {
+                    cbs.certificate_check(|_, _| Ok(git2::CertificateCheckStatus::CertificateOk));
+                }
                 match remote.push(
                     &[refspec.as_str()],
-                    Some(&mut git2::PushOptions::new().remote_callbacks(callback.into())),
+                    Some(&mut git2::PushOptions::new().remote_callbacks(cbs)),
                 ) {
                     Ok(()) => {
                         tracing::info!(
@@ -395,11 +404,17 @@ impl Repository {
         let auth_flows = credentials.help(self, remote_name)?;
         for (mut remote, callbacks) in auth_flows {
             if let Some(url) = remote.url().context("failed to get remote url")? {
-                ssh::check_known_host(&url).context("failed to check known host")?;
+                if !self.project.omit_certificate_check.unwrap_or(false) {
+                    ssh::check_known_host(&url).context("failed to check known host")?;
+                }
             }
             for callback in callbacks {
                 let mut fetch_opts = git2::FetchOptions::new();
-                fetch_opts.remote_callbacks(callback.into());
+                let mut cbs: git2::RemoteCallbacks = callback.into();
+                if self.project.omit_certificate_check.unwrap_or(false) {
+                    cbs.certificate_check(|_, _| Ok(git2::CertificateCheckStatus::CertificateOk));
+                }
+                fetch_opts.remote_callbacks(cbs);
                 fetch_opts.prune(git2::FetchPrune::On);
 
                 match remote.fetch(&[refspec], Some(&mut fetch_opts)) {
