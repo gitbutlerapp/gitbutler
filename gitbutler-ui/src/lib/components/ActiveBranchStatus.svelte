@@ -23,11 +23,11 @@
 		>
 	{:else if hasIntegratedCommits}
 		<Tag
-			icon="removed-branch-small"
+			icon="pr-small"
 			color="success"
 			help="These changes have been integrated upstream, update your workspace to make this lane disappear."
 			reversedDirection
-			verticalOrientation={isLaneCollapsed}>integrated</Tag
+			verticalOrientation={isLaneCollapsed}>Integrated</Tag
 		>
 	{:else}
 		<Tag
@@ -35,7 +35,7 @@
 			color="light"
 			help="These changes are in your working directory."
 			reversedDirection
-			verticalOrientation={isLaneCollapsed}>virtual</Tag
+			verticalOrientation={isLaneCollapsed}>Virtual</Tag
 		>
 	{/if}
 	{#if !isUnapplied}
@@ -55,7 +55,7 @@
 		icon="remote-branch-small"
 		help="At least some of your changes have been pushed"
 		verticalOrientation={isLaneCollapsed}
-		reversedDirection>remote</Tag
+		reversedDirection>Remote</Tag
 	>
 	<Tag
 		icon="open-link"
