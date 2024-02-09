@@ -32,6 +32,7 @@ export type Project = {
 	api?: CloudProject & { sync: boolean };
 	preferred_key: Key;
 	ok_with_force_push: boolean;
+	omit_certificate_check: boolean | undefined;
 };
 
 export class ProjectService {
@@ -70,6 +71,7 @@ export class ProjectService {
 		api?: CloudProject & { sync: boolean };
 		preferred_key?: Key;
 		okWithForcePush?: boolean;
+		omitCertificateCheck?: boolean;
 	}) {
 		await invoke<Project>('update_project', { project: params });
 		this.reload();

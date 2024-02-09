@@ -47,8 +47,9 @@
 			});
 	const onCloudUpdated = (e: { detail: Project }) =>
 		projectService.updateProject({ ...$project$, ...e.detail });
-	const onPreferencesUpdated = (e: { detail: { ok_with_force_push: boolean } }) =>
-		projectService.updateProject({ ...$project$, ...e.detail });
+	const onPreferencesUpdated = (e: {
+		detail: { ok_with_force_push?: boolean; omit_certificate_check?: boolean };
+	}) => projectService.updateProject({ ...$project$, ...e.detail });
 	const onDetailsUpdated = async (e: { detail: Project }) => {
 		const api =
 			$user$ && e.detail.api
