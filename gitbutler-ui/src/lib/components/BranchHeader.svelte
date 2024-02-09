@@ -460,56 +460,6 @@
 		align-items: center;
 	}
 
-	.status-tag {
-		cursor: default;
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
-		padding: var(--space-2) var(--space-6) var(--space-2) var(--space-4);
-		border-radius: var(--radius-m);
-	}
-
-	.pending {
-		color: var(--clr-theme-scale-pop-30);
-		background: var(--clr-theme-scale-pop-80);
-	}
-
-	.pending-name {
-		background: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 10%, transparent);
-		border-radius: var(--radius-m);
-		line-height: 120%;
-		height: var(--space-20);
-		display: flex;
-		align-items: center;
-		padding: 0 var(--space-6);
-		overflow: hidden;
-
-		& span {
-			overflow: hidden;
-			text-overflow: ellipsis;
-		}
-	}
-
-	.pending {
-		color: var(--clr-theme-scale-ntrl-30);
-		background: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 20%, transparent);
-	}
-
-	.integrated {
-		color: var(--clr-theme-succ-on-element);
-		background: var(--clr-theme-succ-element);
-	}
-
-	.remote {
-		color: var(--clr-theme-scale-ntrl-100);
-		background: var(--clr-theme-scale-ntrl-40);
-	}
-
-	.unapplied {
-		color: var(--clr-theme-scale-ntrl-30);
-		background: var(--clr-theme-scale-ntrl-80);
-	}
-
 	.pr-status {
 		cursor: default;
 	}
