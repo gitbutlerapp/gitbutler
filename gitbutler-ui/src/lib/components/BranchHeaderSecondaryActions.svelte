@@ -18,10 +18,10 @@
 
 <div style="display: contents;">
 	<Button
-		icon="fold-lane"
+		icon={isLaneCollapsed ? 'unfold-lane' : 'fold-lane'}
 		kind="outlined"
 		color="neutral"
-		help="Fold this lane"
+		help={isLaneCollapsed ? 'Expand lane' : 'Collapse lane'}
 		on:click={() => {
 			isLaneCollapsed = !isLaneCollapsed;
 		}}

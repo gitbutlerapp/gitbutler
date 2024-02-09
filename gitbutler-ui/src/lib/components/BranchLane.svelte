@@ -34,6 +34,7 @@
 	export let user: User | undefined;
 	export let projectPath: string;
 	export let githubService: GitHubService;
+	export let hasNextSibling: Branch | undefined;
 
 	$: selectedOwnership = writable(Ownership.fromBranch(branch));
 	$: selected = setSelected($selectedFiles, branch);
@@ -60,6 +61,8 @@
 		if (!match) $selectedFiles = [];
 		return match;
 	}
+
+	$: console.log('hasNextSibling', hasNextSibling?.name);
 </script>
 
 <div
@@ -103,7 +106,9 @@
 				selectable={$commitBoxOpen && !isUnapplied}
 				on:close={() => {
 					const selectedId = selected?.id;
-					selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
+					selectedFiles.update((fileIds) =>
+						fileIds.filter((file) => file.id != selectedId)
+					);
 				}}
 			/>
 			<Resizer

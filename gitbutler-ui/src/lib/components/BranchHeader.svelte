@@ -1,16 +1,18 @@
 <script lang="ts">
-	import BranchHeaderSecondaryActions from './BranchHeaderSecondaryActions.svelte';
+	import ActiveBranchStatus from './ActiveBranchStatus.svelte';
 	import BranchLabel from './BranchLabel.svelte';
+	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	// import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import MergeButton from './MergeButton.svelte';
 	import Tag from './Tag.svelte';
+	import { clickOutside } from '$lib/clickOutside';
 	// import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import Icon, { type IconColor } from '$lib/components/Icon.svelte';
-	import { normalizeBranchName } from '$lib/utils/branch';
+	// import { normalizeBranchName } from '$lib/utils/branch';
 	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { open } from '@tauri-apps/api/shell';
+	// import { open } from '@tauri-apps/api/shell';
 	import toast from 'svelte-french-toast';
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
@@ -121,17 +123,39 @@
 </script>
 
 {#if isLaneCollapsed}
-	<div class="collapsed-lane" data-remove-from-draggable data-tauri-drag-region>
+	<div class="card collapsed-lane" data-tauri-drag-region>
 		<div class="collapsed-lane__actions">
-			<BranchHeaderSecondaryActions
-				{visible}
-				{isUnapplied}
-				{branch}
-				{branchController}
-				{projectId}
-				bind:isLaneCollapsed
-				bind:meatballButton
+			<div class="collapsed-lane__draggable" data-drag-handle>
+				<Icon name="draggable-narrow" />
+			</div>
+			<Button
+				icon="unfold-lane"
+				kind="outlined"
+				color="neutral"
+				help="Collapse lane"
+				on:click={() => {
+					isLaneCollapsed = false;
+				}}
 			/>
+		</div>
+		<div class="collapsed-lane__info">
+			<h3 class="collapsed-lane__label text-base-13 text-bold">
+				{branch.name}
+			</h3>
+
+			<div class="collapsed-lane__info__details">
+				<ActiveBranchStatus
+					{base}
+					{branch}
+					{isUnapplied}
+					{hasIntegratedCommits}
+					{isLaneCollapsed}
+					prUrl={$pr$?.htmlUrl}
+				/>
+				{#if branch.selectedForChanges}
+					<Tag color="pop" filled icon="target" verticalOrientation>Default branch</Tag>
+				{/if}
+			</div>
 		</div>
 	</div>
 {:else}
@@ -146,7 +170,14 @@
 					/>
 				</div>
 				<div class="header__remote-branch">
-					{#if !branch.upstream}
+					<ActiveBranchStatus
+						{base}
+						{branch}
+						{isUnapplied}
+						{hasIntegratedCommits}
+						prUrl={$pr$?.htmlUrl}
+					/>
+					<!-- {#if !branch.upstream}
 						{#if !branch.active}
 							<Tag
 								icon="virtual-branch-small"
@@ -179,14 +210,9 @@
 									: normalizeBranchName(branch.name)}</Tag
 							>
 						{/if}
-					{:else}
-						<Tag
-							color="dark"
-							icon="remote-branch-small"
-							help="At least some of your changes have been pushed"
-							reversedDirection>remote</Tag
-						>
-						<Tag
+					{:else} -->
+					{#if branch.upstream}
+						<!-- <Tag
 							icon="open-link"
 							color="ghost"
 							border
@@ -216,7 +242,7 @@
 							>
 								View PR
 							</Tag>
-						{/if}
+						{/if} -->
 						{#if prIcon}
 							<div
 								class="pr-status"
@@ -355,15 +381,40 @@
 						</Button>
 					{:else}
 						<div class="header__buttons">
-							<BranchHeaderSecondaryActions
-								{visible}
-								{isUnapplied}
-								{branch}
-								{branchController}
-								{projectId}
-								bind:isLaneCollapsed
-								bind:meatballButton
+							<Button
+								icon="fold-lane"
+								kind="outlined"
+								color="neutral"
+								help="Collapse lane"
+								on:click={() => {
+									isLaneCollapsed = true;
+								}}
 							/>
+							<Button
+								icon="kebab"
+								kind="outlined"
+								color="neutral"
+								on:click={() => {
+									console.log('meatballButton', meatballButton);
+									visible = !visible;
+								}}
+							/>
+							<div
+								class="branch-popup-menu"
+								use:clickOutside={{
+									trigger: meatballButton,
+									handler: () => (visible = false)
+								}}
+							>
+								<BranchLanePopupMenu
+									{branchController}
+									{branch}
+									{projectId}
+									{isUnapplied}
+									bind:visible
+									on:action
+								/>
+							</div>
 						</div>
 					{/if}
 				</div>
@@ -435,12 +486,12 @@
 		gap: var(--space-4);
 	}
 	.draggable {
+		display: flex;
+		cursor: grab;
 		position: absolute;
 		right: var(--space-4);
 		top: var(--space-6);
 		opacity: 0;
-		display: flex;
-		cursor: grab;
 		color: var(--clr-theme-scale-ntrl-50);
 		transition:
 			opacity var(--transition-slow),
@@ -450,13 +501,13 @@
 			color: var(--clr-theme-scale-ntrl-40);
 		}
 	}
-	/*
+
 	.branch-popup-menu {
 		position: absolute;
 		top: calc(100% + var(--space-4));
 		right: 0;
 		z-index: 10;
-	} */
+	}
 
 	.header__remote-branch {
 		color: var(--clr-theme-scale-ntrl-50);
@@ -471,5 +522,54 @@
 
 	.pr-status {
 		cursor: default;
+	}
+
+	/*  COLLAPSABLE LANE */
+
+	.collapsed-lane {
+		user-select: none;
+		align-items: center;
+		height: 100%;
+		gap: var(--space-16);
+		padding: var(--space-8) var(--space-8) var(--space-16);
+	}
+
+	.collapsed-lane__actions {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-4);
+	}
+	.collapsed-lane__draggable {
+		cursor: grab;
+		transform: rotate(90deg);
+		margin-bottom: var(--space-4);
+	}
+
+	.collapsed-lane__info {
+		flex: 1;
+		display: flex;
+		flex-direction: row-reverse;
+		align-items: center;
+		justify-content: space-between;
+
+		writing-mode: vertical-rl;
+		gap: var(--space-8);
+		/* flex-direction: column-reverse; */
+		/* writing-mode: vertical-rl;
+		background-color: aquamarine; */
+	}
+
+	.collapsed-lane__info__details {
+		display: flex;
+		flex-direction: row-reverse;
+		align-items: center;
+		gap: var(--space-4);
+	}
+
+	.collapsed-lane__label {
+		color: var(--clr-theme-scale-ntrl-0);
+		transform: rotate(180deg);
+		padding: var(--space-8) 0;
 	}
 </style>
