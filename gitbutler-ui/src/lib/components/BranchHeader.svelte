@@ -130,46 +130,44 @@
 			<div class="header__remote-branch">
 				{#if !branch.upstream}
 					{#if !branch.active}
-						<div
-							class="status-tag text-base-11 text-semibold unapplied"
-							use:tooltip={'These changes are stashed away from your working directory.'}
+						<Tag
+							icon="virtual-branch-small"
+							color="light"
+							help="These changes are stashed away from your working directory."
+							reversedDirection>unapplied</Tag
 						>
-							<Icon name="removed-branch-small" /> unapplied
-						</div>
 					{:else if hasIntegratedCommits}
-						<div
-							class="status-tag text-base-11 text-semibold integrated"
-							use:tooltip={'These changes have been integrated upstream, update your workspace to make this lane disappear.'}
+						<Tag
+							icon="removed-branch-small"
+							color="success"
+							help="These changes have been integrated upstream, update your workspace to make this lane disappear."
+							reversedDirection>integrated</Tag
 						>
-							<Icon name="removed-branch-small" /> integrated
-						</div>
 					{:else}
-						<div
-							class="status-tag text-base-11 text-semibold pending"
-							use:tooltip={'These changes are in your working directory.'}
+						<Tag
+							icon="virtual-branch-small"
+							color="light"
+							help="These changes are in your working directory."
+							reversedDirection>virtual</Tag
 						>
-							<Icon name="virtual-branch-small" /> virtual
-						</div>
 					{/if}
 					{#if !isUnapplied}
-						<div
-							class="pending-name"
-							use:tooltip={'Branch name that will be used when pushing. You can change it from the lane menu.'}
+						<Tag
+							disabled
+							help="Branch name that will be used when pushing. You can change it from the lane menu."
 						>
-							<span class="text-base-11 text-semibold">
-								origin/{branch.upstreamName
-									? branch.upstreamName
-									: normalizeBranchName(branch.name)}
-							</span>
-						</div>
+							origin/{branch.upstreamName
+								? branch.upstreamName
+								: normalizeBranchName(branch.name)}</Tag
+						>
 					{/if}
 				{:else}
-					<div
-						class="status-tag text-base-11 text-semibold remote"
-						use:tooltip={'At least some of your changes have been pushed'}
+					<Tag
+						color="dark"
+						icon="remote-branch-small"
+						help="At least some of your changes have been pushed"
+						reversedDirection>remote</Tag
 					>
-						<Icon name="remote-branch-small" /> remote
-					</div>
 					<Tag
 						icon="open-link"
 						color="ghost"

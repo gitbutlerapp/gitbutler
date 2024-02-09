@@ -77,7 +77,7 @@
 	}
 	.clickable {
 		cursor: default;
-		&:hover {
+		&:not(.not-button):hover {
 			background: var(--clr-theme-container-sub);
 		}
 	}
@@ -86,7 +86,7 @@
 
 	.ghost {
 		color: var(--clr-theme-scale-ntrl-40);
-		&:hover {
+		&:not(.not-button):hover {
 			background: color-mix(in srgb, var(--clr-core-ntrl-50), transparent 85%);
 		}
 		&.tag-border {
@@ -97,7 +97,7 @@
 	.light {
 		color: var(--clr-theme-scale-ntrl-40);
 		background: color-mix(in srgb, var(--clr-core-ntrl-50), transparent 85%);
-		&:hover {
+		&:not(.not-button):hover {
 			background: color-mix(in srgb, var(--clr-core-ntrl-50), transparent 75%);
 		}
 		&.tag-border {
@@ -108,7 +108,7 @@
 	.dark {
 		color: var(--clr-theme-scale-ntrl-100);
 		background: var(--clr-theme-scale-ntrl-40);
-		&:hover {
+		&:not(.not-button):hover {
 			background: var(--clr-theme-scale-ntrl-30);
 		}
 	}
@@ -116,7 +116,7 @@
 	.success {
 		color: var(--clr-theme-scale-succ-20);
 		background: color-mix(in srgb, var(--clr-core-succ-50), transparent 80%);
-		&:hover {
+		&:not(.not-button):hover {
 			background: color-mix(in srgb, var(--clr-core-succ-50), transparent 70%);
 		}
 		&.tag-border {
@@ -125,7 +125,7 @@
 		&.filled {
 			color: var(--clr-theme-succ-on-element);
 			background: var(--clr-theme-succ-element);
-			&:hover {
+			&:not(.not-button):hover {
 				background: var(--clr-theme-succ-element-dim);
 			}
 		}
@@ -134,7 +134,7 @@
 	.error {
 		color: var(--clr-theme-scale-err-20);
 		background: color-mix(in srgb, var(--clr-core-err-50), transparent 80%);
-		&:hover {
+		&:not(.not-button):hover {
 			background: color-mix(in srgb, var(--clr-core-err-50), transparent 70%);
 		}
 		&.tag-border {
@@ -143,7 +143,7 @@
 		&.filled {
 			color: var(--clr-theme-err-on-element);
 			background: var(--clr-theme-err-element);
-			&:hover {
+			&:not(.not-button):hover {
 				background: var(--clr-theme-err-element-dim);
 			}
 		}
@@ -152,7 +152,7 @@
 	.warning {
 		color: var(--clr-theme-scale-warn-20);
 		background: color-mix(in srgb, var(--clr-core-warn-50), transparent 80%);
-		&:hover {
+		&:not(.not-button):hover {
 			background: color-mix(in srgb, var(--clr-core-warn-50), transparent 70%);
 		}
 		&.tag-border {
@@ -161,7 +161,7 @@
 		&.filled {
 			color: var(--clr-theme-warn-on-element);
 			background: var(--clr-theme-warn-element);
-			&:hover {
+			&:not(.not-button):hover {
 				background: var(--clr-theme-warn-element-dim);
 			}
 		}
@@ -170,7 +170,7 @@
 	.purple {
 		color: var(--clr-theme-scale-purple-20);
 		background: color-mix(in srgb, var(--clr-core-purple-50), transparent 80%);
-		&:hover {
+		&:not(.not-button):hover {
 			background: color-mix(in srgb, var(--clr-core-purple-50), transparent 70%);
 		}
 		&.tag-border {
@@ -179,7 +179,7 @@
 		&.filled {
 			color: var(--clr-theme-purple-on-element);
 			background: var(--clr-theme-purple-element);
-			&:hover {
+			&:not(.not-button):hover {
 				background: var(--clr-theme-purple-element-dim);
 			}
 		}
@@ -188,7 +188,7 @@
 	.pop {
 		color: var(--clr-theme-scale-pop-20);
 		background: color-mix(in srgb, var(--clr-core-pop-50), transparent 80%);
-		&:hover {
+		&:not(.not-button):hover {
 			background: color-mix(in srgb, var(--clr-core-pop-50), transparent 70%);
 		}
 		&.tag-border {
@@ -197,7 +197,7 @@
 		&.filled {
 			color: var(--clr-theme-pop-on-element);
 			background: var(--clr-theme-pop-element);
-			&:hover {
+			&:not(.not-button):hover {
 				background: var(--clr-theme-pop-element-dim);
 			}
 		}
@@ -206,11 +206,10 @@
 	/* modifiers */
 
 	.not-button {
-		pointer-events: none;
+		user-select: none;
 	}
 
 	.disabled {
-		pointer-events: none;
 		background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 10%, transparent);
 		color: var(--clr-core-ntrl-50);
 	}
