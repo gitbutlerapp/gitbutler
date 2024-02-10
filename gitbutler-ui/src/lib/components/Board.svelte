@@ -121,7 +121,6 @@
 					{projectPath}
 					{user}
 					{githubService}
-					hasNextSibling={branches.find((b) => b.order === branch.order + 1)}
 				></BranchLane>
 			</div>
 		{/each}

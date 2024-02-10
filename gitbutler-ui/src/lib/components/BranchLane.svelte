@@ -34,7 +34,6 @@
 	export let user: User | undefined;
 	export let projectPath: string;
 	export let githubService: GitHubService;
-	export let hasNextSibling: Branch | undefined;
 
 	$: selectedOwnership = writable(Ownership.fromBranch(branch));
 	$: selected = setSelected($selectedFiles, branch);
@@ -61,8 +60,6 @@
 		if (!match) $selectedFiles = [];
 		return match;
 	}
-
-	$: console.log('hasNextSibling', hasNextSibling?.name);
 </script>
 
 <div
