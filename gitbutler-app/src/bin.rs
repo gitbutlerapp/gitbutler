@@ -214,6 +214,7 @@ fn main() {
                     virtual_branches::commands::cherry_pick_onto_virtual_branch,
                     virtual_branches::commands::amend_virtual_branch,
                     virtual_branches::commands::list_remote_branches,
+                    virtual_branches::commands::get_remote_branch_data,
                     virtual_branches::commands::squash_branch_commit,
                     virtual_branches::commands::fetch_from_target,
                     menu::menu_item_set_enabled,

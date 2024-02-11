@@ -14,8 +14,8 @@ use crate::{
 use super::{
     branch::{BranchId, Ownership},
     errors::{
-        self, FetchFromTargetError, GetBaseBranchDataError, IsRemoteBranchMergableError,
-        ListRemoteBranchesError,
+        self, FetchFromTargetError, GetBaseBranchDataError, GetRemoteBranchDataError,
+        IsRemoteBranchMergableError, ListRemoteBranchesError,
     },
     target_to_base_branch, BaseBranch, RemoteBranchFile,
 };
@@ -311,6 +311,16 @@ impl Controller {
         self.inner(project_id)
             .await
             .list_remote_branches(project_id)
+    }
+
+    pub async fn get_remote_branch_data(
+        &self,
+        project_id: &ProjectId,
+        refname: &git::Refname,
+    ) -> Result<super::RemoteBranchData, ControllerError<GetRemoteBranchDataError>> {
+        self.inner(project_id)
+            .await
+            .get_remote_branch_data(project_id, refname)
     }
 
     pub async fn squash(
@@ -805,6 +815,25 @@ impl ControllerInner {
         )
         .context("failed to open gitbutler repository")?;
         super::list_remote_branches(&gb_repository, &project_repository)
+            .map_err(ControllerError::Action)
+    }
+
+    pub fn get_remote_branch_data(
+        &self,
+        project_id: &ProjectId,
+        refname: &git::Refname,
+    ) -> Result<super::RemoteBranchData, ControllerError<GetRemoteBranchDataError>> {
+        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let project_repository =
+            project_repository::Repository::open(&project).map_err(Error::from)?;
+        let user = self.users.get_user().map_err(Error::from)?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gitbutler repository")?;
+        super::get_branch_data(&gb_repository, &project_repository, refname)
             .map_err(ControllerError::Action)
     }
 

@@ -751,6 +751,26 @@ pub enum ListRemoteBranchesError {
     Other(#[from] anyhow::Error),
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum GetRemoteBranchDataError {
+    #[error("default target not set")]
+    DefaultTargetNotSet(DefaultTargetNotSetError),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+impl From<GetRemoteBranchDataError> for Error {
+    fn from(value: GetRemoteBranchDataError) -> Self {
+        match value {
+            GetRemoteBranchDataError::DefaultTargetNotSet(error) => error.into(),
+            GetRemoteBranchDataError::Other(error) => {
+                tracing::error!(?error, "get remote branch data error");
+                Error::Unknown
+            }
+        }
+    }
+}
+
 impl From<ListRemoteBranchesError> for Error {
     fn from(value: ListRemoteBranchesError) -> Self {
         match value {
