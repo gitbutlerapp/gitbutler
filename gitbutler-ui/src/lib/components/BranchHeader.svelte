@@ -2,17 +2,13 @@
 	import ActiveBranchStatus from './ActiveBranchStatus.svelte';
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
-	// import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import MergeButton from './MergeButton.svelte';
 	import Tag from './Tag.svelte';
 	import { clickOutside } from '$lib/clickOutside';
-	// import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import Icon, { type IconColor } from '$lib/components/Icon.svelte';
-	// import { normalizeBranchName } from '$lib/utils/branch';
 	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
-	// import { open } from '@tauri-apps/api/shell';
 	import toast from 'svelte-french-toast';
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
@@ -37,7 +33,6 @@
 
 	let meatballButton: HTMLDivElement;
 	let visible = false;
-	let container: HTMLDivElement;
 	let isApplying = false;
 	let isDeleting = false;
 	let isMerging = false;
@@ -161,7 +156,7 @@
 	</div>
 {:else}
 	<div class="header__wrapper">
-		<div class="header card" bind:this={container} class:isUnapplied>
+		<div class="header card" class:isUnapplied>
 			<div class="header__info">
 				<div class="header__label">
 					<BranchLabel
@@ -179,88 +174,22 @@
 						{isLaneCollapsed}
 						prUrl={$pr$?.htmlUrl}
 					/>
-					<!-- {#if !branch.upstream}
-						{#if !branch.active}
-							<Tag
-								icon="virtual-branch-small"
-								color="light"
-								help="These changes are stashed away from your working directory."
-								reversedDirection>unapplied</Tag
-							>
-						{:else if hasIntegratedCommits}
-							<Tag
-								icon="removed-branch-small"
-								color="success"
-								help="These changes have been integrated upstream, update your workspace to make this lane disappear."
-								reversedDirection>integrated</Tag
-							>
-						{:else}
-							<Tag
-								icon="virtual-branch-small"
-								color="light"
-								help="These changes are in your working directory."
-								reversedDirection>virtual</Tag
-							>
-						{/if}
-						{#if !isUnapplied}
-							<Tag
-								disabled
-								help="Branch name that will be used when pushing. You can change it from the lane menu."
-							>
-								origin/{branch.upstreamName
-									? branch.upstreamName
-									: normalizeBranchName(branch.name)}</Tag
-							>
-						{/if}
-					{:else} -->
-					{#if branch.upstream}
-						<!-- <Tag
-							icon="open-link"
-							color="ghost"
-							border
-							clickable
-							shrinkable
-							on:click={(e) => {
-								const url = base?.branchUrl(branch.upstream?.name);
-								if (url) open(url);
-								e.preventDefault();
-								e.stopPropagation();
-							}}
+
+					{#if branch.upstream && prIcon}
+						<div
+							class="pr-status"
+							role="button"
+							tabindex="0"
+							on:click={fetchPrStatus}
+							on:keypress={fetchPrStatus}
+							use:tooltip={statusToTooltip(prStatus)}
 						>
-							origin/{branch.upstreamName}
-						</Tag>
-						{#if $pr$?.htmlUrl}
-							<Tag
-								icon="pr-small"
-								color="ghost"
-								border
-								clickable
-								on:click={(e) => {
-									const url = $pr$?.htmlUrl;
-									if (url) open(url);
-									e.preventDefault();
-									e.stopPropagation();
-								}}
-							>
-								View PR
-							</Tag>
-						{/if} -->
-						{#if prIcon}
-							<div
-								class="pr-status"
-								role="button"
-								tabindex="0"
-								on:click={fetchPrStatus}
-								on:keypress={fetchPrStatus}
-								use:tooltip={statusToTooltip(prStatus)}
-							>
-								{#if isFetching}
-									<Icon name="spinner" />
-								{:else}
-									<Icon name={prIcon} color={prColor} />
-								{/if}
-							</div>
-						{/if}
+							{#if isFetching}
+								<Icon name="spinner" />
+							{:else}
+								<Icon name={prIcon} color={prColor} />
+							{/if}
+						</div>
 					{/if}
 					{#await branch.isMergeable then isMergeable}
 						{#if !isMergeable}
@@ -397,7 +326,6 @@
 								kind="outlined"
 								color="neutral"
 								on:click={() => {
-									console.log('meatballButton', meatballButton);
 									visible = !visible;
 								}}
 							/>

@@ -66,7 +66,7 @@
 	class="wrapper"
 	data-tauri-drag-region
 	class:target-branch={branch.active && branch.selectedForChanges}
-	class:selected
+	class:file-selected={selected}
 >
 	<BranchCard
 		{branch}
@@ -103,7 +103,9 @@
 				selectable={$commitBoxOpen && !isUnapplied}
 				on:close={() => {
 					const selectedId = selected?.id;
-					selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
+					selectedFiles.update((fileIds) =>
+						fileIds.filter((file) => file.id != selectedId)
+					);
 				}}
 			/>
 			<Resizer
@@ -143,7 +145,7 @@
 		);
 	}
 
-	.selected {
+	.file-selected {
 		--selected-resize-shift: calc(var(--space-6) * -1);
 		--selected-target-branch-right-padding: calc(var(--space-4) * -1);
 		--selected-opacity: 0;
