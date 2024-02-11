@@ -27,6 +27,16 @@ pub struct RemoteBranch {
     pub commits: Vec<RemoteCommit>,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteBranchData {
+    pub sha: git::Oid,
+    pub name: git::Refname,
+    pub upstream: Option<git::RemoteRefname>,
+    pub behind: u32,
+    pub commits: Vec<RemoteCommit>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteCommit {
@@ -64,6 +74,43 @@ pub fn list_remote_branches(
         .collect::<Vec<_>>();
 
     Ok(remote_branches)
+}
+
+pub fn get_branch_data(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    refname: &git::Refname,
+) -> Result<super::RemoteBranchData, errors::GetRemoteBranchDataError> {
+    let default_target = gb_repository
+        .default_target()
+        .context("failed to get default target")?
+        .ok_or_else(|| {
+            errors::GetRemoteBranchDataError::DefaultTargetNotSet(
+                errors::DefaultTargetNotSetError {
+                    project_id: project_repository.project().id,
+                },
+            )
+        })?;
+
+    let branch = project_repository
+        .git_repository
+        .find_branch(refname)
+        .context(format!("failed to find branch with refname {refname}"))?;
+
+    let branch_data = branch_to_remote_branch(project_repository, &branch, default_target.sha)
+        .context("failed to get branch data")?;
+
+    branch_data
+        .ok_or_else(|| {
+            errors::GetRemoteBranchDataError::Other(anyhow::anyhow!("no data found for branch"))
+        })
+        .map(|branch_data| RemoteBranchData {
+            sha: branch_data.sha,
+            name: branch_data.name,
+            upstream: branch_data.upstream,
+            behind: branch_data.behind,
+            commits: branch_data.commits,
+        })
 }
 
 pub fn branch_to_remote_branch(
