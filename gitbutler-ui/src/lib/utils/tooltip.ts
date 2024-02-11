@@ -4,7 +4,7 @@ export interface ToolTipOptions {
 }
 
 const defaultOptions: Partial<ToolTipOptions> = {
-	delay: 1500
+	delay: 1200
 };
 
 export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string | undefined) {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ActiveBranchStatus from './ActiveBranchStatus.svelte';
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import MergeButton from './MergeButton.svelte';
@@ -6,14 +7,13 @@
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import Icon, { type IconColor } from '$lib/components/Icon.svelte';
-	import { normalizeBranchName } from '$lib/utils/branch';
 	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { open } from '@tauri-apps/api/shell';
 	import toast from 'svelte-french-toast';
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
 	import type { PrStatus } from '$lib/github/types';
+	import type { Persisted } from '$lib/persisted/persisted';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import type iconsJson from '../icons/icons.json';
@@ -26,12 +26,13 @@
 	export let branchService: BranchService;
 	export let projectId: string;
 
+	export let isLaneCollapsed: Persisted<boolean>;
+
 	export let githubService: GitHubService;
 	$: pr$ = githubService.get(branch.upstreamName);
 
 	let meatballButton: HTMLDivElement;
 	let visible = false;
-	let container: HTMLDivElement;
 	let isApplying = false;
 	let isDeleting = false;
 	let isMerging = false;
@@ -117,89 +118,64 @@
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
 </script>
 
-<div class="header__wrapper">
-	<div class="header card" bind:this={container} class:isUnapplied>
-		<div class="header__info">
-			<div class="header__label">
-				<BranchLabel
-					bind:name={branch.name}
-					on:change={handleBranchNameChange}
-					disabled={isUnapplied}
-				/>
+{#if $isLaneCollapsed}
+	<div class="card collapsed-lane" data-tauri-drag-region>
+		<div class="collapsed-lane__actions">
+			<div class="collapsed-lane__draggable" data-drag-handle>
+				<Icon name="draggable-narrow" />
 			</div>
-			<div class="header__remote-branch">
-				{#if !branch.upstream}
-					{#if !branch.active}
-						<Tag
-							icon="virtual-branch-small"
-							color="light"
-							help="These changes are stashed away from your working directory."
-							reversedDirection>unapplied</Tag
-						>
-					{:else if hasIntegratedCommits}
-						<Tag
-							icon="removed-branch-small"
-							color="success"
-							help="These changes have been integrated upstream, update your workspace to make this lane disappear."
-							reversedDirection>integrated</Tag
-						>
-					{:else}
-						<Tag
-							icon="virtual-branch-small"
-							color="light"
-							help="These changes are in your working directory."
-							reversedDirection>virtual</Tag
-						>
-					{/if}
-					{#if !isUnapplied}
-						<Tag
-							disabled
-							help="Branch name that will be used when pushing. You can change it from the lane menu."
-						>
-							origin/{branch.upstreamName
-								? branch.upstreamName
-								: normalizeBranchName(branch.name)}</Tag
-						>
-					{/if}
-				{:else}
-					<Tag
-						color="dark"
-						icon="remote-branch-small"
-						help="At least some of your changes have been pushed"
-						reversedDirection>remote</Tag
-					>
-					<Tag
-						icon="open-link"
-						color="ghost"
-						border
-						clickable
-						shrinkable
-						on:click={(e) => {
-							const url = base?.branchUrl(branch.upstream?.name);
-							if (url) open(url);
-							e.preventDefault();
-							e.stopPropagation();
-						}}
-					>
-						origin/{branch.upstreamName}
-					</Tag>
-					{#if $pr$?.htmlUrl}
-						<Tag
-							icon="pr-small"
-							color="ghost"
-							border
-							clickable
-							on:click={(e) => {
-								const url = $pr$?.htmlUrl;
-								if (url) open(url);
-								e.preventDefault();
-								e.stopPropagation();
-							}}
-						>
-							View PR
-						</Tag>
-					{/if}
-					{#if prIcon}
+			<Button
+				icon="unfold-lane"
+				kind="outlined"
+				color="neutral"
+				help="Collapse lane"
+				on:click={() => {
+					$isLaneCollapsed = false;
+				}}
+			/>
+		</div>
+		<div class="collapsed-lane__info">
+			<h3 class="collapsed-lane__label text-base-13 text-bold">
+				{branch.name}
+			</h3>
+
+			<div class="collapsed-lane__info__details">
+				<ActiveBranchStatus
+					{base}
+					{branch}
+					{isUnapplied}
+					{hasIntegratedCommits}
+					{isLaneCollapsed}
+					prUrl={$pr$?.htmlUrl}
+				/>
+				{#if branch.selectedForChanges}
+					<Tag color="pop" filled icon="target" verticalOrientation>Default branch</Tag>
+				{/if}
+			</div>
+		</div>
+	</div>
+{:else}
+	<div class="header__wrapper">
+		<div class="header card" class:isUnapplied>
+			<div class="header__info">
+				<div class="header__label">
+					<BranchLabel
+						bind:name={branch.name}
+						on:change={handleBranchNameChange}
+						disabled={isUnapplied}
+					/>
+				</div>
+				<div class="header__remote-branch">
+					<ActiveBranchStatus
+						{base}
+						{branch}
+						{isUnapplied}
+						{hasIntegratedCommits}
+						{isLaneCollapsed}
+						prUrl={$pr$?.htmlUrl}
+					/>
+
+					{#if branch.upstream && prIcon}
 						<div
 							class="pr-status"
 							role="button"
@@ -215,154 +191,168 @@
 							{/if}
 						</div>
 					{/if}
-				{/if}
-				{#await branch.isMergeable then isMergeable}
-					{#if !isMergeable}
-						<Tag
-							icon="locked-small"
-							color="warning"
-							help="Applying this branch will add merge conflict markers that you will have to resolve"
-						>
-							Conflict
-						</Tag>
-					{/if}
-				{/await}
+					{#await branch.isMergeable then isMergeable}
+						{#if !isMergeable}
+							<Tag
+								icon="locked-small"
+								color="warning"
+								help="Applying this branch will add merge conflict markers that you will have to resolve"
+							>
+								Conflict
+							</Tag>
+						{/if}
+					{/await}
+				</div>
+				<div class="draggable" data-drag-handle>
+					<Icon name="draggable" />
+				</div>
 			</div>
-			<div class="draggable" data-drag-handle>
-				<Icon name="draggable-narrow" />
-			</div>
-		</div>
-		<div class="header__actions">
-			<div class="header__buttons">
-				{#if branch.active}
-					{#if branch.selectedForChanges}
-						<Button
-							help="New changes will land here"
-							icon="target"
-							notClickable
-							disabled={isUnapplied}>Default branch</Button
-						>
-					{:else}
-						<Button
-							help="When selected, new changes will land here"
-							icon="target"
-							kind="outlined"
-							color="neutral"
-							disabled={isUnapplied}
-							on:click={async () => {
-								await branchController.setSelectedForChanges(branch.id);
-							}}
-						>
-							Set as default
-						</Button>
+			<div class="header__actions">
+				<div class="header__buttons">
+					{#if branch.active}
+						{#if branch.selectedForChanges}
+							<Button
+								help="New changes will land here"
+								icon="target"
+								notClickable
+								disabled={isUnapplied}>Default branch</Button
+							>
+						{:else}
+							<Button
+								help="When selected, new changes will land here"
+								icon="target"
+								kind="outlined"
+								color="neutral"
+								disabled={isUnapplied}
+								on:click={async () => {
+									await branchController.setSelectedForChanges(branch.id);
+								}}
+							>
+								Set as default
+							</Button>
+						{/if}
 					{/if}
-				{/if}
-				<!-- We can't show the merge button until we've waited for checks
+					<!-- We can't show the merge button until we've waited for checks
 
                 We use a octokit.checks.listForRef to find checks running for a PR, but right after
                 creation this request succeeds but returns an empty array. So we need a better way
                 determining "no checks will run for this PR" such that we can show the merge button
                 immediately.  -->
-				{#if $pr$ && !isFetching && (!prStatus || prStatus?.success)}
-					<MergeButton
-						{projectId}
-						disabled={isUnapplied || !$pr$}
-						loading={isMerging}
-						help="Merge pull request and refresh"
-						on:click={async (e) => {
-							isMerging = true;
-							const method = e.detail.method;
-							try {
-								if ($pr$) {
-									await githubService.merge($pr$.number, method);
-								}
-							} catch {
-								// TODO: Should we show the error from GitHub?
-								toasts.error('Failed to merge pull request');
-							} finally {
-								isMerging = false;
-								await fetchPrStatus();
-								await branchService.reloadVirtualBranches();
-							}
-						}}
-					/>
-				{/if}
-			</div>
-			<div class="relative" bind:this={meatballButton}>
-				{#if isUnapplied}
-					<Button
-						help="Deletes the local virtual branch (only)"
-						icon="bin-small"
-						color="neutral"
-						kind="outlined"
-						loading={isDeleting}
-						on:click={async () => {
-							isDeleting = true;
-							try {
-								await branchController.deleteBranch(branch.id);
-								goto(`/${projectId}/board`);
-							} catch (e) {
-								const err = 'Failed to delete branch';
-								toasts.error(err);
-								console.error(err, e);
-							} finally {
-								isDeleting = false;
-							}
-						}}
-					>
-						Delete
-					</Button>
-					<Button
-						help="Restores these changes into your working directory"
-						icon="plus-small"
-						color="primary"
-						kind="outlined"
-						loading={isApplying}
-						on:click={async () => {
-							isApplying = true;
-							try {
-								await branchController.applyBranch(branch.id);
-								goto(`/${projectId}/board`);
-							} catch (e) {
-								const err = 'Failed to apply branch';
-								toast.error(err);
-								console.error(err, e);
-							} finally {
-								isApplying = false;
-							}
-						}}
-					>
-						Apply
-					</Button>
-				{:else}
-					<Button
-						icon="kebab"
-						kind="outlined"
-						color="neutral"
-						on:click={() => (visible = !visible)}
-					/>
-					<div
-						class="branch-popup-menu"
-						use:clickOutside={{
-							trigger: meatballButton,
-							handler: () => (visible = false)
-						}}
-					>
-						<BranchLanePopupMenu
-							{branchController}
-							{branch}
+					{#if $pr$ && !isFetching && (!prStatus || prStatus?.success)}
+						<MergeButton
 							{projectId}
-							{isUnapplied}
-							bind:visible
-							on:action
+							disabled={isUnapplied || !$pr$}
+							loading={isMerging}
+							help="Merge pull request and refresh"
+							on:click={async (e) => {
+								isMerging = true;
+								const method = e.detail.method;
+								try {
+									if ($pr$) {
+										await githubService.merge($pr$.number, method);
+									}
+								} catch {
+									// TODO: Should we show the error from GitHub?
+									toasts.error('Failed to merge pull request');
+								} finally {
+									isMerging = false;
+									await fetchPrStatus();
+									await branchService.reloadVirtualBranches();
+								}
+							}}
 						/>
-					</div>
-				{/if}
+					{/if}
+				</div>
+
+				<div class="relative" bind:this={meatballButton}>
+					{#if isUnapplied}
+						<Button
+							help="Deletes the local virtual branch (only)"
+							icon="bin-small"
+							color="neutral"
+							kind="outlined"
+							loading={isDeleting}
+							on:click={async () => {
+								isDeleting = true;
+								try {
+									await branchController.deleteBranch(branch.id);
+									goto(`/${projectId}/board`);
+								} catch (e) {
+									const err = 'Failed to delete branch';
+									toasts.error(err);
+									console.error(err, e);
+								} finally {
+									isDeleting = false;
+								}
+							}}
+						>
+							Delete
+						</Button>
+						<Button
+							help="Restores these changes into your working directory"
+							icon="plus-small"
+							color="primary"
+							kind="outlined"
+							loading={isApplying}
+							on:click={async () => {
+								isApplying = true;
+								try {
+									await branchController.applyBranch(branch.id);
+									goto(`/${projectId}/board`);
+								} catch (e) {
+									const err = 'Failed to apply branch';
+									toast.error(err);
+									console.error(err, e);
+								} finally {
+									isApplying = false;
+								}
+							}}
+						>
+							Apply
+						</Button>
+					{:else}
+						<div class="header__buttons">
+							<Button
+								icon="fold-lane"
+								kind="outlined"
+								color="neutral"
+								help="Collapse lane"
+								on:click={() => {
+									$isLaneCollapsed = true;
+								}}
+							/>
+							<Button
+								icon="kebab"
+								kind="outlined"
+								color="neutral"
+								on:click={() => {
+									visible = !visible;
+								}}
+							/>
+							<div
+								class="branch-popup-menu"
+								use:clickOutside={{
+									trigger: meatballButton,
+									handler: () => (visible = false)
+								}}
+							>
+								<BranchLanePopupMenu
+									{branchController}
+									{branch}
+									{projectId}
+									{isUnapplied}
+									bind:visible
+									on:action
+								/>
+							</div>
+						</div>
+					{/if}
+				</div>
 			</div>
 		</div>
+		<div class="header__top-overlay" data-remove-from-draggable data-tauri-drag-region />
 	</div>
-	<div class="header__top-overlay" data-remove-from-draggable data-tauri-drag-region />
-</div>
+{/if}
 
 <style lang="postcss">
 	.header__wrapper {
@@ -426,12 +416,12 @@
 		gap: var(--space-4);
 	}
 	.draggable {
+		display: flex;
+		cursor: grab;
 		position: absolute;
 		right: var(--space-4);
 		top: var(--space-6);
 		opacity: 0;
-		display: flex;
-		cursor: grab;
 		color: var(--clr-theme-scale-ntrl-50);
 		transition:
 			opacity var(--transition-slow),
@@ -462,5 +452,57 @@
 
 	.pr-status {
 		cursor: default;
+	}
+
+	/*  COLLAPSABLE LANE */
+
+	.collapsed-lane {
+		user-select: none;
+		align-items: center;
+		height: 100%;
+		gap: var(--space-16);
+		padding: var(--space-8) var(--space-8) var(--space-20);
+	}
+
+	.collapsed-lane__actions {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-4);
+	}
+	.collapsed-lane__draggable {
+		cursor: grab;
+		transform: rotate(90deg);
+		margin-bottom: var(--space-4);
+		opacity: 0.4;
+		transition: opacity var(--transition-fast);
+		color: var(--clr-theme-scale-ntrl-0);
+
+		&:hover {
+			opacity: 1;
+		}
+	}
+
+	.collapsed-lane__info {
+		flex: 1;
+		display: flex;
+		flex-direction: row-reverse;
+		align-items: center;
+		justify-content: space-between;
+
+		writing-mode: vertical-rl;
+		gap: var(--space-8);
+	}
+
+	.collapsed-lane__info__details {
+		display: flex;
+		flex-direction: row-reverse;
+		align-items: center;
+		gap: var(--space-4);
+	}
+
+	.collapsed-lane__label {
+		color: var(--clr-theme-scale-ntrl-0);
+		transform: rotate(180deg);
 	}
 </style>

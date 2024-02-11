@@ -7,6 +7,7 @@
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { projectLaneCollapsed } from '$lib/config/config';
 	import {
 		isDraggableFile,
 		isDraggableHunk,
@@ -126,9 +127,29 @@
 			);
 		}
 	}
+
+	$: isLaneCollapsed = projectLaneCollapsed(project.id, branch.id);
 </script>
 
-<div class="branch-card-wrapper">
+{#if $isLaneCollapsed}
+	<div class="collapsed-lane-wrapper">
+		<BranchHeader
+			{isUnapplied}
+			{branchController}
+			{branch}
+			{base}
+			{githubService}
+			{branchService}
+			bind:isLaneCollapsed
+			projectId={project.id}
+			on:action={(e) => {
+				if (e.detail == 'generate-branch-name') {
+					generateBranchName();
+				}
+			}}
+		/>
+	</div>
+{:else}
 	<div
 		class="branch-card"
 		data-tauri-drag-region
@@ -146,6 +167,7 @@
 				{base}
 				{githubService}
 				{branchService}
+				bind:isLaneCollapsed
 				projectId={project.id}
 				on:action={(e) => {
 					if (e.detail == 'generate-branch-name') {
@@ -268,14 +290,14 @@
 			}}
 		/>
 	</div>
-</div>
+{/if}
 
 <style lang="postcss">
-	.branch-card-wrapper {
+	/* .branch-card-wrapper {
 		position: relative;
 		display: flex;
 		height: 100%;
-	}
+	} */
 	.branch-card {
 		height: 100%;
 		position: relative;
@@ -396,5 +418,14 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 100%;
+	}
+
+	/* COLLAPSED LANE */
+	.collapsed-lane-wrapper {
+		display: flex;
+		flex-direction: column;
+		padding: var(--space-12);
+		height: 100%;
+		border-right: 1px solid var(--clr-theme-container-outline-light);
 	}
 </style>

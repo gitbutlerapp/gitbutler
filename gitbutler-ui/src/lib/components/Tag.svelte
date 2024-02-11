@@ -24,6 +24,7 @@
 	export let disabled = false;
 	export let clickable = false;
 	export let shrinkable = false;
+	export let verticalOrientation = false;
 </script>
 
 <div
@@ -41,17 +42,18 @@
 	class:disabled
 	class:shrinkable
 	class:iconLeft={reversedDirection}
+	class:verticalOrientation
 	class:not-button={!clickable}
 	on:click
 	role={clickable ? 'button' : undefined}
 	class:clickable
 	use:tooltip={help}
 >
-	<span class="label">
+	<span class="label" class:verticalLabel={verticalOrientation}>
 		<slot />
 	</span>
 	{#if icon}
-		<div class="icon">
+		<div class="icon" class:verticalIcon={verticalOrientation}>
 			<Icon name={icon} />
 		</div>
 	{/if}
@@ -225,5 +227,21 @@
 			overflow: hidden;
 			text-overflow: ellipsis;
 		}
+	}
+
+	.verticalOrientation {
+		writing-mode: vertical-rl;
+		height: max-content;
+		width: var(--size-btn-s);
+		padding: var(--space-4) var(--space-2);
+		transform: rotate(180deg);
+	}
+
+	.verticalIcon {
+		transform: rotate(90deg);
+	}
+
+	.verticalLabel {
+		padding: var(--space-2) 0;
 	}
 </style>
