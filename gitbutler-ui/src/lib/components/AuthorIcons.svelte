@@ -36,10 +36,11 @@
 		background-color: var(--clr-theme-container-light);
 		border-radius: var(--space-16);
 		margin-left: calc(var(--space-4) * -1);
-		outline: 1px solid var(--clr-theme-container-outline-light);
+		border: 1px solid var(--clr-theme-container-outline-light);
 
 		& span {
-			color: var(--clr-theme-scale-ntrl-40);
+			color: var(--clr-theme-scale-ntrl-0);
+			line-height: 1;
 		}
 	}
 </style>
