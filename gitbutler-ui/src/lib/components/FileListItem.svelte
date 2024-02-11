@@ -56,10 +56,8 @@
 					{indeterminate}
 					on:change={(e) => {
 						selectedOwnership.update((ownership) => {
-							if (e.detail)
-								file.hunks.forEach((h) => ownership.addHunk(file.id, h.id));
-							if (!e.detail)
-								file.hunks.forEach((h) => ownership.removeHunk(file.id, h.id));
+							if (e.detail) file.hunks.forEach((h) => ownership.addHunk(file.id, h.id));
+							if (!e.detail) file.hunks.forEach((h) => ownership.removeHunk(file.id, h.id));
 							return ownership;
 						});
 					}}

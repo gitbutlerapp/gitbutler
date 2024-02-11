@@ -103,9 +103,7 @@
 				selectable={$commitBoxOpen && !isUnapplied}
 				on:close={() => {
 					const selectedId = selected?.id;
-					selectedFiles.update((fileIds) =>
-						fileIds.filter((file) => file.id != selectedId)
-					);
+					selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
 				}}
 			/>
 			<Resizer
