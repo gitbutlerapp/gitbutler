@@ -186,30 +186,6 @@ export class RemoteBranch {
 	sha!: string;
 	name!: string;
 	upstream?: string;
-	behind!: number;
-	@Type(() => RemoteCommit)
-	commits!: RemoteCommit[];
-	isMergeable!: boolean | undefined;
-
-	get ahead(): number {
-		return this.commits.length;
-	}
-
-	get lastCommitTs(): Date | undefined {
-		return this.commits[0]?.createdAt;
-	}
-
-	get firstCommitAt(): Date {
-		return this.commits[this.commits.length - 1].createdAt;
-	}
-
-	get authors(): Author[] {
-		const allAuthors = this.commits.map((commit) => commit.author);
-		const uniqueAuthors = allAuthors.filter(
-			(author, index) => allAuthors.findIndex((a) => a.email == author.email) == index
-		);
-		return uniqueAuthors;
-	}
 
 	get displayName(): string {
 		return this.name.replace('refs/remotes/', '').replace('origin/', '').replace('refs/heads/', '');
