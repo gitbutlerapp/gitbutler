@@ -474,6 +474,13 @@
 		cursor: grab;
 		transform: rotate(90deg);
 		margin-bottom: var(--space-4);
+		opacity: 0.4;
+		transition: opacity var(--transition-fast);
+		color: var(--clr-theme-scale-ntrl-0);
+
+		&:hover {
+			opacity: 1;
+		}
 	}
 
 	.collapsed-lane__info {
