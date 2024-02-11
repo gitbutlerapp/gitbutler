@@ -1,6 +1,5 @@
 <script lang="ts">
 	import BranchIcon from './BranchIcon.svelte';
-	import AheadBehind from '$lib/components/AheadBehind.svelte';
 	import AuthorIcons from '$lib/components/AuthorIcons.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import type { CombinedBranch } from '$lib/branches/types';
@@ -29,7 +28,7 @@
 			<p class="text-base-13 branch__name">
 				{branch.displayName}
 			</p>
-			<AheadBehind ahead={branch.remoteBranch?.ahead} behind={branch.remoteBranch?.behind} />
+			<!-- <AheadBehind ahead={branch.remoteBranch?.ahead} behind={branch.remoteBranch?.behind} /> -->
 		</div>
 		<div class="branch__details">
 			<span class="branch__author text-base-11 details truncate">

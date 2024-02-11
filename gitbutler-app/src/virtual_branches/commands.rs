@@ -514,10 +514,6 @@ pub async fn list_remote_branches(
         .state::<Controller>()
         .list_remote_branches(&project_id)
         .await?;
-    let branches = handle
-        .state::<assets::Proxy>()
-        .proxy_remote_branches(branches)
-        .await;
     Ok(branches)
 }
 
@@ -540,6 +536,10 @@ pub async fn get_remote_branch_data(
         .state::<Controller>()
         .get_remote_branch_data(&project_id, &refname)
         .await?;
+    let branch_data = handle
+        .state::<assets::Proxy>()
+        .proxy_remote_branch_data(branch_data)
+        .await;
     Ok(branch_data)
 }
 

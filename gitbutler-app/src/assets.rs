@@ -9,7 +9,7 @@ use url::Url;
 use crate::{
     users,
     virtual_branches::{
-        Author, BaseBranch, RemoteBranch, RemoteCommit, VirtualBranch, VirtualBranchCommit,
+        Author, BaseBranch, RemoteBranchData, RemoteCommit, VirtualBranch, VirtualBranchCommit,
     },
 };
 
@@ -75,11 +75,6 @@ impl Proxy {
 
     pub async fn proxy_virtual_branch(&self, branch: VirtualBranch) -> VirtualBranch {
         VirtualBranch {
-            upstream: if let Some(upstream) = branch.upstream {
-                Some(self.proxy_remote_branch(upstream).await)
-            } else {
-                None
-            },
             commits: join_all(
                 branch
                     .commits
@@ -102,18 +97,8 @@ impl Proxy {
         .await
     }
 
-    pub async fn proxy_remote_branches(&self, branches: Vec<RemoteBranch>) -> Vec<RemoteBranch> {
-        join_all(
-            branches
-                .into_iter()
-                .map(|branch| self.proxy_remote_branch(branch))
-                .collect::<Vec<_>>(),
-        )
-        .await
-    }
-
-    pub async fn proxy_remote_branch(&self, branch: RemoteBranch) -> RemoteBranch {
-        RemoteBranch {
+    pub async fn proxy_remote_branch_data(&self, branch: RemoteBranchData) -> RemoteBranchData {
+        RemoteBranchData {
             commits: join_all(
                 branch
                     .commits

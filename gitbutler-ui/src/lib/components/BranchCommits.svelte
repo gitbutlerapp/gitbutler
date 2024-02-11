@@ -18,7 +18,7 @@
 	export let branchCount: number;
 </script>
 
-{#if branch.commits.length > 0 || (branch.upstream && branch.upstream.commits.length > 0)}
+{#if branch.commits.length > 0}
 	<CommitList
 		{branch}
 		{base}

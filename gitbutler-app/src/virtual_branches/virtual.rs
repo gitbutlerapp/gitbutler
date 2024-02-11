@@ -837,9 +837,7 @@ pub fn list_virtual_branches(
         }
 
         let upstream = upstream_branch
-            .map(|upstream_branch| {
-                branch_to_remote_branch(project_repository, &upstream_branch, branch.head)
-            })
+            .map(|upstream_branch| branch_to_remote_branch(&upstream_branch))
             .transpose()?
             .flatten();
 

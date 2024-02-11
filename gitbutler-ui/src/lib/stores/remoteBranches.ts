@@ -7,7 +7,6 @@ import {
 	Observable,
 	catchError,
 	combineLatest,
-	map,
 	of,
 	shareReplay,
 	switchMap
@@ -26,7 +25,7 @@ export class RemoteBranchService {
 	) {
 		this.branches$ = combineLatest([baseBranch$, this.reload$, head$, fetches$]).pipe(
 			switchMap(() => listRemoteBranches({ projectId })),
-			map((branches) => branches.filter((b) => b.ahead != 0)),
+			// map((branches) => branches.filter((b) => b.ahead != 0)),
 			shareReplay(1),
 			catchError((e) => {
 				console.log(e);

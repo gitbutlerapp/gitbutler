@@ -23,10 +23,8 @@
 	let headerHeight: number;
 
 	$: headCommit = branch.commits[0];
-	$: upstreamCommitCount = branch.upstream?.commits.length;
 
-	$: commits =
-		type == 'upstream' ? branch.upstream?.commits : branch.commits.filter((c) => c.status == type);
+	$: commits = type == 'upstream' ? [] : branch.commits.filter((c) => c.status == type);
 	let expanded = true;
 </script>
 
@@ -36,7 +34,7 @@
 		class:upstream={type == 'upstream'}
 		style:min-height={expanded ? `${2 * headerHeight}px` : undefined}
 	>
-		<CommitListHeader {type} {upstreamCommitCount} bind:expanded bind:height={headerHeight} />
+		<CommitListHeader {type} bind:expanded bind:height={headerHeight} />
 		{#if expanded}
 			<div class="commit-list__content">
 				<div class="commits">
