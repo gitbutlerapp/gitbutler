@@ -40,3 +40,8 @@ export function projectRunCommitHooks(projectId: string): Persisted<boolean> {
 	const key = 'projectRunCommitHooks_';
 	return persisted(false, key + projectId);
 }
+
+export function projectLaneCollapsed(projectId: string, laneId: string): Persisted<boolean> {
+	const key = 'projectLaneCollapsed_';
+	return persisted(false, key + projectId + '_' + laneId);
+}

@@ -7,6 +7,7 @@
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { projectLaneCollapsed } from '$lib/config/config';
 	import {
 		isDraggableFile,
 		isDraggableHunk,
@@ -49,10 +50,7 @@
 	let rsViewport: HTMLElement;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const defaultBranchWidthRem = persisted<number | undefined>(
-		24,
-		'defaulBranchWidth' + project.id
-	);
+	const defaultBranchWidthRem = persisted<number | undefined>(24, 'defaulBranchWidth' + project.id);
 	const laneWidthKey = 'laneWidth_';
 
 	let laneWidth: number;
@@ -130,10 +128,10 @@
 		}
 	}
 
-	let isLaneCollapsed: boolean;
+	$: isLaneCollapsed = projectLaneCollapsed(project.id, branch.id);
 </script>
 
-{#if isLaneCollapsed}
+{#if $isLaneCollapsed}
 	<div class="collapsed-lane-wrapper">
 		<BranchHeader
 			{isUnapplied}
