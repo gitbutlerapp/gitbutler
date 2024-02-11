@@ -50,10 +50,7 @@
 	let rsViewport: HTMLElement;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const defaultBranchWidthRem = persisted<number | undefined>(
-		24,
-		'defaulBranchWidth' + project.id
-	);
+	const defaultBranchWidthRem = persisted<number | undefined>(24, 'defaulBranchWidth' + project.id);
 	const laneWidthKey = 'laneWidth_';
 
 	let laneWidth: number;
