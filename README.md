@@ -21,7 +21,7 @@
 
 <br/>
 
-![gitbutler_client](https://github.com/gitbutlerapp/gitbutler/assets/70/89466226-fc0b-4d42-951c-67d95590e00c)
+![gitbutler_client](https://github.com/gitbutlerapp/gitbutler/assets/16262535/0d180bfd-7a3c-4a66-a923-30534c5a8197)
 
 [![CI][s0]][l0] [![TWEET][s1]][l1] [![DISCORD][s2]][l2] [![INSTA][s3]][l3] [![YOUTUBE][s5]][l5]
 
