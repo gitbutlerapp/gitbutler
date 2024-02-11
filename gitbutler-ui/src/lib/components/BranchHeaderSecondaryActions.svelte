@@ -2,10 +2,11 @@
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
+	import type { Persisted } from '$lib/persisted/persisted';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Branch } from '$lib/vbranches/types';
 
-	export let isLaneCollapsed = false;
+	export let isLaneCollapsed: Persisted<boolean>;
 	export let visible = false;
 
 	export let isUnapplied = false;
@@ -18,12 +19,12 @@
 
 <div style="display: contents;">
 	<Button
-		icon={isLaneCollapsed ? 'unfold-lane' : 'fold-lane'}
+		icon={$isLaneCollapsed ? 'unfold-lane' : 'fold-lane'}
 		kind="outlined"
 		color="neutral"
-		help={isLaneCollapsed ? 'Expand lane' : 'Collapse lane'}
+		help={$isLaneCollapsed ? 'Expand lane' : 'Collapse lane'}
 		on:click={() => {
-			isLaneCollapsed = !isLaneCollapsed;
+			$isLaneCollapsed = !$isLaneCollapsed;
 		}}
 	/>
 	<Button

@@ -17,6 +17,7 @@
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
 	import type { PrStatus } from '$lib/github/types';
+	import type { Persisted } from '$lib/persisted/persisted';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import type iconsJson from '../icons/icons.json';
@@ -29,7 +30,7 @@
 	export let branchService: BranchService;
 	export let projectId: string;
 
-	export let isLaneCollapsed = false;
+	export let isLaneCollapsed: Persisted<boolean>;
 
 	export let githubService: GitHubService;
 	$: pr$ = githubService.get(branch.upstreamName);
@@ -122,7 +123,7 @@
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
 </script>
 
-{#if isLaneCollapsed}
+{#if $isLaneCollapsed}
 	<div class="card collapsed-lane" data-tauri-drag-region>
 		<div class="collapsed-lane__actions">
 			<div class="collapsed-lane__draggable" data-drag-handle>
@@ -134,7 +135,7 @@
 				color="neutral"
 				help="Collapse lane"
 				on:click={() => {
-					isLaneCollapsed = false;
+					$isLaneCollapsed = false;
 				}}
 			/>
 		</div>
@@ -175,6 +176,7 @@
 						{branch}
 						{isUnapplied}
 						{hasIntegratedCommits}
+						{isLaneCollapsed}
 						prUrl={$pr$?.htmlUrl}
 					/>
 					<!-- {#if !branch.upstream}
@@ -387,7 +389,7 @@
 								color="neutral"
 								help="Collapse lane"
 								on:click={() => {
-									isLaneCollapsed = true;
+									$isLaneCollapsed = true;
 								}}
 							/>
 							<Button
