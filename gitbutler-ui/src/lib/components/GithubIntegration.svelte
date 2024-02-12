@@ -8,6 +8,7 @@
 
 	export let userService: UserService;
 	export let minimal = false;
+	export let disabled = false;
 
 	$: user$ = userService.user$;
 
@@ -62,7 +63,7 @@
 			</p>
 		</div>
 		<div>
-			<Button kind="filled" color="primary" on:click={gitHubStartOauth}>
+			<Button kind="filled" color="primary" {disabled} on:click={gitHubStartOauth}>
 				{#if $user$?.github_access_token}
 					Reauthenticate
 				{:else}
