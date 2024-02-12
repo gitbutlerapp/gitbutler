@@ -115,11 +115,25 @@
 		return 'Checks are running';
 	}
 
+	const foldLine = () => {
+		$isLaneCollapsed = true;
+	};
+
+	const unfoldLine = () => {
+		$isLaneCollapsed = false;
+	};
+
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
 </script>
 
 {#if $isLaneCollapsed}
-	<div class="card collapsed-lane" data-tauri-drag-region>
+	<div
+		class="card collapsed-lane"
+		on:dblclick={unfoldLine}
+		on:keydown={(e) => e.key === 'Enter' && unfoldLine()}
+		tabindex="0"
+		role="button"
+	>
 		<div class="collapsed-lane__actions">
 			<div class="collapsed-lane__draggable" data-drag-handle>
 				<Icon name="draggable-narrow" />
@@ -129,11 +143,10 @@
 				kind="outlined"
 				color="neutral"
 				help="Collapse lane"
-				on:click={() => {
-					$isLaneCollapsed = false;
-				}}
+				on:click={unfoldLine}
 			/>
 		</div>
+
 		<div class="collapsed-lane__info">
 			<h3 class="collapsed-lane__label text-base-13 text-bold">
 				{branch.name}
@@ -155,7 +168,8 @@
 		</div>
 	</div>
 {:else}
-	<div class="header__wrapper">
+	<!-- svelte-ignore a11y-no-static-element-interactions -->
+	<div class="header__wrapper" on:dblclick={foldLine}>
 		<div class="header card" class:isUnapplied>
 			<div class="header__info">
 				<div class="header__label">
@@ -317,9 +331,7 @@
 								kind="outlined"
 								color="neutral"
 								help="Collapse lane"
-								on:click={() => {
-									$isLaneCollapsed = true;
-								}}
+								on:click={foldLine}
 							/>
 							<Button
 								icon="kebab"
@@ -457,19 +469,25 @@
 	/*  COLLAPSABLE LANE */
 
 	.collapsed-lane {
+		cursor: default;
 		user-select: none;
 		align-items: center;
 		height: 100%;
-		gap: var(--space-16);
+		gap: var(--space-8);
 		padding: var(--space-8) var(--space-8) var(--space-20);
+
+		&:focus-within {
+			outline: none;
+		}
 	}
 
 	.collapsed-lane__actions {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: var(--space-4);
+		gap: var(--space-2);
 	}
+
 	.collapsed-lane__draggable {
 		cursor: grab;
 		transform: rotate(90deg);
@@ -489,6 +507,7 @@
 		flex-direction: row-reverse;
 		align-items: center;
 		justify-content: space-between;
+		height: 100%;
 
 		writing-mode: vertical-rl;
 		gap: var(--space-8);
@@ -504,5 +523,8 @@
 	.collapsed-lane__label {
 		color: var(--clr-theme-scale-ntrl-0);
 		transform: rotate(180deg);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 </style>

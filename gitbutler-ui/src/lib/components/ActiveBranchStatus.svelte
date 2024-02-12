@@ -39,7 +39,7 @@
 			verticalOrientation={$isLaneCollapsed}>Virtual</Tag
 		>
 	{/if}
-	{#if !isUnapplied}
+	{#if !isUnapplied && !$isLaneCollapsed}
 		<Tag
 			disabled
 			help="Branch name that will be used when pushing. You can change it from the lane menu."
