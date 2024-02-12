@@ -8,6 +8,7 @@
 
 	export let userService: UserService;
 	export let minimal = false;
+	export let disabled = false;
 
 	$: user$ = userService.user$;
 
@@ -44,9 +45,11 @@
 
 {#if minimal}
 	{#if $user$?.github_access_token}
-		<Button kind="filled" color="primary" on:click={forgetGitHub}>Forget</Button>
+		<Button {disabled} kind="filled" color="primary" on:click={forgetGitHub}>Forget</Button>
 	{:else}
-		<Button kind="filled" color="primary" on:click={gitHubStartOauth}>Authenticate</Button>
+		<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}
+			>Authenticate</Button
+		>
 	{/if}
 {:else}
 	<div class="flex items-center">
@@ -62,7 +65,7 @@
 			</p>
 		</div>
 		<div>
-			<Button kind="filled" color="primary" on:click={gitHubStartOauth}>
+			<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}>
 				{#if $user$?.github_access_token}
 					Reauthenticate
 				{:else}
@@ -87,7 +90,7 @@
 						whitespece-pre h-6 w-24 select-all rounded border border-light-200 bg-white font-mono dark:border-dark-400 dark:bg-dark-700"
 			/>
 
-			<Button kind="outlined" color="primary" on:click={() => copyToClipboard(userCode)}>
+			<Button {disabled} kind="outlined" color="primary" on:click={() => copyToClipboard(userCode)}>
 				Copy to Clipboard
 			</Button>
 		</div>
@@ -100,6 +103,6 @@
 		<div>3️⃣ Paste the code that you copied and follow the on-screen instructions.</div>
 	</div>
 	<svelte:fragment slot="controls" let:close>
-		<Button color="primary" on:click={close}>Done</Button>
+		<Button {disabled} color="primary" on:click={close}>Done</Button>
 	</svelte:fragment>
 </Modal>
