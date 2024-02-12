@@ -33,7 +33,7 @@
 [l2]: https://discord.gg/MmFkmaJ42D
 [s3]: https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white
 [l3]: https://instagram.com/gitbutlerapp
-[s5]: https://img.shields.io/youtube/channel/subscribers/UCQiEMslIPy6ylW_TJXZ7nUQ
+[s5]: https://img.shields.io/youtube/channel/subscribers/UCEwkZIHGqsTGYvX8wgD0LoQ
 [l5]: https://www.youtube.com/@gitbutlerapp
 
 GitButler is a git client that lets you work on multiple branches at the same time.
