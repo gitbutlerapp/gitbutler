@@ -168,7 +168,7 @@
 				</svelte:fragment>
 				<svelte:fragment slot="actions">
 					{#if !$user$?.github_access_token}
-						<GithubIntegration minimal {userService} />
+						<GithubIntegration minimal {userService} disabled={!$user$} />
 					{/if}
 				</svelte:fragment>
 			</SetupFeature>
