@@ -7,11 +7,11 @@
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableCommit, nonDraggable } from '$lib/dragging/draggables';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { filesToFileTree } from '$lib/vbranches/filetree';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { LocalFile, RemoteCommit, Commit, RemoteFile } from '$lib/vbranches/types';
-	import { open } from '@tauri-apps/api/shell';
 	import { writable, type Writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 
@@ -122,7 +122,7 @@
 						kind="outlined"
 						icon="open-link"
 						on:click={() => {
-							if (commitUrl) open(commitUrl);
+							if (commitUrl) openExternalUrl(commitUrl);
 						}}>Open commit</Button
 					>
 				</div>

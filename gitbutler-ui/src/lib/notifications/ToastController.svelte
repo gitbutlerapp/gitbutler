@@ -4,7 +4,14 @@
 <script lang="ts">
 	import InfoMessage from '$lib/components/InfoMessage.svelte';
 	import { dismissToast, toastStore } from '$lib/notifications/toasts';
+	import { marked } from 'marked';
 	import { slide } from 'svelte/transition';
+
+	var renderer = new marked.Renderer();
+	renderer.link = function (href, title, text) {
+		if (!title) title = text;
+		return '<a target="_blank" href="' + href + '" title="' + title + '">' + text + '</a>';
+	};
 </script>
 
 <div class="toast-controller">
@@ -15,7 +22,7 @@
 				style={toast.style ?? 'neutral'}
 				secondary="Dismiss"
 				on:secondary={() => dismissToast(toast.id)}
-				shadow>{toast.message}</InfoMessage
+				shadow>{@html marked.parse(toast.message, { renderer })}</InfoMessage
 			>
 		</div>
 	{/each}

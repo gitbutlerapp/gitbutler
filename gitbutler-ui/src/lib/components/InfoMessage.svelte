@@ -52,9 +52,7 @@
 			{#if title}
 				<div class="info-message__title text-base-13 text-semibold">{title}</div>
 			{/if}
-			<div class="info-message__text text-base-body-12">
-				<slot />
-			</div>
+			<div class="info-message__text text-base-body-12"><slot /></div>
 		</div>
 		{#if primary || secondary}
 			<div class="info-message__actions">
@@ -87,6 +85,9 @@
 		flex-grow: 1;
 		flex-direction: column;
 		gap: var(--space-12);
+	}
+	.info-message__text {
+		word-break: break-all;
 	}
 	.info-message__content {
 		display: flex;
