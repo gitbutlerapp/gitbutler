@@ -11,6 +11,13 @@ import { Store } from 'tauri-plugin-store-api';
 const store = new Store('settings.json');
 
 /**
+ * Persisted confirmation that user has confirmed their analytics settings.
+ */
+export function appAnalyticsConfirmed() {
+	return persisted(false, 'appAnalyticsConfirmed');
+}
+
+/**
  * Provides a writable store for obtaining or setting the current state of application metrics.
  * The application metrics can be enabled or disabled by setting the value of the store to true or false.
  * @returns A writable store with the appMetricsEnabled config.

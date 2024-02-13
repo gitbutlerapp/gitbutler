@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { deleteAllData } from '$lib/backend/data';
+	import AnalyticsSettings from '$lib/components/AnalyticsSettings.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
@@ -11,7 +12,6 @@
 	import TextBox from '$lib/components/TextBox.svelte';
 	import ThemeSelector from '$lib/components/ThemeSelector.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
-	import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import * as toasts from '$lib/utils/toasts';
 	import { invoke } from '@tauri-apps/api/tauri';
@@ -138,10 +138,6 @@
 			.then(() => deleteConfirmationModal.close())
 			.then(() => goto('/', { replaceState: true, invalidateAll: true }))
 			.finally(() => (isDeleting = false));
-
-	const errorReportingEnabled = appErrorReportingEnabled();
-	const metricsEnabled = appMetricsEnabled();
-	let updatedTelemetrySettings = false;
 </script>
 
 <ScrollableContainer wide>
@@ -312,65 +308,7 @@
 				</div>
 
 				<Spacer />
-				<div>
-					<h2 class="mb-2 text-lg font-medium">Telemetry</h2>
-				</div>
-				<div class="flex flex-col gap-2">
-					<p class="text-sm text-light-700 dark:text-dark-200">
-						GitButler uses telemetry strictly to help us improve the client. We do not collect any
-						personal information.
-					</p>
-					<p class="text-sm text-light-700 dark:text-dark-200">
-						We kindly ask you to consider keeping these settings enabled as it helps us catch issues
-						more quickly. If you choose to disable them, please feel to share your feedback on our <Link
-							target="_blank"
-							rel="noreferrer"
-							href="https://discord.gg/MmFkmaJ42D"
-						>
-							Discord
-						</Link>.
-					</p>
-
-					{#if updatedTelemetrySettings}
-						<p class="text-sm text-red-500">
-							Changes will take effect on the next application start
-						</p>
-					{/if}
-				</div>
-				<div class="flex items-center">
-					<div class="flex-grow">
-						<p>Error reporting</p>
-						<p class="text-sm text-light-700 dark:text-dark-200">
-							Toggle reporting of application crashes and errors.
-						</p>
-					</div>
-					<div>
-						<Toggle
-							checked={$errorReportingEnabled}
-							on:change={() => {
-								$errorReportingEnabled = !$errorReportingEnabled;
-								updatedTelemetrySettings = true;
-							}}
-						/>
-					</div>
-				</div>
-				<div class="flex items-center">
-					<div class="flex-grow">
-						<p>Usage metrics</p>
-						<p class="text-sm text-light-700 dark:text-dark-200">
-							Toggle sharing of usage statistics.
-						</p>
-					</div>
-					<div>
-						<Toggle
-							checked={$metricsEnabled}
-							on:change={() => {
-								$metricsEnabled = !$metricsEnabled;
-								updatedTelemetrySettings = true;
-							}}
-						/>
-					</div>
-				</div>
+				<AnalyticsSettings />
 				<Spacer />
 
 				{#if $user$}
