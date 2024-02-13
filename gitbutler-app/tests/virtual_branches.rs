@@ -335,7 +335,7 @@ mod references {
                 .into_iter()
                 .filter_map(|reference| reference.name().map(|name| name.to_string()))
                 .collect::<Vec<_>>();
-            assert!(refnames.contains(&"refs/gitbutler/virtual-branch".to_string()));
+            assert!(refnames.contains(&"refs/gitbutler/Virtual-branch".to_string()));
         }
 
         #[tokio::test]
