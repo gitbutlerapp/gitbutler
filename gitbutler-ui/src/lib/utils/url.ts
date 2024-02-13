@@ -1,4 +1,5 @@
 import { showToast } from '$lib/notifications/toasts';
+import { open } from '@tauri-apps/api/shell';
 import { posthog } from 'posthog-js';
 
 export function openExternalUrl(href: string) {
