@@ -10,37 +10,39 @@ use std::{
 
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use walkdir::{DirEntry, WalkDir};
 use zip::{result::ZipError, write, CompressionMethod, ZipWriter};
 
+#[derive(Clone)]
 pub struct Zipper {
     cache: path::PathBuf,
-}
-
-impl From<&path::PathBuf> for Zipper {
-    fn from(value: &path::PathBuf) -> Self {
-        Self {
-            cache: value.clone(),
-        }
-    }
 }
 
 impl TryFrom<&AppHandle> for Zipper {
     type Error = anyhow::Error;
 
     fn try_from(handle: &AppHandle) -> Result<Self> {
-        let cache_dir = handle
-            .path_resolver()
-            .app_cache_dir()
-            .context("failed to get cache dir")?;
-        fs::create_dir_all(&cache_dir).context("failed to create cache dir")?;
-        let cache = cache_dir.join("archives");
-        Ok(Self::from(&cache))
+        if let Some(zipper) = handle.try_state::<Self>() {
+            Ok(zipper.inner().clone())
+        } else {
+            let app_cache_dir = handle
+                .path_resolver()
+                .app_cache_dir()
+                .context("failed to get app cache dir")?;
+            Self::new(app_cache_dir)
+        }
     }
 }
 
 impl Zipper {
+    fn new<P: AsRef<path::Path>>(cache_dir: P) -> Result<Self, anyhow::Error> {
+        let cache_dir = cache_dir.as_ref().to_path_buf();
+        fs::create_dir_all(&cache_dir).context("failed to create cache dir")?;
+        let cache = cache_dir.join("archives");
+        Ok(Self { cache })
+    }
+
     // takes a path to create zip of, returns path of a created archive.
     pub fn zip<P: AsRef<path::Path>>(&self, path: P) -> Result<path::PathBuf> {
         let path = path.as_ref();

@@ -1,7 +1,7 @@
 use std::{path, time};
 
 use anyhow::{Context, Result};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::{
     gb_repository, project_repository,
@@ -22,15 +22,19 @@ impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let path = value
-            .path_resolver()
-            .app_data_dir()
-            .context("failed to get app data dir")?;
-        Ok(Self {
-            local_data_dir: path,
-            projects: projects::Controller::try_from(value)?,
-            users: users::Controller::from(value),
-        })
+        if let Some(handler) = value.try_state::<Handler>() {
+            Ok(handler.inner().clone())
+        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
+            let handler = Handler::new(
+                app_data_dir,
+                projects::Controller::try_from(value)?,
+                users::Controller::try_from(value)?,
+            );
+            value.manage(handler.clone());
+            Ok(handler)
+        } else {
+            Err(anyhow::anyhow!("failed to get app data dir"))
+        }
     }
 }
 
@@ -39,6 +43,18 @@ const PROJECT_FETCH_INTERVAL: time::Duration = time::Duration::new(15 * 60, 0);
 const PROJECT_PUSH_INTERVAL: time::Duration = time::Duration::new(15 * 60, 0);
 
 impl Handler {
+    fn new(
+        local_data_dir: path::PathBuf,
+        projects: projects::Controller,
+        users: users::Controller,
+    ) -> Self {
+        Self {
+            local_data_dir,
+            projects,
+            users,
+        }
+    }
+
     pub fn handle(
         &self,
         project_id: &ProjectId,

@@ -1,6 +1,6 @@
 use std::{env, path};
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::{keys, project_repository, projects, users};
 
@@ -76,19 +76,20 @@ pub struct Helper {
     home_dir: Option<path::PathBuf>,
 }
 
-impl From<&AppHandle> for Helper {
-    fn from(value: &AppHandle) -> Self {
-        let keys = keys::Controller::from(value);
-        let users = users::Controller::from(value);
-        Self::new(keys, users, env::var_os("HOME").map(path::PathBuf::from))
-    }
-}
+impl TryFrom<&AppHandle> for Helper {
+    type Error = anyhow::Error;
 
-impl From<&path::PathBuf> for Helper {
-    fn from(value: &path::PathBuf) -> Self {
-        let keys = keys::Controller::from(value);
-        let users = users::Controller::from(value);
-        Self::new(keys, users, env::var_os("HOME").map(path::PathBuf::from))
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        if let Some(helper) = value.try_state::<Helper>() {
+            Ok(helper.inner().clone())
+        } else {
+            let keys = keys::Controller::try_from(value)?;
+            let users = users::Controller::try_from(value)?;
+            let home_dir = env::var_os("HOME").map(path::PathBuf::from);
+            let helper = Helper::new(keys, users, home_dir);
+            value.manage(helper.clone());
+            Ok(helper)
+        }
     }
 }
 

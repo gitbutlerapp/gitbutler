@@ -1,9 +1,5 @@
-use std::path;
-
 use anyhow::Context;
-use tauri::AppHandle;
-
-use crate::storage;
+use tauri::{AppHandle, Manager};
 
 use super::{storage::Storage, PrivateKey};
 
@@ -12,35 +8,23 @@ pub struct Controller {
     storage: Storage,
 }
 
-impl From<&path::PathBuf> for Controller {
-    fn from(value: &path::PathBuf) -> Self {
-        Self {
-            storage: Storage::from(value),
-        }
-    }
-}
+impl TryFrom<&AppHandle> for Controller {
+    type Error = anyhow::Error;
 
-impl From<&storage::Storage> for Controller {
-    fn from(value: &storage::Storage) -> Self {
-        Self {
-            storage: Storage::from(value),
-        }
-    }
-}
-
-impl From<&AppHandle> for Controller {
-    fn from(value: &AppHandle) -> Self {
-        Self {
-            storage: Storage::from(value),
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        if let Some(controller) = value.try_state::<Controller>() {
+            Ok(controller.inner().clone())
+        } else {
+            let controller = Controller::new(Storage::try_from(value)?);
+            value.manage(controller.clone());
+            Ok(controller)
         }
     }
 }
 
 impl Controller {
-    pub fn new(storage: &Storage) -> Self {
-        Self {
-            storage: storage.clone(),
-        }
+    fn new(storage: Storage) -> Self {
+        Self { storage }
     }
 
     pub fn get_or_create(&self) -> Result<PrivateKey, GetOrCreateError> {

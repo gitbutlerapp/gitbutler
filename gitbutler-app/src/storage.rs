@@ -1,13 +1,13 @@
 use std::{
     fs,
-    path::{self, Path, PathBuf},
+    path::{Path, PathBuf},
     sync::{Arc, RwLock},
 };
 
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::*;
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 #[derive(Debug, Default, Clone)]
 pub struct Storage {
@@ -24,25 +24,25 @@ impl TryFrom<&AppHandle> for Storage {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        let path = value.path_resolver().app_data_dir();
-        match path {
-            Some(path) => Ok(Self::from(&path)),
-            // None => Error::new("failed to get app data dir"),
-            None => Err(anyhow::anyhow!("failed to get app data dir")),
-            // None => Ok(Self::default()),
-        }
-    }
-}
-
-impl From<&path::PathBuf> for Storage {
-    fn from(value: &path::PathBuf) -> Self {
-        Storage {
-            local_data_dir: Arc::new(RwLock::new(value.clone())),
+        if let Some(storage) = value.try_state::<Storage>() {
+            Ok(storage.inner().clone())
+        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
+            let storage = Storage::new(app_data_dir);
+            value.manage(storage.clone());
+            Ok(storage)
+        } else {
+            Err(anyhow::anyhow!("failed to get app data dir"))
         }
     }
 }
 
 impl Storage {
+    fn new<P: AsRef<Path>>(local_data_dir: P) -> Storage {
+        Storage {
+            local_data_dir: Arc::new(RwLock::new(local_data_dir.as_ref().to_path_buf())),
+        }
+    }
+
     pub fn read<P: AsRef<Path>>(&self, path: P) -> Result<Option<String>, Error> {
         let local_data_dir = self.local_data_dir.read().unwrap();
         let file_path = local_data_dir.join(path);

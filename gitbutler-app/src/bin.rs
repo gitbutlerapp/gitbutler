@@ -103,7 +103,7 @@ fn main() {
                         .expect("failed to initialize zipc controller ");
                     tauri_app.manage(zipper);
 
-                    let deltas_controller = deltas::Controller::from(&app_handle);
+                    let deltas_controller = deltas::Controller::try_from(&app_handle).expect("failed to initialize deltas controller");
                     app_handle.manage(deltas_controller);
 
                     let sessions_controller = sessions::Controller::try_from(&app_handle)
@@ -119,10 +119,10 @@ fn main() {
                             .expect("failed to initialize virtual branches controller");
                     app_handle.manage(vbranch_contoller);
 
-                    let keys_controller = keys::Controller::from(&app_handle);
+                    let keys_controller = keys::Controller::try_from(&app_handle).expect("failed to initialize keys controller");
                     app_handle.manage(keys_controller);
 
-                    let users_controller = users::Controller::from(&app_handle);
+                    let users_controller = users::Controller::try_from(&app_handle).expect("failed to initialize users controller");
 
                     let stores = tauri_app.state::<StoreCollection<Wry>>();
                     if let Some(path) = app_handle.path_resolver().app_config_dir().map(|path| path.join(PathBuf::from("settings.json"))) {

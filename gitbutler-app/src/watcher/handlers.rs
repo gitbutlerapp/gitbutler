@@ -13,7 +13,7 @@ mod tick_handler;
 use std::time;
 
 use anyhow::{Context, Result};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
 use crate::events as app_events;
@@ -41,26 +41,60 @@ impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        Ok(Self {
-            events_sender: app_events::Sender::from(value),
-            tick_handler: tick_handler::Handler::try_from(value)?,
-            git_file_change_handler: git_file_change::Handler::try_from(value)?,
-            index_handler: index_handler::Handler::try_from(value)?,
-            flush_session_handler: flush_session::Handler::try_from(value)?,
-            push_gitbutler_handler: push_gitbutler_data::Handler::try_from(value)?,
-            fetch_project_handler: fetch_project_data::Handler::try_from(value)?,
-            fetch_gitbutler_handler: fetch_gitbutler_data::Handler::try_from(value)?,
-            analytics_handler: analytics_handler::Handler::from(value),
-            push_project_to_gitbutler: push_project_to_gitbutler::Handler::try_from(value)?,
-            calculate_vbranches_handler: caltulate_virtual_branches_handler::Handler::try_from(
-                value,
-            )?,
-            calculate_deltas_handler: calculate_deltas_handler::Handler::try_from(value)?,
-        })
+        if let Some(handler) = value.try_state::<Handler>() {
+            Ok(handler.inner().clone())
+        } else {
+            let handler = Handler::new(
+                git_file_change::Handler::try_from(value)?,
+                tick_handler::Handler::try_from(value)?,
+                flush_session::Handler::try_from(value)?,
+                fetch_project_data::Handler::try_from(value)?,
+                fetch_gitbutler_data::Handler::try_from(value)?,
+                push_gitbutler_data::Handler::try_from(value)?,
+                analytics_handler::Handler::try_from(value)?,
+                index_handler::Handler::try_from(value)?,
+                push_project_to_gitbutler::Handler::try_from(value)?,
+                caltulate_virtual_branches_handler::Handler::try_from(value)?,
+                calculate_deltas_handler::Handler::try_from(value)?,
+                app_events::Sender::try_from(value)?,
+            );
+            value.manage(handler.clone());
+            Ok(handler)
+        }
     }
 }
 
 impl Handler {
+    fn new(
+        git_file_change_handler: git_file_change::Handler,
+        tick_handler: tick_handler::Handler,
+        flush_session_handler: flush_session::Handler,
+        fetch_project_handler: fetch_project_data::Handler,
+        fetch_gitbutler_handler: fetch_gitbutler_data::Handler,
+        push_gitbutler_handler: push_gitbutler_data::Handler,
+        analytics_handler: analytics_handler::Handler,
+        index_handler: index_handler::Handler,
+        push_project_to_gitbutler: push_project_to_gitbutler::Handler,
+        calculate_vbranches_handler: caltulate_virtual_branches_handler::Handler,
+        calculate_deltas_handler: calculate_deltas_handler::Handler,
+        events_sender: app_events::Sender,
+    ) -> Self {
+        Self {
+            git_file_change_handler,
+            tick_handler,
+            flush_session_handler,
+            fetch_project_handler,
+            fetch_gitbutler_handler,
+            push_gitbutler_handler,
+            analytics_handler,
+            index_handler,
+            push_project_to_gitbutler,
+            calculate_vbranches_handler,
+            calculate_deltas_handler,
+            events_sender,
+        }
+    }
+
     #[instrument(skip(self), fields(event = %event), level = "debug")]
     pub async fn handle(
         &self,

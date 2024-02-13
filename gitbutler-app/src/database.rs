@@ -6,7 +6,7 @@ use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use refinery::config::Config;
 use rusqlite::Transaction;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 mod embedded {
     use refinery::embed_migrations;
@@ -18,24 +18,18 @@ pub struct Database {
     pool: Arc<Pool<SqliteConnectionManager>>,
 }
 
-impl TryFrom<&path::PathBuf> for Database {
-    type Error = anyhow::Error;
-
-    fn try_from(path: &path::PathBuf) -> Result<Self, Self::Error> {
-        fs::create_dir_all(path).context("Failed to create local data dir")?;
-        Self::open(path.join("database.sqlite3"))
-    }
-}
-
 impl TryFrom<&AppHandle> for Database {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        let path = value
-            .path_resolver()
-            .app_data_dir()
-            .context("failed to get app data dir")?;
-        Self::try_from(&path)
+        if let Some(database) = value.try_state::<Database>() {
+            Ok(database.inner().clone())
+        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
+            fs::create_dir_all(&app_data_dir).context("failed to create local data dir")?;
+            Self::open(app_data_dir.join("database.sqlite3"))
+        } else {
+            Err(anyhow::anyhow!("failed to get app data dir"))
+        }
     }
 }
 

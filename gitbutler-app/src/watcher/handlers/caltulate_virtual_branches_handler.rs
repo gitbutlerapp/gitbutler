@@ -19,23 +19,36 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    inner: Arc<Mutex<HandlerInner>>,
+    inner: Arc<Mutex<InnerHandler>>,
     limit: Arc<RateLimiter<NotKeyed, InMemoryState, QuantaClock>>,
 }
 
 impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
+
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let inner = HandlerInner::try_from(value)?;
-        let quota = Quota::with_period(Duration::from_millis(100)).expect("valid quota");
-        Ok(Self {
-            inner: Arc::new(Mutex::new(inner)),
-            limit: Arc::new(RateLimiter::direct(quota)),
-        })
+        if let Some(handler) = value.try_state::<Handler>() {
+            Ok(handler.inner().clone())
+        } else {
+            let vbranches = virtual_branches::Controller::try_from(value)?;
+            let proxy = assets::Proxy::try_from(value)?;
+            let inner = InnerHandler::new(vbranches, proxy);
+            let handler = Handler::new(inner);
+            value.manage(handler.clone());
+            Ok(handler)
+        }
     }
 }
 
 impl Handler {
+    fn new(inner: InnerHandler) -> Self {
+        let quota = Quota::with_period(Duration::from_millis(100)).expect("valid quota");
+        Self {
+            inner: Arc::new(Mutex::new(inner)),
+            limit: Arc::new(RateLimiter::direct(quota)),
+        }
+    }
+
     pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         if self.limit.check().is_err() {
             Ok(vec![])
@@ -47,25 +60,19 @@ impl Handler {
     }
 }
 
-struct HandlerInner {
+struct InnerHandler {
     vbranch_controller: virtual_branches::Controller,
     assets_proxy: assets::Proxy,
 }
 
-impl TryFrom<&AppHandle> for HandlerInner {
-    type Error = anyhow::Error;
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        Ok(Self {
-            vbranch_controller: value
-                .state::<virtual_branches::Controller>()
-                .inner()
-                .clone(),
-            assets_proxy: value.state::<assets::Proxy>().inner().clone(),
-        })
+impl InnerHandler {
+    fn new(vbranch_controller: virtual_branches::Controller, assets_proxy: assets::Proxy) -> Self {
+        Self {
+            vbranch_controller,
+            assets_proxy,
+        }
     }
-}
 
-impl HandlerInner {
     pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         match self
             .vbranch_controller

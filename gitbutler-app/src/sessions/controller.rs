@@ -1,7 +1,7 @@
 use std::path;
 
 use anyhow::Context;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::{
     gb_repository, project_repository,
@@ -11,6 +11,7 @@ use crate::{
 
 use super::{Database, Session};
 
+#[derive(Clone)]
 pub struct Controller {
     local_data_dir: path::PathBuf,
     sessions_database: Database,
@@ -23,16 +24,18 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        let path = value
-            .path_resolver()
-            .app_data_dir()
-            .context("failed to get app data dir")?;
-        Ok(Self {
-            local_data_dir: path,
-            sessions_database: Database::from(value),
-            projects: projects::Controller::try_from(value)?,
-            users: users::Controller::from(value),
-        })
+        if let Some(controller) = value.try_state::<Controller>() {
+            Ok(controller.inner().clone())
+        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
+            Ok(Self {
+                local_data_dir: app_data_dir,
+                sessions_database: Database::try_from(value)?,
+                projects: projects::Controller::try_from(value)?,
+                users: users::Controller::try_from(value)?,
+            })
+        } else {
+            Err(anyhow::anyhow!("failed to get app data dir"))
+        }
     }
 }
 
