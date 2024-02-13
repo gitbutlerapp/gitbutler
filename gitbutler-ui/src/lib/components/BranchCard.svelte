@@ -7,7 +7,6 @@
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { projectLaneCollapsed } from '$lib/config/config';
 	import {
 		isDraggableFile,
 		isDraggableHunk,
@@ -28,6 +27,7 @@
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
+	import type { Persisted } from '$lib/persisted/persisted';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch, LocalFile } from '$lib/vbranches/types';
 
@@ -44,6 +44,8 @@
 	export let githubService: GitHubService;
 	export let selectedOwnership: Writable<Ownership>;
 	export let commitBoxOpen: Writable<boolean>;
+
+	export let isLaneCollapsed: Persisted<boolean>;
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 
@@ -127,8 +129,6 @@
 			);
 		}
 	}
-
-	$: isLaneCollapsed = projectLaneCollapsed(project.id, branch.id);
 </script>
 
 {#if $isLaneCollapsed}

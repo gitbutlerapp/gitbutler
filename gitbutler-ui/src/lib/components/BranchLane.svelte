@@ -2,6 +2,7 @@
 	import BranchCard from './BranchCard.svelte';
 	import FileCard from './FileCard.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
+	import { projectLaneCollapsed } from '$lib/config/config';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { Ownership } from '$lib/vbranches/ownership';
@@ -51,7 +52,7 @@
 
 	fileWidth = lscache.get(fileWidthKey + branch.id);
 
-	function setSelected(files: AnyFile[], branch: Branch) {
+	const setSelected = (files: AnyFile[], branch: Branch) => {
 		if (files.length == 0) return undefined;
 		if (files.length == 1 && files[0] instanceof RemoteFile) return files[0];
 
@@ -59,6 +60,11 @@
 		const match = branch.files?.find((f) => files[0].id == f.id);
 		if (!match) $selectedFiles = [];
 		return match;
+	};
+
+	$: isLaneCollapsed = projectLaneCollapsed(project.id, branch.id);
+	$: if ($isLaneCollapsed) {
+		$selectedFiles = [];
 	}
 </script>
 
@@ -78,6 +84,7 @@
 		{branchService}
 		{selectedOwnership}
 		bind:commitBoxOpen
+		bind:isLaneCollapsed
 		{branchCount}
 		{user}
 		{selectedFiles}
