@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
-	import { open } from '@tauri-apps/api/shell';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { onMount } from 'svelte';
 
 	let classes = '';
@@ -32,9 +32,9 @@
 		class:disabled
 		on:click={(e) => {
 			if (href && isExternal) {
-				open(href);
 				e.preventDefault();
 				e.stopPropagation();
+				openExternalUrl(href);
 			}
 		}}
 	>
