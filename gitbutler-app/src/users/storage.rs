@@ -1,5 +1,3 @@
-use std::path;
-
 use anyhow::Result;
 use tauri::{AppHandle, Manager};
 
@@ -20,27 +18,25 @@ pub enum Error {
     Json(#[from] serde_json::Error),
 }
 
-impl From<&storage::Storage> for Storage {
-    fn from(storage: &storage::Storage) -> Self {
-        Self {
-            storage: storage.clone(),
+impl TryFrom<&AppHandle> for Storage {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        if let Some(storage) = value.try_state::<Storage>() {
+            Ok(storage.inner().clone())
+        } else {
+            let storage = Storage::new(storage::Storage::try_from(value)?);
+            value.manage(storage.clone());
+            Ok(storage)
         }
     }
 }
 
-impl From<&AppHandle> for Storage {
-    fn from(value: &AppHandle) -> Self {
-        Self::from(value.state::<storage::Storage>().inner())
-    }
-}
-
-impl From<&path::PathBuf> for Storage {
-    fn from(value: &path::PathBuf) -> Self {
-        Self::from(&storage::Storage::from(value))
-    }
-}
-
 impl Storage {
+    fn new(storage: storage::Storage) -> Storage {
+        Storage { storage }
+    }
+
     pub fn get(&self) -> Result<Option<user::User>, Error> {
         match self.storage.read(USER_FILE)? {
             Some(data) => Ok(Some(serde_json::from_str(&data)?)),

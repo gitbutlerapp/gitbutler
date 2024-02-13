@@ -10,21 +10,25 @@ pub struct Database {
     database: database::Database,
 }
 
-impl From<database::Database> for Database {
-    fn from(database: database::Database) -> Self {
-        Self { database }
-    }
-}
+impl TryFrom<&AppHandle> for Database {
+    type Error = anyhow::Error;
 
-impl From<&AppHandle> for Database {
-    fn from(value: &AppHandle) -> Self {
-        Self {
-            database: value.state::<database::Database>().inner().clone(),
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        if let Some(database) = value.try_state::<Database>() {
+            Ok(database.inner().clone())
+        } else {
+            let database = Database::new(database::Database::try_from(value)?);
+            value.manage(database.clone());
+            Ok(database)
         }
     }
 }
 
 impl Database {
+    fn new(database: database::Database) -> Database {
+        Database { database }
+    }
+
     pub fn insert(&self, project_id: &ProjectId, sessions: &[&session::Session]) -> Result<()> {
         self.database.transaction(|tx| -> Result<()> {
             let mut stmt = insert_stmt(tx).context("Failed to prepare insert statement")?;

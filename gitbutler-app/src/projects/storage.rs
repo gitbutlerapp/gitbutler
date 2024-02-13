@@ -1,5 +1,3 @@
-use std::path;
-
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
@@ -15,23 +13,17 @@ pub struct Storage {
     storage: storage::Storage,
 }
 
-impl From<&storage::Storage> for Storage {
-    fn from(storage: &storage::Storage) -> Self {
-        Storage {
-            storage: storage.clone(),
+impl TryFrom<&AppHandle> for Storage {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        if let Some(storage) = value.try_state::<Storage>() {
+            Ok(storage.inner().clone())
+        } else {
+            let storage = Storage::new(storage::Storage::try_from(value)?);
+            value.manage(storage.clone());
+            Ok(storage)
         }
-    }
-}
-
-impl From<&path::PathBuf> for Storage {
-    fn from(value: &path::PathBuf) -> Self {
-        Self::from(&storage::Storage::from(value))
-    }
-}
-
-impl From<&AppHandle> for Storage {
-    fn from(value: &AppHandle) -> Self {
-        Self::from(value.state::<storage::Storage>().inner())
     }
 }
 
@@ -60,6 +52,10 @@ pub enum Error {
 }
 
 impl Storage {
+    fn new(storage: storage::Storage) -> Storage {
+        Storage { storage }
+    }
+
     pub fn list(&self) -> Result<Vec<project::Project>, Error> {
         match self.storage.read(PROJECTS_FILE)? {
             Some(projects) => {
