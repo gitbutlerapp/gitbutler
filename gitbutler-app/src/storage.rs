@@ -36,6 +36,14 @@ impl TryFrom<&AppHandle> for Storage {
     }
 }
 
+impl TryFrom<&PathBuf> for Storage {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &PathBuf) -> Result<Self, Self::Error> {
+        Ok(Storage::new(value))
+    }
+}
+
 impl Storage {
     fn new<P: AsRef<Path>>(local_data_dir: P) -> Storage {
         Storage {

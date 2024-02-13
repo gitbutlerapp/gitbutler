@@ -22,6 +22,14 @@ impl TryFrom<&AppHandle> for Controller {
     }
 }
 
+impl TryFrom<&std::path::PathBuf> for Controller {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
+        Ok(Controller::new(Storage::try_from(value)?))
+    }
+}
+
 impl Controller {
     fn new(storage: Storage) -> Self {
         Self { storage }
@@ -58,7 +66,7 @@ mod tests {
     #[test]
     fn test_get_or_create() {
         let suite = Suite::default();
-        let controller = Controller::from(&suite.local_app_data);
+        let controller = Controller::try_from(&suite.local_app_data).unwrap();
 
         let once = controller.get_or_create().unwrap();
         let twice = controller.get_or_create().unwrap();

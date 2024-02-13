@@ -205,7 +205,9 @@ mod tests {
     #[test]
     fn test_insert_query() -> Result<()> {
         let db = test_utils::test_database();
-        let database = Database::from(db);
+        println!("0");
+        let database = Database::new(db);
+        println!("1");
 
         let project_id = ProjectId::generate();
         let session1 = session::Session {
@@ -246,7 +248,7 @@ mod tests {
     #[test]
     fn test_update() -> Result<()> {
         let db = test_utils::test_database();
-        let database = Database::from(db);
+        let database = Database::new(db);
 
         let project_id = ProjectId::generate();
         let session = session::Session {

@@ -22,6 +22,14 @@ impl TryFrom<&AppHandle> for Controller {
     }
 }
 
+impl TryFrom<&std::path::PathBuf> for Controller {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
+        Ok(Controller::new(Storage::try_from(value)?))
+    }
+}
+
 impl Controller {
     fn new(storage: Storage) -> Controller {
         Controller { storage }

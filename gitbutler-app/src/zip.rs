@@ -199,7 +199,7 @@ mod tests {
         file.write_all(b"test").unwrap();
 
         let zipper_cache = tempdir().unwrap();
-        let zipper = Zipper::from(&zipper_cache.path().to_path_buf());
+        let zipper = Zipper::new(zipper_cache.path()).unwrap();
         let zip_file_path = zipper.zip(tmp_dir).unwrap();
         assert!(zip_file_path.exists());
     }
@@ -213,7 +213,7 @@ mod tests {
         file.write_all(b"test").unwrap();
 
         let zipper_cache = tempdir().unwrap();
-        let zipper = Zipper::from(&zipper_cache.path().to_path_buf());
+        let zipper = Zipper::new(zipper_cache.path()).unwrap();
         zipper.zip(file_path).unwrap_err();
     }
 
@@ -226,7 +226,7 @@ mod tests {
         file.write_all(b"test").unwrap();
 
         let zipper_cache = tempdir().unwrap();
-        let zipper = Zipper::from(&zipper_cache.path().to_path_buf());
+        let zipper = Zipper::new(zipper_cache.path()).unwrap();
         assert_eq!(zipper.zip(&tmp_dir).unwrap(), zipper.zip(&tmp_dir).unwrap());
         assert_eq!(WalkDir::new(tmp_dir).into_iter().count(), 1);
     }

@@ -145,7 +145,7 @@ mod tests {
     #[test]
     fn insert_query() -> Result<()> {
         let db = test_utils::test_database();
-        let database = Database::from(db);
+        let database = Database::new(db);
 
         let project_id = ProjectId::generate();
         let session_id = SessionId::generate();
@@ -171,7 +171,7 @@ mod tests {
     #[test]
     fn insert_update() -> Result<()> {
         let db = test_utils::test_database();
-        let database = Database::from(db);
+        let database = Database::new(db);
 
         let project_id = ProjectId::generate();
         let session_id = SessionId::generate();
@@ -204,7 +204,7 @@ mod tests {
     #[test]
     fn aggregate_deltas_by_file() -> Result<()> {
         let db = test_utils::test_database();
-        let database = Database::from(db);
+        let database = Database::new(db);
 
         let project_id = ProjectId::generate();
         let session_id = SessionId::generate();

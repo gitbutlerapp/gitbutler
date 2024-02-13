@@ -29,10 +29,10 @@ struct Test {
 impl Default for Test {
     fn default() -> Self {
         let data_dir = paths::data_dir();
-        let keys = keys::Controller::from(&data_dir);
-        let projects = projects::Controller::from(&data_dir);
-        let users = users::Controller::from(&data_dir);
-        let helper = git::credentials::Helper::from(&data_dir);
+        let keys = keys::Controller::try_from(&data_dir).unwrap();
+        let projects = projects::Controller::try_from(&data_dir).unwrap();
+        let users = users::Controller::try_from(&data_dir).unwrap();
+        let helper = git::credentials::Helper::try_from(&data_dir).unwrap();
 
         let test_project = TestProject::default();
         let project = projects
@@ -42,7 +42,7 @@ impl Default for Test {
         Self {
             repository: test_project,
             project_id: project.id,
-            controller: Controller::new(&data_dir, &projects, &users, &keys, &helper),
+            controller: Controller::new(data_dir, projects.clone(), users, keys, helper),
             projects,
         }
     }
@@ -4496,14 +4496,14 @@ mod init {
     #[tokio::test]
     async fn twice() {
         let data_dir = paths::data_dir();
-        let keys = keys::Controller::from(&data_dir);
-        let projects = projects::Controller::from(&data_dir);
-        let users = users::Controller::from(&data_dir);
-        let helper = git::credentials::Helper::from(&data_dir);
+        let keys = keys::Controller::try_from(&data_dir).unwrap();
+        let projects = projects::Controller::try_from(&data_dir).unwrap();
+        let users = users::Controller::try_from(&data_dir).unwrap();
+        let helper = git::credentials::Helper::try_from(&data_dir).unwrap();
 
         let test_project = TestProject::default();
 
-        let controller = Controller::new(&data_dir, &projects, &users, &keys, &helper);
+        let controller = Controller::new(data_dir, projects.clone(), users, keys, helper);
 
         {
             let project = projects
