@@ -93,7 +93,7 @@ The app writes logs into:
 
 We are also collecting tokio's runtime tracing information that could be viewed using [tokio-console](https://github.com/tokio-rs/console#tokio-console-prototypes):
 
-- developlent:
+- development:
   ```bash
   $ tokio-console
   ```
