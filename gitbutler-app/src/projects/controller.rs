@@ -34,6 +34,19 @@ impl TryFrom<&AppHandle> for Controller {
     }
 }
 
+impl TryFrom<&std::path::PathBuf> for Controller {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
+        Ok(Self {
+            local_data_dir: value.clone(),
+            projects_storage: storage::Storage::try_from(value)?,
+            users: users::Controller::try_from(value)?,
+            watchers: None,
+        })
+    }
+}
+
 impl Controller {
     pub fn add(&self, path: &path::Path) -> Result<Project, AddError> {
         let all_projects = self

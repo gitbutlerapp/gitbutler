@@ -31,6 +31,14 @@ impl TryFrom<&AppHandle> for Storage {
     }
 }
 
+impl TryFrom<&std::path::PathBuf> for Storage {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
+        Ok(Storage::new(storage::Storage::try_from(value)?))
+    }
+}
+
 impl Storage {
     fn new(storage: storage::Storage) -> Storage {
         Storage { storage }

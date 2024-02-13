@@ -65,6 +65,7 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         git_file_change_handler: git_file_change::Handler,
         tick_handler: tick_handler::Handler,

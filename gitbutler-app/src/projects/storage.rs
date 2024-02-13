@@ -27,6 +27,14 @@ impl TryFrom<&AppHandle> for Storage {
     }
 }
 
+impl TryFrom<&std::path::PathBuf> for Storage {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
+        Ok(Storage::new(storage::Storage::try_from(value)?))
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateRequest {
     pub id: ProjectId,

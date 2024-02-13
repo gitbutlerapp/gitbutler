@@ -33,6 +33,15 @@ impl TryFrom<&AppHandle> for Database {
     }
 }
 
+#[cfg(test)]
+impl TryFrom<&path::PathBuf> for Database {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &path::PathBuf) -> Result<Self, Self::Error> {
+        Self::open(value.join("database.sqlite3"))
+    }
+}
+
 impl Database {
     fn open<P: AsRef<path::Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();

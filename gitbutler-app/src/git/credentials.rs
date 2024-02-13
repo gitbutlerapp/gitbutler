@@ -93,6 +93,17 @@ impl TryFrom<&AppHandle> for Helper {
     }
 }
 
+impl TryFrom<&std::path::PathBuf> for Helper {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
+        let keys = keys::Controller::try_from(value)?;
+        let users = users::Controller::try_from(value)?;
+        let home_dir = env::var_os("HOME").map(path::PathBuf::from);
+        Ok(Helper::new(keys, users, home_dir))
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum HelpError {
     #[error("no url set for remote")]
@@ -420,14 +431,14 @@ mod tests {
         fn run(&self) -> Vec<(String, Vec<Credential>)> {
             let local_app_data = test_utils::temp_dir();
 
-            let users = users::Controller::from(&local_app_data);
+            let users = users::Controller::try_from(&local_app_data).unwrap();
             let user = users::User {
                 github_access_token: self.github_access_token.map(ToString::to_string),
                 ..Default::default()
             };
             users.set_user(&user).unwrap();
 
-            let keys = keys::Controller::from(&local_app_data);
+            let keys = keys::Controller::try_from(&local_app_data).unwrap();
             let helper = Helper::new(keys, users, self.home_dir.clone());
 
             let repo = test_repository();
