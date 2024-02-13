@@ -6,12 +6,17 @@
 	const errorReportingEnabled = appErrorReportingEnabled();
 	const metricsEnabled = appMetricsEnabled();
 	let updatedTelemetrySettings = false;
+
+	// TODO: Remove this silly prop when we make a new analytics component.
+	export let showTitle = false;
 </script>
 
 <div class="analytics-settings">
-	<div>
-		<h2 class="mb-2 text-lg font-medium">Telemetry</h2>
-	</div>
+	{#if showTitle}
+		<div>
+			<h2 class="mb-2 text-lg font-medium">Telemetry</h2>
+		</div>
+	{/if}
 	<div class="flex flex-col gap-2">
 		<p class="text-sm text-light-700 dark:text-dark-200">
 			GitButler uses telemetry strictly to help us improve the client. We do not collect any
