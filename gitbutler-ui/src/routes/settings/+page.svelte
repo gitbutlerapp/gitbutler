@@ -308,7 +308,7 @@
 				</div>
 
 				<Spacer />
-				<AnalyticsSettings />
+				<AnalyticsSettings showTitle />
 				<Spacer />
 
 				{#if $user$}
