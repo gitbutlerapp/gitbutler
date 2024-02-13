@@ -81,7 +81,7 @@ export class VirtualBranchService {
 				timeout(10000),
 				catchError(() => {
 					// Observable never errors for any other reasons
-					const err = 'Timed out while reloading pull requests';
+					const err = 'Timed out while reloading virtual branches';
 					console.warn(err);
 					toasts.error(err);
 					return of();
