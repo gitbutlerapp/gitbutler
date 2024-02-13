@@ -17,7 +17,7 @@
 			on:click={() => events.emit('openSendIssueModal')}
 		/>
 		<Link href={`/${projectId}/settings`}>
-			<IconButton icon="settings" />
+			<IconButton icon="settings" help="Project settings" />
 		</Link>
 	</div>
 	<AccountLink {user} />
