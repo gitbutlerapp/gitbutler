@@ -31,12 +31,14 @@
 	<div class="switchrepo">
 		<p class="project-name text-bold"><Icon name="repo-book" /> {project?.title}</p>
 		<p class="switchrepo__title text-base-body-18 text-bold">
-			Looks like you've switched away from <span class="repo-name"> gitbutler/integration </span>
+			Looks like you've switched away from <span class="repo-name">
+				gitbutler/integration
+			</span>
 		</p>
 
 		<p class="switchrepo__message text-base-body-13">
-			Due to GitButler managing multiple virtual branches, you cannot switch back and forth between
-			git branches and virtual branches easily.
+			Due to GitButler managing multiple virtual branches, you cannot switch back and forth
+			between git branches and virtual branches easily.
 			<Link href="https://docs.gitbutler.com/features/virtual-branches/integration-branch">
 				Learn more
 			</Link>
@@ -56,7 +58,6 @@
 				<Button
 					color="primary"
 					kind="outlined"
-					icon="undo-small"
 					on:click={() => {
 						showDropDown = true;
 						// if (baseBranch) branchController.setTarget(baseBranch.branchName);

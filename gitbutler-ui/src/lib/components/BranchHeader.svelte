@@ -129,7 +129,7 @@
 {#if $isLaneCollapsed}
 	<div
 		class="card collapsed-lane"
-		on:dblclick={unfoldLine}
+		on:click={unfoldLine}
 		on:keydown={(e) => e.key === 'Enter' && unfoldLine()}
 		tabindex="0"
 		role="button"
