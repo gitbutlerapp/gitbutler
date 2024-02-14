@@ -5,6 +5,7 @@
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import CommitCard from '$lib/components/CommitCard.svelte';
 	import { type SettingsStore, SETTINGS_CONTEXT } from '$lib/settings/userSettings';
+	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
@@ -59,18 +60,20 @@
 						</div>
 					</div>
 				{/if}
-				{#if branch.commits && branch.commits.length > 0}
-					<div class="flex w-full flex-col gap-y-2">
-						{#each branch.commits as commit (commit.id)}
-							<CommitCard
-								{commit}
-								{projectId}
-								{selectedFiles}
-								commitUrl={base?.commitUrl(commit.id)}
-							/>
-						{/each}
-					</div>
-				{/if}
+				{#await getRemoteBranchData({ projectId, refname: branch.name }) then branchData}
+					{#if branchData.commits && branchData.commits.length > 0}
+						<div class="flex w-full flex-col gap-y-2">
+							{#each branchData.commits as commit (commit.id)}
+								<CommitCard
+									{commit}
+									{projectId}
+									{selectedFiles}
+									commitUrl={base?.commitUrl(commit.id)}
+								/>
+							{/each}
+						</div>
+					{/if}
+				{/await}
 			</div>
 		</ScrollableContainer>
 		<Resizer

@@ -186,6 +186,16 @@ export class RemoteBranch {
 	sha!: string;
 	name!: string;
 	upstream?: string;
+
+	get displayName(): string {
+		return this.name.replace('refs/remotes/', '').replace('origin/', '').replace('refs/heads/', '');
+	}
+}
+
+export class RemoteBranchData {
+	sha!: string;
+	name!: string;
+	upstream?: string;
 	behind!: number;
 	@Type(() => RemoteCommit)
 	commits!: RemoteCommit[];

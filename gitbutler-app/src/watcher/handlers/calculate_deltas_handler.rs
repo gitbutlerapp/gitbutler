@@ -1,7 +1,7 @@
 use std::{path, vec};
 
 use anyhow::{Context, Result};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::{
     deltas, gb_repository, project_repository,
@@ -18,33 +18,54 @@ pub struct Handler {
     users: users::Controller,
 }
 
-impl From<&path::PathBuf> for Handler {
-    fn from(value: &path::PathBuf) -> Self {
-        Self {
-            local_data_dir: value.clone(),
-            projects: projects::Controller::from(value),
-            users: users::Controller::from(value),
-        }
-    }
-}
-
 impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        let path = value
-            .path_resolver()
-            .app_data_dir()
-            .context("failed to get app data dir")?;
-        Ok(Self {
-            local_data_dir: path,
-            projects: projects::Controller::try_from(value)?,
-            users: users::Controller::from(value),
-        })
+        if let Some(handler) = value.try_state::<Handler>() {
+            Ok(handler.inner().clone())
+        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
+            let handler = Self::new(
+                app_data_dir,
+                projects::Controller::try_from(value)?,
+                users::Controller::try_from(value)?,
+            );
+            value.manage(handler.clone());
+            Ok(handler)
+        } else {
+            Err(anyhow::anyhow!("failed to get app data dir"))
+        }
+    }
+}
+
+#[cfg(test)]
+impl TryFrom<&std::path::PathBuf> for Handler {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
+        let app_data_dir = value.clone();
+        let handler = Self::new(
+            app_data_dir,
+            projects::Controller::try_from(value)?,
+            users::Controller::try_from(value)?,
+        );
+        Ok(handler)
     }
 }
 
 impl Handler {
+    fn new(
+        local_data_dir: path::PathBuf,
+        projects: projects::Controller,
+        users: users::Controller,
+    ) -> Self {
+        Self {
+            local_data_dir,
+            projects,
+            users,
+        }
+    }
+
     // Returns Some(file_content) or None if the file is ignored.
     fn get_current_file(
         project_repository: &project_repository::Repository,
@@ -256,7 +277,7 @@ mod test {
             project,
             ..
         } = suite.new_case_with_files(HashMap::from([(path::PathBuf::from("test.txt"), "test")]));
-        let listener = Handler::from(&suite.local_app_data);
+        let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
         std::fs::write(project.path.join("test.txt"), "test2")?;
         listener.handle("test.txt", &project.id)?;
@@ -287,7 +308,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::from(&suite.local_app_data);
+        let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
         std::fs::write(project.path.join("test.txt"), "test")?;
         listener.handle("test.txt", &project.id)?;
@@ -305,7 +326,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::from(&suite.local_app_data);
+        let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
         std::fs::write(project.path.join("test.txt"), "test")?;
         listener.handle("test.txt", &project.id)?;
@@ -328,7 +349,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::from(&suite.local_app_data);
+        let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
         std::fs::write(
             project.path.join("test.bin"),
@@ -360,7 +381,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::from(&suite.local_app_data);
+        let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
         std::fs::write(project.path.join("test.txt"), "")?;
 
@@ -388,7 +409,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::from(&suite.local_app_data);
+        let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
         std::fs::write(project.path.join("test.txt"), "test")?;
 
@@ -421,7 +442,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::from(&suite.local_app_data);
+        let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
         // file change, wd and deltas are written
         std::fs::write(project.path.join("test.txt"), "test")?;
@@ -449,7 +470,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::from(&suite.local_app_data);
+        let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
         std::fs::write(project.path.join("test.txt"), "test")?;
         listener.handle("test.txt", &project.id)?;
@@ -501,7 +522,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::from(&suite.local_app_data);
+        let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
         {
             // write file
@@ -580,7 +601,7 @@ mod test {
             project_repository,
             ..
         } = suite.new_case();
-        let listener = Handler::from(&suite.local_app_data);
+        let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
         let size = 10;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -667,7 +688,7 @@ mod test {
             project_repository,
             ..
         } = suite.new_case();
-        let listener = Handler::from(&suite.local_app_data);
+        let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
         let size = 10;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -752,7 +773,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::from(&suite.local_app_data);
+        let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
         let size = 10_i32;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -810,7 +831,7 @@ mod test {
             path::PathBuf::from("test.txt"),
             "hello world",
         )]));
-        let listener = Handler::from(&suite.local_app_data);
+        let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
         let branch_writer = virtual_branches::branch::Writer::new(&gb_repository)?;
         let target_writer = virtual_branches::target::Writer::new(&gb_repository)?;
@@ -866,7 +887,7 @@ mod test {
             path::PathBuf::from("test.txt"),
             "hello world",
         )]));
-        let listener = Handler::from(&suite.local_app_data);
+        let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
         let branch_writer = virtual_branches::branch::Writer::new(&gb_repository)?;
         let target_writer = virtual_branches::target::Writer::new(&gb_repository)?;
@@ -925,7 +946,7 @@ mod test {
                 project_repository,
                 ..
             } = suite.new_case();
-            let listener = Handler::from(&suite.local_app_data);
+            let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
             // write a file into session
             std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
@@ -1001,7 +1022,7 @@ mod test {
                 project_repository,
                 ..
             } = suite.new_case();
-            let listener = Handler::from(&suite.local_app_data);
+            let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
             // write a file into session
             std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
@@ -1077,7 +1098,7 @@ mod test {
                 project_repository,
                 ..
             } = suite.new_case();
-            let listener = Handler::from(&suite.local_app_data);
+            let listener = Handler::try_from(&suite.local_app_data).unwrap();
 
             // write a file into session
             std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();

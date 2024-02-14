@@ -15,10 +15,14 @@ pub struct Suite {
 impl Default for Suite {
     fn default() -> Self {
         let local_app_data = temp_dir();
-        let storage = storage::Storage::from(&local_app_data);
-        let users = users::Controller::from(&storage);
-        let projects = projects::Controller::from(&local_app_data);
-        let keys = keys::Controller::from(&storage);
+        let storage =
+            storage::Storage::try_from(&local_app_data).expect("failed to create storage");
+        let users = users::Controller::try_from(&local_app_data)
+            .expect("failed to create users controller");
+        let projects = projects::Controller::try_from(&local_app_data)
+            .expect("failed to create projects controller");
+        let keys =
+            keys::Controller::try_from(&local_app_data).expect("failed to create keys controller");
         Self {
             storage,
             local_app_data,
@@ -86,7 +90,8 @@ impl<'a> Case<'a> {
         let gb_repository =
             gb_repository::Repository::open(&suite.local_app_data, &project_repository, None)
                 .expect("failed to open gb repository");
-        let credentials = git::credentials::Helper::from(&suite.local_app_data);
+        let credentials = git::credentials::Helper::try_from(&suite.local_app_data)
+            .expect("failed to get credentials");
         Case {
             suite,
             project,
@@ -105,7 +110,8 @@ impl<'a> Case<'a> {
         let project_repository = project_repository::Repository::open(&project)
             .expect("failed to create project repository");
         let user = self.suite.users.get_user().expect("failed to get user");
-        let credentials = git::credentials::Helper::from(&self.suite.local_app_data);
+        let credentials = git::credentials::Helper::try_from(&self.suite.local_app_data)
+            .expect("failed to get credentials");
         Self {
             suite: self.suite,
             gb_repository: gb_repository::Repository::open(
@@ -122,8 +128,7 @@ impl<'a> Case<'a> {
 }
 
 pub fn test_database() -> database::Database {
-    let path = temp_dir().join("test.db");
-    database::Database::try_from(&path).unwrap()
+    database::Database::try_from(&temp_dir()).unwrap()
 }
 
 pub fn temp_dir() -> path::PathBuf {

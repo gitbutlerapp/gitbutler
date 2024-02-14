@@ -33,9 +33,9 @@ export class CombinedBranch {
 		}
 		if (this.remoteBranch && !this.pr) {
 			// TODO: Is there a better way to filter out duplicates?
-			authors.push(
-				...this.remoteBranch.authors.filter((a) => !authors.some((b) => a.email == b.email))
-			);
+			// authors.push(
+			// 	...this.remoteBranch.authors.filter((a) => !authors.some((b) => a.email == b.email))
+			// );
 		}
 		if (this.vbranch) {
 			authors.push({ name: 'you', email: 'none', isBot: false });
@@ -59,14 +59,14 @@ export class CombinedBranch {
 		if (this.pr?.mergedAt) return 'purple'; // merged PR
 		if (this.pr) return 'success'; // open PR
 		if (this.vbranch && this.vbranch.active == false) return 'pop'; // stashed virtual branches
-		if (this.remoteBranch?.isMergeable) return 'success'; // remote branches
+		// if (this.remoteBranch?.isMergeable) return 'success'; // remote branches
 		return 'neutral';
 	}
 
 	get modifiedAt(): Date | undefined {
 		if (this.pr) return this.pr.modifiedAt || this.pr.createdAt;
 		if (this.vbranch) return this.vbranch.updatedAt;
-		if (this.remoteBranch) return this.remoteBranch.lastCommitTs;
+		// if (this.remoteBranch) return this.remoteBranch.lastCommitTs;
 	}
 
 	get tooltip(): string | undefined {

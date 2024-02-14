@@ -24,7 +24,7 @@
 </script>
 
 {#if inputActive}
-	<span class="branch-name-mesure-el text-base-13" bind:this={mesureEl}>{name}</span>
+	<span class="branch-name-mesure-el text-base-13 text-bold" bind:this={mesureEl}>{name}</span>
 	<input
 		type="text"
 		{disabled}
@@ -39,7 +39,7 @@
 			}
 		}}
 		title={name}
-		class="branch-name-input text-base-13"
+		class="branch-name-input text-base-13 text-bold"
 		on:dblclick|stopPropagation
 		on:blur={() => (inputActive = false)}
 		on:keydown={(e) => {
@@ -64,7 +64,7 @@
 		bind:this={label}
 		role="textbox"
 		tabindex="0"
-		class="branch-name text-base-13 truncate"
+		class="branch-name text-base-13 text-bold truncate"
 		on:keydown={(e) => e.key == 'Enter' && activateInput()}
 		on:click={activateInput}
 	>

@@ -120,13 +120,13 @@
 		line-height: 120%;
 	}
 	.path {
-		color: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-theme-scale-ntrl-0);
 		line-height: 120%;
 		flex-shrink: 1;
 		white-space: nowrap;
 		text-overflow: ellipsis;
 		overflow: hidden;
-		line-height: 120%;
+		opacity: 0.3;
 	}
 	.selected-draggable {
 		background-color: var(--clr-theme-pop-container);

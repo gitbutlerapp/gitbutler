@@ -21,7 +21,7 @@
 
 <br/>
 
-![gitbutler_client](https://github.com/gitbutlerapp/gitbutler/assets/70/89466226-fc0b-4d42-951c-67d95590e00c)
+![gitbutler_client](https://github.com/gitbutlerapp/gitbutler/assets/16262535/0d180bfd-7a3c-4a66-a923-30534c5a8197)
 
 [![CI][s0]][l0] [![TWEET][s1]][l1] [![DISCORD][s2]][l2] [![INSTA][s3]][l3] [![YOUTUBE][s5]][l5]
 
@@ -33,7 +33,7 @@
 [l2]: https://discord.gg/MmFkmaJ42D
 [s3]: https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white
 [l3]: https://instagram.com/gitbutlerapp
-[s5]: https://img.shields.io/youtube/channel/subscribers/UCQiEMslIPy6ylW_TJXZ7nUQ
+[s5]: https://img.shields.io/youtube/channel/subscribers/UCEwkZIHGqsTGYvX8wgD0LoQ
 [l5]: https://www.youtube.com/@gitbutlerapp
 
 GitButler is a git client that lets you work on multiple branches at the same time.
@@ -58,7 +58,7 @@ And finally, while in Git it is preferable that you create your desired branch a
 
 We love Git. Our own [@schacon](https://github.com/schacon) has even published the [Pro Git](https://git-scm.com/book/en/v2) book. At the same time, Git's user interface hasn't been fundamentally changed for 15 years. While it was written for Linux kernel devs sending patches to each other over mailing lists, most developers today have different workflows and needs.
 
-Instead of trying to fit the semantics of the Git CLI into a graphical interface, are starting with the developer workflow and mapping it back to Git.
+Instead of trying to fit the semantics of the Git CLI into a graphical interface, we are starting with the developer workflow and mapping it back to Git.
 
 ## Tech
 

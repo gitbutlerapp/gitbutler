@@ -2,6 +2,7 @@
 	import '../styles/main.postcss';
 
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
+	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
 	import * as events from '$lib/utils/events';
 	import * as hotkeys from '$lib/utils/hotkeys';
@@ -49,3 +50,4 @@
 </div>
 <Toaster />
 <ShareIssueModal bind:this={shareIssueModal} user={$user$} {cloud} />
+<ToastController />

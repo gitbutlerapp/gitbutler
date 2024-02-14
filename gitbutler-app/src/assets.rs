@@ -2,14 +2,14 @@ use std::{collections::HashMap, fs, path, sync};
 
 use anyhow::{Context, Result};
 use futures::future::join_all;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::sync::Semaphore;
 use url::Url;
 
 use crate::{
     users,
     virtual_branches::{
-        Author, BaseBranch, RemoteBranch, RemoteCommit, VirtualBranch, VirtualBranchCommit,
+        Author, BaseBranch, RemoteBranchData, RemoteCommit, VirtualBranch, VirtualBranchCommit,
     },
 };
 
@@ -20,33 +20,34 @@ pub struct Proxy {
     semaphores: sync::Arc<tokio::sync::Mutex<HashMap<url::Url, Semaphore>>>,
 }
 
-impl From<&path::PathBuf> for Proxy {
-    fn from(value: &path::PathBuf) -> Self {
-        Self {
-            cache_dir: value.clone(),
-            semaphores: sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
-        }
-    }
-}
-
 impl TryFrom<&AppHandle> for Proxy {
     type Error = anyhow::Error;
 
-    fn try_from(handle: &AppHandle) -> Result<Self, Self::Error> {
-        let app_cache_dir = handle
-            .path_resolver()
-            .app_cache_dir()
-            .context("failed to get cache dir")?;
-        fs::create_dir_all(&app_cache_dir).context("failed to create cache dir")?;
-        let cache_dir = app_cache_dir.join("images");
-
-        Ok(Self::from(&cache_dir))
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        if let Some(proxy) = value.try_state::<Proxy>() {
+            Ok(proxy.inner().clone())
+        } else if let Some(app_cache_dir) = value.path_resolver().app_cache_dir() {
+            fs::create_dir_all(&app_cache_dir).context("failed to create cache dir")?;
+            let cache_dir = app_cache_dir.join("images");
+            let proxy = Self::new(cache_dir);
+            value.manage(proxy.clone());
+            Ok(proxy)
+        } else {
+            Err(anyhow::anyhow!("failed to get app cache dir"))
+        }
     }
 }
 
 const ASSET_SCHEME: &str = "asset";
 
 impl Proxy {
+    fn new(cache_dir: path::PathBuf) -> Self {
+        Proxy {
+            cache_dir,
+            semaphores: sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+        }
+    }
+
     pub async fn proxy_user(&self, user: users::User) -> users::User {
         match Url::parse(&user.picture) {
             Ok(picture) => users::User {
@@ -75,11 +76,6 @@ impl Proxy {
 
     pub async fn proxy_virtual_branch(&self, branch: VirtualBranch) -> VirtualBranch {
         VirtualBranch {
-            upstream: if let Some(upstream) = branch.upstream {
-                Some(self.proxy_remote_branch(upstream).await)
-            } else {
-                None
-            },
             commits: join_all(
                 branch
                     .commits
@@ -102,18 +98,8 @@ impl Proxy {
         .await
     }
 
-    pub async fn proxy_remote_branches(&self, branches: Vec<RemoteBranch>) -> Vec<RemoteBranch> {
-        join_all(
-            branches
-                .into_iter()
-                .map(|branch| self.proxy_remote_branch(branch))
-                .collect::<Vec<_>>(),
-        )
-        .await
-    }
-
-    pub async fn proxy_remote_branch(&self, branch: RemoteBranch) -> RemoteBranch {
-        RemoteBranch {
+    pub async fn proxy_remote_branch_data(&self, branch: RemoteBranchData) -> RemoteBranchData {
+        RemoteBranchData {
             commits: join_all(
                 branch
                     .commits

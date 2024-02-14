@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path, sync::Arc};
 
 use anyhow::Context;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::sync::Semaphore;
 
 use crate::{
@@ -14,8 +14,8 @@ use crate::{
 use super::{
     branch::{BranchId, Ownership},
     errors::{
-        self, FetchFromTargetError, GetBaseBranchDataError, IsRemoteBranchMergableError,
-        ListRemoteBranchesError,
+        self, FetchFromTargetError, GetBaseBranchDataError, GetRemoteBranchDataError,
+        IsRemoteBranchMergableError, ListRemoteBranchesError,
     },
     target_to_base_branch, BaseBranch, RemoteBranchFile,
 };
@@ -35,36 +35,38 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        let data_dir = value
-            .path_resolver()
-            .app_data_dir()
-            .context("failed to get app data dir")?;
-        Ok(Self::new(
-            &data_dir,
-            &projects::Controller::from(&data_dir),
-            &users::Controller::from(&data_dir),
-            &keys::Controller::from(&data_dir),
-            &git::credentials::Helper::from(&data_dir),
-        ))
+        if let Some(controller) = value.try_state::<Controller>() {
+            Ok(controller.inner().clone())
+        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
+            Ok(Self::new(
+                app_data_dir,
+                projects::Controller::try_from(value)?,
+                users::Controller::try_from(value)?,
+                keys::Controller::try_from(value)?,
+                git::credentials::Helper::try_from(value)?,
+            ))
+        } else {
+            Err(anyhow::anyhow!("failed to get app data dir"))
+        }
     }
 }
 
 impl Controller {
     pub fn new(
-        data_dir: &path::Path,
-        projects: &projects::Controller,
-        users: &users::Controller,
-        keys: &keys::Controller,
-        helper: &git::credentials::Helper,
+        local_data_dir: path::PathBuf,
+        projects: projects::Controller,
+        users: users::Controller,
+        keys: keys::Controller,
+        helper: git::credentials::Helper,
     ) -> Self {
         Self {
             by_project_id: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
 
-            local_data_dir: data_dir.to_path_buf(),
-            projects: projects.clone(),
-            users: users.clone(),
-            keys: keys.clone(),
-            helper: helper.clone(),
+            local_data_dir,
+            projects,
+            users,
+            keys,
+            helper,
         }
     }
 
@@ -313,6 +315,16 @@ impl Controller {
             .list_remote_branches(project_id)
     }
 
+    pub async fn get_remote_branch_data(
+        &self,
+        project_id: &ProjectId,
+        refname: &git::Refname,
+    ) -> Result<super::RemoteBranchData, ControllerError<GetRemoteBranchDataError>> {
+        self.inner(project_id)
+            .await
+            .get_remote_branch_data(project_id, refname)
+    }
+
     pub async fn squash(
         &self,
         project_id: &ProjectId,
@@ -373,18 +385,6 @@ where
     User(#[from] Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<&path::PathBuf> for ControllerInner {
-    fn from(value: &path::PathBuf) -> Self {
-        Self::new(
-            value,
-            &projects::Controller::from(value),
-            &users::Controller::from(value),
-            &keys::Controller::from(value),
-            &git::credentials::Helper::from(value),
-        )
-    }
 }
 
 impl ControllerInner {
@@ -805,6 +805,25 @@ impl ControllerInner {
         )
         .context("failed to open gitbutler repository")?;
         super::list_remote_branches(&gb_repository, &project_repository)
+            .map_err(ControllerError::Action)
+    }
+
+    pub fn get_remote_branch_data(
+        &self,
+        project_id: &ProjectId,
+        refname: &git::Refname,
+    ) -> Result<super::RemoteBranchData, ControllerError<GetRemoteBranchDataError>> {
+        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let project_repository =
+            project_repository::Repository::open(&project).map_err(Error::from)?;
+        let user = self.users.get_user().map_err(Error::from)?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gitbutler repository")?;
+        super::get_branch_data(&gb_repository, &project_repository, refname)
             .map_err(ControllerError::Action)
     }
 

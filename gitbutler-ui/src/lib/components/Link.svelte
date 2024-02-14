@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
-	import { open } from '@tauri-apps/api/shell';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { onMount } from 'svelte';
 
 	let classes = '';
@@ -27,24 +27,41 @@
 		{href}
 		{target}
 		{rel}
-		class="link inline-flex cursor-pointer items-center justify-center gap-1 whitespace-nowrap hover:underline hover:ease-in {role} {classes}"
+		class="link {role} {classes}"
 		bind:this={element}
 		class:disabled
 		on:click={(e) => {
 			if (href && isExternal) {
-				open(href);
 				e.preventDefault();
 				e.stopPropagation();
+				openExternalUrl(href);
 			}
 		}}
 	>
-		<div class="truncate">
-			<slot />
-		</div>
+		<slot />
 		{#if isExternal}
-			<div class="shrink-0">
+			<div class="link-icon">
 				<Icon name="open-link" />
 			</div>
 		{/if}
 	</a>
 {/if}
+
+<style lang="post-css">
+	.link {
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2);
+		border-radius: var(--radius-m);
+		transition: background-color var(--transition-fast);
+		text-decoration: underline;
+
+		&:hover {
+			text-decoration: none;
+		}
+	}
+	.link-icon {
+		flex-shrink: 0;
+	}
+</style>

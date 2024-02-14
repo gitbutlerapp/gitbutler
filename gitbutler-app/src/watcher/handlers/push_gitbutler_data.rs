@@ -2,7 +2,7 @@ use std::path;
 use std::sync::{Arc, Mutex, TryLockError};
 
 use anyhow::{Context, Result};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::gb_repository::RemoteError;
 use crate::projects::ProjectId;
@@ -19,13 +19,28 @@ impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        Ok(Self {
-            inner: Arc::new(Mutex::new(HandlerInner::try_from(value)?)),
-        })
+        if let Some(handler) = value.try_state::<Handler>() {
+            Ok(handler.inner().clone())
+        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
+            let projects = projects::Controller::try_from(value)?;
+            let users = users::Controller::try_from(value)?;
+            let inner = HandlerInner::new(app_data_dir, projects, users);
+            let handler = Handler::new(inner);
+            value.manage(handler.clone());
+            Ok(handler)
+        } else {
+            Err(anyhow::anyhow!("failed to get app data dir"))
+        }
     }
 }
 
 impl Handler {
+    fn new(inner: HandlerInner) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(inner)),
+        }
+    }
+
     pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         match self.inner.try_lock() {
             Ok(inner) => inner.handle(project_id),
@@ -39,22 +54,6 @@ struct HandlerInner {
     local_data_dir: path::PathBuf,
     projects: projects::Controller,
     users: users::Controller,
-}
-
-impl TryFrom<&AppHandle> for HandlerInner {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let path = value
-            .path_resolver()
-            .app_data_dir()
-            .context("failed to get app data dir")?;
-        Ok(Self::new(
-            path,
-            projects::Controller::try_from(value)?,
-            users::Controller::from(value),
-        ))
-    }
 }
 
 impl HandlerInner {

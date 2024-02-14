@@ -27,6 +27,7 @@
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
+	import type { Persisted } from '$lib/persisted/persisted';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch, LocalFile } from '$lib/vbranches/types';
 
@@ -43,6 +44,8 @@
 	export let githubService: GitHubService;
 	export let selectedOwnership: Writable<Ownership>;
 	export let commitBoxOpen: Writable<boolean>;
+
+	export let isLaneCollapsed: Persisted<boolean>;
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 
@@ -128,7 +131,25 @@
 	}
 </script>
 
-<div class="branch-card-wrapper">
+{#if $isLaneCollapsed}
+	<div class="collapsed-lane-wrapper">
+		<BranchHeader
+			{isUnapplied}
+			{branchController}
+			{branch}
+			{base}
+			{githubService}
+			{branchService}
+			bind:isLaneCollapsed
+			projectId={project.id}
+			on:action={(e) => {
+				if (e.detail == 'generate-branch-name') {
+					generateBranchName();
+				}
+			}}
+		/>
+	</div>
+{:else}
 	<div
 		class="branch-card"
 		data-tauri-drag-region
@@ -146,6 +167,7 @@
 				{base}
 				{githubService}
 				{branchService}
+				bind:isLaneCollapsed
 				projectId={project.id}
 				on:action={(e) => {
 					if (e.detail == 'generate-branch-name') {
@@ -253,29 +275,30 @@
 				{selectedFiles}
 			/>
 		</div>
+
+		<div class="divider-line">
+			<Resizer
+				viewport={rsViewport}
+				direction="right"
+				inside={$selectedFiles.length > 0}
+				minWidth={320}
+				sticky
+				on:width={(e) => {
+					laneWidth = e.detail / (16 * $userSettings.zoom);
+					lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
+					$defaultBranchWidthRem = laneWidth;
+				}}
+			/>
+		</div>
 	</div>
-	<div class="divider-line">
-		<Resizer
-			viewport={rsViewport}
-			direction="right"
-			inside={$selectedFiles.length > 0}
-			minWidth={320}
-			sticky
-			on:width={(e) => {
-				laneWidth = e.detail / (16 * $userSettings.zoom);
-				lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
-				$defaultBranchWidthRem = laneWidth;
-			}}
-		/>
-	</div>
-</div>
+{/if}
 
 <style lang="postcss">
-	.branch-card-wrapper {
+	/* .branch-card-wrapper {
 		position: relative;
 		display: flex;
 		height: 100%;
-	}
+	} */
 	.branch-card {
 		height: 100%;
 		position: relative;
@@ -396,5 +419,14 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 100%;
+	}
+
+	/* COLLAPSED LANE */
+	.collapsed-lane-wrapper {
+		display: flex;
+		flex-direction: column;
+		padding: var(--space-12);
+		height: 100%;
+		border-right: 1px solid var(--clr-theme-container-outline-light);
 	}
 </style>

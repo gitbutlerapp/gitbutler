@@ -96,8 +96,8 @@
 			<p class="links__title text-base-14 text-bold">Join our community</p>
 			<div class="community-links">
 				<IconLink icon="discord" href="https://discord.gg/wDKZCPEjXC">Discord</IconLink>
-				<IconLink icon="instagram" href="https://www.instagram.com/gitbutler/">Instagram</IconLink>
 				<IconLink icon="x" href="https://twitter.com/gitbutler">X</IconLink>
+				<IconLink icon="instagram" href="https://www.instagram.com/gitbutler/">Instagram</IconLink>
 			</div>
 		</div>
 	</div>
@@ -138,14 +138,17 @@
 	.education-links {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-10);
+		align-items: flex-start;
+		gap: var(--space-6);
+		margin-left: calc(var(--space-6) * -1);
 	}
 
 	.community-links {
 		display: flex;
 		flex-wrap: wrap;
-		column-gap: var(--space-24);
-		row-gap: var(--space-10);
+		column-gap: var(--space-12);
+		row-gap: var(--space-4);
 		max-width: calc(var(--space-64) * 3);
+		margin-left: calc(var(--space-6) * -1);
 	}
 </style>

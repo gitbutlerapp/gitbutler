@@ -12,6 +12,7 @@ use crate::{
     users, watcher,
 };
 
+#[derive(Clone)]
 pub struct App {
     local_data_dir: path::PathBuf,
     projects: projects::Controller,
@@ -36,21 +37,39 @@ impl TryFrom<&AppHandle> for App {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let path = value
-            .path_resolver()
-            .app_data_dir()
-            .context("failed to get app data dir")?;
-        Ok(Self {
-            local_data_dir: path,
-            projects: projects::Controller::try_from(value)?,
-            users: users::Controller::from(value),
-            watchers: value.state::<watcher::Watchers>().inner().clone(),
-            sessions_database: sessions::Database::from(value),
-        })
+        if let Some(app) = value.try_state::<App>() {
+            Ok(app.inner().clone())
+        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
+            let projects = projects::Controller::try_from(value)?;
+            let users = users::Controller::try_from(value)?;
+            let watchers = watcher::Watchers::try_from(value)?;
+            let sessions_database = sessions::Database::try_from(value)?;
+            let app = App::new(app_data_dir, projects, users, watchers, sessions_database);
+            value.manage(app.clone());
+            Ok(app)
+        } else {
+            Err(anyhow::anyhow!("failed to get app data dir"))
+        }
     }
 }
 
 impl App {
+    fn new(
+        local_data_dir: path::PathBuf,
+        projects: projects::Controller,
+        users: users::Controller,
+        watchers: watcher::Watchers,
+        sessions_database: sessions::Database,
+    ) -> Self {
+        Self {
+            local_data_dir,
+            projects,
+            users,
+            watchers,
+            sessions_database,
+        }
+    }
+
     pub fn init_project(&self, project: &projects::Project) -> Result<()> {
         self.watchers.watch(project).context(format!(
             "failed to start watcher for project {}",

@@ -131,6 +131,7 @@ export function parserFromFilename(filename: string): Parser | null {
 		case 'php':
 			return php().language.parser;
 
+		case 'py':
 		case 'python':
 			return python().language.parser;
 

@@ -1,6 +1,8 @@
 <script lang="ts">
+	import AnalyticsConfirmation from '$lib/components/AnalyticsConfirmation.svelte';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import Welcome from '$lib/components/Welcome.svelte';
+	import { appAnalyticsConfirmed } from '$lib/config/appSettings';
 	import { map } from 'rxjs';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
@@ -13,6 +15,7 @@
 	$: user$ = userService.user$;
 	$: debug = $page.url.searchParams.get('debug');
 
+	const analyticsConfirmed = appAnalyticsConfirmed();
 	const persistedId = projectService.getLastOpenedProject();
 	const redirect$ = projects$.pipe(
 		map((projects) => {
@@ -30,6 +33,16 @@
 {:else if $redirect$}
 	<!-- TODO: Is this a valid form of redirect? -->
 	{goto(`/${$redirect$}/`)}
+{:else if !$analyticsConfirmed}
+	<DecorativeSplitView
+		user={$user$}
+		imgSet={{
+			light: '/images/img_analytics-light.webp',
+			dark: '/images/img_analytics-dark.webp'
+		}}
+	>
+		<AnalyticsConfirmation {analyticsConfirmed} />
+	</DecorativeSplitView>
 {:else}
 	<DecorativeSplitView
 		user={$user$}
@@ -41,6 +54,3 @@
 		<Welcome {projectService} {userService} />
 	</DecorativeSplitView>
 {/if}
-
-<style lang="postcss">
-</style>

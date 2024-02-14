@@ -56,7 +56,6 @@
 				<Button
 					color="primary"
 					kind="outlined"
-					icon="undo-small"
 					on:click={() => {
 						showDropDown = true;
 						// if (baseBranch) branchController.setTarget(baseBranch.branchName);

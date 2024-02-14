@@ -3,7 +3,7 @@ import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { getCloudApiClient, type User } from '$lib/backend/cloud';
 import { invoke } from '$lib/backend/ipc';
 import { sleep } from '$lib/utils/sleep';
-import { open } from '@tauri-apps/api/shell';
+import { openExternalUrl } from '$lib/utils/url';
 import { BehaviorSubject, Observable, Subject, merge, shareReplay } from 'rxjs';
 
 export class UserService {
@@ -49,7 +49,7 @@ export class UserService {
 		this.loading$.next(true);
 		try {
 			const token = await this.cloud.login.token.create();
-			open(token.url);
+			openExternalUrl(token.url);
 
 			// Assumed min time for login flow
 			await sleep(4000);

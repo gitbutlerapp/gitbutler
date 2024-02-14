@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::watcher;
 use anyhow::Context;
 use tauri::{AppHandle, Manager};
@@ -512,11 +514,33 @@ pub async fn list_remote_branches(
         .state::<Controller>()
         .list_remote_branches(&project_id)
         .await?;
-    let branches = handle
-        .state::<assets::Proxy>()
-        .proxy_remote_branches(branches)
-        .await;
     Ok(branches)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn get_remote_branch_data(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    refname: &str,
+) -> Result<super::RemoteBranchData, Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".to_string(),
+    })?;
+    let refname = git::Refname::from_str(refname).map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed refname".to_string(),
+    })?;
+    let branch_data = handle
+        .state::<Controller>()
+        .get_remote_branch_data(&project_id, &refname)
+        .await?;
+    let branch_data = handle
+        .state::<assets::Proxy>()
+        .proxy_remote_branch_data(branch_data)
+        .await;
+    Ok(branch_data)
 }
 
 #[tauri::command(async)]

@@ -1,19 +1,27 @@
 use std::collections::HashMap;
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::{projects::ProjectId, sessions::SessionId};
 
 use super::{database, Delta};
 
+#[derive(Clone)]
 pub struct Controller {
     database: database::Database,
 }
 
-impl From<&AppHandle> for Controller {
-    fn from(handle: &AppHandle) -> Self {
-        Self {
-            database: database::Database::from(handle),
+impl TryFrom<&AppHandle> for Controller {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        if let Some(controller) = value.try_state::<Controller>() {
+            Ok(controller.inner().clone())
+        } else {
+            let database = database::Database::try_from(value)?;
+            let controller = Controller::new(database);
+            value.manage(controller.clone());
+            Ok(controller)
         }
     }
 }
@@ -25,6 +33,10 @@ pub enum ListError {
 }
 
 impl Controller {
+    fn new(database: database::Database) -> Controller {
+        Controller { database }
+    }
+
     pub fn list_by_session_id(
         &self,
         project_id: &ProjectId,

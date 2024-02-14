@@ -1,7 +1,7 @@
 use std::{path, sync::Arc};
 
 use anyhow::{Context, Result};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
 use crate::{gb_repository, project_repository, projects, projects::ProjectId, sessions, users};
@@ -17,14 +17,29 @@ impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let inner = HandlerInner::try_from(value)?;
-        Ok(Self {
-            inner: Arc::new(Mutex::new(inner)),
-        })
+        if let Some(handler) = value.try_state::<Handler>() {
+            Ok(handler.inner().clone())
+        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
+            let projects = projects::Controller::try_from(value)?;
+            let users = users::Controller::try_from(value)?;
+            let inner = HandlerInner::new(app_data_dir, projects, users);
+
+            let handler = Handler::new(inner);
+            value.manage(handler.clone());
+            Ok(handler)
+        } else {
+            Err(anyhow::anyhow!("failed to get app data dir"))
+        }
     }
 }
 
 impl Handler {
+    fn new(inner: HandlerInner) -> Handler {
+        Handler {
+            inner: Arc::new(Mutex::new(inner)),
+        }
+    }
+
     pub fn handle(
         &self,
         project_id: &ProjectId,
@@ -44,23 +59,19 @@ struct HandlerInner {
     users: users::Controller,
 }
 
-impl TryFrom<&AppHandle> for HandlerInner {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let path = value
-            .path_resolver()
-            .app_data_dir()
-            .context("failed to get app data dir")?;
-        Ok(Self {
-            local_data_dir: path,
-            project_store: projects::Controller::try_from(value)?,
-            users: users::Controller::from(value),
-        })
-    }
-}
-
 impl HandlerInner {
+    fn new(
+        local_data_dir: path::PathBuf,
+        project_store: projects::Controller,
+        users: users::Controller,
+    ) -> HandlerInner {
+        HandlerInner {
+            local_data_dir,
+            project_store,
+            users,
+        }
+    }
+
     pub fn handle(
         &self,
         project_id: &ProjectId,

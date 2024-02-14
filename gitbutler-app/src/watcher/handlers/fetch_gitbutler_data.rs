@@ -1,7 +1,7 @@
 use std::{path, sync::Arc, time};
 
 use anyhow::{Context, Result};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
 use crate::{gb_repository, project_repository, projects, projects::ProjectId, users};
@@ -10,21 +10,35 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    inner: Arc<Mutex<HandlerInner>>,
+    inner: Arc<Mutex<InnerHandler>>,
 }
 
 impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let inner = HandlerInner::try_from(value)?;
-        Ok(Self {
-            inner: Arc::new(Mutex::new(inner)),
-        })
+        if let Some(handler) = value.try_state::<Handler>() {
+            Ok(handler.inner().clone())
+        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
+            let projects = projects::Controller::try_from(value)?;
+            let users = users::Controller::try_from(value)?;
+            let inner = InnerHandler::new(app_data_dir, projects, users);
+            let handler = Handler::new(inner);
+            value.manage(handler.clone());
+            Ok(handler)
+        } else {
+            Err(anyhow::anyhow!("failed to get app data dir"))
+        }
     }
 }
 
 impl Handler {
+    fn new(inner: InnerHandler) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(inner)),
+        }
+    }
+
     pub async fn handle(
         &self,
         project_id: &ProjectId,
@@ -38,29 +52,25 @@ impl Handler {
     }
 }
 
-struct HandlerInner {
+struct InnerHandler {
     local_data_dir: path::PathBuf,
     projects: projects::Controller,
     users: users::Controller,
 }
 
-impl TryFrom<&AppHandle> for HandlerInner {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let local_data_dir = value
-            .path_resolver()
-            .app_data_dir()
-            .context("failed to get app data dir")?;
-        Ok(Self {
+impl InnerHandler {
+    fn new(
+        local_data_dir: path::PathBuf,
+        projects: projects::Controller,
+        users: users::Controller,
+    ) -> Self {
+        Self {
             local_data_dir,
-            projects: projects::Controller::try_from(value)?,
-            users: users::Controller::from(value),
-        })
+            projects,
+            users,
+        }
     }
-}
 
-impl HandlerInner {
     pub async fn handle(
         &self,
         project_id: &ProjectId,
@@ -189,7 +199,7 @@ mod test {
             })
             .await?;
 
-        let listener = HandlerInner {
+        let listener = InnerHandler {
             local_data_dir: suite.local_app_data,
             projects: suite.projects,
             users: suite.users,
@@ -208,7 +218,7 @@ mod test {
         let suite = Suite::default();
         let Case { project, .. } = suite.new_case();
 
-        let listener = HandlerInner {
+        let listener = InnerHandler {
             local_data_dir: suite.local_app_data,
             projects: suite.projects,
             users: suite.users,

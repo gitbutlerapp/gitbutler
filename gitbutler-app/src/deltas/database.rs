@@ -12,19 +12,25 @@ pub struct Database {
     database: database::Database,
 }
 
-impl From<database::Database> for Database {
-    fn from(database: database::Database) -> Self {
-        Self { database }
-    }
-}
+impl TryFrom<&AppHandle> for Database {
+    type Error = anyhow::Error;
 
-impl From<&AppHandle> for Database {
-    fn from(value: &AppHandle) -> Self {
-        Self::from(value.state::<database::Database>().inner().clone())
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        if let Some(database) = value.try_state::<Database>() {
+            Ok(database.inner().clone())
+        } else {
+            let database = Database::new(database::Database::try_from(value)?);
+            value.manage(database.clone());
+            Ok(database)
+        }
     }
 }
 
 impl Database {
+    fn new(database: database::Database) -> Database {
+        Database { database }
+    }
+
     pub fn insert(
         &self,
         project_id: &ProjectId,
@@ -108,8 +114,8 @@ fn list_by_project_id_session_id_stmt<'conn>(
 ) -> Result<rusqlite::CachedStatement<'conn>> {
     Ok(tx.prepare_cached(
         "
-        SELECT `file_path`, `timestamp_ms`, `operations` 
-        FROM `deltas` 
+        SELECT `file_path`, `timestamp_ms`, `operations`
+        FROM `deltas`
         WHERE `session_id` = :session_id AND `project_id` = :project_id
         ORDER BY `timestamp_ms` ASC",
     )?)
@@ -139,7 +145,7 @@ mod tests {
     #[test]
     fn insert_query() -> Result<()> {
         let db = test_utils::test_database();
-        let database = Database::from(db);
+        let database = Database::new(db);
 
         let project_id = ProjectId::generate();
         let session_id = SessionId::generate();
@@ -165,7 +171,7 @@ mod tests {
     #[test]
     fn insert_update() -> Result<()> {
         let db = test_utils::test_database();
-        let database = Database::from(db);
+        let database = Database::new(db);
 
         let project_id = ProjectId::generate();
         let session_id = SessionId::generate();
@@ -198,7 +204,7 @@ mod tests {
     #[test]
     fn aggregate_deltas_by_file() -> Result<()> {
         let db = test_utils::test_database();
-        let database = Database::from(db);
+        let database = Database::new(db);
 
         let project_id = ProjectId::generate();
         let session_id = SessionId::generate();

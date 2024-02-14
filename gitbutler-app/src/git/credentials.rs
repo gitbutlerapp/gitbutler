@@ -1,6 +1,6 @@
 use std::{env, path};
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::{keys, project_repository, projects, users};
 
@@ -76,19 +76,31 @@ pub struct Helper {
     home_dir: Option<path::PathBuf>,
 }
 
-impl From<&AppHandle> for Helper {
-    fn from(value: &AppHandle) -> Self {
-        let keys = keys::Controller::from(value);
-        let users = users::Controller::from(value);
-        Self::new(keys, users, env::var_os("HOME").map(path::PathBuf::from))
+impl TryFrom<&AppHandle> for Helper {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        if let Some(helper) = value.try_state::<Helper>() {
+            Ok(helper.inner().clone())
+        } else {
+            let keys = keys::Controller::try_from(value)?;
+            let users = users::Controller::try_from(value)?;
+            let home_dir = env::var_os("HOME").map(path::PathBuf::from);
+            let helper = Helper::new(keys, users, home_dir);
+            value.manage(helper.clone());
+            Ok(helper)
+        }
     }
 }
 
-impl From<&path::PathBuf> for Helper {
-    fn from(value: &path::PathBuf) -> Self {
-        let keys = keys::Controller::from(value);
-        let users = users::Controller::from(value);
-        Self::new(keys, users, env::var_os("HOME").map(path::PathBuf::from))
+impl TryFrom<&std::path::PathBuf> for Helper {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
+        let keys = keys::Controller::try_from(value)?;
+        let users = users::Controller::try_from(value)?;
+        let home_dir = env::var_os("HOME").map(path::PathBuf::from);
+        Ok(Helper::new(keys, users, home_dir))
     }
 }
 
@@ -419,14 +431,14 @@ mod tests {
         fn run(&self) -> Vec<(String, Vec<Credential>)> {
             let local_app_data = test_utils::temp_dir();
 
-            let users = users::Controller::from(&local_app_data);
+            let users = users::Controller::try_from(&local_app_data).unwrap();
             let user = users::User {
                 github_access_token: self.github_access_token.map(ToString::to_string),
                 ..Default::default()
             };
             users.set_user(&user).unwrap();
 
-            let keys = keys::Controller::from(&local_app_data);
+            let keys = keys::Controller::try_from(&local_app_data).unwrap();
             let helper = Helper::new(keys, users, self.home_dir.clone());
 
             let repo = test_repository();

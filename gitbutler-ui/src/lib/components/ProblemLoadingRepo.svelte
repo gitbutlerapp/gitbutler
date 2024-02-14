@@ -50,7 +50,7 @@
 
 		<div class="problem__error text-base-body-12">
 			<Icon name="error" color="error" />
-			{error ? error.message : 'An unknown error occurred'}
+			{error ? error : 'An unknown error occurred'}
 		</div>
 
 		<div class="remove-project-btn">

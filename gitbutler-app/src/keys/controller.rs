@@ -1,9 +1,5 @@
-use std::path;
-
 use anyhow::Context;
-use tauri::AppHandle;
-
-use crate::storage;
+use tauri::{AppHandle, Manager};
 
 use super::{storage::Storage, PrivateKey};
 
@@ -12,35 +8,31 @@ pub struct Controller {
     storage: Storage,
 }
 
-impl From<&path::PathBuf> for Controller {
-    fn from(value: &path::PathBuf) -> Self {
-        Self {
-            storage: Storage::from(value),
+impl TryFrom<&AppHandle> for Controller {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        if let Some(controller) = value.try_state::<Controller>() {
+            Ok(controller.inner().clone())
+        } else {
+            let controller = Controller::new(Storage::try_from(value)?);
+            value.manage(controller.clone());
+            Ok(controller)
         }
     }
 }
 
-impl From<&storage::Storage> for Controller {
-    fn from(value: &storage::Storage) -> Self {
-        Self {
-            storage: Storage::from(value),
-        }
-    }
-}
+impl TryFrom<&std::path::PathBuf> for Controller {
+    type Error = anyhow::Error;
 
-impl From<&AppHandle> for Controller {
-    fn from(value: &AppHandle) -> Self {
-        Self {
-            storage: Storage::from(value),
-        }
+    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
+        Ok(Controller::new(Storage::try_from(value)?))
     }
 }
 
 impl Controller {
-    pub fn new(storage: &Storage) -> Self {
-        Self {
-            storage: storage.clone(),
-        }
+    fn new(storage: Storage) -> Self {
+        Self { storage }
     }
 
     pub fn get_or_create(&self) -> Result<PrivateKey, GetOrCreateError> {
@@ -74,7 +66,7 @@ mod tests {
     #[test]
     fn test_get_or_create() {
         let suite = Suite::default();
-        let controller = Controller::from(&suite.local_app_data);
+        let controller = Controller::try_from(&suite.local_app_data).unwrap();
 
         let once = controller.get_or_create().unwrap();
         let twice = controller.get_or_create().unwrap();

@@ -5,7 +5,7 @@ use gblib::projects::Controller;
 
 pub fn new() -> Controller {
     let data_dir = paths::data_dir();
-    Controller::from(&data_dir)
+    Controller::try_from(&data_dir).unwrap()
 }
 
 mod add {
