@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -19,14 +19,25 @@ impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let inner = HandlerInner::try_from(value)?;
-        Ok(Self {
-            inner: Arc::new(Mutex::new(inner)),
-        })
+        if let Some(handler) = value.try_state::<Handler>() {
+            Ok(handler.inner().clone())
+        } else {
+            let vbranches = virtual_branches::Controller::try_from(value)?;
+            let inner = HandlerInner::new(vbranches);
+            let handler = Handler::new(inner);
+            value.manage(handler.clone());
+            Ok(handler)
+        }
     }
 }
 
 impl Handler {
+    fn new(inner: HandlerInner) -> Handler {
+        Handler {
+            inner: Arc::new(Mutex::new(inner)),
+        }
+    }
+
     pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         if let Ok(inner) = self.inner.try_lock() {
             inner.handle(project_id).await
@@ -40,17 +51,11 @@ struct HandlerInner {
     vbranches: virtual_branches::Controller,
 }
 
-impl TryFrom<&AppHandle> for HandlerInner {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        Ok(Self {
-            vbranches: virtual_branches::Controller::try_from(value)?,
-        })
-    }
-}
-
 impl HandlerInner {
+    fn new(vbranches: virtual_branches::Controller) -> HandlerInner {
+        HandlerInner { vbranches }
+    }
+
     pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         match self.vbranches.fetch_from_target(project_id).await {
             Ok(_)

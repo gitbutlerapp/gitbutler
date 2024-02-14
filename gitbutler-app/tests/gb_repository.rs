@@ -12,7 +12,7 @@ mod init {
         let test_project = TestProject::default();
 
         let data_dir = paths::data_dir();
-        let projects = projects::Controller::from(&data_dir);
+        let projects = projects::Controller::try_from(&data_dir).unwrap();
 
         let project = projects
             .add(test_project.path())
@@ -31,7 +31,7 @@ mod init {
         let test_project = TestProject::default();
 
         let data_dir = paths::data_dir();
-        let projects = projects::Controller::from(&data_dir);
+        let projects = projects::Controller::try_from(&data_dir).unwrap();
 
         let project = projects
             .add(test_project.path())
@@ -52,7 +52,7 @@ mod init {
         let test_project = TestProject::default();
 
         let data_dir = paths::data_dir();
-        let projects = projects::Controller::from(&data_dir);
+        let projects = projects::Controller::try_from(&data_dir).unwrap();
 
         let project = projects
             .add(test_project.path())
@@ -82,7 +82,7 @@ mod flush {
         let test_project = TestProject::default();
 
         let data_dir = paths::data_dir();
-        let projects = projects::Controller::from(&data_dir);
+        let projects = projects::Controller::try_from(&data_dir).unwrap();
 
         let project = projects
             .add(test_project.path())
@@ -104,7 +104,7 @@ mod flush {
         let test_project = TestProject::default();
 
         let data_dir = paths::data_dir();
-        let projects = projects::Controller::from(&data_dir);
+        let projects = projects::Controller::try_from(&data_dir).unwrap();
 
         let project = projects
             .add(test_project.path())
@@ -128,7 +128,7 @@ mod flush {
         let test_project = TestProject::default();
 
         let data_dir = paths::data_dir();
-        let projects = projects::Controller::from(&data_dir);
+        let projects = projects::Controller::try_from(&data_dir).unwrap();
 
         let project = projects
             .add(test_project.path())

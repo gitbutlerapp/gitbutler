@@ -2,7 +2,7 @@ use std::{path, sync::Arc, time};
 
 use anyhow::{Context, Result};
 use itertools::Itertools;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -24,14 +24,28 @@ impl TryFrom<&AppHandle> for Handler {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let inner = HandlerInner::try_from(value)?;
-        Ok(Self {
-            inner: Arc::new(Mutex::new(inner)),
-        })
+        if let Some(handler) = value.try_state::<Handler>() {
+            Ok(handler.inner().clone())
+        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
+            let projects = projects::Controller::try_from(value)?;
+            let users = users::Controller::try_from(value)?;
+            let inner = HandlerInner::new(app_data_dir, projects, users);
+            let handler = Handler::new(inner);
+            value.manage(handler.clone());
+            Ok(handler)
+        } else {
+            Err(anyhow::anyhow!("failed to get app data dir"))
+        }
     }
 }
 
 impl Handler {
+    fn new(inner: HandlerInner) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(inner)),
+        }
+    }
+
     pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         if let Ok(inner) = self.inner.try_lock() {
             inner.handle(project_id).await
@@ -48,24 +62,20 @@ pub struct HandlerInner {
     batch_size: usize,
 }
 
-impl TryFrom<&AppHandle> for HandlerInner {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        let path = value
-            .path_resolver()
-            .app_data_dir()
-            .context("failed to get app data dir")?;
-        Ok(Self {
-            batch_size: 1000,
-            local_data_dir: path,
-            project_store: projects::Controller::try_from(value)?,
-            users: users::Controller::from(value),
-        })
-    }
-}
-
 impl HandlerInner {
+    fn new(
+        local_data_dir: path::PathBuf,
+        project_store: projects::Controller,
+        users: users::Controller,
+    ) -> Self {
+        Self {
+            local_data_dir,
+            project_store,
+            users,
+            batch_size: 1000,
+        }
+    }
+
     pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         let project = self
             .project_store

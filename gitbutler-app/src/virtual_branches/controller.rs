@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path, sync::Arc};
 
 use anyhow::Context;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::sync::Semaphore;
 
 use crate::{
@@ -35,36 +35,38 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        let data_dir = value
-            .path_resolver()
-            .app_data_dir()
-            .context("failed to get app data dir")?;
-        Ok(Self::new(
-            &data_dir,
-            &projects::Controller::from(&data_dir),
-            &users::Controller::from(&data_dir),
-            &keys::Controller::from(&data_dir),
-            &git::credentials::Helper::from(&data_dir),
-        ))
+        if let Some(controller) = value.try_state::<Controller>() {
+            Ok(controller.inner().clone())
+        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
+            Ok(Self::new(
+                app_data_dir,
+                projects::Controller::try_from(value)?,
+                users::Controller::try_from(value)?,
+                keys::Controller::try_from(value)?,
+                git::credentials::Helper::try_from(value)?,
+            ))
+        } else {
+            Err(anyhow::anyhow!("failed to get app data dir"))
+        }
     }
 }
 
 impl Controller {
     pub fn new(
-        data_dir: &path::Path,
-        projects: &projects::Controller,
-        users: &users::Controller,
-        keys: &keys::Controller,
-        helper: &git::credentials::Helper,
+        local_data_dir: path::PathBuf,
+        projects: projects::Controller,
+        users: users::Controller,
+        keys: keys::Controller,
+        helper: git::credentials::Helper,
     ) -> Self {
         Self {
             by_project_id: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
 
-            local_data_dir: data_dir.to_path_buf(),
-            projects: projects.clone(),
-            users: users.clone(),
-            keys: keys.clone(),
-            helper: helper.clone(),
+            local_data_dir,
+            projects,
+            users,
+            keys,
+            helper,
         }
     }
 
@@ -383,18 +385,6 @@ where
     User(#[from] Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<&path::PathBuf> for ControllerInner {
-    fn from(value: &path::PathBuf) -> Self {
-        Self::new(
-            value,
-            &projects::Controller::from(value),
-            &users::Controller::from(value),
-            &keys::Controller::from(value),
-            &git::credentials::Helper::from(value),
-        )
-    }
 }
 
 impl ControllerInner {
