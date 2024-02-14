@@ -52,7 +52,10 @@
 	let rsViewport: HTMLElement;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const defaultBranchWidthRem = persisted<number | undefined>(24, 'defaulBranchWidth' + project.id);
+	const defaultBranchWidthRem = persisted<number | undefined>(
+		24,
+		'defaulBranchWidth' + project.id
+	);
 	const laneWidthKey = 'laneWidth_';
 
 	let laneWidth: number;
@@ -275,20 +278,21 @@
 				{selectedFiles}
 			/>
 		</div>
-	</div>
-	<div class="divider-line">
-		<Resizer
-			viewport={rsViewport}
-			direction="right"
-			inside={$selectedFiles.length > 0}
-			minWidth={320}
-			sticky
-			on:width={(e) => {
-				laneWidth = e.detail / (16 * $userSettings.zoom);
-				lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
-				$defaultBranchWidthRem = laneWidth;
-			}}
-		/>
+
+		<div class="divider-line">
+			<Resizer
+				viewport={rsViewport}
+				direction="right"
+				inside={$selectedFiles.length > 0}
+				minWidth={320}
+				sticky
+				on:width={(e) => {
+					laneWidth = e.detail / (16 * $userSettings.zoom);
+					lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
+					$defaultBranchWidthRem = laneWidth;
+				}}
+			/>
+		</div>
 	</div>
 {/if}
 
