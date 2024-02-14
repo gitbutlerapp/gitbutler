@@ -78,7 +78,6 @@
 		padding: var(--space-16);
 		border-radius: var(--radius-m);
 		gap: var(--space-12);
-		max-width: 22rem;
 	}
 	.info-message__inner {
 		display: flex;
@@ -109,7 +108,7 @@
 	}
 	.pop {
 		background-color: var(--clr-theme-container-light);
-		border: 1px solid var(--clr-theme-scale-pop-60);
+		border: 1px solid var(--clr-theme-scale-pop-50);
 	}
 	.warn {
 		background-color: var(--clr-theme-container-light);

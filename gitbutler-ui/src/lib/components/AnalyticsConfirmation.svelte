@@ -10,8 +10,9 @@
 	<h1 class="title text-serif-40">Before we begin</h1>
 	<AnalyticsSettings />
 
-	<div class="actions">
+	<div class="analytics-confirmation__actions">
 		<Button
+			icon="chevron-right-small"
 			on:click={() => {
 				$analyticsConfirmed = true;
 			}}
@@ -31,9 +32,9 @@
 
 	.title {
 		color: var(--clr-theme-scale-ntrl-0);
-		line-height: 1;
 	}
-	.actions {
+
+	.analytics-confirmation__actions {
 		display: flex;
 		justify-content: flex-end;
 	}
