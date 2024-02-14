@@ -1,10 +1,10 @@
 <script lang="ts">
 	import AccountLink from './AccountLink.svelte';
-	import IconLink from './IconLink.svelte';
+	import Icon from './Icon.svelte';
 	import ImgThemed from './ImgThemed.svelte';
 	import type { User } from '$lib/backend/cloud';
 
-	export let user: User | undefined;
+	export let user: User | undefined = undefined;
 	export let showLinks: boolean = true;
 	export let imgSet: { light: string; dark: string } | undefined = undefined;
 </script>
@@ -17,11 +17,13 @@
 	</div>
 	<div class="right-side">
 		<div class="right-side-wrapper" data-tauri-drag-region>
-			<div class="right-side__header">
-				<div class="account-button">
-					<AccountLink {user} pop />
+			{#if user}
+				<div class="right-side__header">
+					<div class="account-button">
+						<AccountLink {user} pop />
+					</div>
 				</div>
-			</div>
+			{/if}
 
 			{#if imgSet}
 				<div class="img-wrapper">
@@ -32,15 +34,22 @@
 			{#if showLinks}
 				<div class="right-side__footer">
 					<div class="right-side__links">
-						<IconLink
-							icon="docs"
+						<a
+							class="right-side__link"
+							target="_blank"
 							href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
 						>
+							<Icon name="docs" opacity={0.6} />
 							<span class="text-base-14 text-semibold">GitButler Docs</span>
-						</IconLink>
-						<IconLink icon="video" href="https://www.youtube.com/@gitbutlerapp">
+						</a>
+						<a
+							class="right-side__link"
+							target="_blank"
+							href="https://www.youtube.com/@gitbutlerapp"
+						>
+							<Icon name="video" opacity={0.6} />
 							<span class="text-base-14 text-semibold">Watch tutorials</span>
-						</IconLink>
+						</a>
 					</div>
 
 					<!--  prettier-ignore -->
@@ -151,8 +160,22 @@
 	.right-side__links {
 		color: var(--clr-theme-scale-pop-20);
 		display: flex;
+		align-items: flex-start;
 		flex-direction: column;
-		gap: var(--space-12);
+		gap: var(--space-4);
+	}
+
+	.right-side__link {
+		display: flex;
+		align-items: center;
+		gap: var(--space-10);
+		padding: var(--space-6);
+		border-radius: var(--radius-m);
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			background-color: color-mix(in srgb, var(--clr-theme-scale-pop-50), transparent 85%);
+		}
 	}
 
 	.img-wrapper {
