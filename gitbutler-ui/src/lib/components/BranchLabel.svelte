@@ -44,7 +44,8 @@
 		on:blur={() => (inputActive = false)}
 		on:keydown={(e) => {
 			if (e.key == 'Enter') {
-				inputActive = false;
+				// Unmount input field asynchronously to ensure on:change gets executed.
+				setTimeout(() => (inputActive = false), 0);
 				setTimeout(() => label.focus(), 0);
 			}
 
