@@ -173,7 +173,7 @@
 			</div>
 			{#if annotateCommits}
 				<div class="commit-box__committer text-base-11">
-					GitButler will be the committer of this commit. <a
+					Consider spreading the word about GitButler. <a
 						class="text-bold"
 						target="_blank"
 						rel="noreferrer"
