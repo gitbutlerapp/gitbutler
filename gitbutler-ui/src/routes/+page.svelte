@@ -37,8 +37,8 @@
 	<DecorativeSplitView
 		user={$user$}
 		imgSet={{
-			light: '/images/img_moon-door-light.webp',
-			dark: '/images/img_moon-door-dark.webp'
+			light: '/images/img_analytics-light.webp',
+			dark: '/images/img_analytics-dark.webp'
 		}}
 	>
 		<AnalyticsConfirmation {analyticsConfirmed} />
@@ -54,6 +54,3 @@
 		<Welcome {projectService} {userService} />
 	</DecorativeSplitView>
 {/if}
-
-<style lang="postcss">
-</style>

@@ -158,7 +158,7 @@
 			</div>
 			<div class="card__content">
 				<div>
-					<h2 class="mb-2 text-lg font-medium">GitButler Cloud</h2>
+					<h2 class="text-base-16 text-bold">GitButler Cloud</h2>
 					<p class="">
 						{#if $user$}
 							Your online account details on gitbutler.com
@@ -217,7 +217,7 @@
 				{/if}
 				<Spacer />
 				<div>
-					<h2 class="mb-2 text-lg font-medium">Git Stuff</h2>
+					<h2 class="text-base-16 text-bold">Git Stuff</h2>
 				</div>
 				<div class="flex items-center">
 					<div class="flex-grow">
@@ -295,7 +295,7 @@
 
 				<Spacer />
 				<div>
-					<h2 class="mb-2 text-lg font-medium">Appearance</h2>
+					<h2 class="text-base-16 text-bold">Appearance</h2>
 				</div>
 				<div class="flex items-center">
 					<div class="flex-grow">
@@ -313,13 +313,13 @@
 
 				{#if $user$}
 					<div>
-						<h2 class="mb-2 text-lg font-medium">Remote Integrations</h2>
+						<h2 class="text-base-16 text-bold">Remote Integrations</h2>
 					</div>
 					<GithubIntegration {userService} />
 				{/if}
 
 				<div>
-					<h2 class="mb-2 text-lg font-medium">Need help?</h2>
+					<h2 class="text-base-16 text-bold">Need help?</h2>
 				</div>
 				<div class="flex gap-x-4">
 					<a

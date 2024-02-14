@@ -36,6 +36,7 @@
 		bottom: var(--space-20);
 		right: var(--space-20);
 		gap: var(--space-8);
+		max-width: 22rem;
 		z-index: 50;
 	}
 </style>
