@@ -24,13 +24,13 @@ impl Config<'_> {
     }
 
     pub fn user_real_comitter(&self) -> Result<bool, git::Error> {
-        let no_comitter = self
+        let gb_comitter = self
             .git_repository
             .config()?
-            .get_string("gitbutler.utmostDiscretion")
+            .get_string("gitbutler.gitbutlerCommitter")
             .unwrap_or(Some("0".to_string()))
             .unwrap_or("0".to_string());
-        Ok(no_comitter == "1")
+        Ok(gb_comitter == "0")
     }
 
     pub fn user_name(&self) -> Result<Option<String>, git::Error> {
