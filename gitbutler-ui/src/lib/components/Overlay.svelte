@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import OutClick from 'svelte-outclick';
 
 	let dialog: HTMLDialogElement;
@@ -21,6 +22,11 @@
 		dialog.close();
 		open = false;
 	}
+
+	// Append the dialog to the body to prevent overlapping with other elements' actions.
+	onMount(() => {
+		document.body.appendChild(dialog);
+	});
 </script>
 
 <dialog
