@@ -91,7 +91,16 @@
 
 	function filterByText(branches: CombinedBranch[], search: string | undefined) {
 		if (search == undefined) return branches;
-		return branches.filter((b) => b.displayName.includes(search));
+
+		return branches.filter((b) => searchMatchesAnIdentifier(search, b.searchableIdentifiers));
+	}
+
+	function searchMatchesAnIdentifier(search: string, identifiers: string[]) {
+		for (const identifier of identifiers) {
+			if (identifier.includes(search.toLowerCase())) return true;
+		}
+
+		return false;
 	}
 
 	function filterInactive(branches: CombinedBranch[]) {
