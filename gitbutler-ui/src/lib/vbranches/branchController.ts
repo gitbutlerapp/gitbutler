@@ -1,5 +1,6 @@
 import { invoke } from '$lib/backend/ipc';
 import * as toasts from '$lib/utils/toasts';
+import posthog from 'posthog-js';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { BaseBranchService, VirtualBranchService } from './branchStoresCache';
 import type { Branch, Hunk } from './types';
@@ -58,8 +59,10 @@ export class BranchController {
 				ownership,
 				runHooks: runHooks
 			});
+			posthog.capture('Commit Successful');
 		} catch (err) {
 			toasts.error('Failed to commit branch');
+			posthog.capture('Commit Failed');
 		}
 	}
 
