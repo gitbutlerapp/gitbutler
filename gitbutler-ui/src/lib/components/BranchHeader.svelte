@@ -168,8 +168,7 @@
 		</div>
 	</div>
 {:else}
-	<!-- svelte-ignore a11y-no-static-element-interactions -->
-	<div class="header__wrapper" on:dblclick={foldLine}>
+	<div class="header__wrapper">
 		<div class="header card" class:isUnapplied>
 			<div class="header__info">
 				<div class="header__label">
