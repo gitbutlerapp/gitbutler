@@ -7,6 +7,7 @@
 	export let rows = 4;
 	export let id: string | undefined = undefined;
 	export let disabled = false;
+	export let spellcheck = false;
 
 	export let kind: 'default' | 'plain' = 'default';
 
@@ -22,6 +23,7 @@
 	{placeholder}
 	{required}
 	{rows}
+	{spellcheck}
 	on:input={(e) => dispatch('input', e.currentTarget.value)}
 	on:change={(e) => dispatch('change', e.currentTarget.value)}
 />

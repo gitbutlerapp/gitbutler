@@ -134,6 +134,7 @@
 					use:focusTextareaOnMount
 					on:input={useAutoHeight}
 					on:focus={useAutoHeight}
+					spellcheck={false}
 					class="commit-box__textarea text-base-body-13"
 					rows="1"
 					disabled={isGeneratingCommigMessage}
