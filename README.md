@@ -115,7 +115,6 @@ or [join our Discord server](https://discord.gg/wDKZCPEjXC).
 
 So you want to help out? Please check out the [CONTRIBUTING.md](CONTRIBUTING.md)
 document.
-
 If you want to skip right to getting the code to actually compile, take a look
 at the [DEVELOPMENT.md](DEVELOPMENT.md) file.
 
