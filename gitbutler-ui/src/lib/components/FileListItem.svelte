@@ -81,7 +81,7 @@
 	.file-list-item {
 		display: flex;
 		align-items: center;
-		height: var(--size-btn-m);
+		height: var(--space-28);
 		padding: var(--space-4) var(--space-8);
 		gap: var(--space-16);
 		border-radius: var(--radius-s);

@@ -80,6 +80,7 @@
 <style lang="postcss">
 	.draggable-wrapper {
 		display: inline-block;
+		width: 100%;
 		margin-bottom: var(--space-2);
 		&:last-child {
 			margin-bottom: 0;
@@ -92,6 +93,7 @@
 		padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6);
 		gap: var(--space-6);
 		border-radius: var(--radius-s);
+		width: 100%;
 		max-width: 100%;
 		background: var(--clr-theme-container-light);
 		&:not(.selected):hover {
