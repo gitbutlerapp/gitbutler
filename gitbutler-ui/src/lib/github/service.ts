@@ -9,6 +9,7 @@ import {
 import { sleep } from '$lib/utils/sleep';
 import * as toasts from '$lib/utils/toasts';
 import lscache from 'lscache';
+import posthog from 'posthog-js';
 import {
 	Observable,
 	EMPTY,
@@ -187,15 +188,17 @@ export class GitHubService {
 								draft
 							});
 							await this.reload();
+							posthog.capture('PR Successful');
 							return { pr: ghResponseToInstance(rsp.data) };
 						} catch (err: any) {
+							posthog.capture('PR Failed', { error: err });
 							// Any error that should not be retried needs to be handled here.
 							if (
 								err.status == 422 &&
 								err.message.includes('Draft pull requests are not supported')
-							)
+							) {
 								return { err: 'Draft pull requests are not enabled in your repository' };
-							else throw err;
+							} else throw err;
 						}
 					})
 				)
