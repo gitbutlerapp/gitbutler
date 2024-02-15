@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Button from '$lib/components/Button.svelte';
+	import Checkbox from '$lib/components/Checkbox.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
@@ -157,15 +158,18 @@
 						<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
 							<ContextMenuSection>
 								<ContextMenuItem
-									checked={$commitGenerationExtraConcise}
 									label="Extra concise"
 									on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
-								/>
+								>
+									<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
+								</ContextMenuItem>
+
 								<ContextMenuItem
-									checked={$commitGenerationUseEmojis}
 									label="Use emojis 😎"
 									on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
-								/>
+								>
+									<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
+								</ContextMenuItem>
 							</ContextMenuSection>
 						</ContextMenu>
 					</DropDownButton>
