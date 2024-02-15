@@ -84,7 +84,7 @@ zip = "0.6.5"
 
 [features]
 # by default Tauri runs in production mode
-# when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is an URL
+# when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is a URL
 default = ["custom-protocol", "sentry", "error-context"]
 # this feature enables devtools
 devtools = ["tauri/devtools"]
