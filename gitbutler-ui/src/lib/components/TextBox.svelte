@@ -16,7 +16,7 @@
 	export let noselect = false;
 	export let selectall = false;
 	export let element: HTMLElement | undefined = undefined;
-	export let spellcheck = true;
+	export let spellcheck = false;
 
 	const dispatch = createEventDispatcher<{ input: string; change: string }>();
 </script>
