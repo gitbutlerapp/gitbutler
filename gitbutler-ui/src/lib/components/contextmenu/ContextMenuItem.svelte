@@ -5,7 +5,6 @@
 	import type { ContextMenuContext } from './contextMenu';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let checked = false;
 	export let id: string | undefined = undefined;
 	export let label: string;
 	export let selected = false;
@@ -31,13 +30,6 @@
 	{#if icon}
 		<Icon name={icon} />
 	{/if}
-	{#if context.type == 'checklist'}
-		{#if checked}
-			<Icon name="tick-small" />
-		{:else}
-			<Icon name="empty-checkbox-small" opacity={0.2} />
-		{/if}
-	{/if}
 
 	<div class="label text-base-12">
 		{label}
@@ -54,7 +46,7 @@
 		height: var(--space-24);
 		padding: var(--space-4) var(--space-6);
 		border-radius: var(--radius-s);
-		gap: var(--space-8);
+		gap: var(--space-12);
 		&:not(.disabled):hover {
 			background: var(--clr-theme-container-sub);
 		}
