@@ -1,4 +1,8 @@
-use std::{collections::HashMap, path, time, vec};
+use std::{
+    collections::HashMap,
+    path::{self, PathBuf},
+    time, vec,
+};
 
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::*;
@@ -499,6 +503,132 @@ pub fn unapply_ownership(
                             if ownership.hunks.contains(&Hunk::from(&hunk)) {
                                 hunks_to_unapply.push((path.clone(), hunk));
                             }
+                        }
+                    }
+                }
+
+                hunks_to_unapply.sort_by(|a, b| a.1.old_start.cmp(&b.1.old_start));
+
+                Ok(hunks_to_unapply)
+            },
+        )
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+
+    let mut diff = HashMap::new();
+    for h in hunks_to_unapply {
+        if let Some(reversed_hunk) = diff::reverse_hunk(&h.1) {
+            diff.entry(h.0).or_insert_with(Vec::new).push(reversed_hunk);
+        } else {
+            return Err(errors::UnapplyOwnershipError::Other(anyhow::anyhow!(
+                "failed to reverse hunk"
+            )));
+        }
+    }
+
+    let repo = &project_repository.git_repository;
+
+    let target_commit = repo
+        .find_commit(default_target.sha)
+        .context("failed to find target commit")?;
+
+    let base_tree = target_commit.tree().context("failed to get target tree")?;
+    let final_tree = applied_statuses.into_iter().fold(
+        target_commit.tree().context("failed to get target tree"),
+        |final_tree, status| {
+            let final_tree = final_tree?;
+            let tree_oid = write_tree(project_repository, &default_target, &status.1)?;
+            let branch_tree = repo.find_tree(tree_oid)?;
+            let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
+            let final_tree_oid = result.write_tree_to(repo)?;
+            repo.find_tree(final_tree_oid)
+                .context("failed to find tree")
+        },
+    )?;
+
+    let final_tree_oid = write_tree_onto_tree(project_repository, &final_tree, &diff)?;
+    let final_tree = repo
+        .find_tree(final_tree_oid)
+        .context("failed to find tree")?;
+
+    repo.checkout_tree(&final_tree)
+        .force()
+        .remove_untracked()
+        .checkout()
+        .context("failed to checkout tree")?;
+
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
+    Ok(())
+}
+
+pub fn unapply_file_changes(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    file_path: &str,
+) -> Result<(), errors::UnapplyOwnershipError> {
+    if conflicts::is_resolving(project_repository) {
+        return Err(errors::UnapplyOwnershipError::Conflict(
+            errors::ProjectConflictError {
+                project_id: project_repository.project().id,
+            },
+        ));
+    }
+
+    let latest_session = gb_repository
+        .get_latest_session()
+        .context("failed to get or create current session")?
+        .ok_or_else(|| {
+            errors::UnapplyOwnershipError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                project_id: project_repository.project().id,
+            })
+        })?;
+
+    let latest_session_reader = sessions::Reader::open(gb_repository, &latest_session)
+        .context("failed to open current session")?;
+
+    let default_target = get_default_target(&latest_session_reader)
+        .context("failed to get default target")?
+        .ok_or_else(|| {
+            errors::UnapplyOwnershipError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                project_id: project_repository.project().id,
+            })
+        })?;
+
+    let applied_branches = Iterator::new(&latest_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
+
+    let applied_statuses = get_applied_status(
+        gb_repository,
+        project_repository,
+        &default_target,
+        applied_branches,
+    )
+    .context("failed to get status by branch")?;
+
+    let hunks_to_unapply = applied_statuses
+        .iter()
+        .map(
+            |(branch, branch_files)| -> Result<Vec<(std::path::PathBuf, diff::Hunk)>> {
+                let branch_files = calculate_non_commited_diffs(
+                    project_repository,
+                    branch,
+                    &default_target,
+                    branch_files,
+                )?;
+
+                let mut hunks_to_unapply = Vec::new();
+                for (path, hunks) in branch_files {
+                    if path.eq(&PathBuf::from(file_path)) {
+                        for hunk in hunks {
+                            hunks_to_unapply.push((path.clone(), hunk));
                         }
                     }
                 }

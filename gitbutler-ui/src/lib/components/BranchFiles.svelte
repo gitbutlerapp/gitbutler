@@ -6,12 +6,14 @@
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Branch, LocalFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
+	import type { BranchController } from '$lib/vbranches/branchController';
 
 	export let branch: Branch;
 	export let isUnapplied: boolean;
 	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<LocalFile[]>;
 	export let showCheckboxes = false;
+	export let branchController: BranchController;
 
 	let selectedListMode: string;
 </script>
@@ -47,6 +49,7 @@
 					{selectedFiles}
 					{showCheckboxes}
 					{isUnapplied}
+					{branchController}
 				/>
 			{:else}
 				<FileTree

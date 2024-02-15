@@ -247,6 +247,17 @@ impl Controller {
             .await
     }
 
+    pub async fn unapply_file_changes(
+        &self,
+        project_id: &ProjectId,
+        file_path: &str,
+    ) -> Result<(), ControllerError<errors::UnapplyOwnershipError>> {
+        self.inner(project_id)
+            .await
+            .unapply_file_changes(project_id, file_path)
+            .await
+    }
+
     pub async fn amend(
         &self,
         project_id: &ProjectId,
@@ -705,6 +716,18 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
             super::unapply_ownership(gb_repository, project_repository, ownership)
+                .map_err(Into::into)
+        })
+    }
+
+    pub async fn unapply_file_changes(
+        &self,
+        project_id: &ProjectId,
+        file_path: &str,
+    ) -> Result<(), ControllerError<errors::UnapplyOwnershipError>> {
+        let _permit = self.semaphore.acquire().await;
+        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
+            super::unapply_file_changes(gb_repository, project_repository, file_path)
                 .map_err(Into::into)
         })
     }

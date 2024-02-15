@@ -208,6 +208,7 @@
 							{isUnapplied}
 							{selectedOwnership}
 							{selectedFiles}
+							{branchController}
 							showCheckboxes={$commitBoxOpen}
 						/>
 						{#if branch.active}

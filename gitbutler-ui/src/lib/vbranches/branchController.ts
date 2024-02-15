@@ -3,7 +3,7 @@ import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { BaseBranchService, VirtualBranchService } from './branchStoresCache';
-import type { Branch, Hunk } from './types';
+import type { Branch, Hunk, LocalFile } from './types';
 
 export class BranchController {
 	constructor(
@@ -145,6 +145,17 @@ export class BranchController {
 		const ownership = `${hunk.filePath}:${hunk.id}`;
 		try {
 			await invoke<void>('unapply_ownership', { projectId: this.projectId, ownership });
+		} catch (err) {
+			toasts.error('Failed to unapply hunk');
+		}
+	}
+
+	async unapplyFile(file: LocalFile) {
+		try {
+			await invoke<void>('unapply_file_changes', {
+				projectId: this.projectId,
+				filePath: file.path
+			});
 		} catch (err) {
 			toasts.error('Failed to unapply hunk');
 		}
