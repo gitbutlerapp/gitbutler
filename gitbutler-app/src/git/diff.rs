@@ -297,10 +297,10 @@ fn reverse_patch(patch: &str) -> Option<String> {
                 return None;
             }
         } else if line.starts_with('+') {
-            reversed.push_str(&line.replace('+', "-"));
+            reversed.push_str(&line.replacen('+', "-", 1));
             reversed.push('\n');
         } else if line.starts_with('-') {
-            reversed.push_str(&line.replace('-', "+"));
+            reversed.push_str(&line.replacen('-', "+", 1));
             reversed.push('\n');
         } else {
             reversed.push_str(line);
