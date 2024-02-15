@@ -58,7 +58,7 @@
 		<div
 			class="flex flex-row items-center justify-between rounded-lg border border-light-400 p-2 dark:border-dark-500"
 		>
-			<div class="flex flex-row space-x-3">
+			<div class="flex flex-col space-x-3">
 				<div class="flex flex-row items-center gap-x-1">
 					<Checkbox
 						name="sync"
@@ -69,6 +69,10 @@
 						}}
 					/>
 					<label class="ml-2" for="sync">Enable branch and commit message generation.</label>
+				</div>
+				<div class="pl-4 pr-8 text-sm text-light-700 dark:text-dark-200">
+					Uses OpenAI's API. If enabled, diffs will sent to OpenAI's servers when pressing the
+					"Generate message" button.
 				</div>
 			</div>
 		</div>

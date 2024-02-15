@@ -96,10 +96,10 @@
 				<svelte:fragment slot="body">
 					{#if $user$}
 						<label class="project-setup__toggle-label" for="aiGenEnabled"
-							>Enable automatic branch and commit message generation.</label
+							>Enable automatic branch and commit message generation (uses OpenAI's API).</label
 						>
 					{:else}
-						Enable automatic branch and commit message generation.
+						Enable automatic branch and commit message generation (uses OpenAI's API).
 					{/if}
 				</svelte:fragment>
 				<svelte:fragment slot="toggle">
