@@ -43,6 +43,3 @@
 		</ContextMenuSection>
 	</ContextMenu>
 {/if}
-
-<style lang="postcss">
-</style>
