@@ -16,7 +16,7 @@
 	export let noselect = false;
 	export let selectall = false;
 	export let element: HTMLElement | undefined = undefined;
-	export let spellCheck = true;
+	export let spellcheck = true;
 
 	const dispatch = createEventDispatcher<{ input: string; change: string }>();
 </script>
@@ -44,7 +44,7 @@
 				{readonly}
 				{required}
 				{placeholder}
-				{spellCheck}
+				{spellcheck}
 				type="password"
 				class="textbox__input text-base-13"
 				class:select-none={noselect}
@@ -59,7 +59,7 @@
 				{readonly}
 				{required}
 				{placeholder}
-				{spellCheck}
+				{spellcheck}
 				class="textbox__input text-base-13"
 				class:select-none={noselect}
 				class:select-all={selectall}

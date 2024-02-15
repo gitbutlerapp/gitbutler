@@ -163,7 +163,7 @@
 					<TextBox
 						icon="filter"
 						placeholder="Search"
-						spellCheck={false}
+						spellcheck={false}
 						on:input={(e) => textFilter$.next(e.detail)}
 					/>
 					<div bind:this={contents} class="content">
