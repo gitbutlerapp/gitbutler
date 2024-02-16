@@ -47,8 +47,10 @@
 		padding: var(--space-4) var(--space-6);
 		border-radius: var(--radius-s);
 		gap: var(--space-12);
+		transition: background-color var(--transition-fast);
 		&:not(.disabled):hover {
-			background: var(--clr-theme-container-sub);
+			transition: none;
+			background-color: color-mix(in srgb, transparent, var(--darken-light));
 		}
 	}
 	.label {

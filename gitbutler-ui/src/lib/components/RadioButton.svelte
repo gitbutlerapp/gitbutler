@@ -37,18 +37,14 @@
 		/* not checked */
 		&:hover,
 		&:focus {
-			background-color: var(--clr-theme-container-pale);
-			box-shadow: inset 0 0 0 1px var(--clr-theme-container-outline-pale);
+			box-shadow: inset 0 0 0 1px
+				color-mix(in srgb, var(--clr-theme-container-outline-pale), var(--darken-mid));
 			outline: none;
 
 			&::after {
 				opacity: 0.2;
 				transform: scale(0.7);
 			}
-		}
-
-		&:focus {
-			box-shadow: inset 0 0 0 1px var(--clr-theme-container-outline-sub);
 		}
 
 		&:disabled {
@@ -65,8 +61,7 @@
 			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
 
 			&:hover {
-				background-color: var(--clr-theme-pop-element-dim);
-				box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element-dim);
+				background-color: color-mix(in srgb, var(--clr-theme-pop-element), var(--darken-mid));
 			}
 
 			&:disabled {

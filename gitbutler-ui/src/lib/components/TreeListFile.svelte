@@ -95,9 +95,8 @@
 		border-radius: var(--radius-s);
 		width: 100%;
 		max-width: 100%;
-		background: var(--clr-theme-container-light);
 		&:not(.selected):hover {
-			background: var(--clr-theme-container-pale);
+			background-color: color-mix(in srgb, var(--clr-theme-container-light), var(--darken-light));
 		}
 		overflow: hidden;
 	}

@@ -56,7 +56,6 @@
 				var(--clr-theme-scale-pop-80) 70%,
 				var(--clr-theme-scale-ntrl-100)
 			);
-			/* filter: brightness(1.05); */
 
 			&:hover {
 				color: var(--clr-theme-scale-pop-10);
@@ -65,12 +64,11 @@
 					var(--clr-theme-scale-pop-80) 40%,
 					var(--clr-theme-scale-ntrl-100)
 				);
-				/* filter: brightness(1.1); */
 			}
 		}
 
 		&:hover {
-			background-color: var(--clr-theme-container-pale);
+			background-color: color-mix(in srgb, transparent, var(--darken-light));
 			color: var(--clr-theme-scale-ntrl-40);
 		}
 	}

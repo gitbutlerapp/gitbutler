@@ -35,6 +35,7 @@
 		outline: none;
 		resize: none;
 		background-color: transparent;
+		transition: border-color var(--transition-fast);
 
 		&::placeholder {
 			/* Most modern browsers support this now. */
@@ -52,10 +53,19 @@
 		border-radius: var(--radius-s);
 
 		&:hover {
-			border-color: var(--clr-theme-container-outline-pale);
+			border-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-outline-light),
+				var(--darken-dark)
+			);
 		}
 		&:focus {
-			border-color: var(--clr-theme-container-outline-sub);
+			border-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-outline-light),
+				var(--darken-extradark)
+			);
+			outline: none;
 		}
 		&:invalid {
 			border-color: var(--clr-theme-err-element);

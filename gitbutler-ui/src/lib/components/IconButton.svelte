@@ -35,13 +35,16 @@
 		color: var(--clr-theme-scale-ntrl-40);
 		border-radius: var(--radius-m);
 		color: var(--clr-theme-scale-ntrl-50);
+		transition:
+			background-color var(--transition-fast),
+			color var(--transition-fast);
 		&:not(.selected):hover {
-			background-color: var(--clr-theme-container-pale);
+			background-color: color-mix(in srgb, transparent, var(--darken-light));
 			color: var(--clr-theme-scale-ntrl-40);
 		}
 	}
 	.selected {
-		background-color: var(--clr-theme-container-sub);
+		background-color: color-mix(in srgb, transparent, var(--darken-light));
 	}
 	.large {
 		height: var(--size-btn-l);

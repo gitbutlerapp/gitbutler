@@ -55,7 +55,7 @@
 			background-color: color-mix(
 				in srgb,
 				var(--clr-theme-container-light),
-				var(--clr-theme-container-pale) 60%
+				var(--darken-extralight)
 			);
 		}
 	}

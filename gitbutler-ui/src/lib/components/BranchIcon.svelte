@@ -71,18 +71,18 @@
 	}
 
 	.pop {
-		background-color: var(--clr-core-pop-40);
+		background-color: var(--clr-theme-scale-pop-50);
 	}
 
 	.neutral {
-		background-color: var(--clr-core-ntrl-50);
+		background-color: var(--clr-theme-scale-ntrl-50);
 	}
 
 	.success {
-		background-color: var(--clr-core-succ-45);
+		background-color: var(--clr-theme-scale-succ-50);
 	}
 
 	.purple {
-		background-color: #8e5ae3;
+		background-color: var(--clr-theme-scale-purple-50);
 	}
 </style>

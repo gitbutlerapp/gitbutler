@@ -413,7 +413,7 @@
 		user-select: none;
 	}
 	.isUnapplied .header__actions {
-		background: var(--clr-theme-container-dim);
+		background: var(--clr-theme-container-sub);
 	}
 	.header__buttons {
 		display: flex;

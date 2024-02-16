@@ -42,8 +42,9 @@
 		/* not checked */
 		&:hover,
 		&:focus {
-			background-color: var(--clr-theme-container-dim);
-			outline: none;
+			background-color: color-mix(in srgb, var(--clr-theme-container-sub), var(--darken-mid));
+			box-shadow: inset 0 0 0 1px
+				color-mix(in srgb, var(--clr-theme-container-outline-light), var(--darken-mid));
 		}
 
 		&:focus {
@@ -64,8 +65,7 @@
 			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
 
 			&:hover {
-				background-color: var(--clr-theme-pop-element-dim);
-				box-shadow: inset 0 0 0 1px var(--clr-theme-pop-dim);
+				background-color: color-mix(in srgb, var(--clr-theme-pop-element), var(--darken-mid));
 			}
 
 			&:disabled {
