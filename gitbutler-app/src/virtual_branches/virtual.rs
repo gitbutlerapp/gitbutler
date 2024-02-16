@@ -155,8 +155,7 @@ impl From<git::Signature<'_>> for Author {
 }
 
 pub fn normalize_branch_name(name: &str) -> String {
-    // Technically this pattern should include ".", but it makes libgit2 throws an error
-    let pattern = Regex::new("[^A-Za-z0-9_/]+").unwrap();
+    let pattern = Regex::new("[^A-Za-z0-9_/.]+").unwrap();
     pattern.replace_all(name, "-").to_string()
 }
 
