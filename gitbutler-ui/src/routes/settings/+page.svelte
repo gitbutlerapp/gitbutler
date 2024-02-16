@@ -121,7 +121,7 @@
 	});
 
 	git_get_config({ key: 'gitbutler.signCommits' }).then((value) => {
-		signCommits = value ? value === 'true' : true;
+		signCommits = value ? value === 'true' : false;
 	});
 
 	const onDeleteClicked = () =>
