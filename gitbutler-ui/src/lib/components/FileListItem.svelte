@@ -1,15 +1,15 @@
 <script lang="ts">
+	import FileContextMenu from './FileContextMenu.svelte';
 	import FileStatusIcons from './FileStatusIcons.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { onDestroy } from 'svelte';
+	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Writable } from 'svelte/store';
-	import FileContextMenu from './FileContextMenu.svelte';
-	import { onDestroy } from 'svelte';
 
 	export let branchId: string;
 	export let file: AnyFile;
@@ -37,7 +37,7 @@
 		if (popupMenu) popupMenu.$destroy();
 		return new FileContextMenu({
 			target: document.body,
-			props: {  branchController }
+			props: { branchController }
 		});
 	}
 
@@ -68,9 +68,8 @@
 	tabindex="0"
 	on:contextmenu={(e) =>
 		popupMenu.openByMouse(e, {
-			file,
-		})
-	}
+			file
+		})}
 >
 	<div
 		class="file-list-item"
