@@ -18,50 +18,48 @@
 	export let branchCount: number;
 </script>
 
-{#if branch.commits.length > 0}
-	<CommitList
-		{branch}
-		{base}
-		{project}
-		{branchController}
-		{branchService}
-		{branchCount}
-		{githubService}
-		{isUnapplied}
-		{selectedFiles}
-		type="upstream"
-	/>
-	<CommitList
-		{branch}
-		{base}
-		{project}
-		{branchController}
-		{branchService}
-		{githubService}
-		{isUnapplied}
-		{selectedFiles}
-		type="local"
-	/>
-	<CommitList
-		{branch}
-		{base}
-		{project}
-		{branchController}
-		{branchService}
-		{githubService}
-		{isUnapplied}
-		{selectedFiles}
-		type="remote"
-	/>
-	<CommitList
-		{branch}
-		{base}
-		{project}
-		{branchController}
-		{branchService}
-		{githubService}
-		{isUnapplied}
-		{selectedFiles}
-		type="integrated"
-	/>
-{/if}
+<CommitList
+    {branch}
+    {base}
+    {project}
+    {branchController}
+    {branchService}
+    {branchCount}
+    {githubService}
+    {isUnapplied}
+    {selectedFiles}
+    type="upstream"
+/>
+<CommitList
+    {branch}
+    {base}
+    {project}
+    {branchController}
+    {branchService}
+    {githubService}
+    {isUnapplied}
+    {selectedFiles}
+    type="local"
+/>
+<CommitList
+    {branch}
+    {base}
+    {project}
+    {branchController}
+    {branchService}
+    {githubService}
+    {isUnapplied}
+    {selectedFiles}
+    type="remote"
+/>
+<CommitList
+    {branch}
+    {base}
+    {project}
+    {branchController}
+    {branchService}
+    {githubService}
+    {isUnapplied}
+    {selectedFiles}
+    type="integrated"
+/>
