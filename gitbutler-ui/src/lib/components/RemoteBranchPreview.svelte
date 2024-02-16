@@ -68,6 +68,7 @@
 									{commit}
 									{projectId}
 									{selectedFiles}
+									{branchController}
 									commitUrl={base?.commitUrl(commit.id)}
 								/>
 							{/each}

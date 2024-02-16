@@ -146,6 +146,7 @@
 			{resetHeadCommit}
 			{isUnapplied}
 			{selectedFiles}
+			{branchController}
 		/>
 	</div>
 	<!-- <div class="reset-head">

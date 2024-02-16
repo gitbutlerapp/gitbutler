@@ -14,6 +14,7 @@
 	import { LocalFile, RemoteCommit, Commit, RemoteFile } from '$lib/vbranches/types';
 	import { writable, type Writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
+	import type { BranchController } from '$lib/vbranches/branchController';
 
 	export let commit: Commit | RemoteCommit;
 	export let projectId: string;
@@ -22,6 +23,7 @@
 	export let resetHeadCommit: () => void | undefined = () => undefined;
 	export let isUnapplied = false;
 	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
+	export let branchController: BranchController;
 
 	const selectedOwnership = writable(Ownership.default());
 
@@ -102,6 +104,7 @@
 						{selectedOwnership}
 						{selectedFiles}
 						{isUnapplied}
+						{branchController}
 						readonly={true}
 					/>
 				{:else}
