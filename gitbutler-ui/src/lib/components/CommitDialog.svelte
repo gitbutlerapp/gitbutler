@@ -64,16 +64,6 @@
 		return invoke<string>('git_get_global_config', params);
 	}
 
-	let annotateCommits = true;
-
-	function checkCommitsAnnotated() {
-		git_get_config({ key: 'gitbutler.gitbutlerCommitter' }).then((value) => {
-			annotateCommits = value ? value === '1' : false;
-		});
-	}
-
-	$: checkCommitsAnnotated();
-
 	let isGeneratingCommigMessage = false;
 	async function generateCommitMessage(files: LocalFile[]) {
 		const diff = files
@@ -176,16 +166,6 @@
 					</DropDownButton>
 				</div>
 			</div>
-			{#if annotateCommits}
-				<div class="commit-box__committer text-base-11">
-					Consider spreading the word about GitButler. <a
-						class="text-bold"
-						target="_blank"
-						rel="noreferrer"
-						href="https://docs.gitbutler.com/features/virtual-branches/committer-mark">Learn more</a
-					>
-				</div>
-			{/if}
 		</div>
 	{/if}
 	<div class="actions">
@@ -282,16 +262,6 @@
 		display: flex;
 		right: var(--space-12);
 		bottom: var(--space-12);
-	}
-
-	.commit-box__committer {
-		background: var(--clr-theme-container-pale);
-		padding: var(--space-12);
-
-		border-width: 0 1px 1px 1px;
-		border-style: solid;
-		border-color: var(--clr-theme-container-outline-light);
-		border-radius: 0 0 var(--radius-m) var(--radius-m);
 	}
 
 	.actions {
