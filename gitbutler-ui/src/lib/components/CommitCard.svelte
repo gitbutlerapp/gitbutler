@@ -45,7 +45,7 @@
 		? draggableCommit(commit.branchId, commit)
 		: nonDraggable()}
 	class="commit"
-	class:is-head-commit={isHeadCommit}
+	class:is-commit-open={showFiles}
 >
 	<div class="commit__header" on:click={onClick} on:keyup={onClick} role="button" tabindex="0">
 		<div class="commit__row">
@@ -144,7 +144,7 @@
 		display: flex;
 		flex-direction: column;
 		cursor: default;
-		gap: var(--space-10);
+		/* gap: var(--space-10); */
 		border-radius: var(--space-6);
 		background-color: var(--clr-theme-container-light);
 		border: 1px solid var(--clr-theme-container-outline-light);
@@ -167,6 +167,22 @@
 		flex-direction: column;
 		gap: var(--space-10);
 		padding: var(--space-12);
+	}
+
+	.is-commit-open {
+		background-color: color-mix(
+			in srgb,
+			var(--clr-theme-container-light),
+			var(--darken-extralight)
+		);
+
+		& .commit__header {
+			padding-bottom: var(--space-16);
+
+			&:hover {
+				background-color: color-mix(in srgb, var(--clr-theme-container-light), var(--darken-light));
+			}
+		}
 	}
 
 	.commit__description {
@@ -204,10 +220,6 @@
 	.commit__time,
 	.commit__author-name {
 		color: var(--clr-theme-scale-ntrl-50);
-	}
-
-	.is-head-commit {
-		gap: var(--space-6);
 	}
 
 	.files-container {

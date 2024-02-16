@@ -85,7 +85,6 @@
 		background-color: var(--clr-theme-container-light);
 		display: flex;
 		flex-direction: column;
-		/* border-top: 1px solid var(--clr-theme-container-outline-light); */
 		position: relative;
 		flex-shrink: 0;
 	}
