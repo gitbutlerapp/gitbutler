@@ -71,7 +71,7 @@
 
 {#if !isUnapplied && type != 'integrated'}
 	<div class="actions">
-		{#if $githubEnabled$ && !$pr$ && (type == 'local' || type == 'remote')}
+		{#if $githubEnabled$ && (type == 'local' || type == 'remote')}
 			<PushButton
 				wide
 				isLoading={isPushing || $githubServiceState$?.busy}
