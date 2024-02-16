@@ -77,7 +77,7 @@
 				isLoading={isPushing || $githubServiceState$?.busy}
 				isPushed={type == 'remote' && !branch.requiresForce}
 				requiresForcePush={branch.requiresForce}
-				isPr={$pr$}
+				isPr={!!$pr$}
 				{projectId}
 				githubEnabled={$githubEnabled$}
 				on:trigger={async (e) => {
