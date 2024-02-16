@@ -56,7 +56,7 @@
 	$: pushLabel = requiresForcePush ? 'Force push to remote' : 'Push to remote';
 </script>
 
-{#if isPr && requiresForcePush}
+{#if isPr && !isPushed}
 	<Button
 		color="primary"
 		kind="outlined"
