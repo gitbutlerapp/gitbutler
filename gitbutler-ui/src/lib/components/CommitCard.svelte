@@ -85,7 +85,7 @@
 	</div>
 
 	{#if showFiles}
-		<div transition:slide={{ duration: 100 }}>
+		<div class="files-container" transition:slide={{ duration: 100 }}>
 			<div class="files__header">
 				<BranchFilesHeader
 					{files}
@@ -148,10 +148,17 @@
 		border-radius: var(--space-6);
 		background-color: var(--clr-theme-container-light);
 		border: 1px solid var(--clr-theme-container-outline-light);
+		overflow: hidden;
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			border: 1px solid var(--clr-theme-container-outline-pale);
+			border: 1px solid
+				color-mix(in srgb, var(--clr-theme-container-outline-light), var(--darken-mid));
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-light),
+				var(--darken-extralight)
+			);
 		}
 	}
 
@@ -201,6 +208,10 @@
 
 	.is-head-commit {
 		gap: var(--space-6);
+	}
+
+	.files-container {
+		background-color: var(--clr-theme-container-light);
 	}
 
 	.files {

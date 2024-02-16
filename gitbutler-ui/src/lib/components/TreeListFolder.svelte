@@ -87,7 +87,7 @@
 		gap: var(--space-6);
 		border-radius: var(--radius-s);
 		&:hover {
-			background: var(--clr-theme-container-pale);
+			background: color-mix(in srgb, var(--clr-theme-container-light), var(--darken-light));
 
 			& .chevron-icon {
 				opacity: 0.7;

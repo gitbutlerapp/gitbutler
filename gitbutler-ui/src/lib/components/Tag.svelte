@@ -79,9 +79,6 @@
 	}
 	.clickable {
 		cursor: default;
-		&:not(.not-button):hover {
-			background: var(--clr-theme-container-sub);
-		}
 	}
 
 	/* colors */
@@ -89,7 +86,7 @@
 	.ghost {
 		color: var(--clr-theme-scale-ntrl-40);
 		&:not(.not-button):hover {
-			background: color-mix(in srgb, var(--clr-core-ntrl-50), transparent 85%);
+			background: color-mix(in srgb, var(--clr-core-ntrl-50), transparent 90%);
 		}
 		&.tag-border {
 			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-60);
@@ -128,7 +125,7 @@
 			color: var(--clr-theme-succ-on-element);
 			background: var(--clr-theme-succ-element);
 			&:not(.not-button):hover {
-				background: var(--clr-theme-succ-element-dim);
+				background: color-mix(in srgb, var(--clr-theme-succ-element), var(--darken-mid));
 			}
 		}
 	}
@@ -146,7 +143,7 @@
 			color: var(--clr-theme-err-on-element);
 			background: var(--clr-theme-err-element);
 			&:not(.not-button):hover {
-				background: var(--clr-theme-err-element-dim);
+				background: color-mix(in srgb, var(--clr-theme-err-element), var(--darken-mid));
 			}
 		}
 	}
@@ -164,7 +161,7 @@
 			color: var(--clr-theme-warn-on-element);
 			background: var(--clr-theme-warn-element);
 			&:not(.not-button):hover {
-				background: var(--clr-theme-warn-element-dim);
+				background: color-mix(in srgb, var(--clr-theme-warn-element), var(--darken-mid));
 			}
 		}
 	}
@@ -182,7 +179,7 @@
 			color: var(--clr-theme-purple-on-element);
 			background: var(--clr-theme-purple-element);
 			&:not(.not-button):hover {
-				background: var(--clr-theme-purple-element-dim);
+				background: color-mix(in srgb, var(--clr-theme-purple-element), var(--darken-mid));
 			}
 		}
 	}
@@ -200,7 +197,7 @@
 			color: var(--clr-theme-pop-on-element);
 			background: var(--clr-theme-pop-element);
 			&:not(.not-button):hover {
-				background: var(--clr-theme-pop-element-dim);
+				background: color-mix(in srgb, var(--clr-theme-pop-element), var(--darken-mid));
 			}
 		}
 	}

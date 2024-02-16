@@ -59,9 +59,14 @@
 
 		&:focus,
 		&:hover {
-			background-color: var(--clr-theme-container-sub);
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-light),
+				var(--clr-core-ntrl-50) 20%
+			);
+
 			& .button__icon {
-				color: var(--clr-theme-scale-ntrl-50);
+				opacity: 0.4;
 			}
 		}
 	}
@@ -73,6 +78,7 @@
 	}
 
 	.button__icon {
-		color: var(--clr-theme-scale-ntrl-60);
+		color: var(--clr-theme-scale-ntrl-0);
+		opacity: 0.3;
 	}
 </style>

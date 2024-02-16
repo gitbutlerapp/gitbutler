@@ -42,6 +42,7 @@
 	class:error-filled={color == 'error' && kind == 'filled'}
 	class:primary-filled={color == 'primary' && kind == 'filled'}
 	class:warn-filled={color == 'warn' && kind == 'filled'}
+	class:neutral-filled={color == 'neutral' && kind == 'filled'}
 	class:neutral-outline={color == 'neutral' && kind == 'outlined'}
 	class:pointer-events-none={loading}
 	class:icon-left={iconAlign == 'left'}
@@ -103,29 +104,12 @@
 		display: inline-flex;
 		padding: 0 var(--space-2);
 	}
-	.primary-filled {
-		background: var(--clr-theme-pop-element);
-		color: var(--clr-theme-pop-on-element);
+
+	.neutral-filled {
+		color: var(--clr-theme-scale-ntrl-30);
 		&:hover,
 		&:focus {
-			background: var(--clr-theme-pop-element-dim);
-		}
-		&:active {
-			background: var(--clr-theme-pop-element-dark);
-		}
-	}
-	.primary-outline {
-		color: var(--clr-theme-pop-outline);
-		border: 1px solid var(--clr-theme-pop-outline);
-		&:hover,
-		&:focus {
-			color: var(--clr-theme-pop-outline-dim);
-			border: 1px solid var(--clr-theme-pop-outline-dim);
-		}
-		&:active {
-			color: var(--clr-theme-pop-outline-dim);
-			border: 1px solid var(--clr-theme-pop-outline-dim);
-			background: var(--clr-theme-pop-container);
+			background: color-mix(in srgb, transparent, var(--darken-light));
 		}
 	}
 	.neutral-outline {
@@ -133,24 +117,36 @@
 		border: 1px solid var(--clr-theme-container-outline-light);
 		&:hover,
 		&:focus {
-			color: var(--clr-theme-scale-ntrl-20);
-			border: 1px solid var(--clr-theme-container-outline-pale);
-		}
-		&:active {
-			color: var(--clr-theme-scale-ntrl-20);
-			border: 1px solid var(--clr-theme-container-outline-pale);
-			background: var(--clr-theme-container-pale);
+			background: color-mix(in srgb, transparent, var(--darken-extralight));
+			border: 1px solid
+				color-mix(in srgb, var(--clr-theme-container-outline-light), var(--darken-mid));
 		}
 	}
+
+	.primary-filled {
+		background: var(--clr-theme-pop-element);
+		color: var(--clr-theme-pop-on-element);
+		&:hover,
+		&:focus {
+			background: color-mix(in srgb, var(--clr-theme-pop-element), var(--darken-mid));
+		}
+	}
+	.primary-outline {
+		color: var(--clr-theme-pop-outline);
+		border: 1px solid var(--clr-theme-pop-outline);
+		&:hover,
+		&:focus {
+			color: color-mix(in srgb, var(--clr-theme-pop-outline), var(--darken-mid));
+			border: 1px solid color-mix(in srgb, var(--clr-theme-pop-outline), var(--darken-mid));
+		}
+	}
+
 	.warn-filled {
 		color: var(--clr-theme-warn-on-element);
 		background: var(--clr-theme-warn-element);
 		&:hover,
 		&:focus {
-			background: var(--clr-theme-warn-element-dim);
-		}
-		&:active {
-			background: var(--clr-theme-warn-element-dark);
+			background: color-mix(in srgb, var(--clr-theme-warn-element), var(--darken-mid));
 		}
 	}
 	.warn-outline {
@@ -158,13 +154,8 @@
 		border: 1px solid var(--clr-theme-warn-outline);
 		&:hover,
 		&:focus {
-			color: var(--clr-theme-warn-outline-dim);
-			border: 1px solid var(--clr-theme-warn-outline-dim);
-		}
-		&:active {
-			color: var(--clr-theme-warn-outline-dim);
-			border: 1px solid var(--clr-theme-warn-outline-dim);
-			background: var(--clr-theme-warn-container);
+			color: color-mix(in srgb, var(--clr-theme-warn-outline), var(--darken-mid));
+			border: 1px solid color-mix(in srgb, var(--clr-theme-warn-outline), var(--darken-mid));
 		}
 	}
 	.error-filled {
@@ -172,10 +163,7 @@
 		background: var(--clr-theme-err-element);
 		&:hover,
 		&:focus {
-			background: var(--clr-theme-err-element-dim);
-		}
-		&:active {
-			background: var(--clr-theme-err-element-dark);
+			background: color-mix(in srgb, var(--clr-theme-err-element), var(--darken-mid));
 		}
 	}
 	.error-outline {
@@ -183,13 +171,8 @@
 		border: 1px solid var(--clr-theme-err-outline);
 		&:hover,
 		&:focus {
-			color: var(--clr-theme-err-outline-dim);
-			border: 1px solid var(--clr-theme-err-outline-dim);
-		}
-		&:active {
-			color: var(--clr-theme-err-outline-dim);
-			border: 1px solid var(--clr-theme-err-outline-dim);
-			background: var(--clr-theme-err-container);
+			color: color-mix(in srgb, var(--clr-theme-err-outline), var(--darken-mid));
+			border: 1px solid color-mix(in srgb, var(--clr-theme-err-outline), var(--darken-mid));
 		}
 	}
 </style>

@@ -85,7 +85,7 @@
 		transition: background var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-theme-container-sub);
+			background-color: color-mix(in srgb, var(--clr-theme-container-pale), var(--darken-light));
 		}
 
 		&[aria-selected='true'] {

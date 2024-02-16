@@ -17,12 +17,7 @@
 	let baseContents: HTMLElement;
 </script>
 
-<a
-	href="/{project.id}/base"
-	class="base-branch-card"
-	style:background-color={selected ? 'var(--clr-theme-container-pale)' : undefined}
-	bind:this={baseContents}
->
+<a href="/{project.id}/base" class="base-branch-card" class:selected bind:this={baseContents}>
 	<div class="icon">
 		<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 			<rect width="16" height="16" rx="4" fill="#FB7D61" />
@@ -74,12 +69,14 @@
 		padding: var(--space-10) var(--space-8);
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
-
-		&:hover,
-		&:focus {
-			background-color: var(--clr-theme-container-pale);
-		}
 	}
+
+	.base-branch-card:hover,
+	.base-branch-card:focus,
+	.selected {
+		background-color: color-mix(in srgb, transparent, var(--darken-light));
+	}
+
 	.icon {
 		flex-shrink: 0;
 	}

@@ -24,7 +24,7 @@
 			<Badge {count} />
 		{/if}
 	</div>
-	<div bind:this={filterButton}>
+	<div class="header__filter-btn" bind:this={filterButton}>
 		<Button
 			kind="outlined"
 			color="neutral"
@@ -33,12 +33,12 @@
 		>
 			Filter
 		</Button>
-	</div>
-	<div
-		class="filter-popup-menu"
-		use:clickOutside={{ trigger: filterButton, handler: () => (visible = false) }}
-	>
-		<slot name="context-menu" {visible} />
+		<div
+			class="filter-popup-menu"
+			use:clickOutside={{ trigger: filterButton, handler: () => (visible = false) }}
+		>
+			<slot name="context-menu" {visible} />
+		</div>
 	</div>
 </div>
 
@@ -56,10 +56,13 @@
 		transition: border-bottom var(--transition-fast);
 		position: relative;
 	}
+	.header__filter-btn {
+		position: relative;
+	}
 	.filter-popup-menu {
 		position: absolute;
-		top: var(--space-48);
-		right: var(--space-12);
+		top: calc(var(--size-btn-m) + var(--space-4));
+		right: 0;
 		z-index: 10;
 		min-width: 10rem;
 	}

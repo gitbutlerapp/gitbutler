@@ -100,11 +100,19 @@
 		}
 
 		&:hover {
-			border-color: var(--clr-theme-container-outline-pale);
+			border-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-outline-light),
+				var(--darken-dark)
+			);
 		}
 
 		&:focus {
-			border-color: var(--clr-theme-container-outline-sub);
+			border-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-outline-light),
+				var(--darken-extradark)
+			);
 			outline: none;
 		}
 

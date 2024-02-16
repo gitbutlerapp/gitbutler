@@ -50,6 +50,7 @@
 
 		padding: var(--space-10) var(--space-8);
 		border-radius: var(--radius-m);
+		transition: background-color var(--transition-fast);
 	}
 
 	.branch__info {
@@ -81,6 +82,7 @@
 	.branch:hover,
 	.branch:focus,
 	.selected {
-		background-color: var(--clr-theme-container-pale);
+		background-color: color-mix(in srgb, transparent, var(--darken-light));
+		transition: none;
 	}
 </style>
