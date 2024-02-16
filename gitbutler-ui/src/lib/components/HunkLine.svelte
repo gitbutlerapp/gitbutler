@@ -11,6 +11,7 @@
 	export let selectable: boolean = false;
 	export let selected: boolean = true;
 	export let readonly: boolean = false;
+	export let draggingDisabled: boolean = false;
 
 	const dispatch = createEventDispatcher<{ selected: boolean }>();
 
@@ -63,6 +64,7 @@
 		class:readonly
 		class:diff-line-deletion={sectionType === SectionType.RemovedLines}
 		class:diff-line-addition={sectionType === SectionType.AddedLines}
+		style:cursor={draggingDisabled ? 'default' : 'grab'}
 	>
 		<span class="selectable-wrapper" data-no-drag>
 			{@html toTokens(line.content).join('')}
@@ -82,9 +84,6 @@
 
 	.line {
 		flex-grow: 1;
-		&:not(.readonly) {
-			cursor: grab;
-		}
 	}
 
 	.code-line__numbers-line {
