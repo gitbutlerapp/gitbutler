@@ -35,7 +35,6 @@ mod integration_tests;
 pub(crate) use integration_tests::*;
 
 mod backend;
-pub mod ops;
 mod refspec;
 mod repository;
 
