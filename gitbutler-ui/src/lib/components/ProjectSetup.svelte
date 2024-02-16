@@ -9,6 +9,7 @@
 	import SetupFeature from '$lib/components/SetupFeature.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import type { UserService } from '$lib/stores/user';
 	import type { BranchController } from '$lib/vbranches/branchController';
 
@@ -20,6 +21,7 @@
 	$: user$ = userService.user$;
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
+	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(projectId);
 
 	let aiGenCheckbox: Toggle;
 	let loading = false;
@@ -110,6 +112,7 @@
 							checked={$aiGenEnabled}
 							on:change={() => {
 								$aiGenEnabled = !$aiGenEnabled;
+								$aiGenAutoBranchNamingEnabled = $aiGenEnabled;
 							}}
 						/>
 					{/if}
