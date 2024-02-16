@@ -224,8 +224,9 @@
 						<p>Credit GitButler as the Committer</p>
 						<div class="space-y-2 pr-8 text-sm text-light-700 dark:text-dark-200">
 							<div>
-								By default, everything in the GitButler client is free to use, but we credit
-								ourselves as the committer in your virtual branch commits.
+								By default, everything in the GitButler client is free to use, but you can opt in to
+								crediting us as the committer in your virtual branch commits to help spread the
+								word.
 							</div>
 							<Link
 								target="_blank"
