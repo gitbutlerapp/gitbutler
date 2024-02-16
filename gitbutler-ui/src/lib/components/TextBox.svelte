@@ -16,6 +16,7 @@
 	export let noselect = false;
 	export let selectall = false;
 	export let element: HTMLElement | undefined = undefined;
+	export let spellcheck = false;
 
 	const dispatch = createEventDispatcher<{ input: string; change: string }>();
 </script>
@@ -43,6 +44,7 @@
 				{readonly}
 				{required}
 				{placeholder}
+				{spellcheck}
 				type="password"
 				class="textbox__input text-base-13"
 				class:select-none={noselect}
@@ -57,6 +59,7 @@
 				{readonly}
 				{required}
 				{placeholder}
+				{spellcheck}
 				class="textbox__input text-base-13"
 				class:select-none={noselect}
 				class:select-all={selectall}
@@ -97,11 +100,19 @@
 		}
 
 		&:hover {
-			border-color: var(--clr-theme-container-outline-pale);
+			border-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-outline-light),
+				var(--darken-dark)
+			);
 		}
 
 		&:focus {
-			border-color: var(--clr-theme-container-outline-sub);
+			border-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-outline-light),
+				var(--darken-extradark)
+			);
 			outline: none;
 		}
 

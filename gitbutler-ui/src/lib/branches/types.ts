@@ -85,6 +85,19 @@ export class CombinedBranch {
 		}
 	}
 
+	get searchableIdentifiers() {
+		const identifiers = [];
+
+		if (this.vbranch) identifiers.push(this.vbranch.name);
+		if (this.pr) {
+			identifiers.push(this.pr.title);
+			identifiers.push(this.pr.targetBranch);
+		}
+		if (this.remoteBranch) identifiers.push(this.remoteBranch.displayName);
+
+		return identifiers.map((identifier) => identifier.toLowerCase());
+	}
+
 	currentState(): BranchState | undefined {
 		if (this.vbranch) return BranchState.VirtualBranch;
 		if (this.pr) return BranchState.PR;

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Button from '$lib/components/Button.svelte';
+	import Checkbox from '$lib/components/Checkbox.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
@@ -133,6 +134,7 @@
 					use:focusTextareaOnMount
 					on:input={useAutoHeight}
 					on:focus={useAutoHeight}
+					spellcheck={false}
 					class="commit-box__textarea text-base-body-13"
 					rows="1"
 					disabled={isGeneratingCommigMessage}
@@ -157,15 +159,18 @@
 						<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
 							<ContextMenuSection>
 								<ContextMenuItem
-									checked={$commitGenerationExtraConcise}
 									label="Extra concise"
 									on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
-								/>
+								>
+									<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
+								</ContextMenuItem>
+
 								<ContextMenuItem
-									checked={$commitGenerationUseEmojis}
 									label="Use emojis 😎"
 									on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
-								/>
+								>
+									<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
+								</ContextMenuItem>
 							</ContextMenuSection>
 						</ContextMenu>
 					</DropDownButton>
@@ -257,10 +262,18 @@
 		resize: none;
 
 		&:hover {
-			border-color: var(--clr-theme-container-outline-pale);
+			border-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-outline-light),
+				var(--darken-dark)
+			);
 		}
 		&:focus-within {
-			border-color: var(--clr-theme-container-outline-sub);
+			border-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-outline-light),
+				var(--darken-extradark)
+			);
 			outline: none;
 		}
 	}

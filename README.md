@@ -111,6 +111,14 @@ You can find our end user documentation at: https://docs.gitbutler.com
 If you have a bug or feature request, feel free to open an [issue](https://github.com/gitbutlerapp/gitbutler/issues/new),
 or [join our Discord server](https://discord.gg/wDKZCPEjXC).
 
+## AI Commit Message generation
+
+Commit message generation is an opt-in feature. You can enable it while adding your repository for the first time or later in the project settings.
+
+Currently GitButler uses OpenAI's API for diff summarization, which means that if enabled, code diffs would be sent to OpenAI's servers.
+
+Our goal is to make this feature more modular such that in the future you can modify the prompt as well as plug a different LLM endpoints (including a local ones).
+
 ## Contributing
 
 So you want to help out? Please check out the [CONTRIBUTING.md](CONTRIBUTING.md)

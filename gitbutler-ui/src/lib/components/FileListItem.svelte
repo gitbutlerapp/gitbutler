@@ -81,17 +81,18 @@
 	.file-list-item {
 		display: flex;
 		align-items: center;
-		height: var(--size-btn-m);
+		height: var(--space-28);
 		padding: var(--space-4) var(--space-8);
 		gap: var(--space-16);
 		border-radius: var(--radius-s);
 		max-width: 100%;
 		overflow: hidden;
-		background: var(--clr-theme-container-light);
 		text-align: left;
 		user-select: none;
+		transition: background-color var(--transition-fast);
 		&:not(.selected-draggable):hover {
-			background: var(--clr-theme-container-pale);
+			transition: none;
+			background-color: color-mix(in srgb, var(--clr-theme-container-light), var(--darken-light));
 		}
 	}
 
@@ -129,6 +130,6 @@
 		opacity: 0.3;
 	}
 	.selected-draggable {
-		background-color: var(--clr-theme-pop-container);
+		background-color: color-mix(in srgb, var(--clr-theme-scale-pop-50), transparent 80%);
 	}
 </style>

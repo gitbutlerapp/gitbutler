@@ -72,7 +72,7 @@
 	</div>
 	<Branches projectId={project.id} {branchService} {githubService} />
 	<Footer {user} projectId={project.id} />
-	<!-- <AppUpdater {update} /> -->
+
 	<Resizer
 		{viewport}
 		direction="right"

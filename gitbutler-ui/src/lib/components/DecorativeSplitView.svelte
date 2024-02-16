@@ -113,11 +113,10 @@
 	.right-side-wrapper {
 		position: relative;
 		overflow: hidden;
-		--splitview-back-color: var(--clr-core-pop-75);
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		background-color: var(--splitview-back-color);
+		background-color: var(--clr-theme-scale-pop-80);
 		border-radius: var(--space-8);
 	}
 
@@ -186,11 +185,5 @@
 		width: 100%;
 		max-width: 26.25rem;
 		overflow: hidden;
-	}
-
-	/* global */
-
-	:global(.dark .decorative-split-view .right-side-wrapper) {
-		--splitview-back-color: var(--clr-core-pop-25);
 	}
 </style>

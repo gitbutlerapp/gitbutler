@@ -81,12 +81,13 @@
 	.tree-list-folder {
 		display: flex;
 		align-items: center;
-		height: var(--size-btn-m);
+		height: var(--space-28);
+		width: 100%;
 		padding: var(--space-4) var(--space-8) var(--space-4) var(--space-4);
 		gap: var(--space-6);
 		border-radius: var(--radius-s);
 		&:hover {
-			background: var(--clr-theme-container-pale);
+			background: color-mix(in srgb, var(--clr-theme-container-light), var(--darken-light));
 
 			& .chevron-icon {
 				opacity: 0.7;

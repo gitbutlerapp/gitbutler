@@ -262,8 +262,7 @@ export class BaseBranch {
 	branchUrl(upstreamBranchName: string | undefined) {
 		if (!upstreamBranchName) return undefined;
 		const baseBranchName = this.branchName.split('/')[1];
-		const parts = upstreamBranchName.split('/');
-		const branchName = parts[parts.length - 1];
+		const branchName = upstreamBranchName.split('/').slice(3).join('/');
 		return `${this.repoBaseUrl.trim()}/compare/${baseBranchName}...${branchName}`;
 	}
 }

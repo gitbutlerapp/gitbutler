@@ -7,6 +7,7 @@
 	export let rows = 4;
 	export let id: string | undefined = undefined;
 	export let disabled = false;
+	export let spellcheck = false;
 
 	export let kind: 'default' | 'plain' = 'default';
 
@@ -22,6 +23,7 @@
 	{placeholder}
 	{required}
 	{rows}
+	{spellcheck}
 	on:input={(e) => dispatch('input', e.currentTarget.value)}
 	on:change={(e) => dispatch('change', e.currentTarget.value)}
 />
@@ -33,6 +35,7 @@
 		outline: none;
 		resize: none;
 		background-color: transparent;
+		transition: border-color var(--transition-fast);
 
 		&::placeholder {
 			/* Most modern browsers support this now. */
@@ -50,10 +53,19 @@
 		border-radius: var(--radius-s);
 
 		&:hover {
-			border-color: var(--clr-theme-container-outline-pale);
+			border-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-outline-light),
+				var(--darken-dark)
+			);
 		}
 		&:focus {
-			border-color: var(--clr-theme-container-outline-sub);
+			border-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-outline-light),
+				var(--darken-extradark)
+			);
+			outline: none;
 		}
 		&:invalid {
 			border-color: var(--clr-theme-err-element);

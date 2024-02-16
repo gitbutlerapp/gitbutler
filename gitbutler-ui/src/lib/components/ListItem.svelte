@@ -35,15 +35,17 @@
 		justify-content: space-between;
 		border-radius: var(--radius-m);
 		width: 100%;
+		transition: background-color var(--transition-fast);
+
 		&:hover:enabled,
 		&:focus:enabled {
-			background-color: var(--clr-theme-container-pale);
+			background-color: color-mix(in srgb, transparent, var(--darken-light));
 			& .icon {
 				color: var(--clr-theme-scale-ntrl-40);
 			}
 		}
 		&:disabled {
-			background-color: var(--clr-theme-container-pale);
+			background-color: color-mix(in srgb, transparent, var(--darken-light));
 			color: var(--clr-theme-scale-ntrl-50);
 		}
 		& .icon {
