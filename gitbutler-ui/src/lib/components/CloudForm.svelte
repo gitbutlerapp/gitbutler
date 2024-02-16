@@ -4,6 +4,7 @@
 	import Link from '$lib/components/Link.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import * as toasts from '$lib/utils/toasts';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type { Project } from '$lib/backend/projects';
@@ -16,6 +17,7 @@
 
 	const cloud = getCloudApiClient();
 	const aiGenEnabled = projectAiGenEnabled(project.id);
+	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
 
 	const dispatch = createEventDispatcher<{
 		updated: Project;
@@ -66,6 +68,7 @@
 						checked={$aiGenEnabled}
 						on:change={() => {
 							$aiGenEnabled = !$aiGenEnabled;
+							$aiGenAutoBranchNamingEnabled = $aiGenEnabled;
 						}}
 					/>
 					<label class="ml-2" for="sync">Enable branch and commit message generation.</label>
@@ -73,6 +76,19 @@
 				<div class="pl-4 pr-8 text-sm text-light-700 dark:text-dark-200">
 					Uses OpenAI's API. If enabled, diffs will sent to OpenAI's servers when pressing the
 					"Generate message" button.
+				</div>
+				<div class="flex flex-col space-x-3">
+					<div class="flex flex-row items-center gap-x-1">
+						<Checkbox
+							name="sync"
+							disabled={user === undefined || !$aiGenEnabled}
+							checked={$aiGenAutoBranchNamingEnabled}
+							on:change={() => {
+								$aiGenAutoBranchNamingEnabled = !$aiGenAutoBranchNamingEnabled;
+							}}
+						/>
+						<label class="ml-2" for="sync">Automatically generate branch names.</label>
+					</div>
 				</div>
 			</div>
 		</div>

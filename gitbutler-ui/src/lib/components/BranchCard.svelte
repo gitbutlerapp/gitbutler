@@ -7,6 +7,7 @@
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import {
 		isDraggableFile,
 		isDraggableHunk,
@@ -48,6 +49,7 @@
 	export let isLaneCollapsed: Persisted<boolean>;
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
+	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
 
 	let rsViewport: HTMLElement;
 
@@ -82,6 +84,7 @@
 
 	$: linesTouched = computeAddedRemovedByFiles(...branch.files);
 	$: if (
+		$aiGenAutoBranchNamingEnabled &&
 		branch.name.toLowerCase().includes('virtual branch') &&
 		linesTouched.added + linesTouched.removed > 4
 	) {
