@@ -43,6 +43,8 @@
 
 	$: popupMenu = updateContextMenu(filePath);
 
+	$: draggingDisabled = readonly || isUnapplied || section.hunk.locked || !branchId;
+
 	onDestroy(() => {
 		if (popupMenu) {
 			popupMenu.$destroy();
@@ -55,7 +57,7 @@
 	role="cell"
 	use:draggable={{
 		...draggableHunk(branchId, section.hunk),
-		disabled: readonly || isUnapplied || section.hunk.locked || !branchId
+		disabled: draggingDisabled
 	}}
 	on:contextmenu|preventDefault
 	class="hunk"
@@ -72,6 +74,7 @@
 					{readonly}
 					{minWidth}
 					{selectable}
+					{draggingDisabled}
 					selected={$selectedOwnership?.containsHunk(hunk.filePath, hunk.id)}
 					on:selected={(e) => onHunkSelected(hunk, e.detail)}
 					sectionType={subsection.sectionType}
