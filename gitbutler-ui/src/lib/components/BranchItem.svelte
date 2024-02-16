@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchIcon from './BranchIcon.svelte';
-	// disabled until fix performance issue
+	// disabled until the performance issue is fixed
 	// import AuthorIcons from '$lib/components/AuthorIcons.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import type { CombinedBranch } from '$lib/branches/types';
