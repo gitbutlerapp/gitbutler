@@ -30,14 +30,6 @@ macro_rules! gitbutler_git_integration_tests {
                 // Do-nothing, just a selftest.
             }
 
-            async fn check_utmost_discretion(repo) {
-                assert_eq!(crate::ops::has_utmost_discretion(&repo).await.unwrap(), false);
-                crate::ops::set_utmost_discretion(&repo, true).await.unwrap();
-                assert_eq!(crate::ops::has_utmost_discretion(&repo).await.unwrap(), true);
-                crate::ops::set_utmost_discretion(&repo, false).await.unwrap();
-                assert_eq!(crate::ops::has_utmost_discretion(&repo).await.unwrap(), false);
-            }
-
             async fn non_existent_remote(repo) {
                 use crate::*;
                 match repo.remote("non-existent").await.unwrap_err() {
