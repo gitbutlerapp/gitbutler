@@ -52,7 +52,7 @@
 		box-shadow: var(--fx-shadow-l);
 
 		&::backdrop {
-			background-color: var(--clr-theme-overlay-bg);
+			background-color: rgba(110, 110, 110, 0.2);
 		}
 	}
 

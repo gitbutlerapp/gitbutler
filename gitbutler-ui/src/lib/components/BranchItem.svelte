@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchIcon from './BranchIcon.svelte';
-	import AuthorIcons from '$lib/components/AuthorIcons.svelte';
+	// disabled until fix performance issue
+	// import AuthorIcons from '$lib/components/AuthorIcons.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import type { CombinedBranch } from '$lib/branches/types';
 	import { page } from '$app/stores';
@@ -30,15 +31,17 @@
 			</p>
 			<!-- <AheadBehind ahead={branch.remoteBranch?.ahead} behind={branch.remoteBranch?.behind} /> -->
 		</div>
-		<div class="branch__details">
-			<span class="branch__author text-base-11 details truncate">
-				<TimeAgo date={branch.modifiedAt} />
-				{#if branch.author}
-					by {branch.author?.name ?? 'unknown'}
-				{/if}
-			</span>
-			<AuthorIcons authors={branch.authors} />
-		</div>
+		{#if !branch.remoteBranch || branch.pr}
+			<div class="branch__details">
+				<span class="branch__author text-base-11 details truncate">
+					<TimeAgo date={branch.modifiedAt} />
+					{#if branch.author}
+						by {branch.author?.name ?? 'unknown'}
+					{/if}
+				</span>
+				<!-- <AuthorIcons authors={branch.authors} /> -->
+			</div>
+		{/if}
 	</div>
 </a>
 
