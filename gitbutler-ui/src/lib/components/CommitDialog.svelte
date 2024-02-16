@@ -67,8 +67,8 @@
 	let annotateCommits = true;
 
 	function checkCommitsAnnotated() {
-		git_get_config({ key: 'gitbutler.utmostDiscretion' }).then((value) => {
-			annotateCommits = value ? value === '0' : true;
+		git_get_config({ key: 'gitbutler.gitbutlerCommitter' }).then((value) => {
+			annotateCommits = value ? value === '1' : false;
 		});
 	}
 
