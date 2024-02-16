@@ -99,6 +99,7 @@ pub struct VirtualBranchFile {
     pub modified_at: u128,
     pub conflicted: bool,
     pub binary: bool,
+    pub large: bool,
 }
 
 // this struct is a mapping to the view `Hunk` type in Typescript
@@ -883,6 +884,7 @@ pub fn list_virtual_branches(
         branches.push(branch);
     }
 
+    let branches = branches_with_large_files_abridged(branches);
     let mut branches = branches_with_hunk_locks(branches, project_repository)?;
     for branch in &mut branches {
         branch.files = files_with_hunk_context(
@@ -899,6 +901,21 @@ pub fn list_virtual_branches(
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     Ok(branches)
+}
+
+fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<VirtualBranch> {
+    for branch in &mut branches {
+        for file in &mut branch.files {
+            // Diffs larger than 500kb are considered large
+            if file.hunks.iter().any(|hunk| hunk.diff.len() > 500_000) {
+                file.large = true;
+                file.hunks
+                    .iter_mut()
+                    .for_each(|hunk| hunk.diff = String::new());
+            }
+        }
+    }
+    branches
 }
 
 fn branches_with_hunk_locks(
@@ -2025,6 +2042,7 @@ fn virtual_hunks_to_virtual_files(
             path: file_path.clone(),
             hunks: hunks.clone(),
             binary: hunks.iter().any(|h| h.binary),
+            large: false,
             modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
             conflicted: conflicts::is_conflicting(
                 project_repository,
