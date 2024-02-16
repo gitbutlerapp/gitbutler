@@ -88,11 +88,7 @@
 			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
 
 			&:hover {
-				background-color: color-mix(
-					in srgb,
-					var(--clr-theme-pop-element),
-					var(--darken-mid)
-				);
+				background-color: color-mix(in srgb, var(--clr-theme-pop-element), var(--darken-mid));
 			}
 
 			&:disabled {

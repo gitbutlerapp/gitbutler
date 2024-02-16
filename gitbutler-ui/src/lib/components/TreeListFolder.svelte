@@ -86,6 +86,7 @@
 		padding: var(--space-4) var(--space-8) var(--space-4) var(--space-4);
 		gap: var(--space-6);
 		border-radius: var(--radius-s);
+		margin-bottom: var(--space-2);
 		&:hover {
 			background: color-mix(in srgb, var(--clr-theme-container-light), var(--darken-light));
 
