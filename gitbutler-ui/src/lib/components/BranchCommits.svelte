@@ -19,47 +19,47 @@
 </script>
 
 <CommitList
-    {branch}
-    {base}
-    {project}
-    {branchController}
-    {branchService}
-    {branchCount}
-    {githubService}
-    {isUnapplied}
-    {selectedFiles}
-    type="upstream"
+	{branch}
+	{base}
+	{project}
+	{branchController}
+	{branchService}
+	{branchCount}
+	{githubService}
+	{isUnapplied}
+	{selectedFiles}
+	type="upstream"
 />
 <CommitList
-    {branch}
-    {base}
-    {project}
-    {branchController}
-    {branchService}
-    {githubService}
-    {isUnapplied}
-    {selectedFiles}
-    type="local"
+	{branch}
+	{base}
+	{project}
+	{branchController}
+	{branchService}
+	{githubService}
+	{isUnapplied}
+	{selectedFiles}
+	type="local"
 />
 <CommitList
-    {branch}
-    {base}
-    {project}
-    {branchController}
-    {branchService}
-    {githubService}
-    {isUnapplied}
-    {selectedFiles}
-    type="remote"
+	{branch}
+	{base}
+	{project}
+	{branchController}
+	{branchService}
+	{githubService}
+	{isUnapplied}
+	{selectedFiles}
+	type="remote"
 />
 <CommitList
-    {branch}
-    {base}
-    {project}
-    {branchController}
-    {branchService}
-    {githubService}
-    {isUnapplied}
-    {selectedFiles}
-    type="integrated"
+	{branch}
+	{base}
+	{project}
+	{branchController}
+	{branchService}
+	{githubService}
+	{isUnapplied}
+	{selectedFiles}
+	type="integrated"
 />
