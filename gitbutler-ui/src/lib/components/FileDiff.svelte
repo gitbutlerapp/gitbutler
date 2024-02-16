@@ -44,7 +44,7 @@
 				<div class="hunk-wrapper">
 					<div class="indicators text-base-11">
 						<span class="added">+{added}</span>
-						<span class="removed">+{removed}</span>
+						<span class="removed">-{removed}</span>
 						{#if section.hunk.locked}
 							<div title={section.hunk.lockedTo}>
 								<Icon name="locked-small" color="warn" />
