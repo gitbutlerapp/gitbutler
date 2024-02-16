@@ -328,25 +328,6 @@ pub async fn unapply_ownership(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn unapply_file_changes(
-    handle: AppHandle,
-    project_id: &str,
-    file_path: &str,
-) -> Result<(), Error> {
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
-    handle
-        .state::<Controller>()
-        .unapply_file_changes(&project_id, &file_path)
-        .await?;
-    emit_vbranches(&handle, &project_id).await;
-    Ok(())
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
 pub async fn push_virtual_branch(
     handle: AppHandle,
     project_id: &str,
