@@ -43,8 +43,7 @@
 <div class="code-line text-sm" role="group" on:contextmenu|preventDefault>
 	<div class="code-line__numbers-line">
 		<button
-			disabled={!selectable}
-			on:click={() => dispatch('selected', !selected)}
+			on:click={() => selectable && dispatch('selected', !selected)}
 			class="text-color-4 border-color-4 shrink-0 select-none border-r px-0.5 text-right text-xs {bgColor}"
 			style:min-width={minWidth + 'rem'}
 			style:cursor={draggingDisabled ? 'default' : 'grab'}
@@ -52,8 +51,7 @@
 			{line.beforeLineNumber || ''}
 		</button>
 		<button
-			disabled={!selectable}
-			on:click={() => dispatch('selected', !selected)}
+			on:click={() => selectable && dispatch('selected', !selected)}
 			class="text-color-4 border-color-4 shrink-0 select-none border-r px-0.5 text-right text-xs {bgColor}"
 			style:min-width={minWidth + 'rem'}
 			style:cursor={draggingDisabled ? 'default' : 'grab'}
