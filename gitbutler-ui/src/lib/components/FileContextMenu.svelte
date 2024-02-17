@@ -6,10 +6,15 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { AnyFile } from '$lib/vbranches/types';
 
 	export let branchController: BranchController;
 	let confirmationModal: Modal;
 	let popupMenu: PopupMenu;
+
+	function containsBinaryFiles(item: any) {
+		return item.files.some((f: AnyFile) => f.binary);
+	}
 
 	export function openByMouse(e: MouseEvent, item: any) {
 		popupMenu.openByMouse(e, item);
@@ -20,7 +25,11 @@
 	<ContextMenu>
 		<ContextMenuSection>
 			{#if item.files !== undefined}
-				<ContextMenuItem label="Discard" on:click={() => confirmationModal.show(item)} />
+				{#if containsBinaryFiles(item)}
+					<ContextMenuItem label="Discard (Binary files not yet supported)" disabled />
+				{:else}
+					<ContextMenuItem label="Discard" on:click={() => confirmationModal.show(item)} />
+				{/if}
 			{/if}
 		</ContextMenuSection>
 	</ContextMenu>
