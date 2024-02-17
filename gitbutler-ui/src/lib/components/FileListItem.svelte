@@ -68,7 +68,7 @@
 	tabindex="0"
 	on:contextmenu={(e) =>
 		popupMenu.openByMouse(e, {
-			file
+			files: $selectedFiles.includes(file) ? $selectedFiles : [file]
 		})}
 >
 	<div

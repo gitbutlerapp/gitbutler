@@ -150,11 +150,13 @@ export class BranchController {
 		}
 	}
 
-	async unapplyFile(file: LocalFile) {
+	async unapplyFiles(files: LocalFile[]) {
 		try {
 			await invoke<void>('unapply_ownership', {
 				projectId: this.projectId,
-				ownership: file.hunks.map((h) => `${file.path}:${h.id}`).join('\n')
+				ownership: files
+					.flatMap((f) => f.hunks.map((h) => `${f.path}:${h.id}`).join('\n'))
+					.join('\n')
 			});
 		} catch (err) {
 			toasts.error('Failed to unapply file changes');
