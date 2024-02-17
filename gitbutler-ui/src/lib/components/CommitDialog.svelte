@@ -9,7 +9,9 @@
 		projectAiGenEnabled,
 		projectCommitGenerationExtraConcise,
 		projectCommitGenerationUseEmojis,
-		projectRunCommitHooks
+		projectRunCommitHooks,
+		projectCurrentCommitMessage,
+		projectLastCommitMessage
 	} from '$lib/config/config';
 	import { persisted } from '$lib/persisted/persisted';
 	import * as toasts from '$lib/utils/toasts';
@@ -18,6 +20,7 @@
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { createEventDispatcher } from 'svelte';
 	import { quintOut } from 'svelte/easing';
+	import { get } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -38,11 +41,17 @@
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 	const runCommitHooks = projectRunCommitHooks(projectId);
+	const currentCommitMessage = projectCurrentCommitMessage(projectId);
+	const lastCommitMessage = projectLastCommitMessage(projectId);
 	export const expanded = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
 
-	let commitMessage: string;
+	let commitMessage: string = get(currentCommitMessage) || '';
 	let isCommitting = false;
 	let textareaElement: HTMLTextAreaElement;
+	$: if (textareaElement && commitMessage && expanded) {
+		textareaElement.style.height = 'auto';
+		textareaElement.style.height = `${textareaElement.scrollHeight + 2}px`;
+	}
 
 	const focusTextareaOnMount = (el: HTMLTextAreaElement) => {
 		if (el) {
@@ -55,7 +64,9 @@
 		branchController
 			.commitBranch(branch.id, commitMessage, $selectedOwnership.toString(), $runCommitHooks)
 			.then(() => {
+				lastCommitMessage.set(commitMessage);
 				commitMessage = '';
+				currentCommitMessage.set('');
 			})
 			.finally(() => (isCommitting = false));
 	}
@@ -96,6 +107,7 @@
 				const summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
 				const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
 				commitMessage = description.length > 0 ? `${summary}\n\n${description}` : summary;
+				currentCommitMessage.set(commitMessage);
 
 				setTimeout(() => {
 					textareaElement.focus();
@@ -124,6 +136,7 @@
 					use:focusTextareaOnMount
 					on:input={useAutoHeight}
 					on:focus={useAutoHeight}
+					on:change={() => currentCommitMessage.set(commitMessage)}
 					spellcheck={false}
 					class="commit-box__textarea text-base-body-13"
 					rows="1"
