@@ -36,37 +36,42 @@ pub fn hunk_with_context(
         .filter(|line| line.starts_with('+'))
         .count();
 
+    println!("######");
+    println!("{:?}", hunk_diff);
+    println!("{}", hunk_old_start_line);
+    println!("{}", hunk_new_start_line);
+    println!("{}", removed_count);
+    println!("{}", added_count);
+
     // Get context lines before the diff
     let mut context_before = Vec::new();
-    for i in 1..=context_lines {
-        if hunk_new_start_line > i {
-            let idx = hunk_new_start_line
-                .max(hunk_old_start_line)
-                .saturating_sub(i + 1); // +1
-            if idx < file_lines_before.len() {
-                if let Some(l) = file_lines_before.get(idx) {
-                    let mut s = (*l).to_string();
-                    s.insert(0, ' ');
-                    context_before.push(s);
-                }
-            }
+    let mut before_context_ending_index = hunk_old_start_line.saturating_sub(1);
+
+    if removed_count == 0 {
+        before_context_ending_index += 1;
+    }
+
+    let before_context_starting_index = before_context_ending_index.saturating_sub(context_lines);
+    context_before.reverse();
+
+    for index in before_context_starting_index..before_context_ending_index {
+        if let Some(l) = file_lines_before.get(index) {
+            let mut s = (*l).to_string();
+            s.insert(0, ' ');
+            context_before.push(s);
         }
     }
-    context_before.reverse();
 
     // Get context lines after the diff
     let mut context_after = Vec::new();
-    let end = context_lines - 1;
-    for i in 0..=end {
-        let idx = i
-            + hunk_new_start_line.min(hunk_old_start_line)
-            + removed_count.saturating_sub(added_count);
-        if idx < file_lines_before.len() {
-            if let Some(l) = file_lines_before.get(idx) {
-                let mut s = (*l).to_string();
-                s.insert(0, ' ');
-                context_after.push(s);
-            }
+    let after_context_starting_index = before_context_ending_index + removed_count;
+    let after_context_ending_index = after_context_starting_index + 3;
+
+    for index in after_context_starting_index..after_context_ending_index {
+        if let Some(l) = file_lines_before.get(index) {
+            let mut s = (*l).to_string();
+            s.insert(0, ' ');
+            context_after.push(s);
         }
     }
 
