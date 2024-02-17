@@ -19,6 +19,7 @@
 	export let branchId: string;
 	export let isUnapplied: boolean;
 	export let allowMultiple = false;
+	export let readonly = false;
 
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
@@ -74,6 +75,7 @@
 					{selectedFiles}
 					{branchId}
 					{isUnapplied}
+					{readonly}
 					on:checked
 					on:unchecked
 				/>
@@ -90,6 +92,7 @@
 		selected={$selectedFiles.includes(file)}
 		{selectedOwnership}
 		{selectedFiles}
+		{readonly}
 		showCheckbox={showCheckboxes}
 		on:click={(e) => {
 			e.stopPropagation();
@@ -133,6 +136,7 @@
 						{selectedFiles}
 						{branchId}
 						{isUnapplied}
+						{readonly}
 						on:checked
 						on:unchecked
 					/>
