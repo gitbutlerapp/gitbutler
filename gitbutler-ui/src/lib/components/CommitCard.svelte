@@ -1,14 +1,11 @@
 <script lang="ts">
-	import BranchFilesHeader from './BranchFilesHeader.svelte';
-	import BranchFilesList from './BranchFilesList.svelte';
-	import FileTree from './FileTree.svelte';
+	import BranchFiles from './BranchFiles.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { filesToFileTree } from '$lib/vbranches/filetree';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { LocalFile, RemoteCommit, Commit, RemoteFile } from '$lib/vbranches/types';
@@ -26,7 +23,6 @@
 	const selectedOwnership = writable(Ownership.default());
 
 	let showFiles = false;
-	let selectedListMode: string;
 
 	let files: RemoteFile[] = [];
 
@@ -86,35 +82,16 @@
 
 	{#if showFiles}
 		<div class="files-container" transition:slide={{ duration: 100 }}>
-			<div class="files__header">
-				<BranchFilesHeader
-					{files}
-					{selectedOwnership}
-					showCheckboxes={false}
-					bind:selectedListMode
-				/>
-			</div>
-			<div class="files">
-				{#if selectedListMode == 'list'}
-					<BranchFilesList
-						branchId="blah"
-						{files}
-						{selectedOwnership}
-						{selectedFiles}
-						{isUnapplied}
-						readonly={true}
-					/>
-				{:else}
-					<FileTree
-						node={filesToFileTree(files)}
-						branchId="blah"
-						isRoot={true}
-						{selectedOwnership}
-						{selectedFiles}
-						{isUnapplied}
-					/>
-				{/if}
-			</div>
+			<BranchFiles
+				branchId="blah"
+				{files}
+				{isUnapplied}
+				{selectedOwnership}
+				{selectedFiles}
+				allowMultiple={true}
+				readonly={true}
+			/>
+
 			{#if !commit.isLocal && commitUrl}
 				<div class="files__footer">
 					<Button
@@ -223,21 +200,6 @@
 
 	.files-container {
 		background-color: var(--clr-theme-container-light);
-	}
-
-	.files {
-		padding-top: 0;
-		padding-left: var(--space-12);
-		padding-right: var(--space-12);
-		padding-bottom: var(--space-12);
-	}
-
-	.files__header {
-		border-top: 1px solid var(--clr-theme-container-outline-light);
-		padding-top: var(--space-12);
-		padding-bottom: var(--space-12);
-		padding-left: var(--space-20);
-		padding-right: var(--space-12);
 	}
 
 	.files__footer {
