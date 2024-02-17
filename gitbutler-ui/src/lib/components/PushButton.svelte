@@ -8,7 +8,6 @@
 
 <script lang="ts">
 	import Button from '$lib/components/Button.svelte';
-	import type { Branch } from '$lib/vbranches/types';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
@@ -16,6 +15,7 @@
 	import { persisted, type Persisted } from '$lib/persisted/persisted';
 	import * as toasts from '$lib/utils/toasts';
 	import { createEventDispatcher } from 'svelte';
+	import type { Branch } from '$lib/vbranches/types';
 
 	export let projectId: string;
 	export let type: string;
@@ -39,11 +39,11 @@
 
 	$: selection$ = contextMenu?.selection$;
 
-    let action!: BranchAction;
+	let action!: BranchAction;
 	$: {
-        isPushed; // selectAction is dependant on isPushed
-        action = selectAction($preferredAction);
-    }
+		isPushed; // selectAction is dependant on isPushed
+		action = selectAction($preferredAction);
+	}
 
 	function selectAction(preferredAction: BranchAction) {
 		if (isPushed && !githubEnabled) {
