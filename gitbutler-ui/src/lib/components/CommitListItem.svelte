@@ -146,6 +146,7 @@
 			{resetHeadCommit}
 			{isUnapplied}
 			{selectedFiles}
+			branchId={branch.id}
 		/>
 	</div>
 	<!-- <div class="reset-head">

@@ -10,8 +10,7 @@
 		projectCommitGenerationExtraConcise,
 		projectCommitGenerationUseEmojis,
 		projectRunCommitHooks,
-		projectCurrentCommitMessage,
-		projectLastCommitMessage
+		projectCurrentCommitMessage
 	} from '$lib/config/config';
 	import { persisted } from '$lib/persisted/persisted';
 	import * as toasts from '$lib/utils/toasts';
@@ -41,8 +40,7 @@
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 	const runCommitHooks = projectRunCommitHooks(projectId);
-	const currentCommitMessage = projectCurrentCommitMessage(projectId);
-	const lastCommitMessage = projectLastCommitMessage(projectId);
+	const currentCommitMessage = projectCurrentCommitMessage(projectId, branch.id);
 	export const expanded = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
 
 	let commitMessage: string = get(currentCommitMessage) || '';
@@ -64,7 +62,6 @@
 		branchController
 			.commitBranch(branch.id, commitMessage, $selectedOwnership.toString(), $runCommitHooks)
 			.then(() => {
-				lastCommitMessage.set(commitMessage);
 				commitMessage = '';
 				currentCommitMessage.set('');
 			})

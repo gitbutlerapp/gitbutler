@@ -51,12 +51,10 @@ export function projectLaneCollapsed(projectId: string, laneId: string): Persist
 	return persisted(false, key + projectId + '_' + laneId);
 }
 
-export function projectCurrentCommitMessage(projectId: string): Persisted<string> {
+export function projectCurrentCommitMessage(
+	projectId: string,
+	branchId: string
+): Persisted<string> {
 	const key = 'projectCurrentCommitMessage_';
-	return persisted('', key + projectId);
-}
-
-export function projectLastCommitMessage(projectId: string): Persisted<string> {
-	const key = 'projectLastCommitMessage_';
-	return persisted('', key + projectId);
+	return persisted('', key + projectId + '_' + branchId);
 }
