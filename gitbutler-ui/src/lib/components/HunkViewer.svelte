@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Button from './Button.svelte';
 	import HunkContextMenu from './HunkContextMenu.svelte';
 	import HunkLine from './HunkLine.svelte';
 	import { draggable } from '$lib/dragging/draggable';
@@ -23,6 +24,7 @@
 
 	export let branchController: BranchController;
 	export let selectedOwnership: Writable<Ownership> | undefined = undefined;
+	export let linesModified: number;
 
 	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
 		if (!selectedOwnership) return;
@@ -50,6 +52,8 @@
 			popupMenu.$destroy();
 		}
 	});
+
+	let alwaysShow = false;
 </script>
 
 <div
@@ -65,28 +69,37 @@
 	class:opacity-60={section.hunk.locked && !isFileLocked}
 >
 	<div class="hunk__bg-stretch">
-		{#each section.subSections as subsection}
-			{@const hunk = section.hunk}
-			{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
-				<HunkLine
-					{line}
-					{filePath}
-					{readonly}
-					{minWidth}
-					{selectable}
-					{draggingDisabled}
-					selected={$selectedOwnership?.containsHunk(hunk.filePath, hunk.id)}
-					on:selected={(e) => onHunkSelected(hunk, e.detail)}
-					sectionType={subsection.sectionType}
-					on:contextmenu={(e) =>
-						popupMenu.openByMouse(e, {
-							hunk,
-							section: subsection,
-							lineNumber: line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber
-						})}
-				/>
+		{#if linesModified > 1000 && !alwaysShow}
+			<div class="flex flex-col p-1">
+				Change hidden as large diffs may slow down the UI
+				<Button kind="outlined" color="neutral" on:click={() => (alwaysShow = true)}
+					>show anyways</Button
+				>
+			</div>
+		{:else}
+			{#each section.subSections as subsection}
+				{@const hunk = section.hunk}
+				{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
+					<HunkLine
+						{line}
+						{filePath}
+						{readonly}
+						{minWidth}
+						{selectable}
+						{draggingDisabled}
+						selected={$selectedOwnership?.containsHunk(hunk.filePath, hunk.id)}
+						on:selected={(e) => onHunkSelected(hunk, e.detail)}
+						sectionType={subsection.sectionType}
+						on:contextmenu={(e) =>
+							popupMenu.openByMouse(e, {
+								hunk,
+								section: subsection,
+								lineNumber: line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber
+							})}
+					/>
+				{/each}
 			{/each}
-		{/each}
+		{/if}
 	</div>
 </div>
 
