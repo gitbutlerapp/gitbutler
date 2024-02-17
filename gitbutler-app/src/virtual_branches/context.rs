@@ -36,16 +36,9 @@ pub fn hunk_with_context(
         .filter(|line| line.starts_with('+'))
         .count();
 
-    println!("######");
-    println!("{:?}", hunk_diff);
-    println!("{}", hunk_old_start_line);
-    println!("{}", hunk_new_start_line);
-    println!("{}", removed_count);
-    println!("{}", added_count);
-
     // Get context lines before the diff
     let mut context_before = Vec::new();
-    let mut before_context_ending_index = if removed_count == 0 {
+    let before_context_ending_index = if removed_count == 0 {
         hunk_old_start_line
     } else {
         hunk_old_start_line.saturating_sub(1)
