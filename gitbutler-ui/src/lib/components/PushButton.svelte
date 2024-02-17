@@ -8,6 +8,7 @@
 
 <script lang="ts">
 	import Button from '$lib/components/Button.svelte';
+	import type { Branch } from '$lib/vbranches/types';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
@@ -17,11 +18,11 @@
 	import { createEventDispatcher } from 'svelte';
 
 	export let projectId: string;
-	export let isPushed: boolean;
+	export let type: string;
 	export let isLoading = false;
 	export let githubEnabled: boolean;
 	export let wide = false;
-	export let requiresForcePush = false;
+	export let branch: Branch;
 	export let isPr = false;
 
 	function defaultAction(projectId: string): Persisted<BranchAction> {
@@ -37,7 +38,12 @@
 	let disabled = false;
 
 	$: selection$ = contextMenu?.selection$;
-	$: action = selectAction($preferredAction);
+
+    let action!: BranchAction;
+	$: {
+        isPushed; // selectAction is dependant on isPushed
+        action = selectAction($preferredAction);
+    }
 
 	function selectAction(preferredAction: BranchAction) {
 		if (isPushed && !githubEnabled) {
@@ -53,10 +59,12 @@
 		return preferredAction;
 	}
 
-	$: pushLabel = requiresForcePush ? 'Force push to remote' : 'Push to remote';
+	$: pushLabel = branch.requiresForce ? 'Force push to remote' : 'Push to remote';
+	$: commits = branch.commits.filter((c) => c.status == type);
+	$: isPushed = type === 'remote' && !branch.requiresForce;
 </script>
 
-{#if isPr && !isPushed}
+{#if (isPr || commits.length === 0) && !isPushed}
 	<Button
 		color="primary"
 		kind="outlined"
