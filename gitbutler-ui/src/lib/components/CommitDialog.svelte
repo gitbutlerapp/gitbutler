@@ -227,7 +227,6 @@
 		display: flex;
 		flex-direction: column;
 		margin-bottom: var(--space-12);
-		/* overflow: hidden; */
 	}
 	.commit-box__textarea-wrapper {
 		position: relative;
@@ -236,7 +235,6 @@
 	}
 	.commit-box__textarea {
 		overflow: hidden;
-		/* box-sizing: border-box; */
 		display: flex;
 		flex-direction: column;
 		color: var(--clr-theme-scale-ntrl-0);
