@@ -76,34 +76,17 @@ pub fn hunk_with_context(
         }
     }
 
-    let header = &diff_lines[0];
-    let body = &diff_lines[1..];
 
-    // Update unidiff header values
-    let header = header
-        .split(|c| c == ' ' || c == '@')
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>();
-
-    let start_line_before_no_ctx = header[0].split(',').collect::<Vec<_>>()[0]
-        .parse::<isize>()
-        .context("failed to parse unidiff header value for start line before")?
-        .unsigned_abs();
-    let start_line_after_no_ctx = header[1].split(',').collect::<Vec<_>>()[0]
-        .parse::<isize>()
-        .context("failed to parse unidiff header value for start line after")?
-        .unsigned_abs();
-
-    let mut start_line_before = start_line_before_no_ctx
-        .max(start_line_after_no_ctx)
+    let mut start_line_before = hunk_old_start_line
+        .max(hunk_new_start_line)
         .saturating_sub(context_before.len());
-    let mut start_line_after = start_line_before_no_ctx
-        .max(start_line_after_no_ctx)
+    let mut start_line_after = hunk_old_start_line
+        .max(hunk_new_start_line)
         .saturating_sub(context_before.len());
     // if there is no context to add (entire file is added / removed), leave the header as is
     if context_after.len() + context_after.len() == 0 {
-        start_line_before = start_line_before_no_ctx;
-        start_line_after = start_line_after_no_ctx;
+        start_line_before = hunk_old_start_line;
+        start_line_after = hunk_new_start_line;
     }
 
     let line_count_before = removed_count + context_before.len() + context_after.len();
@@ -114,6 +97,7 @@ pub fn hunk_with_context(
     );
 
     // Update unidiff body with context lines
+    let body = &diff_lines[1..];
     let mut b = Vec::new();
     b.extend(context_before.clone());
     b.extend_from_slice(body);
