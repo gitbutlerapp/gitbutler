@@ -22,7 +22,7 @@
 		background: color-mix(
 			in srgb,
 			var(--clr-theme-container-light),
-			var(--clr-theme-container-pale) 25%
+			var(--clr-theme-container-pale) 20%
 		);
 		border-color: color-mix(
 			in srgb,
