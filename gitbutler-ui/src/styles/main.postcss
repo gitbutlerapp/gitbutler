@@ -54,6 +54,7 @@ button {
 
 div,
 button,
+[role='button'],
 select,
 a {
 	cursor: default;
@@ -100,21 +101,13 @@ the scrollbar to scale with the font size */
 	}
 }
 
-.small-btn {
-	@apply h-6 py-[0.0625rem];
-}
-
-.full-width {
-	@apply w-full;
-}
-
 /**
  * Prevents elements within drop-zones from firing mouse events, making
  * it much easier to manage in/out/over/leave events since they fire less
  * frequently.
  */
 .drop-zone-hover * {
-	@apply pointer-events-none;
+	pointer-events: none;
 }
 
 /* Accordion uses this */
