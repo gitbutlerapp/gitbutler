@@ -1,7 +1,5 @@
-<p align="center">
-  <p align="center">
-   <img width="128px" src="gitbutler-app/icons/128x128@2x.png" />
-  </p>
+<div align="center">
+   <img align="center" width="128px" src="gitbutler-app/icons/128x128@2x.png" />
 	<h1 align="center"><b>GitButler</b></h1>
 	<p align="center">
 		Git branch management tool, built from the ground up for modern workflows
@@ -17,7 +15,7 @@
     <br />
     <i>~ Link for Windows will be added once a release is available. ~</i>
   </p>
-</p>
+</div>
 
 <br/>
 
@@ -115,7 +113,7 @@ or [join our Discord server](https://discord.gg/wDKZCPEjXC).
 
 Commit message generation is an opt-in feature. You can enable it while adding your repository for the first time or later in the project settings.
 
-Currently GitButler uses OpenAI's API for diff summarization, which means that if enabled, code diffs would be sent to OpenAI's servers.
+Currently, GitButler uses OpenAI's API for diff summarization, which means that if enabled, code diffs would be sent to OpenAI's servers.
 
 Our goal is to make this feature more modular such that in the future you can modify the prompt as well as plug a different LLM endpoints (including a local ones).
 
