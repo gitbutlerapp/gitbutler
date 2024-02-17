@@ -45,13 +45,11 @@ pub fn hunk_with_context(
 
     // Get context lines before the diff
     let mut context_before = Vec::new();
-    let mut before_context_ending_index =
-        if removed_count == 0 {
-            hunk_old_start_line
-        } else {
-            hunk_old_start_line.saturating_sub(1)
-        };
-
+    let mut before_context_ending_index = if removed_count == 0 {
+        hunk_old_start_line
+    } else {
+        hunk_old_start_line.saturating_sub(1)
+    };
 
     let before_context_starting_index = before_context_ending_index.saturating_sub(context_lines);
 
@@ -76,14 +74,12 @@ pub fn hunk_with_context(
         }
     }
 
-
     let start_line_before = before_context_starting_index;
-    let start_line_after =
-        if added_count == 0 {
-            hunk_new_start_line.saturating_sub(context_before.len())
-        } else {
-            hunk_new_start_line.saturating_sub(context_before.len() + 1)
-        };
+    let start_line_after = if added_count == 0 {
+        hunk_new_start_line.saturating_sub(context_before.len())
+    } else {
+        hunk_new_start_line.saturating_sub(context_before.len() + 1)
+    };
 
     let line_count_before = removed_count + context_before.len() + context_after.len();
     let line_count_after = added_count + context_before.len() + context_after.len();
