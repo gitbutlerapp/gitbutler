@@ -62,6 +62,7 @@
 		kind="outlined"
 		{wide}
 		disabled={isPushed}
+		loading={isLoading}
 		on:click={() => {
 			dispatch('trigger', { action: BranchAction.Push });
 		}}>{pushLabel}</Button
