@@ -54,7 +54,6 @@ pub fn hunk_with_context(
 
 
     let before_context_starting_index = before_context_ending_index.saturating_sub(context_lines);
-    context_before.reverse();
 
     for index in before_context_starting_index..before_context_ending_index {
         if let Some(l) = file_lines_before.get(index) {
