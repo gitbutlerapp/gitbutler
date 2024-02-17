@@ -245,7 +245,7 @@
 		align-items: flex-end;
 		gap: var(--space-16);
 
-		border-radius: var(--radius-s) var(--radius-s) 0 0;
+		border-radius: var(--radius-s);
 		border: 1px solid var(--clr-theme-container-outline-light);
 
 		transition: border-color var(--transition-fast);
