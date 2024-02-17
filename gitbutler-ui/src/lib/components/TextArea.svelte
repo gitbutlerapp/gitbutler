@@ -9,14 +9,11 @@
 	export let disabled = false;
 	export let spellcheck = false;
 
-	export let kind: 'default' | 'plain' = 'default';
-
 	const dispatch = createEventDispatcher<{ input: string; change: string }>();
 </script>
 
 <textarea
-	class="textarea text-base-13"
-	class:default={kind == 'default'}
+	class="text-input textarea"
 	bind:value
 	{disabled}
 	{id}
@@ -31,48 +28,8 @@
 <style lang="postcss">
 	.textarea {
 		width: 100%;
-		color: var(--clr-theme-scale-ntrl-0);
-		outline: none;
 		resize: none;
-		background-color: transparent;
-		transition: border-color var(--transition-fast);
-
-		&::placeholder {
-			/* Most modern browsers support this now. */
-			color: var(--clr-theme-scale-ntrl-50);
-		}
-
-		&:disabled {
-			color: var(--clr-theme-scale-ntrl-60);
-		}
-	}
-	.default {
-		background: var(--clr-theme-container-light);
-		padding: var(--space-12);
-		border: 1px solid var(--clr-theme-container-outline-light);
-		border-radius: var(--radius-s);
-
-		&:hover {
-			border-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-outline-light),
-				var(--darken-dark)
-			);
-		}
-		&:focus {
-			border-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-outline-light),
-				var(--darken-extradark)
-			);
-			outline: none;
-		}
-		&:invalid {
-			border-color: var(--clr-theme-err-element);
-		}
-		&:disabled {
-			background-color: var(--clr-theme-container-pale);
-			border-color: var(--clr-theme-err-element);
-		}
+		padding-top: var(--space-12);
+		padding-bottom: var(--space-12);
 	}
 </style>

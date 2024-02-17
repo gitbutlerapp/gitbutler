@@ -97,7 +97,11 @@
 		width: 100%;
 		max-width: 100%;
 		&:not(.selected):hover {
-			background-color: color-mix(in srgb, var(--clr-theme-container-light), var(--darken-light));
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-light),
+				var(--darken-tint-light)
+			);
 		}
 		overflow: hidden;
 	}

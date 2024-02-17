@@ -45,8 +45,9 @@
 				{required}
 				{placeholder}
 				{spellcheck}
+				{disabled}
 				type="password"
-				class="textbox__input text-base-13"
+				class="text-input textbox__input text-base-13"
 				class:select-none={noselect}
 				bind:value
 				on:click
@@ -60,7 +61,8 @@
 				{required}
 				{placeholder}
 				{spellcheck}
-				class="textbox__input text-base-13"
+				{disabled}
+				class="text-input textbox__input text-base-13"
 				class:select-none={noselect}
 				class:select-all={selectall}
 				bind:value
@@ -88,42 +90,11 @@
 		flex-grow: 1;
 		height: var(--size-btn-l);
 		width: 100%;
-		padding: var(--space-4) var(--space-12);
-		color: var(--clr-theme-scale-ntrl-0);
-		background-color: var(--clr-theme-container-light);
-		border: 1px solid var(--clr-theme-container-outline-light);
-		border-radius: var(--radius-s);
-		transition: border-color var(--transition-fast);
-
-		&::placeholder {
-			color: var(--clr-theme-scale-ntrl-50);
-		}
-
-		&:hover {
-			border-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-outline-light),
-				var(--darken-dark)
-			);
-		}
-
-		&:focus {
-			border-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-outline-light),
-				var(--darken-extradark)
-			);
-			outline: none;
-		}
-
-		&:invalid {
-			border-color: var(--clr-theme-err-element);
-		}
 
 		&:disabled {
-			color: var(--clr-theme-scale-ntrl-60);
-			border-color: var(--clr-theme-err-element);
-			background-color: var(--clr-theme-container-pale);
+			& .textbox__icon {
+				color: var(--clr-theme-scale-ntrl-60);
+			}
 		}
 	}
 
@@ -156,18 +127,6 @@
 		}
 		& .textbox__icon {
 			right: var(--space-12);
-		}
-	}
-
-	.disabled {
-		& .textbox__input {
-			color: var(--clr-theme-scale-ntrl-60);
-			border-color: var(--clr-theme-scale-ntrl-70);
-			background-color: var(--clr-theme-container-pale);
-		}
-
-		& .textbox__icon {
-			color: var(--clr-theme-scale-ntrl-60);
 		}
 	}
 </style>

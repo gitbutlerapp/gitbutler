@@ -74,7 +74,7 @@
 	.base-branch-card:hover,
 	.base-branch-card:focus,
 	.selected {
-		background-color: color-mix(in srgb, transparent, var(--darken-light));
+		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 	}
 
 	.icon {

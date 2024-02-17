@@ -137,7 +137,7 @@
 			background-color: color-mix(
 				in srgb,
 				var(--clr-theme-container-light),
-				var(--darken-extralight)
+				var(--darken-tint-extralight)
 			);
 		}
 	}
@@ -153,14 +153,18 @@
 		background-color: color-mix(
 			in srgb,
 			var(--clr-theme-container-light),
-			var(--darken-extralight)
+			var(--darken-tint-extralight)
 		);
 
 		& .commit__header {
 			padding-bottom: var(--space-16);
 
 			&:hover {
-				background-color: color-mix(in srgb, var(--clr-theme-container-light), var(--darken-light));
+				background-color: color-mix(
+					in srgb,
+					var(--clr-theme-container-light),
+					var(--darken-tint-light)
+				);
 			}
 		}
 	}
