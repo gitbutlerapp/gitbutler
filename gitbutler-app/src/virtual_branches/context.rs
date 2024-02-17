@@ -77,17 +77,13 @@ pub fn hunk_with_context(
     }
 
 
-    let mut start_line_before = hunk_old_start_line
-        .max(hunk_new_start_line)
-        .saturating_sub(context_before.len());
-    let mut start_line_after = hunk_old_start_line
-        .max(hunk_new_start_line)
-        .saturating_sub(context_before.len());
-    // if there is no context to add (entire file is added / removed), leave the header as is
-    if context_after.len() + context_after.len() == 0 {
-        start_line_before = hunk_old_start_line;
-        start_line_after = hunk_new_start_line;
-    }
+    let start_line_before = before_context_starting_index;
+    let start_line_after =
+        if added_count == 0 {
+            hunk_new_start_line.saturating_sub(context_before.len())
+        } else {
+            hunk_new_start_line.saturating_sub(context_before.len() + 1)
+        };
 
     let line_count_before = removed_count + context_before.len() + context_after.len();
     let line_count_after = added_count + context_before.len() + context_after.len();
