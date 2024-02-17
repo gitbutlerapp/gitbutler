@@ -3,6 +3,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
+	import { projectCurrentCommitMessage, projectLastCommitMessage } from '$lib/config/config';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -21,6 +22,8 @@
 	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
 
 	const selectedOwnership = writable(Ownership.default());
+	const currentCommitMessage = projectCurrentCommitMessage(projectId);
+	const lastCommitMessage = projectLastCommitMessage(projectId);
 
 	let showFiles = false;
 
@@ -55,6 +58,7 @@
 					border
 					clickable
 					on:click={(e) => {
+						currentCommitMessage.set($lastCommitMessage);
 						e.stopPropagation();
 						resetHeadCommit();
 					}}>Undo</Tag
