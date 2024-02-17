@@ -22,7 +22,7 @@ pub struct Dispatcher {
 
 /// The timeout for debouncing file change events.
 /// This is used to prevent multiple events from being sent for a single file change.
-static DEBOUNCE_TIMEOUT: Duration = Duration::from_millis(10);
+static DEBOUNCE_TIMEOUT: Duration = Duration::from_millis(100);
 
 #[derive(Debug, thiserror::Error)]
 pub enum RunError {
