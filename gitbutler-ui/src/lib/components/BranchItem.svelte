@@ -85,7 +85,7 @@
 	.branch:hover,
 	.branch:focus,
 	.selected {
-		background-color: color-mix(in srgb, transparent, var(--darken-light));
+		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 		transition: none;
 	}
 </style>

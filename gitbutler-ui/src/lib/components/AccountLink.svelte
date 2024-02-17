@@ -68,7 +68,7 @@
 		}
 
 		&:hover {
-			background-color: color-mix(in srgb, transparent, var(--darken-light));
+			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 			color: var(--clr-theme-scale-ntrl-40);
 		}
 	}

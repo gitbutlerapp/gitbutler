@@ -50,7 +50,7 @@
 		transition: background-color var(--transition-fast);
 		&:not(.disabled):hover {
 			transition: none;
-			background-color: color-mix(in srgb, transparent, var(--darken-light));
+			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 		}
 	}
 	.label {

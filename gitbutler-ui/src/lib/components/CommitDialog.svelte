@@ -135,7 +135,7 @@
 					on:focus={useAutoHeight}
 					on:change={() => currentCommitMessage.set(commitMessage)}
 					spellcheck={false}
-					class="commit-box__textarea text-base-body-13"
+					class="text-input commit-box__textarea"
 					rows="1"
 					disabled={isGeneratingCommigMessage}
 					placeholder="Your commit message here"
@@ -237,33 +237,12 @@
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-		color: var(--clr-theme-scale-ntrl-0);
-		background: var(--clr-theme-container-light);
+
 		padding: var(--space-12) var(--space-12) var(--space-48) var(--space-12);
 		align-items: flex-end;
 		gap: var(--space-16);
 
-		border-radius: var(--radius-s);
-		border: 1px solid var(--clr-theme-container-outline-light);
-
-		transition: border-color var(--transition-fast);
 		resize: none;
-
-		&:hover {
-			border-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-outline-light),
-				var(--darken-dark)
-			);
-		}
-		&:focus-within {
-			border-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-outline-light),
-				var(--darken-extradark)
-			);
-			outline: none;
-		}
 	}
 	.commit-box__texarea-actions {
 		position: absolute;

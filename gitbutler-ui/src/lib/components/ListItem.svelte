@@ -39,13 +39,13 @@
 
 		&:hover:enabled,
 		&:focus:enabled {
-			background-color: color-mix(in srgb, transparent, var(--darken-light));
+			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 			& .icon {
 				color: var(--clr-theme-scale-ntrl-40);
 			}
 		}
 		&:disabled {
-			background-color: color-mix(in srgb, transparent, var(--darken-light));
+			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 			color: var(--clr-theme-scale-ntrl-50);
 		}
 		& .icon {

@@ -2,11 +2,12 @@
 @import './fonts.css';
 @import './diff.postcss';
 @import './themes.postcss';
-@import './syntax-highlighting.postcss';
+@import './syntax-highlighting.css';
 @import './tokens.css';
 @import './text-classes.css';
-@import './card.postcss';
-@import './tooltip.postcss';
+@import './card.css';
+@import './tooltip.css';
+@import './text-input.css';
 
 @tailwind base;
 @tailwind components;
@@ -20,6 +21,14 @@
 	--helpers-invert-0: 0;
 	--helpers-invert-1: 1;
 
+	/* For very light neutral states — ghost buttons, light background */
+	--darken-tint-extralight: var(--clr-theme-scale-ntrl-50) 5%;
+	--darken-tint-light: var(--clr-theme-scale-ntrl-50) 9%;
+	--darken-tint-mid: var(--clr-theme-scale-ntrl-50) 15%;
+	--darken-tint-dark: var(--clr-theme-scale-ntrl-50) 20%;
+	--darken-tint-extradark: var(--clr-theme-scale-ntrl-50) 35%;
+
+	/* For all other elements */
 	--darken-extralight: var(--clr-theme-scale-ntrl-0) 3%;
 	--darken-light: var(--clr-theme-scale-ntrl-0) 5%;
 	--darken-mid: var(--clr-theme-scale-ntrl-0) 9%;
