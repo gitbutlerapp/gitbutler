@@ -75,9 +75,9 @@
 			<PushButton
 				wide
 				isLoading={isPushing || $githubServiceState$?.busy}
-				isPushed={type == 'remote' && !branch.requiresForce}
-				requiresForcePush={branch.requiresForce}
 				isPr={!!$pr$}
+				{type}
+				{branch}
 				{projectId}
 				githubEnabled={$githubEnabled$}
 				on:trigger={async (e) => {
