@@ -63,6 +63,7 @@
 						{isFileLocked}
 						{minWidth}
 						{readonly}
+						linesModified={added + removed}
 					/>
 				</div>
 			{/if}
