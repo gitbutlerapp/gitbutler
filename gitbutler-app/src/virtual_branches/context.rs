@@ -155,13 +155,13 @@ mod tests {
         )
         .unwrap();
         let expected = r#"@@ -5,7 +5,7 @@
- 
+
  [features]
  default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
 +SERDE = ["dep:serde", "uuid/serde"]
  rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
 "#;
         assert_eq!(with_ctx.diff, expected);
@@ -195,7 +195,7 @@ mod tests {
 +NAME = "gitbutler-core"
  version = "0.0.0"
  edition = "2021"
- 
+
 "#
         );
         assert_eq!(with_ctx.old_start, 1);
@@ -255,7 +255,7 @@ mod tests {
         assert_eq!(
             with_ctx.diff,
             r#"@@ -10,5 +10,5 @@
- 
+
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 -serde = { workspace = true, optional = true }
@@ -291,7 +291,7 @@ mod tests {
         assert_eq!(
             with_ctx.diff,
             r#"@@ -5,7 +5,10 @@
- 
+
  [features]
  default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
@@ -300,7 +300,7 @@ mod tests {
 +three
 +four
  rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
 "#
         );
@@ -332,13 +332,13 @@ mod tests {
             with_ctx.diff,
             r#"@@ -4,9 +4,7 @@
  edition = "2021"
- 
+
  [features]
 -default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
 -rusqlite = ["dep:rusqlite"]
 +foo = ["foo"]
- 
+
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 "#
@@ -450,7 +450,7 @@ mod tests {
 +two
 +three
  rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
 "#;
         assert_eq!(with_ctx.diff, expected);
@@ -469,12 +469,12 @@ mod tests {
 "#;
         let expected = r#"@@ -4,9 +4,6 @@
  edition = "2021"
- 
+
  [features]
 -default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
 -rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 "#;
@@ -518,7 +518,7 @@ mod tests {
 -
 -    @waiting_users = User.where(approved: false).count
    end
- 
+
    def invite
 ";
         assert!(with_ctx.diff == expected);
