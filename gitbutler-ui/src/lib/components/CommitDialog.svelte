@@ -227,7 +227,6 @@
 		display: flex;
 		flex-direction: column;
 		margin-bottom: var(--space-12);
-		/* overflow: hidden; */
 	}
 	.commit-box__textarea-wrapper {
 		position: relative;
@@ -236,7 +235,6 @@
 	}
 	.commit-box__textarea {
 		overflow: hidden;
-		/* box-sizing: border-box; */
 		display: flex;
 		flex-direction: column;
 		color: var(--clr-theme-scale-ntrl-0);
@@ -245,7 +243,7 @@
 		align-items: flex-end;
 		gap: var(--space-16);
 
-		border-radius: var(--radius-s) var(--radius-s) 0 0;
+		border-radius: var(--radius-s);
 		border: 1px solid var(--clr-theme-container-outline-light);
 
 		transition: border-color var(--transition-fast);
