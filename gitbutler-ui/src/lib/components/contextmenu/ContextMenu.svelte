@@ -28,6 +28,6 @@
 		background: var(--clr-theme-container-pale);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		border-radius: var(--radius-m);
-		box-shadow: var(--fx-shadow-l);
+		box-shadow: var(--fx-shadow-s);
 	}
 </style>
