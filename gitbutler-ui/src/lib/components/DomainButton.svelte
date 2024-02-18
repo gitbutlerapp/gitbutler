@@ -19,16 +19,11 @@
 		color: var(--clr-theme-scale-ntrl-0);
 		height: var(--space-36);
 		transition: background-color var(--transition-fast);
-
-		/* &:hover,
-		&:focus {
-			background-color: color-mix(in srgb, transparent, var(--darken-light));
-		} */
 	}
 
 	.domain-button:hover,
 	.domain-button:focus,
 	.selected {
-		background-color: color-mix(in srgb, transparent, var(--darken-light));
+		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 	}
 </style>

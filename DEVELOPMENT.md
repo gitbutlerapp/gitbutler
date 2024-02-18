@@ -140,7 +140,7 @@ You'll need to fix the security permissions for the `nodejs` folder.
 > Node.js, this may pose a security concern. Be sure to understand
 > the implications of this before proceeding.
 
-1. Right click on the `nodejs` folder in `Program Files`.
+1. Right-click on the `nodejs` folder in `Program Files`.
 2. Click on `Properties`.
 3. Click on the `Security` tab.
 4. Click on `Edit` next to "change permissions".

@@ -123,7 +123,11 @@
 		transition: background-color var(--transition-fast);
 		&:not(.selected-draggable):hover {
 			transition: none;
-			background-color: color-mix(in srgb, var(--clr-theme-container-light), var(--darken-light));
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-light),
+				var(--darken-tint-light)
+			);
 		}
 	}
 

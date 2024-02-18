@@ -15,13 +15,14 @@
 	import { persisted, type Persisted } from '$lib/persisted/persisted';
 	import * as toasts from '$lib/utils/toasts';
 	import { createEventDispatcher } from 'svelte';
+	import type { Branch } from '$lib/vbranches/types';
 
 	export let projectId: string;
-	export let isPushed: boolean;
+	export let type: string;
 	export let isLoading = false;
 	export let githubEnabled: boolean;
 	export let wide = false;
-	export let requiresForcePush = false;
+	export let branch: Branch;
 	export let isPr = false;
 
 	function defaultAction(projectId: string): Persisted<BranchAction> {
@@ -37,7 +38,12 @@
 	let disabled = false;
 
 	$: selection$ = contextMenu?.selection$;
-	$: action = selectAction($preferredAction);
+
+	let action!: BranchAction;
+	$: {
+		isPushed; // selectAction is dependant on isPushed
+		action = selectAction($preferredAction);
+	}
 
 	function selectAction(preferredAction: BranchAction) {
 		if (isPushed && !githubEnabled) {
@@ -53,15 +59,18 @@
 		return preferredAction;
 	}
 
-	$: pushLabel = requiresForcePush ? 'Force push to remote' : 'Push to remote';
+	$: pushLabel = branch.requiresForce ? 'Force push to remote' : 'Push to remote';
+	$: commits = branch.commits.filter((c) => c.status == type);
+	$: isPushed = type === 'remote' && !branch.requiresForce;
 </script>
 
-{#if isPr && !isPushed}
+{#if (isPr || commits.length === 0) && !isPushed}
 	<Button
 		color="primary"
 		kind="outlined"
 		{wide}
 		disabled={isPushed}
+		loading={isLoading}
 		on:click={() => {
 			dispatch('trigger', { action: BranchAction.Push });
 		}}>{pushLabel}</Button

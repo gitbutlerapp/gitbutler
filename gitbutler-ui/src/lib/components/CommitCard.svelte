@@ -1,14 +1,12 @@
 <script lang="ts">
-	import BranchFilesHeader from './BranchFilesHeader.svelte';
-	import BranchFilesList from './BranchFilesList.svelte';
-	import FileTree from './FileTree.svelte';
+	import BranchFiles from './BranchFiles.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
+	import { projectCurrentCommitMessage } from '$lib/config/config';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { filesToFileTree } from '$lib/vbranches/filetree';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { LocalFile, RemoteCommit, Commit, RemoteFile } from '$lib/vbranches/types';
@@ -24,11 +22,12 @@
 	export let isUnapplied = false;
 	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
 	export let branchController: BranchController;
+	export let branchId: string | undefined = undefined;
 
 	const selectedOwnership = writable(Ownership.default());
+	const currentCommitMessage = projectCurrentCommitMessage(projectId, branchId || '');
 
 	let showFiles = false;
-	let selectedListMode: string;
 
 	let files: RemoteFile[] = [];
 
@@ -61,6 +60,7 @@
 					border
 					clickable
 					on:click={(e) => {
+						currentCommitMessage.set(commit.description);
 						e.stopPropagation();
 						resetHeadCommit();
 					}}>Undo</Tag
@@ -88,36 +88,17 @@
 
 	{#if showFiles}
 		<div class="files-container" transition:slide={{ duration: 100 }}>
-			<div class="files__header">
-				<BranchFilesHeader
-					{files}
-					{selectedOwnership}
-					showCheckboxes={false}
-					bind:selectedListMode
-				/>
-			</div>
-			<div class="files">
-				{#if selectedListMode == 'list'}
-					<BranchFilesList
-						branchId="blah"
-						{files}
-						{selectedOwnership}
-						{selectedFiles}
-						{isUnapplied}
-						{branchController}
-						readonly={true}
-					/>
-				{:else}
-					<FileTree
-						node={filesToFileTree(files)}
-						branchId="blah"
-						isRoot={true}
-						{selectedOwnership}
-						{selectedFiles}
-						{isUnapplied}
-					/>
-				{/if}
-			</div>
+			<BranchFiles
+				branchId="blah"
+				{files}
+				{isUnapplied}
+				{selectedOwnership}
+				{selectedFiles}
+        {branchController}
+				allowMultiple={true}
+				readonly={true}
+			/>
+
 			{#if !commit.isLocal && commitUrl}
 				<div class="files__footer">
 					<Button
@@ -159,7 +140,7 @@
 			background-color: color-mix(
 				in srgb,
 				var(--clr-theme-container-light),
-				var(--darken-extralight)
+				var(--darken-tint-extralight)
 			);
 		}
 	}
@@ -175,14 +156,18 @@
 		background-color: color-mix(
 			in srgb,
 			var(--clr-theme-container-light),
-			var(--darken-extralight)
+			var(--darken-tint-extralight)
 		);
 
 		& .commit__header {
 			padding-bottom: var(--space-16);
 
 			&:hover {
-				background-color: color-mix(in srgb, var(--clr-theme-container-light), var(--darken-light));
+				background-color: color-mix(
+					in srgb,
+					var(--clr-theme-container-light),
+					var(--darken-tint-light)
+				);
 			}
 		}
 	}
@@ -226,21 +211,6 @@
 
 	.files-container {
 		background-color: var(--clr-theme-container-light);
-	}
-
-	.files {
-		padding-top: 0;
-		padding-left: var(--space-12);
-		padding-right: var(--space-12);
-		padding-bottom: var(--space-12);
-	}
-
-	.files__header {
-		border-top: 1px solid var(--clr-theme-container-outline-light);
-		padding-top: var(--space-12);
-		padding-bottom: var(--space-12);
-		padding-left: var(--space-20);
-		padding-right: var(--space-12);
 	}
 
 	.files__footer {

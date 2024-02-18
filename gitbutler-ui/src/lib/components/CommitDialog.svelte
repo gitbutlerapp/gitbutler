@@ -9,7 +9,8 @@
 		projectAiGenEnabled,
 		projectCommitGenerationExtraConcise,
 		projectCommitGenerationUseEmojis,
-		projectRunCommitHooks
+		projectRunCommitHooks,
+		projectCurrentCommitMessage
 	} from '$lib/config/config';
 	import { persisted } from '$lib/persisted/persisted';
 	import * as toasts from '$lib/utils/toasts';
@@ -18,6 +19,7 @@
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { createEventDispatcher } from 'svelte';
 	import { quintOut } from 'svelte/easing';
+	import { get } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -38,11 +40,16 @@
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 	const runCommitHooks = projectRunCommitHooks(projectId);
+	const currentCommitMessage = projectCurrentCommitMessage(projectId, branch.id);
 	export const expanded = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
 
-	let commitMessage: string;
+	let commitMessage: string = get(currentCommitMessage) || '';
 	let isCommitting = false;
 	let textareaElement: HTMLTextAreaElement;
+	$: if (textareaElement && commitMessage && expanded) {
+		textareaElement.style.height = 'auto';
+		textareaElement.style.height = `${textareaElement.scrollHeight + 2}px`;
+	}
 
 	const focusTextareaOnMount = (el: HTMLTextAreaElement) => {
 		if (el) {
@@ -56,6 +63,7 @@
 			.commitBranch(branch.id, commitMessage, $selectedOwnership.toString(), $runCommitHooks)
 			.then(() => {
 				commitMessage = '';
+				currentCommitMessage.set('');
 			})
 			.finally(() => (isCommitting = false));
 	}
@@ -96,6 +104,7 @@
 				const summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
 				const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
 				commitMessage = description.length > 0 ? `${summary}\n\n${description}` : summary;
+				currentCommitMessage.set(commitMessage);
 
 				setTimeout(() => {
 					textareaElement.focus();
@@ -124,8 +133,9 @@
 					use:focusTextareaOnMount
 					on:input={useAutoHeight}
 					on:focus={useAutoHeight}
+					on:change={() => currentCommitMessage.set(commitMessage)}
 					spellcheck={false}
-					class="commit-box__textarea text-base-body-13"
+					class="text-input commit-box__textarea"
 					rows="1"
 					disabled={isGeneratingCommigMessage}
 					placeholder="Your commit message here"
@@ -217,7 +227,6 @@
 		display: flex;
 		flex-direction: column;
 		margin-bottom: var(--space-12);
-		/* overflow: hidden; */
 	}
 	.commit-box__textarea-wrapper {
 		position: relative;
@@ -226,36 +235,14 @@
 	}
 	.commit-box__textarea {
 		overflow: hidden;
-		/* box-sizing: border-box; */
 		display: flex;
 		flex-direction: column;
-		color: var(--clr-theme-scale-ntrl-0);
-		background: var(--clr-theme-container-light);
+
 		padding: var(--space-12) var(--space-12) var(--space-48) var(--space-12);
 		align-items: flex-end;
 		gap: var(--space-16);
 
-		border-radius: var(--radius-s) var(--radius-s) 0 0;
-		border: 1px solid var(--clr-theme-container-outline-light);
-
-		transition: border-color var(--transition-fast);
 		resize: none;
-
-		&:hover {
-			border-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-outline-light),
-				var(--darken-dark)
-			);
-		}
-		&:focus-within {
-			border-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-outline-light),
-				var(--darken-extradark)
-			);
-			outline: none;
-		}
 	}
 	.commit-box__texarea-actions {
 		position: absolute;

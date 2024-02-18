@@ -27,6 +27,9 @@ pub fn hunk_with_context(
         });
     }
 
+    let new_file = hunk_old_start_line == 0;
+    let deleted_file = hunk_new_start_line == 0;
+
     let removed_count = diff_lines
         .iter()
         .filter(|line| line.starts_with('-'))
@@ -38,67 +41,51 @@ pub fn hunk_with_context(
 
     // Get context lines before the diff
     let mut context_before = Vec::new();
-    for i in 1..=context_lines {
-        if hunk_new_start_line > i {
-            let idx = hunk_new_start_line
-                .max(hunk_old_start_line)
-                .saturating_sub(i + 1); // +1
-            if idx < file_lines_before.len() {
-                if let Some(l) = file_lines_before.get(idx) {
-                    let mut s = (*l).to_string();
-                    s.insert(0, ' ');
-                    context_before.push(s);
-                }
-            }
+    let before_context_ending_index = if removed_count == 0 {
+        // Compensate for when the removed_count is 0
+        hunk_old_start_line
+    } else {
+        hunk_old_start_line.saturating_sub(1)
+    };
+    let before_context_starting_index = before_context_ending_index.saturating_sub(context_lines);
+
+    for index in before_context_starting_index..before_context_ending_index {
+        if let Some(l) = file_lines_before.get(index) {
+            let mut s = (*l).to_string();
+            s.insert(0, ' ');
+            context_before.push(s);
         }
     }
-    context_before.reverse();
 
     // Get context lines after the diff
     let mut context_after = Vec::new();
-    let end = context_lines - 1;
-    for i in 0..=end {
-        let idx = i
-            + hunk_new_start_line.min(hunk_old_start_line)
-            + removed_count.saturating_sub(added_count);
-        if idx < file_lines_before.len() {
-            if let Some(l) = file_lines_before.get(idx) {
-                let mut s = (*l).to_string();
-                s.insert(0, ' ');
-                context_after.push(s);
-            }
+    let after_context_starting_index = before_context_ending_index + removed_count;
+    let after_context_ending_index = after_context_starting_index + context_lines;
+
+    for index in after_context_starting_index..after_context_ending_index {
+        if let Some(l) = file_lines_before.get(index) {
+            let mut s = (*l).to_string();
+            s.insert(0, ' ');
+            context_after.push(s);
         }
     }
 
-    let header = &diff_lines[0];
-    let body = &diff_lines[1..];
+    let start_line_before = if new_file {
+        // If we've created a new file, start_line_before should be 0
+        0
+    } else {
+        before_context_starting_index + 1
+    };
 
-    // Update unidiff header values
-    let header = header
-        .split(|c| c == ' ' || c == '@')
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>();
-
-    let start_line_before_no_ctx = header[0].split(',').collect::<Vec<_>>()[0]
-        .parse::<isize>()
-        .context("failed to parse unidiff header value for start line before")?
-        .unsigned_abs();
-    let start_line_after_no_ctx = header[1].split(',').collect::<Vec<_>>()[0]
-        .parse::<isize>()
-        .context("failed to parse unidiff header value for start line after")?
-        .unsigned_abs();
-
-    let mut start_line_before = start_line_before_no_ctx
-        .max(start_line_after_no_ctx)
-        .saturating_sub(context_before.len());
-    let mut start_line_after = start_line_before_no_ctx
-        .max(start_line_after_no_ctx)
-        .saturating_sub(context_before.len());
-    // if there is no context to add (entire file is added / removed), leave the header as is
-    if context_after.len() + context_after.len() == 0 {
-        start_line_before = start_line_before_no_ctx;
-        start_line_after = start_line_after_no_ctx;
-    }
+    let start_line_after = if deleted_file {
+        // If we've deleted a new file, start_line_after should be 0
+        0
+    } else if added_count == 0 {
+        // Compensate for when the added_count is 0
+        hunk_new_start_line.saturating_sub(context_before.len()) + 1
+    } else {
+        hunk_new_start_line.saturating_sub(context_before.len())
+    };
 
     let line_count_before = removed_count + context_before.len() + context_after.len();
     let line_count_after = added_count + context_before.len() + context_after.len();
@@ -107,6 +94,7 @@ pub fn hunk_with_context(
         start_line_before, line_count_before, start_line_after, line_count_after
     );
 
+    let body = &diff_lines[1..];
     // Update unidiff body with context lines
     let mut b = Vec::new();
     b.extend(context_before.clone());
@@ -461,6 +449,41 @@ mod tests {
     }
 
     #[test]
+    fn only_add_lines_with_additions_below() {
+        let hunk_diff = "@@ -8,0 +13,3 @@
++one
++two
++three
+";
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            8,
+            13,
+            false,
+            3,
+            &file_lines(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
+        let expected = r#"@@ -6,6 +10,9 @@
+ [features]
+ default = ["serde", "rusqlite"]
+ serde = ["dep:serde", "uuid/serde"]
++one
++two
++three
+ rusqlite = ["dep:rusqlite"]
+ 
+ [dependencies]
+"#;
+        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.old_start, 6);
+        assert_eq!(with_ctx.old_lines, 6);
+        assert_eq!(with_ctx.new_start, 10);
+        assert_eq!(with_ctx.new_lines, 9);
+    }
+
+    #[test]
     fn only_remove_lines() {
         let hunk_diff = r#"@@ -7,3 +6,0 @@
 -default = ["serde", "rusqlite"]
@@ -488,10 +511,45 @@ mod tests {
             diff::ChangeType::Added,
         )
         .unwrap();
-        assert_eq!(with_ctx.diff, expected);
+        assert!(with_ctx.diff == expected);
         assert_eq!(with_ctx.old_start, 4);
         assert_eq!(with_ctx.old_lines, 9);
         assert_eq!(with_ctx.new_start, 4);
+        assert_eq!(with_ctx.new_lines, 6);
+    }
+
+    #[test]
+    fn only_remove_lines_with_additions_below() {
+        let hunk_diff = r#"@@ -7,3 +10,0 @@
+-default = ["serde", "rusqlite"]
+-serde = ["dep:serde", "uuid/serde"]
+-rusqlite = ["dep:rusqlite"]
+"#;
+        let expected = r#"@@ -4,9 +8,6 @@
+ edition = "2021"
+ 
+ [features]
+-default = ["serde", "rusqlite"]
+-serde = ["dep:serde", "uuid/serde"]
+-rusqlite = ["dep:rusqlite"]
+ 
+ [dependencies]
+ rusqlite = { workspace = true, optional = true }
+"#;
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            7,
+            10,
+            false,
+            3,
+            &file_lines(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
+        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.old_start, 4);
+        assert_eq!(with_ctx.old_lines, 9);
+        assert_eq!(with_ctx.new_start, 8);
         assert_eq!(with_ctx.new_lines, 6);
     }
 
@@ -521,7 +579,7 @@ mod tests {
  
    def invite
 ";
-        assert!(with_ctx.diff == expected);
+        assert_eq!(with_ctx.diff, expected);
         assert_eq!(with_ctx.old_start, 8);
         assert_eq!(with_ctx.old_lines, 8);
         assert_eq!(with_ctx.new_start, 8);

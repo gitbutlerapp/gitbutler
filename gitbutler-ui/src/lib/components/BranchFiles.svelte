@@ -5,46 +5,35 @@
 	import { filesToFileTree } from '$lib/vbranches/filetree';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { Branch, LocalFile } from '$lib/vbranches/types';
+	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	export let branch: Branch;
+	export let branchId: string;
+	export let files: LocalFile[] | RemoteFile[];
 	export let isUnapplied: boolean;
 	export let selectedOwnership: Writable<Ownership>;
-	export let selectedFiles: Writable<LocalFile[]>;
+	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
 	export let showCheckboxes = false;
 	export let branchController: BranchController;
+
+	export let allowMultiple: boolean;
+	export let readonly: boolean;
 
 	let selectedListMode: string;
 </script>
 
-{#if branch.active && branch.conflicted}
-	<div class="mb-2 bg-red-500 p-2 font-bold text-white">
-		{#if branch.files.some((f) => f.conflicted)}
-			This virtual branch conflicts with upstream changes. Please resolve all conflicts and commit
-			before you can continue.
-		{:else}
-			Please commit your resolved conflicts to continue.
-		{/if}
-	</div>
-{/if}
-
 <div class="branch-files" class:isUnapplied>
 	<div class="branch-files__header">
-		<BranchFilesHeader
-			files={branch.files}
-			{selectedOwnership}
-			{showCheckboxes}
-			bind:selectedListMode
-		/>
+		<BranchFilesHeader {files} {selectedOwnership} {showCheckboxes} bind:selectedListMode />
 	</div>
-	{#if branch.files.length > 0}
+	{#if files.length > 0}
 		<div class="files-padding">
 			{#if selectedListMode == 'list'}
 				<BranchFilesList
-					allowMultiple
-					branchId={branch.id}
-					files={branch.files}
+					{allowMultiple}
+					{readonly}
+					{branchId}
+					{files}
 					{selectedOwnership}
 					{selectedFiles}
 					{showCheckboxes}
@@ -53,10 +42,11 @@
 				/>
 			{:else}
 				<FileTree
-					allowMultiple
-					node={filesToFileTree(branch.files)}
+					{allowMultiple}
+					{readonly}
+					node={filesToFileTree(files)}
 					{showCheckboxes}
-					branchId={branch.id}
+					{branchId}
 					isRoot={true}
 					{selectedOwnership}
 					{selectedFiles}

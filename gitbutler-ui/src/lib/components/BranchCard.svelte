@@ -203,13 +203,26 @@
 				<DropzoneOverlay class="lane-dz-marker" label="Move here" />
 				{#if branch.files?.length > 0}
 					<div class="card">
+						{#if branch.active && branch.conflicted}
+							<div class="mb-2 bg-red-500 p-2 font-bold text-white">
+								{#if branch.files.some((f) => f.conflicted)}
+									This virtual branch conflicts with upstream changes. Please resolve all conflicts
+									and commit before you can continue.
+								{:else}
+									Please commit your resolved conflicts to continue.
+								{/if}
+							</div>
+						{/if}
 						<BranchFiles
-							{branch}
+							branchId={branch.id}
+							files={branch.files}
 							{isUnapplied}
 							{selectedOwnership}
 							{selectedFiles}
 							{branchController}
 							showCheckboxes={$commitBoxOpen}
+							allowMultiple={true}
+							readonly={false}
 						/>
 						{#if branch.active}
 							<CommitDialog

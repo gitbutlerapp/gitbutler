@@ -109,7 +109,7 @@
 		color: var(--clr-theme-scale-ntrl-30);
 		&:hover,
 		&:focus {
-			background: color-mix(in srgb, transparent, var(--darken-light));
+			background: color-mix(in srgb, transparent, var(--darken-tint-light));
 		}
 	}
 	.neutral-outline {
@@ -117,7 +117,7 @@
 		border: 1px solid var(--clr-theme-container-outline-light);
 		&:hover,
 		&:focus {
-			background: color-mix(in srgb, transparent, var(--darken-extralight));
+			background: color-mix(in srgb, transparent, var(--darken-tint-extralight));
 			border: 1px solid
 				color-mix(in srgb, var(--clr-theme-container-outline-light), var(--darken-mid));
 		}

@@ -85,7 +85,11 @@
 		transition: background var(--transition-fast);
 
 		&:hover {
-			background-color: color-mix(in srgb, var(--clr-theme-container-pale), var(--darken-light));
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-pale),
+				var(--darken-tint-light)
+			);
 		}
 
 		&[aria-selected='true'] {
@@ -98,7 +102,7 @@
 				color: var(--clr-theme-scale-ntrl-0);
 			}
 			& > .icon {
-				color: var(--clr-theme-scale-ntrl-0);
+				color: var(--clr-theme-scale-ntrl-30);
 			}
 			&.left {
 				border-right-width: 1px;
