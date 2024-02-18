@@ -44,11 +44,33 @@
 	export const expanded = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
 
 	let commitMessage: string = get(currentCommitMessage) || '';
+	let titleCharacterCountAdvice: number = 50;
+	let titleCharacterCount: number = 0;
+	let showCharacterCount: boolean = true;
+	let characterCountExceeded: boolean = false;
+	let cursorPosition = 0;
+
+	$: {
+		const [title] = commitMessage.split('\n', 1);
+		titleCharacterCount = title.length;
+		titleCharacterCountAdvice - titleCharacterCount < 0
+			? (characterCountExceeded = true)
+			: (characterCountExceeded = false);
+	}
+
 	let isCommitting = false;
 	let textareaElement: HTMLTextAreaElement;
 	$: if (textareaElement && commitMessage && expanded) {
 		textareaElement.style.height = 'auto';
 		textareaElement.style.height = `${textareaElement.scrollHeight + 2}px`;
+	}
+
+	function handleInput(event: Event) {
+		useAutoHeight(event);
+
+		cursorPosition = textareaElement.selectionStart;
+		const firstNewLineIndex = commitMessage.indexOf('\n');
+		showCharacterCount = firstNewLineIndex === -1 || cursorPosition <= firstNewLineIndex;
 	}
 
 	const focusTextareaOnMount = (el: HTMLTextAreaElement) => {
@@ -131,7 +153,7 @@
 					bind:this={textareaElement}
 					bind:value={commitMessage}
 					use:focusTextareaOnMount
-					on:input={useAutoHeight}
+					on:input={handleInput}
 					on:focus={useAutoHeight}
 					on:change={() => currentCommitMessage.set(commitMessage)}
 					spellcheck={false}
@@ -140,6 +162,13 @@
 					disabled={isGeneratingCommigMessage}
 					placeholder="Your commit message here"
 				/>
+
+				<div
+					class="commit-box__textarea-character-count"
+					class:character-count-exceeded={characterCountExceeded}
+				>
+					{showCharacterCount ? `${titleCharacterCountAdvice - titleCharacterCount}` : ''}
+				</div>
 
 				<div
 					class="commit-box__texarea-actions"
@@ -244,6 +273,16 @@
 
 		resize: none;
 	}
+	.character-count-exceeded {
+		color: var(--clr-core-err-50);
+	}
+
+	.commit-box__textarea-character-count {
+		position: absolute;
+		left: var(--space-12);
+		bottom: var(--space-12);
+	}
+
 	.commit-box__texarea-actions {
 		position: absolute;
 		display: flex;
