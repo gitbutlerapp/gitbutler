@@ -71,8 +71,8 @@
 		transition: background-color var(--transition-fast);
 	}
 
-	.base-branch-card:hover,
-	.base-branch-card:focus,
+	.base-branch-card:not(.selected):hover,
+	.base-branch-card:not(.selected):focus,
 	.selected {
 		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 	}

@@ -96,8 +96,10 @@
 		}
 		z-index: 40;
 		&:hover,
+		&:focus,
 		&.dragging {
 			background-color: var(--clr-theme-container-outline-light);
+			outline: none;
 		}
 	}
 	.horizontal {

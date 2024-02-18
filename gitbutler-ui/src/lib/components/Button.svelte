@@ -119,7 +119,7 @@
 		&:focus {
 			background: color-mix(in srgb, transparent, var(--darken-tint-extralight));
 			border: 1px solid
-				color-mix(in srgb, var(--clr-theme-container-outline-light), var(--darken-mid));
+				color-mix(in srgb, var(--clr-theme-container-outline-light), var(--darken-tint-mid));
 		}
 	}
 
