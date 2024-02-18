@@ -47,8 +47,12 @@
 
 			<ContextMenuItem
 				label="Delete"
-				on:click={() => {
-					deleteBranchModal.show(branch);
+				on:click={async () => {
+					if (commits.length == 0 && branch.files?.length == 0) {
+						await branchController.deleteBranch(branch.id);
+					} else {
+						deleteBranchModal.show(branch);
+					}
 					visible = false;
 				}}
 			/>
