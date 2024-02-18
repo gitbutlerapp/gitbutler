@@ -3,6 +3,7 @@ mod calculate_deltas_handler;
 mod caltulate_virtual_branches_handler;
 mod fetch_gitbutler_data;
 mod fetch_project_data;
+mod filter_ignored_files;
 mod flush_session;
 mod git_file_change;
 mod index_handler;
@@ -33,6 +34,7 @@ pub struct Handler {
     push_project_to_gitbutler: push_project_to_gitbutler::Handler,
     calculate_vbranches_handler: caltulate_virtual_branches_handler::Handler,
     calculate_deltas_handler: calculate_deltas_handler::Handler,
+    filter_ignored_files_handler: filter_ignored_files::Handler,
 
     events_sender: app_events::Sender,
 }
@@ -56,6 +58,7 @@ impl TryFrom<&AppHandle> for Handler {
                 push_project_to_gitbutler::Handler::try_from(value)?,
                 caltulate_virtual_branches_handler::Handler::try_from(value)?,
                 calculate_deltas_handler::Handler::try_from(value)?,
+                filter_ignored_files::Handler::try_from(value)?,
                 app_events::Sender::try_from(value)?,
             );
             value.manage(handler.clone());
@@ -78,6 +81,7 @@ impl Handler {
         push_project_to_gitbutler: push_project_to_gitbutler::Handler,
         calculate_vbranches_handler: caltulate_virtual_branches_handler::Handler,
         calculate_deltas_handler: calculate_deltas_handler::Handler,
+        filter_ignored_files_handler: filter_ignored_files::Handler,
         events_sender: app_events::Sender,
     ) -> Self {
         Self {
@@ -92,6 +96,7 @@ impl Handler {
             push_project_to_gitbutler,
             calculate_vbranches_handler,
             calculate_deltas_handler,
+            filter_ignored_files_handler,
             events_sender,
         }
     }
@@ -103,10 +108,17 @@ impl Handler {
         now: time::SystemTime,
     ) -> Result<Vec<events::Event>> {
         match event {
-            events::Event::ProjectFileChange(project_id, path) => Ok(vec![
-                events::Event::CalculateDeltas(*project_id, path.clone()),
-                events::Event::CalculateVirtualBranches(*project_id),
-            ]),
+            events::Event::ProjectFileChange(project_id, path) => {
+                Ok(vec![events::Event::FilterIgnoredFiles(
+                    *project_id,
+                    path.clone(),
+                )])
+            }
+
+            events::Event::FilterIgnoredFiles(project_id, path) => self
+                .filter_ignored_files_handler
+                .handle(path, project_id)
+                .context("failed to handle filter ignored files event"),
 
             events::Event::GitFileChange(project_id, path) => self
                 .git_file_change_handler
