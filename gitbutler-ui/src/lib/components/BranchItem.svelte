@@ -82,8 +82,8 @@
 		color: var(--clr-theme-scale-ntrl-50);
 	}
 
-	.branch:hover,
-	.branch:focus,
+	.branch:not(.selected):hover,
+	.branch:not(.selected):focus,
 	.selected {
 		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 		transition: none;
