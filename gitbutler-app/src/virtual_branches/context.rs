@@ -506,7 +506,7 @@ mod tests {
  
    def invite
 ";
-        assert!(with_ctx.diff == expected);
+        assert_eq!(with_ctx.diff, expected);
         assert_eq!(with_ctx.old_start, 8);
         assert_eq!(with_ctx.old_lines, 8);
         assert_eq!(with_ctx.new_start, 8);
