@@ -30,7 +30,7 @@ pub enum Event {
     Emit(events::Event),
     Analytics(analytics::Event),
 
-    CalculateVirtualBranches(ProjectId),
+    CalculateVirtualBranches(ProjectId, path::PathBuf),
     CalculateDeltas(ProjectId, path::PathBuf),
 }
 
@@ -49,7 +49,7 @@ impl Event {
             | Event::Session(project_id, _)
             | Event::SessionFile((project_id, _, _, _))
             | Event::SessionDelta((project_id, _, _, _))
-            | Event::CalculateVirtualBranches(project_id)
+            | Event::CalculateVirtualBranches(project_id, _)
             | Event::CalculateDeltas(project_id, _)
             | Event::PushGitbutlerData(project_id)
             | Event::PushProjectToGitbutler(project_id) => project_id,
@@ -90,7 +90,9 @@ impl Display for Event {
                     delta.timestamp_ms
                 )
             }
-            Event::CalculateVirtualBranches(pid) => write!(f, "VirtualBranch({})", pid),
+            Event::CalculateVirtualBranches(pid, path) => {
+                write!(f, "VirtualBranch({}, {})", pid, path.display())
+            }
             Event::CalculateDeltas(project_id, path) => {
                 write!(f, "SessionProcessing({}, {})", project_id, path.display())
             }

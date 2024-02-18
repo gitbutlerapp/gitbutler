@@ -9,13 +9,12 @@ use governor::{
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
+use super::events;
 use crate::{
-    assets, events as app_events,
+    assets, events as app_events, project_repository, projects,
     projects::ProjectId,
     virtual_branches::{self, controller::ControllerError},
 };
-
-use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
@@ -32,7 +31,8 @@ impl TryFrom<&AppHandle> for Handler {
         } else {
             let vbranches = virtual_branches::Controller::try_from(value)?;
             let proxy = assets::Proxy::try_from(value)?;
-            let inner = InnerHandler::new(vbranches, proxy);
+            let projects = projects::Controller::try_from(value)?;
+            let inner = InnerHandler::new(vbranches, proxy, projects);
             let handler = Handler::new(inner);
             value.manage(handler.clone());
             Ok(handler)
@@ -49,11 +49,15 @@ impl Handler {
         }
     }
 
-    pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
+    pub async fn handle<P: AsRef<std::path::Path>>(
+        &self,
+        project_id: &ProjectId,
+        path: P,
+    ) -> Result<Vec<events::Event>> {
         if self.limit.check().is_err() {
             Ok(vec![])
         } else if let Ok(handler) = self.inner.try_lock() {
-            handler.handle(project_id).await
+            handler.handle(project_id, path).await
         } else {
             Ok(vec![])
         }
@@ -63,17 +67,39 @@ impl Handler {
 struct InnerHandler {
     vbranch_controller: virtual_branches::Controller,
     assets_proxy: assets::Proxy,
+    projects: projects::Controller,
 }
 
 impl InnerHandler {
-    fn new(vbranch_controller: virtual_branches::Controller, assets_proxy: assets::Proxy) -> Self {
+    fn new(
+        vbranch_controller: virtual_branches::Controller,
+        assets_proxy: assets::Proxy,
+        projects: projects::Controller,
+    ) -> Self {
         Self {
             vbranch_controller,
             assets_proxy,
+            projects,
         }
     }
 
-    pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
+    pub async fn handle<P: AsRef<std::path::Path>>(
+        &self,
+        project_id: &ProjectId,
+        path: P,
+    ) -> Result<Vec<events::Event>> {
+        let project = self
+            .projects
+            .get(project_id)
+            .context("failed to get project")?;
+        let project_repository = project_repository::Repository::open(&project)
+            .with_context(|| "failed to open project repository for project")?;
+
+        // if file is ignored, noop
+        if project_repository.is_path_ignored(path).unwrap_or(false) {
+            return Ok(vec![]);
+        }
+
         match self
             .vbranch_controller
             .list_virtual_branches(project_id)

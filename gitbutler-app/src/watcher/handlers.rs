@@ -105,7 +105,7 @@ impl Handler {
         match event {
             events::Event::ProjectFileChange(project_id, path) => Ok(vec![
                 events::Event::CalculateDeltas(*project_id, path.clone()),
-                events::Event::CalculateVirtualBranches(*project_id),
+                events::Event::CalculateVirtualBranches(*project_id, path.clone()),
             ]),
 
             events::Event::GitFileChange(project_id, path) => self
@@ -168,9 +168,9 @@ impl Handler {
                 ))])
             }
 
-            events::Event::CalculateVirtualBranches(project_id) => self
+            events::Event::CalculateVirtualBranches(project_id, path) => self
                 .calculate_vbranches_handler
-                .handle(project_id)
+                .handle(project_id, path)
                 .await
                 .context("failed to handle virtual branch event"),
 
