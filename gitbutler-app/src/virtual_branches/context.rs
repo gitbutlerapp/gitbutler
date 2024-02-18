@@ -27,6 +27,9 @@ pub fn hunk_with_context(
         });
     }
 
+    let new_file = hunk_old_start_line == 0;
+    let deleted_file = hunk_new_start_line == 0;
+
     let removed_count = diff_lines
         .iter()
         .filter(|line| line.starts_with('-'))
@@ -67,11 +70,18 @@ pub fn hunk_with_context(
         }
     }
 
-    let start_line_before = before_context_starting_index;
-    let start_line_after = if added_count == 0 {
-        hunk_new_start_line.saturating_sub(context_before.len())
+    let start_line_before = if new_file {
+        0
     } else {
-        hunk_new_start_line.saturating_sub(context_before.len() + 1)
+        before_context_starting_index + 1
+    };
+
+    let start_line_after = if deleted_file {
+        0
+    } else if added_count == 0 {
+        hunk_new_start_line.saturating_sub(context_before.len()) + 1
+    } else {
+        hunk_new_start_line.saturating_sub(context_before.len())
     };
 
     let line_count_before = removed_count + context_before.len() + context_after.len();
@@ -130,13 +140,13 @@ mod tests {
         )
         .unwrap();
         let expected = r#"@@ -5,7 +5,7 @@
-
+ 
  [features]
  default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
 +SERDE = ["dep:serde", "uuid/serde"]
  rusqlite = ["dep:rusqlite"]
-
+ 
  [dependencies]
 "#;
         assert_eq!(with_ctx.diff, expected);
@@ -170,7 +180,7 @@ mod tests {
 +NAME = "gitbutler-core"
  version = "0.0.0"
  edition = "2021"
-
+ 
 "#
         );
         assert_eq!(with_ctx.old_start, 1);
@@ -230,7 +240,7 @@ mod tests {
         assert_eq!(
             with_ctx.diff,
             r#"@@ -10,5 +10,5 @@
-
+ 
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 -serde = { workspace = true, optional = true }
@@ -266,7 +276,7 @@ mod tests {
         assert_eq!(
             with_ctx.diff,
             r#"@@ -5,7 +5,10 @@
-
+ 
  [features]
  default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
@@ -275,7 +285,7 @@ mod tests {
 +three
 +four
  rusqlite = ["dep:rusqlite"]
-
+ 
  [dependencies]
 "#
         );
@@ -307,13 +317,13 @@ mod tests {
             with_ctx.diff,
             r#"@@ -4,9 +4,7 @@
  edition = "2021"
-
+ 
  [features]
 -default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
 -rusqlite = ["dep:rusqlite"]
 +foo = ["foo"]
-
+ 
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 "#
@@ -425,7 +435,7 @@ mod tests {
 +two
 +three
  rusqlite = ["dep:rusqlite"]
-
+ 
  [dependencies]
 "#;
         assert_eq!(with_ctx.diff, expected);
@@ -444,12 +454,12 @@ mod tests {
 "#;
         let expected = r#"@@ -4,9 +4,6 @@
  edition = "2021"
-
+ 
  [features]
 -default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
 -rusqlite = ["dep:rusqlite"]
-
+ 
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 "#;
