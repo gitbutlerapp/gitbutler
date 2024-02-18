@@ -41,12 +41,11 @@ pub fn hunk_with_context(
 
     // Get context lines before the diff
     let mut context_before = Vec::new();
-    let before_context_ending_index = if removed_count == 0 {
+    let before_context_ending_index = if removed_count == 0 { // Compensate for when the removed_count is 0
         hunk_old_start_line
     } else {
         hunk_old_start_line.saturating_sub(1)
     };
-
     let before_context_starting_index = before_context_ending_index.saturating_sub(context_lines);
 
     for index in before_context_starting_index..before_context_ending_index {
@@ -70,15 +69,15 @@ pub fn hunk_with_context(
         }
     }
 
-    let start_line_before = if new_file {
+    let start_line_before = if new_file { // If we've created a new file, start_line_before should be 0
         0
     } else {
         before_context_starting_index + 1
     };
 
-    let start_line_after = if deleted_file {
+    let start_line_after = if deleted_file { // If we've deleted a new file, start_line_after should be 0
         0
-    } else if added_count == 0 {
+    } else if added_count == 0 { // Compensate for when the added_count is 0
         hunk_new_start_line.saturating_sub(context_before.len()) + 1
     } else {
         hunk_new_start_line.saturating_sub(context_before.len())
@@ -91,8 +90,8 @@ pub fn hunk_with_context(
         start_line_before, line_count_before, start_line_after, line_count_after
     );
 
-    // Update unidiff body with context lines
     let body = &diff_lines[1..];
+    // Update unidiff body with context lines
     let mut b = Vec::new();
     b.extend(context_before.clone());
     b.extend_from_slice(body);
@@ -447,15 +446,6 @@ mod tests {
 
     #[test]
     fn only_add_lines_with_additions_below() {
-        // For removal headers (with no context), if its the only change in the file (with no changes above it), the old line is N, which represents the line
-        // which will have the changes inserted after it. The new line is N+1 (because that is where the line number of the line 'one' after its inserted)
-
-        // If there has been Y lines added or removed the hunk, the old line number remains N, but the new line number becomes N+1+Y
-
-        // When you have a hunk which has context, the old line number is N, and the new line number is N.
-        // If there has been Y lines added or removed above the hunk, the old line number is still N, but we add Y to N for the new line number
-        // Because the diff now includes lines that we know about, we want the old line number to be 6 (8-3+1) IE:
-        //  (N - number of context lines + account for now including the starting line if the hunk), and the new line number will be 10 (4 ahead of 6)
         let hunk_diff = "@@ -8,0 +13,3 @@
 +one
 +two
@@ -517,7 +507,7 @@ mod tests {
             diff::ChangeType::Added,
         )
         .unwrap();
-        assert_eq!(with_ctx.diff, expected);
+        assert!(with_ctx.diff == expected);
         assert_eq!(with_ctx.old_start, 4);
         assert_eq!(with_ctx.old_lines, 9);
         assert_eq!(with_ctx.new_start, 4);
@@ -526,15 +516,6 @@ mod tests {
 
     #[test]
     fn only_remove_lines_with_additions_below() {
-        // For removal headers (with no context), if its the only change in the file (with no changes above it), the old line is N, and the new line number is N-1
-        // If there has been Y lines added or removed above the hunk (with no context), the old line number is still N, but we add Y to the N-1 new line number
-
-        // This header says that the first line to be changed is line 7, and the 3 indicates that line 8 and 9 are also part of the diff
-        // The +10 indicates that there has been 4 additions ahead of this hunk
-
-        // When you have a hunk which has context, the old line numbeer is N, and the new line number is N.
-        // If there has been Y lines added or removed above the hunk, the old line number is still N, but we add Y to N for the new line number
-        // Because there are three lines of context, the old line is 4 (7-3), and the new line number is 8 (7-3+4)
         let hunk_diff = r#"@@ -7,3 +10,0 @@
 -default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
