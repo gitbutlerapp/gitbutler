@@ -50,7 +50,13 @@
 		<div class="flex h-full">
 			<div class="z-20 flex w-full flex-col gap-2">
 				{#each base.upstreamCommits as commit}
-					<CommitCard {commit} {projectId} {selectedFiles} commitUrl={base.commitUrl(commit.id)} />
+					<CommitCard
+						{commit}
+						{projectId}
+						{selectedFiles}
+						{branchController}
+						commitUrl={base.commitUrl(commit.id)}
+					/>
 				{/each}
 			</div>
 		</div>
@@ -68,7 +74,13 @@
 	</div>
 	<div class="flex flex-col gap-y-2">
 		{#each base.recentCommits as commit}
-			<CommitCard {commit} {projectId} {selectedFiles} commitUrl={base.commitUrl(commit.id)} />
+			<CommitCard
+				{commit}
+				{projectId}
+				{selectedFiles}
+				{branchController}
+				commitUrl={base.commitUrl(commit.id)}
+			/>
 		{/each}
 	</div>
 </div>

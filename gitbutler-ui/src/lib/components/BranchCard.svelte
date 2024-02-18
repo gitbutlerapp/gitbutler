@@ -218,6 +218,7 @@
 								branchId={branch.id}
 								files={branch.files}
 								{isUnapplied}
+								{branchController}
 								{selectedOwnership}
 								{selectedFiles}
 								showCheckboxes={$commitBoxOpen}

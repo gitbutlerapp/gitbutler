@@ -494,11 +494,15 @@ pub fn unapply_ownership(
 
                 let mut hunks_to_unapply = Vec::new();
                 for (path, hunks) in branch_files {
-                    if let Some(ownership) = ownership.files.iter().find(|o| o.file_path == path) {
-                        for hunk in hunks {
-                            if ownership.hunks.contains(&Hunk::from(&hunk)) {
-                                hunks_to_unapply.push((path.clone(), hunk));
-                            }
+                    let ownership_hunks: Vec<&Hunk> = ownership
+                        .files
+                        .iter()
+                        .filter(|o| o.file_path == path)
+                        .flat_map(|f| &f.hunks)
+                        .collect();
+                    for hunk in hunks {
+                        if ownership_hunks.contains(&&Hunk::from(&hunk)) {
+                            hunks_to_unapply.push((path.clone(), hunk));
                         }
                     }
                 }

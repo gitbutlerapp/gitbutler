@@ -3,6 +3,7 @@
 	import BranchFilesList from './BranchFilesList.svelte';
 	import FileTree from './FileTree.svelte';
 	import { filesToFileTree } from '$lib/vbranches/filetree';
+	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
@@ -13,6 +14,7 @@
 	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
 	export let showCheckboxes = false;
+	export let branchController: BranchController;
 
 	export let allowMultiple: boolean;
 	export let readonly: boolean;
@@ -36,6 +38,7 @@
 					{selectedFiles}
 					{showCheckboxes}
 					{isUnapplied}
+					{branchController}
 				/>
 			{:else}
 				<FileTree
