@@ -60,7 +60,7 @@ pub fn hunk_with_context(
     // Get context lines after the diff
     let mut context_after = Vec::new();
     let after_context_starting_index = before_context_ending_index + removed_count;
-    let after_context_ending_index = after_context_starting_index + 3;
+    let after_context_ending_index = after_context_starting_index + context_lines;
 
     for index in after_context_starting_index..after_context_ending_index {
         if let Some(l) = file_lines_before.get(index) {
@@ -446,6 +446,50 @@ mod tests {
     }
 
     #[test]
+    fn only_add_lines_with_additions_below() {
+        // For removal headers (with no context), if its the only change in the file (with no changes above it), the old line is N, which represents the line
+        // which will have the changes inserted after it. The new line is N+1 (because that is where the line number of the line 'one' after its inserted)
+
+        // If there has been Y lines added or removed the hunk, the old line number remains N, but the new line number becomes N+1+Y
+
+        // When you have a hunk which has context, the old line number is N, and the new line number is N.
+        // If there has been Y lines added or removed above the hunk, the old line number is still N, but we add Y to N for the new line number
+        // Because the diff now includes lines that we know about, we want the old line number to be 6 (8-3+1) IE:
+        //  (N - number of context lines + account for now including the starting line if the hunk), and the new line number will be 10 (4 ahead of 6)
+        let hunk_diff = "@@ -8,0 +13,3 @@
++one
++two
++three
+";
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            8,
+            13,
+            false,
+            3,
+            &file_lines(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
+        let expected = r#"@@ -6,6 +10,9 @@
+ [features]
+ default = ["serde", "rusqlite"]
+ serde = ["dep:serde", "uuid/serde"]
++one
++two
++three
+ rusqlite = ["dep:rusqlite"]
+ 
+ [dependencies]
+"#;
+        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.old_start, 6);
+        assert_eq!(with_ctx.old_lines, 6);
+        assert_eq!(with_ctx.new_start, 10);
+        assert_eq!(with_ctx.new_lines, 9);
+    }
+
+    #[test]
     fn only_remove_lines() {
         let hunk_diff = r#"@@ -7,3 +6,0 @@
 -default = ["serde", "rusqlite"]
@@ -477,6 +521,50 @@ mod tests {
         assert_eq!(with_ctx.old_start, 4);
         assert_eq!(with_ctx.old_lines, 9);
         assert_eq!(with_ctx.new_start, 4);
+        assert_eq!(with_ctx.new_lines, 6);
+    }
+
+    #[test]
+    fn only_remove_lines_with_additions_below() {
+        // For removal headers (with no context), if its the only change in the file (with no changes above it), the old line is N, and the new line number is N-1
+        // If there has been Y lines added or removed above the hunk (with no context), the old line number is still N, but we add Y to the N-1 new line number
+
+        // This header says that the first line to be changed is line 7, and the 3 indicates that line 8 and 9 are also part of the diff
+        // The +10 indicates that there has been 4 additions ahead of this hunk
+
+        // When you have a hunk which has context, the old line numbeer is N, and the new line number is N.
+        // If there has been Y lines added or removed above the hunk, the old line number is still N, but we add Y to N for the new line number
+        // Because there are three lines of context, the old line is 4 (7-3), and the new line number is 8 (7-3+4)
+        let hunk_diff = r#"@@ -7,3 +10,0 @@
+-default = ["serde", "rusqlite"]
+-serde = ["dep:serde", "uuid/serde"]
+-rusqlite = ["dep:rusqlite"]
+"#;
+        let expected = r#"@@ -4,9 +8,6 @@
+ edition = "2021"
+ 
+ [features]
+-default = ["serde", "rusqlite"]
+-serde = ["dep:serde", "uuid/serde"]
+-rusqlite = ["dep:rusqlite"]
+ 
+ [dependencies]
+ rusqlite = { workspace = true, optional = true }
+"#;
+        let with_ctx = hunk_with_context(
+            hunk_diff,
+            7,
+            10,
+            false,
+            3,
+            &file_lines(),
+            diff::ChangeType::Added,
+        )
+        .unwrap();
+        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.old_start, 4);
+        assert_eq!(with_ctx.old_lines, 9);
+        assert_eq!(with_ctx.new_start, 8);
         assert_eq!(with_ctx.new_lines, 6);
     }
 
