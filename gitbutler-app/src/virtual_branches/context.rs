@@ -503,7 +503,7 @@ mod tests {
 -
 -    @waiting_users = User.where(approved: false).count
    end
-
+ 
    def invite
 ";
         assert!(with_ctx.diff == expected);
