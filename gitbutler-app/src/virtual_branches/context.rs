@@ -41,7 +41,8 @@ pub fn hunk_with_context(
 
     // Get context lines before the diff
     let mut context_before = Vec::new();
-    let before_context_ending_index = if removed_count == 0 { // Compensate for when the removed_count is 0
+    let before_context_ending_index = if removed_count == 0 {
+        // Compensate for when the removed_count is 0
         hunk_old_start_line
     } else {
         hunk_old_start_line.saturating_sub(1)
@@ -69,15 +70,18 @@ pub fn hunk_with_context(
         }
     }
 
-    let start_line_before = if new_file { // If we've created a new file, start_line_before should be 0
+    let start_line_before = if new_file {
+        // If we've created a new file, start_line_before should be 0
         0
     } else {
         before_context_starting_index + 1
     };
 
-    let start_line_after = if deleted_file { // If we've deleted a new file, start_line_after should be 0
+    let start_line_after = if deleted_file {
+        // If we've deleted a new file, start_line_after should be 0
         0
-    } else if added_count == 0 { // Compensate for when the added_count is 0
+    } else if added_count == 0 {
+        // Compensate for when the added_count is 0
         hunk_new_start_line.saturating_sub(context_before.len()) + 1
     } else {
         hunk_new_start_line.saturating_sub(context_before.len())
