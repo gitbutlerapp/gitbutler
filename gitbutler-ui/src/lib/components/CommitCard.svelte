@@ -94,7 +94,7 @@
 				{isUnapplied}
 				{selectedOwnership}
 				{selectedFiles}
-        {branchController}
+				{branchController}
 				allowMultiple={true}
 				readonly={true}
 			/>
