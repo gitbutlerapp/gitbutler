@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path};
 
 use anyhow::Context;
+use git2::ErrorCode;
 use tauri::Manager;
 use tracing::instrument;
 
@@ -81,9 +82,25 @@ pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<Stri
             message: format!("could not open repository: {e}"),
         })?;
 
-    repo.symbolic_head().await.map_err(|e| Error::UserError {
-        code: Code::ProjectHead,
-        message: format!("could not get symbolic head: {e}"),
+    repo.symbolic_head().await.map_err(|e| match &e {
+        gitbutler_git::Error::Backend(err) => {
+            if err.code() == ErrorCode::UnbornBranch {
+                return Error::UserError {
+                    code: Code::ProjectHead,
+                    message:
+                        "could not get symbolic head: Cannot load a git repository with 0 commits"
+                            .to_string(),
+                };
+            }
+            Error::UserError {
+                code: Code::ProjectHead,
+                message: format!("could not get symbolic head: {e}"),
+            }
+        }
+        _ => Error::UserError {
+            code: Code::ProjectHead,
+            message: format!("could not get symbolic head: {e}"),
+        },
     })
 }
 
