@@ -32,6 +32,8 @@ pub enum Event {
 
     CalculateVirtualBranches(ProjectId),
     CalculateDeltas(ProjectId, path::PathBuf),
+
+    FilterIgnoredFiles(ProjectId, path::PathBuf),
 }
 
 impl Event {
@@ -51,6 +53,7 @@ impl Event {
             | Event::SessionDelta((project_id, _, _, _))
             | Event::CalculateVirtualBranches(project_id)
             | Event::CalculateDeltas(project_id, _)
+            | Event::FilterIgnoredFiles(project_id, _)
             | Event::PushGitbutlerData(project_id)
             | Event::PushProjectToGitbutler(project_id) => project_id,
         }
@@ -93,6 +96,9 @@ impl Display for Event {
             Event::CalculateVirtualBranches(pid) => write!(f, "VirtualBranch({})", pid),
             Event::CalculateDeltas(project_id, path) => {
                 write!(f, "SessionProcessing({}, {})", project_id, path.display())
+            }
+            Event::FilterIgnoredFiles(project_id, path) => {
+                write!(f, "FilterIgnoredFiles({}, {})", project_id, path.display())
             }
             Event::PushGitbutlerData(pid) => write!(f, "PushGitbutlerData({})", pid),
             Event::PushProjectToGitbutler(pid) => write!(f, "PushProjectToGitbutler({})", pid),
