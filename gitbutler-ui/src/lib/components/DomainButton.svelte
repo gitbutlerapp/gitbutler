@@ -21,8 +21,8 @@
 		transition: background-color var(--transition-fast);
 	}
 
-	.domain-button:hover,
-	.domain-button:focus,
+	.domain-button:not(.selected):hover,
+	.domain-button:not(.selected):focus,
 	.selected {
 		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 	}

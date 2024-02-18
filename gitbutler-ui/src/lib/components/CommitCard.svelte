@@ -131,9 +131,9 @@
 		overflow: hidden;
 		transition: background-color var(--transition-fast);
 
-		&:hover {
+		&:not(.is-commit-open):hover {
 			border: 1px solid
-				color-mix(in srgb, var(--clr-theme-container-outline-light), var(--darken-mid));
+				color-mix(in srgb, var(--clr-theme-container-outline-light), var(--darken-tint-mid));
 			background-color: color-mix(
 				in srgb,
 				var(--clr-theme-container-light),
@@ -153,7 +153,7 @@
 		background-color: color-mix(
 			in srgb,
 			var(--clr-theme-container-light),
-			var(--darken-tint-extralight)
+			var(--darken-tint-light)
 		);
 
 		& .commit__header {
@@ -163,7 +163,7 @@
 				background-color: color-mix(
 					in srgb,
 					var(--clr-theme-container-light),
-					var(--darken-tint-light)
+					var(--darken-tint-mid)
 				);
 			}
 		}
