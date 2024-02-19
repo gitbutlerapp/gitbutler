@@ -38,14 +38,15 @@ export function isDraggableFile(obj: any): obj is DraggableFile {
 export type DraggableCommit = {
 	branchId: string;
 	commit: Commit;
+	isHeadCommit: boolean;
 };
 
-export function draggableCommit(branchId: string, commit: Commit) {
-	return { data: { branchId, commit } };
+export function draggableCommit(branchId: string, commit: Commit, isHeadCommit: boolean) {
+	return { data: { branchId, commit, isHeadCommit } };
 }
 
 export function isDraggableCommit(obj: any): obj is DraggableCommit {
-	return obj && obj.branchId && obj.commit;
+	return obj && obj.branchId && obj.commit && obj.isHeadCommit;
 }
 
 export type DraggableRemoteCommit = {

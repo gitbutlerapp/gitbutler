@@ -6,12 +6,14 @@
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import { projectAiGenEnabled } from '$lib/config/config';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
+	import { projectAiGenEnabled } from '$lib/config/config';
 	import {
+		isDraggableCommit,
 		isDraggableFile,
 		isDraggableHunk,
 		isDraggableRemoteCommit,
+		type DraggableCommit,
 		type DraggableFile,
 		type DraggableHunk,
 		type DraggableRemoteCommit
@@ -94,6 +96,13 @@
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey + branch.id);
 	});
+
+	function acceptMoveCommit(data: any) {
+		return isDraggableCommit(data) && data.branchId != branch.id && data.isHeadCommit;
+	}
+	function onCommitDrop(data: DraggableCommit) {
+		branchController.moveCommit(branch.id, data.commit.id);
+	}
 
 	function acceptCherrypick(data: any) {
 		return isDraggableRemoteCommit(data) && data.branchId == branch.id;
@@ -181,10 +190,18 @@
 				/>
 				<!-- DROPZONES -->
 				<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
+				<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
 				<DropzoneOverlay class="lane-dz-marker" label="Move here" />
 
 				<div
 					class="branch-card__dropzone-wrapper"
+					use:dropzone={{
+						hover: 'move-commit-dz-hover',
+						active: 'move-commit-dz-active',
+						accepts: acceptMoveCommit,
+						onDrop: onCommitDrop,
+						disabled: isUnapplied
+					}}
 					use:dropzone={{
 						hover: 'cherrypick-dz-hover',
 						active: 'cherrypick-dz-active',
@@ -202,6 +219,8 @@
 				>
 					<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
 					<DropzoneOverlay class="lane-dz-marker" label="Move here" />
+					<DropzoneOverlay class="move-commit-dz-marker" label="Move here" />
+
 					{#if branch.files?.length > 0}
 						<div class="card">
 							{#if branch.active && branch.conflicted}
@@ -425,6 +444,11 @@
 
 	/* cherry pick drop zone */
 	:global(.cherrypick-dz-active .cherrypick-dz-marker) {
+		@apply flex;
+	}
+
+	/* move commit drop zone */
+	:global(.move-commit-dz-active .move-commit-dz-marker) {
 		@apply flex;
 	}
 
