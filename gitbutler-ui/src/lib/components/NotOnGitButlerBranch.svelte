@@ -92,7 +92,7 @@
 				<RemoveProjectButton
 					bind:this={deleteConfirmationModal}
 					projectTitle={project.title}
-					isDeleting={isDeleting}
+					{isDeleting}
 					{onDeleteClicked}
 				/>
 			{/if}
