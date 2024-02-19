@@ -33,7 +33,7 @@
 				deleteConfirmationModal.close();
 				await projectService.deleteProject(project.id);
 				toasts.success('Project deleted');
-				goto('/');
+				goto('/', { invalidateAll: true });
 			} catch (e) {
 				console.error(e);
 				toasts.error('Failed to delete project');
