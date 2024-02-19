@@ -116,19 +116,26 @@ export class Commit {
 	}
 
 	get descriptionTitle(): string | undefined {
-		return this.descriptionParagraphs[0];
+		return this.descriptionLines[0];
 	}
 
 	get descriptionBody(): string | undefined {
-		return this.descriptionParagraphs.slice(1).join('\n\n');
+		let sliceCount = 1;
+
+		// Remove a blank first line
+		if (this.descriptionLines[1] == '') {
+			sliceCount = 2;
+		}
+
+		return this.descriptionLines.slice(sliceCount).join('\n');
 	}
 
 	isParentOf(possibleChild: Commit) {
 		return possibleChild.parentIds.includes(this.id);
 	}
 
-	private get descriptionParagraphs() {
-		return this.description.split('\n\n');
+	private get descriptionLines() {
+		return this.description.split('\n');
 	}
 }
 
@@ -144,15 +151,22 @@ export class RemoteCommit {
 	}
 
 	get descriptionTitle(): string | undefined {
-		return this.descriptionParagraphs[0];
+		return this.descriptionLines[0];
 	}
 
 	get descriptionBody(): string | undefined {
-		return this.descriptionParagraphs.slice(1).join('\n\n');
+		let sliceCount = 1;
+
+		// Remove a blank first line
+		if (this.descriptionLines[1] == '') {
+			sliceCount = 2;
+		}
+
+		return this.descriptionLines.slice(sliceCount).join('\n');
 	}
 
-	private get descriptionParagraphs() {
-		return this.description.split('\n\n');
+	private get descriptionLines() {
+		return this.description.split('\n');
 	}
 }
 
