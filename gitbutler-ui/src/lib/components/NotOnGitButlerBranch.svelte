@@ -1,12 +1,12 @@
 <script lang="ts">
 	import Button from './Button.svelte';
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
-	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import Link from './Link.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
+	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import { slide } from 'svelte/transition';
 	import * as toasts from '$lib/utils/toasts';
+	import { slide } from 'svelte/transition';
 	import type { Project, ProjectService } from '$lib/backend/projects';
 	import type { UserService } from '$lib/stores/user';
 	import type { BranchController } from '$lib/vbranches/branchController';
