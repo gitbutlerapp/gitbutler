@@ -7,16 +7,16 @@
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let value: string | undefined = undefined;
 	export let placeholder: string | undefined = undefined;
-	export let iconPosition: 'left' | 'right' = 'left';
 	export let label: string | undefined = undefined;
+	export let reversedDirection: boolean = false;
 	export let disabled = false;
 	export let readonly = false;
 	export let required = false;
-	export let password = false;
 	export let noselect = false;
 	export let selectall = false;
 	export let element: HTMLElement | undefined = undefined;
 	export let spellcheck = false;
+	export let type: 'text' | 'password' | 'select' = 'text';
 
 	const dispatch = createEventDispatcher<{ input: string; change: string }>();
 </script>
@@ -29,8 +29,8 @@
 	{/if}
 	<div
 		class="textbox__input-wrap"
-		class:textbox__left-orient={icon && iconPosition == 'left'}
-		class:textbox__right-orient={icon && iconPosition == 'right'}
+		class:textbox__left-orient={icon && !reversedDirection}
+		class:textbox__right-orient={icon && reversedDirection}
 		class:disabled
 	>
 		{#if icon}
@@ -38,39 +38,23 @@
 				<Icon name={icon} />
 			</div>
 		{/if}
-		{#if password}
-			<input
-				{id}
-				{readonly}
-				{required}
-				{placeholder}
-				{spellcheck}
-				{disabled}
-				type="password"
-				class="text-input textbox__input text-base-13"
-				class:select-none={noselect}
-				bind:value
-				on:click
-				on:input={(e) => dispatch('input', e.currentTarget.value)}
-				on:change={(e) => dispatch('change', e.currentTarget.value)}
-			/>
-		{:else}
-			<input
-				{id}
-				{readonly}
-				{required}
-				{placeholder}
-				{spellcheck}
-				{disabled}
-				class="text-input textbox__input text-base-13"
-				class:select-none={noselect}
-				class:select-all={selectall}
-				bind:value
-				on:click
-				on:input={(e) => dispatch('input', e.currentTarget.value)}
-				on:change={(e) => dispatch('change', e.currentTarget.value)}
-			/>
-		{/if}
+		<input
+			{id}
+			{readonly}
+			{required}
+			{placeholder}
+			{spellcheck}
+			{disabled}
+			{...{ type }}
+			class="text-input textbox__input text-base-13"
+			class:textbox__readonly={type !== 'select' && readonly}
+			class:select-none={noselect}
+			class:select-all={selectall}
+			bind:value
+			on:click
+			on:input={(e) => dispatch('input', e.currentTarget.value)}
+			on:change={(e) => dispatch('change', e.currentTarget.value)}
+		/>
 	</div>
 </div>
 
@@ -128,5 +112,10 @@
 		& .textbox__icon {
 			right: var(--space-12);
 		}
+	}
+
+	.textbox__readonly {
+		background-color: var(--clr-theme-container-pale);
+		border-color: var(--clr-theme-container-outline-light);
 	}
 </style>

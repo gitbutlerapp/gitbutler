@@ -126,7 +126,7 @@
 
 					<label for="passphrase">Passphrase (optional)</label>
 					<TextBox
-						password
+						type="password"
 						bind:value={privateKeyPassphrase}
 						on:input={debounce(setLocalKey, 600)}
 					/>
