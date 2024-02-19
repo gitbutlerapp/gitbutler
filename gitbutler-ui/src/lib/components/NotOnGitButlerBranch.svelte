@@ -1,14 +1,17 @@
 <script lang="ts">
 	import Button from './Button.svelte';
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
+	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import Link from './Link.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { slide } from 'svelte/transition';
+	import * as toasts from '$lib/utils/toasts';
 	import type { Project, ProjectService } from '$lib/backend/projects';
 	import type { UserService } from '$lib/stores/user';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch } from '$lib/vbranches/types';
+	import { goto } from '$app/navigation';
 
 	export let projectService: ProjectService;
 	export let branchController: BranchController;
@@ -19,6 +22,27 @@
 	$: user$ = userService.user$;
 
 	let showDropDown = false;
+
+	let loading = false;
+	let deleteConfirmationModal: RemoveProjectButton;
+
+	async function onDeleteClicked() {
+		if (project) {
+			loading = true;
+			try {
+				deleteConfirmationModal.close();
+				await projectService.deleteProject(project.id);
+				toasts.success('Project deleted');
+				goto('/');
+			} catch (e) {
+				console.error(e);
+				toasts.error('Failed to delete project');
+			} finally {
+				loading = false;
+				projectService.reload();
+			}
+		}
+	}
 </script>
 
 <DecorativeSplitView
@@ -63,6 +87,14 @@
 				>
 					Switch to another project...
 				</Button>
+			{/if}
+			{#if project}
+				<RemoveProjectButton
+					bind:this={deleteConfirmationModal}
+					projectTitle={project.title}
+					isDeleting={loading}
+					{onDeleteClicked}
+				/>
 			{/if}
 		</div>
 
