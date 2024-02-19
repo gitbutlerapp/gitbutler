@@ -1,7 +1,9 @@
 <script lang="ts">
 	import Tag from '$lib/components/Tag.svelte';
+	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
 	import { normalizeBranchName } from '$lib/utils/branch';
 	import { open } from '@tauri-apps/api/shell';
+	import { onDestroy } from 'svelte';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 
@@ -11,6 +13,22 @@
 	export let isUnapplied = false;
 	export let hasIntegratedCommits = false;
 	export let isLaneCollapsed: Persisted<boolean>;
+
+	function updateContextMenu() {
+		if (popupMenu) popupMenu.$destroy();
+		return new ViewPrContextMenu({
+			target: document.body,
+			props: { prUrl: prUrl || '' }
+		});
+	}
+
+	$: popupMenu = updateContextMenu();
+
+	onDestroy(() => {
+		if (popupMenu) {
+			popupMenu.$destroy();
+		}
+	});
 </script>
 
 {#if !branch.upstream}
@@ -85,6 +103,10 @@
 				if (url) open(url);
 				e.preventDefault();
 				e.stopPropagation();
+			}}
+			on:contextmenu={(e) => {
+				e.preventDefault();
+				popupMenu.openByMouse(e, undefined);
 			}}
 		>
 			View PR
