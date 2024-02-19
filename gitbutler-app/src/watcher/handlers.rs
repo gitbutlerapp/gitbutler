@@ -9,7 +9,6 @@ mod git_file_change;
 mod index_handler;
 mod push_gitbutler_data;
 mod push_project_to_gitbutler;
-mod tick_handler;
 
 use std::time;
 
@@ -24,7 +23,6 @@ use super::events;
 #[derive(Clone)]
 pub struct Handler {
     git_file_change_handler: git_file_change::Handler,
-    tick_handler: tick_handler::Handler,
     flush_session_handler: flush_session::Handler,
     fetch_project_handler: fetch_project_data::Handler,
     fetch_gitbutler_handler: fetch_gitbutler_data::Handler,
@@ -48,7 +46,6 @@ impl TryFrom<&AppHandle> for Handler {
         } else {
             let handler = Handler::new(
                 git_file_change::Handler::try_from(value)?,
-                tick_handler::Handler::try_from(value)?,
                 flush_session::Handler::try_from(value)?,
                 fetch_project_data::Handler::try_from(value)?,
                 fetch_gitbutler_data::Handler::try_from(value)?,
@@ -71,7 +68,6 @@ impl Handler {
     #[allow(clippy::too_many_arguments)]
     fn new(
         git_file_change_handler: git_file_change::Handler,
-        tick_handler: tick_handler::Handler,
         flush_session_handler: flush_session::Handler,
         fetch_project_handler: fetch_project_data::Handler,
         fetch_gitbutler_handler: fetch_gitbutler_data::Handler,
@@ -86,7 +82,6 @@ impl Handler {
     ) -> Self {
         Self {
             git_file_change_handler,
-            tick_handler,
             flush_session_handler,
             fetch_project_handler,
             fetch_gitbutler_handler,
@@ -147,11 +142,6 @@ impl Handler {
                 .handle(project_id)
                 .await
                 .context("failed to fetch project data"),
-
-            events::Event::Tick(project_id) => self
-                .tick_handler
-                .handle(project_id, &now)
-                .context("failed to handle tick"),
 
             events::Event::Flush(project_id, session) => self
                 .flush_session_handler

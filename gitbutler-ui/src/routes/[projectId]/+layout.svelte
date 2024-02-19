@@ -9,8 +9,11 @@
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/random';
 	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
+	import { interval, Subscription } from 'rxjs';
+	import { startWith, tap } from 'rxjs/operators';
 	import { onMount } from 'svelte';
 	import type { LayoutData } from './$types';
+	import { page } from '$app/stores';
 
 	export let data: LayoutData;
 
@@ -35,6 +38,17 @@
 	handleMenuActions(data.projectId);
 
 	onMount(() => {
+		let fetchSub: Subscription;
+		// Project is auto-fetched on page load and then every 15 minutes
+		page.subscribe(() => {
+			fetchSub?.unsubscribe();
+			fetchSub = interval(1000 * 60 * 15)
+				.pipe(
+					startWith(0),
+					tap(() => baseBranchService.fetchFromTarget())
+				)
+				.subscribe();
+		});
 		return unsubscribe(
 			menuSubscribe(data.projectId),
 			hotkeys.on('Meta+Shift+S', () => syncToCloud($project$?.id))
