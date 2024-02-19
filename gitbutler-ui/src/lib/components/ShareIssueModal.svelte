@@ -1,4 +1,5 @@
 <script lang="ts">
+	import TextArea from './TextArea.svelte';
 	import * as zip from '$lib/backend/zip';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
@@ -105,14 +106,13 @@
 		<div class="flex flex-col gap-1">
 			<label for="comments">Comments</label>
 
-			<textarea
+			<TextArea
 				placeholder="Provide any steps necessary to reproduce the problem."
 				autocomplete="off"
 				autocorrect="off"
-				spellcheck="true"
-				name="comments"
-				rows="6"
-				class="textarea h-full w-full resize-none"
+				spellcheck
+				id="comments"
+				rows={6}
 				bind:value={messageInputValue}
 			/>
 		</div>
