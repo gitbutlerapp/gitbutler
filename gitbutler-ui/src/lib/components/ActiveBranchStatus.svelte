@@ -41,6 +41,7 @@
 	{/if}
 	{#if !isUnapplied && !$isLaneCollapsed}
 		<Tag
+			shrinkable
 			disabled
 			help="Branch name that will be used when pushing. You can change it from the lane menu."
 			verticalOrientation={$isLaneCollapsed}
