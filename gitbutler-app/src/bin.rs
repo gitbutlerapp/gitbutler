@@ -20,43 +20,8 @@ fn main() {
         .unwrap()
         .block_on(async {
             tauri::async_runtime::set(tokio::runtime::Handle::current());
-            let app_title = tauri_context.package_info().name.clone();
-
-            let quit = tauri::CustomMenuItem::new("quit".to_string(), "Quit");
-            let hide =
-                tauri::CustomMenuItem::new("toggle".to_string(), format!("Hide {}", app_title));
-            let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
-            let tray = tauri::SystemTray::new().with_menu(tray_menu);
 
             tauri::Builder::default()
-                .system_tray(tray)
-                .on_system_tray_event(|app_handle, event| {
-                    if let tauri::SystemTrayEvent::MenuItemClick { id, .. } = event {
-                        let app_title = app_handle.package_info().name.clone();
-                        let item_handle = app_handle.tray_handle().get_item(&id);
-                        match id.as_str() {
-                            "quit" => {
-                                tracing::info!("Quitting app");
-                                app_handle.exit(0);
-                            }
-                            "toggle" => {
-                                if let Some(window) = get_window(app_handle) {
-                                    if window.is_visible().unwrap() {
-                                        hide_window(app_handle).expect("Failed to hide window");
-                                    } else {
-                                        show_window(app_handle).expect("Failed to show window");
-                                    }
-                                } else {
-                                    create_window(app_handle).expect("Failed to create window");
-                                    item_handle
-                                        .set_title(format!("Hide {}", app_title))
-                                        .unwrap();
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                })
                 .on_window_event(|event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
                         hide_window(&event.window().app_handle()).expect("Failed to hide window");
@@ -226,30 +191,13 @@ fn main() {
                 .on_menu_event(|event|menu::handle_event(&event))
                 .build(tauri_context)
                 .expect("Failed to build tauri app")
-                .run(|app_handle, event| match event {
-                    tauri::RunEvent::WindowEvent {
-                        event: tauri::WindowEvent::Focused(is_focused),
-                        ..
-                    } => {
-                        if is_focused {
-                            set_toggle_menu_hide(app_handle)
-                                .expect("Failed to set toggle menu hide");
-                        } else {
-                            set_toggle_menu_show(app_handle)
-                                .expect("Failed to set toggle menu show");
-                        }
-                    }
-                    tauri::RunEvent::ExitRequested { api, .. } => {
+                .run(|app_handle, event| {
+                    if let tauri::RunEvent::ExitRequested { api, .. } = event {
                         hide_window(app_handle).expect("Failed to hide window");
                         api.prevent_exit();
                     }
-                    _ => {}
                 });
         });
-}
-
-fn get_window(handle: &tauri::AppHandle) -> Option<tauri::Window> {
-    handle.get_window("main")
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -283,39 +231,7 @@ fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
     Ok(window)
 }
 
-fn set_toggle_menu_hide(handle: &tauri::AppHandle) -> tauri::Result<()> {
-    handle
-        .tray_handle()
-        .get_item("toggle")
-        .set_title(format!("Hide {}", handle.package_info().name))
-}
-
-fn show_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
-    set_toggle_menu_hide(handle)?;
-
-    #[cfg(target_os = "macos")]
-    handle.show()?;
-
-    if let Some(window) = get_window(handle) {
-        window.set_focus()?;
-
-        #[cfg(not(target_os = "macos"))]
-        window.show()?;
-    }
-
-    Ok(())
-}
-
-fn set_toggle_menu_show(handle: &tauri::AppHandle) -> tauri::Result<()> {
-    handle
-        .tray_handle()
-        .get_item("toggle")
-        .set_title(format!("Show {}", handle.package_info().name))
-}
-
 fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
-    set_toggle_menu_show(handle)?;
-
     #[cfg(target_os = "macos")]
     handle.hide()?;
 
@@ -325,4 +241,9 @@ fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn get_window(handle: &tauri::AppHandle) -> Option<tauri::Window> {
+    handle.get_window("main")
 }
