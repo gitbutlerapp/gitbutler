@@ -23,12 +23,12 @@
 
 	let showDropDown = false;
 
-	let loading = false;
+	let isDeleting = false;
 	let deleteConfirmationModal: RemoveProjectButton;
 
 	async function onDeleteClicked() {
 		if (project) {
-			loading = true;
+			isDeleting = true;
 			try {
 				deleteConfirmationModal.close();
 				await projectService.deleteProject(project.id);
@@ -38,7 +38,7 @@
 				console.error(e);
 				toasts.error('Failed to delete project');
 			} finally {
-				loading = false;
+				isDeleting = false;
 				projectService.reload();
 			}
 		}
@@ -92,7 +92,7 @@
 				<RemoveProjectButton
 					bind:this={deleteConfirmationModal}
 					projectTitle={project.title}
-					isDeleting={loading}
+					isDeleting={isDeleting}
 					{onDeleteClicked}
 				/>
 			{/if}
