@@ -1,9 +1,12 @@
 <script lang="ts">
+	import FileContextMenu from './FileContextMenu.svelte';
 	import FileStatusIcons from './FileStatusIcons.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { onDestroy } from 'svelte';
+	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
@@ -16,6 +19,7 @@
 	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let readonly = false;
+	export let branchController: BranchController;
 
 	let checked = false;
 	let indeterminate = false;
@@ -31,6 +35,22 @@
 		indeterminate = selectedCount > 0 && file.hunks.length - selectedCount > 0;
 		if (indeterminate) checked = false;
 	}
+
+	function updateContextMenu() {
+		if (popupMenu) popupMenu.$destroy();
+		return new FileContextMenu({
+			target: document.body,
+			props: { branchController }
+		});
+	}
+
+	$: popupMenu = updateContextMenu();
+
+	onDestroy(() => {
+		if (popupMenu) {
+			popupMenu.$destroy();
+		}
+	});
 </script>
 
 <div
@@ -47,11 +67,15 @@
 	}}
 	on:click
 	on:keydown
+	on:contextmenu={(e) =>
+		popupMenu.openByMouse(e, {
+			files: $selectedFiles.includes(file) ? $selectedFiles : [file]
+		})}
 	class="draggable-wrapper"
 	role="button"
 	tabindex="0"
 >
-	<div class="tree-list-file" class:selected>
+	<div class="tree-list-file" class:selected role="listitem" on:contextmenu|preventDefault>
 		<div class="content-wrapper">
 			{#if showCheckbox}
 				<Checkbox
