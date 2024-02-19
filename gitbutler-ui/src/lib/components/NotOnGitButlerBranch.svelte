@@ -66,7 +66,8 @@
 		<div class="switchrepo__actions">
 			<Button
 				color="primary"
-				icon="undo-small"
+				icon="chevron-left-small"
+				iconAlign="left"
 				on:click={() => {
 					if (baseBranch) branchController.setTarget(baseBranch.branchName);
 				}}
@@ -111,7 +112,7 @@
 	}
 	.switchrepo__actions {
 		display: flex;
-		gap: var(--space-6);
+		gap: var(--space-8);
 		padding-bottom: var(--space-24);
 		flex-wrap: wrap;
 	}
