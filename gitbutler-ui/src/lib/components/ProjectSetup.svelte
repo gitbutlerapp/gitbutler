@@ -56,7 +56,7 @@
 				{item.name}
 			</SelectItem>
 		</Select>
-		<div class="card">
+		<div class="card features-wrapper">
 			<SetupFeature>
 				<svelte:fragment slot="icon">
 					<svg
@@ -190,6 +190,10 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-20);
+	}
+
+	.features-wrapper {
+		overflow: hidden;
 	}
 
 	.project-setup__info {

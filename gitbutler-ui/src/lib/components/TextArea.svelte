@@ -7,6 +7,8 @@
 	export let rows = 4;
 	export let id: string | undefined = undefined;
 	export let disabled = false;
+	export let autocomplete: string | undefined = undefined;
+	export let autocorrect: string | undefined = undefined;
 	export let spellcheck = false;
 
 	const dispatch = createEventDispatcher<{ input: string; change: string }>();
@@ -17,9 +19,12 @@
 	bind:value
 	{disabled}
 	{id}
+	name={id}
 	{placeholder}
 	{required}
 	{rows}
+	{autocomplete}
+	{autocorrect}
 	{spellcheck}
 	on:input={(e) => dispatch('input', e.currentTarget.value)}
 	on:change={(e) => dispatch('change', e.currentTarget.value)}

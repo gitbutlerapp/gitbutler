@@ -41,6 +41,12 @@
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
 	});
+
+	var renderer = new marked.Renderer();
+	renderer.link = function (href, title, text) {
+		if (!title) title = text;
+		return '<a target="_blank" href="' + href + '" title="' + title + '">' + text + '</a>';
+	};
 </script>
 
 <div class="base">
@@ -56,7 +62,7 @@
 					<div class="card">
 						<div class="card__header">PR Description</div>
 						<div class="card__content">
-							{@html marked.parse(pr.body)}
+							{@html marked.parse(pr.body, { renderer })}
 						</div>
 					</div>
 				{/if}

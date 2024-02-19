@@ -16,17 +16,25 @@
 	}
 </script>
 
-<PopupMenu bind:this={popupMenu} let:item>
+<PopupMenu bind:this={popupMenu} let:item let:dismiss>
 	<ContextMenu>
 		<ContextMenuSection>
 			{#if item.hunk !== undefined}
-				<ContextMenuItem label="Discard" on:click={() => branchController.unapplyHunk(item.hunk)} />
+				<ContextMenuItem
+					label="Discard"
+					on:click={() => {
+						branchController.unapplyHunk(item.hunk);
+						dismiss();
+					}}
+				/>
 			{/if}
 			{#if item.lineNumber}
 				<ContextMenuItem
 					label="Open in VS Code"
-					on:click={() =>
-						projectPath && open(`vscode://file${projectPath}/${filePath}:${item.lineNumber}`)}
+					on:click={() => {
+						projectPath && open(`vscode://file${projectPath}/${filePath}:${item.lineNumber}`);
+						dismiss();
+					}}
 				/>
 			{/if}
 		</ContextMenuSection>
