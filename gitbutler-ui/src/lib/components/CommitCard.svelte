@@ -40,8 +40,8 @@
 		if (showFiles) loadFiles();
 	}
 
-    const isUndoable = isHeadCommit && !isUnapplied;
-    const hasCommitUrl = !commit.isLocal && commitUrl;
+	const isUndoable = isHeadCommit && !isUnapplied;
+	const hasCommitUrl = !commit.isLocal && commitUrl;
 </script>
 
 <div
@@ -116,6 +116,7 @@
 							color="neutral"
 							kind="outlined"
 							icon="undo-small"
+							iconAlign="left"
 							on:click={(e) => {
 								currentCommitMessage.set(commit.description);
 								e.stopPropagation();
@@ -162,7 +163,7 @@
 		&:not(.is-commit-open):hover {
 			border: 1px solid
 				color-mix(in srgb, var(--clr-theme-container-outline-light), var(--darken-tint-mid));
-            background-color: var(--clr-theme-container-pale);
+			background-color: var(--clr-theme-container-pale);
 		}
 	}
 
@@ -182,7 +183,7 @@
 
 		& .commit__header {
 			padding-bottom: var(--space-16);
-            border-bottom: 1px solid var(--clr-theme-container-outline-light);
+			border-bottom: 1px solid var(--clr-theme-container-outline-light);
 
 			&:hover {
 				background-color: color-mix(
@@ -203,14 +204,14 @@
 	}
 
 	.commit__row {
-	.commit__body {
-		flex: 1;
-		display: block;
-		color: var(--clr-theme-scale-ntrl-0);
-		line-height: 120%;
-		width: 100%;
-		color: var(--clr-theme-scale-ntrl-40);
-	}
+		.commit__body {
+			flex: 1;
+			display: block;
+			color: var(--clr-theme-scale-ntrl-0);
+			line-height: 120%;
+			width: 100%;
+			color: var(--clr-theme-scale-ntrl-40);
+		}
 		display: flex;
 		align-items: center;
 		gap: var(--space-8);
@@ -236,7 +237,7 @@
 
 	.commit__time,
 	.commit__author-name {
-		color: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-theme-scale-ntrl-50);
 	}
 
 	.files-container {
