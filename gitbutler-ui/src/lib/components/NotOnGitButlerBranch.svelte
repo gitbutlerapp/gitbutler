@@ -6,7 +6,6 @@
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import * as toasts from '$lib/utils/toasts';
-	import { slide } from 'svelte/transition';
 	import type { Project, ProjectService } from '$lib/backend/projects';
 	import type { UserService } from '$lib/stores/user';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -20,8 +19,6 @@
 	export let baseBranch: BaseBranch;
 
 	$: user$ = userService.user$;
-
-	let showDropDown = false;
 
 	let isDeleting = false;
 	let deleteConfirmationModal: RemoveProjectButton;
@@ -76,18 +73,7 @@
 			>
 				Go back to gitbutler/integration
 			</Button>
-			{#if !showDropDown}
-				<Button
-					color="primary"
-					kind="outlined"
-					on:click={() => {
-						showDropDown = true;
-						// if (baseBranch) branchController.setTarget(baseBranch.branchName);
-					}}
-				>
-					Switch to another project...
-				</Button>
-			{/if}
+
 			{#if project}
 				<RemoveProjectButton
 					bind:this={deleteConfirmationModal}
@@ -98,11 +84,9 @@
 			{/if}
 		</div>
 
-		{#if showDropDown}
-			<div class="switchrepo__project" transition:slide={{ duration: 250 }}>
-				<ProjectSwitcher {projectService} {project} />
-			</div>
-		{/if}
+		<div class="switchrepo__project">
+			<ProjectSwitcher {projectService} {project} />
+		</div>
 	</div>
 </DecorativeSplitView>
 
