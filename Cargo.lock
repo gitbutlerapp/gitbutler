@@ -5547,17 +5547,21 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-context-menu"
-version = "0.5.0"
-source = "git+https://github.com/gitbutlerapp/tauri-plugin-context-menu?branch=main#4fd0410a48defc8ad21d6142181f490ed02fdefb"
+version = "0.7.0"
+source = "git+https://github.com/c2r0b/tauri-plugin-context-menu?branch=main#0845b1564806c5885d8d915b2ad7ac86c16f634d"
 dependencies = [
  "cocoa",
  "dispatch",
+ "gdk",
+ "glib",
+ "gtk",
  "image",
  "lazy_static",
  "libc",
  "objc",
  "serde",
  "tauri",
+ "time",
  "winapi",
 ]
 

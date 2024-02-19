@@ -5,6 +5,7 @@
 <script lang="ts">
 	import TreeListFile from './TreeListFile.svelte';
 	import TreeListFolder from './TreeListFolder.svelte';
+	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { TreeNode } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
@@ -20,6 +21,7 @@
 	export let isUnapplied: boolean;
 	export let allowMultiple = false;
 	export let readonly = false;
+	export let branchController: BranchController;
 
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
@@ -76,6 +78,8 @@
 					{branchId}
 					{isUnapplied}
 					{readonly}
+					{allowMultiple}
+					{branchController}
 					on:checked
 					on:unchecked
 				/>
@@ -93,6 +97,7 @@
 		{selectedOwnership}
 		{selectedFiles}
 		{readonly}
+		{branchController}
 		showCheckbox={showCheckboxes}
 		on:click={(e) => {
 			e.stopPropagation();
@@ -137,6 +142,8 @@
 						{branchId}
 						{isUnapplied}
 						{readonly}
+						{allowMultiple}
+						{branchController}
 						on:checked
 						on:unchecked
 					/>

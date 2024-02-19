@@ -300,7 +300,7 @@ fn show_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
         window.set_focus()?;
 
         #[cfg(not(target_os = "macos"))]
-        window.hide()?;
+        window.show()?;
     }
 
     Ok(())

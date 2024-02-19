@@ -51,6 +51,7 @@
 					{selectedOwnership}
 					{selectedFiles}
 					{isUnapplied}
+					{branchController}
 				/>
 			{/if}
 		</div>
