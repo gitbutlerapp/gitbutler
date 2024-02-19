@@ -25,7 +25,7 @@
 		modal.show();
 	}}
 >
-	Remove this project …
+	Remove project …
 </Button>
 
 <Modal bind:this={modal} title="Remove from GitButler">
