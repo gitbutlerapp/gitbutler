@@ -3,8 +3,10 @@
 	import Tag from './Tag.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { open } from '@tauri-apps/api/shell';
+	import { onDestroy } from 'svelte';
 	import toast from 'svelte-french-toast';
 	import type { PullRequest } from '$lib/github/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -22,6 +24,22 @@
 	let meatballButton: HTMLDivElement;
 	let container: HTMLDivElement;
 	let isApplying = false;
+
+	function updateContextMenu() {
+		if (popupMenu) popupMenu.$destroy();
+		return new ViewPrContextMenu({
+			target: document.body,
+			props: { prUrl: pr?.htmlUrl || '' }
+		});
+	}
+
+	$: popupMenu = updateContextMenu();
+
+	onDestroy(() => {
+		if (popupMenu) {
+			popupMenu.$destroy();
+		}
+	});
 </script>
 
 <div class="header__wrapper">
