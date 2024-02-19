@@ -6,7 +6,6 @@
 	import { projectCurrentCommitMessage } from '$lib/config/config';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableCommit, nonDraggable } from '$lib/dragging/draggables';
-	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
@@ -51,7 +50,7 @@
 >
 	<div class="commit__header" on:click={onClick} on:keyup={onClick} role="button" tabindex="0">
 		<div class="commit__row">
-			<span class="commit__description text-base-12 truncate" use:tooltip={commit.description}>
+			<span class="commit__description text-base-12 truncate">
 				{commit.description}
 			</span>
 			{#if isHeadCommit && !isUnapplied}
