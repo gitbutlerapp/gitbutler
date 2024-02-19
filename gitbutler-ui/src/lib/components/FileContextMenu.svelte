@@ -26,9 +26,9 @@
 		<ContextMenuSection>
 			{#if item.files !== undefined}
 				{#if containsBinaryFiles(item)}
-					<ContextMenuItem label="Discard (Binary files not yet supported)" disabled />
+					<ContextMenuItem label="Discard file (Binary files not yet supported)" disabled />
 				{:else}
-					<ContextMenuItem label="Discard" on:click={() => confirmationModal.show(item)} />
+					<ContextMenuItem label="Discard file" on:click={() => confirmationModal.show(item)} />
 				{/if}
 			{/if}
 		</ContextMenuSection>

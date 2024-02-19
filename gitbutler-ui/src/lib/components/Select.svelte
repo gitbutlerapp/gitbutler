@@ -66,7 +66,8 @@
 		{placeholder}
 		noselect
 		readonly
-		iconPosition="right"
+		type="select"
+		reversedDirection
 		icon="select-chevron"
 		value={value?.[labelId]}
 		disabled={disabled || loading}
