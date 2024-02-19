@@ -21,14 +21,20 @@
 	}
 </script>
 
-<PopupMenu bind:this={popupMenu} let:item>
+<PopupMenu bind:this={popupMenu} let:item let:dismiss>
 	<ContextMenu>
 		<ContextMenuSection>
 			{#if item.files !== undefined}
 				{#if containsBinaryFiles(item)}
 					<ContextMenuItem label="Discard file (Binary files not yet supported)" disabled />
 				{:else}
-					<ContextMenuItem label="Discard file" on:click={() => confirmationModal.show(item)} />
+					<ContextMenuItem
+						label="Discard file"
+						on:click={() => {
+							confirmationModal.show(item);
+							dismiss();
+						}}
+					/>
 				{/if}
 			{/if}
 		</ContextMenuSection>
