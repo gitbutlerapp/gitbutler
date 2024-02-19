@@ -59,10 +59,6 @@
 				"script-src": "'self' https://eu.posthog.com",
 				"style-src": "'self' 'unsafe-inline'"
 			}
-		},
-		"systemTray": {
-			"iconPath": "icons/tray.png",
-			"iconAsTemplate": true
 		}
 	}
 }
