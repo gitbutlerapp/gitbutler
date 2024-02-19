@@ -55,7 +55,7 @@
 		use:clickOutside={{ handler: () => onDismiss() }}
 		style="position: absolute; top:{pos.y}px; left:{pos.x}px"
 	>
-		<slot {item} />
+		<slot {item} dismiss={onDismiss} />
 	</div>
 {/if}
 
