@@ -39,6 +39,9 @@
 		showFiles = !showFiles;
 		if (showFiles) loadFiles();
 	}
+
+    const isUndoable = isHeadCommit && !isUnapplied;
+    const hasCommitUrl = !commit.isLocal && commitUrl;
 </script>
 
 <div
@@ -50,10 +53,10 @@
 >
 	<div class="commit__header" on:click={onClick} on:keyup={onClick} role="button" tabindex="0">
 		<div class="commit__row">
-			<span class="commit__description text-base-12 truncate">
-				{commit.description}
+			<span class="commit__title text-base-12" class:truncate={!showFiles}>
+				{commit.descriptionTitle}
 			</span>
-			{#if isHeadCommit && !isUnapplied}
+			{#if isUndoable && !showFiles}
 				<Tag
 					color="ghost"
 					icon="undo-small"
@@ -67,7 +70,14 @@
 				>
 			{/if}
 		</div>
-		<div class="commit__row">
+		{#if showFiles && commit.descriptionBody}
+			<div class="commit__row" transition:slide={{ duration: 100 }}>
+				<span class="commit__body text-base-12 whitespace-pre-line">
+					{commit.descriptionBody}
+				</span>
+			</div>
+		{/if}
+		<div class="commit__row mt-1">
 			<div class="commit__author">
 				<img
 					class="commit__avatar"
@@ -99,16 +109,31 @@
 				readonly={true}
 			/>
 
-			{#if !commit.isLocal && commitUrl}
+			{#if hasCommitUrl || isUndoable}
 				<div class="files__footer">
-					<Button
-						color="neutral"
-						kind="outlined"
-						icon="open-link"
-						on:click={() => {
-							if (commitUrl) openExternalUrl(commitUrl);
-						}}>Open commit</Button
-					>
+					{#if isUndoable}
+						<Button
+							color="neutral"
+							kind="outlined"
+							icon="undo-small"
+							on:click={(e) => {
+								currentCommitMessage.set(commit.description);
+								e.stopPropagation();
+								resetHeadCommit();
+							}}>Undo</Button
+						>
+					{/if}
+					{#if hasCommitUrl}
+						<Button
+							color="neutral"
+							kind="outlined"
+							icon="open-link"
+							grow
+							on:click={() => {
+								if (commitUrl) openExternalUrl(commitUrl);
+							}}>Open commit</Button
+						>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -137,11 +162,7 @@
 		&:not(.is-commit-open):hover {
 			border: 1px solid
 				color-mix(in srgb, var(--clr-theme-container-outline-light), var(--darken-tint-mid));
-			background-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-light),
-				var(--darken-tint-extralight)
-			);
+            background-color: var(--clr-theme-container-pale);
 		}
 	}
 
@@ -161,6 +182,7 @@
 
 		& .commit__header {
 			padding-bottom: var(--space-16);
+            border-bottom: 1px solid var(--clr-theme-container-outline-light);
 
 			&:hover {
 				background-color: color-mix(
@@ -172,7 +194,7 @@
 		}
 	}
 
-	.commit__description {
+	.commit__title {
 		flex: 1;
 		display: block;
 		color: var(--clr-theme-scale-ntrl-0);
@@ -181,6 +203,14 @@
 	}
 
 	.commit__row {
+	.commit__body {
+		flex: 1;
+		display: block;
+		color: var(--clr-theme-scale-ntrl-0);
+		line-height: 120%;
+		width: 100%;
+		color: var(--clr-theme-scale-ntrl-40);
+	}
 		display: flex;
 		align-items: center;
 		gap: var(--space-8);
@@ -206,7 +236,7 @@
 
 	.commit__time,
 	.commit__author-name {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-theme-scale-ntrl-40);
 	}
 
 	.files-container {
@@ -215,7 +245,10 @@
 
 	.files__footer {
 		text-align: right;
+		display: flex;
+		gap: var(--space-16);
 		padding: var(--space-12);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
+		background-color: var(--clr-theme-container-pale);
 	}
 </style>

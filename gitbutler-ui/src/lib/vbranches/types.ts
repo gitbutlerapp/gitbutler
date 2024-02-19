@@ -115,8 +115,20 @@ export class Commit {
 		}
 	}
 
+	get descriptionTitle(): string | undefined {
+		return this.descriptionParagraphs[0];
+	}
+
+	get descriptionBody(): string | undefined {
+		return this.descriptionParagraphs.slice(1).join('\n\n');
+	}
+
 	isParentOf(possibleChild: Commit) {
 		return possibleChild.parentIds.includes(this.id);
+	}
+
+	private get descriptionParagraphs() {
+		return this.description.split('\n\n');
 	}
 }
 
@@ -129,6 +141,18 @@ export class RemoteCommit {
 
 	get isLocal() {
 		return false;
+	}
+
+	get descriptionTitle(): string | undefined {
+		return this.descriptionParagraphs[0];
+	}
+
+	get descriptionBody(): string | undefined {
+		return this.descriptionParagraphs.slice(1).join('\n\n');
+	}
+
+	private get descriptionParagraphs() {
+		return this.description.split('\n\n');
 	}
 }
 
