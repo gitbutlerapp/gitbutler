@@ -9,7 +9,6 @@ use crate::{
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Event {
-    Tick(ProjectId),
     Flush(ProjectId, sessions::Session),
 
     FetchGitbutlerData(ProjectId),
@@ -41,8 +40,7 @@ impl Event {
         match self {
             Event::Analytics(event) => event.project_id(),
             Event::Emit(event) => event.project_id(),
-            Event::Tick(project_id)
-            | Event::IndexAll(project_id)
+            Event::IndexAll(project_id)
             | Event::FetchGitbutlerData(project_id)
             | Event::FetchProjectData(project_id)
             | Event::Flush(project_id, _)
@@ -65,7 +63,6 @@ impl Display for Event {
         match self {
             Event::Analytics(event) => write!(f, "Analytics({})", event),
             Event::Emit(event) => write!(f, "Emit({})", event.name()),
-            Event::Tick(project_id) => write!(f, "Tick({})", project_id,),
             Event::FetchGitbutlerData(pid) => {
                 write!(f, "FetchGitbutlerData({})", pid,)
             }

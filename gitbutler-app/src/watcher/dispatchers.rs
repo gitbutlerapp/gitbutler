@@ -1,7 +1,6 @@
 mod file_change;
-mod tick;
 
-use std::{path, time};
+use std::path;
 
 use anyhow::{Context, Result};
 use tokio::{
@@ -17,7 +16,6 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Dispatcher {
-    tick_dispatcher: tick::Dispatcher,
     file_change_dispatcher: file_change::Dispatcher,
     cancellation_token: CancellationToken,
 }
@@ -33,14 +31,12 @@ pub enum RunError {
 impl Dispatcher {
     pub fn new() -> Self {
         Self {
-            tick_dispatcher: tick::Dispatcher::new(),
             file_change_dispatcher: file_change::Dispatcher::new(),
             cancellation_token: CancellationToken::new(),
         }
     }
 
     pub fn stop(&self) {
-        self.tick_dispatcher.stop();
         self.file_change_dispatcher.stop();
     }
 
@@ -57,11 +53,6 @@ impl Dispatcher {
             Err(error) => Err(error).context("failed to run file change dispatcher")?,
         }?;
 
-        let mut tick_rx = self
-            .tick_dispatcher
-            .run(project_id, time::Duration::from_secs(10))
-            .context("failed to run tick dispatcher")?;
-
         let (tx, rx) = channel(1);
         let project_id = *project_id;
         task::Builder::new()
@@ -71,11 +62,6 @@ impl Dispatcher {
                     select! {
                         () = self.cancellation_token.cancelled() => {
                             break;
-                        }
-                        Some(event) = tick_rx.recv() => {
-                            if let Err(error) = tx.send(event).await {
-                                tracing::error!(%project_id, ?error,"failed to send tick");
-                            }
                         }
                         Some(event) = file_change_rx.recv() => {
                             if let Err(error) = tx.send(event).await {
