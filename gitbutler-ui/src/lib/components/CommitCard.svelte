@@ -52,32 +52,34 @@
 	class:is-commit-open={showFiles}
 >
 	<div class="commit__header" on:click={onClick} on:keyup={onClick} role="button" tabindex="0">
-		<div class="commit__row">
-			<span class="commit__title text-base-12" class:truncate={!showFiles}>
-				{commit.descriptionTitle}
-			</span>
-			{#if isUndoable && !showFiles}
-				<Tag
-					color="ghost"
-					icon="undo-small"
-					border
-					clickable
-					on:click={(e) => {
-						currentCommitMessage.set(commit.description);
-						e.stopPropagation();
-						resetHeadCommit();
-					}}>Undo</Tag
-				>
+		<div class="commit__message">
+			<div class="commit__row">
+				<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
+					{commit.descriptionTitle}
+				</span>
+				{#if isUndoable && !showFiles}
+					<Tag
+						color="ghost"
+						icon="undo-small"
+						border
+						clickable
+						on:click={(e) => {
+							currentCommitMessage.set(commit.description);
+							e.stopPropagation();
+							resetHeadCommit();
+						}}>Undo</Tag
+					>
+				{/if}
+			</div>
+			{#if showFiles && commit.descriptionBody}
+				<div class="commit__row" transition:slide={{ duration: 100 }}>
+					<span class="commit__body text-base-body-12">
+						{commit.descriptionBody}
+					</span>
+				</div>
 			{/if}
 		</div>
-		{#if showFiles && commit.descriptionBody}
-			<div class="commit__row" transition:slide={{ duration: 100 }}>
-				<span class="commit__body text-base-12 whitespace-pre-line">
-					{commit.descriptionBody}
-				</span>
-			</div>
-		{/if}
-		<div class="commit__row mt-1">
+		<div class="commit__row">
 			<div class="commit__author">
 				<img
 					class="commit__avatar"
@@ -112,27 +114,27 @@
 			{#if hasCommitUrl || isUndoable}
 				<div class="files__footer">
 					{#if isUndoable}
-						<Button
-							color="neutral"
-							kind="outlined"
+						<Tag
+							color="ghost"
 							icon="undo-small"
-							iconAlign="left"
+							border
+							clickable
 							on:click={(e) => {
 								currentCommitMessage.set(commit.description);
 								e.stopPropagation();
 								resetHeadCommit();
-							}}>Undo</Button
+							}}>Undo</Tag
 						>
 					{/if}
 					{#if hasCommitUrl}
-						<Button
-							color="neutral"
-							kind="outlined"
+						<Tag
+							color="ghost"
 							icon="open-link"
-							grow
+							border
+							clickable
 							on:click={() => {
 								if (commitUrl) openExternalUrl(commitUrl);
-							}}>Open commit</Button
+							}}>Open commit</Tag
 						>
 					{/if}
 				</div>
@@ -163,7 +165,11 @@
 		&:not(.is-commit-open):hover {
 			border: 1px solid
 				color-mix(in srgb, var(--clr-theme-container-outline-light), var(--darken-tint-mid));
-			background-color: var(--clr-theme-container-pale);
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-light),
+				var(--darken-tint-extralight)
+			);
 		}
 	}
 
@@ -178,7 +184,7 @@
 		background-color: color-mix(
 			in srgb,
 			var(--clr-theme-container-light),
-			var(--darken-tint-light)
+			var(--darken-tint-extralight)
 		);
 
 		& .commit__header {
@@ -189,29 +195,38 @@
 				background-color: color-mix(
 					in srgb,
 					var(--clr-theme-container-light),
-					var(--darken-tint-mid)
+					var(--darken-tint-light)
 				);
 			}
 		}
+
+		& .commit__message {
+			margin-bottom: var(--space-4);
+		}
+	}
+
+	.commit__message {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-6);
 	}
 
 	.commit__title {
 		flex: 1;
 		display: block;
 		color: var(--clr-theme-scale-ntrl-0);
-		line-height: 120%;
 		width: 100%;
 	}
 
+	.commit__body {
+		flex: 1;
+		display: block;
+		width: 100%;
+		color: var(--clr-theme-scale-ntrl-40);
+		white-space: pre-line;
+	}
+
 	.commit__row {
-		.commit__body {
-			flex: 1;
-			display: block;
-			color: var(--clr-theme-scale-ntrl-0);
-			line-height: 120%;
-			width: 100%;
-			color: var(--clr-theme-scale-ntrl-40);
-		}
 		display: flex;
 		align-items: center;
 		gap: var(--space-8);
@@ -245,11 +260,10 @@
 	}
 
 	.files__footer {
-		text-align: right;
 		display: flex;
-		gap: var(--space-16);
+		/* justify-content: flex-end; */
+		gap: var(--space-8);
 		padding: var(--space-12);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
-		background-color: var(--clr-theme-container-pale);
 	}
 </style>
