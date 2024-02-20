@@ -223,6 +223,7 @@
 		width: 100%;
 		color: var(--clr-theme-scale-ntrl-40);
 		white-space: pre-line;
+		word-wrap: anywhere;
 	}
 
 	.commit__row {
