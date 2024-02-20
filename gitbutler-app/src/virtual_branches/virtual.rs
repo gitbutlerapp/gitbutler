@@ -889,15 +889,6 @@ pub fn list_virtual_branches(
 
     let branches = branches_with_large_files_abridged(branches);
     let mut branches = branches_with_hunk_locks(branches, project_repository)?;
-    for branch in &mut branches {
-        branch.files = files_with_hunk_context(
-            &project_repository.git_repository,
-            branch.files.clone(),
-            3,
-            branch.head,
-        )
-        .context("failed to add hunk context")?;
-    }
 
     branches.sort_by(|a, b| a.order.cmp(&b.order));
 
@@ -970,27 +961,6 @@ fn branches_with_hunk_locks(
 
 fn joined(start_a: u32, end_a: u32, start_b: u32, end_b: u32) -> bool {
     (start_a <= start_b && end_a >= start_b) || (start_a <= end_b && end_a >= end_b)
-}
-
-fn files_with_hunk_context(
-    repository: &git::Repository,
-    mut files: Vec<VirtualBranchFile>,
-    context_lines: usize,
-    branch_head: git::Oid,
-) -> Result<Vec<VirtualBranchFile>> {
-    Ok(files)
-}
-
-fn to_virtual_branch_hunk(
-    mut hunk: VirtualBranchHunk,
-    diff_with_context: Result<diff::Hunk>,
-) -> Result<VirtualBranchHunk> {
-    diff_with_context.map(|diff| {
-        hunk.diff = diff.diff;
-        hunk.start = diff.new_start;
-        hunk.end = diff.new_start + diff.new_lines;
-        hunk
-    })
 }
 
 fn is_requires_force(
