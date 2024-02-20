@@ -260,7 +260,7 @@
 
 	.files__footer {
 		display: flex;
-		/* justify-content: flex-end; */
+		justify-content: flex-end;
 		gap: var(--space-8);
 		padding: var(--space-12);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
