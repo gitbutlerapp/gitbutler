@@ -41,7 +41,8 @@ impl TryFrom<&AppHandle> for Handler {
 
 impl Handler {
     fn new(inner: InnerHandler) -> Self {
-        let quota = Quota::with_period(Duration::from_millis(100)).expect("valid quota");
+        // There could be an application (e.g an IDE) which is constantly writing, so the threshold cant be too high
+        let quota = Quota::with_period(Duration::from_millis(5)).expect("valid quota");
         Self {
             inner: Arc::new(Mutex::new(inner)),
             limit: Arc::new(RateLimiter::direct(quota)),
