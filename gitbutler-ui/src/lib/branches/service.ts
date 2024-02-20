@@ -68,11 +68,22 @@ export class BranchService {
 
 		const createPrSpan = sentryTxn.startChild({ op: 'pr_api_create' });
 
+		let title = newBranch.name;
+		let body = newBranch.notes;
+
+		// In case of a single commit, use the commit summary and description for the title and
+		// description of the PR
+		if (newBranch.commits.length === 1) {
+			const commit = newBranch.commits[0];
+			if (commit.descriptionTitle) title = commit.descriptionTitle;
+			if (commit.descriptionBody) body = commit.descriptionBody;
+		}
+
 		try {
 			const resp = await this.githubService.createPullRequest(
 				baseBranch,
-				newBranch.name,
-				newBranch.notes,
+				title,
+				body,
 				newBranch.id,
 				newBranch.upstreamName,
 				draft
