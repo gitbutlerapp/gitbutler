@@ -14,15 +14,15 @@
 	export let hasIntegratedCommits = false;
 	export let isLaneCollapsed: Persisted<boolean>;
 
-	function updateContextMenu() {
+	function updateContextMenu(copyablePrUrl: string) {
 		if (popupMenu) popupMenu.$destroy();
 		return new ViewPrContextMenu({
 			target: document.body,
-			props: { prUrl: prUrl || '' }
+			props: { prUrl: copyablePrUrl }
 		});
 	}
 
-	$: popupMenu = updateContextMenu();
+	$: popupMenu = updateContextMenu(prUrl || '');
 
 	onDestroy(() => {
 		if (popupMenu) {
