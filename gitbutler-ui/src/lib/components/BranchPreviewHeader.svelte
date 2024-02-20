@@ -25,15 +25,15 @@
 	let container: HTMLDivElement;
 	let isApplying = false;
 
-	function updateContextMenu() {
+	function updateContextMenu(copyablePrUrl: string) {
 		if (popupMenu) popupMenu.$destroy();
 		return new ViewPrContextMenu({
 			target: document.body,
-			props: { prUrl: pr?.htmlUrl || '' }
+			props: { prUrl: copyablePrUrl }
 		});
 	}
 
-	$: popupMenu = updateContextMenu();
+	$: popupMenu = updateContextMenu(pr?.htmlUrl || '');
 
 	onDestroy(() => {
 		if (popupMenu) {
