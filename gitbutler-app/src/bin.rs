@@ -193,6 +193,7 @@ fn main() {
                 .build(tauri_context)
                 .expect("Failed to build tauri app")
                 .run(|app_handle, event| {
+                    #[cfg(target_os = "macos")]
                     if let tauri::RunEvent::ExitRequested { api, .. } = event {
                         hide_window(app_handle).expect("Failed to hide window");
                         api.prevent_exit();
