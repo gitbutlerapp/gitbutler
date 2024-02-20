@@ -280,4 +280,16 @@ export class BranchController {
 			toasts.error(`Failed to amend commit: ${err.message}`);
 		}
 	}
+
+	async moveCommit(targetBranchId: string, commitOid: string) {
+		try {
+			await invoke<void>('move_commit', {
+				projectId: this.projectId,
+				targetBranchId,
+				commitOid
+			});
+		} catch (err: any) {
+			toasts.error(`Failed to move commit: ${err.message}`);
+		}
+	}
 }

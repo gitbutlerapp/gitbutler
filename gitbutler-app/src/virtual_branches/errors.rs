@@ -327,6 +327,7 @@ pub enum SetBaseBranchError {
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
+
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateBaseBranchError {
     #[error("project is in conflicting state")]
@@ -335,6 +336,50 @@ pub enum UpdateBaseBranchError {
     DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum MoveCommitError {
+    #[error("source branch contains hunks locked to the target commit")]
+    SourceLocked,
+    #[error("branch not applied")]
+    NotApllied,
+    #[error("project is in conflicted state")]
+    Conflicted(ProjectConflictError),
+    #[error("default target not set")]
+    DefaultTargetNotSet(DefaultTargetNotSetError),
+    #[error("branch not found")]
+    BranchNotFound(BranchNotFoundError),
+    #[error("commit not found")]
+    CommitNotFound(git::Oid),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+impl From<MoveCommitError> for crate::error::Error {
+    fn from(value: MoveCommitError) -> Self {
+        match value {
+            MoveCommitError::SourceLocked => Error::UserError {
+                message: "Source branch contains hunks locked to the target commit".to_string(),
+                code: crate::error::Code::Branches,
+            },
+            MoveCommitError::NotApllied => Error::UserError {
+                message: "Branch not applied".to_string(),
+                code: crate::error::Code::Branches,
+            },
+            MoveCommitError::Conflicted(error) => error.into(),
+            MoveCommitError::DefaultTargetNotSet(error) => error.into(),
+            MoveCommitError::BranchNotFound(error) => error.into(),
+            MoveCommitError::CommitNotFound(oid) => Error::UserError {
+                message: format!("Commit {} not found", oid),
+                code: crate::error::Code::Branches,
+            },
+            MoveCommitError::Other(error) => {
+                tracing::error!(?error, "move commit to vbranch error");
+                Error::Unknown
+            }
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

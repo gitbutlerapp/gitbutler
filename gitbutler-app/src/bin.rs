@@ -182,6 +182,7 @@ fn main() {
                     virtual_branches::commands::get_remote_branch_data,
                     virtual_branches::commands::squash_branch_commit,
                     virtual_branches::commands::fetch_from_target,
+                    virtual_branches::commands::move_commit,
                     menu::menu_item_set_enabled,
                     keys::commands::get_public_key,
                     github::commands::init_device_oauth,

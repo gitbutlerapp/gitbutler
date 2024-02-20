@@ -359,6 +359,18 @@ impl Controller {
             .fetch_from_target(project_id)
             .await
     }
+
+    pub async fn move_commit(
+        &self,
+        project_id: &ProjectId,
+        target_branch_id: &BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<(), ControllerError<errors::MoveCommitError>> {
+        self.inner(project_id)
+            .await
+            .move_commit(project_id, target_branch_id, commit_oid)
+            .await
+    }
 }
 
 #[derive(Clone)]
@@ -915,6 +927,37 @@ impl ControllerInner {
             .context("failed to convert target to base branch")?;
 
         Ok(base_branch)
+    }
+
+    pub async fn move_commit(
+        &self,
+        project_id: &ProjectId,
+        target_branch_id: &BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<(), ControllerError<errors::MoveCommitError>> {
+        let _permit = self.semaphore.acquire().await;
+
+        self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+            let signing_key = project_repository
+                .config()
+                .sign_commits()
+                .context("failed to get sign commits option")?
+                .then(|| {
+                    self.keys
+                        .get_or_create()
+                        .context("failed to get private key")
+                })
+                .transpose()?;
+            super::move_commit(
+                gb_repository,
+                project_repository,
+                target_branch_id,
+                commit_oid,
+                user,
+                signing_key.as_ref(),
+            )
+            .map_err(Into::into)
+        })
     }
 }
 

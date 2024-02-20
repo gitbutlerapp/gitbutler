@@ -45,7 +45,7 @@
 
 <div
 	use:draggable={commit instanceof Commit
-		? draggableCommit(commit.branchId, commit)
+		? draggableCommit(commit.branchId, commit, isHeadCommit)
 		: nonDraggable()}
 	class="commit"
 	class:is-commit-open={showFiles}

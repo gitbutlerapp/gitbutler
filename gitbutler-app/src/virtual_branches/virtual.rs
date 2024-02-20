@@ -3481,6 +3481,194 @@ pub fn update_commit_message(
     Ok(())
 }
 
+/// moves commit on top of the to target branch
+pub fn move_commit(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    target_branch_id: &BranchId,
+    commit_oid: git::Oid,
+    user: Option<&users::User>,
+    signing_key: Option<&keys::PrivateKey>,
+) -> Result<(), errors::MoveCommitError> {
+    if project_repository.is_resolving() {
+        return Err(errors::MoveCommitError::Conflicted(
+            errors::ProjectConflictError {
+                project_id: project_repository.project().id,
+            },
+        ));
+    }
+
+    let latest_session = gb_repository
+        .get_latest_session()
+        .context("failed to get or create current session")?
+        .ok_or_else(|| {
+            errors::MoveCommitError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                project_id: project_repository.project().id,
+            })
+        })?;
+    let latest_session_reader = sessions::Reader::open(gb_repository, &latest_session)
+        .context("failed to open current session")?;
+
+    let applied_branches = Iterator::new(&latest_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
+
+    if !applied_branches.iter().any(|b| b.id == *target_branch_id) {
+        return Err(errors::MoveCommitError::BranchNotFound(
+            errors::BranchNotFoundError {
+                project_id: project_repository.project().id,
+                branch_id: *target_branch_id,
+            },
+        ));
+    }
+
+    let default_target = super::get_default_target(&latest_session_reader)
+        .context("failed to get default target")?
+        .ok_or_else(|| {
+            errors::MoveCommitError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                project_id: project_repository.project().id,
+            })
+        })?;
+
+    let mut applied_statuses = get_applied_status(
+        gb_repository,
+        project_repository,
+        &default_target,
+        applied_branches,
+    )?;
+
+    let (ref mut source_branch, source_status) = applied_statuses
+        .iter_mut()
+        .find(|(b, _)| b.head == commit_oid)
+        .ok_or_else(|| errors::MoveCommitError::CommitNotFound(commit_oid))?;
+
+    let source_branch_non_comitted_files = calculate_non_commited_diffs(
+        project_repository,
+        source_branch,
+        &default_target,
+        source_status,
+    )?;
+
+    let source_branch_head = project_repository
+        .git_repository
+        .find_commit(commit_oid)
+        .context("failed to find commit")?;
+    let source_branch_head_parent = source_branch_head
+        .parent(0)
+        .context("failed to get parent commit")?;
+    let source_branch_head_tree = source_branch_head
+        .tree()
+        .context("failed to get commit tree")?;
+    let source_branch_head_parent_tree = source_branch_head_parent
+        .tree()
+        .context("failed to get parent tree")?;
+    let branch_head_diff = diff::trees(
+        &project_repository.git_repository,
+        &source_branch_head_parent_tree,
+        &source_branch_head_tree,
+    )?;
+
+    let is_source_locked = source_branch_non_comitted_files
+        .iter()
+        .any(|(path, hunks)| {
+            branch_head_diff.get(path).map_or(false, |head_diff_hunks| {
+                hunks.iter().any(|hunk| {
+                    head_diff_hunks.iter().any(|head_hunk| {
+                        joined(
+                            head_hunk.new_start,
+                            head_hunk.new_start + head_hunk.new_lines,
+                            hunk.new_start,
+                            hunk.new_start + hunk.new_lines,
+                        )
+                    })
+                })
+            })
+        });
+
+    if is_source_locked {
+        return Err(errors::MoveCommitError::SourceLocked);
+    }
+
+    let branch_writer = branch::Writer::new(gb_repository).context("failed to create writer")?;
+    let branch_reader = branch::Reader::new(&latest_session_reader);
+
+    // move files ownerships from source branch to the destination branch
+
+    let ownerships_to_transfer = branch_head_diff
+        .iter()
+        .map(|(file_path, hunks)| {
+            (
+                file_path.clone(),
+                hunks.iter().map(Into::into).collect::<Vec<_>>(),
+            )
+        })
+        .map(|(file_path, hunks)| FileOwnership { file_path, hunks })
+        .flat_map(|file_ownership| source_branch.ownership.take(&file_ownership))
+        .collect::<Vec<_>>();
+
+    // reset the source branch to the parent commit
+    {
+        source_branch.head = source_branch_head_parent.id();
+        branch_writer.write(source_branch)?;
+    }
+
+    // move the commit to destination branch target branch
+    {
+        let mut destination_branch =
+            branch_reader
+                .read(target_branch_id)
+                .map_err(|error| match error {
+                    reader::Error::NotFound => {
+                        errors::MoveCommitError::BranchNotFound(errors::BranchNotFoundError {
+                            project_id: project_repository.project().id,
+                            branch_id: *target_branch_id,
+                        })
+                    }
+                    error => errors::MoveCommitError::Other(error.into()),
+                })?;
+
+        for ownership in ownerships_to_transfer {
+            destination_branch.ownership.put(&ownership);
+        }
+
+        let new_destination_tree_oid = write_tree_onto_commit(
+            project_repository,
+            destination_branch.head,
+            &branch_head_diff,
+        )
+        .context("failed to write tree onto commit")?;
+        let new_destination_tree = project_repository
+            .git_repository
+            .find_tree(new_destination_tree_oid)
+            .context("failed to find tree")?;
+
+        let new_destination_head_oid = project_repository
+            .commit(
+                user,
+                source_branch_head.message().unwrap_or_default(),
+                &new_destination_tree,
+                &[&project_repository
+                    .git_repository
+                    .find_commit(destination_branch.head)
+                    .context("failed to get dst branch head commit")?],
+                signing_key,
+            )
+            .context("failed to commit")?;
+
+        destination_branch.head = new_destination_head_oid;
+        branch_writer.write(&mut destination_branch)?;
+    }
+
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)
+        .context("failed to update gitbutler integration")?;
+
+    Ok(())
+}
+
 pub fn create_virtual_branch_from_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,

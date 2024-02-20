@@ -589,6 +589,34 @@ pub async fn fetch_from_target(
     Ok(base_branch)
 }
 
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn move_commit(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    commit_oid: &str,
+    target_branch_id: &str,
+) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".into(),
+    })?;
+    let commit_oid = commit_oid.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed commit oid".into(),
+    })?;
+    let target_branch_id = target_branch_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed branch id".into(),
+    })?;
+    handle
+        .state::<Controller>()
+        .move_commit(&project_id, &target_branch_id, commit_oid)
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(())
+}
+
 pub async fn update_commit_message(
     handle: tauri::AppHandle,
     project_id: &str,
