@@ -1,6 +1,5 @@
 <script lang="ts">
 	import BranchFiles from './BranchFiles.svelte';
-	import Button from '$lib/components/Button.svelte';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { projectCurrentCommitMessage } from '$lib/config/config';
