@@ -3,10 +3,9 @@ use std::path;
 use anyhow::{Context, Result};
 use serde::Serialize;
 
-use crate::git::{self, diff, show};
+use crate::git::{self, diff};
 
 use super::errors;
-use crate::virtual_branches::context;
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -46,48 +45,5 @@ pub fn list_remote_commit_files(
         })
         .collect::<Vec<_>>();
 
-    let files = files_with_hunk_context(repository, &parent_tree, files, 3)
-        .context("failed to add context to hunk")?;
-    Ok(files)
-}
-
-fn files_with_hunk_context(
-    repository: &git::Repository,
-    parent_tree: &git::Tree,
-    mut files: Vec<RemoteBranchFile>,
-    context_lines: usize,
-) -> Result<Vec<RemoteBranchFile>> {
-    for file in &mut files {
-        if file.binary {
-            continue;
-        }
-        // Get file content as it looked before the diffs
-        let file_content_before =
-            show::show_file_at_tree(repository, file.path.clone(), parent_tree)
-                .context("failed to get file contents at HEAD")?;
-        let file_lines_before = file_content_before.split('\n').collect::<Vec<_>>();
-
-        file.hunks = file
-            .hunks
-            .iter()
-            .map(|hunk| {
-                if hunk.diff.is_empty() {
-                    // noop on empty diff
-                    Ok(hunk.clone())
-                } else {
-                    context::hunk_with_context(
-                        &hunk.diff,
-                        hunk.old_start as usize,
-                        hunk.new_start as usize,
-                        hunk.binary,
-                        context_lines,
-                        &file_lines_before,
-                        hunk.change_type,
-                    )
-                }
-            })
-            .collect::<Result<Vec<diff::Hunk>>>()
-            .context("failed to add context to hunk")?;
-    }
     Ok(files)
 }

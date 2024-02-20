@@ -46,16 +46,6 @@ pub struct Hunk {
     pub change_type: ChangeType,
 }
 
-pub struct Options {
-    pub context_lines: u32,
-}
-
-impl Default for Options {
-    fn default() -> Self {
-        Self { context_lines: 3 }
-    }
-}
-
 pub fn workdir(
     repository: &Repository,
     commit_oid: &git::Oid,
@@ -65,14 +55,13 @@ pub fn workdir(
         .context("failed to find commit")?;
     let tree = commit.tree().context("failed to find tree")?;
 
-    let mut diff_opts = git2::DiffOptions::new();
+    let mut diff_opts = git2::DiffOptions::default();
     diff_opts
         .recurse_untracked_dirs(true)
         .include_untracked(true)
         .show_binary(true)
         .show_untracked_content(true)
-        .ignore_submodules(true)
-        .context_lines(0);
+        .ignore_submodules(true);
 
     let diff = repository.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
 
@@ -84,13 +73,12 @@ pub fn trees(
     old_tree: &git::Tree,
     new_tree: &git::Tree,
 ) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
-    let mut diff_opts = git2::DiffOptions::new();
+    let mut diff_opts = git2::DiffOptions::default();
     diff_opts
         .recurse_untracked_dirs(true)
         .include_untracked(true)
         .show_binary(true)
         .ignore_submodules(true)
-        .context_lines(0)
         .show_untracked_content(true);
 
     let diff =
