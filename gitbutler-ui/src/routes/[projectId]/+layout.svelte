@@ -37,17 +37,21 @@
 	let trayViewport: HTMLElement;
 	handleMenuActions(data.projectId);
 
+	let lastProjectId: string | undefined = undefined;
 	onMount(() => {
 		let fetchSub: Subscription;
 		// Project is auto-fetched on page load and then every 15 minutes
-		page.subscribe(() => {
-			fetchSub?.unsubscribe();
-			fetchSub = interval(1000 * 60 * 15)
-				.pipe(
-					startWith(0),
-					tap(() => baseBranchService.fetchFromTarget())
-				)
-				.subscribe();
+		page.subscribe((page) => {
+			if (page.params.projectId !== lastProjectId) {
+				lastProjectId = page.params.projectId;
+				fetchSub?.unsubscribe();
+				fetchSub = interval(1000 * 60 * 15)
+					.pipe(
+						startWith(0),
+						tap(() => baseBranchService.fetchFromTarget())
+					)
+					.subscribe();
+			}
 		});
 		return unsubscribe(
 			menuSubscribe(data.projectId),
