@@ -5,7 +5,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { open } from '@tauri-apps/api/shell';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { onDestroy } from 'svelte';
 	import toast from 'svelte-french-toast';
 	import type { PullRequest } from '$lib/github/types';
@@ -63,7 +63,7 @@
 					shrinkable
 					on:click={(e) => {
 						const url = base?.branchUrl(branch.name);
-						if (url) open(url);
+						if (url) openExternalUrl(url);
 						e.preventDefault();
 						e.stopPropagation();
 					}}
@@ -78,7 +78,7 @@
 						clickable
 						on:click={(e) => {
 							const url = pr?.htmlUrl;
-							if (url) open(url);
+							if (url) openExternalUrl(url);
 							e.preventDefault();
 							e.stopPropagation();
 						}}

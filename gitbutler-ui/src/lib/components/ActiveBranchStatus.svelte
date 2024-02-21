@@ -2,7 +2,7 @@
 	import Tag from '$lib/components/Tag.svelte';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
 	import { normalizeBranchName } from '$lib/utils/branch';
-	import { open } from '@tauri-apps/api/shell';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { onDestroy } from 'svelte';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
@@ -84,7 +84,7 @@
 		verticalOrientation={$isLaneCollapsed}
 		on:click={(e) => {
 			const url = base?.branchUrl(branch.upstream?.name);
-			if (url) open(url);
+			if (url) openExternalUrl(url);
 			e.preventDefault();
 			e.stopPropagation();
 		}}
@@ -100,7 +100,7 @@
 			verticalOrientation={$isLaneCollapsed}
 			on:click={(e) => {
 				const url = prUrl;
-				if (url) open(url);
+				if (url) openExternalUrl(url);
 				e.preventDefault();
 				e.stopPropagation();
 			}}

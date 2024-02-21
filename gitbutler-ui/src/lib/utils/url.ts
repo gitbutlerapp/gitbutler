@@ -10,7 +10,11 @@ export function openExternalUrl(href: string) {
 			// TODO: Remove if/when we've resolved all external URL problems.
 			posthog.capture('Link Error', { href, message: e });
 
-			const message = 'Failed to open link in external browser: <br />' + href;
+			const message = `
+                Failed to open link in external browser:
+
+                ${href}
+            `;
 			showToast({ title: 'External URL error', message, style: 'error' });
 		}
 
