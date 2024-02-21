@@ -70,7 +70,7 @@
 			</DomainButton>
 		</div>
 	</div>
-	<Branches projectId={project.id} {branchService} {githubService} />
+	<Branches {user} projectId={project.id} {branchService} {githubService} />
 	<Footer {user} projectId={project.id} />
 
 	<Resizer
