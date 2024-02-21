@@ -84,9 +84,7 @@
 		flex-grow: 1;
 		flex-direction: column;
 		gap: var(--space-12);
-	}
-	.info-message__text {
-		word-break: break-all;
+		overflow-x: hidden;
 	}
 	.info-message__content {
 		display: flex;
@@ -116,5 +114,15 @@
 	}
 	.shadow {
 		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
+	}
+
+	/* rendered markdown requires global */
+	:global(.info-message__text a) {
+		cursor: pointer;
+		text-decoration: underline;
+		word-break: break-all; /* allow long links to wrap */
+	}
+	:global(.info-message__text p:not(:last-child)) {
+		margin-bottom: var(--space-10);
 	}
 </style>

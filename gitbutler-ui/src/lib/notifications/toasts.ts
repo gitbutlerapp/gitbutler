@@ -14,6 +14,7 @@ export const toastStore: Writable<ToastMessage[]> = writable([]);
 let idCounter = 0;
 
 export function showToast(message: ToastMessage) {
+	message.message = message.message.replace(/^ */gm, '');
 	toastStore.update((items) => [...items, { id: idCounter++, ...message }]);
 }
 

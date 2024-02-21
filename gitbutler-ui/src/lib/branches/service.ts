@@ -78,7 +78,7 @@ export class BranchService {
 				draft
 			);
 			if ('pr' in resp) return resp.pr;
-			if ('err' in resp) throw resp.err;
+			else throw resp.err;
 		} finally {
 			createPrSpan.finish();
 		}
