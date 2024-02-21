@@ -364,7 +364,7 @@ function loadPrs(
  * {
  *   "name": "HttpError",
  *   "request": {
- *      "body": "{\"head\":\"Add-amplitude-account\",\"base\":\"main\",\"title\":\"Add amplitude account\",\"body\":\"\",\"draft\":false}",
+ *      "body": "{\"head\":\"branch1\",\"base\":\"main\",\"title\":\"Some title\",\"body\":\"\",\"draft\":false}",
  *      "headers": {
  *        "accept": "application/vnd.github.v3+json",
  *        "authorization": "token [REDACTED]",
@@ -374,12 +374,12 @@ function loadPrs(
  *      "method": "POST",
  *      "request": {
  *        "hook": {}
- *      "url": "https://api.github.com/repos/moises-ai/moises-data-platform-infra/pulls"
+ *      "url": "https://api.github.com/repos/someuser/somerepo/pulls"
  *     },
  *     "response": {
  *       "data": {
  *         "documentation_url": "https://docs.github.com/rest/pulls/pulls#create-a-pull-request",
- *         "message": "Although you appear to have the correct authorization credentials, the `moises-ai` organization has enabled OAuth App access restrictions, meaning that data access to third-parties is limited. For more information on these restrictions, including how to enable this app, visit https://docs.github.com/articles/restricting-access-to-your-organization-s-data/"
+ *         "message": "Although you appear to have the correct authorization credentials, the organization has enabled OAuth App access restrictions, meaning that data access to third-parties is limited. For more information on these restrictions, including how to enable this app, visit https://docs.github.com/articles/restricting-access-to-your-organization-s-data/"
  *       },
  *       "headers": {
  *         "content-type": "application/json; charset=utf-8",
@@ -394,7 +394,7 @@ function loadPrs(
  *         "x-ratelimit-used": "32"
  *       },
  *       "status": 403,
- *       "url": "https://api.github.com/repos/moises-ai/moises-data-platform-infra/pulls"
+ *       "url": "https://api.github.com/repos/someuser/somerepo/pulls"
  *     },
  *   "status": 403
  * }
@@ -402,7 +402,7 @@ function loadPrs(
  * {
  *   name: 'HttpError',
  *   request: {
- *     body: '{"head":"Update-message-query-order","base":"main","title":"Update message query order","body":"","draft":false}',
+ *     body: '{"head":"branch2","base":"main","title":"some title","body":"","draft":false}',
  *     headers: {
  *       accept: 'application/vnd.github.v3+json',
  *       authorization: 'token [REDACTED]',
@@ -413,7 +413,7 @@ function loadPrs(
  *     request: {
  *         hook: {}
  *     },
- *     url: 'https://api.github.com/repos/personal-applications/chat-api/pulls'
+ *     url: 'https://api.github.com/repos/someuser/somerepo/api/pulls'
  *   },
  *   response: {
  *     data: {
@@ -422,7 +422,7 @@ function loadPrs(
  *       errors: [
  *         {
  *            code: 'custom',
- *            message: 'A pull request already exists for personal-applications:Update-message-query-order.',
+ *            message: 'A pull request already exists for someuser:somebranch.',
  *            resource: 'PullRequest'
  *         }
  *       ],
@@ -442,7 +442,7 @@ function loadPrs(
  *       'x-ratelimit-used': '6'
  *     },
  *     status: 422,
- *     url: 'https://api.github.com/repos/personal-applications/chat-api/pulls'
+ *     url: 'https://api.github.com/repos/someuser/somerepo/pulls'
  *   },
  *   status: 422
  * }
