@@ -15,44 +15,17 @@
 	export let base: BaseBranch | undefined | null;
 	export let selectedFiles: Writable<LocalFile[]>;
 
-	let upstreamCommitsShown = false;
-
-	$: if (upstreamCommitsShown && upstream?.commits.length === 0) {
-		upstreamCommitsShown = false;
-	}
-
 	function merge() {
 		branchController.mergeUpstream(branchId);
 	}
 </script>
 
 {#if upstream}
-	<div class="bg-zinc-300 p-2 dark:bg-zinc-800">
-		<div class="flex flex-row justify-between">
-			<div class="p-1 text-purple-700">
-				{upstream.commits.length}
-				upstream {upstream.commits.length > 1 ? 'commits' : 'commit'}
-			</div>
-			<Button
-				kind="outlined"
-				color="primary"
-				on:click={() => (upstreamCommitsShown = !upstreamCommitsShown)}
-			>
-				<span class="purple">
-					{#if !upstreamCommitsShown}
-						View
-					{:else}
-						Cancel
-					{/if}
-				</span>
-			</Button>
+	<div class="card">
+		<div class="card__header text-semibold text-base-12">
+			Upstream {upstream.commits.length > 1 ? 'commits' : 'commit'}
 		</div>
-	</div>
-	{#if upstreamCommitsShown}
-		<div
-			class="flex w-full flex-col gap-1 border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
-			id="upstreamCommits"
-		>
+		<div class="card__content" id="upstreamCommits">
 			{#each upstream.commits as commit (commit.id)}
 				<div use:draggable={draggableRemoteCommit(branchId, commit)}>
 					<CommitCard
@@ -64,15 +37,17 @@
 					/>
 				</div>
 			{/each}
-			<div class="flex justify-end p-2">
-				{#if branchCount > 1}
+			{#if branchCount > 1}
+				<div class="flex justify-end p-2">
 					<div class="px-2 text-sm">
 						You have {branchCount} active branches. To merge upstream work, we will unapply all other
 						branches.
 					</div>
-				{/if}
-				<Button color="primary" on:click={merge}>Merge</Button>
-			</div>
+				</div>
+			{/if}
 		</div>
-	{/if}
+		<div class="card__footer">
+			<Button wide color="primary" on:click={merge}>Merge</Button>
+		</div>
+	</div>
 {/if}
