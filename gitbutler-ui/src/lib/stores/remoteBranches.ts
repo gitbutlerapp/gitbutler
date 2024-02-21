@@ -24,8 +24,7 @@ export class RemoteBranchService {
 		baseBranch$: Observable<any>
 	) {
 		this.branches$ = combineLatest([baseBranch$, this.reload$, head$, fetches$]).pipe(
-			switchMap(() => listRemoteBranches({ projectId })),
-			// map((branches) => branches.filter((b) => b.ahead != 0)),
+			switchMap(() => listRemoteBranches(projectId)),
 			shareReplay(1),
 			catchError((e) => {
 				console.log(e);
@@ -41,23 +40,21 @@ export class RemoteBranchService {
 	}
 }
 
-async function listRemoteBranches(params: { projectId: string }): Promise<RemoteBranch[]> {
+async function listRemoteBranches(projectId: string): Promise<RemoteBranch[]> {
 	const branches = plainToInstance(
 		RemoteBranch,
-		await invoke<any[]>('list_remote_branches', params)
+		await invoke<any[]>('list_remote_branches', { projectId })
 	);
 
 	return branches;
 }
 
-export async function getRemoteBranchData(params: {
-	projectId: string;
-	refname: string;
-}): Promise<RemoteBranchData> {
-	const branchData = plainToInstance(
+export async function getRemoteBranchData(
+	projectId: string,
+	refname: string
+): Promise<RemoteBranchData> {
+	return plainToInstance(
 		RemoteBranchData,
-		await invoke<any>('get_remote_branch_data', params)
+		await invoke<any>('get_remote_branch_data', { projectId, refname })
 	);
-
-	return branchData;
 }
