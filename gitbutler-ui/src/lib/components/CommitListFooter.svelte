@@ -1,7 +1,6 @@
 <script lang="ts">
 	import PushButton, { BranchAction } from './PushButton.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import * as toasts from '$lib/utils/toasts';
 	import { startTransaction } from '@sentry/sveltekit';
 	import toast from 'svelte-french-toast';
 	import type { BranchService } from '$lib/branches/service';
@@ -58,10 +57,6 @@
 		isPushing = true;
 		try {
 			return await branchService.createPr(branch, base.shortName, opts.draft, sentryTxn);
-		} catch (err: any) {
-			isPushing = false;
-			toasts.error(err);
-			console.error(err);
 		} finally {
 			sentryTxn.finish();
 			isPushing = false;
@@ -89,8 +84,8 @@
 						} else {
 							await push();
 						}
-					} catch {
-						toast.error('Failed to create pull request');
+					} catch (e) {
+						console.error(e);
 					}
 				}}
 			/>

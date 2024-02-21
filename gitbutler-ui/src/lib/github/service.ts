@@ -6,6 +6,7 @@ import {
 	type PrStatus,
 	MergeMethod
 } from '$lib/github/types';
+import { showToast, type ToastMessage } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import * as toasts from '$lib/utils/toasts';
 import lscache from 'lscache';
@@ -163,7 +164,7 @@ export class GitHubService {
 		branchId: string,
 		upstreamName: string,
 		draft: boolean
-	): Promise<{ pr: PullRequest } | { err: string }> {
+	): Promise<{ pr: PullRequest } | { err: string | { message: string; help: string } }> {
 		if (!this.enabled) {
 			throw "Can't create PR when service not enabled";
 		}
@@ -191,14 +192,20 @@ export class GitHubService {
 							posthog.capture('PR Successful');
 							return { pr: ghResponseToInstance(rsp.data) };
 						} catch (err: any) {
+							// TODO: Perhaps we should only capture part of the error object
 							posthog.capture('PR Failed', { error: err });
-							// Any error that should not be retried needs to be handled here.
-							if (
-								err.status == 422 &&
-								err.message.includes('Draft pull requests are not supported')
-							) {
-								return { err: 'Draft pull requests are not enabled in your repository' };
-							} else throw err;
+
+							const toast = mapErrorToToast(err);
+							if (toast) {
+								// TODO: This needs disambiguation, not the same as `toasts.error`
+								// Show toast with rich content
+								showToast(toast);
+								// Handled errors should not be retried
+								return { err };
+							} else {
+								// Rethrow so that error is retried
+								throw err;
+							}
 						}
 					})
 				)
@@ -211,9 +218,32 @@ export class GitHubService {
 				catchError((err) => {
 					this.setIdle(branchId);
 					if (err instanceof TimeoutError) {
-						console.log('Timed out while trying to create pull request');
+						showToast({
+							title: 'Timed out while creating PR',
+							message: `
+                                We are not certain whether it was created successfully or not,
+                                please sync to verify.
+
+                                You can also see our [documentation](https://docs.gitbutler.com/)
+                                for additional help.
+                            `,
+							style: 'error'
+						});
+						console.error('Timed out while trying to create pull request', err);
 					} else {
-						console.log('Unable to create PR despite retrying', err);
+						showToast({
+							title: 'Failed to create PR despite retrying',
+							message: `
+                                Please check your GitHub authentication settings and try again.
+
+                                You can also see our [documentation](https://docs.gitbutler.com/)
+                                for additional help.
+
+                                \`\`\`${err.message}\`\`\`
+                            `,
+							style: 'error'
+						});
+						console.error('Unable to create PR despite retrying', err);
 					}
 					return throwError(() => err.message);
 				}),
@@ -326,4 +356,44 @@ function loadPrs(
 			console.error(e);
 		}
 	});
+}
+
+function mapErrorToToast(err: any): ToastMessage | undefined {
+	// We expect an object to be thrown by octokit.
+	if (typeof err != 'object') return;
+
+	const { status, message } = err;
+
+	// If this expectation isn't met we must be doing something wrong
+	if (status == undefined || message == undefined) return;
+
+	if (message.includes('Draft pull requests are not supported')) {
+		return {
+			title: 'Draft pull requests are not enabled',
+			message: `
+                It looks like draft pull requests are not eanbled in your repository
+
+                Please see our [documentation](https://docs.gitbutler.com/)
+                for additional help.
+
+                \`\`\`${message}\`\`\`
+            `,
+			style: 'error'
+		};
+	}
+
+	if (message.includes('enabled OAuth App access restrictions')) {
+		return {
+			title: 'OAuth access restricted',
+			message: `
+                It looks like OAuth access has been restricted by your organization.
+
+                Please see our [documentation](https://docs.gitbutler.com/)
+                for additional help.
+
+                \`\`\`${message}\`\`\`
+            `,
+			style: 'error'
+		};
+	}
 }
