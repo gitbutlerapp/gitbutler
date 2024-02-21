@@ -66,7 +66,7 @@
 						</div>
 					</div>
 				{/if}
-				{#await getRemoteBranchData({ projectId, refname: branch.name }) then branchData}
+				{#await getRemoteBranchData(projectId, branch.name) then branchData}
 					{#if branchData.commits && branchData.commits.length > 0}
 						<div class="flex w-full flex-col gap-y-2">
 							{#each branchData.commits as commit (commit.id)}

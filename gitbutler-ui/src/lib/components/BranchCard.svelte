@@ -4,6 +4,7 @@
 	import BranchHeader from './BranchHeader.svelte';
 	import CommitDialog from './CommitDialog.svelte';
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
+	import UpstreamCommits from './UpstreamCommits.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
@@ -21,6 +22,7 @@
 	import { dropzone } from '$lib/dragging/dropzone';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import { filesToOwnership, type Ownership } from '$lib/vbranches/ownership';
 	import lscache from 'lscache';
@@ -32,7 +34,13 @@
 	import type { GitHubService } from '$lib/github/service';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, Branch, LocalFile } from '$lib/vbranches/types';
+	import type {
+		BaseBranch,
+		Branch,
+		LocalFile,
+		RemoteBranchData,
+		RemoteCommit
+	} from '$lib/vbranches/types';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
@@ -60,6 +68,20 @@
 	const laneWidthKey = 'laneWidth_';
 
 	let laneWidth: number;
+	let upstreamData: RemoteBranchData | undefined;
+	let unknownCommits: RemoteCommit[] | undefined;
+
+	$: upstream = branch.upstream;
+	$: if (upstream) reloadUpstream();
+
+	async function reloadUpstream() {
+		if (upstream?.name) {
+			upstreamData = await getRemoteBranchData(project.id, upstream.name);
+			unknownCommits = upstreamData.commits.filter(
+				(remoteCommit) => !branch.commits.find((commit) => remoteCommit.id == commit.id)
+			);
+		}
+	}
 
 	$: if ($commitBoxOpen && branch.files.length === 0) {
 		$commitBoxOpen = false;
@@ -188,6 +210,17 @@
 						}
 					}}
 				/>
+				{#if unknownCommits && unknownCommits.length > 0 && !branch.conflicted}
+					<UpstreamCommits
+						upstream={upstreamData}
+						branchId={branch.id}
+						{branchController}
+						{branchCount}
+						projectId={project.id}
+						{selectedFiles}
+						{base}
+					/>
+				{/if}
 				<!-- DROPZONES -->
 				<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
 				<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
