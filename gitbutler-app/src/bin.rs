@@ -23,6 +23,7 @@ fn main() {
 
             tauri::Builder::default()
                 .on_window_event(|event| {
+                    #[cfg(target_os = "macos")]
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
                         hide_window(&event.window().app_handle()).expect("Failed to hide window");
                         api.prevent_close();
@@ -233,19 +234,8 @@ fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
     Ok(window)
 }
 
+#[cfg(target_os = "macos")]
 fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
-    #[cfg(target_os = "macos")]
     handle.hide()?;
-
-    #[cfg(not(target_os = "macos"))]
-    if let Some(window) = get_window(handle) {
-        window.hide()?;
-    }
-
     Ok(())
-}
-
-#[cfg(not(target_os = "macos"))]
-fn get_window(handle: &tauri::AppHandle) -> Option<tauri::Window> {
-    handle.get_window("main")
 }
