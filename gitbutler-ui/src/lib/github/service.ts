@@ -192,9 +192,6 @@ export class GitHubService {
 							posthog.capture('PR Successful');
 							return { pr: ghResponseToInstance(rsp.data) };
 						} catch (err: any) {
-							// TODO: Perhaps we should only capture part of the error object
-							posthog.capture('PR Failed', { error: err });
-
 							const toast = mapErrorToToast(err);
 							if (toast) {
 								// TODO: This needs disambiguation, not the same as `toasts.error`
@@ -217,6 +214,10 @@ export class GitHubService {
 				timeout(60000), // 60 second total timeout
 				catchError((err) => {
 					this.setIdle(branchId);
+
+					// TODO: Perhaps we should only capture part of the error object
+					posthog.capture('PR Failed', { error: err });
+
 					if (err instanceof TimeoutError) {
 						showToast({
 							title: 'Timed out while creating PR',
