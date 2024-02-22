@@ -27,7 +27,7 @@
 			</h3>
 		{/if}
 		{#if SLOTS.body}
-			<p class="text-base-12 clickable-card__text">
+			<p class="text-base-body-12 clickable-card__text">
 				<slot name="body" />
 			</p>
 		{/if}

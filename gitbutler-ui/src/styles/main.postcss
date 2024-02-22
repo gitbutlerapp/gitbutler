@@ -35,6 +35,7 @@
 	--darken-extradark: var(--clr-theme-scale-ntrl-0) 15%;
 
 	/* TODO: add focus color */
+	--focus-color: var(--clr-theme-scale-pop-50);
 }
 
 :root.dark {
@@ -55,7 +56,7 @@ body {
 	width: 100vw;
 	overflow-y: hidden;
 	padding: 0;
-	color: var(--clr-theme-scale-ntrl-40);
+	color: var(--clr-theme-scale-ntrl-0);
 	background-color: var(--clr-theme-container-pale);
 
 	/* optimise font rendering */
@@ -132,4 +133,23 @@ the scrollbar to scale with the font size */
 
 .collapsed {
 	display: none;
+}
+
+/* FOCUS STATE */
+
+.focus-state {
+	&:focus-within {
+		outline: 1px solid transaparent;
+		animation: focus-animation var(--transition-fast) forwards;
+	}
+}
+
+@keyframes focus-animation {
+	0% {
+		outline-offset: 0;
+	}
+	100% {
+		outline-offset: 2px;
+		outline: 1px solid var(--focus-color);
+	}
 }
