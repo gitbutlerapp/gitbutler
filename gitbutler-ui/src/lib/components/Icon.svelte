@@ -9,6 +9,9 @@
 	export let color: IconColor = undefined;
 	export let opacity: number | undefined = 1;
 	export let spinnerRadius: number | undefined = 5;
+	export let size = 16;
+
+	const pxToRem = (px: number) => `${px / 16}rem`;
 </script>
 
 <svg
@@ -22,6 +25,8 @@
 	class:warn={color == 'warn'}
 	class:default={!color}
 	style:fill-opacity={opacity}
+	style:width={pxToRem(size)}
+	style:height={pxToRem(size)}
 >
 	{#if name == 'spinner'}
 		<circle class="spinner-path" cx="8" cy="8" r={spinnerRadius} fill="none" />
@@ -32,8 +37,6 @@
 
 <style lang="postcss">
 	.icon-wrapper {
-		width: 1rem;
-		height: 1rem;
 		flex-shrink: 0;
 		pointer-events: none;
 		display: inline-block;

@@ -19,6 +19,7 @@
 	export let tabindex = 0;
 	export let wide = false;
 	export let grow = false;
+	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' = 'auto';
 	export let help = '';
 
 	export let element: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
@@ -46,10 +47,11 @@
 	class:neutral-outline={color == 'neutral' && kind == 'outlined'}
 	class:pointer-events-none={loading}
 	class:icon-left={iconAlign == 'left'}
-	use:tooltip={help}
 	class:wide
 	class:grow
 	class:not-clickable={notClickable}
+	style:align-self={align}
+	use:tooltip={help}
 	bind:this={element}
 	disabled={disabled || loading}
 	on:click
@@ -57,7 +59,7 @@
 	tabindex={notClickable ? -1 : tabindex}
 >
 	{#if SLOTS}
-		<span class="label text-base-12">
+		<span class="label text-base-12 text-semibold">
 			<slot />
 		</span>
 	{/if}

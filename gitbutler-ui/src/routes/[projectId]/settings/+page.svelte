@@ -77,13 +77,13 @@
 				</div>
 				<div class="card__content">
 					<CloudForm project={$project$} user={$user$} {userService} on:updated={onCloudUpdated} />
-					<Spacer />
+					<Spacer margin={2} />
 					<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
-					<Spacer />
+					<Spacer margin={2} />
 					<KeysForm project={$project$} on:updated={onKeysUpdated} />
-					<Spacer />
+					<Spacer margin={2} />
 					<PreferencesForm project={$project$} on:updated={onPreferencesUpdated} />
-					<Spacer />
+					<Spacer margin={2} />
 
 					<div class="flex gap-x-4">
 						<a

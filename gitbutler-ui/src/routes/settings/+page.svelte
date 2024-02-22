@@ -2,18 +2,21 @@
 	import { deleteAllData } from '$lib/backend/data';
 	import AnalyticsSettings from '$lib/components/AnalyticsSettings.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import ClickableCard from '$lib/components/ClickableCard.svelte';
 	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
-	import IconButton from '$lib/components/IconButton.svelte';
 	import Link from '$lib/components/Link.svelte';
-	import Login from '$lib/components/Login.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
+	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import ThemeSelector from '$lib/components/ThemeSelector.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
+	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
+	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
+	import ProfileSIdebar from '$lib/components/settings/ProfileSIdebar.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import * as toasts from '$lib/utils/toasts';
+	import { open } from '@tauri-apps/api/shell';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
@@ -138,164 +141,53 @@
 			.then(() => deleteConfirmationModal.close())
 			.then(() => goto('/', { replaceState: true, invalidateAll: true }))
 			.finally(() => (isDeleting = false));
+
+	let currentSection: 'profile' | 'git-stuff' | 'telemetry' | 'integrations' = 'profile';
+
+	const toggleGBCommiter = () => setCommitterSetting(!annotateCommits);
+	const toggleGBSigner = () => setSigningSetting(!signCommits);
 </script>
 
-<ScrollableContainer wide>
-	<div class="settings" data-tauri-drag-region>
-		<div class="card">
-			<div class="card__header text-base-16 font-semibold">
-				<span class="card__title">GitButler Settings</span>
-				<IconButton
-					icon="cross"
-					on:click={() => {
-						if (history.length > 0) {
-							history.back();
-						} else {
-							goto('/');
-						}
-					}}
-				/>
-			</div>
-			<div class="card__content">
-				<div>
-					<h2 class="text-base-16 text-bold">GitButler Cloud</h2>
-					<p class="">
-						{#if $user$}
-							Your online account details on gitbutler.com
-						{:else}
-							You are not logged into GitButler.
-						{/if}
-					</p>
-				</div>
+<section class="profile-page">
+	<ProfileSIdebar {userService} bind:currentSection showIntegrations={!!$user$} />
+	{#if currentSection === 'profile'}
+		<ContentWrapper title="Profile">
+			{#if $user$}
+				<SectionCard>
+					<form on:submit={onSubmit} class="profile-form">
+						<label id="profile-picture" class="focus-state profile-pic-wrapper" for="picture">
+							<input
+								on:change={onPictureChange}
+								type="file"
+								id="picture"
+								name="picture"
+								accept={fileTypes.join('')}
+								class="hidden-input"
+							/>
 
-				{#if $user$}
-					<form
-						on:submit={onSubmit}
-						class="user-form flex flex-row items-start justify-between gap-12 rounded-lg"
-					>
-						<div id="profile-picture" class="relative flex flex-col items-center gap-2 pt-4">
 							{#if $user$.picture}
-								<img
-									class="h-28 w-28 rounded-full border-zinc-300"
-									src={userPicture}
-									alt="Your avatar"
-								/>
+								<img class="profile-pic" src={userPicture} alt="" />
 							{/if}
 
-							<label
-								title="Edit profile photo"
-								for="picture"
-								class="font-sm absolute bottom-0 right-0 ml-16 cursor-default rounded-lg border border-zinc-600 bg-zinc-800 px-2 text-center text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50"
-							>
-								Edit
-								<input
-									on:change={onPictureChange}
-									type="file"
-									id="picture"
-									name="picture"
-									accept={fileTypes.join('')}
-									class="input hidden"
-								/>
-							</label>
-						</div>
+							<span class="profile-pic__edit-label text-base-11 text-semibold">Edit</span>
+						</label>
 
-						<div id="contact-info" class="flex flex-1 flex-wrap">
-							<div class="basis-full pr-4">
+						<div id="contact-info" class="contact-info">
+							<div class="contact-info__fields">
 								<TextBox label="Full name" bind:value={newName} required />
-							</div>
-
-							<div class="mt-4 basis-full pr-4">
 								<TextBox label="Email" bind:value={$user$.email} readonly />
 							</div>
-							<div class="mt-4 basis-full pr-4 text-right">
-								<Button loading={saving} color="primary">Update profile</Button>
-							</div>
+
+							<Button loading={saving} color="primary">Update profile</Button>
 						</div>
 					</form>
-				{:else}
-					<Login {userService} />
-				{/if}
+				</SectionCard>
+			{:else}
+				<WelcomeSigninAction {userService} />
 				<Spacer />
-				<div>
-					<h2 class="text-base-16 text-bold">Git Stuff</h2>
-				</div>
-				<div class="flex items-center">
-					<div class="flex-grow">
-						<p>Credit GitButler as the Committer</p>
-						<div class="space-y-2 pr-8 text-sm text-light-700 dark:text-dark-200">
-							<div>
-								By default, everything in the GitButler client is free to use. You can opt in to
-								crediting us as the committer in your virtual branch commits to help spread the
-								word.
-							</div>
-							<Link
-								target="_blank"
-								rel="noreferrer"
-								href="https://docs.gitbutler.com/features/virtual-branches/committer-mark"
-							>
-								Learn more
-							</Link>
-						</div>
-					</div>
-					<div>
-						<Toggle
-							checked={annotateCommits}
-							on:change={() => setCommitterSetting(!annotateCommits)}
-						/>
-					</div>
-				</div>
+			{/if}
 
-				<div class="flex flex-col space-y-2">
-					<p>SSH Key</p>
-					<div class="pr-8 text-sm text-light-700 dark:text-dark-200">
-						<div>
-							GitButler uses SSH keys to authenticate with your Git provider. Add the following
-							public key to your Git provider to enable GitButler to push code.
-						</div>
-					</div>
-					<div class="flex-auto overflow-y-scroll">
-						<TextBox readonly selectall bind:value={sshKey} />
-					</div>
-					<div class="flex flex-row justify-end space-x-2">
-						<div>
-							<Button kind="filled" color="primary" on:click={() => copyToClipboard(sshKey)}>
-								Copy to Clipboard
-							</Button>
-						</div>
-						<div class="p-1">
-							<Link target="_blank" rel="noreferrer" href="https://github.com/settings/ssh/new"
-								>Add key to GitHub</Link
-							>
-						</div>
-					</div>
-				</div>
-
-				<div class="flex items-center">
-					<div class="flex-grow">
-						<p>Sign Commits with the above SSH Key</p>
-						<div class="space-y-2 pr-8 text-sm text-light-700 dark:text-dark-200">
-							<div>
-								If you want GitButler to sign your commits with the SSH key we generated, then you
-								can add that key to GitHub as a signing key to have those commits verified.
-							</div>
-							<Link
-								target="_blank"
-								rel="noreferrer"
-								href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
-							>
-								Learn more
-							</Link>
-						</div>
-					</div>
-					<div>
-						<Toggle checked={signCommits} on:change={() => setSigningSetting(!signCommits)} />
-					</div>
-				</div>
-
-				<Spacer />
-				<div>
-					<h2 class="text-base-16 text-bold">Appearance</h2>
-				</div>
+			<SectionCard>
 				<div class="flex items-center">
 					<div class="flex-grow">
 						<p>Interface theme</p>
@@ -305,85 +197,202 @@
 					</div>
 					<div><ThemeSelector /></div>
 				</div>
+			</SectionCard>
 
-				<Spacer />
-				<AnalyticsSettings showTitle />
-				<Spacer />
+			<Spacer />
 
-				{#if $user$}
-					<div>
-						<h2 class="text-base-16 text-bold">Remote Integrations</h2>
-					</div>
-					<GithubIntegration {userService} />
-				{/if}
+			<SectionCard>
+				<svelte:fragment slot="title">Remove all projects</svelte:fragment>
+				<svelte:fragment slot="body">
+					You can delete all projects from the GitButler app. Your code remains safe.
+					<br />
+					it only clears the configuration.
+				</svelte:fragment>
 
-				<div>
-					<h2 class="text-base-16 text-bold">Need help?</h2>
-				</div>
-				<div class="flex gap-x-4">
-					<a
-						href="https://discord.gg/MmFkmaJ42D"
+				<Button
+					color="error"
+					kind="outlined"
+					grow
+					align="flex-start"
+					on:click={() => deleteConfirmationModal.show()}
+				>
+					Remove all projects…
+				</Button>
+
+				<Modal bind:this={deleteConfirmationModal} title="Delete all local data?">
+					<p>Are you sure you want to delete all local data? This can’t be undone.</p>
+
+					<svelte:fragment slot="controls" let:close>
+						<Button kind="outlined" color="error" loading={isDeleting} on:click={onDeleteClicked}
+							>Remove</Button
+						>
+						<Button on:click={close}>Cancel</Button>
+					</svelte:fragment>
+				</Modal>
+			</SectionCard>
+		</ContentWrapper>
+	{:else if currentSection === 'git-stuff'}
+		<ContentWrapper title="Git stuff">
+			<ClickableCard on:click={toggleGBCommiter}>
+				<svelte:fragment slot="title">Credit GitButler as the Committer</svelte:fragment>
+				<svelte:fragment slot="body">
+					By default, everything in the GitButler client is free to use. You can opt in to crediting
+					us as the committer in your virtual branch commits to help spread the word.
+					<Link
 						target="_blank"
 						rel="noreferrer"
-						class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
+						href="https://docs.gitbutler.com/features/virtual-branches/committer-mark"
 					>
-						<p class="mb-2 font-medium">Join our Discord</p>
-						<p class="text-light-700 dark:text-dark-200">
-							Join our community and share feedback, requests, or ask a question.
-						</p>
-					</a>
-					<a
-						href="mailto:hello@gitbutler.com?subject=Feedback or question!"
-						target="_blank"
-						class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
+						Learn more
+					</Link>
+				</svelte:fragment>
+				<svelte:fragment slot="actions">
+					<Toggle checked={annotateCommits} on:change={toggleGBCommiter} />
+				</svelte:fragment>
+			</ClickableCard>
+
+			<Spacer />
+
+			<SectionCard>
+				<svelte:fragment slot="title">SSH Key</svelte:fragment>
+				<svelte:fragment slot="body">
+					GitButler uses SSH keys to authenticate with your Git provider. Add the following public
+					key to your Git provider to enable GitButler to push code.
+				</svelte:fragment>
+
+				<TextBox readonly selectall bind:value={sshKey} />
+				<div class="row-buttons">
+					<Button
+						kind="filled"
+						color="primary"
+						icon="copy"
+						on:click={() => copyToClipboard(sshKey)}
 					>
-						<p class="mb-2 font-medium">Contact us</p>
-						<p class="text-light-700 dark:text-dark-200">
-							If you have an issue or any questions, contact us.
-						</p>
-					</a>
+						Copy to Clipboard
+					</Button>
+					<Button
+						kind="outlined"
+						color="neutral"
+						icon="open-link"
+						on:click={() => {
+							open('https://github.com/settings/ssh/new');
+						}}
+					>
+						Add key to GitHub
+					</Button>
 				</div>
-			</div>
-			<div class="card__footer">
-				<Button color="error" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
-					Delete all data
-				</Button>
-				{#if $user$}
-					<!-- TODO: Separate logout from login button -->
-					<Login {userService} />
-				{/if}
-			</div>
-		</div>
+			</SectionCard>
 
-		<Modal bind:this={deleteConfirmationModal} title="Delete all local data?">
-			<p>Are you sure you want to delete all local data? This can’t be undone.</p>
-
-			<svelte:fragment slot="controls" let:close>
-				<Button kind="outlined" on:click={close}>Cancel</Button>
-				<Button color="error" loading={isDeleting} on:click={onDeleteClicked}>Delete</Button>
-			</svelte:fragment>
-		</Modal>
-	</div>
-</ScrollableContainer>
-
-<div id="clipboard" />
+			<ClickableCard on:click={toggleGBSigner}>
+				<svelte:fragment slot="title">Sign Commits with the above SSH Key</svelte:fragment>
+				<svelte:fragment slot="body">
+					If you want GitButler to sign your commits with the SSH key we generated, then you can add
+					that key to GitHub as a signing key to have those commits verified.
+					<Link
+						target="_blank"
+						rel="noreferrer"
+						href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
+					>
+						Learn more
+					</Link>
+				</svelte:fragment>
+				<svelte:fragment slot="actions">
+					<Toggle checked={signCommits} on:change={toggleGBSigner} />
+				</svelte:fragment>
+			</ClickableCard>
+		</ContentWrapper>
+	{:else if currentSection === 'telemetry'}
+		<ContentWrapper title="Telemetry">
+			<AnalyticsSettings />
+		</ContentWrapper>
+	{:else if currentSection === 'integrations'}
+		<ContentWrapper title="Integrations">
+			{#if $user$}
+				<GithubIntegration {userService} />
+			{/if}
+		</ContentWrapper>
+	{/if}
+</section>
 
 <style lang="postcss">
-	.settings {
+	.profile-page {
 		display: flex;
 		width: 100%;
-		max-width: 50rem;
-		margin: 0 auto;
-		justify-self: center;
-		justify-content: center;
-		flex-direction: column;
-		padding: var(--space-40) var(--space-40);
 	}
 
-	.card__content {
+	.profile-form {
+		display: flex;
 		gap: var(--space-24);
 	}
-	.card__footer {
-		justify-content: right;
+
+	.hidden-input {
+		z-index: 1;
+		position: absolute;
+		background-color: red;
+		width: 100%;
+		height: 100%;
+		opacity: 0;
+	}
+
+	.profile-pic-wrapper {
+		position: relative;
+		width: 100px;
+		height: 100px;
+		border-radius: var(--radius-m);
+		overflow: hidden;
+		background-color: var(--clr-theme-scale-pop-70);
+		transition: opacity var(--transition-medium);
+
+		&:hover,
+		&:focus-within {
+			& .profile-pic__edit-label {
+				opacity: 1;
+			}
+
+			& .profile-pic {
+				opacity: 0.8;
+			}
+		}
+	}
+
+	.profile-pic {
+		width: 100%;
+		height: 100%;
+
+		object-fit: cover;
+		background-color: var(--clr-theme-scale-pop-70);
+	}
+
+	.profile-pic__edit-label {
+		position: absolute;
+		bottom: var(--space-8);
+		left: var(--space-8);
+		color: var(--clr-core-ntrl-100);
+		background-color: color-mix(in srgb, var(--clr-core-ntrl-0), transparent 30%);
+		padding: var(--space-4) var(--space-6);
+		border-radius: var(--radius-m);
+		opacity: 0;
+		transition: opacity var(--transition-medium);
+	}
+
+	.contact-info {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-20);
+		align-items: flex-end;
+	}
+
+	.contact-info__fields {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-12);
+	}
+
+	.row-buttons {
+		display: flex;
+		justify-content: flex-end;
+		gap: var(--space-8);
 	}
 </style>

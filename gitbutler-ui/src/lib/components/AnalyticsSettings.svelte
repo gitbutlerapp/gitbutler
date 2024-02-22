@@ -9,9 +9,6 @@
 	const metricsEnabled = appMetricsEnabled();
 	let updatedTelemetrySettings = false;
 
-	// TODO: Remove this silly prop when we make a new analytics component.
-	export let showTitle = false;
-
 	const toggleErrorReporting = () => {
 		$errorReportingEnabled = !$errorReportingEnabled;
 		updatedTelemetrySettings = true;
@@ -25,14 +22,11 @@
 
 <section class="analytics-settings">
 	<div class="analytics-settings__content">
-		{#if showTitle}
-			<h2 class="text-base-16 text-bold">Telemetry</h2>
-		{/if}
-		<p class="text-base-body-12 analytics-settings__text">
+		<p class="text-base-body-13 analytics-settings__text">
 			GitButler uses telemetry strictly to help us improve the client. We do not collect any
 			personal information.
 		</p>
-		<p class="text-base-body-12 analytics-settings__text">
+		<p class="text-base-body-113analytics-settings__text">
 			We kindly ask you to consider keeping these settings enabled as it helps us catch issues more
 			quickly. If you choose to disable them, please feel to share your feedback on our <Link
 				target="_blank"
