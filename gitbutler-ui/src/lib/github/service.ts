@@ -4,11 +4,13 @@ import {
 	type GitHubIntegrationContext,
 	ghResponseToInstance,
 	type PrStatus,
-	MergeMethod
+	MergeMethod,
+	type GitHubErrorData
 } from '$lib/github/types';
 import { showToast, type ToastMessage } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import * as toasts from '$lib/utils/toasts';
+import { RequestError } from '@octokit/request-error';
 import lscache from 'lscache';
 import posthog from 'posthog-js';
 import {
@@ -197,13 +199,10 @@ export class GitHubService {
 
 							const toast = mapErrorToToast(err);
 							if (toast) {
-								// TODO: This needs disambiguation, not the same as `toasts.error`
-								// Show toast with rich content
 								showToast(toast);
-								// Handled errors should not be retried
+								// Prevents error being retried
 								return { err };
 							} else {
-								// Rethrow so that error is retried
 								throw err;
 							}
 						}
@@ -449,15 +448,11 @@ function loadPrs(
  * ```
  */
 function mapErrorToToast(err: any): ToastMessage | undefined {
-	// We expect an object to be thrown by octokit.
-	if (typeof err != 'object') return;
+	// Ensure we are dealing with an Octokit error
+	if (!(err instanceof RequestError)) return;
 
-	const { status, response } = err;
-	const { data } = response;
+	const data = err.response?.data as GitHubErrorData;
 	const { message, errors } = data;
-
-	// If this expectation isn't met we must be doing something wrong
-	if (status == undefined || message == undefined) return;
 
 	if (message.includes('Draft pull requests are not supported')) {
 		return {

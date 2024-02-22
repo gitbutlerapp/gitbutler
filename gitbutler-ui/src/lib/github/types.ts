@@ -77,3 +77,6 @@ export enum MergeMethod {
 	Rebase = 'rebase',
 	Squash = 'squash'
 }
+
+// TODO: Can we get this type from Octokit?
+export type GitHubErrorData = { message: string; errors: { message: string }[] };
