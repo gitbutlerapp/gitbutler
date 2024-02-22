@@ -7,7 +7,6 @@ import type { PullRequest } from '$lib/github/types';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 import type { Branch, RemoteBranch } from '$lib/vbranches/types';
-import type { Transaction } from '@sentry/sveltekit';
 
 export class BranchService {
 	public branches$: Observable<CombinedBranch[]>;
@@ -39,8 +38,7 @@ export class BranchService {
 	async createPr(
 		branch: Branch,
 		baseBranch: string,
-		draft: boolean,
-		sentryTxn: Transaction
+		draft: boolean
 	): Promise<PullRequest | undefined> {
 		// Using this mutable variable while investigating why branch variable
 		// does not seem to update reliably.
@@ -49,9 +47,7 @@ export class BranchService {
 
 		// Push if local commits
 		if (branch.commits.some((c) => !c.isRemote)) {
-			const pushBranchSpan = sentryTxn.startChild({ op: 'branch_push' });
 			newBranch = await this.vbranchService.pushBranch(branch.id, branch.requiresForce);
-			pushBranchSpan.finish();
 		} else {
 			newBranch = branch;
 		}
@@ -66,8 +62,6 @@ export class BranchService {
 			throw 'Cannot create PR without remote branch name';
 		}
 
-		const createPrSpan = sentryTxn.startChild({ op: 'pr_api_create' });
-
 		let title = newBranch.name;
 		let body = newBranch.notes;
 
@@ -79,20 +73,16 @@ export class BranchService {
 			if (commit.descriptionBody) body = commit.descriptionBody;
 		}
 
-		try {
-			const resp = await this.githubService.createPullRequest(
-				baseBranch,
-				title,
-				body,
-				newBranch.id,
-				newBranch.upstreamName,
-				draft
-			);
-			if ('pr' in resp) return resp.pr;
-			else throw resp.err;
-		} finally {
-			createPrSpan.finish();
-		}
+		const resp = await this.githubService.createPullRequest(
+			baseBranch,
+			title,
+			body,
+			newBranch.id,
+			newBranch.upstreamName,
+			draft
+		);
+		if ('pr' in resp) return resp.pr;
+		else throw resp.err;
 	}
 
 	async reloadVirtualBranches() {
