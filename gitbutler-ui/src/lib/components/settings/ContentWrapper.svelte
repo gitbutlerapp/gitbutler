@@ -4,9 +4,9 @@
 	export let title: string | undefined = undefined;
 </script>
 
-<section class="content-wrapper" data-tauri-drag-region>
+<section class="content-wrapper">
 	<ScrollableContainer>
-		<div class="content">
+		<div class="content" data-tauri-drag-region>
 			{#if title}
 				<h1 class="title text-head-24">
 					{title}
@@ -21,21 +21,23 @@
 	.content-wrapper {
 		user-select: none;
 		width: 100%;
+		height: 100%;
 		flex: 1;
 		background-color: var(--clr-theme-container-light);
-		padding: var(--space-48) var(--space-32);
 	}
 
 	.content {
+		padding: var(--space-48) var(--space-32);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-16);
-		max-width: 37rem;
+		max-width: 37.5rem;
 		width: 100%;
 		margin: auto;
 	}
 
 	.title {
 		color: var(--clr-theme-scale-ntrl-0);
+		align-self: flex-start;
 	}
 </style>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	// import Button from '$lib/components/Button.svelte';
+	import IconButton from '../IconButton.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import type { UserService } from '$lib/stores/user';
@@ -16,24 +16,24 @@
 
 <aside class="profile-sidebar" data-tauri-drag-region>
 	<section class="profile-sidebar__top">
-		<button
-			class="back-btn"
-			on:click={() => {
-				if (history.length > 0) {
-					history.back();
-				} else {
-					goto('/');
-				}
-			}}
-		>
-			<div class="back-btn__icon">
-				<Icon name="chevron-left" />
-			</div>
-			<span class="text-base-14 text-semibold">Back</span>
-		</button>
-
 		<div class="profile-sidebar__menu-wrapper">
-			<h2 class="profile-sidebar__title text-base-18 text-bold">Preferences</h2>
+			<div class="profile-sidebar__header">
+				<div class="back-btn__icon">
+					<IconButton
+						icon="chevron-left"
+						size="m"
+						on:click={() => {
+							if (history.length > 0) {
+								history.back();
+							} else {
+								goto('/');
+							}
+						}}
+					/>
+				</div>
+				<h2 class="profile-sidebar__title text-base-18 text-bold">Preferences</h2>
+			</div>
+
 			<ul class="profile-sidebar__menu">
 				<li>
 					<button
@@ -117,39 +117,17 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: space-between;
-		padding: var(--space-48) var(--space-20) var(--space-20) var(--space-20);
+		padding: calc(var(--space-40) + var(--space-4)) var(--space-20) var(--space-20) var(--space-20);
 		border-right: 1px solid var(--clr-theme-container-outline-light);
 		background-color: var(--clr-theme-container-pale);
 		height: 100%;
-		width: 280px;
+		width: 16rem;
 	}
 
-	.back-btn {
+	.profile-sidebar__header {
 		display: flex;
 		align-items: center;
-		gap: var(--space-6);
-		width: fit-content;
-		margin-left: calc(var(--space-6) * -1);
-		transition: transform var(--transition-fast);
-
-		&:hover {
-			& span {
-				opacity: 0.8;
-			}
-
-			& .back-btn__icon {
-				transform: translateX(calc(var(--space-2) * -1));
-			}
-		}
-
-		& span {
-			opacity: 0.4;
-			transition: opacity var(--transition-fast);
-		}
-	}
-
-	.back-btn__icon {
-		transition: transform var(--transition-fast);
+		gap: var(--space-8);
 	}
 
 	/* TOP */
