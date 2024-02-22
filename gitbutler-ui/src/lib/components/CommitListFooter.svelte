@@ -1,7 +1,6 @@
 <script lang="ts">
 	import PushButton, { BranchAction } from './PushButton.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import { startTransaction } from '@sentry/sveltekit';
 	import toast from 'svelte-french-toast';
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
@@ -51,14 +50,10 @@
 			return;
 		}
 
-		// Sentry transaction for measuring pr creation latency
-		const sentryTxn = startTransaction({ name: 'pull_request_create' });
-
 		isPushing = true;
 		try {
-			return await branchService.createPr(branch, base.shortName, opts.draft, sentryTxn);
+			return await branchService.createPr(branch, base.shortName, opts.draft);
 		} finally {
-			sentryTxn.finish();
 			isPushing = false;
 		}
 	}
