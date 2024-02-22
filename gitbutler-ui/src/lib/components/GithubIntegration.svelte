@@ -47,7 +47,8 @@
 					gitHubOauthModal.close();
 				}
 			})
-			.catch(() => {
+			.catch((err) => {
+				console.log(err);
 				isCheckingStatus = false;
 				gitHubOauthModal.close();
 			});

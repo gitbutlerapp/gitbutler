@@ -47,7 +47,7 @@
 	const authUrl = derived(token, ($token) => $token?.url as string);
 
 	// create on:login event and on:logout event
-	const dispatch = createEventDispatcher();
+	const dispatch = createEventDispatcher<{ login: void; logout: void }>();
 
 	const onLogin = () => {
 		dispatch('login');

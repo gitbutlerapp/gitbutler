@@ -188,15 +188,8 @@
 			{/if}
 
 			<SectionCard>
-				<div class="flex items-center">
-					<div class="flex-grow">
-						<p>Interface theme</p>
-						<p class="text-sm text-light-700 dark:text-dark-200">
-							Select or customize your interface theme.
-						</p>
-					</div>
-					<div><ThemeSelector /></div>
-				</div>
+				<svelte:fragment slot="title">Appearance</svelte:fragment>
+				<ThemeSelector />
 			</SectionCard>
 
 			<Spacer />
@@ -219,8 +212,8 @@
 					Remove all projects…
 				</Button>
 
-				<Modal bind:this={deleteConfirmationModal} title="Delete all local data?">
-					<p>Are you sure you want to delete all local data? This can’t be undone.</p>
+				<Modal bind:this={deleteConfirmationModal} title="Remove all projects">
+					<p>Are you sure you want to remove all GitButler projects?</p>
 
 					<svelte:fragment slot="controls" let:close>
 						<Button kind="outlined" color="error" loading={isDeleting} on:click={onDeleteClicked}

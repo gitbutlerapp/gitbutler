@@ -1,7 +1,7 @@
 <script lang="ts">
 	export let margin: number | undefined = 16;
 
-	const getPadding = () => {
+	const getMargins = () => {
 		if (margin === undefined) {
 			return '';
 		}
@@ -10,7 +10,7 @@
 	};
 </script>
 
-<div class="divider" style={getPadding()} />
+<div class="divider" style={getMargins()} />
 
 <style lang="post-css">
 	.divider {
