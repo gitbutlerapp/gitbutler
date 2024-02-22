@@ -60,9 +60,9 @@ export class BranchController {
 				runHooks: runHooks
 			});
 			posthog.capture('Commit Successful');
-		} catch (err) {
+		} catch (err: any) {
 			toasts.error('Failed to commit branch');
-			posthog.capture('Commit Failed');
+			posthog.capture('Commit Failed', err);
 		}
 	}
 
