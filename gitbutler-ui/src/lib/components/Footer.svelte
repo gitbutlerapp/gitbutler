@@ -4,12 +4,14 @@
 	import Link from '$lib/components/Link.svelte';
 	import * as events from '$lib/utils/events';
 	import type { User } from '$lib/backend/cloud';
+	import type { Persisted } from '$lib/persisted/persisted';
 
 	export let user: User | undefined;
 	export let projectId: string | undefined;
+	export let isNavCollapsed: Persisted<boolean>;
 </script>
 
-<div class="footer" style:border-color="var(--clr-theme-container-outline-light)">
+<div class="footer" class:collapsed={$isNavCollapsed}>
 	<div class="left-btns">
 		<IconButton
 			icon="mail"
@@ -20,7 +22,7 @@
 			<IconButton icon="settings" help="Project settings" />
 		</Link>
 	</div>
-	<AccountLink {user} />
+	<AccountLink {user} {isNavCollapsed} />
 </div>
 
 <style lang="postcss">
@@ -30,6 +32,10 @@
 		justify-content: space-between;
 		padding: var(--space-12);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
+		border-color: var(--clr-theme-container-outline-light);
+	}
+	.collapsed {
+		padding: 0;
 	}
 	.left-btns {
 		display: flex;

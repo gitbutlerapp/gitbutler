@@ -2,25 +2,29 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import type { User } from '$lib/backend/cloud';
 	import { goto } from '$app/navigation';
+	import type { Persisted } from '$lib/persisted/persisted';
 
 	export let user: User | undefined;
 	export let pop = false;
+	export let isNavCollapsed: Persisted<boolean>;
 </script>
 
 <button class="btn" class:pop on:click={() => goto('/settings/')}>
-	<span class="name text-base-13 text-semibold">
-		{#if user}
-			{#if user.name}
-				{user.name}
-			{:else if user.given_name}
-				{user.given_name}
-			{:else if user.email}
-				{user.email}
+	{#if !$isNavCollapsed}
+		<span class="name text-base-13 text-semibold">
+			{#if user}
+				{#if user.name}
+					{user.name}
+				{:else if user.given_name}
+					{user.given_name}
+				{:else if user.email}
+					{user.email}
+				{/if}
+			{:else}
+				Account
 			{/if}
-		{:else}
-			Account
-		{/if}
-	</span>
+		</span>
+	{/if}
 	{#if user?.picture}
 		<img class="profile-picture" src={user.picture} alt="Avatar" />
 	{:else}
