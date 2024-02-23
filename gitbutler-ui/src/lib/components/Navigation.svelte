@@ -4,9 +4,11 @@
 	import Footer from './Footer.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
 	import UpdateBaseButton from './UpdateBaseButton.svelte';
-	import BaseBranchCard from '$lib/components/BaseBranchCard.svelte';
-	import Resizer from '$lib/components/Resizer.svelte';
-	import { persisted } from '$lib/persisted/persisted';
+	import BaseBranchCard from './BaseBranchCard.svelte';
+	import Resizer from './Resizer.svelte';
+	import Button from './Button.svelte';
+	import { navCollapsed } from '$lib/config/config';
+	import { persisted, type Persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { getContext } from 'svelte';
 	import type { User } from '$lib/backend/cloud';
@@ -30,58 +32,93 @@
 		'defaulTrayWidth_ ' + project.id
 	);
 
-	$: base$ = baseBranchService.base$;
-
 	let viewport: HTMLDivElement;
+
+	const foldNav = () => {
+		console.log('BeforeSet: ' + $isNavCollapsed);
+		$isNavCollapsed = true;
+		console.log('AfterSet: ' + $isNavCollapsed);
+	};
+	const unfoldNav = () => {
+		$isNavCollapsed = false;
+	};
+
+	$: isNavCollapsed = navCollapsed();
 </script>
 
-<div
-	class="navigation relative flex w-80 shrink-0 flex-col border-r"
-	style:width={$defaultTrayWidthRem ? $defaultTrayWidthRem + 'rem' : null}
-	bind:this={viewport}
-	role="menu"
-	tabindex="0"
->
-	<div class="drag-region" data-tauri-drag-region></div>
-	<div class="domains">
-		<ProjectSelector {project} {projectService} />
-		<div class="flex flex-col gap-1">
-			<BaseBranchCard {project} {baseBranchService} {githubService} />
-			<DomainButton href={`/${project.id}/board`}>
-				<svg
-					width="16"
-					height="16"
-					viewBox="0 0 16 16"
-					fill="none"
-					xmlns="http://www.w3.org/2000/svg"
-				>
-					<path
-						d="M0 6.64C0 4.17295 0 2.93942 0.525474 2.01817C0.880399 1.39592 1.39592 0.880399 2.01817 0.525474C2.93942 0 4.17295 0 6.64 0H9.36C11.8271 0 13.0606 0 13.9818 0.525474C14.6041 0.880399 15.1196 1.39592 15.4745 2.01817C16 2.93942 16 4.17295 16 6.64V9.36C16 11.8271 16 13.0606 15.4745 13.9818C15.1196 14.6041 14.6041 15.1196 13.9818 15.4745C13.0606 16 11.8271 16 9.36 16H6.64C4.17295 16 2.93942 16 2.01817 15.4745C1.39592 15.1196 0.880399 14.6041 0.525474 13.9818C0 13.0606 0 11.8271 0 9.36V6.64Z"
-						fill="#48B0AA"
-					/>
-					<rect x="2" y="3" width="6" height="10" rx="2" fill="#D9F3F2" />
-					<rect opacity="0.7" x="10" y="3" width="4" height="10" rx="2" fill="#D9F3F2" />
-				</svg>
-
-				<span>Workspace</span>
-				{#if ($base$?.behind || 0) > 0}
-					<UpdateBaseButton {branchController} />
-				{/if}
-			</DomainButton>
+{#if $isNavCollapsed}
+	<div class="collapsed-nav-wrapper">
+		<div class="card collapsed-nav">
+			<Button
+				icon="unfold-lane"
+				kind="outlined"
+				color="neutral"
+				help="Collapse Nav"
+				on:click={unfoldNav}
+			/>
+			<div class="collapsed-nav__info">
+				<h3 class="collapsed-nav__label text-base-13 text-bold">
+					{project?.title}
+				</h3>
+				<DomainButton
+					href={`/${project.id}/board`}
+					domain="workspace"
+					{branchController}
+					{baseBranchService}
+					{isNavCollapsed}
+				></DomainButton>
+				<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
+			</div>
+			<div class="collapsed-nav__footer">
+				<Footer {user} projectId={project.id} {isNavCollapsed} />
+			</div>
 		</div>
 	</div>
-	<Branches projectId={project.id} {branchService} {githubService} />
-	<Footer {user} projectId={project.id} />
+{:else}
+	<div
+		class="navigation relative flex w-80 shrink-0 flex-col border-r"
+		style:width={$defaultTrayWidthRem ? $defaultTrayWidthRem + 'rem' : null}
+		bind:this={viewport}
+		role="menu"
+		tabindex="0"
+	>
+		<div class="drag-region" data-tauri-drag-region></div>
+		<div class="hide-nav-button">
+			<Button
+				icon="fold-lane"
+				kind="outlined"
+				color="neutral"
+				help="Collapse Nav"
+				align="flex-end"
+				on:click={foldNav}
+			/>
+		</div>
+		<div class="domains">
+			<ProjectSelector {project} {projectService} />
+			<div class="flex flex-col gap-1">
+				<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
+				<DomainButton
+					href={`/${project.id}/board`}
+					domain="workspace"
+					{branchController}
+					{baseBranchService}
+					{isNavCollapsed}
+				></DomainButton>
+			</div>
+		</div>
+		<Branches projectId={project.id} {branchService} {githubService} />
+		<Footer {user} projectId={project.id} {isNavCollapsed} />
 
-	<Resizer
-		{viewport}
-		direction="right"
-		minWidth={320}
-		on:width={(e) => {
-			$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
-		}}
-	/>
-</div>
+		<Resizer
+			{viewport}
+			direction="right"
+			minWidth={320}
+			on:width={(e) => {
+				$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
+			}}
+		/>
+	</div>
+{/if}
 
 <style lang="postcss">
 	.navigation {
@@ -98,5 +135,52 @@
 		padding-bottom: var(--space-24);
 		padding-left: var(--space-12);
 		padding-right: var(--space-12);
+	}
+	.hide-nav-button {
+		align-self: flex-end;
+		margin-right: var(--space-12);
+	}
+	.collapsed-nav-wrapper {
+		padding: var(--space-12);
+		height: 100%;
+		border-right: 1px solid var(--clr-theme-container-outline-light);
+	}
+	.collapsed-nav {
+		display: flex;
+		flex-direction: column;
+		cursor: default;
+		user-select: none;
+		height: 100%;
+		gap: var(--space-8);
+		padding: var(--space-8) var(--space-8) var(--space-20);
+
+		&:focus-within {
+			outline: none;
+		}
+	}
+	.collapsed-nav__info {
+		flex: 1;
+		display: flex;
+		flex-direction: row-reverse;
+		align-items: center;
+		justify-content: flex-end;
+		height: 100%;
+
+		writing-mode: vertical-rl;
+		gap: var(--space-8);
+	}
+	.collapsed-nav__label {
+		color: var(--clr-theme-scale-ntrl-0);
+		transform: rotate(180deg);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		padding-bottom: var(--space-8);
+	}
+	.collapsed-nav__footer {
+		align-self: flex-end;
+
+		writing-mode: vertical-rl;
+		gap: var(--space-8);
 	}
 </style>
