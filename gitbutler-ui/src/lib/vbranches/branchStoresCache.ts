@@ -2,7 +2,6 @@ import { BaseBranch, Branch } from './types';
 import { invoke, listen } from '$lib/backend/ipc';
 import * as toasts from '$lib/utils/toasts';
 import { plainToInstance } from 'class-transformer';
-import posthog from 'posthog-js';
 import {
 	switchMap,
 	Observable,
@@ -100,26 +99,6 @@ export class VirtualBranchService {
 				map((branches) => branches?.find((b) => b.id == branchId && b.upstream))
 			)
 		);
-	}
-
-	async pushBranch(branchId: string, withForce: boolean): Promise<Branch | undefined> {
-		try {
-			await invoke<void>('push_virtual_branch', {
-				projectId: this.projectId,
-				branchId,
-				withForce
-			});
-			posthog.capture('Push Successful');
-			await this.reload();
-			return await this.getById(branchId);
-		} catch (err: any) {
-			posthog.capture('Push Failed', { error: err });
-			if (err.code === 'errors.git.authentication') {
-				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
-			} else {
-				toasts.error(`Failed to push branch: ${err.message}`);
-			}
-		}
 	}
 }
 
