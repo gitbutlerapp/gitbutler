@@ -6,13 +6,15 @@
 
 <section class="content-wrapper">
 	<ScrollableContainer>
-		<div class="content" data-tauri-drag-region>
-			{#if title}
-				<h1 class="title text-head-24">
-					{title}
-				</h1>
-			{/if}
-			<slot />
+		<div class="drag-region" data-tauri-drag-region>
+			<div class="content" data-tauri-drag-region>
+				{#if title}
+					<h1 class="title text-head-24">
+						{title}
+					</h1>
+				{/if}
+				<slot />
+			</div>
 		</div>
 	</ScrollableContainer>
 </section>
@@ -23,7 +25,12 @@
 		width: 100%;
 		height: 100%;
 		flex: 1;
-		background-color: var(--clr-theme-container-light);
+		background-color: var(--clr-theme-container-pale);
+	}
+
+	.drag-region {
+		width: 100%;
+		min-height: 100vh;
 	}
 
 	.content {

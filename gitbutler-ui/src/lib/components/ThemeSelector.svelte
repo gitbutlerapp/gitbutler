@@ -78,14 +78,14 @@
 		position: relative;
 		width: 100%;
 		height: auto;
-		border-radius: var(--radius-l);
+		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		overflow: hidden;
 
 		& img {
 			width: 100%;
-			height: 100%;
-			object-fit: cover;
+			height: auto;
+			border-radius: var(--radius-m);
 		}
 	}
 
@@ -114,7 +114,6 @@
 
 	.theme-card.selected .theme-card__preview {
 		border-color: var(--clr-core-pop-50);
-		border-width: 2px;
 	}
 
 	.theme-card.selected .theme-card__icon {
