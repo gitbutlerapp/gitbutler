@@ -206,6 +206,10 @@ impl Controller {
             tracing::error!(project_id = %id, ?error, "failed to remove project data",);
         }
 
+        if let Err(error) = std::fs::remove_file(project.path.join(".git/gitbutler.json")) {
+            tracing::error!(project_id = %project.id, ?error, "failed to remove .git/gitbutler.json data",);
+        }
+
         Ok(())
     }
 }
