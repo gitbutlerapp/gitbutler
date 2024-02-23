@@ -365,6 +365,13 @@ impl Repository {
                 if self.project.omit_certificate_check.unwrap_or(false) {
                     cbs.certificate_check(|_, _| Ok(git2::CertificateCheckStatus::CertificateOk));
                 }
+                cbs.push_update_reference(|_reference: &str, status: Option<&str>| {
+                    if let Some(status) = status {
+                        return Err(git2::Error::from_str(status));
+                    };
+                    Ok(())
+                });
+
                 match remote.push(
                     &[refspec.as_str()],
                     Some(&mut git2::PushOptions::new().remote_callbacks(cbs)),
