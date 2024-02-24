@@ -4,7 +4,8 @@ use std::{collections::HashMap, path, time, vec};
 use std::os::unix::prelude::*;
 
 use anyhow::{bail, Context, Result};
-use diffy::{apply_bytes, Patch};
+use bstr::ByteSlice;
+use diffy::{apply, Patch};
 use git2_hooks::HookResult;
 use regex::Regex;
 use serde::Serialize;
@@ -2225,39 +2226,34 @@ pub fn write_tree_onto_tree(
                         .peel_to_blob()
                         .context("failed to get blob")?;
 
-                    // get the contents
-                    let mut blob_contents = blob.content().to_vec();
+                    let mut blob_contents = blob.content().to_str()?.to_string();
 
                     let mut hunks = hunks.clone();
                     hunks.sort_by_key(|hunk| hunk.new_start);
                     for hunk in hunks {
-                        let patch = format!("--- original\n+++ modified\n{}", hunk.diff);
-                        let patch_bytes = patch.as_bytes();
-                        let patch = Patch::from_bytes(patch_bytes)?;
-                        blob_contents = apply_bytes(&blob_contents, &patch)
+                        let patch = Patch::from_str(&hunk.diff)?;
+                        blob_contents = apply(&blob_contents, &patch)
                             .context(format!("failed to apply {}", &hunk.diff))?;
                     }
 
                     // create a blob
-                    let new_blob_oid = git_repository.blob(&blob_contents)?;
+                    let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
                     // upsert into the builder
                     builder.upsert(rel_path, new_blob_oid, filemode);
                 }
             } else if is_submodule {
-                let mut blob_contents = vec![];
+                let mut blob_contents = String::new();
 
                 let mut hunks = hunks.clone();
                 hunks.sort_by_key(|hunk| hunk.new_start);
                 for hunk in hunks {
-                    let patch = format!("--- original\n+++ modified\n{}", hunk.diff);
-                    let patch_bytes = patch.as_bytes();
-                    let patch = Patch::from_bytes(patch_bytes)?;
-                    blob_contents = apply_bytes(&blob_contents, &patch)
+                    let patch = Patch::from_str(&hunk.diff)?;
+                    blob_contents = apply(&blob_contents, &patch)
                         .context(format!("failed to apply {}", &hunk.diff))?;
                 }
 
                 // create a blob
-                let new_blob_oid = git_repository.blob(&blob_contents)?;
+                let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
                 // upsert into the builder
                 builder.upsert(rel_path, new_blob_oid, filemode);
             } else {
