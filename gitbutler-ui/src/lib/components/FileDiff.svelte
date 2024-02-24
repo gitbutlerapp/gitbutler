@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Button from './Button.svelte';
 	import HunkViewer from './HunkViewer.svelte';
 	import Icon from './Icon.svelte';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
@@ -30,6 +31,8 @@
 
 	$: maxLineNumber = sections[sections.length - 1]?.maxLineNumber;
 	$: minWidth = getGutterMinWidth(maxLineNumber);
+
+	let alwaysShow = false;
 </script>
 
 <div class="hunks">
@@ -37,6 +40,13 @@
 		Binary content not shown
 	{:else if isLarge}
 		Diff too large to be shown
+	{:else if sections.length > 50 && !alwaysShow}
+		<div class="flex flex-col p-1">
+			Change hidden as large numbers of diffs may slow down the UI
+			<Button kind="outlined" color="neutral" on:click={() => (alwaysShow = true)}
+				>show anyways</Button
+			>
+		</div>
 	{:else}
 		{#each sections as section}
 			{@const { added, removed } = computeAddedRemovedByHunk(section)}
