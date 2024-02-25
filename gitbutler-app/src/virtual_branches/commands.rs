@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-    branch::BranchId,
+    branch::{self, BranchId},
     controller::{Controller, ControllerError},
     BaseBranch, RemoteBranchFile,
 };
@@ -80,10 +80,22 @@ pub async fn list_virtual_branches(
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
-    let branches = handle
+    let (branches, uses_diff_context) = handle
         .state::<Controller>()
         .list_virtual_branches(&project_id)
         .await?;
+
+    // Migration: If use_diff_context is not already set and if there are no vbranches, set use_diff_context to true
+    if !uses_diff_context && branches.is_empty() {
+        let _ = handle
+            .state::<projects::Controller>()
+            .update(&projects::UpdateRequest {
+                id: project_id,
+                use_diff_context: Some(true),
+                ..Default::default()
+            })
+            .await;
+    }
 
     let proxy = handle.state::<assets::Proxy>();
     let branches = proxy.proxy_virtual_branches(branches).await;
