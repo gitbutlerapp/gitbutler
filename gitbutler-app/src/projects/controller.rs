@@ -79,6 +79,7 @@ impl Controller {
             title,
             path: path.to_path_buf(),
             api: None,
+            use_diff_context: Some(true),
             ..Default::default()
         };
 

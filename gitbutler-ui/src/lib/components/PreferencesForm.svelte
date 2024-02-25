@@ -8,12 +8,14 @@
 
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;
+	let useDiffContext = project?.use_diff_context;
 
 	const runCommitHooks = projectRunCommitHooks(project.id);
 	const dispatch = createEventDispatcher<{
 		updated: {
 			ok_with_force_push?: boolean;
 			omit_certificate_check?: boolean;
+			use_diff_context?: boolean;
 		};
 	}>();
 </script>
@@ -68,5 +70,26 @@
 	</form>
 	<p class="ml-7 text-light-700 dark:text-dark-200">
 		Enabling this will run any git pre and post commit hooks you have configured in your repository.
+	</p>
+
+	<form class="flex items-center gap-1">
+		<Checkbox
+			name="use-diff-context"
+			checked={useDiffContext}
+			disabled={useDiffContext}
+			on:change={() => {
+				useDiffContext = !useDiffContext;
+				dispatch('updated', { use_diff_context: useDiffContext });
+			}}
+		/>
+		<label class="ml-2" for="allow-force-pushing">
+			<div>
+				Use diffs with context lines internally (for migration purposes, can only be enabled)
+			</div>
+		</label>
+	</form>
+	<p class="ml-7 text-light-700 dark:text-dark-200">
+		Only toggle this with an empty workspace. If enabled, the application will use diffs with
+		context lines internally.
 	</p>
 </div>

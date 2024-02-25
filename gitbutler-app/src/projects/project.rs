@@ -78,6 +78,8 @@ pub struct Project {
     pub project_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
     pub omit_certificate_check: Option<bool>,
+    #[serde(default)]
+    pub use_diff_context: Option<bool>,
 }
 
 impl AsRef<Project> for Project {
