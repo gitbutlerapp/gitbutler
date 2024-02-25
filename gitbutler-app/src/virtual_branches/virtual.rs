@@ -2230,11 +2230,14 @@ pub fn write_tree_onto_tree(
 
                     let mut hunks = hunks.clone();
                     hunks.sort_by_key(|hunk| hunk.new_start);
+                    let mut all_diffs = String::new();
                     for hunk in hunks {
-                        let patch = Patch::from_str(&hunk.diff)?;
-                        blob_contents = apply(&blob_contents, &patch)
-                            .context(format!("failed to apply {}", &hunk.diff))?;
+                        all_diffs.push_str(&hunk.diff);
                     }
+
+                    let patch = Patch::from_str(&all_diffs)?;
+                    blob_contents = apply(&blob_contents, &patch)
+                        .context(format!("failed to apply {}", &all_diffs))?;
 
                     // create a blob
                     let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
