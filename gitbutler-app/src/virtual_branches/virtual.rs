@@ -729,7 +729,7 @@ fn find_base_tree<'a>(
 pub fn list_virtual_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<Vec<VirtualBranch>, errors::ListVirtualBranchesError> {
+) -> Result<(Vec<VirtualBranch>, bool), errors::ListVirtualBranchesError> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
     let default_target = gb_repository
@@ -908,7 +908,11 @@ pub fn list_virtual_branches(
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
-    Ok(branches)
+    let uses_diff_context = project_repository
+        .project()
+        .use_diff_context
+        .unwrap_or(false);
+    Ok((branches, uses_diff_context))
 }
 
 fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<VirtualBranch> {
@@ -3851,8 +3855,12 @@ pub fn context_lines(project_repository: &project_repository::Repository) -> u32
         .project()
         .use_diff_context
         .unwrap_or(false);
-    
-    if use_context { 3_u32 } else { 0_u32 }
+
+    if use_context {
+        3_u32
+    } else {
+        0_u32
+    }
 }
 
 #[cfg(test)]
