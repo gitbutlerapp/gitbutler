@@ -101,6 +101,7 @@ mod unapply_ownership {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == branch_id)
             .unwrap();
@@ -139,6 +140,7 @@ mod create_commit {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -161,6 +163,7 @@ mod create_commit {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -203,6 +206,7 @@ mod create_commit {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -230,6 +234,7 @@ mod create_commit {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -249,6 +254,7 @@ mod create_commit {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -268,6 +274,7 @@ mod create_commit {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -287,6 +294,7 @@ mod create_commit {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -325,7 +333,7 @@ mod references {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert_eq!(branches[0].name, "Virtual branch");
@@ -374,7 +382,7 @@ mod references {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 2);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].name, "name");
@@ -431,7 +439,7 @@ mod references {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert_eq!(branches[0].name, "new name");
@@ -492,7 +500,7 @@ mod references {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 2);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].name, "name");
@@ -548,7 +556,7 @@ mod references {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].name, "name");
@@ -640,7 +648,7 @@ mod references {
                 branch2_id
             };
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 2);
             // first branch is pushing to old ref remotely
             assert_eq!(branches[0].id, branch1_id);
@@ -688,14 +696,14 @@ mod delete_virtual_branch {
         // write some
         std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
 
         controller
             .delete_virtual_branch(&project_id, &branches[0].id)
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 0);
         assert!(!repository.path().join("file.txt").exists());
 
@@ -737,7 +745,7 @@ mod delete_virtual_branch {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 0);
 
         let refnames = repository
@@ -813,7 +821,7 @@ mod set_base_branch {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert!(branches.is_empty());
 
         repository.checkout_commit(oid_one);
@@ -823,7 +831,7 @@ mod set_base_branch {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
 
         assert_eq!(base_two, base);
@@ -849,7 +857,7 @@ mod unapply {
 
         std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
 
         controller
@@ -859,7 +867,7 @@ mod unapply {
 
         assert!(!repository.path().join("file.txt").exists());
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert!(!branches[0].active);
     }
@@ -893,7 +901,7 @@ mod unapply {
 
             std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert!(branches[0].base_current);
             assert!(branches[0].active);
@@ -920,6 +928,7 @@ mod unapply {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|branch| branch.id == branch_id)
                 .unwrap();
@@ -943,6 +952,7 @@ mod unapply {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -966,6 +976,7 @@ mod unapply {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -994,7 +1005,7 @@ mod unapply {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
 
         controller
@@ -1002,7 +1013,7 @@ mod unapply {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 0);
     }
 }
@@ -1105,7 +1116,7 @@ mod apply_virtual_branch {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert!(branches[0].active);
@@ -1131,7 +1142,7 @@ mod apply_virtual_branch {
                 "one"
             );
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].files.len(), 0);
@@ -1144,7 +1155,7 @@ mod apply_virtual_branch {
             controller.update_base_branch(&project_id).await.unwrap();
 
             // branch is stil unapplied
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].files.len(), 0);
@@ -1170,7 +1181,7 @@ mod apply_virtual_branch {
                 .unwrap();
 
             // it should be rebased
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].files.len(), 0);
@@ -1221,7 +1232,7 @@ mod apply_virtual_branch {
                 .unwrap();
             fs::write(repository.path().join("another_file.txt"), "").unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert!(branches[0].active);
@@ -1238,7 +1249,7 @@ mod apply_virtual_branch {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].files.len(), 1);
@@ -1254,7 +1265,7 @@ mod apply_virtual_branch {
             controller.update_base_branch(&project_id).await.unwrap();
 
             // first branch is stil unapplied
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].files.len(), 1);
@@ -1274,7 +1285,7 @@ mod apply_virtual_branch {
                 .unwrap();
 
             // workdir should be rebased, and work should be restored
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].files.len(), 1);
@@ -1320,7 +1331,7 @@ async fn resolve_conflict_flow() {
             .unwrap();
         fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
@@ -1333,7 +1344,7 @@ async fn resolve_conflict_flow() {
         controller.update_base_branch(&project_id).await.unwrap();
 
         // there is a conflict now, so the branch should be inactive
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(!branches[0].active);
@@ -1346,7 +1357,7 @@ async fn resolve_conflict_flow() {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
@@ -1380,7 +1391,7 @@ async fn resolve_conflict_flow() {
         let commit = repository.find_commit(commit_oid).unwrap();
         assert_eq!(commit.parent_count(), 2);
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
@@ -1483,7 +1494,7 @@ mod update_base_branch {
 
                 // branch should not be changed.
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
@@ -1502,7 +1513,7 @@ mod update_base_branch {
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -1569,7 +1580,7 @@ mod update_base_branch {
 
                 // should not change the branch.
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
@@ -1588,7 +1599,7 @@ mod update_base_branch {
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -1660,7 +1671,7 @@ mod update_base_branch {
 
                 // should not change the branch.
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
@@ -1679,7 +1690,7 @@ mod update_base_branch {
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -1748,7 +1759,7 @@ mod update_base_branch {
 
                 // should rebase upstream, and leave uncommited file as is
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
@@ -1767,7 +1778,7 @@ mod update_base_branch {
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -1836,7 +1847,7 @@ mod update_base_branch {
 
                 // should not touch the branch
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
@@ -1855,7 +1866,7 @@ mod update_base_branch {
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -1930,7 +1941,7 @@ mod update_base_branch {
 
                 // should update branch base
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
@@ -1950,7 +1961,7 @@ mod update_base_branch {
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -2012,6 +2023,7 @@ mod update_base_branch {
                         .list_virtual_branches(&project_id)
                         .await
                         .unwrap()
+                        .0
                         .into_iter()
                         .find(|b| b.id == branch_id)
                         .unwrap();
@@ -2033,7 +2045,7 @@ mod update_base_branch {
 
                 // should remove integrated commit, but leave work
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
@@ -2053,7 +2065,7 @@ mod update_base_branch {
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -2122,7 +2134,7 @@ mod update_base_branch {
 
                 // should remove identical branch
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 0);
             }
         }
@@ -2176,8 +2188,12 @@ mod update_base_branch {
 
             {
                 // merge pr
-                let branch =
-                    controller.list_virtual_branches(&project_id).await.unwrap()[0].clone();
+                let branch = controller
+                    .list_virtual_branches(&project_id)
+                    .await
+                    .unwrap()
+                    .0[0]
+                    .clone();
                 repository.merge(&branch.upstream.as_ref().unwrap().name);
                 repository.fetch();
             }
@@ -2187,7 +2203,7 @@ mod update_base_branch {
                 controller.update_base_branch(&project_id).await.unwrap();
 
                 // just removes integrated branch
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 0);
             }
         }
@@ -2238,7 +2254,7 @@ mod update_base_branch {
 
                 // should stash conflicing branch
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
@@ -2257,7 +2273,7 @@ mod update_base_branch {
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -2319,7 +2335,7 @@ mod update_base_branch {
 
                 // should stash the branch.
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
@@ -2338,7 +2354,7 @@ mod update_base_branch {
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -2405,7 +2421,7 @@ mod update_base_branch {
 
                 // should stash the branch.
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
@@ -2424,7 +2440,7 @@ mod update_base_branch {
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -2488,7 +2504,7 @@ mod update_base_branch {
 
                 // should rebase upstream, and leave uncommited file as is
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
@@ -2507,7 +2523,7 @@ mod update_base_branch {
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -2571,7 +2587,7 @@ mod update_base_branch {
 
                 // should merge upstream, and leave uncommited file as is.
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
@@ -2590,7 +2606,7 @@ mod update_base_branch {
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -2671,7 +2687,8 @@ mod update_base_branch {
                     // rebases branch, since the branch is pushed and force pushing is
                     // allowed
 
-                    let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                    let (branches, _) =
+                        controller.list_virtual_branches(&project_id).await.unwrap();
                     assert_eq!(branches.len(), 1);
                     assert_eq!(branches[0].id, branch_id);
                     assert!(branches[0].active);
@@ -2750,7 +2767,8 @@ mod update_base_branch {
 
                     // creates a merge commit, since the branch is pushed
 
-                    let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                    let (branches, _) =
+                        controller.list_virtual_branches(&project_id).await.unwrap();
                     assert_eq!(branches.len(), 1);
                     assert_eq!(branches[0].id, branch_id);
                     assert!(branches[0].active);
@@ -2818,7 +2836,7 @@ mod update_base_branch {
 
                 // just rebases branch
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -2836,7 +2854,7 @@ mod update_base_branch {
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -2899,6 +2917,7 @@ mod update_base_branch {
                         .list_virtual_branches(&project_id)
                         .await
                         .unwrap()
+                        .0
                         .into_iter()
                         .find(|b| b.id == branch_id)
                         .unwrap();
@@ -2918,7 +2937,7 @@ mod update_base_branch {
 
                 // should remove integrated commit, but leave non integrated work as is
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -2937,7 +2956,7 @@ mod update_base_branch {
                     .apply_virtual_branch(&project_id, &branch_id)
                     .await
                     .unwrap();
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -3024,8 +3043,12 @@ mod update_base_branch {
 
             {
                 // merge branch remotely
-                let branch =
-                    controller.list_virtual_branches(&project_id).await.unwrap()[0].clone();
+                let branch = controller
+                    .list_virtual_branches(&project_id)
+                    .await
+                    .unwrap()
+                    .0[0]
+                    .clone();
                 repository.merge(&branch.upstream.as_ref().unwrap().name);
             }
 
@@ -3036,7 +3059,7 @@ mod update_base_branch {
 
                 // removes integrated commit, leaves non commited work as is
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(!branches[0].active);
@@ -3050,7 +3073,7 @@ mod update_base_branch {
                     .await
                     .unwrap();
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert!(branches[0].active);
                 assert!(branches[0].conflicted);
@@ -3112,8 +3135,12 @@ mod update_base_branch {
 
             {
                 // push and merge branch remotely
-                let branch =
-                    controller.list_virtual_branches(&project_id).await.unwrap()[0].clone();
+                let branch = controller
+                    .list_virtual_branches(&project_id)
+                    .await
+                    .unwrap()
+                    .0[0]
+                    .clone();
                 repository.merge(&branch.upstream.as_ref().unwrap().name);
             }
 
@@ -3124,7 +3151,7 @@ mod update_base_branch {
 
                 // removes integrated commit, leaves non commited work as is
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -3139,7 +3166,7 @@ mod update_base_branch {
                     .await
                     .unwrap();
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert!(branches[0].active);
                 assert!(!branches[0].conflicted);
@@ -3190,8 +3217,12 @@ mod update_base_branch {
 
             {
                 // push and merge branch remotely
-                let branch =
-                    controller.list_virtual_branches(&project_id).await.unwrap()[0].clone();
+                let branch = controller
+                    .list_virtual_branches(&project_id)
+                    .await
+                    .unwrap()
+                    .0[0]
+                    .clone();
                 repository.merge(&branch.upstream.as_ref().unwrap().name);
             }
 
@@ -3202,7 +3233,7 @@ mod update_base_branch {
 
                 // removes integrated commit, leaves non commited work as is
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -3217,7 +3248,7 @@ mod update_base_branch {
                     .await
                     .unwrap();
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert!(branches[0].active);
                 assert!(!branches[0].conflicted);
@@ -3272,7 +3303,7 @@ mod update_base_branch {
 
                 // just removes integrated branch
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 0);
             }
         }
@@ -3321,8 +3352,12 @@ mod update_base_branch {
 
             {
                 // merge pr
-                let branch =
-                    controller.list_virtual_branches(&project_id).await.unwrap()[0].clone();
+                let branch = controller
+                    .list_virtual_branches(&project_id)
+                    .await
+                    .unwrap()
+                    .0[0]
+                    .clone();
                 repository.merge(&branch.upstream.as_ref().unwrap().name);
                 repository.fetch();
             }
@@ -3332,7 +3367,7 @@ mod update_base_branch {
                 controller.update_base_branch(&project_id).await.unwrap();
 
                 // just removes integrated branch
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 0);
             }
         }
@@ -3372,7 +3407,7 @@ mod reset_virtual_branch {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].commits.len(), 1);
@@ -3393,7 +3428,7 @@ mod reset_virtual_branch {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].commits.len(), 1);
@@ -3434,7 +3469,7 @@ mod reset_virtual_branch {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].commits.len(), 1);
@@ -3453,7 +3488,7 @@ mod reset_virtual_branch {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].commits.len(), 0);
@@ -3494,7 +3529,7 @@ mod reset_virtual_branch {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].commits.len(), 1);
@@ -3517,7 +3552,7 @@ mod reset_virtual_branch {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].commits.len(), 2);
@@ -3537,7 +3572,7 @@ mod reset_virtual_branch {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].commits.len(), 1);
@@ -3578,7 +3613,7 @@ mod reset_virtual_branch {
                 .await
                 .unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].commits.len(), 1);
@@ -3664,7 +3699,7 @@ mod upstream {
 
         {
             // should correctly detect pushed commits
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].commits.len(), 3);
@@ -3726,6 +3761,7 @@ mod upstream {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch1_id)
                 .unwrap();
@@ -3744,7 +3780,7 @@ mod upstream {
 
         {
             // should correctly detect pushed commits
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch1_id);
             assert_eq!(branches[0].commits.len(), 3);
@@ -3827,7 +3863,7 @@ mod cherry_pick {
                 "content two"
             );
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -3900,7 +3936,7 @@ mod cherry_pick {
                 .unwrap();
             assert!(cherry_picked_commit_oid.is_some());
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert!(repository.path().join("file_two.txt").exists());
             assert_eq!(
                 fs::read_to_string(repository.path().join("file_two.txt")).unwrap(),
@@ -4061,7 +4097,7 @@ mod cherry_pick {
                     "<<<<<<< ours\nconflict\n=======\ncontent three\n>>>>>>> theirs\n"
                 );
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -4082,7 +4118,7 @@ mod cherry_pick {
                 let commit = repository.find_commit(commited_oid).unwrap();
                 assert_eq!(commit.parent_count(), 2);
 
-                let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -4240,6 +4276,7 @@ mod amend {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -4337,6 +4374,7 @@ mod amend {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -4358,6 +4396,7 @@ mod amend {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -4398,6 +4437,7 @@ mod amend {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -4423,6 +4463,7 @@ mod amend {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -4468,6 +4509,7 @@ mod amend {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|b| b.id == branch_id)
                 .unwrap();
@@ -4517,6 +4559,7 @@ mod init {
                 .list_virtual_branches(&project.id)
                 .await
                 .unwrap()
+                .0
                 .is_empty());
             projects.delete(&project.id).await.unwrap();
             controller
@@ -4537,6 +4580,7 @@ mod init {
                 .list_virtual_branches(&project.id)
                 .await
                 .unwrap()
+                .0
                 .is_empty());
         }
     }
@@ -4561,7 +4605,7 @@ mod init {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].files.len(), 1);
         assert_eq!(branches[0].files[0].hunks.len(), 1);
@@ -4587,7 +4631,7 @@ mod init {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].files.len(), 1);
         assert_eq!(branches[0].files[0].hunks.len(), 1);
@@ -4613,7 +4657,7 @@ mod init {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert!(branches[0].files.is_empty());
         assert_eq!(branches[0].commits.len(), 1);
@@ -4640,7 +4684,7 @@ mod init {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert!(branches[0].files.is_empty());
         assert_eq!(branches[0].commits.len(), 1);
@@ -4665,7 +4709,7 @@ mod init {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert!(branches[0].files.is_empty());
         assert_eq!(branches[0].commits.len(), 1);
@@ -4695,7 +4739,7 @@ mod init {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].files.len(), 1);
         assert_eq!(branches[0].files[0].hunks.len(), 1);
@@ -4765,6 +4809,7 @@ mod squash {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == branch_id)
             .unwrap();
@@ -4840,6 +4885,7 @@ mod squash {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == branch_id)
             .unwrap();
@@ -4930,6 +4976,7 @@ mod squash {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == branch_id)
             .unwrap();
@@ -5118,6 +5165,7 @@ mod update_commit_message {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == branch_id)
             .unwrap();
@@ -5191,6 +5239,7 @@ mod update_commit_message {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == branch_id)
             .unwrap();
@@ -5262,6 +5311,7 @@ mod update_commit_message {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == branch_id)
             .unwrap();
@@ -5388,6 +5438,7 @@ mod update_commit_message {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == branch_id)
             .unwrap();
@@ -5480,6 +5531,7 @@ mod create_virtual_branch_from_branch {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|branch| branch.id == branch_id)
                 .unwrap();
@@ -5530,6 +5582,7 @@ mod create_virtual_branch_from_branch {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|branch| branch.id == branch_id)
                 .unwrap();
@@ -5550,6 +5603,7 @@ mod create_virtual_branch_from_branch {
                 .list_virtual_branches(&project_id)
                 .await
                 .unwrap()
+                .0
                 .into_iter()
                 .find(|branch| branch.id == branch_id)
                 .unwrap();
@@ -5585,7 +5639,7 @@ mod create_virtual_branch_from_branch {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert!(branches.is_empty());
 
         let branch_id = controller
@@ -5596,7 +5650,7 @@ mod create_virtual_branch_from_branch {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -5631,7 +5685,7 @@ mod create_virtual_branch_from_branch {
         {
             std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
         };
 
@@ -5648,6 +5702,7 @@ mod create_virtual_branch_from_branch {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|branch| branch.id == new_branch_id)
             .unwrap();
@@ -5684,7 +5739,7 @@ mod create_virtual_branch_from_branch {
         {
             std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-            let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
 
             controller
@@ -5706,6 +5761,7 @@ mod create_virtual_branch_from_branch {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|branch| branch.id == new_branch_id)
             .unwrap();
@@ -5809,7 +5865,7 @@ mod create_virtual_branch_from_branch {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -5849,7 +5905,7 @@ mod selected_for_changes {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
 
         let b = branches.iter().find(|b| b.id == b_id).unwrap();
 
@@ -5863,7 +5919,7 @@ mod selected_for_changes {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
 
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].id, b.id);
@@ -5899,7 +5955,7 @@ mod selected_for_changes {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
 
         let b = branches.iter().find(|b| b.id == b_id).unwrap();
 
@@ -5913,7 +5969,7 @@ mod selected_for_changes {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
 
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, b2.id);
@@ -5942,6 +5998,7 @@ mod selected_for_changes {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == b_id)
             .unwrap();
@@ -5956,6 +6013,7 @@ mod selected_for_changes {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == b_id)
             .unwrap();
@@ -5976,6 +6034,7 @@ mod selected_for_changes {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == b_id)
             .unwrap();
@@ -5996,6 +6055,7 @@ mod selected_for_changes {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == b_id)
             .unwrap();
@@ -6023,6 +6083,7 @@ mod selected_for_changes {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == b1_id)
             .unwrap();
@@ -6036,6 +6097,7 @@ mod selected_for_changes {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == b2_id)
             .unwrap();
@@ -6057,6 +6119,7 @@ mod selected_for_changes {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == b1_id)
             .unwrap();
@@ -6066,6 +6129,7 @@ mod selected_for_changes {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == b2_id)
             .unwrap();
@@ -6096,6 +6160,7 @@ mod selected_for_changes {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == b1_id)
             .unwrap();
@@ -6110,6 +6175,7 @@ mod selected_for_changes {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == b1_id)
             .unwrap();
@@ -6132,7 +6198,7 @@ mod selected_for_changes {
 
         std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches[0].files.len(), 1);
 
         controller
@@ -6146,7 +6212,7 @@ mod selected_for_changes {
             .await
             .unwrap();
         std::fs::write(repository.path().join("another_file.txt"), "content").unwrap();
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches[0].files.len(), 1);
         assert_eq!(branches[1].files.len(), 1);
     }
@@ -6167,7 +6233,7 @@ mod selected_for_changes {
 
         std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
 
         controller
@@ -6179,7 +6245,7 @@ mod selected_for_changes {
             .await
             .unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert!(branches[0].active);
         assert!(branches[0].selected_for_changes);
@@ -6207,7 +6273,7 @@ mod move_commit_to_vbranch {
 
         std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
 
         let source_branch_id = branches[0].id;
@@ -6231,6 +6297,7 @@ mod move_commit_to_vbranch {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == target_branch_id)
             .unwrap();
@@ -6239,6 +6306,7 @@ mod move_commit_to_vbranch {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == source_branch_id)
             .unwrap();
@@ -6265,7 +6333,7 @@ mod move_commit_to_vbranch {
 
         std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
 
         let source_branch_id = branches[0].id;
@@ -6295,6 +6363,7 @@ mod move_commit_to_vbranch {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == target_branch_id)
             .unwrap();
@@ -6303,6 +6372,7 @@ mod move_commit_to_vbranch {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == source_branch_id)
             .unwrap();
@@ -6329,7 +6399,7 @@ mod move_commit_to_vbranch {
 
         std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
 
         let source_branch_id = branches[0].id;
@@ -6365,6 +6435,7 @@ mod move_commit_to_vbranch {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == target_branch_id)
             .unwrap();
@@ -6373,6 +6444,7 @@ mod move_commit_to_vbranch {
             .list_virtual_branches(&project_id)
             .await
             .unwrap()
+            .0
             .into_iter()
             .find(|b| b.id == source_branch_id)
             .unwrap();
@@ -6399,7 +6471,7 @@ mod move_commit_to_vbranch {
 
         std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
 
         let source_branch_id = branches[0].id;
@@ -6441,7 +6513,7 @@ mod move_commit_to_vbranch {
 
         std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
 
         let source_branch_id = branches[0].id;
@@ -6485,7 +6557,7 @@ mod move_commit_to_vbranch {
 
         std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-        let branches = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(&project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
 
         let source_branch_id = branches[0].id;

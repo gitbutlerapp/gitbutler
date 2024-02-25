@@ -2412,7 +2412,7 @@ fn test_verify_branch_commits_to_integration() -> Result<()> {
     integration::verify_branch(&gb_repository, &project_repository).unwrap();
 
     // one virtual branch with two commits was created
-    let virtual_(branches, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (virtual_branches, _) = list_virtual_branches(&gb_repository, &project_repository)?;
     assert_eq!(virtual_branches.len(), 1);
 
     let branch = &virtual_branches.first().unwrap();
