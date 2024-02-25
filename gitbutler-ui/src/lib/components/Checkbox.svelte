@@ -26,6 +26,7 @@
 	class="checkbox"
 	class:small
 	{value}
+	id={name}
 	{name}
 	{disabled}
 />

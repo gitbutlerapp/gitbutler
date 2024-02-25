@@ -4,10 +4,12 @@
 
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
+	import { pxToRem } from '$lib/utils/pxToRem';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { onMount } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 
+	export let size: 'medium' | 'large' = 'medium';
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let iconAlign: 'left' | 'right' = 'right';
 	export let color: ButtonColor = 'primary';
@@ -21,6 +23,7 @@
 	export let grow = false;
 	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' = 'auto';
 	export let help = '';
+	export let width: number | undefined = undefined;
 
 	export let element: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
 
@@ -37,6 +40,8 @@
 
 <button
 	class={`btn ${className}`}
+	class:medium={size == 'medium'}
+	class:large={size == 'large'}
 	class:error-outline={color == 'error' && kind == 'outlined'}
 	class:primary-outline={color == 'primary' && kind == 'outlined'}
 	class:warn-outline={color == 'warn' && kind == 'outlined'}
@@ -51,6 +56,7 @@
 	class:grow
 	class:not-clickable={notClickable}
 	style:align-self={align}
+	style:width={width ? pxToRem(width) : undefined}
 	use:tooltip={help}
 	bind:this={element}
 	disabled={disabled || loading}
@@ -176,5 +182,17 @@
 			color: color-mix(in srgb, var(--clr-theme-err-outline), var(--darken-mid));
 			border: 1px solid color-mix(in srgb, var(--clr-theme-err-outline), var(--darken-mid));
 		}
+	}
+
+	/* SIZE MODIFIERS */
+
+	.btn.medium {
+		height: var(--size-btn-m);
+		padding: var(--space-4) var(--space-6);
+	}
+
+	.btn.large {
+		height: var(--size-btn-l);
+		padding: var(--space-6) var(--space-8);
 	}
 </style>

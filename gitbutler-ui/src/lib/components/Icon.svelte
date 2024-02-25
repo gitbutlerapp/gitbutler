@@ -1,4 +1,5 @@
 <script lang="ts" context="module">
+	import { pxToRem } from '$lib/utils/pxToRem';
 	export type IconColor = 'success' | 'error' | 'pop' | 'warn' | 'neutral' | undefined;
 </script>
 
@@ -10,8 +11,6 @@
 	export let opacity: number | undefined = 1;
 	export let spinnerRadius: number | undefined = 5;
 	export let size = 16;
-
-	const pxToRem = (px: number) => `${px / 16}rem`;
 </script>
 
 <svg

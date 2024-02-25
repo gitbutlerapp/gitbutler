@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { getCloudApiClient, type User } from '$lib/backend/cloud';
-	import Checkbox from '$lib/components/Checkbox.svelte';
+	import ClickableCard from '$lib/components/ClickableCard.svelte';
 	import Link from '$lib/components/Link.svelte';
-	import Login from '$lib/components/Login.svelte';
+	import Spacer from '$lib/components/Spacer.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
+	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import * as toasts from '$lib/utils/toasts';
@@ -47,87 +49,82 @@
 			toasts.error('Failed to update project sync status');
 		}
 	};
+
+	const aiGenToggle = () => {
+		$aiGenEnabled = !$aiGenEnabled;
+		$aiGenAutoBranchNamingEnabled = $aiGenEnabled;
+	};
+
+	const aiGenBranchNamesToggle = () => {
+		$aiGenAutoBranchNamingEnabled = !$aiGenAutoBranchNamingEnabled;
+	};
 </script>
 
-<section class="space-y-2">
-	{#if user}
-		<h2 class="text-xl">GitButler Cloud</h2>
+{#if user}
+	<div class="aigen-wrap">
+		<ClickableCard on:click={aiGenToggle}>
+			<svelte:fragment slot="title">Enable branch and commit message generation</svelte:fragment>
+			<svelte:fragment slot="body">
+				Uses OpenAI's API. If enabled, diffs will sent to OpenAI's servers when pressing the
+				"Generate message" button.
+			</svelte:fragment>
+			<svelte:fragment slot="actions">
+				<Toggle checked={$aiGenEnabled} on:change={aiGenToggle} />
+			</svelte:fragment>
+		</ClickableCard>
 
-		<header>
-			<span class="text-text-subdued"> Summary generation </span>
-		</header>
+		<ClickableCard disabled={!$aiGenEnabled} on:click={aiGenBranchNamesToggle}>
+			<svelte:fragment slot="title">Automatically generate branch names</svelte:fragment>
+			<svelte:fragment slot="actions">
+				<Toggle
+					disabled={!$aiGenEnabled}
+					checked={$aiGenAutoBranchNamingEnabled}
+					on:change={aiGenBranchNamesToggle}
+				/>
+			</svelte:fragment>
+		</ClickableCard>
+	</div>
 
-		<div
-			class="flex flex-row items-center justify-between rounded-lg border border-light-400 p-2 dark:border-dark-500"
-		>
-			<div class="flex flex-col space-x-3">
-				<div class="flex flex-row items-center gap-x-1">
-					<Checkbox
-						name="sync"
-						disabled={user === undefined}
-						checked={$aiGenEnabled}
-						on:change={() => {
-							$aiGenEnabled = !$aiGenEnabled;
-							$aiGenAutoBranchNamingEnabled = $aiGenEnabled;
-						}}
-					/>
-					<label class="ml-2" for="sync">Enable branch and commit message generation.</label>
-				</div>
-				<div class="pl-4 pr-8 text-sm text-light-700 dark:text-dark-200">
-					Uses OpenAI's API. If enabled, diffs will sent to OpenAI's servers when pressing the
-					"Generate message" button.
-				</div>
-				<div class="flex flex-col space-x-3">
-					<div class="flex flex-row items-center gap-x-1">
-						<Checkbox
-							name="sync"
-							disabled={user === undefined || !$aiGenEnabled}
-							checked={$aiGenAutoBranchNamingEnabled}
-							on:change={() => {
-								$aiGenAutoBranchNamingEnabled = !$aiGenAutoBranchNamingEnabled;
-							}}
-						/>
-						<label class="ml-2" for="sync">Automatically generate branch names.</label>
-					</div>
-				</div>
+	<Spacer />
+
+	{#if user.role === 'admin'}
+		<h3 class="text-base-15 text-bold">Full data synchronization</h3>
+
+		<ClickableCard on:change={onSyncChange}>
+			<svelte:fragment slot="body">
+				Sync my history, repository and branch data for backup, sharing and team features.
+			</svelte:fragment>
+			<svelte:fragment slot="actions">
+				<Toggle checked={project.api?.sync || false} on:change={onSyncChange} />
+			</svelte:fragment>
+		</ClickableCard>
+
+		{#if project.api}
+			<div class="api-link">
+				<Link
+					target="_blank"
+					rel="noreferrer"
+					href="{PUBLIC_API_BASE_URL}projects/{project.api?.repository_id}"
+					>Go to GitButler Cloud Project</Link
+				>
 			</div>
-		</div>
-		{#if user.role === 'admin'}
-			<header>
-				<span class="text-text-subdued"> Full data synchronization </span>
-			</header>
-			<div
-				class="flex flex-row items-center justify-between rounded-lg border border-light-400 p-2 dark:border-dark-500"
-			>
-				<div class="flex flex-row space-x-3">
-					<div class="flex flex-row items-center gap-1">
-						<Checkbox
-							name="sync"
-							disabled={user === undefined}
-							checked={project.api?.sync || false}
-							on:change={onSyncChange}
-						/>
-						<label class="ml-2" for="sync">
-							Sync my history, repository and branch data for backup, sharing and team features.
-						</label>
-					</div>
-				</div>
-			</div>
-
-			{#if project.api}
-				<div class="flex flex-row justify-end space-x-2">
-					<div class="p-1">
-						<Link
-							target="_blank"
-							rel="noreferrer"
-							href="{PUBLIC_API_BASE_URL}projects/{project.api?.repository_id}"
-							>Go to GitButler Cloud Project</Link
-						>
-					</div>
-				</div>
-			{/if}
 		{/if}
-	{:else}
-		<Login {userService} />
+		<Spacer />
 	{/if}
-</section>
+{:else}
+	<WelcomeSigninAction {userService} />
+	<Spacer />
+{/if}
+
+<style lang="post-css">
+	.aigen-wrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+	}
+
+	.api-link {
+		display: flex;
+		justify-content: flex-end;
+	}
+</style>

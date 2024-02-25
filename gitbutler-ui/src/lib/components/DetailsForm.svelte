@@ -1,4 +1,6 @@
 <script lang="ts">
+	import SectionCard from '$lib/components/SectionCard.svelte';
+	import Spacer from '$lib/components/Spacer.svelte';
 	import TextArea from '$lib/components/TextArea.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import { createEventDispatcher } from 'svelte';
@@ -14,36 +16,48 @@
 	}>();
 </script>
 
-<form class="flex flex-col gap-3">
-	<fieldset class="flex flex-col gap-3">
-		<div class="flex flex-col gap-1">
-			<label for="path">Path</label>
-			<TextBox readonly id="path" value={project?.path} />
-		</div>
-		<div class="flex flex-col gap-1">
-			<label for="name">Project Name</label>
-			<TextBox
-				id="name"
-				placeholder="Project name can't be empty"
-				bind:value={title}
-				required
-				on:change={(e) => {
-					project.title = e.detail;
-					dispatch('updated', project);
-				}}
-			/>
-		</div>
-		<div class="flex flex-col gap-1">
-			<label for="description">Project Description</label>
-			<TextArea
-				id="description"
-				rows={3}
-				bind:value={description}
-				on:change={(e) => {
-					project.description = e.detail;
-					dispatch('updated', project);
-				}}
-			/>
-		</div>
-	</fieldset>
-</form>
+<SectionCard>
+	<form>
+		<fieldset class="fields-wrapper">
+			<TextBox label="Path" readonly id="path" value={project?.path} />
+			<section class="description-wrapper">
+				<TextBox
+					label="Project Name"
+					id="name"
+					placeholder="Project name can't be empty"
+					bind:value={title}
+					required
+					on:change={(e) => {
+						project.title = e.detail;
+						dispatch('updated', project);
+					}}
+				/>
+				<TextArea
+					id="description"
+					rows={3}
+					placeholder="Project description"
+					bind:value={description}
+					on:change={(e) => {
+						project.description = e.detail;
+						dispatch('updated', project);
+					}}
+				/>
+			</section>
+		</fieldset>
+	</form>
+</SectionCard>
+<Spacer />
+
+<style>
+	.fields-wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-16);
+	}
+
+	.description-wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-8);
+	}
+</style>

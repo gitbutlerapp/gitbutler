@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/utils/tooltip';
+	import { createEventDispatcher } from 'svelte';
 
 	export let name = '';
 
@@ -8,12 +9,18 @@
 	export let checked = false;
 	export let value = '';
 	export let help = '';
+
+	let input: HTMLInputElement;
+	const dispatch = createEventDispatcher<{ change: boolean }>();
 </script>
 
 <input
+	bind:this={input}
+	bind:checked
 	on:click|stopPropagation
-	on:change
-	use:tooltip={help}
+	on:change={() => {
+		dispatch('change', checked);
+	}}
 	type="checkbox"
 	class="toggle"
 	class:small
@@ -21,7 +28,7 @@
 	{name}
 	id={name}
 	{disabled}
-	bind:checked
+	use:tooltip={help}
 />
 
 <style lang="postcss">

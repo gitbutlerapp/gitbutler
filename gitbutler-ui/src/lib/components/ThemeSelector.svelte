@@ -116,6 +116,10 @@
 		border-color: var(--clr-core-pop-50);
 	}
 
+	.theme-card.selected .theme-card__label {
+		background-color: color-mix(in srgb, var(--clr-theme-scale-pop-50), transparent 80%);
+	}
+
 	.theme-card.selected .theme-card__icon {
 		opacity: 1;
 		transform: scale(1);
