@@ -621,7 +621,7 @@ fn test_updated_ownership_should_bubble_up() -> Result<()> {
         )?;
     get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
     let files = branch_reader.read(&branch1_id)?.ownership.files;
-    assert_eq!(files, vec!["test.txt:14-15,1-2".parse()?]);
+    assert_eq!(files, vec!["test.txt:11-15,1-5".parse()?]);
     assert_eq!(
         files[0].hunks[0].timestam_ms(),
         files[0].hunks[1].timestam_ms(),
@@ -641,7 +641,7 @@ fn test_updated_ownership_should_bubble_up() -> Result<()> {
     let files1 = branch_reader.read(&branch1_id)?.ownership.files;
     assert_eq!(
         files1,
-        vec!["test2.txt:1-2".parse()?, "test.txt:14-15,1-2".parse()?]
+        vec!["test2.txt:1-2".parse()?, "test.txt:11-15,1-5".parse()?]
     );
 
     assert_ne!(
@@ -667,7 +667,7 @@ fn test_updated_ownership_should_bubble_up() -> Result<()> {
     let files2 = branch_reader.read(&branch1_id)?.ownership.files;
     assert_eq!(
         files2,
-        vec!["test.txt:1-3,14-15".parse()?, "test2.txt:1-2".parse()?,]
+        vec!["test.txt:1-6,11-15".parse()?, "test2.txt:1-2".parse()?,]
     );
 
     assert_ne!(
@@ -736,12 +736,12 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     let branch_writer = branch::Writer::new(&gb_repository)?;
     let mut branch2 = branch_reader.read(&branch2_id)?;
     branch2.ownership = Ownership {
-        files: vec!["test.txt:1-2".parse()?],
+        files: vec!["test.txt:1-5".parse()?],
     };
     branch_writer.write(&mut branch2)?;
     let mut branch1 = branch_reader.read(&branch1_id)?;
     branch1.ownership = Ownership {
-        files: vec!["test.txt:14-15".parse()?],
+        files: vec!["test.txt:11-15".parse()?],
     };
     branch_writer.write(&mut branch1)?;
 
@@ -765,7 +765,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
         &project_repository,
         branch::BranchUpdateRequest {
             id: branch3_id,
-            ownership: Some("test.txt:1-2,14-15".parse()?),
+            ownership: Some("test.txt:1-5,11-15".parse()?),
             ..Default::default()
         },
     )?;
@@ -788,11 +788,11 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     );
     assert_eq!(
         files_by_branch_id[&branch3_id][std::path::Path::new("test.txt")][0].diff,
-        "@@ -0,0 +1 @@\n+line0\n"
+        "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
     assert_eq!(
         files_by_branch_id[&branch3_id][std::path::Path::new("test.txt")][1].diff,
-        "@@ -12,0 +14 @@ line12\n+line13\n"
+        "@@ -10,3 +11,4 @@ line9\n line10\n line11\n line12\n+line13\n"
     );
     Ok(())
 }
@@ -848,7 +848,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
         &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id,
-            ownership: Some("test.txt:1-2".parse()?),
+            ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
         },
     )?;
@@ -869,7 +869,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
     );
     assert_eq!(
         files_by_branch_id[&branch1_id][std::path::Path::new("test.txt")][0].diff,
-        "@@ -13,0 +15 @@ line13\n+line14\n"
+        "@@ -11,3 +12,4 @@ line10\n line11\n line12\n line13\n+line14\n"
     );
 
     assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
@@ -879,7 +879,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
     );
     assert_eq!(
         files_by_branch_id[&branch2_id][std::path::Path::new("test.txt")][0].diff,
-        "@@ -0,0 +1 @@\n+line0\n"
+        "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
 
     Ok(())
@@ -915,11 +915,7 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
         get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
     assert_eq!(
         statuses[0].1[std::path::Path::new("test.txt")][0].diff,
-        "@@ -14 +13,0 @@ line13\n-line13\n"
-    );
-    assert_eq!(
-        statuses[0].1[std::path::Path::new("test.txt")][1].diff,
-        "@@ -15,0 +15 @@ line14\n+line15\n"
+        "@@ -11,5 +11,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
     );
 
     std::fs::write(
@@ -932,15 +928,11 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
 
     assert_eq!(
         statuses[0].1[std::path::Path::new("test.txt")][0].diff,
-        "@@ -15,0 +16 @@ line14\n+line15\n"
+        "@@ -11,5 +12,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
     );
     assert_eq!(
         statuses[0].1[std::path::Path::new("test.txt")][1].diff,
-        "@@ -0,0 +1 @@\n+line0\n"
-    );
-    assert_eq!(
-        statuses[0].1[std::path::Path::new("test.txt")][2].diff,
-        "@@ -14 +14,0 @@ line13\n-line13\n"
+        "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
 
     Ok(())
@@ -1266,7 +1258,7 @@ fn test_unapply_ownership_partial() -> Result<()> {
     unapply_ownership(
         &gb_repository,
         &project_repository,
-        &"test.txt:5-6".parse().unwrap(),
+        &"test.txt:2-6".parse().unwrap(),
     )
     .unwrap();
 
@@ -2070,7 +2062,7 @@ fn test_commit_partial_by_hunk() -> Result<()> {
         &project_repository,
         &branch1_id,
         "first commit to test.txt",
-        Some(&"test.txt:2-3".parse::<Ownership>().unwrap()),
+        Some(&"test.txt:1-6".parse::<Ownership>().unwrap()),
         None,
         None,
         false,
@@ -2090,7 +2082,7 @@ fn test_commit_partial_by_hunk() -> Result<()> {
         &project_repository,
         &branch1_id,
         "second commit to test.txt",
-        Some(&"test.txt:19-20".parse::<Ownership>().unwrap()),
+        Some(&"test.txt:16-22".parse::<Ownership>().unwrap()),
         None,
         None,
         false,
