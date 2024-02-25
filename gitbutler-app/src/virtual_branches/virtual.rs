@@ -890,14 +890,18 @@ pub fn list_virtual_branches(
 
     let branches = branches_with_large_files_abridged(branches);
     let mut branches = branches_with_hunk_locks(branches, project_repository)?;
-    for branch in &mut branches {
-        branch.files = files_with_hunk_context(
-            &project_repository.git_repository,
-            branch.files.clone(),
-            3,
-            branch.head,
-        )
-        .context("failed to add hunk context")?;
+
+    // If there no context lines are used internally, add them here, before returning to the UI
+    if context_lines(project_repository) == 0 {
+        for branch in &mut branches {
+            branch.files = files_with_hunk_context(
+                &project_repository.git_repository,
+                branch.files.clone(),
+                3,
+                branch.head,
+            )
+            .context("failed to add hunk context")?;
+        }
     }
 
     branches.sort_by(|a, b| a.order.cmp(&b.order));
@@ -941,6 +945,7 @@ fn branches_with_hunk_locks(
             &project_repository.git_repository,
             &parent_tree,
             &commit_tree,
+            context_lines(project_repository),
         )?;
         for branch in &mut branches {
             for file in &mut branch.files {
@@ -1092,6 +1097,7 @@ pub fn calculate_non_commited_diffs(
         &project_repository.git_repository,
         &branch_head,
         &branch_tree,
+        context_lines(project_repository),
     )
     .context("failed to diff trees")?;
 
@@ -1133,6 +1139,7 @@ fn list_virtual_commit_files(
         &project_repository.git_repository,
         &parent_tree,
         &commit_tree,
+        context_lines(project_repository),
     )?;
     let hunks_by_filepath = virtual_hunks_by_filepath(&project_repository.project().path, &diff);
     Ok(virtual_hunks_to_virtual_files(
@@ -1830,6 +1837,7 @@ fn get_non_applied_status(
                     &project_repository.git_repository,
                     &target_tree,
                     &branch_tree,
+                    context_lines(project_repository),
                 )?;
 
                 Ok((branch, diff))
@@ -1848,8 +1856,12 @@ fn get_applied_status(
     default_target: &target::Target,
     mut virtual_branches: Vec<branch::Branch>,
 ) -> Result<AppliedStatuses> {
-    let mut diff = diff::workdir(&project_repository.git_repository, &default_target.sha)
-        .context("failed to diff workdir")?;
+    let mut diff = diff::workdir(
+        &project_repository.git_repository,
+        &default_target.sha,
+        context_lines(project_repository),
+    )
+    .context("failed to diff workdir")?;
 
     // sort by order, so that the default branch is first (left in the ui)
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
@@ -3569,6 +3581,7 @@ pub fn move_commit(
         &project_repository.git_repository,
         &source_branch_head_parent_tree,
         &source_branch_head_tree,
+        context_lines(project_repository),
     )?;
 
     let is_source_locked = source_branch_non_comitted_files
@@ -3769,6 +3782,7 @@ pub fn create_virtual_branch_from_branch(
         &project_repository.git_repository,
         &merge_base_tree,
         &head_commit_tree,
+        context_lines(project_repository),
     )
     .context("failed to diff trees")?;
 
@@ -3830,6 +3844,15 @@ pub fn create_virtual_branch_from_branch(
             error,
         )),
     }
+}
+
+pub fn context_lines(project_repository: &project_repository::Repository) -> u32 {
+    let use_context = project_repository
+        .project()
+        .use_diff_context
+        .unwrap_or(false);
+    
+    if use_context { 3_u32 } else { 0_u32 }
 }
 
 #[cfg(test)]
