@@ -48,7 +48,11 @@
 	const onCloudUpdated = (e: { detail: Project }) =>
 		projectService.updateProject({ ...$project$, ...e.detail });
 	const onPreferencesUpdated = (e: {
-		detail: { ok_with_force_push?: boolean; omit_certificate_check?: boolean };
+		detail: {
+			ok_with_force_push?: boolean;
+			omit_certificate_check?: boolean;
+			use_diff_context?: boolean;
+		};
 	}) => projectService.updateProject({ ...$project$, ...e.detail });
 	const onDetailsUpdated = async (e: { detail: Project }) => {
 		const api =
