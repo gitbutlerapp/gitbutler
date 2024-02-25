@@ -1,11 +1,12 @@
 <script lang="ts">
 	import CloudForm from '$lib/components/CloudForm.svelte';
 	import DetailsForm from '$lib/components/DetailsForm.svelte';
+	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import KeysForm from '$lib/components/KeysForm.svelte';
 	import PreferencesForm from '$lib/components/PreferencesForm.svelte';
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
-	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
-	import Spacer from '$lib/components/Spacer.svelte';
+	import SectionCard from '$lib/components/SectionCard.svelte';
+	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import * as toasts from '$lib/utils/toasts';
 	import type { UserError } from '$lib/backend/ipc';
 	import type { Key, Project } from '$lib/backend/projects';
@@ -66,74 +67,29 @@
 	};
 </script>
 
-<ScrollableContainer wide>
-	<div class="settings" data-tauri-drag-region>
-		<div class="card">
-			{#if !$project$}
-				loading...
-			{:else}
-				<div class="card__header">
-					<span class="card_title text-base-16 text-semibold">Project settings</span>
-				</div>
-				<div class="card__content">
-					<CloudForm project={$project$} user={$user$} {userService} on:updated={onCloudUpdated} />
-					<Spacer margin={2} />
-					<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
-					<Spacer margin={2} />
-					<KeysForm project={$project$} on:updated={onKeysUpdated} />
-					<Spacer margin={2} />
-					<PreferencesForm project={$project$} on:updated={onPreferencesUpdated} />
-					<Spacer margin={2} />
-
-					<div class="flex gap-x-4">
-						<a
-							href="https://discord.gg/wDKZCPEjXC"
-							target="_blank"
-							rel="noreferrer"
-							class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
-						>
-							<p class="mb-2 font-medium">Join our Discord</p>
-							<p class="text-light-700 dark:text-dark-200">
-								Join our community and share feedback, requests, or ask a question.
-							</p>
-						</a>
-						<a
-							href="mailto:hello@gitbutler.com?subject=Feedback or question!"
-							target="_blank"
-							class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
-						>
-							<p class="mb-2 font-medium">Contact us</p>
-							<p class="text-light-700 dark:text-dark-200">
-								If you have an issue or any questions, contact us.
-							</p>
-						</a>
-					</div>
-				</div>
-				<div class="card__footer">
-					<RemoveProjectButton
-						bind:this={deleteConfirmationModal}
-						projectTitle={$project$?.title}
-						{isDeleting}
-						{onDeleteClicked}
-					/>
-				</div>
-			{/if}
-		</div>
-	</div>
-</ScrollableContainer>
-
-<style lang="postcss">
-	.settings {
-		display: flex;
-		flex-direction: column;
-		padding: var(--space-16) var(--space-16);
-		height: 100%;
-		width: 100%;
-	}
-	.card {
-		max-width: 50rem;
-	}
-	.card__content {
-		gap: var(--space-24);
-	}
-</style>
+{#if !$project$}
+	<FullscreenLoading />
+{:else}
+	<ContentWrapper title="Project settings">
+		<CloudForm project={$project$} user={$user$} {userService} on:updated={onCloudUpdated} />
+		<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
+		<KeysForm project={$project$} on:updated={onKeysUpdated} />
+		<PreferencesForm project={$project$} on:updated={onPreferencesUpdated} />
+		<SectionCard>
+			<svelte:fragment slot="title">Remove all projects</svelte:fragment>
+			<svelte:fragment slot="body">
+				You can delete all projects from the GitButler app. Your code remains safe.
+				<br />
+				it only clears the configuration.
+			</svelte:fragment>
+			<div>
+				<RemoveProjectButton
+					bind:this={deleteConfirmationModal}
+					projectTitle={$project$?.title}
+					{isDeleting}
+					{onDeleteClicked}
+				/>
+			</div>
+		</SectionCard>
+	</ContentWrapper>
+{/if}
