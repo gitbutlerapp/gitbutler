@@ -407,7 +407,7 @@
 		display: flex;
 		gap: var(--space-4);
 		background: var(--clr-theme-container-pale);
-		padding: var(--space-12);
+		padding: var(--space-14);
 		justify-content: space-between;
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 		user-select: none;
@@ -452,7 +452,8 @@
 
 	.header__remote-branch {
 		color: var(--clr-theme-scale-ntrl-50);
-		padding-left: var(--space-4);
+		padding-left: var(--space-2);
+		padding-right: var(--space-2);
 		display: flex;
 		gap: var(--space-4);
 		text-overflow: ellipsis;

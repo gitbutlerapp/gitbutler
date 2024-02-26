@@ -177,7 +177,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-10);
-		padding: var(--space-12);
+		padding: var(--space-14);
 	}
 
 	.is-commit-open {
@@ -264,7 +264,7 @@
 		display: flex;
 		justify-content: flex-end;
 		gap: var(--space-8);
-		padding: var(--space-12);
+		padding: var(--space-14);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
 	}
 </style>

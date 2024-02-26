@@ -35,7 +35,7 @@
 	.header {
 		display: flex;
 		align-items: center;
-		padding: var(--space-16) var(--space-12) var(--space-16) var(--space-16);
+		padding: var(--space-16) var(--space-14) var(--space-16) var(--space-14);
 		justify-content: space-between;
 		gap: var(--space-8);
 

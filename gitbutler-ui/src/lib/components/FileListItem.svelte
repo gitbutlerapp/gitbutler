@@ -50,49 +50,46 @@
 	});
 </script>
 
-<div
-	on:click
-	on:keydown
-	on:dragstart={() => {
-		// Reset selection if the file being dragged is not in the selected list
-		if ($selectedFiles.length > 0 && !$selectedFiles.find((f) => f.id == file.id)) {
-			$selectedFiles = [];
-		}
-	}}
-	use:draggable={{
-		...draggableFile(branchId, file, selectedFiles),
-		disabled: readonly || isUnapplied,
-		selector: '.selected-draggable'
-	}}
-	role="button"
-	tabindex="0"
-	on:contextmenu={(e) =>
-		popupMenu.openByMouse(e, {
-			files: $selectedFiles.includes(file) ? $selectedFiles : [file]
-		})}
->
+<div class="list-item-wrapper">
+	{#if showCheckbox}
+		<Checkbox
+			small
+			{checked}
+			{indeterminate}
+			on:change={(e) => {
+				selectedOwnership.update((ownership) => {
+					if (e.detail) file.hunks.forEach((h) => ownership.addHunk(file.id, h.id));
+					if (!e.detail) file.hunks.forEach((h) => ownership.removeHunk(file.id, h.id));
+					return ownership;
+				});
+			}}
+		/>
+	{/if}
 	<div
 		class="file-list-item"
 		id={`file-${file.id}`}
 		class:selected-draggable={selected}
-		role="listitem"
-		on:contextmenu|preventDefault
+		on:click
+		on:keydown
+		on:dragstart={() => {
+			// Reset selection if the file being dragged is not in the selected list
+			if ($selectedFiles.length > 0 && !$selectedFiles.find((f) => f.id == file.id)) {
+				$selectedFiles = [];
+			}
+		}}
+		use:draggable={{
+			...draggableFile(branchId, file, selectedFiles),
+			disabled: readonly || isUnapplied,
+			selector: '.selected-draggable'
+		}}
+		role="button"
+		tabindex="0"
+		on:contextmenu={(e) =>
+			popupMenu.openByMouse(e, {
+				files: $selectedFiles.includes(file) ? $selectedFiles : [file]
+			})}
 	>
 		<div class="info-wrap">
-			{#if showCheckbox}
-				<Checkbox
-					small
-					{checked}
-					{indeterminate}
-					on:change={(e) => {
-						selectedOwnership.update((ownership) => {
-							if (e.detail) file.hunks.forEach((h) => ownership.addHunk(file.id, h.id));
-							if (!e.detail) file.hunks.forEach((h) => ownership.removeHunk(file.id, h.id));
-							return ownership;
-						});
-					}}
-				/>
-			{/if}
 			<div class="info">
 				<img src={getVSIFileIcon(file.path)} alt="js" style="width: var(--space-12)" />
 				<span class="text-base-12 name">
@@ -108,7 +105,14 @@
 </div>
 
 <style lang="postcss">
+	.list-item-wrapper {
+		display: flex;
+		align-items: center;
+		gap: var(--space-8);
+	}
+
 	.file-list-item {
+		flex: 1;
 		display: flex;
 		align-items: center;
 		height: var(--space-28);
