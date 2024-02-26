@@ -6,7 +6,7 @@ import {
 	type PrStatus,
 	MergeMethod
 } from '$lib/github/types';
-import { showToast, type ToastMessage } from '$lib/notifications/toasts';
+import { showToast, type Toast } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import * as toasts from '$lib/utils/toasts';
 import lscache from 'lscache';
@@ -496,7 +496,7 @@ function loadPrs(
  *   "status": 422
  * }
  */
-function mapErrorToToast(err: any): ToastMessage | undefined {
+function mapErrorToToast(err: any): Toast | undefined {
 	// We expect an object to be thrown by octokit.
 	if (typeof err != 'object') return;
 

@@ -98,22 +98,23 @@
 			{/if}
 		</h4>
 
-		<!-- {$update$.body?.replace(/^ */gm, '').trim()} -->
 		<div class="buttons">
 			<Button
 				wide
 				kind="outlined"
 				on:click={() => {
-					const notes = $update$?.body || 'no release notes available';
-					console.log(notes);
+					const notes = $update$?.body?.trim() || 'no release notes available';
 					showToast({
+						id: 'release-notes',
 						title: `Release notes for ${$update$?.version}`,
 						message: `
                         ${notes}
                 `
 					});
-				}}>Release notes</Button
+				}}
 			>
+				Release notes
+			</Button>
 			<div class="status-section">
 				<div class="sliding-gradient" />
 
