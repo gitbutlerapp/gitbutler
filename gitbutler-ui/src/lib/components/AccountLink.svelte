@@ -2,15 +2,14 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import type { User } from '$lib/backend/cloud';
 	import { goto } from '$app/navigation';
-	import type { Persisted } from '$lib/persisted/persisted';
 
 	export let user: User | undefined;
 	export let pop = false;
-	export let isNavCollapsed: Persisted<boolean>;
+	export let isNavCollapsed: boolean;
 </script>
 
 <button class="btn" class:pop on:click={() => goto('/settings/')}>
-	{#if !$isNavCollapsed}
+	{#if !isNavCollapsed}
 		<span class="name text-base-13 text-semibold">
 			{#if user}
 				{#if user.name}

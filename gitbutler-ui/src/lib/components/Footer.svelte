@@ -4,14 +4,13 @@
 	import Link from '$lib/components/Link.svelte';
 	import * as events from '$lib/utils/events';
 	import type { User } from '$lib/backend/cloud';
-	import type { Persisted } from '$lib/persisted/persisted';
 
 	export let user: User | undefined;
 	export let projectId: string | undefined;
-	export let isNavCollapsed: Persisted<boolean>;
+	export let isNavCollapsed: boolean;
 </script>
 
-<div class="footer" class:collapsed={$isNavCollapsed}>
+<div class="footer" class:collapsed={isNavCollapsed}>
 	<div class="left-btns">
 		<IconButton
 			icon="mail"

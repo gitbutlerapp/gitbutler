@@ -43,10 +43,11 @@
 		$isNavCollapsed = false;
 	};
 
-	$: isNavCollapsed = navCollapsed();
+	$: isNavCollapsedPersist = navCollapsed();
+	let isNavCollapsed = $isNavCollapsedPersist;
 </script>
 
-{#if $isNavCollapsed}
+{#if isNavCollapsed}
 	<div class="collapsed-nav-wrapper">
 		<div class="card collapsed-nav">
 			<Button
@@ -54,7 +55,7 @@
 				kind="outlined"
 				color="neutral"
 				help="Collapse Nav"
-				on:click={unfoldNav}
+				on:click={toggleNavCollapse}
 			/>
 			<div class="collapsed-nav__info">
 				<h3 class="collapsed-nav__label text-base-13 text-bold">
@@ -90,7 +91,7 @@
 				color="neutral"
 				help="Collapse Nav"
 				align="flex-end"
-				on:click={foldNav}
+				on:click={toggleNavCollapse}
 			/>
 		</div>
 		<div class="domains">
