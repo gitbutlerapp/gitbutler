@@ -1,14 +1,13 @@
 <script lang="ts">
+	import BaseBranchCard from './BaseBranchCard.svelte';
 	import Branches from './Branches.svelte';
+	import Button from './Button.svelte';
 	import DomainButton from './DomainButton.svelte';
 	import Footer from './Footer.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
-	import UpdateBaseButton from './UpdateBaseButton.svelte';
-	import BaseBranchCard from './BaseBranchCard.svelte';
 	import Resizer from './Resizer.svelte';
-	import Button from './Button.svelte';
 	import { navCollapsed } from '$lib/config/config';
-	import { persisted, type Persisted } from '$lib/persisted/persisted';
+	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { getContext } from 'svelte';
 	import type { User } from '$lib/backend/cloud';
