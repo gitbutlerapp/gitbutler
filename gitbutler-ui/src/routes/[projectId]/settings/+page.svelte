@@ -76,11 +76,10 @@
 		<KeysForm project={$project$} on:updated={onKeysUpdated} />
 		<PreferencesForm project={$project$} on:updated={onPreferencesUpdated} />
 		<SectionCard>
-			<svelte:fragment slot="title">Remove all projects</svelte:fragment>
+			<svelte:fragment slot="title">Remove project</svelte:fragment>
 			<svelte:fragment slot="body">
-				You can delete all projects from the GitButler app. Your code remains safe.
-				<br />
-				it only clears the configuration.
+				You can remove projects from GitButler, your code remains safe as this only clears
+				configuration.
 			</svelte:fragment>
 			<div>
 				<RemoveProjectButton
