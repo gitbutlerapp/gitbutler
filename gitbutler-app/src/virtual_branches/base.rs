@@ -135,7 +135,12 @@ pub fn set_base_branch(
         // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
         // put them into a virtual branch
 
-        let wd_diff = diff::workdir(repo, &current_head_commit.id())?;
+        let use_context = project_repository
+            .project()
+            .use_diff_context
+            .unwrap_or(false);
+        let context_lines = if use_context { 3_u32 } else { 0_u32 };
+        let wd_diff = diff::workdir(repo, &current_head_commit.id(), context_lines)?;
         if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
             let hunks_by_filepath =
                 super::virtual_hunks_by_filepath(&project_repository.project().path, &wd_diff);
@@ -308,6 +313,12 @@ pub fn update_base_branch(
     let branch_writer =
         branch::Writer::new(gb_repository).context("failed to create branch writer")?;
 
+    let use_context = project_repository
+        .project()
+        .use_diff_context
+        .unwrap_or(false);
+    let context_lines = if use_context { 3_u32 } else { 0_u32 };
+
     // try to update every branch
     let updated_vbranches = super::get_status_by_branch(gb_repository, project_repository)?
         .into_iter()
@@ -341,6 +352,7 @@ pub fn update_base_branch(
                             &project_repository.git_repository,
                             &branch_head_tree,
                             &branch_tree,
+                            context_lines,
                         )?;
                         if non_commited_files.is_empty() {
                             // if there are no commited files, then the branch is fully merged

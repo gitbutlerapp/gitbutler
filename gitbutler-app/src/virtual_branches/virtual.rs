@@ -4,7 +4,8 @@ use std::{collections::HashMap, path, time, vec};
 use std::os::unix::prelude::*;
 
 use anyhow::{bail, Context, Result};
-use diffy::{apply_bytes, Patch};
+use bstr::ByteSlice;
+use diffy::{apply, Patch};
 use git2_hooks::HookResult;
 use regex::Regex;
 use serde::Serialize;
@@ -728,7 +729,7 @@ fn find_base_tree<'a>(
 pub fn list_virtual_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<Vec<VirtualBranch>, errors::ListVirtualBranchesError> {
+) -> Result<(Vec<VirtualBranch>, bool), errors::ListVirtualBranchesError> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
     let default_target = gb_repository
@@ -889,21 +890,29 @@ pub fn list_virtual_branches(
 
     let branches = branches_with_large_files_abridged(branches);
     let mut branches = branches_with_hunk_locks(branches, project_repository)?;
-    for branch in &mut branches {
-        branch.files = files_with_hunk_context(
-            &project_repository.git_repository,
-            branch.files.clone(),
-            3,
-            branch.head,
-        )
-        .context("failed to add hunk context")?;
+
+    // If there no context lines are used internally, add them here, before returning to the UI
+    if context_lines(project_repository) == 0 {
+        for branch in &mut branches {
+            branch.files = files_with_hunk_context(
+                &project_repository.git_repository,
+                branch.files.clone(),
+                3,
+                branch.head,
+            )
+            .context("failed to add hunk context")?;
+        }
     }
 
     branches.sort_by(|a, b| a.order.cmp(&b.order));
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
-    Ok(branches)
+    let uses_diff_context = project_repository
+        .project()
+        .use_diff_context
+        .unwrap_or(false);
+    Ok((branches, uses_diff_context))
 }
 
 fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<VirtualBranch> {
@@ -940,6 +949,7 @@ fn branches_with_hunk_locks(
             &project_repository.git_repository,
             &parent_tree,
             &commit_tree,
+            context_lines(project_repository),
         )?;
         for branch in &mut branches {
             for file in &mut branch.files {
@@ -1091,6 +1101,7 @@ pub fn calculate_non_commited_diffs(
         &project_repository.git_repository,
         &branch_head,
         &branch_tree,
+        context_lines(project_repository),
     )
     .context("failed to diff trees")?;
 
@@ -1132,6 +1143,7 @@ fn list_virtual_commit_files(
         &project_repository.git_repository,
         &parent_tree,
         &commit_tree,
+        context_lines(project_repository),
     )?;
     let hunks_by_filepath = virtual_hunks_by_filepath(&project_repository.project().path, &diff);
     Ok(virtual_hunks_to_virtual_files(
@@ -1829,6 +1841,7 @@ fn get_non_applied_status(
                     &project_repository.git_repository,
                     &target_tree,
                     &branch_tree,
+                    context_lines(project_repository),
                 )?;
 
                 Ok((branch, diff))
@@ -1847,8 +1860,12 @@ fn get_applied_status(
     default_target: &target::Target,
     mut virtual_branches: Vec<branch::Branch>,
 ) -> Result<AppliedStatuses> {
-    let mut diff = diff::workdir(&project_repository.git_repository, &default_target.sha)
-        .context("failed to diff workdir")?;
+    let mut diff = diff::workdir(
+        &project_repository.git_repository,
+        &default_target.sha,
+        context_lines(project_repository),
+    )
+    .context("failed to diff workdir")?;
 
     // sort by order, so that the default branch is first (left in the ui)
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
@@ -2225,39 +2242,37 @@ pub fn write_tree_onto_tree(
                         .peel_to_blob()
                         .context("failed to get blob")?;
 
-                    // get the contents
-                    let mut blob_contents = blob.content().to_vec();
+                    let mut blob_contents = blob.content().to_str()?.to_string();
 
                     let mut hunks = hunks.clone();
                     hunks.sort_by_key(|hunk| hunk.new_start);
+                    let mut all_diffs = String::new();
                     for hunk in hunks {
-                        let patch = format!("--- original\n+++ modified\n{}", hunk.diff);
-                        let patch_bytes = patch.as_bytes();
-                        let patch = Patch::from_bytes(patch_bytes)?;
-                        blob_contents = apply_bytes(&blob_contents, &patch)
-                            .context(format!("failed to apply {}", &hunk.diff))?;
+                        all_diffs.push_str(&hunk.diff);
                     }
 
+                    let patch = Patch::from_str(&all_diffs)?;
+                    blob_contents = apply(&blob_contents, &patch)
+                        .context(format!("failed to apply {}", &all_diffs))?;
+
                     // create a blob
-                    let new_blob_oid = git_repository.blob(&blob_contents)?;
+                    let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
                     // upsert into the builder
                     builder.upsert(rel_path, new_blob_oid, filemode);
                 }
             } else if is_submodule {
-                let mut blob_contents = vec![];
+                let mut blob_contents = String::new();
 
                 let mut hunks = hunks.clone();
                 hunks.sort_by_key(|hunk| hunk.new_start);
                 for hunk in hunks {
-                    let patch = format!("--- original\n+++ modified\n{}", hunk.diff);
-                    let patch_bytes = patch.as_bytes();
-                    let patch = Patch::from_bytes(patch_bytes)?;
-                    blob_contents = apply_bytes(&blob_contents, &patch)
+                    let patch = Patch::from_str(&hunk.diff)?;
+                    blob_contents = apply(&blob_contents, &patch)
                         .context(format!("failed to apply {}", &hunk.diff))?;
                 }
 
                 // create a blob
-                let new_blob_oid = git_repository.blob(&blob_contents)?;
+                let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
                 // upsert into the builder
                 builder.upsert(rel_path, new_blob_oid, filemode);
             } else {
@@ -3570,6 +3585,7 @@ pub fn move_commit(
         &project_repository.git_repository,
         &source_branch_head_parent_tree,
         &source_branch_head_tree,
+        context_lines(project_repository),
     )?;
 
     let is_source_locked = source_branch_non_comitted_files
@@ -3770,6 +3786,7 @@ pub fn create_virtual_branch_from_branch(
         &project_repository.git_repository,
         &merge_base_tree,
         &head_commit_tree,
+        context_lines(project_repository),
     )
     .context("failed to diff trees")?;
 
@@ -3830,6 +3847,19 @@ pub fn create_virtual_branch_from_branch(
         Err(error) => Err(errors::CreateVirtualBranchFromBranchError::ApplyBranch(
             error,
         )),
+    }
+}
+
+pub fn context_lines(project_repository: &project_repository::Repository) -> u32 {
+    let use_context = project_repository
+        .project()
+        .use_diff_context
+        .unwrap_or(false);
+
+    if use_context {
+        3_u32
+    } else {
+        0_u32
     }
 }
 

@@ -2,22 +2,26 @@ import { writable, type Writable } from 'svelte/store';
 
 export type ToastStyle = 'neutral' | 'error' | 'pop' | 'warn';
 
-export interface ToastMessage {
-	id?: number;
+export interface Toast {
+	id?: string;
 	message: string;
 	title?: string;
 	style?: ToastStyle;
 }
 
-export const toastStore: Writable<ToastMessage[]> = writable([]);
+export const toastStore: Writable<Toast[]> = writable([]);
 
 let idCounter = 0;
 
-export function showToast(message: ToastMessage) {
-	message.message = message.message.replace(/^ */gm, '');
-	toastStore.update((items) => [...items, { id: idCounter++, ...message }]);
+export function showToast(toast: Toast) {
+	toast.message = toast.message.replace(/^ */gm, '');
+	toastStore.update((items) => [
+		...items.filter((t) => toast.id == undefined || t.id != toast.id),
+		{ id: (idCounter++).toString(), ...toast }
+	]);
 }
 
-export function dismissToast(messageId: number | undefined) {
+export function dismissToast(messageId: string | undefined) {
+	if (!messageId) return;
 	toastStore.update((items) => items.filter((m) => m.id != messageId));
 }

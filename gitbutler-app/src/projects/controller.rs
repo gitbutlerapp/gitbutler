@@ -66,6 +66,10 @@ impl Controller {
             return Err(AddError::NotAGitRepository);
         };
 
+        if path.join(".gitmodules").exists() {
+            return Err(AddError::SubmodulesNotSupported);
+        }
+
         let id = uuid::Uuid::new_v4().to_string();
 
         // title is the base name of the file
@@ -79,6 +83,7 @@ impl Controller {
             title,
             path: path.to_path_buf(),
             api: None,
+            use_diff_context: Some(true),
             ..Default::default()
         };
 
@@ -253,6 +258,8 @@ pub enum AddError {
     PathNotFound,
     #[error("project already exists")]
     AlreadyExists,
+    #[error("submodules not supported")]
+    SubmodulesNotSupported,
     #[error(transparent)]
     User(#[from] users::GetError),
     #[error(transparent)]

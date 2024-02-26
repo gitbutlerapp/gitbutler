@@ -19,6 +19,7 @@ pub struct RemoteBranchFile {
 pub fn list_remote_commit_files(
     repository: &git::Repository,
     commit_oid: git::Oid,
+    context_lines: u32,
 ) -> Result<Vec<RemoteBranchFile>, errors::ListRemoteCommitFilesError> {
     let commit = match repository.find_commit(commit_oid) {
         Ok(commit) => Ok(commit),
@@ -35,7 +36,7 @@ pub fn list_remote_commit_files(
     let parent = commit.parent(0).context("failed to get parent commit")?;
     let commit_tree = commit.tree().context("failed to get commit tree")?;
     let parent_tree = parent.tree().context("failed to get parent tree")?;
-    let diff = diff::trees(repository, &parent_tree, &commit_tree)?;
+    let diff = diff::trees(repository, &parent_tree, &commit_tree, context_lines)?;
 
     let files = diff
         .into_iter()

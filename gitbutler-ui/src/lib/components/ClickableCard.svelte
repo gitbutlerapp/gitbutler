@@ -3,19 +3,34 @@
 
 	export let padding: string = 'var(--space-16)';
 	export let disabled = false;
+	export let checked = false;
+	export let hasTopRadius = true;
+	export let hasBottomRadius = true;
+	export let hasBottomLine = true;
 
 	const SLOTS = $$props.$$slots;
 
-	const dispatch = createEventDispatcher<{
+	const dispatchClick = createEventDispatcher<{
 		click: void;
+	}>();
+
+	const dispatchChange = createEventDispatcher<{
+		change: boolean;
 	}>();
 </script>
 
 <button
 	class="clickable-card"
+	class:has-top-radius={hasTopRadius}
+	class:has-bottom-radius={hasBottomRadius}
+	class:has-bottom-line={hasBottomLine}
 	style="padding: {padding}"
 	on:click={() => {
-		dispatch('click');
+		dispatchClick('click');
+
+		dispatchChange('change', checked);
+
+		checked = !checked;
 	}}
 	class:card-disabled={disabled}
 	{disabled}
@@ -43,8 +58,8 @@
 	.clickable-card {
 		display: flex;
 		gap: var(--space-16);
-		border-radius: var(--radius-l);
-		border: 1px solid var(--clr-theme-container-outline-light);
+		border-left: 1px solid var(--clr-theme-container-outline-light);
+		border-right: 1px solid var(--clr-theme-container-outline-light);
 		background-color: var(--clr-theme-container-light);
 		transition:
 			background-color var(--transition-fast),
@@ -83,5 +98,22 @@
 	.clickable-card__actions {
 		display: flex;
 		flex-shrink: 0;
+	}
+
+	/* MODIFIERS */
+
+	.has-top-radius {
+		border-top: 1px solid var(--clr-theme-container-outline-light);
+		border-top-left-radius: var(--radius-l);
+		border-top-right-radius: var(--radius-l);
+	}
+
+	.has-bottom-radius {
+		border-bottom-left-radius: var(--radius-l);
+		border-bottom-right-radius: var(--radius-l);
+	}
+
+	.has-bottom-line {
+		border-bottom: 1px solid var(--clr-theme-container-outline-light);
 	}
 </style>

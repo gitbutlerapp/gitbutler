@@ -33,6 +33,7 @@ export type Project = {
 	preferred_key: Key;
 	ok_with_force_push: boolean;
 	omit_certificate_check: boolean | undefined;
+	use_diff_context: boolean | undefined;
 };
 
 export class ProjectService {
