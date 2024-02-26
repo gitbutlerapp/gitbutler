@@ -1,5 +1,5 @@
 import { BaseBranch, Branch } from './types';
-import { invoke, listen } from '$lib/backend/ipc';
+import { Code, invoke, listen } from '$lib/backend/ipc';
 import * as toasts from '$lib/utils/toasts';
 import { plainToInstance } from 'class-transformer';
 import {
@@ -126,6 +126,9 @@ export class BaseBranchService {
 				return await getBaseBranch({ projectId });
 			}),
 			tap(() => this.busy$.next(false)),
+			// Start with undefined to prevent delay in updating $baseBranch$ value in
+			// layout.svelte when navigating between projects.
+			startWith(undefined),
 			shareReplay(1),
 			catchError((e) => {
 				this.error$.next(e);
@@ -141,11 +144,15 @@ export class BaseBranchService {
 			// trigger a base branch reload. It feels a bit awkward and should be improved.
 			await invoke<void>('fetch_from_target', { projectId: this.projectId });
 		} catch (err: any) {
-			if (err.code === 'errors.git.authentication') {
+			if (err.message?.includes('does not have a default target')) {
+				// Swallow this error since user should be taken to project setup page
+				return;
+			} else if (err.code === Code.ProjectsGitAuth) {
 				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
 			} else {
 				toasts.error(`Failed to fetch branch: ${err.message}`);
 			}
+			console.error(err);
 		}
 	}
 

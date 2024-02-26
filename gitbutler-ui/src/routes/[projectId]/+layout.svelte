@@ -9,11 +9,8 @@
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/random';
 	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
-	import { interval, Subscription } from 'rxjs';
-	import { startWith, tap } from 'rxjs/operators';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import type { LayoutData } from './$types';
-	import { page } from '$app/stores';
 
 	export let data: LayoutData;
 
@@ -35,28 +32,31 @@
 	$: user$ = data.user$;
 
 	let trayViewport: HTMLElement;
+	let intervalId: any;
 	handleMenuActions(data.projectId);
 
-	let lastProjectId: string | undefined = undefined;
-	onMount(() => {
-		let fetchSub: Subscription;
-		// Project is auto-fetched on page load and then every 15 minutes
-		page.subscribe((page) => {
-			if (page.params.projectId !== lastProjectId) {
-				lastProjectId = page.params.projectId;
-				fetchSub?.unsubscribe();
-				fetchSub = interval(1000 * 60 * 15)
-					.pipe(
-						startWith(0),
-						tap(() => baseBranchService.fetchFromTarget())
-					)
-					.subscribe();
-			}
-		});
-		return unsubscribe(
+	// Once on load and every time the project id changes
+	$: if (projectId) setupFetchInterval();
+
+	function setupFetchInterval() {
+		baseBranchService.fetchFromTarget();
+		clearFetchInterval();
+		intervalId = setInterval(() => baseBranchService.fetchFromTarget(), 15 * 60 * 1000);
+	}
+
+	function clearFetchInterval() {
+		if (intervalId) clearInterval(intervalId);
+	}
+
+	onMount(() =>
+		unsubscribe(
 			menuSubscribe(data.projectId),
-			hotkeys.on('Meta+Shift+S', () => syncToCloud($project$?.id))
-		);
+			hotkeys.on('Meta+Shift+S', () => syncToCloud(projectId))
+		)
+	);
+
+	onDestroy(() => {
+		clearFetchInterval();
 	});
 </script>
 
@@ -65,8 +65,7 @@
 {:else if $baseError$}
 	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$baseError$} />
 {:else if $baseBranch$ === null}
-	{@const remoteBranches = getRemoteBranches(projectId)}
-	{#await remoteBranches}
+	{#await getRemoteBranches(projectId)}
 		<p>loading...</p>
 	{:then remoteBranches}
 		{#if remoteBranches.length == 0}
