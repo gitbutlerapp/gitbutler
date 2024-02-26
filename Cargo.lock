@@ -1989,22 +1989,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-core"
-version = "0.0.0"
-dependencies = [
- "rusqlite",
- "serde",
- "uuid",
-]
-
-[[package]]
-name = "gitbutler-diff"
+name = "gitbutler-changeset"
 version = "0.0.0"
 dependencies = [
  "git2",
  "mmap-rs",
  "paste",
  "thiserror",
+]
+
+[[package]]
+name = "gitbutler-core"
+version = "0.0.0"
+dependencies = [
+ "rusqlite",
+ "serde",
+ "uuid",
 ]
 
 [[package]]
