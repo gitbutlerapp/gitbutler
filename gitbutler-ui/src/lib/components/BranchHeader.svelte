@@ -452,7 +452,7 @@
 
 	.header__remote-branch {
 		color: var(--clr-theme-scale-ntrl-50);
-		padding-left: var(--space-4);
+		padding-left: var(--space-2);
 		padding-right: var(--space-2);
 		display: flex;
 		gap: var(--space-4);
