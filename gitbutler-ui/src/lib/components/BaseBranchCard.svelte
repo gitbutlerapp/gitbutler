@@ -2,10 +2,10 @@
 	import SyncButton from './SyncButton.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import { page } from '$app/stores';
 	import type { Project } from '$lib/backend/projects';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { page } from '$app/stores';
 
 	export let project: Project;
 	export let baseBranchService: BaseBranchService;

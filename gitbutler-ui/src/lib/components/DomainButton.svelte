@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import UpdateBaseButton from './UpdateBaseButton.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
-	import UpdateBaseButton from './UpdateBaseButton.svelte';
+	import { page } from '$app/stores';
 
 	export let href: string;
 	export let domain: string;
@@ -39,9 +39,7 @@
 			</svg>
 		</div>
 
-		<span class="text-base-13 text-semibold" class:collapsed-txt={isNavCollapsed}>
-			Workspace
-		</span>
+		<span class="text-base-13 text-semibold" class:collapsed-txt={isNavCollapsed}>Workspace</span>
 		{#if ($base$?.behind || 0) > 0 && !isNavCollapsed}
 			<UpdateBaseButton {branchController} />
 		{/if}

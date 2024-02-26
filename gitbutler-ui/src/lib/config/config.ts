@@ -1,65 +1,65 @@
 import { persisted, type Persisted } from '$lib/persisted/persisted';
 
 export function projectHttpsWarningBannerDismissed(projectId: string): Persisted<boolean> {
-    const key = 'projectHttpsWarningBannerDismissed_';
-    return persisted(false, key + projectId);
+	const key = 'projectHttpsWarningBannerDismissed_';
+	return persisted(false, key + projectId);
 }
 
 export function projectMergeUpstreamWarningDismissed(projectId: string): Persisted<boolean> {
-    const key = 'projectMergeUpstreamWarningDismissed_';
-    return persisted(false, key + projectId);
+	const key = 'projectMergeUpstreamWarningDismissed_';
+	return persisted(false, key + projectId);
 }
 
 export function projectCommitGenerationExtraConcise(projectId: string): Persisted<boolean> {
-    const key = 'projectCommitGenerationExtraConcise_';
-    return persisted(false, key + projectId);
+	const key = 'projectCommitGenerationExtraConcise_';
+	return persisted(false, key + projectId);
 }
 
 export function projectCommitGenerationUseEmojis(projectId: string): Persisted<boolean> {
-    const key = 'projectCommitGenerationUseEmojis_';
-    return persisted(false, key + projectId);
+	const key = 'projectCommitGenerationUseEmojis_';
+	return persisted(false, key + projectId);
 }
 
 export enum ListPRsFilter {
-    All = 'ALL',
-    ExcludeBots = 'EXCLUDE_BOTS',
-    OnlyYours = 'ONLY_YOURS'
+	All = 'ALL',
+	ExcludeBots = 'EXCLUDE_BOTS',
+	OnlyYours = 'ONLY_YOURS'
 }
 
 export function projectPullRequestListingFilter(projectId: string): Persisted<string> {
-    const key = 'projectPullRequestListingFilter_';
-    return persisted(ListPRsFilter.All, key + projectId);
+	const key = 'projectPullRequestListingFilter_';
+	return persisted(ListPRsFilter.All, key + projectId);
 }
 
 export function projectAiGenEnabled(projectId: string): Persisted<boolean> {
-    const key = 'projectAiGenEnabled_';
-    return persisted(false, key + projectId);
+	const key = 'projectAiGenEnabled_';
+	return persisted(false, key + projectId);
 }
 
 export function projectAiGenAutoBranchNamingEnabled(projectId: string): Persisted<boolean> {
-    const key = 'projectAiGenAutoBranchNamingEnabled_';
-    return persisted(false, key + projectId);
+	const key = 'projectAiGenAutoBranchNamingEnabled_';
+	return persisted(false, key + projectId);
 }
 
 export function projectRunCommitHooks(projectId: string): Persisted<boolean> {
-    const key = 'projectRunCommitHooks_';
-    return persisted(false, key + projectId);
+	const key = 'projectRunCommitHooks_';
+	return persisted(false, key + projectId);
 }
 
 export function projectLaneCollapsed(projectId: string, laneId: string): Persisted<boolean> {
-    const key = 'projectLaneCollapsed_';
-    return persisted(false, key + projectId + '_' + laneId);
+	const key = 'projectLaneCollapsed_';
+	return persisted(false, key + projectId + '_' + laneId);
 }
 
 export function navCollapsed(): Persisted<boolean> {
-    const key = 'projectNavCollapsed_';
-    return persisted(false, key);
+	const key = 'projectNavCollapsed_';
+	return persisted(false, key);
 }
 
 export function projectCurrentCommitMessage(
-    projectId: string,
-    branchId: string
+	projectId: string,
+	branchId: string
 ): Persisted<string> {
-    const key = 'projectCurrentCommitMessage_';
-    return persisted('', key + projectId + '_' + branchId);
+	const key = 'projectCurrentCommitMessage_';
+	return persisted('', key + projectId + '_' + branchId);
 }
