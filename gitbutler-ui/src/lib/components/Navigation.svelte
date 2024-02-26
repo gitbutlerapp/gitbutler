@@ -34,14 +34,10 @@
 
 	let viewport: HTMLDivElement;
 
-	const foldNav = () => {
-		console.log('BeforeSet: ' + $isNavCollapsed);
-		$isNavCollapsed = true;
-		console.log('AfterSet: ' + $isNavCollapsed);
-	};
-	const unfoldNav = () => {
-		$isNavCollapsed = false;
-	};
+	function toggleNavCollapse() {
+		$isNavCollapsedPersist = !$isNavCollapsedPersist;
+		isNavCollapsed = $isNavCollapsedPersist;
+	}
 
 	$: isNavCollapsedPersist = navCollapsed();
 	let isNavCollapsed = $isNavCollapsedPersist;
