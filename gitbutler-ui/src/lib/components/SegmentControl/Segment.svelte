@@ -84,6 +84,8 @@
 
 		transition: background var(--transition-fast);
 
+		cursor: pointer;
+
 		&:hover {
 			background-color: color-mix(
 				in srgb,
@@ -98,11 +100,15 @@
 			border-right-width: 1px;
 			border-left-width: 1px;
 
+			cursor: default;
+
 			& > .label {
 				color: var(--clr-theme-scale-ntrl-0);
+				cursor: default;
 			}
 			& > .icon {
 				color: var(--clr-theme-scale-ntrl-30);
+				cursor: default;
 			}
 			&.left {
 				border-right-width: 1px;
@@ -128,9 +134,11 @@
 		justify-content: center;
 		align-items: center;
 		color: var(--clr-theme-scale-ntrl-50);
+		cursor: pointer;
 	}
 
 	.label {
 		color: var(--clr-theme-scale-ntrl-40);
+		cursor: pointer;
 	}
 </style>

@@ -154,7 +154,7 @@
 	.commit {
 		display: flex;
 		flex-direction: column;
-		cursor: default;
+
 		border-radius: var(--space-6);
 		background-color: var(--clr-theme-container-light);
 		border: 1px solid var(--clr-theme-container-outline-light);
@@ -173,6 +173,7 @@
 	}
 
 	.commit__header {
+		cursor: pointer;
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-10);

@@ -32,9 +32,9 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		color: var(--clr-theme-scale-ntrl-40);
 		border-radius: var(--radius-m);
 		color: var(--clr-theme-scale-ntrl-50);
+		cursor: pointer;
 		transition:
 			background-color var(--transition-fast),
 			color var(--transition-fast);
@@ -45,6 +45,7 @@
 	}
 	.selected {
 		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
+		cursor: default;
 	}
 	.large {
 		height: var(--size-btn-l);

@@ -90,7 +90,9 @@
 		min-width: var(--size-btn-m);
 		background: transparent;
 		transition: background-color var(--transition-fast);
+		cursor: pointer;
 		&:disabled {
+			cursor: default;
 			pointer-events: none;
 			opacity: 0.6;
 		}
@@ -105,6 +107,7 @@
 			flex-direction: row-reverse;
 		}
 		&.not-clickable {
+			cursor: default;
 			pointer-events: none;
 		}
 	}

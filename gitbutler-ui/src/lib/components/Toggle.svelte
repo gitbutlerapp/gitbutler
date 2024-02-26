@@ -34,6 +34,7 @@
 <style lang="postcss">
 	.toggle {
 		appearance: none;
+		cursor: pointer;
 		width: calc(var(--space-24) + var(--space-2));
 		height: var(--space-16);
 		border-radius: var(--space-16);

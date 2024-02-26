@@ -49,6 +49,8 @@
 			color var(--transition-fast),
 			filter var(--transition-fast);
 
+		cursor: pointer;
+
 		&.pop {
 			color: var(--clr-theme-scale-pop-10);
 			background: color-mix(
