@@ -6,12 +6,11 @@
 	import type { Project } from '$lib/backend/projects';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
-	import type { Persisted } from '$lib/persisted/persisted';
 
 	export let project: Project;
 	export let baseBranchService: BaseBranchService;
 	export let githubService: GitHubService;
-	export let isNavCollapsed: Persisted<boolean>;
+	export let isNavCollapsed: boolean;
 
 	$: base$ = baseBranchService.base$;
 	$: selected = $page.url.href.endsWith('/base');
@@ -19,7 +18,7 @@
 	let baseContents: HTMLElement;
 </script>
 
-{#if $isNavCollapsed}
+{#if isNavCollapsed}
 	<a
 		href="/{project.id}/base"
 		class="base-branch-card-collapsed"
