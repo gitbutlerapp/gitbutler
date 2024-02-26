@@ -87,6 +87,10 @@
 		}
 	}
 
+	.textbox__input[type='select'] {
+		cursor: pointer;
+	}
+
 	.textbox__label {
 		color: var(--clr-theme-scale-ntrl-50);
 	}
