@@ -19,10 +19,17 @@
 	export let allowMultiple: boolean;
 	export let readonly: boolean;
 
+	export let smallInnerPadding: boolean = false;
+
 	let selectedListMode: string;
 </script>
 
-<div class="branch-files" class:isUnapplied>
+<div
+	class="branch-files"
+	class:isUnapplied
+	class:default-inner-padding={!smallInnerPadding}
+	class:small-inner-padding={smallInnerPadding}
+>
 	<div class="branch-files__header">
 		<BranchFilesHeader {files} {selectedOwnership} {showCheckboxes} bind:selectedListMode />
 	</div>
@@ -59,6 +66,12 @@
 </div>
 
 <style lang="postcss">
+	.default-inner-padding {
+		--inner-padding: var(--space-14);
+	}
+	.small-inner-padding {
+		--inner-padding: var(--space-12);
+	}
 	.branch-files {
 		flex: 1;
 		background: var(--clr-theme-container-light);
@@ -69,15 +82,15 @@
 		}
 	}
 	.branch-files__header {
-		padding-top: var(--space-14);
+		padding-top: var(--inner-padding);
 		padding-bottom: var(--space-12);
-		padding-left: var(--space-14);
-		padding-right: var(--space-14);
+		padding-left: var(--inner-padding);
+		padding-right: var(--inner-padding);
 	}
 	.files-padding {
 		padding-top: 0;
 		padding-bottom: var(--space-12);
-		padding-left: var(--space-14);
-		padding-right: var(--space-14);
+		padding-left: var(--inner-padding);
+		padding-right: var(--inner-padding);
 	}
 </style>
