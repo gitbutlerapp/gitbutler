@@ -290,6 +290,13 @@ export class BaseBranch {
 	}
 
 	commitUrl(commitId: string): string | undefined {
+		// if repoBaseUrl is bitbucket, then the commit url is different
+		if (this.repoBaseUrl.includes('bitbucket.org')) {
+			return `${this.repoBaseUrl}/commits/${commitId}`;
+		}
+		if (this.repoBaseUrl.includes('gitlab.com')) {
+			return `${this.repoBaseUrl}/-/commit/${commitId}`;
+		}
 		return `${this.repoBaseUrl}/commit/${commitId}`;
 	}
 
