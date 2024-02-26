@@ -135,7 +135,7 @@
 					on:focus={useAutoHeight}
 					on:change={() => currentCommitMessage.set(commitMessage)}
 					spellcheck={false}
-					class="text-input commit-box__textarea"
+					class="text-input text-base-body-13 commit-box__textarea"
 					rows="1"
 					disabled={isGeneratingCommigMessage}
 					placeholder="Your commit message here"
@@ -217,7 +217,7 @@
 	.commit-box {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-16);
+		padding: var(--space-14);
 		background: var(--clr-theme-container-light);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
 		transition: background-color var(--transition-medium);

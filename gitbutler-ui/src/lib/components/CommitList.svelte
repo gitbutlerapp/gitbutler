@@ -91,7 +91,7 @@
 	.commit-list__content {
 		display: flex;
 		flex-direction: column;
-		padding: 0 var(--space-16) var(--space-20) var(--space-16);
+		padding: 0 var(--space-14) var(--space-20) var(--space-14);
 		gap: var(--space-8);
 	}
 	.upstream-message {
