@@ -70,6 +70,10 @@ impl From<controller::AddError> for Error {
                 code: Code::Projects,
                 message: "Path not found".to_string(),
             },
+            controller::AddError::SubmodulesNotSupported => Error::UserError {
+                code: Code::Projects,
+                message: "Repositories with git submodules are not supported".to_string(),
+            },
             controller::AddError::User(error) => error.into(),
             controller::AddError::Other(error) => {
                 tracing::error!(?error, "failed to add project");
