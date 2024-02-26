@@ -17,12 +17,12 @@
 
 <div class="textarea-wrapper">
 	{#if label}
-		<label class="textbox__label font-base-13 text-semibold" for={id}>
+		<label class="textbox__label text-base-13 text-semibold" for={id}>
 			{label}
 		</label>
 	{/if}
 	<textarea
-		class="text-input textarea"
+		class="text-input text-base-body-13 textarea"
 		bind:value
 		{disabled}
 		{id}

@@ -25,7 +25,7 @@
 
 <div class="textbox" bind:this={element} class:wide>
 	{#if label}
-		<label class="textbox__label font-base-13 text-semibold" for={id}>
+		<label class="textbox__label text-base-13 text-semibold" for={id}>
 			{label}
 		</label>
 	{/if}
