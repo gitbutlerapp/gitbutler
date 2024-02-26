@@ -4,11 +4,19 @@
 	import { showToast } from '$lib/notifications/toasts';
 	import { relaunch } from '@tauri-apps/api/process';
 	import { installUpdate } from '@tauri-apps/api/updater';
+	import { distinctUntilChanged, tap } from 'rxjs';
 	import { fade } from 'svelte/transition';
 	import type { UpdaterService } from '$lib/backend/updater';
 
 	export let updaterService: UpdaterService;
-	$: update$ = updaterService.update$;
+
+	// Extrend update stream to allow dismissing updater by version
+	$: update$ = updaterService.update$.pipe(
+		// Only run operators after this one once per version
+		distinctUntilChanged((prev, curr) => prev?.version == curr?.version),
+		// Reset dismissed boolean when a new version becomes available
+		tap(() => (dismissed = false))
+	);
 
 	let dismissed = false;
 </script>
