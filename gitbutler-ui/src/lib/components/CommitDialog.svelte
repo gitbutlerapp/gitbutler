@@ -58,6 +58,7 @@
 	};
 
 	function commit() {
+		if (!commitMessage) return;
 		isCommitting = true;
 		branchController
 			.commitBranch(branch.id, commitMessage, $selectedOwnership.toString(), $runCommitHooks)
@@ -136,13 +137,7 @@
 					on:change={() => currentCommitMessage.set(commitMessage)}
 					on:keydown={(e) => {
 						if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-							if ($expanded) {
-								if (commitMessage) {
-									commit();
-								}
-							} else {
-								$expanded = true;
-							}
+							commit();
 						}
 					}}
 					spellcheck={false}
@@ -211,9 +206,7 @@
 			id="commit-to-branch"
 			on:click={() => {
 				if ($expanded) {
-					if (commitMessage) {
-						commit();
-					}
+					commit();
 				} else {
 					$expanded = true;
 				}
