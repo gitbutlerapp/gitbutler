@@ -72,7 +72,7 @@
 		return invoke<string>('git_get_global_config', params);
 	}
 
-	let isGeneratingCommigMessage = false;
+	let isGeneratingCommitMessage = false;
 	async function generateCommitMessage(files: LocalFile[]) {
 		const diff = files
 			.map((f) => f.hunks.filter((h) => $selectedOwnership.containsHunk(f.id, h.id)))
@@ -91,7 +91,7 @@
 		if (branch.name.toLowerCase().includes('virtual branch')) {
 			dispatch('action', 'generate-branch-name');
 		}
-		isGeneratingCommigMessage = true;
+		isGeneratingCommitMessage = true;
 		cloud.summarize
 			.commit(user.access_token, {
 				diff,
@@ -114,7 +114,7 @@
 				toasts.error('Failed to generate commit message');
 			})
 			.finally(() => {
-				isGeneratingCommigMessage = false;
+				isGeneratingCommitMessage = false;
 			});
 	}
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
@@ -148,7 +148,7 @@
 					spellcheck={false}
 					class="text-input text-base-body-13 commit-box__textarea"
 					rows="1"
-					disabled={isGeneratingCommigMessage}
+					disabled={isGeneratingCommitMessage}
 					placeholder="Your commit message here"
 				/>
 
@@ -163,7 +163,7 @@
 						icon="ai-small"
 						color="neutral"
 						disabled={!$aiGenEnabled || !user}
-						loading={isGeneratingCommigMessage}
+						loading={isGeneratingCommitMessage}
 						on:click={() => generateCommitMessage(branch.files)}
 					>
 						Generate message
