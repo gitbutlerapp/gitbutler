@@ -1,4 +1,5 @@
 import { invoke } from '$lib/backend/ipc';
+import { showToast } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
@@ -61,7 +62,7 @@ export class BranchController {
 			});
 			posthog.capture('Commit Successful');
 		} catch (err: any) {
-			toasts.error('Failed to commit branch');
+			toasts.error('Failed to commit changes');
 			posthog.capture('Commit Failed', err);
 		}
 	}
@@ -193,10 +194,33 @@ export class BranchController {
 			await this.vbranchService.reload();
 			return await this.vbranchService.getById(branchId);
 		} catch (err: any) {
+			console.error(err);
 			if (err.code === 'errors.git.authentication') {
-				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
+				showToast({
+					title: 'Git push failed',
+					message: `
+                        Your branch cannot be pushed due to an authentication failure.
+
+                        Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
+                        on fetching and pushing for ways to resolve the problem.
+
+                        \`\`\`${err.message}\`\`\`
+                    `,
+					style: 'error'
+				});
 			} else {
-				toasts.error(`Failed to push branch: ${err.message}`);
+				showToast({
+					title: 'Git push failed',
+					message: `
+                        Your branch cannot be pushed due to an unforeseen problem.
+
+                        Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
+                        on fetching and pushing for ways to resolve the problem.
+
+                        \`\`\`${err.message}\`\`\`
+                    `,
+					style: 'error'
+				});
 			}
 		}
 	}

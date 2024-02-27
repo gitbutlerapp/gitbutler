@@ -5,6 +5,7 @@ import { startWith, switchMap } from 'rxjs/operators';
 import type { GitHubService } from '$lib/github/service';
 import type { PullRequest } from '$lib/github/types';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
+import type { BranchController } from '$lib/vbranches/branchController';
 import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 import type { Branch, RemoteBranch } from '$lib/vbranches/types';
 
@@ -14,7 +15,8 @@ export class BranchService {
 	constructor(
 		private vbranchService: VirtualBranchService,
 		remoteBranchService: RemoteBranchService,
-		private githubService: GitHubService
+		private githubService: GitHubService,
+		private branchController: BranchController
 	) {
 		const vbranchesWithEmpty$ = vbranchService.branches$.pipe(startWith([]));
 		const branchesWithEmpty$ = remoteBranchService.branches$.pipe(startWith([]));
@@ -47,7 +49,7 @@ export class BranchService {
 
 		// Push if local commits
 		if (branch.commits.some((c) => !c.isRemote)) {
-			newBranch = await this.vbranchService.pushBranch(branch.id, branch.requiresForce);
+			newBranch = await this.branchController.pushBranch(branch.id, branch.requiresForce);
 		} else {
 			newBranch = branch;
 		}

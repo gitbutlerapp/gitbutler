@@ -125,4 +125,8 @@
 	:global(.info-message__text p:not(:last-child)) {
 		margin-bottom: var(--space-10);
 	}
+	:global(.info-message__text ul) {
+		list-style-type: circle;
+		padding: 0 0 0 var(--space-16);
+	}
 </style>

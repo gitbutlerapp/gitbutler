@@ -26,6 +26,7 @@
 	class="checkbox"
 	class:small
 	{value}
+	id={name}
 	{name}
 	{disabled}
 />
@@ -33,6 +34,7 @@
 <style lang="postcss">
 	.checkbox {
 		appearance: none;
+		cursor: pointer;
 		width: var(--space-16);
 		height: var(--space-16);
 		flex-shrink: 0;

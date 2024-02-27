@@ -22,6 +22,7 @@
 <style lang="postcss">
 	.radio {
 		appearance: none;
+		cursor: pointer;
 		width: var(--space-16);
 		height: var(--space-16);
 		border-radius: var(--space-16);

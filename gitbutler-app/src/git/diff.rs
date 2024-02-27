@@ -59,6 +59,7 @@ impl Default for Options {
 pub fn workdir(
     repository: &Repository,
     commit_oid: &git::Oid,
+    context_lines: u32,
 ) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
     let commit = repository
         .find_commit(*commit_oid)
@@ -72,7 +73,7 @@ pub fn workdir(
         .show_binary(true)
         .show_untracked_content(true)
         .ignore_submodules(true)
-        .context_lines(0);
+        .context_lines(context_lines);
 
     let diff = repository.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
 
@@ -83,6 +84,7 @@ pub fn trees(
     repository: &Repository,
     old_tree: &git::Tree,
     new_tree: &git::Tree,
+    context_lines: u32,
 ) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
     let mut diff_opts = git2::DiffOptions::new();
     diff_opts
@@ -90,7 +92,7 @@ pub fn trees(
         .include_untracked(true)
         .show_binary(true)
         .ignore_submodules(true)
-        .context_lines(0)
+        .context_lines(context_lines)
         .show_untracked_content(true);
 
     let diff =
@@ -340,7 +342,7 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id).unwrap();
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
         assert_eq!(diff.len(), 1);
         assert_eq!(
             diff[&path::PathBuf::from("file")],
@@ -363,7 +365,7 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id).unwrap();
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
         assert_eq!(diff.len(), 1);
         assert_eq!(
             diff[&path::PathBuf::from("first")],
@@ -387,7 +389,7 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id).unwrap();
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
         assert_eq!(diff.len(), 2);
         assert_eq!(
             diff[&path::PathBuf::from("first")],
@@ -431,7 +433,7 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id).unwrap();
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
         assert_eq!(
             diff[&path::PathBuf::from("image")],
             vec![Hunk {
@@ -474,7 +476,7 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id).unwrap();
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
         assert_eq!(
             diff[&path::PathBuf::from("file")],
             vec![Hunk {

@@ -47,6 +47,7 @@ pub struct UpdateRequest {
     pub gitbutler_code_push_state: Option<project::CodePushState>,
     pub project_data_last_fetched: Option<project::FetchResult>,
     pub omit_certificate_check: Option<bool>,
+    pub use_diff_context: Option<bool>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -137,6 +138,10 @@ impl Storage {
 
         if let Some(omit_certificate_check) = update_request.omit_certificate_check {
             project.omit_certificate_check = Some(omit_certificate_check);
+        }
+
+        if let Some(use_diff_context) = update_request.use_diff_context {
+            project.use_diff_context = Some(use_diff_context);
         }
 
         self.storage
