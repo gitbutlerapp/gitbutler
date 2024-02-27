@@ -44,7 +44,9 @@
 		}}
 		on:keydown={(e) => {
 			e.preventDefault();
-			if ($selectedFiles.length > 1) return;
+			if ($selectedFiles.length !== 1) return;
+			if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+
 			const selectedFileIndex = sortedFiles.findIndex((sf) => sf.id === $selectedFiles[0].id);
 
 			if (e.key === 'ArrowUp') {
@@ -54,6 +56,9 @@
 				if (selectedFileIndex + 1 > sortedFiles.length - 1) return;
 				$selectedFiles = [sortedFiles[selectedFileIndex + 1]];
 			}
+
+			const fileElement = document.getElementById('file-' + $selectedFiles[0].id);
+			fileElement?.focus();
 		}}
 	/>
 {/each}
