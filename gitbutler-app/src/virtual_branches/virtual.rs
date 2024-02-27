@@ -5,7 +5,7 @@ use std::os::unix::prelude::*;
 
 use anyhow::{bail, Context, Result};
 use diffy::{apply_bytes, Patch};
-use git2_hooks::HookResult;
+use git2_hooks::{HookResult, PrepareCommitMsgSource};
 use regex::Regex;
 use serde::Serialize;
 
@@ -1430,20 +1430,88 @@ pub fn merge_virtual_branch_upstream(
             Some(upstream_commit.id()),
         )?;
     } else {
-        // get the merge tree oid from writing the index out
         let merge_tree_oid = merge_index
             .write_tree_to(repo)
             .context("failed to write tree")?;
+        let merge_tree = repo
+            .find_tree(merge_tree_oid)
+            .context("failed to find merge tree")?;
+        let branch_writer =
+            branch::Writer::new(gb_repository).context("failed to create writer")?;
+
+        if *project_repository.project().ok_with_force_push {
+            // attempt a rebase
+            let (_, committer) = project_repository.git_signatures(user)?;
+            let mut rebase_options = git2::RebaseOptions::new();
+            rebase_options.quiet(true);
+            rebase_options.inmemory(true);
+            let mut rebase = repo
+                .rebase(
+                    Some(branch.head),
+                    Some(upstream_commit.id()),
+                    None,
+                    Some(&mut rebase_options),
+                )
+                .context("failed to rebase")?;
+
+            let mut rebase_success = true;
+            // check to see if these commits have already been pushed
+            let mut last_rebase_head = upstream_commit.id();
+            while rebase.next().is_some() {
+                let index = rebase
+                    .inmemory_index()
+                    .context("failed to get inmemory index")?;
+                if index.has_conflicts() {
+                    rebase_success = false;
+                    break;
+                }
+
+                if let Ok(commit_id) = rebase.commit(None, &committer.clone().into(), None) {
+                    last_rebase_head = commit_id.into();
+                } else {
+                    rebase_success = false;
+                    break;
+                }
+            }
+
+            if rebase_success {
+                // rebase worked out, rewrite the branch head
+                rebase.finish(None).context("failed to finish rebase")?;
+
+                project_repository
+                    .git_repository
+                    .checkout_tree(&merge_tree)
+                    .force()
+                    .checkout()
+                    .context("failed to checkout tree")?;
+
+                branch.head = last_rebase_head;
+                branch.tree = merge_tree_oid;
+                branch_writer.write(&mut branch)?;
+                super::integration::update_gitbutler_integration(
+                    gb_repository,
+                    project_repository,
+                )?;
+
+                return Ok(());
+            }
+
+            rebase.abort().context("failed to abort rebase")?;
+        }
 
         let head_commit = repo
             .find_commit(branch.head)
             .context("failed to find head commit")?;
-        let merge_tree = repo
-            .find_tree(merge_tree_oid)
-            .context("failed to find merge tree")?;
+
         let new_branch_head = project_repository.commit(
             user,
-            "merged from upstream",
+            format!(
+                "Merged {}/{} into {}",
+                upstream_branch.remote(),
+                upstream_branch.branch(),
+                branch.name
+            )
+            .as_str(),
             &merge_tree,
             &[&head_commit, &upstream_commit],
             signing_key,
@@ -1456,8 +1524,6 @@ pub fn merge_virtual_branch_upstream(
             .context("failed to checkout tree")?;
 
         // write the branch data
-        let branch_writer =
-            branch::Writer::new(gb_repository).context("failed to create writer")?;
         branch.head = new_branch_head;
         branch.tree = merge_tree_oid;
         branch_writer.write(&mut branch)?;
