@@ -15,9 +15,11 @@
 	export let allowMultiple = false;
 	export let readonly = false;
 	export let branchController: BranchController;
+
+	$: sortedFiles = sortLikeFileTree(files);
 </script>
 
-{#each sortLikeFileTree(files) as file (file.id)}
+{#each sortedFiles as file (file.id)}
 	<FileListItem
 		{file}
 		{readonly}
@@ -43,11 +45,14 @@
 		on:keydown={(e) => {
 			e.preventDefault();
 			if ($selectedFiles.length > 1) return;
-			const sortedFiles = sortLikeFileTree(files);
 			const selectedFileIndex = sortedFiles.findIndex((sf) => sf.id === $selectedFiles[0].id);
+
 			if (e.key === 'ArrowUp') {
-				const newFileIndex = selectedFileIndex - 1 >= 0 ? selectedFileIndex - 1 : selectedFileIndex;
-				$selectedFiles = [sortedFiles[newFileIndex]];
+				if (selectedFileIndex - 1 < 0) return;
+				$selectedFiles = [sortedFiles[selectedFileIndex - 1]];
+			} else if (e.key === 'ArrowDown') {
+				if (selectedFileIndex + 1 > sortedFiles.length - 1) return;
+				$selectedFiles = [sortedFiles[selectedFileIndex + 1]];
 			}
 		}}
 	/>
