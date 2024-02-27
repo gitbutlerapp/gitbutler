@@ -184,7 +184,7 @@
 				<svelte:fragment slot="title">Use locally generated SSH key</svelte:fragment>
 
 				<svelte:fragment slot="actions">
-					<RadioButton bind:group={selectedOption} value="generated" />
+					<RadioButton bind:group={selectedOption} value="generated" on:input={setGeneratedKey} />
 				</svelte:fragment>
 
 				<svelte:fragment slot="body">
@@ -238,7 +238,11 @@
 				</svelte:fragment>
 
 				<svelte:fragment slot="actions">
-					<RadioButton bind:group={selectedOption} value="gitCredentialsHelper" />
+					<RadioButton
+						bind:group={selectedOption}
+						value="gitCredentialsHelper"
+						on:input={setGitCredentialsHelperKey}
+					/>
 				</svelte:fragment>
 			</ClickableCard>
 		</fieldset>
