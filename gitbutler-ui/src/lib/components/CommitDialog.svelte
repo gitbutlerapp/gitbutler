@@ -134,6 +134,17 @@
 					on:input={useAutoHeight}
 					on:focus={useAutoHeight}
 					on:change={() => currentCommitMessage.set(commitMessage)}
+					on:keydown={(e) => {
+						if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+							if ($expanded) {
+								if (commitMessage) {
+									commit();
+								}
+							} else {
+								$expanded = true;
+							}
+						}
+					}}
 					spellcheck={false}
 					class="text-input text-base-body-13 commit-box__textarea"
 					rows="1"
