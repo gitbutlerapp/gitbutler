@@ -72,7 +72,7 @@
 	</div>
 {:else}
 	<div
-		class="navigation relative flex w-80 shrink-0 flex-col border-r"
+		class="navigation relative"
 		style:width={$defaultTrayWidthRem ? $defaultTrayWidthRem + 'rem' : null}
 		bind:this={viewport}
 		role="menu"
@@ -89,9 +89,9 @@
 				on:click={toggleNavCollapse}
 			/>
 		</div>
-		<div class="domains">
+		<div class="navigation-top">
 			<ProjectSelector {project} {projectService} />
-			<div class="flex flex-col gap-1">
+			<div class="domains">
 				<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
 				<DomainButton
 					href={`/${project.id}/board`}
@@ -108,7 +108,8 @@
 		<Resizer
 			{viewport}
 			direction="right"
-			minWidth={320}
+			minWidth={280}
+			defaultLineColor="var(--clr-theme-container-outline-light)"
 			on:width={(e) => {
 				$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
 			}}
@@ -118,7 +119,10 @@
 
 <style lang="postcss">
 	.navigation {
-		border-right: 1px solid var(--clr-theme-container-outline-light);
+		display: flex;
+		flex-direction: column;
+		position: relative;
+		/* border-right: 1px solid var(--clr-theme-container-outline-light); */
 		background: var(--clr-theme-container-light);
 		max-height: 100%;
 		user-select: none;
@@ -127,15 +131,25 @@
 		flex-shrink: 0;
 		height: var(--space-24);
 	}
-	.domains {
+	.navigation-top {
+		display: flex;
+		flex-direction: column;
 		padding-bottom: var(--space-24);
 		padding-left: var(--space-12);
 		padding-right: var(--space-12);
+	}
+	.domains {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
 	}
 	.hide-nav-button {
 		align-self: flex-end;
 		margin-right: var(--space-12);
 	}
+
+	/* COLLAPSED */
+
 	.collapsed-nav-wrapper {
 		padding: var(--space-12);
 		height: 100%;
