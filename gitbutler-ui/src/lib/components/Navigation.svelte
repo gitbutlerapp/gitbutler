@@ -9,6 +9,7 @@
 	import { navCollapsed } from '$lib/config/config';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import { type Platform, platform } from '@tauri-apps/api/os';
 	import { getContext } from 'svelte';
 	import type { User } from '$lib/backend/cloud';
 	import type { Project, ProjectService } from '$lib/backend/projects';
@@ -40,6 +41,13 @@
 
 	$: isNavCollapsedPersist = navCollapsed();
 	let isNavCollapsed = $isNavCollapsedPersist;
+
+	// Detect is the platform is Mac
+	let isMacos = false;
+
+	platform().then((name) => {
+		isMacos = name === 'darwin';
+	});
 </script>
 
 {#if isNavCollapsed}
@@ -78,7 +86,9 @@
 		role="menu"
 		tabindex="0"
 	>
-		<div class="drag-region" data-tauri-drag-region></div>
+		{#if isMacos}
+			<div class="drag-region" data-tauri-drag-region />
+		{/if}
 		<div class="hide-nav-button">
 			<Button
 				icon="fold-lane"
@@ -122,7 +132,6 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
-		/* border-right: 1px solid var(--clr-theme-container-outline-light); */
 		background: var(--clr-theme-container-light);
 		max-height: 100%;
 		user-select: none;
