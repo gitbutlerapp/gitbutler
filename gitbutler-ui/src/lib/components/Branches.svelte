@@ -147,6 +147,7 @@
 			viewport={rsViewport}
 			direction="up"
 			inside
+			defaultLineColor="var(--clr-theme-container-outline-light)"
 			minHeight={90}
 			on:height={(e) => {
 				$height = Math.min(maxHeight, e.detail / (16 * $userSettings.zoom));
