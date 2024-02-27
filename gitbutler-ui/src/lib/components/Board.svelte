@@ -1,4 +1,5 @@
 <script lang="ts" async="true">
+	import FullscreenLoading from './FullscreenLoading.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import BranchLane from '$lib/components/BranchLane.svelte';
 	import Icon from '$lib/components/Icon.svelte';
@@ -39,7 +40,7 @@
 {#if branchesError}
 	<div class="p-4" data-tauri-drag-region>Something went wrong...</div>
 {:else if !branches}
-	<div class="loading" data-tauri-drag-region><Icon name="spinner" /></div>
+	<FullscreenLoading />
 {:else}
 	<div
 		class="board"
@@ -211,13 +212,6 @@
 		flex-shrink: 1;
 		align-items: flex-start;
 		height: 100%;
-	}
-
-	.loading {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		width: 100%;
 	}
 
 	/* Empty board */

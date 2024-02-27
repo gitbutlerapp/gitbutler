@@ -27,7 +27,7 @@
 		},
 		"updater": {
 			"active": true,
-			"dialog": true,
+			"dialog": false,
 			"endpoints": [
 				"https://app.gitbutler.com/releases/release/{{target}}-{{arch}}/{{current_version}}"
 			],

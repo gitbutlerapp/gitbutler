@@ -29,10 +29,14 @@
 		(b) => b.name == 'origin/master' || b.name == 'origin/main'
 	);
 
-	function onSetTargetClick() {
+	async function onSetTargetClick() {
 		if (!selectedBranch) return;
 		loading = true;
-		branchController.setTarget(selectedBranch.name).finally(() => (loading = false));
+		try {
+			await branchController.setTarget(selectedBranch.name);
+		} finally {
+			loading = false;
+		}
 	}
 </script>
 

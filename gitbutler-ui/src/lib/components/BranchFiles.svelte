@@ -69,15 +69,15 @@
 		}
 	}
 	.branch-files__header {
-		padding-top: var(--space-12);
+		padding-top: var(--space-14);
 		padding-bottom: var(--space-12);
-		padding-left: var(--space-20);
-		padding-right: var(--space-12);
+		padding-left: var(--space-14);
+		padding-right: var(--space-14);
 	}
 	.files-padding {
 		padding-top: 0;
 		padding-bottom: var(--space-12);
-		padding-left: var(--space-12);
-		padding-right: var(--space-12);
+		padding-left: var(--space-14);
+		padding-right: var(--space-14);
 	}
 </style>

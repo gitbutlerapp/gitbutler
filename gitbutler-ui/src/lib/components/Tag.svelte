@@ -79,7 +79,7 @@
 		padding: 0 var(--space-2);
 	}
 	.clickable {
-		cursor: default;
+		cursor: pointer;
 	}
 
 	/* colors */
