@@ -27,6 +27,7 @@
 		{selectedOwnership}
 		{branchController}
 		showCheckbox={showCheckboxes}
+		selected={$selectedFiles.includes(file)}
 		on:click={(e) => {
 			const isAlreadySelected = $selectedFiles.includes(file);
 			if (isAlreadySelected && e.shiftKey) {
@@ -39,6 +40,15 @@
 				$selectedFiles = [file];
 			}
 		}}
-		selected={$selectedFiles.includes(file)}
+		on:keydown={(e) => {
+			e.preventDefault();
+			if ($selectedFiles.length > 1) return;
+			const sortedFiles = sortLikeFileTree(files);
+			const selectedFileIndex = sortedFiles.findIndex((sf) => sf.id === $selectedFiles[0].id);
+			if (e.key === 'ArrowUp') {
+				const newFileIndex = selectedFileIndex - 1 >= 0 ? selectedFileIndex - 1 : selectedFileIndex;
+				$selectedFiles = [sortedFiles[newFileIndex]];
+			}
+		}}
 	/>
 {/each}
