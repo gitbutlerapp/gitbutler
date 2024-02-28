@@ -229,8 +229,8 @@
 		gap: var(--space-12);
 		width: 100%;
 		padding-bottom: var(--space-16);
-		padding-left: var(--space-12);
-		padding-right: var(--space-12);
+		padding-left: var(--space-14);
+		padding-right: var(--space-14);
 	}
 	.branch-list {
 		position: relative;

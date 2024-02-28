@@ -39,7 +39,7 @@
 			</svg>
 		</div>
 
-		<span class="text-base-13 text-semibold" class:collapsed-txt={isNavCollapsed}>Workspace</span>
+		<span class="text-base-14 text-semibold" class:collapsed-txt={isNavCollapsed}>Workspace</span>
 		{#if ($base$?.behind || 0) > 0 && !isNavCollapsed}
 			<UpdateBaseButton {branchController} />
 		{/if}

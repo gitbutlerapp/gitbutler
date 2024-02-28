@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BaseBranchCard from './BaseBranchCard.svelte';
 	import Branches from './Branches.svelte';
-	import Button from './Button.svelte';
 	import DomainButton from './DomainButton.svelte';
 	import Footer from './Footer.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
@@ -9,7 +8,7 @@
 	import { navCollapsed } from '$lib/config/config';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { type Platform, platform } from '@tauri-apps/api/os';
+	import { platform } from '@tauri-apps/api/os';
 	import { getContext } from 'svelte';
 	import type { User } from '$lib/backend/cloud';
 	import type { Project, ProjectService } from '$lib/backend/projects';
@@ -48,86 +47,122 @@
 	platform().then((name) => {
 		isMacos = name === 'darwin';
 	});
+
+	// check if resizing
+	let isResizerDragging = false;
 </script>
 
-{#if isNavCollapsed}
-	<div class="collapsed-nav-wrapper">
-		<div class="card collapsed-nav">
-			<Button
-				icon="unfold-lane"
-				kind="outlined"
-				color="neutral"
-				help="Collapse Nav"
-				on:click={toggleNavCollapse}
-			/>
-			<div class="collapsed-nav__info">
-				<h3 class="collapsed-nav__label text-base-13 text-bold">
-					{project?.title}
-				</h3>
-				<DomainButton
-					href={`/${project.id}/board`}
-					domain="workspace"
-					{branchController}
-					{baseBranchService}
-					{isNavCollapsed}
-				></DomainButton>
-				<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
-			</div>
-			<div class="collapsed-nav__footer">
-				<Footer {user} projectId={project.id} {isNavCollapsed} />
-			</div>
-		</div>
-	</div>
-{:else}
-	<div
-		class="navigation relative"
-		style:width={$defaultTrayWidthRem ? $defaultTrayWidthRem + 'rem' : null}
-		bind:this={viewport}
-		role="menu"
-		tabindex="0"
-	>
-		{#if isMacos}
-			<div class="drag-region" data-tauri-drag-region />
-		{/if}
-		<div class="hide-nav-button">
-			<Button
-				icon="fold-lane"
-				kind="outlined"
-				color="neutral"
-				help="Collapse Nav"
-				align="flex-end"
-				on:click={toggleNavCollapse}
-			/>
-		</div>
-		<div class="navigation-top">
-			<ProjectSelector {project} {projectService} />
-			<div class="domains">
-				<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
-				<DomainButton
-					href={`/${project.id}/board`}
-					domain="workspace"
-					{branchController}
-					{baseBranchService}
-					{isNavCollapsed}
-				></DomainButton>
-			</div>
-		</div>
-		<Branches projectId={project.id} {branchService} {githubService} />
-		<Footer {user} projectId={project.id} {isNavCollapsed} />
-
+<aside class="navigation-wrapper">
+	<div class="resizer-wrapper" class:resizerDragging={isResizerDragging} tabindex="0" role="button">
+		<button
+			class="folding-button"
+			on:click={toggleNavCollapse}
+			class:folding-button_folded={isNavCollapsed}
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				xmlns:xlink="http://www.w3.org/1999/xlink"
+				viewBox="0 0 8 12"
+				fill="none"
+				><path
+					d="M6,0L0,6l6,6"
+					transform="translate(1 0)"
+					stroke-width="1.5"
+					stroke-linejoin="round"
+				/></svg
+			>
+		</button>
 		<Resizer
 			{viewport}
 			direction="right"
 			minWidth={280}
+			zIndex={41}
 			defaultLineColor="var(--clr-theme-container-outline-light)"
 			on:width={(e) => {
 				$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
 			}}
+			on:resizing={(e) => {
+				isResizerDragging = e.detail;
+
+				if (isNavCollapsed) {
+					toggleNavCollapse();
+				}
+			}}
+			on:dblclick={() => {
+				toggleNavCollapse();
+			}}
 		/>
 	</div>
-{/if}
+
+	{#if isNavCollapsed}
+		<div class="collapsed-nav-wrapper">
+			<div class="card collapsed-nav">
+				<div class="collapsed-nav__info">
+					<h3 class="collapsed-nav__label text-base-13 text-bold">
+						{project?.title}
+					</h3>
+					<DomainButton
+						href={`/${project.id}/board`}
+						domain="workspace"
+						{branchController}
+						{baseBranchService}
+						{isNavCollapsed}
+					></DomainButton>
+					<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
+				</div>
+				<div class="collapsed-nav__footer">
+					<Footer {user} projectId={project.id} {isNavCollapsed} />
+				</div>
+			</div>
+		</div>
+	{:else}
+		<div
+			class="navigation relative"
+			style:width={$defaultTrayWidthRem ? $defaultTrayWidthRem + 'rem' : null}
+			bind:this={viewport}
+			role="menu"
+			tabindex="0"
+		>
+			{#if isMacos}
+				<div class="drag-region" data-tauri-drag-region />
+			{/if}
+			<div class="navigation-top">
+				<ProjectSelector {project} {projectService} />
+				<div class="domains">
+					<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
+					<DomainButton
+						href={`/${project.id}/board`}
+						domain="workspace"
+						{branchController}
+						{baseBranchService}
+						{isNavCollapsed}
+					></DomainButton>
+				</div>
+			</div>
+			<Branches projectId={project.id} {branchService} {githubService} />
+			<Footer {user} projectId={project.id} {isNavCollapsed} />
+		</div>
+	{/if}
+</aside>
 
 <style lang="postcss">
+	.navigation-wrapper {
+		display: flex;
+		position: relative;
+
+		&:hover {
+			& .folding-button {
+				transition-delay: 0.1s;
+				opacity: 1;
+				transform: translateY(-50%);
+				right: calc(var(--space-6) * -1);
+
+				& svg {
+					transition-delay: 0.1s;
+				}
+			}
+		}
+	}
 	.navigation {
 		display: flex;
 		flex-direction: column;
@@ -144,17 +179,67 @@
 		display: flex;
 		flex-direction: column;
 		padding-bottom: var(--space-24);
-		padding-left: var(--space-12);
-		padding-right: var(--space-12);
+		padding-left: var(--space-14);
+		padding-right: var(--space-14);
 	}
 	.domains {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-4);
 	}
-	.hide-nav-button {
-		align-self: flex-end;
-		margin-right: var(--space-12);
+
+	.resizer-wrapper {
+		position: absolute;
+		top: 0;
+		right: 0;
+		height: 100%;
+		width: var(--space-4);
+
+		&:hover,
+		&.resizerDragging {
+			& .folding-button {
+				background-color: var(--resizer-color);
+				border: 1px solid var(--resizer-color);
+
+				& svg {
+					stroke: var(--clr-theme-scale-ntrl-100);
+				}
+			}
+		}
+	}
+
+	/* FOLDING BUTTON */
+
+	.folding-button {
+		z-index: 42;
+		position: absolute;
+		/* top: calc(var(--space-40) + var(--space-4)); */
+		right: calc(var(--space-2) * -1);
+		top: 50%;
+		transform: translateY(-50%);
+		width: var(--space-16);
+		height: var(--space-36);
+		padding: var(--space-4);
+		background: var(--clr-theme-container-light);
+		border-radius: var(--radius-m);
+		border: 1px solid var(--clr-theme-container-outline-light);
+		opacity: 0;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			opacity var(--transition-medium),
+			right var(--transition-medium);
+
+		& svg {
+			stroke: var(--clr-theme-scale-ntrl-50);
+			transition: stroke var(--transition-fast);
+		}
+	}
+
+	.folding-button_folded {
+		& svg {
+			transform: rotate(180deg) translateX(-0.0625rem);
+		}
 	}
 
 	/* COLLAPSED */
