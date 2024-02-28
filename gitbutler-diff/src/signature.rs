@@ -81,13 +81,16 @@ impl Signature {
             panic!("unsupported signature version");
         }
 
-        let original_length = u32::from_le_bytes(self.0[1..5].try_into().unwrap());
+        let original_length = u32::from_le_bytes(self.0[1..5].try_into().expect("invalid length"));
+        if original_length < 2 {
+            return 0.0;
+        }
 
         let other = other.as_ref();
         let other_string: String = other.chars().filter(|&x| !char::is_whitespace(x)).collect();
         let other = other_string.as_bytes();
 
-        if original_length < 2 || other.len() < 2 {
+        if other.len() < 2 {
             return 0.0;
         }
 
@@ -100,7 +103,7 @@ impl Signature {
             let right = right >> SHIFT;
             let index = ((left as usize) << BITS) | (right as usize);
             if self_buckets[index] > 0 {
-                self_buckets[index] = self_buckets[index].saturating_sub(1);
+                self_buckets[index] = self_buckets[index] - 1;
                 matching_bigrams += 1;
             }
         }
