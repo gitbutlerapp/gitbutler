@@ -17,6 +17,9 @@
 	export let inside = false;
 	export let sticky = false;
 
+	// Custom z-index in case of overlapping with other elements
+	export let zIndex = 40;
+
 	//
 	export let minWidth = 0;
 	export let minHeight = 0;
@@ -76,6 +79,9 @@
 
 <div
 	on:mousedown={onMouseDown}
+	on:click|stopPropagation
+	on:dblclick|stopPropagation
+	on:keydown|stopPropagation
 	tabindex="0"
 	role="slider"
 	aria-valuenow={viewport?.clientHeight}
@@ -89,6 +95,7 @@
 	class:left={direction == 'left'}
 	class:right={direction == 'right'}
 	class:sticky
+	style:z-index={zIndex}
 >
 	<div
 		class="resizer-line"
@@ -104,8 +111,6 @@
 		--resizer-default-line-thickness: var(--space-2);
 		--resizer-hover-line-thickness: var(--space-8);
 		--resizer-default-line-color: none;
-
-		z-index: 40;
 		position: absolute;
 
 		&:hover,
@@ -115,7 +120,19 @@
 
 			& .resizer-line {
 				transition-delay: 0.1s;
-				background-color: var(--clr-theme-scale-ntrl-50);
+				background-color: var(--resizer-color);
+			}
+
+			&:not(.vertical) {
+				& .resizer-line {
+					width: var(--resizer-hover-line-thickness);
+				}
+			}
+
+			&:not(.horizontal) {
+				& .resizer-line {
+					height: var(--resizer-hover-line-thickness);
+				}
 			}
 		}
 	}
@@ -142,12 +159,6 @@
 		& .resizer-line {
 			width: var(--resizer-default-line-thickness);
 		}
-
-		&:hover {
-			& .resizer-line {
-				width: var(--resizer-hover-line-thickness);
-			}
-		}
 	}
 	.vertical {
 		height: var(--space-4);
@@ -157,12 +168,6 @@
 
 		& .resizer-line {
 			height: var(--resizer-default-line-thickness);
-		}
-
-		&:hover {
-			& .resizer-line {
-				height: var(--resizer-hover-line-thickness);
-			}
 		}
 	}
 
