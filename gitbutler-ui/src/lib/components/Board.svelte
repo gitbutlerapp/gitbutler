@@ -234,6 +234,10 @@
 		margin-top: var(--space-10);
 		margin-bottom: var(--space-20);
 		transform: translateX(-3rem);
+		-webkit-user-drag: none;
+        user-drag: none;
+        -webkit-user-select: none;
+        user-select: none;
 	}
 
 	.empty-board__about {
