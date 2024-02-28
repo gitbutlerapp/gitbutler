@@ -7,6 +7,7 @@
 
 	export let project: Project | undefined;
 	export let projectService: ProjectService;
+	export let isNavCollapsed: boolean;
 
 	let popup: ProjectsPopup;
 	let visible: boolean = false;
@@ -21,6 +22,7 @@
 		},
 		enabled: visible
 	}}
+	class:collapsed={isNavCollapsed}
 >
 	<button
 		class="button"
@@ -30,12 +32,14 @@
 		}}
 	>
 		<ProjectAvatar name={project?.title} />
-		<span class="button__label text-base-14 text-bold">{project?.title}</span>
-		<div class="button__icon">
-			<Icon name="select-chevron" />
-		</div>
+		{#if !isNavCollapsed}
+			<span class="button__label text-base-14 text-bold">{project?.title}</span>
+			<div class="button__icon">
+				<Icon name="select-chevron" />
+			</div>
+		{/if}
 	</button>
-	<ProjectsPopup bind:this={popup} {projectService} />
+	<ProjectsPopup bind:this={popup} {projectService} {isNavCollapsed} />
 </div>
 
 <style lang="postcss">
@@ -43,13 +47,14 @@
 		position: relative;
 		margin-top: var(--space-10);
 		margin-bottom: var(--space-16);
+		height: fit-content;
 	}
 
 	.button {
 		display: flex;
 		gap: var(--space-10);
 		width: 100%;
-		padding: var(--space-10);
+		padding: var(--space-8);
 		border-radius: var(--radius-m);
 
 		background-color: var(--clr-theme-container-pale);
@@ -86,4 +91,11 @@
 		color: var(--clr-theme-scale-ntrl-0);
 		opacity: 0.3;
 	}
+
+	/* MODIFIERS */
+	/* .wrapper.collapsed {
+		& .button {
+			padding: var(--space-10) var(--space-8);
+		}
+	} */
 </style>

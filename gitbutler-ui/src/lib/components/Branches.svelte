@@ -3,7 +3,6 @@
 	import BranchesHeader from './BranchesHeader.svelte';
 	import FilterPopupMenu from '$lib/components/FilterPopupMenu.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
-	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import { persisted } from '$lib/persisted/persisted';
@@ -64,7 +63,6 @@
 
 	let resizeGuard: HTMLElement;
 	let viewport: HTMLDivElement;
-	let rsViewport: HTMLElement;
 	let contents: HTMLElement;
 
 	let observer: ResizeObserver;

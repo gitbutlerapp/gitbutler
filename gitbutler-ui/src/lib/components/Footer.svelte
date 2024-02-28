@@ -15,10 +15,11 @@
 		<IconButton
 			icon="mail"
 			help="Send feedback"
+			size={isNavCollapsed ? 'xl' : 'l'}
 			on:click={() => events.emit('openSendIssueModal')}
 		/>
 		<Link href={`/${projectId}/settings`}>
-			<IconButton icon="settings" help="Project settings" />
+			<IconButton icon="settings" help="Project settings" size={isNavCollapsed ? 'xl' : 'l'} />
 		</Link>
 	</div>
 	<AccountLink {user} {isNavCollapsed} />
@@ -33,9 +34,18 @@
 		border-top: 1px solid var(--clr-theme-container-outline-light);
 		border-color: var(--clr-theme-container-outline-light);
 	}
+
 	.collapsed {
+		flex-direction: column;
+		gap: var(--space-4);
 		padding: 0;
+		border: none;
+
+		& .left-btns {
+			flex-direction: column;
+		}
 	}
+
 	.left-btns {
 		display: flex;
 		align-items: center;

@@ -8,7 +8,7 @@
 	export let isNavCollapsed: boolean;
 </script>
 
-<button class="btn" class:pop on:click={() => goto('/settings/')}>
+<button class="btn" class:pop on:click={() => goto('/settings/')} class:collapsed={isNavCollapsed}>
 	{#if !isNavCollapsed}
 		<span class="name text-base-13 text-semibold">
 			{#if user}
@@ -32,8 +32,6 @@
 		</div>
 	{/if}
 </button>
-
-<!-- REMOVE IF IT'S NOT NEEDED -->
 
 <style lang="postcss">
 	.btn {
@@ -95,5 +93,18 @@
 		padding: var(--space-2);
 		background: var(--clr-theme-pop-element);
 		color: var(--clr-theme-pop-on-element);
+	}
+
+	/* MODIFIERS */
+	.btn.collapsed {
+		overflow-x: initial;
+		padding: var(--space-8);
+		height: auto;
+
+		& .anon-icon,
+		.profile-picture {
+			width: var(--space-20);
+			height: var(--space-20);
+		}
 	}
 </style>
