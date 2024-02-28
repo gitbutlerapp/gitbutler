@@ -2,18 +2,13 @@
 	import Button from './Button.svelte';
 	import IconButton from './IconButton.svelte';
 	import { showToast } from '$lib/notifications/toasts';
-	import { relaunch } from '@tauri-apps/api/process';
-	import { installUpdate } from '@tauri-apps/api/updater';
-	import { distinctUntilChanged, tap } from 'rxjs';
+	import { tap } from 'rxjs';
 	import { fade } from 'svelte/transition';
 	import type { UpdaterService } from '$lib/backend/updater';
 
 	export let updaterService: UpdaterService;
 
-	// Extrend update stream to allow dismissing updater by version
 	$: update$ = updaterService.update$.pipe(
-		// Only run operators after this one once per version
-		distinctUntilChanged((prev, curr) => prev?.version == curr?.version),
 		// Reset dismissed boolean when a new version becomes available
 		tap(() => (dismissed = false))
 	);
@@ -99,8 +94,10 @@
 				New version available
 			{:else if $update$.status == 'PENDING'}
 				Downloading update...
-			{:else if $update$.status == 'DONE'}
+			{:else if $update$.status == 'DOWNLOADED'}
 				Installing update...
+			{:else if $update$.status == 'DONE'}
+				Install complete
 			{:else if $update$.status == 'ERROR'}
 				Error occurred...
 			{/if}
@@ -128,11 +125,18 @@
 
 				{#if !$update$.status}
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
-						<Button wide on:click={() => installUpdate()}>Download {$update$.version}</Button>
+						<Button
+							wide
+							on:click={async () => {
+								await updaterService.installUpdate();
+							}}
+						>
+							Download {$update$.version}
+						</Button>
 					</div>
 				{:else if $update$.status == 'DONE'}
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
-						<Button wide on:click={() => relaunch()}>Restart to update</Button>
+						<Button wide on:click={() => updaterService.relaunchApp()}>Restart</Button>
 					</div>
 				{/if}
 			</div>
