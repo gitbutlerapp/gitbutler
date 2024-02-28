@@ -18,45 +18,10 @@
 	let baseContents: HTMLElement;
 </script>
 
-{#if isNavCollapsed}
-	<a
-		href="/{project.id}/base"
-		class="base-branch-card-collapsed"
-		class:selected
-		bind:this={baseContents}
-	>
-		<div class="icon">
-			<svg
-				width="16"
-				height="16"
-				viewBox="0 0 16 16"
-				fill="none"
-				xmlns="http://www.w3.org/2000/svg"
-			>
-				<rect width="16" height="16" rx="4" fill="#FB7D61" />
-				<path d="M8 4L12 8L8 12L4 8L8 4Z" fill="white" />
-			</svg>
-		</div>
-		<span class="text-base-13 text-semibold trunk-label-collapsed">Trunk</span>
-		{#if ($base$?.behind || 0) > 0}
-			<Badge count={$base$?.behind || 0} help="Unmerged upstream commits" />
-		{/if}
-	</a>
-{:else}
-	<a href="/{project.id}/base" class="base-branch-card" class:selected bind:this={baseContents}>
-		<div class="icon">
-			<svg
-				width="16"
-				height="16"
-				viewBox="0 0 16 16"
-				fill="none"
-				xmlns="http://www.w3.org/2000/svg"
-			>
-				<rect width="16" height="16" rx="4" fill="#FB7D61" />
-				<path d="M8 4L12 8L8 12L4 8L8 4Z" fill="white" />
-			</svg>
-		</div>
+<a href="/{project.id}/base" class="base-branch-card" class:selected bind:this={baseContents}>
+	<img class="icon" src="/images/domain-icons/trunk.svg" alt="" />
 
+	{#if !isNavCollapsed}
 		<div class="content">
 			<div class="row_1">
 				<span class="text-base-14 text-semibold trunk-label">Trunk</span>
@@ -92,14 +57,14 @@
 				{$base$?.branchName}
 			</div>
 		</div>
-	</a>
-{/if}
+	{/if}
+</a>
 
 <style lang="postcss">
 	.base-branch-card {
 		display: flex;
 		gap: var(--space-10);
-		padding: var(--space-10) var(--space-8);
+		padding: var(--space-8);
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 	}
@@ -111,6 +76,9 @@
 	}
 
 	.icon {
+		border-radius: var(--radius-s);
+		height: var(--space-20);
+		width: var(--space-20);
 		flex-shrink: 0;
 	}
 	.content {
@@ -120,10 +88,6 @@
 	}
 	.trunk-label {
 		color: var(--clr-theme-scale-ntrl-0);
-	}
-	.trunk-label-collapsed {
-		color: var(--clr-theme-scale-ntrl-0);
-		transform: rotate(180deg);
 	}
 	.row_1 {
 		display: flex;
@@ -136,22 +100,5 @@
 		align-items: center;
 		gap: var(--space-4);
 		color: var(--clr-theme-scale-ntrl-40);
-	}
-
-	/* COLLAPSABLE NAV */
-	.base-branch-card-collapsed {
-		display: flex;
-		flex-direction: row-reverse;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--space-10) var(--space-8);
-		border-radius: var(--radius-m);
-		gap: var(--space-8);
-		transition: background-color var(--transition-fast);
-	}
-	.base-branch-card-collapsed:not(.selected):hover,
-	.base-branch-card-collapsed:not(.selected):focus,
-	.selected {
-		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 	}
 </style>

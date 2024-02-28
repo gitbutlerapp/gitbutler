@@ -41,7 +41,7 @@
 
 <div class="project-avatar" style:background-color={stringToGradient(name)}>
 	<svg class="avatar-letter" viewBox="0 0 24 24">
-		<text x="50%" y="52%" text-anchor="middle" alignment-baseline="middle">
+		<text x="50%" y="54%" text-anchor="middle" alignment-baseline="middle">
 			{firstLetter.toUpperCase()}
 		</text>
 	</svg>
@@ -50,8 +50,8 @@
 <style>
 	.project-avatar {
 		flex-shrink: 0;
-		width: var(--space-24);
-		height: var(--space-24);
+		width: var(--space-20);
+		height: var(--space-20);
 		border-radius: var(--radius-m);
 	}
 
@@ -64,6 +64,7 @@
 		font-family: 'Inter', sans-serif;
 		font-weight: 800;
 		font-size: 16px;
+		line-height: 1;
 		fill: var(--clr-core-ntrl-100);
 	}
 </style>

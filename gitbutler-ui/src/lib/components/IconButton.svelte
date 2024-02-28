@@ -4,7 +4,7 @@
 	import type iconsJson from '$lib/icons/icons.json';
 
 	export let icon: keyof typeof iconsJson;
-	export let size: 's' | 'm' | 'l' = 'l';
+	export let size: 's' | 'm' | 'l' | 'xl' = 'l';
 	export let loading = false;
 	export let help = '';
 
@@ -20,6 +20,7 @@
 	class:small={size == 's'}
 	class:medium={size == 'm'}
 	class:large={size == 'l'}
+	class:extra-large={size == 'xl'}
 	use:tooltip={help}
 	{title}
 	on:click
@@ -46,6 +47,11 @@
 	.selected {
 		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 		cursor: default;
+	}
+	.extra-large {
+		height: var(--size-btn-xl);
+		width: var(--size-btn-xl);
+		padding: var(--space-8);
 	}
 	.large {
 		height: var(--size-btn-l);

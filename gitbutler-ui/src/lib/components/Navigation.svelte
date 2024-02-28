@@ -95,62 +95,40 @@
 		/>
 	</div>
 
-	{#if isNavCollapsed}
-		<div class="collapsed-nav-wrapper">
-			{#if platformName}
+	<div
+		class="navigation"
+		class:collapsed={isNavCollapsed}
+		style:width={$defaultTrayWidthRem && !isNavCollapsed ? $defaultTrayWidthRem + 'rem' : null}
+		bind:this={viewport}
+		role="menu"
+		tabindex="0"
+	>
+		{#if platformName}
+			<div class="navigation-top">
 				{#if platformName === 'darwin'}
 					<div class="drag-region" data-tauri-drag-region />
 				{/if}
-				<div class="card collapsed-nav">
-					<div class="collapsed-nav__info">
-						<h3 class="collapsed-nav__label text-base-13 text-bold">
-							{project?.title}
-						</h3>
-						<DomainButton
-							href={`/${project.id}/board`}
-							domain="workspace"
-							{branchController}
-							{baseBranchService}
-							{isNavCollapsed}
-						></DomainButton>
-						<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
-					</div>
-					<div class="collapsed-nav__footer">
-						<Footer {user} projectId={project.id} {isNavCollapsed} />
-					</div>
+				<ProjectSelector {project} {projectService} {isNavCollapsed} />
+				<div class="domains">
+					<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
+					<DomainButton
+						href={`/${project.id}/board`}
+						domain="workspace"
+						label="Workspace"
+						iconSrc="/images/domain-icons/working-branches.svg"
+						{branchController}
+						{baseBranchService}
+						{isNavCollapsed}
+					></DomainButton>
 				</div>
-			{/if}
-		</div>
-	{:else}
-		<div
-			class="navigation relative"
-			style:width={$defaultTrayWidthRem ? $defaultTrayWidthRem + 'rem' : null}
-			bind:this={viewport}
-			role="menu"
-			tabindex="0"
-		>
-			{#if platformName}
-				{#if platformName === 'darwin'}
-					<div class="drag-region" data-tauri-drag-region />
-				{/if}
-				<div class="navigation-top">
-					<ProjectSelector {project} {projectService} />
-					<div class="domains">
-						<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
-						<DomainButton
-							href={`/${project.id}/board`}
-							domain="workspace"
-							{branchController}
-							{baseBranchService}
-							{isNavCollapsed}
-						></DomainButton>
-					</div>
-				</div>
+			</div>
+			{#if !isNavCollapsed}
 				<Branches projectId={project.id} {branchService} {githubService} />
-				<Footer {user} projectId={project.id} {isNavCollapsed} />
 			{/if}
-		</div>
-	{/if}
+			<Footer {user} projectId={project.id} {isNavCollapsed} />
+		{/if}
+	</div>
+	<!-- {/if} -->
 </aside>
 
 <style lang="postcss">
@@ -222,7 +200,6 @@
 	.folding-button {
 		z-index: 42;
 		position: absolute;
-		/* top: calc(var(--space-40) + var(--space-4)); */
 		right: calc(var(--space-2) * -1);
 		top: 50%;
 		transform: translateY(-50%);
@@ -252,48 +229,9 @@
 	}
 
 	/* COLLAPSED */
-
-	.collapsed-nav-wrapper {
-		padding: var(--space-12);
-		height: 100%;
-		border-right: 1px solid var(--clr-theme-container-outline-light);
-	}
-	.collapsed-nav {
-		display: flex;
-		flex-direction: column;
-		cursor: default;
-		user-select: none;
-		height: 100%;
-		gap: var(--space-8);
-		padding: var(--space-8) var(--space-8) var(--space-20);
-
-		&:focus-within {
-			outline: none;
-		}
-	}
-	.collapsed-nav__info {
-		flex: 1;
-		display: flex;
-		flex-direction: row-reverse;
-		align-items: center;
-		justify-content: flex-end;
-		height: 100%;
-
-		writing-mode: vertical-rl;
-		gap: var(--space-8);
-	}
-	.collapsed-nav__label {
-		color: var(--clr-theme-scale-ntrl-0);
-		transform: rotate(180deg);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		padding-bottom: var(--space-8);
-	}
-	.collapsed-nav__footer {
-		align-self: flex-end;
-
-		writing-mode: vertical-rl;
-		gap: var(--space-8);
+	.navigation.collapsed {
+		width: auto;
+		justify-content: space-between;
+		padding-bottom: var(--space-16);
 	}
 </style>
