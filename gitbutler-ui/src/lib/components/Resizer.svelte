@@ -14,7 +14,6 @@
 	export let hoverLineThickness: number = 2;
 
 	// Needed when overflow is hidden
-	export let inside = false;
 	export let sticky = false;
 
 	// Custom z-index in case of overlapping with other elements
@@ -86,7 +85,6 @@
 	role="slider"
 	aria-valuenow={viewport?.clientHeight}
 	class="resizer"
-	class:inside
 	class:dragging
 	class:vertical={orientation == 'vertical'}
 	class:horizontal={orientation == 'horizontal'}

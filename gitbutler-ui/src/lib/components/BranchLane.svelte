@@ -116,7 +116,6 @@
 			<Resizer
 				viewport={rsViewport}
 				direction="right"
-				inside
 				minWidth={240}
 				defaultLineColor="var(--clr-theme-container-outline-light)"
 				on:width={(e) => {
