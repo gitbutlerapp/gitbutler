@@ -103,8 +103,8 @@
 
 		& .anon-icon,
 		.profile-picture {
-			width: var(--space-20);
-			height: var(--space-20);
+			width: var(--space-24);
+			height: var(--space-24);
 		}
 	}
 </style>

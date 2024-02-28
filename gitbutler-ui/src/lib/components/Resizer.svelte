@@ -32,6 +32,7 @@
 		height: number;
 		width: number;
 		resizing: boolean;
+		overflowValue: number;
 	}>();
 
 	function onMouseDown(e: MouseEvent) {
@@ -48,23 +49,37 @@
 		dispatch('resizing', true);
 	}
 
+	function onOverflowValue(currentValue: number, minVal: number) {
+		if (currentValue < minVal) {
+			dispatch('overflowValue', minVal - currentValue);
+		}
+	}
+
 	function onMouseMove(e: MouseEvent) {
 		dragging = true;
 		if (direction == 'down') {
 			let height = e.clientY - initial;
 			dispatch('height', Math.max(height, minHeight));
+
+			onOverflowValue(height, minHeight);
 		}
 		if (direction == 'up') {
 			let height = document.body.scrollHeight - e.clientY - initial;
 			dispatch('height', Math.max(height, minHeight));
+
+			onOverflowValue(height, minHeight);
 		}
 		if (direction == 'right') {
 			let width = e.clientX - initial + 2;
 			dispatch('width', Math.max(width, minWidth));
+
+			onOverflowValue(width, minWidth);
 		}
 		if (direction == 'left') {
 			let width = document.body.scrollWidth - e.clientX - initial;
 			dispatch('width', Math.max(width, minWidth));
+
+			onOverflowValue(width, minWidth);
 		}
 	}
 

@@ -54,7 +54,7 @@
 		display: flex;
 		gap: var(--space-10);
 		width: 100%;
-		padding: var(--space-8);
+		padding: var(--space-8) var(--space-10);
 		border-radius: var(--radius-m);
 
 		background-color: var(--clr-theme-container-pale);
@@ -91,11 +91,4 @@
 		color: var(--clr-theme-scale-ntrl-0);
 		opacity: 0.3;
 	}
-
-	/* MODIFIERS */
-	/* .wrapper.collapsed {
-		& .button {
-			padding: var(--space-10) var(--space-8);
-		}
-	} */
 </style>
