@@ -122,7 +122,10 @@ impl<S: AsRef<str>> From<S> for Signature {
     #[inline]
     fn from(source: S) -> Self {
         let source = source.as_ref();
-        let source_string: String = source.chars().filter(|&x| !char::is_whitespace(x)).collect();
+        let source_string: String = source
+            .chars()
+            .filter(|&x| !char::is_whitespace(x))
+            .collect();
         let source = source_string.as_bytes();
 
         let source_len: u32 = source
@@ -176,9 +179,7 @@ mod tests {
             if (score - $e).abs() >= 0.1 {
                 panic!(
                     "expected score of {} for string {:?}, got {}",
-                    $e,
-                    $s,
-                    score
+                    $e, $s, score
                 );
             }
         };
