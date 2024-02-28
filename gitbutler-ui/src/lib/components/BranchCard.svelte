@@ -350,7 +350,6 @@
 			<Resizer
 				viewport={rsViewport}
 				direction="right"
-				inside={$selectedFiles.length > 0}
 				minWidth={320}
 				sticky
 				defaultLineColor={$selectedFiles.length > 0
