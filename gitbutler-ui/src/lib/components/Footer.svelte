@@ -16,10 +16,16 @@
 			icon="mail"
 			help="Send feedback"
 			size={isNavCollapsed ? 'xl' : 'l'}
+			width={isNavCollapsed ? '100%' : undefined}
 			on:click={() => events.emit('openSendIssueModal')}
 		/>
 		<Link href={`/${projectId}/settings`}>
-			<IconButton icon="settings" help="Project settings" size={isNavCollapsed ? 'xl' : 'l'} />
+			<IconButton
+				icon="settings"
+				help="Project settings"
+				size={isNavCollapsed ? 'xl' : 'l'}
+				width={isNavCollapsed ? '100%' : undefined}
+			/>
 		</Link>
 	</div>
 	<AccountLink {user} {isNavCollapsed} />
@@ -28,26 +34,26 @@
 <style lang="postcss">
 	.footer {
 		display: flex;
-		align-items: center;
 		justify-content: space-between;
 		padding: var(--space-12);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
 		border-color: var(--clr-theme-container-outline-light);
 	}
 
-	.collapsed {
+	.left-btns {
+		display: flex;
+		gap: var(--space-2);
+	}
+
+	.footer.collapsed {
 		flex-direction: column;
+		padding: 0 var(--space-14);
+		align-items: flex-start;
 		gap: var(--space-4);
-		padding: 0;
 		border: none;
 
 		& .left-btns {
 			flex-direction: column;
 		}
-	}
-
-	.left-btns {
-		display: flex;
-		align-items: center;
 	}
 </style>

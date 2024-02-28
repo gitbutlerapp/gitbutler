@@ -51,6 +51,9 @@
 
 	// check if resizing
 	let isResizerDragging = false;
+	// current resizer width
+	const minResizerWidth = 280;
+	const minResizerRatio = 150;
 </script>
 
 <aside class="navigation-wrapper">
@@ -76,21 +79,36 @@
 		<Resizer
 			{viewport}
 			direction="right"
-			minWidth={280}
-			zIndex={41}
+			minWidth={minResizerWidth}
 			defaultLineColor="var(--clr-theme-container-outline-light)"
+			on:click={() => {
+				if ($isNavCollapsedPersist) {
+					toggleNavCollapse();
+				}
+			}}
+			on:dblclick={() => {
+				if (!$isNavCollapsedPersist) {
+					toggleNavCollapse();
+				}
+			}}
 			on:width={(e) => {
 				$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
 			}}
 			on:resizing={(e) => {
 				isResizerDragging = e.detail;
-
-				if (isNavCollapsed) {
-					toggleNavCollapse();
-				}
 			}}
-			on:dblclick={() => {
-				toggleNavCollapse();
+			on:overflowValue={(e) => {
+				const overflowValue = e.detail;
+
+				if (!$isNavCollapsedPersist && overflowValue > minResizerRatio) {
+					$isNavCollapsedPersist = true;
+					isNavCollapsed = $isNavCollapsedPersist;
+				}
+
+				if ($isNavCollapsedPersist && overflowValue < minResizerRatio) {
+					$isNavCollapsedPersist = false;
+					isNavCollapsed = $isNavCollapsedPersist;
+				}
 			}}
 		/>
 	</div>
@@ -233,5 +251,11 @@
 		width: auto;
 		justify-content: space-between;
 		padding-bottom: var(--space-16);
+		/* padding-left: var(--space-4); */
+
+		/* & .navigation-top {
+			align-items: flex-start;
+			transform: translateX(var(--space-2));
+		} */
 	}
 </style>

@@ -38,7 +38,7 @@
 		align-items: center;
 		gap: var(--space-10);
 		border-radius: var(--radius-m);
-		padding: var(--space-8);
+		padding: var(--space-8) var(--space-10);
 		color: var(--clr-theme-scale-ntrl-0);
 		transition: background-color var(--transition-fast);
 	}
