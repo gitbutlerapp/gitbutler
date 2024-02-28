@@ -54,12 +54,7 @@
 </script>
 
 <aside class="navigation-wrapper">
-	<div
-		class="resizer-wrapper"
-		class:resizerDragging={isResizerDragging}
-		tabindex="0"
-		role="button"
-	>
+	<div class="resizer-wrapper" class:resizerDragging={isResizerDragging} tabindex="0" role="button">
 		<button
 			class="folding-button"
 			on:click={toggleNavCollapse}
