@@ -137,22 +137,7 @@
 </script>
 
 <div class="resize-guard" bind:this={resizeGuard}>
-	<div
-		class="branch-list"
-		bind:this={rsViewport}
-		style:height={$height ? `${$height}rem` : undefined}
-		style:max-height={maxHeight ? `${maxHeight}rem` : undefined}
-	>
-		<Resizer
-			viewport={rsViewport}
-			direction="up"
-			inside
-			defaultLineColor="var(--clr-theme-container-outline-light)"
-			minHeight={90}
-			on:height={(e) => {
-				$height = Math.min(maxHeight, e.detail / (16 * $userSettings.zoom));
-			}}
-		/>
+	<div class="branch-list">
 		<BranchesHeader count={$filteredBranches$?.length ?? 0} filtersActive={$filtersActive}>
 			<FilterPopupMenu
 				slot="context-menu"
@@ -233,9 +218,12 @@
 		padding-right: var(--space-14);
 	}
 	.branch-list {
+		flex: 1;
 		position: relative;
+		overflow: hidden;
 		display: flex;
 		flex-direction: column;
+		border-top: 1px solid var(--clr-theme-container-outline-light);
 	}
 	.content {
 		display: flex;
