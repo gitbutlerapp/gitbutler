@@ -34,12 +34,10 @@
 	let viewport: HTMLDivElement;
 
 	function toggleNavCollapse() {
-		$isNavCollapsedPersist = !$isNavCollapsedPersist;
-		isNavCollapsed = $isNavCollapsedPersist;
+		$isNavCollapsed = !$isNavCollapsed;
 	}
 
-	$: isNavCollapsedPersist = navCollapsed();
-	let isNavCollapsed = $isNavCollapsedPersist;
+	$: isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + project.id);
 
 	// Detect is the platform
 	let platformName: Platform | undefined;
@@ -57,11 +55,16 @@
 </script>
 
 <aside class="navigation-wrapper">
-	<div class="resizer-wrapper" class:resizerDragging={isResizerDragging} tabindex="0" role="button">
+	<div
+		class="resizer-wrapper"
+		class:resizerDragging={isResizerDragging}
+		tabindex="0"
+		role="button"
+	>
 		<button
 			class="folding-button"
 			on:click={toggleNavCollapse}
-			class:folding-button_folded={isNavCollapsed}
+			class:folding-button_folded={$isNavCollapsed}
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -82,12 +85,12 @@
 			minWidth={minResizerWidth}
 			defaultLineColor="var(--clr-theme-container-outline-light)"
 			on:click={() => {
-				if ($isNavCollapsedPersist) {
+				if ($isNavCollapsed) {
 					toggleNavCollapse();
 				}
 			}}
 			on:dblclick={() => {
-				if (!$isNavCollapsedPersist) {
+				if (!$isNavCollapsed) {
 					toggleNavCollapse();
 				}
 			}}
@@ -100,14 +103,12 @@
 			on:overflowValue={(e) => {
 				const overflowValue = e.detail;
 
-				if (!$isNavCollapsedPersist && overflowValue > minResizerRatio) {
-					$isNavCollapsedPersist = true;
-					isNavCollapsed = $isNavCollapsedPersist;
+				if (!$isNavCollapsed && overflowValue > minResizerRatio) {
+					$isNavCollapsed = true;
 				}
 
-				if ($isNavCollapsedPersist && overflowValue < minResizerRatio) {
-					$isNavCollapsedPersist = false;
-					isNavCollapsed = $isNavCollapsedPersist;
+				if ($isNavCollapsed && overflowValue < minResizerRatio) {
+					$isNavCollapsed = false;
 				}
 			}}
 		/>
@@ -115,8 +116,8 @@
 
 	<div
 		class="navigation"
-		class:collapsed={isNavCollapsed}
-		style:width={$defaultTrayWidthRem && !isNavCollapsed ? $defaultTrayWidthRem + 'rem' : null}
+		class:collapsed={$isNavCollapsed}
+		style:width={$defaultTrayWidthRem && !$isNavCollapsed ? $defaultTrayWidthRem + 'rem' : null}
 		bind:this={viewport}
 		role="menu"
 		tabindex="0"
@@ -126,9 +127,14 @@
 				{#if platformName === 'darwin'}
 					<div class="drag-region" data-tauri-drag-region />
 				{/if}
-				<ProjectSelector {project} {projectService} {isNavCollapsed} />
+				<ProjectSelector {project} {projectService} isNavCollapsed={$isNavCollapsed} />
 				<div class="domains">
-					<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
+					<BaseBranchCard
+						{project}
+						{baseBranchService}
+						{githubService}
+						isNavCollapsed={$isNavCollapsed}
+					/>
 					<DomainButton
 						href={`/${project.id}/board`}
 						domain="workspace"
@@ -136,14 +142,14 @@
 						iconSrc="/images/domain-icons/working-branches.svg"
 						{branchController}
 						{baseBranchService}
-						{isNavCollapsed}
+						isNavCollapsed={$isNavCollapsed}
 					></DomainButton>
 				</div>
 			</div>
-			{#if !isNavCollapsed}
+			{#if !$isNavCollapsed}
 				<Branches projectId={project.id} {branchService} {githubService} />
 			{/if}
-			<Footer {user} projectId={project.id} {isNavCollapsed} />
+			<Footer {user} projectId={project.id} isNavCollapsed={$isNavCollapsed} />
 		{/if}
 	</div>
 </aside>
