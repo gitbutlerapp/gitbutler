@@ -5,7 +5,7 @@
 
 	export let user: User | undefined;
 	export let pop = false;
-	export let isNavCollapsed: boolean;
+	export let isNavCollapsed = false;
 </script>
 
 <button class="btn" class:pop on:click={() => goto('/settings/')} class:collapsed={isNavCollapsed}>
