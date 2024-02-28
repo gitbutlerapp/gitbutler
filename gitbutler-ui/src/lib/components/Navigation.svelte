@@ -5,7 +5,6 @@
 	import Footer from './Footer.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
 	import Resizer from './Resizer.svelte';
-	import { navCollapsed } from '$lib/config/config';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { type Platform, platform } from '@tauri-apps/api/os';
