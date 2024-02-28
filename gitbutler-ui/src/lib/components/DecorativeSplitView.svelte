@@ -20,7 +20,7 @@
 			{#if user}
 				<div class="right-side__header">
 					<div class="account-button">
-						<AccountLink {user} isNavCollapsed={false} pop />
+						<AccountLink {user} pop />
 					</div>
 				</div>
 			{/if}
