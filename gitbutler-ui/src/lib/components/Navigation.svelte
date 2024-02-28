@@ -8,7 +8,7 @@
 	import { navCollapsed } from '$lib/config/config';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { platform } from '@tauri-apps/api/os';
+	import { type Platform, platform } from '@tauri-apps/api/os';
 	import { getContext } from 'svelte';
 	import type { User } from '$lib/backend/cloud';
 	import type { Project, ProjectService } from '$lib/backend/projects';
@@ -41,11 +41,12 @@
 	$: isNavCollapsedPersist = navCollapsed();
 	let isNavCollapsed = $isNavCollapsedPersist;
 
-	// Detect is the platform is Mac
-	let isMacos = false;
+	// Detect is the platform
+	let platformName: Platform | undefined;
 
 	platform().then((name) => {
-		isMacos = name === 'darwin';
+		platformName = name;
+		console.log('platformName:', platformName);
 	});
 
 	// check if resizing
@@ -96,24 +97,29 @@
 
 	{#if isNavCollapsed}
 		<div class="collapsed-nav-wrapper">
-			<div class="card collapsed-nav">
-				<div class="collapsed-nav__info">
-					<h3 class="collapsed-nav__label text-base-13 text-bold">
-						{project?.title}
-					</h3>
-					<DomainButton
-						href={`/${project.id}/board`}
-						domain="workspace"
-						{branchController}
-						{baseBranchService}
-						{isNavCollapsed}
-					></DomainButton>
-					<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
+			{#if platformName}
+				{#if platformName === 'darwin'}
+					<div class="drag-region" data-tauri-drag-region />
+				{/if}
+				<div class="card collapsed-nav">
+					<div class="collapsed-nav__info">
+						<h3 class="collapsed-nav__label text-base-13 text-bold">
+							{project?.title}
+						</h3>
+						<DomainButton
+							href={`/${project.id}/board`}
+							domain="workspace"
+							{branchController}
+							{baseBranchService}
+							{isNavCollapsed}
+						></DomainButton>
+						<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
+					</div>
+					<div class="collapsed-nav__footer">
+						<Footer {user} projectId={project.id} {isNavCollapsed} />
+					</div>
 				</div>
-				<div class="collapsed-nav__footer">
-					<Footer {user} projectId={project.id} {isNavCollapsed} />
-				</div>
-			</div>
+			{/if}
 		</div>
 	{:else}
 		<div
@@ -123,24 +129,26 @@
 			role="menu"
 			tabindex="0"
 		>
-			{#if isMacos}
-				<div class="drag-region" data-tauri-drag-region />
-			{/if}
-			<div class="navigation-top">
-				<ProjectSelector {project} {projectService} />
-				<div class="domains">
-					<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
-					<DomainButton
-						href={`/${project.id}/board`}
-						domain="workspace"
-						{branchController}
-						{baseBranchService}
-						{isNavCollapsed}
-					></DomainButton>
+			{#if platformName}
+				{#if platformName === 'darwin'}
+					<div class="drag-region" data-tauri-drag-region />
+				{/if}
+				<div class="navigation-top">
+					<ProjectSelector {project} {projectService} />
+					<div class="domains">
+						<BaseBranchCard {project} {baseBranchService} {githubService} {isNavCollapsed} />
+						<DomainButton
+							href={`/${project.id}/board`}
+							domain="workspace"
+							{branchController}
+							{baseBranchService}
+							{isNavCollapsed}
+						></DomainButton>
+					</div>
 				</div>
-			</div>
-			<Branches projectId={project.id} {branchService} {githubService} />
-			<Footer {user} projectId={project.id} {isNavCollapsed} />
+				<Branches projectId={project.id} {branchService} {githubService} />
+				<Footer {user} projectId={project.id} {isNavCollapsed} />
+			{/if}
 		</div>
 	{/if}
 </aside>
@@ -164,6 +172,7 @@
 		}
 	}
 	.navigation {
+		width: 17.5rem;
 		display: flex;
 		flex-direction: column;
 		position: relative;
