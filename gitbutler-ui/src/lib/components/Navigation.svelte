@@ -146,7 +146,6 @@
 			<Footer {user} projectId={project.id} {isNavCollapsed} />
 		{/if}
 	</div>
-	<!-- {/if} -->
 </aside>
 
 <style lang="postcss">
@@ -156,10 +155,10 @@
 
 		&:hover {
 			& .folding-button {
-				transition-delay: 0.1s;
 				opacity: 1;
 				transform: translateY(-50%);
 				right: calc(var(--space-6) * -1);
+				transition-delay: 0.1s;
 
 				& svg {
 					transition-delay: 0.1s;
@@ -232,7 +231,7 @@
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),
 			opacity var(--transition-medium),
-			right var(--transition-medium);
+			all var(--transition-medium);
 
 		& svg {
 			stroke: var(--clr-theme-scale-ntrl-50);
@@ -251,11 +250,5 @@
 		width: auto;
 		justify-content: space-between;
 		padding-bottom: var(--space-16);
-		/* padding-left: var(--space-4); */
-
-		/* & .navigation-top {
-			align-items: flex-start;
-			transform: translateX(var(--space-2));
-		} */
 	}
 </style>
