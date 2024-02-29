@@ -1,7 +1,7 @@
 <script lang="ts">
 	export let name: string | undefined;
 
-	const gradients = [
+	const colors = [
 		'#E78D8D',
 		'#62CDCD',
 		'#EC90D2',
@@ -14,32 +14,24 @@
 		'#5FD2B0'
 	];
 
-	const stringToGradient = (string: string | undefined) => {
-		if (!string) {
-			return `linear-gradient(45deg, ${gradients[0][0]} 15%, ${gradients[0][1]} 90%)`;
+	function nameToColor(name: string | undefined) {
+		const trimmed = name?.replace(/\s/g, '');
+		if (!trimmed) {
+			return `linear-gradient(45deg, ${colors[0][0]} 15%, ${colors[0][1]} 90%)`;
 		}
-		// trim the string, remove all spaces
-		const trimmedString = string.trim().replace(/\s/g, '');
 
-		// this is how we take the first letter. It works with emojies.
-		const startHash = trimmedString.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+		const startHash = trimmed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+		return colors[startHash % colors.length];
+	}
 
-		// Covert the hash number into the number we can
-		const gradient = startHash % gradients.length;
-
-		// and return the linear-gradient
-		return gradients[gradient];
-	};
-
-	const getFirstLetter = (name: string | undefined) => {
-		if (!name) return '';
-		return name[0].toUpperCase();
-	};
+	function getFirstLetter(name: string | undefined) {
+		return name ? name[0].toUpperCase() : '';
+	}
 
 	$: firstLetter = getFirstLetter(name);
 </script>
 
-<div class="project-avatar" style:background-color={stringToGradient(name)}>
+<div class="project-avatar" style:background-color={nameToColor(name)}>
 	<svg class="avatar-letter" viewBox="0 0 24 24">
 		<text x="50%" y="54%" text-anchor="middle" alignment-baseline="middle">
 			{firstLetter.toUpperCase()}
