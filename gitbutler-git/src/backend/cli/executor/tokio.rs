@@ -1,8 +1,8 @@
 //! A [Tokio](https://tokio.rs)-based [`super::GitExecutor`] implementation.
 
 #[cfg(unix)]
-use std::os::unix::fs::MetadataExt;
-use std::{collections::HashMap, fs::Permissions, os::unix::fs::PermissionsExt, time::Duration};
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
+use std::{collections::HashMap, fs::Permissions, time::Duration};
 use tokio::process::Command;
 
 /// A [`super::GitExecutor`] implementation using the `git` command-line tool
