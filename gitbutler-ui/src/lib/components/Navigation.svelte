@@ -7,7 +7,10 @@
 	import Resizer from './Resizer.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import * as hotkeys from '$lib/utils/hotkeys';
+	import { unsubscribe } from '$lib/utils/random';
 	import { type Platform, platform } from '@tauri-apps/api/os';
+	import { onMount } from 'svelte';
 	import { getContext } from 'svelte';
 	import type { User } from '$lib/backend/cloud';
 	import type { Project, ProjectService } from '$lib/backend/projects';
@@ -43,7 +46,6 @@
 
 	platform().then((name) => {
 		platformName = name;
-		console.log('platformName:', platformName);
 	});
 
 	// check if resizing
@@ -51,6 +53,15 @@
 	// current resizer width
 	const minResizerWidth = 280;
 	const minResizerRatio = 150;
+
+	// hotkey to toggle the navigation
+	onMount(() =>
+		unsubscribe(
+			hotkeys.on('Meta+/', () => {
+				toggleNavCollapse();
+			})
+		)
+	);
 </script>
 
 <aside class="navigation-wrapper">
