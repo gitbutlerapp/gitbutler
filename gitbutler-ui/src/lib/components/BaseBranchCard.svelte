@@ -2,6 +2,7 @@
 	import SyncButton from './SyncButton.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { tooltip } from '$lib/utils/tooltip';
 	import type { Project } from '$lib/backend/projects';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
@@ -18,7 +19,13 @@
 	let baseContents: HTMLElement;
 </script>
 
-<a href="/{project.id}/base" class="base-branch-card" class:selected bind:this={baseContents}>
+<a
+	use:tooltip={isNavCollapsed ? 'Trunk' : ''}
+	href="/{project.id}/base"
+	class="base-branch-card"
+	class:selected
+	bind:this={baseContents}
+>
 	<img class="icon" src="/images/domain-icons/trunk.svg" alt="" />
 
 	{#if !isNavCollapsed}
