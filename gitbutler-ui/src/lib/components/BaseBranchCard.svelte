@@ -26,6 +26,13 @@
 	class:selected
 	bind:this={baseContents}
 >
+	{#if isNavCollapsed}
+		{#if ($base$?.behind || 0) > 0}
+			<div class="small-count-badge">
+				<span class="text-base-9 text-bold">{$base$?.behind || 0}</span>
+			</div>
+		{/if}
+	{/if}
 	<img class="icon" src="/images/domain-icons/trunk.svg" alt="" />
 
 	{#if !isNavCollapsed}
@@ -69,6 +76,7 @@
 
 <style lang="postcss">
 	.base-branch-card {
+		position: relative;
 		display: flex;
 		gap: var(--space-10);
 		padding: var(--space-10);
@@ -107,5 +115,19 @@
 		align-items: center;
 		gap: var(--space-4);
 		color: var(--clr-theme-scale-ntrl-40);
+	}
+	.small-count-badge {
+		position: absolute;
+		top: 10%;
+		right: 10%;
+
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: var(--space-2);
+		min-width: var(--space-14);
+		background-color: var(--clr-theme-err-element);
+		color: var(--clr-theme-scale-ntrl-100);
+		border-radius: var(--radius-m);
 	}
 </style>
