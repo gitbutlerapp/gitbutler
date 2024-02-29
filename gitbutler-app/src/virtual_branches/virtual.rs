@@ -565,6 +565,51 @@ pub fn unapply_ownership(
     Ok(())
 }
 
+pub fn reset_files(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    files: &Vec<String>,
+) -> Result<(), errors::UnapplyOwnershipError> {
+    dbg!("reset_files");
+    if conflicts::is_resolving(project_repository) {
+        return Err(errors::UnapplyOwnershipError::Conflict(
+            errors::ProjectConflictError {
+                project_id: project_repository.project().id,
+            },
+        ));
+    }
+
+    let repo = &project_repository.git_repository;
+
+    // for each tree, we need to checkout the entry from the index at that path
+    let index = repo.index().context("failed to get index")?;
+
+    // put together a checkoutbuilder for each file
+
+    for file in files {
+        let entry = index.get_path(path::Path::new(file), 0);
+        match entry {
+            Some(entry) => {
+                dbg!(&entry);
+                repo.checkout_index_path(path::Path::new(file))
+                    .context("failed to checkout index")?;
+            }
+            None => {
+                dbg!("new file, just delete it");
+                // find the project root
+                let project_root = &project_repository.project().path;
+                let path = path::Path::new(file);
+                //combine the project root with the file path
+                let path = &project_root.join(path);
+                std::fs::remove_file(&path).context("failed to remove file")?;
+            }
+        }
+        dbg!(file);
+    }
+
+    Ok(())
+}
+
 // to unapply a branch, we need to write the current tree out, then remove those file changes from the wd
 pub fn unapply_branch(
     gb_repository: &gb_repository::Repository,
