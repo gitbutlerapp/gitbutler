@@ -22,7 +22,6 @@
 		},
 		enabled: visible
 	}}
-	class:collapsed={isNavCollapsed}
 >
 	<button
 		class="button"
@@ -45,7 +44,7 @@
 <style lang="postcss">
 	.wrapper {
 		position: relative;
-		margin-top: var(--space-10);
+		margin-top: var(--space-14);
 		margin-bottom: var(--space-16);
 		height: fit-content;
 	}

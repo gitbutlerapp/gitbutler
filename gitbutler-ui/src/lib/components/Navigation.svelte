@@ -177,7 +177,7 @@
 	}
 	.drag-region {
 		flex-shrink: 0;
-		height: var(--space-24);
+		height: var(--space-20);
 	}
 	.navigation-top {
 		display: flex;
