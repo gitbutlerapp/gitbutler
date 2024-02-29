@@ -10,6 +10,7 @@
 <input
 	on:click|stopPropagation
 	on:change
+	on:input
 	type="radio"
 	class="radio"
 	class:small

@@ -1,4 +1,5 @@
 import { showToast } from '$lib/notifications/toasts';
+import { relaunch } from '@tauri-apps/api/process';
 import {
 	checkUpdate,
 	installUpdate,
@@ -8,19 +9,20 @@ import {
 } from '@tauri-apps/api/updater';
 import posthog from 'posthog-js';
 import {
-	BehaviorSubject,
-	switchMap,
-	Observable,
-	from,
-	map,
-	shareReplay,
-	interval,
-	timeout,
-	catchError,
 	of,
+	tap,
+	map,
+	from,
+	timeout,
+	interval,
+	switchMap,
+	shareReplay,
+	catchError,
 	startWith,
 	combineLatestWith,
-	tap
+	distinctUntilChanged,
+	Observable,
+	BehaviorSubject
 } from 'rxjs';
 
 // TOOD: Investigate why 'DOWNLOADED' is not in the type provided by Tauri.
@@ -44,7 +46,10 @@ export class UpdaterService {
 	constructor() {
 		onUpdaterEvent((status) => {
 			const err = status.error;
-			if (err) showErrorToast(err);
+			if (err) {
+				showErrorToast(err);
+				posthog.capture('App Update Status Error', { error: err });
+			}
 			this.status$.next(status.status);
 		}).then((unlistenFn) => (this.unlistenFn = unlistenFn));
 
@@ -58,10 +63,12 @@ export class UpdaterService {
 			map((update: UpdateResult | undefined) => {
 				if (update?.shouldUpdate) return update.manifest;
 			}),
+			// We don't need the stream to emit if the result is the same version
+			distinctUntilChanged((prev, curr) => prev?.version == curr?.version),
 			// Hide offline/timeout errors since no app ever notifies you about this
 			catchError((err) => {
 				if (!isOffline(err) && !isTimeoutError(err)) {
-					posthog.capture('Updater Check Error', err);
+					posthog.capture('App Update Check Error', { error: err });
 					showErrorToast(err);
 					console.log(err);
 				}
@@ -83,14 +90,18 @@ export class UpdaterService {
 		// });
 	}
 
-	async install() {
+	async installUpdate() {
 		try {
 			await installUpdate();
 			posthog.capture('App Update Successful');
-		} catch (e: any) {
+		} catch (err: any) {
 			// We expect toast to be shown by error handling in `onUpdaterEvent`
-			posthog.capture('App Update Failed', e);
+			posthog.capture('App Update Install Error', { error: err });
 		}
+	}
+
+	relaunchApp() {
+		relaunch();
 	}
 }
 
@@ -118,5 +129,4 @@ function showErrorToast(err: any) {
         `,
 		style: 'error'
 	});
-	posthog.capture('Updater Status Error', err);
 }
