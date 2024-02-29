@@ -3,13 +3,11 @@ members = [
     "gitbutler-app",
     "gitbutler-core",
     "gitbutler-changeset",
-    "gitbutler-git",
 ]
 resolver = "2"
 
 [workspace.dependencies]
 gitbutler-core = { path = "gitbutler-core" }
-gitbutler-git = { path = "gitbutler-git" }
 git2 = { version = "0.18.2", features = ["vendored-openssl", "vendored-libgit2"] }
 uuid = "1.7.0"
 serde = { version = "1.0", features = ["derive"] }

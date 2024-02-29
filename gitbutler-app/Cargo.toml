@@ -22,7 +22,6 @@ pretty_assertions = "1.4"
 tempfile = "3.10"
 
 [dependencies]
-gitbutler-git.workspace = true
 anyhow = "1.0.79"
 async-trait = "0.1.77"
 backoff = "0.4.0"

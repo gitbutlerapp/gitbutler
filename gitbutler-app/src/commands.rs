@@ -66,42 +66,13 @@ pub async fn git_remote_branches(
 #[tauri::command(async)]
 #[instrument(skip(handle))]
 pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
-    use gitbutler_git::Repository;
+    let app = handle.state::<app::App>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
-    let project = handle.state::<projects::Controller>().get(&project_id)?;
-    let repo =
-        gitbutler_git::git2::Repository::<gitbutler_git::git2::tokio::TokioThreadedResource>::open(
-            &project.path,
-        )
-        .await
-        .map_err(|e| Error::UserError {
-            code: Code::Projects,
-            message: format!("could not open repository: {e}"),
-        })?;
-
-    repo.symbolic_head().await.map_err(|e| match &e {
-        gitbutler_git::Error::Backend(err) => {
-            if err.code() == ErrorCode::UnbornBranch {
-                return Error::UserError {
-                    code: Code::ProjectHead,
-                    message:
-                        "could not get symbolic head: Cannot load a git repository with 0 commits"
-                            .to_string(),
-                };
-            }
-            Error::UserError {
-                code: Code::ProjectHead,
-                message: format!("could not get symbolic head: {e}"),
-            }
-        }
-        _ => Error::UserError {
-            code: Code::ProjectHead,
-            message: format!("could not get symbolic head: {e}"),
-        },
-    })
+    let head = app.git_head(&project_id)?;
+    Ok(head)
 }
 
 #[tauri::command(async)]
