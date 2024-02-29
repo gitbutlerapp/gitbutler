@@ -1,5 +1,6 @@
 <script lang="ts">
 	import UpdateBaseButton from './UpdateBaseButton.svelte';
+	import { tooltip } from '$lib/utils/tooltip';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { page } from '$app/stores';
@@ -17,7 +18,12 @@
 	$: selected = $page.url.href.includes(href);
 </script>
 
-<a {href} class="domain-button text-base-14 text-semibold" class:selected>
+<a
+	use:tooltip={isNavCollapsed ? label : ''}
+	{href}
+	class="domain-button text-base-14 text-semibold"
+	class:selected
+>
 	{#if domain === 'workspace'}
 		<img class="icon" src={iconSrc} alt="" />
 

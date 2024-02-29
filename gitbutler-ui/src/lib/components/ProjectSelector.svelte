@@ -3,6 +3,7 @@
 	import ProjectsPopup from './ProjectsPopup.svelte';
 	import { clickOutside } from '$lib/clickOutside';
 	import Icon from '$lib/components/Icon.svelte';
+	import { tooltip } from '$lib/utils/tooltip';
 	import type { Project, ProjectService } from '$lib/backend/projects';
 
 	export let project: Project | undefined;
@@ -15,6 +16,7 @@
 
 <div
 	class="wrapper"
+	use:tooltip={isNavCollapsed ? project?.title : ''}
 	use:clickOutside={{
 		handler: () => {
 			popup.hide();

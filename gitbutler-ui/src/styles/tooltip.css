@@ -4,10 +4,7 @@
 	border: 1px solid var(--clr-core-ntrl-30);
 	color: var(--clr-core-ntrl-60);
 	display: inline-block;
-	padding-left: var(--space-8);
-	padding-right: var(--space-8);
-	padding-top: var(--space-4);
-	padding-bottom: var(--space-4);
+	padding: var(--space-6);
 	z-index: 50;
 
 	max-width: 11.25rem;
