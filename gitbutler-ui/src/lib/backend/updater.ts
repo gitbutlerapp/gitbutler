@@ -46,7 +46,10 @@ export class UpdaterService {
 	constructor() {
 		onUpdaterEvent((status) => {
 			const err = status.error;
-			if (err) showErrorToast(err);
+			if (err) {
+				showErrorToast(err);
+				posthog.capture('App Update Status Error', { error: err });
+			}
 			this.status$.next(status.status);
 		}).then((unlistenFn) => (this.unlistenFn = unlistenFn));
 
@@ -65,7 +68,7 @@ export class UpdaterService {
 			// Hide offline/timeout errors since no app ever notifies you about this
 			catchError((err) => {
 				if (!isOffline(err) && !isTimeoutError(err)) {
-					posthog.capture('Updater Check Error', err);
+					posthog.capture('App Update Check Error', { error: err });
 					showErrorToast(err);
 					console.log(err);
 				}
@@ -91,9 +94,9 @@ export class UpdaterService {
 		try {
 			await installUpdate();
 			posthog.capture('App Update Successful');
-		} catch (e: any) {
+		} catch (err: any) {
 			// We expect toast to be shown by error handling in `onUpdaterEvent`
-			posthog.capture('App Update Failed', e);
+			posthog.capture('App Update Install Error', { error: err });
 		}
 	}
 
@@ -126,5 +129,4 @@ function showErrorToast(err: any) {
         `,
 		style: 'error'
 	});
-	posthog.capture('Updater Status Error', err);
 }
