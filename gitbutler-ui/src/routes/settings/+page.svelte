@@ -71,6 +71,7 @@
 				name: newName,
 				picture: picture
 			});
+			updatedUser.github_access_token = $user$?.github_access_token; // prevent overwriting with null
 			userService.setUser(updatedUser);
 			toasts.success('Profile updated');
 		} catch (e) {
