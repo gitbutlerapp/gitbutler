@@ -9,7 +9,8 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/random';
-	import { type Platform, platform } from '@tauri-apps/api/os';
+	import { platform } from '@tauri-apps/api/os';
+	import { from } from 'rxjs';
 	import { onMount } from 'svelte';
 	import { getContext } from 'svelte';
 	import type { User } from '$lib/backend/cloud';
@@ -27,6 +28,9 @@
 	export let githubService: GitHubService;
 	export let projectService: ProjectService;
 
+	const minResizerWidth = 280;
+	const minResizerRatio = 150;
+	const platformName = from(platform());
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const defaultTrayWidthRem = persisted<number | undefined>(
 		undefined,
@@ -34,27 +38,14 @@
 	);
 
 	let viewport: HTMLDivElement;
+	let isResizerDragging = false;
+
+	$: isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + project.id);
 
 	function toggleNavCollapse() {
 		$isNavCollapsed = !$isNavCollapsed;
 	}
 
-	$: isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + project.id);
-
-	// Detect is the platform
-	let platformName: Platform | undefined;
-
-	platform().then((name) => {
-		platformName = name;
-	});
-
-	// check if resizing
-	let isResizerDragging = false;
-	// current resizer width
-	const minResizerWidth = 280;
-	const minResizerRatio = 150;
-
-	// hotkey to toggle the navigation
 	onMount(() =>
 		unsubscribe(
 			hotkeys.on('Meta+/', () => {
@@ -89,22 +80,12 @@
 			direction="right"
 			minWidth={minResizerWidth}
 			defaultLineColor="var(--clr-theme-container-outline-light)"
-			on:click={() => {
-				if ($isNavCollapsed) {
-					toggleNavCollapse();
-				}
-			}}
-			on:dblclick={() => {
-				if (!$isNavCollapsed) {
-					toggleNavCollapse();
-				}
-			}}
+			on:click={() => $isNavCollapsed && toggleNavCollapse()}
+			on:dblclick={() => !$isNavCollapsed && toggleNavCollapse()}
 			on:width={(e) => {
 				$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
 			}}
-			on:resizing={(e) => {
-				isResizerDragging = e.detail;
-			}}
+			on:resizing={(e) => (isResizerDragging = e.detail)}
 			on:overflowValue={(e) => {
 				const overflowValue = e.detail;
 
@@ -127,9 +108,10 @@
 		role="menu"
 		tabindex="0"
 	>
-		{#if platformName}
+		<!-- condition prevents split second UI shift -->
+		{#if $platformName}
 			<div class="navigation-top">
-				{#if platformName === 'darwin'}
+				{#if $platformName == 'darwin'}
 					<div class="drag-region" data-tauri-drag-region />
 				{/if}
 				<ProjectSelector {project} {projectService} isNavCollapsed={$isNavCollapsed} />
@@ -223,8 +205,6 @@
 		}
 	}
 
-	/* FOLDING BUTTON */
-
 	.folding-button {
 		z-index: 42;
 		position: absolute;
@@ -256,7 +236,6 @@
 		}
 	}
 
-	/* COLLAPSED */
 	.navigation.collapsed {
 		width: auto;
 		justify-content: space-between;
