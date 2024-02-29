@@ -9,13 +9,17 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import { storeToObservable } from '$lib/rxjs/store';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { BehaviorSubject, combineLatest } from 'rxjs';
+	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
+	import { BehaviorSubject, Subject, combineLatest, map } from 'rxjs';
 	import { getContext, onDestroy, onMount } from 'svelte';
 	import { derived } from 'svelte/store';
 	import type { BranchService } from '$lib/branches/service';
 	import type { CombinedBranch } from '$lib/branches/types';
 	import type { GitHubService } from '$lib/github/service';
+	import type { RemoteBranchData } from '$lib/vbranches/types';
+	import type { User } from '@sentry/sveltekit';
 
+	export let user: User | undefined;
 	export let branchService: BranchService;
 	export let githubService: GitHubService;
 	export let projectId: string;
@@ -40,9 +44,27 @@
 	);
 
 	$: branches$ = branchService.branches$;
+
+	const branchesData$ = new Subject<RemoteBranchData[]>();
+	$: branches$
+		.pipe(
+			map((branches) =>
+				Promise.all(
+					branches.map((b) =>
+						getRemoteBranchData({
+							projectId: projectId,
+							refname: b.remoteBranch!.name
+						})
+					)
+				).then((data) => branchesData$.next(data))
+			)
+		)
+		.subscribe();
+
 	$: filteredBranches$ = combineLatest(
 		[
 			branches$,
+			branchesData$,
 			textFilter$,
 			storeToObservable(includePrs),
 			storeToObservable(includeRemote),
@@ -50,14 +72,23 @@
 			storeToObservable(hideBots),
 			storeToObservable(hideInactive)
 		],
-		(branches, search, includePrs, includeRemote, includeStashed, hideBots, hideInactive) => {
+		(
+			branches,
+			branchesData,
+			search,
+			includePrs,
+			includeRemote,
+			includeStashed,
+			hideBots,
+			hideInactive
+		) => {
 			const filteredByType = filterByType(branches, {
 				includePrs,
 				includeRemote,
 				includeStashed,
 				hideBots
 			});
-			const filteredBySearch = filterByText(filteredByType, search);
+			const filteredBySearch = filterByText(filteredByType, branchesData, search);
 			return hideInactive ? filterInactive(filteredBySearch) : filteredBySearch;
 		}
 	);
@@ -89,8 +120,29 @@
 		});
 	}
 
-	function filterByText(branches: CombinedBranch[], search: string | undefined) {
+	function filterByText(
+		branches: CombinedBranch[],
+		branchesData: RemoteBranchData[],
+		search: string | undefined
+	) {
 		if (search == undefined) return branches;
+
+		// special search by author segment
+		if (search.includes('author:')) {
+			let authorInfo = /author:(\S+)/.exec(search)?.[1];
+			// if the user types "author:me" we run a quick search of their branches using their email
+			if (authorInfo === 'me') authorInfo = user?.email;
+			if (authorInfo && branchesData.length) {
+				authorInfo = authorInfo.toLowerCase();
+				return branches.filter((b) => {
+					return branchesData
+						.find((bd) => bd.sha === b.remoteBranch?.sha)
+						?.authors.some(
+							(a) => a.email?.includes(authorInfo!) || a.name?.toLowerCase()?.includes(authorInfo!)
+						);
+				});
+			}
+		}
 
 		return branches.filter((b) => searchMatchesAnIdentifier(search, b.searchableIdentifiers));
 	}
