@@ -165,7 +165,6 @@
 		align-items: self-start;
 
 		padding: var(--space-12) var(--space-12) var(--space-12) 0;
-		/* border-right: 1px solid var(--clr-theme-container-outline-light); */
 		margin-left: var(--selected-target-branch-right-padding);
 	}
 </style>
