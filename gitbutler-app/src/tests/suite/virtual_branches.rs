@@ -5,19 +5,16 @@
     clippy::dbg_macro
 )]
 
-mod common;
-
 use std::{fs, path, str::FromStr};
 
-use gblib::{
+use crate::{
     error::Error,
     git, keys,
     projects::{self, ProjectId},
+    tests::common::{paths, TestProject},
     users,
     virtual_branches::{branch, controller::ControllerError, errors, Controller},
 };
-
-use self::common::{paths, TestProject};
 
 struct Test {
     repository: TestProject,
@@ -49,7 +46,7 @@ impl Default for Test {
 }
 
 mod unapply_ownership {
-    use gblib::virtual_branches::branch::Ownership;
+    use crate::virtual_branches::branch::Ownership;
 
     use super::*;
 
@@ -365,7 +362,7 @@ mod references {
             let branch1_id = controller
                 .create_virtual_branch(
                     &project_id,
-                    &gblib::virtual_branches::branch::BranchCreateRequest {
+                    &crate::virtual_branches::branch::BranchCreateRequest {
                         name: Some("name".to_string()),
                         ..Default::default()
                     },
@@ -376,7 +373,7 @@ mod references {
             let branch2_id = controller
                 .create_virtual_branch(
                     &project_id,
-                    &gblib::virtual_branches::branch::BranchCreateRequest {
+                    &crate::virtual_branches::branch::BranchCreateRequest {
                         name: Some("name".to_string()),
                         ..Default::default()
                     },
@@ -3377,7 +3374,7 @@ mod update_base_branch {
 }
 
 mod reset_virtual_branch {
-    use gblib::virtual_branches::{controller::ControllerError, errors::ResetBranchError};
+    use crate::virtual_branches::{controller::ControllerError, errors::ResetBranchError};
 
     use super::*;
 
@@ -6255,7 +6252,7 @@ mod selected_for_changes {
 }
 
 mod move_commit_to_vbranch {
-    use gblib::virtual_branches::BranchId;
+    use crate::virtual_branches::BranchId;
 
     use super::*;
 

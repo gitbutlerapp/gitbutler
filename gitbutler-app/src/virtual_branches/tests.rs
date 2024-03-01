@@ -13,7 +13,7 @@ use std::os::unix::{fs::symlink, prelude::*};
 
 use crate::{
     gb_repository, git, project_repository, reader, sessions,
-    test_utils::{self, empty_bare_repository, Case, Suite},
+    tests::{self, empty_bare_repository, Case, Suite},
     virtual_branches::errors::CommitError,
 };
 
@@ -207,7 +207,7 @@ fn test_track_binary_files() -> Result<()> {
     ];
     let mut file = fs::File::create(std::path::Path::new(&project.path).join("image.bin"))?;
     file.write_all(&image_data)?;
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
 
     set_test_target(&gb_repository, &project_repository)?;
 
@@ -954,7 +954,7 @@ fn test_merge_vbranch_upstream_clean_rebase() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
     let target_oid = project_repository
         .git_repository
         .head()
@@ -967,7 +967,7 @@ fn test_merge_vbranch_upstream_clean_rebase() -> Result<()> {
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
     // add a commit to the target branch it's pointing to so there is something "upstream"
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
     let last_push = project_repository
         .git_repository
         .head()
@@ -981,7 +981,7 @@ fn test_merge_vbranch_upstream_clean_rebase() -> Result<()> {
         "line1\nline2\nline3\nline4\nupstream\ncoworker work\n",
     )?;
 
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
     let coworker_work = project_repository
         .git_repository
         .head()
@@ -1078,7 +1078,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
     let target_oid = project_repository
         .git_repository
         .head()
@@ -1091,7 +1091,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
     // add a commit to the target branch it's pointing to so there is something "upstream"
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
     let last_push = project_repository
         .git_repository
         .head()
@@ -1105,7 +1105,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
         "line1\nline2\nline3\nline4\nupstream\ncoworker work\n",
     )?;
 
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
     let coworker_work = project_repository
         .git_repository
         .head()
@@ -1284,7 +1284,7 @@ fn test_apply_unapply_branch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
 
     set_test_target(&gb_repository, &project_repository)?;
 
@@ -1385,7 +1385,7 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path2),
         "file2\n",
     )?;
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
 
     set_test_target(&gb_repository, &project_repository)?;
 
@@ -1471,7 +1471,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
 
     set_test_target(&gb_repository, &project_repository)?;
 
@@ -1532,7 +1532,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
     let up_target = project_repository
         .git_repository
         .head()
@@ -1556,7 +1556,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path3),
         "file3\n",
     )?;
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
     let up_target = project_repository
         .git_repository
         .head()
@@ -1628,7 +1628,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
     let remotes =
         list_remote_branches(&gb_repository, &project_repository).expect("failed to list remotes");
-    let remote1 = &remotes
+    let _remote1 = &remotes
         .iter()
         .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch")
         .unwrap();
@@ -1640,7 +1640,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
     .unwrap());
     // assert_eq!(remote1.commits.len(), 1);
 
-    let remote2 = &remotes
+    let _remote2 = &remotes
         .iter()
         .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch2")
         .unwrap();
@@ -1682,7 +1682,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         std::path::Path::new(&project.path).join("test.txt"),
         "file1\nversion2\n",
     )?;
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
 
     let upstream_commit = project_repository
         .git_repository
@@ -2388,12 +2388,12 @@ fn test_verify_branch_commits_to_integration() -> Result<()> {
     //  write two commits
     let file_path2 = std::path::Path::new("test2.txt");
     std::fs::write(std::path::Path::new(&project.path).join(file_path2), "file")?;
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
     std::fs::write(
         std::path::Path::new(&project.path).join(file_path2),
         "update",
     )?;
-    test_utils::commit_all(&project_repository.git_repository);
+    tests::commit_all(&project_repository.git_repository);
 
     // verify puts commits onto the virtual branch
     integration::verify_branch(&gb_repository, &project_repository).unwrap();

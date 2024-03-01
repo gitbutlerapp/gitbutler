@@ -138,13 +138,13 @@ fn insert_stmt<'conn>(
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils;
+    use crate::tests;
 
     use super::*;
 
     #[test]
     fn insert_query() -> Result<()> {
-        let db = test_utils::test_database();
+        let db = tests::test_database();
         let database = Database::new(db);
 
         let project_id = ProjectId::generate();
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn insert_update() -> Result<()> {
-        let db = test_utils::test_database();
+        let db = tests::test_database();
         let database = Database::new(db);
 
         let project_id = ProjectId::generate();
@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     fn aggregate_deltas_by_file() -> Result<()> {
-        let db = test_utils::test_database();
+        let db = tests::test_database();
         let database = Database::new(db);
 
         let project_id = ProjectId::generate();

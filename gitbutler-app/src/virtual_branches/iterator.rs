@@ -65,7 +65,7 @@ mod tests {
 
     use crate::{
         reader, sessions,
-        test_utils::{Case, Suite},
+        tests::{Case, Suite},
         virtual_branches::target,
     };
 

@@ -1,5 +1,0 @@
-{
-	"prettier.configPath": "./gitbutler-ui/.prettierrc",
-	"prettier.prettierPath": "./node_modules/prettier/index.cjs",
-	"prettier.useEditorConfig": false
-}

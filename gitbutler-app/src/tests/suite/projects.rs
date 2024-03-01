@@ -1,7 +1,7 @@
-mod common;
-
-use self::common::paths;
-use gblib::projects::Controller;
+use crate::{
+    projects::Controller,
+    tests::common::{self, paths},
+};
 
 pub fn new() -> Controller {
     let data_dir = paths::data_dir();
@@ -22,7 +22,7 @@ mod add {
     }
 
     mod error {
-        use gblib::projects::AddError;
+        use crate::projects::AddError;
 
         use super::*;
 

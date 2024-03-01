@@ -1,5 +1,5 @@
 #![allow(unused)]
-use gblib::git;
+use crate::git;
 use std::{path, str::from_utf8};
 
 pub fn temp_dir() -> std::path::PathBuf {

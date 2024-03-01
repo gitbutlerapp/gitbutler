@@ -142,15 +142,15 @@ impl Hunk {
         self.timestamp_ms
     }
 
-    pub fn contains(&self, line: &u32) -> bool {
-        self.start <= *line && self.end >= *line
+    pub fn contains(&self, line: u32) -> bool {
+        self.start <= line && self.end >= line
     }
 
     pub fn intersects(&self, another: &Hunk) -> bool {
-        self.contains(&another.start)
-            || self.contains(&another.end)
-            || another.contains(&self.start)
-            || another.contains(&self.end)
+        self.contains(another.start)
+            || self.contains(another.end)
+            || another.contains(self.start)
+            || another.contains(self.end)
     }
 }
 

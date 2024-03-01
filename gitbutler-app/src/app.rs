@@ -148,13 +148,13 @@ impl App {
         Ok(head.name().unwrap().to_string())
     }
 
-    pub fn git_set_global_config(&self, key: &str, value: &str) -> Result<String> {
+    pub fn git_set_global_config(key: &str, value: &str) -> Result<String> {
         let mut config = git2::Config::open_default()?;
         config.set_str(key, value)?;
         Ok(value.to_string())
     }
 
-    pub fn git_get_global_config(&self, key: &str) -> Result<Option<String>> {
+    pub fn git_get_global_config(key: &str) -> Result<Option<String>> {
         let config = git2::Config::open_default()?;
         let value = config.get_string(key);
         match value {

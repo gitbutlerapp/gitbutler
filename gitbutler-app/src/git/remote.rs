@@ -25,10 +25,6 @@ impl<'repo> Remote<'repo> {
             .map_err(Into::into)
     }
 
-    pub fn url_as_str(&self) -> Result<Option<&str>> {
-        Ok(self.inner.url())
-    }
-
     pub fn push(
         &mut self,
         refspec: &[&str],

@@ -1,12 +1,53 @@
+#![feature(error_generic_member_access)]
+#![cfg_attr(target_os = "windows", feature(windows_by_handle))]
+
+pub(crate) mod analytics;
+pub(crate) mod app;
+pub(crate) mod assets;
+pub(crate) mod commands;
+pub(crate) mod database;
+pub(crate) mod dedup;
+pub(crate) mod deltas;
+pub(crate) mod error;
+pub(crate) mod events;
+pub(crate) mod fs;
+pub(crate) mod gb_repository;
+pub(crate) mod git;
+pub(crate) mod github;
+pub(crate) mod keys;
+pub(crate) mod lock;
+pub(crate) mod logs;
+pub(crate) mod menu;
+pub(crate) mod project_repository;
+pub(crate) mod projects;
+pub(crate) mod reader;
+pub(crate) mod sentry;
+pub(crate) mod sessions;
+pub(crate) mod ssh;
+pub(crate) mod storage;
+pub(crate) mod types;
+pub(crate) mod users;
+pub(crate) mod virtual_branches;
+pub(crate) mod watcher;
+#[cfg(target_os = "windows")]
+pub(crate) mod windows;
+pub(crate) mod writer;
+pub(crate) mod zip;
+
+#[cfg(test)]
+pub(crate) mod tests;
+
+#[deprecated = "use `gitbutler-core` instead"]
+pub(crate) mod id {
+    #[deprecated = "use `gitbutler-core` instead"]
+    pub use gitbutler_core::id::Id;
+}
+
 use std::path::PathBuf;
 
 use anyhow::Context;
 use tauri::{generate_context, Manager, Wry};
 
-use gblib::{
-    analytics, app, assets, commands, database, deltas, github, keys, logs, menu, projects, sentry,
-    sessions, storage, users, virtual_branches, watcher, zip,
-};
 use tauri_plugin_log::LogTarget;
 use tauri_plugin_store::{with_store, JsonValue, StoreCollection};
 

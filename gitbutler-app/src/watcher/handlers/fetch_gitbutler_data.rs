@@ -167,7 +167,7 @@ mod test {
 
     use pretty_assertions::assert_eq;
 
-    use crate::test_utils::{Case, Suite};
+    use crate::tests::{Case, Suite};
 
     use super::super::test_remote_repository;
     use super::*;

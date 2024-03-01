@@ -103,7 +103,7 @@ impl Signature {
             let right = right >> SHIFT;
             let index = ((left as usize) << BITS) | (right as usize);
             if self_buckets[index] > 0 {
-                self_buckets[index] = self_buckets[index] - 1;
+                self_buckets[index] -= 1;
                 matching_bigrams += 1;
             }
         }

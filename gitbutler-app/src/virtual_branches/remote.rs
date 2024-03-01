@@ -159,17 +159,17 @@ pub fn branch_to_remote_branch_data(
                 commits: ahead
                     .into_iter()
                     .map(|commit| commit_to_remote_commit(&commit))
-                    .collect::<Result<Vec<_>>>()?,
+                    .collect::<Vec<_>>(),
             })
         })
         .transpose()
 }
 
-pub fn commit_to_remote_commit(commit: &git::Commit) -> Result<RemoteCommit> {
-    Ok(RemoteCommit {
+pub fn commit_to_remote_commit(commit: &git::Commit) -> RemoteCommit {
+    RemoteCommit {
         id: commit.id().to_string(),
         description: commit.message().unwrap_or_default().to_string(),
         created_at: commit.time().seconds().try_into().unwrap(),
         author: commit.author().into(),
-    })
+    }
 }
