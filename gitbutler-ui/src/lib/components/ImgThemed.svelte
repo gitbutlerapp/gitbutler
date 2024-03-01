@@ -27,4 +27,12 @@
 	});
 </script>
 
-<img src={imgSrc} alt="Decorative Art" class="inline-block" />
+<img src={imgSrc} alt="Decorative Art" class="themed-image" />
+
+<style>
+	.themed-image {
+		display: inline-block;
+		-webkit-user-drag: none;
+		user-select: none;
+	}
+</style>
