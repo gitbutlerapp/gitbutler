@@ -347,10 +347,9 @@ pub async fn reset_files(handle: AppHandle, project_id: &str, files: &str) -> Re
     })?;
     // convert files to Vec<String>
     let files = files
-        .split("\n")
-        .map(|s| s.to_string())
+        .split('\n')
+        .map(std::string::ToString::to_string)
         .collect::<Vec<String>>();
-    dbg!(files.clone());
     handle
         .state::<Controller>()
         .reset_files(&project_id, &files)

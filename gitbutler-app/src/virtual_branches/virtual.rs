@@ -565,12 +565,11 @@ pub fn unapply_ownership(
     Ok(())
 }
 
+// reset a file in the project to the index state
 pub fn reset_files(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     files: &Vec<String>,
 ) -> Result<(), errors::UnapplyOwnershipError> {
-    dbg!("reset_files");
     if conflicts::is_resolving(project_repository) {
         return Err(errors::UnapplyOwnershipError::Conflict(
             errors::ProjectConflictError {
@@ -579,32 +578,23 @@ pub fn reset_files(
         ));
     }
 
-    let repo = &project_repository.git_repository;
-
     // for each tree, we need to checkout the entry from the index at that path
+    // or if it doesn't exist, remove the file from the working directory
+    let repo = &project_repository.git_repository;
     let index = repo.index().context("failed to get index")?;
-
-    // put together a checkoutbuilder for each file
-
     for file in files {
         let entry = index.get_path(path::Path::new(file), 0);
-        match entry {
-            Some(entry) => {
-                dbg!(&entry);
-                repo.checkout_index_path(path::Path::new(file))
-                    .context("failed to checkout index")?;
-            }
-            None => {
-                dbg!("new file, just delete it");
-                // find the project root
-                let project_root = &project_repository.project().path;
-                let path = path::Path::new(file);
-                //combine the project root with the file path
-                let path = &project_root.join(path);
-                std::fs::remove_file(&path).context("failed to remove file")?;
-            }
+        if let Some(entry) = entry {
+            repo.checkout_index_path(path::Path::new(file))
+                .context("failed to checkout index")?;
+        } else {
+            // find the project root
+            let project_root = &project_repository.project().path;
+            let path = path::Path::new(file);
+            //combine the project root with the file path
+            let path = &project_root.join(path);
+            std::fs::remove_file(path).context("failed to remove file")?;
         }
-        dbg!(file);
     }
 
     Ok(())
