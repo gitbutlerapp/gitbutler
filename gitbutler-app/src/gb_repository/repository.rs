@@ -32,8 +32,6 @@ pub struct Repository {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("project not found")]
-    ProjectNotFound,
     #[error("path not found: {0}")]
     ProjectPathNotFound(path::PathBuf),
     #[error(transparent)]

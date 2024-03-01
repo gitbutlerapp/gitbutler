@@ -97,8 +97,6 @@ pub enum UnapplyOwnershipError {
 pub enum UnapplyBranchError {
     #[error("default target not set")]
     DefaultTargetNotSet(DefaultTargetNotSetError),
-    #[error("project is in conflict state")]
-    Conflict(ProjectConflictError),
     #[error("branch not found")]
     BranchNotFound(BranchNotFoundError),
     #[error(transparent)]
@@ -107,8 +105,6 @@ pub enum UnapplyBranchError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum FlushAppliedVbranchesError {
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -135,8 +131,6 @@ pub enum MergeVirtualBranchUpstreamError {
     Conflict(ProjectConflictError),
     #[error("branch not found")]
     BranchNotFound(BranchNotFoundError),
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -342,8 +336,6 @@ pub enum UpdateBaseBranchError {
 pub enum MoveCommitError {
     #[error("source branch contains hunks locked to the target commit")]
     SourceLocked,
-    #[error("branch not applied")]
-    NotApllied,
     #[error("project is in conflicted state")]
     Conflicted(ProjectConflictError),
     #[error("default target not set")]
@@ -361,10 +353,6 @@ impl From<MoveCommitError> for crate::error::Error {
         match value {
             MoveCommitError::SourceLocked => Error::UserError {
                 message: "Source branch contains hunks locked to the target commit".to_string(),
-                code: crate::error::Code::Branches,
-            },
-            MoveCommitError::NotApllied => Error::UserError {
-                message: "Branch not applied".to_string(),
                 code: crate::error::Code::Branches,
             },
             MoveCommitError::Conflicted(error) => error.into(),
@@ -388,8 +376,6 @@ pub enum CreateVirtualBranchFromBranchError {
     ApplyBranch(ApplyBranchError),
     #[error("can't make branch from default target")]
     CantMakeBranchFromDefaultTarget,
-    #[error("merge conflict")]
-    MergeConflict,
     #[error("default target not set")]
     DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error("{0} not found")]
@@ -478,10 +464,6 @@ impl From<CreateVirtualBranchFromBranchError> for Error {
                 }
             }
             CreateVirtualBranchFromBranchError::DefaultTargetNotSet(error) => error.into(),
-            CreateVirtualBranchFromBranchError::MergeConflict => Error::UserError {
-                message: "Merge conflict".to_string(),
-                code: crate::error::Code::Branches,
-            },
             CreateVirtualBranchFromBranchError::BranchNotFound(name) => Error::UserError {
                 message: format!("Branch {} not found", name),
                 code: crate::error::Code::Branches,
@@ -643,7 +625,6 @@ impl From<SetBaseBranchError> for Error {
 impl From<MergeVirtualBranchUpstreamError> for Error {
     fn from(value: MergeVirtualBranchUpstreamError) -> Self {
         match value {
-            MergeVirtualBranchUpstreamError::DefaultTargetNotSet(error) => error.into(),
             MergeVirtualBranchUpstreamError::BranchNotFound(error) => error.into(),
             MergeVirtualBranchUpstreamError::Conflict(error) => error.into(),
             MergeVirtualBranchUpstreamError::Other(error) => {
@@ -723,7 +704,6 @@ impl From<ResetBranchError> for Error {
 impl From<UnapplyBranchError> for Error {
     fn from(value: UnapplyBranchError) -> Self {
         match value {
-            UnapplyBranchError::Conflict(error) => error.into(),
             UnapplyBranchError::DefaultTargetNotSet(error) => error.into(),
             UnapplyBranchError::BranchNotFound(error) => error.into(),
             UnapplyBranchError::Other(error) => {
@@ -751,7 +731,6 @@ impl From<PushError> for Error {
 impl From<FlushAppliedVbranchesError> for Error {
     fn from(value: FlushAppliedVbranchesError) -> Self {
         match value {
-            FlushAppliedVbranchesError::DefaultTargetNotSet(error) => error.into(),
             FlushAppliedVbranchesError::Other(error) => {
                 tracing::error!(?error, "flush workspace error");
                 Error::Unknown

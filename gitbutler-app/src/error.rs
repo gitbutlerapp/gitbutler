@@ -7,9 +7,6 @@ pub mod gb {
     #[cfg(feature = "error-context")]
     pub use error_context::*;
 
-    #[cfg(feature = "sentry")]
-    pub use super::sentry::*;
-
     #[cfg(feature = "error-context")]
     mod error_context {
         use super::{ErrorKind, Result, WithContext};

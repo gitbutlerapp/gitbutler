@@ -629,6 +629,8 @@ pub async fn move_commit(
     Ok(())
 }
 
+// XXX(qix-): Is this command used?
+#[allow(dead_code)]
 pub async fn update_commit_message(
     handle: tauri::AppHandle,
     project_id: &str,
