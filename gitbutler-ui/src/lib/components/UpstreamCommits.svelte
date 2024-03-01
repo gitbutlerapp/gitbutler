@@ -3,10 +3,12 @@
 	import Button from '$lib/components/Button.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableRemoteCommit } from '$lib/dragging/draggables';
+	import type { Project } from '$lib/backend/projects';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, LocalFile, RemoteBranchData } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
+	export let project: Project | undefined;
 	export let branchId: string;
 	export let projectId: string;
 	export let branchCount: number;
@@ -30,6 +32,7 @@
 				<div use:draggable={draggableRemoteCommit(branchId, commit)}>
 					<CommitCard
 						{commit}
+						{project}
 						{projectId}
 						commitUrl={base?.commitUrl(commit.id)}
 						{branchController}

@@ -4,10 +4,12 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { tooltip } from '$lib/utils/tooltip';
+	import type { Project } from '$lib/backend/projects';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
+	export let project: Project | undefined;
 	export let base: BaseBranch;
 	export let projectId: string;
 	export let branchController: BranchController;
@@ -52,6 +54,7 @@
 				{#each base.upstreamCommits as commit}
 					<CommitCard
 						{commit}
+						{project}
 						{projectId}
 						{selectedFiles}
 						{branchController}
@@ -76,6 +79,7 @@
 		{#each base.recentCommits as commit}
 			<CommitCard
 				{commit}
+				{project}
 				{projectId}
 				{selectedFiles}
 				{branchController}

@@ -141,6 +141,7 @@
 		<CommitCard
 			{commit}
 			projectId={project.id}
+			{project}
 			commitUrl={base?.commitUrl(commit.id)}
 			{isHeadCommit}
 			{resetHeadCommit}

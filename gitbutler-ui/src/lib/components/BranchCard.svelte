@@ -219,6 +219,7 @@
 					<UpstreamCommits
 						upstream={upstreamData}
 						branchId={branch.id}
+						{project}
 						{branchController}
 						{branchCount}
 						projectId={project.id}
@@ -276,6 +277,7 @@
 								files={branch.files}
 								{isUnapplied}
 								{branchController}
+								{project}
 								{selectedOwnership}
 								{selectedFiles}
 								showCheckboxes={$commitBoxOpen}
