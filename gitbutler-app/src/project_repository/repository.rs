@@ -208,6 +208,7 @@ impl Repository {
                 }
                 Ok(oids)
             }
+            #[cfg(test)]
             LogUntil::End => {
                 let mut revwalk = self
                     .git_repository
@@ -484,5 +485,6 @@ pub enum LogUntil {
     Commit(git::Oid),
     Take(usize),
     When(Box<OidFilter>),
+    #[cfg(test)]
     End,
 }
