@@ -5,11 +5,11 @@
 	import Spacer from './Spacer.svelte';
 	import TextBox from './TextBox.svelte';
 	import { invoke } from '$lib/backend/ipc';
-	import { open } from '@tauri-apps/api/shell';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { debounce } from '$lib/utils/debounce';
+	import { open } from '@tauri-apps/api/shell';
 	import { createEventDispatcher } from 'svelte';
 	import type { Key, Project } from '$lib/backend/projects';
 
