@@ -417,7 +417,7 @@ impl Helper {
 mod tests {
     use super::*;
 
-    use crate::test_utils::{self, test_repository};
+    use crate::tests::{self, test_repository};
 
     #[derive(Default)]
     struct TestCase<'a> {
@@ -429,7 +429,7 @@ mod tests {
 
     impl TestCase<'_> {
         fn run(&self) -> Vec<(String, Vec<Credential>)> {
-            let local_app_data = test_utils::temp_dir();
+            let local_app_data = tests::temp_dir();
 
             let users = users::Controller::try_from(&local_app_data).unwrap();
             let user = users::User {

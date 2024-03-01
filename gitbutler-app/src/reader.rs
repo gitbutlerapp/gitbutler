@@ -447,11 +447,11 @@ mod tests {
 
     use anyhow::Result;
 
-    use crate::test_utils;
+    use crate::tests;
 
     #[test]
     fn test_directory_reader_read_file() -> Result<()> {
-        let dir = test_utils::temp_dir();
+        let dir = tests::temp_dir();
 
         let file_path = path::Path::new("test.txt");
         std::fs::write(dir.join(file_path), "test")?;
@@ -464,12 +464,12 @@ mod tests {
 
     #[test]
     fn test_commit_reader_read_file() -> Result<()> {
-        let repository = test_utils::test_repository();
+        let repository = tests::test_repository();
 
         let file_path = path::Path::new("test.txt");
         std::fs::write(repository.path().parent().unwrap().join(file_path), "test")?;
 
-        let oid = test_utils::commit_all(&repository);
+        let oid = tests::commit_all(&repository);
 
         std::fs::write(repository.path().parent().unwrap().join(file_path), "test2")?;
 
@@ -481,7 +481,7 @@ mod tests {
 
     #[test]
     fn test_reader_list_files_should_return_relative() -> Result<()> {
-        let dir = test_utils::temp_dir();
+        let dir = tests::temp_dir();
 
         std::fs::write(dir.join("test1.txt"), "test")?;
         std::fs::create_dir_all(dir.join("dir"))?;
@@ -497,7 +497,7 @@ mod tests {
 
     #[test]
     fn test_reader_list_files() -> Result<()> {
-        let dir = test_utils::temp_dir();
+        let dir = tests::temp_dir();
 
         std::fs::write(dir.join("test.txt"), "test")?;
         std::fs::create_dir_all(dir.join("dir"))?;
@@ -514,7 +514,7 @@ mod tests {
 
     #[test]
     fn test_commit_reader_list_files_should_return_relative() -> Result<()> {
-        let repository = test_utils::test_repository();
+        let repository = tests::test_repository();
 
         std::fs::write(
             repository.path().parent().unwrap().join("test1.txt"),
@@ -531,7 +531,7 @@ mod tests {
             "test",
         )?;
 
-        let oid = test_utils::commit_all(&repository);
+        let oid = tests::commit_all(&repository);
 
         std::fs::remove_dir_all(repository.path().parent().unwrap().join("dir"))?;
 
@@ -545,7 +545,7 @@ mod tests {
 
     #[test]
     fn test_commit_reader_list_files() -> Result<()> {
-        let repository = test_utils::test_repository();
+        let repository = tests::test_repository();
 
         std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
         std::fs::create_dir_all(repository.path().parent().unwrap().join("dir"))?;
@@ -559,7 +559,7 @@ mod tests {
             "test",
         )?;
 
-        let oid = test_utils::commit_all(&repository);
+        let oid = tests::commit_all(&repository);
 
         std::fs::remove_dir_all(repository.path().parent().unwrap().join("dir"))?;
 
@@ -574,7 +574,7 @@ mod tests {
 
     #[test]
     fn test_directory_reader_exists() -> Result<()> {
-        let dir = test_utils::temp_dir();
+        let dir = tests::temp_dir();
 
         std::fs::write(dir.join("test.txt"), "test")?;
 
@@ -587,11 +587,11 @@ mod tests {
 
     #[test]
     fn test_commit_reader_exists() -> Result<()> {
-        let repository = test_utils::test_repository();
+        let repository = tests::test_repository();
 
         std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
 
-        let oid = test_utils::commit_all(&repository);
+        let oid = tests::commit_all(&repository);
 
         std::fs::remove_file(repository.path().parent().unwrap().join("test.txt"))?;
 

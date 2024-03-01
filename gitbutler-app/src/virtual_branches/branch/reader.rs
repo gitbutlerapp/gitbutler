@@ -27,7 +27,7 @@ mod tests {
 
     use crate::{
         sessions,
-        test_utils::{Case, Suite},
+        tests::{Case, Suite},
         virtual_branches::branch::Ownership,
     };
 

@@ -201,7 +201,7 @@ mod test {
 
     use crate::{
         deltas, sessions,
-        test_utils::{self, Case, Suite},
+        tests::{self, Case, Suite},
         virtual_branches::{self, branch},
     };
 
@@ -613,7 +613,7 @@ mod test {
                 i.to_string(),
             )?;
 
-            test_utils::commit_all(&project_repository.git_repository);
+            tests::commit_all(&project_repository.git_repository);
             listener.handle(relative_file_path, &project.id)?;
             assert!(gb_repository.flush(&project_repository, None)?.is_some());
         }

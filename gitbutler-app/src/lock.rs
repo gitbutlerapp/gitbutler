@@ -54,7 +54,7 @@ impl Inner {
 mod tests {
     use super::*;
 
-    use crate::test_utils::temp_dir;
+    use crate::tests::temp_dir;
 
     #[tokio::test]
     async fn test_lock_same_instance() {

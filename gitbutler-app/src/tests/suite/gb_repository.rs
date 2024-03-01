@@ -1,7 +1,7 @@
-mod common;
-
-use self::common::{paths, TestProject};
-use gblib::{gb_repository, git, project_repository, projects};
+use crate::{
+    gb_repository, git, project_repository, projects,
+    tests::common::{paths, TestProject},
+};
 use std::path;
 
 mod init {

@@ -331,13 +331,13 @@ pub fn reverse_hunk(hunk: &Hunk) -> Option<Hunk> {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils;
+    use crate::tests;
 
     use super::*;
 
     #[test]
     fn diff_simple_text() {
-        let repository = test_utils::test_repository();
+        let repository = tests::test_repository();
         std::fs::write(repository.workdir().unwrap().join("file"), "hello").unwrap();
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
@@ -360,7 +360,7 @@ mod tests {
 
     #[test]
     fn diff_empty_file() {
-        let repository = test_utils::test_repository();
+        let repository = tests::test_repository();
         std::fs::write(repository.workdir().unwrap().join("first"), "").unwrap();
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
@@ -383,7 +383,7 @@ mod tests {
 
     #[test]
     fn diff_multiple_empty_files() {
-        let repository = test_utils::test_repository();
+        let repository = tests::test_repository();
         std::fs::write(repository.workdir().unwrap().join("first"), "").unwrap();
         std::fs::write(repository.workdir().unwrap().join("second"), "").unwrap();
 
@@ -419,7 +419,7 @@ mod tests {
 
     #[test]
     fn diff_binary() {
-        let repository = test_utils::test_repository();
+        let repository = tests::test_repository();
         std::fs::write(
             repository.workdir().unwrap().join("image"),
             [
@@ -450,7 +450,7 @@ mod tests {
 
     #[test]
     fn diff_some_lines_are_binary() {
-        let repository = test_utils::test_repository();
+        let repository = tests::test_repository();
         std::fs::write(
             repository.workdir().unwrap().join("file"),
             [

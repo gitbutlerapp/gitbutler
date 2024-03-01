@@ -82,67 +82,70 @@ impl Dispatcher {
         tracing::debug!(%project_id, "file watcher started");
 
         let (tx, rx) = channel(1);
-        task::Builder::new()
-            .name(&format!("{} file watcher", project_id))
-            .spawn_blocking({
-                let path = path.to_path_buf();
-                let project_id = *project_id;
-                move || {
-                    for result in notify_rx {
-                        match result {
-                            Err(errors) => {
-                                tracing::error!(?errors, "file watcher error");
-                            }
-                            Ok(events) => {
-                                let file_paths = events.into_iter().filter(|event| is_interesting_kind(event.kind)).flat_map(|event| event.paths.clone()).filter(|file| is_interesting_file(&repo, file));
-                                for file_path in file_paths {
-                                    match file_path.strip_prefix(&path) {
-                                        Ok(relative_file_path) if relative_file_path.display().to_string().is_empty() => { /* noop */ }
-                                        Ok(relative_file_path) => {
-                                            let event = if relative_file_path.starts_with(".git") {
-                                                tracing::info!(
-                                                    %project_id,
-                                                    file_path = %relative_file_path.display(),
-                                                    "git file change",
-                                                );
-                                                events::Event::GitFileChange(
-                                                    project_id,
-                                                    relative_file_path
-                                                        .strip_prefix(".git")
-                                                        .unwrap()
-                                                        .to_path_buf(),
-                                                )
-                                            } else {
-                                                tracing::info!(
-                                                    %project_id,
-                                                    file_path = %relative_file_path.display(),
-                                                    "project file change",
-                                                );
-                                                events::Event::ProjectFileChange(
-                                                    project_id,
-                                                    relative_file_path.to_path_buf(),
-                                                )
-                                            };
-                                            if let Err(error) = block_on(tx.send(event)) {
-                                                tracing::error!(
-                                                    %project_id,
-                                                    ?error,
-                                                    "failed to send file change event",
-                                                );
-                                            }
+        task::spawn_blocking({
+            let path = path.to_path_buf();
+            let project_id = *project_id;
+            move || {
+                for result in notify_rx {
+                    match result {
+                        Err(errors) => {
+                            tracing::error!(?errors, "file watcher error");
+                        }
+                        Ok(events) => {
+                            let file_paths = events
+                                .into_iter()
+                                .filter(|event| is_interesting_kind(event.kind))
+                                .flat_map(|event| event.paths.clone())
+                                .filter(|file| is_interesting_file(&repo, file));
+                            for file_path in file_paths {
+                                match file_path.strip_prefix(&path) {
+                                    Ok(relative_file_path)
+                                        if relative_file_path.display().to_string().is_empty() =>
+                                    { /* noop */ }
+                                    Ok(relative_file_path) => {
+                                        let event = if relative_file_path.starts_with(".git") {
+                                            tracing::info!(
+                                                %project_id,
+                                                file_path = %relative_file_path.display(),
+                                                "git file change",
+                                            );
+                                            events::Event::GitFileChange(
+                                                project_id,
+                                                relative_file_path
+                                                    .strip_prefix(".git")
+                                                    .unwrap()
+                                                    .to_path_buf(),
+                                            )
+                                        } else {
+                                            tracing::info!(
+                                                %project_id,
+                                                file_path = %relative_file_path.display(),
+                                                "project file change",
+                                            );
+                                            events::Event::ProjectFileChange(
+                                                project_id,
+                                                relative_file_path.to_path_buf(),
+                                            )
+                                        };
+                                        if let Err(error) = block_on(tx.send(event)) {
+                                            tracing::error!(
+                                                %project_id,
+                                                ?error,
+                                                "failed to send file change event",
+                                            );
                                         }
-                                        Err(error) => {
-                                            tracing::error!(%project_id, ?error, "failed to strip prefix");
-                                        }
+                                    }
+                                    Err(error) => {
+                                        tracing::error!(%project_id, ?error, "failed to strip prefix");
+                                    }
                                 }
                             }
+                        }
                     }
                 }
-                }
-                    tracing::debug!(%project_id, "file watcher stopped");
-                }
-
-            }).context(format!("{}: failed to start file watcher thread", project_id))?;
+                tracing::debug!(%project_id, "file watcher stopped");
+            }
+        });
 
         Ok(rx)
     }
