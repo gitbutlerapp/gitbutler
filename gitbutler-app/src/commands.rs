@@ -99,9 +99,9 @@ pub async fn mark_resolved(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(handle))]
+#[instrument]
 pub async fn git_set_global_config(
-    handle: tauri::AppHandle,
+    _handle: tauri::AppHandle,
     key: &str,
     value: &str,
 ) -> Result<String, Error> {
@@ -110,9 +110,9 @@ pub async fn git_set_global_config(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(handle))]
+#[instrument]
 pub async fn git_get_global_config(
-    handle: tauri::AppHandle,
+    _handle: tauri::AppHandle,
     key: &str,
 ) -> Result<Option<String>, Error> {
     let result = app::App::git_get_global_config(key)?;

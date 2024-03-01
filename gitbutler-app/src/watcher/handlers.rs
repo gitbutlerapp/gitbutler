@@ -24,7 +24,6 @@ use super::events;
 pub struct Handler {
     git_file_change_handler: git_file_change::Handler,
     flush_session_handler: flush_session::Handler,
-    fetch_project_handler: fetch_project_data::Handler,
     fetch_gitbutler_handler: fetch_gitbutler_data::Handler,
     push_gitbutler_handler: push_gitbutler_data::Handler,
     analytics_handler: analytics_handler::Handler,
@@ -47,7 +46,6 @@ impl TryFrom<&AppHandle> for Handler {
             let handler = Handler::new(
                 git_file_change::Handler::try_from(value)?,
                 flush_session::Handler::try_from(value)?,
-                fetch_project_data::Handler::try_from(value)?,
                 fetch_gitbutler_data::Handler::try_from(value)?,
                 push_gitbutler_data::Handler::try_from(value)?,
                 analytics_handler::Handler::try_from(value)?,
@@ -69,7 +67,6 @@ impl Handler {
     fn new(
         git_file_change_handler: git_file_change::Handler,
         flush_session_handler: flush_session::Handler,
-        fetch_project_handler: fetch_project_data::Handler,
         fetch_gitbutler_handler: fetch_gitbutler_data::Handler,
         push_gitbutler_handler: push_gitbutler_data::Handler,
         analytics_handler: analytics_handler::Handler,
@@ -83,7 +80,6 @@ impl Handler {
         Self {
             git_file_change_handler,
             flush_session_handler,
-            fetch_project_handler,
             fetch_gitbutler_handler,
             push_gitbutler_handler,
             analytics_handler,
@@ -136,12 +132,6 @@ impl Handler {
                 .handle(project_id, &now)
                 .await
                 .context("failed to fetch gitbutler data"),
-
-            events::Event::FetchProjectData(project_id) => self
-                .fetch_project_handler
-                .handle(project_id)
-                .await
-                .context("failed to fetch project data"),
 
             events::Event::Flush(project_id, session) => self
                 .flush_session_handler

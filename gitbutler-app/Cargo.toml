@@ -64,7 +64,7 @@ tauri-plugin-store = { git = "https://github.com/tauri-apps/plugins-workspace", 
 tauri-plugin-log = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 log = "^0.4"
 thiserror.workspace = true
-tokio = { workspace = true, features = [ "full", "sync", "tracing" ] }
+tokio = { workspace = true, features = [ "full", "sync" ] }
 tokio-util = "0.7.10"
 tracing = "0.1.40"
 tracing-appender = "0.2.3"

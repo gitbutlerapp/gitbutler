@@ -1,5 +1,4 @@
 use crate::git::diff;
-use anyhow::Result;
 
 pub fn hunk_with_context(
     hunk_diff: &str,
