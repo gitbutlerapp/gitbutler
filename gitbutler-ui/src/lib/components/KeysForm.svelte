@@ -5,6 +5,7 @@
 	import Spacer from './Spacer.svelte';
 	import TextBox from './TextBox.svelte';
 	import { invoke } from '$lib/backend/ipc';
+	import { open } from '@tauri-apps/api/shell';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
