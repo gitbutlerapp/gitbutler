@@ -2,7 +2,6 @@ mod analytics_handler;
 mod calculate_deltas_handler;
 mod caltulate_virtual_branches_handler;
 mod fetch_gitbutler_data;
-mod fetch_project_data;
 mod filter_ignored_files;
 mod flush_session;
 mod git_file_change;

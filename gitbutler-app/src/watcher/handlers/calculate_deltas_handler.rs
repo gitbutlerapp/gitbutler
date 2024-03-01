@@ -200,7 +200,8 @@ mod test {
     use once_cell::sync::Lazy;
 
     use crate::{
-        deltas, sessions,
+        deltas::{self, operations::Operation},
+        sessions,
         tests::{self, Case, Suite},
         virtual_branches::{self, branch},
     };
@@ -290,7 +291,7 @@ mod test {
         assert_eq!(deltas[0].operations.len(), 1);
         assert_eq!(
             deltas[0].operations[0],
-            deltas::Operation::Insert((4, "2".to_string())),
+            Operation::Insert((4, "2".to_string())),
         );
         assert_eq!(
             std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
@@ -423,7 +424,7 @@ mod test {
         assert_eq!(deltas[0].operations.len(), 1);
         assert_eq!(
             deltas[0].operations[0],
-            deltas::Operation::Insert((0, "test".to_string())),
+            Operation::Insert((0, "test".to_string())),
         );
         assert_eq!(
             std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
@@ -483,7 +484,7 @@ mod test {
         assert_eq!(deltas[0].operations.len(), 1);
         assert_eq!(
             deltas[0].operations[0],
-            deltas::Operation::Insert((0, "test".to_string())),
+            Operation::Insert((0, "test".to_string())),
         );
         assert_eq!(
             std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
@@ -498,12 +499,12 @@ mod test {
         assert_eq!(deltas[0].operations.len(), 1);
         assert_eq!(
             deltas[0].operations[0],
-            deltas::Operation::Insert((0, "test".to_string())),
+            Operation::Insert((0, "test".to_string())),
         );
         assert_eq!(deltas[1].operations.len(), 1);
         assert_eq!(
             deltas[1].operations[0],
-            deltas::Operation::Insert((4, "2".to_string())),
+            Operation::Insert((4, "2".to_string())),
         );
         assert_eq!(
             std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
@@ -540,7 +541,7 @@ mod test {
             assert_eq!(deltas[0].operations.len(), 1);
             assert_eq!(
                 deltas[0].operations[0],
-                deltas::Operation::Insert((0, "test".to_string())),
+                Operation::Insert((0, "test".to_string())),
             );
             assert_eq!(
                 std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
@@ -576,7 +577,7 @@ mod test {
             let deltas = deltas_reader.read_file("test.txt")?.unwrap();
             assert_eq!(deltas.len(), 1);
             assert_eq!(deltas[0].operations.len(), 1);
-            assert_eq!(deltas[0].operations[0], deltas::Operation::Delete((0, 4)),);
+            assert_eq!(deltas[0].operations[0], Operation::Delete((0, 4)),);
         }
 
         gb_repository.flush(&project_repository, None)?;
@@ -640,7 +641,7 @@ mod test {
             let sessions_slice = &mut sessions[i..];
 
             // collect all operations from sessions in the reverse order
-            let mut operations: Vec<deltas::Operation> = vec![];
+            let mut operations: Vec<Operation> = vec![];
             for session in &mut *sessions_slice {
                 let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
                 let deltas_reader = deltas::Reader::new(&session_reader);
@@ -726,7 +727,7 @@ mod test {
             let sessions_slice = &mut sessions[i..];
 
             // collect all operations from sessions in the reverse order
-            let mut operations: Vec<deltas::Operation> = vec![];
+            let mut operations: Vec<Operation> = vec![];
             for session in &mut *sessions_slice {
                 let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
                 let deltas_reader = deltas::Reader::new(&session_reader);
@@ -789,7 +790,7 @@ mod test {
         }
 
         // collect all operations from sessions in the reverse order
-        let mut operations: Vec<deltas::Operation> = vec![];
+        let mut operations: Vec<Operation> = vec![];
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session).unwrap();
         let deltas_reader = deltas::Reader::new(&session_reader);

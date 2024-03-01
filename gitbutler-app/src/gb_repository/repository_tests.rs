@@ -4,8 +4,8 @@ use anyhow::Result;
 use pretty_assertions::assert_eq;
 
 use crate::{
-    deltas,
-    projects::{self, ProjectId},
+    deltas::{self, operations::Operation},
+    projects::{self, ApiProject, ProjectId},
     reader,
     sessions::{self, SessionId},
     tests::{Case, Suite},
@@ -100,7 +100,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
-            operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
+            operations: vec![Operation::Insert((0, "Hello World".to_string()))],
             timestamp_ms: 0,
         }],
     )?;
@@ -116,7 +116,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
     );
     assert_eq!(
         deltas[&path::PathBuf::from("test.txt")][0].operations[0],
-        deltas::Operation::Insert((0, "Hello World".to_string()))
+        Operation::Insert((0, "Hello World".to_string()))
     );
 
     Ok(())
@@ -134,7 +134,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
-            operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
+            operations: vec![Operation::Insert((0, "Hello World".to_string()))],
             timestamp_ms: 0,
         }],
     )?;
@@ -151,7 +151,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     );
     assert_eq!(
         deltas[&path::PathBuf::from("test.txt")][0].operations[0],
-        deltas::Operation::Insert((0, "Hello World".to_string()))
+        Operation::Insert((0, "Hello World".to_string()))
     );
 
     Ok(())
@@ -206,7 +206,7 @@ fn test_list_files_from_flushed_session() -> Result<()> {
 async fn test_remote_syncronization() -> Result<()> {
     // first, crate a remote, pretending it's a cloud
     let cloud = test_remote_repository()?;
-    let api_project = projects::ApiProject {
+    let api_project = ApiProject {
         name: "test-sync".to_string(),
         description: None,
         repository_id: "123".to_string(),
@@ -239,7 +239,7 @@ async fn test_remote_syncronization() -> Result<()> {
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
-            operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
+            operations: vec![Operation::Insert((0, "Hello World".to_string()))],
             timestamp_ms: 0,
         }],
     )?;
@@ -285,7 +285,7 @@ async fn test_remote_syncronization() -> Result<()> {
     assert_eq!(
         deltas[&path::PathBuf::from("test.txt")],
         vec![deltas::Delta {
-            operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
+            operations: vec![Operation::Insert((0, "Hello World".to_string()))],
             timestamp_ms: 0,
         }]
     );

@@ -417,6 +417,7 @@ impl Repository {
         }
     }
 
+    #[cfg(test)]
     pub fn flush(
         &self,
         project_repository: &project_repository::Repository,

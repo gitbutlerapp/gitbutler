@@ -81,6 +81,7 @@ mod tests {
     };
 
     use super::*;
+    use deltas::operations::Operation;
 
     #[test]
     fn write_no_vbranches() -> Result<()> {
@@ -95,11 +96,11 @@ mod tests {
         let path = "test.txt";
         let deltas = vec![
             deltas::Delta {
-                operations: vec![deltas::Operation::Insert((0, "hello".to_string()))],
+                operations: vec![Operation::Insert((0, "hello".to_string()))],
                 timestamp_ms: 0,
             },
             deltas::Delta {
-                operations: vec![deltas::Operation::Insert((5, " world".to_string()))],
+                operations: vec![Operation::Insert((5, " world".to_string()))],
                 timestamp_ms: 0,
             },
         ];
