@@ -8,7 +8,7 @@ use crate::{
     projects::{self, ProjectId},
     reader,
     sessions::{self, SessionId},
-    test_utils::{Case, Suite},
+    tests::{Case, Suite},
 };
 
 fn test_remote_repository() -> Result<git2::Repository> {

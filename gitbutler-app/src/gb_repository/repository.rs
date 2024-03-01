@@ -969,7 +969,7 @@ mod test {
     use anyhow::Result;
     use pretty_assertions::assert_eq;
 
-    use crate::test_utils::{Case, Suite};
+    use crate::tests::{Case, Suite};
 
     #[test]
     fn test_alternates_file_being_set() -> Result<()> {

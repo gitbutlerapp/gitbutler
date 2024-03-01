@@ -132,7 +132,7 @@ mod test {
     use pretty_assertions::assert_eq;
 
     use crate::{
-        test_utils::{Case, Suite},
+        tests::{Case, Suite},
         watcher::handlers,
     };
 

@@ -198,13 +198,13 @@ fn insert_stmt<'conn>(
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils;
+    use crate::tests;
 
     use super::*;
 
     #[test]
     fn test_insert_query() -> Result<()> {
-        let db = test_utils::test_database();
+        let db = tests::test_database();
         println!("0");
         let database = Database::new(db);
         println!("1");
@@ -247,7 +247,7 @@ mod tests {
 
     #[test]
     fn test_update() -> Result<()> {
-        let db = test_utils::test_database();
+        let db = tests::test_database();
         let database = Database::new(db);
 
         let project_id = ProjectId::generate();

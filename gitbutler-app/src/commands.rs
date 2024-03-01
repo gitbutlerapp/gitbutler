@@ -105,8 +105,7 @@ pub async fn git_set_global_config(
     key: &str,
     value: &str,
 ) -> Result<String, Error> {
-    let app = handle.state::<app::App>();
-    let result = app.git_set_global_config(key, value)?;
+    let result = app::App::git_set_global_config(key, value)?;
     Ok(result)
 }
 
@@ -116,8 +115,7 @@ pub async fn git_get_global_config(
     handle: tauri::AppHandle,
     key: &str,
 ) -> Result<Option<String>, Error> {
-    let app = handle.state::<app::App>();
-    let result = app.git_get_global_config(key)?;
+    let result = app::App::git_get_global_config(key)?;
     Ok(result)
 }
 

@@ -59,7 +59,7 @@ mod tests {
     #[cfg(target_family = "unix")]
     use std::os::unix::prelude::*;
 
-    use crate::test_utils::Suite;
+    use crate::tests::Suite;
 
     use super::*;
 

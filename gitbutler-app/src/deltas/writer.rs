@@ -77,7 +77,7 @@ mod tests {
 
     use crate::{
         deltas, sessions,
-        test_utils::{Case, Suite},
+        tests::{Case, Suite},
     };
 
     use super::*;
