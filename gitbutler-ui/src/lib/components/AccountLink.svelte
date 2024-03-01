@@ -5,22 +5,25 @@
 
 	export let user: User | undefined;
 	export let pop = false;
+	export let isNavCollapsed = false;
 </script>
 
-<button class="btn" class:pop on:click={() => goto('/settings/')}>
-	<span class="name text-base-13 text-semibold">
-		{#if user}
-			{#if user.name}
-				{user.name}
-			{:else if user.given_name}
-				{user.given_name}
-			{:else if user.email}
-				{user.email}
+<button class="btn" class:pop on:click={() => goto('/settings/')} class:collapsed={isNavCollapsed}>
+	{#if !isNavCollapsed}
+		<span class="name text-base-13 text-semibold">
+			{#if user}
+				{#if user.name}
+					{user.name}
+				{:else if user.given_name}
+					{user.given_name}
+				{:else if user.email}
+					{user.email}
+				{/if}
+			{:else}
+				Account
 			{/if}
-		{:else}
-			Account
-		{/if}
-	</span>
+		</span>
+	{/if}
 	{#if user?.picture}
 		<img class="profile-picture" src={user.picture} alt="Avatar" />
 	{:else}
@@ -29,8 +32,6 @@
 		</div>
 	{/if}
 </button>
-
-<!-- REMOVE IF IT'S NOT NEEDED -->
 
 <style lang="postcss">
 	.btn {
@@ -92,5 +93,18 @@
 		padding: var(--space-2);
 		background: var(--clr-theme-pop-element);
 		color: var(--clr-theme-pop-on-element);
+	}
+
+	/* MODIFIERS */
+	.btn.collapsed {
+		overflow-x: initial;
+		padding: var(--space-8);
+		height: auto;
+
+		& .anon-icon,
+		.profile-picture {
+			width: var(--space-24);
+			height: var(--space-24);
+		}
 	}
 </style>

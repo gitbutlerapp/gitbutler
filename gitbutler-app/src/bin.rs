@@ -7,6 +7,7 @@ use gblib::{
     analytics, app, assets, commands, database, deltas, github, keys, logs, menu, projects, sentry,
     sessions, storage, users, virtual_branches, watcher, zip,
 };
+use tauri_plugin_log::LogTarget;
 use tauri_plugin_store::{with_store, JsonValue, StoreCollection};
 
 fn main() {
@@ -20,6 +21,11 @@ fn main() {
         .unwrap()
         .block_on(async {
             tauri::async_runtime::set(tokio::runtime::Handle::current());
+
+            let log = tauri_plugin_log::Builder::default()
+                .log_name("ui-logs")
+                .target(LogTarget::LogDir)
+                .level(log::LevelFilter::Error);
 
             tauri::Builder::default()
                 .on_window_event(|event| {
@@ -137,6 +143,7 @@ fn main() {
                 .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
                 .plugin(tauri_plugin_context_menu::init())
                 .plugin(tauri_plugin_store::Builder::default().build())
+                .plugin(log.build())
                 .invoke_handler(tauri::generate_handler![
                     commands::list_session_files,
                     commands::git_remote_branches,
