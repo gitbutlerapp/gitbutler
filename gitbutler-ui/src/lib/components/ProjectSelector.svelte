@@ -16,7 +16,6 @@
 
 <div
 	class="wrapper"
-	use:tooltip={isNavCollapsed ? project?.title : ''}
 	use:clickOutside={{
 		handler: () => {
 			popup.hide();
@@ -27,6 +26,7 @@
 >
 	<button
 		class="button"
+		use:tooltip={isNavCollapsed ? project?.title : ''}
 		on:click={(e) => {
 			visible = popup.toggle();
 			e.preventDefault();
