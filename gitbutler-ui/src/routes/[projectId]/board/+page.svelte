@@ -25,6 +25,9 @@
 	let viewport: HTMLDivElement;
 	let contents: HTMLDivElement;
 
+	let horizontalScrolling: boolean = false;
+	const horizontalScrollAbove = 145;
+
 	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(projectId);
 
 	function shouldShowHttpsWarning() {
@@ -49,7 +52,23 @@
 		</div>
 	{/if}
 	<div class="relative h-full flex-grow">
-		<div class="scroll-viewport hide-native-scrollbar" bind:this={viewport}>
+		<!-- svelte-ignore a11y-no-static-element-interactions -->
+		<div
+			class="scroll-viewport hide-native-scrollbar"
+			bind:this={viewport}
+			on:mousemove={(e) => {
+				if (e.clientY > horizontalScrollAbove) horizontalScrolling = false;
+				if (e.clientY <= horizontalScrollAbove) horizontalScrolling = true;
+			}}
+			on:wheel={(e) => {
+				if (!horizontalScrolling) return;
+				e.preventDefault();
+				viewport.scrollBy({
+					left: e.deltaY,
+					behavior: 'smooth'
+				});
+			}}
+		>
 			<div class="scroll-contents" bind:this={contents}>
 				<Board
 					{branchController}
