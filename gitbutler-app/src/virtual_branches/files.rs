@@ -74,7 +74,7 @@ fn files_with_hunk_context(
             .map(|hunk| {
                 if hunk.diff.is_empty() {
                     // noop on empty diff
-                    Ok(hunk.clone())
+                    hunk.clone()
                 } else {
                     context::hunk_with_context(
                         &hunk.diff,
@@ -87,8 +87,7 @@ fn files_with_hunk_context(
                     )
                 }
             })
-            .collect::<Result<Vec<diff::Hunk>>>()
-            .context("failed to add context to hunk")?;
+            .collect::<Vec<diff::Hunk>>();
     }
     Ok(files)
 }

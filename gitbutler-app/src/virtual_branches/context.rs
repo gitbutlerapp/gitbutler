@@ -9,14 +9,14 @@ pub fn hunk_with_context(
     context_lines: usize,
     file_lines_before: &[&str],
     change_type: diff::ChangeType,
-) -> Result<diff::Hunk> {
+) -> diff::Hunk {
     let diff_lines = hunk_diff
         .lines()
         .map(std::string::ToString::to_string)
         .collect::<Vec<_>>();
     if diff_lines.is_empty() {
         #[allow(clippy::cast_possible_truncation)]
-        return Ok(diff::Hunk {
+        return diff::Hunk {
             diff: hunk_diff.to_owned(),
             old_start: hunk_old_start_line as u32,
             old_lines: 0,
@@ -24,7 +24,7 @@ pub fn hunk_with_context(
             new_lines: 0,
             binary: is_binary,
             change_type,
-        });
+        };
     }
 
     let new_file = hunk_old_start_line == 0;
@@ -120,7 +120,8 @@ pub fn hunk_with_context(
         binary: is_binary,
         change_type,
     };
-    Ok(hunk)
+
+    hunk
 }
 
 #[cfg(test)]
@@ -140,8 +141,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         let expected = r#"@@ -5,7 +5,7 @@
 
  [features]
@@ -173,8 +173,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(
             with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -1,5 +1,5 @@
@@ -206,8 +205,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(
             with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -1,4 +1,4 @@
@@ -238,8 +236,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(
             with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -10,5 +10,5 @@
@@ -274,8 +271,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(
             with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -5,7 +5,10 @@
@@ -314,8 +310,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(
             with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -4,9 +4,7 @@
@@ -348,8 +343,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(with_ctx.diff, "");
     }
 
@@ -379,8 +373,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), hunk_diff);
         assert_eq!(with_ctx.old_start, 1);
         assert_eq!(with_ctx.old_lines, 14);
@@ -404,8 +397,7 @@ mod tests {
             3,
             &Vec::new(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), hunk_diff);
         assert_eq!(with_ctx.old_start, 0);
         assert_eq!(with_ctx.old_lines, 0);
@@ -428,8 +420,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         let expected = r#"@@ -6,6 +6,9 @@
  [features]
  default = ["serde", "rusqlite"]
@@ -463,8 +454,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         let expected = r#"@@ -6,6 +10,9 @@
  [features]
  default = ["serde", "rusqlite"]
@@ -509,8 +499,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), expected);
         assert_eq!(with_ctx.old_start, 4);
         assert_eq!(with_ctx.old_lines, 9);
@@ -544,8 +533,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), expected);
         assert_eq!(with_ctx.old_start, 4);
         assert_eq!(with_ctx.old_lines, 9);
@@ -567,8 +555,7 @@ mod tests {
             3,
             &file_lines_2(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         let expected = "@@ -8,8 +8,6 @@
                                   .order(:created_at)
                                   .page params[:page]
@@ -599,8 +586,7 @@ mod tests {
             3,
             &file_lines_3(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         let expected = r#"@@ -1,4 +1,5 @@
  alias(
      name = "rdeps",

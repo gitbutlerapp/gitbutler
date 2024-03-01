@@ -1007,7 +1007,7 @@ fn files_with_hunk_context(
             .map(|hunk| {
                 if hunk.diff.is_empty() {
                     // noop on empty diff
-                    Ok(hunk.clone())
+                    hunk.clone()
                 } else {
                     let hunk_with_ctx = context::hunk_with_context(
                         &hunk.diff,
@@ -1021,22 +1021,19 @@ fn files_with_hunk_context(
                     to_virtual_branch_hunk(hunk.clone(), hunk_with_ctx)
                 }
             })
-            .collect::<Result<Vec<VirtualBranchHunk>>>()
-            .context("failed to add context to hunk")?;
+            .collect::<Vec<VirtualBranchHunk>>();
     }
     Ok(files)
 }
 
 fn to_virtual_branch_hunk(
     mut hunk: VirtualBranchHunk,
-    diff_with_context: Result<diff::Hunk>,
-) -> Result<VirtualBranchHunk> {
-    diff_with_context.map(|diff| {
-        hunk.diff = diff.diff;
-        hunk.start = diff.new_start;
-        hunk.end = diff.new_start + diff.new_lines;
-        hunk
-    })
+    diff_with_context: diff::Hunk,
+) -> VirtualBranchHunk {
+    hunk.diff = diff_with_context.diff;
+    hunk.start = diff_with_context.new_start;
+    hunk.end = diff_with_context.new_start + diff_with_context.new_lines;
+    hunk
 }
 
 fn is_requires_force(

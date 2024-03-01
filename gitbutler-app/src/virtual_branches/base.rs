@@ -555,7 +555,7 @@ pub fn target_to_base_branch(
         .context("failed to get upstream commits")?
         .iter()
         .map(super::commit_to_remote_commit)
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<Vec<_>>();
 
     // get some recent commits
     let recent_commits = project_repository
@@ -563,7 +563,7 @@ pub fn target_to_base_branch(
         .context("failed to get recent commits")?
         .iter()
         .map(super::commit_to_remote_commit)
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<Vec<_>>();
 
     let base = super::BaseBranch {
         branch_name: format!("{}/{}", target.branch.remote(), target.branch.branch()),
