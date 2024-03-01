@@ -62,6 +62,7 @@
 			}}
 			on:wheel={(e) => {
 				if (!horizontalScrolling) return;
+				if (Math.abs(e.deltaX)) return;
 				e.preventDefault();
 				viewport.scrollBy({
 					left: e.deltaY,
