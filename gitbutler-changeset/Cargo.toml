@@ -1,5 +1,5 @@
 [package]
-name = "gitbutler-diff"
+name = "gitbutler-changeset"
 version = "0.0.0"
 edition = "2021"
 

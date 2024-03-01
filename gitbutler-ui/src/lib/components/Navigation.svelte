@@ -1,13 +1,17 @@
 <script lang="ts">
+	import BaseBranchCard from './BaseBranchCard.svelte';
 	import Branches from './Branches.svelte';
 	import DomainButton from './DomainButton.svelte';
 	import Footer from './Footer.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
-	import UpdateBaseButton from './UpdateBaseButton.svelte';
-	import BaseBranchCard from '$lib/components/BaseBranchCard.svelte';
-	import Resizer from '$lib/components/Resizer.svelte';
+	import Resizer from './Resizer.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import * as hotkeys from '$lib/utils/hotkeys';
+	import { unsubscribe } from '$lib/utils/random';
+	import { platform } from '@tauri-apps/api/os';
+	import { from } from 'rxjs';
+	import { onMount } from 'svelte';
 	import { getContext } from 'svelte';
 	import type { User } from '$lib/backend/cloud';
 	import type { Project, ProjectService } from '$lib/backend/projects';
@@ -24,79 +28,217 @@
 	export let githubService: GitHubService;
 	export let projectService: ProjectService;
 
+	const minResizerWidth = 280;
+	const minResizerRatio = 150;
+	const platformName = from(platform());
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const defaultTrayWidthRem = persisted<number | undefined>(
 		undefined,
 		'defaulTrayWidth_ ' + project.id
 	);
 
-	$: base$ = baseBranchService.base$;
-
 	let viewport: HTMLDivElement;
+	let isResizerDragging = false;
+
+	$: isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + project.id);
+
+	function toggleNavCollapse() {
+		$isNavCollapsed = !$isNavCollapsed;
+	}
+
+	onMount(() =>
+		unsubscribe(
+			hotkeys.on('Meta+/', () => {
+				toggleNavCollapse();
+			})
+		)
+	);
 </script>
 
-<div
-	class="navigation relative flex w-80 shrink-0 flex-col border-r"
-	style:width={$defaultTrayWidthRem ? $defaultTrayWidthRem + 'rem' : null}
-	bind:this={viewport}
-	role="menu"
-	tabindex="0"
->
-	<div class="drag-region" data-tauri-drag-region></div>
-	<div class="domains">
-		<ProjectSelector {project} {projectService} />
-		<div class="flex flex-col gap-1">
-			<BaseBranchCard {project} {baseBranchService} {githubService} />
-			<DomainButton href={`/${project.id}/board`}>
-				<svg
-					width="16"
-					height="16"
-					viewBox="0 0 16 16"
-					fill="none"
-					xmlns="http://www.w3.org/2000/svg"
-				>
-					<path
-						d="M0 6.64C0 4.17295 0 2.93942 0.525474 2.01817C0.880399 1.39592 1.39592 0.880399 2.01817 0.525474C2.93942 0 4.17295 0 6.64 0H9.36C11.8271 0 13.0606 0 13.9818 0.525474C14.6041 0.880399 15.1196 1.39592 15.4745 2.01817C16 2.93942 16 4.17295 16 6.64V9.36C16 11.8271 16 13.0606 15.4745 13.9818C15.1196 14.6041 14.6041 15.1196 13.9818 15.4745C13.0606 16 11.8271 16 9.36 16H6.64C4.17295 16 2.93942 16 2.01817 15.4745C1.39592 15.1196 0.880399 14.6041 0.525474 13.9818C0 13.0606 0 11.8271 0 9.36V6.64Z"
-						fill="#48B0AA"
-					/>
-					<rect x="2" y="3" width="6" height="10" rx="2" fill="#D9F3F2" />
-					<rect opacity="0.7" x="10" y="3" width="4" height="10" rx="2" fill="#D9F3F2" />
-				</svg>
+<aside class="navigation-wrapper">
+	<div class="resizer-wrapper" class:resizerDragging={isResizerDragging} tabindex="0" role="button">
+		<button
+			class="folding-button"
+			on:click={toggleNavCollapse}
+			class:folding-button_folded={$isNavCollapsed}
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				xmlns:xlink="http://www.w3.org/1999/xlink"
+				viewBox="0 0 8 12"
+				fill="none"
+				><path
+					d="M6,0L0,6l6,6"
+					transform="translate(1 0)"
+					stroke-width="1.5"
+					stroke-linejoin="round"
+				/></svg
+			>
+		</button>
+		<Resizer
+			{viewport}
+			direction="right"
+			minWidth={minResizerWidth}
+			defaultLineColor="var(--clr-theme-container-outline-light)"
+			on:click={() => $isNavCollapsed && toggleNavCollapse()}
+			on:dblclick={() => !$isNavCollapsed && toggleNavCollapse()}
+			on:width={(e) => {
+				$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
+			}}
+			on:resizing={(e) => (isResizerDragging = e.detail)}
+			on:overflowValue={(e) => {
+				const overflowValue = e.detail;
 
-				<span>Workspace</span>
-				{#if ($base$?.behind || 0) > 0}
-					<UpdateBaseButton {branchController} />
-				{/if}
-			</DomainButton>
-		</div>
+				if (!$isNavCollapsed && overflowValue > minResizerRatio) {
+					$isNavCollapsed = true;
+				}
+
+				if ($isNavCollapsed && overflowValue < minResizerRatio) {
+					$isNavCollapsed = false;
+				}
+			}}
+		/>
 	</div>
-	<Branches projectId={project.id} {branchService} {githubService} />
-	<Footer {user} projectId={project.id} />
 
-	<Resizer
-		{viewport}
-		direction="right"
-		minWidth={320}
-		on:width={(e) => {
-			$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
-		}}
-	/>
-</div>
+	<div
+		class="navigation"
+		class:collapsed={$isNavCollapsed}
+		style:width={$defaultTrayWidthRem && !$isNavCollapsed ? $defaultTrayWidthRem + 'rem' : null}
+		bind:this={viewport}
+		role="menu"
+		tabindex="0"
+	>
+		<!-- condition prevents split second UI shift -->
+		{#if $platformName}
+			<div class="navigation-top">
+				{#if $platformName == 'darwin'}
+					<div class="drag-region" data-tauri-drag-region />
+				{/if}
+				<ProjectSelector {project} {projectService} isNavCollapsed={$isNavCollapsed} />
+				<div class="domains">
+					<BaseBranchCard
+						{project}
+						{baseBranchService}
+						{githubService}
+						isNavCollapsed={$isNavCollapsed}
+					/>
+					<DomainButton
+						href={`/${project.id}/board`}
+						domain="workspace"
+						label="Workspace"
+						iconSrc="/images/domain-icons/working-branches.svg"
+						{branchController}
+						{baseBranchService}
+						isNavCollapsed={$isNavCollapsed}
+					></DomainButton>
+				</div>
+			</div>
+			{#if !$isNavCollapsed}
+				<Branches projectId={project.id} {branchService} {githubService} />
+			{/if}
+			<Footer {user} projectId={project.id} isNavCollapsed={$isNavCollapsed} />
+		{/if}
+	</div>
+</aside>
 
 <style lang="postcss">
+	.navigation-wrapper {
+		display: flex;
+		position: relative;
+
+		&:hover {
+			& .folding-button {
+				opacity: 1;
+				transform: translateY(-50%);
+				right: calc(var(--space-6) * -1);
+				transition-delay: 0.1s;
+
+				& svg {
+					transition-delay: 0.1s;
+				}
+			}
+		}
+	}
 	.navigation {
-		border-right: 1px solid var(--clr-theme-container-outline-light);
+		width: 17.5rem;
+		display: flex;
+		flex-direction: column;
+		position: relative;
 		background: var(--clr-theme-container-light);
 		max-height: 100%;
 		user-select: none;
 	}
 	.drag-region {
 		flex-shrink: 0;
-		height: var(--space-24);
+		height: var(--space-20);
+	}
+	.navigation-top {
+		display: flex;
+		flex-direction: column;
+		padding-bottom: var(--space-24);
+		padding-left: var(--space-14);
+		padding-right: var(--space-14);
 	}
 	.domains {
-		padding-bottom: var(--space-24);
-		padding-left: var(--space-12);
-		padding-right: var(--space-12);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+	}
+
+	.resizer-wrapper {
+		position: absolute;
+		top: 0;
+		right: 0;
+		height: 100%;
+		width: var(--space-4);
+
+		&:hover,
+		&.resizerDragging {
+			& .folding-button {
+				background-color: var(--resizer-color);
+				border: 1px solid var(--resizer-color);
+
+				& svg {
+					stroke: var(--clr-theme-scale-ntrl-100);
+				}
+			}
+		}
+	}
+
+	.folding-button {
+		z-index: 42;
+		position: absolute;
+		right: calc(var(--space-2) * -1);
+		top: 50%;
+		transform: translateY(-50%);
+		width: var(--space-16);
+		height: var(--space-36);
+		padding: var(--space-4);
+		background: var(--clr-theme-container-light);
+		border-radius: var(--radius-m);
+		border: 1px solid var(--clr-theme-container-outline-light);
+		opacity: 0;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			opacity var(--transition-medium),
+			all var(--transition-medium);
+
+		& svg {
+			stroke: var(--clr-theme-scale-ntrl-50);
+			transition: stroke var(--transition-fast);
+		}
+	}
+
+	.folding-button_folded {
+		& svg {
+			transform: rotate(180deg) translateX(-0.0625rem);
+		}
+	}
+
+	.navigation.collapsed {
+		width: auto;
+		justify-content: space-between;
+		padding-bottom: var(--space-16);
 	}
 </style>

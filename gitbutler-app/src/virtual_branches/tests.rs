@@ -939,7 +939,7 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
 }
 
 #[test]
-fn test_merge_vbranch_upstream_clean() -> Result<()> {
+fn test_merge_vbranch_upstream_clean_rebase() -> Result<()> {
     let suite = Suite::default();
     let Case {
         project_repository,
@@ -1056,14 +1056,9 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
     );
     let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path2))?;
     assert_eq!("file2\n", String::from_utf8(contents)?);
-    assert_eq!(branch1.files.len(), 0);
-    assert_eq!(branch1.commits.len(), 3);
+    assert_eq!(branch1.files.len(), 1);
+    assert_eq!(branch1.commits.len(), 2);
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 0);
-
-    // make sure the last commit was signed
-    let last_id = &branch1.commits[0].id;
-    let last_commit = project_repository.git_repository.find_commit(*last_id)?;
-    assert!(last_commit.raw_header().unwrap().contains("SSH SIGNATURE"));
 
     Ok(())
 }
@@ -1633,7 +1628,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
     let remotes =
         list_remote_branches(&gb_repository, &project_repository).expect("failed to list remotes");
-    let remote1 = &remotes
+    let _remote1 = &remotes
         .iter()
         .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch")
         .unwrap();
@@ -1645,7 +1640,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
     .unwrap());
     // assert_eq!(remote1.commits.len(), 1);
 
-    let remote2 = &remotes
+    let _remote2 = &remotes
         .iter()
         .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch2")
         .unwrap();

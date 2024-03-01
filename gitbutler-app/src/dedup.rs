@@ -4,8 +4,8 @@ pub fn dedup(existing: &[&str], new: &str) -> String {
     dedup_fmt(existing, new, " ")
 }
 
-// dedup makes sure that _new_ is not in _existing_ by adding a number to it.
-// the number is increased until the name is unique.
+/// Makes sure that _new_ is not in _existing_ by adding a number to it.
+/// the number is increased until the name is unique.
 pub fn dedup_fmt(existing: &[&str], new: &str, separator: &str) -> String {
     let used_numbers = existing
         .iter()

@@ -4,9 +4,10 @@
 	import type iconsJson from '$lib/icons/icons.json';
 
 	export let icon: keyof typeof iconsJson;
-	export let size: 's' | 'm' | 'l' = 'l';
+	export let size: 's' | 'm' | 'l' | 'xl' = 'l';
 	export let loading = false;
 	export let help = '';
+	export let width: string | undefined = undefined;
 
 	let className = '';
 	let selected = false;
@@ -20,9 +21,11 @@
 	class:small={size == 's'}
 	class:medium={size == 'm'}
 	class:large={size == 'l'}
+	class:x-large={size == 'xl'}
 	use:tooltip={help}
 	{title}
 	on:click
+	style:width
 >
 	<Icon name={loading ? 'spinner' : icon} />
 </button>
@@ -46,6 +49,11 @@
 	.selected {
 		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 		cursor: default;
+	}
+	.x-large {
+		height: var(--size-btn-xl);
+		width: var(--size-btn-xl);
+		padding: var(--space-12);
 	}
 	.large {
 		height: var(--size-btn-l);

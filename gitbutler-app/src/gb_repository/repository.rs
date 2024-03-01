@@ -57,8 +57,8 @@ impl Repository {
         }
 
         let projects_dir = root.join("projects");
-
         let path = projects_dir.join(project.id.to_string());
+
         let lock_path = projects_dir.join(format!("{}.lock", project.id));
 
         if path.exists() {
@@ -75,6 +75,8 @@ impl Repository {
                 lock_path,
             })
         } else {
+            std::fs::create_dir_all(&path).context("failed to create project directory")?;
+
             let git_repository = git::Repository::init_opts(
                 &path,
                 git2::RepositoryInitOptions::new()

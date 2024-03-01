@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-    branch::{self, BranchId},
+    branch::BranchId,
     controller::{Controller, ControllerError},
     BaseBranch, RemoteBranchFile,
 };

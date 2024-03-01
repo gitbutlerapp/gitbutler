@@ -1,5 +1,5 @@
 use crate::git::diff;
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 pub fn hunk_with_context(
     hunk_diff: &str,
@@ -143,16 +143,16 @@ mod tests {
         )
         .unwrap();
         let expected = r#"@@ -5,7 +5,7 @@
- 
+
  [features]
  default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
 +SERDE = ["dep:serde", "uuid/serde"]
  rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
 "#;
-        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), expected);
         assert_eq!(with_ctx.old_start, 5);
         assert_eq!(with_ctx.old_lines, 7);
         assert_eq!(with_ctx.new_start, 5);
@@ -176,14 +176,14 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            with_ctx.diff,
+            with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -1,5 +1,5 @@
  [package]
 -name = "gitbutler-core"
 +NAME = "gitbutler-core"
  version = "0.0.0"
  edition = "2021"
- 
+
 "#
         );
         assert_eq!(with_ctx.old_start, 1);
@@ -209,7 +209,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            with_ctx.diff,
+            with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -1,4 +1,4 @@
 -[package]
 +[PACKAGE]
@@ -241,9 +241,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            with_ctx.diff,
+            with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -10,5 +10,5 @@
- 
+
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 -serde = { workspace = true, optional = true }
@@ -277,9 +277,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            with_ctx.diff,
+            with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -5,7 +5,10 @@
- 
+
  [features]
  default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
@@ -288,7 +288,7 @@ mod tests {
 +three
 +four
  rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
 "#
         );
@@ -317,16 +317,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            with_ctx.diff,
+            with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -4,9 +4,7 @@
  edition = "2021"
- 
+
  [features]
 -default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
 -rusqlite = ["dep:rusqlite"]
 +foo = ["foo"]
- 
+
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 "#
@@ -381,7 +381,7 @@ mod tests {
             diff::ChangeType::Added,
         )
         .unwrap();
-        assert_eq!(with_ctx.diff, hunk_diff);
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), hunk_diff);
         assert_eq!(with_ctx.old_start, 1);
         assert_eq!(with_ctx.old_lines, 14);
         assert_eq!(with_ctx.new_start, 0);
@@ -406,7 +406,7 @@ mod tests {
             diff::ChangeType::Added,
         )
         .unwrap();
-        assert_eq!(with_ctx.diff, hunk_diff);
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), hunk_diff);
         assert_eq!(with_ctx.old_start, 0);
         assert_eq!(with_ctx.old_lines, 0);
         assert_eq!(with_ctx.new_start, 1);
@@ -438,10 +438,10 @@ mod tests {
 +two
 +three
  rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
 "#;
-        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), expected);
         assert_eq!(with_ctx.old_start, 6);
         assert_eq!(with_ctx.old_lines, 6);
         assert_eq!(with_ctx.new_start, 6);
@@ -473,10 +473,10 @@ mod tests {
 +two
 +three
  rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
 "#;
-        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), expected);
         assert_eq!(with_ctx.old_start, 6);
         assert_eq!(with_ctx.old_lines, 6);
         assert_eq!(with_ctx.new_start, 10);
@@ -492,12 +492,12 @@ mod tests {
 "#;
         let expected = r#"@@ -4,9 +4,6 @@
  edition = "2021"
- 
+
  [features]
 -default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
 -rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 "#;
@@ -511,7 +511,7 @@ mod tests {
             diff::ChangeType::Added,
         )
         .unwrap();
-        assert!(with_ctx.diff == expected);
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), expected);
         assert_eq!(with_ctx.old_start, 4);
         assert_eq!(with_ctx.old_lines, 9);
         assert_eq!(with_ctx.new_start, 4);
@@ -527,12 +527,12 @@ mod tests {
 "#;
         let expected = r#"@@ -4,9 +8,6 @@
  edition = "2021"
- 
+
  [features]
 -default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
 -rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 "#;
@@ -546,7 +546,7 @@ mod tests {
             diff::ChangeType::Added,
         )
         .unwrap();
-        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), expected);
         assert_eq!(with_ctx.old_start, 4);
         assert_eq!(with_ctx.old_lines, 9);
         assert_eq!(with_ctx.new_start, 8);
@@ -576,10 +576,10 @@ mod tests {
 -
 -    @waiting_users = User.where(approved: false).count
    end
- 
+
    def invite
 ";
-        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), expected);
         assert_eq!(with_ctx.old_start, 8);
         assert_eq!(with_ctx.old_lines, 8);
         assert_eq!(with_ctx.new_start, 8);

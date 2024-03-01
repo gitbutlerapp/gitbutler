@@ -67,7 +67,7 @@
 	}}
 	on:click
 	on:keydown
-	on:contextmenu={(e) =>
+	on:contextmenu|preventDefault={(e) =>
 		popupMenu.openByMouse(e, {
 			files: $selectedFiles.includes(file) ? $selectedFiles : [file]
 		})}

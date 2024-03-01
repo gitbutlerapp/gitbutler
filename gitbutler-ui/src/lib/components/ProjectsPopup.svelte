@@ -5,6 +5,7 @@
 	import { page } from '$app/stores';
 
 	export let projectService: ProjectService;
+	export let isNavCollapsed: boolean;
 
 	$: projects$ = projectService.projects$;
 
@@ -22,7 +23,7 @@
 </script>
 
 {#if !hidden}
-	<div class="popup">
+	<div class="popup" class:collapsed={isNavCollapsed}>
 		{#if $projects$.length > 0}
 			<div class="popup__projects">
 				{#each $projects$ as project}
@@ -80,5 +81,10 @@
 		flex-direction: column;
 		gap: var(--space-2);
 		padding: var(--space-8);
+	}
+
+	/* MODIFIERS */
+	.popup.collapsed {
+		width: 240px;
 	}
 </style>

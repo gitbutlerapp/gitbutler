@@ -84,7 +84,7 @@
 		}}
 		role="button"
 		tabindex="0"
-		on:contextmenu={(e) =>
+		on:contextmenu|preventDefault={(e) =>
 			popupMenu.openByMouse(e, {
 				files: $selectedFiles.includes(file) ? $selectedFiles : [file]
 			})}
