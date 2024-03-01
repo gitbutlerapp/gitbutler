@@ -4,6 +4,7 @@
 	import BranchHeader from './BranchHeader.svelte';
 	import CommitDialog from './CommitDialog.svelte';
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
+	import PullRequestCard from './PullRequestCard.svelte';
 	import UpstreamCommits from './UpstreamCommits.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
@@ -64,7 +65,7 @@
 	let rsViewport: HTMLElement;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const defaultBranchWidthRem = persisted<number | undefined>(24, 'defaulBranchWidth' + project.id);
+	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
 	const laneWidthKey = 'laneWidth_';
 
 	let laneWidth: number;
@@ -172,8 +173,6 @@
 			{branchController}
 			{branch}
 			{base}
-			{githubService}
-			{branchService}
 			bind:isLaneCollapsed
 			projectId={project.id}
 			on:action={(e) => {
@@ -200,8 +199,6 @@
 					{branchController}
 					{branch}
 					{base}
-					{githubService}
-					{branchService}
 					bind:isLaneCollapsed
 					projectId={project.id}
 					on:action={(e) => {
@@ -209,6 +206,14 @@
 							generateBranchName();
 						}
 					}}
+				/>
+				<PullRequestCard
+					projectId={project.id}
+					{branch}
+					{branchService}
+					{githubService}
+					{isUnapplied}
+					isLaneCollapsed={$isLaneCollapsed}
 				/>
 				{#if user?.role == 'admin' && unknownCommits && unknownCommits.length > 0 && !branch.conflicted}
 					<UpstreamCommits

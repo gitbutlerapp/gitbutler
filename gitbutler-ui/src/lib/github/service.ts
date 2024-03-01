@@ -3,7 +3,7 @@ import {
 	type PullRequest,
 	type GitHubIntegrationContext,
 	ghResponseToInstance,
-	type PrStatus,
+	type ChecksStatus,
 	MergeMethod
 } from '$lib/github/types';
 import { showToast, type Toast } from '$lib/notifications/toasts';
@@ -253,29 +253,30 @@ export class GitHubService {
 		);
 	}
 
-	async getStatus(ref: string | undefined): Promise<PrStatus | undefined> {
-		if (!ref || !this.octokit || !this.ctx) return;
+	async checks(ref: string | undefined): Promise<ChecksStatus | null> {
+		if (!ref) return null;
 
 		// Fetch with retries since checks might not be available _right_ after
 		// the pull request has been created.
-		const resp = await this.fetchChecksWithRetries(ref, 5, 2000);
-		if (!resp) return;
+		let resp: Awaited<ReturnType<typeof this.fetchChecksWithRetries>>;
+		try {
+			resp = await this.fetchChecksWithRetries(ref, 5, 2000);
+		} catch (err: any) {
+			return { error: err };
+		}
 
 		// If there are no checks then there is no status to report
 		const checks = resp.data.check_runs;
-		if (checks.length == 0) return;
+		if (checks.length == 0) return null;
 
 		// Establish when the first check started running, useful for showing
 		// how long something has been running.
 		const starts = resp.data.check_runs
 			.map((run) => run.started_at)
 			.filter((startedAt) => startedAt !== null) as string[];
-		const earliestStart = starts.map((startedAt) => new Date(startedAt));
+		const startTimes = starts.map((startedAt) => new Date(startedAt));
 
-		// TODO: This is wrong, we should not return here.
-		if (earliestStart.length == 0) return;
-		const firstStart = new Date(Math.min(...earliestStart.map((date) => date.getTime())));
-
+		const firstStart = new Date(Math.min(...startTimes.map((date) => date.getTime())));
 		const skipped = checks.filter((c) => c.conclusion == 'skipped');
 		const succeeded = checks.filter((c) => c.conclusion == 'success');
 		// const failed = checks.filter((c) => c.conclusion == 'failure');
@@ -294,7 +295,7 @@ export class GitHubService {
 		let resp = await this.fetchChecks(ref);
 		let retried = 0;
 
-		while (retried < retries && (!resp || resp.data.total_count == 0)) {
+		while (resp.data.total_count == 0 && retried < retries) {
 			await sleep(delayMs);
 			resp = await this.fetchChecks(ref);
 			retried++;
@@ -303,7 +304,7 @@ export class GitHubService {
 	}
 
 	async fetchChecks(ref: string) {
-		if (!ref || !this.octokit || !this.ctx) return;
+		if (!this.octokit || !this.ctx) throw 'GitHub client not available';
 		return await this.octokit.checks.listForRef({
 			owner: this.ctx.owner,
 			repo: this.ctx.repo,
