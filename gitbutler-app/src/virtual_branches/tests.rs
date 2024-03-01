@@ -1628,7 +1628,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
     let remotes =
         list_remote_branches(&gb_repository, &project_repository).expect("failed to list remotes");
-    let remote1 = &remotes
+    let _remote1 = &remotes
         .iter()
         .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch")
         .unwrap();
@@ -1640,7 +1640,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
     .unwrap());
     // assert_eq!(remote1.commits.len(), 1);
 
-    let remote2 = &remotes
+    let _remote2 = &remotes
         .iter()
         .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch2")
         .unwrap();

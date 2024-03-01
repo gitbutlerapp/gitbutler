@@ -1,7 +1,6 @@
 use std::{collections::HashMap, path};
 
 use anyhow::Context;
-use git2::ErrorCode;
 use tauri::Manager;
 use tracing::instrument;
 
