@@ -131,6 +131,7 @@ export class BaseBranchService {
 			startWith(undefined),
 			shareReplay(1),
 			catchError((e) => {
+				this.busy$.next(false);
 				this.error$.next(e);
 				return of(null);
 			})
