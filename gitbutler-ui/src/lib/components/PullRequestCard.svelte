@@ -154,6 +154,7 @@
 				<Tag
 					icon={checksIcon}
 					color={checksColor}
+					filled={checksIcon == 'success'}
 					clickable
 					border
 					verticalOrientation={isLaneCollapsed}
