@@ -76,7 +76,7 @@
 	.spinner-path {
 		stroke-width: var(--spinner-stroke-width);
 		stroke: currentColor;
-		animation: spinning-path 2.5s infinite ease-in-out;
+		animation: spinning-path 2s infinite ease-in-out;
 	}
 
 	.spinner-back-path {
