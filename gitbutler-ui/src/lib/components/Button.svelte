@@ -14,6 +14,7 @@
 	export let iconAlign: 'left' | 'right' = 'right';
 	export let color: ButtonColor = 'primary';
 	export let kind: 'filled' | 'outlined' = 'filled';
+	export let isDropdownChild = false;
 	export let disabled = false;
 	export let notClickable = false;
 	export let id: string | undefined = undefined;
@@ -27,9 +28,6 @@
 
 	export let element: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
 
-	let className = '';
-	export { className as class };
-
 	const SLOTS = $$props.$$slots;
 
 	onMount(() => {
@@ -39,7 +37,7 @@
 </script>
 
 <button
-	class={`btn ${className}`}
+	class="btn"
 	class:medium={size == 'medium'}
 	class:large={size == 'large'}
 	class:error-outline={color == 'error' && kind == 'outlined'}
@@ -55,6 +53,7 @@
 	class:wide
 	class:grow
 	class:not-clickable={notClickable}
+	class:is-dropdown={isDropdownChild}
 	style:align-self={align}
 	style:width={width ? pxToRem(width) : undefined}
 	use:tooltip={help}
@@ -78,6 +77,7 @@
 
 <style lang="postcss">
 	.btn {
+		z-index: 1;
 		position: relative;
 		display: inline-flex;
 		align-items: center;
@@ -197,5 +197,34 @@
 	.btn.large {
 		height: var(--size-btn-l);
 		padding: var(--space-6) var(--space-8);
+	}
+
+	/* DROPDOWN */
+	.is-dropdown {
+		&:first-of-type {
+			flex: 1;
+			border-top-right-radius: 0;
+			border-bottom-right-radius: 0;
+			border-right: none;
+
+			&.primary-filled {
+				&:after {
+					content: '';
+					z-index: 2;
+					position: absolute;
+					top: 0;
+					right: 0;
+					width: 1px;
+					height: 100%;
+					background: var(--clr-theme-scale-ntrl-100);
+					opacity: 0.4;
+				}
+			}
+		}
+
+		&:last-of-type {
+			border-top-left-radius: 0;
+			border-bottom-left-radius: 0;
+		}
 	}
 </style>
