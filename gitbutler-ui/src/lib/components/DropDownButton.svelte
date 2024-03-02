@@ -98,7 +98,7 @@
 	}
 
 	.dropdown-wrapper :global(.dropdown__text-btn_outlined) {
-		transform: translateX(1px);
+		/* transform: translateX(1px); */
 	}
 
 	.dropdown-wrapper :global(.dropdown__text-btn_filled) {
