@@ -55,7 +55,7 @@
 	</span>
 	{#if icon}
 		<div class="icon" class:verticalIcon={verticalOrientation}>
-			<Icon name={icon} />
+			<Icon name={icon} spinnerRadius={3.5} />
 		</div>
 	{/if}
 </div>

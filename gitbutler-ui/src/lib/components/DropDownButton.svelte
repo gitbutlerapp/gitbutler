@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
-	import { joinClassNames } from '$lib/utils/joinClassNames';
 	import type iconsJson from '$lib/icons/icons.json';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
@@ -29,24 +28,17 @@
 <div class="dropdown-wrapper" class:wide>
 	<div class="dropdown" bind:this={container}>
 		<Button
-			class={joinClassNames([
-				'dropdown__text-btn',
-				kind == 'outlined' ? 'dropdown__text-btn_outlined' : 'dropdown__text-btn_filled',
-				wide ? 'wide-text-btn' : ''
-			])}
 			{color}
 			{icon}
 			{kind}
 			{help}
 			iconAlign="left"
 			disabled={disabled || loading}
+			isDropdownChild
 			on:click><slot /></Button
 		>
 		<Button
-			class={joinClassNames([
-				'dropdown__icon-btn',
-				kind == 'outlined' ? 'dropdown__icon-btn_outlined' : ''
-			])}
+			class="dropdown__icon-btn"
 			bind:element={iconElt}
 			{color}
 			{kind}
@@ -54,6 +46,7 @@
 			icon={visible ? 'chevron-top' : 'chevron-down'}
 			{loading}
 			disabled={disabled || loading}
+			isDropdownChild
 			on:click={() => (visible = !visible)}
 		/>
 	</div>
@@ -97,18 +90,6 @@
 		}
 	}
 
-	.dropdown-wrapper :global(.dropdown__text-btn_outlined) {
-		transform: translateX(1px);
-	}
-
-	.dropdown-wrapper :global(.dropdown__text-btn_filled) {
-		border-right: 1px solid var(--clr-theme-scale-pop-50);
-	}
-
-	.dropdown-wrapper :global(.dropdown__icon-btn_outlined):disabled {
-		border-left: 1px solid transparent;
-	}
-
 	.dropdown {
 		display: flex;
 		flex-grow: 1;
@@ -125,9 +106,5 @@
 
 	.wide {
 		width: 100%;
-	}
-
-	.dropdown-wrapper :global(.wide-text-btn) {
-		flex: 1;
 	}
 </style>

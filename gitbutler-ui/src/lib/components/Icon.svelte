@@ -26,9 +26,18 @@
 	style:fill-opacity={opacity}
 	style:width={pxToRem(size)}
 	style:height={pxToRem(size)}
+	style="--spinner-radius: {spinnerRadius}"
 >
 	{#if name == 'spinner'}
 		<circle class="spinner-path" cx="8" cy="8" r={spinnerRadius} fill="none" />
+		<circle
+			class="spinner-back-path"
+			cx="8"
+			cy="8"
+			r="var(--spinner-radius)"
+			fill="none"
+			vector-effect="non-scaling-stroke"
+		/>
 	{:else}
 		<path fill="currentColor" d={iconsJson[name]} />
 	{/if}
@@ -36,6 +45,7 @@
 
 <style lang="postcss">
 	.icon-wrapper {
+		--spinner-stroke-width: calc(var(--space-2) / 1.4);
 		flex-shrink: 0;
 		pointer-events: none;
 		display: inline-block;
@@ -64,22 +74,28 @@
 		}
 	}
 	.spinner-path {
-		stroke-width: calc(var(--space-2) / 1.3);
+		stroke-width: var(--spinner-stroke-width);
 		stroke: currentColor;
-		animation: spinning-path 1.5s infinite ease-in-out;
+		animation: spinning-path 2s infinite ease-in-out;
+	}
+
+	.spinner-back-path {
+		stroke-width: var(--spinner-stroke-width);
+		stroke: currentColor;
+		opacity: 0.3;
 	}
 	@keyframes spinning-path {
 		0% {
-			stroke-dasharray: 1, 200;
+			stroke-dasharray: 1, 120;
 			stroke-dashoffset: 0;
 		}
-		50% {
-			stroke-dasharray: 60, 200;
-			stroke-dashoffset: -12;
+		60% {
+			stroke-dasharray: 60, 120;
+			stroke-dashoffset: -10;
 		}
 		100% {
-			stroke-dasharray: 60, 200;
-			stroke-dashoffset: -34;
+			stroke-dasharray: 60, 120;
+			stroke-dashoffset: calc(-1 * var(--spinner-radius) * 5.5);
 		}
 	}
 </style>
