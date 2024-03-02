@@ -9,7 +9,7 @@
 	import Link from '$lib/components/Link.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { debounce } from '$lib/utils/debounce';
-	import { open } from '@tauri-apps/api/shell';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { createEventDispatcher } from 'svelte';
 	import type { Key, Project } from '$lib/backend/projects';
 
@@ -211,7 +211,7 @@
 							color="neutral"
 							icon="open-link"
 							on:click={() => {
-								open('https://github.com/settings/ssh/new');
+								openExternalUrl('https://github.com/settings/ssh/new');
 							}}
 						>
 							Add key to GitHub
