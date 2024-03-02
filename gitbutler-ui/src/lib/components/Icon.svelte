@@ -64,7 +64,7 @@
 		}
 	}
 	.spinner-path {
-		stroke-width: calc(var(--space-2) / 1.3);
+		stroke-width: calc(var(--space-2) / 1.4);
 		stroke: currentColor;
 		animation: spinning-path 1.5s infinite ease-in-out;
 	}
