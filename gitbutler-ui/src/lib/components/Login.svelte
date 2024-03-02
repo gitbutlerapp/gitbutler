@@ -2,7 +2,7 @@
 	import Button from './Button.svelte';
 	import { getCloudApiClient, type LoginToken } from '$lib/backend/cloud';
 	import * as toasts from '$lib/utils/toasts';
-	import { open } from '@tauri-apps/api/shell';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { createEventDispatcher } from 'svelte';
 	import { derived, writable } from 'svelte/store';
 	import type { UserService } from '$lib/stores/user';
@@ -73,14 +73,14 @@
 	{#if minimal}
 		Your browser should have been opened. Please log into your GitButler account there.
 	{:else}
-		{#await Promise.all([open($token.url), pollForUser($token.token)])}
+		{#await Promise.all([openExternalUrl($token.url), pollForUser($token.token)])}
 			<div class="text-light-700">
 				Your browser should have been opened. Please log into your GitButler account there.
 			</div>
 		{/await}
 		<p>
 			If you were not redirected automatically, you can
-			<button class="underline" on:click={() => open($authUrl)}>click here</button>
+			<button class="underline" on:click={() => openExternalUrl($authUrl)}>click here</button>
 		</p>
 	{/if}
 {:else}
