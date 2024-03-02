@@ -1,4 +1,5 @@
 .tooltip {
+	pointer-events: none;
 	background-color: var(--clr-core-ntrl-10);
 	border-radius: var(--radius-s);
 	border: 1px solid var(--clr-core-ntrl-30);
