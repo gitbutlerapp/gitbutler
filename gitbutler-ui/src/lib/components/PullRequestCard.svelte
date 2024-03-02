@@ -58,7 +58,6 @@
 		const startedAt = checksStatus.startedAt;
 		if (!startedAt) return;
 		const secondsAgo = (new Date().getTime() - startedAt.getTime()) / 1000;
-
 		let timeUntilUdate: number | undefined = undefined;
 		if (secondsAgo < 600) {
 			timeUntilUdate = 30;
@@ -67,12 +66,10 @@
 		} else if (secondsAgo < 3600) {
 			timeUntilUdate = 120;
 		}
-
 		if (!timeUntilUdate) {
 			// Stop polling for status.
 			return;
 		}
-
 		setTimeout(() => fetchPrStatus(), timeUntilUdate * 1000);
 	}
 
@@ -80,6 +77,7 @@
 	$: checksColor = getChecksColor(checksStatus);
 	$: statusIcon = getStatusIcon();
 	$: statusColor = getStatusColor();
+	$: statusLabel = getPrStatusLabel();
 
 	$: if ($pr$) fetchPrStatus();
 
@@ -90,23 +88,27 @@
 		if (status.completed) {
 			return status.success ? 'success' : 'error';
 		}
+
 		return 'warning';
 	}
 
 	function getChecksIcon(status: ChecksStatus): keyof typeof iconsJson | undefined {
-		if (status?.error) return 'error';
+		if (isFetching) return 'spinner';
+
+		if (status?.error) return 'error-small';
 		if (!status) return;
 		if (status && !status.hasChecks) return;
 		if (status.completed) {
-			return status.success ? 'success' : 'error';
+			return status.success ? 'success-small' : 'error-small';
 		}
+
 		return 'spinner';
 	}
 
 	function statusToTagText(status: ChecksStatus | undefined): string | undefined {
 		if (status?.error) return 'error';
 		if (!status) return;
-		if (status && !status.hasChecks) return;
+		if (status && !status.hasChecks) return 'No checks';
 		if (status.completed) {
 			return status.success ? 'Checks passed' : 'Checks failed';
 		}
@@ -147,27 +149,36 @@
 			{$pr$.title}
 		</div>
 		<div class="pr-tags">
-			<Tag icon={statusIcon} color={statusColor} border verticalOrientation={isLaneCollapsed}>
-				{getPrStatusLabel()}
+			<Tag
+				icon={statusIcon}
+				color={statusColor}
+				filled={statusLabel !== 'open'}
+				verticalOrientation={isLaneCollapsed}
+			>
+				{statusLabel}
 			</Tag>
 			{#if branch.upstream && checksIcon}
 				<Tag
 					icon={checksIcon}
 					color={checksColor}
-					filled={checksIcon == 'success'}
+					filled={checksIcon == 'success-small'}
 					clickable
-					border
 					verticalOrientation={isLaneCollapsed}
 					on:click={fetchPrStatus}
+					help="Refresh checks status"
 				>
 					{statusToTagText(checksStatus)}
+				</Tag>
+			{:else}
+				<Tag color="light" verticalOrientation={isLaneCollapsed} help="Fetching checks status">
+					No checks
 				</Tag>
 			{/if}
 			<Tag
 				icon="open-link"
 				color="ghost"
-				border
 				clickable
+				border
 				verticalOrientation={isLaneCollapsed}
 				on:click={(e) => {
 					const url = $pr$?.htmlUrl;
