@@ -29,7 +29,7 @@
 	style="--spinner-radius: {spinnerRadius}"
 >
 	{#if name == 'spinner'}
-		<circle class="spinner-path" cx="8" cy="8" r="var(--spinner-radius)" fill="none" />
+		<circle class="spinner-path" cx="8" cy="8" r={spinnerRadius} fill="none" />
 		<circle
 			class="spinner-back-path"
 			cx="8"
