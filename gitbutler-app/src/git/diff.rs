@@ -75,7 +75,11 @@ pub fn workdir(
         .ignore_submodules(true)
         .context_lines(context_lines);
 
-    let diff = repository.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
+    let mut diff = repository.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
+    let (mut diff_opts, skipped_files) = without_large_files(50_000_000, &diff, diff_opts);
+    if !skipped_files.is_empty() {
+        diff = repository.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
+    }
 
     hunks_by_filepath(repository, &diff)
 }
@@ -99,6 +103,28 @@ pub fn trees(
         repository.diff_tree_to_tree(Some(old_tree), Some(new_tree), Some(&mut diff_opts))?;
 
     hunks_by_filepath(repository, &diff)
+}
+
+pub fn without_large_files(
+    size_limit_bytes: u64,
+    diff: &git2::Diff,
+    mut diff_opts: git2::DiffOptions,
+) -> (git2::DiffOptions, Vec<String>) {
+    let mut skipped_files: Vec<String> = Vec::new();
+    for delta in diff.deltas() {
+        if delta.new_file().size() > size_limit_bytes {
+            if let Some(path) = delta.new_file().path() {
+                if let Some(path) = path.to_str() {
+                    skipped_files.push(path.to_owned().clone());
+                }
+            }
+        } else if let Some(path) = delta.new_file().path() {
+            if let Some(path) = path.to_str() {
+                diff_opts.pathspec(path);
+            }
+        }
+    }
+    (diff_opts, skipped_files)
 }
 
 fn hunks_by_filepath(
