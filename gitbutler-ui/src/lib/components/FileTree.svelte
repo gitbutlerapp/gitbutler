@@ -6,9 +6,9 @@
 	import TreeListFile from './TreeListFile.svelte';
 	import TreeListFolder from './TreeListFolder.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { TreeNode } from '$lib/vbranches/filetree';
+	import { sortLikeFileTree, type TreeNode } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { AnyFile } from '$lib/vbranches/types';
+	import type { AnyFile, LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let expanded = true;
@@ -22,6 +22,7 @@
 	export let allowMultiple = false;
 	export let readonly = false;
 	export let branchController: BranchController;
+	export let files: LocalFile[] | RemoteFile[];
 
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
@@ -59,6 +60,7 @@
 	}
 
 	$: isIndeterminate = isNodeIndeterminate($selectedOwnership, node);
+	$: sortedFiles = sortLikeFileTree(files);
 
 	function toggle() {
 		expanded = !expanded;
@@ -80,6 +82,7 @@
 					{readonly}
 					{allowMultiple}
 					{branchController}
+					{files}
 					on:checked
 					on:unchecked
 				/>
@@ -111,6 +114,9 @@
 			} else {
 				$selectedFiles = [file];
 			}
+		}}
+		on:keydown={() => {
+			console.log(sortedFiles);
 		}}
 	/>
 {:else if node.children.length > 0}
@@ -144,6 +150,7 @@
 						{readonly}
 						{allowMultiple}
 						{branchController}
+						{files}
 						on:checked
 						on:unchecked
 					/>

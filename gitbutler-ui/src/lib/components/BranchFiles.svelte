@@ -52,6 +52,7 @@
 					{selectedFiles}
 					{isUnapplied}
 					{branchController}
+					{files}
 				/>
 			{/if}
 		</div>
