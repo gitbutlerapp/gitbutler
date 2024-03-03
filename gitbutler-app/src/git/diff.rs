@@ -46,6 +46,12 @@ pub struct Hunk {
     pub change_type: ChangeType,
 }
 
+#[derive(Debug, PartialEq, Clone, Serialize)]
+pub struct SkippedFile {
+    pub path: String,
+    pub size_bytes: u64,
+}
+
 pub struct Options {
     pub context_lines: u32,
 }
@@ -60,7 +66,7 @@ pub fn workdir(
     repository: &Repository,
     commit_oid: &git::Oid,
     context_lines: u32,
-) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
+) -> Result<(HashMap<path::PathBuf, Vec<Hunk>>, Vec<SkippedFile>)> {
     let commit = repository
         .find_commit(*commit_oid)
         .context("failed to find commit")?;
@@ -80,8 +86,7 @@ pub fn workdir(
     if !skipped_files.is_empty() {
         diff = repository.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
     }
-
-    hunks_by_filepath(repository, &diff)
+    hunks_by_filepath(repository, &diff).map(|hunks| (hunks, skipped_files))
 }
 
 pub fn trees(
@@ -109,13 +114,16 @@ pub fn without_large_files(
     size_limit_bytes: u64,
     diff: &git2::Diff,
     mut diff_opts: git2::DiffOptions,
-) -> (git2::DiffOptions, Vec<String>) {
-    let mut skipped_files: Vec<String> = Vec::new();
+) -> (git2::DiffOptions, Vec<SkippedFile>) {
+    let mut skipped_files: Vec<SkippedFile> = Vec::new();
     for delta in diff.deltas() {
         if delta.new_file().size() > size_limit_bytes {
             if let Some(path) = delta.new_file().path() {
                 if let Some(path) = path.to_str() {
-                    skipped_files.push(path.to_owned().clone());
+                    skipped_files.push(SkippedFile {
+                        path: path.to_owned(),
+                        size_bytes: delta.new_file().size(),
+                    });
                 }
             }
         } else if let Some(path) = delta.new_file().path() {
@@ -368,7 +376,7 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap().0;
         assert_eq!(diff.len(), 1);
         assert_eq!(
             diff[&path::PathBuf::from("file")],
@@ -391,7 +399,7 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap().0;
         assert_eq!(diff.len(), 1);
         assert_eq!(
             diff[&path::PathBuf::from("first")],
@@ -415,7 +423,7 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap().0;
         assert_eq!(diff.len(), 2);
         assert_eq!(
             diff[&path::PathBuf::from("first")],
@@ -459,7 +467,7 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap().0;
         assert_eq!(
             diff[&path::PathBuf::from("image")],
             vec![Hunk {
@@ -502,7 +510,7 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap().0;
         assert_eq!(
             diff[&path::PathBuf::from("file")],
             vec![Hunk {

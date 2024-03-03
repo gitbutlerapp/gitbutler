@@ -79,7 +79,7 @@ impl InnerHandler {
             .list_virtual_branches(project_id)
             .await
         {
-            Ok((branches, _)) => Ok(vec![events::Event::Emit(
+            Ok((branches, _, _)) => Ok(vec![events::Event::Emit(
                 app_events::Event::virtual_branches(
                     project_id,
                     &self.assets_proxy.proxy_virtual_branches(branches).await,

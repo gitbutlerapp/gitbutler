@@ -13,7 +13,11 @@ use serde::Serialize;
 use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
-    git::{self, diff, show, Commit, Refname, RemoteRefname},
+    git::{
+        self,
+        diff::{self, SkippedFile},
+        show, Commit, Refname, RemoteRefname,
+    },
     keys,
     project_repository::{self, conflicts, LogUntil},
     reader, sessions, users,
@@ -251,6 +255,7 @@ pub fn apply_branch(
         if merge_index.has_conflicts() {
             // currently we can only deal with the merge problem branch
             for mut branch in super::get_status_by_branch(gb_repository, project_repository)?
+                .0
                 .into_iter()
                 .map(|(branch, _)| branch)
                 .filter(|branch| branch.applied)
@@ -474,7 +479,7 @@ pub fn unapply_ownership(
         .filter(|b| b.applied)
         .collect::<Vec<_>>();
 
-    let applied_statuses = get_applied_status(
+    let (applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
         &default_target,
@@ -631,7 +636,7 @@ pub fn unapply_branch(
             .filter(|b| b.applied)
             .collect::<Vec<_>>();
 
-        let applied_statuses = get_applied_status(
+        let (applied_statuses, _) = get_applied_status(
             gb_repository,
             project_repository,
             &default_target,
@@ -729,7 +734,7 @@ fn find_base_tree<'a>(
 pub fn list_virtual_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<(Vec<VirtualBranch>, bool), errors::ListVirtualBranchesError> {
+) -> Result<(Vec<VirtualBranch>, bool, Vec<SkippedFile>), errors::ListVirtualBranchesError> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
     let default_target = gb_repository
@@ -743,7 +748,7 @@ pub fn list_virtual_branches(
             )
         })?;
 
-    let statuses = get_status_by_branch(gb_repository, project_repository)?;
+    let (statuses, skipped_files) = get_status_by_branch(gb_repository, project_repository)?;
     let max_selected_for_changes = statuses
         .iter()
         .filter_map(|(branch, _)| branch.selected_for_changes)
@@ -912,7 +917,7 @@ pub fn list_virtual_branches(
         .project()
         .use_diff_context
         .unwrap_or(false);
-    Ok((branches, uses_diff_context))
+    Ok((branches, uses_diff_context, skipped_files))
 }
 
 fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<VirtualBranch> {
@@ -1821,7 +1826,7 @@ pub type BranchStatus = HashMap<path::PathBuf, Vec<diff::Hunk>>;
 pub fn get_status_by_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<Vec<(branch::Branch, BranchStatus)>> {
+) -> Result<(Vec<(branch::Branch, BranchStatus)>, Vec<SkippedFile>)> {
     let latest_session = gb_repository
         .get_latest_session()
         .context("failed to get latest session")?
@@ -1833,7 +1838,7 @@ pub fn get_status_by_branch(
         match get_default_target(&session_reader).context("failed to read default target")? {
             Some(target) => target,
             None => {
-                return Ok(vec![]);
+                return Ok((vec![], vec![]));
             }
         };
 
@@ -1848,7 +1853,7 @@ pub fn get_status_by_branch(
         .cloned()
         .collect::<Vec<_>>();
 
-    let applied_status = get_applied_status(
+    let (applied_status, skipped_files) = get_applied_status(
         gb_repository,
         project_repository,
         &default_target,
@@ -1866,10 +1871,13 @@ pub fn get_status_by_branch(
         non_applied_virtual_branches,
     )?;
 
-    Ok(applied_status
-        .into_iter()
-        .chain(non_applied_status)
-        .collect())
+    Ok((
+        applied_status
+            .into_iter()
+            .chain(non_applied_status)
+            .collect(),
+        skipped_files,
+    ))
 }
 
 // given a list of non applied virtual branches, return the status of each file, comparing the default target with
@@ -1922,8 +1930,8 @@ fn get_applied_status(
     project_repository: &project_repository::Repository,
     default_target: &target::Target,
     mut virtual_branches: Vec<branch::Branch>,
-) -> Result<AppliedStatuses> {
-    let mut diff = diff::workdir(
+) -> Result<(AppliedStatuses, Vec<SkippedFile>)> {
+    let (mut diff, skipped_files) = diff::workdir(
         &project_repository.git_repository,
         &default_target.sha,
         context_lines(project_repository),
@@ -2104,7 +2112,7 @@ fn get_applied_status(
         }
     }
 
-    Ok(hunks_by_branch)
+    Ok((hunks_by_branch, skipped_files))
 }
 
 fn virtual_hunks_to_virtual_files(
@@ -2426,7 +2434,7 @@ pub fn commit(
         })?;
 
     // get the files to commit
-    let mut statuses = get_status_by_branch(gb_repository, project_repository)
+    let (mut statuses, _) = get_status_by_branch(gb_repository, project_repository)
         .context("failed to get status by branch")?;
 
     let (ref mut branch, files) = statuses
@@ -2894,7 +2902,7 @@ pub fn amend(
             })
         })?;
 
-    let mut applied_statuses = get_applied_status(
+    let (mut applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
         &default_target,
@@ -3062,7 +3070,7 @@ pub fn cherry_pick(
         .filter(|b| b.applied)
         .collect::<Vec<_>>();
 
-    let applied_statuses = get_applied_status(
+    let (applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
         &default_target,
@@ -3612,7 +3620,7 @@ pub fn move_commit(
             })
         })?;
 
-    let mut applied_statuses = get_applied_status(
+    let (mut applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
         &default_target,

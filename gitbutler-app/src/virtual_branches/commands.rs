@@ -80,7 +80,7 @@ pub async fn list_virtual_branches(
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
-    let (branches, uses_diff_context) = handle
+    let (branches, uses_diff_context, _) = handle
         .state::<Controller>()
         .list_virtual_branches(&project_id)
         .await?;
