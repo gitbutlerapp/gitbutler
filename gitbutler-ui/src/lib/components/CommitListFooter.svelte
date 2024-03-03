@@ -16,6 +16,7 @@
 	export let githubService: GitHubService;
 	export let base: BaseBranch | undefined | null;
 	export let projectId: string;
+	export let hasCommits: boolean;
 
 	$: githubServiceState$ = githubService.getState(branch.id);
 	$: githubEnabled$ = githubService.isEnabled$;
@@ -60,7 +61,7 @@
 </script>
 
 {#if !isUnapplied && type != 'integrated'}
-	<div class="actions">
+	<div class="actions" class:hasCommits>
 		{#if $githubEnabled$ && (type == 'local' || type == 'remote')}
 			<PushButton
 				wide
@@ -127,9 +128,10 @@
 {/if}
 
 <style lang="postcss">
-	.actions {
+	.hasCommits {
 		padding-left: var(--space-16);
-
+	}
+	.actions {
 		&:empty {
 			display: none;
 		}

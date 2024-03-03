@@ -32,12 +32,8 @@
 </script>
 
 {#if hasCommits || remoteRequiresForcePush}
-	<div
-		class="commit-list card"
-		class:upstream={type == 'upstream'}
-		style:min-height={expanded ? `${2 * headerHeight}px` : undefined}
-	>
-		<CommitListHeader {type} bind:expanded bind:height={headerHeight} />
+	<div class="commit-list card" class:upstream={type == 'upstream'}>
+		<CommitListHeader {type} bind:expanded bind:height={headerHeight} isExpandable={hasCommits} />
 		{#if expanded}
 			<div class="commit-list__content">
 				{#if hasCommits}
@@ -71,6 +67,7 @@
 					{base}
 					{isUnapplied}
 					projectId={project.id}
+					{hasCommits}
 				/>
 			</div>
 		{/if}
@@ -91,7 +88,7 @@
 	.commit-list__content {
 		display: flex;
 		flex-direction: column;
-		padding: 0 var(--space-14) var(--space-20) var(--space-14);
+		padding: 0 var(--space-14) var(--space-14) var(--space-14);
 		gap: var(--space-8);
 	}
 	.upstream-message {
