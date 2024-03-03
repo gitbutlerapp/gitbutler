@@ -39,6 +39,7 @@
 
 	let viewport: HTMLDivElement;
 	let isResizerHovered = false;
+	let isResizerDragging = false;
 
 	$: isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + project.id);
 
@@ -59,7 +60,7 @@
 	<div class="resizer-wrapper" tabindex="0" role="button">
 		<button
 			class="folding-button"
-			class:resizer-hovered={isResizerHovered}
+			class:resizer-hovered={isResizerHovered || isResizerDragging}
 			on:click={toggleNavCollapse}
 			class:folding-button_folded={$isNavCollapsed}
 		>
@@ -88,6 +89,9 @@
 			}}
 			on:hover={(e) => {
 				isResizerHovered = e.detail;
+			}}
+			on:resizing={(e) => {
+				isResizerDragging = e.detail;
 			}}
 			on:overflowValue={(e) => {
 				const overflowValue = e.detail;
