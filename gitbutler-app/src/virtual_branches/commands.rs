@@ -343,6 +343,26 @@ pub async fn unapply_ownership(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
+pub async fn reset_files(handle: AppHandle, project_id: &str, files: &str) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".to_string(),
+    })?;
+    // convert files to Vec<String>
+    let files = files
+        .split('\n')
+        .map(std::string::ToString::to_string)
+        .collect::<Vec<String>>();
+    handle
+        .state::<Controller>()
+        .reset_files(&project_id, &files)
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(())
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
 pub async fn push_virtual_branch(
     handle: AppHandle,
     project_id: &str,
