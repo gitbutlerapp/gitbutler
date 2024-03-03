@@ -40,8 +40,8 @@
 		<CommitListHeader {type} bind:expanded bind:height={headerHeight} />
 		{#if expanded}
 			<div class="commit-list__content">
-				<div class="commits">
-					{#if commits}
+				{#if hasCommits}
+					<div class="commits">
 						{#each commits as commit, idx (commit.id)}
 							<CommitListItem
 								{branch}
@@ -55,8 +55,8 @@
 								isHeadCommit={commit.id === headCommit?.id}
 							/>
 						{/each}
-					{/if}
-				</div>
+					</div>
+				{/if}
 				{#if type == 'upstream' && branchCount > 1}
 					<div class="upstream-message text-base-body-11">
 						You have {branchCount} active branches. To merge upstream work, we will unapply all other
@@ -100,5 +100,10 @@
 		background: var(--clr-theme-scale-warn-80);
 		padding: var(--space-12);
 		margin-left: var(--space-16);
+	}
+
+	.commits {
+		display: flex;
+		flex-direction: column;
 	}
 </style>
