@@ -51,7 +51,7 @@
 								navigator.clipboard.writeText(absPath);
 								dismiss();
 							} catch (err) {
-								console.log('Failed to copy path', err);
+								console.error('Failed to copy path', err);
 								toasts.error('Failed to copy path');
 							}
 						}}
@@ -64,7 +64,7 @@
 								navigator.clipboard.writeText(item.files[0].path);
 								dismiss();
 							} catch (err) {
-								console.log('Failed to copy relative path', err);
+								console.error('Failed to copy relative path', err);
 								toasts.error('Failed to copy relative path');
 							}
 						}}
@@ -81,7 +81,7 @@
 							}
 							dismiss();
 						} catch {
-							console.log('Failed to open in VSCode');
+							console.error('Failed to open in VSCode');
 							toasts.error('Failed to open in VSCode');
 						}
 					}}
