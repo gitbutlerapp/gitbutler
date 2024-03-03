@@ -91,6 +91,17 @@ const withLog: FetchMiddleware = (fetch) => async (url, options) => {
 	}
 };
 
+interface PromptMessage {
+    content: string
+    role: 'user' | 'system'
+}
+
+interface EvaluatePromptParams {
+    messages: PromptMessage[]
+    temperature?: number
+    max_tokens?: number
+}
+
 export function getCloudApiClient(
 	{ fetch: realFetch }: { fetch: typeof window.fetch } = {
 		fetch: window.fetch
@@ -206,7 +217,16 @@ export function getCloudApiClient(
 						'X-Auth-Token': token
 					},
 					body: JSON.stringify(params)
-				}).then(parseResponseJSON)
+				}).then(parseResponseJSON),
+            evaluatePrompt: (token: string, params: EvaluatePromptParams): Promise<{ message: string }> =>
+                fetch(getUrl('evaluate_prompt/predict.json'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Auth-Token': token
+                    },
+                    body: JSON.stringify(params)
+                }).then(parseResponseJSON),
 		},
 		chat: {
 			new: (token: string, repositoryId: string): Promise<{ id: string }> =>
