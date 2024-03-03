@@ -5,6 +5,7 @@
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { updateFocus } from '$lib/utils/selection';
 	import { onDestroy } from 'svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
@@ -23,6 +24,7 @@
 
 	let checked = false;
 	let indeterminate = false;
+	let draggableElt: HTMLDivElement;
 
 	$: if (file) {
 		const fileId = file.id;
@@ -40,6 +42,8 @@
 			props: { branchController }
 		});
 	}
+
+	$: if ($selectedFiles && draggableElt) updateFocus(draggableElt, file, selectedFiles);
 
 	$: popupMenu = updateContextMenu();
 
@@ -66,6 +70,7 @@
 		/>
 	{/if}
 	<div
+		bind:this={draggableElt}
 		class="file-list-item"
 		id={`file-${file.id}`}
 		class:selected-draggable={selected}
@@ -123,6 +128,7 @@
 		overflow: hidden;
 		text-align: left;
 		user-select: none;
+		outline: none;
 		margin-bottom: var(--space-2);
 		transition: background-color var(--transition-fast);
 		&:not(.selected-draggable):hover {

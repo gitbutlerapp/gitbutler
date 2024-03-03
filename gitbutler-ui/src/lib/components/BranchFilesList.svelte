@@ -1,5 +1,6 @@
 <script lang="ts">
 	import FileListItem from './FileListItem.svelte';
+	import { maybeMoveSelection } from '$lib/utils/selection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
@@ -19,7 +20,7 @@
 	$: sortedFiles = sortLikeFileTree(files);
 </script>
 
-{#each sortedFiles as file, index (file.id)}
+{#each sortedFiles as file (file.id)}
 	<FileListItem
 		{file}
 		{readonly}
@@ -44,22 +45,7 @@
 		}}
 		on:keydown={(e) => {
 			e.preventDefault();
-			// Exiting if more one one files are selected or non-arrow keys are pressed
-			if ($selectedFiles.length !== 1 || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) {
-				return;
-			}
-
-			// Update the selected file, given it will be within bounds post update
-			if (e.key === 'ArrowUp' && index - 1 >= 0) {
-				$selectedFiles = [sortedFiles[index - 1]];
-			} else if (e.key === 'ArrowDown' && index + 1 < sortedFiles.length) {
-				$selectedFiles = [sortedFiles[index + 1]];
-			}
-
-			// TODO: Remove dependency on ID by getting reference to child DOM node
-			// Focus on the newly selected file
-			const fileElement = document.getElementById('file-' + $selectedFiles[0].id);
-			fileElement?.focus();
+			maybeMoveSelection(e.key, files, selectedFiles);
 		}}
 	/>
 {/each}

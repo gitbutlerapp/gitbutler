@@ -5,6 +5,7 @@
 <script lang="ts">
 	import TreeListFile from './TreeListFile.svelte';
 	import TreeListFolder from './TreeListFolder.svelte';
+	import { maybeMoveSelection } from '$lib/utils/selection';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { TreeNode } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
@@ -114,8 +115,9 @@
 				$selectedFiles = [file];
 			}
 		}}
-		on:keydown={() => {
-			// TODO: implement keyboard navigation, next item in tree should focus on ArrowDown, previous on ArrowUp
+		on:keydown={(e) => {
+			e.preventDefault();
+			maybeMoveSelection(e.key, files, selectedFiles);
 		}}
 	/>
 {:else if node.children.length > 0}
