@@ -56,6 +56,7 @@
 					{isUnapplied}
 					{branchController}
 					{files}
+					{project}
 				/>
 			{/if}
 		</div>
