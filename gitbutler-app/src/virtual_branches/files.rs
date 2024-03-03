@@ -38,7 +38,7 @@ pub fn list_remote_commit_files(
     let parent_tree = parent.tree().context("failed to get parent tree")?;
     let diff = diff::trees(repository, &parent_tree, &commit_tree, context_lines)?;
 
-    let files = diff
+    let mut files = diff
         .into_iter()
         .map(|(file_path, hunks)| RemoteBranchFile {
             path: file_path.clone(),
@@ -47,8 +47,10 @@ pub fn list_remote_commit_files(
         })
         .collect::<Vec<_>>();
 
-    let files = files_with_hunk_context(repository, &parent_tree, files, 3)
-        .context("failed to add context to hunk")?;
+    if context_lines == 0 {
+        files = files_with_hunk_context(repository, &parent_tree, files, 3)
+            .context("failed to add context to hunk")?;
+    }
     Ok(files)
 }
 
