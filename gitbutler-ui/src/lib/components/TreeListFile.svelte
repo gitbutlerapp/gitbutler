@@ -5,6 +5,7 @@
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { updateFocus } from '$lib/utils/selection';
 	import { onDestroy } from 'svelte';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -25,6 +26,7 @@
 
 	let checked = false;
 	let indeterminate = false;
+	let draggableElt: HTMLDivElement;
 
 	$: updateOwnership($selectedOwnership);
 
@@ -48,6 +50,8 @@
 
 	$: popupMenu = updateContextMenu();
 
+	$: if ($selectedFiles && draggableElt) updateFocus(draggableElt, file, selectedFiles);
+
 	onDestroy(() => {
 		if (popupMenu) {
 			popupMenu.$destroy();
@@ -56,6 +60,7 @@
 </script>
 
 <div
+	bind:this={draggableElt}
 	on:dragstart={() => {
 		// Reset selection if the file being dragged is not in the selected list
 		if ($selectedFiles.length > 0 && !$selectedFiles.find((f) => f.id == file.id)) {
@@ -122,6 +127,7 @@
 		border-radius: var(--radius-s);
 		width: 100%;
 		max-width: 100%;
+		outline: none;
 		&:not(.selected):hover {
 			background-color: color-mix(
 				in srgb,

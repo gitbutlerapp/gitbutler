@@ -55,6 +55,7 @@
 					{selectedFiles}
 					{isUnapplied}
 					{branchController}
+					{files}
 					{project}
 				/>
 			{/if}

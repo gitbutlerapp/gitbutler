@@ -1,5 +1,6 @@
 <script lang="ts">
 	import FileListItem from './FileListItem.svelte';
+	import { maybeMoveSelection } from '$lib/utils/selection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -17,9 +18,11 @@
 	export let allowMultiple = false;
 	export let readonly = false;
 	export let branchController: BranchController;
+
+	$: sortedFiles = sortLikeFileTree(files);
 </script>
 
-{#each sortLikeFileTree(files) as file (file.id)}
+{#each sortedFiles as file (file.id)}
 	<FileListItem
 		{file}
 		{readonly}
@@ -30,6 +33,7 @@
 		{branchController}
 		{project}
 		showCheckbox={showCheckboxes}
+		selected={$selectedFiles.includes(file)}
 		on:click={(e) => {
 			const isAlreadySelected = $selectedFiles.includes(file);
 			if (isAlreadySelected && e.shiftKey) {
@@ -42,6 +46,9 @@
 				$selectedFiles = [file];
 			}
 		}}
-		selected={$selectedFiles.includes(file)}
+		on:keydown={(e) => {
+			e.preventDefault();
+			maybeMoveSelection(e.key, files, selectedFiles);
+		}}
 	/>
 {/each}

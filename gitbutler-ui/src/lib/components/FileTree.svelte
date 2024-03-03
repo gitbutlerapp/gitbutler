@@ -5,11 +5,12 @@
 <script lang="ts">
 	import TreeListFile from './TreeListFile.svelte';
 	import TreeListFolder from './TreeListFolder.svelte';
+	import { maybeMoveSelection } from '$lib/utils/selection';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { TreeNode } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { AnyFile } from '$lib/vbranches/types';
+	import type { AnyFile, LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let project: Project | undefined;
@@ -24,6 +25,7 @@
 	export let allowMultiple = false;
 	export let readonly = false;
 	export let branchController: BranchController;
+	export let files: LocalFile[] | RemoteFile[];
 
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
@@ -82,6 +84,7 @@
 					{readonly}
 					{allowMultiple}
 					{branchController}
+					{files}
 					on:checked
 					on:unchecked
 				/>
@@ -115,6 +118,10 @@
 				$selectedFiles = [file];
 			}
 		}}
+		on:keydown={(e) => {
+			e.preventDefault();
+			maybeMoveSelection(e.key, files, selectedFiles);
+		}}
 	/>
 {:else if node.children.length > 0}
 	<!-- Node is a folder -->
@@ -147,6 +154,7 @@
 						{readonly}
 						{allowMultiple}
 						{branchController}
+						{files}
 						on:checked
 						on:unchecked
 					/>
