@@ -58,8 +58,8 @@
 			"csp": {
 				"default-src": "'self'",
 				"img-src": "'self' asset: https://asset.localhost data: tauri://localhost https://avatars.githubusercontent.com https://*.gitbutler.com  https://gitbutler-public.s3.amazonaws.com https://*.gravatar.com",
-				"connect-src": "'self' https://eu.posthog.com https://app.gitbutler.com https://o4504644069687296.ingest.sentry.io ws://localhost:7703 https://github.com https://api.github.com",
-				"script-src": "'self' https://eu.posthog.com",
+				"connect-src": "'self' https://eu.posthog.com https://eu.i.posthog.com https://app.gitbutler.com https://o4504644069687296.ingest.sentry.io ws://localhost:7703 https://github.com https://api.github.com",
+				"script-src": "'self' https://eu.posthog.com https://eu.i.posthog.com",
 				"style-src": "'self' 'unsafe-inline'"
 			}
 		}
