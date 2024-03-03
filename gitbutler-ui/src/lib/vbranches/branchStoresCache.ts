@@ -1,4 +1,4 @@
-import { BaseBranch, Branch } from './types';
+import { BaseBranch, Branch, VirtualBranches } from './types';
 import { Code, invoke, listen } from '$lib/backend/ipc';
 import * as toasts from '$lib/utils/toasts';
 import { plainToInstance } from 'class-transformer';
@@ -103,8 +103,8 @@ export class VirtualBranchService {
 }
 
 function subscribeToVirtualBranches(projectId: string, callback: (branches: Branch[]) => void) {
-	return listen<any[]>(`project://${projectId}/virtual-branches`, (event) =>
-		callback(plainToInstance(Branch, event.payload))
+	return listen<any>(`project://${projectId}/virtual-branches`, (event) =>
+		callback(plainToInstance(VirtualBranches, event.payload).branches)
 	);
 }
 
@@ -170,7 +170,8 @@ export class BaseBranchService {
 }
 
 export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
-	return plainToInstance(Branch, await invoke<any[]>('list_virtual_branches', params));
+	return plainToInstance(VirtualBranches, await invoke<any>('list_virtual_branches', params))
+		.branches;
 }
 
 export async function getRemoteBranches(projectId: string | undefined) {
