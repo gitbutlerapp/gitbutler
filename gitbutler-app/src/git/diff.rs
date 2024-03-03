@@ -62,6 +62,7 @@ impl Default for Options {
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub fn workdir(
     repository: &Repository,
     commit_oid: &git::Oid,

@@ -1829,6 +1829,7 @@ pub fn virtual_hunks_by_filepath(
 pub type BranchStatus = HashMap<path::PathBuf, Vec<diff::Hunk>>;
 
 // list the virtual branches and their file statuses (statusi?)
+#[allow(clippy::type_complexity)]
 pub fn get_status_by_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
