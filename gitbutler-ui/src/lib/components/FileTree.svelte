@@ -6,7 +6,6 @@
 	import TreeListFile from './TreeListFile.svelte';
 	import TreeListFolder from './TreeListFolder.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import { sortLikeFileTree, type TreeNode } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile, LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
@@ -60,7 +59,6 @@
 	}
 
 	$: isIndeterminate = isNodeIndeterminate($selectedOwnership, node);
-	$: sortedFiles = sortLikeFileTree(files);
 
 	function toggle() {
 		expanded = !expanded;
@@ -116,7 +114,7 @@
 			}
 		}}
 		on:keydown={() => {
-			console.log(sortedFiles);
+			// TODO: implement keyboard navigation, next item in tree should focus on ArrowDown, previous on ArrowUp
 		}}
 	/>
 {:else if node.children.length > 0}

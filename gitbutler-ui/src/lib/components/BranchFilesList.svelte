@@ -56,6 +56,7 @@
 				$selectedFiles = [sortedFiles[index + 1]];
 			}
 
+			// TODO: Remove dependency on ID by getting reference to child DOM node
 			// Focus on the newly selected file
 			const fileElement = document.getElementById('file-' + $selectedFiles[0].id);
 			fileElement?.focus();
