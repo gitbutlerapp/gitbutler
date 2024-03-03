@@ -5,6 +5,7 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import * as toasts from '$lib/utils/toasts';
 	import { join } from '@tauri-apps/api/path';
 	import { open } from '@tauri-apps/api/shell';
@@ -19,6 +20,10 @@
 
 	function containsBinaryFiles(item: any) {
 		return item.files.some((f: AnyFile) => f.binary);
+	}
+
+	function isDeleted(item: any): boolean {
+		return item.files.some((f: AnyFile) => computeFileStatus(f) === 'D');
 	}
 
 	export function openByMouse(e: MouseEvent, item: any) {
@@ -72,6 +77,7 @@
 				{/if}
 				<ContextMenuItem
 					label="Open in VSCode"
+					disabled={isDeleted(item)}
 					on:click={async () => {
 						try {
 							if (!project) return;
