@@ -56,7 +56,13 @@
 		>
 			<ScrollableContainer>
 				<div class="card">
-					<BaseBranch {projectId} base={$base$} {branchController} {selectedFiles} />
+					<BaseBranch
+						{projectId}
+						base={$base$}
+						{branchController}
+						{selectedFiles}
+						project={$project$}
+					/>
 				</div>
 			</ScrollableContainer>
 			<Resizer

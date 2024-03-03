@@ -11,10 +11,12 @@
 	import { marked } from 'marked';
 	import { getContext, onMount } from 'svelte';
 	import { writable } from 'svelte/store';
+	import type { Project } from '$lib/backend/projects';
 	import type { PullRequest } from '$lib/github/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { AnyFile, BaseBranch, RemoteBranch } from '$lib/vbranches/types';
 
+	export let project: Project | undefined;
 	export let base: BaseBranch | undefined | null;
 	export let branch: RemoteBranch;
 	export let projectId: string;
@@ -72,6 +74,7 @@
 							{#each branchData.commits as commit (commit.id)}
 								<CommitCard
 									{commit}
+									{project}
 									{projectId}
 									{selectedFiles}
 									{branchController}

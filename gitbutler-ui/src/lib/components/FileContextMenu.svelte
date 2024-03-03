@@ -5,9 +5,14 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import * as toasts from '$lib/utils/toasts';
+	import { join } from '@tauri-apps/api/path';
+	import { open } from '@tauri-apps/api/shell';
+	import type { Project } from '$lib/backend/projects';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { AnyFile } from '$lib/vbranches/types';
 
+	export let project: Project | undefined;
 	export let branchController: BranchController;
 	let confirmationModal: Modal;
 	let popupMenu: PopupMenu;
@@ -29,13 +34,58 @@
 					<ContextMenuItem label="Discard changes (Binary files not yet supported)" disabled />
 				{:else}
 					<ContextMenuItem
-						label="Discard changes"
+						label={item.files.length === 1 ? 'Discard file' : 'Discard files'}
 						on:click={() => {
 							confirmationModal.show(item);
 							dismiss();
 						}}
 					/>
 				{/if}
+				{#if item.files.length === 1}
+					<ContextMenuItem
+						label="Copy Path"
+						on:click={async () => {
+							try {
+								if (!project) return;
+								const absPath = await join(project.path, item.files[0].path);
+								navigator.clipboard.writeText(absPath);
+								dismiss();
+							} catch (err) {
+								console.log('Failed to copy path', err);
+								toasts.error('Failed to copy path');
+							}
+						}}
+					/>
+					<ContextMenuItem
+						label="Copy Relative Path"
+						on:click={() => {
+							try {
+								if (!project) return;
+								navigator.clipboard.writeText(item.files[0].path);
+								dismiss();
+							} catch (err) {
+								console.log('Failed to copy relative path', err);
+								toasts.error('Failed to copy relative path');
+							}
+						}}
+					/>
+				{/if}
+				<ContextMenuItem
+					label="Open in VSCode"
+					on:click={async () => {
+						try {
+							if (!project) return;
+							for (let file of item.files) {
+								const absPath = await join(project.path, file.path);
+								open(`vscode://file${absPath}`);
+							}
+							dismiss();
+						} catch {
+							console.log('Failed to open in VSCode');
+							toasts.error('Failed to open in VSCode');
+						}
+					}}
+				/>
 			{/if}
 		</ContextMenuSection>
 	</ContextMenu>

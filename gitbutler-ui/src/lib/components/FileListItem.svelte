@@ -6,11 +6,13 @@
 	import { draggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { onDestroy } from 'svelte';
+	import type { Project } from '$lib/backend/projects';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
+	export let project: Project | undefined;
 	export let branchId: string;
 	export let file: AnyFile;
 	export let isUnapplied: boolean;
@@ -37,7 +39,7 @@
 		if (popupMenu) popupMenu.$destroy();
 		return new FileContextMenu({
 			target: document.body,
-			props: { branchController }
+			props: { branchController, project }
 		});
 	}
 

@@ -1,11 +1,13 @@
 <script lang="ts">
 	import FileListItem from './FileListItem.svelte';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
+	import type { Project } from '$lib/backend/projects';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
+	export let project: Project | undefined;
 	export let branchId: string;
 	export let files: AnyFile[];
 	export let selectedOwnership: Writable<Ownership>;
@@ -26,6 +28,7 @@
 		{selectedFiles}
 		{selectedOwnership}
 		{branchController}
+		{project}
 		showCheckbox={showCheckboxes}
 		on:click={(e) => {
 			const isAlreadySelected = $selectedFiles.includes(file);

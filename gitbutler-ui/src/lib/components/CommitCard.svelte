@@ -11,8 +11,10 @@
 	import { LocalFile, RemoteCommit, Commit, RemoteFile } from '$lib/vbranches/types';
 	import { writable, type Writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
+	import type { Project } from '$lib/backend/projects';
 	import type { BranchController } from '$lib/vbranches/branchController';
 
+	export let project: Project | undefined;
 	export let commit: Commit | RemoteCommit;
 	export let projectId: string;
 	export let commitUrl: string | undefined = undefined;
@@ -106,6 +108,7 @@
 				{selectedOwnership}
 				{selectedFiles}
 				{branchController}
+				{project}
 				allowMultiple={true}
 				readonly={true}
 			/>
