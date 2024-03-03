@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import type { CommitStatus } from '$lib/vbranches/types';
 
+	export let isExpandable = true;
 	export let expanded: boolean;
 	export let type: CommitStatus;
 	export let height: number | undefined;
@@ -26,9 +27,11 @@
 			<Icon name="warning" color="warn" />
 		{/if}
 	</div>
-	<div class="expander">
-		<Icon name={expanded ? 'chevron-down' : 'chevron-top'} />
-	</div>
+	{#if isExpandable}
+		<div class="expander">
+			<Icon name={expanded ? 'chevron-down' : 'chevron-top'} />
+		</div>
+	{/if}
 </button>
 
 <style lang="postcss">

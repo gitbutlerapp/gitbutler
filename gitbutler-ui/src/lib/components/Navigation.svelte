@@ -38,7 +38,7 @@
 	);
 
 	let viewport: HTMLDivElement;
-	let isResizerDragging = false;
+	let isResizerHovered = false;
 
 	$: isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + project.id);
 
@@ -56,9 +56,10 @@
 </script>
 
 <aside class="navigation-wrapper">
-	<div class="resizer-wrapper" class:resizerDragging={isResizerDragging} tabindex="0" role="button">
+	<div class="resizer-wrapper" tabindex="0" role="button">
 		<button
 			class="folding-button"
+			class:resizer-hovered={isResizerHovered}
 			on:click={toggleNavCollapse}
 			class:folding-button_folded={$isNavCollapsed}
 		>
@@ -85,7 +86,9 @@
 			on:width={(e) => {
 				$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
 			}}
-			on:resizing={(e) => (isResizerDragging = e.detail)}
+			on:hover={(e) => {
+				isResizerHovered = e.detail;
+			}}
 			on:overflowValue={(e) => {
 				const overflowValue = e.detail;
 
@@ -130,7 +133,7 @@
 						{branchController}
 						{baseBranchService}
 						isNavCollapsed={$isNavCollapsed}
-					></DomainButton>
+					/>
 				</div>
 			</div>
 			{#if !$isNavCollapsed}
@@ -149,16 +152,11 @@
 		&:hover {
 			& .folding-button {
 				opacity: 1;
-				transform: translateY(-50%);
 				right: calc(var(--space-6) * -1);
-				transition-delay: 0.1s;
-
-				& svg {
-					transition-delay: 0.1s;
-				}
 			}
 		}
 	}
+
 	.navigation {
 		width: 17.5rem;
 		display: flex;
@@ -191,18 +189,6 @@
 		right: 0;
 		height: 100%;
 		width: var(--space-4);
-
-		&:hover,
-		&.resizerDragging {
-			& .folding-button {
-				background-color: var(--resizer-color);
-				border: 1px solid var(--resizer-color);
-
-				& svg {
-					stroke: var(--clr-theme-scale-ntrl-100);
-				}
-			}
-		}
 	}
 
 	.folding-button {
@@ -222,11 +208,24 @@
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),
 			opacity var(--transition-medium),
-			all var(--transition-medium);
+			right var(--transition-fast);
 
 		& svg {
 			stroke: var(--clr-theme-scale-ntrl-50);
 			transition: stroke var(--transition-fast);
+		}
+
+		&:hover {
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-light),
+				var(--darken-tint-extralight)
+			);
+			border-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-outline-light),
+				var(--darken-tint-dark)
+			);
 		}
 	}
 
@@ -236,9 +235,22 @@
 		}
 	}
 
+	/* MODIFIERS */
+
 	.navigation.collapsed {
 		width: auto;
 		justify-content: space-between;
 		padding-bottom: var(--space-16);
+	}
+
+	.resizer-hovered {
+		background-color: var(--resizer-color);
+		border: 1px solid var(--resizer-color);
+		transition-delay: 0.1s;
+
+		& svg {
+			stroke: var(--clr-theme-scale-ntrl-100);
+			transition-delay: 0.1s;
+		}
 	}
 </style>

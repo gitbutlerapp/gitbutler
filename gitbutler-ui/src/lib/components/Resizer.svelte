@@ -33,6 +33,7 @@
 		width: number;
 		resizing: boolean;
 		overflowValue: number;
+		hover: boolean;
 	}>();
 
 	function onMouseDown(e: MouseEvent) {
@@ -89,6 +90,10 @@
 		document.removeEventListener('mousemove', onMouseMove);
 		dispatch('resizing', false);
 	}
+
+	function isHovered(isHovered: boolean) {
+		dispatch('hover', isHovered);
+	}
 </script>
 
 <div
@@ -96,6 +101,8 @@
 	on:click|stopPropagation
 	on:dblclick|stopPropagation
 	on:keydown|stopPropagation
+	on:mouseenter={() => isHovered(true)}
+	on:mouseleave={() => isHovered(false)}
 	tabindex="0"
 	role="slider"
 	aria-valuenow={viewport?.clientHeight}

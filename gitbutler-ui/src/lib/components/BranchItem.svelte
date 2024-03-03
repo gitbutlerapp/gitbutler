@@ -22,7 +22,7 @@
 
 <a class="branch" class:selected {href}>
 	{#if branch.icon}
-		<BranchIcon help={branch.tooltip} name={branch.icon} color={branch.color} />
+		<BranchIcon help={branch.tooltip} name={branch.icon} />
 	{/if}
 	<div class="branch__info flex flex-col gap-2">
 		<div class="branch__details">
