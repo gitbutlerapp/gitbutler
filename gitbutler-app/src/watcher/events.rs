@@ -14,7 +14,6 @@ pub enum Event {
     FetchGitbutlerData(ProjectId),
     PushGitbutlerData(ProjectId),
     PushProjectToGitbutler(ProjectId),
-    FetchProjectData(ProjectId),
 
     GitFileChange(ProjectId, path::PathBuf),
 
@@ -42,7 +41,6 @@ impl Event {
             Event::Emit(event) => event.project_id(),
             Event::IndexAll(project_id)
             | Event::FetchGitbutlerData(project_id)
-            | Event::FetchProjectData(project_id)
             | Event::Flush(project_id, _)
             | Event::GitFileChange(project_id, _)
             | Event::ProjectFileChange(project_id, _)
@@ -65,9 +63,6 @@ impl Display for Event {
             Event::Emit(event) => write!(f, "Emit({})", event.name()),
             Event::FetchGitbutlerData(pid) => {
                 write!(f, "FetchGitbutlerData({})", pid,)
-            }
-            Event::FetchProjectData(pid) => {
-                write!(f, "FetchProjectData({})", pid,)
             }
             Event::Flush(project_id, session) => write!(f, "Flush({}, {})", project_id, session.id),
             Event::GitFileChange(project_id, path) => {

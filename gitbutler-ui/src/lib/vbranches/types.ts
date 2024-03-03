@@ -55,6 +55,18 @@ export class LocalFile {
 	}
 }
 
+export class SkippedFile {
+	path!: string;
+	sizeBytes!: number;
+}
+
+export class VirtualBranches {
+	@Type(() => Branch)
+	branches!: Branch[];
+	@Type(() => SkippedFile)
+	skippedFiles!: SkippedFile[];
+}
+
 export class Branch {
 	id!: string;
 	name!: string;

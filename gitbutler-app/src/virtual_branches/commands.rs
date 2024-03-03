@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-    branch::{self, BranchId},
+    branch::BranchId,
     controller::{Controller, ControllerError},
     BaseBranch, RemoteBranchFile,
 };
@@ -75,12 +75,12 @@ pub async fn commit_virtual_branch(
 pub async fn list_virtual_branches(
     handle: AppHandle,
     project_id: &str,
-) -> Result<Vec<super::VirtualBranch>, Error> {
+) -> Result<super::VirtualBranches, Error> {
     let project_id = project_id.parse().map_err(|_| Error::UserError {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
-    let (branches, uses_diff_context) = handle
+    let (branches, uses_diff_context, skipped_files) = handle
         .state::<Controller>()
         .list_virtual_branches(&project_id)
         .await?;
@@ -99,7 +99,10 @@ pub async fn list_virtual_branches(
 
     let proxy = handle.state::<assets::Proxy>();
     let branches = proxy.proxy_virtual_branches(branches).await;
-    Ok(branches)
+    Ok(super::VirtualBranches {
+        branches,
+        skipped_files,
+    })
 }
 
 #[tauri::command(async)]
@@ -333,6 +336,26 @@ pub async fn unapply_ownership(
     handle
         .state::<Controller>()
         .unapply_ownership(&project_id, &ownership)
+        .await?;
+    emit_vbranches(&handle, &project_id).await;
+    Ok(())
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn reset_files(handle: AppHandle, project_id: &str, files: &str) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".to_string(),
+    })?;
+    // convert files to Vec<String>
+    let files = files
+        .split('\n')
+        .map(std::string::ToString::to_string)
+        .collect::<Vec<String>>();
+    handle
+        .state::<Controller>()
+        .reset_files(&project_id, &files)
         .await?;
     emit_vbranches(&handle, &project_id).await;
     Ok(())
@@ -629,6 +652,8 @@ pub async fn move_commit(
     Ok(())
 }
 
+// XXX(qix-): Is this command used?
+#[allow(dead_code)]
 pub async fn update_commit_message(
     handle: tauri::AppHandle,
     project_id: &str,

@@ -3,11 +3,13 @@
 	import BranchFilesList from './BranchFilesList.svelte';
 	import FileTree from './FileTree.svelte';
 	import { filesToFileTree } from '$lib/vbranches/filetree';
+	import type { Project } from '$lib/backend/projects';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
+	export let project: Project | undefined;
 	export let branchId: string;
 	export let files: LocalFile[] | RemoteFile[];
 	export let isUnapplied: boolean;
@@ -39,6 +41,7 @@
 					{showCheckboxes}
 					{isUnapplied}
 					{branchController}
+					{project}
 				/>
 			{:else}
 				<FileTree

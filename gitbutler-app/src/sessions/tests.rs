@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use crate::{
     sessions::{self, session::SessionId},
-    test_utils::{Case, Suite},
+    tests::{Case, Suite},
 };
 
 use super::Writer;

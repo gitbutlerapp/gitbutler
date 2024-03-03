@@ -74,13 +74,13 @@ impl Database {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils;
+    use crate::tests;
 
     use super::*;
 
     #[test]
     fn smoke() {
-        let data_dir = test_utils::temp_dir();
+        let data_dir = tests::temp_dir();
         let db = Database::try_from(&data_dir).unwrap();
         db.transaction(|tx| {
             tx.execute("CREATE TABLE test (id INTEGER PRIMARY KEY)", [])

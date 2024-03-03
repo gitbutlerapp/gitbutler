@@ -16,7 +16,7 @@
 	import ProfileSIdebar from '$lib/components/settings/ProfileSIdebar.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import * as toasts from '$lib/utils/toasts';
-	import { open } from '@tauri-apps/api/shell';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
@@ -71,6 +71,7 @@
 				name: newName,
 				picture: picture
 			});
+			updatedUser.github_access_token = $user$?.github_access_token; // prevent overwriting with null
 			userService.setUser(updatedUser);
 			toasts.success('Profile updated');
 		} catch (e) {
@@ -268,7 +269,7 @@
 						color="neutral"
 						icon="open-link"
 						on:click={() => {
-							open('https://github.com/settings/ssh/new');
+							openExternalUrl('https://github.com/settings/ssh/new');
 						}}
 					>
 						Add key to GitHub

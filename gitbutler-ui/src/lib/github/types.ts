@@ -27,14 +27,19 @@ export interface PullRequest {
 	createdAt: Date;
 	modifiedAt: Date;
 	mergedAt?: Date;
+	closedAt?: Date;
 }
 
-export interface PrStatus {
-	startedAt: Date;
-	completed?: boolean;
-	success?: boolean;
-	hasChecks: boolean;
-}
+export type ChecksStatus =
+	| {
+			startedAt?: Date;
+			completed?: boolean;
+			success?: boolean;
+			hasChecks?: boolean;
+			error?: any;
+	  }
+	| null
+	| undefined;
 
 export function ghResponseToInstance(
 	pr:
@@ -68,7 +73,8 @@ export function ghResponseToInstance(
 		modifiedAt: new Date(pr.created_at),
 		targetBranch: pr.head.ref,
 		sourceBranch: pr.base.ref,
-		mergedAt: pr.merged_at ? new Date(pr.merged_at) : undefined
+		mergedAt: pr.merged_at ? new Date(pr.merged_at) : undefined,
+		closedAt: pr.closed_at ? new Date(pr.closed_at) : undefined
 	};
 }
 

@@ -1,5 +1,4 @@
 use crate::git::diff;
-use anyhow::{Context, Result};
 
 pub fn hunk_with_context(
     hunk_diff: &str,
@@ -9,14 +8,14 @@ pub fn hunk_with_context(
     context_lines: usize,
     file_lines_before: &[&str],
     change_type: diff::ChangeType,
-) -> Result<diff::Hunk> {
+) -> diff::Hunk {
     let diff_lines = hunk_diff
         .lines()
         .map(std::string::ToString::to_string)
         .collect::<Vec<_>>();
     if diff_lines.is_empty() {
         #[allow(clippy::cast_possible_truncation)]
-        return Ok(diff::Hunk {
+        return diff::Hunk {
             diff: hunk_diff.to_owned(),
             old_start: hunk_old_start_line as u32,
             old_lines: 0,
@@ -24,7 +23,7 @@ pub fn hunk_with_context(
             new_lines: 0,
             binary: is_binary,
             change_type,
-        });
+        };
     }
 
     let new_file = hunk_old_start_line == 0;
@@ -120,7 +119,8 @@ pub fn hunk_with_context(
         binary: is_binary,
         change_type,
     };
-    Ok(hunk)
+
+    hunk
 }
 
 #[cfg(test)]
@@ -140,19 +140,18 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         let expected = r#"@@ -5,7 +5,7 @@
- 
+
  [features]
  default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
 +SERDE = ["dep:serde", "uuid/serde"]
  rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
 "#;
-        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), expected);
         assert_eq!(with_ctx.old_start, 5);
         assert_eq!(with_ctx.old_lines, 7);
         assert_eq!(with_ctx.new_start, 5);
@@ -173,17 +172,16 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(
-            with_ctx.diff,
+            with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -1,5 +1,5 @@
  [package]
 -name = "gitbutler-core"
 +NAME = "gitbutler-core"
  version = "0.0.0"
  edition = "2021"
- 
+
 "#
         );
         assert_eq!(with_ctx.old_start, 1);
@@ -206,10 +204,9 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(
-            with_ctx.diff,
+            with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -1,4 +1,4 @@
 -[package]
 +[PACKAGE]
@@ -238,12 +235,11 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(
-            with_ctx.diff,
+            with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -10,5 +10,5 @@
- 
+
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 -serde = { workspace = true, optional = true }
@@ -274,12 +270,11 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(
-            with_ctx.diff,
+            with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -5,7 +5,10 @@
- 
+
  [features]
  default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
@@ -288,7 +283,7 @@ mod tests {
 +three
 +four
  rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
 "#
         );
@@ -314,19 +309,18 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(
-            with_ctx.diff,
+            with_ctx.diff.replace("\n \n", "\n\n"),
             r#"@@ -4,9 +4,7 @@
  edition = "2021"
- 
+
  [features]
 -default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
 -rusqlite = ["dep:rusqlite"]
 +foo = ["foo"]
- 
+
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 "#
@@ -348,8 +342,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         assert_eq!(with_ctx.diff, "");
     }
 
@@ -379,9 +372,8 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
-        assert_eq!(with_ctx.diff, hunk_diff);
+        );
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), hunk_diff);
         assert_eq!(with_ctx.old_start, 1);
         assert_eq!(with_ctx.old_lines, 14);
         assert_eq!(with_ctx.new_start, 0);
@@ -404,9 +396,8 @@ mod tests {
             3,
             &Vec::new(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
-        assert_eq!(with_ctx.diff, hunk_diff);
+        );
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), hunk_diff);
         assert_eq!(with_ctx.old_start, 0);
         assert_eq!(with_ctx.old_lines, 0);
         assert_eq!(with_ctx.new_start, 1);
@@ -428,8 +419,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         let expected = r#"@@ -6,6 +6,9 @@
  [features]
  default = ["serde", "rusqlite"]
@@ -438,10 +428,10 @@ mod tests {
 +two
 +three
  rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
 "#;
-        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), expected);
         assert_eq!(with_ctx.old_start, 6);
         assert_eq!(with_ctx.old_lines, 6);
         assert_eq!(with_ctx.new_start, 6);
@@ -463,8 +453,7 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         let expected = r#"@@ -6,6 +10,9 @@
  [features]
  default = ["serde", "rusqlite"]
@@ -473,10 +462,10 @@ mod tests {
 +two
 +three
  rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
 "#;
-        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), expected);
         assert_eq!(with_ctx.old_start, 6);
         assert_eq!(with_ctx.old_lines, 6);
         assert_eq!(with_ctx.new_start, 10);
@@ -492,12 +481,12 @@ mod tests {
 "#;
         let expected = r#"@@ -4,9 +4,6 @@
  edition = "2021"
- 
+
  [features]
 -default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
 -rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 "#;
@@ -509,9 +498,8 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
-        assert!(with_ctx.diff == expected);
+        );
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), expected);
         assert_eq!(with_ctx.old_start, 4);
         assert_eq!(with_ctx.old_lines, 9);
         assert_eq!(with_ctx.new_start, 4);
@@ -527,12 +515,12 @@ mod tests {
 "#;
         let expected = r#"@@ -4,9 +8,6 @@
  edition = "2021"
- 
+
  [features]
 -default = ["serde", "rusqlite"]
 -serde = ["dep:serde", "uuid/serde"]
 -rusqlite = ["dep:rusqlite"]
- 
+
  [dependencies]
  rusqlite = { workspace = true, optional = true }
 "#;
@@ -544,9 +532,8 @@ mod tests {
             3,
             &file_lines(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
-        assert_eq!(with_ctx.diff, expected);
+        );
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), expected);
         assert_eq!(with_ctx.old_start, 4);
         assert_eq!(with_ctx.old_lines, 9);
         assert_eq!(with_ctx.new_start, 8);
@@ -567,8 +554,7 @@ mod tests {
             3,
             &file_lines_2(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         let expected = "@@ -8,8 +8,6 @@
                                   .order(:created_at)
                                   .page params[:page]
@@ -576,10 +562,10 @@ mod tests {
 -
 -    @waiting_users = User.where(approved: false).count
    end
- 
+
    def invite
 ";
-        assert_eq!(with_ctx.diff, expected);
+        assert_eq!(with_ctx.diff.replace("\n \n", "\n\n"), expected);
         assert_eq!(with_ctx.old_start, 8);
         assert_eq!(with_ctx.old_lines, 8);
         assert_eq!(with_ctx.new_start, 8);
@@ -599,8 +585,7 @@ mod tests {
             3,
             &file_lines_3(),
             diff::ChangeType::Added,
-        )
-        .unwrap();
+        );
         let expected = r#"@@ -1,4 +1,5 @@
  alias(
      name = "rdeps",

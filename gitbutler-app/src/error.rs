@@ -7,9 +7,6 @@ pub mod gb {
     #[cfg(feature = "error-context")]
     pub use error_context::*;
 
-    #[cfg(feature = "sentry")]
-    pub use super::sentry::*;
-
     #[cfg(feature = "error-context")]
     mod error_context {
         use super::{ErrorKind, Result, WithContext};
@@ -67,8 +64,8 @@ pub mod gb {
             }
 
             #[inline]
-            pub fn context(&self) -> Option<&Context> {
-                Some(&self.context)
+            pub fn context(&self) -> &Context {
+                &self.context
             }
 
             pub(crate) fn into_owned(self) -> (ErrorKind, Context) {
@@ -175,10 +172,7 @@ pub mod gb {
                 let r = app_level_io();
                 assert!(r.is_err());
                 let e = r.unwrap_err();
-                assert_eq!(
-                    e.context().unwrap().vars.get("foo"),
-                    Some(&"bar".to_string())
-                );
+                assert_eq!(e.context().vars.get("foo"), Some(&"bar".to_string()));
                 assert!(e.source().is_none());
                 assert!(e.to_string().starts_with("io.other-error:"));
             }

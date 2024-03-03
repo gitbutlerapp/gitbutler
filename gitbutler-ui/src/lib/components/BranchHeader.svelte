@@ -2,117 +2,32 @@
 	import ActiveBranchStatus from './ActiveBranchStatus.svelte';
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
-	import MergeButton from './MergeButton.svelte';
 	import Tag from './Tag.svelte';
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
-	import Icon, { type IconColor } from '$lib/components/Icon.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import * as toasts from '$lib/utils/toasts';
-	import { tooltip } from '$lib/utils/tooltip';
 	import toast from 'svelte-french-toast';
-	import type { BranchService } from '$lib/branches/service';
-	import type { GitHubService } from '$lib/github/service';
-	import type { PrStatus } from '$lib/github/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
-	import type iconsJson from '../icons/icons.json';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied = false;
 	export let branch: Branch;
 	export let base: BaseBranch | undefined | null;
 	export let branchController: BranchController;
-	export let branchService: BranchService;
 	export let projectId: string;
 
 	export let isLaneCollapsed: Persisted<boolean>;
-
-	export let githubService: GitHubService;
-	$: pr$ = githubService.get(branch.upstreamName);
 
 	let meatballButton: HTMLDivElement;
 	let visible = false;
 	let isApplying = false;
 	let isDeleting = false;
-	let isMerging = false;
-	let isFetching = false;
-	let prStatus: PrStatus | undefined;
 
 	function handleBranchNameChange() {
 		branchController.updateBranchName(branch.id, branch.name);
-	}
-
-	async function fetchPrStatus() {
-		isFetching = true;
-		try {
-			prStatus = await githubService.getStatus($pr$?.targetBranch);
-		} catch (e: any) {
-			if (!e.message.includes('No commit found')) {
-				toasts.error('Failed to update PR status');
-				console.error(e);
-			}
-			prStatus = undefined;
-		} finally {
-			isFetching = false;
-		}
-
-		if (prStatus) scheduleNextPrFetch();
-	}
-
-	function scheduleNextPrFetch() {
-		if (!prStatus || prStatus.completed) {
-			return;
-		}
-		const startedAt = prStatus.startedAt;
-		const secondsAgo = (new Date().getTime() - startedAt.getTime()) / 1000;
-
-		let timeUntilUdate: number | undefined = undefined;
-		if (secondsAgo < 600) {
-			timeUntilUdate = 30;
-		} else if (secondsAgo < 1200) {
-			timeUntilUdate = 60;
-		} else if (secondsAgo < 3600) {
-			timeUntilUdate = 120;
-		}
-
-		if (!timeUntilUdate) {
-			// Stop polling for status.
-			return;
-		}
-
-		setTimeout(() => fetchPrStatus(), timeUntilUdate * 1000);
-	}
-
-	$: prColor = statusToColor(prStatus);
-	$: prIcon = statusToIcon(prStatus);
-	$: if ($pr$) fetchPrStatus();
-
-	function statusToColor(status: PrStatus | undefined): IconColor {
-		if (!status) return 'neutral';
-		if (status && !status.hasChecks) return 'neutral';
-		if (status.completed) {
-			return status.success ? 'success' : 'error';
-		}
-		return 'warn';
-	}
-
-	function statusToIcon(status: PrStatus | undefined): keyof typeof iconsJson | undefined {
-		if (!status) return;
-		if (status && !status.hasChecks) return;
-		if (status.completed) {
-			return status.success ? 'success' : 'error';
-		}
-		return 'warning';
-	}
-
-	function statusToTooltip(status: PrStatus | undefined): string | undefined {
-		if (!status) return;
-		if (status && !status.hasChecks) return;
-		if (status.completed) {
-			return status.success ? 'All checks succeeded' : 'Some check(s) have failed';
-		}
-		return 'Checks are running';
 	}
 
 	const foldLine = () => {
@@ -158,8 +73,7 @@
 					{branch}
 					{isUnapplied}
 					{hasIntegratedCommits}
-					{isLaneCollapsed}
-					prUrl={$pr$?.htmlUrl}
+					isLaneCollapsed={$isLaneCollapsed}
 				/>
 				{#if branch.selectedForChanges}
 					<Tag color="pop" filled icon="target" verticalOrientation>Default branch</Tag>
@@ -184,26 +98,9 @@
 						{branch}
 						{isUnapplied}
 						{hasIntegratedCommits}
-						{isLaneCollapsed}
-						prUrl={$pr$?.htmlUrl}
+						isLaneCollapsed={$isLaneCollapsed}
 					/>
 
-					{#if branch.upstream && prIcon}
-						<div
-							class="pr-status"
-							role="button"
-							tabindex="0"
-							on:click={fetchPrStatus}
-							on:keypress={fetchPrStatus}
-							use:tooltip={statusToTooltip(prStatus)}
-						>
-							{#if isFetching}
-								<Icon name="spinner" />
-							{:else}
-								<Icon name={prIcon} color={prColor} />
-							{/if}
-						</div>
-					{/if}
 					{#await branch.isMergeable then isMergeable}
 						{#if !isMergeable}
 							<Tag
@@ -244,36 +141,6 @@
 								Set as default
 							</Button>
 						{/if}
-					{/if}
-					<!-- We can't show the merge button until we've waited for checks
-
-                We use a octokit.checks.listForRef to find checks running for a PR, but right after
-                creation this request succeeds but returns an empty array. So we need a better way
-                determining "no checks will run for this PR" such that we can show the merge button
-                immediately.  -->
-					{#if $pr$ && !isFetching && (!prStatus || prStatus?.success)}
-						<MergeButton
-							{projectId}
-							disabled={isUnapplied || !$pr$}
-							loading={isMerging}
-							help="Merge pull request and refresh"
-							on:click={async (e) => {
-								isMerging = true;
-								const method = e.detail.method;
-								try {
-									if ($pr$) {
-										await githubService.merge($pr$.number, method);
-									}
-								} catch {
-									// TODO: Should we show the error from GitHub?
-									toasts.error('Failed to merge pull request');
-								} finally {
-									isMerging = false;
-									await fetchPrStatus();
-									await branchService.reloadVirtualBranches();
-								}
-							}}
-						/>
 					{/if}
 				</div>
 
@@ -460,10 +327,6 @@
 		overflow-x: hidden;
 		white-space: nowrap;
 		align-items: center;
-	}
-
-	.pr-status {
-		cursor: default;
 	}
 
 	/*  COLLAPSABLE LANE */

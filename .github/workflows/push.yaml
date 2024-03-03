@@ -14,8 +14,7 @@ jobs:
       rust: ${{ steps.filter.outputs.rust }}
       gitbutler-app: ${{ steps.filter.outputs.gitbutler-app }}
       gitbutler-core: ${{ steps.filter.outputs.gitbutler-core }}
-      gitbutler-git: ${{ steps.filter.outputs.gitbutler-git }}
-      gitbutler-diff: ${{ steps.filter.outputs.gitbutler-diff }}
+      gitbutler-changeset: ${{ steps.filter.outputs.gitbutler-changeset }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -38,12 +37,9 @@ jobs:
             gitbutler-core:
               - *rust
               - 'gitbutler-core/**'
-            gitbutler-git:
+            gitbutler-changeset:
               - *rust
-              - 'gitbutler-git/**'
-            gitbutler-diff:
-              - *rust
-              - 'gitbutler-diff/**'
+              - 'gitbutler-changeset/**'
 
   lint-node:
     needs: changes
@@ -95,7 +91,7 @@ jobs:
       - uses: ./.github/actions/init-env-rust
       # TODO(qix-): we have to exclude the app here for now because for some
       # TODO(qix-): reason it doesn't build with the docs feature enabled.
-      - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-core -p gitbutler-git -p gitbutler-diff
+      - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-core -p gitbutler-changeset
         env:
           RUSTDOCFLAGS: -Dwarnings
 
@@ -121,39 +117,9 @@ jobs:
           features: ${{ toJson(matrix.features) }}
           action: ${{ matrix.action }}
 
-  check-gitbutler-git:
+  check-gitbutler-changeset:
     needs: [changes, rust-init]
-    if: ${{ needs.changes.outputs.gitbutler-git == 'true' }}
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
-    strategy:
-      matrix:
-        action:
-          - test
-          - check
-          - check-tests
-        features:
-          - ''
-          - '*'
-          - []
-          - [cli]
-          - [cli, tokio]
-          - [serde]
-          - [git2]
-    steps:
-      - uses: actions/checkout@v4
-      # FIXME(qix-): figure out a way to make these build automatically with tests
-      - run: cargo build --locked -p gitbutler-git --bin gitbutler-git-askpass --bin gitbutler-git-setsid
-      - uses: ./.github/actions/check-crate
-        with:
-          crate: gitbutler-git
-          features: ${{ toJson(matrix.features) }}
-          action: ${{ matrix.action }}
-
-  check-gitbutler-diff:
-    needs: [changes, rust-init]
-    if: ${{ needs.changes.outputs.gitbutler-diff == 'true' }}
+    if: ${{ needs.changes.outputs.gitbutler-changeset == 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
@@ -173,7 +139,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/check-crate
         with:
-          crate: gitbutler-diff
+          crate: gitbutler-changeset
           features: ${{ toJson(matrix.features) }}
           action: ${{ matrix.action }}
 
@@ -208,8 +174,7 @@ jobs:
     needs:
       - changes
       - check-gitbutler-app
-      - check-gitbutler-git
-      - check-gitbutler-diff
+      - check-gitbutler-changeset
       - check-gitbutler-core
     runs-on: ubuntu-latest
     if: ${{ needs.changes.outputs.rust == 'true' }}

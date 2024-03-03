@@ -6,7 +6,9 @@ use tokio::sync::Semaphore;
 
 use crate::{
     error::Error,
-    gb_repository, git, keys, project_repository,
+    gb_repository,
+    git::{self, diff::SkippedFile},
+    keys, project_repository,
     projects::{self, ProjectId},
     users,
 };
@@ -124,8 +126,10 @@ impl Controller {
     pub async fn list_virtual_branches(
         &self,
         project_id: &ProjectId,
-    ) -> Result<(Vec<super::VirtualBranch>, bool), ControllerError<errors::ListVirtualBranchesError>>
-    {
+    ) -> Result<
+        (Vec<super::VirtualBranch>, bool, Vec<SkippedFile>),
+        ControllerError<errors::ListVirtualBranchesError>,
+    > {
         self.inner(project_id)
             .await
             .list_virtual_branches(project_id)
@@ -245,6 +249,17 @@ impl Controller {
         self.inner(project_id)
             .await
             .unapply_ownership(project_id, ownership)
+            .await
+    }
+
+    pub async fn reset_files(
+        &self,
+        project_id: &ProjectId,
+        files: &Vec<String>,
+    ) -> Result<(), ControllerError<errors::UnapplyOwnershipError>> {
+        self.inner(project_id)
+            .await
+            .reset_files(project_id, files)
             .await
     }
 
@@ -494,8 +509,10 @@ impl ControllerInner {
     pub async fn list_virtual_branches(
         &self,
         project_id: &ProjectId,
-    ) -> Result<(Vec<super::VirtualBranch>, bool), ControllerError<errors::ListVirtualBranchesError>>
-    {
+    ) -> Result<
+        (Vec<super::VirtualBranch>, bool, Vec<SkippedFile>),
+        ControllerError<errors::ListVirtualBranchesError>,
+    > {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
@@ -728,6 +745,18 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
             super::unapply_ownership(gb_repository, project_repository, ownership)
                 .map_err(Into::into)
+        })
+    }
+
+    pub async fn reset_files(
+        &self,
+        project_id: &ProjectId,
+        ownership: &Vec<String>,
+    ) -> Result<(), ControllerError<errors::UnapplyOwnershipError>> {
+        let _permit = self.semaphore.acquire().await;
+
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::reset_files(project_repository, ownership).map_err(Into::into)
         })
     }
 

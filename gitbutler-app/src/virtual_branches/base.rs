@@ -140,7 +140,7 @@ pub fn set_base_branch(
             .use_diff_context
             .unwrap_or(false);
         let context_lines = if use_context { 3_u32 } else { 0_u32 };
-        let wd_diff = diff::workdir(repo, &current_head_commit.id(), context_lines)?;
+        let wd_diff = diff::workdir(repo, &current_head_commit.id(), context_lines)?.0;
         if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
             let hunks_by_filepath =
                 super::virtual_hunks_by_filepath(&project_repository.project().path, &wd_diff);
@@ -321,6 +321,7 @@ pub fn update_base_branch(
 
     // try to update every branch
     let updated_vbranches = super::get_status_by_branch(gb_repository, project_repository)?
+        .0
         .into_iter()
         .map(|(branch, _)| branch)
         .map(
@@ -555,7 +556,7 @@ pub fn target_to_base_branch(
         .context("failed to get upstream commits")?
         .iter()
         .map(super::commit_to_remote_commit)
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<Vec<_>>();
 
     // get some recent commits
     let recent_commits = project_repository
@@ -563,7 +564,7 @@ pub fn target_to_base_branch(
         .context("failed to get recent commits")?
         .iter()
         .map(super::commit_to_remote_commit)
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<Vec<_>>();
 
     let base = super::BaseBranch {
         branch_name: format!("{}/{}", target.branch.remote(), target.branch.branch()),

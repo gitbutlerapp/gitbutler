@@ -49,9 +49,8 @@
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
-		padding: var(--space-12);
+		padding: var(--space-14) var(--space-14) var(--space-12) var(--space-14);
 		gap: var(--space-8);
-		border-top: 1px solid var(--clr-theme-container-outline-light);
 		border-bottom: 1px solid transparent;
 		transition: border-bottom var(--transition-fast);
 		position: relative;

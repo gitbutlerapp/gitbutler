@@ -24,6 +24,7 @@
 	<RemoteBranchPreview
 		projectId={$project$.id}
 		projectPath={$project$.path}
+		project={$project$}
 		base={$base$}
 		pr={$pr$}
 		{branchController}

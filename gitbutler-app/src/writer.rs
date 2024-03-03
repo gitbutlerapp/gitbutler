@@ -67,18 +67,6 @@ impl DirWriter {
         })?
     }
 
-    pub fn write_usize(&self, path: &str, contents: &usize) -> Result<(), std::io::Error> {
-        self.write_string(path, &contents.to_string())
-    }
-
-    pub fn write_u128(&self, path: &str, contents: &u128) -> Result<(), std::io::Error> {
-        self.write_string(path, &contents.to_string())
-    }
-
-    pub fn write_bool(&self, path: &str, contents: &bool) -> Result<(), std::io::Error> {
-        self.write_string(path, &contents.to_string())
-    }
-
     pub fn write_string(&self, path: &str, contents: &str) -> Result<(), std::io::Error> {
         self.write(path, contents)
     }

@@ -100,7 +100,7 @@ mod tests {
     use once_cell::sync::Lazy;
 
     use crate::{
-        test_utils::{Case, Suite},
+        tests::{Case, Suite},
         virtual_branches::branch,
     };
 

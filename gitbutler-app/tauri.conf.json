@@ -21,6 +21,9 @@
 			"dialog": {
 				"open": true
 			},
+            "os": {
+                "all": true
+            },
 			"protocol": {
 				"asset": true,
 				"assetScope": ["$APPCACHE/images/*"]

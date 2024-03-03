@@ -6,12 +6,14 @@
 	import TreeListFile from './TreeListFile.svelte';
 	import TreeListFolder from './TreeListFolder.svelte';
 	import { maybeMoveSelection } from '$lib/utils/selection';
+	import type { Project } from '$lib/backend/projects';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { TreeNode } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile, LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
+	export let project: Project | undefined;
 	export let expanded = true;
 	export let node: TreeNode;
 	export let isRoot = false;
@@ -101,6 +103,7 @@
 		{selectedFiles}
 		{readonly}
 		{branchController}
+		{project}
 		showCheckbox={showCheckboxes}
 		on:click={(e) => {
 			e.stopPropagation();

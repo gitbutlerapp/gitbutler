@@ -9,6 +9,7 @@
 	import Link from '$lib/components/Link.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { debounce } from '$lib/utils/debounce';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { createEventDispatcher } from 'svelte';
 	import type { Key, Project } from '$lib/backend/projects';
 
@@ -184,7 +185,7 @@
 				<svelte:fragment slot="title">Use locally generated SSH key</svelte:fragment>
 
 				<svelte:fragment slot="actions">
-					<RadioButton bind:group={selectedOption} value="generated" />
+					<RadioButton bind:group={selectedOption} value="generated" on:input={setGeneratedKey} />
 				</svelte:fragment>
 
 				<svelte:fragment slot="body">
@@ -210,7 +211,7 @@
 							color="neutral"
 							icon="open-link"
 							on:click={() => {
-								open('https://github.com/settings/ssh/new');
+								openExternalUrl('https://github.com/settings/ssh/new');
 							}}
 						>
 							Add key to GitHub
@@ -238,7 +239,11 @@
 				</svelte:fragment>
 
 				<svelte:fragment slot="actions">
-					<RadioButton bind:group={selectedOption} value="gitCredentialsHelper" />
+					<RadioButton
+						bind:group={selectedOption}
+						value="gitCredentialsHelper"
+						on:input={setGitCredentialsHelperKey}
+					/>
 				</svelte:fragment>
 			</ClickableCard>
 		</fieldset>

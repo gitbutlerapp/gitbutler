@@ -55,24 +55,21 @@ impl Dispatcher {
 
         let (tx, rx) = channel(1);
         let project_id = *project_id;
-        task::Builder::new()
-            .name(&format!("{} dispatcher", project_id))
-            .spawn(async move {
-                loop {
-                    select! {
-                        () = self.cancellation_token.cancelled() => {
-                            break;
-                        }
-                        Some(event) = file_change_rx.recv() => {
-                            if let Err(error) = tx.send(event).await {
-                                tracing::error!(%project_id, ?error,"failed to send file change");
-                            }
+        task::spawn(async move {
+            loop {
+                select! {
+                    () = self.cancellation_token.cancelled() => {
+                        break;
+                    }
+                    Some(event) = file_change_rx.recv() => {
+                        if let Err(error) = tx.send(event).await {
+                            tracing::error!(%project_id, ?error,"failed to send file change");
                         }
                     }
                 }
-                tracing::debug!(%project_id, "dispatcher stopped");
-            })
-            .context("failed to spawn combined dispatcher task")?;
+            }
+            tracing::debug!(%project_id, "dispatcher stopped");
+        });
 
         Ok(rx)
     }

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import '../styles/main.postcss';
 
+	import AppUpdater from '$lib/components/AppUpdater.svelte';
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
-	import UpdateButton from '$lib/components/UpdateButton.svelte';
 	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
 	import * as events from '$lib/utils/events';
@@ -52,4 +52,4 @@
 <Toaster />
 <ShareIssueModal bind:this={shareIssueModal} user={$user$} {cloud} />
 <ToastController />
-<UpdateButton {updaterService} />
+<AppUpdater {updaterService} />

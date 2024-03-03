@@ -1,3 +1,10 @@
+pub(crate) mod common;
+mod suite {
+    mod gb_repository;
+    mod projects;
+    mod virtual_branches;
+}
+
 use std::{collections::HashMap, fs, path};
 
 use tempfile::tempdir;

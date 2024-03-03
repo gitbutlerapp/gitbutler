@@ -292,7 +292,7 @@ mod test {
     use std::path::PathBuf;
 
     use crate::project_repository::LogUntil;
-    use crate::test_utils::{Case, Suite};
+    use crate::tests::{Case, Suite};
     use crate::virtual_branches::set_test_target;
 
     use super::super::test_remote_repository;

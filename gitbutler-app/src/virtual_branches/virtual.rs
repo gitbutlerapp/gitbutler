@@ -13,7 +13,11 @@ use serde::Serialize;
 use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
-    git::{self, diff, show, Commit, Refname, RemoteRefname},
+    git::{
+        self,
+        diff::{self, SkippedFile},
+        show, Commit, Refname, RemoteRefname,
+    },
     keys,
     project_repository::{self, conflicts, LogUntil},
     reader, sessions, users,
@@ -59,6 +63,12 @@ pub struct VirtualBranch {
     pub updated_at: u128,
     pub selected_for_changes: bool,
     pub head: git::Oid,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize)]
+pub struct VirtualBranches {
+    pub branches: Vec<VirtualBranch>,
+    pub skipped_files: Vec<SkippedFile>,
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -251,6 +261,7 @@ pub fn apply_branch(
         if merge_index.has_conflicts() {
             // currently we can only deal with the merge problem branch
             for mut branch in super::get_status_by_branch(gb_repository, project_repository)?
+                .0
                 .into_iter()
                 .map(|(branch, _)| branch)
                 .filter(|branch| branch.applied)
@@ -474,7 +485,7 @@ pub fn unapply_ownership(
         .filter(|b| b.applied)
         .collect::<Vec<_>>();
 
-    let applied_statuses = get_applied_status(
+    let (applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
         &default_target,
@@ -565,6 +576,41 @@ pub fn unapply_ownership(
     Ok(())
 }
 
+// reset a file in the project to the index state
+pub fn reset_files(
+    project_repository: &project_repository::Repository,
+    files: &Vec<String>,
+) -> Result<(), errors::UnapplyOwnershipError> {
+    if conflicts::is_resolving(project_repository) {
+        return Err(errors::UnapplyOwnershipError::Conflict(
+            errors::ProjectConflictError {
+                project_id: project_repository.project().id,
+            },
+        ));
+    }
+
+    // for each tree, we need to checkout the entry from the index at that path
+    // or if it doesn't exist, remove the file from the working directory
+    let repo = &project_repository.git_repository;
+    let index = repo.index().context("failed to get index")?;
+    for file in files {
+        let entry = index.get_path(path::Path::new(file), 0);
+        if let Some(entry) = entry {
+            repo.checkout_index_path(path::Path::new(file))
+                .context("failed to checkout index")?;
+        } else {
+            // find the project root
+            let project_root = &project_repository.project().path;
+            let path = path::Path::new(file);
+            //combine the project root with the file path
+            let path = &project_root.join(path);
+            std::fs::remove_file(path).context("failed to remove file")?;
+        }
+    }
+
+    Ok(())
+}
+
 // to unapply a branch, we need to write the current tree out, then remove those file changes from the wd
 pub fn unapply_branch(
     gb_repository: &gb_repository::Repository,
@@ -631,7 +677,7 @@ pub fn unapply_branch(
             .filter(|b| b.applied)
             .collect::<Vec<_>>();
 
-        let applied_statuses = get_applied_status(
+        let (applied_statuses, _) = get_applied_status(
             gb_repository,
             project_repository,
             &default_target,
@@ -729,7 +775,7 @@ fn find_base_tree<'a>(
 pub fn list_virtual_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<(Vec<VirtualBranch>, bool), errors::ListVirtualBranchesError> {
+) -> Result<(Vec<VirtualBranch>, bool, Vec<SkippedFile>), errors::ListVirtualBranchesError> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
     let default_target = gb_repository
@@ -743,7 +789,7 @@ pub fn list_virtual_branches(
             )
         })?;
 
-    let statuses = get_status_by_branch(gb_repository, project_repository)?;
+    let (statuses, skipped_files) = get_status_by_branch(gb_repository, project_repository)?;
     let max_selected_for_changes = statuses
         .iter()
         .filter_map(|(branch, _)| branch.selected_for_changes)
@@ -912,7 +958,7 @@ pub fn list_virtual_branches(
         .project()
         .use_diff_context
         .unwrap_or(false);
-    Ok((branches, uses_diff_context))
+    Ok((branches, uses_diff_context, skipped_files))
 }
 
 fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<VirtualBranch> {
@@ -1007,7 +1053,7 @@ fn files_with_hunk_context(
             .map(|hunk| {
                 if hunk.diff.is_empty() {
                     // noop on empty diff
-                    Ok(hunk.clone())
+                    hunk.clone()
                 } else {
                     let hunk_with_ctx = context::hunk_with_context(
                         &hunk.diff,
@@ -1021,22 +1067,19 @@ fn files_with_hunk_context(
                     to_virtual_branch_hunk(hunk.clone(), hunk_with_ctx)
                 }
             })
-            .collect::<Result<Vec<VirtualBranchHunk>>>()
-            .context("failed to add context to hunk")?;
+            .collect::<Vec<VirtualBranchHunk>>();
     }
     Ok(files)
 }
 
 fn to_virtual_branch_hunk(
     mut hunk: VirtualBranchHunk,
-    diff_with_context: Result<diff::Hunk>,
-) -> Result<VirtualBranchHunk> {
-    diff_with_context.map(|diff| {
-        hunk.diff = diff.diff;
-        hunk.start = diff.new_start;
-        hunk.end = diff.new_start + diff.new_lines;
-        hunk
-    })
+    diff_with_context: diff::Hunk,
+) -> VirtualBranchHunk {
+    hunk.diff = diff_with_context.diff;
+    hunk.start = diff_with_context.new_start;
+    hunk.end = diff_with_context.new_start + diff_with_context.new_lines;
+    hunk
 }
 
 fn is_requires_force(
@@ -1442,20 +1485,88 @@ pub fn merge_virtual_branch_upstream(
             Some(upstream_commit.id()),
         )?;
     } else {
-        // get the merge tree oid from writing the index out
         let merge_tree_oid = merge_index
             .write_tree_to(repo)
             .context("failed to write tree")?;
+        let merge_tree = repo
+            .find_tree(merge_tree_oid)
+            .context("failed to find merge tree")?;
+        let branch_writer =
+            branch::Writer::new(gb_repository).context("failed to create writer")?;
+
+        if *project_repository.project().ok_with_force_push {
+            // attempt a rebase
+            let (_, committer) = project_repository.git_signatures(user)?;
+            let mut rebase_options = git2::RebaseOptions::new();
+            rebase_options.quiet(true);
+            rebase_options.inmemory(true);
+            let mut rebase = repo
+                .rebase(
+                    Some(branch.head),
+                    Some(upstream_commit.id()),
+                    None,
+                    Some(&mut rebase_options),
+                )
+                .context("failed to rebase")?;
+
+            let mut rebase_success = true;
+            // check to see if these commits have already been pushed
+            let mut last_rebase_head = upstream_commit.id();
+            while rebase.next().is_some() {
+                let index = rebase
+                    .inmemory_index()
+                    .context("failed to get inmemory index")?;
+                if index.has_conflicts() {
+                    rebase_success = false;
+                    break;
+                }
+
+                if let Ok(commit_id) = rebase.commit(None, &committer.clone().into(), None) {
+                    last_rebase_head = commit_id.into();
+                } else {
+                    rebase_success = false;
+                    break;
+                }
+            }
+
+            if rebase_success {
+                // rebase worked out, rewrite the branch head
+                rebase.finish(None).context("failed to finish rebase")?;
+
+                project_repository
+                    .git_repository
+                    .checkout_tree(&merge_tree)
+                    .force()
+                    .checkout()
+                    .context("failed to checkout tree")?;
+
+                branch.head = last_rebase_head;
+                branch.tree = merge_tree_oid;
+                branch_writer.write(&mut branch)?;
+                super::integration::update_gitbutler_integration(
+                    gb_repository,
+                    project_repository,
+                )?;
+
+                return Ok(());
+            }
+
+            rebase.abort().context("failed to abort rebase")?;
+        }
 
         let head_commit = repo
             .find_commit(branch.head)
             .context("failed to find head commit")?;
-        let merge_tree = repo
-            .find_tree(merge_tree_oid)
-            .context("failed to find merge tree")?;
+
         let new_branch_head = project_repository.commit(
             user,
-            "merged from upstream",
+            format!(
+                "Merged {}/{} into {}",
+                upstream_branch.remote(),
+                upstream_branch.branch(),
+                branch.name
+            )
+            .as_str(),
             &merge_tree,
             &[&head_commit, &upstream_commit],
             signing_key,
@@ -1468,8 +1579,6 @@ pub fn merge_virtual_branch_upstream(
             .context("failed to checkout tree")?;
 
         // write the branch data
-        let branch_writer =
-            branch::Writer::new(gb_repository).context("failed to create writer")?;
         branch.head = new_branch_head;
         branch.tree = merge_tree_oid;
         branch_writer.write(&mut branch)?;
@@ -1755,10 +1864,11 @@ pub fn virtual_hunks_by_filepath(
 pub type BranchStatus = HashMap<path::PathBuf, Vec<diff::Hunk>>;
 
 // list the virtual branches and their file statuses (statusi?)
+#[allow(clippy::type_complexity)]
 pub fn get_status_by_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<Vec<(branch::Branch, BranchStatus)>> {
+) -> Result<(Vec<(branch::Branch, BranchStatus)>, Vec<SkippedFile>)> {
     let latest_session = gb_repository
         .get_latest_session()
         .context("failed to get latest session")?
@@ -1770,7 +1880,7 @@ pub fn get_status_by_branch(
         match get_default_target(&session_reader).context("failed to read default target")? {
             Some(target) => target,
             None => {
-                return Ok(vec![]);
+                return Ok((vec![], vec![]));
             }
         };
 
@@ -1785,7 +1895,7 @@ pub fn get_status_by_branch(
         .cloned()
         .collect::<Vec<_>>();
 
-    let applied_status = get_applied_status(
+    let (applied_status, skipped_files) = get_applied_status(
         gb_repository,
         project_repository,
         &default_target,
@@ -1803,10 +1913,13 @@ pub fn get_status_by_branch(
         non_applied_virtual_branches,
     )?;
 
-    Ok(applied_status
-        .into_iter()
-        .chain(non_applied_status)
-        .collect())
+    Ok((
+        applied_status
+            .into_iter()
+            .chain(non_applied_status)
+            .collect(),
+        skipped_files,
+    ))
 }
 
 // given a list of non applied virtual branches, return the status of each file, comparing the default target with
@@ -1859,8 +1972,8 @@ fn get_applied_status(
     project_repository: &project_repository::Repository,
     default_target: &target::Target,
     mut virtual_branches: Vec<branch::Branch>,
-) -> Result<AppliedStatuses> {
-    let mut diff = diff::workdir(
+) -> Result<(AppliedStatuses, Vec<SkippedFile>)> {
+    let (mut diff, skipped_files) = diff::workdir(
         &project_repository.git_repository,
         &default_target.sha,
         context_lines(project_repository),
@@ -2041,7 +2154,7 @@ fn get_applied_status(
         }
     }
 
-    Ok(hunks_by_branch)
+    Ok((hunks_by_branch, skipped_files))
 }
 
 fn virtual_hunks_to_virtual_files(
@@ -2363,7 +2476,7 @@ pub fn commit(
         })?;
 
     // get the files to commit
-    let mut statuses = get_status_by_branch(gb_repository, project_repository)
+    let (mut statuses, _) = get_status_by_branch(gb_repository, project_repository)
         .context("failed to get status by branch")?;
 
     let (ref mut branch, files) = statuses
@@ -2831,7 +2944,7 @@ pub fn amend(
             })
         })?;
 
-    let mut applied_statuses = get_applied_status(
+    let (mut applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
         &default_target,
@@ -2999,7 +3112,7 @@ pub fn cherry_pick(
         .filter(|b| b.applied)
         .collect::<Vec<_>>();
 
-    let applied_statuses = get_applied_status(
+    let (applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
         &default_target,
@@ -3549,7 +3662,7 @@ pub fn move_commit(
             })
         })?;
 
-    let mut applied_statuses = get_applied_status(
+    let (mut applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
         &default_target,

@@ -32,8 +32,6 @@ pub struct Repository {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("project not found")]
-    ProjectNotFound,
     #[error("path not found: {0}")]
     ProjectPathNotFound(path::PathBuf),
     #[error(transparent)]
@@ -57,8 +55,8 @@ impl Repository {
         }
 
         let projects_dir = root.join("projects");
-
         let path = projects_dir.join(project.id.to_string());
+
         let lock_path = projects_dir.join(format!("{}.lock", project.id));
 
         if path.exists() {
@@ -75,6 +73,8 @@ impl Repository {
                 lock_path,
             })
         } else {
+            std::fs::create_dir_all(&path).context("failed to create project directory")?;
+
             let git_repository = git::Repository::init_opts(
                 &path,
                 git2::RepositoryInitOptions::new()
@@ -417,6 +417,7 @@ impl Repository {
         }
     }
 
+    #[cfg(test)]
     pub fn flush(
         &self,
         project_repository: &project_repository::Repository,
@@ -967,7 +968,7 @@ mod test {
     use anyhow::Result;
     use pretty_assertions::assert_eq;
 
-    use crate::test_utils::{Case, Suite};
+    use crate::tests::{Case, Suite};
 
     #[test]
     fn test_alternates_file_being_set() -> Result<()> {

@@ -58,6 +58,7 @@
 	};
 
 	function commit() {
+		if (!commitMessage) return;
 		isCommitting = true;
 		branchController
 			.commitBranch(branch.id, commitMessage, $selectedOwnership.toString(), $runCommitHooks)
@@ -72,7 +73,7 @@
 		return invoke<string>('git_get_global_config', params);
 	}
 
-	let isGeneratingCommigMessage = false;
+	let isGeneratingCommitMessage = false;
 	async function generateCommitMessage(files: LocalFile[]) {
 		const diff = files
 			.map((f) => f.hunks.filter((h) => $selectedOwnership.containsHunk(f.id, h.id)))
@@ -91,7 +92,7 @@
 		if (branch.name.toLowerCase().includes('virtual branch')) {
 			dispatch('action', 'generate-branch-name');
 		}
-		isGeneratingCommigMessage = true;
+		isGeneratingCommitMessage = true;
 		cloud.summarize
 			.commit(user.access_token, {
 				diff,
@@ -114,7 +115,7 @@
 				toasts.error('Failed to generate commit message');
 			})
 			.finally(() => {
-				isGeneratingCommigMessage = false;
+				isGeneratingCommitMessage = false;
 			});
 	}
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
@@ -134,10 +135,15 @@
 					on:input={useAutoHeight}
 					on:focus={useAutoHeight}
 					on:change={() => currentCommitMessage.set(commitMessage)}
+					on:keydown={(e) => {
+						if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+							commit();
+						}
+					}}
 					spellcheck={false}
 					class="text-input text-base-body-13 commit-box__textarea"
 					rows="1"
-					disabled={isGeneratingCommigMessage}
+					disabled={isGeneratingCommitMessage}
 					placeholder="Your commit message here"
 				/>
 
@@ -152,7 +158,7 @@
 						icon="ai-small"
 						color="neutral"
 						disabled={!$aiGenEnabled || !user}
-						loading={isGeneratingCommigMessage}
+						loading={isGeneratingCommitMessage}
 						on:click={() => generateCommitMessage(branch.files)}
 					>
 						Generate message
@@ -200,9 +206,7 @@
 			id="commit-to-branch"
 			on:click={() => {
 				if ($expanded) {
-					if (commitMessage) {
-						commit();
-					}
+					commit();
 				} else {
 					$expanded = true;
 				}

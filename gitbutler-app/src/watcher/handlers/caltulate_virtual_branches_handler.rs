@@ -12,7 +12,7 @@ use tokio::sync::Mutex;
 use crate::{
     assets, events as app_events,
     projects::ProjectId,
-    virtual_branches::{self, controller::ControllerError},
+    virtual_branches::{self, controller::ControllerError, VirtualBranches},
 };
 
 use super::events;
@@ -79,12 +79,18 @@ impl InnerHandler {
             .list_virtual_branches(project_id)
             .await
         {
-            Ok((branches, _)) => Ok(vec![events::Event::Emit(
-                app_events::Event::virtual_branches(
-                    project_id,
-                    &self.assets_proxy.proxy_virtual_branches(branches).await,
-                ),
-            )]),
+            Ok((branches, _, skipped_files)) => {
+                let branches = self.assets_proxy.proxy_virtual_branches(branches).await;
+                Ok(vec![events::Event::Emit(
+                    app_events::Event::virtual_branches(
+                        project_id,
+                        &VirtualBranches {
+                            branches,
+                            skipped_files,
+                        },
+                    ),
+                )])
+            }
             Err(ControllerError::VerifyError(_)) => Ok(vec![]),
             Err(error) => Err(error).context("failed to list virtual branches"),
         }

@@ -4,6 +4,7 @@
 	import BranchHeader from './BranchHeader.svelte';
 	import CommitDialog from './CommitDialog.svelte';
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
+	import PullRequestCard from './PullRequestCard.svelte';
 	import UpstreamCommits from './UpstreamCommits.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
@@ -64,7 +65,7 @@
 	let rsViewport: HTMLElement;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const defaultBranchWidthRem = persisted<number | undefined>(24, 'defaulBranchWidth' + project.id);
+	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
 	const laneWidthKey = 'laneWidth_';
 
 	let laneWidth: number;
@@ -172,8 +173,6 @@
 			{branchController}
 			{branch}
 			{base}
-			{githubService}
-			{branchService}
 			bind:isLaneCollapsed
 			projectId={project.id}
 			on:action={(e) => {
@@ -200,8 +199,6 @@
 					{branchController}
 					{branch}
 					{base}
-					{githubService}
-					{branchService}
 					bind:isLaneCollapsed
 					projectId={project.id}
 					on:action={(e) => {
@@ -210,10 +207,19 @@
 						}
 					}}
 				/>
+				<PullRequestCard
+					projectId={project.id}
+					{branch}
+					{branchService}
+					{githubService}
+					{isUnapplied}
+					isLaneCollapsed={$isLaneCollapsed}
+				/>
 				{#if user?.role == 'admin' && unknownCommits && unknownCommits.length > 0 && !branch.conflicted}
 					<UpstreamCommits
 						upstream={upstreamData}
 						branchId={branch.id}
+						{project}
 						{branchController}
 						{branchCount}
 						projectId={project.id}
@@ -271,6 +277,7 @@
 								files={branch.files}
 								{isUnapplied}
 								{branchController}
+								{project}
 								{selectedOwnership}
 								{selectedFiles}
 								showCheckboxes={$commitBoxOpen}
@@ -350,9 +357,11 @@
 			<Resizer
 				viewport={rsViewport}
 				direction="right"
-				inside={$selectedFiles.length > 0}
 				minWidth={320}
 				sticky
+				defaultLineColor={$selectedFiles.length > 0
+					? 'transparent'
+					: 'var(--clr-theme-container-outline-light)'}
 				on:width={(e) => {
 					laneWidth = e.detail / (16 * $userSettings.zoom);
 					lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
@@ -386,21 +395,8 @@
 		position: absolute;
 		top: 0;
 		right: 0;
-		width: var(--space-4);
 		height: 100%;
 		transform: translateX(var(--selected-resize-shift));
-
-		&:after {
-			pointer-events: none;
-			content: '';
-			position: absolute;
-			top: 0;
-			right: 0;
-			width: 1px;
-			height: 100%;
-			opacity: var(--selected-opacity);
-			background-color: var(--clr-theme-container-outline-light);
-		}
 	}
 
 	.branch-card__dropzone-wrapper {
