@@ -75,12 +75,12 @@ pub async fn commit_virtual_branch(
 pub async fn list_virtual_branches(
     handle: AppHandle,
     project_id: &str,
-) -> Result<Vec<super::VirtualBranch>, Error> {
+) -> Result<super::VirtualBranches, Error> {
     let project_id = project_id.parse().map_err(|_| Error::UserError {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
-    let (branches, uses_diff_context, _) = handle
+    let (branches, uses_diff_context, skipped_files) = handle
         .state::<Controller>()
         .list_virtual_branches(&project_id)
         .await?;
@@ -99,7 +99,10 @@ pub async fn list_virtual_branches(
 
     let proxy = handle.state::<assets::Proxy>();
     let branches = proxy.proxy_virtual_branches(branches).await;
-    Ok(branches)
+    Ok(super::VirtualBranches {
+        branches,
+        skipped_files,
+    })
 }
 
 #[tauri::command(async)]

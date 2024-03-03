@@ -65,6 +65,12 @@ pub struct VirtualBranch {
     pub head: git::Oid,
 }
 
+#[derive(Debug, PartialEq, Clone, Serialize)]
+pub struct VirtualBranches {
+    pub branches: Vec<VirtualBranch>,
+    pub skipped_files: Vec<SkippedFile>,
+}
+
 // this is the struct that maps to the view `Commit` type in Typescript
 // it is derived from walking the git commits between the `Branch.head` commit
 // and the `Target.sha` commit, or, everything that is uniquely committed to
