@@ -19,7 +19,7 @@
 	$: sortedFiles = sortLikeFileTree(files);
 </script>
 
-{#each sortedFiles as file (file.id)}
+{#each sortedFiles as file, index (file.id)}
 	<FileListItem
 		{file}
 		{readonly}
@@ -45,19 +45,15 @@
 		on:keydown={(e) => {
 			e.preventDefault();
 			// Exiting if more one one files are selected or non-arrow keys are pressed
-			if ($selectedFiles.length !== 1) return;
-			if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-
-			// Getting the position of the file in the sorted list
-			const selectedFileIndex = sortedFiles.findIndex((sf) => sf.id === $selectedFiles[0].id);
+			if ($selectedFiles.length !== 1 || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) {
+				return;
+			}
 
 			// Update the selected file, given it will be within bounds post update
-			if (e.key === 'ArrowUp') {
-				if (selectedFileIndex - 1 < 0) return;
-				$selectedFiles = [sortedFiles[selectedFileIndex - 1]];
-			} else if (e.key === 'ArrowDown') {
-				if (selectedFileIndex + 1 > sortedFiles.length - 1) return;
-				$selectedFiles = [sortedFiles[selectedFileIndex + 1]];
+			if (e.key === 'ArrowUp' && index - 1 >= 0) {
+				$selectedFiles = [sortedFiles[index - 1]];
+			} else if (e.key === 'ArrowDown' && index + 1 < sortedFiles.length) {
+				$selectedFiles = [sortedFiles[index + 1]];
 			}
 
 			// Focus on the newly selected file
