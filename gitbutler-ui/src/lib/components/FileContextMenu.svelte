@@ -26,10 +26,10 @@
 		<ContextMenuSection>
 			{#if item.files !== undefined}
 				{#if containsBinaryFiles(item)}
-					<ContextMenuItem label="Discard file (Binary files not yet supported)" disabled />
+					<ContextMenuItem label="Discard changes (Binary files not yet supported)" disabled />
 				{:else}
 					<ContextMenuItem
-						label="Discard file"
+						label="Discard changes"
 						on:click={() => {
 							confirmationModal.show(item);
 							dismiss();
@@ -41,7 +41,7 @@
 	</ContextMenu>
 </PopupMenu>
 
-<Modal width="small" title="Discard file" bind:this={confirmationModal} let:item>
+<Modal width="small" title="Discard changes" bind:this={confirmationModal} let:item>
 	<div>
 		Discarding changes to the following files:
 		<ul class="file-list">
