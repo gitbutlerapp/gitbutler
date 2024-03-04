@@ -38,7 +38,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-16);
-		max-width: 37.5rem;
+		max-width: 40rem;
 		width: 100%;
 		margin: auto;
 	}

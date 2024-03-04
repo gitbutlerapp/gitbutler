@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SupportersBanner from './SupportersBanner.svelte';
 	import IconButton from '../IconButton.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import Login from '$lib/components/Login.svelte';
@@ -78,11 +79,26 @@
 					</li>
 				{/if}
 			</ul>
+			<!-- <Login
+				{userService}
+				wide
+				on:logout={() => {
+					currentSection = 'profile';
+				}}
+			/> -->
 		</div>
 	</section>
 
 	<section class="profile-sidebar__bottom">
 		<div class="social-banners">
+			<a
+				class="social-banner"
+				href="mailto:hello@gitbutler.com?subject=Feedback or question!"
+				target="_blank"
+			>
+				<span class="text-base-14 text-bold">Contact us</span>
+				<Icon name="mail" />
+			</a>
 			<a
 				class="social-banner"
 				href="https://discord.gg/MmFkmaJ42D"
@@ -92,22 +108,9 @@
 				<span class="text-base-14 text-bold">Join our Discord</span>
 				<Icon name="discord" />
 			</a>
-			<a
-				class="social-banner"
-				href="mailto:hello@gitbutler.com?subject=Feedback or question!"
-				target="_blank"
-			>
-				<span class="text-base-14 text-bold">Contact us</span>
-				<Icon name="mail" />
-			</a>
 		</div>
-		<Login
-			{userService}
-			wide
-			on:logout={() => {
-				currentSection = 'profile';
-			}}
-		/>
+
+		<SupportersBanner />
 	</section>
 </aside>
 
@@ -147,7 +150,7 @@
 	.profile-sidebar__menu-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-16);
+		gap: var(--space-20);
 	}
 
 	.profile-sidebar__menu {
@@ -220,7 +223,7 @@
 		&:hover {
 			background-color: color-mix(
 				in srgb,
-				var(--clr-theme-container-pale),
+				var(--clr-theme-container-light),
 				var(--darken-tint-light)
 			);
 		}
