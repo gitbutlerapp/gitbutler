@@ -154,6 +154,8 @@ export class BaseBranchService {
 				toasts.error(`Failed to fetch branch: ${err.message}`);
 			}
 			console.error(err);
+		} finally {
+			this.busy$.next(false);
 		}
 	}
 

@@ -296,5 +296,9 @@ export function getCloudApiClient(
 }
 
 export async function syncToCloud(projectId: string | undefined) {
-	if (projectId) await invoke<void>('project_flush_and_push', { id: projectId });
+	try {
+		if (projectId) await invoke<void>('project_flush_and_push', { id: projectId });
+	} catch (err: any) {
+		console.error(err);
+	}
 }
