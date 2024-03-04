@@ -70,7 +70,7 @@
 	use:draggable={{
 		...draggableFile(branchId, file, selectedFiles),
 		disabled: readonly || isUnapplied,
-		selector: '.selected'
+		selector: '.selected-draggable'
 	}}
 	on:click
 	on:keydown
