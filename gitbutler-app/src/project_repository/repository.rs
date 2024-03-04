@@ -48,6 +48,49 @@ impl Repository {
                 git::Error::NotFound(_) => OpenError::NotFound(project.path.clone()),
                 other => OpenError::Other(other.into()),
             })
+            .map(|git_repository| {
+                // XXX(qix-): This is a temporary measure to disable GC on the project repository.
+                // XXX(qix-): We do this because the internal repository we use to store the "virtual"
+                // XXX(qix-): refs and information use Git's alternative-objects mechanism to refer
+                // XXX(qix-): to the project repository's objects. However, the project repository
+                // XXX(qix-): has no knowledge of these refs, and will GC them away (usually after
+                // XXX(qix-): about 2 weeks) which will corrupt the internal repository.
+                // XXX(qix-):
+                // XXX(qix-): We will ultimately move away from an internal repository for a variety
+                // XXX(qix-): of reasons, but for now, this is a simple, short-term solution that we
+                // XXX(qix-): can clean up later on. We're aware this isn't ideal.
+                if let Ok(config) = git_repository.config().as_mut(){
+                    let should_set = match config.get_bool("gitbutler.didSetPrune") {
+                        Ok(None | Some(false)) => true,
+                        Ok(Some(true)) => false,
+                        Err(error) => {
+                            tracing::warn!(
+                                "failed to get gitbutler.didSetPrune for repository at {}; cannot disable gc: {}",
+                                project.path.display(),
+                                error
+                            );
+                            false
+                        }
+                    };
+
+                    if should_set {
+                        if let Err(error) = config.set_str("gc.pruneExpire", "never").and_then(|()| config.set_bool("gitbutler.didSetPrune", true)) {
+                            tracing::warn!(
+                                "failed to set gc.auto to false for repository at {}; cannot disable gc: {}",
+                                project.path.display(),
+                                error
+                            );
+                        }
+                    }
+                } else {
+                    tracing::warn!(
+                        "failed to get config for repository at {}; cannot disable gc",
+                        project.path.display()
+                    );
+                }
+
+                git_repository
+            })
             .map(|git_repository| Self {
                 git_repository,
                 project: project.clone(),
