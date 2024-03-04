@@ -595,7 +595,7 @@ pub fn reset_files(
     let index = repo.index().context("failed to get index")?;
     for file in files {
         let entry = index.get_path(path::Path::new(file), 0);
-        if let Some(entry) = entry {
+        if entry.is_some() {
             repo.checkout_index_path(path::Path::new(file))
                 .context("failed to checkout index")?;
         } else {
