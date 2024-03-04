@@ -5,6 +5,7 @@
 	import ClickableCard from '$lib/components/ClickableCard.svelte';
 	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
 	import Link from '$lib/components/Link.svelte';
+	import Login from '$lib/components/Login.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
@@ -150,7 +151,7 @@
 </script>
 
 <section class="profile-page">
-	<ProfileSIdebar {userService} bind:currentSection showIntegrations={!!$user$} />
+	<ProfileSIdebar bind:currentSection showIntegrations={!!$user$} />
 	{#if currentSection === 'profile'}
 		<ContentWrapper title="Profile">
 			{#if $user$}
@@ -195,22 +196,27 @@
 
 			<Spacer />
 
-			<SectionCard>
+			{#if $user$}
+				<SectionCard orientation="row">
+					<svelte:fragment slot="title">Signing out</svelte:fragment>
+					<svelte:fragment slot="body">
+						Ready to take a break? Click here to log out and unwind.
+					</svelte:fragment>
+
+					<Login {userService} />
+				</SectionCard>
+			{/if}
+
+			<SectionCard orientation="row">
 				<svelte:fragment slot="title">Remove all projects</svelte:fragment>
 				<svelte:fragment slot="body">
-					You can delete all projects from the GitButler app. Your code remains safe.
+					You can delete all projects from the GitButler app.
 					<br />
-					it only clears the configuration.
+					Your code remains safe. it only clears the configuration.
 				</svelte:fragment>
 
-				<Button
-					color="error"
-					kind="outlined"
-					grow
-					align="flex-start"
-					on:click={() => deleteConfirmationModal.show()}
-				>
-					Remove all projects…
+				<Button color="error" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
+					Remove projects…
 				</Button>
 
 				<Modal bind:this={deleteConfirmationModal} title="Remove all projects">
