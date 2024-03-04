@@ -67,6 +67,7 @@
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
 	const laneWidthKey = 'laneWidth_';
+	const newVbranchNameRegex = /^virtual\sbranch\s*[\d]*$/;
 
 	let laneWidth: number;
 	let upstreamData: RemoteBranchData | undefined;
@@ -110,7 +111,7 @@
 	$: linesTouched = computeAddedRemovedByFiles(...branch.files);
 	$: if (
 		$aiGenAutoBranchNamingEnabled &&
-		branch.name.toLowerCase().includes('virtual branch') &&
+		newVbranchNameRegex.test(branch.name.toLowerCase()) &&
 		linesTouched.added + linesTouched.removed > 4
 	) {
 		generateBranchName();
@@ -265,8 +266,8 @@
 							{#if branch.active && branch.conflicted}
 								<div class="mb-2 bg-red-500 p-2 font-bold text-white">
 									{#if branch.files.some((f) => f.conflicted)}
-										This virtual branch conflicts with upstream changes. Please resolve all
-										conflicts and commit before you can continue.
+										This virtual branch conflicts with upstream changes. Please
+										resolve all conflicts and commit before you can continue.
 									{:else}
 										Please commit your resolved conflicts to continue.
 									{/if}
