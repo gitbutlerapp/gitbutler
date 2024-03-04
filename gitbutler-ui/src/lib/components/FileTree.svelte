@@ -85,6 +85,7 @@
 					{allowMultiple}
 					{branchController}
 					{files}
+					{project}
 					on:checked
 					on:unchecked
 				/>
@@ -155,6 +156,7 @@
 						{allowMultiple}
 						{branchController}
 						{files}
+						{project}
 						on:checked
 						on:unchecked
 					/>
