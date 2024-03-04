@@ -71,7 +71,7 @@
 		icon="select-chevron"
 		value={value?.[labelId]}
 		disabled={disabled || loading}
-		on:click={() => toggleList()}
+		on:mousedown={() => toggleList()}
 	/>
 	<div
 		class="options card"
@@ -93,7 +93,7 @@
 							class:selected={item == value}
 							tabindex="-1"
 							role="none"
-							on:click={() => handleItemClick(item)}
+							on:mousedown={() => handleItemClick(item)}
 							on:keydown|preventDefault|stopPropagation
 						>
 							<slot name="template" {item} selected={item == value} />

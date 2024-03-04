@@ -39,7 +39,7 @@
 	aria-disabled={disabled}
 	tabindex={isSelected ? 0 : -1}
 	{...$$restProps}
-	on:click|preventDefault={() => {
+	on:mousedown|preventDefault={() => {
 		if (index !== $selectedSegmentIndex && !disabled) {
 			context.setSelected(index);
 			dispatcher('select', id);

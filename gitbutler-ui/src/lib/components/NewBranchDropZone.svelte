@@ -76,7 +76,7 @@
 				color="neutral"
 				kind="outlined"
 				icon="plus-small"
-				on:click={() => branchController.createBranch({})}>New branch</Button
+				on:mousedown={() => branchController.createBranch({})}>New branch</Button
 			>
 		</div>
 	</div>

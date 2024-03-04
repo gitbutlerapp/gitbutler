@@ -25,6 +25,7 @@
 	use:tooltip={help}
 	{title}
 	on:click
+	on:mousedown
 	style:width
 >
 	<Icon name={loading ? 'spinner' : icon} />

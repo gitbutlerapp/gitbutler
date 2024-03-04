@@ -27,7 +27,7 @@
 	<button
 		class="button"
 		use:tooltip={isNavCollapsed ? project?.title : ''}
-		on:click={(e) => {
+		on:mousedown={(e) => {
 			visible = popup.toggle();
 			e.preventDefault();
 		}}

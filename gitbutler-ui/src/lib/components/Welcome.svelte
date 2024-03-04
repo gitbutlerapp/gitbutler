@@ -24,7 +24,7 @@
 <div class="welcome">
 	<h1 class="welcome-title text-serif-40">Welcome to GitButler</h1>
 	<div class="welcome__actions">
-		<WelcomeAction title="Add new project" loading={newProjectLoading} on:click={onNewProject}>
+		<WelcomeAction title="Add new project" loading={newProjectLoading} on:mousedown={onNewProject}>
 			<svelte:fragment slot="icon">
 				<ImgThemed
 					imgSet={{

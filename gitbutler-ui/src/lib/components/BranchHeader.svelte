@@ -44,7 +44,7 @@
 {#if $isLaneCollapsed}
 	<div
 		class="card collapsed-lane"
-		on:click={unfoldLine}
+		on:mousedown={unfoldLine}
 		on:keydown={(e) => e.key === 'Enter' && unfoldLine()}
 		tabindex="0"
 		role="button"
@@ -58,7 +58,7 @@
 				kind="outlined"
 				color="neutral"
 				help="Collapse lane"
-				on:click={unfoldLine}
+				on:mousedown={unfoldLine}
 			/>
 		</div>
 
@@ -134,7 +134,7 @@
 								kind="outlined"
 								color="neutral"
 								disabled={isUnapplied}
-								on:click={async () => {
+								on:mousedown={async () => {
 									await branchController.setSelectedForChanges(branch.id);
 								}}
 							>
@@ -197,13 +197,13 @@
 								kind="outlined"
 								color="neutral"
 								help="Collapse lane"
-								on:click={foldLine}
+								on:mousedown={foldLine}
 							/>
 							<Button
 								icon="kebab"
 								kind="outlined"
 								color="neutral"
-								on:click={() => {
+								on:mousedown={() => {
 									visible = !visible;
 								}}
 							/>

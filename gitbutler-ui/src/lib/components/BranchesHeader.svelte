@@ -29,7 +29,7 @@
 			kind="outlined"
 			color="neutral"
 			icon={filtersActive ? 'filter-applied-small' : 'filter-small'}
-			on:click={onFilterClick}
+			on:mousedown={onFilterClick}
 		>
 			Filter
 		</Button>

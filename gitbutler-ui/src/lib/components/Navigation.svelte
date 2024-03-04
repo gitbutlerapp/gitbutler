@@ -61,7 +61,7 @@
 		<button
 			class="folding-button"
 			class:resizer-hovered={isResizerHovered || isResizerDragging}
-			on:click={toggleNavCollapse}
+			on:mousedown={toggleNavCollapse}
 			class:folding-button_folded={$isNavCollapsed}
 		>
 			<svg

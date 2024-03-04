@@ -45,7 +45,7 @@
 				icon="open-link">docs</IconLink
 			>
 			).
-			<button on:click={() => httpsWarningBannerDismissed.set(true)}>Dismiss</button>
+			<button on:mousedown={() => httpsWarningBannerDismissed.set(true)}>Dismiss</button>
 		</div>
 	{/if}
 	<div class="relative h-full flex-grow">

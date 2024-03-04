@@ -18,7 +18,7 @@
 <button
 	class="sync-btn"
 	class:sync-btn-busy={$baseServiceBusy$}
-	on:click={async (e) => {
+	on:mousedown={async (e) => {
 		e.preventDefault();
 		e.stopPropagation();
 		if (cloudEnabled) syncToCloud(projectId); // don't wait for this

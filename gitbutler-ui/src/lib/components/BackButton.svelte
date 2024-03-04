@@ -6,7 +6,7 @@
 <Button
 	kind="outlined"
 	color="neutral"
-	on:click={() => {
+	on:mousedown={() => {
 		if (history.length > 0) {
 			history.back();
 		} else {

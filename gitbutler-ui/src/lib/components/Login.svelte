@@ -89,7 +89,7 @@
 			loading={signUpOrLoginLoading}
 			color="primary"
 			icon="signin"
-			on:click={onSignUpOrLoginClick}
+			on:mousedown={onSignUpOrLoginClick}
 			{wide}
 		>
 			Sign up or Log in

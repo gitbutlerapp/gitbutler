@@ -21,6 +21,7 @@
 	class:disabled
 	{disabled}
 	{id}
+	on:mousedown
 	on:click
 	on:click={(e) => {
 		e.stopPropagation();

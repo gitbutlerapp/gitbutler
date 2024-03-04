@@ -45,6 +45,7 @@
 	class:verticalOrientation
 	class:not-button={!clickable}
 	on:click
+	on:mousedown
 	on:contextmenu
 	role={clickable ? 'button' : undefined}
 	class:clickable

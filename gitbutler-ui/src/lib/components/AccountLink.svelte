@@ -8,7 +8,12 @@
 	export let isNavCollapsed = false;
 </script>
 
-<button class="btn" class:pop on:click={() => goto('/settings/')} class:collapsed={isNavCollapsed}>
+<button
+	class="btn"
+	class:pop
+	on:mousedown={() => goto('/settings/')}
+	class:collapsed={isNavCollapsed}
+>
 	{#if !isNavCollapsed}
 		<span class="name text-base-13 text-semibold">
 			{#if user}
