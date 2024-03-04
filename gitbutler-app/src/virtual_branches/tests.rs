@@ -1,15 +1,12 @@
-use std::{
-    collections::HashMap,
-    fs::{self, Permissions},
-    io::Write,
-    path, thread,
-    time::Duration,
-};
+use std::{collections::HashMap, fs, io::Write, path, thread, time::Duration};
 
 use anyhow::{Context, Result};
 use pretty_assertions::{assert_eq, assert_ne};
 #[cfg(target_family = "unix")]
-use std::os::unix::{fs::symlink, prelude::*};
+use std::{
+    fs::Permissions,
+    os::unix::{fs::symlink, prelude::*},
+};
 
 use crate::{
     gb_repository, git, project_repository, reader, sessions,

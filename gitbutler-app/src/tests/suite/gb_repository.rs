@@ -27,6 +27,7 @@ mod init {
     }
 
     #[test]
+    #[cfg(target_family = "unix")]
     fn handle_dir_symlink() {
         let test_project = TestProject::default();
 
@@ -48,6 +49,7 @@ mod init {
     }
 
     #[test]
+    #[cfg(target_family = "unix")]
     fn handle_dir_symlink_symlink() {
         let test_project = TestProject::default();
 
@@ -100,6 +102,7 @@ mod flush {
     }
 
     #[test]
+    #[cfg(target_family = "unix")]
     fn handle_dir_symlink() {
         let test_project = TestProject::default();
 
