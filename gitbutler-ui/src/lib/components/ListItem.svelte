@@ -55,7 +55,7 @@
 		& .label {
 			height: var(--space-16);
 			text-overflow: ellipsis;
-			overflow-x: hidden;
+			overflow: hidden;
 		}
 	}
 </style>
