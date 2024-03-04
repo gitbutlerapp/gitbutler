@@ -49,7 +49,7 @@
 	<Button
 		icon="chevron-right-small"
 		disabled={selectValue == project}
-		on:click={() => {
+		on:mousedown={() => {
 			if (selectValue) goto(`/${selectValue.id}/`);
 		}}
 	>

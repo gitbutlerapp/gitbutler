@@ -5,7 +5,7 @@
 	export let loading = false;
 </script>
 
-<button class="action" class:loading on:click disabled={loading}>
+<button class="action" class:loading on:click on:mousedown disabled={loading}>
 	<div class="icon">
 		<!-- prettier-ignore -->
 		<slot name="icon" />

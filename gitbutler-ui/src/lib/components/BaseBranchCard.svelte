@@ -6,6 +6,7 @@
 	import type { Project } from '$lib/backend/projects';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
 	export let project: Project;
@@ -19,9 +20,9 @@
 	let baseContents: HTMLElement;
 </script>
 
-<a
+<button
 	use:tooltip={isNavCollapsed ? 'Trunk' : ''}
-	href="/{project.id}/base"
+	on:mousedown={() => goto(`/${project.id}/base`)}
 	class="base-branch-card"
 	class:selected
 	bind:this={baseContents}
@@ -72,7 +73,7 @@
 			</div>
 		</div>
 	{/if}
-</a>
+</button>
 
 <style lang="postcss">
 	.base-branch-card {

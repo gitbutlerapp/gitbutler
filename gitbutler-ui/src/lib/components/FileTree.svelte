@@ -131,7 +131,7 @@
 		{isIndeterminate}
 		{isChecked}
 		{node}
-		on:click={toggle}
+		on:mousedown={toggle}
 		{expanded}
 	/>
 

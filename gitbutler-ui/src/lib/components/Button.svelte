@@ -60,6 +60,7 @@
 	bind:this={element}
 	disabled={disabled || loading}
 	on:click
+	on:mousedown
 	{id}
 	tabindex={notClickable ? -1 : tabindex}
 >

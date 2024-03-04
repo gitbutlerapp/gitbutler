@@ -274,7 +274,7 @@
 						kind="outlined"
 						color="neutral"
 						icon="open-link"
-						on:click={() => {
+						on:mousedown={() => {
 							openExternalUrl('https://github.com/settings/ssh/new');
 						}}
 					>

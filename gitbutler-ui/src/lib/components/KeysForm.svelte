@@ -202,7 +202,7 @@
 							kind="filled"
 							color="primary"
 							icon="copy"
-							on:click={() => copyToClipboard(sshKey)}
+							on:mousedown={() => copyToClipboard(sshKey)}
 						>
 							Copy to Clipboard
 						</Button>
@@ -210,7 +210,7 @@
 							kind="outlined"
 							color="neutral"
 							icon="open-link"
-							on:click={() => {
+							on:mousedown={() => {
 								openExternalUrl('https://github.com/settings/ssh/new');
 							}}
 						>

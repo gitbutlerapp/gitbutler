@@ -164,8 +164,8 @@
 					filled={checksIcon == 'success-small'}
 					clickable
 					verticalOrientation={isLaneCollapsed}
-					on:click={fetchPrStatus}
-					help="Refresh checks status"
+					on:mousedown={fetchPrStatus}
+					help="Checks status"
 				>
 					{statusToTagText(checksStatus)}
 				</Tag>
@@ -180,7 +180,7 @@
 				clickable
 				border
 				verticalOrientation={isLaneCollapsed}
-				on:click={(e) => {
+				on:mousedown={(e) => {
 					const url = $pr$?.htmlUrl;
 					if (url) openExternalUrl(url);
 					e.preventDefault();

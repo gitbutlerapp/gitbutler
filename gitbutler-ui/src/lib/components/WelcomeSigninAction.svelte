@@ -27,7 +27,11 @@
 </script>
 
 {#if !$user$}
-	<WelcomeAction title="Log in or Sign up" loading={loginSignupLoading} on:click={onLoginOrSignup}>
+	<WelcomeAction
+		title="Log in or Sign up"
+		loading={loginSignupLoading}
+		on:mousedown={onLoginOrSignup}
+	>
 		<svelte:fragment slot="icon">
 			<ImgThemed
 				imgSet={{

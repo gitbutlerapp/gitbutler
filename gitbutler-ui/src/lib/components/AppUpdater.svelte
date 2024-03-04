@@ -107,7 +107,7 @@
 			<Button
 				wide
 				kind="outlined"
-				on:click={() => {
+				on:mousedown={() => {
 					const notes = $update$?.body?.trim() || 'no release notes available';
 					showToast({
 						id: 'release-notes',
@@ -127,7 +127,7 @@
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
 						<Button
 							wide
-							on:click={async () => {
+							on:mousedown={async () => {
 								await updaterService.installUpdate();
 							}}
 						>

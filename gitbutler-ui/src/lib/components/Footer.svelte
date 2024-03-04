@@ -1,9 +1,9 @@
 <script lang="ts">
 	import AccountLink from '$lib/components/AccountLink.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
-	import Link from '$lib/components/Link.svelte';
 	import * as events from '$lib/utils/events';
 	import type { User } from '$lib/backend/cloud';
+	import { goto } from '$app/navigation';
 
 	export let user: User | undefined;
 	export let projectId: string | undefined;
@@ -17,16 +17,15 @@
 			help="Send feedback"
 			size={isNavCollapsed ? 'xl' : 'l'}
 			width={isNavCollapsed ? '100%' : undefined}
-			on:click={() => events.emit('openSendIssueModal')}
+			on:mousedown={() => events.emit('openSendIssueModal')}
 		/>
-		<Link href={`/${projectId}/settings`}>
-			<IconButton
-				icon="settings"
-				help="Project settings"
-				size={isNavCollapsed ? 'xl' : 'l'}
-				width={isNavCollapsed ? '100%' : undefined}
-			/>
-		</Link>
+		<IconButton
+			icon="settings"
+			help="Project settings"
+			size={isNavCollapsed ? 'xl' : 'l'}
+			width={isNavCollapsed ? '100%' : undefined}
+			on:mousedown={() => goto(`/${projectId}/settings`)}
+		/>
 	</div>
 	<AccountLink {user} {isNavCollapsed} />
 </div>

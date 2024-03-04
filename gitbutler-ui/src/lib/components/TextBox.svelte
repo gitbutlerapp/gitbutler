@@ -55,6 +55,7 @@
 			class:select-all={selectall}
 			bind:value
 			on:click
+			on:mousedown
 			on:input={(e) => dispatch('input', e.currentTarget.value)}
 			on:change={(e) => dispatch('change', e.currentTarget.value)}
 		/>

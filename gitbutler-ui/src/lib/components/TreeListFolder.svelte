@@ -30,7 +30,7 @@
 	}
 </script>
 
-<button class="tree-list-folder" class:expanded on:click>
+<button class="tree-list-folder" class:expanded on:click on:mousedown>
 	<div class="chevron-icon" class:chevron-expanded={expanded}>
 		<Icon name="chevron-down-small" />
 	</div>

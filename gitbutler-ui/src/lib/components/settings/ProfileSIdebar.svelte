@@ -20,7 +20,7 @@
 					<IconButton
 						icon="chevron-left"
 						size="m"
-						on:click={() => {
+						on:mousedown={() => {
 							if (history.length > 0) {
 								history.back();
 							} else {
@@ -37,7 +37,7 @@
 					<button
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'profile'}
-						on:click={() => onMenuClick('profile')}
+						on:mousedown={() => onMenuClick('profile')}
 					>
 						<Icon name="profile" />
 						<span class="text-base-14 text-semibold">Profile</span>
@@ -47,7 +47,7 @@
 					<button
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'git-stuff'}
-						on:click={() => onMenuClick('git-stuff')}
+						on:mousedown={() => onMenuClick('git-stuff')}
 					>
 						<Icon name="git" />
 						<span class="text-base-14 text-semibold">Git Stuff</span>
@@ -57,7 +57,7 @@
 					<button
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'telemetry'}
-						on:click={() => onMenuClick('telemetry')}
+						on:mousedown={() => onMenuClick('telemetry')}
 					>
 						<Icon name="stat" />
 						<span class="text-base-14 text-semibold">Telemetry</span>
@@ -68,7 +68,7 @@
 						<button
 							class="profile-sidebar__menu-item"
 							class:item_selected={currentSection === 'integrations'}
-							on:click={() => onMenuClick('integrations')}
+							on:mousedown={() => onMenuClick('integrations')}
 						>
 							<Icon name="integrations" />
 							<span class="text-base-14 text-semibold">Integrations</span>

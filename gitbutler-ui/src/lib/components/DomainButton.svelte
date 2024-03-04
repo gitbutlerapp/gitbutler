@@ -3,6 +3,7 @@
 	import { tooltip } from '$lib/utils/tooltip';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
 	export let href: string;
@@ -18,9 +19,9 @@
 	$: selected = $page.url.href.includes(href);
 </script>
 
-<a
+<button
 	use:tooltip={isNavCollapsed ? label : ''}
-	{href}
+	on:mousedown={() => goto(href)}
 	class="domain-button text-base-14 text-semibold"
 	class:selected
 >
@@ -36,7 +37,7 @@
 	{:else}
 		<slot />
 	{/if}
-</a>
+</button>
 
 <style lang="postcss">
 	.domain-button {

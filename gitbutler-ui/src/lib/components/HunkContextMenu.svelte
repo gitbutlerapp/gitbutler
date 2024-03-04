@@ -31,7 +31,7 @@
 			{#if item.lineNumber}
 				<ContextMenuItem
 					label="Open in VS Code"
-					on:click={() => {
+					on:mousedown={() => {
 						projectPath && open(`vscode://file${projectPath}/${filePath}:${item.lineNumber}`);
 						dismiss();
 					}}

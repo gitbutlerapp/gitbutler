@@ -67,7 +67,7 @@
 		tabindex="0"
 		class="branch-name text-base-13 text-bold truncate"
 		on:keydown={(e) => e.key == 'Enter' && activateInput()}
-		on:click={activateInput}
+		on:mousedown={activateInput}
 	>
 		{name}
 	</div>
