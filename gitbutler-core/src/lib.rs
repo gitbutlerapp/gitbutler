@@ -7,5 +7,6 @@
 //! For more information, see the
 //! [GitButler organization](https://github.com/gitbutlerapp)
 //! or the [GitButler website](https://gitbutler.com).
+#![allow(clippy::doc_markdown)]
 
 pub mod id;

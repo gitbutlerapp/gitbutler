@@ -43,6 +43,7 @@
 //! [GitButler organization](https://github.com/gitbutlerapp)
 //! or the [GitButler website](https://gitbutler.com).
 #![deny(missing_docs)]
+#![allow(clippy::doc_markdown, clippy::missing_errors_doc)]
 #![feature(impl_trait_in_assoc_type, iter_map_windows, slice_as_chunks)]
 
 mod linefile;

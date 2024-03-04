@@ -1,3 +1,5 @@
+#![allow(clippy::module_name_repetitions)]
+
 use crate::{CrlfBehavior, LineFile, LineSpan};
 
 /// A [`LineFile`] stored in memory.
@@ -7,12 +9,14 @@ pub struct MemoryLineFile {
 
 impl MemoryLineFile {
     /// Creates a new [`MemoryLineFile`] from the given lines.
+    #[must_use]
     pub fn new(lines: Vec<String>) -> Self {
         Self { lines }
     }
 
     /// Creates a new [`MemoryLineFile`] from the given text,
     /// with the given CRLF behavior.
+    #[must_use]
     pub fn from_str(text: &str, crlf_behavior: CrlfBehavior) -> Self {
         MemoryLineFile {
             lines: text
@@ -34,6 +38,7 @@ impl<'a> LineFile<'a> for MemoryLineFile {
         self.lines.len()
     }
 
+    #[must_use]
     fn extract(&'a self, span: LineSpan) -> Self::LineIterator {
         self.lines[span.start()..=span.end()]
             .iter()
