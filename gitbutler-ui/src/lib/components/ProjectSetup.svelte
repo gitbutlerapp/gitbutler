@@ -154,7 +154,7 @@
 					{#if $user$?.github_access_token}
 						enabled
 						<svg
-							class="inline"
+							class="success-icon"
 							width="13"
 							height="13"
 							viewBox="0 0 13 13"
@@ -215,5 +215,10 @@
 
 	.project-setup__toggle-label {
 		width: 100%;
+	}
+
+	.success-icon {
+		display: inline;
+		margin-top: calc(var(--space-2) * -1);
 	}
 </style>
