@@ -151,7 +151,7 @@
 </script>
 
 <section class="profile-page">
-	<ProfileSIdebar {userService} bind:currentSection showIntegrations={!!$user$} />
+	<ProfileSIdebar bind:currentSection showIntegrations={!!$user$} />
 	{#if currentSection === 'profile'}
 		<ContentWrapper title="Profile">
 			{#if $user$}
