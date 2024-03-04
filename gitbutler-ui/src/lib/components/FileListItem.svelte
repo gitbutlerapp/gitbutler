@@ -81,7 +81,7 @@
 		on:dragstart={() => {
 			// Reset selection if the file being dragged is not in the selected list
 			if ($selectedFiles.length > 0 && !$selectedFiles.find((f) => f.id == file.id)) {
-				$selectedFiles = [];
+				$selectedFiles = [file];
 			}
 		}}
 		use:draggable={{
