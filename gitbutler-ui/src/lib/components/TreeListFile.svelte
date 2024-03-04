@@ -128,6 +128,7 @@
 		width: 100%;
 		max-width: 100%;
 		outline: none;
+		background: var(--clr-theme-container-light);
 		&:not(.selected):hover {
 			background-color: color-mix(
 				in srgb,
