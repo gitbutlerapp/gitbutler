@@ -68,14 +68,18 @@ fn main() {
                 .target(LogTarget::LogDir)
                 .level(log::LevelFilter::Error);
 
-            tauri::Builder::default()
+            let builder = tauri::Builder::default();
+
+            #[cfg(target_os = "macos")]
+            let builder = builder
                 .on_window_event(|event| {
-                    #[cfg(target_os = "macos")]
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
                         hide_window(&event.window().app_handle()).expect("Failed to hide window");
                         api.prevent_close();
                     }
-                })
+                });
+
+            builder
                 .setup(move |tauri_app| {
                     let window =
                         create_window(&tauri_app.handle()).expect("Failed to create window");
@@ -247,6 +251,12 @@ fn main() {
                     if let tauri::RunEvent::ExitRequested { api, .. } = event {
                         hide_window(app_handle).expect("Failed to hide window");
                         api.prevent_exit();
+                    }
+
+                    // To make the compiler happy.
+                    #[cfg(not(target_os = "macos"))]
+                    {
+                        let _ = (app_handle, event);
                     }
                 });
         });
