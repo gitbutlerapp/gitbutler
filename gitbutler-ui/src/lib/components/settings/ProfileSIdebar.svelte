@@ -2,11 +2,8 @@
 	import SupportersBanner from './SupportersBanner.svelte';
 	import IconButton from '../IconButton.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import Login from '$lib/components/Login.svelte';
-	import type { UserService } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
 
-	export let userService: UserService;
 	export let currentSection: 'profile' | 'git-stuff' | 'telemetry' | 'integrations' = 'profile';
 	export let showIntegrations = false;
 
@@ -79,13 +76,6 @@
 					</li>
 				{/if}
 			</ul>
-			<!-- <Login
-				{userService}
-				wide
-				on:logout={() => {
-					currentSection = 'profile';
-				}}
-			/> -->
 		</div>
 	</section>
 
