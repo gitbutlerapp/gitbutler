@@ -133,6 +133,7 @@
 		outline: none;
 		margin-bottom: var(--space-2);
 		transition: background-color var(--transition-fast);
+		background: var(--clr-theme-container-light);
 		&:not(.selected-draggable):hover {
 			transition: none;
 			background-color: color-mix(
