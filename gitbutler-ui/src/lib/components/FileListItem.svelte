@@ -132,6 +132,7 @@
 		user-select: none;
 		outline: none;
 		margin-bottom: var(--space-2);
+		background-color: var(--clr-theme-container-light);
 		transition: background-color var(--transition-fast);
 		&:not(.selected-draggable):hover {
 			transition: none;
@@ -180,7 +181,11 @@
 		background-color: var(--clr-theme-scale-pop-80);
 
 		&:hover {
-			background-color: color-mix(in srgb, var(--clr-theme-scale-pop-80), var(--darken-extralight));
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-scale-pop-80),
+				var(--darken-extralight)
+			);
 		}
 	}
 </style>
