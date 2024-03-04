@@ -1,3 +1,5 @@
+#![allow(clippy::module_name_repetitions)]
+
 use crate::{CrlfBehavior, LineFile};
 use mmap_rs::{Error, Mmap};
 
@@ -52,11 +54,7 @@ impl MmapLineFile {
                 if *c == b'\n' {
                     lines.push((
                         start,
-                        i - if cr && crlf_behavior == CrlfBehavior::Trim {
-                            1
-                        } else {
-                            0
-                        },
+                        i - usize::from(cr && crlf_behavior == CrlfBehavior::Trim),
                     ));
                     (i + 1, false)
                 } else {

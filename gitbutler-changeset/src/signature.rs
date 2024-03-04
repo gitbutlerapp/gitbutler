@@ -44,6 +44,7 @@ pub struct Signature([u8; TOTAL_BYTES]);
 impl Signature {
     /// Creates a new signature from a byte array.
     #[inline]
+    #[must_use]
     pub fn new(bytes: [u8; TOTAL_BYTES]) -> Self {
         Self(bytes)
     }
@@ -54,6 +55,7 @@ impl Signature {
     /// or assume anything about its contents. It is an
     /// implementation detail and may change at any time.
     #[inline]
+    #[must_use]
     pub fn as_bytes(&self) -> &[u8; TOTAL_BYTES] {
         &self.0
     }
@@ -76,10 +78,9 @@ impl Signature {
     /// about the signature or the original file contents.
     ///
     /// Do not use for any security-related purposes.
+    #[must_use]
     pub fn score_str<S: AsRef<str>>(&self, other: S) -> f64 {
-        if self.0[0] != 0 {
-            panic!("unsupported signature version");
-        }
+        assert!(self.0[0] == 0, "unsupported signature version");
 
         let original_length = u32::from_le_bytes(self.0[1..5].try_into().expect("invalid length"));
         if original_length < 2 {
@@ -108,7 +109,10 @@ impl Signature {
             }
         }
 
-        (2 * matching_bigrams) as f64 / (original_length as usize + other.len() - 2) as f64
+        #[allow(clippy::cast_precision_loss)]
+        {
+            (2 * matching_bigrams) as f64 / (original_length as usize + other.len() - 2) as f64
+        }
     }
 
     fn bucket_iter(&self) -> impl Iterator<Item = SigBucket> + '_ {

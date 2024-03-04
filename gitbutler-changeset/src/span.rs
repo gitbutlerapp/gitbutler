@@ -1,3 +1,5 @@
+#![allow(clippy::module_name_repetitions)]
+
 /// A line-based span of text.
 ///
 /// All line spans are at least one line long.
@@ -16,33 +18,35 @@ impl LineSpan {
     /// # Panics
     ///
     /// Panics if the start line is greater than the end line.
+    #[must_use]
     pub fn new(start: usize, end: usize) -> Self {
-        if start > end {
-            panic!("start line cannot be greater than end line");
-        }
-
+        assert!(start <= end, "start line cannot be greater than end line");
         Self { start, end }
     }
 
     /// The starting line of the span. Zero-based.
     #[inline]
+    #[must_use]
     pub fn start(&self) -> usize {
         self.start
     }
 
     /// The ending line of the span. Zero-based, inclusive.
     #[inline]
+    #[must_use]
     pub fn end(&self) -> usize {
         self.end
     }
 
     /// Gets the line count from the span
+    #[must_use]
     pub fn line_count(&self) -> usize {
         debug_assert!(self.end >= self.start);
         self.end - self.start + 1
     }
 
     /// Returns true if the given span intersects with this span.
+    #[must_use]
     pub fn intersects(&self, other: &Self) -> bool {
         debug_assert!(self.end >= self.start);
         debug_assert!(other.end >= other.start);
@@ -57,6 +61,10 @@ impl LineSpan {
     /// The final line ending (if any) is not included.
     ///
     /// Also returns the character offsets (inclusive).
+    ///
+    /// # Panics
+    /// Panics if the span's start > end.
+    #[must_use]
     pub fn extract<'a>(&self, text: &'a str) -> Option<(&'a str, usize, usize)> {
         debug_assert!(self.end >= self.start);
 
