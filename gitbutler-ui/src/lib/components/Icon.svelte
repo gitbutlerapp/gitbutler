@@ -34,7 +34,7 @@
 			class="spinner-back-path"
 			cx="8"
 			cy="8"
-			r="var(--spinner-radius)"
+			r={spinnerRadius}
 			fill="none"
 			vector-effect="non-scaling-stroke"
 		/>
