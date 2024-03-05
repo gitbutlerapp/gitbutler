@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ButlerAIProvider, Summarizer } from '$lib/backend/summarizing';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
@@ -26,7 +27,6 @@
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Branch, LocalFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
-	import { ButlerAIProvider, Summarizer } from '$lib/backend/summarizing';
 
 	const dispatch = createEventDispatcher<{
 		action: 'generate-branch-name';
@@ -74,12 +74,12 @@
 		return invoke<string>('git_get_global_config', params);
 	}
 
-    let summarizer: Summarizer | undefined
-    $: if (user) {
-        const aiProvider = new ButlerAIProvider(cloud, user)
+	let summarizer: Summarizer | undefined;
+	$: if (user) {
+		const aiProvider = new ButlerAIProvider(cloud, user);
 
-        summarizer = new Summarizer(aiProvider)
-    }
+		summarizer = new Summarizer(aiProvider);
+	}
 
 	let isGeneratingCommitMessage = false;
 	async function generateCommitMessage(files: LocalFile[]) {
@@ -92,7 +92,7 @@
 			.slice(0, 5000);
 
 		if (!user) return;
-        if (!summarizer) return;
+		if (!summarizer) return;
 
 		// Branches get their names generated only if there are at least 4 lines of code
 		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
@@ -102,12 +102,11 @@
 			dispatch('action', 'generate-branch-name');
 		}
 
-        //@ts-ignore
-        window.cloud = cloud; window.user = user
 		isGeneratingCommitMessage = true;
-        summarizer.commit(diff, $commitGenerationUseEmojis, $commitGenerationExtraConcise)
+		summarizer
+			.commit(diff, $commitGenerationUseEmojis, $commitGenerationExtraConcise)
 			.then((message) => {
-                commitMessage = message;
+				commitMessage = message;
 				currentCommitMessage.set(message);
 
 				setTimeout(() => {

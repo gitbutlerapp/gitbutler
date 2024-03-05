@@ -1,13 +1,13 @@
-import type { User, getCloudApiClient } from "$lib/backend/cloud"
+import type { User, getCloudApiClient } from '$lib/backend/cloud';
 
 enum MessageRole {
-    User = 'user',
-    System = 'system'
+	User = 'user',
+	System = 'system'
 }
 
 export interface PromptMessage {
-    content: string
-    role: MessageRole
+	content: string;
+	role: MessageRole;
 }
 
 const diffLengthLimit = 20000;
@@ -24,7 +24,7 @@ Hard wrap lines at 72 characters.
 
 Here is my diff:
 %{diff}
-`
+`;
 
 const defaultBranchTemplate = `
 Please could you write a branch name for my changes.
@@ -34,69 +34,78 @@ Branch names should contain a maximum of 5 words.
 
 Here is my diff:
 %{diff}
-`
+`;
 
 interface AIProvider {
-    evaluate(prompt: string): Promise<string>
+	evaluate(prompt: string): Promise<string>;
 }
 
 export class ButlerAIProvider implements AIProvider {
-    constructor(private cloud: ReturnType<typeof getCloudApiClient>, private user: User) {}
+	constructor(
+		private cloud: ReturnType<typeof getCloudApiClient>,
+		private user: User
+	) {}
 
-    async evaluate(prompt: string) {
-        const messages: PromptMessage[] = [
-            { role: MessageRole.User, content: prompt }
-        ]
+	async evaluate(prompt: string) {
+		const messages: PromptMessage[] = [{ role: MessageRole.User, content: prompt }];
 
-        const response = await this.cloud.ai.evaluatePrompt(this.user.access_token, { messages })
+		const response = await this.cloud.ai.evaluatePrompt(this.user.access_token, { messages });
 
-        return response.message
-    }
+		return response.message;
+	}
 }
 
 export class Summarizer {
-    constructor(private aiProvider: AIProvider) {}
+	constructor(private aiProvider: AIProvider) {}
 
-    async commit(
-        diff: string,
-        useEmojiStyle: boolean,
-        useBreifStyle: boolean,
-        commitTemplate?: string
-    ) {
+	async commit(
+		diff: string,
+		useEmojiStyle: boolean,
+		useBriefStyle: boolean,
+		commitTemplate?: string
+	) {
+		let prompt = (commitTemplate || defaultCommitTemplate).replaceAll(
+			'%{diff}',
+			diff.slice(0, diffLengthLimit)
+		);
 
-        let prompt = (commitTemplate || defaultCommitTemplate).replaceAll("%{diff}", diff.slice(0, diffLengthLimit))
-        if (useBreifStyle) {
-            prompt = prompt.replaceAll("%{brief_style}", "The commit message must be only one sentence and as short as possible.")
-        } else {
-            prompt = prompt.replaceAll("%{breif_style}", "")
-        }
-        if (useEmojiStyle) {
-            prompt = prompt.replaceAll("%{emoji_style}", "Make use of GitMoji in the title prefix.")
-        } else {
-            prompt = prompt.replaceAll("%{emoji_style}", "Don't use any emoji.")
-        }
+		if (useBriefStyle) {
+			prompt = prompt.replaceAll(
+				'%{brief_style}',
+				'The commit message must be only one sentence and as short as possible.'
+			);
+		} else {
+			prompt = prompt.replaceAll('%{brief_style}', '');
+		}
+		if (useEmojiStyle) {
+			prompt = prompt.replaceAll('%{emoji_style}', 'Make use of GitMoji in the title prefix.');
+		} else {
+			prompt = prompt.replaceAll('%{emoji_style}', "Don't use any emoji.");
+		}
 
-        let message = await this.aiProvider.evaluate(prompt)
+		let message = await this.aiProvider.evaluate(prompt);
 
-        if (useBreifStyle) {
-            message = message.split("\n")[0]
-        }
+		if (useBriefStyle) {
+			message = message.split('\n')[0];
+		}
 
-        // trim and format output
-        const firstNewLine = message.indexOf('\n');
-        const summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
-        const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
+		const firstNewLine = message.indexOf('\n');
+		const summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
+		const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
 
-        return description.length > 0 ? `${summary}\n\n${description}` : summary;
-    }
+		return description.length > 0 ? `${summary}\n\n${description}` : summary;
+	}
 
-    async branch(diff: string, branchTemplate?: string) {
-        const prompt = (branchTemplate || defaultBranchTemplate).replaceAll("%{diff}", diff.slice(0, diffLengthLimit))
+	async branch(diff: string, branchTemplate?: string) {
+		const prompt = (branchTemplate || defaultBranchTemplate).replaceAll(
+			'%{diff}',
+			diff.slice(0, diffLengthLimit)
+		);
 
-        let message = await this.aiProvider.evaluate(prompt)
+		let message = await this.aiProvider.evaluate(prompt);
 
-        message = message.replaceAll(" ", "-")
-        message = message.replaceAll("\n", "-")
-        return message
-    }
+		message = message.replaceAll(' ', '-');
+		message = message.replaceAll('\n', '-');
+		return message;
+	}
 }
