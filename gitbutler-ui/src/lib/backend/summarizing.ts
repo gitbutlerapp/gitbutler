@@ -10,6 +10,8 @@ export interface PromptMessage {
     role: MessageRole
 }
 
+const diffLengthLimit = 20000;
+
 const commitTemplate = `
 Please could you write a commit message for my changes.
 Explain what were the changes and why the changes were done.
@@ -38,7 +40,7 @@ interface AIProvider {
     evaluate(prompt: string): Promise<string>
 }
 
-export class ButlerAIProvider {
+export class ButlerAIProvider implements AIProvider {
     constructor(private cloud: ReturnType<typeof getCloudApiClient>, private user: User) {}
 
     async evaluate(prompt: string) {
@@ -60,7 +62,7 @@ export class Summarizer {
         const emojiStyle = "Make use of GitMoji in the title prefix."
         const emojiStyleDisabled = "Don't use any emoji."
 
-        let prompt = commitTemplate.replaceAll("%{diff}", diff.slice(0, 20000))
+        let prompt = commitTemplate.replaceAll("%{diff}", diff.slice(0, diffLengthLimit))
         if (useBreifStyle) {
             prompt = prompt.replaceAll("%{brief_style}", briefStyle)
         }
@@ -86,7 +88,7 @@ export class Summarizer {
     }
 
     async branch(diff: string) {
-        const prompt = branchTemplate.replaceAll("%{diff}", diff.slice(0, 20000))
+        const prompt = branchTemplate.replaceAll("%{diff}", diff.slice(0, diffLengthLimit))
 
         let message = await this.aiProvider.evaluate(prompt)
 
