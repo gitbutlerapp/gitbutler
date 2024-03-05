@@ -183,16 +183,7 @@ export function getCloudApiClient(
 				}).then(parseResponseJSON);
 			}
 		},
-		summarize: {
-			branch: (token: string, params: { diff: string }): Promise<{ message: string }> =>
-				fetch(getUrl('summarize_branch_name/branch.json'), {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-Auth-Token': token
-					},
-					body: JSON.stringify(params)
-				}).then(parseResponseJSON),
+		ai: {
             evaluatePrompt: (token: string, params: EvaluatePromptParams): Promise<{ message: string }> =>
                 fetch(getUrl('evaluate_prompt/predict.json'), {
                     method: 'POST',

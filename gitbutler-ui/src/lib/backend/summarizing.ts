@@ -48,7 +48,7 @@ export class ButlerAIProvider implements AIProvider {
             { role: MessageRole.User, content: prompt }
         ]
 
-        const response = await this.cloud.summarize.evaluatePrompt(this.user.access_token, { messages })
+        const response = await this.cloud.ai.evaluatePrompt(this.user.access_token, { messages })
 
         return response.message
     }
