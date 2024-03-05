@@ -63,20 +63,18 @@ export class Summarizer {
         useBreifStyle: boolean,
         commitTemplate?: string
     ) {
-        const briefStyle = "The commit message must be only one sentence and as short as possible."
-        const emojiStyle = "Make use of GitMoji in the title prefix."
-        const emojiStyleDisabled = "Don't use any emoji."
 
         let prompt = (commitTemplate || defaultCommitTemplate).replaceAll("%{diff}", diff.slice(0, diffLengthLimit))
         if (useBreifStyle) {
-            prompt = prompt.replaceAll("%{brief_style}", briefStyle)
+            prompt = prompt.replaceAll("%{brief_style}", "The commit message must be only one sentence and as short as possible.")
+        } else {
+            prompt = prompt.replaceAll("%{breif_style}", "")
         }
         if (useEmojiStyle) {
-            prompt = prompt.replaceAll("%{emoji_style}", emojiStyle)
+            prompt = prompt.replaceAll("%{emoji_style}", "Make use of GitMoji in the title prefix.")
         } else {
-            prompt = prompt.replaceAll("%{emoji_style}", emojiStyleDisabled)
+            prompt = prompt.replaceAll("%{emoji_style}", "Don't use any emoji.")
         }
-        prompt.replaceAll("%{breif_style}", "")
 
         let message = await this.aiProvider.evaluate(prompt)
 
