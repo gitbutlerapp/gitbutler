@@ -17,13 +17,7 @@ impl TryFrom<&AppHandle> for Storage {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(storage) = value.try_state::<Storage>() {
-            Ok(storage.inner().clone())
-        } else {
-            let storage = Storage::new(storage::Storage::try_from(value)?);
-            value.manage(storage.clone());
-            Ok(storage)
-        }
+        Ok(value.state::<Storage>().inner().clone())
     }
 }
 
@@ -61,7 +55,7 @@ pub enum Error {
 }
 
 impl Storage {
-    fn new(storage: storage::Storage) -> Storage {
+    pub fn new(storage: storage::Storage) -> Storage {
         Storage { storage }
     }
 

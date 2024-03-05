@@ -98,48 +98,74 @@ fn main() {
 
                     logs::init(&app_handle);
 
+                    let app_data_dir = app_handle.path_resolver().app_data_dir().expect("missing app data dir");
+                    let app_cache_dir = app_handle.path_resolver().app_cache_dir().expect("missing app cache dir");
+                    let app_log_dir = app_handle.path_resolver().app_log_dir().expect("missing app log dir");
+
+                    std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
+                    std::fs::create_dir_all(&app_cache_dir).expect("failed to create cache dir");
+
                     tracing::info!(version = %app_handle.package_info().version, name = %app_handle.package_info().name, "starting app");
 
-                    let watchers = watcher::Watchers::try_from(&app_handle)
-                        .expect("failed to initialize watchers");
-                    tauri_app.manage(watchers);
+                    let storage_controller = storage::Storage::new(&app_data_dir);
+                    app_handle.manage(storage_controller.clone());
 
-                    let proxy =
-                        assets::Proxy::try_from(&app_handle).expect("failed to initialize proxy");
-                    tauri_app.manage(proxy);
+                    let watcher_controller = watcher::Watchers::new(app_handle.clone());
+                    app_handle.manage(watcher_controller.clone());
 
-                    let database = database::Database::try_from(&app_handle)
-                        .expect("failed to initialize database");
-                    app_handle.manage(database);
+                    let projects_storage_controller = projects::storage::Storage::new(storage_controller.clone());
+                    app_handle.manage(projects_storage_controller.clone());
 
-                    let storage = storage::Storage::try_from(&app_handle)
-                        .expect("failed to initialize storage");
-                    app_handle.manage(storage);
+                    let users_storage_controller = users::storage::Storage::new(storage_controller.clone());
+                    app_handle.manage(users_storage_controller.clone());
 
-                    let zipper = zip::Controller::try_from(&app_handle)
-                        .expect("failed to initialize zipc controller ");
-                    tauri_app.manage(zipper);
+                    let users_controller = users::Controller::new(users_storage_controller.clone());
+                    app_handle.manage(users_controller.clone());
 
-                    let deltas_controller = deltas::Controller::try_from(&app_handle).expect("failed to initialize deltas controller");
+                    let projects_controller = projects::Controller::new(
+                        app_data_dir.clone(),
+                        projects_storage_controller.clone(),
+                        users_controller.clone(),
+                        Some(watcher_controller.clone())
+                    );
+                    app_handle.manage(projects_controller.clone());
+
+                    app_handle.manage(assets::Proxy::new(app_cache_dir.join("images")));
+
+                    let database_controller = database::Database::open(app_data_dir.join("database.sqlite3")).expect("failed to open database");
+                    app_handle.manage(database_controller.clone());
+
+                    let zipper = zip::Zipper::new(&app_cache_dir);
+                    app_handle.manage(zipper.clone());
+
+                    app_handle.manage(zip::Controller::new(app_data_dir.clone(), app_log_dir.clone(), zipper.clone(), projects_controller.clone()));
+
+                    let deltas_database_controller = deltas::database::Database::new(database_controller.clone());
+                    app_handle.manage(deltas_database_controller.clone());
+
+                    let deltas_controller = deltas::Controller::new(deltas_database_controller.clone());
                     app_handle.manage(deltas_controller);
 
-                    let sessions_controller = sessions::Controller::try_from(&app_handle)
-                        .expect("failed to initialize sessions controller");
-                    app_handle.manage(sessions_controller);
+                    let keys_storage_controller = keys::storage::Storage::new(storage_controller.clone());
+                    app_handle.manage(keys_storage_controller.clone());
 
-                    let projects_controller = projects::Controller::try_from(&app_handle)
-                        .expect("failed to initialize projects controller");
-                    app_handle.manage(projects_controller);
+                    let keys_controller = keys::Controller::new(keys_storage_controller.clone());
+                    app_handle.manage(keys_controller.clone());
 
-                    let vbranch_contoller =
-                        virtual_branches::controller::Controller::try_from(&app_handle)
-                            .expect("failed to initialize virtual branches controller");
-                    app_handle.manage(vbranch_contoller);
+                    let git_credentials_controller = git::credentials::Helper::new(
+                        keys_controller.clone(),
+                        users_controller.clone(),
+                        std::env::var_os("HOME").map(PathBuf::from)
+                    );
+                    app_handle.manage(git_credentials_controller.clone());
 
-                    let keys_controller = keys::Controller::try_from(&app_handle).expect("failed to initialize keys controller");
-                    app_handle.manage(keys_controller);
-
-                    let users_controller = users::Controller::try_from(&app_handle).expect("failed to initialize users controller");
+                    app_handle.manage(virtual_branches::controller::Controller::new(
+                        app_data_dir.clone(),
+                        projects_controller.clone(),
+                        users_controller.clone(),
+                        keys_controller.clone(),
+                        git_credentials_controller.clone(),
+                    ));
 
                     let stores = tauri_app.state::<StoreCollection<Wry>>();
                     if let Some(path) = app_handle.path_resolver().app_config_dir().map(|path| path.join(PathBuf::from("settings.json"))) {
@@ -173,10 +199,23 @@ fn main() {
                         };
                     }
 
-                    app_handle.manage(users_controller);
+                    let sessions_database_controller = sessions::database::Database::new(database_controller.clone());
+                    app_handle.manage(sessions_database_controller.clone());
 
-                    let app: app::App = app::App::try_from(&tauri_app.app_handle())
-                        .expect("failed to initialize app");
+                    app_handle.manage(sessions::Controller::new(
+                        app_data_dir.clone(),
+                        sessions_database_controller.clone(),
+                        projects_controller.clone(),
+                        users_controller.clone(),
+                    ));
+
+                    let app = app::App::new(
+                        app_data_dir,
+                        projects_controller,
+                        users_controller,
+                        watcher_controller,
+                        sessions_database_controller,
+                    );
 
                     app.init().context("failed to init app")?;
 

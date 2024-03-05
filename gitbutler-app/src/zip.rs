@@ -23,24 +23,14 @@ impl TryFrom<&AppHandle> for Zipper {
     type Error = anyhow::Error;
 
     fn try_from(handle: &AppHandle) -> Result<Self> {
-        if let Some(zipper) = handle.try_state::<Self>() {
-            Ok(zipper.inner().clone())
-        } else {
-            let app_cache_dir = handle
-                .path_resolver()
-                .app_cache_dir()
-                .context("failed to get app cache dir")?;
-            Self::new(app_cache_dir)
-        }
+        Ok(handle.state::<Self>().inner().clone())
     }
 }
 
 impl Zipper {
-    fn new<P: AsRef<path::Path>>(cache_dir: P) -> Result<Self, anyhow::Error> {
-        let cache_dir = cache_dir.as_ref().to_path_buf();
-        fs::create_dir_all(&cache_dir).context("failed to create cache dir")?;
-        let cache = cache_dir.join("archives");
-        Ok(Self { cache })
+    pub fn new<P: AsRef<path::Path>>(cache_dir: P) -> Self {
+        let cache = cache_dir.as_ref().to_path_buf().join("archives");
+        Self { cache }
     }
 
     // takes a path to create zip of, returns path of a created archive.
@@ -199,7 +189,7 @@ mod tests {
         file.write_all(b"test").unwrap();
 
         let zipper_cache = tempdir().unwrap();
-        let zipper = Zipper::new(zipper_cache.path()).unwrap();
+        let zipper = Zipper::new(zipper_cache.path());
         let zip_file_path = zipper.zip(tmp_dir).unwrap();
         assert!(zip_file_path.exists());
     }
@@ -213,7 +203,7 @@ mod tests {
         file.write_all(b"test").unwrap();
 
         let zipper_cache = tempdir().unwrap();
-        let zipper = Zipper::new(zipper_cache.path()).unwrap();
+        let zipper = Zipper::new(zipper_cache.path());
         zipper.zip(file_path).unwrap_err();
     }
 
@@ -226,7 +216,7 @@ mod tests {
         file.write_all(b"test").unwrap();
 
         let zipper_cache = tempdir().unwrap();
-        let zipper = Zipper::new(zipper_cache.path()).unwrap();
+        let zipper = Zipper::new(zipper_cache.path());
         assert_eq!(zipper.zip(&tmp_dir).unwrap(), zipper.zip(&tmp_dir).unwrap());
         assert_eq!(WalkDir::new(tmp_dir).into_iter().count(), 1);
     }

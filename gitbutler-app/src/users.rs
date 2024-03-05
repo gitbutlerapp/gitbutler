@@ -1,6 +1,6 @@
 pub mod commands;
-mod controller;
-mod storage;
+pub mod controller;
+pub mod storage;
 mod user;
 
 pub use controller::*;

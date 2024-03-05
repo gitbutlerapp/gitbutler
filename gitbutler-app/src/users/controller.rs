@@ -12,13 +12,7 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(controller) = value.try_state::<Controller>() {
-            Ok(controller.inner().clone())
-        } else {
-            let controller = Controller::new(Storage::try_from(value)?);
-            value.manage(controller.clone());
-            Ok(controller)
-        }
+        Ok(value.state::<Self>().inner().clone())
     }
 }
 
@@ -31,7 +25,7 @@ impl TryFrom<&std::path::PathBuf> for Controller {
 }
 
 impl Controller {
-    fn new(storage: Storage) -> Controller {
+    pub fn new(storage: Storage) -> Controller {
         Controller { storage }
     }
 

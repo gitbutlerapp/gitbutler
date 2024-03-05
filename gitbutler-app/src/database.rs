@@ -1,4 +1,4 @@
-use std::{fs, path, sync::Arc};
+use std::{path, sync::Arc};
 
 use anyhow::{Context, Result};
 
@@ -22,14 +22,7 @@ impl TryFrom<&AppHandle> for Database {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(database) = value.try_state::<Database>() {
-            Ok(database.inner().clone())
-        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            fs::create_dir_all(&app_data_dir).context("failed to create local data dir")?;
-            Self::open(app_data_dir.join("database.sqlite3"))
-        } else {
-            Err(anyhow::anyhow!("failed to get app data dir"))
-        }
+        Ok(value.state::<Self>().inner().clone())
     }
 }
 
@@ -43,7 +36,7 @@ impl TryFrom<&path::PathBuf> for Database {
 }
 
 impl Database {
-    fn open<P: AsRef<path::Path>>(path: P) -> Result<Self> {
+    pub fn open<P: AsRef<path::Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         let manager = SqliteConnectionManager::file(path);
         let pool = r2d2::Pool::new(manager)?;

@@ -1,6 +1,6 @@
-use std::{collections::HashMap, fs, path, sync};
+use std::{collections::HashMap, path, sync};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use futures::future::join_all;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Semaphore;
@@ -24,24 +24,14 @@ impl TryFrom<&AppHandle> for Proxy {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(proxy) = value.try_state::<Proxy>() {
-            Ok(proxy.inner().clone())
-        } else if let Some(app_cache_dir) = value.path_resolver().app_cache_dir() {
-            fs::create_dir_all(&app_cache_dir).context("failed to create cache dir")?;
-            let cache_dir = app_cache_dir.join("images");
-            let proxy = Self::new(cache_dir);
-            value.manage(proxy.clone());
-            Ok(proxy)
-        } else {
-            Err(anyhow::anyhow!("failed to get app cache dir"))
-        }
+        Ok(value.state::<Self>().inner().clone())
     }
 }
 
 const ASSET_SCHEME: &str = "asset";
 
 impl Proxy {
-    fn new(cache_dir: path::PathBuf) -> Self {
+    pub fn new(cache_dir: path::PathBuf) -> Self {
         Proxy {
             cache_dir,
             semaphores: sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
