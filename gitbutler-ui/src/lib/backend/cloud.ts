@@ -1,6 +1,6 @@
 import { isLoading, invoke } from './ipc';
 import { nanoid } from 'nanoid';
-import type { PromptMessage } from '$lib/backend/summarizing';
+import type { ButlerPromptMessage } from '$lib/backend/ai_providers';
 import { PUBLIC_API_BASE_URL, PUBLIC_CHAIN_API } from '$env/static/public';
 
 const apiUrl = new URL('/api/', new URL(PUBLIC_API_BASE_URL));
@@ -93,7 +93,7 @@ const withLog: FetchMiddleware = (fetch) => async (url, options) => {
 };
 
 interface EvaluatePromptParams {
-	messages: PromptMessage[];
+	messages: ButlerPromptMessage[];
 	temperature?: number;
 	max_tokens?: number;
 }

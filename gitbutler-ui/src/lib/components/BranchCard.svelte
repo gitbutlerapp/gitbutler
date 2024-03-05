@@ -6,7 +6,8 @@
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
 	import PullRequestCard from './PullRequestCard.svelte';
 	import UpstreamCommits from './UpstreamCommits.svelte';
-	import { ButlerAIProvider, Summarizer } from '$lib/backend/summarizing';
+	import { ButlerAIProvider } from '$lib/backend/ai_providers';
+	import { Summarizer } from '$lib/backend/summarizer';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
@@ -43,7 +44,6 @@
 		RemoteBranchData,
 		RemoteCommit
 	} from '$lib/vbranches/types';
-
 	export let branch: Branch;
 	export let isUnapplied = false;
 	export let project: Project;

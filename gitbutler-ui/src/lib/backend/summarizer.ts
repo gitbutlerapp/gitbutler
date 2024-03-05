@@ -1,14 +1,4 @@
-import type { User, getCloudApiClient } from '$lib/backend/cloud';
-
-enum MessageRole {
-	User = 'user',
-	System = 'system'
-}
-
-export interface PromptMessage {
-	content: string;
-	role: MessageRole;
-}
+import type { AIProvider } from '$lib/backend/ai_providers';
 
 const diffLengthLimit = 20000;
 
@@ -35,25 +25,6 @@ Branch names should contain a maximum of 5 words.
 Here is my diff:
 %{diff}
 `;
-
-interface AIProvider {
-	evaluate(prompt: string): Promise<string>;
-}
-
-export class ButlerAIProvider implements AIProvider {
-	constructor(
-		private cloud: ReturnType<typeof getCloudApiClient>,
-		private user: User
-	) {}
-
-	async evaluate(prompt: string) {
-		const messages: PromptMessage[] = [{ role: MessageRole.User, content: prompt }];
-
-		const response = await this.cloud.ai.evaluatePrompt(this.user.access_token, { messages });
-
-		return response.message;
-	}
-}
 
 export class Summarizer {
 	constructor(private aiProvider: AIProvider) {}
