@@ -24,6 +24,16 @@ Here is my diff:
 %{diff}
 `
 
+const branchTemplate = `
+Please could you write a branch name for my changes.
+A branch name represent a brief description of the changes in the diff (branch).
+Branch names should contain no whitespace and instead use dashes to separate words.
+Branch names should contain a maximum of 5 words.
+
+Here is my diff:
+%{diff}
+`
+
 export class Summarizer {
     constructor(private cloud: ReturnType<typeof getCloudApiClient>, private user: User) {}
 
@@ -60,5 +70,19 @@ export class Summarizer {
         const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
 
         return description.length > 0 ? `${summary}\n\n${description}` : summary;
+    }
+
+    async branch(diff: string) {
+        const prompt = branchTemplate.replaceAll("%{diff}", diff.slice(0, 20000))
+
+        const messages: PromptMessage[] = [
+            { role: MessageRole.User, content: prompt }
+        ]
+
+        const response = await this.cloud.summarize.evaluatePrompt(this.user.access_token, { messages })
+        let message = response.message
+        message = message.replaceAll(" ", "-")
+        message = message.replaceAll("\n", "-")
+        return message
     }
 }

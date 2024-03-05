@@ -42,6 +42,7 @@
 		RemoteBranchData,
 		RemoteCommit
 	} from '$lib/vbranches/types';
+	import { Summarizer } from '$lib/backend/summarizing';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
@@ -99,9 +100,9 @@
 			.slice(0, 5000);
 
 		if (user && aiGenEnabled) {
-			cloud.summarize.branch(user.access_token, { diff }).then((result) => {
-				if (result.message && result.message !== branch.name) {
-					branch.name = result.message;
+            new Summarizer(cloud, user).branch(diff).then((message) => {
+				if (message !== branch.name) {
+					branch.name = message;
 					branchController.updateBranchName(branch.id, branch.name);
 				}
 			});
