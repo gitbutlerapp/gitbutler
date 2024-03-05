@@ -37,19 +37,7 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(controller) = value.try_state::<Controller>() {
-            Ok(controller.inner().clone())
-        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            Ok(Self::new(
-                app_data_dir,
-                projects::Controller::try_from(value)?,
-                users::Controller::try_from(value)?,
-                keys::Controller::try_from(value)?,
-                git::credentials::Helper::try_from(value)?,
-            ))
-        } else {
-            Err(anyhow::anyhow!("failed to get app data dir"))
-        }
+        Ok(value.state::<Controller>().inner().clone())
     }
 }
 

@@ -18,28 +18,12 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(controller) = value.try_state::<Controller>() {
-            Ok(controller.inner().clone())
-        } else {
-            let local_data_dir = value
-                .path_resolver()
-                .app_data_dir()
-                .ok_or_else(|| anyhow::anyhow!("failed to get local data dir"))?;
-            let logs_dir = value
-                .path_resolver()
-                .app_log_dir()
-                .ok_or_else(|| anyhow::anyhow!("failed to get logs dir"))?;
-            let zipper = Zipper::try_from(value)?;
-            let projects = projects::Controller::try_from(value)?;
-            let controller = Controller::new(local_data_dir, logs_dir, zipper, projects);
-            value.manage(controller.clone());
-            Ok(controller)
-        }
+        Ok(value.state::<Self>().inner().clone())
     }
 }
 
 impl Controller {
-    fn new(
+    pub fn new(
         local_data_dir: path::PathBuf,
         logs_dir: path::PathBuf,
         zipper: Zipper,

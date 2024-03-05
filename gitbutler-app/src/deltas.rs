@@ -1,11 +1,11 @@
 mod controller;
-mod database;
 mod delta;
 mod document;
 mod reader;
 mod writer;
 
 pub mod commands;
+pub mod database;
 pub mod operations;
 
 pub use controller::Controller;

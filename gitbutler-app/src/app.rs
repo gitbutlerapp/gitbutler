@@ -37,24 +37,12 @@ impl TryFrom<&AppHandle> for App {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        if let Some(app) = value.try_state::<App>() {
-            Ok(app.inner().clone())
-        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            let projects = projects::Controller::try_from(value)?;
-            let users = users::Controller::try_from(value)?;
-            let watchers = watcher::Watchers::try_from(value)?;
-            let sessions_database = sessions::Database::try_from(value)?;
-            let app = App::new(app_data_dir, projects, users, watchers, sessions_database);
-            value.manage(app.clone());
-            Ok(app)
-        } else {
-            Err(anyhow::anyhow!("failed to get app data dir"))
-        }
+        Ok(value.state::<Self>().inner().clone())
     }
 }
 
 impl App {
-    fn new(
+    pub fn new(
         local_data_dir: path::PathBuf,
         projects: projects::Controller,
         users: users::Controller,

@@ -80,16 +80,7 @@ impl TryFrom<&AppHandle> for Helper {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(helper) = value.try_state::<Helper>() {
-            Ok(helper.inner().clone())
-        } else {
-            let keys = keys::Controller::try_from(value)?;
-            let users = users::Controller::try_from(value)?;
-            let home_dir = env::var_os("HOME").map(path::PathBuf::from);
-            let helper = Helper::new(keys, users, home_dir);
-            value.manage(helper.clone());
-            Ok(helper)
-        }
+        Ok(value.state::<Self>().inner().clone())
     }
 }
 

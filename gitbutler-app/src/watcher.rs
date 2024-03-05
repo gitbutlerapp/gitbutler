@@ -29,18 +29,12 @@ impl TryFrom<&AppHandle> for Watchers {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(watchers) = value.try_state::<Watchers>() {
-            Ok(watchers.inner().clone())
-        } else {
-            let watchers = Watchers::new(value.clone());
-            value.manage(watchers.clone());
-            Ok(watchers)
-        }
+        Ok(value.state::<Self>().inner().clone())
     }
 }
 
 impl Watchers {
-    fn new(app_handle: AppHandle) -> Self {
+    pub fn new(app_handle: AppHandle) -> Self {
         Self {
             app_handle,
             watchers: Arc::new(Mutex::new(HashMap::new())),

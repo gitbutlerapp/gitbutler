@@ -15,14 +15,7 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(controller) = value.try_state::<Controller>() {
-            Ok(controller.inner().clone())
-        } else {
-            let database = database::Database::try_from(value)?;
-            let controller = Controller::new(database);
-            value.manage(controller.clone());
-            Ok(controller)
-        }
+        Ok(value.state::<Self>().inner().clone())
     }
 }
 
@@ -33,7 +26,7 @@ pub enum ListError {
 }
 
 impl Controller {
-    fn new(database: database::Database) -> Controller {
+    pub fn new(database: database::Database) -> Controller {
         Controller { database }
     }
 

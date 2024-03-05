@@ -16,18 +16,12 @@ impl TryFrom<&AppHandle> for Database {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(database) = value.try_state::<Database>() {
-            Ok(database.inner().clone())
-        } else {
-            let database = Database::new(database::Database::try_from(value)?);
-            value.manage(database.clone());
-            Ok(database)
-        }
+        Ok(value.state::<Self>().inner().clone())
     }
 }
 
 impl Database {
-    fn new(database: database::Database) -> Database {
+    pub fn new(database: database::Database) -> Database {
         Database { database }
     }
 

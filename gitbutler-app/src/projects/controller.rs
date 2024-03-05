@@ -19,18 +19,7 @@ impl TryFrom<&AppHandle> for Controller {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(controller) = value.try_state::<Controller>() {
-            Ok(controller.inner().clone())
-        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            Ok(Self {
-                local_data_dir: app_data_dir,
-                projects_storage: storage::Storage::try_from(value)?,
-                users: users::Controller::try_from(value)?,
-                watchers: Some(watcher::Watchers::try_from(value)?),
-            })
-        } else {
-            Err(anyhow::anyhow!("failed to get app data dir"))
-        }
+        Ok(value.state::<Controller>().inner().clone())
     }
 }
 
@@ -48,6 +37,20 @@ impl TryFrom<&std::path::PathBuf> for Controller {
 }
 
 impl Controller {
+    pub fn new(
+        local_data_dir: path::PathBuf,
+        projects_storage: storage::Storage,
+        users: users::Controller,
+        watchers: Option<watcher::Watchers>,
+    ) -> Self {
+        Self {
+            local_data_dir,
+            projects_storage,
+            users,
+            watchers,
+        }
+    }
+
     pub fn add(&self, path: &path::Path) -> Result<Project, AddError> {
         let all_projects = self
             .projects_storage
