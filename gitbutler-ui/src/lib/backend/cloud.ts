@@ -1,5 +1,6 @@
 import { isLoading, invoke } from './ipc';
 import { nanoid } from 'nanoid';
+import type { PromptMessage } from '$lib/backend/summarizing';
 import { PUBLIC_API_BASE_URL, PUBLIC_CHAIN_API } from '$env/static/public';
 
 const apiUrl = new URL('/api/', new URL(PUBLIC_API_BASE_URL));
@@ -90,11 +91,6 @@ const withLog: FetchMiddleware = (fetch) => async (url, options) => {
 		isLoading.pop(item);
 	}
 };
-
-interface PromptMessage {
-    content: string
-    role: 'user' | 'system'
-}
 
 interface EvaluatePromptParams {
     messages: PromptMessage[]
