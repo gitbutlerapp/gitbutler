@@ -12,7 +12,7 @@ export interface PromptMessage {
 
 const diffLengthLimit = 20000;
 
-const commitTemplate = `
+const defaultCommitTemplate = `
 Please could you write a commit message for my changes.
 Explain what were the changes and why the changes were done.
 Focus the most important changes.
@@ -26,7 +26,7 @@ Here is my diff:
 %{diff}
 `
 
-const branchTemplate = `
+const defaultBranchTemplate = `
 Please could you write a branch name for my changes.
 A branch name represent a brief description of the changes in the diff (branch).
 Branch names should contain no whitespace and instead use dashes to separate words.
@@ -57,12 +57,17 @@ export class ButlerAIProvider implements AIProvider {
 export class Summarizer {
     constructor(private aiProvider: AIProvider) {}
 
-    async commit(diff: string, useEmojiStyle: boolean, useBreifStyle: boolean) {
+    async commit(
+        diff: string,
+        useEmojiStyle: boolean,
+        useBreifStyle: boolean,
+        commitTemplate?: string
+    ) {
         const briefStyle = "The commit message must be only one sentence and as short as possible."
         const emojiStyle = "Make use of GitMoji in the title prefix."
         const emojiStyleDisabled = "Don't use any emoji."
 
-        let prompt = commitTemplate.replaceAll("%{diff}", diff.slice(0, diffLengthLimit))
+        let prompt = (commitTemplate || defaultCommitTemplate).replaceAll("%{diff}", diff.slice(0, diffLengthLimit))
         if (useBreifStyle) {
             prompt = prompt.replaceAll("%{brief_style}", briefStyle)
         }
@@ -87,8 +92,8 @@ export class Summarizer {
         return description.length > 0 ? `${summary}\n\n${description}` : summary;
     }
 
-    async branch(diff: string) {
-        const prompt = branchTemplate.replaceAll("%{diff}", diff.slice(0, diffLengthLimit))
+    async branch(diff: string, branchTemplate?: string) {
+        const prompt = (branchTemplate || defaultBranchTemplate).replaceAll("%{diff}", diff.slice(0, diffLengthLimit))
 
         let message = await this.aiProvider.evaluate(prompt)
 
