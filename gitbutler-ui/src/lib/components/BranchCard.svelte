@@ -42,7 +42,7 @@
 		RemoteBranchData,
 		RemoteCommit
 	} from '$lib/vbranches/types';
-	import { Summarizer } from '$lib/backend/summarizing';
+	import { ButlerAIProvider, Summarizer } from '$lib/backend/summarizing';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
@@ -100,7 +100,9 @@
 			.slice(0, 5000);
 
 		if (user && aiGenEnabled) {
-            new Summarizer(cloud, user).branch(diff).then((message) => {
+            const aiProvider = new ButlerAIProvider(cloud, user)
+
+            new Summarizer(aiProvider).branch(diff).then((message) => {
 				if (message !== branch.name) {
 					branch.name = message;
 					branchController.updateBranchName(branch.id, branch.name);

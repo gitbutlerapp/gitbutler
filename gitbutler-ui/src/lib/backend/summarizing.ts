@@ -34,8 +34,26 @@ Here is my diff:
 %{diff}
 `
 
-export class Summarizer {
+interface AIProvider {
+    evaluate(prompt: string): Promise<string>
+}
+
+export class ButlerAIProvider {
     constructor(private cloud: ReturnType<typeof getCloudApiClient>, private user: User) {}
+
+    async evaluate(prompt: string) {
+        const messages: PromptMessage[] = [
+            { role: MessageRole.User, content: prompt }
+        ]
+
+        const response = await this.cloud.summarize.evaluatePrompt(this.user.access_token, { messages })
+
+        return response.message
+    }
+}
+
+export class Summarizer {
+    constructor(private aiProvider: AIProvider) {}
 
     async commit(diff: string, useEmojiStyle: boolean, useBreifStyle: boolean) {
         const briefStyle = "The commit message must be only one sentence and as short as possible."
@@ -53,12 +71,7 @@ export class Summarizer {
         }
         prompt.replaceAll("%{breif_style}", "")
 
-        const messages: PromptMessage[] = [
-            { role: MessageRole.User, content: prompt }
-        ]
-
-        const response = await this.cloud.summarize.evaluatePrompt(this.user.access_token, { messages })
-        let message = response.message
+        let message = await this.aiProvider.evaluate(prompt)
 
         if (useBreifStyle) {
             message = message.split("\n")[0]
@@ -75,12 +88,8 @@ export class Summarizer {
     async branch(diff: string) {
         const prompt = branchTemplate.replaceAll("%{diff}", diff.slice(0, 20000))
 
-        const messages: PromptMessage[] = [
-            { role: MessageRole.User, content: prompt }
-        ]
+        let message = await this.aiProvider.evaluate(prompt)
 
-        const response = await this.cloud.summarize.evaluatePrompt(this.user.access_token, { messages })
-        let message = response.message
         message = message.replaceAll(" ", "-")
         message = message.replaceAll("\n", "-")
         return message

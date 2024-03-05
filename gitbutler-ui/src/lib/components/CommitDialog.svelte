@@ -26,7 +26,7 @@
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Branch, LocalFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
-	import { Summarizer } from '$lib/backend/summarizing';
+	import { ButlerAIProvider, Summarizer } from '$lib/backend/summarizing';
 
 	const dispatch = createEventDispatcher<{
 		action: 'generate-branch-name';
@@ -76,7 +76,9 @@
 
     let summarizer: Summarizer | undefined
     $: if (user) {
-        summarizer = new Summarizer(cloud, user)
+        const aiProvider = new ButlerAIProvider(cloud, user)
+
+        summarizer = new Summarizer(aiProvider)
     }
 
 	let isGeneratingCommitMessage = false;
