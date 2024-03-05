@@ -184,27 +184,6 @@ export function getCloudApiClient(
 			}
 		},
 		summarize: {
-			commit: (
-				token: string,
-				params: { diff: string; uid?: string; brief?: boolean; emoji?: boolean }
-			): Promise<{ message: string }> =>
-				fetch(getUrl('summarize/commit.json'), {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-Auth-Token': token
-					},
-					body: JSON.stringify(params)
-				}).then(parseResponseJSON),
-			hunk: (params: { hunk: string }): Promise<{ message: string }> =>
-				fetch(getUrl('summarize_hunk/hunk.json'), {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-						// 'X-Auth-Token': token
-					},
-					body: JSON.stringify(params)
-				}).then(parseResponseJSON),
 			branch: (token: string, params: { diff: string }): Promise<{ message: string }> =>
 				fetch(getUrl('summarize_branch_name/branch.json'), {
 					method: 'POST',
