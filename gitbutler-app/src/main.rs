@@ -5,6 +5,7 @@ pub(crate) mod analytics;
 pub(crate) mod app;
 pub(crate) mod assets;
 pub(crate) mod commands;
+pub(crate) mod config;
 pub(crate) mod database;
 pub(crate) mod dedup;
 pub(crate) mod deltas;
@@ -198,6 +199,7 @@ fn main() {
                     commands::git_set_global_config,
                     commands::git_get_global_config,
                     commands::project_flush_and_push,
+                    config::load_config,
                     zip::commands::get_logs_archive_path,
                     zip::commands::get_project_archive_path,
                     zip::commands::get_project_data_archive_path,
