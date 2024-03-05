@@ -983,6 +983,7 @@ fn branches_with_hunk_locks(
     let all_commits: Vec<VirtualBranchCommit> = branches
         .clone()
         .iter()
+        .filter(|branch| branch.active)
         .flat_map(|vbranch| vbranch.commits.clone())
         .collect();
 
