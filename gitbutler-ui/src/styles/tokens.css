@@ -79,17 +79,17 @@
 	--clr-theme-container-outline-sub: var(--clr-core-ntrl-50);
 	--clr-theme-container-pale: var(--clr-core-ntrl-90);
 	--clr-theme-container-sub: var(--clr-core-ntrl-80);
-	--clr-theme-err-container: var(--clr-core-err-95);
+	--clr-theme-err-container: var(--clr-core-err-90);
 	--clr-theme-err-element: var(--clr-core-err-50);
 	--clr-theme-err-on-container: var(--clr-core-err-40);
 	--clr-theme-err-on-element: var(--clr-core-err-90);
 	--clr-theme-err-outline: var(--clr-core-err-50);
-	--clr-theme-pop-container: var(--clr-core-pop-95);
+	--clr-theme-pop-container: var(--clr-core-pop-90);
 	--clr-theme-pop-element: var(--clr-core-pop-50);
 	--clr-theme-pop-on-container: var(--clr-core-pop-10);
 	--clr-theme-pop-on-element: var(--clr-core-ntrl-100);
 	--clr-theme-pop-outline: var(--clr-core-pop-40);
-	--clr-theme-purple-container: var(--clr-core-purple-95);
+	--clr-theme-purple-container: var(--clr-core-purple-90);
 	--clr-theme-purple-element: var(--clr-core-purple-50);
 	--clr-theme-purple-on-container: var(--clr-core-purple-40);
 	--clr-theme-purple-on-element: var(--clr-core-purple-90);
@@ -150,12 +150,12 @@
 	--clr-theme-scale-warn-70: var(--clr-core-warn-70);
 	--clr-theme-scale-warn-80: var(--clr-core-warn-80);
 	--clr-theme-scale-warn-90: var(--clr-core-warn-90);
-	--clr-theme-succ-container: var(--clr-core-succ-95);
+	--clr-theme-succ-container: var(--clr-core-succ-90);
 	--clr-theme-succ-element: var(--clr-core-succ-50);
 	--clr-theme-succ-on-container: var(--clr-core-succ-40);
 	--clr-theme-succ-on-element: var(--clr-core-succ-90);
 	--clr-theme-succ-outline: var(--clr-core-succ-40);
-	--clr-theme-warn-container: var(--clr-core-warn-95);
+	--clr-theme-warn-container: var(--clr-core-warn-90);
 	--clr-theme-warn-element: var(--clr-core-warn-50);
 	--clr-theme-warn-on-container: var(--clr-core-warn-40);
 	--clr-theme-warn-on-element: var(--clr-core-warn-90);
@@ -282,4 +282,14 @@
 	--clr-theme-warn-on-container: var(--clr-core-warn-80);
 	--clr-theme-warn-on-element: var(--clr-core-warn-90);
 	--clr-theme-warn-outline: var(--clr-core-warn-50);
+}
+
+/* DIALOG STYLES */
+
+dialog::backdrop {
+	background-color: rgba(214, 214, 214, 0.4);
+}
+
+.dark dialog::backdrop {
+	background-color: rgba(0, 0, 0, 0.35);
 }
