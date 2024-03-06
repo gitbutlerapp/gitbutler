@@ -1,5 +1,6 @@
 import { isLoading, invoke } from './ipc';
 import { nanoid } from 'nanoid';
+import type { ButlerPromptMessage } from '$lib/backend/ai_providers';
 import { PUBLIC_API_BASE_URL, PUBLIC_CHAIN_API } from '$env/static/public';
 
 const apiUrl = new URL('/api/', new URL(PUBLIC_API_BASE_URL));
@@ -91,6 +92,12 @@ const withLog: FetchMiddleware = (fetch) => async (url, options) => {
 	}
 };
 
+interface EvaluatePromptParams {
+	messages: ButlerPromptMessage[];
+	temperature?: number;
+	max_tokens?: number;
+}
+
 export function getCloudApiClient(
 	{ fetch: realFetch }: { fetch: typeof window.fetch } = {
 		fetch: window.fetch
@@ -176,30 +183,9 @@ export function getCloudApiClient(
 				}).then(parseResponseJSON);
 			}
 		},
-		summarize: {
-			commit: (
-				token: string,
-				params: { diff: string; uid?: string; brief?: boolean; emoji?: boolean }
-			): Promise<{ message: string }> =>
-				fetch(getUrl('summarize/commit.json'), {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-Auth-Token': token
-					},
-					body: JSON.stringify(params)
-				}).then(parseResponseJSON),
-			hunk: (params: { hunk: string }): Promise<{ message: string }> =>
-				fetch(getUrl('summarize_hunk/hunk.json'), {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-						// 'X-Auth-Token': token
-					},
-					body: JSON.stringify(params)
-				}).then(parseResponseJSON),
-			branch: (token: string, params: { diff: string }): Promise<{ message: string }> =>
-				fetch(getUrl('summarize_branch_name/branch.json'), {
+		ai: {
+			evaluatePrompt: (token: string, params: EvaluatePromptParams): Promise<{ message: string }> =>
+				fetch(getUrl('evaluate_prompt/predict.json'), {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',

@@ -6,6 +6,8 @@
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
 	import PullRequestCard from './PullRequestCard.svelte';
 	import UpstreamCommits from './UpstreamCommits.svelte';
+	import { ButlerAIProvider } from '$lib/backend/ai_providers';
+	import { Summarizer } from '$lib/backend/summarizer';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
@@ -42,7 +44,6 @@
 		RemoteBranchData,
 		RemoteCommit
 	} from '$lib/vbranches/types';
-
 	export let branch: Branch;
 	export let isUnapplied = false;
 	export let project: Project;
@@ -99,9 +100,11 @@
 			.slice(0, 5000);
 
 		if (user && aiGenEnabled) {
-			cloud.summarize.branch(user.access_token, { diff }).then((result) => {
-				if (result.message && result.message !== branch.name) {
-					branch.name = result.message;
+			const aiProvider = new ButlerAIProvider(cloud, user);
+
+			new Summarizer(aiProvider).branch(diff).then((message) => {
+				if (message !== branch.name) {
+					branch.name = message;
 					branchController.updateBranchName(branch.id, branch.name);
 				}
 			});

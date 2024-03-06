@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { ButlerAIProvider } from '$lib/backend/ai_providers';
+	import { Summarizer } from '$lib/backend/summarizer';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
@@ -73,6 +75,13 @@
 		return invoke<string>('git_get_global_config', params);
 	}
 
+	let summarizer: Summarizer | undefined;
+	$: if (user) {
+		const aiProvider = new ButlerAIProvider(cloud, user);
+
+		summarizer = new Summarizer(aiProvider);
+	}
+
 	let isGeneratingCommitMessage = false;
 	async function generateCommitMessage(files: LocalFile[]) {
 		const diff = files
@@ -84,6 +93,7 @@
 			.slice(0, 5000);
 
 		if (!user) return;
+		if (!summarizer) return;
 
 		// Branches get their names generated only if there are at least 4 lines of code
 		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
@@ -92,20 +102,13 @@
 		if (branch.name.toLowerCase().includes('virtual branch')) {
 			dispatch('action', 'generate-branch-name');
 		}
+
 		isGeneratingCommitMessage = true;
-		cloud.summarize
-			.commit(user.access_token, {
-				diff,
-				uid: projectId,
-				brief: $commitGenerationExtraConcise,
-				emoji: $commitGenerationUseEmojis
-			})
-			.then(({ message }) => {
-				const firstNewLine = message.indexOf('\n');
-				const summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
-				const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
-				commitMessage = description.length > 0 ? `${summary}\n\n${description}` : summary;
-				currentCommitMessage.set(commitMessage);
+		summarizer
+			.commit(diff, $commitGenerationUseEmojis, $commitGenerationExtraConcise)
+			.then((message) => {
+				commitMessage = message;
+				currentCommitMessage.set(message);
 
 				setTimeout(() => {
 					textareaElement.focus();
