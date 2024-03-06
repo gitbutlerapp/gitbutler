@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    analytics, events as app_events, gb_repository, project_repository,
+    analytics, events as app_events, gb_repository, git, project_repository,
     projects::{self, ProjectId},
     users,
 };
@@ -101,6 +101,15 @@ impl Handler {
                     .get_head()
                     .context("failed to get head")?;
                 let head_ref_name = head_ref.name().context("failed to get head name")?;
+                if head_ref_name.to_string() != "refs/heads/gitbutler/integration" {
+                    let mut integration_reference = project_repository
+                        .git_repository
+                        .find_reference(&git::Refname::from(git::LocalRefname::new(
+                            "gitbutler/integration",
+                            None,
+                        )))?;
+                    integration_reference.delete()?;
+                }
                 if let Some(head) = head_ref.name() {
                     Ok(vec![
                         events::Event::Analytics(analytics::Event::HeadChange {
