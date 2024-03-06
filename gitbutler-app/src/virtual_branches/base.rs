@@ -5,14 +5,11 @@ use serde::Serialize;
 
 use crate::{
     gb_repository,
-    git::{
-        self,
-        diff::{self},
-    },
+    git::{self, diff},
     keys,
     project_repository::{self, LogUntil},
     projects::FetchResult,
-    users,
+    reader, sessions, users,
     virtual_branches::branch::Ownership,
 };
 
@@ -70,24 +67,60 @@ fn go_back_to_integration(
         return Err(errors::SetBaseBranchError::DirtyWorkingDirectory);
     }
 
-    let integration = git::Refname::from(git::LocalRefname::new("gitbutler/integration", None));
-    let integration_head_tree = project_repository
+    let latest_session = gb_repository
+        .get_latest_session()?
+        .context("no session found")?;
+    let session_reader = sessions::Reader::open(gb_repository, &latest_session)?;
+
+    let all_virtual_branches = super::iterator::BranchIterator::new(&session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<super::branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?;
+
+    let applied_virtual_branches = all_virtual_branches
+        .iter()
+        .filter(|branch| branch.applied)
+        .collect::<Vec<_>>();
+
+    let target_commit = project_repository
         .git_repository
-        .find_reference(&integration)
-        .context("Failed to find integration reference")?
-        .peel_to_tree()
-        .context("Failed to peel integration reference to commit")?;
+        .find_commit(default_target.sha)
+        .context("failed to find target commit")?;
+
+    let base_tree = target_commit
+        .tree()
+        .context("failed to get base tree from commit")?;
+    let mut final_tree = target_commit
+        .tree()
+        .context("failed to get base tree from commit")?;
+    for branch in &applied_virtual_branches {
+        // merge this branches tree with our tree
+        let branch_head = project_repository
+            .git_repository
+            .find_commit(branch.head)
+            .context("failed to find branch head")?;
+        let branch_tree = branch_head
+            .tree()
+            .context("failed to get branch head tree")?;
+        let mut result = project_repository
+            .git_repository
+            .merge_trees(&base_tree, &final_tree, &branch_tree)
+            .context("failed to merge")?;
+        let final_tree_oid = result
+            .write_tree_to(&project_repository.git_repository)
+            .context("failed to write tree")?;
+        final_tree = project_repository
+            .git_repository
+            .find_tree(final_tree_oid)
+            .context("failed to find written tree")?;
+    }
 
     project_repository
         .git_repository
-        .checkout_tree(&integration_head_tree)
+        .checkout_tree(&final_tree)
+        .force()
         .checkout()
-        .context("failed to checkout to integration tree")?;
-
-    project_repository
-        .git_repository
-        .set_head(&integration)
-        .context("failed to set head to integration")?;
+        .context("failed to checkout tree")?;
 
     let base = target_to_base_branch(project_repository, default_target)?;
     update_gitbutler_integration(gb_repository, project_repository)?;
