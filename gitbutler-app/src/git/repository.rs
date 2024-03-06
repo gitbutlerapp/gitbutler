@@ -413,6 +413,13 @@ impl Repository {
             .map_err(Into::into)
     }
 
+    pub fn branch(&self, name: &Refname, target: &Commit, force: bool) -> Result<Branch> {
+        self.0
+            .branch(&name.to_string(), target.into(), force)
+            .map(Into::into)
+            .map_err(Into::into)
+    }
+
     pub fn reference(
         &self,
         name: &Refname,
