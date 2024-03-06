@@ -211,7 +211,7 @@
 					disabled={isFetching ||
 						isUnapplied ||
 						!$pr$ ||
-						checksStatus == null ||
+						checksStatus === null ||
 						!checksStatus?.success}
 					loading={isMerging}
 					help="Merge pull request and refresh"
