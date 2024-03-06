@@ -88,8 +88,8 @@ impl TryFrom<&std::path::PathBuf> for Helper {
     type Error = anyhow::Error;
 
     fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
-        let keys = keys::Controller::try_from(value)?;
-        let users = users::Controller::try_from(value)?;
+        let keys = keys::Controller::from_path(value);
+        let users = users::Controller::from_path(value);
         let home_dir = env::var_os("HOME").map(path::PathBuf::from);
         Ok(Helper::new(keys, users, home_dir))
     }
@@ -422,14 +422,14 @@ mod tests {
         fn run(&self) -> Vec<(String, Vec<Credential>)> {
             let local_app_data = tests::temp_dir();
 
-            let users = users::Controller::try_from(&local_app_data).unwrap();
+            let users = users::Controller::from_path(&local_app_data);
             let user = users::User {
                 github_access_token: self.github_access_token.map(ToString::to_string),
                 ..Default::default()
             };
             users.set_user(&user).unwrap();
 
-            let keys = keys::Controller::try_from(&local_app_data).unwrap();
+            let keys = keys::Controller::from_path(&local_app_data);
             let helper = Helper::new(keys, users, self.home_dir.clone());
 
             let repo = test_repository();

@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::Context;
 
 use super::{storage::Storage, User};
@@ -7,17 +9,13 @@ pub struct Controller {
     storage: Storage,
 }
 
-impl TryFrom<&std::path::PathBuf> for Controller {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
-        Ok(Controller::new(Storage::try_from(value)?))
-    }
-}
-
 impl Controller {
     pub fn new(storage: Storage) -> Controller {
         Controller { storage }
+    }
+
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Controller {
+        Controller::new(Storage::from_path(path))
     }
 
     pub fn get_user(&self) -> Result<Option<User>, GetError> {

@@ -26,9 +26,9 @@ struct Test {
 impl Default for Test {
     fn default() -> Self {
         let data_dir = paths::data_dir();
-        let keys = keys::Controller::try_from(&data_dir).unwrap();
-        let projects = projects::Controller::try_from(&data_dir).unwrap();
-        let users = users::Controller::try_from(&data_dir).unwrap();
+        let keys = keys::Controller::from_path(&data_dir);
+        let projects = projects::Controller::from_path(&data_dir);
+        let users = users::Controller::from_path(&data_dir);
         let helper = git::credentials::Helper::try_from(&data_dir).unwrap();
 
         let test_project = TestProject::default();
@@ -4537,9 +4537,9 @@ mod init {
     #[tokio::test]
     async fn twice() {
         let data_dir = paths::data_dir();
-        let keys = keys::Controller::try_from(&data_dir).unwrap();
-        let projects = projects::Controller::try_from(&data_dir).unwrap();
-        let users = users::Controller::try_from(&data_dir).unwrap();
+        let keys = keys::Controller::from_path(&data_dir);
+        let projects = projects::Controller::from_path(&data_dir);
+        let users = users::Controller::from_path(&data_dir);
         let helper = git::credentials::Helper::try_from(&data_dir).unwrap();
 
         let test_project = TestProject::default();

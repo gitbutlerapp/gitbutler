@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::Context;
 
 use super::{storage::Storage, PrivateKey};
@@ -7,17 +9,13 @@ pub struct Controller {
     storage: Storage,
 }
 
-impl TryFrom<&std::path::PathBuf> for Controller {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
-        Ok(Controller::new(Storage::try_from(value)?))
-    }
-}
-
 impl Controller {
     pub fn new(storage: Storage) -> Self {
         Self { storage }
+    }
+
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Self {
+        Self::new(Storage::from_path(path))
     }
 
     pub fn get_or_create(&self) -> Result<PrivateKey, GetOrCreateError> {
@@ -51,7 +49,7 @@ mod tests {
     #[test]
     fn test_get_or_create() {
         let suite = Suite::default();
-        let controller = Controller::try_from(&suite.local_app_data).unwrap();
+        let controller = Controller::new(Storage::from_path(&suite.local_app_data));
 
         let once = controller.get_or_create().unwrap();
         let twice = controller.get_or_create().unwrap();

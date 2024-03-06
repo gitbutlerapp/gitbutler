@@ -1,35 +1,19 @@
-use std::path;
-
-use anyhow::Context;
-
-use crate::{gb_repository, project_repository, users, watcher};
-
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
+use crate::{gb_repository, project_repository, users, watcher};
+use anyhow::Context;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
 pub struct Controller {
-    local_data_dir: path::PathBuf,
+    local_data_dir: PathBuf,
     projects_storage: storage::Storage,
     users: users::Controller,
     watchers: Option<watcher::Watchers>,
 }
 
-impl TryFrom<&std::path::PathBuf> for Controller {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
-        Ok(Self {
-            local_data_dir: value.clone(),
-            projects_storage: storage::Storage::try_from(value)?,
-            users: users::Controller::try_from(value)?,
-            watchers: None,
-        })
-    }
-}
-
 impl Controller {
     pub fn new(
-        local_data_dir: path::PathBuf,
+        local_data_dir: PathBuf,
         projects_storage: storage::Storage,
         users: users::Controller,
         watchers: Option<watcher::Watchers>,
@@ -42,7 +26,19 @@ impl Controller {
         }
     }
 
-    pub fn add(&self, path: &path::Path) -> Result<Project, AddError> {
+    #[cfg(test)]
+    pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Self {
+        let pathbuf = path.as_ref().to_path_buf();
+        Self {
+            local_data_dir: pathbuf.clone(),
+            projects_storage: storage::Storage::from_path(&pathbuf),
+            users: users::Controller::from_path(&pathbuf),
+            watchers: None,
+        }
+    }
+
+    pub fn add<P: AsRef<Path>>(&self, path: P) -> Result<Project, AddError> {
+        let path = path.as_ref();
         let all_projects = self
             .projects_storage
             .list()
@@ -241,9 +237,9 @@ pub enum UpdateError {
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateValidationError {
     #[error("{0} not found")]
-    KeyNotFound(path::PathBuf),
+    KeyNotFound(PathBuf),
     #[error("{0} is not a file")]
-    KeyNotFile(path::PathBuf),
+    KeyNotFile(PathBuf),
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -5,7 +5,7 @@ use crate::{
 
 pub fn new() -> Controller {
     let data_dir = paths::data_dir();
-    Controller::try_from(&data_dir).unwrap()
+    Controller::from_path(data_dir)
 }
 
 mod add {
@@ -31,7 +31,7 @@ mod add {
             let controller = new();
             let path = tempfile::tempdir().unwrap().into_path();
             assert!(matches!(
-                controller.add(&path.join("missing")),
+                controller.add(path.join("missing")),
                 Err(AddError::PathNotFound)
             ));
         }
@@ -52,7 +52,7 @@ mod add {
             let controller = new();
             let path = tempfile::tempdir().unwrap().into_path();
             assert!(matches!(
-                controller.add(&path),
+                controller.add(path),
                 Err(AddError::NotAGitRepository)
             ));
         }
