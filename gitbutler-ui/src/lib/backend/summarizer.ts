@@ -1,4 +1,4 @@
-import type { AIProvider } from '$lib/backend/ai_providers';
+import type { AIProvider } from '$lib/backend/aiProviders';
 
 const diffLengthLimit = 20000;
 

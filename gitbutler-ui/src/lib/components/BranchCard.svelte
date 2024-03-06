@@ -6,7 +6,7 @@
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
 	import PullRequestCard from './PullRequestCard.svelte';
 	import UpstreamCommits from './UpstreamCommits.svelte';
-	import { ButlerAIProvider } from '$lib/backend/ai_providers';
+	import { ButlerAIProvider } from '$lib/backend/aiProviders';
 	import { Summarizer } from '$lib/backend/summarizer';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
