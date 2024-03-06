@@ -10,21 +10,12 @@ use std::{
 
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Manager};
 use walkdir::{DirEntry, WalkDir};
 use zip::{result::ZipError, write, CompressionMethod, ZipWriter};
 
 #[derive(Clone)]
 pub struct Zipper {
     cache: path::PathBuf,
-}
-
-impl TryFrom<&AppHandle> for Zipper {
-    type Error = anyhow::Error;
-
-    fn try_from(handle: &AppHandle) -> Result<Self> {
-        Ok(handle.state::<Self>().inner().clone())
-    }
 }
 
 impl Zipper {

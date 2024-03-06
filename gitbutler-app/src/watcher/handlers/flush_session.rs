@@ -20,8 +20,8 @@ impl TryFrom<&AppHandle> for Handler {
         if let Some(handler) = value.try_state::<Handler>() {
             Ok(handler.inner().clone())
         } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            let projects = projects::Controller::try_from(value)?;
-            let users = users::Controller::try_from(value)?;
+            let projects = value.state::<projects::Controller>().inner().clone();
+            let users = value.state::<users::Controller>().inner().clone();
             let inner = HandlerInner::new(app_data_dir, projects, users);
 
             let handler = Handler::new(inner);

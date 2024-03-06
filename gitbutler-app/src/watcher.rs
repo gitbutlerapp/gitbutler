@@ -7,7 +7,7 @@ use std::{collections::HashMap, path, sync::Arc, time};
 pub use events::Event;
 
 use anyhow::{Context, Result};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tokio::{
     sync::{
         mpsc::{unbounded_channel, UnboundedSender},
@@ -23,14 +23,6 @@ use crate::projects::{self, ProjectId};
 pub struct Watchers {
     app_handle: AppHandle,
     watchers: Arc<Mutex<HashMap<ProjectId, Watcher>>>,
-}
-
-impl TryFrom<&AppHandle> for Watchers {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        Ok(value.state::<Self>().inner().clone())
-    }
 }
 
 impl Watchers {

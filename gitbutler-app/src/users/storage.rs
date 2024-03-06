@@ -1,5 +1,4 @@
 use anyhow::Result;
-use tauri::{AppHandle, Manager};
 
 use crate::{storage, users::user};
 
@@ -16,14 +15,6 @@ pub enum Error {
     Storage(#[from] storage::Error),
     #[error(transparent)]
     Json(#[from] serde_json::Error),
-}
-
-impl TryFrom<&AppHandle> for Storage {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        Ok(value.state::<Self>().inner().clone())
-    }
 }
 
 impl TryFrom<&std::path::PathBuf> for Storage {

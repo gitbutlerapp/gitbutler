@@ -27,8 +27,8 @@ impl TryFrom<&AppHandle> for Handler {
         } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
             let handler = Self::new(
                 app_data_dir,
-                projects::Controller::try_from(value)?,
-                users::Controller::try_from(value)?,
+                value.state::<projects::Controller>().inner().clone(),
+                value.state::<users::Controller>().inner().clone(),
             );
             value.manage(handler.clone());
             Ok(handler)

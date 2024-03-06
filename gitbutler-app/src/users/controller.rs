@@ -1,19 +1,10 @@
 use anyhow::Context;
-use tauri::{AppHandle, Manager};
 
 use super::{storage::Storage, User};
 
 #[derive(Clone)]
 pub struct Controller {
     storage: Storage,
-}
-
-impl TryFrom<&AppHandle> for Controller {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        Ok(value.state::<Self>().inner().clone())
-    }
 }
 
 impl TryFrom<&std::path::PathBuf> for Controller {
