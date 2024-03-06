@@ -68,9 +68,7 @@
 	{#if $user$?.github_access_token}
 		<Button {disabled} kind="filled" color="primary" on:click={forgetGitHub}>Forget</Button>
 	{:else}
-		<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}
-			>Authenticate</Button
-		>
+		<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}>Authorize</Button>
 	{/if}
 {:else}
 	<SectionCard orientation="row">
@@ -102,15 +100,15 @@
 		</svelte:fragment>
 		<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}>
 			{#if $user$?.github_access_token}
-				Reauthenticate
+				Reauthorize
 			{:else}
-				Authenticate
+				Authorize
 			{/if}
 		</Button>
 	</SectionCard>
 {/if}
 
-<Modal bind:this={gitHubOauthModal} width="small" title="Authenticate with GitHub">
+<Modal bind:this={gitHubOauthModal} width="small" title="Authorize with GitHub">
 	<div class="wrapper">
 		<div class="step-section">
 			<div class="step-default" />
