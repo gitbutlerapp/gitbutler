@@ -1,14 +1,17 @@
 use std::{
     path,
+    str::FromStr,
     sync::{atomic::AtomicUsize, Arc},
 };
 
 use anyhow::{Context, Result};
+use similar::DiffableStr;
 
 use crate::{
-    git::{self, credentials::HelpError, Url},
+    gb_repository,
+    git::{self, credentials::HelpError, Refname, Url},
     keys, projects, ssh, users,
-    virtual_branches::Branch,
+    virtual_branches::{target::Target, Branch},
 };
 
 use super::conflicts;
@@ -154,6 +157,38 @@ impl Repository {
                     .context("failed to convert branch to remote name")
             })
             .collect::<Result<Vec<_>>>()
+    }
+
+    pub fn git_test_push(
+        &self,
+        credentials: &git::credentials::Helper,
+        target: &Target,
+    ) -> Result<()> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or(std::time::Duration::from_secs(0))
+            .as_millis()
+            .to_string();
+        let branch_name = format!("test-push-{}", now);
+
+        let refname = git::RemoteRefname::from_str(&format!(
+            "refs/remotes/{}/{}",
+            target.branch.remote(),
+            branch_name
+        ))?;
+
+        match self.push(&target.sha, &refname, false, credentials, None) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(anyhow::anyhow!(e.to_string())),
+        }?;
+
+        let empty_refspec = Some(format!(":refs/heads/{}", branch_name));
+        match self.push(&target.sha, &refname, false, credentials, empty_refspec) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(anyhow::anyhow!(e.to_string())),
+        }?;
+
+        Ok(())
     }
 
     pub fn add_branch_reference(&self, branch: &Branch) -> Result<()> {
@@ -390,12 +425,15 @@ impl Repository {
         branch: &git::RemoteRefname,
         with_force: bool,
         credentials: &git::credentials::Helper,
+        refspec: Option<String>,
     ) -> Result<(), RemoteError> {
-        let refspec = if with_force {
-            format!("+{}:refs/heads/{}", head, branch.branch())
-        } else {
-            format!("{}:refs/heads/{}", head, branch.branch())
-        };
+        let refspec = refspec.unwrap_or_else(|| {
+            if with_force {
+                format!("+{}:refs/heads/{}", head, branch.branch())
+            } else {
+                format!("{}:refs/heads/{}", head, branch.branch())
+            }
+        });
 
         let auth_flows = credentials.help(self, branch.remote())?;
         for (mut remote, callbacks) in auth_flows {

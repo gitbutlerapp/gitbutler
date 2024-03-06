@@ -118,6 +118,30 @@ impl App {
             .map_err(Error::Other)
     }
 
+    pub fn git_test_push(
+        &self,
+        project_id: &ProjectId,
+        credentials: &git::credentials::Helper,
+    ) -> Result<(), Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let user = self.users.get_user().unwrap_or(None);
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .map_err(|e| Error::Other(anyhow::anyhow!(e)))?;
+
+        let target = gb_repository
+            .default_target()?
+            .ok_or(Error::Other(anyhow::anyhow!("no default target set")))?;
+
+        project_repository
+            .git_test_push(credentials, &target)
+            .map_err(Error::Other)
+    }
+
     pub fn git_head(&self, project_id: &ProjectId) -> Result<String, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;

@@ -2643,7 +2643,7 @@ pub fn push(
         ))
     };
 
-    project_repository.push(&vbranch.head, &remote_branch, with_force, credentials)?;
+    project_repository.push(&vbranch.head, &remote_branch, with_force, credentials, None)?;
 
     vbranch.upstream = Some(remote_branch.clone());
     vbranch.upstream_head = Some(vbranch.head);
