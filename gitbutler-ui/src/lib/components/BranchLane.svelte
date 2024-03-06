@@ -134,6 +134,7 @@
 		height: 100%;
 		align-items: self-start;
 		flex-shrink: 0;
+		user-select: none; /* here because of user-select draggable interference in board */
 		position: relative;
 		--target-branch-background: var(--clr-theme-container-pale);
 		--selected-resize-shift: 0;

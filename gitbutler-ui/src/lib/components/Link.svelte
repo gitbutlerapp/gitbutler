@@ -56,6 +56,7 @@
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 		text-decoration: underline;
+		user-select: text;
 
 		&:hover {
 			text-decoration: none;

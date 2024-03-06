@@ -142,4 +142,8 @@
 		gap: var(--space-8);
 		margin: var(--space-12) var(--space-6) var(--space-12) var(--space-12);
 	}
+
+	.card__content {
+		user-select: text;
+	}
 </style>

@@ -98,6 +98,7 @@
 	}
 	.header__filetitle {
 		width: 100%;
+		user-select: text;
 	}
 	.header__filename {
 		color: var(--clr-theme-scale-ntrl-0);
