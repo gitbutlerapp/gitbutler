@@ -58,6 +58,18 @@ fn go_back_to_integration(
     project_repository: &project_repository::Repository,
     default_target: &target::Target,
 ) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
+    let statuses = project_repository
+        .git_repository
+        .statuses(Some(
+            git2::StatusOptions::new()
+                .show(git2::StatusShow::IndexAndWorkdir)
+                .include_untracked(true),
+        ))
+        .context("failed to get status")?;
+    if !statuses.is_empty() {
+        return Err(errors::SetBaseBranchError::DirtyWorkingDirectory);
+    }
+
     let integration = git::Refname::from(git::LocalRefname::new("gitbutler/integration", None));
     let integration_head_tree = project_repository
         .git_repository
@@ -70,10 +82,7 @@ fn go_back_to_integration(
         .git_repository
         .checkout_tree(&integration_head_tree)
         .checkout()
-        .map_err(|error| match error {
-            git::Error::Checkout(_) => errors::SetBaseBranchError::ConflictsPreventCheckout,
-            error => errors::SetBaseBranchError::Other(error.into()),
-        })?;
+        .context("failed to checkout to integration tree")?;
 
     project_repository
         .git_repository

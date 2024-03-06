@@ -833,7 +833,7 @@ mod set_base_branch {
                     .await
                     .map_err(|error| dbg!(error))
                     .unwrap_err(),
-                ControllerError::Action(errors::SetBaseBranchError::ConflictsPreventCheckout)
+                ControllerError::Action(errors::SetBaseBranchError::DirtyWorkingDirectory)
             ));
         }
 
@@ -852,7 +852,7 @@ mod set_base_branch {
             repository.commit_all("two");
             repository.push();
 
-            let base = controller
+            controller
                 .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .unwrap();
@@ -863,19 +863,14 @@ mod set_base_branch {
             repository.checkout_commit(oid_one);
             std::fs::write(repository.path().join("another file.txt"), "tree").unwrap();
 
-            let base_two = controller
-                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
-                .await
-                .unwrap();
-
-            let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
-            assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(
-                branches[0].files[0].path.display().to_string(),
-                "another file.txt"
-            );
-            assert_eq!(base_two, base);
+            assert!(matches!(
+                controller
+                    .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                    .await
+                    .map_err(|error| dbg!(error))
+                    .unwrap_err(),
+                ControllerError::Action(errors::SetBaseBranchError::DirtyWorkingDirectory)
+            ));
         }
 
         #[tokio::test]

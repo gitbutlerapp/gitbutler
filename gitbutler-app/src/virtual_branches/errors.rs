@@ -316,8 +316,8 @@ pub enum GetBaseBranchDataError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum SetBaseBranchError {
-    #[error("conflicts prevent checkout")]
-    ConflictsPreventCheckout,
+    #[error("wd is dirty")]
+    DirtyWorkingDirectory,
     #[error("branch {0} not found")]
     BranchNotFound(git::RemoteRefname),
     #[error(transparent)]
@@ -612,8 +612,8 @@ impl From<ListRemoteCommitFilesError> for Error {
 impl From<SetBaseBranchError> for Error {
     fn from(value: SetBaseBranchError) -> Self {
         match value {
-            SetBaseBranchError::ConflictsPreventCheckout => Error::UserError {
-                message: "Conflicts prevent checkout".to_string(),
+            SetBaseBranchError::DirtyWorkingDirectory => Error::UserError {
+                message: "Current HEAD is dirty.".to_string(),
                 code: crate::error::Code::ProjectConflict,
             },
             SetBaseBranchError::BranchNotFound(name) => Error::UserError {
