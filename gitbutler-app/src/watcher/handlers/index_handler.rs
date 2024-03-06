@@ -28,10 +28,10 @@ impl TryFrom<&AppHandle> for Handler {
         if let Some(handler) = value.try_state::<Handler>() {
             Ok(handler.inner().clone())
         } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            let projects = projects::Controller::try_from(value)?;
-            let users = users::Controller::try_from(value)?;
-            let sessions_database = sessions::Database::try_from(value)?;
-            let deltas_database = deltas::Database::try_from(value)?;
+            let projects = value.state::<projects::Controller>().inner().clone();
+            let users = value.state::<users::Controller>().inner().clone();
+            let sessions_database = value.state::<sessions::Database>().inner().clone();
+            let deltas_database = value.state::<deltas::Database>().inner().clone();
             let handler = Handler::new(
                 app_data_dir,
                 projects,

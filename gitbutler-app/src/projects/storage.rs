@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
 
 use crate::{
     projects::{project, ProjectId},
@@ -11,14 +10,6 @@ const PROJECTS_FILE: &str = "projects.json";
 #[derive(Debug, Clone)]
 pub struct Storage {
     storage: storage::Storage,
-}
-
-impl TryFrom<&AppHandle> for Storage {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        Ok(value.state::<Storage>().inner().clone())
-    }
 }
 
 impl TryFrom<&std::path::PathBuf> for Storage {

@@ -30,7 +30,10 @@ impl TryFrom<&AppHandle> for Handler {
         if let Some(handler) = value.try_state::<Handler>() {
             Ok(handler.inner().clone())
         } else {
-            let vbranches = virtual_branches::Controller::try_from(value)?;
+            let vbranches = value
+                .state::<virtual_branches::Controller>()
+                .inner()
+                .clone();
             let proxy = assets::Proxy::try_from(value)?;
             let inner = InnerHandler::new(vbranches, proxy);
             let handler = Handler::new(inner);

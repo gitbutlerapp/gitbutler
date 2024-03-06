@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use tauri::{AppHandle, Manager};
-
 use crate::{projects::ProjectId, sessions::SessionId};
 
 use super::{database, Delta};
@@ -9,14 +7,6 @@ use super::{database, Delta};
 #[derive(Clone)]
 pub struct Controller {
     database: database::Database,
-}
-
-impl TryFrom<&AppHandle> for Controller {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        Ok(value.state::<Self>().inner().clone())
-    }
 }
 
 #[derive(Debug, thiserror::Error)]

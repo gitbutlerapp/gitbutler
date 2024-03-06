@@ -1,7 +1,6 @@
 use std::{collections::HashMap, path, sync::Arc};
 
 use anyhow::Context;
-use tauri::{AppHandle, Manager};
 use tokio::sync::Semaphore;
 
 use crate::{
@@ -31,14 +30,6 @@ pub struct Controller {
     helper: git::credentials::Helper,
 
     by_project_id: Arc<tokio::sync::Mutex<HashMap<ProjectId, ControllerInner>>>,
-}
-
-impl TryFrom<&AppHandle> for Controller {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        Ok(value.state::<Controller>().inner().clone())
-    }
 }
 
 impl Controller {

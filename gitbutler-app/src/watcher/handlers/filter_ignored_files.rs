@@ -30,7 +30,7 @@ impl TryFrom<&AppHandle> for Handler {
         if let Some(handler) = value.try_state::<Handler>() {
             Ok(handler.inner().clone())
         } else {
-            let projects = projects::Controller::try_from(value)?;
+            let projects = value.state::<projects::Controller>().inner().clone();
             let inner = InnerHandler::new(projects);
             let handler = Handler::new(inner);
             value.manage(handler.clone());

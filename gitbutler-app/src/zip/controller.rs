@@ -1,7 +1,5 @@
 use std::path;
 
-use tauri::{AppHandle, Manager};
-
 use crate::projects::{self, ProjectId};
 
 use super::Zipper;
@@ -12,14 +10,6 @@ pub struct Controller {
     logs_dir: path::PathBuf,
     zipper: Zipper,
     projects_controller: projects::Controller,
-}
-
-impl TryFrom<&AppHandle> for Controller {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        Ok(value.state::<Self>().inner().clone())
-    }
 }
 
 impl Controller {

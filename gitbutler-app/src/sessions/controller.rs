@@ -1,7 +1,6 @@
 use std::path;
 
 use anyhow::Context;
-use tauri::{AppHandle, Manager};
 
 use crate::{
     gb_repository, project_repository,
@@ -18,14 +17,6 @@ pub struct Controller {
 
     projects: projects::Controller,
     users: users::Controller,
-}
-
-impl TryFrom<&AppHandle> for Controller {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        Ok(value.state::<Self>().inner().clone())
-    }
 }
 
 #[derive(Debug, thiserror::Error)]

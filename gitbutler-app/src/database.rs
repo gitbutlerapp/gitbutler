@@ -6,7 +6,6 @@ use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use refinery::config::Config;
 use rusqlite::Transaction;
-use tauri::{AppHandle, Manager};
 
 mod embedded {
     use refinery::embed_migrations;
@@ -16,14 +15,6 @@ mod embedded {
 #[derive(Clone)]
 pub struct Database {
     pool: Arc<Pool<SqliteConnectionManager>>,
-}
-
-impl TryFrom<&AppHandle> for Database {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        Ok(value.state::<Self>().inner().clone())
-    }
 }
 
 #[cfg(test)]

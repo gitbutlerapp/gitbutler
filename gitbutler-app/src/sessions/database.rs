@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use tauri::{AppHandle, Manager};
 
 use crate::{database, projects::ProjectId};
 
@@ -8,14 +7,6 @@ use super::session::{self, SessionId};
 #[derive(Clone)]
 pub struct Database {
     database: database::Database,
-}
-
-impl TryFrom<&AppHandle> for Database {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        Ok(value.state::<Self>().inner().clone())
-    }
 }
 
 impl Database {
