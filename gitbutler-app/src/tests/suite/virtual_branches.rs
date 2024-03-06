@@ -8,7 +8,6 @@
 use std::{fs, path, str::FromStr};
 
 use crate::{
-    error::Error,
     git, keys,
     projects::{self, ProjectId},
     tests::common::{paths, TestProject},
@@ -759,8 +758,6 @@ mod delete_virtual_branch {
 mod set_base_branch {
     use super::*;
 
-    use pretty_assertions::assert_eq;
-
     #[tokio::test]
     async fn success() {
         let Test {
@@ -775,7 +772,7 @@ mod set_base_branch {
             .unwrap();
     }
 
-    mod errors {
+    mod error {
         use super::*;
 
         #[tokio::test]
@@ -792,48 +789,166 @@ mod set_base_branch {
                         &project_id,
                         &git::RemoteRefname::from_str("refs/remotes/origin/missing").unwrap(),
                     )
-                    .await,
-                Err(Error::UserError { .. })
+                    .await
+                    .unwrap_err(),
+                ControllerError::Action(errors::SetBaseBranchError::BranchNotFound(_))
             ));
         }
     }
 
-    #[tokio::test]
-    async fn go_back_to_integration() {
-        let Test {
-            repository,
-            project_id,
-            controller,
-            ..
-        } = Test::default();
+    mod go_back_to_integration {
+        use pretty_assertions::assert_eq;
 
-        std::fs::write(repository.path().join("file.txt"), "one").unwrap();
-        let oid_one = repository.commit_all("one");
-        std::fs::write(repository.path().join("file.txt"), "two").unwrap();
-        repository.commit_all("two");
-        repository.push();
+        use super::*;
 
-        println!("{}", repository.path().display());
+        #[tokio::test]
+        async fn from_target_branch_index_conflicts() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+                ..
+            } = Test::default();
 
-        let base = controller
-            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
-            .await
-            .unwrap();
+            std::fs::write(repository.path().join("file.txt"), "one").unwrap();
+            let oid_one = repository.commit_all("one");
+            std::fs::write(repository.path().join("file.txt"), "two").unwrap();
+            repository.commit_all("two");
+            repository.push();
 
-        let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
-        assert!(branches.is_empty());
+            controller
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                .await
+                .unwrap();
 
-        repository.checkout_commit(oid_one);
+            let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert!(branches.is_empty());
 
-        let base_two = controller
-            .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
-            .await
-            .unwrap();
+            repository.checkout_commit(oid_one);
+            std::fs::write(repository.path().join("file.txt"), "tree").unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
-        assert_eq!(branches.len(), 1);
+            assert!(matches!(
+                controller
+                    .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                    .await
+                    .map_err(|error| dbg!(error))
+                    .unwrap_err(),
+                ControllerError::Action(errors::SetBaseBranchError::ConflictsPreventCheckout)
+            ));
+        }
 
-        assert_eq!(base_two, base);
+        #[tokio::test]
+        async fn from_target_branch_with_uncommited() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+                ..
+            } = Test::default();
+
+            std::fs::write(repository.path().join("file.txt"), "one").unwrap();
+            let oid_one = repository.commit_all("one");
+            std::fs::write(repository.path().join("file.txt"), "two").unwrap();
+            repository.commit_all("two");
+            repository.push();
+
+            let base = controller
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                .await
+                .unwrap();
+
+            let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert!(branches.is_empty());
+
+            repository.checkout_commit(oid_one);
+            std::fs::write(repository.path().join("another file.txt"), "tree").unwrap();
+
+            let base_two = controller
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                .await
+                .unwrap();
+
+            let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+            assert_eq!(branches[0].files.len(), 1);
+            assert_eq!(
+                branches[0].files[0].path.display().to_string(),
+                "another file.txt"
+            );
+            assert_eq!(base_two, base);
+        }
+
+        #[tokio::test]
+        async fn from_target_branch_with_commit() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+                ..
+            } = Test::default();
+
+            std::fs::write(repository.path().join("file.txt"), "one").unwrap();
+            let oid_one = repository.commit_all("one");
+            std::fs::write(repository.path().join("file.txt"), "two").unwrap();
+            repository.commit_all("two");
+            repository.push();
+
+            let base = controller
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                .await
+                .unwrap();
+
+            let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert!(branches.is_empty());
+
+            repository.checkout_commit(oid_one);
+            std::fs::write(repository.path().join("another file.txt"), "tree").unwrap();
+            repository.commit_all("three");
+
+            let base_two = controller
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                .await
+                .unwrap();
+
+            let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 0);
+            assert_eq!(base_two, base);
+        }
+
+        #[tokio::test]
+        async fn from_target_branch_without_any_changes() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+                ..
+            } = Test::default();
+
+            std::fs::write(repository.path().join("file.txt"), "one").unwrap();
+            let oid_one = repository.commit_all("one");
+            std::fs::write(repository.path().join("file.txt"), "two").unwrap();
+            repository.commit_all("two");
+            repository.push();
+
+            let base = controller
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                .await
+                .unwrap();
+
+            let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert!(branches.is_empty());
+
+            repository.checkout_commit(oid_one);
+
+            let base_two = controller
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                .await
+                .unwrap();
+
+            let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 0);
+            assert_eq!(base_two, base);
+        }
     }
 }
 

@@ -316,6 +316,8 @@ pub enum GetBaseBranchDataError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum SetBaseBranchError {
+    #[error("conflicts prevent checkout")]
+    ConflictsPreventCheckout,
     #[error("branch {0} not found")]
     BranchNotFound(git::RemoteRefname),
     #[error(transparent)]
@@ -610,6 +612,10 @@ impl From<ListRemoteCommitFilesError> for Error {
 impl From<SetBaseBranchError> for Error {
     fn from(value: SetBaseBranchError) -> Self {
         match value {
+            SetBaseBranchError::ConflictsPreventCheckout => Error::UserError {
+                message: "Conflicts prevent checkout".to_string(),
+                code: crate::error::Code::ProjectConflict,
+            },
             SetBaseBranchError::BranchNotFound(name) => Error::UserError {
                 message: format!("remote branch '{}' not found", name),
                 code: crate::error::Code::Branches,

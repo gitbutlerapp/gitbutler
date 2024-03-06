@@ -20,6 +20,8 @@ pub enum Error {
     Hooks(#[from] git2_hooks::HooksError),
     #[error("http error: {0}")]
     Http(git2::Error),
+    #[error("checkout error: {0}")]
+    Checkout(git2::Error),
     #[error(transparent)]
     Other(git2::Error),
     #[error(transparent)]
@@ -33,6 +35,7 @@ impl From<git2::Error> for Error {
                 git2::ErrorCode::GenericError | git2::ErrorCode::Auth => Error::Auth(err),
                 _ => Error::Other(err),
             },
+            git2::ErrorClass::Checkout => Error::Checkout(err),
             git2::ErrorClass::Http => Error::Http(err),
             git2::ErrorClass::Net => Error::Network(err),
             _ => match err.code() {

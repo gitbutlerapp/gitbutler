@@ -160,7 +160,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         target_branch: &git::RemoteRefname,
-    ) -> Result<super::BaseBranch, Error> {
+    ) -> Result<super::BaseBranch, ControllerError<errors::SetBaseBranchError>> {
         self.inner(project_id)
             .await
             .set_base_branch(project_id, target_branch)
@@ -585,10 +585,11 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         target_branch: &git::RemoteRefname,
-    ) -> Result<super::BaseBranch, Error> {
-        let project = self.projects.get(project_id)?;
-        let user = self.users.get_user()?;
-        let project_repository = project_repository::Repository::open(&project)?;
+    ) -> Result<super::BaseBranch, ControllerError<errors::SetBaseBranchError>> {
+        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let user = self.users.get_user().map_err(Error::from)?;
+        let project_repository =
+            project_repository::Repository::open(&project).map_err(Error::from)?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -597,7 +598,7 @@ impl ControllerInner {
         .context("failed to open gitbutler repository")?;
 
         super::set_base_branch(&gb_repository, &project_repository, target_branch)
-            .map_err(Into::into)
+            .map_err(ControllerError::Action)
     }
 
     pub async fn merge_virtual_branch_upstream(
