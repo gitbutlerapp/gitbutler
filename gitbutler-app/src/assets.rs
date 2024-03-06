@@ -2,7 +2,6 @@ use std::{collections::HashMap, path, sync};
 
 use anyhow::Result;
 use futures::future::join_all;
-use tauri::{AppHandle, Manager};
 use tokio::sync::Semaphore;
 use url::Url;
 
@@ -18,14 +17,6 @@ pub struct Proxy {
     cache_dir: path::PathBuf,
 
     semaphores: sync::Arc<tokio::sync::Mutex<HashMap<url::Url, Semaphore>>>,
-}
-
-impl TryFrom<&AppHandle> for Proxy {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        Ok(value.state::<Self>().inner().clone())
-    }
 }
 
 const ASSET_SCHEME: &str = "asset";

@@ -29,7 +29,7 @@ impl Default for Test {
         let keys = keys::Controller::from_path(&data_dir);
         let projects = projects::Controller::from_path(&data_dir);
         let users = users::Controller::from_path(&data_dir);
-        let helper = git::credentials::Helper::try_from(&data_dir).unwrap();
+        let helper = git::credentials::Helper::from_path(&data_dir);
 
         let test_project = TestProject::default();
         let project = projects
@@ -4540,7 +4540,7 @@ mod init {
         let keys = keys::Controller::from_path(&data_dir);
         let projects = projects::Controller::from_path(&data_dir);
         let users = users::Controller::from_path(&data_dir);
-        let helper = git::credentials::Helper::try_from(&data_dir).unwrap();
+        let helper = git::credentials::Helper::from_path(&data_dir);
 
         let test_project = TestProject::default();
 

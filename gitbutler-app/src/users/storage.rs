@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use anyhow::Result;
 
 use crate::{storage, users::user};
@@ -24,7 +22,8 @@ impl Storage {
         Storage { storage }
     }
 
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Storage {
+    #[cfg(test)]
+    pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Storage {
         Storage::new(storage::Storage::new(path))
     }
 

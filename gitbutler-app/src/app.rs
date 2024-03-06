@@ -1,7 +1,6 @@
 use std::{collections::HashMap, path};
 
 use anyhow::{Context, Result};
-use tauri::{AppHandle, Manager};
 
 use crate::{
     gb_repository, git,
@@ -31,14 +30,6 @@ pub enum Error {
     OpenProjectRepository(#[from] project_repository::OpenError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl TryFrom<&AppHandle> for App {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        Ok(value.state::<Self>().inner().clone())
-    }
 }
 
 impl App {

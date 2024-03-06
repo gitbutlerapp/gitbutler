@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use anyhow::Context;
 
 use super::{storage::Storage, PrivateKey};
@@ -14,7 +12,8 @@ impl Controller {
         Self { storage }
     }
 
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Self {
+    #[cfg(test)]
+    pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Self {
         Self::new(Storage::from_path(path))
     }
 
