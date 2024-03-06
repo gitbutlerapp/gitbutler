@@ -115,7 +115,7 @@ Commit message generation is an opt-in feature. You can enable it while adding y
 
 Currently, GitButler uses OpenAI's API for diff summarization, which means that if enabled, code diffs would be sent to OpenAI's servers.
 
-Our goal is to make this feature more modular such that in the future you can modify the prompt as well as plug a different LLM endpoints (including a local ones).
+Our goal is to make this feature more modular such that in the future you can modify the prompt as well as plug a different LLM endpoints (including local ones).
 
 ## Contributing
 
