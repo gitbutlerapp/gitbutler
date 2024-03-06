@@ -93,8 +93,7 @@ impl<'a> Case<'a> {
         let gb_repository =
             gb_repository::Repository::open(&suite.local_app_data, &project_repository, None)
                 .expect("failed to open gb repository");
-        let credentials = git::credentials::Helper::try_from(&suite.local_app_data)
-            .expect("failed to get credentials");
+        let credentials = git::credentials::Helper::from_path(&suite.local_app_data);
         Case {
             suite,
             project,
@@ -113,8 +112,7 @@ impl<'a> Case<'a> {
         let project_repository = project_repository::Repository::open(&project)
             .expect("failed to create project repository");
         let user = self.suite.users.get_user().expect("failed to get user");
-        let credentials = git::credentials::Helper::try_from(&self.suite.local_app_data)
-            .expect("failed to get credentials");
+        let credentials = git::credentials::Helper::from_path(&self.suite.local_app_data);
         Self {
             suite: self.suite,
             gb_repository: gb_repository::Repository::open(

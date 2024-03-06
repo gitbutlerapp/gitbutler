@@ -200,7 +200,7 @@ mod test {
         fs::write(project.path.join("test.txt"), "test").unwrap();
 
         let file_change_listener =
-            handlers::calculate_deltas_handler::Handler::try_from(&suite.local_app_data).unwrap();
+            handlers::calculate_deltas_handler::Handler::from_path(&suite.local_app_data);
         file_change_listener
             .handle("test.txt", &project.id)
             .unwrap();

@@ -34,7 +34,7 @@ impl TryFrom<&AppHandle> for Handler {
                 .state::<virtual_branches::Controller>()
                 .inner()
                 .clone();
-            let proxy = assets::Proxy::try_from(value)?;
+            let proxy = value.state::<assets::Proxy>().inner().clone();
             let inner = InnerHandler::new(vbranches, proxy);
             let handler = Handler::new(inner);
             value.manage(handler.clone());
