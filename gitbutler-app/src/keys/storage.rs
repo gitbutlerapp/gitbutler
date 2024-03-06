@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::storage;
 
 use super::PrivateKey;
@@ -15,17 +17,13 @@ pub enum Error {
     SSHKey(#[from] ssh_key::Error),
 }
 
-impl TryFrom<&std::path::PathBuf> for Storage {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
-        Ok(Storage::new(storage::Storage::try_from(value)?))
-    }
-}
-
 impl Storage {
     pub fn new(storage: storage::Storage) -> Storage {
         Storage { storage }
+    }
+
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Storage {
+        Storage::new(storage::Storage::new(path))
     }
 
     pub fn get(&self) -> Result<Option<PrivateKey>, Error> {

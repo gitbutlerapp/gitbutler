@@ -22,14 +22,10 @@ pub struct Suite {
 impl Default for Suite {
     fn default() -> Self {
         let local_app_data = temp_dir();
-        let storage =
-            storage::Storage::try_from(&local_app_data).expect("failed to create storage");
-        let users = users::Controller::try_from(&local_app_data)
-            .expect("failed to create users controller");
-        let projects = projects::Controller::try_from(&local_app_data)
-            .expect("failed to create projects controller");
-        let keys =
-            keys::Controller::try_from(&local_app_data).expect("failed to create keys controller");
+        let storage = storage::Storage::new(&local_app_data);
+        let users = users::Controller::from_path(&local_app_data);
+        let projects = projects::Controller::from_path(&local_app_data);
+        let keys = keys::Controller::from_path(&local_app_data);
         Self {
             storage,
             local_app_data,

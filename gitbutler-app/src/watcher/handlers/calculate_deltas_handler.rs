@@ -46,8 +46,8 @@ impl TryFrom<&std::path::PathBuf> for Handler {
         let app_data_dir = value.clone();
         let handler = Self::new(
             app_data_dir,
-            projects::Controller::try_from(value)?,
-            users::Controller::try_from(value)?,
+            projects::Controller::from_path(value),
+            users::Controller::from_path(value),
         );
         Ok(handler)
     }
