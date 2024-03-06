@@ -2,6 +2,7 @@
   "name": "git-butler-tauri",
   "private": true,
   "scripts": {
+    "devel": "cd gitbutler-app/ && ../node_modules/.bin/tauri dev",
     "dev": "pnpm --filter @gitbutler/ui run dev",
     "test": "pnpm --filter @gitbutler/ui run test",
     "build": "pnpm --filter @gitbutler/ui run build",

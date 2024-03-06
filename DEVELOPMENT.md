@@ -48,13 +48,13 @@ You'll have to re-run this occasionally when our deps change.
 Now you should be able to run the app in development mode:
 
 ```bash
-$ pnpm tauri dev
+$ pnpm devel
 ```
 
 By default it will not print debug logs to console. If you want debug logs, set `LOG_LEVEL` environment variable:
 
 ```bash
-$ LOG_LEVEL=debug pnpm tauri dev
+$ LOG_LEVEL=debug pnpm devel
 ```
 
 ## Lint & format
