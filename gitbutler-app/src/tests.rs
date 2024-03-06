@@ -131,7 +131,7 @@ impl<'a> Case<'a> {
 }
 
 pub fn test_database() -> database::Database {
-    database::Database::try_from(&temp_dir()).unwrap()
+    database::Database::open_in_directory(temp_dir()).unwrap()
 }
 
 pub fn temp_dir() -> path::PathBuf {
