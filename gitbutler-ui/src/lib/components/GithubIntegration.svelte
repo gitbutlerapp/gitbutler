@@ -65,11 +65,7 @@
 </script>
 
 {#if minimal}
-	{#if $user$?.github_access_token}
-		<Button {disabled} kind="filled" color="primary" on:click={forgetGitHub}>Forget</Button>
-	{:else}
-		<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}>Authorize</Button>
-	{/if}
+	<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}>Authorize</Button>
 {:else}
 	<SectionCard orientation="row">
 		<svelte:fragment slot="iconSide">
@@ -98,13 +94,14 @@
 		<svelte:fragment slot="body">
 			Allows you to view and create Pull Requests from GitButler.
 		</svelte:fragment>
-		<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}>
-			{#if $user$?.github_access_token}
-				Reauthorize
-			{:else}
-				Authorize
-			{/if}
-		</Button>
+		{#if $user$?.github_access_token}
+			<Button {disabled} kind="outlined" color="neutral" icon="bin-small" on:click={forgetGitHub}
+				>Forget</Button
+			>
+		{:else}
+			<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}>Authorize</Button
+			>
+		{/if}
 	</SectionCard>
 {/if}
 
