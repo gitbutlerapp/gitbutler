@@ -66,6 +66,7 @@ pub struct VirtualBranch {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VirtualBranches {
     pub branches: Vec<VirtualBranch>,
     pub skipped_files: Vec<SkippedFile>,
