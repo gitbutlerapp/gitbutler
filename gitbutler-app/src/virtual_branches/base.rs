@@ -17,7 +17,9 @@ use crate::{
 };
 
 use super::{
-    branch, errors, integration::GITBUTLER_INTEGRATION_REFERENCE, target, BranchId, RemoteCommit,
+    branch, errors,
+    integration::{update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE},
+    target, BranchId, RemoteCommit,
 };
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -51,12 +53,51 @@ pub fn get_base_branch_data(
     }
 }
 
+fn go_back_to_integration(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    default_target: &target::Target,
+) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
+    let integration = git::Refname::from(git::LocalRefname::new("gitbutler/integration", None));
+    let integration_head_tree = project_repository
+        .git_repository
+        .find_reference(&integration)
+        .context("Failed to find integration reference")?
+        .peel_to_tree()
+        .context("Failed to peel integration reference to commit")?;
+
+    project_repository
+        .git_repository
+        .checkout_tree(&integration_head_tree)
+        .checkout()
+        .map_err(|error| match error {
+            git::Error::Checkout(_) => errors::SetBaseBranchError::ConflictsPreventCheckout,
+            error => errors::SetBaseBranchError::Other(error.into()),
+        })?;
+
+    project_repository
+        .git_repository
+        .set_head(&integration)
+        .context("failed to set head to integration")?;
+
+    let base = target_to_base_branch(project_repository, default_target)?;
+    update_gitbutler_integration(gb_repository, project_repository)?;
+    Ok(base)
+}
+
 pub fn set_base_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     target_branch_ref: &git::RemoteRefname,
 ) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
     let repo = &project_repository.git_repository;
+
+    // if target exists, and it is the same as the requested branch, we should go back
+    if let Some(target) = gb_repository.default_target()? {
+        if target.branch.eq(target_branch_ref) {
+            return go_back_to_integration(gb_repository, project_repository, &target);
+        }
+    }
 
     // lookup a branch by name
     let target_branch = match repo.find_branch(&target_branch_ref.clone().into()) {
@@ -92,7 +133,7 @@ pub fn set_base_branch(
         .context("Failed to peel HEAD reference to commit")?;
 
     // calculate the commit as the merge-base between HEAD in project_repository and this target commit
-    let commit_oid = repo
+    let target_commit_oid = repo
         .merge_base(current_head_commit.id(), target_branch_head.id())
         .context(format!(
             "Failed to calculate merge base between {} and {}",
@@ -100,25 +141,10 @@ pub fn set_base_branch(
             target_branch_head.id()
         ))?;
 
-    // if default target was already set, and the new target is a descendant of the current head, then we want to
-    // keep the current target to avoid unnecessary rebases
-    let commit_oid = if let Some(current_target) = gb_repository.default_target()? {
-        if repo
-            .is_descendant_of(current_target.sha, commit_oid)
-            .context("failed to check if target branch is descendant of current head")?
-        {
-            current_target.sha
-        } else {
-            commit_oid
-        }
-    } else {
-        commit_oid
-    };
-
     let target = target::Target {
         branch: target_branch_ref.clone(),
         remote_url: remote_url.to_string(),
-        sha: commit_oid,
+        sha: target_commit_oid,
     };
 
     let target_writer =
