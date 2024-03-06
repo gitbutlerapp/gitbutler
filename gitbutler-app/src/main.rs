@@ -132,7 +132,7 @@ fn main() {
 
                     app_handle.manage(assets::Proxy::new(app_cache_dir.join("images")));
 
-                    let database_controller = database::Database::open(app_data_dir.join("database.sqlite3")).expect("failed to open database");
+                    let database_controller = database::Database::open_in_directory(&app_data_dir).expect("failed to open database");
                     app_handle.manage(database_controller.clone());
 
                     let zipper = zip::Zipper::new(&app_cache_dir);

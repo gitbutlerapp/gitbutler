@@ -17,22 +17,13 @@ pub struct Database {
     pool: Arc<Pool<SqliteConnectionManager>>,
 }
 
-#[cfg(test)]
-impl TryFrom<&path::PathBuf> for Database {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &path::PathBuf) -> Result<Self, Self::Error> {
-        Self::open(value.join("database.sqlite3"))
-    }
-}
-
 impl Database {
-    pub fn open<P: AsRef<path::Path>>(path: P) -> Result<Self> {
-        let path = path.as_ref();
-        let manager = SqliteConnectionManager::file(path);
+    pub fn open_in_directory<P: AsRef<path::Path>>(path: P) -> Result<Self> {
+        let path = path.as_ref().to_path_buf().join("database.sqlite3");
+        let manager = SqliteConnectionManager::file(&path);
         let pool = r2d2::Pool::new(manager)?;
-        let mut cfg =
-            Config::new(refinery::config::ConfigDbType::Sqlite).set_db_path(path.to_str().unwrap());
+        let mut cfg = Config::new(refinery::config::ConfigDbType::Sqlite)
+            .set_db_path(path.as_path().to_str().unwrap());
         embedded::migrations::runner()
             .run(&mut cfg)
             .map(|report| {
@@ -65,7 +56,7 @@ mod tests {
     #[test]
     fn smoke() {
         let data_dir = tests::temp_dir();
-        let db = Database::try_from(&data_dir).unwrap();
+        let db = Database::open_in_directory(data_dir).unwrap();
         db.transaction(|tx| {
             tx.execute("CREATE TABLE test (id INTEGER PRIMARY KEY)", [])
                 .unwrap();

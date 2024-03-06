@@ -70,10 +70,8 @@ pub struct BranchCreateRequest {
     pub selected_for_changes: Option<bool>,
 }
 
-impl TryFrom<&crate::reader::Reader<'_>> for Branch {
-    type Error = crate::reader::Error;
-
-    fn try_from(reader: &crate::reader::Reader) -> Result<Self, Self::Error> {
+impl Branch {
+    pub fn from_reader(reader: &crate::reader::Reader<'_>) -> Result<Self, crate::reader::Error> {
         let results = reader.batch(&[
             "id",
             "meta/name",

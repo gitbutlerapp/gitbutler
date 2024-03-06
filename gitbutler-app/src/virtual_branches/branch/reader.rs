@@ -14,7 +14,7 @@ impl<'r> BranchReader<'r> {
     }
 
     pub fn read(&self, id: &BranchId) -> Result<Branch, reader::Error> {
-        Branch::try_from(&self.reader.sub(format!("branches/{}", id)))
+        Branch::from_reader(&self.reader.sub(format!("branches/{}", id)))
     }
 }
 
