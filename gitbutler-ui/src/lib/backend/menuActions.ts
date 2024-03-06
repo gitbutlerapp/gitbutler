@@ -3,7 +3,7 @@ import { goto } from '$app/navigation';
 
 export function handleMenuActions(projectId: string) {
 	return listen<string>(`menuAction`, (event) => {
-		if (event.payload === 'projectSettings') {
+		if (event.payload == 'projectSettings') {
 			goto(`/${projectId}/settings`);
 		}
 	});

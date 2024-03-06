@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { syncToCloud } from '$lib/backend/cloud';
-	import { handleMenuActions } from '$lib/backend/menu_actions';
+	import { handleMenuActions } from '$lib/backend/menuActions';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';

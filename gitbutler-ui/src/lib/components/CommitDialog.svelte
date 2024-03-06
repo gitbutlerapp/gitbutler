@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ButlerAIProvider } from '$lib/backend/ai_providers';
+	import { ButlerAIProvider } from '$lib/backend/aiProviders';
 	import { Summarizer } from '$lib/backend/summarizer';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
