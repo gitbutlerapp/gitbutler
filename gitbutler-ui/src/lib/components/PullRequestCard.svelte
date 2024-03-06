@@ -245,6 +245,8 @@
 	.pr-title {
 		color: var(--clr-theme-scale-ntrl-0);
 		margin-bottom: var(--space-12);
+		user-select: text;
+		cursor: text;
 	}
 
 	.pr-tags {

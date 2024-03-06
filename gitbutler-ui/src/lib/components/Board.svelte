@@ -87,7 +87,7 @@
 		{#each branches.sort((a, b) => a.order - b.order) as branch (branch.id)}
 			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<div
-				class="h-full"
+				class="draggable-branch h-full"
 				draggable="true"
 				on:mousedown={(e) => (dragHandle = e.target)}
 				on:dragstart={(e) => {
@@ -122,7 +122,7 @@
 					{projectPath}
 					{user}
 					{githubService}
-				></BranchLane>
+				/>
 			</div>
 		{/each}
 
@@ -214,7 +214,23 @@
 		height: 100%;
 	}
 
-	/* Empty board */
+	.draggable-branch {
+		/* When draggable="true" we need this to not break user-select: text in descendants.
+
+        It has been confirmed this bug is webkit only, so for GitButler this means macos and
+        most linux distributions. Why it happens we don't know, and it's somewhat unclear
+        why the other draggable items don't seem suffer similar breakage.
+
+        The problem is reproducable with the following html:
+        ```
+        <body style="-webkit-user-select: none; user-select: none">
+            <div draggable="true">
+                <p style="-webkit-user-select: text; user-select: text; cursor: text">Hello World</p>
+            </div>
+        </body>
+        ``` */
+		user-select: auto;
+	}
 
 	.empty-board {
 		user-select: none;

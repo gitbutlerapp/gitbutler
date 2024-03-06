@@ -81,5 +81,7 @@
 
 	.has-bottom-line {
 		border-bottom: 1px solid var(--clr-theme-container-outline-light);
+		user-select: text;
+		cursor: text;
 	}
 </style>

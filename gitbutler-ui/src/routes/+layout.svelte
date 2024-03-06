@@ -46,10 +46,19 @@
 	);
 </script>
 
-<div data-tauri-drag-region class="flex h-full flex-grow justify-center overflow-hidden">
+<div data-tauri-drag-region class="app-root">
 	<slot />
 </div>
 <Toaster />
 <ShareIssueModal bind:this={shareIssueModal} user={$user$} {cloud} />
 <ToastController />
 <AppUpdater {updaterService} />
+
+<style lang="postcss">
+	.app-root {
+		display: flex;
+		height: 100%;
+		user-select: none;
+		cursor: default;
+	}
+</style>

@@ -90,6 +90,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-8);
+		user-select: text;
 	}
 	.info-message__actions {
 		display: flex;

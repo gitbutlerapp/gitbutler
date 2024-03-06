@@ -444,6 +444,7 @@
 		justify-content: center;
 		padding: var(--space-48) 0;
 		border-radius: var(--radius-m);
+		cursor: default; /* was defaulting to text cursor */
 	}
 
 	.no-changes {
