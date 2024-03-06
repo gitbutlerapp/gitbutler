@@ -39,7 +39,7 @@
 					<ContextMenuItem label="Discard changes (Binary files not yet supported)" disabled />
 				{:else}
 					<ContextMenuItem
-						label={item.files.length === 1 ? 'Discard file' : 'Discard files'}
+						label="Discard changes"
 						on:click={() => {
 							confirmationModal.show(item);
 							dismiss();
