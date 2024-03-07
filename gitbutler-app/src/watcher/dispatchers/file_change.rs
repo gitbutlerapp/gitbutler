@@ -151,6 +151,7 @@ impl Dispatcher {
     }
 }
 
+#[cfg(target_family = "unix")]
 fn is_interesting_kind(kind: notify::EventKind) -> bool {
     matches!(
         kind,
@@ -158,6 +159,14 @@ fn is_interesting_kind(kind: notify::EventKind) -> bool {
             | notify::EventKind::Modify(notify::event::ModifyKind::Data(_))
             | notify::EventKind::Modify(notify::event::ModifyKind::Name(_))
             | notify::EventKind::Remove(notify::event::RemoveKind::File)
+    )
+}
+
+#[cfg(target_os = "windows")]
+fn is_interesting_kind(kind: notify::EventKind) -> bool {
+    matches!(
+        kind,
+        notify::EventKind::Create(_) | notify::EventKind::Modify(_) | notify::EventKind::Remove(_)
     )
 }
 
