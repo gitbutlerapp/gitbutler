@@ -160,8 +160,14 @@ impl Repository {
     pub fn git_test_push(
         &self,
         credentials: &git::credentials::Helper,
-        target: &Target,
+        remote_name: &str,
+        branch_name: &str,
     ) -> Result<()> {
+        let target_branch_refname =
+            git::Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
+        let branch = self.git_repository.find_branch(&target_branch_refname)?;
+        let commit_id = branch.peel_to_commit()?.id();
+
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or(std::time::Duration::from_secs(0))
@@ -171,17 +177,16 @@ impl Repository {
 
         let refname = git::RemoteRefname::from_str(&format!(
             "refs/remotes/{}/{}",
-            target.branch.remote(),
-            branch_name
+            remote_name, branch_name,
         ))?;
 
-        match self.push(&target.sha, &refname, false, credentials, None) {
+        match self.push(&commit_id, &refname, false, credentials, None) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
 
         let empty_refspec = Some(format!(":refs/heads/{}", branch_name));
-        match self.push(&target.sha, &refname, false, credentials, empty_refspec) {
+        match self.push(&commit_id, &refname, false, credentials, empty_refspec) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
