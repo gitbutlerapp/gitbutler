@@ -16,13 +16,12 @@ import { get } from 'svelte/store';
 import type { Project as CloudProject } from '$lib/backend/cloud';
 import { goto } from '$app/navigation';
 
-export type Key =
-	| 'default'
-	| 'generated'
-	| 'gitCredentialsHelper'
-	| {
-			local: { private_key_path: string; passphrase?: string };
-	  };
+export type KeyType = 'default' | 'generated' | 'gitCredentialsHelper' | 'local';
+export type LocalKey = {
+	local: { private_key_path: string; passphrase?: string };
+};
+
+export type Key = Exclude<KeyType, 'local'> | LocalKey;
 
 export type Project = {
 	id: string;

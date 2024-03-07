@@ -1,7 +1,7 @@
 <script lang="ts">
-	import ClickableCard from './ClickableCard.svelte';
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
+	import SectionCard from './SectionCard.svelte';
 	import Toggle from './Toggle.svelte';
 	import { appErrorReportingEnabled, appMetricsEnabled } from '$lib/config/appSettings';
 
@@ -39,7 +39,7 @@
 	</div>
 
 	<div class="analytics-settings__actions">
-		<ClickableCard on:click={toggleErrorReporting}>
+		<SectionCard on:click={toggleErrorReporting} orientation="row">
 			<svelte:fragment slot="title">Error reporting</svelte:fragment>
 			<svelte:fragment slot="body">
 				Toggle reporting of application crashes and errors.
@@ -47,15 +47,15 @@
 			<svelte:fragment slot="actions">
 				<Toggle checked={$errorReportingEnabled} on:change={toggleErrorReporting} />
 			</svelte:fragment>
-		</ClickableCard>
+		</SectionCard>
 
-		<ClickableCard on:click={toggleMetrics}>
+		<SectionCard on:click={toggleMetrics} orientation="row">
 			<svelte:fragment slot="title">Usage metrics</svelte:fragment>
 			<svelte:fragment slot="body">Toggle sharing of usage statistics.</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<Toggle checked={$metricsEnabled} on:change={toggleMetrics} />
 			</svelte:fragment>
-		</ClickableCard>
+		</SectionCard>
 
 		{#if updatedTelemetrySettings}
 			<InfoMessage>Changes will take effect on the next application start.</InfoMessage>
