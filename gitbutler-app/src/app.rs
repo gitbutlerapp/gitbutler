@@ -132,6 +132,19 @@ impl App {
             .map_err(Error::Other)
     }
 
+    pub fn git_test_fetch(
+        &self,
+        project_id: &ProjectId,
+        remote_name: &str,
+        credentials: &git::credentials::Helper,
+    ) -> Result<(), Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        project_repository
+            .fetch(remote_name, credentials)
+            .map_err(|e| Error::Other(anyhow::anyhow!(e.to_string())))
+    }
+
     pub fn git_head(&self, project_id: &ProjectId) -> Result<String, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;

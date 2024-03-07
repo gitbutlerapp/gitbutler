@@ -85,6 +85,26 @@ pub async fn git_test_push(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
+pub async fn git_test_fetch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    remote_name: &str,
+) -> Result<(), Error> {
+    let app = handle.state::<app::App>();
+    let helper = handle.state::<crate::git::credentials::Helper>();
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".to_string(),
+    })?;
+    app.git_test_fetch(&project_id, remote_name, &helper)
+        .map_err(|e| Error::UserError {
+            code: Code::Unknown,
+            message: e.to_string(),
+        })
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
 pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let app = handle.state::<app::App>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
