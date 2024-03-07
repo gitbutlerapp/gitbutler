@@ -204,7 +204,7 @@ pub fn verify_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<(), errors::VerifyError> {
-    verify_head_is_set(gb_repository, project_repository)?;
+    verify_head_is_set(project_repository)?;
     verify_head_is_clean(gb_repository, project_repository)?;
     Ok(())
 }
@@ -307,7 +307,6 @@ fn verify_head_is_clean(
 }
 
 fn verify_head_is_set(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<(), errors::VerifyError> {
     match project_repository
@@ -319,14 +318,8 @@ fn verify_head_is_set(
         Some(refname) if refname.to_string() == GITBUTLER_INTEGRATION_REFERENCE.to_string() => {
             Ok(())
         }
-        None => {
-            super::mark_all_unapplied(gb_repository).map_err(errors::VerifyError::Other)?;
-            Err(errors::VerifyError::DetachedHead)
-        }
-        Some(head_name) => {
-            super::mark_all_unapplied(gb_repository).map_err(errors::VerifyError::Other)?;
-            Err(errors::VerifyError::InvalidHead(head_name.to_string()))
-        }
+        None => Err(errors::VerifyError::DetachedHead),
+        Some(head_name) => Err(errors::VerifyError::InvalidHead(head_name.to_string())),
     }
 }
 

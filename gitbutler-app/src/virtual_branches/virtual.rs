@@ -2656,26 +2656,6 @@ pub fn push(
     Ok(())
 }
 
-pub fn mark_all_unapplied(gb_repository: &gb_repository::Repository) -> Result<()> {
-    let current_session = gb_repository.get_or_create_current_session()?;
-    let session_reader = sessions::Reader::open(gb_repository, &current_session)?;
-    let branch_iterator = super::Iterator::new(&session_reader)?;
-    let branch_writer =
-        super::branch::Writer::new(gb_repository).context("failed to create writer")?;
-    branch_iterator
-        .collect::<Result<Vec<_>, _>>()
-        .context("failed to read branches")?
-        .into_iter()
-        .filter(|branch| branch.applied)
-        .map(|mut branch| {
-            branch.applied = false;
-            branch_writer.write(&mut branch)
-        })
-        .collect::<Result<Vec<_>, _>>()
-        .context("failed to write branches")?;
-    Ok(())
-}
-
 fn is_commit_integrated(
     project_repository: &project_repository::Repository,
     target: &target::Target,
