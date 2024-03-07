@@ -65,13 +65,7 @@
 </script>
 
 {#if minimal}
-	{#if $user$?.github_access_token}
-		<Button {disabled} kind="filled" color="primary" on:click={forgetGitHub}>Forget</Button>
-	{:else}
-		<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}
-			>Authenticate</Button
-		>
-	{/if}
+	<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}>Authorize</Button>
 {:else}
 	<SectionCard orientation="row">
 		<svelte:fragment slot="iconSide">
@@ -100,17 +94,18 @@
 		<svelte:fragment slot="body">
 			Allows you to view and create Pull Requests from GitButler.
 		</svelte:fragment>
-		<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}>
-			{#if $user$?.github_access_token}
-				Reauthenticate
-			{:else}
-				Authenticate
-			{/if}
-		</Button>
+		{#if $user$?.github_access_token}
+			<Button {disabled} kind="outlined" color="neutral" icon="bin-small" on:click={forgetGitHub}
+				>Forget</Button
+			>
+		{:else}
+			<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}>Authorize</Button
+			>
+		{/if}
 	</SectionCard>
 {/if}
 
-<Modal bind:this={gitHubOauthModal} width="small" title="Authenticate with GitHub">
+<Modal bind:this={gitHubOauthModal} width="small" title="Authorize with GitHub">
 	<div class="wrapper">
 		<div class="step-section">
 			<div class="step-default" />
