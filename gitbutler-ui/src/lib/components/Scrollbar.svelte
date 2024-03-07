@@ -4,11 +4,9 @@
 	export let viewport: Element;
 	export let contents: Element;
 	export let hideAfter = 1000;
-	export let alwaysVisible = false;
+	// export let alwaysVisible = false;
 	export let initiallyVisible = false;
-	export let margin: { top?: number; right?: number; bottom?: number; left?: number } = {};
-	export let opacity = '0.2';
-	export let thickness = '0.625rem';
+	export let thickness = 'var(--space-8)';
 	export let horz = false;
 
 	$: vert = !horz;
@@ -22,22 +20,20 @@
 	let timer = 0;
 	let interacted = false;
 
+	let alwaysVisible = true;
+	let isViewportHovered = false;
+
 	$: teardownViewport = setupViewport(viewport);
 	$: teardownThumb = setupThumb(thumb);
 	$: teardownTrack = setupTrack(track);
 	$: teardownContents = setupContents(contents);
 
-	$: marginTop = margin.top ?? 0;
-	$: marginBottom = margin.bottom ?? 0;
-	$: marginRight = margin.right ?? 0;
-	$: marginLeft = margin.left ?? 0;
-
 	$: wholeHeight = viewport?.scrollHeight ?? 0;
 	$: wholeWidth = viewport?.scrollWidth ?? 0;
 	$: scrollTop = viewport?.scrollTop ?? 0;
 	$: scrollLeft = viewport?.scrollLeft ?? 0;
-	$: trackHeight = viewport?.clientHeight ?? 0 - (marginTop + marginBottom);
-	$: trackWidth = viewport?.clientHeight ?? 0 - (marginTop + marginBottom);
+	$: trackHeight = viewport?.clientHeight ?? 0;
+	$: trackWidth = viewport?.clientHeight ?? 0;
 	$: thumbHeight = wholeHeight > 0 ? (trackHeight / wholeHeight) * trackHeight : 0;
 	$: thumbWidth = wholeWidth > 0 ? (trackWidth / wholeWidth) * trackWidth : 0;
 	$: thumbTop = wholeHeight > 0 ? (scrollTop / wholeHeight) * trackHeight : 0;
@@ -45,7 +41,9 @@
 
 	$: scrollableY = wholeHeight > trackHeight;
 	$: scrollableX = wholeWidth > trackWidth;
-	$: visible = (scrollableY || scrollableX) && (alwaysVisible || initiallyVisible);
+	$: visible =
+		((scrollableY || scrollableX) && initiallyVisible) ||
+		(alwaysVisible && isViewportHovered && (scrollableY || scrollableX));
 
 	function setupViewport(viewport: Element) {
 		if (!viewport) return;
@@ -54,23 +52,38 @@
 		if (typeof window.ResizeObserver === 'undefined') {
 			throw new Error('window.ResizeObserver is missing.');
 		}
+
 		const observer = new ResizeObserver((entries) => {
 			for (const _entry of entries) {
 				wholeHeight = viewport?.scrollHeight ?? 0;
 				wholeWidth = viewport?.scrollWidth ?? 0;
-				trackHeight = viewport?.clientHeight - (marginTop + marginBottom) ?? 0;
-				trackWidth = viewport?.clientWidth - (marginLeft + marginRight) ?? 0;
+				trackHeight = viewport?.clientHeight ?? 0;
+				trackWidth = viewport?.clientWidth ?? 0;
 			}
 		});
+
 		observer.observe(viewport);
 
 		viewport.addEventListener('scroll', onScroll, { passive: true });
+
+		if (alwaysVisible) {
+			viewport.addEventListener('mouseenter', onViewportMouseEnter);
+			viewport.addEventListener('mouseleave', onViewportMouseLeave);
+		}
 
 		return () => {
 			observer.unobserve(contents);
 			observer.disconnect();
 			viewport.removeEventListener('scroll', onScroll);
 		};
+	}
+
+	function onViewportMouseEnter() {
+		isViewportHovered = true;
+	}
+
+	function onViewportMouseLeave() {
+		isViewportHovered = false;
 	}
 
 	function setupTrack(track: Element) {
@@ -107,6 +120,7 @@
 		const observer = new ResizeObserver((entries) => {
 			for (const _entry of entries) {
 				wholeHeight = viewport?.scrollHeight ?? 0;
+				wholeWidth = viewport?.scrollWidth ?? 0;
 			}
 		});
 		observer.observe(contents);
@@ -120,7 +134,8 @@
 	function setupTimer() {
 		timer = window.setTimeout(() => {
 			visible =
-				((scrollableY || scrollableX) && (alwaysVisible || (initiallyVisible && !interacted))) ||
+				((scrollableY || scrollableX) && initiallyVisible && !interacted) ||
+				(isViewportHovered && alwaysVisible) ||
 				false;
 		}, hideAfter);
 	}
@@ -220,22 +235,51 @@
 
 <div
 	bind:this={track}
-	class="absolute top-0 duration-200"
-	class:right-0={vert}
-	class:top-0={vert}
-	class:bottom-0={horz}
-	class:left-0={horz}
+	class="scrollbar-track"
+	style:right={vert ? 0 : undefined}
+	style:top={vert ? 0 : undefined}
+	style:bottom={horz ? 0 : undefined}
+	style:left={horz ? 0 : undefined}
 	style:width={vert ? thickness : `${trackWidth}px`}
 	style:height={vert ? `${trackHeight}px` : thickness}
-	style:margin={`${marginTop}rem ${marginRight}rem ${marginBottom}rem ${marginLeft}rem`}
 >
 	<div
 		bind:this={thumb}
-		class="absolute z-30 bg-black transition-opacity dark:bg-white"
-		style:opacity={visible ? opacity : 0}
+		class="scrollbar-thumb"
+		class:show-scrollbar-thumb={visible}
 		style:left={vert ? undefined : `${thumbLeft}px`}
 		style:top={vert ? `${thumbTop}px` : undefined}
-		style:width={vert ? thickness : `${thumbWidth}px`}
-		style:height={vert ? `${thumbHeight}px` : thickness}
+		style:width={vert ? '100%' : `${thumbWidth}px`}
+		style:height={vert ? `${thumbHeight}px` : '100%'}
 	/>
 </div>
+
+<style>
+	.scrollbar-track {
+		z-index: 2;
+		position: absolute;
+		transition:
+			opacity 0.2s,
+			width 0.1s,
+			height 0.1s;
+		/* background-color: rgba(0, 0, 0, 0.1); */
+	}
+
+	.scrollbar-thumb {
+		position: absolute;
+		z-index: 30;
+		background-color: var(--clr-theme-scale-ntrl-0);
+		opacity: 0;
+		transition: opacity 0.2s;
+	}
+
+	/* MODIFIERS */
+
+	.show-scrollbar-thumb {
+		opacity: 0.2;
+
+		&:hover {
+			opacity: 0.3;
+		}
+	}
+</style>

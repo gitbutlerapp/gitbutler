@@ -47,8 +47,8 @@
 		<div bind:this={contents} class="contents">
 			<slot />
 		</div>
+		<Scrollbar {viewport} {contents} {initiallyVisible} />
 	</div>
-	<Scrollbar {viewport} {contents} thickness="0.375rem" {initiallyVisible} />
 </div>
 
 <style lang="postcss">

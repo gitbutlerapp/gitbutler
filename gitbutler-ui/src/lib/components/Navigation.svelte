@@ -200,7 +200,6 @@
 		position: absolute;
 		right: calc(var(--space-2) * -1);
 		top: 50%;
-		transform: translateY(-50%);
 		width: var(--space-16);
 		height: var(--space-36);
 		padding: var(--space-4);

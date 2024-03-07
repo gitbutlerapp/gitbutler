@@ -2,6 +2,7 @@
 	import Button from './Button.svelte';
 	import HunkContextMenu from './HunkContextMenu.svelte';
 	import HunkLine from './HunkLine.svelte';
+	import Scrollbar from './Scrollbar.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableHunk } from '$lib/dragging/draggables';
 	import { onDestroy } from 'svelte';
@@ -10,6 +11,9 @@
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Hunk } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
+
+	export let viewport: HTMLDivElement | undefined = undefined;
+	export let contents: HTMLDivElement | undefined = undefined;
 
 	export let filePath: string;
 	export let section: HunkSection;
@@ -56,54 +60,67 @@
 	let alwaysShow = false;
 </script>
 
-<div
-	tabindex="0"
-	role="cell"
-	use:draggable={{
-		...draggableHunk(branchId, section.hunk),
-		disabled: draggingDisabled
-	}}
-	on:contextmenu|preventDefault
-	class="hunk"
-	class:readonly
-	class:opacity-60={section.hunk.locked && !isFileLocked}
->
-	<div class="hunk__bg-stretch">
-		{#if linesModified > 1000 && !alwaysShow}
-			<div class="flex flex-col p-1">
-				Change hidden as large diffs may slow down the UI
-				<Button kind="outlined" color="neutral" on:click={() => (alwaysShow = true)}
-					>show anyways</Button
-				>
-			</div>
-		{:else}
-			{#each section.subSections as subsection}
-				{@const hunk = section.hunk}
-				{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
-					<HunkLine
-						{line}
-						{filePath}
-						{readonly}
-						{minWidth}
-						{selectable}
-						{draggingDisabled}
-						selected={$selectedOwnership?.containsHunk(hunk.filePath, hunk.id)}
-						on:selected={(e) => onHunkSelected(hunk, e.detail)}
-						sectionType={subsection.sectionType}
-						on:contextmenu={(e) =>
-							popupMenu.openByMouse(e, {
-								hunk,
-								section: subsection,
-								lineNumber: line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber
-							})}
-					/>
+<div class="scrollable">
+	<div
+		bind:this={viewport}
+		tabindex="0"
+		role="cell"
+		use:draggable={{
+			...draggableHunk(branchId, section.hunk),
+			disabled: draggingDisabled
+		}}
+		on:contextmenu|preventDefault
+		class="hunk hide-native-scrollbar"
+		class:readonly
+		class:opacity-60={section.hunk.locked && !isFileLocked}
+	>
+		<div bind:this={contents} class="hunk__bg-stretch">
+			{#if linesModified > 1000 && !alwaysShow}
+				<div class="flex flex-col p-1">
+					Change hidden as large diffs may slow down the UI
+					<Button kind="outlined" color="neutral" on:click={() => (alwaysShow = true)}
+						>show anyways</Button
+					>
+				</div>
+			{:else}
+				{#each section.subSections as subsection}
+					{@const hunk = section.hunk}
+					{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
+						<HunkLine
+							{line}
+							{filePath}
+							{readonly}
+							{minWidth}
+							{selectable}
+							{draggingDisabled}
+							selected={$selectedOwnership?.containsHunk(hunk.filePath, hunk.id)}
+							on:selected={(e) => onHunkSelected(hunk, e.detail)}
+							sectionType={subsection.sectionType}
+							on:contextmenu={(e) =>
+								popupMenu.openByMouse(e, {
+									hunk,
+									section: subsection,
+									lineNumber: line.afterLineNumber
+										? line.afterLineNumber
+										: line.beforeLineNumber
+								})}
+						/>
+					{/each}
 				{/each}
-			{/each}
-		{/if}
+			{/if}
+		</div>
+		<Scrollbar {viewport} {contents} horz />
 	</div>
 </div>
 
 <style lang="postcss">
+	.scrollable {
+		display: flex;
+		flex-direction: column;
+		position: relative;
+		overflow: hidden;
+	}
+
 	.hunk {
 		display: flex;
 		flex-direction: column;

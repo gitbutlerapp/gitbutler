@@ -48,7 +48,7 @@
 			<button on:mousedown={() => httpsWarningBannerDismissed.set(true)}>Dismiss</button>
 		</div>
 	{/if}
-	<div class="relative h-full flex-grow">
+	<div class="board-wrapper">
 		<div class="scroll-viewport hide-native-scrollbar" bind:this={viewport}>
 			<div class="scroll-contents" bind:this={contents}>
 				<Board
@@ -64,8 +64,8 @@
 					{githubService}
 				/>
 			</div>
+			<Scrollbar {viewport} {contents} horz />
 		</div>
-		<Scrollbar {viewport} {contents} horz thickness="0.4rem" />
 	</div>
 </div>
 
@@ -77,6 +77,17 @@
 	}
 	.scroll-contents {
 		display: flex;
+		height: 100%;
+		min-width: 100%;
+		width: fit-content;
+	}
+
+	/* BOARD */
+	.board-wrapper {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		flex-grow: 1;
 		height: 100%;
 	}
 </style>
