@@ -189,10 +189,12 @@ export class BranchController {
 				branchId,
 				withForce
 			});
+			posthog.capture('Push Successful');
 			await this.vbranchService.reload();
 			return await this.vbranchService.getById(branchId);
 		} catch (err: any) {
 			console.error(err);
+			posthog.capture('Push Failed', { error: err });
 			if (err.code === 'errors.git.authentication') {
 				showToast({
 					title: 'Git push failed',
