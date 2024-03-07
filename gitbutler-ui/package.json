@@ -92,5 +92,8 @@
 		"typescript": "^5.3.3",
 		"vite": "^4.5.2",
 		"vitest": "^0.34.6"
+	},
+	"dependencies": {
+		"openai": "^4.28.4"
 	}
 }

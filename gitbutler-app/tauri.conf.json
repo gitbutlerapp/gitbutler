@@ -38,7 +38,12 @@
 			},
 			"path": {
 				"all": true
-			}
+			},
+            "http": {
+                "all": true,
+                "request": true,
+                "scope": [" https://api.anthropic.com/v1/messages"]
+            }
 		},
 		"bundle": {
 			"active": true,
