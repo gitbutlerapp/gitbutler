@@ -39,7 +39,7 @@
 		pop: 'primary',
 		warn: 'warn',
 		error: 'error',
-		success: 'success'
+		success: 'primary'
 	};
 </script>
 
