@@ -238,6 +238,7 @@ fn main() {
                     commands::git_get_global_config,
                     commands::project_flush_and_push,
                     commands::git_test_push,
+                    commands::git_test_fetch,
                     zip::commands::get_logs_archive_path,
                     zip::commands::get_project_archive_path,
                     zip::commands::get_project_data_archive_path,
