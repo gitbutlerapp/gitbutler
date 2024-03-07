@@ -5,11 +5,9 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use similar::DiffableStr;
 
 use crate::{
-    gb_repository,
-    git::{self, credentials::HelpError, Refname, Url},
+    git::{self, credentials::HelpError, Url},
     keys, projects, ssh, users,
     virtual_branches::{target::Target, Branch},
 };
