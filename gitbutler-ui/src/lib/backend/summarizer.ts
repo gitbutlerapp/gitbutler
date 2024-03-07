@@ -9,6 +9,8 @@ Focus the most important changes.
 Use the present tense.
 Always use semantic commit prefixes.
 Hard wrap lines at 72 characters.
+Only respond with the commit message.
+Warn about leaked keys.
 %{brief_style}
 %{emoji_style}
 
