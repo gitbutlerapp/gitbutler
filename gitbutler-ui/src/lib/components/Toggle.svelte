@@ -9,6 +9,7 @@
 	export let checked = false;
 	export let value = '';
 	export let help = '';
+	export let id = '';
 
 	let input: HTMLInputElement;
 	const dispatch = createEventDispatcher<{ change: boolean }>();
@@ -26,7 +27,7 @@
 	class:small
 	{value}
 	{name}
-	id={name}
+	{id}
 	{disabled}
 	use:tooltip={help}
 />

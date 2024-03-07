@@ -1,5 +1,6 @@
 import { initPostHog } from '$lib/analytics/posthog';
 import { initSentry } from '$lib/analytics/sentry';
+import { AuthService } from '$lib/backend/auth';
 import { getCloudApiClient } from '$lib/backend/cloud';
 import { ProjectService } from '$lib/backend/projects';
 import { UpdaterService } from '$lib/backend/updater';
@@ -33,7 +34,6 @@ export const load: LayoutLoad = async ({ fetch: realFetch }: { fetch: typeof fet
 			if (enabled) initPostHog();
 		});
 	const userService = new UserService();
-	const updaterService = new UpdaterService();
 
 	// TODO: Find a workaround to avoid this dynamic import
 	// https://github.com/sveltejs/kit/issues/905
@@ -41,9 +41,10 @@ export const load: LayoutLoad = async ({ fetch: realFetch }: { fetch: typeof fet
 	const defaultPath = await homeDir();
 
 	return {
+		authService: new AuthService(),
 		projectService: new ProjectService(defaultPath),
 		cloud: getCloudApiClient({ fetch: realFetch }),
-		updaterService,
+		updaterService: new UpdaterService(),
 		userService,
 		user$: userService.user$
 	};

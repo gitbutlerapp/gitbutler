@@ -8,7 +8,6 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import * as toasts from '$lib/utils/toasts';
-	import type { UserError } from '$lib/backend/ipc';
 	import type { Key, Project } from '$lib/backend/projects';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
@@ -24,34 +23,41 @@
 	let deleteConfirmationModal: RemoveProjectButton;
 	let isDeleting = false;
 
-	const onDeleteClicked = () =>
-		Promise.resolve()
-			.then(() => (isDeleting = true))
-			.then(() => projectService.deleteProject($project$?.id))
-			.catch((e) => {
-				console.error(e);
-				toasts.error('Failed to delete project');
-			})
-			.then(() => toasts.success('Project deleted'))
-			.then(() => goto('/'))
-			.finally(() => {
-				isDeleting = false;
-				projectService.reload();
-			});
+	async function onDeleteClicked() {
+		isDeleting = true;
+		try {
+			projectService.deleteProject($project$?.id);
+			toasts.success('Project deleted');
+			goto('/');
+		} catch (err: any) {
+			console.error(err);
+			toasts.error('Failed to delete project');
+		} finally {
+			isDeleting = false;
+			projectService.reload();
+		}
+	}
 
-	const onKeysUpdated = (e: { detail: { preferred_key: Key } }) =>
-		projectService
-			.updateProject({ ...$project$, ...e.detail })
-			.then(() => toasts.success('Preferred key updated'))
-			.catch((e: UserError) => {
-				toasts.error(e.message);
-			});
-	const onCloudUpdated = (e: { detail: Project }) =>
+	async function onKeysUpdated(e: { detail: { preferred_key: Key } }) {
+		try {
+			projectService.updateProject({ ...$project$, ...e.detail });
+			toasts.success('Preferred key updated');
+		} catch (err: any) {
+			toasts.error(err.message);
+		}
+	}
+
+	async function onCloudUpdated(e: { detail: Project }) {
 		projectService.updateProject({ ...$project$, ...e.detail });
-	const onPreferencesUpdated = (e: {
+	}
+
+	async function onPreferencesUpdated(e: {
 		detail: { ok_with_force_push?: boolean; omit_certificate_check?: boolean };
-	}) => projectService.updateProject({ ...$project$, ...e.detail });
-	const onDetailsUpdated = async (e: { detail: Project }) => {
+	}) {
+		await projectService.updateProject({ ...$project$, ...e.detail });
+	}
+
+	async function onDetailsUpdated(e: { detail: Project }) {
 		const api =
 			$user$ && e.detail.api
 				? await cloud.projects.update($user$?.access_token, e.detail.api.repository_id, {
@@ -59,12 +65,11 @@
 						description: e.detail.description
 					})
 				: undefined;
-
 		projectService.updateProject({
 			...e.detail,
 			api: api ? { ...api, sync: e.detail.api?.sync || false } : undefined
 		});
-	};
+	}
 </script>
 
 {#if !$project$}

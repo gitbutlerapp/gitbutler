@@ -2,7 +2,6 @@
 	import { deleteAllData } from '$lib/backend/data';
 	import AnalyticsSettings from '$lib/components/AnalyticsSettings.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import ClickableCard from '$lib/components/ClickableCard.svelte';
 	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Login from '$lib/components/Login.svelte';
@@ -19,37 +18,33 @@
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { invoke } from '@tauri-apps/api/tauri';
+	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 
 	export let data: PageData;
-	const { cloud, user$, userService } = data;
 
-	$: saving = false;
-
-	$: userPicture = $user$?.picture;
-
+	const { cloud, user$, userService, authService } = data;
 	const fileTypes = ['image/jpeg', 'image/png'];
 
-	const validFileType = (file: File) => {
-		return fileTypes.includes(file.type);
-	};
+	// TODO: Maybe break these into components?
+	let currentSection: 'profile' | 'git-stuff' | 'telemetry' | 'integrations' = 'profile';
 
-	const onPictureChange = (e: Event) => {
-		const target = e.target as HTMLInputElement;
-		const file = target.files?.[0];
-
-		if (file && validFileType(file)) {
-			userPicture = URL.createObjectURL(file);
-		} else {
-			userPicture = $user$?.picture;
-			toasts.error('Please use a valid image file');
-		}
-	};
-
+	// TODO: Refactor such that this variable isn't needed
 	let newName = '';
 
 	let loaded = false;
+	let isDeleting = false;
+
+	let signCommits = false;
+	let annotateCommits = true;
+	let sshKey = '';
+
+	let deleteConfirmationModal: Modal;
+
+	$: saving = false;
+	$: userPicture = $user$?.picture;
+
 	$: if ($user$ && !loaded) {
 		loaded = true;
 		cloud.user.get($user$?.access_token).then((cloudUser) => {
@@ -59,7 +54,19 @@
 		newName = $user$?.name || '';
 	}
 
-	const onSubmit = async (e: SubmitEvent) => {
+	function onPictureChange(e: Event) {
+		const target = e.target as HTMLInputElement;
+		const file = target.files?.[0];
+
+		if (file && fileTypes.includes(file.type)) {
+			userPicture = URL.createObjectURL(file);
+		} else {
+			userPicture = $user$?.picture;
+			toasts.error('Please use a valid image file');
+		}
+	}
+
+	async function onSubmit(e: SubmitEvent) {
 		if (!$user$) return;
 		saving = true;
 
@@ -80,74 +87,55 @@
 			toasts.error('Failed to update user');
 		}
 		saving = false;
-	};
+	}
 
-	let isDeleting = false;
-	let deleteConfirmationModal: Modal;
-
-	export function git_get_config(params: { key: string }) {
+	// TODO: These kinds of functions should be implemented on an injected service
+	function gitGetConfig(params: { key: string }) {
 		return invoke<string>('git_get_global_config', params);
 	}
 
-	export function git_set_config(params: { key: string; value: string }) {
+	function gitSetConfig(params: { key: string; value: string }) {
 		return invoke<string>('git_set_global_config', params);
 	}
 
-	const setCommitterSetting = (value: boolean) => {
-		annotateCommits = value;
-		git_set_config({
+	function toggleCommitterSigning() {
+		annotateCommits = !annotateCommits;
+		gitSetConfig({
 			key: 'gitbutler.gitbutlerCommitter',
-			value: value ? '1' : '0'
+			value: annotateCommits ? '1' : '0'
 		});
-	};
-
-	const setSigningSetting = (value: boolean) => {
-		signCommits = value;
-		git_set_config({
-			key: 'gitbutler.signCommits',
-			value: value ? 'true' : 'false'
-		});
-	};
-
-	export function get_public_key() {
-		return invoke<string>('get_public_key');
 	}
 
-	let sshKey = '';
-	get_public_key().then((key) => {
-		sshKey = key;
-	});
+	function toggleSigningSetting() {
+		signCommits = !signCommits;
+		gitSetConfig({
+			key: 'gitbutler.signCommits',
+			value: signCommits ? 'true' : 'false'
+		});
+	}
 
-	$: annotateCommits = true;
-	$: signCommits = false;
-
-	git_get_config({ key: 'gitbutler.gitbutlerCommitter' }).then((value) => {
-		annotateCommits = value ? value === '1' : false;
-	});
-
-	git_get_config({ key: 'gitbutler.signCommits' }).then((value) => {
-		signCommits = value ? value === 'true' : false;
-	});
-
-	const onDeleteClicked = () =>
-		Promise.resolve()
-			.then(() => (isDeleting = true))
-			.then(() => deleteAllData())
+	async function onDeleteClicked() {
+		isDeleting = true;
+		try {
+			deleteAllData();
+			await userService.logout();
 			// TODO: Delete user from observable!!!
-			.then(() => userService.logout())
-			.then(() => toasts.success('All data deleted'))
-			.catch((e) => {
-				console.error(e);
-				toasts.error('Failed to delete project');
-			})
-			.then(() => deleteConfirmationModal.close())
-			.then(() => goto('/', { replaceState: true, invalidateAll: true }))
-			.finally(() => (isDeleting = false));
+			toasts.success('All data deleted');
+			goto('/', { replaceState: true, invalidateAll: true });
+		} catch (err: any) {
+			console.error(err);
+			toasts.error('Failed to delete project');
+		} finally {
+			deleteConfirmationModal.close();
+			isDeleting = false;
+		}
+	}
 
-	let currentSection: 'profile' | 'git-stuff' | 'telemetry' | 'integrations' = 'profile';
-
-	const toggleGBCommiter = () => setCommitterSetting(!annotateCommits);
-	const toggleGBSigner = () => setSigningSetting(!signCommits);
+	onMount(async () => {
+		sshKey = await authService.getPublicKey();
+		annotateCommits = (await gitGetConfig({ key: 'gitbutler.gitbutlerCommitter' })) == '1';
+		signCommits = (await gitGetConfig({ key: 'gitbutler.signCommits' })) == 'true';
+	});
 </script>
 
 <section class="profile-page">
@@ -233,7 +221,7 @@
 		</ContentWrapper>
 	{:else if currentSection === 'git-stuff'}
 		<ContentWrapper title="Git stuff">
-			<ClickableCard on:click={toggleGBCommiter}>
+			<SectionCard labelFor="committerSigning" orientation="row">
 				<svelte:fragment slot="title">Credit GitButler as the Committer</svelte:fragment>
 				<svelte:fragment slot="body">
 					By default, everything in the GitButler client is free to use. You can opt in to crediting
@@ -247,9 +235,13 @@
 					</Link>
 				</svelte:fragment>
 				<svelte:fragment slot="actions">
-					<Toggle checked={annotateCommits} on:change={toggleGBCommiter} />
+					<Toggle
+						id="commiterSigning"
+						checked={annotateCommits}
+						on:change={toggleCommitterSigning}
+					/>
 				</svelte:fragment>
-			</ClickableCard>
+			</SectionCard>
 
 			<Spacer />
 
@@ -283,7 +275,7 @@
 				</div>
 			</SectionCard>
 
-			<ClickableCard on:click={toggleGBSigner}>
+			<SectionCard labelFor="signingSetting" orientation="row">
 				<svelte:fragment slot="title">Sign Commits with the above SSH Key</svelte:fragment>
 				<svelte:fragment slot="body">
 					If you want GitButler to sign your commits with the SSH key we generated, then you can add
@@ -297,9 +289,9 @@
 					</Link>
 				</svelte:fragment>
 				<svelte:fragment slot="actions">
-					<Toggle checked={signCommits} on:change={toggleGBSigner} />
+					<Toggle id="signingSetting" checked={signCommits} on:change={toggleSigningSetting} />
 				</svelte:fragment>
-			</ClickableCard>
+			</SectionCard>
 		</ContentWrapper>
 	{:else if currentSection === 'telemetry'}
 		<ContentWrapper title="Telemetry">

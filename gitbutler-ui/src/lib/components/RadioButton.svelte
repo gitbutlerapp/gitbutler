@@ -3,8 +3,8 @@
 
 	export let small = false;
 	export let disabled = false;
-	export let group = '';
 	export let value = '';
+	export let id = '';
 </script>
 
 <input
@@ -14,10 +14,10 @@
 	type="radio"
 	class="radio"
 	class:small
+	{id}
 	{value}
 	{name}
 	{disabled}
-	bind:group
 />
 
 <style lang="postcss">

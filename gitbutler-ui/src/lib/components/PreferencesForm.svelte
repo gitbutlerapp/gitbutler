@@ -1,6 +1,6 @@
 <script lang="ts">
+	import SectionCard from './SectionCard.svelte';
 	import Spacer from './Spacer.svelte';
-	import ClickableCard from '$lib/components/ClickableCard.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { createEventDispatcher } from 'svelte';
@@ -18,62 +18,48 @@
 			omit_certificate_check?: boolean;
 		};
 	}>();
-
-	const onAllowForcePushingChange = () => {
-		dispatch('updated', { ok_with_force_push: allowForcePushing });
-	};
-
-	const onOmitCertificateCheckChange = () => {
-		dispatch('updated', { omit_certificate_check: omitCertificateCheck });
-	};
-
-	const onRunCommitHooksChange = () => {
-		$runCommitHooks = !$runCommitHooks;
-	};
 </script>
 
 <section class="wrapper">
-	<ClickableCard
-		on:click={() => {
-			allowForcePushing = !allowForcePushing;
-			onAllowForcePushingChange();
-		}}
-	>
+	<SectionCard orientation="row" labelFor="allowForcePush">
 		<svelte:fragment slot="title">Allow force pushing</svelte:fragment>
 		<svelte:fragment slot="body">
 			Force pushing allows GitButler to override branches even if they were pushed to remote. We
 			will never force push to the trunk.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle bind:checked={allowForcePushing} on:change={onAllowForcePushingChange} />
+			<Toggle
+				id="allowForcePush"
+				bind:checked={allowForcePushing}
+				on:change={() => dispatch('updated', { ok_with_force_push: allowForcePushing })}
+			/>
 		</svelte:fragment>
-	</ClickableCard>
+	</SectionCard>
 
-	<ClickableCard
-		on:click={() => {
-			omitCertificateCheck = !omitCertificateCheck;
-			onOmitCertificateCheckChange();
-		}}
-	>
+	<SectionCard orientation="row" labelFor="omitCertificateCheck">
 		<svelte:fragment slot="title">Ignore host certificate checks</svelte:fragment>
 		<svelte:fragment slot="body">
 			Enabling this will ignore host certificate checks when authenticating with ssh.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle bind:checked={omitCertificateCheck} on:change={onOmitCertificateCheckChange} />
+			<Toggle
+				id="omitCertificateCheck"
+				bind:checked={omitCertificateCheck}
+				on:change={() => dispatch('updated', { omit_certificate_check: omitCertificateCheck })}
+			/>
 		</svelte:fragment>
-	</ClickableCard>
+	</SectionCard>
 
-	<ClickableCard on:click={onRunCommitHooksChange}>
+	<SectionCard labelFor="runHooks" orientation="row">
 		<svelte:fragment slot="title">Run commit hooks</svelte:fragment>
 		<svelte:fragment slot="body">
 			Enabling this will run any git pre and post commit hooks you have configured in your
 			repository.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle bind:checked={$runCommitHooks} on:change={onRunCommitHooksChange} />
+			<Toggle id="runHooks" bind:checked={$runCommitHooks} />
 		</svelte:fragment>
-	</ClickableCard>
+	</SectionCard>
 </section>
 
 <Spacer />

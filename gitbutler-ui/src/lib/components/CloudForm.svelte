@@ -1,6 +1,6 @@
 <script lang="ts">
+	import SectionCard from './SectionCard.svelte';
 	import { getCloudApiClient, type User } from '$lib/backend/cloud';
-	import ClickableCard from '$lib/components/ClickableCard.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
@@ -33,7 +33,7 @@
 		dispatch('updated', { ...project, api: { ...cloudProject, sync: project.api.sync } });
 	});
 
-	const onSyncChange = async (event: CustomEvent<boolean>) => {
+	async function onSyncChange(sync: boolean) {
 		if (!user) return;
 		try {
 			const cloudProject =
@@ -43,26 +43,26 @@
 					description: project.description,
 					uid: project.id
 				}));
-			dispatch('updated', { ...project, api: { ...cloudProject, sync: event.detail } });
+			dispatch('updated', { ...project, api: { ...cloudProject, sync } });
 		} catch (error) {
 			console.error(`Failed to update project sync status: ${error}`);
 			toasts.error('Failed to update project sync status');
 		}
-	};
+	}
 
-	const aiGenToggle = () => {
+	function aiGenToggle() {
 		$aiGenEnabled = !$aiGenEnabled;
 		$aiGenAutoBranchNamingEnabled = $aiGenEnabled;
-	};
+	}
 
-	const aiGenBranchNamesToggle = () => {
+	function aiGenBranchNamesToggle() {
 		$aiGenAutoBranchNamingEnabled = !$aiGenAutoBranchNamingEnabled;
-	};
+	}
 </script>
 
 {#if user}
 	<div class="aigen-wrap">
-		<ClickableCard on:click={aiGenToggle}>
+		<SectionCard on:click={aiGenToggle} orientation="row">
 			<svelte:fragment slot="title">Enable branch and commit message generation</svelte:fragment>
 			<svelte:fragment slot="body">
 				Uses OpenAI's API. If enabled, diffs will sent to OpenAI's servers when pressing the
@@ -71,9 +71,9 @@
 			<svelte:fragment slot="actions">
 				<Toggle checked={$aiGenEnabled} on:change={aiGenToggle} />
 			</svelte:fragment>
-		</ClickableCard>
+		</SectionCard>
 
-		<ClickableCard disabled={!$aiGenEnabled} on:click={aiGenBranchNamesToggle}>
+		<SectionCard disabled={!$aiGenEnabled} on:click={aiGenBranchNamesToggle} orientation="row">
 			<svelte:fragment slot="title">Automatically generate branch names</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<Toggle
@@ -82,7 +82,7 @@
 					on:change={aiGenBranchNamesToggle}
 				/>
 			</svelte:fragment>
-		</ClickableCard>
+		</SectionCard>
 	</div>
 
 	<Spacer />
@@ -90,14 +90,14 @@
 	{#if user.role === 'admin'}
 		<h3 class="text-base-15 text-bold">Full data synchronization</h3>
 
-		<ClickableCard on:change={onSyncChange}>
+		<SectionCard on:change={(e) => onSyncChange(e.detail)} orientation="row">
 			<svelte:fragment slot="body">
 				Sync my history, repository and branch data for backup, sharing and team features.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<Toggle checked={project.api?.sync || false} on:change={onSyncChange} />
+				<Toggle checked={project.api?.sync || false} on:change={(e) => onSyncChange(e.detail)} />
 			</svelte:fragment>
-		</ClickableCard>
+		</SectionCard>
 
 		{#if project.api}
 			<div class="api-link">
