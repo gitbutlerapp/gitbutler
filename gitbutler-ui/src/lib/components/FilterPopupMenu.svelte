@@ -20,10 +20,7 @@
 	<ContextMenu>
 		<ContextMenuSection>
 			{#if showPrCheckbox}
-				<ContextMenuItem
-					label="Pull requests"
-					on:click={() => ($includePrs = !$includePrs)}
-				>
+				<ContextMenuItem label="Pull requests" on:click={() => ($includePrs = !$includePrs)}>
 					<Checkbox small bind:checked={$includePrs} slot="control" />
 				</ContextMenuItem>
 			{/if}
@@ -31,10 +28,7 @@
 				<Checkbox small bind:checked={$includeRemote} slot="control" />
 			</ContextMenuItem>
 
-			<ContextMenuItem
-				label="Unapplied"
-				on:click={() => ($includeStashed = !$includeStashed)}
-			>
+			<ContextMenuItem label="Unapplied" on:click={() => ($includeStashed = !$includeStashed)}>
 				<Checkbox small bind:checked={$includeStashed} slot="control" />
 			</ContextMenuItem>
 		</ContextMenuSection>
@@ -43,10 +37,7 @@
 			<ContextMenuItem label="Hide bots" on:click={() => ($hideBots = !$hideBots)}>
 				<Toggle small slot="control" bind:checked={$hideBots} />
 			</ContextMenuItem>
-			<ContextMenuItem
-				label="Hide inactive"
-				on:click={() => ($hideInactive = !$hideInactive)}
-			>
+			<ContextMenuItem label="Hide inactive" on:click={() => ($hideInactive = !$hideInactive)}>
 				<Toggle small slot="control" bind:checked={$hideInactive} />
 			</ContextMenuItem>
 		</ContextMenuSection>
