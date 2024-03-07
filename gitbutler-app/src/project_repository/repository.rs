@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use crate::{
     git::{self, credentials::HelpError, Url},
     keys, projects, ssh, users,
-    virtual_branches::{target::Target, Branch},
+    virtual_branches::Branch,
 };
 
 use super::conflicts;
