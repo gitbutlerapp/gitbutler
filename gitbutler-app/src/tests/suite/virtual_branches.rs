@@ -802,6 +802,53 @@ mod set_base_branch {
         use super::*;
 
         #[tokio::test]
+        async fn should_preserve_applied_vbranches() {
+            let Test {
+                repository,
+                project_id,
+                controller,
+                ..
+            } = Test::default();
+
+            std::fs::write(repository.path().join("file.txt"), "one").unwrap();
+            let oid_one = repository.commit_all("one");
+            std::fs::write(repository.path().join("file.txt"), "two").unwrap();
+            repository.commit_all("two");
+            repository.push();
+
+            controller
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                .await
+                .unwrap();
+
+            let vbranch_id = controller
+                .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+                .await
+                .unwrap();
+
+            std::fs::write(repository.path().join("another file.txt"), "content").unwrap();
+            controller
+                .create_commit(&project_id, &vbranch_id, "one", None, false)
+                .await
+                .unwrap();
+
+            let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+
+            repository.checkout_commit(oid_one);
+
+            controller
+                .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+                .await
+                .unwrap();
+
+            let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+            assert_eq!(branches.len(), 1);
+            assert_eq!(branches[0].id, vbranch_id);
+            assert!(branches[0].active);
+        }
+
+        #[tokio::test]
         async fn from_target_branch_index_conflicts() {
             let Test {
                 repository,
@@ -831,7 +878,6 @@ mod set_base_branch {
                 controller
                     .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
                     .await
-                    .map_err(|error| dbg!(error))
                     .unwrap_err(),
                 ControllerError::Action(errors::SetBaseBranchError::DirtyWorkingDirectory)
             ));
