@@ -56,7 +56,7 @@ similar = { version = "2.4.0", features = ["unicode"] }
 slug = "0.1.5"
 ssh-key = { version = "0.6.4", features = [ "alloc", "ed25519" ] }
 ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
-tauri = { version = "1.6.0", features = [ "os-all", "dialog-open", "fs-read-file", "path-all", "process-relaunch", "protocol-asset", "shell-open", "window-maximize", "window-start-dragging", "window-unmaximize"] }
+tauri = { version = "1.6.0", features = [ "http-all", "os-all", "dialog-open", "fs-read-file", "path-all", "process-relaunch", "protocol-asset", "shell-open", "window-maximize", "window-start-dragging", "window-unmaximize"] }
 tauri-plugin-context-menu = { git = "https://github.com/c2r0b/tauri-plugin-context-menu", branch = "main" }
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
