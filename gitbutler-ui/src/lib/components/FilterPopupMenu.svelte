@@ -20,24 +20,33 @@
 	<ContextMenu>
 		<ContextMenuSection>
 			{#if showPrCheckbox}
-				<ContextMenuItem label="Pull requests" on:mousedown={() => ($includePrs = !$includePrs)}>
+				<ContextMenuItem
+					label="Pull requests"
+					on:click={() => ($includePrs = !$includePrs)}
+				>
 					<Checkbox small bind:checked={$includePrs} slot="control" />
 				</ContextMenuItem>
 			{/if}
-			<ContextMenuItem label="Remote" on:mousedown={() => ($includeRemote = !$includeRemote)}>
+			<ContextMenuItem label="Remote" on:click={() => ($includeRemote = !$includeRemote)}>
 				<Checkbox small bind:checked={$includeRemote} slot="control" />
 			</ContextMenuItem>
 
-			<ContextMenuItem label="Unapplied" on:mousedown={() => ($includeStashed = !$includeStashed)}>
+			<ContextMenuItem
+				label="Unapplied"
+				on:click={() => ($includeStashed = !$includeStashed)}
+			>
 				<Checkbox small bind:checked={$includeStashed} slot="control" />
 			</ContextMenuItem>
 		</ContextMenuSection>
 
 		<ContextMenuSection>
-			<ContextMenuItem label="Hide bots" on:mousedown={() => ($hideBots = !$hideBots)}>
+			<ContextMenuItem label="Hide bots" on:click={() => ($hideBots = !$hideBots)}>
 				<Toggle small slot="control" bind:checked={$hideBots} />
 			</ContextMenuItem>
-			<ContextMenuItem label="Hide inactive" on:mousedown={() => ($hideInactive = !$hideInactive)}>
+			<ContextMenuItem
+				label="Hide inactive"
+				on:click={() => ($hideInactive = !$hideInactive)}
+			>
 				<Toggle small slot="control" bind:checked={$hideInactive} />
 			</ContextMenuItem>
 		</ContextMenuSection>
