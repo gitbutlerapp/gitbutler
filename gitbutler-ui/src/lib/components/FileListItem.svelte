@@ -98,7 +98,7 @@
 	>
 		<div class="info-wrap">
 			<div class="info">
-				<img src={getVSIFileIcon(file.path)} alt="js" style="width: var(--space-12)" />
+				<img draggable="false" class="file-icon" src={getVSIFileIcon(file.path)} alt="js" />
 				<span class="text-base-12 name">
 					{file.filename}
 				</span>
@@ -159,6 +159,10 @@
 		flex-shrink: 1;
 		gap: var(--space-6);
 		overflow: hidden;
+	}
+
+	.file-icon {
+		width: var(--space-12);
 	}
 	.name {
 		color: var(--clr-theme-scale-ntrl-0);
