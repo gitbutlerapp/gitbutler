@@ -1,4 +1,12 @@
-import type { AIProvider } from '$lib/backend/aiProviders';
+import { getAnthropicKey, getModelKind, getOpenAIKey, getTokenOption } from './summarizer_settings';
+import {
+	KeyOption,
+	type AIProvider,
+	ButlerAIProvider,
+	ModelKind,
+	OpenAIProvider as AnthropicAIProvider
+} from '$lib/backend/aiProviders';
+import { getCloudApiClient, type User } from '$lib/backend/cloud';
 
 const diffLengthLimit = 20000;
 
@@ -80,5 +88,42 @@ export class Summarizer {
 		message = message.replaceAll(' ', '-');
 		message = message.replaceAll('\n', '-');
 		return message;
+	}
+}
+
+interface SummarizerContext {
+	user?: User;
+}
+
+// This optionally returns a summarizer. There are a few conditions for how this may occur
+// Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
+// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
+export async function buildSummarizer(context: SummarizerContext): Promise<Summarizer | undefined> {
+	const modelKind = await getModelKind();
+	const tokenOption = await getTokenOption();
+
+	if (tokenOption === KeyOption.ButlerAPI) {
+		if (!context.user) return;
+
+		const aiProvider = new ButlerAIProvider(getCloudApiClient(), context.user, modelKind);
+		return new Summarizer(aiProvider);
+	}
+
+	if (modelKind == ModelKind.OpenAI) {
+		const openAIKey = await getOpenAIKey();
+
+		if (!openAIKey) return;
+
+		const aiProvider = new AnthropicAIProvider(openAIKey);
+		return new Summarizer(aiProvider);
+	}
+
+	if (modelKind == ModelKind.Anthropic) {
+		const anthropicKey = await getAnthropicKey();
+
+		if (!anthropicKey) return;
+
+		const aiProvider = new AnthropicAIProvider(anthropicKey);
+		return new Summarizer(aiProvider);
 	}
 }

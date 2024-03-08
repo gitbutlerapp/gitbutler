@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { ButlerAIProvider } from '$lib/backend/aiProviders';
-	import { Summarizer } from '$lib/backend/summarizer';
+	import { buildSummarizer } from '$lib/backend/summarizer';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
@@ -24,7 +23,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { fly, slide } from 'svelte/transition';
-	import type { User, getCloudApiClient } from '$lib/backend/cloud';
+	import type { User } from '$lib/backend/cloud';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Branch, LocalFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
@@ -35,7 +34,6 @@
 
 	export let projectId: string;
 	export let branch: Branch;
-	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let user: User | undefined;
 	export let selectedOwnership: Writable<Ownership>;
 	export let expanded: Writable<boolean>;
@@ -52,17 +50,12 @@
 	let aiLoading = false;
 
 	let contextMenu: ContextMenu;
-	let summarizer: Summarizer | undefined;
 
 	let titleTextArea: HTMLTextAreaElement;
 	let descriptionTextArea: HTMLTextAreaElement;
 
 	$: [title, description] = splitMessage($commitMessage);
 	$: if ($commitMessage) updateHeights();
-	$: if (user) {
-		const aiProvider = new ButlerAIProvider(cloud, user);
-		summarizer = new Summarizer(aiProvider);
-	}
 
 	function splitMessage(message: string) {
 		const parts = message.split(/\n+(.*)/s);
@@ -99,7 +92,8 @@
 	}
 
 	async function generateCommitMessage(files: LocalFile[]) {
-		if (!user || !summarizer) return;
+		const summarizer = await buildSummarizer({ user });
+		if (!summarizer) return;
 		const diff = files
 			.map((f) => f.hunks.filter((h) => $selectedOwnership.containsHunk(f.id, h.id)))
 			.flat()

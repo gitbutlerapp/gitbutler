@@ -8,8 +8,7 @@
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
-	import { ButlerAIProvider } from '$lib/backend/aiProviders';
-	import { Summarizer } from '$lib/backend/summarizer';
+	import { buildSummarizer } from '$lib/backend/summarizer';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -34,7 +33,7 @@
 	import lscache from 'lscache';
 	import { getContext, onMount } from 'svelte';
 	import { get, type Writable } from 'svelte/store';
-	import type { User, getCloudApiClient } from '$lib/backend/cloud';
+	import type { User } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import type { Branch, LocalFile, RemoteBranchData } from '$lib/vbranches/types';
@@ -42,7 +41,6 @@
 	export let branch: Branch;
 	export let isUnapplied = false;
 	export let project: Project;
-	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchCount = 1;
 	export let user: User | undefined;
 	export let selectedFiles: Writable<LocalFile[]>;
@@ -78,7 +76,11 @@
 		$commitBoxOpen = false;
 	}
 
-	function generateBranchName() {
+	async function generateBranchName() {
+		const summarizer = await buildSummarizer({ user });
+		if (!summarizer) return;
+		if (!aiGenEnabled) return;
+
 		const diff = branch.files
 			.map((f) => f.hunks)
 			.flat()
@@ -87,16 +89,12 @@
 			.join('\n')
 			.slice(0, 5000);
 
-		if (user && aiGenEnabled) {
-			const aiProvider = new ButlerAIProvider(cloud, user);
-
-			new Summarizer(aiProvider).branch(diff).then((message) => {
-				if (message !== branch.name) {
-					branch.name = message;
-					branchController.updateBranchName(branch.id, branch.name);
-				}
-			});
-		}
+		summarizer.branch(diff).then((message) => {
+			if (message !== branch.name) {
+				branch.name = message;
+				branchController.updateBranchName(branch.id, branch.name);
+			}
+		});
 	}
 
 	$: linesTouched = computeAddedRemovedByFiles(...branch.files);
@@ -268,7 +266,6 @@
 									<CommitDialog
 										projectId={project.id}
 										{branch}
-										{cloud}
 										{selectedOwnership}
 										{user}
 										expanded={commitBoxOpen}

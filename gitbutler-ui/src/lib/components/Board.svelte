@@ -9,14 +9,13 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch, type Branch } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';
-	import type { User, getCloudApiClient } from '$lib/backend/cloud';
+	import type { User } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 
 	export let project: Project;
 	export let projectPath: string;
 	export let branches: Branch[] | undefined;
 	export let branchesError: any;
-	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let user: User | undefined;
 
 	const branchController = getContextByClass(BranchController);
@@ -108,7 +107,6 @@
 				<BranchLane
 					{branch}
 					{project}
-					{cloud}
 					branchCount={branches.filter((c) => c.active).length}
 					{projectPath}
 					{user}
