@@ -53,7 +53,9 @@
 			{branchName}
 		/>
 		<div class="actions">
-			<Button kind="outlined" on:mousedown={() => (selectedBranch = '')}>Back</Button>
+			<Button kind="outlined" color="neutral" on:mousedown={() => (selectedBranch = '')}
+				>Back</Button
+			>
 			<Button color="primary" {loading} on:click={setTarget}>Let's go!</Button>
 		</div>
 	{:else}
