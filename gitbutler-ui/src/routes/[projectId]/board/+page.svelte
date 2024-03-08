@@ -64,7 +64,7 @@
 					{githubService}
 				/>
 			</div>
-			<Scrollbar {viewport} {contents} horz />
+			<Scrollbar {viewport} {contents} horz zIndex={50} />
 		</div>
 	</div>
 </div>

@@ -4,10 +4,13 @@
 	export let viewport: Element;
 	export let contents: Element;
 	export let hideAfter = 1000;
-	// export let alwaysVisible = false;
 	export let initiallyVisible = false;
 	export let thickness = 'var(--space-8)';
+
 	export let horz = false;
+
+	// Custom z-index in case of overlapping with other elements
+	export let zIndex = 20;
 
 	$: vert = !horz;
 
@@ -20,7 +23,7 @@
 	let timer = 0;
 	let interacted = false;
 
-	let alwaysVisible = true;
+	let alwaysVisible = false;
 	let isViewportHovered = false;
 
 	$: teardownViewport = setupViewport(viewport);
@@ -240,8 +243,9 @@
 	style:top={vert ? 0 : undefined}
 	style:bottom={horz ? 0 : undefined}
 	style:left={horz ? 0 : undefined}
-	style:width={vert ? thickness : `${trackWidth}px`}
-	style:height={vert ? `${trackHeight}px` : thickness}
+	style:width={vert ? thickness : `100%`}
+	style:height={vert ? `100%` : thickness}
+	style:z-index={zIndex}
 >
 	<div
 		bind:this={thumb}
@@ -256,7 +260,6 @@
 
 <style>
 	.scrollbar-track {
-		z-index: 2;
 		position: absolute;
 		transition:
 			opacity 0.2s,
