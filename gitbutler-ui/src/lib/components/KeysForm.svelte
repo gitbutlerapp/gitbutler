@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CredentialCheck from './CredentialCheck.svelte';
 	import RadioButton from './RadioButton.svelte';
 	import SectionCard from './SectionCard.svelte';
 	import Spacer from './Spacer.svelte';
@@ -10,9 +11,10 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type { AuthService } from '$lib/backend/auth';
 	import type { Key, KeyType, Project } from '$lib/backend/projects';
+	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
 	export let authService: AuthService;
-
+	export let baseBranchService: BaseBranchService;
 	export let project: Project;
 	export let sshKey = '';
 
@@ -21,6 +23,8 @@
 			preferred_key: Key;
 		};
 	}>();
+
+	$: base$ = baseBranchService.base$;
 
 	let selectedType: KeyType =
 		typeof project.preferred_key == 'string' ? project.preferred_key : 'local';
@@ -57,9 +61,8 @@
 		}
 	}
 
-	onMount(async () => {
+	onMount(() => {
 		form.credentialType.value = selectedType;
-		sshKey = await authService.getPublicKey();
 	});
 </script>
 
@@ -102,7 +105,7 @@
 		</SectionCard>
 
 		{#if selectedType == 'local'}
-			<SectionCard roundedTop={false} roundedBottom={false} orientation="row">
+			<SectionCard hasTopRadius={false} hasBottomRadius={false} orientation="row">
 				<div class="inputs-group">
 					<TextBox
 						label="Path to private key"
@@ -177,7 +180,12 @@
 			</SectionCard>
 		{/if}
 
-		<SectionCard roundedTop={false} orientation="row" labelFor="credential-helper">
+		<SectionCard
+			roundedTop={false}
+			roundedBottom={false}
+			orientation="row"
+			labelFor="credential-helper"
+		>
 			<svelte:fragment slot="title">Use a Git credentials helper</svelte:fragment>
 
 			<svelte:fragment slot="body">
@@ -189,6 +197,16 @@
 
 			<svelte:fragment slot="actions">
 				<RadioButton name="credentialType" value="gitCredentialsHelper" id="credential-helper" />
+			</svelte:fragment>
+		</SectionCard>
+		<SectionCard roundedTop={false} orientation="row">
+			<svelte:fragment slot="body">
+				<CredentialCheck
+					projectId={project.id}
+					{authService}
+					remoteName={$base$?.remoteName}
+					branchName={$base$?.shortName}
+				/>
 			</svelte:fragment>
 		</SectionCard>
 	</form>
@@ -211,7 +229,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-16);
-		width: 100%;
 	}
 
 	.input-with-button {
