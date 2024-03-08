@@ -9,11 +9,14 @@
 	import { storeToObservable } from '$lib/rxjs/store';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { BehaviorSubject, combineLatest } from 'rxjs';
+	import { createEventDispatcher } from 'svelte';
 	import { getContext, onDestroy, onMount } from 'svelte';
 	import { derived } from 'svelte/store';
 	import type { BranchService } from '$lib/branches/service';
 	import type { CombinedBranch } from '$lib/branches/types';
 	import type { GitHubService } from '$lib/github/service';
+
+	const dispatch = createEventDispatcher<{ scrollbarDragging: boolean }>();
 
 	export let branchService: BranchService;
 	export let githubService: GitHubService;
@@ -151,7 +154,11 @@
 			/>
 		</BranchesHeader>
 		{#if $branches$?.length > 0}
-			<ScrollableContainer bind:viewport showBorderWhenScrolled>
+			<ScrollableContainer
+				bind:viewport
+				showBorderWhenScrolled
+				on:dragging={(e) => dispatch('scrollbarDragging', e.detail)}
+			>
 				<div class="scroll-container">
 					<TextBox
 						icon="filter"

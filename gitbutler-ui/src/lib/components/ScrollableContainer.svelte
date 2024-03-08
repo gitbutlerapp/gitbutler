@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, createEventDispatcher } from 'svelte';
 
 	export let viewport: HTMLDivElement | undefined = undefined;
 	export let contents: HTMLDivElement | undefined = undefined;
@@ -14,6 +14,8 @@
 	export let showBorderWhenScrolled = false;
 
 	let observer: ResizeObserver;
+
+	const dispatch = createEventDispatcher<{ dragging: boolean }>();
 
 	onMount(() => {
 		observer = new ResizeObserver(() => {
@@ -47,7 +49,12 @@
 		<div bind:this={contents} class="contents">
 			<slot />
 		</div>
-		<Scrollbar {viewport} {contents} {initiallyVisible} />
+		<Scrollbar
+			{viewport}
+			{contents}
+			{initiallyVisible}
+			on:dragging={(e) => dispatch('dragging', e.detail)}
+		/>
 	</div>
 </div>
 
