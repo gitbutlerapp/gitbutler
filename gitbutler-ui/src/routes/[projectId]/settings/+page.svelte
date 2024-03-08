@@ -19,6 +19,7 @@
 	$: userService = data.userService;
 	$: user$ = data.user$;
 	$: cloud = data.cloud;
+	$: authService = data.authService;
 
 	let deleteConfirmationModal: RemoveProjectButton;
 	let isDeleting = false;
@@ -78,7 +79,7 @@
 	<ContentWrapper title="Project settings">
 		<CloudForm project={$project$} user={$user$} {userService} on:updated={onCloudUpdated} />
 		<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
-		<KeysForm project={$project$} on:updated={onKeysUpdated} />
+		<KeysForm project={$project$} {authService} on:updated={onKeysUpdated} />
 		<PreferencesForm project={$project$} on:updated={onPreferencesUpdated} />
 		<SectionCard>
 			<svelte:fragment slot="title">Remove project</svelte:fragment>
