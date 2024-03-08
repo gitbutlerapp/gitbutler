@@ -25,7 +25,7 @@
 		modal.show();
 	}}
 >
-	Remove project
+	Remove project…
 </Button>
 
 <Modal bind:this={modal}>

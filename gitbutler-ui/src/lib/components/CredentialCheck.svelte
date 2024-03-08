@@ -88,7 +88,9 @@
 		Test credentials
 	</Button>
 	<div class="disclaimer">
-		To test the push command, we create an empty branch and promptly remove it after the check.
+		To test the push command, we create an empty branch and promptly remove it after the check. <Link
+			href="https://docs.gitbutler.com/troubleshooting/fetch-push">Read more</Link
+		> about authentication methods.
 	</div>
 </div>
 
@@ -103,7 +105,7 @@
 		color: var(--clr-theme-scale-ntrl-50);
 		background: var(--clr-theme-container-pale);
 		border-radius: var(--m, 6px);
-		background: var(--container-pale, #f4f4f4);
+		background: var(--clr-theme-container-pale);
 		padding: var(--space-10) var(--space-12);
 	}
 </style>

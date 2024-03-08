@@ -10,11 +10,12 @@
 </script>
 
 <div class="decorative-split-view">
-	<div class="left-side" data-tauri-drag-region>
+	<div class="left-side hide-native-scrollbar" data-tauri-drag-region>
 		<div class="left-side__content">
 			<slot />
 		</div>
 	</div>
+
 	<div class="right-side">
 		<div class="right-side-wrapper" data-tauri-drag-region>
 			{#if user}
@@ -80,7 +81,7 @@
 		flex-grow: 1;
 		background-color: var(--clr-theme-container-light);
 	}
-	.left-side,
+
 	.right-side {
 		display: flex;
 		flex-direction: column;
@@ -88,20 +89,23 @@
 	}
 
 	.left-side {
-		display: flex;
+		display: grid;
 		align-items: center;
 		justify-content: center;
-		padding: var(--space-32) calc(var(--space-40) * 2);
+		padding: var(--space-40) calc(var(--space-40) * 2);
 		flex: 1;
 		background-color: var(--clr-theme-container-light);
+		overflow-y: auto;
 	}
 
 	.left-side__content {
-		width: 100%;
-		max-width: 36rem;
 		display: flex;
 		flex-direction: column;
+		width: 100%;
+		max-width: 36rem;
 	}
+
+	/* RIGHT SIDE */
 
 	.right-side {
 		flex: 1;

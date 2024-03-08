@@ -114,7 +114,7 @@
 		</SectionCard>
 
 		{#if selectedType == 'local'}
-			<SectionCard hasTopRadius={false} hasBottomRadius={false} orientation="row">
+			<SectionCard hasTopRadius={false} roundedTop={false} roundedBottom={false} orientation="row">
 				<div class="inputs-group">
 					<TextBox
 						label="Path to private key"
@@ -236,6 +236,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-16);
+		width: 100%;
 	}
 
 	.input-with-button {
