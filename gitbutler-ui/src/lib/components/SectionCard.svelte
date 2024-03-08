@@ -50,7 +50,7 @@
 	{/if}
 	<slot />
 	{#if SLOTS.actions}
-		<div class="clickable-card__actions">
+		<div class="section-card__actions">
 			<slot name="actions" />
 		</div>
 	{/if}

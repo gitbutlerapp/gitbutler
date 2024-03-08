@@ -62,21 +62,27 @@
 
 {#if user}
 	<div class="aigen-wrap">
-		<SectionCard on:click={aiGenToggle} orientation="row">
+		<SectionCard labelFor="aiGenEnabled" on:click={aiGenToggle} orientation="row">
 			<svelte:fragment slot="title">Enable branch and commit message generation</svelte:fragment>
 			<svelte:fragment slot="body">
 				Uses OpenAI's API. If enabled, diffs will sent to OpenAI's servers when pressing the
 				"Generate message" button.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<Toggle checked={$aiGenEnabled} on:change={aiGenToggle} />
+				<Toggle id="aiGenEnabled" checked={$aiGenEnabled} on:change={aiGenToggle} />
 			</svelte:fragment>
 		</SectionCard>
 
-		<SectionCard disabled={!$aiGenEnabled} on:click={aiGenBranchNamesToggle} orientation="row">
+		<SectionCard
+			labelFor="branchNameGen"
+			disabled={!$aiGenEnabled}
+			on:click={aiGenBranchNamesToggle}
+			orientation="row"
+		>
 			<svelte:fragment slot="title">Automatically generate branch names</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<Toggle
+					id="branchNameGen"
 					disabled={!$aiGenEnabled}
 					checked={$aiGenAutoBranchNamingEnabled}
 					on:change={aiGenBranchNamesToggle}
@@ -90,12 +96,16 @@
 	{#if user.role === 'admin'}
 		<h3 class="text-base-15 text-bold">Full data synchronization</h3>
 
-		<SectionCard on:change={(e) => onSyncChange(e.detail)} orientation="row">
+		<SectionCard labelFor="historySync" on:change={(e) => onSyncChange(e.detail)} orientation="row">
 			<svelte:fragment slot="body">
 				Sync my history, repository and branch data for backup, sharing and team features.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<Toggle checked={project.api?.sync || false} on:change={(e) => onSyncChange(e.detail)} />
+				<Toggle
+					id="historySync"
+					checked={project.api?.sync || false}
+					on:change={(e) => onSyncChange(e.detail)}
+				/>
 			</svelte:fragment>
 		</SectionCard>
 

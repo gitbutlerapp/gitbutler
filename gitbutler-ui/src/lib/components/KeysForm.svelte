@@ -8,7 +8,10 @@
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { createEventDispatcher, onMount } from 'svelte';
+	import type { AuthService } from '$lib/backend/auth';
 	import type { Key, KeyType, Project } from '$lib/backend/projects';
+
+	export let authService: AuthService;
 
 	export let project: Project;
 	export let sshKey = '';
@@ -54,8 +57,9 @@
 		}
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		form.credentialType.value = selectedType;
+		sshKey = await authService.getPublicKey();
 	});
 </script>
 
@@ -98,7 +102,7 @@
 		</SectionCard>
 
 		{#if selectedType == 'local'}
-			<SectionCard hasTopRadius={false} hasBottomRadius={false} orientation="row">
+			<SectionCard roundedTop={false} roundedBottom={false} orientation="row">
 				<div class="inputs-group">
 					<TextBox
 						label="Path to private key"
@@ -148,8 +152,8 @@
 		</SectionCard>
 
 		{#if selectedType === 'generated'}
-			<SectionCard hasTopRadius={false} hasBottomRadius={false} orientation="row">
-				<TextBox readonly selectall bind:value={sshKey} />
+			<SectionCard labelFor="sshKey" roundedTop={false} roundedBottom={false}>
+				<TextBox id="sshKey" readonly selectall bind:value={sshKey} wide />
 				<div class="row-buttons">
 					<Button
 						kind="filled"
@@ -173,12 +177,7 @@
 			</SectionCard>
 		{/if}
 
-		<SectionCard
-			roundedTop={false}
-			roundedBottom={false}
-			orientation="row"
-			labelFor="credential-helper"
-		>
+		<SectionCard roundedTop={false} orientation="row" labelFor="credential-helper">
 			<svelte:fragment slot="title">Use a Git credentials helper</svelte:fragment>
 
 			<svelte:fragment slot="body">
@@ -190,11 +189,6 @@
 
 			<svelte:fragment slot="actions">
 				<RadioButton name="credentialType" value="gitCredentialsHelper" id="credential-helper" />
-			</svelte:fragment>
-		</SectionCard>
-		<SectionCard roundedTop={false} orientation="row">
-			<svelte:fragment slot="body">
-				<Button wide>Test credentials</Button>
 			</svelte:fragment>
 		</SectionCard>
 	</form>
@@ -217,6 +211,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-16);
+		width: 100%;
 	}
 
 	.input-with-button {
