@@ -11,6 +11,7 @@
 	export let background: SectionCardBackground = undefined;
 	export let noBorder = false;
 	export let labelFor = '';
+	export let disabled = false;
 
 	const SLOTS = $$props.$$slots;
 </script>
@@ -27,6 +28,8 @@
 	class:loading={background == 'loading'}
 	class:success={background == 'success'}
 	class:error={background == 'error'}
+	class:clickable={labelFor !== ''}
+	class:disabled
 >
 	{#if SLOTS.iconSide}
 		<div class="section-card__icon-side">
@@ -64,7 +67,7 @@
 		border-left: 1px solid var(--clr-theme-container-outline-light);
 		border-right: 1px solid var(--clr-theme-container-outline-light);
 		background-color: var(--clr-theme-container-light);
-		cursor: pointer;
+		cursor: default;
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast);
@@ -121,5 +124,22 @@
 
 	.no-border {
 		border: none;
+	}
+
+	.clickable {
+		cursor: pointer;
+
+		&:hover {
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-light),
+				var(--darken-tint-extralight)
+			);
+		}
+	}
+
+	.disabled {
+		pointer-events: none;
+		opacity: 0.5;
 	}
 </style>

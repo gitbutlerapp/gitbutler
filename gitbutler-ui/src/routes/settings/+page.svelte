@@ -236,7 +236,7 @@
 				</svelte:fragment>
 				<svelte:fragment slot="actions">
 					<Toggle
-						id="commiterSigning"
+						id="committerSigning"
 						checked={annotateCommits}
 						on:change={toggleCommitterSigning}
 					/>
