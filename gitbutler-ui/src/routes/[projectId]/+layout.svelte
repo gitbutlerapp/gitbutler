@@ -65,6 +65,9 @@
 
 {#if !$project$}
 	<p>Project not found!</p>
+{:else if $baseBranch$ === null}
+	<!-- Be careful, this works because of the redirect above -->
+	<slot />
 {:else if $baseError$}
 	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$baseError$} />
 {:else if $branchesError$}
@@ -93,8 +96,6 @@
 		<div class="absolute h-4 w-full" data-tauri-drag-region></div>
 		<slot />
 	</div>
-{:else if $baseBranch$ === undefined}
-	loading...
 {:else}
-	<slot />
+	loading...
 {/if}
