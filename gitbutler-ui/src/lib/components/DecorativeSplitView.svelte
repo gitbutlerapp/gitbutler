@@ -15,6 +15,7 @@
 			<slot />
 		</div>
 	</div>
+
 	<div class="right-side">
 		<div class="right-side-wrapper" data-tauri-drag-region>
 			{#if user}
@@ -91,7 +92,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: var(--space-32) calc(var(--space-40) * 2);
+		padding: 0 calc(var(--space-40) * 2);
 		flex: 1;
 		background-color: var(--clr-theme-container-light);
 	}
@@ -101,7 +102,15 @@
 		max-width: 36rem;
 		display: flex;
 		flex-direction: column;
+		padding: var(--space-40) 0;
+		overflow-y: scroll;
+
+		&::-webkit-scrollbar {
+			display: none;
+		}
 	}
+
+	/* RIGHT SIDE */
 
 	.right-side {
 		flex: 1;
