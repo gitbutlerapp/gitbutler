@@ -142,16 +142,13 @@
 		flex-direction: column;
 		padding: var(--space-6);
 		gap: var(--space-2);
-		&:last-child {
+
+		&:not(&:first-child):last-child {
 			border-top: 1px solid var(--clr-theme-container-outline-light);
 		}
 	}
 
 	.wide {
 		width: 100%;
-	}
-
-	.select-wrapper :global(.wide-text-btn) {
-		flex: 1;
 	}
 </style>
