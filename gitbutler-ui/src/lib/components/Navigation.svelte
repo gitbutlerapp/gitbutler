@@ -64,18 +64,13 @@
 			on:mousedown={toggleNavCollapse}
 			class:folding-button_folded={$isNavCollapsed}
 		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				xmlns:xlink="http://www.w3.org/1999/xlink"
-				viewBox="0 0 8 12"
-				fill="none"
-				><path
-					d="M6,0L0,6l6,6"
-					transform="translate(1 0)"
+			<svg viewBox="0 0 7 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<path
+					d="M6 1L1.81892 9.78026C1.30084 10.8682 1.30084 12.1318 1.81892 13.2197L6 22"
 					stroke-width="1.5"
-					stroke-linejoin="round"
-				/></svg
-			>
+					vector-effect="non-scaling-stroke"
+				/>
+			</svg>
 		</button>
 		<Resizer
 			{viewport}
@@ -197,12 +192,14 @@
 
 	.folding-button {
 		z-index: 42;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		position: absolute;
-		right: calc(var(--space-2) * -1);
+		right: calc(var(--space-4) * -1);
 		top: 50%;
-		width: var(--space-16);
+		width: 0.875rem;
 		height: var(--space-36);
-		padding: var(--space-4);
 		background: var(--clr-theme-container-light);
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-theme-container-outline-light);
@@ -214,21 +211,21 @@
 			right var(--transition-fast);
 
 		& svg {
-			stroke: var(--clr-theme-scale-ntrl-50);
+			stroke: var(--clr-theme-scale-ntrl-60);
 			transition: stroke var(--transition-fast);
+			width: 45%;
 		}
 
 		&:hover {
-			background-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-light),
-				var(--darken-tint-extralight)
-			);
 			border-color: color-mix(
 				in srgb,
 				var(--clr-theme-container-outline-light),
 				var(--darken-tint-dark)
 			);
+
+			& svg {
+				stroke: var(--clr-theme-scale-ntrl-50);
+			}
 		}
 	}
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, createEventDispatcher } from 'svelte';
 
 	export let viewport: Element;
 	export let contents: Element;
@@ -25,6 +25,7 @@
 
 	let alwaysVisible = false;
 	let isViewportHovered = false;
+	let isDragging = false;
 
 	$: teardownViewport = setupViewport(viewport);
 	$: teardownThumb = setupThumb(thumb);
@@ -47,6 +48,10 @@
 	$: visible =
 		((scrollableY || scrollableX) && initiallyVisible) ||
 		(alwaysVisible && isViewportHovered && (scrollableY || scrollableX));
+
+	const dispatch = createEventDispatcher<{
+		dragging: boolean;
+	}>();
 
 	function setupViewport(viewport: Element) {
 		if (!viewport) return;
@@ -196,6 +201,8 @@
 		event.stopPropagation();
 		event.preventDefault();
 
+		isDragging = true;
+
 		startTop = viewport.scrollTop;
 		startLeft = viewport.scrollLeft;
 		if (event instanceof MouseEvent) {
@@ -225,6 +232,8 @@
 		startLeft = 0;
 		startX = 0;
 
+		isDragging = false;
+
 		document.removeEventListener('mousemove', onMouseMove);
 		document.removeEventListener('mouseup', onMouseUp);
 	}
@@ -234,23 +243,30 @@
 		teardownContents?.();
 		teardownThumb?.();
 	});
+
+	$: {
+		dispatch('dragging', isDragging);
+	}
 </script>
 
 <div
 	bind:this={track}
 	class="scrollbar-track"
+	class:horz
+	class:vert
+	class:show-scrollbar={visible}
+	class:thumb-dragging={isDragging}
 	style:right={vert ? 0 : undefined}
 	style:top={vert ? 0 : undefined}
 	style:bottom={horz ? 0 : undefined}
 	style:left={horz ? 0 : undefined}
-	style:width={vert ? thickness : `100%`}
-	style:height={vert ? `100%` : thickness}
+	style:width={vert ? thickness : `80%`}
+	style:height={vert ? `80%` : thickness}
 	style:z-index={zIndex}
 >
 	<div
 		bind:this={thumb}
 		class="scrollbar-thumb"
-		class:show-scrollbar-thumb={visible}
 		style:left={vert ? undefined : `${thumbLeft}px`}
 		style:top={vert ? `${thumbTop}px` : undefined}
 		style:width={vert ? '100%' : `${thumbWidth}px`}
@@ -265,7 +281,6 @@
 			opacity 0.2s,
 			width 0.1s,
 			height 0.1s;
-		/* background-color: rgba(0, 0, 0, 0.1); */
 	}
 
 	.scrollbar-thumb {
@@ -273,16 +288,54 @@
 		z-index: 30;
 		background-color: var(--clr-theme-scale-ntrl-0);
 		opacity: 0;
-		transition: opacity 0.2s;
+		transition:
+			opacity 0.2s,
+			transform 0.15s;
+	}
+
+	/* modify vertical scrollbar */
+	.scrollbar-track.vert {
+		& .scrollbar-thumb {
+			transform: scaleX(0.6);
+			transform-origin: right;
+		}
+	}
+
+	/* modify horizontal scrollbar */
+	.scrollbar-track.horz {
+		& .scrollbar-thumb {
+			transform: scaleY(0.6);
+			transform-origin: bottom;
+		}
 	}
 
 	/* MODIFIERS */
 
-	.show-scrollbar-thumb {
-		opacity: 0.2;
+	.show-scrollbar {
+		& .scrollbar-thumb {
+			opacity: 0.15;
+		}
+	}
 
-		&:hover {
-			opacity: 0.3;
+	/* hover state for thumb */
+	.show-scrollbar:hover,
+	.thumb-dragging {
+		& .scrollbar-thumb {
+			opacity: 0.25;
+		}
+	}
+
+	.show-scrollbar.vert:hover,
+	.thumb-dragging.vert {
+		& .scrollbar-thumb {
+			transform: scaleY(1);
+		}
+	}
+
+	.show-scrollbar.horz:hover,
+	.thumb-dragging.horz {
+		& .scrollbar-thumb {
+			transform: scaleX(1);
 		}
 	}
 </style>
