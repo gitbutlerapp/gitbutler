@@ -152,7 +152,7 @@
 		</SectionCard>
 
 		{#if selectedType === 'generated'}
-			<SectionCard labelFor="sshKey" roundedTop={false} roundedBottom={false}>
+			<SectionCard roundedTop={false} roundedBottom={false}>
 				<TextBox id="sshKey" readonly selectall bind:value={sshKey} wide />
 				<div class="row-buttons">
 					<Button
