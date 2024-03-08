@@ -29,15 +29,15 @@
 	async function onDeleteClicked() {
 		isDeleting = true;
 		try {
-			projectService.deleteProject($project$?.id);
-			toasts.success('Project deleted');
+			await projectService.deleteProject($project$?.id);
+			await projectService.reload();
 			goto('/');
+			toasts.success('Project deleted');
 		} catch (err: any) {
 			console.error(err);
 			toasts.error('Failed to delete project');
 		} finally {
 			isDeleting = false;
-			projectService.reload();
 		}
 	}
 
