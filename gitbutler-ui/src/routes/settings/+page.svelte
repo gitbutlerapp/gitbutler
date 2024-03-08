@@ -275,7 +275,7 @@
 				</div>
 			</SectionCard>
 
-			<SectionCard labelFor="signingSetting" orientation="row" for="signingSetting">
+			<SectionCard labelFor="signingSetting" orientation="row">
 				<svelte:fragment slot="title">Sign Commits with the above SSH Key</svelte:fragment>
 				<svelte:fragment slot="body">
 					If you want GitButler to sign your commits with the SSH key we generated, then you can add
