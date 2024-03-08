@@ -38,7 +38,7 @@
 	const fileTypes = ['image/jpeg', 'image/png'];
 
 	// TODO: Maybe break these into components?
-	let currentSection: 'profile' | 'git-stuff' | 'telemetry' | 'integrations' = 'profile';
+	let currentSection: 'profile' | 'git-stuff' | 'telemetry' | 'integrations' | 'ai' = 'profile';
 
 	// TODO: Refactor such that this variable isn't needed
 	let newName = '';
@@ -332,6 +332,38 @@
 			{#if $user}
 				<GithubIntegration />
 			{/if}
+		</ContentWrapper>
+	{:else if currentSection === 'ai'}
+		<ContentWrapper title="AI Options">
+			<SectionCard>
+				<svelte:fragment slot="title">AI Provider</svelte:fragment>
+				<svelte:fragment slot="caption">
+					GitButler uses a a connection to its API to provide AI functionality, but supports
+					additional providers
+				</svelte:fragment>
+
+				<TextBox readonly selectall bind:value={sshKey} />
+				<div class="row-buttons">
+					<Button
+						kind="filled"
+						color="primary"
+						icon="copy"
+						on:click={() => copyToClipboard(sshKey)}
+					>
+						Copy to Clipboard
+					</Button>
+					<Button
+						kind="outlined"
+						color="neutral"
+						icon="open-link"
+						on:mousedown={() => {
+							openExternalUrl('https://github.com/settings/ssh/new');
+						}}
+					>
+						Add key to GitHub
+					</Button>
+				</div>
+			</SectionCard>
 		</ContentWrapper>
 	{/if}
 </section>

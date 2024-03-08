@@ -14,7 +14,7 @@
 	const baseBranchService = getContextByClass(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
-	$: ({ vbranchService, cloud, projectId, user$, project$ } = data);
+	$: ({ vbranchService, projectId, user$, project$ } = data);
 
 	$: activeBranches$ = vbranchService.activeBranches$;
 	$: error$ = vbranchService.branchesError;
@@ -50,7 +50,6 @@
 			<div class="scroll-contents" bind:this={contents}>
 				<Board
 					project={$project$}
-					{cloud}
 					branches={$activeBranches$}
 					projectPath={$project$?.path}
 					branchesError={$error$}

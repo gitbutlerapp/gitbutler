@@ -4,10 +4,11 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { goto } from '$app/navigation';
 
-	export let currentSection: 'profile' | 'git-stuff' | 'telemetry' | 'integrations' = 'profile';
+	export let currentSection: 'profile' | 'git-stuff' | 'telemetry' | 'integrations' | 'ai' =
+		'profile';
 	export let showIntegrations = false;
 
-	function onMenuClick(section: 'profile' | 'git-stuff' | 'telemetry' | 'integrations') {
+	function onMenuClick(section: 'profile' | 'git-stuff' | 'telemetry' | 'integrations' | 'ai') {
 		currentSection = section;
 	}
 </script>
@@ -75,6 +76,16 @@
 						</button>
 					</li>
 				{/if}
+				<li>
+					<button
+						class="profile-sidebar__menu-item"
+						class:item_selected={currentSection === 'ai'}
+						on:mousedown={() => onMenuClick('ai')}
+					>
+						<Icon name="stat" />
+						<span class="text-base-14 text-semibold">AI Options</span>
+					</button>
+				</li>
 			</ul>
 		</div>
 	</section>

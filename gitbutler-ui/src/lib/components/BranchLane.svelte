@@ -12,13 +12,12 @@
 	import { quintOut } from 'svelte/easing';
 	import { writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
-	import type { User, getCloudApiClient } from '$lib/backend/cloud';
+	import type { User } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
 	export let project: Project;
-	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchCount = 1;
 	export let user: User | undefined;
 	export let projectPath: string;
@@ -65,7 +64,6 @@
 		{branch}
 		{isUnapplied}
 		{project}
-		{cloud}
 		{selectedOwnership}
 		{commitBoxOpen}
 		bind:isLaneCollapsed
