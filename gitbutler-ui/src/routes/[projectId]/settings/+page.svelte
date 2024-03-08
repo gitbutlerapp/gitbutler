@@ -6,9 +6,10 @@
 	import PreferencesForm from '$lib/components/PreferencesForm.svelte';
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import Spacer from '$lib/components/Spacer.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import * as toasts from '$lib/utils/toasts';
-	import type { Key, Project } from '$lib/backend/projects';
+	import type { Project } from '$lib/backend/projects';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 
@@ -37,15 +38,6 @@
 		} finally {
 			isDeleting = false;
 			projectService.reload();
-		}
-	}
-
-	async function onKeysUpdated(e: { detail: { preferred_key: Key } }) {
-		try {
-			projectService.updateProject({ ...$project$, ...e.detail });
-			toasts.success('Preferred key updated');
-		} catch (err: any) {
-			toasts.error(err.message);
 		}
 	}
 
@@ -80,7 +72,8 @@
 	<ContentWrapper title="Project settings">
 		<CloudForm project={$project$} user={$user$} {userService} on:updated={onCloudUpdated} />
 		<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
-		<KeysForm project={$project$} {authService} {baseBranchService} on:updated={onKeysUpdated} />
+		<KeysForm project={$project$} {authService} {baseBranchService} {projectService} />
+		<Spacer />
 		<PreferencesForm project={$project$} on:updated={onPreferencesUpdated} />
 		<SectionCard>
 			<svelte:fragment slot="title">Remove project</svelte:fragment>
