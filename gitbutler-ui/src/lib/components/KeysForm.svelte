@@ -2,29 +2,29 @@
 	import CredentialCheck from './CredentialCheck.svelte';
 	import RadioButton from './RadioButton.svelte';
 	import SectionCard from './SectionCard.svelte';
-	import Spacer from './Spacer.svelte';
 	import TextBox from './TextBox.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
+	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import type { AuthService } from '$lib/backend/auth';
-	import type { Key, KeyType, Project } from '$lib/backend/projects';
+	import type { Key, KeyType, Project, ProjectService } from '$lib/backend/projects';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
 	export let authService: AuthService;
 	export let baseBranchService: BaseBranchService;
+	export let projectService: ProjectService;
 	export let project: Project;
-	export let sshKey = '';
 
-	const dispatch = createEventDispatcher<{
-		updated: {
-			preferred_key: Key;
-		};
-	}>();
+	// Used by credential checker before target branch set
+	export let remoteName = '';
+	export let branchName = '';
 
 	$: base$ = baseBranchService.base$;
+
+	let sshKey = '';
 
 	let selectedType: KeyType =
 		typeof project.preferred_key == 'string' ? project.preferred_key : 'local';
@@ -37,7 +37,7 @@
 
 	function setLocalKey() {
 		if (privateKeyPath.trim().length == 0) return;
-		dispatch('updated', {
+		updateKey({
 			preferred_key: {
 				local: {
 					private_key_path: privateKeyPath.trim(),
@@ -45,6 +45,14 @@
 				}
 			}
 		});
+	}
+
+	async function updateKey(detail: { preferred_key: Key }) {
+		try {
+			projectService.updateProject({ ...project, ...detail });
+		} catch (err: any) {
+			toasts.error(err.message);
+		}
 	}
 
 	let showPassphrase = false;
@@ -55,14 +63,15 @@
 		const formData = new FormData(form);
 		selectedType = formData.get('credentialType') as KeyType;
 		if (selectedType != 'local') {
-			dispatch('updated', { preferred_key: selectedType });
+			updateKey({ preferred_key: selectedType });
 		} else {
 			setLocalKey();
 		}
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		form.credentialType.value = selectedType;
+		sshKey = await authService.getPublicKey();
 	});
 </script>
 
@@ -204,17 +213,15 @@
 				<CredentialCheck
 					projectId={project.id}
 					{authService}
-					remoteName={$base$?.remoteName}
-					branchName={$base$?.shortName}
+					remoteName={remoteName || $base$?.remoteName}
+					branchName={branchName || $base$?.shortName}
 				/>
 			</svelte:fragment>
 		</SectionCard>
 	</form>
 </div>
 
-<Spacer />
-
-<style>
+<style lang="postcss">
 	.git-auth-wrap {
 		display: flex;
 		flex-direction: column;

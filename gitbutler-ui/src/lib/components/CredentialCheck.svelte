@@ -2,17 +2,20 @@
 	import Button from './Button.svelte';
 	import InfoMessage, { type MessageStyle } from './InfoMessage.svelte';
 	import Link from './Link.svelte';
-	import { showToast } from '$lib/notifications/toasts';
 	import { slide } from 'svelte/transition';
 	import type { AuthService, GitCredentialCheck } from '$lib/backend/auth';
 
 	export let authService: AuthService;
 	export let projectId: string;
-	export let remoteName: string | undefined;
-	export let branchName: string | undefined;
+	export let remoteName: string | null | undefined;
+	export let branchName: string | null | undefined;
 
 	let credentialsCheck: any | undefined;
 	let loading = false;
+
+	let fetchError: string | undefined;
+	let pushError: string | undefined;
+	let success = false;
 
 	$: style = checkToStyle(credentialsCheck);
 
@@ -23,7 +26,12 @@
 	}
 
 	async function checkCredentials() {
-		return await Promise.all([checkPush(), checkFetch()]);
+		loading = true;
+		success = false;
+		await checkPush();
+		await checkFetch();
+		loading = false;
+		success = true;
 	}
 
 	async function checkFetch() {
@@ -31,7 +39,7 @@
 		loading = true;
 		credentialsCheck = await authService.checkGitFetch(projectId, remoteName);
 		if (credentialsCheck.error) {
-			showToast({ title: 'Failed to fetch from remote', message: credentialsCheck.error });
+			fetchError = credentialsCheck.error;
 		}
 		loading = false;
 	}
@@ -41,30 +49,36 @@
 		loading = true;
 		credentialsCheck = await authService.checkGitPush(projectId, remoteName, branchName);
 		if (credentialsCheck.error) {
-			showToast({ title: 'Failed to push to remote', message: credentialsCheck.error });
+			pushError = credentialsCheck.error;
 		}
 		loading = false;
 	}
 </script>
 
 <div class="credential-check">
-	{#if credentialsCheck}
+	{#if success || fetchError || pushError}
 		<div transition:slide>
 			<InfoMessage {style} filled outlined={false}>
 				<svelte:fragment slot="title">
 					{#if loading}
 						Checking git credentials …
-					{:else if credentialsCheck.ok}
-						All checks have passed successfully
-					{:else if credentialsCheck.error}
-						Unable to Fetch and Push
+					{:else if fetchError}
+						Unable to fetch
+					{:else if pushError}
+						Unable to push
+					{:else}
+						All checks passed successfully
 					{/if}
 				</svelte:fragment>
 				<svelte:fragment>
-					{#if credentialsCheck.error}
-						No worries! You can easily fix this by adjusting your Git authentication in the project
-						settings.
+					{#if fetchError}
+						We were unable to fetch from the remote, please check your authentication settings.
 						<Link href="https://docs.gitbutler.com/troubleshooting/fetch-push">Learn more</Link>.
+						{fetchError}
+					{:else if pushError}
+						We were unable to push to the remote, please check your authentication settings.
+						<Link href="https://docs.gitbutler.com/troubleshooting/fetch-push">Learn more</Link>.
+						{pushError}
 					{/if}
 				</svelte:fragment>
 			</InfoMessage>

@@ -4,13 +4,12 @@
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
-	import ProjectSetup from '$lib/components/ProjectSetup.svelte';
 	import { subscribe as menuSubscribe } from '$lib/menu';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/random';
-	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
 	import { onDestroy, onMount } from 'svelte';
 	import type { LayoutData } from './$types';
+	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
 
@@ -48,6 +47,10 @@
 		if (intervalId) clearInterval(intervalId);
 	}
 
+	$: if ($baseBranch$ === null) {
+		goto(`/${projectId}/setup`, { replaceState: true });
+	}
+
 	onMount(() =>
 		unsubscribe(
 			menuSubscribe(data.projectId),
@@ -64,30 +67,6 @@
 	<p>Project not found!</p>
 {:else if $baseError$}
 	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$baseError$} />
-{:else if $baseBranch$ === null}
-	{#await getRemoteBranches(projectId)}
-		<p>loading...</p>
-	{:then remoteBranches}
-		{#if remoteBranches.length == 0}
-			<ProblemLoadingRepo
-				{userService}
-				{projectService}
-				project={$project$}
-				error="Currently, GitButler requires a remote branch to base its virtual branch work on. To
-						use virtual branches, please push your code to a remote branch to use as a base"
-			/>
-		{:else}
-			<ProjectSetup {branchController} {userService} {projectId} {remoteBranches} />
-		{/if}
-	{:catch}
-		<ProblemLoadingRepo
-			{userService}
-			{projectService}
-			project={$project$}
-			error="Currently, GitButler requires a remote branch to base its virtual branch work on. To
-						use virtual branches, please push your code to a remote branch to use as a base"
-		/>
-	{/await}
 {:else if $branchesError$}
 	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$branchesError$} />
 {:else if !$gbBranchActive$ && $baseBranch$}
@@ -114,6 +93,8 @@
 		<div class="absolute h-4 w-full" data-tauri-drag-region></div>
 		<slot />
 	</div>
-{:else}
+{:else if $baseBranch$ === undefined}
 	loading...
+{:else}
+	<slot />
 {/if}

@@ -6,7 +6,7 @@ export type GitCredentialCheck = {
 };
 
 export class AuthService {
-	async checkGitFetch(projectId: string, remoteName: string | undefined) {
+	async checkGitFetch(projectId: string, remoteName: string | null | undefined) {
 		if (!remoteName) return { ok: false, error: 'No remote specified' };
 		try {
 			const resp = await invoke<string>('git_test_fetch', {
@@ -18,10 +18,11 @@ export class AuthService {
 			return { ok: false, error: err.message };
 		}
 	}
+
 	async checkGitPush(
 		projectId: string,
-		remoteName: string | undefined,
-		branchName: string | undefined
+		remoteName: string | null | undefined,
+		branchName: string | null | undefined
 	) {
 		if (!remoteName) return { ok: false, error: 'No remote specified' };
 		if (!branchName) return { ok: false, error: 'No branchspecified' };
