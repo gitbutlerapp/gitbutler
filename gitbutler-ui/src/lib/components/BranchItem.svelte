@@ -38,7 +38,7 @@
 			</p>
 			<!-- <AheadBehind ahead={branch.remoteBranch?.ahead} behind={branch.remoteBranch?.behind} /> -->
 		</div>
-		{#if !branch.remoteBranch || branch.pr}
+		{#if branch.remoteBranch || branch.pr}
 			<div class="branch__details">
 				<span class="branch__author text-base-11 details truncate">
 					<TimeAgo date={branch.modifiedAt} />

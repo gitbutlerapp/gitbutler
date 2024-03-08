@@ -23,6 +23,8 @@ pub struct RemoteBranch {
     pub sha: git::Oid,
     pub name: git::Refname,
     pub upstream: Option<git::RemoteRefname>,
+    pub last_commit_timestamp_ms: Option<u128>,
+    pub last_commit_author: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -112,6 +114,7 @@ pub fn get_branch_data(
 }
 
 pub fn branch_to_remote_branch(branch: &git::Branch) -> Result<Option<RemoteBranch>> {
+    let commit = branch.peel_to_commit()?;
     branch
         .target()
         .map(|sha| {
@@ -124,6 +127,13 @@ pub fn branch_to_remote_branch(branch: &git::Branch) -> Result<Option<RemoteBran
                     None
                 },
                 name,
+                last_commit_timestamp_ms: commit
+                    .time()
+                    .seconds()
+                    .try_into()
+                    .map(|t: u128| t * 1000)
+                    .ok(),
+                last_commit_author: commit.author().name().map(std::string::ToString::to_string),
             })
         })
         .transpose()

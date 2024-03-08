@@ -31,11 +31,10 @@ export class CombinedBranch {
 		if (this.pr?.author) {
 			authors.push(this.pr.author);
 		}
-		if (this.remoteBranch && !this.pr) {
-			// TODO: Is there a better way to filter out duplicates?
-			// authors.push(
-			// 	...this.remoteBranch.authors.filter((a) => !authors.some((b) => a.email == b.email))
-			// );
+		if (this.remoteBranch) {
+			if (this.remoteBranch.lastCommitAuthor) {
+				authors.push({ name: this.remoteBranch.lastCommitAuthor });
+			}
 		}
 		if (this.vbranch) {
 			authors.push({ name: 'you', email: 'none', isBot: false });
@@ -66,7 +65,11 @@ export class CombinedBranch {
 	get modifiedAt(): Date | undefined {
 		if (this.pr) return this.pr.modifiedAt || this.pr.createdAt;
 		if (this.vbranch) return this.vbranch.updatedAt;
-		// if (this.remoteBranch) return this.remoteBranch.lastCommitTs;
+		if (this.remoteBranch) {
+			return this.remoteBranch.lastCommitTimestampMs
+				? new Date(this.remoteBranch.lastCommitTimestampMs)
+				: undefined;
+		}
 	}
 
 	get tooltip(): string | undefined {
