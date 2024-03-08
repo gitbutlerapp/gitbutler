@@ -1,10 +1,9 @@
-import { getAnthropicKey, getModelKind, getOpenAIKey, getTokenOption } from './summarizer_settings';
+import { getAnthropicKey, getAnthropicModel, getModelKind, getOpenAIKey, getOpenAIModel, getTokenOption, KeyOption, ModelKind } from './summarizer_settings';
 import {
-	KeyOption,
 	type AIProvider,
 	ButlerAIProvider,
-	ModelKind,
-	OpenAIProvider as AnthropicAIProvider
+	OpenAIProvider as AnthropicAIProvider,
+    OpenAIProvider
 } from '$lib/backend/aiProviders';
 import { getCloudApiClient, type User } from '$lib/backend/cloud';
 
@@ -114,7 +113,8 @@ export async function buildSummarizer(context: SummarizerContext): Promise<Summa
 
 		if (!openAIKey) return;
 
-		const aiProvider = new AnthropicAIProvider(openAIKey);
+        const openAIModel = await getOpenAIModel();
+		const aiProvider = new OpenAIProvider(openAIKey, openAIModel);
 		return new Summarizer(aiProvider);
 	}
 
@@ -123,7 +123,8 @@ export async function buildSummarizer(context: SummarizerContext): Promise<Summa
 
 		if (!anthropicKey) return;
 
-		const aiProvider = new AnthropicAIProvider(anthropicKey);
+        const anthropicModel = await getAnthropicModel();
+		const aiProvider = new AnthropicAIProvider(anthropicKey, anthropicModel);
 		return new Summarizer(aiProvider);
 	}
 }

@@ -1,20 +1,11 @@
 import { Body, fetch } from '@tauri-apps/api/http';
 import OpenAI from 'openai';
 import type { User, getCloudApiClient } from '$lib/backend/cloud';
+import type { AnthropicModel, ModelKind, OpenAIModel } from '$lib/backend/summarizer_settings';
 
 enum MessageRole {
 	User = 'user',
 	Assistant = 'assisstant'
-}
-
-export enum ModelKind {
-	OpenAI = 'openai',
-	Anthropic = 'anthropic'
-}
-
-export enum KeyOption {
-	BringYourOwn = 'bringYourOwn',
-	ButlerAPI = 'butlerAPI'
 }
 
 export interface PromptMessage {
@@ -48,7 +39,7 @@ export class ButlerAIProvider implements AIProvider {
 export class OpenAIProvider implements AIProvider {
 	private openAI: OpenAI;
 
-	constructor(apiKey: string) {
+	constructor(apiKey: string, private model: OpenAIModel) {
 		this.openAI = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
 	}
 
@@ -58,7 +49,7 @@ export class OpenAIProvider implements AIProvider {
 		const response = await this.openAI.chat.completions.create({
 			// @ts-expect-error There is a type mismatch where it seems to want a "name" paramater that isn't required https://github.com/openai/openai-openapi/issues/118#issuecomment-1847667988
 			messages,
-			model: 'gpt-3.5-turbo',
+			model: this.model,
 			max_tokens: 400
 		});
 
@@ -69,7 +60,7 @@ export class OpenAIProvider implements AIProvider {
 type AnthropicAPIResponse = { content: { text: string }[] };
 
 export class AnthropicAIProvider implements AIProvider {
-	constructor(private apiKey: string) {}
+	constructor(private apiKey: string, private model: AnthropicModel) {}
 
 	async evaluate(prompt: string) {
 		const messages: PromptMessage[] = [{ role: MessageRole.User, content: prompt }];
@@ -77,7 +68,7 @@ export class AnthropicAIProvider implements AIProvider {
 		const body = Body.json({
 			messages,
 			max_tokens: 1024,
-			model: 'claude-3-opus-20240229'
+			model: this.model
 		});
 
 		const response = await fetch<AnthropicAPIResponse>('https://api.anthropic.com/v1/messages', {
