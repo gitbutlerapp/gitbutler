@@ -236,6 +236,8 @@ export class RemoteBranch {
 	sha!: string;
 	name!: string;
 	upstream?: string;
+	lastCommitTimestampMs?: number | undefined;
+	lastCommitAuthor?: string | undefined;
 
 	get displayName(): string {
 		return this.name.replace('refs/remotes/', '').replace('origin/', '').replace('refs/heads/', '');
