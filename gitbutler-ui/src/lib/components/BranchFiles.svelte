@@ -3,16 +3,20 @@
 	import BranchFilesList from './BranchFilesList.svelte';
 	import FileTree from './FileTree.svelte';
 	import { filesToFileTree } from '$lib/vbranches/filetree';
+	import type { Project } from '$lib/backend/projects';
+	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
+	export let project: Project | undefined;
 	export let branchId: string;
 	export let files: LocalFile[] | RemoteFile[];
 	export let isUnapplied: boolean;
 	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
 	export let showCheckboxes = false;
+	export let branchController: BranchController;
 
 	export let allowMultiple: boolean;
 	export let readonly: boolean;
@@ -36,6 +40,8 @@
 					{selectedFiles}
 					{showCheckboxes}
 					{isUnapplied}
+					{branchController}
+					{project}
 				/>
 			{:else}
 				<FileTree
@@ -48,6 +54,9 @@
 					{selectedOwnership}
 					{selectedFiles}
 					{isUnapplied}
+					{branchController}
+					{files}
+					{project}
 				/>
 			{/if}
 		</div>
@@ -65,15 +74,15 @@
 		}
 	}
 	.branch-files__header {
-		padding-top: var(--space-12);
+		padding-top: var(--space-14);
 		padding-bottom: var(--space-12);
-		padding-left: var(--space-20);
-		padding-right: var(--space-12);
+		padding-left: var(--space-14);
+		padding-right: var(--space-14);
 	}
 	.files-padding {
 		padding-top: 0;
 		padding-bottom: var(--space-12);
-		padding-left: var(--space-12);
-		padding-right: var(--space-12);
+		padding-left: var(--space-14);
+		padding-right: var(--space-14);
 	}
 </style>

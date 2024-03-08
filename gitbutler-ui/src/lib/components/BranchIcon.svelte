@@ -2,18 +2,20 @@
 	import { tooltip } from '$lib/utils/tooltip';
 
 	export let name: 'remote-branch' | 'virtual-branch' | 'pr' | 'pr-draft' | 'pr-closed' | undefined;
-	export let color: 'neutral' | 'success' | 'pop' | 'purple' | undefined;
 	export let help: string | undefined;
+
+	const getIconColor = (name: string | undefined) => {
+		if (name === 'remote-branch') return 'neutral';
+		if (name === 'virtual-branch') return 'virtual';
+		if (name === 'pr') return 'success';
+		if (name === 'pr-draft') return 'purple';
+		if (name === 'pr-closed') return 'neutral';
+
+		return 'neutral';
+	};
 </script>
 
-<div
-	class="branch-icon"
-	class:pop={color == 'pop'}
-	class:neutral={color == 'neutral'}
-	class:success={color == 'success'}
-	class:purple={color == 'purple'}
-	use:tooltip={help}
->
+<div class="branch-icon {getIconColor(name)}" use:tooltip={help}>
 	{#if name == 'virtual-branch'}
 		<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 			<path d="M5.75 8V4H4.25V8H5.75Z" />
@@ -70,8 +72,8 @@
 		}
 	}
 
-	.pop {
-		background-color: var(--clr-theme-scale-pop-50);
+	.virtual {
+		background-color: var(--clr-theme-scale-ntrl-60);
 	}
 
 	.neutral {

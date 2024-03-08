@@ -23,7 +23,7 @@ impl TryFrom<&AppHandle> for Handler {
                 .map_or(analytics::Client::default(), |client| {
                     client.inner().clone()
                 });
-            let users = users::Controller::try_from(value)?;
+            let users = value.state::<users::Controller>().inner().clone();
             let handler = Handler::new(users, client);
             value.manage(handler.clone());
             Ok(handler)

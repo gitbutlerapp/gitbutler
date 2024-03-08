@@ -3,7 +3,6 @@
 	import BranchesHeader from './BranchesHeader.svelte';
 	import FilterPopupMenu from '$lib/components/FilterPopupMenu.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
-	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import { persisted } from '$lib/persisted/persisted';
@@ -64,7 +63,6 @@
 
 	let resizeGuard: HTMLElement;
 	let viewport: HTMLDivElement;
-	let rsViewport: HTMLElement;
 	let contents: HTMLElement;
 
 	let observer: ResizeObserver;
@@ -137,21 +135,7 @@
 </script>
 
 <div class="resize-guard" bind:this={resizeGuard}>
-	<div
-		class="branch-list"
-		bind:this={rsViewport}
-		style:height={$height ? `${$height}rem` : undefined}
-		style:max-height={maxHeight ? `${maxHeight}rem` : undefined}
-	>
-		<Resizer
-			viewport={rsViewport}
-			direction="up"
-			inside
-			minHeight={90}
-			on:height={(e) => {
-				$height = Math.min(maxHeight, e.detail / (16 * $userSettings.zoom));
-			}}
-		/>
+	<div class="branch-list">
 		<BranchesHeader count={$filteredBranches$?.length ?? 0} filtersActive={$filtersActive}>
 			<FilterPopupMenu
 				slot="context-menu"
@@ -228,13 +212,16 @@
 		gap: var(--space-12);
 		width: 100%;
 		padding-bottom: var(--space-16);
-		padding-left: var(--space-12);
-		padding-right: var(--space-12);
+		padding-left: var(--space-14);
+		padding-right: var(--space-14);
 	}
 	.branch-list {
+		flex: 1;
 		position: relative;
+		overflow: hidden;
 		display: flex;
 		flex-direction: column;
+		border-top: 1px solid var(--clr-theme-container-outline-light);
 	}
 	.content {
 		display: flex;

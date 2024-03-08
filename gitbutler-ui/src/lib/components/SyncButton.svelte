@@ -17,7 +17,8 @@
 
 <button
 	class="sync-btn"
-	on:click={async (e) => {
+	class:sync-btn-busy={$baseServiceBusy$}
+	on:mousedown={async (e) => {
 		e.preventDefault();
 		e.stopPropagation();
 		if (cloudEnabled) syncToCloud(projectId); // don't wait for this
@@ -53,6 +54,12 @@
 		background: var(--clr-theme-container-light);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		border-radius: var(--radius-m);
+		cursor: pointer;
+
+		&.sync-btn-busy {
+			cursor: default;
+		}
+
 		transition:
 			background var(--transition-fast),
 			border var(--transition-fast);

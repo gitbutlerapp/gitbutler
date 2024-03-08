@@ -27,29 +27,14 @@ impl TryFrom<&AppHandle> for Handler {
         } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
             let handler = Self::new(
                 app_data_dir,
-                projects::Controller::try_from(value)?,
-                users::Controller::try_from(value)?,
+                value.state::<projects::Controller>().inner().clone(),
+                value.state::<users::Controller>().inner().clone(),
             );
             value.manage(handler.clone());
             Ok(handler)
         } else {
             Err(anyhow::anyhow!("failed to get app data dir"))
         }
-    }
-}
-
-#[cfg(test)]
-impl TryFrom<&std::path::PathBuf> for Handler {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
-        let app_data_dir = value.clone();
-        let handler = Self::new(
-            app_data_dir,
-            projects::Controller::try_from(value)?,
-            users::Controller::try_from(value)?,
-        );
-        Ok(handler)
     }
 }
 
@@ -64,6 +49,15 @@ impl Handler {
             projects,
             users,
         }
+    }
+
+    #[cfg(test)]
+    pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Self {
+        Self::new(
+            path.as_ref().to_path_buf(),
+            projects::Controller::from_path(&path),
+            users::Controller::from_path(path),
+        )
     }
 
     // Returns Some(file_content) or None if the file is ignored.
@@ -200,8 +194,9 @@ mod test {
     use once_cell::sync::Lazy;
 
     use crate::{
-        deltas, sessions,
-        test_utils::{self, Case, Suite},
+        deltas::{self, operations::Operation},
+        sessions,
+        tests::{self, Case, Suite},
         virtual_branches::{self, branch},
     };
 
@@ -277,7 +272,7 @@ mod test {
             project,
             ..
         } = suite.new_case_with_files(HashMap::from([(path::PathBuf::from("test.txt"), "test")]));
-        let listener = Handler::try_from(&suite.local_app_data).unwrap();
+        let listener = Handler::from_path(&suite.local_app_data);
 
         std::fs::write(project.path.join("test.txt"), "test2")?;
         listener.handle("test.txt", &project.id)?;
@@ -290,7 +285,7 @@ mod test {
         assert_eq!(deltas[0].operations.len(), 1);
         assert_eq!(
             deltas[0].operations[0],
-            deltas::Operation::Insert((4, "2".to_string())),
+            Operation::Insert((4, "2".to_string())),
         );
         assert_eq!(
             std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
@@ -308,7 +303,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::try_from(&suite.local_app_data).unwrap();
+        let listener = Handler::from_path(&suite.local_app_data);
 
         std::fs::write(project.path.join("test.txt"), "test")?;
         listener.handle("test.txt", &project.id)?;
@@ -326,7 +321,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::try_from(&suite.local_app_data).unwrap();
+        let listener = Handler::from_path(&suite.local_app_data);
 
         std::fs::write(project.path.join("test.txt"), "test")?;
         listener.handle("test.txt", &project.id)?;
@@ -349,7 +344,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::try_from(&suite.local_app_data).unwrap();
+        let listener = Handler::from_path(&suite.local_app_data);
 
         std::fs::write(
             project.path.join("test.bin"),
@@ -381,7 +376,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::try_from(&suite.local_app_data).unwrap();
+        let listener = Handler::from_path(&suite.local_app_data);
 
         std::fs::write(project.path.join("test.txt"), "")?;
 
@@ -409,7 +404,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::try_from(&suite.local_app_data).unwrap();
+        let listener = Handler::from_path(&suite.local_app_data);
 
         std::fs::write(project.path.join("test.txt"), "test")?;
 
@@ -423,7 +418,7 @@ mod test {
         assert_eq!(deltas[0].operations.len(), 1);
         assert_eq!(
             deltas[0].operations[0],
-            deltas::Operation::Insert((0, "test".to_string())),
+            Operation::Insert((0, "test".to_string())),
         );
         assert_eq!(
             std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
@@ -442,7 +437,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::try_from(&suite.local_app_data).unwrap();
+        let listener = Handler::from_path(&suite.local_app_data);
 
         // file change, wd and deltas are written
         std::fs::write(project.path.join("test.txt"), "test")?;
@@ -470,7 +465,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::try_from(&suite.local_app_data).unwrap();
+        let listener = Handler::from_path(&suite.local_app_data);
 
         std::fs::write(project.path.join("test.txt"), "test")?;
         listener.handle("test.txt", &project.id)?;
@@ -483,7 +478,7 @@ mod test {
         assert_eq!(deltas[0].operations.len(), 1);
         assert_eq!(
             deltas[0].operations[0],
-            deltas::Operation::Insert((0, "test".to_string())),
+            Operation::Insert((0, "test".to_string())),
         );
         assert_eq!(
             std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
@@ -498,12 +493,12 @@ mod test {
         assert_eq!(deltas[0].operations.len(), 1);
         assert_eq!(
             deltas[0].operations[0],
-            deltas::Operation::Insert((0, "test".to_string())),
+            Operation::Insert((0, "test".to_string())),
         );
         assert_eq!(deltas[1].operations.len(), 1);
         assert_eq!(
             deltas[1].operations[0],
-            deltas::Operation::Insert((4, "2".to_string())),
+            Operation::Insert((4, "2".to_string())),
         );
         assert_eq!(
             std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
@@ -522,7 +517,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::try_from(&suite.local_app_data).unwrap();
+        let listener = Handler::from_path(&suite.local_app_data);
 
         {
             // write file
@@ -540,7 +535,7 @@ mod test {
             assert_eq!(deltas[0].operations.len(), 1);
             assert_eq!(
                 deltas[0].operations[0],
-                deltas::Operation::Insert((0, "test".to_string())),
+                Operation::Insert((0, "test".to_string())),
             );
             assert_eq!(
                 std::fs::read_to_string(gb_repository.session_wd_path().join("test.txt"))?,
@@ -576,7 +571,7 @@ mod test {
             let deltas = deltas_reader.read_file("test.txt")?.unwrap();
             assert_eq!(deltas.len(), 1);
             assert_eq!(deltas[0].operations.len(), 1);
-            assert_eq!(deltas[0].operations[0], deltas::Operation::Delete((0, 4)),);
+            assert_eq!(deltas[0].operations[0], Operation::Delete((0, 4)),);
         }
 
         gb_repository.flush(&project_repository, None)?;
@@ -601,7 +596,7 @@ mod test {
             project_repository,
             ..
         } = suite.new_case();
-        let listener = Handler::try_from(&suite.local_app_data).unwrap();
+        let listener = Handler::from_path(&suite.local_app_data);
 
         let size = 10;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -613,7 +608,7 @@ mod test {
                 i.to_string(),
             )?;
 
-            test_utils::commit_all(&project_repository.git_repository);
+            tests::commit_all(&project_repository.git_repository);
             listener.handle(relative_file_path, &project.id)?;
             assert!(gb_repository.flush(&project_repository, None)?.is_some());
         }
@@ -640,7 +635,7 @@ mod test {
             let sessions_slice = &mut sessions[i..];
 
             // collect all operations from sessions in the reverse order
-            let mut operations: Vec<deltas::Operation> = vec![];
+            let mut operations: Vec<Operation> = vec![];
             for session in &mut *sessions_slice {
                 let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
                 let deltas_reader = deltas::Reader::new(&session_reader);
@@ -688,7 +683,7 @@ mod test {
             project_repository,
             ..
         } = suite.new_case();
-        let listener = Handler::try_from(&suite.local_app_data).unwrap();
+        let listener = Handler::from_path(&suite.local_app_data);
 
         let size = 10;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -726,7 +721,7 @@ mod test {
             let sessions_slice = &mut sessions[i..];
 
             // collect all operations from sessions in the reverse order
-            let mut operations: Vec<deltas::Operation> = vec![];
+            let mut operations: Vec<Operation> = vec![];
             for session in &mut *sessions_slice {
                 let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
                 let deltas_reader = deltas::Reader::new(&session_reader);
@@ -773,7 +768,7 @@ mod test {
             project,
             ..
         } = suite.new_case();
-        let listener = Handler::try_from(&suite.local_app_data).unwrap();
+        let listener = Handler::from_path(&suite.local_app_data);
 
         let size = 10_i32;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -789,7 +784,7 @@ mod test {
         }
 
         // collect all operations from sessions in the reverse order
-        let mut operations: Vec<deltas::Operation> = vec![];
+        let mut operations: Vec<Operation> = vec![];
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session).unwrap();
         let deltas_reader = deltas::Reader::new(&session_reader);
@@ -831,7 +826,7 @@ mod test {
             path::PathBuf::from("test.txt"),
             "hello world",
         )]));
-        let listener = Handler::try_from(&suite.local_app_data).unwrap();
+        let listener = Handler::from_path(&suite.local_app_data);
 
         let branch_writer = virtual_branches::branch::Writer::new(&gb_repository)?;
         let target_writer = virtual_branches::target::Writer::new(&gb_repository)?;
@@ -887,7 +882,7 @@ mod test {
             path::PathBuf::from("test.txt"),
             "hello world",
         )]));
-        let listener = Handler::try_from(&suite.local_app_data).unwrap();
+        let listener = Handler::from_path(&suite.local_app_data);
 
         let branch_writer = virtual_branches::branch::Writer::new(&gb_repository)?;
         let target_writer = virtual_branches::target::Writer::new(&gb_repository)?;
@@ -946,7 +941,7 @@ mod test {
                 project_repository,
                 ..
             } = suite.new_case();
-            let listener = Handler::try_from(&suite.local_app_data).unwrap();
+            let listener = Handler::from_path(&suite.local_app_data);
 
             // write a file into session
             std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
@@ -1022,7 +1017,7 @@ mod test {
                 project_repository,
                 ..
             } = suite.new_case();
-            let listener = Handler::try_from(&suite.local_app_data).unwrap();
+            let listener = Handler::from_path(&suite.local_app_data);
 
             // write a file into session
             std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
@@ -1098,7 +1093,7 @@ mod test {
                 project_repository,
                 ..
             } = suite.new_case();
-            let listener = Handler::try_from(&suite.local_app_data).unwrap();
+            let listener = Handler::from_path(&suite.local_app_data);
 
             // write a file into session
             std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();

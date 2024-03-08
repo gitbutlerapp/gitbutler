@@ -40,7 +40,7 @@ impl<'writer> BranchWriter<'writer> {
 
     pub fn write(&self, branch: &mut Branch) -> Result<()> {
         let reader = self.reader.sub(format!("branches/{}", branch.id));
-        match Branch::try_from(&reader) {
+        match Branch::from_reader(&reader) {
             Ok(existing) if existing.eq(branch) => return Ok(()),
             Ok(_) | Err(reader::Error::NotFound) => {}
             Err(err) => return Err(err.into()),
@@ -157,7 +157,7 @@ mod tests {
     use once_cell::sync::Lazy;
 
     use crate::{
-        test_utils::{Case, Suite},
+        tests::{Case, Suite},
         virtual_branches::branch,
     };
 

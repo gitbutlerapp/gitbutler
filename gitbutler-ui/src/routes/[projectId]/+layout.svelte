@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { syncToCloud } from '$lib/backend/cloud';
-	import { handleMenuActions } from '$lib/backend/menu_actions';
+	import { handleMenuActions } from '$lib/backend/menuActions';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
@@ -9,7 +9,7 @@
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/random';
 	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import type { LayoutData } from './$types';
 
 	export let data: LayoutData;
@@ -32,13 +32,31 @@
 	$: user$ = data.user$;
 
 	let trayViewport: HTMLElement;
+	let intervalId: any;
 	handleMenuActions(data.projectId);
 
-	onMount(() => {
-		return unsubscribe(
+	// Once on load and every time the project id changes
+	$: if (projectId) setupFetchInterval();
+
+	function setupFetchInterval() {
+		baseBranchService.fetchFromTarget();
+		clearFetchInterval();
+		intervalId = setInterval(() => baseBranchService.fetchFromTarget(), 15 * 60 * 1000);
+	}
+
+	function clearFetchInterval() {
+		if (intervalId) clearInterval(intervalId);
+	}
+
+	onMount(() =>
+		unsubscribe(
 			menuSubscribe(data.projectId),
-			hotkeys.on('Meta+Shift+S', () => syncToCloud($project$?.id))
-		);
+			hotkeys.on('Meta+Shift+S', () => syncToCloud(projectId))
+		)
+	);
+
+	onDestroy(() => {
+		clearFetchInterval();
 	});
 </script>
 
@@ -47,8 +65,7 @@
 {:else if $baseError$}
 	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$baseError$} />
 {:else if $baseBranch$ === null}
-	{@const remoteBranches = getRemoteBranches(projectId)}
-	{#await remoteBranches}
+	{#await getRemoteBranches(projectId)}
 		<p>loading...</p>
 	{:then remoteBranches}
 		{#if remoteBranches.length == 0}

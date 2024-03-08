@@ -81,11 +81,6 @@ export function draggable(node: HTMLElement, opts: Partial<DraggableOptions> | u
 		dragHandle = e.target as HTMLElement;
 	}
 
-	/**
-	 * The problem with the ghost element is that it gets clipped after rotation unless we enclose
-	 * it within a larger bounding box. This means we have an extra `<div>` in the html that is
-	 * only present to support the rotation
-	 */
 	function handleDragStart(e: DragEvent) {
 		let elt: HTMLElement | null = dragHandle;
 		while (elt) {

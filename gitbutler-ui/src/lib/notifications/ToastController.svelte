@@ -10,7 +10,7 @@
 	var renderer = new marked.Renderer();
 	renderer.link = function (href, title, text) {
 		if (!title) title = text;
-		return '<a target="_blank" href="' + href + '" title="' + title + '">' + text + '</a>';
+		return '<a target="_blank" href="' + href + '" title="' + href + '">' + text + '</a>';
 	};
 </script>
 
@@ -36,7 +36,7 @@
 		bottom: var(--space-20);
 		right: var(--space-20);
 		gap: var(--space-8);
-		max-width: 22rem;
+		max-width: 30rem;
 		z-index: 50;
 	}
 </style>

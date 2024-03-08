@@ -3,34 +3,36 @@
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 
+	export let element: HTMLElement | undefined = undefined;
 	export let id: string | undefined = undefined; // Required to make label clickable
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let value: string | undefined = undefined;
 	export let placeholder: string | undefined = undefined;
-	export let iconPosition: 'left' | 'right' = 'left';
 	export let label: string | undefined = undefined;
+	export let reversedDirection: boolean = false;
+	export let wide: boolean = false;
 	export let disabled = false;
 	export let readonly = false;
 	export let required = false;
-	export let password = false;
 	export let noselect = false;
 	export let selectall = false;
-	export let element: HTMLElement | undefined = undefined;
 	export let spellcheck = false;
+
+	export let type: 'text' | 'password' | 'select' = 'text';
 
 	const dispatch = createEventDispatcher<{ input: string; change: string }>();
 </script>
 
-<div class="textbox" bind:this={element}>
+<div class="textbox" bind:this={element} class:wide>
 	{#if label}
-		<label class="textbox__label font-base-13 text-semibold" for={id}>
+		<label class="textbox__label text-base-13 text-semibold" for={id}>
 			{label}
 		</label>
 	{/if}
 	<div
 		class="textbox__input-wrap"
-		class:textbox__left-orient={icon && iconPosition == 'left'}
-		class:textbox__right-orient={icon && iconPosition == 'right'}
+		class:textbox__left-orient={icon && !reversedDirection}
+		class:textbox__right-orient={icon && reversedDirection}
 		class:disabled
 	>
 		{#if icon}
@@ -38,39 +40,25 @@
 				<Icon name={icon} />
 			</div>
 		{/if}
-		{#if password}
-			<input
-				{id}
-				{readonly}
-				{required}
-				{placeholder}
-				{spellcheck}
-				{disabled}
-				type="password"
-				class="text-input textbox__input text-base-13"
-				class:select-none={noselect}
-				bind:value
-				on:click
-				on:input={(e) => dispatch('input', e.currentTarget.value)}
-				on:change={(e) => dispatch('change', e.currentTarget.value)}
-			/>
-		{:else}
-			<input
-				{id}
-				{readonly}
-				{required}
-				{placeholder}
-				{spellcheck}
-				{disabled}
-				class="text-input textbox__input text-base-13"
-				class:select-none={noselect}
-				class:select-all={selectall}
-				bind:value
-				on:click
-				on:input={(e) => dispatch('input', e.currentTarget.value)}
-				on:change={(e) => dispatch('change', e.currentTarget.value)}
-			/>
-		{/if}
+
+		<input
+			{id}
+			{readonly}
+			{required}
+			{placeholder}
+			{spellcheck}
+			{disabled}
+			{...{ type }}
+			class="text-input textbox__input text-base-13"
+			class:textbox__readonly={type != 'select' && readonly}
+			class:select-none={noselect}
+			class:select-all={selectall}
+			bind:value
+			on:click
+			on:mousedown
+			on:input={(e) => dispatch('input', e.currentTarget.value)}
+			on:change={(e) => dispatch('change', e.currentTarget.value)}
+		/>
 	</div>
 </div>
 
@@ -87,6 +75,8 @@
 	}
 
 	.textbox__input {
+		z-index: 1;
+		position: relative;
 		flex-grow: 1;
 		height: var(--size-btn-l);
 		width: 100%;
@@ -98,11 +88,16 @@
 		}
 	}
 
+	.textbox__input[type='select'] {
+		cursor: pointer;
+	}
+
 	.textbox__label {
 		color: var(--clr-theme-scale-ntrl-50);
 	}
 
 	.textbox__icon {
+		z-index: 2;
 		pointer-events: none;
 		position: absolute;
 		top: 50%;
@@ -128,5 +123,15 @@
 		& .textbox__icon {
 			right: var(--space-12);
 		}
+	}
+
+	.textbox__readonly {
+		background-color: var(--clr-theme-container-pale);
+		border-color: var(--clr-theme-container-outline-light);
+	}
+
+	.wide {
+		width: 100%;
+		flex: 1;
 	}
 </style>

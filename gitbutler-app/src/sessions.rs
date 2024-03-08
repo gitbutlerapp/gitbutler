@@ -1,11 +1,11 @@
 mod controller;
-mod database;
 mod iterator;
 mod reader;
 mod session;
 mod writer;
 
 pub mod commands;
+pub mod database;
 
 #[cfg(test)]
 mod tests;

@@ -3,12 +3,14 @@
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
 	import Link from './Link.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
+	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import { slide } from 'svelte/transition';
+	import * as toasts from '$lib/utils/toasts';
 	import type { Project, ProjectService } from '$lib/backend/projects';
 	import type { UserService } from '$lib/stores/user';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch } from '$lib/vbranches/types';
+	import { goto } from '$app/navigation';
 
 	export let projectService: ProjectService;
 	export let branchController: BranchController;
@@ -18,7 +20,26 @@
 
 	$: user$ = userService.user$;
 
-	let showDropDown = false;
+	let isDeleting = false;
+	let deleteConfirmationModal: RemoveProjectButton;
+
+	async function onDeleteClicked() {
+		if (project) {
+			isDeleting = true;
+			try {
+				deleteConfirmationModal.close();
+				await projectService.deleteProject(project.id);
+				toasts.success('Project deleted');
+				goto('/', { invalidateAll: true });
+			} catch (e) {
+				console.error(e);
+				toasts.error('Failed to delete project');
+			} finally {
+				isDeleting = false;
+				projectService.reload();
+			}
+		}
+	}
 </script>
 
 <DecorativeSplitView
@@ -45,32 +66,28 @@
 		<div class="switchrepo__actions">
 			<Button
 				color="primary"
-				icon="undo-small"
+				icon="chevron-left-small"
+				iconAlign="left"
 				on:click={() => {
 					if (baseBranch) branchController.setTarget(baseBranch.branchName);
 				}}
 			>
 				Go back to gitbutler/integration
 			</Button>
-			{#if !showDropDown}
-				<Button
-					color="primary"
-					kind="outlined"
-					on:click={() => {
-						showDropDown = true;
-						// if (baseBranch) branchController.setTarget(baseBranch.branchName);
-					}}
-				>
-					Switch to another project...
-				</Button>
+
+			{#if project}
+				<RemoveProjectButton
+					bind:this={deleteConfirmationModal}
+					projectTitle={project.title}
+					{isDeleting}
+					{onDeleteClicked}
+				/>
 			{/if}
 		</div>
 
-		{#if showDropDown}
-			<div class="switchrepo__project" transition:slide={{ duration: 250 }}>
-				<ProjectSwitcher {projectService} {project} />
-			</div>
-		{/if}
+		<div class="switchrepo__project">
+			<ProjectSwitcher {projectService} {project} />
+		</div>
 	</div>
 </DecorativeSplitView>
 
@@ -95,7 +112,7 @@
 	}
 	.switchrepo__actions {
 		display: flex;
-		gap: var(--space-6);
+		gap: var(--space-8);
 		padding-bottom: var(--space-24);
 		flex-wrap: wrap;
 	}

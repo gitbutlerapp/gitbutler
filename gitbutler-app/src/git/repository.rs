@@ -383,6 +383,18 @@ impl Repository {
         }
     }
 
+    pub fn checkout_index_path<'a>(&'a self, path: &'a path::Path) -> Result<()> {
+        let mut builder = git2::build::CheckoutBuilder::new();
+        builder.path(path);
+        builder.force();
+
+        let mut index = self.0.index()?;
+        self.0
+            .checkout_index(Some(&mut index), Some(&mut builder))?;
+
+        Ok(())
+    }
+
     pub fn checkout_tree<'a>(&'a self, tree: &'a Tree<'a>) -> CheckoutTreeBuidler {
         CheckoutTreeBuidler {
             tree: tree.into(),
@@ -398,6 +410,13 @@ impl Repository {
     pub fn set_head_detached(&self, commitish: Oid) -> Result<()> {
         self.0
             .set_head_detached(commitish.into())
+            .map_err(Into::into)
+    }
+
+    pub fn branch(&self, name: &Refname, target: &Commit, force: bool) -> Result<Branch> {
+        self.0
+            .branch(&name.to_string(), target.into(), force)
+            .map(Into::into)
             .map_err(Into::into)
     }
 

@@ -71,12 +71,12 @@
 			/>
 			<ContextMenuItem
 				id={MergeMethod.Rebase}
-				label="Rebase"
+				label="Rebase and merge"
 				selected={$action == MergeMethod.Rebase}
 			/>
 			<ContextMenuItem
 				id={MergeMethod.Squash}
-				label="Squash"
+				label="Squash and merge"
 				selected={$action == MergeMethod.Squash}
 			/>
 		</ContextMenuSection>

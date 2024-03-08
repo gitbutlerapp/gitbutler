@@ -14,6 +14,6 @@
     "prepare": "pnpm --filter @gitbutler/ui run prepare"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^1.5.9"
+    "@tauri-apps/cli": "^1.5.10"
   }
 }

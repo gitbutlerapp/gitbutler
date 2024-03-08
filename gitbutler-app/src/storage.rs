@@ -7,8 +7,6 @@ use std::{
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::*;
 
-use tauri::{AppHandle, Manager};
-
 #[derive(Debug, Default, Clone)]
 pub struct Storage {
     local_data_dir: Arc<RwLock<PathBuf>>,
@@ -20,32 +18,8 @@ pub enum Error {
     IO(#[from] std::io::Error),
 }
 
-impl TryFrom<&AppHandle> for Storage {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(storage) = value.try_state::<Storage>() {
-            Ok(storage.inner().clone())
-        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            let storage = Storage::new(app_data_dir);
-            value.manage(storage.clone());
-            Ok(storage)
-        } else {
-            Err(anyhow::anyhow!("failed to get app data dir"))
-        }
-    }
-}
-
-impl TryFrom<&PathBuf> for Storage {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &PathBuf) -> Result<Self, Self::Error> {
-        Ok(Storage::new(value))
-    }
-}
-
 impl Storage {
-    fn new<P: AsRef<Path>>(local_data_dir: P) -> Storage {
+    pub fn new<P: AsRef<Path>>(local_data_dir: P) -> Storage {
         Storage {
             local_data_dir: Arc::new(RwLock::new(local_data_dir.as_ref().to_path_buf())),
         }

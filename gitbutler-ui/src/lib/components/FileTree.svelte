@@ -5,11 +5,15 @@
 <script lang="ts">
 	import TreeListFile from './TreeListFile.svelte';
 	import TreeListFolder from './TreeListFolder.svelte';
+	import { maybeMoveSelection } from '$lib/utils/selection';
+	import type { Project } from '$lib/backend/projects';
+	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { TreeNode } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { AnyFile } from '$lib/vbranches/types';
+	import type { AnyFile, LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
+	export let project: Project | undefined;
 	export let expanded = true;
 	export let node: TreeNode;
 	export let isRoot = false;
@@ -20,6 +24,8 @@
 	export let isUnapplied: boolean;
 	export let allowMultiple = false;
 	export let readonly = false;
+	export let branchController: BranchController;
+	export let files: LocalFile[] | RemoteFile[];
 
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
@@ -76,6 +82,10 @@
 					{branchId}
 					{isUnapplied}
 					{readonly}
+					{allowMultiple}
+					{branchController}
+					{files}
+					{project}
 					on:checked
 					on:unchecked
 				/>
@@ -93,6 +103,8 @@
 		{selectedOwnership}
 		{selectedFiles}
 		{readonly}
+		{branchController}
+		{project}
 		showCheckbox={showCheckboxes}
 		on:click={(e) => {
 			e.stopPropagation();
@@ -107,6 +119,10 @@
 				$selectedFiles = [file];
 			}
 		}}
+		on:keydown={(e) => {
+			e.preventDefault();
+			maybeMoveSelection(e.key, files, selectedFiles);
+		}}
 	/>
 {:else if node.children.length > 0}
 	<!-- Node is a folder -->
@@ -116,7 +132,7 @@
 		{isIndeterminate}
 		{isChecked}
 		{node}
-		on:click={toggle}
+		on:mousedown={toggle}
 		{expanded}
 	/>
 
@@ -137,6 +153,10 @@
 						{branchId}
 						{isUnapplied}
 						{readonly}
+						{allowMultiple}
+						{branchController}
+						{files}
+						{project}
 						on:checked
 						on:unchecked
 					/>

@@ -14,7 +14,7 @@ impl<'r> BranchReader<'r> {
     }
 
     pub fn read(&self, id: &BranchId) -> Result<Branch, reader::Error> {
-        Branch::try_from(&self.reader.sub(format!("branches/{}", id)))
+        Branch::from_reader(&self.reader.sub(format!("branches/{}", id)))
     }
 }
 
@@ -27,7 +27,7 @@ mod tests {
 
     use crate::{
         sessions,
-        test_utils::{Case, Suite},
+        tests::{Case, Suite},
         virtual_branches::branch::Ownership,
     };
 

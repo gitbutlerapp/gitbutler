@@ -18,24 +18,35 @@
 	--transition-fast: 0.06s ease-in-out;
 	--transition-medium: 0.1s ease-in-out;
 	--transition-slow: 0.2s ease-in-out;
-	--helpers-invert-0: 0;
-	--helpers-invert-1: 1;
 
-	/* For very light neutral states — ghost buttons, light background */
+	/* For all light neutral elements — ghost buttons, light background
+    use tint palatte it will tint the pallate properly if it's nut gray */
 	--darken-tint-extralight: var(--clr-theme-scale-ntrl-50) 5%;
 	--darken-tint-light: var(--clr-theme-scale-ntrl-50) 9%;
-	--darken-tint-mid: var(--clr-theme-scale-ntrl-50) 15%;
+	--darken-tint-mid: var(--clr-theme-scale-ntrl-50) 14%;
 	--darken-tint-dark: var(--clr-theme-scale-ntrl-50) 20%;
 	--darken-tint-extradark: var(--clr-theme-scale-ntrl-50) 35%;
 
-	/* For all other elements */
+	/* For all color and dark eleemnts */
 	--darken-extralight: var(--clr-theme-scale-ntrl-0) 3%;
-	--darken-light: var(--clr-theme-scale-ntrl-0) 5%;
+	--darken-light: var(--clr-theme-scale-ntrl-0) 6%;
 	--darken-mid: var(--clr-theme-scale-ntrl-0) 9%;
-	--darken-dark: var(--clr-theme-scale-ntrl-0) 15%;
-	--darken-extradark: var(--clr-theme-scale-ntrl-0) 25%;
+	--darken-dark: var(--clr-theme-scale-ntrl-0) 12%;
+	--darken-extradark: var(--clr-theme-scale-ntrl-0) 15%;
 
 	/* TODO: add focus color */
+	--focus-color: var(--clr-theme-scale-pop-50);
+	--resizer-color: var(--clr-theme-scale-pop-50);
+}
+
+:root.dark {
+	/* Additional correction here for dark mode, due tue
+    tint colors look less contrast  */
+	--darken-tint-extralight: var(--clr-theme-scale-ntrl-50) 7%;
+	--darken-tint-light: var(--clr-theme-scale-ntrl-50) 14%;
+	--darken-tint-mid: var(--clr-theme-scale-ntrl-50) 21%;
+	--darken-tint-dark: var(--clr-theme-scale-ntrl-50) 28%;
+	--darken-tint-extradark: var(--clr-theme-scale-ntrl-50) 35%;
 }
 
 /* BOILERPLATE CSS */
@@ -46,7 +57,7 @@ body {
 	width: 100vw;
 	overflow-y: hidden;
 	padding: 0;
-	color: var(--clr-theme-scale-ntrl-40);
+	color: var(--clr-theme-scale-ntrl-0);
 	background-color: var(--clr-theme-container-pale);
 
 	/* optimise font rendering */
@@ -59,14 +70,6 @@ button {
 	-webkit-user-select: none;
 	-webkit-user-drag: none;
 	-webkit-app-region: no-drag;
-}
-
-div,
-button,
-[role='button'],
-select,
-a {
-	cursor: default;
 }
 
 /* SCROLL BAR STYLING */
@@ -119,8 +122,21 @@ the scrollbar to scale with the font size */
 	pointer-events: none;
 }
 
-/* Accordion uses this */
+/* FOCUS STATE */
 
-.collapsed {
-	display: none;
+.focus-state {
+	&:focus-within {
+		outline: 1px solid transaparent;
+		animation: focus-animation var(--transition-fast) forwards;
+	}
+}
+
+@keyframes focus-animation {
+	0% {
+		outline-offset: 0;
+	}
+	100% {
+		outline-offset: 2px;
+		outline: 1px solid var(--focus-color);
+	}
 }

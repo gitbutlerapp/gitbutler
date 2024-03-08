@@ -3,25 +3,27 @@
 
 	export let small = false;
 	export let disabled = false;
-	export let group = '';
 	export let value = '';
+	export let id = '';
 </script>
 
 <input
 	on:click|stopPropagation
 	on:change
+	on:input
 	type="radio"
 	class="radio"
 	class:small
+	{id}
 	{value}
 	{name}
 	{disabled}
-	bind:group
 />
 
 <style lang="postcss">
 	.radio {
 		appearance: none;
+		cursor: pointer;
 		width: var(--space-16);
 		height: var(--space-16);
 		border-radius: var(--space-16);

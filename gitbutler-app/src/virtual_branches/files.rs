@@ -19,6 +19,7 @@ pub struct RemoteBranchFile {
 pub fn list_remote_commit_files(
     repository: &git::Repository,
     commit_oid: git::Oid,
+    context_lines: u32,
 ) -> Result<Vec<RemoteBranchFile>, errors::ListRemoteCommitFilesError> {
     let commit = match repository.find_commit(commit_oid) {
         Ok(commit) => Ok(commit),
@@ -35,9 +36,9 @@ pub fn list_remote_commit_files(
     let parent = commit.parent(0).context("failed to get parent commit")?;
     let commit_tree = commit.tree().context("failed to get commit tree")?;
     let parent_tree = parent.tree().context("failed to get parent tree")?;
-    let diff = diff::trees(repository, &parent_tree, &commit_tree)?;
+    let diff = diff::trees(repository, &parent_tree, &commit_tree, context_lines)?;
 
-    let files = diff
+    let mut files = diff
         .into_iter()
         .map(|(file_path, hunks)| RemoteBranchFile {
             path: file_path.clone(),
@@ -46,8 +47,10 @@ pub fn list_remote_commit_files(
         })
         .collect::<Vec<_>>();
 
-    let files = files_with_hunk_context(repository, &parent_tree, files, 3)
-        .context("failed to add context to hunk")?;
+    if context_lines == 0 {
+        files = files_with_hunk_context(repository, &parent_tree, files, 3)
+            .context("failed to add context to hunk")?;
+    }
     Ok(files)
 }
 
@@ -73,7 +76,7 @@ fn files_with_hunk_context(
             .map(|hunk| {
                 if hunk.diff.is_empty() {
                     // noop on empty diff
-                    Ok(hunk.clone())
+                    hunk.clone()
                 } else {
                     context::hunk_with_context(
                         &hunk.diff,
@@ -86,8 +89,7 @@ fn files_with_hunk_context(
                     )
                 }
             })
-            .collect::<Result<Vec<diff::Hunk>>>()
-            .context("failed to add context to hunk")?;
+            .collect::<Vec<diff::Hunk>>();
     }
     Ok(files)
 }

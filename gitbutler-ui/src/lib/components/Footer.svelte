@@ -1,38 +1,58 @@
 <script lang="ts">
 	import AccountLink from '$lib/components/AccountLink.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
-	import Link from '$lib/components/Link.svelte';
 	import * as events from '$lib/utils/events';
 	import type { User } from '$lib/backend/cloud';
+	import { goto } from '$app/navigation';
 
 	export let user: User | undefined;
 	export let projectId: string | undefined;
+	export let isNavCollapsed: boolean;
 </script>
 
-<div class="footer" style:border-color="var(--clr-theme-container-outline-light)">
+<div class="footer" class:collapsed={isNavCollapsed}>
 	<div class="left-btns">
 		<IconButton
 			icon="mail"
 			help="Send feedback"
-			on:click={() => events.emit('openSendIssueModal')}
+			size={isNavCollapsed ? 'xl' : 'l'}
+			width={isNavCollapsed ? '100%' : undefined}
+			on:mousedown={() => events.emit('openSendIssueModal')}
 		/>
-		<Link href={`/${projectId}/settings`}>
-			<IconButton icon="settings" help="Project settings" />
-		</Link>
+		<IconButton
+			icon="settings"
+			help="Project settings"
+			size={isNavCollapsed ? 'xl' : 'l'}
+			width={isNavCollapsed ? '100%' : undefined}
+			on:mousedown={() => goto(`/${projectId}/settings`)}
+		/>
 	</div>
-	<AccountLink {user} />
+	<AccountLink {user} {isNavCollapsed} />
 </div>
 
 <style lang="postcss">
 	.footer {
 		display: flex;
-		align-items: center;
 		justify-content: space-between;
 		padding: var(--space-12);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
+		border-color: var(--clr-theme-container-outline-light);
 	}
+
 	.left-btns {
 		display: flex;
-		align-items: center;
+		gap: var(--space-2);
+	}
+
+	.footer.collapsed {
+		flex-direction: column;
+		padding: 0 var(--space-14);
+		align-items: flex-start;
+		gap: var(--space-4);
+		border: none;
+
+		& .left-btns {
+			flex-direction: column;
+		}
 	}
 </style>

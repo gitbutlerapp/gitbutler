@@ -5,19 +5,18 @@ use serde::Serialize;
 
 use crate::{
     gb_repository,
-    git::{
-        self,
-        diff::{self},
-    },
+    git::{self, diff},
     keys,
     project_repository::{self, LogUntil},
     projects::FetchResult,
-    users,
+    reader, sessions, users,
     virtual_branches::branch::Ownership,
 };
 
 use super::{
-    branch, errors, integration::GITBUTLER_INTEGRATION_REFERENCE, target, BranchId, RemoteCommit,
+    branch, errors,
+    integration::{update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE},
+    target, BranchId, RemoteCommit,
 };
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -51,12 +50,96 @@ pub fn get_base_branch_data(
     }
 }
 
+fn go_back_to_integration(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    default_target: &target::Target,
+) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
+    let statuses = project_repository
+        .git_repository
+        .statuses(Some(
+            git2::StatusOptions::new()
+                .show(git2::StatusShow::IndexAndWorkdir)
+                .include_untracked(true),
+        ))
+        .context("failed to get status")?;
+    if !statuses.is_empty() {
+        return Err(errors::SetBaseBranchError::DirtyWorkingDirectory);
+    }
+
+    let latest_session = gb_repository
+        .get_latest_session()?
+        .context("no session found")?;
+    let session_reader = sessions::Reader::open(gb_repository, &latest_session)?;
+
+    let all_virtual_branches = super::iterator::BranchIterator::new(&session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<super::branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?;
+
+    let applied_virtual_branches = all_virtual_branches
+        .iter()
+        .filter(|branch| branch.applied)
+        .collect::<Vec<_>>();
+
+    let target_commit = project_repository
+        .git_repository
+        .find_commit(default_target.sha)
+        .context("failed to find target commit")?;
+
+    let base_tree = target_commit
+        .tree()
+        .context("failed to get base tree from commit")?;
+    let mut final_tree = target_commit
+        .tree()
+        .context("failed to get base tree from commit")?;
+    for branch in &applied_virtual_branches {
+        // merge this branches tree with our tree
+        let branch_head = project_repository
+            .git_repository
+            .find_commit(branch.head)
+            .context("failed to find branch head")?;
+        let branch_tree = branch_head
+            .tree()
+            .context("failed to get branch head tree")?;
+        let mut result = project_repository
+            .git_repository
+            .merge_trees(&base_tree, &final_tree, &branch_tree)
+            .context("failed to merge")?;
+        let final_tree_oid = result
+            .write_tree_to(&project_repository.git_repository)
+            .context("failed to write tree")?;
+        final_tree = project_repository
+            .git_repository
+            .find_tree(final_tree_oid)
+            .context("failed to find written tree")?;
+    }
+
+    project_repository
+        .git_repository
+        .checkout_tree(&final_tree)
+        .force()
+        .checkout()
+        .context("failed to checkout tree")?;
+
+    let base = target_to_base_branch(project_repository, default_target)?;
+    update_gitbutler_integration(gb_repository, project_repository)?;
+    Ok(base)
+}
+
 pub fn set_base_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     target_branch_ref: &git::RemoteRefname,
 ) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
     let repo = &project_repository.git_repository;
+
+    // if target exists, and it is the same as the requested branch, we should go back
+    if let Some(target) = gb_repository.default_target()? {
+        if target.branch.eq(target_branch_ref) {
+            return go_back_to_integration(gb_repository, project_repository, &target);
+        }
+    }
 
     // lookup a branch by name
     let target_branch = match repo.find_branch(&target_branch_ref.clone().into()) {
@@ -92,7 +175,7 @@ pub fn set_base_branch(
         .context("Failed to peel HEAD reference to commit")?;
 
     // calculate the commit as the merge-base between HEAD in project_repository and this target commit
-    let commit_oid = repo
+    let target_commit_oid = repo
         .merge_base(current_head_commit.id(), target_branch_head.id())
         .context(format!(
             "Failed to calculate merge base between {} and {}",
@@ -100,25 +183,10 @@ pub fn set_base_branch(
             target_branch_head.id()
         ))?;
 
-    // if default target was already set, and the new target is a descendant of the current head, then we want to
-    // keep the current target to avoid unnecessary rebases
-    let commit_oid = if let Some(current_target) = gb_repository.default_target()? {
-        if repo
-            .is_descendant_of(current_target.sha, commit_oid)
-            .context("failed to check if target branch is descendant of current head")?
-        {
-            current_target.sha
-        } else {
-            commit_oid
-        }
-    } else {
-        commit_oid
-    };
-
     let target = target::Target {
         branch: target_branch_ref.clone(),
         remote_url: remote_url.to_string(),
-        sha: commit_oid,
+        sha: target_commit_oid,
     };
 
     let target_writer =
@@ -135,7 +203,12 @@ pub fn set_base_branch(
         // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
         // put them into a virtual branch
 
-        let wd_diff = diff::workdir(repo, &current_head_commit.id())?;
+        let use_context = project_repository
+            .project()
+            .use_diff_context
+            .unwrap_or(false);
+        let context_lines = if use_context { 3_u32 } else { 0_u32 };
+        let wd_diff = diff::workdir(repo, &current_head_commit.id(), context_lines)?.0;
         if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
             let hunks_by_filepath =
                 super::virtual_hunks_by_filepath(&project_repository.project().path, &wd_diff);
@@ -308,8 +381,15 @@ pub fn update_base_branch(
     let branch_writer =
         branch::Writer::new(gb_repository).context("failed to create branch writer")?;
 
+    let use_context = project_repository
+        .project()
+        .use_diff_context
+        .unwrap_or(false);
+    let context_lines = if use_context { 3_u32 } else { 0_u32 };
+
     // try to update every branch
     let updated_vbranches = super::get_status_by_branch(gb_repository, project_repository)?
+        .0
         .into_iter()
         .map(|(branch, _)| branch)
         .map(
@@ -341,6 +421,7 @@ pub fn update_base_branch(
                             &project_repository.git_repository,
                             &branch_head_tree,
                             &branch_tree,
+                            context_lines,
                         )?;
                         if non_commited_files.is_empty() {
                             // if there are no commited files, then the branch is fully merged
@@ -543,7 +624,7 @@ pub fn target_to_base_branch(
         .context("failed to get upstream commits")?
         .iter()
         .map(super::commit_to_remote_commit)
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<Vec<_>>();
 
     // get some recent commits
     let recent_commits = project_repository
@@ -551,7 +632,7 @@ pub fn target_to_base_branch(
         .context("failed to get recent commits")?
         .iter()
         .map(super::commit_to_remote_commit)
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<Vec<_>>();
 
     let base = super::BaseBranch {
         branch_name: format!("{}/{}", target.branch.remote(), target.branch.branch()),

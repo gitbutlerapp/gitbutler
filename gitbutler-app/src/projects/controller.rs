@@ -1,54 +1,44 @@
-use std::path;
-
-use anyhow::Context;
-use tauri::{AppHandle, Manager};
-
-use crate::{gb_repository, project_repository, users, watcher};
-
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
+use crate::{gb_repository, project_repository, users, watcher};
+use anyhow::Context;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
 pub struct Controller {
-    local_data_dir: path::PathBuf,
+    local_data_dir: PathBuf,
     projects_storage: storage::Storage,
     users: users::Controller,
     watchers: Option<watcher::Watchers>,
 }
 
-impl TryFrom<&AppHandle> for Controller {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(controller) = value.try_state::<Controller>() {
-            Ok(controller.inner().clone())
-        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            Ok(Self {
-                local_data_dir: app_data_dir,
-                projects_storage: storage::Storage::try_from(value)?,
-                users: users::Controller::try_from(value)?,
-                watchers: Some(watcher::Watchers::try_from(value)?),
-            })
-        } else {
-            Err(anyhow::anyhow!("failed to get app data dir"))
+impl Controller {
+    pub fn new(
+        local_data_dir: PathBuf,
+        projects_storage: storage::Storage,
+        users: users::Controller,
+        watchers: Option<watcher::Watchers>,
+    ) -> Self {
+        Self {
+            local_data_dir,
+            projects_storage,
+            users,
+            watchers,
         }
     }
-}
 
-impl TryFrom<&std::path::PathBuf> for Controller {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
-        Ok(Self {
-            local_data_dir: value.clone(),
-            projects_storage: storage::Storage::try_from(value)?,
-            users: users::Controller::try_from(value)?,
+    #[cfg(test)]
+    pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Self {
+        let pathbuf = path.as_ref().to_path_buf();
+        Self {
+            local_data_dir: pathbuf.clone(),
+            projects_storage: storage::Storage::from_path(&pathbuf),
+            users: users::Controller::from_path(&pathbuf),
             watchers: None,
-        })
+        }
     }
-}
 
-impl Controller {
-    pub fn add(&self, path: &path::Path) -> Result<Project, AddError> {
+    pub fn add<P: AsRef<Path>>(&self, path: P) -> Result<Project, AddError> {
+        let path = path.as_ref();
         let all_projects = self
             .projects_storage
             .list()
@@ -66,6 +56,10 @@ impl Controller {
             return Err(AddError::NotAGitRepository);
         };
 
+        if path.join(".gitmodules").exists() {
+            return Err(AddError::SubmodulesNotSupported);
+        }
+
         let id = uuid::Uuid::new_v4().to_string();
 
         // title is the base name of the file
@@ -79,6 +73,7 @@ impl Controller {
             title,
             path: path.to_path_buf(),
             api: None,
+            use_diff_context: Some(true),
             ..Default::default()
         };
 
@@ -201,6 +196,10 @@ impl Controller {
             tracing::error!(project_id = %id, ?error, "failed to remove project data",);
         }
 
+        if let Err(error) = std::fs::remove_file(project.path.join(".git/gitbutler.json")) {
+            tracing::error!(project_id = %project.id, ?error, "failed to remove .git/gitbutler.json data",);
+        }
+
         Ok(())
     }
 }
@@ -238,9 +237,9 @@ pub enum UpdateError {
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateValidationError {
     #[error("{0} not found")]
-    KeyNotFound(path::PathBuf),
+    KeyNotFound(PathBuf),
     #[error("{0} is not a file")]
-    KeyNotFile(path::PathBuf),
+    KeyNotFile(PathBuf),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -253,6 +252,8 @@ pub enum AddError {
     PathNotFound,
     #[error("project already exists")]
     AlreadyExists,
+    #[error("submodules not supported")]
+    SubmodulesNotSupported,
     #[error(transparent)]
     User(#[from] users::GetError),
     #[error(transparent)]

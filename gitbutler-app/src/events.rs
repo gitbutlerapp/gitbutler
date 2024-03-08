@@ -132,7 +132,7 @@ impl Event {
 
     pub fn virtual_branches(
         project_id: &ProjectId,
-        virtual_branches: &Vec<virtual_branches::VirtualBranch>,
+        virtual_branches: &virtual_branches::VirtualBranches,
     ) -> Self {
         Event {
             name: format!("project://{}/virtual-branches", project_id),

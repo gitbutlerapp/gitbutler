@@ -7,7 +7,7 @@ use std::{collections::HashMap, path, sync::Arc, time};
 pub use events::Event;
 
 use anyhow::{Context, Result};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tokio::{
     sync::{
         mpsc::{unbounded_channel, UnboundedSender},
@@ -25,22 +25,8 @@ pub struct Watchers {
     watchers: Arc<Mutex<HashMap<ProjectId, Watcher>>>,
 }
 
-impl TryFrom<&AppHandle> for Watchers {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(watchers) = value.try_state::<Watchers>() {
-            Ok(watchers.inner().clone())
-        } else {
-            let watchers = Watchers::new(value.clone());
-            value.manage(watchers.clone());
-            Ok(watchers)
-        }
-    }
-}
-
 impl Watchers {
-    fn new(app_handle: AppHandle) -> Self {
+    pub fn new(app_handle: AppHandle) -> Self {
         Self {
             app_handle,
             watchers: Arc::new(Mutex::new(HashMap::new())),
@@ -53,28 +39,26 @@ impl Watchers {
         let project_id = project.id;
         let project_path = project.path.clone();
 
-        task::Builder::new()
-            .name(&format!("{} watcher", project_id))
-            .spawn({
-                let watchers = Arc::clone(&self.watchers);
-                let watcher = watcher.clone();
-                async move {
-                    watchers.lock().await.insert(project_id, watcher.clone());
-                    match watcher.run(&project_path, &project_id).await {
-                        Ok(()) => {
-                            tracing::debug!(%project_id, "watcher stopped");
-                        },
-                        Err(RunError::PathNotFound(path)) => {
-                            tracing::warn!(%project_id, path = %path.display(), "watcher stopped: project path not found");
-                            watchers.lock().await.remove(&project_id);
-                        }
-                        Err(error) => {
-                            tracing::error!(?error, %project_id, "watcher error");
-                            watchers.lock().await.remove(&project_id);
-                        }
+        task::spawn({
+            let watchers = Arc::clone(&self.watchers);
+            let watcher = watcher.clone();
+            async move {
+                watchers.lock().await.insert(project_id, watcher.clone());
+                match watcher.run(&project_path, &project_id).await {
+                    Ok(()) => {
+                        tracing::debug!(%project_id, "watcher stopped");
+                    }
+                    Err(RunError::PathNotFound(path)) => {
+                        tracing::warn!(%project_id, path = %path.display(), "watcher stopped: project path not found");
+                        watchers.lock().await.remove(&project_id);
+                    }
+                    Err(error) => {
+                        tracing::error!(?error, %project_id, "watcher error");
+                        watchers.lock().await.remove(&project_id);
                     }
                 }
-            })?;
+            }
+        });
 
         Ok(())
     }
@@ -196,44 +180,42 @@ impl WatcherInner {
             .context("failed to send event")?;
 
         let handle_event = |event: &Event| -> Result<()> {
-            task::Builder::new()
-                .name(&format!("handle {}", event))
-                .spawn_blocking({
-                    let project_id = project_id.to_string();
-                    let handler = self.handler.clone();
-                    let tx = proxy_tx.clone();
-                    let event = event.clone();
-                    move || {
-                        futures::executor::block_on(async move {
-                            match handler.handle(&event, time::SystemTime::now()).await {
-                                Err(error) => tracing::error!(
-                                    project_id,
-                                    %event,
-                                    ?error,
-                                    "failed to handle event",
-                                ),
-                                Ok(events) => {
-                                    for e in events {
-                                        if let Err(error) = tx.send(e.clone()) {
-                                            tracing::error!(
-                                                project_id,
-                                                %event,
-                                                ?error,
-                                                "failed to post event",
-                                            );
-                                        } else {
-                                            tracing::debug!(
-                                                project_id,
-                                                %event,
-                                                "sent response event",
-                                            );
-                                        }
+            task::spawn_blocking({
+                let project_id = project_id.to_string();
+                let handler = self.handler.clone();
+                let tx = proxy_tx.clone();
+                let event = event.clone();
+                move || {
+                    futures::executor::block_on(async move {
+                        match handler.handle(&event, time::SystemTime::now()).await {
+                            Err(error) => tracing::error!(
+                                project_id,
+                                %event,
+                                ?error,
+                                "failed to handle event",
+                            ),
+                            Ok(events) => {
+                                for e in events {
+                                    if let Err(error) = tx.send(e.clone()) {
+                                        tracing::error!(
+                                            project_id,
+                                            %event,
+                                            ?error,
+                                            "failed to post event",
+                                        );
+                                    } else {
+                                        tracing::debug!(
+                                            project_id,
+                                            %event,
+                                            "sent response event",
+                                        );
                                     }
                                 }
                             }
-                        });
-                    }
-                })?;
+                        }
+                    });
+                }
+            });
             Ok(())
         };
 

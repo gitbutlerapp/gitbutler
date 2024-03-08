@@ -1,9 +1,10 @@
 import { invoke } from '$lib/backend/ipc';
+import { showToast } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { BaseBranchService, VirtualBranchService } from './branchStoresCache';
-import type { Branch, Hunk } from './types';
+import type { Branch, Hunk, LocalFile } from './types';
 
 export class BranchController {
 	constructor(
@@ -60,9 +61,9 @@ export class BranchController {
 				runHooks: runHooks
 			});
 			posthog.capture('Commit Successful');
-		} catch (err) {
-			toasts.error('Failed to commit branch');
-			posthog.capture('Commit Failed');
+		} catch (err: any) {
+			toasts.error('Failed to commit changes');
+			posthog.capture('Commit Failed', err);
 		}
 	}
 
@@ -150,6 +151,17 @@ export class BranchController {
 		}
 	}
 
+	async unapplyFiles(files: LocalFile[]) {
+		try {
+			await invoke<void>('reset_files', {
+				projectId: this.projectId,
+				files: files.flatMap((f) => f.path).join('\n')
+			});
+		} catch (err) {
+			toasts.error('Failed to unapply file changes');
+		}
+	}
+
 	async unapplyBranch(branchId: string) {
 		try {
 			// TODO: make this optimistic again.
@@ -177,13 +189,38 @@ export class BranchController {
 				branchId,
 				withForce
 			});
+			posthog.capture('Push Successful');
 			await this.vbranchService.reload();
 			return await this.vbranchService.getById(branchId);
 		} catch (err: any) {
+			console.error(err);
+			posthog.capture('Push Failed', { error: err });
 			if (err.code === 'errors.git.authentication') {
-				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
+				showToast({
+					title: 'Git push failed',
+					message: `
+                        Your branch cannot be pushed due to an authentication failure.
+
+                        Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
+                        on fetching and pushing for ways to resolve the problem.
+
+                        \`\`\`${err.message}\`\`\`
+                    `,
+					style: 'error'
+				});
 			} else {
-				toasts.error(`Failed to push branch: ${err.message}`);
+				showToast({
+					title: 'Git push failed',
+					message: `
+                        Your branch cannot be pushed due to an unforeseen problem.
+
+                        Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
+                        on fetching and pushing for ways to resolve the problem.
+
+                        \`\`\`${err.message}\`\`\`
+                    `,
+					style: 'error'
+				});
 			}
 		}
 	}
@@ -265,6 +302,18 @@ export class BranchController {
 			});
 		} catch (err: any) {
 			toasts.error(`Failed to amend commit: ${err.message}`);
+		}
+	}
+
+	async moveCommit(targetBranchId: string, commitOid: string) {
+		try {
+			await invoke<void>('move_commit', {
+				projectId: this.projectId,
+				targetBranchId,
+				commitOid
+			});
+		} catch (err: any) {
+			toasts.error(`Failed to move commit: ${err.message}`);
 		}
 	}
 }

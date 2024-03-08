@@ -26,13 +26,12 @@
 			return null;
 		})
 	);
+
+	$: if ($redirect$) goto(`/${$redirect$}/`);
 </script>
 
 {#if $redirect$ === undefined}
 	Loading...
-{:else if $redirect$}
-	<!-- TODO: Is this a valid form of redirect? -->
-	{goto(`/${$redirect$}/`)}
 {:else if !$analyticsConfirmed}
 	<DecorativeSplitView
 		user={$user$}
@@ -43,7 +42,7 @@
 	>
 		<AnalyticsConfirmation {analyticsConfirmed} />
 	</DecorativeSplitView>
-{:else}
+{:else if $redirect$ === null}
 	<DecorativeSplitView
 		user={$user$}
 		imgSet={{

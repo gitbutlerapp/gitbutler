@@ -1,7 +1,6 @@
 use std::path;
 
 use anyhow::Context;
-use tauri::{AppHandle, Manager};
 
 use crate::{
     gb_repository, project_repository,
@@ -20,25 +19,6 @@ pub struct Controller {
     users: users::Controller,
 }
 
-impl TryFrom<&AppHandle> for Controller {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(controller) = value.try_state::<Controller>() {
-            Ok(controller.inner().clone())
-        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            Ok(Self {
-                local_data_dir: app_data_dir,
-                sessions_database: Database::try_from(value)?,
-                projects: projects::Controller::try_from(value)?,
-                users: users::Controller::try_from(value)?,
-            })
-        } else {
-            Err(anyhow::anyhow!("failed to get app data dir"))
-        }
-    }
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum ListError {
     #[error(transparent)]
@@ -52,6 +32,20 @@ pub enum ListError {
 }
 
 impl Controller {
+    pub fn new(
+        local_data_dir: path::PathBuf,
+        sessions_database: Database,
+        projects: projects::Controller,
+        users: users::Controller,
+    ) -> Self {
+        Self {
+            local_data_dir,
+            sessions_database,
+            projects,
+            users,
+        }
+    }
+
     pub fn list(
         &self,
         project_id: &ProjectId,

@@ -11,10 +11,12 @@
 	import { marked } from 'marked';
 	import { getContext, onMount } from 'svelte';
 	import { writable } from 'svelte/store';
+	import type { Project } from '$lib/backend/projects';
 	import type { PullRequest } from '$lib/github/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { AnyFile, BaseBranch, RemoteBranch } from '$lib/vbranches/types';
 
+	export let project: Project | undefined;
 	export let base: BaseBranch | undefined | null;
 	export let branch: RemoteBranch;
 	export let projectId: string;
@@ -41,6 +43,12 @@
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
 	});
+
+	var renderer = new marked.Renderer();
+	renderer.link = function (href, title, text) {
+		if (!title) title = text;
+		return '<a target="_blank" href="' + href + '" title="' + title + '">' + text + '</a>';
+	};
 </script>
 
 <div class="base">
@@ -56,18 +64,20 @@
 					<div class="card">
 						<div class="card__header">PR Description</div>
 						<div class="card__content">
-							{@html marked.parse(pr.body)}
+							{@html marked.parse(pr.body, { renderer })}
 						</div>
 					</div>
 				{/if}
-				{#await getRemoteBranchData({ projectId, refname: branch.name }) then branchData}
+				{#await getRemoteBranchData(projectId, branch.name) then branchData}
 					{#if branchData.commits && branchData.commits.length > 0}
 						<div class="flex w-full flex-col gap-y-2">
 							{#each branchData.commits as commit (commit.id)}
 								<CommitCard
 									{commit}
+									{project}
 									{projectId}
 									{selectedFiles}
+									{branchController}
 									commitUrl={base?.commitUrl(commit.id)}
 								/>
 							{/each}
@@ -131,5 +141,9 @@
 		flex-direction: column;
 		gap: var(--space-8);
 		margin: var(--space-12) var(--space-6) var(--space-12) var(--space-12);
+	}
+
+	.card__content {
+		user-select: text;
 	}
 </style>

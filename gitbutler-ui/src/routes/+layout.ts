@@ -1,7 +1,9 @@
 import { initPostHog } from '$lib/analytics/posthog';
 import { initSentry } from '$lib/analytics/sentry';
+import { AuthService } from '$lib/backend/auth';
 import { getCloudApiClient } from '$lib/backend/cloud';
 import { ProjectService } from '$lib/backend/projects';
+import { UpdaterService } from '$lib/backend/updater';
 import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
 import { UserService } from '$lib/stores/user';
 import lscache from 'lscache';
@@ -39,8 +41,10 @@ export const load: LayoutLoad = async ({ fetch: realFetch }: { fetch: typeof fet
 	const defaultPath = await homeDir();
 
 	return {
+		authService: new AuthService(),
 		projectService: new ProjectService(defaultPath),
 		cloud: getCloudApiClient({ fetch: realFetch }),
+		updaterService: new UpdaterService(),
 		userService,
 		user$: userService.user$
 	};

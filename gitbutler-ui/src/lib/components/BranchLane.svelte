@@ -116,8 +116,8 @@
 			<Resizer
 				viewport={rsViewport}
 				direction="right"
-				inside
 				minWidth={240}
+				defaultLineColor="var(--clr-theme-container-outline-light)"
 				on:width={(e) => {
 					fileWidth = e.detail / (16 * $userSettings.zoom);
 					lscache.set(fileWidthKey + branch.id, fileWidth, 7 * 1440); // 7 day ttl
@@ -134,6 +134,7 @@
 		height: 100%;
 		align-items: self-start;
 		flex-shrink: 0;
+		user-select: none; /* here because of user-select draggable interference in board */
 		position: relative;
 		--target-branch-background: var(--clr-theme-container-pale);
 		--selected-resize-shift: 0;
@@ -151,7 +152,7 @@
 	}
 
 	.file-selected {
-		--selected-resize-shift: calc(var(--space-6) * -1);
+		--selected-resize-shift: calc((var(--space-6) + 0.0625rem) * -1);
 		--selected-target-branch-right-padding: calc(var(--space-4) * -1);
 		--selected-opacity: 0;
 	}
@@ -165,7 +166,6 @@
 		align-items: self-start;
 
 		padding: var(--space-12) var(--space-12) var(--space-12) 0;
-		border-right: 1px solid var(--clr-theme-container-outline-light);
 		margin-left: var(--selected-target-branch-right-padding);
 	}
 </style>

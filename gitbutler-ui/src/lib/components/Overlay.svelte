@@ -50,10 +50,6 @@
 		background-color: var(--clr-theme-container-light);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		box-shadow: var(--fx-shadow-l);
-
-		&::backdrop {
-			background-color: rgba(110, 110, 110, 0.2);
-		}
 	}
 
 	/* modifiers */

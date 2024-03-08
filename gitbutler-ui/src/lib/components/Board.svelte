@@ -1,4 +1,5 @@
 <script lang="ts" async="true">
+	import FullscreenLoading from './FullscreenLoading.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import BranchLane from '$lib/components/BranchLane.svelte';
 	import Icon from '$lib/components/Icon.svelte';
@@ -39,7 +40,7 @@
 {#if branchesError}
 	<div class="p-4" data-tauri-drag-region>Something went wrong...</div>
 {:else if !branches}
-	<div class="loading" data-tauri-drag-region><Icon name="spinner" /></div>
+	<FullscreenLoading />
 {:else}
 	<div
 		class="board"
@@ -86,7 +87,7 @@
 		{#each branches.sort((a, b) => a.order - b.order) as branch (branch.id)}
 			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<div
-				class="h-full"
+				class="draggable-branch h-full"
 				draggable="true"
 				on:mousedown={(e) => (dragHandle = e.target)}
 				on:dragstart={(e) => {
@@ -121,7 +122,7 @@
 					{projectPath}
 					{user}
 					{githubService}
-				></BranchLane>
+				/>
 			</div>
 		{/each}
 
@@ -213,14 +214,23 @@
 		height: 100%;
 	}
 
-	.loading {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		width: 100%;
-	}
+	.draggable-branch {
+		/* When draggable="true" we need this to not break user-select: text in descendants.
 
-	/* Empty board */
+        It has been confirmed this bug is webkit only, so for GitButler this means macos and
+        most linux distributions. Why it happens we don't know, and it's somewhat unclear
+        why the other draggable items don't seem suffer similar breakage.
+
+        The problem is reproducable with the following html:
+        ```
+        <body style="-webkit-user-select: none; user-select: none">
+            <div draggable="true">
+                <p style="-webkit-user-select: text; user-select: text; cursor: text">Hello World</p>
+            </div>
+        </body>
+        ``` */
+		user-select: auto;
+	}
 
 	.empty-board {
 		user-select: none;

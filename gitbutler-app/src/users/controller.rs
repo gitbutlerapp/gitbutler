@@ -1,5 +1,4 @@
 use anyhow::Context;
-use tauri::{AppHandle, Manager};
 
 use super::{storage::Storage, User};
 
@@ -8,31 +7,14 @@ pub struct Controller {
     storage: Storage,
 }
 
-impl TryFrom<&AppHandle> for Controller {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(controller) = value.try_state::<Controller>() {
-            Ok(controller.inner().clone())
-        } else {
-            let controller = Controller::new(Storage::try_from(value)?);
-            value.manage(controller.clone());
-            Ok(controller)
-        }
-    }
-}
-
-impl TryFrom<&std::path::PathBuf> for Controller {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
-        Ok(Controller::new(Storage::try_from(value)?))
-    }
-}
-
 impl Controller {
-    fn new(storage: Storage) -> Controller {
+    pub fn new(storage: Storage) -> Controller {
         Controller { storage }
+    }
+
+    #[cfg(test)]
+    pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Controller {
+        Controller::new(Storage::from_path(path))
     }
 
     pub fn get_user(&self) -> Result<Option<User>, GetError> {

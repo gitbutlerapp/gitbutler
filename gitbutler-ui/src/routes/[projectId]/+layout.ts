@@ -11,7 +11,7 @@ import type { LayoutLoad } from './$types';
 export const prerender = false;
 
 export const load: LayoutLoad = async ({ params, parent }) => {
-	const { user$, projectService, userService } = await parent();
+	const { authService, projectService, userService } = await parent();
 	const projectId = params.projectId;
 	const project$ = projectService.getProject(projectId);
 	const fetches$ = getFetchNotifications(projectId);
@@ -34,10 +34,18 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	);
 
 	const githubService = new GitHubService(userService, baseBranchService);
-	const branchService = new BranchService(vbranchService, remoteBranchService, githubService);
+	const branchService = new BranchService(
+		vbranchService,
+		remoteBranchService,
+		githubService,
+		branchController
+	);
+
+	const user$ = userService.user$;
 
 	return {
 		projectId,
+		authService,
 		branchController,
 		baseBranchService,
 		githubService,

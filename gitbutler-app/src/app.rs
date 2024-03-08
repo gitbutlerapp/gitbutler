@@ -1,7 +1,6 @@
 use std::{collections::HashMap, path};
 
 use anyhow::{Context, Result};
-use tauri::{AppHandle, Manager};
 
 use crate::{
     gb_repository, git,
@@ -33,28 +32,8 @@ pub enum Error {
     Other(#[from] anyhow::Error),
 }
 
-impl TryFrom<&AppHandle> for App {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        if let Some(app) = value.try_state::<App>() {
-            Ok(app.inner().clone())
-        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            let projects = projects::Controller::try_from(value)?;
-            let users = users::Controller::try_from(value)?;
-            let watchers = watcher::Watchers::try_from(value)?;
-            let sessions_database = sessions::Database::try_from(value)?;
-            let app = App::new(app_data_dir, projects, users, watchers, sessions_database);
-            value.manage(app.clone());
-            Ok(app)
-        } else {
-            Err(anyhow::anyhow!("failed to get app data dir"))
-        }
-    }
-}
-
 impl App {
-    fn new(
+    pub fn new(
         local_data_dir: path::PathBuf,
         projects: projects::Controller,
         users: users::Controller,
@@ -139,6 +118,33 @@ impl App {
             .map_err(Error::Other)
     }
 
+    pub fn git_test_push(
+        &self,
+        project_id: &ProjectId,
+        remote_name: &str,
+        branch_name: &str,
+        credentials: &git::credentials::Helper,
+    ) -> Result<(), Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        project_repository
+            .git_test_push(credentials, remote_name, branch_name)
+            .map_err(Error::Other)
+    }
+
+    pub fn git_test_fetch(
+        &self,
+        project_id: &ProjectId,
+        remote_name: &str,
+        credentials: &git::credentials::Helper,
+    ) -> Result<(), Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        project_repository
+            .fetch(remote_name, credentials)
+            .map_err(|e| Error::Other(anyhow::anyhow!(e.to_string())))
+    }
+
     pub fn git_head(&self, project_id: &ProjectId) -> Result<String, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
@@ -148,13 +154,13 @@ impl App {
         Ok(head.name().unwrap().to_string())
     }
 
-    pub fn git_set_global_config(&self, key: &str, value: &str) -> Result<String> {
+    pub fn git_set_global_config(key: &str, value: &str) -> Result<String> {
         let mut config = git2::Config::open_default()?;
         config.set_str(key, value)?;
         Ok(value.to_string())
     }
 
-    pub fn git_get_global_config(&self, key: &str) -> Result<Option<String>> {
+    pub fn git_get_global_config(key: &str) -> Result<Option<String>> {
         let config = git2::Config::open_default()?;
         let value = config.get_string(key);
         match value {

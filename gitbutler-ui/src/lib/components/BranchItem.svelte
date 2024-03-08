@@ -4,6 +4,7 @@
 	// import AuthorIcons from '$lib/components/AuthorIcons.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import type { CombinedBranch } from '$lib/branches/types';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
 	export let projectId: string;
@@ -20,9 +21,15 @@
 	$: selected = href ? $page.url.href.endsWith(href) : false;
 </script>
 
-<a class="branch" class:selected {href}>
+<button
+	class="branch"
+	class:selected
+	on:mousedown={() => {
+		if (href) goto(href);
+	}}
+>
 	{#if branch.icon}
-		<BranchIcon help={branch.tooltip} name={branch.icon} color={branch.color} />
+		<BranchIcon help={branch.tooltip} name={branch.icon} />
 	{/if}
 	<div class="branch__info flex flex-col gap-2">
 		<div class="branch__details">
@@ -43,7 +50,7 @@
 			</div>
 		{/if}
 	</div>
-</a>
+</button>
 
 <style lang="postcss">
 	.branch {
@@ -82,8 +89,8 @@
 		color: var(--clr-theme-scale-ntrl-50);
 	}
 
-	.branch:hover,
-	.branch:focus,
+	.branch:not(.selected):hover,
+	.branch:not(.selected):focus,
 	.selected {
 		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 		transition: none;

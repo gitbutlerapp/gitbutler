@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    analytics, events as app_events, gb_repository, project_repository,
+    analytics, events as app_events, gb_repository, git, project_repository,
     projects::{self, ProjectId},
     users,
 };
@@ -25,8 +25,8 @@ impl TryFrom<&AppHandle> for Handler {
         if let Some(handler) = value.try_state::<Handler>() {
             Ok(handler.inner().clone())
         } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            let projects = projects::Controller::try_from(value)?;
-            let users = users::Controller::try_from(value)?;
+            let projects = value.state::<projects::Controller>().inner().clone();
+            let users = value.state::<users::Controller>().inner().clone();
             let handler = Handler::new(app_data_dir, projects, users);
             value.manage(handler.clone());
             Ok(handler)
@@ -101,6 +101,15 @@ impl Handler {
                     .get_head()
                     .context("failed to get head")?;
                 let head_ref_name = head_ref.name().context("failed to get head name")?;
+                if head_ref_name.to_string() != "refs/heads/gitbutler/integration" {
+                    let mut integration_reference = project_repository
+                        .git_repository
+                        .find_reference(&git::Refname::from(git::LocalRefname::new(
+                            "gitbutler/integration",
+                            None,
+                        )))?;
+                    integration_reference.delete()?;
+                }
                 if let Some(head) = head_ref.name() {
                     Ok(vec![
                         events::Event::Analytics(analytics::Event::HeadChange {
@@ -132,7 +141,7 @@ mod test {
     use pretty_assertions::assert_eq;
 
     use crate::{
-        test_utils::{Case, Suite},
+        tests::{Case, Suite},
         watcher::handlers,
     };
 
@@ -200,7 +209,7 @@ mod test {
         fs::write(project.path.join("test.txt"), "test").unwrap();
 
         let file_change_listener =
-            handlers::calculate_deltas_handler::Handler::try_from(&suite.local_app_data).unwrap();
+            handlers::calculate_deltas_handler::Handler::from_path(&suite.local_app_data);
         file_change_listener
             .handle("test.txt", &project.id)
             .unwrap();

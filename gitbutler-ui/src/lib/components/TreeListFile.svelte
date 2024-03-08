@@ -1,13 +1,19 @@
 <script lang="ts">
+	import FileContextMenu from './FileContextMenu.svelte';
 	import FileStatusIcons from './FileStatusIcons.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { updateFocus } from '$lib/utils/selection';
+	import { onDestroy } from 'svelte';
+	import type { Project } from '$lib/backend/projects';
+	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
+	export let project: Project | undefined;
 	export let branchId: string;
 	export let file: AnyFile;
 	export let selected: boolean;
@@ -16,9 +22,11 @@
 	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let readonly = false;
+	export let branchController: BranchController;
 
 	let checked = false;
 	let indeterminate = false;
+	let draggableElt: HTMLDivElement;
 
 	$: updateOwnership($selectedOwnership);
 
@@ -31,9 +39,28 @@
 		indeterminate = selectedCount > 0 && file.hunks.length - selectedCount > 0;
 		if (indeterminate) checked = false;
 	}
+
+	function updateContextMenu() {
+		if (popupMenu) popupMenu.$destroy();
+		return new FileContextMenu({
+			target: document.body,
+			props: { branchController, project }
+		});
+	}
+
+	$: popupMenu = updateContextMenu();
+
+	$: if ($selectedFiles && draggableElt) updateFocus(draggableElt, file, selectedFiles);
+
+	onDestroy(() => {
+		if (popupMenu) {
+			popupMenu.$destroy();
+		}
+	});
 </script>
 
 <div
+	bind:this={draggableElt}
 	on:dragstart={() => {
 		// Reset selection if the file being dragged is not in the selected list
 		if ($selectedFiles.length > 0 && !$selectedFiles.find((f) => f.id == file.id)) {
@@ -43,15 +70,19 @@
 	use:draggable={{
 		...draggableFile(branchId, file, selectedFiles),
 		disabled: readonly || isUnapplied,
-		selector: '.selected'
+		selector: '.selected-draggable'
 	}}
 	on:click
 	on:keydown
+	on:contextmenu|preventDefault={(e) =>
+		popupMenu.openByMouse(e, {
+			files: $selectedFiles.includes(file) ? $selectedFiles : [file]
+		})}
 	class="draggable-wrapper"
 	role="button"
 	tabindex="0"
 >
-	<div class="tree-list-file" class:selected>
+	<div class="tree-list-file" class:selected role="listitem" on:contextmenu|preventDefault>
 		<div class="content-wrapper">
 			{#if showCheckbox}
 				<Checkbox
@@ -96,6 +127,8 @@
 		border-radius: var(--radius-s);
 		width: 100%;
 		max-width: 100%;
+		outline: none;
+		background: var(--clr-theme-container-light);
 		&:not(.selected):hover {
 			background-color: color-mix(
 				in srgb,

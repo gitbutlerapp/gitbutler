@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../styles/main.postcss';
 
+	import AppUpdater from '$lib/components/AppUpdater.svelte';
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
 	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
@@ -14,7 +15,7 @@
 	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
-	const { cloud, user$ } = data;
+	const { cloud, user$, updaterService } = data;
 
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
@@ -45,9 +46,19 @@
 	);
 </script>
 
-<div data-tauri-drag-region class="flex h-full flex-grow justify-center overflow-hidden">
+<div data-tauri-drag-region class="app-root">
 	<slot />
 </div>
 <Toaster />
 <ShareIssueModal bind:this={shareIssueModal} user={$user$} {cloud} />
 <ToastController />
+<AppUpdater {updaterService} />
+
+<style lang="postcss">
+	.app-root {
+		display: flex;
+		height: 100%;
+		user-select: none;
+		cursor: default;
+	}
+</style>

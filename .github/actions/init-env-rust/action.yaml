@@ -10,10 +10,6 @@ runs:
         prefix-key: gitbutler-client
         shared-key: rust
 
-    - name: Placeholder for ui assets
-      shell: bash
-      run: mkdir gitbutler-ui/build
-
     - name: Check versions
       shell: bash
       run: |

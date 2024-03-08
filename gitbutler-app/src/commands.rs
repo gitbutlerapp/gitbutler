@@ -64,27 +64,55 @@ pub async fn git_remote_branches(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
-    use gitbutler_git::Repository;
+pub async fn git_test_push(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    remote_name: &str,
+    branch_name: &str,
+) -> Result<(), Error> {
+    let app = handle.state::<app::App>();
+    let helper = handle.state::<crate::git::credentials::Helper>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
-    let project = handle.state::<projects::Controller>().get(&project_id)?;
-    let repo =
-        gitbutler_git::git2::Repository::<gitbutler_git::git2::tokio::TokioThreadedResource>::open(
-            &project.path,
-        )
-        .await
+    app.git_test_push(&project_id, remote_name, branch_name, &helper)
         .map_err(|e| Error::UserError {
-            code: Code::Projects,
-            message: format!("could not open repository: {e}"),
-        })?;
+            code: Code::Unknown,
+            message: e.to_string(),
+        })
+}
 
-    repo.symbolic_head().await.map_err(|e| Error::UserError {
-        code: Code::ProjectHead,
-        message: format!("could not get symbolic head: {e}"),
-    })
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn git_test_fetch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    remote_name: &str,
+) -> Result<(), Error> {
+    let app = handle.state::<app::App>();
+    let helper = handle.state::<crate::git::credentials::Helper>();
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".to_string(),
+    })?;
+    app.git_test_fetch(&project_id, remote_name, &helper)
+        .map_err(|e| Error::UserError {
+            code: Code::Unknown,
+            message: e.to_string(),
+        })
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+    let app = handle.state::<app::App>();
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".to_string(),
+    })?;
+    let head = app.git_head(&project_id)?;
+    Ok(head)
 }
 
 #[tauri::command(async)]
@@ -112,25 +140,23 @@ pub async fn mark_resolved(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(handle))]
+#[instrument]
 pub async fn git_set_global_config(
-    handle: tauri::AppHandle,
+    _handle: tauri::AppHandle,
     key: &str,
     value: &str,
 ) -> Result<String, Error> {
-    let app = handle.state::<app::App>();
-    let result = app.git_set_global_config(key, value)?;
+    let result = app::App::git_set_global_config(key, value)?;
     Ok(result)
 }
 
 #[tauri::command(async)]
-#[instrument(skip(handle))]
+#[instrument]
 pub async fn git_get_global_config(
-    handle: tauri::AppHandle,
+    _handle: tauri::AppHandle,
     key: &str,
 ) -> Result<Option<String>, Error> {
-    let app = handle.state::<app::App>();
-    let result = app.git_get_global_config(key)?;
+    let result = app::App::git_get_global_config(key)?;
     Ok(result)
 }
 

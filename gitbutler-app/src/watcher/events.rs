@@ -9,13 +9,11 @@ use crate::{
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Event {
-    Tick(ProjectId),
     Flush(ProjectId, sessions::Session),
 
     FetchGitbutlerData(ProjectId),
     PushGitbutlerData(ProjectId),
     PushProjectToGitbutler(ProjectId),
-    FetchProjectData(ProjectId),
 
     GitFileChange(ProjectId, path::PathBuf),
 
@@ -32,6 +30,8 @@ pub enum Event {
 
     CalculateVirtualBranches(ProjectId),
     CalculateDeltas(ProjectId, path::PathBuf),
+
+    FilterIgnoredFiles(ProjectId, path::PathBuf),
 }
 
 impl Event {
@@ -39,10 +39,8 @@ impl Event {
         match self {
             Event::Analytics(event) => event.project_id(),
             Event::Emit(event) => event.project_id(),
-            Event::Tick(project_id)
-            | Event::IndexAll(project_id)
+            Event::IndexAll(project_id)
             | Event::FetchGitbutlerData(project_id)
-            | Event::FetchProjectData(project_id)
             | Event::Flush(project_id, _)
             | Event::GitFileChange(project_id, _)
             | Event::ProjectFileChange(project_id, _)
@@ -51,6 +49,7 @@ impl Event {
             | Event::SessionDelta((project_id, _, _, _))
             | Event::CalculateVirtualBranches(project_id)
             | Event::CalculateDeltas(project_id, _)
+            | Event::FilterIgnoredFiles(project_id, _)
             | Event::PushGitbutlerData(project_id)
             | Event::PushProjectToGitbutler(project_id) => project_id,
         }
@@ -62,12 +61,8 @@ impl Display for Event {
         match self {
             Event::Analytics(event) => write!(f, "Analytics({})", event),
             Event::Emit(event) => write!(f, "Emit({})", event.name()),
-            Event::Tick(project_id) => write!(f, "Tick({})", project_id,),
             Event::FetchGitbutlerData(pid) => {
                 write!(f, "FetchGitbutlerData({})", pid,)
-            }
-            Event::FetchProjectData(pid) => {
-                write!(f, "FetchProjectData({})", pid,)
             }
             Event::Flush(project_id, session) => write!(f, "Flush({}, {})", project_id, session.id),
             Event::GitFileChange(project_id, path) => {
@@ -93,6 +88,9 @@ impl Display for Event {
             Event::CalculateVirtualBranches(pid) => write!(f, "VirtualBranch({})", pid),
             Event::CalculateDeltas(project_id, path) => {
                 write!(f, "SessionProcessing({}, {})", project_id, path.display())
+            }
+            Event::FilterIgnoredFiles(project_id, path) => {
+                write!(f, "FilterIgnoredFiles({}, {})", project_id, path.display())
             }
             Event::PushGitbutlerData(pid) => write!(f, "PushGitbutlerData({})", pid),
             Event::PushProjectToGitbutler(pid) => write!(f, "PushProjectToGitbutler({})", pid),

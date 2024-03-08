@@ -4,10 +4,12 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { tooltip } from '$lib/utils/tooltip';
+	import type { Project } from '$lib/backend/projects';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
+	export let project: Project | undefined;
 	export let base: BaseBranch;
 	export let projectId: string;
 	export let branchController: BranchController;
@@ -50,7 +52,14 @@
 		<div class="flex h-full">
 			<div class="z-20 flex w-full flex-col gap-2">
 				{#each base.upstreamCommits as commit}
-					<CommitCard {commit} {projectId} {selectedFiles} commitUrl={base.commitUrl(commit.id)} />
+					<CommitCard
+						{commit}
+						{project}
+						{projectId}
+						{selectedFiles}
+						{branchController}
+						commitUrl={base.commitUrl(commit.id)}
+					/>
 				{/each}
 			</div>
 		</div>
@@ -68,7 +77,14 @@
 	</div>
 	<div class="flex flex-col gap-y-2">
 		{#each base.recentCommits as commit}
-			<CommitCard {commit} {projectId} {selectedFiles} commitUrl={base.commitUrl(commit.id)} />
+			<CommitCard
+				{commit}
+				{project}
+				{projectId}
+				{selectedFiles}
+				{branchController}
+				commitUrl={base.commitUrl(commit.id)}
+			/>
 		{/each}
 	</div>
 </div>

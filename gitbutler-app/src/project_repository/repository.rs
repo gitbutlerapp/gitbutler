@@ -1,5 +1,6 @@
 use std::{
     path,
+    str::FromStr,
     sync::{atomic::AtomicUsize, Arc},
 };
 
@@ -47,6 +48,49 @@ impl Repository {
             .map_err(|error| match error {
                 git::Error::NotFound(_) => OpenError::NotFound(project.path.clone()),
                 other => OpenError::Other(other.into()),
+            })
+            .map(|git_repository| {
+                // XXX(qix-): This is a temporary measure to disable GC on the project repository.
+                // XXX(qix-): We do this because the internal repository we use to store the "virtual"
+                // XXX(qix-): refs and information use Git's alternative-objects mechanism to refer
+                // XXX(qix-): to the project repository's objects. However, the project repository
+                // XXX(qix-): has no knowledge of these refs, and will GC them away (usually after
+                // XXX(qix-): about 2 weeks) which will corrupt the internal repository.
+                // XXX(qix-):
+                // XXX(qix-): We will ultimately move away from an internal repository for a variety
+                // XXX(qix-): of reasons, but for now, this is a simple, short-term solution that we
+                // XXX(qix-): can clean up later on. We're aware this isn't ideal.
+                if let Ok(config) = git_repository.config().as_mut(){
+                    let should_set = match config.get_bool("gitbutler.didSetPrune") {
+                        Ok(None | Some(false)) => true,
+                        Ok(Some(true)) => false,
+                        Err(error) => {
+                            tracing::warn!(
+                                "failed to get gitbutler.didSetPrune for repository at {}; cannot disable gc: {}",
+                                project.path.display(),
+                                error
+                            );
+                            false
+                        }
+                    };
+
+                    if should_set {
+                        if let Err(error) = config.set_str("gc.pruneExpire", "never").and_then(|()| config.set_bool("gitbutler.didSetPrune", true)) {
+                            tracing::warn!(
+                                "failed to set gc.auto to false for repository at {}; cannot disable gc: {}",
+                                project.path.display(),
+                                error
+                            );
+                        }
+                    }
+                } else {
+                    tracing::warn!(
+                        "failed to get config for repository at {}; cannot disable gc",
+                        project.path.display()
+                    );
+                }
+
+                git_repository
             })
             .map(|git_repository| Self {
                 git_repository,
@@ -111,6 +155,43 @@ impl Repository {
                     .context("failed to convert branch to remote name")
             })
             .collect::<Result<Vec<_>>>()
+    }
+
+    pub fn git_test_push(
+        &self,
+        credentials: &git::credentials::Helper,
+        remote_name: &str,
+        branch_name: &str,
+    ) -> Result<()> {
+        let target_branch_refname =
+            git::Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
+        let branch = self.git_repository.find_branch(&target_branch_refname)?;
+        let commit_id = branch.peel_to_commit()?.id();
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or(std::time::Duration::from_secs(0))
+            .as_millis()
+            .to_string();
+        let branch_name = format!("test-push-{}", now);
+
+        let refname = git::RemoteRefname::from_str(&format!(
+            "refs/remotes/{}/{}",
+            remote_name, branch_name,
+        ))?;
+
+        match self.push(&commit_id, &refname, false, credentials, None) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(anyhow::anyhow!(e.to_string())),
+        }?;
+
+        let empty_refspec = Some(format!(":refs/heads/{}", branch_name));
+        match self.push(&commit_id, &refname, false, credentials, empty_refspec) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(anyhow::anyhow!(e.to_string())),
+        }?;
+
+        Ok(())
     }
 
     pub fn add_branch_reference(&self, branch: &Branch) -> Result<()> {
@@ -208,6 +289,7 @@ impl Repository {
                 }
                 Ok(oids)
             }
+            #[cfg(test)]
             LogUntil::End => {
                 let mut revwalk = self
                     .git_repository
@@ -346,12 +428,15 @@ impl Repository {
         branch: &git::RemoteRefname,
         with_force: bool,
         credentials: &git::credentials::Helper,
+        refspec: Option<String>,
     ) -> Result<(), RemoteError> {
-        let refspec = if with_force {
-            format!("+{}:refs/heads/{}", head, branch.branch())
-        } else {
-            format!("{}:refs/heads/{}", head, branch.branch())
-        };
+        let refspec = refspec.unwrap_or_else(|| {
+            if with_force {
+                format!("+{}:refs/heads/{}", head, branch.branch())
+            } else {
+                format!("{}:refs/heads/{}", head, branch.branch())
+            }
+        });
 
         let auth_flows = credentials.help(self, branch.remote())?;
         for (mut remote, callbacks) in auth_flows {
@@ -365,6 +450,13 @@ impl Repository {
                 if self.project.omit_certificate_check.unwrap_or(false) {
                     cbs.certificate_check(|_, _| Ok(git2::CertificateCheckStatus::CertificateOk));
                 }
+                cbs.push_update_reference(|_reference: &str, status: Option<&str>| {
+                    if let Some(status) = status {
+                        return Err(git2::Error::from_str(status));
+                    };
+                    Ok(())
+                });
+
                 match remote.push(
                     &[refspec.as_str()],
                     Some(&mut git2::PushOptions::new().remote_callbacks(cbs)),
@@ -477,5 +569,6 @@ pub enum LogUntil {
     Commit(git::Oid),
     Take(usize),
     When(Box<OidFilter>),
+    #[cfg(test)]
     End,
 }

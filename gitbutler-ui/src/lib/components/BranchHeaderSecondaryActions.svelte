@@ -23,7 +23,7 @@
 		kind="outlined"
 		color="neutral"
 		help={$isLaneCollapsed ? 'Expand lane' : 'Collapse lane'}
-		on:click={() => {
+		on:mousedown={() => {
 			$isLaneCollapsed = !$isLaneCollapsed;
 		}}
 	/>
@@ -31,8 +31,7 @@
 		icon="kebab"
 		kind="outlined"
 		color="neutral"
-		on:click={() => {
-			console.log('meatballButton', meatballButton);
+		on:mousedown={() => {
 			visible = !visible;
 		}}
 	/>

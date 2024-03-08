@@ -55,6 +55,18 @@ export class LocalFile {
 	}
 }
 
+export class SkippedFile {
+	path!: string;
+	sizeBytes!: number;
+}
+
+export class VirtualBranches {
+	@Type(() => Branch)
+	branches!: Branch[];
+	@Type(() => SkippedFile)
+	skippedFiles!: SkippedFile[];
+}
+
 export class Branch {
 	id!: string;
 	name!: string;
@@ -115,8 +127,27 @@ export class Commit {
 		}
 	}
 
+	get descriptionTitle(): string | undefined {
+		return this.descriptionLines[0];
+	}
+
+	get descriptionBody(): string | undefined {
+		let sliceCount = 1;
+
+		// Remove a blank first line
+		if (this.descriptionLines[1] == '') {
+			sliceCount = 2;
+		}
+
+		return this.descriptionLines.slice(sliceCount).join('\n');
+	}
+
 	isParentOf(possibleChild: Commit) {
 		return possibleChild.parentIds.includes(this.id);
+	}
+
+	private get descriptionLines() {
+		return this.description.split('\n');
 	}
 }
 
@@ -129,6 +160,25 @@ export class RemoteCommit {
 
 	get isLocal() {
 		return false;
+	}
+
+	get descriptionTitle(): string | undefined {
+		return this.descriptionLines[0];
+	}
+
+	get descriptionBody(): string | undefined {
+		let sliceCount = 1;
+
+		// Remove a blank first line
+		if (this.descriptionLines[1] == '') {
+			sliceCount = 2;
+		}
+
+		return this.descriptionLines.slice(sliceCount).join('\n');
+	}
+
+	private get descriptionLines() {
+		return this.description.split('\n');
 	}
 }
 
@@ -252,6 +302,13 @@ export class BaseBranch {
 	}
 
 	commitUrl(commitId: string): string | undefined {
+		// if repoBaseUrl is bitbucket, then the commit url is different
+		if (this.repoBaseUrl.includes('bitbucket.org')) {
+			return `${this.repoBaseUrl}/commits/${commitId}`;
+		}
+		if (this.repoBaseUrl.includes('gitlab.com')) {
+			return `${this.repoBaseUrl}/-/commit/${commitId}`;
+		}
 		return `${this.repoBaseUrl}/commit/${commitId}`;
 	}
 

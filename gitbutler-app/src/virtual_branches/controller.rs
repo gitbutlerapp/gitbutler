@@ -1,12 +1,13 @@
 use std::{collections::HashMap, path, sync::Arc};
 
 use anyhow::Context;
-use tauri::{AppHandle, Manager};
 use tokio::sync::Semaphore;
 
 use crate::{
     error::Error,
-    gb_repository, git, keys, project_repository,
+    gb_repository,
+    git::{self, diff::SkippedFile},
+    keys, project_repository,
     projects::{self, ProjectId},
     users,
 };
@@ -29,26 +30,6 @@ pub struct Controller {
     helper: git::credentials::Helper,
 
     by_project_id: Arc<tokio::sync::Mutex<HashMap<ProjectId, ControllerInner>>>,
-}
-
-impl TryFrom<&AppHandle> for Controller {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(controller) = value.try_state::<Controller>() {
-            Ok(controller.inner().clone())
-        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            Ok(Self::new(
-                app_data_dir,
-                projects::Controller::try_from(value)?,
-                users::Controller::try_from(value)?,
-                keys::Controller::try_from(value)?,
-                git::credentials::Helper::try_from(value)?,
-            ))
-        } else {
-            Err(anyhow::anyhow!("failed to get app data dir"))
-        }
-    }
 }
 
 impl Controller {
@@ -124,7 +105,10 @@ impl Controller {
     pub async fn list_virtual_branches(
         &self,
         project_id: &ProjectId,
-    ) -> Result<Vec<super::VirtualBranch>, ControllerError<errors::ListVirtualBranchesError>> {
+    ) -> Result<
+        (Vec<super::VirtualBranch>, bool, Vec<SkippedFile>),
+        ControllerError<errors::ListVirtualBranchesError>,
+    > {
         self.inner(project_id)
             .await
             .list_virtual_branches(project_id)
@@ -176,7 +160,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         target_branch: &git::RemoteRefname,
-    ) -> Result<super::BaseBranch, Error> {
+    ) -> Result<super::BaseBranch, ControllerError<errors::SetBaseBranchError>> {
         self.inner(project_id)
             .await
             .set_base_branch(project_id, target_branch)
@@ -244,6 +228,17 @@ impl Controller {
         self.inner(project_id)
             .await
             .unapply_ownership(project_id, ownership)
+            .await
+    }
+
+    pub async fn reset_files(
+        &self,
+        project_id: &ProjectId,
+        files: &Vec<String>,
+    ) -> Result<(), ControllerError<errors::UnapplyOwnershipError>> {
+        self.inner(project_id)
+            .await
+            .reset_files(project_id, files)
             .await
     }
 
@@ -357,6 +352,18 @@ impl Controller {
         self.inner(project_id)
             .await
             .fetch_from_target(project_id)
+            .await
+    }
+
+    pub async fn move_commit(
+        &self,
+        project_id: &ProjectId,
+        target_branch_id: &BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<(), ControllerError<errors::MoveCommitError>> {
+        self.inner(project_id)
+            .await
+            .move_commit(project_id, target_branch_id, commit_oid)
             .await
     }
 }
@@ -481,7 +488,10 @@ impl ControllerInner {
     pub async fn list_virtual_branches(
         &self,
         project_id: &ProjectId,
-    ) -> Result<Vec<super::VirtualBranch>, ControllerError<errors::ListVirtualBranchesError>> {
+    ) -> Result<
+        (Vec<super::VirtualBranch>, bool, Vec<SkippedFile>),
+        ControllerError<errors::ListVirtualBranchesError>,
+    > {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
@@ -558,19 +568,28 @@ impl ControllerInner {
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-
-        super::list_remote_commit_files(&project_repository.git_repository, commit_oid)
-            .map_err(Into::into)
+        let use_context = project_repository
+            .project()
+            .use_diff_context
+            .unwrap_or(false);
+        let context_lines = if use_context { 3_u32 } else { 0_u32 };
+        super::list_remote_commit_files(
+            &project_repository.git_repository,
+            commit_oid,
+            context_lines,
+        )
+        .map_err(Into::into)
     }
 
     pub fn set_base_branch(
         &self,
         project_id: &ProjectId,
         target_branch: &git::RemoteRefname,
-    ) -> Result<super::BaseBranch, Error> {
-        let project = self.projects.get(project_id)?;
-        let user = self.users.get_user()?;
-        let project_repository = project_repository::Repository::open(&project)?;
+    ) -> Result<super::BaseBranch, ControllerError<errors::SetBaseBranchError>> {
+        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let user = self.users.get_user().map_err(Error::from)?;
+        let project_repository =
+            project_repository::Repository::open(&project).map_err(Error::from)?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -579,7 +598,7 @@ impl ControllerInner {
         .context("failed to open gitbutler repository")?;
 
         super::set_base_branch(&gb_repository, &project_repository, target_branch)
-            .map_err(Into::into)
+            .map_err(ControllerError::Action)
     }
 
     pub async fn merge_virtual_branch_upstream(
@@ -706,6 +725,18 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
             super::unapply_ownership(gb_repository, project_repository, ownership)
                 .map_err(Into::into)
+        })
+    }
+
+    pub async fn reset_files(
+        &self,
+        project_id: &ProjectId,
+        ownership: &Vec<String>,
+    ) -> Result<(), ControllerError<errors::UnapplyOwnershipError>> {
+        let _permit = self.semaphore.acquire().await;
+
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::reset_files(project_repository, ownership).map_err(Into::into)
         })
     }
 
@@ -915,6 +946,37 @@ impl ControllerInner {
             .context("failed to convert target to base branch")?;
 
         Ok(base_branch)
+    }
+
+    pub async fn move_commit(
+        &self,
+        project_id: &ProjectId,
+        target_branch_id: &BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<(), ControllerError<errors::MoveCommitError>> {
+        let _permit = self.semaphore.acquire().await;
+
+        self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+            let signing_key = project_repository
+                .config()
+                .sign_commits()
+                .context("failed to get sign commits option")?
+                .then(|| {
+                    self.keys
+                        .get_or_create()
+                        .context("failed to get private key")
+                })
+                .transpose()?;
+            super::move_commit(
+                gb_repository,
+                project_repository,
+                target_branch_id,
+                commit_oid,
+                user,
+                signing_key.as_ref(),
+            )
+            .map_err(Into::into)
+        })
     }
 }
 

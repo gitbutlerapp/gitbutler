@@ -2,13 +2,12 @@ mod analytics_handler;
 mod calculate_deltas_handler;
 mod caltulate_virtual_branches_handler;
 mod fetch_gitbutler_data;
-mod fetch_project_data;
+mod filter_ignored_files;
 mod flush_session;
 mod git_file_change;
 mod index_handler;
 mod push_gitbutler_data;
 mod push_project_to_gitbutler;
-mod tick_handler;
 
 use std::time;
 
@@ -23,9 +22,7 @@ use super::events;
 #[derive(Clone)]
 pub struct Handler {
     git_file_change_handler: git_file_change::Handler,
-    tick_handler: tick_handler::Handler,
     flush_session_handler: flush_session::Handler,
-    fetch_project_handler: fetch_project_data::Handler,
     fetch_gitbutler_handler: fetch_gitbutler_data::Handler,
     push_gitbutler_handler: push_gitbutler_data::Handler,
     analytics_handler: analytics_handler::Handler,
@@ -33,6 +30,7 @@ pub struct Handler {
     push_project_to_gitbutler: push_project_to_gitbutler::Handler,
     calculate_vbranches_handler: caltulate_virtual_branches_handler::Handler,
     calculate_deltas_handler: calculate_deltas_handler::Handler,
+    filter_ignored_files_handler: filter_ignored_files::Handler,
 
     events_sender: app_events::Sender,
 }
@@ -46,9 +44,7 @@ impl TryFrom<&AppHandle> for Handler {
         } else {
             let handler = Handler::new(
                 git_file_change::Handler::try_from(value)?,
-                tick_handler::Handler::try_from(value)?,
                 flush_session::Handler::try_from(value)?,
-                fetch_project_data::Handler::try_from(value)?,
                 fetch_gitbutler_data::Handler::try_from(value)?,
                 push_gitbutler_data::Handler::try_from(value)?,
                 analytics_handler::Handler::try_from(value)?,
@@ -56,6 +52,7 @@ impl TryFrom<&AppHandle> for Handler {
                 push_project_to_gitbutler::Handler::try_from(value)?,
                 caltulate_virtual_branches_handler::Handler::try_from(value)?,
                 calculate_deltas_handler::Handler::try_from(value)?,
+                filter_ignored_files::Handler::try_from(value)?,
                 app_events::Sender::try_from(value)?,
             );
             value.manage(handler.clone());
@@ -68,9 +65,7 @@ impl Handler {
     #[allow(clippy::too_many_arguments)]
     fn new(
         git_file_change_handler: git_file_change::Handler,
-        tick_handler: tick_handler::Handler,
         flush_session_handler: flush_session::Handler,
-        fetch_project_handler: fetch_project_data::Handler,
         fetch_gitbutler_handler: fetch_gitbutler_data::Handler,
         push_gitbutler_handler: push_gitbutler_data::Handler,
         analytics_handler: analytics_handler::Handler,
@@ -78,13 +73,12 @@ impl Handler {
         push_project_to_gitbutler: push_project_to_gitbutler::Handler,
         calculate_vbranches_handler: caltulate_virtual_branches_handler::Handler,
         calculate_deltas_handler: calculate_deltas_handler::Handler,
+        filter_ignored_files_handler: filter_ignored_files::Handler,
         events_sender: app_events::Sender,
     ) -> Self {
         Self {
             git_file_change_handler,
-            tick_handler,
             flush_session_handler,
-            fetch_project_handler,
             fetch_gitbutler_handler,
             push_gitbutler_handler,
             analytics_handler,
@@ -92,6 +86,7 @@ impl Handler {
             push_project_to_gitbutler,
             calculate_vbranches_handler,
             calculate_deltas_handler,
+            filter_ignored_files_handler,
             events_sender,
         }
     }
@@ -103,10 +98,17 @@ impl Handler {
         now: time::SystemTime,
     ) -> Result<Vec<events::Event>> {
         match event {
-            events::Event::ProjectFileChange(project_id, path) => Ok(vec![
-                events::Event::CalculateDeltas(*project_id, path.clone()),
-                events::Event::CalculateVirtualBranches(*project_id),
-            ]),
+            events::Event::ProjectFileChange(project_id, path) => {
+                Ok(vec![events::Event::FilterIgnoredFiles(
+                    *project_id,
+                    path.clone(),
+                )])
+            }
+
+            events::Event::FilterIgnoredFiles(project_id, path) => self
+                .filter_ignored_files_handler
+                .handle(path, project_id)
+                .context("failed to handle filter ignored files event"),
 
             events::Event::GitFileChange(project_id, path) => self
                 .git_file_change_handler
@@ -129,17 +131,6 @@ impl Handler {
                 .handle(project_id, &now)
                 .await
                 .context("failed to fetch gitbutler data"),
-
-            events::Event::FetchProjectData(project_id) => self
-                .fetch_project_handler
-                .handle(project_id)
-                .await
-                .context("failed to fetch project data"),
-
-            events::Event::Tick(project_id) => self
-                .tick_handler
-                .handle(project_id, &now)
-                .context("failed to handle tick"),
 
             events::Event::Flush(project_id, session) => self
                 .flush_session_handler

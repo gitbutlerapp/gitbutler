@@ -141,11 +141,13 @@
 		<CommitCard
 			{commit}
 			projectId={project.id}
+			{project}
 			commitUrl={base?.commitUrl(commit.id)}
 			{isHeadCommit}
 			{resetHeadCommit}
 			{isUnapplied}
 			{selectedFiles}
+			{branchController}
 			branchId={branch.id}
 		/>
 	</div>

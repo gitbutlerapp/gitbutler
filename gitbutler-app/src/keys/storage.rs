@@ -1,5 +1,3 @@
-use tauri::{AppHandle, Manager};
-
 use crate::storage;
 
 use super::PrivateKey;
@@ -17,31 +15,14 @@ pub enum Error {
     SSHKey(#[from] ssh_key::Error),
 }
 
-impl TryFrom<&AppHandle> for Storage {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(storage) = value.try_state::<Storage>() {
-            Ok(storage.inner().clone())
-        } else {
-            let storage = Storage::new(storage::Storage::try_from(value)?);
-            value.manage(storage.clone());
-            Ok(storage)
-        }
-    }
-}
-
-impl TryFrom<&std::path::PathBuf> for Storage {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
-        Ok(Storage::new(storage::Storage::try_from(value)?))
-    }
-}
-
 impl Storage {
-    fn new(storage: storage::Storage) -> Storage {
+    pub fn new(storage: storage::Storage) -> Storage {
         Storage { storage }
+    }
+
+    #[cfg(test)]
+    pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Storage {
+        Storage::new(storage::Storage::new(path))
     }
 
     pub fn get(&self) -> Result<Option<PrivateKey>, Error> {

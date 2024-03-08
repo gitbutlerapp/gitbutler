@@ -29,10 +29,14 @@
 		(b) => b.name == 'origin/master' || b.name == 'origin/main'
 	);
 
-	function onSetTargetClick() {
+	async function onSetTargetClick() {
 		if (!selectedBranch) return;
 		loading = true;
-		branchController.setTarget(selectedBranch.name).finally(() => (loading = false));
+		try {
+			await branchController.setTarget(selectedBranch.name);
+		} finally {
+			loading = false;
+		}
 	}
 </script>
 
@@ -56,7 +60,7 @@
 				{item.name}
 			</SelectItem>
 		</Select>
-		<div class="card">
+		<div class="card features-wrapper">
 			<SetupFeature>
 				<svelte:fragment slot="icon">
 					<svg
@@ -150,7 +154,7 @@
 					{#if $user$?.github_access_token}
 						enabled
 						<svg
-							class="inline"
+							class="success-icon"
 							width="13"
 							height="13"
 							viewBox="0 0 13 13"
@@ -171,7 +175,7 @@
 				</svelte:fragment>
 				<svelte:fragment slot="actions">
 					{#if !$user$?.github_access_token}
-						<GithubIntegration minimal {userService} disabled={!$user$} />
+						<GithubIntegration {userService} disabled={!$user$} />
 					{/if}
 				</svelte:fragment>
 			</SetupFeature>
@@ -192,6 +196,10 @@
 		gap: var(--space-20);
 	}
 
+	.features-wrapper {
+		overflow: hidden;
+	}
+
 	.project-setup__info {
 		display: flex;
 		flex-direction: column;
@@ -207,5 +215,10 @@
 
 	.project-setup__toggle-label {
 		width: 100%;
+	}
+
+	.success-icon {
+		display: inline;
+		margin-top: calc(var(--space-2) * -1);
 	}
 </style>

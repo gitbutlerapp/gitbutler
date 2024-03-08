@@ -97,8 +97,6 @@ pub enum UnapplyOwnershipError {
 pub enum UnapplyBranchError {
     #[error("default target not set")]
     DefaultTargetNotSet(DefaultTargetNotSetError),
-    #[error("project is in conflict state")]
-    Conflict(ProjectConflictError),
     #[error("branch not found")]
     BranchNotFound(BranchNotFoundError),
     #[error(transparent)]
@@ -107,8 +105,6 @@ pub enum UnapplyBranchError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum FlushAppliedVbranchesError {
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -135,8 +131,6 @@ pub enum MergeVirtualBranchUpstreamError {
     Conflict(ProjectConflictError),
     #[error("branch not found")]
     BranchNotFound(BranchNotFoundError),
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -322,11 +316,14 @@ pub enum GetBaseBranchDataError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum SetBaseBranchError {
+    #[error("wd is dirty")]
+    DirtyWorkingDirectory,
     #[error("branch {0} not found")]
     BranchNotFound(git::RemoteRefname),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
+
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateBaseBranchError {
     #[error("project is in conflicting state")]
@@ -338,13 +335,49 @@ pub enum UpdateBaseBranchError {
 }
 
 #[derive(Debug, thiserror::Error)]
+pub enum MoveCommitError {
+    #[error("source branch contains hunks locked to the target commit")]
+    SourceLocked,
+    #[error("project is in conflicted state")]
+    Conflicted(ProjectConflictError),
+    #[error("default target not set")]
+    DefaultTargetNotSet(DefaultTargetNotSetError),
+    #[error("branch not found")]
+    BranchNotFound(BranchNotFoundError),
+    #[error("commit not found")]
+    CommitNotFound(git::Oid),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+impl From<MoveCommitError> for crate::error::Error {
+    fn from(value: MoveCommitError) -> Self {
+        match value {
+            MoveCommitError::SourceLocked => Error::UserError {
+                message: "Source branch contains hunks locked to the target commit".to_string(),
+                code: crate::error::Code::Branches,
+            },
+            MoveCommitError::Conflicted(error) => error.into(),
+            MoveCommitError::DefaultTargetNotSet(error) => error.into(),
+            MoveCommitError::BranchNotFound(error) => error.into(),
+            MoveCommitError::CommitNotFound(oid) => Error::UserError {
+                message: format!("Commit {} not found", oid),
+                code: crate::error::Code::Branches,
+            },
+            MoveCommitError::Other(error) => {
+                tracing::error!(?error, "move commit to vbranch error");
+                Error::Unknown
+            }
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum CreateVirtualBranchFromBranchError {
     #[error("failed to apply")]
     ApplyBranch(ApplyBranchError),
     #[error("can't make branch from default target")]
     CantMakeBranchFromDefaultTarget,
-    #[error("merge conflict")]
-    MergeConflict,
     #[error("default target not set")]
     DefaultTargetNotSet(DefaultTargetNotSetError),
     #[error("{0} not found")]
@@ -433,10 +466,6 @@ impl From<CreateVirtualBranchFromBranchError> for Error {
                 }
             }
             CreateVirtualBranchFromBranchError::DefaultTargetNotSet(error) => error.into(),
-            CreateVirtualBranchFromBranchError::MergeConflict => Error::UserError {
-                message: "Merge conflict".to_string(),
-                code: crate::error::Code::Branches,
-            },
             CreateVirtualBranchFromBranchError::BranchNotFound(name) => Error::UserError {
                 message: format!("Branch {} not found", name),
                 code: crate::error::Code::Branches,
@@ -583,6 +612,10 @@ impl From<ListRemoteCommitFilesError> for Error {
 impl From<SetBaseBranchError> for Error {
     fn from(value: SetBaseBranchError) -> Self {
         match value {
+            SetBaseBranchError::DirtyWorkingDirectory => Error::UserError {
+                message: "Current HEAD is dirty.".to_string(),
+                code: crate::error::Code::ProjectConflict,
+            },
             SetBaseBranchError::BranchNotFound(name) => Error::UserError {
                 message: format!("remote branch '{}' not found", name),
                 code: crate::error::Code::Branches,
@@ -598,7 +631,6 @@ impl From<SetBaseBranchError> for Error {
 impl From<MergeVirtualBranchUpstreamError> for Error {
     fn from(value: MergeVirtualBranchUpstreamError) -> Self {
         match value {
-            MergeVirtualBranchUpstreamError::DefaultTargetNotSet(error) => error.into(),
             MergeVirtualBranchUpstreamError::BranchNotFound(error) => error.into(),
             MergeVirtualBranchUpstreamError::Conflict(error) => error.into(),
             MergeVirtualBranchUpstreamError::Other(error) => {
@@ -678,7 +710,6 @@ impl From<ResetBranchError> for Error {
 impl From<UnapplyBranchError> for Error {
     fn from(value: UnapplyBranchError) -> Self {
         match value {
-            UnapplyBranchError::Conflict(error) => error.into(),
             UnapplyBranchError::DefaultTargetNotSet(error) => error.into(),
             UnapplyBranchError::BranchNotFound(error) => error.into(),
             UnapplyBranchError::Other(error) => {
@@ -706,7 +737,6 @@ impl From<PushError> for Error {
 impl From<FlushAppliedVbranchesError> for Error {
     fn from(value: FlushAppliedVbranchesError) -> Self {
         match value {
-            FlushAppliedVbranchesError::DefaultTargetNotSet(error) => error.into(),
             FlushAppliedVbranchesError::Other(error) => {
                 tracing::error!(?error, "flush workspace error");
                 Error::Unknown

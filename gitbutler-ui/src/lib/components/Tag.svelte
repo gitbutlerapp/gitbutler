@@ -45,6 +45,8 @@
 	class:verticalOrientation
 	class:not-button={!clickable}
 	on:click
+	on:mousedown
+	on:contextmenu
 	role={clickable ? 'button' : undefined}
 	class:clickable
 	use:tooltip={help}
@@ -54,7 +56,7 @@
 	</span>
 	{#if icon}
 		<div class="icon" class:verticalIcon={verticalOrientation}>
-			<Icon name={icon} />
+			<Icon name={icon} spinnerRadius={3.5} />
 		</div>
 	{/if}
 </div>
@@ -78,7 +80,7 @@
 		padding: 0 var(--space-2);
 	}
 	.clickable {
-		cursor: default;
+		cursor: pointer;
 	}
 
 	/* colors */

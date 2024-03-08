@@ -1,13 +1,11 @@
-use std::{env, path};
-
-use tauri::{AppHandle, Manager};
+use std::path::PathBuf;
 
 use crate::{keys, project_repository, projects, users};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SshCredential {
     Keyfile {
-        key_path: path::PathBuf,
+        key_path: PathBuf,
         passphrase: Option<String>,
     },
     GitButlerKey(Box<keys::PrivateKey>),
@@ -73,35 +71,7 @@ impl From<Credential> for git2::RemoteCallbacks<'_> {
 pub struct Helper {
     keys: keys::Controller,
     users: users::Controller,
-    home_dir: Option<path::PathBuf>,
-}
-
-impl TryFrom<&AppHandle> for Helper {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(helper) = value.try_state::<Helper>() {
-            Ok(helper.inner().clone())
-        } else {
-            let keys = keys::Controller::try_from(value)?;
-            let users = users::Controller::try_from(value)?;
-            let home_dir = env::var_os("HOME").map(path::PathBuf::from);
-            let helper = Helper::new(keys, users, home_dir);
-            value.manage(helper.clone());
-            Ok(helper)
-        }
-    }
-}
-
-impl TryFrom<&std::path::PathBuf> for Helper {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
-        let keys = keys::Controller::try_from(value)?;
-        let users = users::Controller::try_from(value)?;
-        let home_dir = env::var_os("HOME").map(path::PathBuf::from);
-        Ok(Helper::new(keys, users, home_dir))
-    }
+    home_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -143,13 +113,21 @@ impl Helper {
     pub fn new(
         keys: keys::Controller,
         users: users::Controller,
-        home_dir: Option<path::PathBuf>,
+        home_dir: Option<PathBuf>,
     ) -> Self {
         Self {
             keys,
             users,
             home_dir,
         }
+    }
+
+    #[cfg(test)]
+    pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Self {
+        let keys = keys::Controller::from_path(&path);
+        let users = users::Controller::from_path(path);
+        let home_dir = std::env::var_os("HOME").map(PathBuf::from);
+        Self::new(keys, users, home_dir)
     }
 
     pub fn help<'a>(
@@ -417,28 +395,28 @@ impl Helper {
 mod tests {
     use super::*;
 
-    use crate::test_utils::{self, test_repository};
+    use crate::tests::{self, test_repository};
 
     #[derive(Default)]
     struct TestCase<'a> {
         remote_url: &'a str,
         github_access_token: Option<&'a str>,
         preferred_key: projects::AuthKey,
-        home_dir: Option<path::PathBuf>,
+        home_dir: Option<PathBuf>,
     }
 
     impl TestCase<'_> {
         fn run(&self) -> Vec<(String, Vec<Credential>)> {
-            let local_app_data = test_utils::temp_dir();
+            let local_app_data = tests::temp_dir();
 
-            let users = users::Controller::try_from(&local_app_data).unwrap();
+            let users = users::Controller::from_path(&local_app_data);
             let user = users::User {
                 github_access_token: self.github_access_token.map(ToString::to_string),
                 ..Default::default()
             };
             users.set_user(&user).unwrap();
 
-            let keys = keys::Controller::try_from(&local_app_data).unwrap();
+            let keys = keys::Controller::from_path(&local_app_data);
             let helper = Helper::new(keys, users, self.home_dir.clone());
 
             let repo = test_repository();
@@ -478,7 +456,7 @@ mod tests {
                     remote_url: "https://gitlab.com/test-gitbutler/test.git",
                     github_access_token: Some("token"),
                     preferred_key: projects::AuthKey::Local {
-                        private_key_path: path::PathBuf::from("/tmp/id_rsa"),
+                        private_key_path: PathBuf::from("/tmp/id_rsa"),
                         passphrase: None,
                     },
                     ..Default::default()
@@ -492,7 +470,7 @@ mod tests {
                 assert_eq!(
                     flow[0].1,
                     vec![Credential::Ssh(SshCredential::Keyfile {
-                        key_path: path::PathBuf::from("/tmp/id_rsa"),
+                        key_path: PathBuf::from("/tmp/id_rsa"),
                         passphrase: None,
                     })]
                 );
@@ -504,7 +482,7 @@ mod tests {
                     remote_url: "git@gitlab.com:test-gitbutler/test.git",
                     github_access_token: Some("token"),
                     preferred_key: projects::AuthKey::Local {
-                        private_key_path: path::PathBuf::from("/tmp/id_rsa"),
+                        private_key_path: PathBuf::from("/tmp/id_rsa"),
                         passphrase: None,
                     },
                     ..Default::default()
@@ -518,7 +496,7 @@ mod tests {
                 assert_eq!(
                     flow[0].1,
                     vec![Credential::Ssh(SshCredential::Keyfile {
-                        key_path: path::PathBuf::from("/tmp/id_rsa"),
+                        key_path: PathBuf::from("/tmp/id_rsa"),
                         passphrase: None,
                     })]
                 );
@@ -681,7 +659,7 @@ mod tests {
                         remote_url: "https://github.com/gitbutlerapp/gitbutler.git",
                         github_access_token: Some("token"),
                         preferred_key: projects::AuthKey::Local {
-                            private_key_path: path::PathBuf::from("/tmp/id_rsa"),
+                            private_key_path: PathBuf::from("/tmp/id_rsa"),
                             passphrase: None,
                         },
                         ..Default::default()
@@ -695,7 +673,7 @@ mod tests {
                     assert_eq!(
                         flow[0].1,
                         vec![Credential::Ssh(SshCredential::Keyfile {
-                            key_path: path::PathBuf::from("/tmp/id_rsa"),
+                            key_path: PathBuf::from("/tmp/id_rsa"),
                             passphrase: None,
                         })]
                     );
@@ -707,7 +685,7 @@ mod tests {
                         remote_url: "git@github.com:gitbutlerapp/gitbutler.git",
                         github_access_token: Some("token"),
                         preferred_key: projects::AuthKey::Local {
-                            private_key_path: path::PathBuf::from("/tmp/id_rsa"),
+                            private_key_path: PathBuf::from("/tmp/id_rsa"),
                             passphrase: None,
                         },
                         ..Default::default()
@@ -721,7 +699,7 @@ mod tests {
                     assert_eq!(
                         flow[0].1,
                         vec![Credential::Ssh(SshCredential::Keyfile {
-                            key_path: path::PathBuf::from("/tmp/id_rsa"),
+                            key_path: PathBuf::from("/tmp/id_rsa"),
                             passphrase: None,
                         })]
                     );

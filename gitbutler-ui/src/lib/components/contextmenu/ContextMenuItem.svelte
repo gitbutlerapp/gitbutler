@@ -21,6 +21,7 @@
 	class:disabled
 	{disabled}
 	{id}
+	on:mousedown
 	on:click
 	on:click={(e) => {
 		e.stopPropagation();
@@ -31,14 +32,15 @@
 		<Icon name={icon} />
 	{/if}
 
-	<div class="label text-base-12">
+	<span class="label text-base-12">
 		{label}
-	</div>
+	</span>
 	<slot name="control" />
 </button>
 
 <style lang="postcss">
 	.menu-item {
+		cursor: pointer;
 		display: flex;
 		text-align: left;
 		align-items: center;
@@ -54,6 +56,7 @@
 		}
 	}
 	.label {
+		user-select: none;
 		flex-grow: 1;
 		white-space: nowrap;
 	}

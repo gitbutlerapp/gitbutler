@@ -108,6 +108,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow-x: auto;
+		user-select: text;
 
 		background: var(--clr-theme-container-light);
 		border-radius: var(--radius-s);

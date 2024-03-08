@@ -32,6 +32,7 @@ impl<T> Ord for Id<T> {
 }
 
 impl<T> Id<T> {
+    #[must_use]
     pub fn generate() -> Self {
         Id(Uuid::new_v4(), PhantomData)
     }

@@ -79,17 +79,17 @@
 	--clr-theme-container-outline-sub: var(--clr-core-ntrl-50);
 	--clr-theme-container-pale: var(--clr-core-ntrl-90);
 	--clr-theme-container-sub: var(--clr-core-ntrl-80);
-	--clr-theme-err-container: var(--clr-core-err-95);
+	--clr-theme-err-container: var(--clr-core-err-90);
 	--clr-theme-err-element: var(--clr-core-err-50);
 	--clr-theme-err-on-container: var(--clr-core-err-40);
 	--clr-theme-err-on-element: var(--clr-core-err-90);
 	--clr-theme-err-outline: var(--clr-core-err-50);
-	--clr-theme-pop-container: var(--clr-core-pop-95);
+	--clr-theme-pop-container: var(--clr-core-pop-90);
 	--clr-theme-pop-element: var(--clr-core-pop-50);
 	--clr-theme-pop-on-container: var(--clr-core-pop-10);
 	--clr-theme-pop-on-element: var(--clr-core-ntrl-100);
 	--clr-theme-pop-outline: var(--clr-core-pop-40);
-	--clr-theme-purple-container: var(--clr-core-purple-95);
+	--clr-theme-purple-container: var(--clr-core-purple-90);
 	--clr-theme-purple-element: var(--clr-core-purple-50);
 	--clr-theme-purple-on-container: var(--clr-core-purple-40);
 	--clr-theme-purple-on-element: var(--clr-core-purple-90);
@@ -150,20 +150,20 @@
 	--clr-theme-scale-warn-70: var(--clr-core-warn-70);
 	--clr-theme-scale-warn-80: var(--clr-core-warn-80);
 	--clr-theme-scale-warn-90: var(--clr-core-warn-90);
-	--clr-theme-succ-container: var(--clr-core-succ-95);
+	--clr-theme-succ-container: var(--clr-core-succ-90);
 	--clr-theme-succ-element: var(--clr-core-succ-50);
 	--clr-theme-succ-on-container: var(--clr-core-succ-40);
 	--clr-theme-succ-on-element: var(--clr-core-succ-90);
 	--clr-theme-succ-outline: var(--clr-core-succ-40);
-	--clr-theme-warn-container: var(--clr-core-warn-95);
+	--clr-theme-warn-container: var(--clr-core-warn-90);
 	--clr-theme-warn-element: var(--clr-core-warn-50);
 	--clr-theme-warn-on-container: var(--clr-core-warn-40);
 	--clr-theme-warn-on-element: var(--clr-core-warn-90);
 	--clr-theme-warn-outline: var(--clr-core-warn-50);
 	/* other */
-	--fx-shadow-l: 0 16px 40px 0 #0000001f;
-	--fx-shadow-m: 0 10px 30px 0 #00000024;
-	--fx-shadow-s: 0 7px 14px 0 #0000001a;
+	--fx-shadow-l: 0 10px 40px 0 #0000001a;
+	--fx-shadow-m: 0 6px 30px 0 #00000014;
+	--fx-shadow-s: 0 4px 14px 0 #0000000f;
 	--radius-l: var(--space-12);
 	--radius-m: var(--space-6);
 	--radius-s: var(--space-4);
@@ -172,6 +172,7 @@
 	--size-btn-s: 1.25rem;
 	--size-btn-m: 1.625rem;
 	--size-btn-l: 2rem;
+	--size-btn-xl: 2.25rem;
 	--space-2: 0.125rem; /* 2px / 16px = 0.125rem */
 	--space-4: 0.25rem; /* 4px / 16px = 0.25rem */
 	--space-6: 0.375rem; /* 6px / 16px = 0.375rem */
@@ -281,4 +282,14 @@
 	--clr-theme-warn-on-container: var(--clr-core-warn-80);
 	--clr-theme-warn-on-element: var(--clr-core-warn-90);
 	--clr-theme-warn-outline: var(--clr-core-warn-50);
+}
+
+/* DIALOG STYLES */
+
+dialog::backdrop {
+	background-color: rgba(214, 214, 214, 0.4);
+}
+
+.dark dialog::backdrop {
+	background-color: rgba(0, 0, 0, 0.35);
 }

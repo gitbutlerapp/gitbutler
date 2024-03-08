@@ -5,9 +5,9 @@ import { startWith, switchMap } from 'rxjs/operators';
 import type { GitHubService } from '$lib/github/service';
 import type { PullRequest } from '$lib/github/types';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
+import type { BranchController } from '$lib/vbranches/branchController';
 import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 import type { Branch, RemoteBranch } from '$lib/vbranches/types';
-import type { Transaction } from '@sentry/sveltekit';
 
 export class BranchService {
 	public branches$: Observable<CombinedBranch[]>;
@@ -15,7 +15,8 @@ export class BranchService {
 	constructor(
 		private vbranchService: VirtualBranchService,
 		remoteBranchService: RemoteBranchService,
-		private githubService: GitHubService
+		private githubService: GitHubService,
+		private branchController: BranchController
 	) {
 		const vbranchesWithEmpty$ = vbranchService.branches$.pipe(startWith([]));
 		const branchesWithEmpty$ = remoteBranchService.branches$.pipe(startWith([]));
@@ -39,8 +40,7 @@ export class BranchService {
 	async createPr(
 		branch: Branch,
 		baseBranch: string,
-		draft: boolean,
-		sentryTxn: Transaction
+		draft: boolean
 	): Promise<PullRequest | undefined> {
 		// Using this mutable variable while investigating why branch variable
 		// does not seem to update reliably.
@@ -49,9 +49,7 @@ export class BranchService {
 
 		// Push if local commits
 		if (branch.commits.some((c) => !c.isRemote)) {
-			const pushBranchSpan = sentryTxn.startChild({ op: 'branch_push' });
-			newBranch = await this.vbranchService.pushBranch(branch.id, branch.requiresForce);
-			pushBranchSpan.finish();
+			newBranch = await this.branchController.pushBranch(branch.id, branch.requiresForce);
 		} else {
 			newBranch = branch;
 		}
@@ -66,22 +64,27 @@ export class BranchService {
 			throw 'Cannot create PR without remote branch name';
 		}
 
-		const createPrSpan = sentryTxn.startChild({ op: 'pr_api_create' });
+		let title = newBranch.name;
+		let body = newBranch.notes;
 
-		try {
-			const resp = await this.githubService.createPullRequest(
-				baseBranch,
-				newBranch.name,
-				newBranch.notes,
-				newBranch.id,
-				newBranch.upstreamName,
-				draft
-			);
-			if ('pr' in resp) return resp.pr;
-			if ('err' in resp) throw resp.err;
-		} finally {
-			createPrSpan.finish();
+		// In case of a single commit, use the commit summary and description for the title and
+		// description of the PR
+		if (newBranch.commits.length === 1) {
+			const commit = newBranch.commits[0];
+			if (commit.descriptionTitle) title = commit.descriptionTitle;
+			if (commit.descriptionBody) body = commit.descriptionBody;
 		}
+
+		const resp = await this.githubService.createPullRequest(
+			baseBranch,
+			title,
+			body,
+			newBranch.id,
+			newBranch.upstreamName,
+			draft
+		);
+		if ('pr' in resp) return resp.pr;
+		else throw resp.err;
 	}
 
 	async reloadVirtualBranches() {

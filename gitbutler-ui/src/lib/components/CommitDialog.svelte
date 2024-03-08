@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { ButlerAIProvider } from '$lib/backend/aiProviders';
+	import { Summarizer } from '$lib/backend/summarizer';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
@@ -80,6 +82,7 @@
 	};
 
 	function commit() {
+		if (!commitMessage) return;
 		isCommitting = true;
 		branchController
 			.commitBranch(branch.id, commitMessage, $selectedOwnership.toString(), $runCommitHooks)
@@ -94,7 +97,14 @@
 		return invoke<string>('git_get_global_config', params);
 	}
 
-	let isGeneratingCommigMessage = false;
+	let summarizer: Summarizer | undefined;
+	$: if (user) {
+		const aiProvider = new ButlerAIProvider(cloud, user);
+
+		summarizer = new Summarizer(aiProvider);
+	}
+
+	let isGeneratingCommitMessage = false;
 	async function generateCommitMessage(files: LocalFile[]) {
 		const diff = files
 			.map((f) => f.hunks.filter((h) => $selectedOwnership.containsHunk(f.id, h.id)))
@@ -105,6 +115,7 @@
 			.slice(0, 5000);
 
 		if (!user) return;
+		if (!summarizer) return;
 
 		// Branches get their names generated only if there are at least 4 lines of code
 		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
@@ -113,20 +124,13 @@
 		if (branch.name.toLowerCase().includes('virtual branch')) {
 			dispatch('action', 'generate-branch-name');
 		}
-		isGeneratingCommigMessage = true;
-		cloud.summarize
-			.commit(user.access_token, {
-				diff,
-				uid: projectId,
-				brief: $commitGenerationExtraConcise,
-				emoji: $commitGenerationUseEmojis
-			})
-			.then(({ message }) => {
-				const firstNewLine = message.indexOf('\n');
-				const summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
-				const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
-				commitMessage = description.length > 0 ? `${summary}\n\n${description}` : summary;
-				currentCommitMessage.set(commitMessage);
+
+		isGeneratingCommitMessage = true;
+		summarizer
+			.commit(diff, $commitGenerationUseEmojis, $commitGenerationExtraConcise)
+			.then((message) => {
+				commitMessage = message;
+				currentCommitMessage.set(message);
 
 				setTimeout(() => {
 					textareaElement.focus();
@@ -136,7 +140,7 @@
 				toasts.error('Failed to generate commit message');
 			})
 			.finally(() => {
-				isGeneratingCommigMessage = false;
+				isGeneratingCommitMessage = false;
 			});
 	}
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
@@ -156,10 +160,15 @@
 					on:input={handleInput}
 					on:focus={useAutoHeight}
 					on:change={() => currentCommitMessage.set(commitMessage)}
+					on:keydown={(e) => {
+						if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+							commit();
+						}
+					}}
 					spellcheck={false}
-					class="text-input commit-box__textarea"
+					class="text-input text-base-body-13 commit-box__textarea"
 					rows="1"
-					disabled={isGeneratingCommigMessage}
+					disabled={isGeneratingCommitMessage}
 					placeholder="Your commit message here"
 				/>
 
@@ -181,7 +190,7 @@
 						icon="ai-small"
 						color="neutral"
 						disabled={!$aiGenEnabled || !user}
-						loading={isGeneratingCommigMessage}
+						loading={isGeneratingCommitMessage}
 						on:click={() => generateCommitMessage(branch.files)}
 					>
 						Generate message
@@ -229,9 +238,7 @@
 			id="commit-to-branch"
 			on:click={() => {
 				if ($expanded) {
-					if (commitMessage) {
-						commit();
-					}
+					commit();
 				} else {
 					$expanded = true;
 				}
@@ -246,7 +253,7 @@
 	.commit-box {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-16);
+		padding: var(--space-14);
 		background: var(--clr-theme-container-light);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
 		transition: background-color var(--transition-medium);

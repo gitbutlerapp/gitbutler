@@ -1,13 +1,19 @@
 <script lang="ts">
+	import FileContextMenu from './FileContextMenu.svelte';
 	import FileStatusIcons from './FileStatusIcons.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { updateFocus } from '$lib/utils/selection';
+	import { onDestroy } from 'svelte';
+	import type { Project } from '$lib/backend/projects';
+	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
+	export let project: Project | undefined;
 	export let branchId: string;
 	export let file: AnyFile;
 	export let isUnapplied: boolean;
@@ -16,9 +22,11 @@
 	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let readonly = false;
+	export let branchController: BranchController;
 
 	let checked = false;
 	let indeterminate = false;
+	let draggableElt: HTMLDivElement;
 
 	$: if (file) {
 		const fileId = file.id;
@@ -28,41 +36,67 @@
 		).length;
 		indeterminate = selectedCount > 0 && file.hunks.length - selectedCount > 0;
 	}
+
+	function updateContextMenu() {
+		if (popupMenu) popupMenu.$destroy();
+		return new FileContextMenu({
+			target: document.body,
+			props: { branchController, project }
+		});
+	}
+
+	$: if ($selectedFiles && draggableElt) updateFocus(draggableElt, file, selectedFiles);
+
+	$: popupMenu = updateContextMenu();
+
+	onDestroy(() => {
+		if (popupMenu) {
+			popupMenu.$destroy();
+		}
+	});
 </script>
 
-<div
-	on:click
-	on:keydown
-	on:dragstart={() => {
-		// Reset selection if the file being dragged is not in the selected list
-		if ($selectedFiles.length > 0 && !$selectedFiles.find((f) => f.id == file.id)) {
-			$selectedFiles = [];
-		}
-	}}
-	use:draggable={{
-		...draggableFile(branchId, file, selectedFiles),
-		disabled: readonly || isUnapplied,
-		selector: '.selected-draggable'
-	}}
-	role="button"
-	tabindex="0"
->
-	<div class="file-list-item" id={`file-${file.id}`} class:selected-draggable={selected}>
+<div class="list-item-wrapper">
+	{#if showCheckbox}
+		<Checkbox
+			small
+			{checked}
+			{indeterminate}
+			on:change={(e) => {
+				selectedOwnership.update((ownership) => {
+					if (e.detail) file.hunks.forEach((h) => ownership.addHunk(file.id, h.id));
+					if (!e.detail) file.hunks.forEach((h) => ownership.removeHunk(file.id, h.id));
+					return ownership;
+				});
+			}}
+		/>
+	{/if}
+	<div
+		bind:this={draggableElt}
+		class="file-list-item"
+		id={`file-${file.id}`}
+		class:selected-draggable={selected}
+		on:click
+		on:keydown
+		on:dragstart={() => {
+			// Reset selection if the file being dragged is not in the selected list
+			if ($selectedFiles.length > 0 && !$selectedFiles.find((f) => f.id == file.id)) {
+				$selectedFiles = [file];
+			}
+		}}
+		use:draggable={{
+			...draggableFile(branchId, file, selectedFiles),
+			disabled: readonly || isUnapplied,
+			selector: '.selected-draggable'
+		}}
+		role="button"
+		tabindex="0"
+		on:contextmenu|preventDefault={(e) =>
+			popupMenu.openByMouse(e, {
+				files: $selectedFiles.includes(file) ? $selectedFiles : [file]
+			})}
+	>
 		<div class="info-wrap">
-			{#if showCheckbox}
-				<Checkbox
-					small
-					{checked}
-					{indeterminate}
-					on:change={(e) => {
-						selectedOwnership.update((ownership) => {
-							if (e.detail) file.hunks.forEach((h) => ownership.addHunk(file.id, h.id));
-							if (!e.detail) file.hunks.forEach((h) => ownership.removeHunk(file.id, h.id));
-							return ownership;
-						});
-					}}
-				/>
-			{/if}
 			<div class="info">
 				<img src={getVSIFileIcon(file.path)} alt="js" style="width: var(--space-12)" />
 				<span class="text-base-12 name">
@@ -78,7 +112,14 @@
 </div>
 
 <style lang="postcss">
+	.list-item-wrapper {
+		display: flex;
+		align-items: center;
+		gap: var(--space-8);
+	}
+
 	.file-list-item {
+		flex: 1;
 		display: flex;
 		align-items: center;
 		height: var(--space-28);
@@ -89,8 +130,10 @@
 		overflow: hidden;
 		text-align: left;
 		user-select: none;
+		outline: none;
 		margin-bottom: var(--space-2);
 		transition: background-color var(--transition-fast);
+		background: var(--clr-theme-container-light);
 		&:not(.selected-draggable):hover {
 			transition: none;
 			background-color: color-mix(

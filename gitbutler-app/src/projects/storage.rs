@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
 
 use crate::{
     projects::{project, ProjectId},
@@ -11,28 +10,6 @@ const PROJECTS_FILE: &str = "projects.json";
 #[derive(Debug, Clone)]
 pub struct Storage {
     storage: storage::Storage,
-}
-
-impl TryFrom<&AppHandle> for Storage {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(storage) = value.try_state::<Storage>() {
-            Ok(storage.inner().clone())
-        } else {
-            let storage = Storage::new(storage::Storage::try_from(value)?);
-            value.manage(storage.clone());
-            Ok(storage)
-        }
-    }
-}
-
-impl TryFrom<&std::path::PathBuf> for Storage {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
-        Ok(Storage::new(storage::Storage::try_from(value)?))
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -47,6 +24,7 @@ pub struct UpdateRequest {
     pub gitbutler_code_push_state: Option<project::CodePushState>,
     pub project_data_last_fetched: Option<project::FetchResult>,
     pub omit_certificate_check: Option<bool>,
+    pub use_diff_context: Option<bool>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -60,8 +38,13 @@ pub enum Error {
 }
 
 impl Storage {
-    fn new(storage: storage::Storage) -> Storage {
+    pub fn new(storage: storage::Storage) -> Storage {
         Storage { storage }
+    }
+
+    #[cfg(test)]
+    pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Storage {
+        Storage::new(storage::Storage::new(path))
     }
 
     pub fn list(&self) -> Result<Vec<project::Project>, Error> {
@@ -137,6 +120,10 @@ impl Storage {
 
         if let Some(omit_certificate_check) = update_request.omit_certificate_check {
             project.omit_certificate_check = Some(omit_certificate_check);
+        }
+
+        if let Some(use_diff_context) = update_request.use_diff_context {
+            project.use_diff_context = Some(use_diff_context);
         }
 
         self.storage

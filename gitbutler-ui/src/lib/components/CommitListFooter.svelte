@@ -1,8 +1,6 @@
 <script lang="ts">
 	import PushButton, { BranchAction } from './PushButton.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import * as toasts from '$lib/utils/toasts';
-	import { startTransaction } from '@sentry/sveltekit';
 	import toast from 'svelte-french-toast';
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
@@ -18,6 +16,7 @@
 	export let githubService: GitHubService;
 	export let base: BaseBranch | undefined | null;
 	export let projectId: string;
+	export let hasCommits: boolean;
 
 	$: githubServiceState$ = githubService.getState(branch.id);
 	$: githubEnabled$ = githubService.isEnabled$;
@@ -52,25 +51,17 @@
 			return;
 		}
 
-		// Sentry transaction for measuring pr creation latency
-		const sentryTxn = startTransaction({ name: 'pull_request_create' });
-
 		isPushing = true;
 		try {
-			return await branchService.createPr(branch, base.shortName, opts.draft, sentryTxn);
-		} catch (err: any) {
-			isPushing = false;
-			toasts.error(err);
-			console.error(err);
+			return await branchService.createPr(branch, base.shortName, opts.draft);
 		} finally {
-			sentryTxn.finish();
 			isPushing = false;
 		}
 	}
 </script>
 
 {#if !isUnapplied && type != 'integrated'}
-	<div class="actions">
+	<div class="actions" class:hasCommits>
 		{#if $githubEnabled$ && (type == 'local' || type == 'remote')}
 			<PushButton
 				wide
@@ -89,8 +80,8 @@
 						} else {
 							await push();
 						}
-					} catch {
-						toast.error('Failed to create pull request');
+					} catch (e) {
+						console.error(e);
 					}
 				}}
 			/>
@@ -137,9 +128,10 @@
 {/if}
 
 <style lang="postcss">
-	.actions {
+	.hasCommits {
 		padding-left: var(--space-16);
-
+	}
+	.actions {
 		&:empty {
 			display: none;
 		}

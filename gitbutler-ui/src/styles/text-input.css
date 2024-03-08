@@ -41,9 +41,4 @@
 		border-color: var(--clr-theme-scale-ntrl-70);
 		background-color: var(--clr-theme-container-pale);
 	}
-
-	&:read-only {
-		background-color: var(--clr-theme-container-pale);
-		border-color: var(--clr-theme-container-outline-light);
-	}
 }

@@ -1,8 +1,7 @@
-import { BaseBranch, Branch } from './types';
-import { invoke, listen } from '$lib/backend/ipc';
+import { BaseBranch, Branch, VirtualBranches } from './types';
+import { Code, invoke, listen } from '$lib/backend/ipc';
 import * as toasts from '$lib/utils/toasts';
 import { plainToInstance } from 'class-transformer';
-import posthog from 'posthog-js';
 import {
 	switchMap,
 	Observable,
@@ -101,31 +100,11 @@ export class VirtualBranchService {
 			)
 		);
 	}
-
-	async pushBranch(branchId: string, withForce: boolean): Promise<Branch | undefined> {
-		try {
-			await invoke<void>('push_virtual_branch', {
-				projectId: this.projectId,
-				branchId,
-				withForce
-			});
-			posthog.capture('Push Successful');
-			await this.reload();
-			return await this.getById(branchId);
-		} catch (err: any) {
-			posthog.capture('Push Failed', { error: err });
-			if (err.code === 'errors.git.authentication') {
-				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
-			} else {
-				toasts.error(`Failed to push branch: ${err.message}`);
-			}
-		}
-	}
 }
 
 function subscribeToVirtualBranches(projectId: string, callback: (branches: Branch[]) => void) {
-	return listen<any[]>(`project://${projectId}/virtual-branches`, (event) =>
-		callback(plainToInstance(Branch, event.payload))
+	return listen<any>(`project://${projectId}/virtual-branches`, (event) =>
+		callback(plainToInstance(VirtualBranches, event.payload).branches)
 	);
 }
 
@@ -147,8 +126,12 @@ export class BaseBranchService {
 				return await getBaseBranch({ projectId });
 			}),
 			tap(() => this.busy$.next(false)),
+			// Start with undefined to prevent delay in updating $baseBranch$ value in
+			// layout.svelte when navigating between projects.
+			startWith(undefined),
 			shareReplay(1),
 			catchError((e) => {
+				this.busy$.next(false);
 				this.error$.next(e);
 				return of(null);
 			})
@@ -162,11 +145,17 @@ export class BaseBranchService {
 			// trigger a base branch reload. It feels a bit awkward and should be improved.
 			await invoke<void>('fetch_from_target', { projectId: this.projectId });
 		} catch (err: any) {
-			if (err.code === 'errors.git.authentication') {
+			if (err.message?.includes('does not have a default target')) {
+				// Swallow this error since user should be taken to project setup page
+				return;
+			} else if (err.code === Code.ProjectsGitAuth) {
 				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
 			} else {
 				toasts.error(`Failed to fetch branch: ${err.message}`);
 			}
+			console.error(err);
+		} finally {
+			this.busy$.next(false);
 		}
 	}
 
@@ -183,7 +172,8 @@ export class BaseBranchService {
 }
 
 export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
-	return plainToInstance(Branch, await invoke<any[]>('list_virtual_branches', params));
+	return plainToInstance(VirtualBranches, await invoke<any>('list_virtual_branches', params))
+		.branches;
 }
 
 export async function getRemoteBranches(projectId: string | undefined) {
