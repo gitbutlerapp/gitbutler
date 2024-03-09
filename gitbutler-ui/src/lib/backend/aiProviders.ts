@@ -39,7 +39,10 @@ export class ButlerAIProvider implements AIProvider {
 export class OpenAIProvider implements AIProvider {
 	private openAI: OpenAI;
 
-	constructor(apiKey: string, private model: OpenAIModel) {
+	constructor(
+		apiKey: string,
+		private model: OpenAIModel
+	) {
 		this.openAI = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
 	}
 
@@ -60,7 +63,10 @@ export class OpenAIProvider implements AIProvider {
 type AnthropicAPIResponse = { content: { text: string }[] };
 
 export class AnthropicAIProvider implements AIProvider {
-	constructor(private apiKey: string, private model: AnthropicModel) {}
+	constructor(
+		private apiKey: string,
+		private model: AnthropicModel
+	) {}
 
 	async evaluate(prompt: string) {
 		const messages: PromptMessage[] = [{ role: MessageRole.User, content: prompt }];
