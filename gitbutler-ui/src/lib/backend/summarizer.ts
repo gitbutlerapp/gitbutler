@@ -1,8 +1,8 @@
-import { getAnthropicKey, getAnthropicModel, getModelKind, getOpenAIKey, getOpenAIModel, getTokenOption, KeyOption, ModelKind } from './summarizer_settings';
+import { getAnthropicKey, getAnthropicModel, getModelKind, getOpenAIKey, getOpenAIModel, getKeyOption, KeyOption, ModelKind } from './summarizer_settings';
 import {
 	type AIProvider,
 	ButlerAIProvider,
-	OpenAIProvider as AnthropicAIProvider,
+	AnthropicAIProvider,
     OpenAIProvider
 } from '$lib/backend/aiProviders';
 import { getCloudApiClient, type User } from '$lib/backend/cloud';
@@ -99,9 +99,9 @@ interface SummarizerContext {
 // Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
 export async function buildSummarizer(context: SummarizerContext): Promise<Summarizer | undefined> {
 	const modelKind = await getModelKind();
-	const tokenOption = await getTokenOption();
+	const keyOption = await getKeyOption();
 
-	if (tokenOption === KeyOption.ButlerAPI) {
+	if (keyOption === KeyOption.ButlerAPI) {
 		if (!context.user) return;
 
 		const aiProvider = new ButlerAIProvider(getCloudApiClient(), context.user, modelKind);

@@ -42,12 +42,12 @@ export function setModelKind(modelKind: ModelKind) {
 
 const tokenOptionConfigKey = 'tokenOption';
 
-export async function getTokenOption(): Promise<KeyOption> {
+export async function getKeyOption(): Promise<KeyOption> {
 	const tokenKind = (await gitGetConfig(tokenOptionConfigKey)) as KeyOption | undefined;
 	return tokenKind || KeyOption.ButlerAPI;
 }
 
-export function setTokenOption(tokenOption: KeyOption) {
+export function setKeyOption(tokenOption: KeyOption) {
 	return gitSetConfig(tokenOptionConfigKey, tokenOption);
 }
 
@@ -80,7 +80,7 @@ export async function getAnthropicKey(): Promise<string | undefined> {
 	return key || undefined;
 }
 
-export function setAnthropicToken(token: string) {
+export function setAnthropicKey(token: string) {
 	return gitSetConfig(anthropicKeyConfigKey, token);
 }
 
