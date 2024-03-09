@@ -32,7 +32,9 @@
 		typeof project.preferred_key == 'string' ? project.preferred_key : 'local';
 
 	let privateKeyPath =
-		typeof project.preferred_key == 'string' ? '' : project.preferred_key.local.private_key_path;
+		typeof project.preferred_key == 'string'
+			? ''
+			: project.preferred_key.local.private_key_path;
 
 	let privateKeyPassphrase =
 		typeof project.preferred_key == 'string' ? '' : project.preferred_key.local.passphrase;
@@ -117,7 +119,12 @@
 		</SectionCard>
 
 		{#if selectedType == 'local'}
-			<SectionCard hasTopRadius={false} roundedTop={false} roundedBottom={false} orientation="row">
+			<SectionCard
+				hasTopRadius={false}
+				roundedTop={false}
+				roundedBottom={false}
+				orientation="row"
+			>
 				<div class="inputs-group">
 					<TextBox
 						label="Path to private key"
@@ -202,13 +209,21 @@
 
 			<svelte:fragment slot="caption">
 				GitButler will use the system's git credentials helper.
-				<Link target="_blank" rel="noreferrer" href="https://git-scm.com/doc/credential-helpers">
+				<Link
+					target="_blank"
+					rel="noreferrer"
+					href="https://git-scm.com/doc/credential-helpers"
+				>
 					Learn more
 				</Link>
 			</svelte:fragment>
 
 			<svelte:fragment slot="actions">
-				<RadioButton name="credentialType" value="gitCredentialsHelper" id="credential-helper" />
+				<RadioButton
+					name="credentialType"
+					value="gitCredentialsHelper"
+					id="credential-helper"
+				/>
 			</svelte:fragment>
 		</SectionCard>
 
