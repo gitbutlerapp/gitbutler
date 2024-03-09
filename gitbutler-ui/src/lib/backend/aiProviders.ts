@@ -1,7 +1,7 @@
 import { Body, fetch } from '@tauri-apps/api/http';
 import OpenAI from 'openai';
 import type { User, getCloudApiClient } from '$lib/backend/cloud';
-import type { AnthropicModel, ModelKind, OpenAIModel } from '$lib/backend/summarizer_settings';
+import type { AnthropicModel, ModelKind, OpenAIModel } from '$lib/backend/summarizerSettings';
 
 enum MessageRole {
 	User = 'user',

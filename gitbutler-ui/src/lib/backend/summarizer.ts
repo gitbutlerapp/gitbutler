@@ -7,7 +7,7 @@ import {
 	getKeyOption,
 	KeyOption,
 	ModelKind
-} from './summarizer_settings';
+} from './summarizerSettings';
 import {
 	type AIProvider,
 	ButlerAIProvider,
