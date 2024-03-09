@@ -135,6 +135,7 @@
 		border: 1px solid var(--clr-theme-container-outline-light);
 		background: var(--clr-theme-container-light);
 		box-shadow: var(--fx-shadow-s);
+		overflow: hidden;
 	}
 
 	.options__group {

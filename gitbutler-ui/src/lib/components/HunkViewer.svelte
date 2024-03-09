@@ -107,8 +107,8 @@
 				{/each}
 			{/if}
 		</div>
-		<Scrollbar {viewport} {contents} horz />
 	</div>
+	<Scrollbar {viewport} {contents} horz />
 </div>
 
 <style lang="postcss">
@@ -116,6 +116,7 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
+		border-radius: var(--radius-s);
 		overflow: hidden;
 	}
 

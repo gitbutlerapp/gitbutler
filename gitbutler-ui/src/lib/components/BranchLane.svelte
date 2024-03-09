@@ -147,7 +147,7 @@
 	.target-branch {
 		--target-branch-background: color-mix(
 			in srgb,
-			var(--clr-theme-scale-pop-60) 15%,
+			var(--clr-theme-scale-pop-60) 20%,
 			var(--clr-theme-container-pale)
 		);
 	}
