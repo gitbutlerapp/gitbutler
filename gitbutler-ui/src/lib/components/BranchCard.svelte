@@ -89,12 +89,12 @@
 			.join('\n')
 			.slice(0, 5000);
 
-		summarizer.branch(diff).then((message) => {
-			if (message !== branch.name) {
-				branch.name = message;
-				branchController.updateBranchName(branch.id, branch.name);
-			}
-		});
+		const message = await summarizer.branch(diff);
+
+		if (message !== branch.name) {
+			branch.name = message;
+			branchController.updateBranchName(branch.id, branch.name);
+		}
 	}
 
 	$: linesTouched = computeAddedRemovedByFiles(...branch.files);
