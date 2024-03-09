@@ -19,7 +19,7 @@
 		getOpenAIModel,
 		setAnthropicModel,
 		setOpenAIModel
-	} from '$lib/backend/summarizer_settings';
+	} from '$lib/backend/summarizerSettings';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 
 	let modelKind: { name: string; value: ModelKind } | undefined;
