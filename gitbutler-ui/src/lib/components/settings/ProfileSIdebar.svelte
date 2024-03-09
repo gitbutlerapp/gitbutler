@@ -110,7 +110,8 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: space-between;
-		padding: calc(var(--space-40) + var(--space-4)) var(--space-20) var(--space-20) var(--space-20);
+		padding: calc(var(--space-40) + var(--space-4)) var(--space-20) var(--space-20)
+			var(--space-20);
 		border-right: 1px solid var(--clr-theme-container-outline-light);
 		background-color: var(--clr-theme-container-light);
 		height: 100%;
@@ -214,7 +215,7 @@
 			background-color: color-mix(
 				in srgb,
 				var(--clr-theme-container-light),
-				var(--darken-tint-light)
+				var(--darken-tint-extralight)
 			);
 		}
 	}

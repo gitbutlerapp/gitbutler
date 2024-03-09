@@ -1,11 +1,15 @@
 <script lang="ts">
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { onDestroy, createEventDispatcher } from 'svelte';
+	import { getContext } from 'svelte';
+
+	const userSettings = getContext(SETTINGS_CONTEXT) as SettingsStore;
 
 	export let viewport: Element;
 	export let contents: Element;
 	export let hideAfter = 1000;
 	export let initiallyVisible = false;
-	export let thickness = 'var(--space-8)';
+	export let thickness = 'var(--space-10)';
 
 	export let horz = false;
 
@@ -23,7 +27,6 @@
 	let timer = 0;
 	let interacted = false;
 
-	let alwaysVisible = false;
 	let isViewportHovered = false;
 	let isDragging = false;
 
@@ -42,6 +45,8 @@
 	$: thumbWidth = wholeWidth > 0 ? (trackWidth / wholeWidth) * trackWidth : 0;
 	$: thumbTop = wholeHeight > 0 ? (scrollTop / wholeHeight) * trackHeight : 0;
 	$: thumbLeft = wholeHeight > 0 ? (scrollLeft / wholeWidth) * trackWidth : 0;
+
+	$: alwaysVisible = $userSettings.scrollbarVisabilityOnHover;
 
 	$: scrollableY = wholeHeight > trackHeight;
 	$: scrollableX = wholeWidth > trackWidth;
@@ -313,7 +318,7 @@
 
 	.show-scrollbar {
 		& .scrollbar-thumb {
-			opacity: 0.15;
+			opacity: 0.2;
 		}
 	}
 
@@ -321,7 +326,7 @@
 	.show-scrollbar:hover,
 	.thumb-dragging {
 		& .scrollbar-thumb {
-			opacity: 0.25;
+			opacity: 0.3;
 		}
 	}
 
