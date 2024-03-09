@@ -41,7 +41,7 @@
 			value: KeyOption.ButlerAPI
 		},
 		{
-			name: "Yes, I'll use my own key",
+			name: "Yes, I'll provide my own key",
 			value: KeyOption.BringYourOwn
 		}
 	];
@@ -53,9 +53,7 @@
 	let openAIModel: { name: string; value: OpenAIModel } | undefined;
 	getOpenAIModel().then(
 		(persistedOpenAIModel) =>
-			(openAIModel = openAIModelOptions.find(
-				(option) => option.value == persistedOpenAIModel
-			))
+			(openAIModel = openAIModelOptions.find((option) => option.value == persistedOpenAIModel))
 	);
 	$: if (openAIModel) setOpenAIModel(openAIModel.value);
 
@@ -106,7 +104,14 @@
 	}
 </script>
 
-<p class="text-base-body-13 ai-settings__text">GitButler supports multiple models</p>
+<p class="text-base-body-13 ai-settings__text">
+	GitButler supports multiple providers for its AI powered features. We currently support models
+	from OpenAI and Anthropic either proxied through the GitButler API, or in a bring your own key
+	configuration.
+</p>
+<p class="text-base-body-13 ai-settings__text">
+	To make use of the GitButler API you must be logged in
+</p>
 
 <form class="git-radio" bind:this={form} on:change={(e) => onFormChange(e.currentTarget)}>
 	<SectionCard
@@ -124,12 +129,7 @@
 		</svelte:fragment>
 	</SectionCard>
 	{#if modelKind == ModelKind.OpenAI}
-		<SectionCard
-			hasTopRadius={false}
-			roundedTop={false}
-			roundedBottom={false}
-			orientation="row"
-		>
+		<SectionCard hasTopRadius={false} roundedTop={false} roundedBottom={false} orientation="row">
 			<div class="inputs-group">
 				<Select
 					items={keyOptions}
@@ -144,12 +144,7 @@
 				</Select>
 
 				{#if keyOption?.value === KeyOption.BringYourOwn}
-					<TextBox
-						label="OpenAI API Key"
-						bind:value={openAIKey}
-						required
-						placeholder="sk-..."
-					/>
+					<TextBox label="OpenAI API Key" bind:value={openAIKey} required placeholder="sk-..." />
 
 					<Select
 						items={openAIModelOptions}
@@ -178,17 +173,11 @@
 			<RadioButton name="modelKind" id="anthropic" value={ModelKind.Anthropic} />
 		</svelte:fragment>
 		<svelte:fragment slot="body">
-			Make use of Anthropic's Opus and Sonnet models for branch name and commit message
-			generation.
+			Make use of Anthropic's Opus and Sonnet models for branch name and commit message generation.
 		</svelte:fragment>
 	</SectionCard>
 	{#if modelKind == ModelKind.Anthropic}
-		<SectionCard
-			hasTopRadius={false}
-			roundedTop={false}
-			roundedBottom={false}
-			orientation="row"
-		>
+		<SectionCard hasTopRadius={false} roundedTop={false} roundedBottom={false} orientation="row">
 			<div class="inputs-group">
 				<Select
 					items={keyOptions}
@@ -230,9 +219,7 @@
 		<svelte:fragment slot="actions">
 			<RadioButton disabled={true} name="modelKind" />
 		</svelte:fragment>
-		<svelte:fragment slot="body">
-			Support for custom AI endpoints is coming soon!
-		</svelte:fragment>
+		<svelte:fragment slot="body">Support for custom AI endpoints is coming soon!</svelte:fragment>
 	</SectionCard>
 </form>
 
