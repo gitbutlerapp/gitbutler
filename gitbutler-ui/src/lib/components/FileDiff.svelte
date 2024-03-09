@@ -3,9 +3,11 @@
 	import HunkViewer from './HunkViewer.svelte';
 	import Icon from './Icon.svelte';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
+	import { tooltip } from '$lib/utils/tooltip';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
+	import type { Commit } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let branchId: string | undefined;
@@ -20,6 +22,7 @@
 	export let selectedOwnership: Writable<Ownership> | undefined = undefined;
 	export let isFileLocked = false;
 	export let readonly: boolean = false;
+	export let branchCommits: Commit[];
 
 	function getGutterMinWidth(max: number) {
 		if (max >= 10000) return 2.5;
@@ -27,6 +30,16 @@
 		if (max >= 100) return 1.5;
 		if (max >= 10) return 1.25;
 		return 1;
+	}
+
+	function getLockedTooltip(commitId: string | undefined): string {
+		if (!commitId) return 'Depends on a committed change';
+		const shortCommitId = commitId?.slice(0, 7);
+		const commit = branchCommits.find((commit) => commit.id === commitId);
+		if (!commit || !commit.descriptionTitle) return `Depends on commit ${shortCommitId}`;
+
+		const shortTitle = commit.descriptionTitle.slice(0, 35) + '...';
+		return `Depends on commit "${shortTitle}" (${shortCommitId})`;
 	}
 
 	$: maxLineNumber = sections[sections.length - 1]?.maxLineNumber;
@@ -56,7 +69,7 @@
 						<span class="added">+{added}</span>
 						<span class="removed">-{removed}</span>
 						{#if section.hunk.locked}
-							<div title={section.hunk.lockedTo}>
+							<div use:tooltip={{ text: getLockedTooltip(section.hunk.lockedTo), delay: 500 }}>
 								<Icon name="locked-small" color="warn" />
 							</div>
 						{/if}
