@@ -67,7 +67,11 @@
 					{/if}
 				</div>
 			{/if}
-			<div class="info-message__text text-base-body-12"><slot /></div>
+			{#if SLOTS.content}
+				<slot name="content" />
+			{:else}
+				<div class="info-message__text text-base-body-12"><slot /></div>
+			{/if}
 		</div>
 		{#if primary || secondary}
 			<div class="info-message__actions">

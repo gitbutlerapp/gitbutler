@@ -2,40 +2,33 @@ import { invoke } from './ipc';
 
 export type GitCredentialCheck = {
 	error?: string;
+	name?: string;
 	ok: boolean;
 };
 
+export type CredentialCheckError = {
+	check: string;
+	message: string;
+};
+
 export class AuthService {
-	async checkGitFetch(projectId: string, remoteName: string | null | undefined) {
-		if (!remoteName) return { ok: false, error: 'No remote specified' };
-		try {
-			const resp = await invoke<string>('git_test_fetch', {
-				projectId: projectId,
-				remoteName
-			});
-			return { ok: !resp };
-		} catch (err: any) {
-			return { ok: false, error: err.message };
-		}
+	async checkGitFetch(projectId: string, remoteName: string) {
+		const resp = await invoke<string>('git_test_fetch', {
+			projectId: projectId,
+			remoteName
+		});
+		if (resp) throw new Error(resp);
+		return;
 	}
 
-	async checkGitPush(
-		projectId: string,
-		remoteName: string | null | undefined,
-		branchName: string | null | undefined
-	) {
-		if (!remoteName) return { ok: false, error: 'No remote specified' };
-		if (!branchName) return { ok: false, error: 'No branchspecified' };
-		try {
-			const resp = await invoke<string>('git_test_push', {
-				projectId: projectId,
-				remoteName,
-				branchName
-			});
-			return { ok: !resp };
-		} catch (err: any) {
-			return { ok: false, error: err.message };
-		}
+	async checkGitPush(projectId: string, remoteName: string, branchName: string) {
+		const resp = await invoke<string>('git_test_push', {
+			projectId: projectId,
+			remoteName,
+			branchName
+		});
+		if (resp) throw new Error(resp);
+		return { name: 'push', ok: true };
 	}
 
 	async getPublicKey() {
