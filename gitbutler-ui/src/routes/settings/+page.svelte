@@ -334,7 +334,7 @@
 				<GithubIntegration />
 			{/if}
 		</ContentWrapper>
-	{:else if currentSection === 'ai'}
+	{:else if currentSection == 'ai'}
 		<ContentWrapper title="AI Options">
 			<AiSettings />
 		</ContentWrapper>
