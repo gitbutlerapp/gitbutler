@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { deleteAllData } from '$lib/backend/data';
+	import AiSettings from '$lib/components/AISettings.svelte';
 	import AnalyticsSettings from '$lib/components/AnalyticsSettings.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
@@ -25,7 +26,6 @@
 	import { getContext } from 'svelte';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
-	import AiSettings from '$lib/components/AISettings.svelte';
 
 	const userSettings = getContext(SETTINGS_CONTEXT) as SettingsStore;
 
