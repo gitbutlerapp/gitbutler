@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Scrollbar from '$lib/components/Scrollbar.svelte';
+	import Scrollbar, { type ScrollbarPadding } from '$lib/components/Scrollbar.svelte';
 	import { onDestroy, onMount, createEventDispatcher } from 'svelte';
 
 	export let viewport: HTMLDivElement | undefined = undefined;
@@ -12,6 +12,10 @@
 	export let wide = false;
 	export let initiallyVisible = false;
 	export let showBorderWhenScrolled = false;
+
+	export let padding: ScrollbarPadding = {};
+	export let shift = '0';
+	export let thickness = '0.563rem';
 
 	let observer: ResizeObserver;
 
@@ -53,6 +57,9 @@
 			{viewport}
 			{contents}
 			{initiallyVisible}
+			{padding}
+			{shift}
+			{thickness}
 			on:dragging={(e) => dispatch('dragging', e.detail)}
 		/>
 	</div>

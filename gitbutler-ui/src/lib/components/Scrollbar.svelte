@@ -1,3 +1,7 @@
+<script lang="ts" context="module">
+	export type ScrollbarPadding = { top?: string; right?: string; bottom?: string; left?: string };
+</script>
+
 <script lang="ts">
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { onDestroy, createEventDispatcher } from 'svelte';
@@ -10,6 +14,8 @@
 	export let hideAfter = 1000;
 	export let initiallyVisible = false;
 	export let thickness = '0.563rem';
+	export let padding: ScrollbarPadding = {};
+	export let shift = '0';
 
 	export let horz = false;
 
@@ -34,6 +40,11 @@
 	$: teardownThumb = setupThumb(thumb);
 	$: teardownTrack = setupTrack(track);
 	$: teardownContents = setupContents(contents);
+
+	$: paddingTop = padding.top ?? '0px';
+	$: paddingBottom = padding.bottom ?? '0px';
+	$: paddingRight = padding.right ?? '0px';
+	$: paddingLeft = padding.left ?? '0px';
 
 	$: wholeHeight = viewport?.scrollHeight ?? 0;
 	$: wholeWidth = viewport?.scrollWidth ?? 0;
@@ -71,7 +82,7 @@
 				wholeHeight = viewport?.scrollHeight ?? 0;
 				wholeWidth = viewport?.scrollWidth ?? 0;
 				trackHeight = viewport?.clientHeight ?? 0;
-				trackWidth = viewport?.clientWidth ?? 0;
+				trackWidth = viewport?.clientWidth;
 			}
 		});
 
@@ -261,27 +272,41 @@
 	class:vert
 	class:show-scrollbar={visible}
 	class:thumb-dragging={isDragging}
-	style:right={vert ? 0 : undefined}
-	style:top={vert ? 0 : undefined}
-	style:bottom={horz ? 0 : undefined}
-	style:left={horz ? 0 : undefined}
-	style:width={vert ? thickness : `80%`}
-	style:height={vert ? `80%` : thickness}
+	style:width={vert ? thickness : `100%`}
+	style:height={vert ? `100%` : thickness}
 	style:z-index={zIndex}
+	style="
+    --scrollbar-shift-vertical: {vert ? '0' : shift};
+    --scrollbar-shift-horizontal: {horz ? '0' : shift};
+    "
 >
 	<div
 		bind:this={thumb}
 		class="scrollbar-thumb"
-		style:left={vert ? undefined : `${thumbLeft}px`}
-		style:top={vert ? `${thumbTop}px` : undefined}
-		style:width={vert ? '100%' : `${thumbWidth}px`}
-		style:height={vert ? `${thumbHeight}px` : '100%'}
+		style="
+          --thumb-width: {vert
+			? '100%'
+			: `calc(${thumbWidth.toFixed(0)}px - (${paddingRight} + ${paddingLeft}))`};
+          --thumb-height: {vert
+			? `calc(${thumbHeight.toFixed(0)}px - (${paddingBottom} + ${paddingTop}))`
+			: '100%'};
+          --thumb-top: {vert ? `calc(${thumbTop.toFixed(0)}px + ${paddingTop})` : 'auto'};
+          --thumb-left: {vert ? 'auto' : `calc(${thumbLeft.toFixed(0)}px + ${paddingLeft})`};
+        "
 	/>
 </div>
 
 <style>
 	.scrollbar-track {
+		/* scrollbar variables */
+		--scrollbar-shift-vertical: 0;
+		--scrollbar-shift-horizontal: 0;
+		/* variable props */
+		bottom: var(--scrollbar-shift-vertical);
+		right: var(--scrollbar-shift-horizontal);
+		/* other props */
 		position: absolute;
+		/* background-color: aqua; */
 		transition:
 			opacity 0.2s,
 			width 0.1s,
@@ -289,6 +314,12 @@
 	}
 
 	.scrollbar-thumb {
+		/* variable props */
+		width: var(--thumb-width);
+		height: var(--thumb-height);
+		top: var(--thumb-top);
+		left: var(--thumb-left);
+		/* other props */
 		position: absolute;
 		z-index: 30;
 		background-color: var(--clr-theme-scale-ntrl-0);
