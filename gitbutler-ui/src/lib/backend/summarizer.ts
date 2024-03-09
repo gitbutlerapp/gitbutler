@@ -67,7 +67,10 @@ export class Summarizer {
 			prompt = prompt.replaceAll('%{brief_style}', '');
 		}
 		if (useEmojiStyle) {
-			prompt = prompt.replaceAll('%{emoji_style}', 'Make use of GitMoji in the title prefix.');
+			prompt = prompt.replaceAll(
+				'%{emoji_style}',
+				'Make use of GitMoji in the title prefix.'
+			);
 		} else {
 			prompt = prompt.replaceAll('%{emoji_style}', "Don't use any emoji.");
 		}
