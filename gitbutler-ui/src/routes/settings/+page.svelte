@@ -152,11 +152,7 @@
 			{#if $user$}
 				<SectionCard>
 					<form on:submit={onSubmit} class="profile-form">
-						<label
-							id="profile-picture"
-							class="focus-state profile-pic-wrapper"
-							for="picture"
-						>
+						<label id="profile-picture" class="focus-state profile-pic-wrapper" for="picture">
 							<input
 								on:change={onPictureChange}
 								type="file"
@@ -170,9 +166,7 @@
 								<img class="profile-pic" src={userPicture} alt="" />
 							{/if}
 
-							<span class="profile-pic__edit-label text-base-11 text-semibold"
-								>Edit</span
-							>
+							<span class="profile-pic__edit-label text-base-11 text-semibold">Edit</span>
 						</label>
 
 						<div id="contact-info" class="contact-info">
@@ -209,12 +203,11 @@
 					/>
 				</svelte:fragment>
 
-				<svelte:fragment slot="title">Dynamic scrollbar visibility on hover</svelte:fragment
-				>
+				<svelte:fragment slot="title">Dynamic scrollbar visibility on hover</svelte:fragment>
 				<svelte:fragment slot="body">
-					When turned on, this feature shows the scrollbar automatically when you hover
-					over the scroll area, even if you're not actively scrolling. By default, the
-					scrollbar stays hidden until you start scrolling.
+					When turned on, this feature shows the scrollbar automatically when you hover over the
+					scroll area, even if you're not actively scrolling. By default, the scrollbar stays hidden
+					until you start scrolling.
 				</svelte:fragment>
 				<svelte:fragment slot="actions">
 					<Toggle
@@ -250,11 +243,7 @@
 					Your code remains safe. it only clears the configuration.
 				</svelte:fragment>
 
-				<Button
-					color="error"
-					kind="outlined"
-					on:click={() => deleteConfirmationModal.show()}
-				>
+				<Button color="error" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
 					Remove projects…
 				</Button>
 
@@ -262,11 +251,8 @@
 					<p>Are you sure you want to remove all GitButler projects?</p>
 
 					<svelte:fragment slot="controls" let:close>
-						<Button
-							kind="outlined"
-							color="error"
-							loading={isDeleting}
-							on:click={onDeleteClicked}>Remove</Button
+						<Button kind="outlined" color="error" loading={isDeleting} on:click={onDeleteClicked}
+							>Remove</Button
 						>
 						<Button on:click={close}>Cancel</Button>
 					</svelte:fragment>
@@ -278,9 +264,8 @@
 			<SectionCard labelFor="committerSigning" orientation="row">
 				<svelte:fragment slot="title">Credit GitButler as the Committer</svelte:fragment>
 				<svelte:fragment slot="body">
-					By default, everything in the GitButler client is free to use. You can opt in to
-					crediting us as the committer in your virtual branch commits to help spread the
-					word.
+					By default, everything in the GitButler client is free to use. You can opt in to crediting
+					us as the committer in your virtual branch commits to help spread the word.
 					<Link
 						target="_blank"
 						rel="noreferrer"
@@ -303,8 +288,8 @@
 			<SectionCard>
 				<svelte:fragment slot="title">SSH Key</svelte:fragment>
 				<svelte:fragment slot="body">
-					GitButler uses SSH keys to authenticate with your Git provider. Add the
-					following public key to your Git provider to enable GitButler to push code.
+					GitButler uses SSH keys to authenticate with your Git provider. Add the following public
+					key to your Git provider to enable GitButler to push code.
 				</svelte:fragment>
 
 				<TextBox readonly selectall bind:value={sshKey} />
@@ -333,8 +318,8 @@
 			<SectionCard labelFor="signingSetting" orientation="row">
 				<svelte:fragment slot="title">Sign Commits with the above SSH Key</svelte:fragment>
 				<svelte:fragment slot="body">
-					If you want GitButler to sign your commits with the SSH key we generated, then
-					you can add that key to GitHub as a signing key to have those commits verified.
+					If you want GitButler to sign your commits with the SSH key we generated, then you can add
+					that key to GitHub as a signing key to have those commits verified.
 					<Link
 						target="_blank"
 						rel="noreferrer"
@@ -344,11 +329,7 @@
 					</Link>
 				</svelte:fragment>
 				<svelte:fragment slot="actions">
-					<Toggle
-						id="signingSetting"
-						checked={signCommits}
-						on:change={toggleSigningSetting}
-					/>
+					<Toggle id="signingSetting" checked={signCommits} on:change={toggleSigningSetting} />
 				</svelte:fragment>
 			</SectionCard>
 		</ContentWrapper>
