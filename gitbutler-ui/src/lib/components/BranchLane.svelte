@@ -106,6 +106,7 @@
 				{branchController}
 				{selectedOwnership}
 				{isUnapplied}
+				branchCommits={branch.commits}
 				readonly={selected instanceof RemoteFile}
 				selectable={$commitBoxOpen && !isUnapplied}
 				on:close={() => {

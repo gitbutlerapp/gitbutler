@@ -5,7 +5,7 @@
 	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { AnyFile } from '$lib/vbranches/types';
+	import type { AnyFile, Commit } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let branchId: string;
@@ -17,6 +17,7 @@
 	export let selectable = false;
 	export let readonly = false;
 	export let selectedOwnership: Writable<Ownership>;
+	export let branchCommits: Commit[] = [];
 
 	let sections: (HunkSection | ContentSection)[] = [];
 
@@ -60,6 +61,7 @@
 			{selectable}
 			{branchId}
 			{selectedOwnership}
+			{branchCommits}
 		/>
 	</ScrollableContainer>
 </div>
