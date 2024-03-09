@@ -9,7 +9,7 @@
 	export let contents: Element;
 	export let hideAfter = 1000;
 	export let initiallyVisible = false;
-	export let thickness = 'var(--space-10)';
+	export let thickness = '0.563rem';
 
 	export let horz = false;
 
@@ -309,7 +309,7 @@
 	/* modify horizontal scrollbar */
 	.scrollbar-track.horz {
 		& .scrollbar-thumb {
-			transform: scaleY(0.6);
+			transform: scaleY(0.65);
 			transform-origin: bottom;
 		}
 	}
@@ -318,7 +318,7 @@
 
 	.show-scrollbar {
 		& .scrollbar-thumb {
-			opacity: 0.2;
+			opacity: 0.15;
 		}
 	}
 
@@ -326,7 +326,7 @@
 	.show-scrollbar:hover,
 	.thumb-dragging {
 		& .scrollbar-thumb {
-			opacity: 0.3;
+			opacity: 0.25;
 		}
 	}
 
