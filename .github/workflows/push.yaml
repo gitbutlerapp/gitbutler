@@ -170,14 +170,28 @@ jobs:
           features: ${{ toJson(matrix.features) }}
           action: ${{ matrix.action }}
 
+# See: https://github.com/re-actors/alls-green
   check-rust:
+    if: always()
     needs:
       - changes
       - check-gitbutler-app
       - check-gitbutler-changeset
       - check-gitbutler-core
     runs-on: ubuntu-latest
-    if: ${{ needs.changes.outputs.rust == 'true' }}
     steps:
-      - run: ':'
-        shell: bash
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        with:
+          allowed-skips: >-
+            ${{
+              needs.changes.outputs.rust != 'true'
+              && '
+              check-gitbutler-app,
+              check-gitbutler-changeset,
+              check-gitbutler-core,
+              '
+              || ''
+            }}
+          jobs: ${{ toJSON(needs) }}
+
