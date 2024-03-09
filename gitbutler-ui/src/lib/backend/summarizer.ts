@@ -26,11 +26,11 @@ Use the present tense.
 Always use semantic commit prefixes.
 Hard wrap lines at 72 characters.
 Only respond with the commit message.
-Warn about leaked keys.
+Warn if you find any leaked keys.
 %{brief_style}
 %{emoji_style}
 
-Here is my diff:
+Here is my git diff:
 %{diff}
 `;
 
@@ -40,7 +40,7 @@ A branch name represent a brief description of the changes in the diff (branch).
 Branch names should contain no whitespace and instead use dashes to separate words.
 Branch names should contain a maximum of 5 words.
 
-Here is my diff:
+Here is my git diff:
 %{diff}
 `;
 
