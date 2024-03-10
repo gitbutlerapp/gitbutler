@@ -24,16 +24,17 @@
 
 		try {
 			checks = [
-				{
-					name: 'Fetch',
-					promise: authService.checkGitFetch(projectId, remoteName).catch((reason) => {
+				{ name: 'Fetch', promise: authService.checkGitFetch(projectId, remoteName) },
+				{ name: 'Push', promise: authService.checkGitPush(projectId, remoteName, branchName) }
+			];
+			await Promise.allSettled(
+				checks.map((c) =>
+					c.promise.catch((reason) => {
 						++errors; // Shows error state as soon as any promise is rejected
 						throw reason;
 					})
-				},
-				{ name: 'Push', promise: authService.checkGitPush(projectId, remoteName, branchName) }
-			];
-			await Promise.allSettled(checks.map((c) => c.promise));
+				)
+			);
 		} finally {
 			loading = false;
 		}
