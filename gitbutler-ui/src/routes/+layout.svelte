@@ -33,9 +33,9 @@
 			events.on('openSendIssueModal', () => shareIssueModal?.show()),
 
 			// Zoom using cmd +, - and =
-			hotkeys.on('Meta+Equal', () => (zoom = Math.min(zoom + 0.0625, 3))),
-			hotkeys.on('Meta+Minus', () => (zoom = Math.max(zoom - 0.0625, 0.375))),
-			hotkeys.on('Meta+Digit0', () => (zoom = 1)),
+			hotkeys.on('$mod+Equal', () => (zoom = Math.min(zoom + 0.0625, 3))),
+			hotkeys.on('$mod+Minus', () => (zoom = Math.max(zoom - 0.0625, 0.375))),
+			hotkeys.on('$mod+Digit0', () => (zoom = 1)),
 			hotkeys.on('Meta+T', () => {
 				userSettings.update((s) => ({
 					...s,
