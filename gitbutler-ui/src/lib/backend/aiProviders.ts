@@ -46,7 +46,8 @@ export class OpenAIProvider implements AIProvider {
 		const messages: PromptMessage[] = [{ role: MessageRole.User, content: prompt }];
 
 		const response = await this.openAI.chat.completions.create({
-			// @ts-expect-error There is a type mismatch where it seems to want a "name" paramater that isn't required https://github.com/openai/openai-openapi/issues/118#issuecomment-1847667988
+			// @ts-expect-error There is a type mismatch where it seems to want a "name" paramater
+			// that isn't required https://github.com/openai/openai-openapi/issues/118#issuecomment-1847667988
 			messages,
 			model: this.model,
 			max_tokens: 400
