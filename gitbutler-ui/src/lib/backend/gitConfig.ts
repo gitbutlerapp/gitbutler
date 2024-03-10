@@ -13,8 +13,8 @@ export class GitConfig {
 		return () => this.gitGetConfig<T>(key);
 	}
 
-	buildGetterWithDefault<T extends string>(key: string, defaultValue: T): () => Promise<T> {
-		return () => this.gitGetConfig(key).then((value) => value || defaultValue) as Promise<T>;
+	buildGetterWithDefault<T extends string>(key: string, defaultValue: T) {
+		return () => this.gitGetConfig<T>(key).then((value) => value || defaultValue);
 	}
 
 	buildSetter<T extends string>(key: string) {
