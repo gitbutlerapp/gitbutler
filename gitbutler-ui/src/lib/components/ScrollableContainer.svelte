@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Scrollbar from '$lib/components/Scrollbar.svelte';
-	import { onDestroy, onMount } from 'svelte';
+	import Scrollbar, { type ScrollbarPadding } from '$lib/components/Scrollbar.svelte';
+	import { onDestroy, onMount, createEventDispatcher } from 'svelte';
 
 	export let viewport: HTMLDivElement | undefined = undefined;
 	export let contents: HTMLDivElement | undefined = undefined;
@@ -13,7 +13,13 @@
 	export let initiallyVisible = false;
 	export let showBorderWhenScrolled = false;
 
+	export let padding: ScrollbarPadding = {};
+	export let shift = '0';
+	export let thickness = '0.563rem';
+
 	let observer: ResizeObserver;
+
+	const dispatch = createEventDispatcher<{ dragging: boolean }>();
 
 	onMount(() => {
 		observer = new ResizeObserver(() => {
@@ -47,8 +53,16 @@
 		<div bind:this={contents} class="contents">
 			<slot />
 		</div>
+		<Scrollbar
+			{viewport}
+			{contents}
+			{initiallyVisible}
+			{padding}
+			{shift}
+			{thickness}
+			on:dragging={(e) => dispatch('dragging', e.detail)}
+		/>
 	</div>
-	<Scrollbar {viewport} {contents} thickness="0.375rem" {initiallyVisible} />
 </div>
 
 <style lang="postcss">

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { getContext } from 'svelte';
+	import type { SettingsStore } from '$lib/settings/userSettings';
+
+	export let userSettings: SettingsStore;
 
 	const themes = [
 		{
@@ -20,8 +21,6 @@
 			preview: '/images/theme-previews/system.svg'
 		}
 	];
-
-	const userSettings = getContext(SETTINGS_CONTEXT) as SettingsStore;
 </script>
 
 <fieldset class="cards-group">

@@ -138,24 +138,15 @@
 		user-select: none; /* here because of user-select draggable interference in board */
 		position: relative;
 		--target-branch-background: var(--clr-theme-container-pale);
-		--selected-resize-shift: 0;
-		--selected-target-branch-right-padding: 0;
-		--selected-opacity: 1;
 		background-color: var(--target-branch-background);
 	}
 
 	.target-branch {
 		--target-branch-background: color-mix(
 			in srgb,
-			var(--clr-theme-scale-pop-60) 15%,
+			var(--clr-theme-scale-pop-60) 20%,
 			var(--clr-theme-container-pale)
 		);
-	}
-
-	.file-selected {
-		--selected-resize-shift: calc((var(--space-6) + 0.0625rem) * -1);
-		--selected-target-branch-right-padding: calc(var(--space-4) * -1);
-		--selected-opacity: 0;
 	}
 
 	.file-preview {
@@ -167,6 +158,5 @@
 		align-items: self-start;
 
 		padding: var(--space-12) var(--space-12) var(--space-12) 0;
-		margin-left: var(--selected-target-branch-right-padding);
 	}
 </style>

@@ -11,16 +11,21 @@
 	import TextBox from '$lib/components/TextBox.svelte';
 	import ThemeSelector from '$lib/components/ThemeSelector.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
+	import VideoTip from '$lib/components/VideoTip.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import ProfileSIdebar from '$lib/components/settings/ProfileSIdebar.svelte';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount } from 'svelte';
+	import { getContext } from 'svelte';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
+
+	const userSettings = getContext(SETTINGS_CONTEXT) as SettingsStore;
 
 	export let data: PageData;
 
@@ -41,6 +46,8 @@
 	let sshKey = '';
 
 	let deleteConfirmationModal: Modal;
+
+	let scrollbarVisabilityVideoPlaying = false;
 
 	$: saving = false;
 	$: userPicture = $user$?.picture;
@@ -179,7 +186,40 @@
 
 			<SectionCard>
 				<svelte:fragment slot="title">Appearance</svelte:fragment>
-				<ThemeSelector />
+				<ThemeSelector {userSettings} />
+			</SectionCard>
+
+			<SectionCard
+				labelFor="hoverScrollbarVisability"
+				orientation="row"
+				on:hover={(e) => {
+					scrollbarVisabilityVideoPlaying = e.detail;
+				}}
+			>
+				<svelte:fragment slot="iconSide">
+					<VideoTip
+						src="/video-tips/scrollbar-on-hover.webm"
+						playing={scrollbarVisabilityVideoPlaying}
+					/>
+				</svelte:fragment>
+
+				<svelte:fragment slot="title">Dynamic scrollbar visibility on hover</svelte:fragment>
+				<svelte:fragment slot="body">
+					When turned on, this feature shows the scrollbar automatically when you hover over the
+					scroll area, even if you're not actively scrolling. By default, the scrollbar stays hidden
+					until you start scrolling.
+				</svelte:fragment>
+				<svelte:fragment slot="actions">
+					<Toggle
+						id="hoverScrollbarVisability"
+						checked={$userSettings.scrollbarVisabilityOnHover}
+						on:change={() =>
+							userSettings.update((s) => ({
+								...s,
+								scrollbarVisabilityOnHover: !s.scrollbarVisabilityOnHover
+							}))}
+					/>
+				</svelte:fragment>
 			</SectionCard>
 
 			<Spacer />

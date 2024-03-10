@@ -15,6 +15,7 @@ export interface Settings {
 	defaultFileWidth: number;
 	defaultTreeHeight: number;
 	zoom: number;
+	scrollbarVisabilityOnHover: boolean;
 }
 
 const defaults: Settings = {
@@ -27,7 +28,8 @@ const defaults: Settings = {
 	defaultFileWidth: 460,
 	defaultTreeHeight: 100,
 	stashedBranchesHeight: 150,
-	zoom: 1
+	zoom: 1,
+	scrollbarVisabilityOnHover: false
 };
 
 export type SettingsStore = Writable<Settings>;

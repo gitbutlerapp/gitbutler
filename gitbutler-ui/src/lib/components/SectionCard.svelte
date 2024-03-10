@@ -3,6 +3,8 @@
 </script>
 
 <script lang="ts">
+	import { createEventDispatcher } from 'svelte';
+
 	export let orientation: 'row' | 'column' = 'column';
 	export let extraPadding = false;
 	export let roundedTop = true;
@@ -14,6 +16,9 @@
 	export let disabled = false;
 
 	const SLOTS = $$props.$$slots;
+
+	// event for hover
+	const dispatch = createEventDispatcher<{ hover: boolean }>();
 </script>
 
 <label
@@ -30,6 +35,8 @@
 	class:error={background == 'error'}
 	class:clickable={labelFor !== ''}
 	class:disabled
+	on:mouseenter={() => dispatch('hover', true)}
+	on:mouseleave={() => dispatch('hover', false)}
 >
 	{#if SLOTS.iconSide}
 		<div class="section-card__icon-side">

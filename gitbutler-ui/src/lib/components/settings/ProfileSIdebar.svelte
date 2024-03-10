@@ -214,7 +214,7 @@
 			background-color: color-mix(
 				in srgb,
 				var(--clr-theme-container-light),
-				var(--darken-tint-light)
+				var(--darken-tint-extralight)
 			);
 		}
 	}
