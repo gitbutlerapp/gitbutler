@@ -21,9 +21,9 @@
 			"dialog": {
 				"open": true
 			},
-            "os": {
-                "all": true
-            },
+			"os": {
+				"all": true
+			},
 			"protocol": {
 				"asset": true,
 				"assetScope": ["$APPCACHE/images/*"]
@@ -39,11 +39,11 @@
 			"path": {
 				"all": true
 			},
-            "http": {
-                "all": true,
-                "request": true,
-                "scope": [" https://api.anthropic.com/v1/messages"]
-            }
+			"http": {
+				"all": true,
+				"request": true,
+				"scope": [" https://api.anthropic.com/v1/messages"]
+			}
 		},
 		"bundle": {
 			"active": true,
