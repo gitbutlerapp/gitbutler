@@ -82,7 +82,7 @@
 						class:item_selected={currentSection === 'ai'}
 						on:mousedown={() => onMenuClick('ai')}
 					>
-						<Icon name="stat" />
+						<Icon name="search" />
 						<span class="text-base-14 text-semibold">AI Options</span>
 					</button>
 				</li>
