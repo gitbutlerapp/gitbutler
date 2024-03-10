@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Button from './Button.svelte';
 	import Icon from './Icon.svelte';
-	import InfoMessage, { type MessageStyle } from './InfoMessage.svelte';
+	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
 	import { slide } from 'svelte/transition';
 	import type { AuthService } from '$lib/backend/auth';
@@ -11,64 +11,43 @@
 	export let remoteName: string | null | undefined;
 	export let branchName: string | null | undefined;
 
-	$: success = true;
-	$: loading = false;
-	$: errors = 0;
-	$: passes = 0;
-	$: style = checkToStyle(loading, success, errors);
-
 	type Check = { name: string; promise: Promise<any> };
 	$: checks = [] as Check[];
 
-	function checkToStyle(loading: boolean, success: boolean, errors: number): MessageStyle {
-		if (success) return 'success';
-		if (errors > 0) return 'warn';
-		if (loading) return 'neutral';
-		return 'neutral';
-	}
-
-	const isRejected = (input: PromiseSettledResult<unknown>): input is PromiseRejectedResult =>
-		input.status === 'rejected';
-
-	const isFulfilled = <T,>(
-		input: PromiseSettledResult<unknown>
-	): input is PromiseFulfilledResult<T> => input.status === 'fulfilled';
+	$: errors = 0;
+	$: loading = false;
 
 	async function checkCredentials() {
-		success = false;
-		passes = 0;
+		if (!remoteName || !branchName) return;
+		loading = true;
 		errors = 0;
 
-		if (!remoteName || !branchName) {
-			return;
-		}
-
-		loading = true;
 		try {
 			checks = [
 				{
 					name: 'Fetch',
 					promise: authService.checkGitFetch(projectId, remoteName).catch((reason) => {
-						++errors;
+						++errors; // Shows error state as soon as any promise is rejected
 						throw reason;
 					})
 				},
 				{ name: 'Push', promise: authService.checkGitPush(projectId, remoteName, branchName) }
 			];
-			const results = await Promise.allSettled(checks.map((c) => c.promise));
-			errors = results.filter(isRejected).map((r) => `${r.reason}`).length;
-			passes = results.filter(isFulfilled).map((r) => `${r.value}`).length;
-			setTimeout(() => (success = errors == 0), 1250);
+			await Promise.allSettled(checks.map((c) => c.promise));
 		} finally {
 			loading = false;
 		}
+	}
+
+	export function reset() {
+		checks = [];
 	}
 </script>
 
 <div class="credential-check">
 	{#if checks.length > 0}
 		<div transition:slide={{ duration: 250 }}>
-			<InfoMessage {style} filled outlined={false}>
+			<InfoMessage style={errors > 0 ? 'warn' : 'neutral'} filled outlined={false}>
 				<svelte:fragment slot="title">
 					{#if loading}
 						Checking git credentials …
@@ -79,25 +58,23 @@
 					{/if}
 				</svelte:fragment>
 				<svelte:fragment slot="content">
-					{#if loading || (checks.length > 0 && (errors > 0 || (errors == 0 && passes == 0)))}
-						<div class="checks-list" transition:slide={{ duration: 250, delay: 1000 }}>
-							{#each checks as check}
-								<div class="check-result">
-									{#await check.promise}
-										<Icon name="spinner" spinnerRadius={3.5} />
-									{:then}
-										<Icon name="success-small" color="success" />
-									{:catch}
-										<Icon name="error-small" color="error" />
-									{/await}
-									{check.name}
-									{#await check.promise catch err}
-										- {err}
-									{/await}
-								</div>
-							{/each}
-						</div>
-					{/if}
+					<div class="checks-list" transition:slide={{ duration: 250, delay: 1000 }}>
+						{#each checks as check}
+							<div class="check-result">
+								{#await check.promise}
+									<Icon name="spinner" spinnerRadius={3.5} />
+								{:then}
+									<Icon name="success-small" color="success" />
+								{:catch}
+									<Icon name="error-small" color="error" />
+								{/await}
+								{check.name}
+								{#await check.promise catch err}
+									- {err}
+								{/await}
+							</div>
+						{/each}
+					</div>
 					{#if errors > 0}
 						<div class="help-text" transition:slide>
 							Try another setting and test again? You can also refer to our
@@ -139,10 +116,12 @@
 		padding-left: var(--space-4);
 		margin-top: var(--space-12);
 	}
+
 	.check-result {
 		display: flex;
 		gap: var(--space-6);
 	}
+
 	.help-text {
 		margin-top: var(--space-6);
 	}

@@ -24,6 +24,7 @@
 
 	$: base$ = baseBranchService.base$;
 
+	let credentialCheck: CredentialCheck;
 	let sshKey = '';
 
 	let selectedType: KeyType =
@@ -60,6 +61,7 @@
 	let form: HTMLFormElement;
 
 	function onFormChange(form: HTMLFormElement) {
+		credentialCheck.reset();
 		const formData = new FormData(form);
 		selectedType = formData.get('credentialType') as KeyType;
 		if (selectedType != 'local') {
@@ -211,6 +213,7 @@
 		<SectionCard roundedTop={false} orientation="row">
 			<svelte:fragment slot="body">
 				<CredentialCheck
+					bind:this={credentialCheck}
 					projectId={project.id}
 					{authService}
 					remoteName={remoteName || $base$?.remoteName}
