@@ -53,11 +53,9 @@
 		textareaElement.style.height = `${textareaElement.scrollHeight + 2}px`;
 	}
 
-	const focusTextareaOnMount = (el: HTMLTextAreaElement) => {
-		if (el) {
-			el.focus();
-		}
-	};
+	function focusTextareaOnMount(el: HTMLTextAreaElement) {
+		if (el) el.focus();
+	}
 
 	function commit() {
 		if (!commitMessage) return;

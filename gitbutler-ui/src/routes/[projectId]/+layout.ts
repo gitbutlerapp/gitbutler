@@ -6,11 +6,10 @@ import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { BranchController } from '$lib/vbranches/branchController';
 import { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 import { map } from 'rxjs';
-import type { LayoutLoad } from './$types';
 
 export const prerender = false;
 
-export const load: LayoutLoad = async ({ params, parent }) => {
+export async function load({ params, parent }) {
 	const { authService, projectService, userService } = await parent();
 	const projectId = params.projectId;
 	const project$ = projectService.getProject(projectId);
@@ -56,4 +55,4 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		branchService,
 		gbBranchActive$
 	};
-};
+}

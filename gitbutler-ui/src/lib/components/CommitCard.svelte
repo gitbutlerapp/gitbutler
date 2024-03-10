@@ -8,18 +8,26 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
-	import { LocalFile, RemoteCommit, Commit, RemoteFile } from '$lib/vbranches/types';
+	import {
+		LocalFile,
+		RemoteCommit,
+		Commit,
+		RemoteFile,
+		Branch,
+		BaseBranch
+	} from '$lib/vbranches/types';
 	import { writable, type Writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchController } from '$lib/vbranches/branchController';
 
+	export let branch: Branch | undefined = undefined;
+	export let base: BaseBranch | undefined | null = undefined;
 	export let project: Project | undefined;
 	export let commit: Commit | RemoteCommit;
 	export let projectId: string;
 	export let commitUrl: string | undefined = undefined;
 	export let isHeadCommit: boolean = false;
-	export let resetHeadCommit: () => void | undefined = () => undefined;
 	export let isUnapplied = false;
 	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
 	export let branchController: BranchController;
@@ -39,6 +47,18 @@
 	function onClick() {
 		showFiles = !showFiles;
 		if (showFiles) loadFiles();
+	}
+
+	function resetHeadCommit() {
+		if (!branch || !base) {
+			console.error('Unable to reset head commit');
+			return;
+		}
+		if (branch.commits.length > 1) {
+			branchController.resetBranch(branch.id, branch.commits[1].id);
+		} else if (branch.commits.length === 1 && base) {
+			branchController.resetBranch(branch.id, base.baseSha);
+		}
 	}
 
 	const isUndoable = isHeadCommit && !isUnapplied;

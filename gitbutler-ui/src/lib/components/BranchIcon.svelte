@@ -4,7 +4,7 @@
 	export let name: 'remote-branch' | 'virtual-branch' | 'pr' | 'pr-draft' | 'pr-closed' | undefined;
 	export let help: string | undefined;
 
-	const getIconColor = (name: string | undefined) => {
+	function getIconColor(name: string | undefined) {
 		if (name === 'remote-branch') return 'neutral';
 		if (name === 'virtual-branch') return 'virtual';
 		if (name === 'pr') return 'success';
@@ -12,7 +12,7 @@
 		if (name === 'pr-closed') return 'neutral';
 
 		return 'neutral';
-	};
+	}
 </script>
 
 <div class="branch-icon {getIconColor(name)}" use:tooltip={help}>

@@ -4,14 +4,14 @@
 import { writable, type Writable } from 'svelte/store';
 export type Persisted<T> = Writable<T>;
 
-export const getStorageItem = (key: string): unknown => {
+export function getStorageItem(key: string): unknown {
 	const item = window.localStorage.getItem(key);
 	try {
 		return item ? JSON.parse(item) : undefined;
 	} catch {
 		return undefined;
 	}
-};
+}
 
 export function setStorageItem(key: string, value: unknown): void {
 	window.localStorage.setItem(key, JSON.stringify(value));
