@@ -1,7 +1,7 @@
 import { Body, fetch } from '@tauri-apps/api/http';
-import OpenAI from 'openai';
 import type { User, getCloudApiClient } from '$lib/backend/cloud';
 import type { AnthropicModel, ModelKind, OpenAIModel } from '$lib/backend/summarizerSettings';
+import type OpenAI from 'openai';
 
 enum MessageRole {
 	User = 'user',
@@ -37,14 +37,10 @@ export class ButlerAIProvider implements AIProvider {
 }
 
 export class OpenAIProvider implements AIProvider {
-	private openAI: OpenAI;
-
 	constructor(
-		apiKey: string,
-		private model: OpenAIModel
-	) {
-		this.openAI = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
-	}
+		private model: OpenAIModel,
+		private openAI: OpenAI
+	) {}
 
 	async evaluate(prompt: string) {
 		const messages: PromptMessage[] = [{ role: MessageRole.User, content: prompt }];

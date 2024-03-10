@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { deleteAllData } from '$lib/backend/data';
+	import { GitConfig } from '$lib/backend/gitConfig';
 	import AiSettings from '$lib/components/AISettings.svelte';
 	import AnalyticsSettings from '$lib/components/AnalyticsSettings.svelte';
 	import Button from '$lib/components/Button.svelte';
@@ -21,7 +22,6 @@
 	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount } from 'svelte';
 	import { getContext } from 'svelte';
 	import type { PageData } from './$types';
@@ -30,6 +30,7 @@
 	const userSettings = getContext(SETTINGS_CONTEXT) as SettingsStore;
 
 	export let data: PageData;
+	export let gitConfig = new GitConfig();
 
 	$: ({ cloud, authService } = data);
 
@@ -100,29 +101,14 @@
 		saving = false;
 	}
 
-	// TODO: These kinds of functions should be implemented on an injected service
-	function gitGetConfig(params: { key: string }) {
-		return invoke<string>('git_get_global_config', params);
-	}
-
-	function gitSetConfig(params: { key: string; value: string }) {
-		return invoke<string>('git_set_global_config', params);
-	}
-
 	function toggleCommitterSigning() {
 		annotateCommits = !annotateCommits;
-		gitSetConfig({
-			key: 'gitbutler.gitbutlerCommitter',
-			value: annotateCommits ? '1' : '0'
-		});
+		gitConfig.gitSetConfig('gitbutler.gitbutlerCommitter', annotateCommits ? '1' : '0');
 	}
 
 	function toggleSigningSetting() {
 		signCommits = !signCommits;
-		gitSetConfig({
-			key: 'gitbutler.signCommits',
-			value: signCommits ? 'true' : 'false'
-		});
+		gitConfig.gitSetConfig('gitbutler.signCommits', signCommits ? 'true' : 'false');
 	}
 
 	async function onDeleteClicked() {
@@ -144,8 +130,8 @@
 
 	onMount(async () => {
 		sshKey = await authService.getPublicKey();
-		annotateCommits = (await gitGetConfig({ key: 'gitbutler.gitbutlerCommitter' })) == '1';
-		signCommits = (await gitGetConfig({ key: 'gitbutler.signCommits' })) == 'true';
+		annotateCommits = (await gitConfig.gitGetConfig('gitbutler.gitbutlerCommitter')) == '1';
+		signCommits = (await gitConfig.gitGetConfig('gitbutler.signCommits')) == 'true';
 	});
 </script>
 

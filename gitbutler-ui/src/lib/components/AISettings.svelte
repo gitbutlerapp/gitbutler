@@ -2,38 +2,32 @@
 	import Select from './Select.svelte';
 	import SelectItem from './SelectItem.svelte';
 	import TextBox from './TextBox.svelte';
+	import { GitConfig } from '$lib/backend/gitConfig';
 	import {
+		AnthropicModel,
 		KeyOption,
 		ModelKind,
-		getModelKind,
-		getKeyOption,
-		setModelKind,
-		setKeyOption,
-		getAnthropicKey,
-		setAnthropicKey,
-		setOpenAIKey,
-		getOpenAIKey,
-		AnthropicModel,
-		getAnthropicModel,
 		OpenAIModel,
-		getOpenAIModel,
-		setAnthropicModel,
-		setOpenAIModel
+		SummarizerSettings
 	} from '$lib/backend/summarizerSettings';
 	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 
+	export let summarizerSettings = new SummarizerSettings(new GitConfig());
+
 	let modelKind: ModelKind | undefined;
-	getModelKind().then((persistedModelKind) => (modelKind = persistedModelKind));
-	$: if (modelKind) setModelKind(modelKind);
+	summarizerSettings.getModelKind().then((persistedModelKind) => (modelKind = persistedModelKind));
+	$: if (modelKind) summarizerSettings.setModelKind(modelKind);
 	$: if (form && modelKind) form.modelKind.value = modelKind;
 
 	let keyOption: { name: string; value: KeyOption } | undefined;
-	getKeyOption().then(
-		(persistedKeyOption) =>
-			(keyOption = keyOptions.find((option) => option.value == persistedKeyOption))
-	);
-	$: if (keyOption) setKeyOption(keyOption.value);
+	summarizerSettings
+		.getKeyOption()
+		.then(
+			(persistedKeyOption) =>
+				(keyOption = keyOptions.find((option) => option.value == persistedKeyOption))
+		);
+	$: if (keyOption) summarizerSettings.setKeyOption(keyOption.value);
 
 	const keyOptions = [
 		{
@@ -47,15 +41,19 @@
 	];
 
 	let openAIKey: string | undefined;
-	getOpenAIKey().then((persistedOpenAIKey) => (openAIKey = persistedOpenAIKey));
-	$: if (openAIKey) setOpenAIKey(openAIKey);
+	summarizerSettings
+		.getOpenAIKey()
+		.then((persistedOpenAIKey) => (openAIKey = persistedOpenAIKey || undefined));
+	$: if (openAIKey) summarizerSettings.setOpenAIKey(openAIKey);
 
 	let openAIModel: { name: string; value: OpenAIModel } | undefined;
-	getOpenAIModel().then(
-		(persistedOpenAIModel) =>
-			(openAIModel = openAIModelOptions.find((option) => option.value == persistedOpenAIModel))
-	);
-	$: if (openAIModel) setOpenAIModel(openAIModel.value);
+	summarizerSettings
+		.getOpenAIModel()
+		.then(
+			(persistedOpenAIModel) =>
+				(openAIModel = openAIModelOptions.find((option) => option.value == persistedOpenAIModel))
+		);
+	$: if (openAIModel) summarizerSettings.setOpenAIModel(openAIModel.value);
 
 	const openAIModelOptions = [
 		{
@@ -73,17 +71,21 @@
 	];
 
 	let anthropicKey: string | undefined;
-	getAnthropicKey().then((persistedAnthropicKey) => (anthropicKey = persistedAnthropicKey));
-	$: if (anthropicKey) setAnthropicKey(anthropicKey);
+	summarizerSettings
+		.getAnthropicKey()
+		.then((persistedAnthropicKey) => (anthropicKey = persistedAnthropicKey || undefined));
+	$: if (anthropicKey) summarizerSettings.setAnthropicKey(anthropicKey);
 
 	let anthropicModel: { name: string; value: AnthropicModel } | undefined;
-	getAnthropicModel().then(
-		(persistedAnthropicModel) =>
-			(anthropicModel = anthropicModelOptions.find(
-				(option) => option.value == persistedAnthropicModel
-			))
-	);
-	$: if (anthropicModel) setAnthropicModel(anthropicModel.value);
+	summarizerSettings
+		.getAnthropicModel()
+		.then(
+			(persistedAnthropicModel) =>
+				(anthropicModel = anthropicModelOptions.find(
+					(option) => option.value == persistedAnthropicModel
+				))
+		);
+	$: if (anthropicModel) summarizerSettings.setAnthropicModel(anthropicModel.value);
 
 	const anthropicModelOptions = [
 		{
