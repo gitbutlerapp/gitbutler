@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchLane from '$lib/components//BranchLane.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
@@ -31,7 +32,7 @@
 {#if $error$}
 	<p>Error...</p>
 {:else if !$branches$}
-	<p>Loading...</p>
+	<FullscreenLoading />
 {:else if branch}
 	<BranchLane
 		{branch}

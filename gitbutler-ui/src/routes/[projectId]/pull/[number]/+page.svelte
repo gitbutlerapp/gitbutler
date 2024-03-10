@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
 	import { map } from 'rxjs';
 	import type { PageData } from './$types';
@@ -16,7 +17,7 @@
 <div class="wrapper overflow-y-auto overscroll-none">
 	<div class="inner flex">
 		{#if !$pr}
-			<p>Loading...</p>
+			<FullscreenLoading />
 		{:else if pr}
 			<PullRequestPreview {branchController} pullrequest={$pr} />
 		{:else}

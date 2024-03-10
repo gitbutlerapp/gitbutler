@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import RemoteBranchPreview from '$lib/components/RemoteBranchPreview.svelte';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
@@ -19,7 +20,7 @@
 {#if $error$}
 	<p>Error...</p>
 {:else if !$branches$}
-	<p>Loading...</p>
+	<FullscreenLoading />
 {:else if branch}
 	<RemoteBranchPreview
 		projectId={$project$.id}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSetup from '$lib/components/ProjectSetup.svelte';
 	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
@@ -16,7 +17,8 @@
 </script>
 
 {#await getRemoteBranches(projectId)}
-	<p>loading... {projectId}</p>
+	<!--TODO: Add project id -->
+	<FullscreenLoading />
 {:then remoteBranches}
 	{#if remoteBranches.length == 0}
 		<ProblemLoadingRepo

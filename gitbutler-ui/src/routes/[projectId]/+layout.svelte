@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { syncToCloud } from '$lib/backend/cloud';
 	import { handleMenuActions } from '$lib/backend/menuActions';
+	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
@@ -30,7 +31,6 @@
 
 	$: user$ = data.user$;
 
-	let trayViewport: HTMLElement;
 	let intervalId: any;
 	handleMenuActions(data.projectId);
 
@@ -81,21 +81,26 @@
 		baseBranch={$baseBranch$}
 	/>
 {:else if $baseBranch$}
-	<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
-		<div bind:this={trayViewport} class="flex flex-shrink">
-			<Navigation
-				{branchService}
-				{baseBranchService}
-				{branchController}
-				project={$project$}
-				user={$user$}
-				{githubService}
-				{projectService}
-			/>
-		</div>
-		<div class="absolute h-4 w-full" data-tauri-drag-region></div>
+	<div class="view-wrap" role="group" on:dragover|preventDefault>
+		<Navigation
+			{branchService}
+			{baseBranchService}
+			{branchController}
+			project={$project$}
+			user={$user$}
+			{githubService}
+			{projectService}
+		/>
 		<slot />
 	</div>
 {:else}
-	loading...
+	<FullscreenLoading />
 {/if}
+
+<style>
+	.view-wrap {
+		position: relative;
+		display: flex;
+		width: 100%;
+	}
+</style>
