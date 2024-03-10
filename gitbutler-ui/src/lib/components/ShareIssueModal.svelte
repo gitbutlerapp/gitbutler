@@ -25,23 +25,23 @@
 
 	$: projectId = $page.params.projectId;
 
-	const reset = () => {
+	function reset() {
 		messageInputValue = '';
 		sendLogs = false;
 		sendProjectData = false;
 		sendProjectRepository = false;
-	};
+	}
 
-	const readZipFile = (path: string, filename?: string): Promise<File | Blob> =>
-		import('@tauri-apps/api/fs').then(async ({ readBinaryFile }) => {
-			const file = await readBinaryFile(path);
-			const fileName = filename ?? path.split('/').pop();
-			return fileName
-				? new File([file], fileName, { type: 'application/zip' })
-				: new Blob([file], { type: 'application/zip' });
-		});
+	async function readZipFile(path: string, filename?: string): Promise<File | Blob> {
+		const { readBinaryFile } = await import('@tauri-apps/api/fs');
+		const file = await readBinaryFile(path);
+		const fileName = filename ?? path.split('/').pop();
+		return fileName
+			? new File([file], fileName, { type: 'application/zip' })
+			: new Blob([file], { type: 'application/zip' });
+	}
 
-	const onSubmit = () => {
+	function onSubmit() {
 		const message = messageInputValue;
 		const email = user?.email ?? emailInputValue;
 		toasts.promise(
@@ -72,12 +72,12 @@
 			}
 		);
 		onClose();
-	};
+	}
 
-	const onClose = () => {
+	function onClose() {
 		reset();
 		modal.close();
-	};
+	}
 </script>
 
 <Modal bind:this={modal} on:close={onClose} title="Share debug data with GitButler team for review">

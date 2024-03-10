@@ -9,15 +9,15 @@
 	const metricsEnabled = appMetricsEnabled();
 	let updatedTelemetrySettings = false;
 
-	const toggleErrorReporting = () => {
+	function toggleErrorReporting() {
 		$errorReportingEnabled = !$errorReportingEnabled;
 		updatedTelemetrySettings = true;
-	};
+	}
 
-	const toggleMetrics = () => {
+	function toggleMetrics() {
 		$metricsEnabled = !$metricsEnabled;
 		updatedTelemetrySettings = true;
-	};
+	}
 </script>
 
 <section class="analytics-settings">
