@@ -17,7 +17,6 @@
 
 	const SLOTS = $$props.$$slots;
 
-	// event for hover
 	const dispatch = createEventDispatcher<{ hover: boolean }>();
 </script>
 
