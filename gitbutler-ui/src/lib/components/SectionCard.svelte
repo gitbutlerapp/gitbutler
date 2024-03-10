@@ -43,21 +43,23 @@
 		</div>
 	{/if}
 
-	{#if SLOTS.title || SLOTS.body}
+	{#if SLOTS.title || SLOTS.caption}
 		<div class="section-card__content">
 			{#if SLOTS.title}
 				<h3 class="text-base-15 text-bold section-card__title">
 					<slot name="title" />
 				</h3>
 			{/if}
-			{#if SLOTS.body}
+			{#if SLOTS.caption}
 				<p class="text-base-body-12 section-card__text">
-					<slot name="body" />
+					<slot name="caption" />
 				</p>
 			{/if}
 		</div>
 	{/if}
+
 	<slot />
+
 	{#if SLOTS.actions}
 		<div class="section-card__actions">
 			<slot name="actions" />

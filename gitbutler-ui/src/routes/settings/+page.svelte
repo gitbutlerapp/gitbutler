@@ -204,7 +204,7 @@
 				</svelte:fragment>
 
 				<svelte:fragment slot="title">Dynamic scrollbar visibility on hover</svelte:fragment>
-				<svelte:fragment slot="body">
+				<svelte:fragment slot="caption">
 					When turned on, this feature shows the scrollbar automatically when you hover over the
 					scroll area, even if you're not actively scrolling. By default, the scrollbar stays hidden
 					until you start scrolling.
@@ -227,7 +227,7 @@
 			{#if $user$}
 				<SectionCard orientation="row">
 					<svelte:fragment slot="title">Signing out</svelte:fragment>
-					<svelte:fragment slot="body">
+					<svelte:fragment slot="caption">
 						Ready to take a break? Click here to log out and unwind.
 					</svelte:fragment>
 
@@ -237,7 +237,7 @@
 
 			<SectionCard orientation="row">
 				<svelte:fragment slot="title">Remove all projects</svelte:fragment>
-				<svelte:fragment slot="body">
+				<svelte:fragment slot="caption">
 					You can delete all projects from the GitButler app.
 					<br />
 					Your code remains safe. it only clears the configuration.
@@ -263,7 +263,7 @@
 		<ContentWrapper title="Git stuff">
 			<SectionCard labelFor="committerSigning" orientation="row">
 				<svelte:fragment slot="title">Credit GitButler as the Committer</svelte:fragment>
-				<svelte:fragment slot="body">
+				<svelte:fragment slot="caption">
 					By default, everything in the GitButler client is free to use. You can opt in to crediting
 					us as the committer in your virtual branch commits to help spread the word.
 					<Link
@@ -287,7 +287,7 @@
 
 			<SectionCard>
 				<svelte:fragment slot="title">SSH Key</svelte:fragment>
-				<svelte:fragment slot="body">
+				<svelte:fragment slot="caption">
 					GitButler uses SSH keys to authenticate with your Git provider. Add the following public
 					key to your Git provider to enable GitButler to push code.
 				</svelte:fragment>
@@ -317,7 +317,7 @@
 
 			<SectionCard labelFor="signingSetting" orientation="row">
 				<svelte:fragment slot="title">Sign Commits with the above SSH Key</svelte:fragment>
-				<svelte:fragment slot="body">
+				<svelte:fragment slot="caption">
 					If you want GitButler to sign your commits with the SSH key we generated, then you can add
 					that key to GitHub as a signing key to have those commits verified.
 					<Link

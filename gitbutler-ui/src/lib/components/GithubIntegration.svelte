@@ -91,7 +91,7 @@
 			</div>
 		</svelte:fragment>
 		<svelte:fragment slot="title">GitHub</svelte:fragment>
-		<svelte:fragment slot="body">
+		<svelte:fragment slot="caption">
 			Allows you to view and create Pull Requests from GitButler.
 		</svelte:fragment>
 		{#if $user$?.github_access_token}

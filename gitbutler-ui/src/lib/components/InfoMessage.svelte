@@ -59,7 +59,7 @@
 	<div class="info-message__inner">
 		<div class="info-message__content">
 			{#if title || SLOTS.title}
-				<div class="info-message__title text-base-13 text-semibold">
+				<div class="info-message__title text-base-body-13 text-semibold">
 					{#if title}
 						{title}
 					{:else}
@@ -98,6 +98,9 @@
 		border-radius: var(--radius-m);
 		gap: var(--space-12);
 		background-color: var(--clr-theme-container-light);
+		transition:
+			background-color var(--transition-slow),
+			border-color var(--transition-slow);
 	}
 	.info-message__inner {
 		display: flex;

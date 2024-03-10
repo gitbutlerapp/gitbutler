@@ -92,7 +92,7 @@
 				<RadioButton name="credentialType" id="credential-default" value="default" />
 			</svelte:fragment>
 
-			<svelte:fragment slot="body">
+			<svelte:fragment slot="caption">
 				GitButler will attempt all available authentication flows automatically.
 			</svelte:fragment>
 		</SectionCard>
@@ -110,7 +110,7 @@
 				<RadioButton name="credentialType" id="credential-local" value="local" />
 			</svelte:fragment>
 
-			<svelte:fragment slot="body">
+			<svelte:fragment slot="caption">
 				Add the path to an existing SSH key that GitButler can use.
 			</svelte:fragment>
 		</SectionCard>
@@ -159,7 +159,7 @@
 				<RadioButton name="credentialType" id="credential-generated" value="generated" />
 			</svelte:fragment>
 
-			<svelte:fragment slot="body">
+			<svelte:fragment slot="caption">
 				GitButler will use a locally generated SSH key. For this to work you need to add the
 				following public key to your Git remote provider:
 			</svelte:fragment>
@@ -199,7 +199,7 @@
 		>
 			<svelte:fragment slot="title">Use a Git credentials helper</svelte:fragment>
 
-			<svelte:fragment slot="body">
+			<svelte:fragment slot="caption">
 				GitButler will use the system's git credentials helper.
 				<Link target="_blank" rel="noreferrer" href="https://git-scm.com/doc/credential-helpers">
 					Learn more
@@ -210,16 +210,15 @@
 				<RadioButton name="credentialType" value="gitCredentialsHelper" id="credential-helper" />
 			</svelte:fragment>
 		</SectionCard>
+
 		<SectionCard roundedTop={false} orientation="row">
-			<svelte:fragment slot="body">
-				<CredentialCheck
-					bind:this={credentialCheck}
-					projectId={project.id}
-					{authService}
-					remoteName={remoteName || $base$?.remoteName}
-					branchName={branchName || $base$?.shortName}
-				/>
-			</svelte:fragment>
+			<CredentialCheck
+				bind:this={credentialCheck}
+				projectId={project.id}
+				{authService}
+				remoteName={remoteName || $base$?.remoteName}
+				branchName={branchName || $base$?.shortName}
+			/>
 		</SectionCard>
 	</form>
 </div>

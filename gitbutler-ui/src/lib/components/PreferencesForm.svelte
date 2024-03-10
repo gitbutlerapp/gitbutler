@@ -23,7 +23,7 @@
 <section class="wrapper">
 	<SectionCard orientation="row" labelFor="allowForcePush">
 		<svelte:fragment slot="title">Allow force pushing</svelte:fragment>
-		<svelte:fragment slot="body">
+		<svelte:fragment slot="caption">
 			Force pushing allows GitButler to override branches even if they were pushed to remote. We
 			will never force push to the trunk.
 		</svelte:fragment>
@@ -38,7 +38,7 @@
 
 	<SectionCard orientation="row" labelFor="omitCertificateCheck">
 		<svelte:fragment slot="title">Ignore host certificate checks</svelte:fragment>
-		<svelte:fragment slot="body">
+		<svelte:fragment slot="caption">
 			Enabling this will ignore host certificate checks when authenticating with ssh.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
@@ -52,7 +52,7 @@
 
 	<SectionCard labelFor="runHooks" orientation="row">
 		<svelte:fragment slot="title">Run commit hooks</svelte:fragment>
-		<svelte:fragment slot="body">
+		<svelte:fragment slot="caption">
 			Enabling this will run any git pre and post commit hooks you have configured in your
 			repository.
 		</svelte:fragment>

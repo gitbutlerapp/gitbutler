@@ -41,7 +41,7 @@
 	<div class="analytics-settings__actions">
 		<SectionCard labelFor="errorReportngToggle" on:click={toggleErrorReporting} orientation="row">
 			<svelte:fragment slot="title">Error reporting</svelte:fragment>
-			<svelte:fragment slot="body">
+			<svelte:fragment slot="caption">
 				Toggle reporting of application crashes and errors.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
@@ -55,7 +55,7 @@
 
 		<SectionCard labelFor="metricsEnabledToggle" on:click={toggleMetrics} orientation="row">
 			<svelte:fragment slot="title">Usage metrics</svelte:fragment>
-			<svelte:fragment slot="body">Toggle sharing of usage statistics.</svelte:fragment>
+			<svelte:fragment slot="caption">Toggle sharing of usage statistics.</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<Toggle id="metricsEnabledToggle" checked={$metricsEnabled} on:change={toggleMetrics} />
 			</svelte:fragment>

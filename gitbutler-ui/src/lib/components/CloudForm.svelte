@@ -64,7 +64,7 @@
 	<div class="aigen-wrap">
 		<SectionCard labelFor="aiGenEnabled" on:click={aiGenToggle} orientation="row">
 			<svelte:fragment slot="title">Enable branch and commit message generation</svelte:fragment>
-			<svelte:fragment slot="body">
+			<svelte:fragment slot="caption">
 				Uses OpenAI's API. If enabled, diffs will sent to OpenAI's servers when pressing the
 				"Generate message" button.
 			</svelte:fragment>
@@ -97,7 +97,7 @@
 		<h3 class="text-base-15 text-bold">Full data synchronization</h3>
 
 		<SectionCard labelFor="historySync" on:change={(e) => onSyncChange(e.detail)} orientation="row">
-			<svelte:fragment slot="body">
+			<svelte:fragment slot="caption">
 				Sync my history, repository and branch data for backup, sharing and team features.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
