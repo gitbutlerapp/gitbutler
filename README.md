@@ -44,11 +44,11 @@ You can then push branches individually to your remote, or directly create pull 
 
 In a nutshell, it's a more flexible version of `git add -p` and `git rebase -i`, allowing you to efficiently multitask across branches.
 
-## How does it work?
+## How Does It Work?
 
 GitButler keeps track of uncommitted changes in a layer on top of Git. Changes to files or parts of files can be grouped into what we call virtual branches. Whenever you are happy with the contents of a virtual branch, you can push it to a remote. GitButler makes sure that the state of other virtual branches is kept separate.
 
-## How do GB's virtual branches differ from Git branches?
+## How Do GB's Virtual Branches Differ From Git Branches?
 
 The branches that we know and love in Git are separate universes, and switching between them is a full context switch. GitButler allows you to work with multiple branches in parallel in the same working directory. This effectively means having the content of multiple branches available at the same time.
 
@@ -83,9 +83,9 @@ GitButler is a [Tauri](https://tauri.app/)-based application. Its UI is written 
 - **Commit Signing**
   - Easy commit signing with our generated SSH key
 
-## Example uses
+## Example Uses
 
-### Fixing a bug while working on a feature
+### Fixing a Bug While Working on a Feature
 
 > Say that while developing a feature, you encounter a bug that you wish to fix. It's often desirable that you ship the fix as a separate contribution (Pull request).
 
@@ -93,7 +93,7 @@ Using Git you can stash your changes and switch to another branch, where you can
 
 *With GitButler* you simply assign your fix to a separate virtual branch, which you can individually push (or directly create a PR). An additional benefit is that you can retain the fix in your working directory while waiting for CI and/or code review.
 
-### Trying someone else's branch together with my work in progress
+### Trying Someone Else's Branch Together With My Work in Progress
 
 > Say you want to test a branch from someone else for the purpose of code review.
 
@@ -109,7 +109,7 @@ You can find our end user documentation at: https://docs.gitbutler.com
 If you have a bug or feature request, feel free to open an [issue](https://github.com/gitbutlerapp/gitbutler/issues/new),
 or [join our Discord server](https://discord.gg/wDKZCPEjXC).
 
-## AI Commit Message generation
+## AI Commit Message Generation
 
 Commit message generation is an opt-in feature. You can enable it while adding your repository for the first time or later in the project settings.
 
