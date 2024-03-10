@@ -46,6 +46,7 @@ module.exports = {
 				ignore: ['^\\$app', '^\\$env']
 			}
 		],
+		'func-style': [2, 'declaration'],
 		'svelte/no-at-html-tags': 'off',
 		'@typescript-eslint/no-namespace': 'off',
 		'@typescript-eslint/no-empty-function': 'off',
