@@ -13,36 +13,36 @@ export const getStorageItem = (key: string): unknown => {
 	}
 };
 
-export const setStorageItem = (key: string, value: unknown): void => {
+export function setStorageItem(key: string, value: unknown): void {
 	window.localStorage.setItem(key, JSON.stringify(value));
-};
+}
 
-export const persisted = <T>(initial: T, key: string): Persisted<T> => {
-	const setAndPersist = (value: T, set: (value: T) => void) => {
+export function persisted<T>(initial: T, key: string): Persisted<T> {
+	function setAndPersist(value: T, set: (value: T) => void) {
 		setStorageItem(key, value);
 		set(value);
-	};
+	}
 
-	const synchronize = (set: (value: T) => void): void => {
+	function synchronize(set: (value: T) => void): void {
 		const stored = getStorageItem(key);
 		if (stored !== undefined) {
 			set(stored as T);
 		} else {
 			setAndPersist(initial, set);
 		}
-	};
+	}
 
-	const update = () => {
+	function update() {
 		throw 'Not implemented';
-	};
+	}
 
 	const thisStore = writable<T>(initial, (set) => {
 		synchronize(set);
 	});
 
-	const set = async (value: T) => {
+	async function set(value: T) {
 		setAndPersist(value, thisStore.set);
-	};
+	}
 
 	const subscribe = thisStore.subscribe;
 
@@ -51,4 +51,4 @@ export const persisted = <T>(initial: T, key: string): Persisted<T> => {
 		set,
 		update
 	};
-};
+}

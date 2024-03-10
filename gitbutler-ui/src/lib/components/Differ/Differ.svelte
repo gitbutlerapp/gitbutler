@@ -186,12 +186,12 @@
 
 	$: rows = highlight.length > 0 ? padHighlighted(renderedRows) : renderedRows;
 
-	const scrollToChangedLine = () => {
+	function scrollToChangedLine() {
 		const changedLines = document.getElementsByClassName('line-changed');
 		if (changedLines.length > 0) {
 			changedLines[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 		}
-	};
+	}
 	$: diff && scrollToChangedLine();
 </script>
 

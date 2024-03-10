@@ -15,6 +15,11 @@
 
 	$: user$ = userService.user$;
 
+	const token = writable<LoginToken | null>(null);
+	const authUrl = derived(token, ($token) => $token?.url as string);
+
+	let signUpOrLoginLoading = false;
+
 	const pollForUser = async (token: string) => {
 		const apiUser = await cloud.login.user.get(token).catch(() => null);
 		if (apiUser) {
@@ -28,34 +33,21 @@
 		});
 	};
 
-	let signUpOrLoginLoading = false;
-	const onSignUpOrLoginClick = () => {
-		Promise.resolve()
-			.then(() => (signUpOrLoginLoading = true))
-			.then(cloud.login.token.create)
-			.then(token.set)
-			.catch((e) => {
-				console.error(e);
-				toasts.error('Something went wrong');
-			})
-			.finally(() => {
-				signUpOrLoginLoading = false;
-				onLogin();
-			});
-	};
-	const token = writable<LoginToken | null>(null);
-	const authUrl = derived(token, ($token) => $token?.url as string);
+	async function onSignUpOrLoginClick() {
+		signUpOrLoginLoading = true;
+		try {
+			token.set(await cloud.login.token.create());
+		} catch (err: any) {
+			console.error(err);
+			toasts.error('Could not create login token');
+		} finally {
+			signUpOrLoginLoading = false;
+			dispatch('login');
+		}
+	}
 
 	// create on:login event and on:logout event
 	const dispatch = createEventDispatcher<{ login: void; logout: void }>();
-
-	const onLogin = () => {
-		dispatch('login');
-	};
-
-	const onLogout = () => {
-		dispatch('logout');
-	};
 </script>
 
 {#if $user$}
@@ -66,7 +58,7 @@
 		icon="signout"
 		on:click={async () => {
 			await userService.logout();
-			onLogout();
+			dispatch('logout');
 		}}>Log out</Button
 	>
 {:else if $token}

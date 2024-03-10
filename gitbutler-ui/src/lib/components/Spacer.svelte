@@ -1,13 +1,13 @@
 <script lang="ts">
 	export let margin: number | undefined = 16;
 
-	const getMargins = () => {
+	function getMargins() {
 		if (margin === undefined) {
 			return '';
 		}
 
 		return `margin-top: var(--space-${margin}); margin-bottom: var(--space-${margin});`;
-	};
+	}
 </script>
 
 <div class="divider" style={getMargins()} />

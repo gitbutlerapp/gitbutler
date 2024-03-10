@@ -30,13 +30,13 @@
 		branchController.updateBranchName(branch.id, branch.name);
 	}
 
-	const foldLine = () => {
+	function collapseLane() {
 		$isLaneCollapsed = true;
-	};
+	}
 
-	const unfoldLine = () => {
+	function expandLane() {
 		$isLaneCollapsed = false;
-	};
+	}
 
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
 </script>
@@ -44,8 +44,8 @@
 {#if $isLaneCollapsed}
 	<div
 		class="card collapsed-lane"
-		on:mousedown={unfoldLine}
-		on:keydown={(e) => e.key === 'Enter' && unfoldLine()}
+		on:mousedown={expandLane}
+		on:keydown={(e) => e.key === 'Enter' && expandLane()}
 		tabindex="0"
 		role="button"
 	>
@@ -58,7 +58,7 @@
 				kind="outlined"
 				color="neutral"
 				help="Collapse lane"
-				on:mousedown={unfoldLine}
+				on:mousedown={expandLane}
 			/>
 		</div>
 
@@ -197,7 +197,7 @@
 								kind="outlined"
 								color="neutral"
 								help="Collapse lane"
-								on:mousedown={foldLine}
+								on:mousedown={collapseLane}
 							/>
 							<Button
 								icon="kebab"

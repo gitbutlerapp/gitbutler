@@ -36,33 +36,33 @@ export function appErrorReportingEnabled() {
 }
 
 function persisted<T>(initial: T, key: string): Writable<T> & { onDisk: () => Promise<T> } {
-	const setAndPersist = async (value: T, set: (value: T) => void) => {
+	async function setAndPersist(value: T, set: (value: T) => void) {
 		await store.set(key, value);
 		await store.save();
 
 		set(value);
-	};
+	}
 
-	const synchronize = async (set: (value: T) => void): Promise<void> => {
+	async function synchronize(set: (value: T) => void): Promise<void> {
 		const value = await storeValueWithDefault(initial, key);
 		set(value);
-	};
+	}
 
-	const update = () => {
+	function update() {
 		throw 'Not implemented';
-	};
+	}
 
 	const thisStore = writable<T>(initial, (set) => {
 		synchronize(set);
 	});
 
-	const set = async (value: T) => {
+	async function set(value: T) {
 		setAndPersist(value, thisStore.set);
-	};
+	}
 
-	const onDisk = async () => {
+	async function onDisk() {
 		return storeValueWithDefault(initial, key);
-	};
+	}
 
 	const subscribe = thisStore.subscribe;
 

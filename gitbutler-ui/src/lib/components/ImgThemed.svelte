@@ -4,12 +4,12 @@
 
 	let imgSrc = '';
 
-	const updateImage = () => {
+	function updateImage() {
 		const colorScheme = getComputedStyle(document.documentElement)
 			.getPropertyValue('color-scheme')
 			.trim();
 		imgSrc = colorScheme === 'dark' ? imgSet.dark : imgSet.light;
-	};
+	}
 
 	let observer: MutationObserver;
 
