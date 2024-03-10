@@ -104,14 +104,6 @@
 			}
 		};
 	}
-
-	function resetHeadCommit() {
-		if (branch.commits.length > 1) {
-			branchController.resetBranch(branch.id, branch.commits[1].id);
-		} else if (branch.commits.length === 1 && base) {
-			branchController.resetBranch(branch.id, base.baseSha);
-		}
-	}
 </script>
 
 <div class="commit-list-item flex w-full items-center gap-x-2 pb-2 pr-4">
@@ -139,12 +131,13 @@
 		<DropzoneOverlay class="squash-dz-marker" label="Squash" />
 
 		<CommitCard
+			{base}
+			{branch}
 			{commit}
 			projectId={project.id}
 			{project}
 			commitUrl={base?.commitUrl(commit.id)}
 			{isHeadCommit}
-			{resetHeadCommit}
 			{isUnapplied}
 			{selectedFiles}
 			{branchController}

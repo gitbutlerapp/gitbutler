@@ -20,7 +20,7 @@
 
 	let signUpOrLoginLoading = false;
 
-	const pollForUser = async (token: string) => {
+	async function pollForUser(token: string) {
 		const apiUser = await cloud.login.user.get(token).catch(() => null);
 		if (apiUser) {
 			userService.setUser(apiUser);
@@ -31,7 +31,7 @@
 				resolve(await pollForUser(token));
 			}, 1000);
 		});
-	};
+	}
 
 	async function onSignUpOrLoginClick() {
 		signUpOrLoginLoading = true;

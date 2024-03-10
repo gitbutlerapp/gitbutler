@@ -8,11 +8,11 @@
 	export let paddingLines = 10000;
 	export let diff: DiffArray;
 
-	const sanitize = (text: string) => {
+	function sanitize(text: string) {
 		var element = document.createElement('div');
 		element.innerText = text;
 		return element.innerHTML;
-	};
+	}
 
 	$: diffRows = buildDiffRows(diff, { paddingLines });
 	$: originalHighlighter = create(diffRows.originalLines.join('\n'), filepath);
@@ -20,7 +20,7 @@
 	$: currentHighlighter = create(diffRows.currentLines.join('\n'), filepath);
 	$: currentMap = documentMap(diffRows.currentLines);
 
-	const markRanges = (row: Row, highlight: string[]): [number, number][] => {
+	function markRanges(row: Row, highlight: string[]): [number, number][] {
 		if (row.type !== RowType.Addition && row.type !== RowType.Deletion) return [];
 		let ranges: [number, number][] = [];
 		const line = row.tokens.reduce((acc, token) => acc + token.text, '');
@@ -35,9 +35,9 @@
 		}
 		ranges = mergeTouchingRanges(ranges);
 		return ranges;
-	};
+	}
 
-	const mergeTouchingRanges = (ranges: [number, number][]): [number, number][] => {
+	function mergeTouchingRanges(ranges: [number, number][]): [number, number][] {
 		ranges = ranges.sort((a, b) => a[0] - b[0]);
 		const merged: [number, number][][] = [];
 		for (const range of ranges) {
@@ -49,17 +49,17 @@
 			}
 		}
 		return merged.map((r) => [Math.min(...r.map((t) => t[0])), Math.max(...r.map((t) => t[1]))]);
-	};
+	}
 
-	const isIntersecting = (a: [number, number], b: [number, number]): boolean => {
+	function isIntersecting(a: [number, number], b: [number, number]): boolean {
 		if (a[0] > b[0]) return isIntersecting(b, a);
 		if (a[1] <= b[0]) return false;
 		if (a[0] <= b[0] && b[0] <= a[1]) return true;
 		if (b[0] <= a[0] && b[0] <= b[1]) return true;
 		return false;
-	};
+	}
 
-	const renderRowContent = (row: Row): { html: string[]; highlighted: boolean } => {
+	function renderRowContent(row: Row): { html: string[]; highlighted: boolean } {
 		if (row.type === RowType.Spacer) {
 			return { html: row.tokens.map((tok) => `${tok.text}`), highlighted: false };
 		}
@@ -103,16 +103,16 @@
 		}
 
 		return { html: content, highlighted };
-	};
+	}
 
 	$: renderedRows = diffRows.rows.map((row) => ({ ...row, render: renderRowContent(row) }));
 
 	type RenderedRow = (typeof renderedRows)[0];
 
-	const padHighlighted = (rows: RenderedRow[]): RenderedRow[] => {
+	function padHighlighted(rows: RenderedRow[]): RenderedRow[] {
 		const chunks: (RenderedRow[] | RenderedRow)[] = [];
 
-		const mergeChunk = (rows: RenderedRow[], isFirst: boolean, isLast: boolean): RenderedRow[] => {
+		function mergeChunk(rows: RenderedRow[], isFirst: boolean, isLast: boolean): RenderedRow[] {
 			const spacerIndex = rows.findIndex((row) => row.type === RowType.Spacer);
 			if (spacerIndex === -1) {
 				if (isFirst) {
@@ -153,7 +153,7 @@
 					] as RenderedRow[];
 				}
 			}
-		};
+		}
 
 		for (const row of rows) {
 			if (row.render.highlighted) {
@@ -182,7 +182,7 @@
 			chunks[chunks.length - 1] = mergeChunk(lastChunk, false, true);
 		}
 		return chunks.flatMap((chunk) => chunk);
-	};
+	}
 
 	$: rows = highlight.length > 0 ? padHighlighted(renderedRows) : renderedRows;
 

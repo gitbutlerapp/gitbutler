@@ -115,24 +115,24 @@ export function draggable(node: HTMLElement, opts: Partial<DraggableOptions> | u
 		dzRegistry
 			.filter(([_node, dz]) => dz.accepts(currentOptions.data))
 			.forEach(([target, dz]) => {
-				const onDrop = (e: DragEvent) => {
+				function onDrop(e: DragEvent) {
 					e.preventDefault();
 					dz.onDrop(currentOptions.data);
-				};
+				}
 
-				const onDragEnter = (e: DragEvent) => {
+				function onDragEnter(e: DragEvent) {
 					e.preventDefault();
 					target.classList.add(dz.hover);
-				};
+				}
 
-				const onDragLeave = (e: DragEvent) => {
+				function onDragLeave(e: DragEvent) {
 					e.preventDefault();
 					target.classList.remove(dz.hover);
-				};
+				}
 
-				const onDragOver = (e: DragEvent) => {
+				function onDragOver(e: DragEvent) {
 					e.preventDefault();
-				};
+				}
 
 				// keep track of listeners so that we can remove them later
 				if (onDropListeners.has(target)) {

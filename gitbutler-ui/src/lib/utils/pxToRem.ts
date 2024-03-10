@@ -1,1 +1,3 @@
-export const pxToRem = (px: number, base: number = 16) => `${px / base}rem`;
+export function pxToRem(px: number, base: number = 16) {
+	return `${px / base}rem`;
+}

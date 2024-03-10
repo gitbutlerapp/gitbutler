@@ -7,9 +7,9 @@
 	export let currentSection: 'profile' | 'git-stuff' | 'telemetry' | 'integrations' = 'profile';
 	export let showIntegrations = false;
 
-	const onMenuClick = (section: 'profile' | 'git-stuff' | 'telemetry' | 'integrations') => {
+	function onMenuClick(section: 'profile' | 'git-stuff' | 'telemetry' | 'integrations') {
 		currentSection = section;
-	};
+	}
 </script>
 
 <aside class="profile-sidebar" data-tauri-drag-region>

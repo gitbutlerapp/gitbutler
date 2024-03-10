@@ -8,7 +8,6 @@ import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSett
 import { UserService } from '$lib/stores/user';
 import lscache from 'lscache';
 import { config } from 'rxjs';
-import type { LayoutLoad } from './$types';
 
 // call on startup so we don't accumulate old items
 lscache.flushExpired();
@@ -22,7 +21,7 @@ export const csr = true;
 
 let homeDir: () => Promise<string>;
 
-export const load: LayoutLoad = async ({ fetch: realFetch }: { fetch: typeof fetch }) => {
+export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 	appErrorReportingEnabled()
 		.onDisk()
 		.then((enabled) => {
@@ -48,4 +47,4 @@ export const load: LayoutLoad = async ({ fetch: realFetch }: { fetch: typeof fet
 		userService,
 		user$: userService.user$
 	};
-};
+}

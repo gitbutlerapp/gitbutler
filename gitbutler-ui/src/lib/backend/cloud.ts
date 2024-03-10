@@ -5,11 +5,15 @@ import { PUBLIC_API_BASE_URL, PUBLIC_CHAIN_API } from '$env/static/public';
 
 const apiUrl = new URL('/api/', new URL(PUBLIC_API_BASE_URL));
 
-const getUrl = (path: string) => new URL(path, apiUrl).toString();
+function getUrl(path: string) {
+	return new URL(path, apiUrl).toString();
+}
 
 const chainApiUrl = new URL(PUBLIC_CHAIN_API);
 
-const getChainUrl = (path: string) => new URL(path, chainApiUrl).toString();
+function getChainUrl(path: string) {
+	return new URL(path, chainApiUrl).toString();
+}
 
 export type Feedback = {
 	id: number;
@@ -52,7 +56,7 @@ export type Project = {
 	updated_at: string;
 };
 
-const parseResponseJSON = async (response: Response) => {
+async function parseResponseJSON(response: Response) {
 	if (response.status === 204 || response.status === 205) {
 		return null;
 	} else if (response.status >= 400) {
@@ -60,38 +64,42 @@ const parseResponseJSON = async (response: Response) => {
 	} else {
 		return await response.json();
 	}
-};
+}
 
 type FetchMiddleware = (f: typeof fetch) => typeof fetch;
 
-const fetchWith = (fetch: typeof window.fetch, ...middlewares: FetchMiddleware[]) =>
-	middlewares.reduce((f, middleware) => middleware(f), fetch);
+function fetchWith(fetch: typeof window.fetch, ...middlewares: FetchMiddleware[]) {
+	return middlewares.reduce((f, middleware) => middleware(f), fetch);
+}
 
-const withRequestId: FetchMiddleware = (fetch) => async (url, options) => {
-	const requestId = nanoid();
-	if (!options) options = {};
-	options.headers = {
-		...options?.headers,
-		'X-Request-Id': requestId
+function withRequestId(fetch: any) {
+	return async (url: RequestInfo | URL, options: any) => {
+		const requestId = nanoid();
+		if (!options) options = {};
+		options.headers = {
+			...options?.headers,
+			'X-Request-Id': requestId
+		};
+		const result = fetch(url, options);
+		return result;
 	};
-	const result = fetch(url, options);
-	return result;
-};
+}
 
-const withLog: FetchMiddleware = (fetch) => async (url, options) => {
-	const item = { name: url.toString(), startedAt: new Date() };
-	try {
-		isLoading.push(item);
-		const resp = await fetch(url, options);
-		return resp;
-	} catch (e: any) {
-		console.error('fetch', e);
-		throw e;
-	} finally {
-		isLoading.pop(item);
-	}
-};
-
+function withLog(fetch: any) {
+	return async (url: RequestInfo | URL, options: any) => {
+		const item = { name: url.toString(), startedAt: new Date() };
+		try {
+			isLoading.push(item);
+			const resp = await fetch(url, options);
+			return resp;
+		} catch (e: any) {
+			console.error('fetch', e);
+			throw e;
+		} finally {
+			isLoading.pop(item);
+		}
+	};
+}
 interface EvaluatePromptParams {
 	messages: ButlerPromptMessage[];
 	temperature?: number;
