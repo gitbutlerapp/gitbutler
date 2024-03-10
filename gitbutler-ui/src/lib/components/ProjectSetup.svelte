@@ -28,7 +28,7 @@
 		loading = true;
 		try {
 			await branchController.setTarget(selectedBranch);
-			goto('..');
+			goto(`/${project.id}/`);
 		} finally {
 			loading = false;
 		}
