@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/tauri';
+import type { GitConfig } from './gitConfig';
 
 export enum ModelKind {
 	OpenAI = 'openai',
@@ -21,76 +21,49 @@ export enum AnthropicModel {
 	Sonnet = 'claude-3-sonnet-20240229'
 }
 
-function gitGetConfig(key: string) {
-	return invoke<string>('git_get_global_config', { key: `gitbutler.${key}` });
-}
+export class SummarizerSettings {
+	getModelKind: () => Promise<ModelKind>;
+	setModelKind: (value: ModelKind) => Promise<ModelKind | null>;
+	getKeyOption: () => Promise<KeyOption>;
+	setKeyOption: (value: KeyOption) => Promise<KeyOption | null>;
+	getOpenAIKey: () => Promise<string | null>;
+	setOpenAIKey: (value: string) => Promise<string | null>;
+	getOpenAIModel: () => Promise<OpenAIModel>;
+	setOpenAIModel: (value: OpenAIModel) => Promise<OpenAIModel | null>;
+	getAnthropicKey: () => Promise<string | null>;
+	setAnthropicKey: (value: string) => Promise<string | null>;
+	getAnthropicModel: () => Promise<AnthropicModel>;
+	setAnthropicModel: (value: AnthropicModel) => Promise<AnthropicModel | null>;
 
-function gitSetConfig(key: string, value: string) {
-	return invoke<string>('git_set_global_config', { key: `gitbutler.${key}`, value });
-}
+	constructor(gitConfig: GitConfig) {
+		this.getModelKind = gitConfig.buildGetterWithDefault<ModelKind>(
+			'gitbutler.modelKind',
+			ModelKind.OpenAI
+		);
+		this.setModelKind = gitConfig.buildSetter<ModelKind>('gitbutler.modelKind');
 
-const modelKindConfigKey = 'modelKind';
+		this.getKeyOption = gitConfig.buildGetterWithDefault<KeyOption>(
+			'gitbutler.keyOption',
+			KeyOption.ButlerAPI
+		);
+		this.setKeyOption = gitConfig.buildSetter<KeyOption>('gitbutler.keyOption');
 
-export async function getModelKind(): Promise<ModelKind> {
-	const modelKind = (await gitGetConfig(modelKindConfigKey)) as ModelKind | undefined;
-	return modelKind || ModelKind.OpenAI;
-}
+		this.getOpenAIKey = gitConfig.buildGetter('gitbutler.openAIKey');
+		this.setOpenAIKey = gitConfig.buildSetter('gitbutler.openAIKey');
 
-export function setModelKind(modelKind: ModelKind) {
-	return gitSetConfig(modelKindConfigKey, modelKind);
-}
+		this.getOpenAIModel = gitConfig.buildGetterWithDefault<OpenAIModel>(
+			'gitbutler.openAIModel',
+			OpenAIModel.GPT35Turbo
+		);
+		this.setOpenAIModel = gitConfig.buildSetter<OpenAIModel>('gitbutler.keyOption');
 
-const tokenOptionConfigKey = 'tokenOption';
+		this.getAnthropicKey = gitConfig.buildGetter('gitbutler.AnthropicKey');
+		this.setAnthropicKey = gitConfig.buildSetter('gitbutler.AnthropicKey');
 
-export async function getKeyOption(): Promise<KeyOption> {
-	const tokenKind = (await gitGetConfig(tokenOptionConfigKey)) as KeyOption | undefined;
-	return tokenKind || KeyOption.ButlerAPI;
-}
-
-export function setKeyOption(tokenOption: KeyOption) {
-	return gitSetConfig(tokenOptionConfigKey, tokenOption);
-}
-
-const openAIKeyConfigKey = 'openAIKey';
-
-export async function getOpenAIKey(): Promise<string | undefined> {
-	const key = await gitGetConfig(openAIKeyConfigKey);
-	return key || undefined;
-}
-
-export function setOpenAIKey(token: string) {
-	return gitSetConfig(openAIKeyConfigKey, token);
-}
-
-const openAIModelConfigKey = 'openAIModel';
-
-export async function getOpenAIModel(): Promise<OpenAIModel> {
-	const model = (await gitGetConfig(openAIModelConfigKey)) as OpenAIModel | undefined;
-	return model || OpenAIModel.GPT35Turbo;
-}
-
-export async function setOpenAIModel(model: OpenAIModel) {
-	return gitSetConfig(openAIModelConfigKey, model);
-}
-
-const anthropicKeyConfigKey = 'anthropicKey';
-
-export async function getAnthropicKey(): Promise<string | undefined> {
-	const key = await gitGetConfig(anthropicKeyConfigKey);
-	return key || undefined;
-}
-
-export function setAnthropicKey(token: string) {
-	return gitSetConfig(anthropicKeyConfigKey, token);
-}
-
-const anthropicModelConfigKey = 'anthropicModel';
-
-export async function getAnthropicModel(): Promise<AnthropicModel> {
-	const model = (await gitGetConfig(anthropicModelConfigKey)) as AnthropicModel | undefined;
-	return model || AnthropicModel.Sonnet;
-}
-
-export async function setAnthropicModel(model: AnthropicModel) {
-	return gitSetConfig(anthropicModelConfigKey, model);
+		this.getAnthropicModel = gitConfig.buildGetterWithDefault<AnthropicModel>(
+			'gitbutler.anthropicModel',
+			AnthropicModel.Sonnet
+		);
+		this.setAnthropicModel = gitConfig.buildSetter<AnthropicModel>('gitbutler.anthropicModel');
+	}
 }

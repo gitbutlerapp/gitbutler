@@ -1,13 +1,5 @@
-import {
-	getAnthropicKey,
-	getAnthropicModel,
-	getModelKind,
-	getOpenAIKey,
-	getOpenAIModel,
-	getKeyOption,
-	KeyOption,
-	ModelKind
-} from './summarizerSettings';
+import { GitConfig } from './gitConfig';
+import { SummarizerSettings, KeyOption, ModelKind } from './summarizerSettings';
 import {
 	type AIProvider,
 	ButlerAIProvider,
@@ -15,6 +7,7 @@ import {
 	OpenAIProvider
 } from '$lib/backend/aiProviders';
 import { getCloudApiClient, type User } from '$lib/backend/cloud';
+import OpenAI from 'openai';
 
 const diffLengthLimit = 20000;
 
@@ -107,8 +100,10 @@ interface SummarizerContext {
 // Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
 // Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
 export async function buildSummarizer(context: SummarizerContext): Promise<Summarizer | undefined> {
-	const modelKind = await getModelKind();
-	const keyOption = await getKeyOption();
+	const gitConfig = new GitConfig();
+	const summarizerSettings = new SummarizerSettings(gitConfig);
+	const modelKind = await summarizerSettings.getModelKind();
+	const keyOption = await summarizerSettings.getKeyOption();
 
 	if (keyOption === KeyOption.ButlerAPI) {
 		if (!context.user) return;
@@ -118,21 +113,22 @@ export async function buildSummarizer(context: SummarizerContext): Promise<Summa
 	}
 
 	if (modelKind == ModelKind.OpenAI) {
-		const openAIKey = await getOpenAIKey();
+		const openAIKey = await summarizerSettings.getOpenAIKey();
 
 		if (!openAIKey) return;
 
-		const openAIModel = await getOpenAIModel();
-		const aiProvider = new OpenAIProvider(openAIKey, openAIModel);
+		const openAIModel = await summarizerSettings.getOpenAIModel();
+		const openAI = new OpenAI({ apiKey: openAIKey, dangerouslyAllowBrowser: true });
+		const aiProvider = new OpenAIProvider(openAIModel, openAI);
 		return new Summarizer(aiProvider);
 	}
 
 	if (modelKind == ModelKind.Anthropic) {
-		const anthropicKey = await getAnthropicKey();
+		const anthropicKey = await summarizerSettings.getAnthropicKey();
 
 		if (!anthropicKey) return;
 
-		const anthropicModel = await getAnthropicModel();
+		const anthropicModel = await summarizerSettings.getAnthropicModel();
 		const aiProvider = new AnthropicAIProvider(anthropicKey, anthropicModel);
 		return new Summarizer(aiProvider);
 	}
