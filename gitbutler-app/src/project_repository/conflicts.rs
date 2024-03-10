@@ -14,6 +14,9 @@ use crate::git;
 use super::Repository;
 
 pub fn mark(repository: &Repository, paths: &[String], parent: Option<git::Oid>) -> Result<()> {
+    if paths.is_empty() {
+        return Ok(());
+    }
     let conflicts_path = repository.git_repository.path().join("conflicts");
     // write all the file paths to a file on disk
     let mut file = std::fs::File::create(conflicts_path)?;
