@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AnalyticsConfirmation from '$lib/components/AnalyticsConfirmation.svelte';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
+	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import Welcome from '$lib/components/Welcome.svelte';
 	import { appAnalyticsConfirmed } from '$lib/config/appSettings';
 	import { map } from 'rxjs';
@@ -31,7 +32,7 @@
 </script>
 
 {#if $redirect$ === undefined}
-	Loading...
+	<FullscreenLoading />
 {:else if !$analyticsConfirmed}
 	<DecorativeSplitView
 		user={$user$}

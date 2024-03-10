@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BaseBranch from '$lib/components/BaseBranch.svelte';
 	import FileCard from '$lib/components/FileCard.svelte';
+	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
@@ -46,7 +47,7 @@
 {#if $error$}
 	<p>Error...</p>
 {:else if !$base$}
-	<p>Loading...</p>
+	<FullscreenLoading />
 {:else}
 	<div class="base">
 		<div
