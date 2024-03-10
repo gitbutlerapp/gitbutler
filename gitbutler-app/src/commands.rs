@@ -151,7 +151,7 @@ pub async fn mark_resolved(
 }
 
 #[tauri::command(async)]
-#[instrument]
+#[instrument(skip(_handle))]
 pub async fn git_set_global_config(
     _handle: tauri::AppHandle,
     key: &str,
@@ -162,7 +162,7 @@ pub async fn git_set_global_config(
 }
 
 #[tauri::command(async)]
-#[instrument]
+#[instrument(skip(_handle))]
 pub async fn git_get_global_config(
     _handle: tauri::AppHandle,
     key: &str,
