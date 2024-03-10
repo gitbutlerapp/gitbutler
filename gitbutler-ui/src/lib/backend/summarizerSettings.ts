@@ -21,6 +21,13 @@ export enum AnthropicModel {
 	Sonnet = 'claude-3-sonnet-20240229'
 }
 
+const modelKindConfigKey = 'gitbutler.modelKind';
+const keyOptionConfigKey = 'gitbutler.keyOption';
+const openAIKeyConfigKey = 'gitbutler.openAIKey';
+const openAIModelConfigKey = 'gitbutler.openAIModel';
+const anthropicKeyConfigKey = 'gitbutler.anthropicKey';
+const anthropicModelConfigKey = 'gitbutler.anthropicModel';
+
 export class SummarizerSettings {
 	getModelKind: () => Promise<ModelKind>;
 	setModelKind: (value: ModelKind) => Promise<ModelKind | null>;
@@ -37,33 +44,33 @@ export class SummarizerSettings {
 
 	constructor(gitConfig: GitConfig) {
 		this.getModelKind = gitConfig.buildGetterWithDefault<ModelKind>(
-			'gitbutler.modelKind',
+			modelKindConfigKey,
 			ModelKind.OpenAI
 		);
-		this.setModelKind = gitConfig.buildSetter<ModelKind>('gitbutler.modelKind');
+		this.setModelKind = gitConfig.buildSetter<ModelKind>(modelKindConfigKey);
 
 		this.getKeyOption = gitConfig.buildGetterWithDefault<KeyOption>(
-			'gitbutler.keyOption',
+			keyOptionConfigKey,
 			KeyOption.ButlerAPI
 		);
-		this.setKeyOption = gitConfig.buildSetter<KeyOption>('gitbutler.keyOption');
+		this.setKeyOption = gitConfig.buildSetter<KeyOption>(keyOptionConfigKey);
 
-		this.getOpenAIKey = gitConfig.buildGetter('gitbutler.openAIKey');
-		this.setOpenAIKey = gitConfig.buildSetter('gitbutler.openAIKey');
+		this.getOpenAIKey = gitConfig.buildGetter(openAIKeyConfigKey);
+		this.setOpenAIKey = gitConfig.buildSetter(openAIKeyConfigKey);
 
 		this.getOpenAIModel = gitConfig.buildGetterWithDefault<OpenAIModel>(
-			'gitbutler.openAIModel',
+			openAIModelConfigKey,
 			OpenAIModel.GPT35Turbo
 		);
-		this.setOpenAIModel = gitConfig.buildSetter<OpenAIModel>('gitbutler.keyOption');
+		this.setOpenAIModel = gitConfig.buildSetter<OpenAIModel>(keyOptionConfigKey);
 
-		this.getAnthropicKey = gitConfig.buildGetter('gitbutler.AnthropicKey');
-		this.setAnthropicKey = gitConfig.buildSetter('gitbutler.AnthropicKey');
+		this.getAnthropicKey = gitConfig.buildGetter(anthropicKeyConfigKey);
+		this.setAnthropicKey = gitConfig.buildSetter(anthropicKeyConfigKey);
 
 		this.getAnthropicModel = gitConfig.buildGetterWithDefault<AnthropicModel>(
-			'gitbutler.anthropicModel',
+			anthropicModelConfigKey,
 			AnthropicModel.Sonnet
 		);
-		this.setAnthropicModel = gitConfig.buildSetter<AnthropicModel>('gitbutler.anthropicModel');
+		this.setAnthropicModel = gitConfig.buildSetter<AnthropicModel>(anthropicModelConfigKey);
 	}
 }
