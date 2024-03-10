@@ -17,7 +17,6 @@
 	class="icon-wrapper"
 	viewBox="0 0 16 16"
 	fill-rule="evenodd"
-	class:spinner={name == 'spinner'}
 	class:success={color == 'success'}
 	class:error={color == 'error'}
 	class:pop={color == 'pop'}
@@ -29,15 +28,17 @@
 	style="--spinner-radius: {spinnerRadius}"
 >
 	{#if name == 'spinner'}
-		<circle class="spinner-path" cx="8" cy="8" r={spinnerRadius} fill="none" />
-		<circle
-			class="spinner-back-path"
-			cx="8"
-			cy="8"
-			r={spinnerRadius}
-			fill="none"
-			vector-effect="non-scaling-stroke"
-		/>
+		<g class:spinner={name == 'spinner'}>
+			<circle class="spinner-path" cx="8" cy="8" r={spinnerRadius} fill="none" />
+			<circle
+				class="spinner-back-path"
+				cx="8"
+				cy="8"
+				r={spinnerRadius}
+				fill="none"
+				vector-effect="non-scaling-stroke"
+			/>
+		</g>
 	{:else}
 		<path fill="currentColor" d={iconsJson[name]} />
 	{/if}

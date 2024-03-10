@@ -25,7 +25,10 @@
 		try {
 			checks = [
 				{ name: 'Fetch', promise: authService.checkGitFetch(projectId, remoteName) },
-				{ name: 'Push', promise: authService.checkGitPush(projectId, remoteName, branchName) }
+				{
+					name: 'Push',
+					promise: authService.checkGitPush(projectId, remoteName, branchName)
+				}
 			];
 			await Promise.allSettled(
 				checks.map((c) =>
@@ -48,7 +51,11 @@
 <div class="credential-check">
 	{#if checks.length > 0}
 		<div transition:slide={{ duration: 250 }}>
-			<InfoMessage style={errors > 0 ? 'warn' : 'neutral'} filled outlined={false}>
+			<InfoMessage
+				style={errors > 0 ? 'warn' : loading ? 'neutral' : 'success'}
+				filled
+				outlined={false}
+			>
 				<svelte:fragment slot="title">
 					{#if loading}
 						Checking git credentials …
@@ -61,15 +68,17 @@
 				<svelte:fragment slot="content">
 					<div class="checks-list" transition:slide={{ duration: 250, delay: 1000 }}>
 						{#each checks as check}
-							<div class="check-result">
-								{#await check.promise}
-									<Icon name="spinner" spinnerRadius={3.5} />
-								{:then}
-									<Icon name="success-small" color="success" />
-								{:catch}
-									<Icon name="error-small" color="error" />
-								{/await}
-								{check.name}
+							<div class="text-base-body-12 check-result">
+								<i class="check-icon">
+									{#await check.promise}
+										<Icon name="spinner" spinnerRadius={4} />
+									{:then}
+										<Icon name="success-small" color="success" />
+									{:catch}
+										<Icon name="error-small" color="error" />
+									{/await}
+								</i>{check.name}
+
 								{#await check.promise catch err}
 									- {err}
 								{/await}
@@ -77,12 +86,16 @@
 						{/each}
 					</div>
 					{#if errors > 0}
-						<div class="help-text" transition:slide>
-							Try another setting and test again? You can also refer to our
-							<Link href="https://docs.gitbutler.com/troubleshooting/fetch-push">
-								fetch & pull documentation
-							</Link>
-							for help fixing this problem.
+						<div class="text-base-body-12 help-text" transition:slide>
+							<span>
+								Try another setting and test again?
+								<br />
+								Consult our
+								<Link href="https://docs.gitbutler.com/troubleshooting/fetch-push">
+									fetch / push guide
+								</Link>
+								for help fixing this problem.
+							</span>
 						</div>
 					{/if}
 				</svelte:fragment>
@@ -113,9 +126,13 @@
 	.checks-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-6);
-		padding-left: var(--space-4);
-		margin-top: var(--space-12);
+		gap: var(--space-4);
+		margin-top: var(--space-4);
+	}
+
+	.check-icon {
+		display: flex;
+		margin-top: 0.063rem;
 	}
 
 	.check-result {
@@ -130,7 +147,7 @@
 	.disclaimer {
 		color: var(--clr-theme-scale-ntrl-50);
 		background: var(--clr-theme-container-pale);
-		border-radius: var(--m, 6px);
+		border-radius: var(--radius-m);
 		background: var(--clr-theme-container-pale);
 		padding: var(--space-10) var(--space-12);
 	}
