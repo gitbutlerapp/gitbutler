@@ -13,15 +13,18 @@ export class GitConfig {
 	buildWritable<T extends string>(key: string): Writable<T | undefined> {
 		const subject = writable<T | undefined>();
 
+		let initialized = false;
+
 		this.gitGetConfig<T>(key).then((value) => {
 			subject.set(value || undefined);
 
-			// Ensure we don't set the value we just read from the config by registering after
-			subject.subscribe((recievedValue) => {
-				if (recievedValue) {
-					this.gitSetConfig<T>(key, recievedValue);
-				}
-			});
+			initialized = true;
+		});
+
+		subject.subscribe((recievedValue) => {
+			if (initialized && recievedValue) {
+				this.gitSetConfig<T>(key, recievedValue);
+			}
 		});
 
 		return subject;
@@ -30,11 +33,18 @@ export class GitConfig {
 	buildWritableWithDefault<T extends string>(key: string, defaultValue: T): Writable<T> {
 		const subject = writable<T>(defaultValue);
 
+		let initialized = false;
+
 		this.gitGetConfig<T>(key).then((value) => {
 			subject.set(value || defaultValue);
 
-			// Ensure we don't set the value we just read from the config by registering after
-			subject.subscribe((recievedValue) => this.gitSetConfig<T>(key, recievedValue));
+			initialized = true;
+		});
+
+		subject.subscribe((recievedValue) => {
+			if (initialized) {
+				this.gitSetConfig<T>(key, recievedValue);
+			}
 		});
 
 		return subject;
