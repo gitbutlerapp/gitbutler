@@ -94,17 +94,12 @@
 		<svelte:fragment slot="actions">
 			<RadioButton name="modelKind" id="open-ai" value={ModelKind.OpenAI} />
 		</svelte:fragment>
-		<svelte:fragment slot="body">
+		<svelte:fragment slot="caption">
 			Leverage OpenAI's GPT models for branch name and commit message generation.
 		</svelte:fragment>
 	</SectionCard>
 	{#if $modelKind$ == ModelKind.OpenAI}
-		<SectionCard
-			hasTopRadius={false}
-			roundedTop={false}
-			roundedBottom={false}
-			orientation="row"
-		>
+		<SectionCard hasTopRadius={false} roundedTop={false} roundedBottom={false} orientation="row">
 			<div class="inputs-group">
 				<Select
 					items={keyOptions}
@@ -119,12 +114,7 @@
 				</Select>
 
 				{#if $keyOption$ == KeyOption.BringYourOwn}
-					<TextBox
-						label="OpenAI API Key"
-						bind:value={$openAIKey$}
-						required
-						placeholder="sk-..."
-					/>
+					<TextBox label="OpenAI API Key" bind:value={$openAIKey$} required placeholder="sk-..." />
 
 					<Select
 						items={openAIModelOptions}
@@ -152,18 +142,12 @@
 		<svelte:fragment slot="actions">
 			<RadioButton name="modelKind" id="anthropic" value={ModelKind.Anthropic} />
 		</svelte:fragment>
-		<svelte:fragment slot="body">
-			Make use of Anthropic's Opus and Sonnet models for branch name and commit message
-			generation.
+		<svelte:fragment slot="caption">
+			Make use of Anthropic's Opus and Sonnet models for branch name and commit message generation.
 		</svelte:fragment>
 	</SectionCard>
 	{#if $modelKind$ == ModelKind.Anthropic}
-		<SectionCard
-			hasTopRadius={false}
-			roundedTop={false}
-			roundedBottom={false}
-			orientation="row"
-		>
+		<SectionCard hasTopRadius={false} roundedTop={false} roundedBottom={false} orientation="row">
 			<div class="inputs-group">
 				<Select
 					items={keyOptions}
@@ -205,8 +189,7 @@
 		<svelte:fragment slot="actions">
 			<RadioButton disabled={true} name="modelKind" />
 		</svelte:fragment>
-		<svelte:fragment slot="body"
-			>Support for custom AI endpoints is coming soon!</svelte:fragment
+		<svelte:fragment slot="caption">Support for custom AI endpoints is coming soon!</svelte:fragment
 		>
 	</SectionCard>
 </form>
