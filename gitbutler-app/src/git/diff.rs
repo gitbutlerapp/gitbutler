@@ -46,12 +46,6 @@ pub struct Hunk {
     pub change_type: ChangeType,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize)]
-pub struct SkippedFile {
-    pub path: String,
-    pub size_bytes: u64,
-}
-
 pub struct Options {
     pub context_lines: u32,
 }
@@ -62,12 +56,23 @@ impl Default for Options {
     }
 }
 
-#[allow(clippy::type_complexity)]
+#[derive(Debug, PartialEq, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffFile {
+    pub old_path: Option<path::PathBuf>,
+    pub new_path: Option<path::PathBuf>,
+    pub hunks: Option<Vec<Hunk>>,
+    pub skipped: bool,
+    pub binary: bool,
+    pub old_size_bytes: u64,
+    pub new_size_bytes: u64,
+}
+
 pub fn workdir(
     repository: &Repository,
     commit_oid: &git::Oid,
     context_lines: u32,
-) -> Result<(HashMap<path::PathBuf, Vec<Hunk>>, Vec<SkippedFile>)> {
+) -> Result<HashMap<path::PathBuf, DiffFile>> {
     let commit = repository
         .find_commit(*commit_oid)
         .context("failed to find commit")?;
@@ -87,7 +92,13 @@ pub fn workdir(
     if !skipped_files.is_empty() {
         diff = repository.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
     }
-    hunks_by_filepath(repository, &diff).map(|hunks| (hunks, skipped_files))
+    let diff_files = hunks_by_filepath(repository, &diff);
+    diff_files.map(|mut df| {
+        for (key, value) in skipped_files {
+            df.insert(key, value);
+        }
+        df
+    })
 }
 
 pub fn trees(
@@ -95,7 +106,7 @@ pub fn trees(
     old_tree: &git::Tree,
     new_tree: &git::Tree,
     context_lines: u32,
-) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
+) -> Result<HashMap<path::PathBuf, DiffFile>> {
     let mut diff_opts = git2::DiffOptions::new();
     diff_opts
         .recurse_untracked_dirs(true)
@@ -115,17 +126,23 @@ pub fn without_large_files(
     size_limit_bytes: u64,
     diff: &git2::Diff,
     mut diff_opts: git2::DiffOptions,
-) -> (git2::DiffOptions, Vec<SkippedFile>) {
-    let mut skipped_files: Vec<SkippedFile> = Vec::new();
+) -> (git2::DiffOptions, HashMap<path::PathBuf, DiffFile>) {
+    let mut skipped_files: HashMap<path::PathBuf, DiffFile> = HashMap::new();
     for delta in diff.deltas() {
         if delta.new_file().size() > size_limit_bytes {
             if let Some(path) = delta.new_file().path() {
-                if let Some(path) = path.to_str() {
-                    skipped_files.push(SkippedFile {
-                        path: path.to_owned(),
-                        size_bytes: delta.new_file().size(),
-                    });
-                }
+                skipped_files.insert(
+                    path.to_path_buf(),
+                    DiffFile {
+                        old_path: delta.old_file().path().map(std::path::Path::to_path_buf),
+                        new_path: delta.new_file().path().map(std::path::Path::to_path_buf),
+                        hunks: None,
+                        skipped: true,
+                        binary: true,
+                        old_size_bytes: delta.old_file().size(),
+                        new_size_bytes: delta.new_file().size(),
+                    },
+                );
             }
         } else if let Some(path) = delta.new_file().path() {
             if let Some(path) = path.to_str() {
@@ -139,9 +156,10 @@ pub fn without_large_files(
 fn hunks_by_filepath(
     repository: &Repository,
     diff: &git2::Diff,
-) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
+) -> Result<HashMap<path::PathBuf, DiffFile>> {
     // find all the hunks
     let mut hunks_by_filepath: HashMap<path::PathBuf, Vec<Hunk>> = HashMap::new();
+    let mut diff_files: HashMap<path::PathBuf, DiffFile> = HashMap::new();
 
     diff.print(
         git2::DiffFormat::Patch,
@@ -246,6 +264,19 @@ fn hunks_by_filepath(
                         change_type,
                     });
                 }
+
+                diff_files.insert(
+                    file_path.to_path_buf(),
+                    DiffFile {
+                        old_path: delta.old_file().path().map(std::path::Path::to_path_buf),
+                        new_path: delta.new_file().path().map(std::path::Path::to_path_buf),
+                        hunks: None,
+                        skipped: false,
+                        binary: is_binary,
+                        old_size_bytes: delta.old_file().size(),
+                        new_size_bytes: delta.new_file().size(),
+                    },
+                );
             }
 
             true
@@ -253,7 +284,7 @@ fn hunks_by_filepath(
     )
     .context("failed to print diff")?;
 
-    Ok(hunks_by_filepath
+    let hunks_by_filepath: HashMap<path::PathBuf, Vec<Hunk>> = hunks_by_filepath
         .into_iter()
         .map(|(k, v)| {
             if let Some(binary_hunk) = v.iter().find(|hunk| hunk.binary) {
@@ -293,7 +324,12 @@ fn hunks_by_filepath(
                 (k, v)
             }
         })
-        .collect())
+        .collect();
+
+    for (file_path, diff_file) in &mut diff_files {
+        diff_file.hunks = hunks_by_filepath.get(file_path).cloned();
+    }
+    Ok(diff_files)
 }
 
 // returns None if cannot reverse the patch header
@@ -364,6 +400,18 @@ pub fn reverse_hunk(hunk: &Hunk) -> Option<Hunk> {
     }
 }
 
+pub fn diff_files_to_hunks(
+    files: HashMap<path::PathBuf, DiffFile>,
+) -> HashMap<path::PathBuf, Vec<git::diff::Hunk>> {
+    let mut file_hunks: HashMap<path::PathBuf, Vec<git::diff::Hunk>> = HashMap::new();
+    for (file_path, diff_file) in files {
+        if !diff_file.skipped {
+            file_hunks.insert(file_path, diff_file.hunks.unwrap_or_default());
+        }
+    }
+    file_hunks
+}
+
 #[cfg(test)]
 mod tests {
     use crate::tests;
@@ -377,10 +425,10 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id, 0).unwrap().0;
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
         assert_eq!(diff.len(), 1);
         assert_eq!(
-            diff[&path::PathBuf::from("file")],
+            diff[&path::PathBuf::from("file")].clone().hunks.unwrap(),
             vec![Hunk {
                 old_start: 0,
                 old_lines: 0,
@@ -400,10 +448,10 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id, 0).unwrap().0;
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
         assert_eq!(diff.len(), 1);
         assert_eq!(
-            diff[&path::PathBuf::from("first")],
+            diff[&path::PathBuf::from("first")].clone().hunks.unwrap(),
             vec![Hunk {
                 old_start: 0,
                 old_lines: 0,
@@ -424,10 +472,10 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id, 0).unwrap().0;
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
         assert_eq!(diff.len(), 2);
         assert_eq!(
-            diff[&path::PathBuf::from("first")],
+            diff[&path::PathBuf::from("first")].clone().hunks.unwrap(),
             vec![Hunk {
                 old_start: 0,
                 old_lines: 0,
@@ -439,7 +487,7 @@ mod tests {
             }]
         );
         assert_eq!(
-            diff[&path::PathBuf::from("second")],
+            diff[&path::PathBuf::from("second")].clone().hunks.unwrap(),
             vec![Hunk {
                 old_start: 0,
                 old_lines: 0,
@@ -468,9 +516,9 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id, 0).unwrap().0;
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
         assert_eq!(
-            diff[&path::PathBuf::from("image")],
+            diff[&path::PathBuf::from("image")].clone().hunks.unwrap(),
             vec![Hunk {
                 old_start: 0,
                 old_lines: 0,
@@ -511,9 +559,9 @@ mod tests {
 
         let head_commit_id = repository.head().unwrap().peel_to_commit().unwrap().id();
 
-        let diff = workdir(&repository, &head_commit_id, 0).unwrap().0;
+        let diff = workdir(&repository, &head_commit_id, 0).unwrap();
         assert_eq!(
-            diff[&path::PathBuf::from("file")],
+            diff[&path::PathBuf::from("file")].clone().hunks.unwrap(),
             vec![Hunk {
                 old_start: 0,
                 old_lines: 0,

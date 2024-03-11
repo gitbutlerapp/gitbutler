@@ -56,8 +56,11 @@ export class LocalFile {
 }
 
 export class SkippedFile {
-	path!: string;
-	sizeBytes!: number;
+	oldPath!: string | undefined;
+	newPath!: string | undefined;
+	binary!: boolean;
+	oldSizeBytes!: number;
+	newSizeBytes!: number;
 }
 
 export class VirtualBranches {

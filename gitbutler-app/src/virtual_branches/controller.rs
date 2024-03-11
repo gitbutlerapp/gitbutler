@@ -6,7 +6,7 @@ use tokio::sync::Semaphore;
 use crate::{
     error::Error,
     gb_repository,
-    git::{self, diff::SkippedFile},
+    git::{self},
     keys, project_repository,
     projects::{self, ProjectId},
     users,
@@ -106,7 +106,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
     ) -> Result<
-        (Vec<super::VirtualBranch>, bool, Vec<SkippedFile>),
+        (Vec<super::VirtualBranch>, bool, Vec<git::diff::DiffFile>),
         ControllerError<errors::ListVirtualBranchesError>,
     > {
         self.inner(project_id)
@@ -489,7 +489,7 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
     ) -> Result<
-        (Vec<super::VirtualBranch>, bool, Vec<SkippedFile>),
+        (Vec<super::VirtualBranch>, bool, Vec<git::diff::DiffFile>),
         ControllerError<errors::ListVirtualBranchesError>,
     > {
         let _permit = self.semaphore.acquire().await;
