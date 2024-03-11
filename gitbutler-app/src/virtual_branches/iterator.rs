@@ -19,11 +19,10 @@ impl<'i> BranchIterator<'i> {
             .into_iter()
             .map(|file_path| {
                 file_path
-                    .display()
-                    .to_string()
-                    .split('/')
+                    .iter()
                     .next()
                     .unwrap()
+                    .to_string_lossy()
                     .to_string()
             })
             .filter(|file_path| file_path != "selected")
