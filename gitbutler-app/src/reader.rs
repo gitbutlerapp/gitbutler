@@ -125,9 +125,8 @@ impl FilesystemReader {
 
     fn list_files<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Vec<path::PathBuf>> {
         let path = path.as_ref();
-        self.0.batch(|root| {
-            fs::list_files(root.join(path), &[path::Path::new(".git").to_path_buf()])
-        })?
+        self.0
+            .batch(|root| fs::list_files(root.join(path).as_path(), &[path::Path::new(".git")]))?
     }
 }
 
