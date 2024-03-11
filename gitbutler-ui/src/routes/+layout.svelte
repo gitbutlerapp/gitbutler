@@ -30,6 +30,7 @@
 	$: setContext(UpdaterService, data.updaterService);
 	$: setContext(GitHubService, data.githubService);
 
+	// TODO: Integrate with change to move entirly over to context API
 	setContext('page-context', {
 		gitConfig: data.gitConfig,
 		summarizerSettings: data.summarizerSettings,
