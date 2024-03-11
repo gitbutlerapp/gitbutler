@@ -15,7 +15,7 @@ use crate::{
     gb_repository,
     git::{
         self,
-        diff::{self, SkippedFile},
+        diff::{self},
         show, Commit, Refname, RemoteRefname,
     },
     keys,
@@ -69,7 +69,7 @@ pub struct VirtualBranch {
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranches {
     pub branches: Vec<VirtualBranch>,
-    pub skipped_files: Vec<SkippedFile>,
+    pub skipped_files: Vec<git::diff::DiffFile>,
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -776,7 +776,7 @@ fn find_base_tree<'a>(
 pub fn list_virtual_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<(Vec<VirtualBranch>, bool, Vec<SkippedFile>), errors::ListVirtualBranchesError> {
+) -> Result<(Vec<VirtualBranch>, bool, Vec<diff::DiffFile>), errors::ListVirtualBranchesError> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
     let default_target = gb_repository
@@ -999,6 +999,7 @@ fn branches_with_hunk_locks(
             &commit_tree,
             context_lines(project_repository),
         )?;
+        let commited_file_diffs = diff::diff_files_to_hunks(commited_file_diffs);
         for branch in &mut branches {
             for file in &mut branch.files {
                 for hunk in &mut file.hunks {
@@ -1149,6 +1150,7 @@ pub fn calculate_non_commited_diffs(
         context_lines(project_repository),
     )
     .context("failed to diff trees")?;
+    let non_commited_diff = diff::diff_files_to_hunks(non_commited_diff);
 
     // record conflicts resolution
     // TODO: this feels out of place. move it somewhere else?
@@ -1190,6 +1192,7 @@ fn list_virtual_commit_files(
         &commit_tree,
         context_lines(project_repository),
     )?;
+    let diff = diff::diff_files_to_hunks(diff);
     let hunks_by_filepath = virtual_hunks_by_filepath(&project_repository.project().path, &diff);
     Ok(virtual_hunks_to_virtual_files(
         project_repository,
@@ -1868,7 +1871,7 @@ pub type BranchStatus = HashMap<path::PathBuf, Vec<diff::Hunk>>;
 pub fn get_status_by_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<(Vec<(branch::Branch, BranchStatus)>, Vec<SkippedFile>)> {
+) -> Result<(Vec<(branch::Branch, BranchStatus)>, Vec<diff::DiffFile>)> {
     let latest_session = gb_repository
         .get_latest_session()
         .context("failed to get latest session")?
@@ -1957,7 +1960,7 @@ fn get_non_applied_status(
                     context_lines(project_repository),
                 )?;
 
-                Ok((branch, diff))
+                Ok((branch, diff::diff_files_to_hunks(diff)))
             },
         )
         .collect::<Result<Vec<_>>>()
@@ -1972,13 +1975,23 @@ fn get_applied_status(
     project_repository: &project_repository::Repository,
     default_target: &target::Target,
     mut virtual_branches: Vec<branch::Branch>,
-) -> Result<(AppliedStatuses, Vec<SkippedFile>)> {
-    let (mut diff, skipped_files) = diff::workdir(
+) -> Result<(AppliedStatuses, Vec<diff::DiffFile>)> {
+    let diff_files = diff::workdir(
         &project_repository.git_repository,
         &default_target.sha,
         context_lines(project_repository),
     )
     .context("failed to diff workdir")?;
+
+    let mut diff: HashMap<path::PathBuf, Vec<git::diff::Hunk>> = HashMap::new();
+    let mut skipped_files: Vec<diff::DiffFile> = Vec::new();
+    for (file_path, diff_file) in diff_files {
+        if diff_file.skipped {
+            skipped_files.push(diff_file);
+        } else {
+            diff.insert(file_path, diff_file.hunks.unwrap_or_default());
+        }
+    }
 
     // sort by order, so that the default branch is first (left in the ui)
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
@@ -3680,6 +3693,7 @@ pub fn move_commit(
         &source_branch_head_tree,
         context_lines(project_repository),
     )?;
+    let branch_head_diff = diff::diff_files_to_hunks(branch_head_diff);
 
     let is_source_locked = source_branch_non_comitted_files
         .iter()
@@ -3882,6 +3896,7 @@ pub fn create_virtual_branch_from_branch(
         context_lines(project_repository),
     )
     .context("failed to diff trees")?;
+    let diff = diff::diff_files_to_hunks(diff);
 
     let hunks_by_filepath =
         super::virtual_hunks_by_filepath(&project_repository.project().path, &diff);

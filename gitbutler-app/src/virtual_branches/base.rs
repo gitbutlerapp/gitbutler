@@ -208,7 +208,8 @@ pub fn set_base_branch(
             .use_diff_context
             .unwrap_or(false);
         let context_lines = if use_context { 3_u32 } else { 0_u32 };
-        let wd_diff = diff::workdir(repo, &current_head_commit.id(), context_lines)?.0;
+        let wd_diff = diff::workdir(repo, &current_head_commit.id(), context_lines)?;
+        let wd_diff = diff::diff_files_to_hunks(wd_diff);
         if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
             let hunks_by_filepath =
                 super::virtual_hunks_by_filepath(&project_repository.project().path, &wd_diff);
