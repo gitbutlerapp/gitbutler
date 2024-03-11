@@ -1,8 +1,11 @@
-use std::{collections::HashMap, path};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context, Result};
 
-use crate::{database, projects::ProjectId, sessions::SessionId};
+use crate::{database, path::Normalize, projects::ProjectId, sessions::SessionId};
 
 use super::{delta, operations};
 
@@ -16,11 +19,11 @@ impl Database {
         Database { database }
     }
 
-    pub fn insert(
+    pub fn insert<P: AsRef<Path>>(
         &self,
         project_id: &ProjectId,
         session_id: &SessionId,
-        file_path: &path::Path,
+        file_path: P,
         deltas: &Vec<delta::Delta>,
     ) -> Result<()> {
         self.database.transaction(|tx| -> Result<()> {
@@ -32,7 +35,7 @@ impl Database {
                 stmt.execute(rusqlite::named_params! {
                     ":project_id": project_id,
                     ":session_id": session_id,
-                    ":file_path": file_path.display().to_string(),
+                    ":file_path": file_path.as_ref().normalize().as_path().display().to_string(),
                     ":timestamp_ms": timestamp_ms,
                     ":operations": operations,
                 })
@@ -44,53 +47,71 @@ impl Database {
         Ok(())
     }
 
+    #[inline]
     pub fn list_by_project_id_session_id(
         &self,
         project_id: &ProjectId,
         session_id: &SessionId,
-        file_path_filter: &Option<Vec<&str>>,
-    ) -> Result<HashMap<String, Vec<delta::Delta>>> {
-        self.database
-            .transaction(|tx| -> Result<HashMap<String, Vec<delta::Delta>>> {
-                let mut stmt = list_by_project_id_session_id_stmt(tx)
-                    .context("Failed to prepare query statement")?;
-                let mut rows = stmt
-                    .query(rusqlite::named_params! {
-                        ":project_id": project_id,
-                        ":session_id": session_id,
-                    })
-                    .context("Failed to execute query statement")?;
-                let mut deltas: HashMap<String, Vec<super::Delta>> = HashMap::new();
-                while let Some(row) = rows
-                    .next()
-                    .context("Failed to iterate over query results")?
+    ) -> Result<HashMap<PathBuf, Vec<delta::Delta>>> {
+        self.list_by_project_id_session_id_and_filter(project_id, session_id, Vec::<PathBuf>::new())
+    }
+
+    pub fn list_by_project_id_session_id_and_filter<P: AsRef<Path>, F: AsRef<[P]>>(
+        &self,
+        project_id: &ProjectId,
+        session_id: &SessionId,
+        file_path_filter: F,
+    ) -> Result<HashMap<PathBuf, Vec<delta::Delta>>> {
+        self.database.transaction(|tx| {
+            let mut stmt = list_by_project_id_session_id_stmt(tx)
+                .context("Failed to prepare query statement")?;
+            let mut rows = stmt
+                .query(rusqlite::named_params! {
+                    ":project_id": project_id,
+                    ":session_id": session_id,
+                })
+                .context("Failed to execute query statement")?;
+            let mut deltas: HashMap<PathBuf, Vec<super::Delta>> = HashMap::new();
+            while let Some(row) = rows
+                .next()
+                .context("Failed to iterate over query results")?
+            {
+                let file_path: String = row.get(0).context("Failed to get file_path")?;
+                let file_path = PathBuf::from(file_path);
+
                 {
-                    let file_path: String = row.get(0).context("Failed to get file_path")?;
-                    if let Some(file_path_filter) = &file_path_filter {
-                        if !file_path_filter.contains(&file_path.as_str()) {
-                            continue;
+                    let mut contains = false;
+                    for filter in file_path_filter.as_ref() {
+                        let filter = filter.as_ref();
+                        if filter == file_path.as_path() {
+                            contains = true;
+                            break;
                         }
                     }
-                    let timestamp_ms: String = row.get(1).context("Failed to get timestamp_ms")?;
-                    let operations: Vec<u8> = row.get(2).context("Failed to get operations")?;
-                    let operations: Vec<operations::Operation> =
-                        serde_json::from_slice(&operations)
-                            .context("Failed to deserialize operations")?;
-                    let timestamp_ms: u128 = timestamp_ms
-                        .parse()
-                        .context("Failed to parse timestamp_ms as u64")?;
-                    let delta = delta::Delta {
-                        timestamp_ms,
-                        operations,
-                    };
-                    if let Some(deltas_for_file_path) = deltas.get_mut(&file_path) {
-                        deltas_for_file_path.push(delta);
-                    } else {
-                        deltas.insert(file_path, vec![delta]);
+                    if !contains {
+                        continue;
                     }
                 }
-                Ok(deltas)
-            })
+
+                let timestamp_ms: String = row.get(1).context("Failed to get timestamp_ms")?;
+                let operations: Vec<u8> = row.get(2).context("Failed to get operations")?;
+                let operations: Vec<operations::Operation> = serde_json::from_slice(&operations)
+                    .context("Failed to deserialize operations")?;
+                let timestamp_ms: u128 = timestamp_ms
+                    .parse()
+                    .context("Failed to parse timestamp_ms as u64")?;
+                let delta = delta::Delta {
+                    timestamp_ms,
+                    operations,
+                };
+                if let Some(deltas_for_file_path) = deltas.get_mut(&file_path) {
+                    deltas_for_file_path.push(delta);
+                } else {
+                    deltas.insert(file_path, vec![delta]);
+                }
+            }
+            Ok(deltas)
+        })
     }
 }
 
@@ -134,7 +155,7 @@ mod tests {
 
         let project_id = ProjectId::generate();
         let session_id = SessionId::generate();
-        let file_path = path::PathBuf::from("file_path");
+        let file_path = PathBuf::from("file_path");
         let delta1 = delta::Delta {
             timestamp_ms: 0,
             operations: vec![operations::Operation::Insert((0, "text".to_string()))],
@@ -144,10 +165,8 @@ mod tests {
         database.insert(&project_id, &session_id, &file_path, &deltas)?;
 
         assert_eq!(
-            database.list_by_project_id_session_id(&project_id, &session_id, &None)?,
-            vec![(file_path.display().to_string(), vec![delta1])]
-                .into_iter()
-                .collect()
+            database.list_by_project_id_session_id(&project_id, &session_id)?,
+            vec![(file_path, vec![delta1])].into_iter().collect()
         );
 
         Ok(())
@@ -160,7 +179,7 @@ mod tests {
 
         let project_id = ProjectId::generate();
         let session_id = SessionId::generate();
-        let file_path = path::PathBuf::from("file_path");
+        let file_path = PathBuf::from("file_path");
         let delta1 = delta::Delta {
             timestamp_ms: 0,
             operations: vec![operations::Operation::Insert((0, "text".to_string()))],
@@ -177,10 +196,8 @@ mod tests {
         database.insert(&project_id, &session_id, &file_path, &vec![delta2.clone()])?;
 
         assert_eq!(
-            database.list_by_project_id_session_id(&project_id, &session_id, &None)?,
-            vec![(file_path.display().to_string(), vec![delta2])]
-                .into_iter()
-                .collect()
+            database.list_by_project_id_session_id(&project_id, &session_id)?,
+            vec![(file_path, vec![delta2])].into_iter().collect()
         );
 
         Ok(())
@@ -193,8 +210,8 @@ mod tests {
 
         let project_id = ProjectId::generate();
         let session_id = SessionId::generate();
-        let file_path1 = path::PathBuf::from("file_path1");
-        let file_path2 = path::PathBuf::from("file_path2");
+        let file_path1 = PathBuf::from("file_path1");
+        let file_path2 = PathBuf::from("file_path2");
         let delta1 = delta::Delta {
             timestamp_ms: 1,
             operations: vec![operations::Operation::Insert((0, "text".to_string()))],
@@ -212,10 +229,10 @@ mod tests {
         database.insert(&project_id, &session_id, &file_path2, &vec![delta2.clone()])?;
 
         assert_eq!(
-            database.list_by_project_id_session_id(&project_id, &session_id, &None)?,
+            database.list_by_project_id_session_id(&project_id, &session_id)?,
             vec![
-                (file_path1.display().to_string(), vec![delta1.clone()]),
-                (file_path2.display().to_string(), vec![delta1, delta2])
+                (file_path1, vec![delta1.clone()]),
+                (file_path2, vec![delta1, delta2])
             ]
             .into_iter()
             .collect()

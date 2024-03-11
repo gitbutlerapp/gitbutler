@@ -1,4 +1,9 @@
-use std::{collections::HashMap, path, time, vec};
+use std::{
+    collections::HashMap,
+    hash::Hash,
+    path::{self, Path},
+    time, vec,
+};
 
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::*;
@@ -19,6 +24,7 @@ use crate::{
         show, Commit, Refname, RemoteRefname,
     },
     keys,
+    path::Normalize,
     project_repository::{self, conflicts, LogUntil},
     reader, sessions, users,
 };
@@ -1155,7 +1161,7 @@ pub fn calculate_non_commited_diffs(
     let conflicting_files = conflicts::conflicting_files(project_repository)?;
     for (file_path, non_commited_hunks) in &non_commited_diff {
         let mut conflicted = false;
-        if conflicting_files.contains(&file_path.display().to_string()) {
+        if conflicting_files.contains(file_path) {
             // check file for conflict markers, resolve the file if there are none in any hunk
             for hunk in non_commited_hunks {
                 if hunk.diff.contains("<<<<<<< ours") {
@@ -1166,7 +1172,7 @@ pub fn calculate_non_commited_diffs(
                 }
             }
             if !conflicted {
-                conflicts::resolve(project_repository, &file_path.display().to_string()).unwrap();
+                conflicts::resolve(project_repository, file_path).unwrap();
             }
         }
     }
@@ -1799,11 +1805,15 @@ fn set_ownership(
     Ok(())
 }
 
-fn get_mtime(cache: &mut HashMap<path::PathBuf, u128>, file_path: &path::PathBuf) -> u128 {
+fn get_mtime<P: AsRef<Path> + Eq + Hash + Clone>(
+    cache: &mut HashMap<P, u128>,
+    file_path: &P,
+) -> u128 {
     if let Some(mtime) = cache.get(file_path) {
         *mtime
     } else {
         let mtime = file_path
+            .as_ref()
             .metadata()
             .map_or_else(
                 |_| time::SystemTime::now(),
@@ -1832,10 +1842,10 @@ fn diff_hash(diff: &str) -> String {
     format!("{:x}", md5::compute(addition))
 }
 
-pub fn virtual_hunks_by_filepath(
-    project_path: &path::Path,
-    diff: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
-) -> HashMap<path::PathBuf, Vec<VirtualBranchHunk>> {
+pub fn virtual_hunks_by_filepath<P: AsRef<Path>, K: AsRef<Path> + Clone + Eq + Hash>(
+    project_path: P,
+    diff: &HashMap<K, Vec<diff::Hunk>>,
+) -> HashMap<K, Vec<VirtualBranchHunk>> {
     let mut mtimes: HashMap<path::PathBuf, u128> = HashMap::new();
     diff.iter()
         .map(|(file_path, hunks)| {
@@ -1843,8 +1853,8 @@ pub fn virtual_hunks_by_filepath(
                 .iter()
                 .map(|hunk| VirtualBranchHunk {
                     id: format!("{}-{}", hunk.new_start, hunk.new_start + hunk.new_lines),
-                    modified_at: get_mtime(&mut mtimes, &project_path.join(file_path)),
-                    file_path: file_path.clone(),
+                    modified_at: get_mtime(&mut mtimes, &project_path.as_ref().join(file_path)),
+                    file_path: file_path.as_ref().to_path_buf(),
                     diff: hunk.diff.clone(),
                     old_start: hunk.old_start,
                     start: hunk.new_start,
@@ -2293,8 +2303,8 @@ pub fn write_tree_onto_tree(
     // now update the index with content in the working directory for each file
     for (filepath, hunks) in files {
         // convert this string to a Path
-        let rel_path = std::path::Path::new(&filepath);
-        let full_path = project_repository.path().join(rel_path);
+        let rel_path = filepath.normalize();
+        let full_path = project_repository.path().join(&rel_path).normalize();
 
         let is_submodule =
             full_path.is_dir() && hunks.len() == 1 && hunks[0].diff.contains("Subproject commit");
@@ -2332,21 +2342,23 @@ pub fn write_tree_onto_tree(
                 // if the link target is inside the project repository, make it relative
                 let link_target = link_target
                     .strip_prefix(project_repository.path())
-                    .unwrap_or(&link_target);
+                    .unwrap_or(&link_target)
+                    .normalize();
 
                 let blob_oid = git_repository.blob(
                     link_target
+                        .as_path()
                         .to_str()
-                        .ok_or_else(|| Error::InvalidUnicodePath(link_target.into()))?
+                        .ok_or_else(|| Error::InvalidUnicodePath(link_target.clone()))?
                         .as_bytes(),
                 )?;
-                builder.upsert(rel_path, blob_oid, filemode);
-            } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
+                builder.upsert(&rel_path, blob_oid, filemode);
+            } else if let Ok(tree_entry) = base_tree.get_path(&rel_path) {
                 if hunks.len() == 1 && hunks[0].binary {
                     let new_blob_oid = &hunks[0].diff;
                     // convert string to Oid
                     let new_blob_oid = new_blob_oid.parse().context("failed to diff as oid")?;
-                    builder.upsert(rel_path, new_blob_oid, filemode);
+                    builder.upsert(&rel_path, new_blob_oid, filemode);
                 } else {
                     // blob from tree_entry
                     let blob = tree_entry
@@ -2371,7 +2383,7 @@ pub fn write_tree_onto_tree(
                     // create a blob
                     let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
                     // upsert into the builder
-                    builder.upsert(rel_path, new_blob_oid, filemode);
+                    builder.upsert(&rel_path, new_blob_oid, filemode);
                 }
             } else if is_submodule {
                 let mut blob_contents = String::new();
@@ -2387,20 +2399,17 @@ pub fn write_tree_onto_tree(
                 // create a blob
                 let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
                 // upsert into the builder
-                builder.upsert(rel_path, new_blob_oid, filemode);
+                builder.upsert(&rel_path, new_blob_oid, filemode);
             } else {
                 // create a git blob from a file on disk
                 let blob_oid = git_repository
                     .blob_path(&full_path)
                     .context(format!("failed to create blob from path {:?}", &full_path))?;
-                builder.upsert(rel_path, blob_oid, filemode);
+                builder.upsert(&rel_path, blob_oid, filemode);
             }
-        } else if base_tree.get_path(rel_path).is_ok() {
+        } else if base_tree.get_path(&rel_path).is_ok() {
             // remove file from index if it exists in the base tree
-            builder.remove(rel_path);
-        } else {
-            // file not in index or base tree, do nothing
-            // this is the
+            builder.remove(&rel_path);
         }
     }
 

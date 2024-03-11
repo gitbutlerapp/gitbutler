@@ -1,4 +1,4 @@
-use std::path;
+use std::path::{self, Path};
 
 use crate::projects::{self, ProjectId};
 
@@ -13,15 +13,15 @@ pub struct Controller {
 }
 
 impl Controller {
-    pub fn new(
-        local_data_dir: path::PathBuf,
-        logs_dir: path::PathBuf,
+    pub fn new<Pd: AsRef<Path>, Pl: AsRef<Path>>(
+        local_data_dir: Pd,
+        logs_dir: Pl,
         zipper: Zipper,
         projects_controller: projects::Controller,
     ) -> Self {
         Self {
-            local_data_dir,
-            logs_dir,
+            local_data_dir: local_data_dir.as_ref().to_path_buf(),
+            logs_dir: logs_dir.as_ref().to_path_buf(),
             zipper,
             projects_controller,
         }

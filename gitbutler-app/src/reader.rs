@@ -189,6 +189,7 @@ impl<'reader> CommitReader<'reader> {
                 if entry.name().is_none() {
                     return git::TreeWalkResult::Continue;
                 }
+
                 let entry_path = Path::new(root).join(entry.name().unwrap());
 
                 if !entry_path.starts_with(dir_path) {
@@ -199,7 +200,7 @@ impl<'reader> CommitReader<'reader> {
 
                 git::TreeWalkResult::Continue
             })
-            .with_context(|| format!("{}: tree walk failed", dir_path.display()))?;
+            .with_context(|| format!("{dir_path:?}: tree walk failed"))?;
 
         Ok(files)
     }

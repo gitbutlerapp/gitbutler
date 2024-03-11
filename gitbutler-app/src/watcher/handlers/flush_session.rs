@@ -1,4 +1,7 @@
-use std::{path, sync::Arc};
+use std::{
+    path::{self, Path},
+    sync::Arc,
+};
 
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
@@ -60,13 +63,13 @@ struct HandlerInner {
 }
 
 impl HandlerInner {
-    fn new(
-        local_data_dir: path::PathBuf,
+    fn new<P: AsRef<Path>>(
+        local_data_dir: P,
         project_store: projects::Controller,
         users: users::Controller,
     ) -> HandlerInner {
         HandlerInner {
-            local_data_dir,
+            local_data_dir: local_data_dir.as_ref().to_path_buf(),
             project_store,
             users,
         }

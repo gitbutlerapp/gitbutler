@@ -1,4 +1,4 @@
-use std::path;
+use std::path::{self, Path};
 
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
@@ -48,15 +48,15 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    fn new(
-        local_data_dir: path::PathBuf,
+    fn new<P: AsRef<Path>>(
+        local_data_dir: P,
         projects: projects::Controller,
         users: users::Controller,
         sessions_database: sessions::Database,
         deltas_database: deltas::Database,
     ) -> Handler {
         Handler {
-            local_data_dir,
+            local_data_dir: local_data_dir.as_ref().to_path_buf(),
             projects,
             users,
             sessions_database,
@@ -64,11 +64,11 @@ impl Handler {
         }
     }
 
-    pub fn index_deltas(
+    pub fn index_deltas<P: AsRef<Path>>(
         &self,
         project_id: &ProjectId,
         session_id: &SessionId,
-        file_path: &path::Path,
+        file_path: P,
         deltas: &Vec<deltas::Delta>,
     ) -> Result<()> {
         self.deltas_database

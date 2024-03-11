@@ -1,4 +1,8 @@
-use std::{path, sync::Arc, time};
+use std::{
+    path::{self, Path},
+    sync::Arc,
+    time,
+};
 
 use anyhow::{Context, Result};
 use itertools::Itertools;
@@ -63,13 +67,13 @@ pub struct HandlerInner {
 }
 
 impl HandlerInner {
-    fn new(
-        local_data_dir: path::PathBuf,
+    fn new<P: AsRef<Path>>(
+        local_data_dir: P,
         project_store: projects::Controller,
         users: users::Controller,
     ) -> Self {
         Self {
-            local_data_dir,
+            local_data_dir: local_data_dir.as_ref().to_path_buf(),
             project_store,
             users,
             batch_size: 1000,

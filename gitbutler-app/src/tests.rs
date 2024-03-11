@@ -5,7 +5,11 @@ mod suite {
     mod virtual_branches;
 }
 
-use std::{collections::HashMap, fs, path};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{self, Path, PathBuf},
+};
 
 use tempfile::tempdir;
 
@@ -48,15 +52,16 @@ impl Suite {
         user
     }
 
-    fn project(&self, fs: HashMap<path::PathBuf, &str>) -> projects::Project {
+    fn project<P: AsRef<Path>>(&self, fs: HashMap<P, &str>) -> projects::Project {
         let repository = test_repository();
         for (path, contents) in fs {
+            let path = path.as_ref();
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(repository.path().parent().unwrap().join(parent))
                     .expect("failed to create dir");
             }
             fs::write(
-                repository.path().parent().unwrap().join(&path),
+                repository.path().parent().unwrap().join(path),
                 contents.as_bytes(),
             )
             .expect("failed to write file");
@@ -68,13 +73,13 @@ impl Suite {
             .expect("failed to add project")
     }
 
-    pub fn new_case_with_files(&self, fs: HashMap<path::PathBuf, &str>) -> Case {
+    pub fn new_case_with_files<P: AsRef<Path>>(&self, fs: HashMap<P, &str>) -> Case {
         let project = self.project(fs);
         Case::new(self, project)
     }
 
     pub fn new_case(&self) -> Case {
-        self.new_case_with_files(HashMap::new())
+        self.new_case_with_files(HashMap::<PathBuf, &str>::new())
     }
 }
 

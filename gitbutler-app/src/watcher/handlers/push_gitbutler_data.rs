@@ -1,4 +1,4 @@
-use std::path;
+use std::path::{self, Path};
 use std::sync::{Arc, Mutex, TryLockError};
 
 use anyhow::{Context, Result};
@@ -57,13 +57,13 @@ struct HandlerInner {
 }
 
 impl HandlerInner {
-    fn new(
-        local_data_dir: path::PathBuf,
+    fn new<P: AsRef<Path>>(
+        local_data_dir: P,
         projects: projects::Controller,
         users: users::Controller,
     ) -> Self {
         Self {
-            local_data_dir,
+            local_data_dir: local_data_dir.as_ref().to_path_buf(),
             projects,
             users,
         }

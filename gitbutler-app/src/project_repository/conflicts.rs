@@ -5,15 +5,23 @@
 // conflicts are removed as they are resolved, the conflicts file is removed when there are no more conflicts
 // the merge parent file is removed when the merge is complete
 
-use std::io::{BufRead, Write};
+use std::{
+    io::{BufRead, Write},
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
+use itertools::Itertools;
 
-use crate::git;
+use crate::{git, path::Normalize};
 
 use super::Repository;
 
-pub fn mark(repository: &Repository, paths: &[String], parent: Option<git::Oid>) -> Result<()> {
+pub fn mark<P: AsRef<Path>>(
+    repository: &Repository,
+    paths: &[P],
+    parent: Option<git::Oid>,
+) -> Result<()> {
     if paths.is_empty() {
         return Ok(());
     }
@@ -21,7 +29,8 @@ pub fn mark(repository: &Repository, paths: &[String], parent: Option<git::Oid>)
     // write all the file paths to a file on disk
     let mut file = std::fs::File::create(conflicts_path)?;
     for path in paths {
-        file.write_all(path.as_bytes()).unwrap();
+        file.write_all(path.as_ref().normalize().as_os_str().as_encoded_bytes())
+            .unwrap();
         file.write_all(b"\n").unwrap();
     }
 
@@ -53,12 +62,15 @@ pub fn merge_parent(repository: &Repository) -> Result<Option<git::Oid>> {
     }
 }
 
-pub fn resolve(repository: &Repository, path: &str) -> Result<()> {
+pub fn resolve<P: AsRef<Path>>(repository: &Repository, path: P) -> Result<()> {
+    let path = path.as_ref();
     let conflicts_path = repository.git_repository.path().join("conflicts");
     let file = std::fs::File::open(conflicts_path.clone())?;
     let reader = std::io::BufReader::new(file);
     let mut remaining = Vec::new();
-    for line in reader.lines().map_while(Result::ok) {
+
+    for maybe_line in reader.lines().map_ok(PathBuf::from) {
+        let line = maybe_line?;
         if line != path {
             remaining.push(line);
         }
@@ -74,7 +86,7 @@ pub fn resolve(repository: &Repository, path: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn conflicting_files(repository: &Repository) -> Result<Vec<String>> {
+pub fn conflicting_files(repository: &Repository) -> Result<Vec<PathBuf>> {
     let conflicts_path = repository.git_repository.path().join("conflicts");
     if !conflicts_path.exists() {
         return Ok(vec![]);
@@ -82,7 +94,10 @@ pub fn conflicting_files(repository: &Repository) -> Result<Vec<String>> {
 
     let file = std::fs::File::open(conflicts_path)?;
     let reader = std::io::BufReader::new(file);
-    Ok(reader.lines().map_while(Result::ok).collect())
+    Ok(reader
+        .lines()
+        .map_ok(PathBuf::from)
+        .collect::<std::result::Result<Vec<_>, _>>()?)
 }
 
 pub fn is_conflicting(repository: &Repository, path: Option<&str>) -> Result<bool> {
