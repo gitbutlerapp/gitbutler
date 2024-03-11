@@ -1,6 +1,7 @@
-use std::path;
+use std::path::Path;
 
 use super::{Oid, Repository, Result};
+use crate::path::Normalize;
 
 pub struct Tree<'repo> {
     tree: git2::Tree<'repo>,
@@ -23,8 +24,11 @@ impl<'repo> Tree<'repo> {
         self.tree.id().into()
     }
 
-    pub fn get_path(&self, path: &path::Path) -> Result<TreeEntry<'repo>> {
-        self.tree.get_path(path).map(Into::into).map_err(Into::into)
+    pub fn get_path<P: AsRef<Path>>(&self, path: P) -> Result<TreeEntry<'repo>> {
+        self.tree
+            .get_path(path.normalize().as_path())
+            .map(Into::into)
+            .map_err(Into::into)
     }
 
     pub fn walk<C>(&self, mut callback: C) -> Result<()>
@@ -119,12 +123,12 @@ impl<'repo> TreeBuilder<'repo> {
         }
     }
 
-    pub fn upsert<P: AsRef<path::Path>>(&mut self, filename: P, oid: Oid, filemode: FileMode) {
+    pub fn upsert<P: AsRef<Path>>(&mut self, filename: P, oid: Oid, filemode: FileMode) {
         self.builder
             .upsert(filename.as_ref(), oid.into(), filemode.into());
     }
 
-    pub fn remove<P: AsRef<path::Path>>(&mut self, filename: P) {
+    pub fn remove<P: AsRef<Path>>(&mut self, filename: P) {
         self.builder.remove(filename.as_ref());
     }
 

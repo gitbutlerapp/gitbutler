@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::Result;
 
 use crate::lock;
@@ -5,7 +7,7 @@ use crate::lock;
 pub struct DirWriter(lock::Dir);
 
 impl DirWriter {
-    pub fn open<P: AsRef<std::path::Path>>(root: P) -> Result<Self, std::io::Error> {
+    pub fn open<P: AsRef<Path>>(root: P) -> Result<Self, std::io::Error> {
         lock::Dir::new(root).map(Self)
     }
 }
@@ -13,13 +15,13 @@ impl DirWriter {
 impl DirWriter {
     fn write<P, C>(&self, path: P, contents: C) -> Result<(), std::io::Error>
     where
-        P: AsRef<std::path::Path>,
+        P: AsRef<Path>,
         C: AsRef<[u8]>,
     {
         self.batch(&[BatchTask::Write(path, contents)])
     }
 
-    pub fn remove<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), std::io::Error> {
+    pub fn remove<P: AsRef<Path>>(&self, path: P) -> Result<(), std::io::Error> {
         self.0.batch(|root| {
             let path = root.join(path);
             if path.exists() {
@@ -36,7 +38,7 @@ impl DirWriter {
 
     pub fn batch<P, C>(&self, values: &[BatchTask<P, C>]) -> Result<(), std::io::Error>
     where
-        P: AsRef<std::path::Path>,
+        P: AsRef<Path>,
         C: AsRef<[u8]>,
     {
         self.0.batch(|root| {
@@ -67,12 +69,16 @@ impl DirWriter {
         })?
     }
 
-    pub fn write_string(&self, path: &str, contents: &str) -> Result<(), std::io::Error> {
+    pub fn write_string<P: AsRef<Path>>(
+        &self,
+        path: P,
+        contents: &str,
+    ) -> Result<(), std::io::Error> {
         self.write(path, contents)
     }
 }
 
-pub enum BatchTask<P: AsRef<std::path::Path>, C: AsRef<[u8]>> {
+pub enum BatchTask<P: AsRef<Path>, C: AsRef<[u8]>> {
     Write(P, C),
     Remove(P),
 }
