@@ -14,7 +14,6 @@
 	import { getContext } from 'svelte';
 
 	let context = getContext<{ summarizerSettings: SummarizerSettings }>('page-context');
-	console.log(context);
 
 	let summarizerSettings = context.summarizerSettings;
 

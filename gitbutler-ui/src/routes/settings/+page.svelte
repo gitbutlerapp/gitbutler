@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { deleteAllData } from '$lib/backend/data';
-	import { GitConfig } from '$lib/backend/gitConfig';
 	import AiSettings from '$lib/components/AISettings.svelte';
 	import AnalyticsSettings from '$lib/components/AnalyticsSettings.svelte';
 	import Button from '$lib/components/Button.svelte';
@@ -24,13 +23,15 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { onMount } from 'svelte';
 	import { getContext } from 'svelte';
+	import type { GitConfig } from '$lib/backend/gitConfig';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 
 	const userSettings = getContext(SETTINGS_CONTEXT) as SettingsStore;
 
 	export let data: PageData;
-	export let gitConfig = new GitConfig();
+
+	const { gitConfig } = getContext<{ gitConfig: GitConfig }>('page-context');
 
 	$: ({ cloud, authService } = data);
 
