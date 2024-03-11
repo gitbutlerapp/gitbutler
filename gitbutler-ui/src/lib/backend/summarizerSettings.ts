@@ -1,5 +1,5 @@
+import { derived, type Readable, type Writable } from 'svelte/store';
 import type { GitConfig } from './gitConfig';
-import type { Writable } from 'svelte/store';
 
 export enum ModelKind {
 	OpenAI = 'openai',
@@ -29,6 +29,15 @@ const openAIModelConfigKey = 'gitbutler.openAIModel';
 const anthropicKeyConfigKey = 'gitbutler.anthropicKey';
 const anthropicModelConfigKey = 'gitbutler.anthropicModel';
 
+export interface AllSummarizerSettings {
+	modelKind: ModelKind;
+	keyOption: KeyOption;
+	openAIKey: string | undefined;
+	openAIModel: OpenAIModel;
+	anthropicKey: string | undefined;
+	anthropicModel: AnthropicModel;
+}
+
 export class SummarizerSettings {
 	modelKind$: Writable<ModelKind>;
 	keyOption$: Writable<KeyOption>;
@@ -36,6 +45,7 @@ export class SummarizerSettings {
 	openAIModel$: Writable<OpenAIModel>;
 	anthropicKey$: Writable<string | undefined>;
 	anthropicModel$: Writable<AnthropicModel>;
+	all$: Readable<AllSummarizerSettings>;
 
 	constructor(gitConfig: GitConfig) {
 		this.modelKind$ = gitConfig.buildWritableWithDefault<ModelKind>(
@@ -55,6 +65,25 @@ export class SummarizerSettings {
 		this.anthropicModel$ = gitConfig.buildWritableWithDefault<AnthropicModel>(
 			anthropicModelConfigKey,
 			AnthropicModel.Sonnet
+		);
+
+		this.all$ = derived(
+			[
+				this.modelKind$,
+				this.keyOption$,
+				this.openAIKey$,
+				this.openAIModel$,
+				this.anthropicKey$,
+				this.anthropicModel$
+			],
+			([modelKind, keyOption, openAIKey, openAIModel, anthropicKey, anthropicModel]) => ({
+				modelKind,
+				keyOption,
+				openAIKey,
+				openAIModel,
+				anthropicKey,
+				anthropicModel
+			})
 		);
 	}
 }

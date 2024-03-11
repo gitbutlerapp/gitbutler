@@ -1,13 +1,4 @@
-import { GitConfig } from './gitConfig';
-import { SummarizerSettings, KeyOption, ModelKind } from './summarizerSettings';
-import {
-	type AIProvider,
-	ButlerAIProvider,
-	AnthropicAIProvider,
-	OpenAIProvider
-} from '$lib/backend/aiProviders';
-import { getCloudApiClient, type User } from '$lib/backend/cloud';
-import OpenAI from 'openai';
+import type { AIProvider } from '$lib/backend/aiProviders';
 
 const diffLengthLimit = 20000;
 
@@ -60,7 +51,10 @@ export class Summarizer {
 			prompt = prompt.replaceAll('%{brief_style}', '');
 		}
 		if (useEmojiStyle) {
-			prompt = prompt.replaceAll('%{emoji_style}', 'Make use of GitMoji in the title prefix.');
+			prompt = prompt.replaceAll(
+				'%{emoji_style}',
+				'Make use of GitMoji in the title prefix.'
+			);
 		} else {
 			prompt = prompt.replaceAll('%{emoji_style}', "Don't use any emoji.");
 		}
@@ -89,47 +83,5 @@ export class Summarizer {
 		message = message.replaceAll(' ', '-');
 		message = message.replaceAll('\n', '-');
 		return message;
-	}
-}
-
-interface SummarizerContext {
-	user?: User;
-}
-
-// This optionally returns a summarizer. There are a few conditions for how this may occur
-// Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
-// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
-export async function buildSummarizer(context: SummarizerContext): Promise<Summarizer | undefined> {
-	const gitConfig = new GitConfig();
-	const summarizerSettings = new SummarizerSettings(gitConfig);
-	const modelKind = await summarizerSettings.getModelKind();
-	const keyOption = await summarizerSettings.getKeyOption();
-
-	if (keyOption === KeyOption.ButlerAPI) {
-		if (!context.user) return;
-
-		const aiProvider = new ButlerAIProvider(getCloudApiClient(), context.user, modelKind);
-		return new Summarizer(aiProvider);
-	}
-
-	if (modelKind == ModelKind.OpenAI) {
-		const openAIKey = await summarizerSettings.getOpenAIKey();
-
-		if (!openAIKey) return;
-
-		const openAIModel = await summarizerSettings.getOpenAIModel();
-		const openAI = new OpenAI({ apiKey: openAIKey, dangerouslyAllowBrowser: true });
-		const aiProvider = new OpenAIProvider(openAIModel, openAI);
-		return new Summarizer(aiProvider);
-	}
-
-	if (modelKind == ModelKind.Anthropic) {
-		const anthropicKey = await summarizerSettings.getAnthropicKey();
-
-		if (!anthropicKey) return;
-
-		const anthropicModel = await summarizerSettings.getAnthropicModel();
-		const aiProvider = new AnthropicAIProvider(anthropicKey, anthropicModel);
-		return new Summarizer(aiProvider);
 	}
 }
