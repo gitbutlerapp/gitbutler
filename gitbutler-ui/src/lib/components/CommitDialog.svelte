@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { buildSummarizer } from '$lib/backend/summarizer';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
@@ -20,13 +19,17 @@
 	import { setAutoHeight } from '$lib/utils/useAutoHeight';
 	import { useResize } from '$lib/utils/useResize';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, getContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { fly, slide } from 'svelte/transition';
+	import type { AIService } from '$lib/backend/aiService';
 	import type { User } from '$lib/backend/cloud';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Branch, LocalFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
+
+	const { aiService } = getContext<{ aiService: AIService }>('page-context');
+	let summarizer$ = aiService.summarizer$;
 
 	const dispatch = createEventDispatcher<{
 		action: 'generate-branch-name';
@@ -92,8 +95,8 @@
 	}
 
 	async function generateCommitMessage(files: LocalFile[]) {
-		const summarizer = await buildSummarizer({ user });
-		if (!summarizer) return;
+		if (!$summarizer$) return;
+
 		const diff = files
 			.map((f) => f.hunks.filter((h) => $selectedOwnership.containsHunk(f.id, h.id)))
 			.flat()
@@ -112,7 +115,7 @@
 
 		aiLoading = true;
 		try {
-			$commitMessage = await summarizer.commit(
+			$commitMessage = await $summarizer$.commit(
 				diff,
 				$commitGenerationUseEmojis,
 				$commitGenerationExtraConcise

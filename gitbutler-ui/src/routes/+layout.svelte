@@ -30,6 +30,12 @@
 	$: setContext(UpdaterService, data.updaterService);
 	$: setContext(GitHubService, data.githubService);
 
+	setContext('page-context', {
+		gitConfig: data.gitConfig,
+		summarizerSettings: data.summarizerSettings,
+		aiService: data.aiService
+	});
+
 	let shareIssueModal: ShareIssueModal;
 
 	$: zoom = $userSettings.zoom || 1;

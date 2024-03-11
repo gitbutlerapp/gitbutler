@@ -1,8 +1,11 @@
 import { initPostHog } from '$lib/analytics/posthog';
 import { initSentry } from '$lib/analytics/sentry';
+import { AIService } from '$lib/backend/aiService';
 import { AuthService } from '$lib/backend/auth';
 import { getCloudApiClient } from '$lib/backend/cloud';
+import { GitConfig } from '$lib/backend/gitConfig';
 import { ProjectService } from '$lib/backend/projects';
+import { SummarizerSettings } from '$lib/backend/summarizerSettings';
 import { UpdaterService } from '$lib/backend/updater';
 import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
 import { GitHubService } from '$lib/github/service';
@@ -37,7 +40,6 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 	const defaultPath = await (await import('@tauri-apps/api/path')).homeDir();
 
 	const authService = new AuthService();
-	const cloud = getCloudApiClient({ fetch: realFetch });
 	const projectService = new ProjectService(defaultPath);
 	const updaterService = new UpdaterService();
 	const userService = new UserService();
@@ -52,6 +54,12 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 	const remoteUrl$ = new BehaviorSubject<string | undefined>(undefined);
 	const githubService = new GitHubService(userService.accessToken$, remoteUrl$);
 
+	const cloud = getCloudApiClient({ fetch: realFetch });
+
+	const gitConfig = new GitConfig();
+	const summarizerSettings = new SummarizerSettings(gitConfig);
+	const aiService = new AIService(summarizerSettings, cloud, userService.user$);
+
 	return {
 		authService,
 		cloud,
@@ -62,6 +70,10 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 
 		// These observables are provided for convenience
 		remoteUrl$,
-		user$
+		user$,
+
+		gitConfig,
+		summarizerSettings,
+		aiService
 	};
 }

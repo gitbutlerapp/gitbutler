@@ -8,7 +8,6 @@
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
-	import { buildSummarizer } from '$lib/backend/summarizer';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -33,6 +32,7 @@
 	import lscache from 'lscache';
 	import { getContext, onMount } from 'svelte';
 	import { get, type Writable } from 'svelte/store';
+	import type { AIService } from '$lib/backend/aiService';
 	import type { User } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { Persisted } from '$lib/persisted/persisted';
@@ -53,6 +53,9 @@
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
 
+	const { aiService } = getContext<{ aiService: AIService }>('page-context');
+	let summarizer$ = aiService.summarizer$;
+
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
 	const laneWidthKey = 'laneWidth_';
@@ -60,6 +63,7 @@
 
 	let laneWidth: number;
 	let remoteBranchData: RemoteBranchData | undefined;
+
 	let scrollViewport: HTMLElement;
 	let rsViewport: HTMLElement;
 
@@ -77,8 +81,7 @@
 	}
 
 	async function generateBranchName() {
-		const summarizer = await buildSummarizer({ user });
-		if (!summarizer) return;
+		if (!$summarizer$) return;
 		if (!aiGenEnabled) return;
 
 		const diff = branch.files
@@ -89,7 +92,7 @@
 			.join('\n')
 			.slice(0, 5000);
 
-		const message = await summarizer.branch(diff);
+		const message = await $summarizer$.branch(diff);
 
 		if (message !== branch.name) {
 			branch.name = message;
@@ -244,9 +247,8 @@
 								{#if branch.active && branch.conflicted}
 									<div class="mb-2 bg-red-500 p-2 font-bold text-white">
 										{#if branch.files.some((f) => f.conflicted)}
-											This virtual branch conflicts with upstream changes.
-											Please resolve all conflicts and commit before you can
-											continue.
+											This virtual branch conflicts with upstream changes. Please resolve all
+											conflicts and commit before you can continue.
 										{:else}
 											Please commit your resolved conflicts to continue.
 										{/if}

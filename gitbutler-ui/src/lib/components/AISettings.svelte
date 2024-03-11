@@ -2,7 +2,6 @@
 	import Select from './Select.svelte';
 	import SelectItem from './SelectItem.svelte';
 	import TextBox from './TextBox.svelte';
-	import { GitConfig } from '$lib/backend/gitConfig';
 	import {
 		AnthropicModel,
 		KeyOption,
@@ -12,8 +11,12 @@
 	} from '$lib/backend/summarizerSettings';
 	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import { getContext } from 'svelte';
 
-	export let summarizerSettings = new SummarizerSettings(new GitConfig());
+	let context = getContext<{ summarizerSettings: SummarizerSettings }>('page-context');
+	console.log(context);
+
+	let summarizerSettings = context.summarizerSettings;
 
 	let modelKind$ = summarizerSettings.modelKind$;
 	$: if (form) form.modelKind.value = $modelKind$;
