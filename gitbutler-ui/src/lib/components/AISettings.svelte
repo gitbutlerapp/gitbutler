@@ -12,16 +12,13 @@
 	} from '$lib/backend/summarizerSettings';
 	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import { onMount } from 'svelte';
 
 	export let summarizerSettings = new SummarizerSettings(new GitConfig());
 
-	let modelKind: ModelKind | undefined;
-	$: if (modelKind) summarizerSettings.setModelKind(modelKind);
-	$: if (form && modelKind) form.modelKind.value = modelKind;
+	let modelKind$ = summarizerSettings.modelKind$;
+	$: if (form) form.modelKind.value = $modelKind$;
 
-	let keyOption: { name: string; value: KeyOption } | undefined;
-	$: if (keyOption) summarizerSettings.setKeyOption(keyOption.value);
+	let keyOption$ = summarizerSettings.keyOption$;
 
 	const keyOptions = [
 		{
@@ -34,11 +31,8 @@
 		}
 	];
 
-	let openAIKey: string | undefined;
-	$: if (openAIKey) summarizerSettings.setOpenAIKey(openAIKey);
-
-	let openAIModel: { name: string; value: OpenAIModel } | undefined;
-	$: if (openAIModel) summarizerSettings.setOpenAIModel(openAIModel.value);
+	let openAIKey$ = summarizerSettings.openAIKey$;
+	let openAIModel$ = summarizerSettings.openAIModel$;
 
 	const openAIModelOptions = [
 		{
@@ -55,11 +49,8 @@
 		}
 	];
 
-	let anthropicKey: string | undefined;
-	$: if (anthropicKey) summarizerSettings.setAnthropicKey(anthropicKey);
-
-	let anthropicModel: { name: string; value: AnthropicModel } | undefined;
-	$: if (anthropicModel) summarizerSettings.setAnthropicModel(anthropicModel.value);
+	let anthropicKey$ = summarizerSettings.anthropicKey$;
+	let anthropicModel$ = summarizerSettings.anthropicModel$;
 
 	const anthropicModelOptions = [
 		{
@@ -76,27 +67,8 @@
 
 	function onFormChange(form: HTMLFormElement) {
 		const formData = new FormData(form);
-		modelKind = formData.get('modelKind') as ModelKind;
+		$modelKind$ = formData.get('modelKind') as ModelKind;
 	}
-
-	onMount(async () => {
-		modelKind = await summarizerSettings.getModelKind();
-
-		const persistedKeyOption = await summarizerSettings.getKeyOption();
-		keyOption = keyOptions.find((option) => option.value == persistedKeyOption);
-
-		openAIKey = (await summarizerSettings.getOpenAIKey()) || undefined;
-
-		const persistedOpenAIModel = await summarizerSettings.getOpenAIModel();
-		openAIModel = openAIModelOptions.find((option) => option.value == persistedOpenAIModel);
-
-		anthropicKey = (await summarizerSettings.getAnthropicKey()) || undefined;
-
-		const persistedAnthropicModel = await summarizerSettings.getAnthropicModel();
-		anthropicModel = anthropicModelOptions.find(
-			(option) => option.value == persistedAnthropicModel
-		);
-	});
 </script>
 
 <p class="text-base-body-13 ai-settings__text">
@@ -113,7 +85,7 @@
 		roundedBottom={false}
 		orientation="row"
 		labelFor="open-ai"
-		bottomBorder={modelKind != ModelKind.OpenAI}
+		bottomBorder={$modelKind$ != ModelKind.OpenAI}
 	>
 		<svelte:fragment slot="title">Open AI</svelte:fragment>
 		<svelte:fragment slot="actions">
@@ -123,12 +95,17 @@
 			Leverage OpenAI's GPT models for branch name and commit message generation.
 		</svelte:fragment>
 	</SectionCard>
-	{#if modelKind == ModelKind.OpenAI}
-		<SectionCard hasTopRadius={false} roundedTop={false} roundedBottom={false} orientation="row">
+	{#if $modelKind$ == ModelKind.OpenAI}
+		<SectionCard
+			hasTopRadius={false}
+			roundedTop={false}
+			roundedBottom={false}
+			orientation="row"
+		>
 			<div class="inputs-group">
 				<Select
 					items={keyOptions}
-					bind:value={keyOption}
+					bind:selectedItemId={$keyOption$}
 					itemId="value"
 					labelId="name"
 					label="Do you want to provide your own key?"
@@ -138,12 +115,17 @@
 					</SelectItem>
 				</Select>
 
-				{#if keyOption?.value === KeyOption.BringYourOwn}
-					<TextBox label="OpenAI API Key" bind:value={openAIKey} required placeholder="sk-..." />
+				{#if $keyOption$ == KeyOption.BringYourOwn}
+					<TextBox
+						label="OpenAI API Key"
+						bind:value={$openAIKey$}
+						required
+						placeholder="sk-..."
+					/>
 
 					<Select
 						items={openAIModelOptions}
-						bind:value={openAIModel}
+						bind:selectedItemId={$openAIModel$}
 						itemId="value"
 						labelId="name"
 						label="Model Version"
@@ -161,22 +143,28 @@
 		roundedBottom={false}
 		orientation="row"
 		labelFor="anthropic"
-		bottomBorder={modelKind != ModelKind.Anthropic}
+		bottomBorder={$modelKind$ != ModelKind.Anthropic}
 	>
 		<svelte:fragment slot="title">Anthropic</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<RadioButton name="modelKind" id="anthropic" value={ModelKind.Anthropic} />
 		</svelte:fragment>
 		<svelte:fragment slot="body">
-			Make use of Anthropic's Opus and Sonnet models for branch name and commit message generation.
+			Make use of Anthropic's Opus and Sonnet models for branch name and commit message
+			generation.
 		</svelte:fragment>
 	</SectionCard>
-	{#if modelKind == ModelKind.Anthropic}
-		<SectionCard hasTopRadius={false} roundedTop={false} roundedBottom={false} orientation="row">
+	{#if $modelKind$ == ModelKind.Anthropic}
+		<SectionCard
+			hasTopRadius={false}
+			roundedTop={false}
+			roundedBottom={false}
+			orientation="row"
+		>
 			<div class="inputs-group">
 				<Select
 					items={keyOptions}
-					bind:value={keyOption}
+					bind:selectedItemId={$keyOption$}
 					itemId="value"
 					labelId="name"
 					label="Do you want to provide your own key?"
@@ -186,17 +174,17 @@
 					</SelectItem>
 				</Select>
 
-				{#if keyOption?.value === KeyOption.BringYourOwn}
+				{#if $keyOption$ == KeyOption.BringYourOwn}
 					<TextBox
 						label="Anthropic API Key"
-						bind:value={anthropicKey}
+						bind:value={$anthropicKey$}
 						required
 						placeholder="sk-ant-api03-..."
 					/>
 
 					<Select
 						items={anthropicModelOptions}
-						bind:value={anthropicModel}
+						bind:selectedItemId={$anthropicModel$}
 						itemId="value"
 						labelId="name"
 						label="Model Version"
@@ -214,7 +202,9 @@
 		<svelte:fragment slot="actions">
 			<RadioButton disabled={true} name="modelKind" />
 		</svelte:fragment>
-		<svelte:fragment slot="body">Support for custom AI endpoints is coming soon!</svelte:fragment>
+		<svelte:fragment slot="body"
+			>Support for custom AI endpoints is coming soon!</svelte:fragment
+		>
 	</SectionCard>
 </form>
 

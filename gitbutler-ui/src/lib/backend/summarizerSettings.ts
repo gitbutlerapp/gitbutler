@@ -1,4 +1,5 @@
 import type { GitConfig } from './gitConfig';
+import type { Writable } from 'svelte/store';
 
 export enum ModelKind {
 	OpenAI = 'openai',
@@ -29,48 +30,31 @@ const anthropicKeyConfigKey = 'gitbutler.anthropicKey';
 const anthropicModelConfigKey = 'gitbutler.anthropicModel';
 
 export class SummarizerSettings {
-	getModelKind: () => Promise<ModelKind>;
-	setModelKind: (value: ModelKind) => Promise<ModelKind | null>;
-	getKeyOption: () => Promise<KeyOption>;
-	setKeyOption: (value: KeyOption) => Promise<KeyOption | null>;
-	getOpenAIKey: () => Promise<string | null>;
-	setOpenAIKey: (value: string) => Promise<string | null>;
-	getOpenAIModel: () => Promise<OpenAIModel>;
-	setOpenAIModel: (value: OpenAIModel) => Promise<OpenAIModel | null>;
-	getAnthropicKey: () => Promise<string | null>;
-	setAnthropicKey: (value: string) => Promise<string | null>;
-	getAnthropicModel: () => Promise<AnthropicModel>;
-	setAnthropicModel: (value: AnthropicModel) => Promise<AnthropicModel | null>;
+	modelKind$: Writable<ModelKind>;
+	keyOption$: Writable<KeyOption>;
+	openAIKey$: Writable<string | undefined>;
+	openAIModel$: Writable<OpenAIModel>;
+	anthropicKey$: Writable<string | undefined>;
+	anthropicModel$: Writable<AnthropicModel>;
 
 	constructor(gitConfig: GitConfig) {
-		this.getModelKind = gitConfig.buildGetterWithDefault<ModelKind>(
+		this.modelKind$ = gitConfig.buildWritableWithDefault<ModelKind>(
 			modelKindConfigKey,
 			ModelKind.OpenAI
 		);
-		this.setModelKind = gitConfig.buildSetter<ModelKind>(modelKindConfigKey);
-
-		this.getKeyOption = gitConfig.buildGetterWithDefault<KeyOption>(
+		this.keyOption$ = gitConfig.buildWritableWithDefault<KeyOption>(
 			keyOptionConfigKey,
 			KeyOption.ButlerAPI
 		);
-		this.setKeyOption = gitConfig.buildSetter<KeyOption>(keyOptionConfigKey);
-
-		this.getOpenAIKey = gitConfig.buildGetter(openAIKeyConfigKey);
-		this.setOpenAIKey = gitConfig.buildSetter(openAIKeyConfigKey);
-
-		this.getOpenAIModel = gitConfig.buildGetterWithDefault<OpenAIModel>(
+		this.openAIKey$ = gitConfig.buildWritable(openAIKeyConfigKey);
+		this.openAIModel$ = gitConfig.buildWritableWithDefault<OpenAIModel>(
 			openAIModelConfigKey,
 			OpenAIModel.GPT35Turbo
 		);
-		this.setOpenAIModel = gitConfig.buildSetter<OpenAIModel>(openAIModelConfigKey);
-
-		this.getAnthropicKey = gitConfig.buildGetter(anthropicKeyConfigKey);
-		this.setAnthropicKey = gitConfig.buildSetter(anthropicKeyConfigKey);
-
-		this.getAnthropicModel = gitConfig.buildGetterWithDefault<AnthropicModel>(
+		this.anthropicKey$ = gitConfig.buildWritable(anthropicKeyConfigKey);
+		this.anthropicModel$ = gitConfig.buildWritableWithDefault<AnthropicModel>(
 			anthropicModelConfigKey,
 			AnthropicModel.Sonnet
 		);
-		this.setAnthropicModel = gitConfig.buildSetter<AnthropicModel>(anthropicModelConfigKey);
 	}
 }
