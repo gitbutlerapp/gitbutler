@@ -965,6 +965,8 @@ pub enum RemoteError {
 
 #[cfg(test)]
 mod test {
+    use std::path::PathBuf;
+
     use anyhow::Result;
     use pretty_assertions::assert_eq;
 
@@ -985,13 +987,10 @@ mod test {
                 .join("objects/info/alternates"),
         )?;
 
-        assert_eq!(
-            file_content.as_str(),
-            format!(
-                "{}/.git/objects\n",
-                project_repository.path().to_str().unwrap()
-            )
-        );
+        let file_content = PathBuf::from(file_content.trim());
+        let project_path = project_repository.path().to_path_buf().join(".git/objects");
+
+        assert_eq!(file_content, project_path);
 
         Ok(())
     }
