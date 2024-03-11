@@ -62,7 +62,7 @@ export class SummarizerSettings {
 			openAIModelConfigKey,
 			OpenAIModel.GPT35Turbo
 		);
-		this.setOpenAIModel = gitConfig.buildSetter<OpenAIModel>(keyOptionConfigKey);
+		this.setOpenAIModel = gitConfig.buildSetter<OpenAIModel>(openAIModelConfigKey);
 
 		this.getAnthropicKey = gitConfig.buildGetter(anthropicKeyConfigKey);
 		this.setAnthropicKey = gitConfig.buildSetter(anthropicKeyConfigKey);

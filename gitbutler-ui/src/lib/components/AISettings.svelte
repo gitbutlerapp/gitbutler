@@ -12,21 +12,15 @@
 	} from '$lib/backend/summarizerSettings';
 	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import { onMount } from 'svelte';
 
 	export let summarizerSettings = new SummarizerSettings(new GitConfig());
 
 	let modelKind: ModelKind | undefined;
-	summarizerSettings.getModelKind().then((persistedModelKind) => (modelKind = persistedModelKind));
 	$: if (modelKind) summarizerSettings.setModelKind(modelKind);
 	$: if (form && modelKind) form.modelKind.value = modelKind;
 
 	let keyOption: { name: string; value: KeyOption } | undefined;
-	summarizerSettings
-		.getKeyOption()
-		.then(
-			(persistedKeyOption) =>
-				(keyOption = keyOptions.find((option) => option.value == persistedKeyOption))
-		);
 	$: if (keyOption) summarizerSettings.setKeyOption(keyOption.value);
 
 	const keyOptions = [
@@ -41,18 +35,9 @@
 	];
 
 	let openAIKey: string | undefined;
-	summarizerSettings
-		.getOpenAIKey()
-		.then((persistedOpenAIKey) => (openAIKey = persistedOpenAIKey || undefined));
 	$: if (openAIKey) summarizerSettings.setOpenAIKey(openAIKey);
 
 	let openAIModel: { name: string; value: OpenAIModel } | undefined;
-	summarizerSettings
-		.getOpenAIModel()
-		.then(
-			(persistedOpenAIModel) =>
-				(openAIModel = openAIModelOptions.find((option) => option.value == persistedOpenAIModel))
-		);
 	$: if (openAIModel) summarizerSettings.setOpenAIModel(openAIModel.value);
 
 	const openAIModelOptions = [
@@ -71,20 +56,9 @@
 	];
 
 	let anthropicKey: string | undefined;
-	summarizerSettings
-		.getAnthropicKey()
-		.then((persistedAnthropicKey) => (anthropicKey = persistedAnthropicKey || undefined));
 	$: if (anthropicKey) summarizerSettings.setAnthropicKey(anthropicKey);
 
 	let anthropicModel: { name: string; value: AnthropicModel } | undefined;
-	summarizerSettings
-		.getAnthropicModel()
-		.then(
-			(persistedAnthropicModel) =>
-				(anthropicModel = anthropicModelOptions.find(
-					(option) => option.value == persistedAnthropicModel
-				))
-		);
 	$: if (anthropicModel) summarizerSettings.setAnthropicModel(anthropicModel.value);
 
 	const anthropicModelOptions = [
@@ -104,6 +78,25 @@
 		const formData = new FormData(form);
 		modelKind = formData.get('modelKind') as ModelKind;
 	}
+
+	onMount(async () => {
+		modelKind = await summarizerSettings.getModelKind();
+
+		const persistedKeyOption = await summarizerSettings.getKeyOption();
+		keyOption = keyOptions.find((option) => option.value == persistedKeyOption);
+
+		openAIKey = (await summarizerSettings.getOpenAIKey()) || undefined;
+
+		const persistedOpenAIModel = await summarizerSettings.getOpenAIModel();
+		openAIModel = openAIModelOptions.find((option) => option.value == persistedOpenAIModel);
+
+		anthropicKey = (await summarizerSettings.getAnthropicKey()) || undefined;
+
+		const persistedAnthropicModel = await summarizerSettings.getAnthropicModel();
+		anthropicModel = anthropicModelOptions.find(
+			(option) => option.value == persistedAnthropicModel
+		);
+	});
 </script>
 
 <p class="text-base-body-13 ai-settings__text">
