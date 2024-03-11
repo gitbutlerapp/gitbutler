@@ -264,20 +264,19 @@ fn hunks_by_filepath(
                         change_type,
                     });
                 }
-
-                diff_files.insert(
-                    file_path.to_path_buf(),
-                    DiffFile {
-                        old_path: delta.old_file().path().map(std::path::Path::to_path_buf),
-                        new_path: delta.new_file().path().map(std::path::Path::to_path_buf),
-                        hunks: None,
-                        skipped: false,
-                        binary: is_binary,
-                        old_size_bytes: delta.old_file().size(),
-                        new_size_bytes: delta.new_file().size(),
-                    },
-                );
             }
+            diff_files.insert(
+                file_path.to_path_buf(),
+                DiffFile {
+                    old_path: delta.old_file().path().map(std::path::Path::to_path_buf),
+                    new_path: delta.new_file().path().map(std::path::Path::to_path_buf),
+                    hunks: None,
+                    skipped: false,
+                    binary: delta.new_file().is_binary(),
+                    old_size_bytes: delta.old_file().size(),
+                    new_size_bytes: delta.new_file().size(),
+                },
+            );
 
             true
         },
