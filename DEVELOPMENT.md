@@ -204,7 +204,7 @@ We use [Figma](https://www.figma.com/) for our design work.
 If you're a designer (and even if you're not), you want to contribute to the
 design of GitButler, or your work involves UI, you could duplicate our design file.
 
-GitButler design: [Figma file 🎨](https://www.figma.com/file/FbeLt0yjY9RiNn8MXUXsYs/Client-Design?type=design&node-id=0%3A1&mode=design&t=MUDQhR3iOM3DpI9m-1)
+GitButler design: [Figma file](https://www.figma.com/file/FbeLt0yjY9RiNn8MXUXsYs/Client-Design?type=design&node-id=0%3A1&mode=design&t=MUDQhR3iOM3DpI9m-1) 🎨
 
 ---
 
