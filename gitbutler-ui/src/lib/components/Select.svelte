@@ -13,7 +13,12 @@
 	export let labelId = 'label';
 	export let itemId = 'value';
 	export let value: any = undefined;
+	export let selectedItemId: any = undefined;
 	export let placeholder = '';
+
+	$: if (selectedItemId) {
+		value = items.find((item) => item[itemId] == selectedItemId);
+	}
 
 	const SLOTS = $$props.$$slots;
 	const dispatch = createEventDispatcher<{ select: { value: any } }>();
@@ -27,7 +32,7 @@
 	function handleItemClick(item: any) {
 		if (item?.selectable === false) return;
 		if (value && value[itemId] === item[itemId]) return closeList();
-		value = item;
+		selectedItemId = item[itemId];
 		dispatch('select', { value });
 		listOpen = false;
 	}
