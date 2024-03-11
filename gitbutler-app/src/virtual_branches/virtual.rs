@@ -1265,9 +1265,7 @@ pub fn create_virtual_branch(
     let mut all_virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .collect::<Vec<branch::Branch>>();
+        .context("failed to read virtual branches")?;
     all_virtual_branches.sort_by_key(|branch| branch.order);
 
     let order = create
