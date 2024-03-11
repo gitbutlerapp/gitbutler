@@ -18,6 +18,7 @@ pub(crate) mod keys;
 pub(crate) mod lock;
 pub(crate) mod logs;
 pub(crate) mod menu;
+pub(crate) mod path;
 pub(crate) mod project_repository;
 pub(crate) mod projects;
 pub(crate) mod reader;

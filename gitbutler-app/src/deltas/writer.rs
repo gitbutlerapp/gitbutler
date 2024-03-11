@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use anyhow::Result;
 
 use crate::{gb_repository, writer};
@@ -23,7 +25,7 @@ impl<'writer> DeltasWriter<'writer> {
         let raw_deltas = serde_json::to_string(&deltas)?;
 
         self.writer
-            .write_string(&format!("session/deltas/{}", path.display()), &raw_deltas)?;
+            .write_string(PathBuf::from("session/deltas").join(path), &raw_deltas)?;
 
         tracing::debug!(
             project_id = %self.repository.get_project_id(),
@@ -40,8 +42,7 @@ impl<'writer> DeltasWriter<'writer> {
         let _lock = self.repository.lock();
 
         let path = path.as_ref();
-        self.writer
-            .remove(format!("session/wd/{}", path.display()))?;
+        self.writer.remove(PathBuf::from("session/wd").join(path))?;
 
         tracing::debug!(
             project_id = %self.repository.get_project_id(),
@@ -59,7 +60,7 @@ impl<'writer> DeltasWriter<'writer> {
 
         let path = path.as_ref();
         self.writer
-            .write_string(&format!("session/wd/{}", path.display()), contents)?;
+            .write_string(PathBuf::from("session/wd").join(path), contents)?;
 
         tracing::debug!(
             project_id = %self.repository.get_project_id(),

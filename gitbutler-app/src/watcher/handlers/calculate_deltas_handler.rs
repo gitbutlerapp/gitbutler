@@ -72,7 +72,7 @@ impl Handler {
         if !full_path.exists() {
             return Err(reader::Error::NotFound);
         }
-        reader::Content::try_from(&full_path).map_err(Into::into)
+        Ok(reader::Content::read_from_file(&full_path)?)
     }
 
     pub fn handle<P: AsRef<std::path::Path>>(
