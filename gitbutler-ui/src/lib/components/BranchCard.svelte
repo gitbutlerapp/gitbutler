@@ -229,7 +229,7 @@
 						{isUnapplied}
 						isLaneCollapsed={$isLaneCollapsed}
 					/>
-					{#if user?.role == 'admin' && unknownCommits && unknownCommits.length > 0 && !branch.conflicted}
+					{#if unknownCommits && unknownCommits.length > 0 && !branch.conflicted}
 						<UpstreamCommits
 							upstream={upstreamData}
 							branchId={branch.id}
