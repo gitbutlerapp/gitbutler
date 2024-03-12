@@ -208,11 +208,7 @@
 				<MergeButton
 					{projectId}
 					wide
-					disabled={isFetching ||
-						isUnapplied ||
-						!$pr$ ||
-						checksStatus === null ||
-						!checksStatus?.success}
+					disabled={isFetching || isUnapplied || !$pr$ || (!!checksStatus && !checksStatus.success)}
 					loading={isMerging}
 					help="Merge pull request and refresh"
 					on:click={async (e) => {
