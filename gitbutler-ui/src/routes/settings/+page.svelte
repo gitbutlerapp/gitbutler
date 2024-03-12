@@ -11,7 +11,6 @@
 	import TextBox from '$lib/components/TextBox.svelte';
 	import ThemeSelector from '$lib/components/ThemeSelector.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
-	import VideoTip from '$lib/components/VideoTip.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import ProfileSIdebar from '$lib/components/settings/ProfileSIdebar.svelte';
@@ -46,8 +45,6 @@
 	let sshKey = '';
 
 	let deleteConfirmationModal: Modal;
-
-	let scrollbarVisabilityVideoPlaying = false;
 
 	$: saving = false;
 	$: userPicture = $user$?.picture;
@@ -189,13 +186,7 @@
 				<ThemeSelector {userSettings} />
 			</SectionCard>
 
-			<SectionCard
-				labelFor="hoverScrollbarVisability"
-				orientation="row"
-				on:hover={(e) => {
-					scrollbarVisabilityVideoPlaying = e.detail;
-				}}
-			>
+			<SectionCard labelFor="hoverScrollbarVisability" orientation="row">
 				<svelte:fragment slot="title">Dynamic scrollbar visibility on hover</svelte:fragment>
 				<svelte:fragment slot="caption">
 					When turned on, this feature shows the scrollbar automatically when you hover over the
