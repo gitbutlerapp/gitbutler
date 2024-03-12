@@ -198,7 +198,7 @@
 			>
 				<svelte:fragment slot="iconSide">
 					<VideoTip
-						src="/video-tips/scrollbar-on-hover.webm"
+						src="/video-tips/scrollbar-on-hover.mp4"
 						playing={scrollbarVisabilityVideoPlaying}
 					/>
 				</svelte:fragment>
