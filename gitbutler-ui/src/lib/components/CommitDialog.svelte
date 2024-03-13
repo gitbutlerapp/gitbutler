@@ -4,6 +4,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
@@ -22,7 +23,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { get } from 'svelte/store';
-	import { slide } from 'svelte/transition';
+	import { fly, slide } from 'svelte/transition';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
@@ -249,6 +250,19 @@
 					/>
 				{/if}
 
+				{#if commitMessageSet.summary.length > 50}
+					<div
+						transition:fly={{ y: 2, duration: 150 }}
+						class="commit-box__textarea-tooltip"
+						use:tooltip={{
+							text: '50 characters or less is best. Extra info can be added in the description.',
+							delay: 200
+						}}
+					>
+						<Icon name="blitz" />
+					</div>
+				{/if}
+
 				<div
 					class="commit-box__texarea-actions"
 					use:tooltip={$aiGenEnabled && user
@@ -367,6 +381,17 @@
 		&:focus {
 			outline: none;
 		}
+	}
+
+	.commit-box__textarea-tooltip {
+		position: absolute;
+		display: flex;
+		bottom: var(--space-12);
+		left: var(--space-12);
+		padding: var(--space-2);
+		border-radius: 100%;
+		background: var(--clr-theme-container-pale);
+		color: var(--clr-theme-scale-ntrl-40);
 	}
 
 	.commit-box__textarea__title {
