@@ -1,6 +1,6 @@
 import { isLoading, invoke } from './ipc';
 import { nanoid } from 'nanoid';
-import type { PromptMessage } from '$lib/backend/aiProviders';
+import type { PromptMessage } from '$lib/backend/aiClient';
 import { PUBLIC_API_BASE_URL, PUBLIC_CHAIN_API } from '$env/static/public';
 
 const apiUrl = new URL('/api/', new URL(PUBLIC_API_BASE_URL));

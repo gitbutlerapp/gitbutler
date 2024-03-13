@@ -1,4 +1,6 @@
-import { ButlerAIProvider, OpenAIProvider, AnthropicAIProvider } from './aiProviders';
+import { AnthropicAIClient } from '$lib/backend/aiClients/anthropic';
+import { ButlerAIClient } from '$lib/backend/aiClients/butler';
+import { OpenAIClient } from '$lib/backend/aiClients/openAI';
 import OpenAI from 'openai';
 import { get, writable, type Writable } from 'svelte/store';
 import type { User, getCloudApiClient } from './cloud';
@@ -88,7 +90,7 @@ export class AIService {
 
 			// TODO: Provide feedback to user
 			if (!user) return;
-			return new ButlerAIProvider(this.cloud, user, ModelKind.OpenAI);
+			return new ButlerAIClient(this.cloud, user, ModelKind.OpenAI);
 		}
 
 		if (modelKind == ModelKind.OpenAI) {
@@ -101,7 +103,7 @@ export class AIService {
 			if (!openAIKey) return;
 
 			const openAI = new OpenAI({ apiKey: openAIKey, dangerouslyAllowBrowser: true });
-			return new OpenAIProvider(openAIModelName, openAI);
+			return new OpenAIClient(openAIModelName, openAI);
 		}
 		if (modelKind == ModelKind.Anthropic) {
 			const anthropicModelName =
@@ -112,7 +114,7 @@ export class AIService {
 			// TODO: Provide feedback to user
 			if (!anthropicKey) return;
 
-			return new AnthropicAIProvider(anthropicKey, anthropicModelName);
+			return new AnthropicAIClient(anthropicKey, anthropicModelName);
 		}
 	}
 
