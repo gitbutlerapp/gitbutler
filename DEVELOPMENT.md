@@ -28,6 +28,7 @@ you right. Let's get started.
     - [Versioning](#versioning)
     - [Publishing](#publishing)
 - [Development mode OAuth login](#development-mode-oauth-login)
+- [Joining the GitButler Team](#joining-the-gitbutler-team)
 
 
 ---
@@ -256,3 +257,14 @@ By default, you will not be able to log into GitButler using Github/Google becau
 ```
 PUBLIC_API_BASE_URL=https://app.gitbutler.com/
 ```
+
+---
+
+## Joining the GitButler Team
+
+If you are interested in joining our small but tightly knit engineering team, we are currenly looking for the following roles:
+
+- [Senior Rust developer](https://gitbutler.homerun.co/senior-rust-developer) (Onsite Berlin)
+- [Senior TypeScript developer](https://gitbutler.homerun.co/senior-typescript-developer) (Onsite Berlin)
+- [Senior Rails developer](https://gitbutler.homerun.co/senior-rails-developer) (Onsite Berlin)
+
