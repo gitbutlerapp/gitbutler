@@ -95,8 +95,8 @@
 	function getChecksIcon(status: ChecksStatus): keyof typeof iconsJson | undefined {
 		if (isFetching) return 'spinner';
 
+		if (!status) return 'spinner';
 		if (status?.error) return 'error-small';
-		if (!status) return;
 		if (status && !status.hasChecks) return;
 		if (status.completed) {
 			return status.success ? 'success-small' : 'error-small';
@@ -107,7 +107,7 @@
 
 	function statusToTagText(status: ChecksStatus | undefined): string | undefined {
 		if (status?.error) return 'error';
-		if (!status) return;
+		if (!status) return 'Checks';
 		if (status && !status.hasChecks) return 'No checks';
 		if (status.completed) {
 			return status.success ? 'Checks passed' : 'Checks failed';
