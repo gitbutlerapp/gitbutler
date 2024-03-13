@@ -19,6 +19,7 @@
 	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { setAutoHeight, useAutoHeight } from '$lib/utils/useAutoHeight';
+	import { useResize } from '$lib/utils/useResize';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { createEventDispatcher } from 'svelte';
 	import { quintOut } from 'svelte/easing';
@@ -48,11 +49,11 @@
 	function getCommitMessageTitleAndDescription(commitMessage: string) {
 		// Split the commit message into title and description
 		// get the first line as title and the rest as description
-		const [summary, ...description] = commitMessage.trim().split(/\n+(.*)/s);
+		const [summary, description] = commitMessage.trim().split(/\n+(.*)/s);
 		console.log('summary and description', summary, description);
 		return {
 			summary: summary || '',
-			description: description[0] || ''
+			description: description || ''
 		};
 	}
 
@@ -178,6 +179,10 @@
 					bind:this={summaryTextareaElement}
 					bind:value={commitMessageSet.summary}
 					use:focusTextareaOnMount
+					use:useResize={() => {
+						setAutoHeight(summaryTextareaElement);
+						setAutoHeight(descriptionTextareaElement);
+					}}
 					on:input={useAutoHeight}
 					on:focus={(e) => {
 						useAutoHeight(e);
