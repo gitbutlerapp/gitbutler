@@ -1,66 +1,175 @@
 import { ButlerAIProvider, OpenAIProvider, AnthropicAIProvider } from './aiProviders';
-import { Summarizer } from './summarizer';
-import { KeyOption, ModelKind } from './summarizerSettings';
 import OpenAI from 'openai';
-import { derived, writable, type Readable } from 'svelte/store';
+import { get, writable, type Writable } from 'svelte/store';
 import type { User, getCloudApiClient } from './cloud';
-import type { AllSummarizerSettings, SummarizerSettings } from './summarizerSettings';
+import type { GitConfig } from './gitConfig';
 import type { Observable } from 'rxjs';
 
+const diffLengthLimit = 20000;
+
+const defaultCommitTemplate = `
+Please could you write a commit message for my changes.
+Explain what were the changes and why the changes were done.
+Focus the most important changes.
+Use the present tense.
+Always use semantic commit prefixes.
+Hard wrap lines at 72 characters.
+Only respond with the commit message.
+%{brief_style}
+%{emoji_style}
+
+Here is my git diff:
+%{diff}
+`;
+
+const defaultBranchTemplate = `
+Please could you write a branch name for my changes.
+A branch name represent a brief description of the changes in the diff (branch).
+Branch names should contain no whitespace and instead use dashes to separate words.
+Branch names should contain a maximum of 5 words.
+
+Here is my git diff:
+%{diff}
+`;
+
+export enum ModelKind {
+	OpenAI = 'openai',
+	Anthropic = 'anthropic'
+}
+
+export enum KeyOption {
+	BringYourOwn = 'bringYourOwn',
+	ButlerAPI = 'butlerAPI'
+}
+
+export enum OpenAIModel {
+	GPT35Turbo = 'gpt-3.5-turbo',
+	GPT4 = 'gpt-4',
+	GPT4Turbo = 'gpt-4-turbo-preview'
+}
+
+export enum AnthropicModel {
+	Opus = 'claude-3-opus-20240229',
+	Sonnet = 'claude-3-sonnet-20240229'
+}
+
+export const AI_SERVICE_CONTEXT = Symbol();
+
 export class AIService {
-	public summarizer$: Readable<Summarizer | undefined>;
+	private user$: Writable<User | undefined>;
 
 	constructor(
-		summarizerSettings: SummarizerSettings,
+		private gitConfig: GitConfig,
 		private cloud: ReturnType<typeof getCloudApiClient>,
 		user$: Observable<User | undefined>
 	) {
-		this.summarizer$ = derived(
-			[summarizerSettings.all$, this.observableToStore(user$)],
-			([summarizerSettings, user]) => this.buildSummarizer(summarizerSettings, user)
-		);
+		this.user$ = writable<User | undefined>();
+
+		user$.subscribe((user) => this.user$.set(user));
 	}
 
 	// This optionally returns a summarizer. There are a few conditions for how this may occur
 	// Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
 	// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
-	buildSummarizer(allSummarizerSettings: AllSummarizerSettings, user: User | undefined) {
-		const modelKind = allSummarizerSettings.modelKind;
-		const keyOption = allSummarizerSettings.keyOption;
+	async buildClient() {
+		const modelKind =
+			(await this.gitConfig.get<ModelKind>('gitbutler.aiModelProvider')) || ModelKind.OpenAI;
+		const openAIKeyOption =
+			(await this.gitConfig.get<KeyOption>('gitbutler.aiOpenAIKeyOption')) || KeyOption.ButlerAPI;
+		const anthropicKeyOption =
+			(await this.gitConfig.get<KeyOption>('gitbutler.aiAnthropicKeyOption')) ||
+			KeyOption.ButlerAPI;
 
-		if (keyOption === KeyOption.ButlerAPI) {
+		if (
+			(modelKind == ModelKind.OpenAI && openAIKeyOption == KeyOption.ButlerAPI) ||
+			(modelKind == ModelKind.Anthropic && anthropicKeyOption == KeyOption.ButlerAPI)
+		) {
+			const user = get(this.user$);
+
+			// TODO: Provide feedback to user
 			if (!user) return;
-
-			const aiProvider = new ButlerAIProvider(this.cloud, user, modelKind);
-			return new Summarizer(aiProvider);
+			return new ButlerAIProvider(this.cloud, user, ModelKind.OpenAI);
 		}
 
 		if (modelKind == ModelKind.OpenAI) {
-			const openAIKey = allSummarizerSettings.openAIKey;
+			const openAIModelName =
+				(await this.gitConfig.get<OpenAIModel>('gitbutler.aiOpenAIModelName')) ||
+				OpenAIModel.GPT35Turbo;
+			const openAIKey = await this.gitConfig.get('gitbutler.aiOpenAIKey');
 
+			// TODO: Provide feedback to user
 			if (!openAIKey) return;
 
-			const openAIModel = allSummarizerSettings.openAIModel;
 			const openAI = new OpenAI({ apiKey: openAIKey, dangerouslyAllowBrowser: true });
-			const aiProvider = new OpenAIProvider(openAIModel, openAI);
-			return new Summarizer(aiProvider);
+			return new OpenAIProvider(openAIModelName, openAI);
 		}
-
 		if (modelKind == ModelKind.Anthropic) {
-			const anthropicKey = allSummarizerSettings.anthropicKey;
+			const anthropicModelName =
+				(await this.gitConfig.get<AnthropicModel>('gitbutler.aiAnthropicModelName')) ||
+				AnthropicModel.Sonnet;
+			const anthropicKey = await this.gitConfig.get('gitbutler.aiAnthropicKey');
 
+			// TODO: Provide feedback to user
 			if (!anthropicKey) return;
 
-			const anthropicModel = allSummarizerSettings.anthropicModel;
-			const aiProvider = new AnthropicAIProvider(anthropicKey, anthropicModel);
-			return new Summarizer(aiProvider);
+			return new AnthropicAIProvider(anthropicKey, anthropicModelName);
 		}
 	}
 
-	private observableToStore<T>(observable: Observable<T>) {
-		const output = writable<T>();
-		observable.subscribe((value) => output.set(value));
+	async commit(
+		diff: string,
+		useEmojiStyle: boolean,
+		useBriefStyle: boolean,
+		commitTemplate?: string
+	) {
+		const aiClient = await this.buildClient();
+		if (!aiClient) return;
 
-		return output;
+		let prompt = (commitTemplate || defaultCommitTemplate).replaceAll(
+			'%{diff}',
+			diff.slice(0, diffLengthLimit)
+		);
+
+		if (useBriefStyle) {
+			prompt = prompt.replaceAll(
+				'%{brief_style}',
+				'The commit message must be only one sentence and as short as possible.'
+			);
+		} else {
+			prompt = prompt.replaceAll('%{brief_style}', '');
+		}
+		if (useEmojiStyle) {
+			prompt = prompt.replaceAll('%{emoji_style}', 'Make use of GitMoji in the title prefix.');
+		} else {
+			prompt = prompt.replaceAll('%{emoji_style}', "Don't use any emoji.");
+		}
+
+		let message = await aiClient.evaluate(prompt);
+
+		if (useBriefStyle) {
+			message = message.split('\n')[0];
+		}
+
+		const firstNewLine = message.indexOf('\n');
+		const summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
+		const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
+
+		return description.length > 0 ? `${summary}\n\n${description}` : summary;
+	}
+
+	async branch(diff: string, branchTemplate?: string) {
+		const aiClient = await this.buildClient();
+		if (!aiClient) return;
+
+		const prompt = (branchTemplate || defaultBranchTemplate).replaceAll(
+			'%{diff}',
+			diff.slice(0, diffLengthLimit)
+		);
+
+		let message = await aiClient.evaluate(prompt);
+
+		message = message.replaceAll(' ', '-');
+		message = message.replaceAll('\n', '-');
+		return message;
 	}
 }
