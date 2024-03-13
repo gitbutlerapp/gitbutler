@@ -1,4 +1,8 @@
-use std::{collections::HashMap, path, time, vec};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    time, vec,
+};
 
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::*;
@@ -28,12 +32,12 @@ use super::{
     branch_to_remote_branch, context, errors, target, Iterator, RemoteBranch,
 };
 
-type AppliedStatuses = Vec<(branch::Branch, HashMap<path::PathBuf, Vec<diff::Hunk>>)>;
+type AppliedStatuses = Vec<(branch::Branch, HashMap<PathBuf, Vec<diff::Hunk>>)>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("path contains invalid utf-8 characters: {0}")]
-    InvalidUnicodePath(path::PathBuf),
+    InvalidUnicodePath(PathBuf),
 }
 
 // this struct is a mapping to the view `Branch` type in Typescript
@@ -106,7 +110,7 @@ pub struct VirtualBranchCommit {
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchFile {
     pub id: String,
-    pub path: path::PathBuf,
+    pub path: PathBuf,
     pub hunks: Vec<VirtualBranchHunk>,
     pub modified_at: u128,
     pub conflicted: bool,
@@ -128,7 +132,7 @@ pub struct VirtualBranchHunk {
     pub id: String,
     pub diff: String,
     pub modified_at: u128,
-    pub file_path: path::PathBuf,
+    pub file_path: PathBuf,
     pub hash: String,
     pub old_start: u32,
     pub start: u32,
@@ -497,7 +501,7 @@ pub fn unapply_ownership(
     let hunks_to_unapply = applied_statuses
         .iter()
         .map(
-            |(branch, branch_files)| -> Result<Vec<(std::path::PathBuf, diff::Hunk)>> {
+            |(branch, branch_files)| -> Result<Vec<(PathBuf, diff::Hunk)>> {
                 let branch_files = calculate_non_commited_diffs(
                     project_repository,
                     branch,
@@ -595,14 +599,14 @@ pub fn reset_files(
     let repo = &project_repository.git_repository;
     let index = repo.index().context("failed to get index")?;
     for file in files {
-        let entry = index.get_path(path::Path::new(file), 0);
+        let entry = index.get_path(Path::new(file), 0);
         if entry.is_some() {
-            repo.checkout_index_path(path::Path::new(file))
+            repo.checkout_index_path(Path::new(file))
                 .context("failed to checkout index")?;
         } else {
             // find the project root
             let project_root = &project_repository.project().path;
-            let path = path::Path::new(file);
+            let path = Path::new(file);
             //combine the project root with the file path
             let path = &project_root.join(path);
             std::fs::remove_file(path).context("failed to remove file")?;
@@ -1122,8 +1126,8 @@ pub fn calculate_non_commited_diffs(
     project_repository: &project_repository::Repository,
     branch: &branch::Branch,
     default_target: &target::Target,
-    files: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
-) -> Result<HashMap<path::PathBuf, Vec<diff::Hunk>>> {
+    files: &HashMap<PathBuf, Vec<diff::Hunk>>,
+) -> Result<HashMap<PathBuf, Vec<diff::Hunk>>> {
     if default_target.sha == branch.head && !branch.applied {
         return Ok(files.clone());
     };
@@ -1369,7 +1373,7 @@ pub fn merge_virtual_branch_upstream(
     signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
 ) -> Result<(), errors::MergeVirtualBranchUpstreamError> {
-    if conflicts::is_conflicting(project_repository, None)? {
+    if conflicts::is_conflicting::<&Path>(project_repository, None)? {
         return Err(errors::MergeVirtualBranchUpstreamError::Conflict(
             errors::ProjectConflictError {
                 project_id: project_repository.project().id,
@@ -1802,7 +1806,7 @@ fn set_ownership(
     Ok(())
 }
 
-fn get_mtime(cache: &mut HashMap<path::PathBuf, u128>, file_path: &path::PathBuf) -> u128 {
+fn get_mtime(cache: &mut HashMap<PathBuf, u128>, file_path: &PathBuf) -> u128 {
     if let Some(mtime) = cache.get(file_path) {
         *mtime
     } else {
@@ -1836,10 +1840,10 @@ fn diff_hash(diff: &str) -> String {
 }
 
 pub fn virtual_hunks_by_filepath(
-    project_path: &path::Path,
-    diff: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
-) -> HashMap<path::PathBuf, Vec<VirtualBranchHunk>> {
-    let mut mtimes: HashMap<path::PathBuf, u128> = HashMap::new();
+    project_path: &Path,
+    diff: &HashMap<PathBuf, Vec<diff::Hunk>>,
+) -> HashMap<PathBuf, Vec<VirtualBranchHunk>> {
+    let mut mtimes: HashMap<PathBuf, u128> = HashMap::new();
     diff.iter()
         .map(|(file_path, hunks)| {
             let hunks = hunks
@@ -1864,7 +1868,7 @@ pub fn virtual_hunks_by_filepath(
         .collect::<HashMap<_, _>>()
 }
 
-pub type BranchStatus = HashMap<path::PathBuf, Vec<diff::Hunk>>;
+pub type BranchStatus = HashMap<PathBuf, Vec<diff::Hunk>>;
 
 // list the virtual branches and their file statuses (statusi?)
 #[allow(clippy::type_complexity)]
@@ -1937,7 +1941,7 @@ fn get_non_applied_status(
     virtual_branches
         .into_iter()
         .map(
-            |branch| -> Result<(branch::Branch, HashMap<path::PathBuf, Vec<diff::Hunk>>)> {
+            |branch| -> Result<(branch::Branch, HashMap<PathBuf, Vec<diff::Hunk>>)> {
                 if branch.applied {
                     bail!("branch {} is applied", branch.name);
                 }
@@ -1983,7 +1987,7 @@ fn get_applied_status(
     )
     .context("failed to diff workdir")?;
 
-    let mut diff: HashMap<path::PathBuf, Vec<git::diff::Hunk>> = HashMap::new();
+    let mut diff: HashMap<PathBuf, Vec<git::diff::Hunk>> = HashMap::new();
     let mut skipped_files: Vec<diff::DiffFile> = Vec::new();
     for (file_path, diff_file) in diff_files {
         if diff_file.skipped {
@@ -2010,7 +2014,7 @@ fn get_applied_status(
     // - update shifted hunks
     // - remove non existent hunks
 
-    let mut hunks_by_branch_id: HashMap<BranchId, HashMap<path::PathBuf, Vec<diff::Hunk>>> =
+    let mut hunks_by_branch_id: HashMap<BranchId, HashMap<PathBuf, Vec<diff::Hunk>>> =
         virtual_branches
             .iter()
             .map(|branch| (branch.id, HashMap::new()))
@@ -2176,7 +2180,7 @@ fn virtual_hunks_to_virtual_files(
 ) -> Vec<VirtualBranchFile> {
     hunks
         .iter()
-        .fold(HashMap::<path::PathBuf, Vec<_>>::new(), |mut acc, hunk| {
+        .fold(HashMap::<PathBuf, Vec<_>>::new(), |mut acc, hunk| {
             acc.entry(hunk.file_path.clone())
                 .or_default()
                 .push(hunk.clone());
@@ -2258,7 +2262,7 @@ pub fn reset_branch(
 
 fn diffs_to_virtual_files(
     project_repository: &project_repository::Repository,
-    diffs: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
+    diffs: &HashMap<PathBuf, Vec<diff::Hunk>>,
 ) -> Vec<VirtualBranchFile> {
     let hunks_by_filepath = virtual_hunks_by_filepath(&project_repository.project().path, diffs);
     virtual_hunks_to_virtual_files(
@@ -2277,7 +2281,7 @@ fn diffs_to_virtual_files(
 pub fn write_tree(
     project_repository: &project_repository::Repository,
     target: &target::Target,
-    files: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
+    files: &HashMap<PathBuf, Vec<diff::Hunk>>,
 ) -> Result<git::Oid> {
     write_tree_onto_commit(project_repository, target.sha, files)
 }
@@ -2285,7 +2289,7 @@ pub fn write_tree(
 pub fn write_tree_onto_commit(
     project_repository: &project_repository::Repository,
     commit_oid: git::Oid,
-    files: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
+    files: &HashMap<PathBuf, Vec<diff::Hunk>>,
 ) -> Result<git::Oid> {
     // read the base sha into an index
     let git_repository = &project_repository.git_repository;
@@ -2299,14 +2303,14 @@ pub fn write_tree_onto_commit(
 pub fn write_tree_onto_tree(
     project_repository: &project_repository::Repository,
     base_tree: &git::Tree,
-    files: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
+    files: &HashMap<PathBuf, Vec<diff::Hunk>>,
 ) -> Result<git::Oid> {
     let git_repository = &project_repository.git_repository;
     let mut builder = git_repository.treebuilder(Some(base_tree));
     // now update the index with content in the working directory for each file
     for (filepath, hunks) in files {
         // convert this string to a Path
-        let rel_path = std::path::Path::new(&filepath);
+        let rel_path = Path::new(&filepath);
         let full_path = project_repository.path().join(rel_path);
 
         let is_submodule =
@@ -2503,7 +2507,7 @@ pub fn commit(
         })?;
 
     let files = calculate_non_commited_diffs(project_repository, branch, &default_target, files)?;
-    if conflicts::is_conflicting(project_repository, None)? {
+    if conflicts::is_conflicting::<&Path>(project_repository, None)? {
         return Err(errors::CommitError::Conflicted(
             errors::ProjectConflictError {
                 project_id: project_repository.project().id,
@@ -2887,7 +2891,7 @@ pub fn amend(
     branch_id: &BranchId,
     target_ownership: &Ownership,
 ) -> Result<git::Oid, errors::AmendError> {
-    if conflicts::is_conflicting(project_repository, None)? {
+    if conflicts::is_conflicting::<&Path>(project_repository, None)? {
         return Err(errors::AmendError::Conflict(errors::ProjectConflictError {
             project_id: project_repository.project().id,
         }));
@@ -3056,7 +3060,7 @@ pub fn cherry_pick(
     branch_id: &BranchId,
     target_commit_oid: git::Oid,
 ) -> Result<Option<git::Oid>, errors::CherryPickError> {
-    if conflicts::is_conflicting(project_repository, None)? {
+    if conflicts::is_conflicting::<&Path>(project_repository, None)? {
         return Err(errors::CherryPickError::Conflict(
             errors::ProjectConflictError {
                 project_id: project_repository.project().id,
@@ -3245,7 +3249,7 @@ pub fn squash(
     branch_id: &BranchId,
     commit_oid: git::Oid,
 ) -> Result<(), errors::SquashError> {
-    if conflicts::is_conflicting(project_repository, None)? {
+    if conflicts::is_conflicting::<&Path>(project_repository, None)? {
         return Err(errors::SquashError::Conflict(
             errors::ProjectConflictError {
                 project_id: project_repository.project().id,
@@ -3437,7 +3441,7 @@ pub fn update_commit_message(
         return Err(errors::UpdateCommitMessageError::EmptyMessage);
     }
 
-    if conflicts::is_conflicting(project_repository, None)? {
+    if conflicts::is_conflicting::<&Path>(project_repository, None)? {
         return Err(errors::UpdateCommitMessageError::Conflict(
             errors::ProjectConflictError {
                 project_id: project_repository.project().id,

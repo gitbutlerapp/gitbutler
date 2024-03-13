@@ -20,7 +20,6 @@
 
 	let isMerging = false;
 	let isFetching = false;
-	// Null means we successfully checked for
 	let checksStatus: ChecksStatus | null | undefined;
 
 	$: pr$ = githubService.get(branch.upstreamName);
@@ -81,23 +80,22 @@
 
 	$: if ($pr$) fetchPrStatus();
 
-	function getChecksColor(status: ChecksStatus): TagColor {
-		if (status?.error) return 'error';
-		if (!status) return 'light';
-		if (status && !status.hasChecks) return 'ghost';
+	// TODO: Refactor away the code duplication in the following functions
+	function getChecksColor(status: ChecksStatus): TagColor | undefined {
+		if (!status) return;
+		if (!status.hasChecks) return 'ghost';
+		if (status.error) return 'error';
 		if (status.completed) {
 			return status.success ? 'success' : 'error';
 		}
-
 		return 'warning';
 	}
 
 	function getChecksIcon(status: ChecksStatus): keyof typeof iconsJson | undefined {
 		if (isFetching) return 'spinner';
-
-		if (status?.error) return 'error-small';
 		if (!status) return;
-		if (status && !status.hasChecks) return;
+		if (!status.hasChecks) return;
+		if (status.error) return 'error-small';
 		if (status.completed) {
 			return status.success ? 'success-small' : 'error-small';
 		}
@@ -106,12 +104,15 @@
 	}
 
 	function statusToTagText(status: ChecksStatus | undefined): string | undefined {
-		if (status?.error) return 'error';
 		if (!status) return;
-		if (status && !status.hasChecks) return 'No checks';
+		if (!status.hasChecks) return 'No checks';
+		if (status.error) return 'error';
 		if (status.completed) {
 			return status.success ? 'Checks passed' : 'Checks failed';
 		}
+		// Checking this second to last let's us keep the previous tag color unless
+		// checks are currently running.
+		if (isFetching) return 'Checks';
 		return 'Checks are running';
 	}
 
