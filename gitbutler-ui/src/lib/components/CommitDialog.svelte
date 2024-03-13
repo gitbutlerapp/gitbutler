@@ -174,8 +174,7 @@
 		<div class="commit-box__expander" transition:slide={{ duration: 150, easing: quintOut }}>
 			<div
 				class="commit-box__textarea-wrapper text-input"
-				class:text-input__focused={$expanded &&
-					(isTextareaFocused || isSecondTextareaFocused)}
+				class:text-input__focused={$expanded && (isTextareaFocused || isSecondTextareaFocused)}
 			>
 				<textarea
 					bind:this={summaryTextareaElement}
@@ -201,8 +200,8 @@
 					}}
 					spellcheck={false}
 					class="text-base-body-14 commit-box__textarea commit-box__textarea__title"
-					class:commit-box__textarea_bottom-padding={commitMessageSet.description
-						.length == 0 && commitMessageSet.summary.length == 0}
+					class:commit-box__textarea_bottom-padding={commitMessageSet.description.length == 0 &&
+						commitMessageSet.summary.length == 0}
 					rows="1"
 					disabled={isGeneratingCommitMessage}
 					placeholder="Commit summary"
@@ -222,8 +221,7 @@
 						use:setAutoHeight
 						spellcheck={false}
 						class="text-base-body-13 commit-box__textarea commit-box__textarea__description"
-						class:commit-box__textarea_bottom-padding={commitMessageSet.summary.length >
-							0}
+						class:commit-box__textarea_bottom-padding={commitMessageSet.summary.length > 0}
 						rows="1"
 						disabled={isGeneratingCommitMessage}
 						placeholder="Commit description (optional)"
@@ -241,10 +239,7 @@
 							) {
 								e.preventDefault();
 								summaryTextareaElement.focus();
-								summaryTextareaElement.setSelectionRange(
-									0,
-									summaryTextareaElement.value.length
-								);
+								summaryTextareaElement.setSelectionRange(0, summaryTextareaElement.value.length);
 							}
 						}}
 					/>
@@ -282,27 +277,16 @@
 							<ContextMenuSection>
 								<ContextMenuItem
 									label="Extra concise"
-									on:click={() =>
-										($commitGenerationExtraConcise =
-											!$commitGenerationExtraConcise)}
+									on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
 								>
-									<Checkbox
-										small
-										slot="control"
-										bind:checked={$commitGenerationExtraConcise}
-									/>
+									<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
 								</ContextMenuItem>
 
 								<ContextMenuItem
 									label="Use emojis 😎"
-									on:click={() =>
-										($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+									on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
 								>
-									<Checkbox
-										small
-										slot="control"
-										bind:checked={$commitGenerationUseEmojis}
-									/>
+									<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
 								</ContextMenuItem>
 							</ContextMenuSection>
 						</ContextMenu>
