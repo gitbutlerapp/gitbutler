@@ -44,13 +44,13 @@ export enum KeyOption {
 	ButlerAPI = 'butlerAPI'
 }
 
-export enum OpenAIModel {
+export enum OpenAIModelName {
 	GPT35Turbo = 'gpt-3.5-turbo',
 	GPT4 = 'gpt-4',
 	GPT4Turbo = 'gpt-4-turbo-preview'
 }
 
-export enum AnthropicModel {
+export enum AnthropicModelName {
 	Opus = 'claude-3-opus-20240229',
 	Sonnet = 'claude-3-sonnet-20240229'
 }
@@ -95,8 +95,8 @@ export class AIService {
 
 		if (modelKind == ModelKind.OpenAI) {
 			const openAIModelName =
-				(await this.gitConfig.get<OpenAIModel>('gitbutler.aiOpenAIModelName')) ||
-				OpenAIModel.GPT35Turbo;
+				(await this.gitConfig.get<OpenAIModelName>('gitbutler.aiOpenAIModelName')) ||
+				OpenAIModelName.GPT35Turbo;
 			const openAIKey = await this.gitConfig.get('gitbutler.aiOpenAIKey');
 
 			// TODO: Provide feedback to user
@@ -107,8 +107,8 @@ export class AIService {
 		}
 		if (modelKind == ModelKind.Anthropic) {
 			const anthropicModelName =
-				(await this.gitConfig.get<AnthropicModel>('gitbutler.aiAnthropicModelName')) ||
-				AnthropicModel.Sonnet;
+				(await this.gitConfig.get<AnthropicModelName>('gitbutler.aiAnthropicModelName')) ||
+				AnthropicModelName.Sonnet;
 			const anthropicKey = await this.gitConfig.get('gitbutler.aiAnthropicKey');
 
 			// TODO: Provide feedback to user

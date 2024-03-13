@@ -2,7 +2,12 @@
 	import Select from './Select.svelte';
 	import SelectItem from './SelectItem.svelte';
 	import TextBox from './TextBox.svelte';
-	import { AnthropicModel, KeyOption, ModelKind, OpenAIModel } from '$lib/backend/aiService';
+	import {
+		AnthropicModelName,
+		KeyOption,
+		ModelKind,
+		OpenAIModelName
+	} from '$lib/backend/aiService';
 	import { GIT_CONFING_CONTEXT, GitConfig } from '$lib/backend/gitConfig';
 	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
@@ -18,11 +23,11 @@
 	$: gitConfig.set('gitbutler.aiAnthropicKeyOption', anthropicKeyOption);
 	let openAIKey: string | undefined;
 	$: if (openAIKey) gitConfig.set('gitbutler.aiOpenAIKey', openAIKey);
-	let openAIModelName: OpenAIModel;
+	let openAIModelName: OpenAIModelName;
 	$: gitConfig.set('gitbutler.aiOpenAIModelName', openAIModelName);
 	let anthropicKey: string | undefined;
 	$: if (anthropicKey) gitConfig.set('gitbutler.aiAnthropicKey', anthropicKey);
-	let anthropicModelName: AnthropicModel;
+	let anthropicModelName: AnthropicModelName;
 	$: gitConfig.set('gitbutler.aiAnthropicModelName', anthropicModelName);
 
 	onMount(async () => {
@@ -32,11 +37,12 @@
 		anthropicKeyOption =
 			(await gitConfig.get<KeyOption>('gitbutler.aiAnthropicKeyOption')) || KeyOption.ButlerAPI;
 		openAIModelName =
-			(await gitConfig.get<OpenAIModel>('gitbutler.aiOpenAIModelName')) || OpenAIModel.GPT35Turbo;
+			(await gitConfig.get<OpenAIModelName>('gitbutler.aiOpenAIModelName')) ||
+			OpenAIModelName.GPT35Turbo;
 		openAIKey = (await gitConfig.get('gitbutler.aiOpenAIKey')) || undefined;
 		anthropicModelName =
-			(await gitConfig.get<AnthropicModel>('gitbutler.aiAnthropicModelName')) ||
-			AnthropicModel.Sonnet;
+			(await gitConfig.get<AnthropicModelName>('gitbutler.aiAnthropicModelName')) ||
+			AnthropicModelName.Sonnet;
 		anthropicKey = (await gitConfig.get('gitbutler.aiAnthropicKey')) || undefined;
 	});
 
@@ -56,26 +62,26 @@
 	const openAIModelOptions = [
 		{
 			name: 'GPT 3.5 Turbo',
-			value: OpenAIModel.GPT35Turbo
+			value: OpenAIModelName.GPT35Turbo
 		},
 		{
 			name: 'GPT 4',
-			value: OpenAIModel.GPT4
+			value: OpenAIModelName.GPT4
 		},
 		{
 			name: 'GPT 4 Turbo',
-			value: OpenAIModel.GPT4Turbo
+			value: OpenAIModelName.GPT4Turbo
 		}
 	];
 
 	const anthropicModelOptions = [
 		{
 			name: 'Sonnet',
-			value: AnthropicModel.Sonnet
+			value: AnthropicModelName.Sonnet
 		},
 		{
 			name: 'Opus',
-			value: AnthropicModel.Opus
+			value: AnthropicModelName.Opus
 		}
 	];
 

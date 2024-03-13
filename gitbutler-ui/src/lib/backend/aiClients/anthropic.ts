@@ -1,13 +1,13 @@
 import { type AIClient, type PromptMessage, MessageRole } from '$lib/backend/aiClient';
 import { fetch, Body } from '@tauri-apps/api/http';
-import type { AnthropicModel } from '$lib/backend/aiService';
+import type { AnthropicModelName } from '$lib/backend/aiService';
 
 type AnthropicAPIResponse = { content: { text: string }[] };
 
 export class AnthropicAIClient implements AIClient {
 	constructor(
 		private apiKey: string,
-		private model: AnthropicModel
+		private modelName: AnthropicModelName
 	) {}
 
 	async evaluate(prompt: string) {
@@ -16,7 +16,7 @@ export class AnthropicAIClient implements AIClient {
 		const body = Body.json({
 			messages,
 			max_tokens: 1024,
-			model: this.model
+			model: this.modelName
 		});
 
 		const response = await fetch<AnthropicAPIResponse>('https://api.anthropic.com/v1/messages', {
