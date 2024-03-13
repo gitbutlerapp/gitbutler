@@ -66,7 +66,7 @@
 		<ContextMenuSection>
 			<ContextMenuItem
 				id={MergeMethod.Merge}
-				label="Merge"
+				label="Merge pull request"
 				selected={$action == MergeMethod.Merge}
 			/>
 			<ContextMenuItem

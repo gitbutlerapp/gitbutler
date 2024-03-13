@@ -116,9 +116,9 @@
 	}
 
 	function getPrStatusLabel(): string | undefined {
-		if ($pr$?.mergedAt) return 'merged';
-		if ($pr$?.closedAt) return 'closed';
-		return 'open';
+		if ($pr$?.mergedAt) return 'Merged';
+		if ($pr$?.closedAt) return 'Closed';
+		return 'Open';
 	}
 
 	function getStatusIcon(): keyof typeof iconsJson | undefined {
@@ -152,7 +152,7 @@
 			<Tag
 				icon={statusIcon}
 				color={statusColor}
-				filled={statusLabel !== 'open'}
+				filled={statusLabel !== 'Open'}
 				verticalOrientation={isLaneCollapsed}
 			>
 				{statusLabel}
@@ -170,7 +170,11 @@
 					{statusToTagText(checksStatus)}
 				</Tag>
 			{:else}
-				<Tag color="light" verticalOrientation={isLaneCollapsed} help="Fetching checks status">
+				<Tag
+					color="light"
+					verticalOrientation={isLaneCollapsed}
+					help="There are no checks for this pull request"
+				>
 					No checks
 				</Tag>
 			{/if}
@@ -191,7 +195,7 @@
 					popupMenu.openByMouse(e, undefined);
 				}}
 			>
-				View PR
+				Open in browser
 			</Tag>
 		</div>
 
