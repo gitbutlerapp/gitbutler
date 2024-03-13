@@ -8,6 +8,7 @@
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
+	import { AIService, AI_SERVICE_CONTEXT } from '$lib/backend/aiService';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -32,7 +33,6 @@
 	import lscache from 'lscache';
 	import { getContext, onMount } from 'svelte';
 	import { get, type Writable } from 'svelte/store';
-	import type { AIService } from '$lib/backend/aiService';
 	import type { User } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { Persisted } from '$lib/persisted/persisted';
@@ -53,8 +53,7 @@
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
 
-	const { aiService } = getContext<{ aiService: AIService }>('page-context');
-	let summarizer$ = aiService.summarizer$;
+	const aiService = getContext<AIService>(AI_SERVICE_CONTEXT);
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
@@ -81,7 +80,6 @@
 	}
 
 	async function generateBranchName() {
-		if (!$summarizer$) return;
 		if (!aiGenEnabled) return;
 
 		const diff = branch.files
@@ -92,9 +90,9 @@
 			.join('\n')
 			.slice(0, 5000);
 
-		const message = await $summarizer$.branch(diff);
+		const message = await aiService.branch(diff);
 
-		if (message !== branch.name) {
+		if (message && message !== branch.name) {
 			branch.name = message;
 			branchController.updateBranchName(branch.id, branch.name);
 		}

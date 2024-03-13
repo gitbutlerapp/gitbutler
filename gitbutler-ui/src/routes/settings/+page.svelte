@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { deleteAllData } from '$lib/backend/data';
+	import { GIT_CONFING_CONTEXT, type GitConfig } from '$lib/backend/gitConfig';
 	import AiSettings from '$lib/components/AISettings.svelte';
 	import AnalyticsSettings from '$lib/components/AnalyticsSettings.svelte';
 	import Button from '$lib/components/Button.svelte';
@@ -23,7 +24,6 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { onMount } from 'svelte';
 	import { getContext } from 'svelte';
-	import type { GitConfig } from '$lib/backend/gitConfig';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 
@@ -31,7 +31,7 @@
 
 	export let data: PageData;
 
-	const { gitConfig } = getContext<{ gitConfig: GitConfig }>('page-context');
+	const gitConfig = getContext<GitConfig>(GIT_CONFING_CONTEXT);
 
 	$: ({ cloud, authService } = data);
 
@@ -104,12 +104,12 @@
 
 	function toggleCommitterSigning() {
 		annotateCommits = !annotateCommits;
-		gitConfig.gitSetConfig('gitbutler.gitbutlerCommitter', annotateCommits ? '1' : '0');
+		gitConfig.set('gitbutler.gitbutlerCommitter', annotateCommits ? '1' : '0');
 	}
 
 	function toggleSigningSetting() {
 		signCommits = !signCommits;
-		gitConfig.gitSetConfig('gitbutler.signCommits', signCommits ? 'true' : 'false');
+		gitConfig.set('gitbutler.signCommits', signCommits ? 'true' : 'false');
 	}
 
 	async function onDeleteClicked() {
@@ -131,8 +131,8 @@
 
 	onMount(async () => {
 		sshKey = await authService.getPublicKey();
-		annotateCommits = (await gitConfig.gitGetConfig('gitbutler.gitbutlerCommitter')) == '1';
-		signCommits = (await gitConfig.gitGetConfig('gitbutler.signCommits')) == 'true';
+		annotateCommits = (await gitConfig.get('gitbutler.gitbutlerCommitter')) == '1';
+		signCommits = (await gitConfig.get('gitbutler.signCommits')) == 'true';
 	});
 </script>
 

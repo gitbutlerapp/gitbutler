@@ -5,7 +5,6 @@ import { AuthService } from '$lib/backend/auth';
 import { getCloudApiClient } from '$lib/backend/cloud';
 import { GitConfig } from '$lib/backend/gitConfig';
 import { ProjectService } from '$lib/backend/projects';
-import { SummarizerSettings } from '$lib/backend/summarizerSettings';
 import { UpdaterService } from '$lib/backend/updater';
 import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
 import { GitHubService } from '$lib/github/service';
@@ -57,8 +56,7 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 	const cloud = getCloudApiClient({ fetch: realFetch });
 
 	const gitConfig = new GitConfig();
-	const summarizerSettings = new SummarizerSettings(gitConfig);
-	const aiService = new AIService(summarizerSettings, cloud, userService.user$);
+	const aiService = new AIService(gitConfig, cloud, userService.user$);
 
 	return {
 		authService,
@@ -73,7 +71,6 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 		user$,
 
 		gitConfig,
-		summarizerSettings,
 		aiService
 	};
 }

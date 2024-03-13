@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { AI_SERVICE_CONTEXT, type AIService } from '$lib/backend/aiService';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
@@ -22,14 +23,12 @@
 	import { createEventDispatcher, getContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { fly, slide } from 'svelte/transition';
-	import type { AIService } from '$lib/backend/aiService';
 	import type { User } from '$lib/backend/cloud';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Branch, LocalFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	const { aiService } = getContext<{ aiService: AIService }>('page-context');
-	let summarizer$ = aiService.summarizer$;
+	const aiService = getContext<AIService>(AI_SERVICE_CONTEXT);
 
 	const dispatch = createEventDispatcher<{
 		action: 'generate-branch-name';
@@ -95,8 +94,6 @@
 	}
 
 	async function generateCommitMessage(files: LocalFile[]) {
-		if (!$summarizer$) return;
-
 		const diff = files
 			.map((f) => f.hunks.filter((h) => $selectedOwnership.containsHunk(f.id, h.id)))
 			.flat()
@@ -115,11 +112,17 @@
 
 		aiLoading = true;
 		try {
-			$commitMessage = await $summarizer$.commit(
+			const generatedMessage = await aiService.commit(
 				diff,
 				$commitGenerationUseEmojis,
 				$commitGenerationExtraConcise
 			);
+
+			if (generatedMessage) {
+				$commitMessage = generatedMessage;
+			} else {
+				toasts.error('Failed to generate commit message');
+			}
 		} catch {
 			toasts.error('Failed to generate commit message');
 		} finally {

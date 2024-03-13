@@ -1,6 +1,8 @@
 <script lang="ts">
 	import '../styles/main.postcss';
 
+	import { AI_SERVICE_CONTEXT } from '$lib/backend/aiService';
+	import { GIT_CONFING_CONTEXT } from '$lib/backend/gitConfig';
 	import { ProjectService } from '$lib/backend/projects';
 	import { UpdaterService } from '$lib/backend/updater';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
@@ -31,11 +33,8 @@
 	$: setContext(GitHubService, data.githubService);
 
 	// TODO: Integrate with change to move entirly over to context API
-	setContext('page-context', {
-		gitConfig: data.gitConfig,
-		summarizerSettings: data.summarizerSettings,
-		aiService: data.aiService
-	});
+	setContext(GIT_CONFING_CONTEXT, data.gitConfig);
+	setContext(AI_SERVICE_CONTEXT, data.aiService);
 
 	let shareIssueModal: ShareIssueModal;
 
