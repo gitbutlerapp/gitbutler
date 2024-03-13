@@ -5,15 +5,24 @@
 // conflicts are removed as they are resolved, the conflicts file is removed when there are no more conflicts
 // the merge parent file is removed when the merge is complete
 
-use std::io::{BufRead, Write};
+use std::{
+    io::{BufRead, IoSlice, Write},
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
+use itertools::Itertools;
 
 use crate::git;
 
 use super::Repository;
 
-pub fn mark(repository: &Repository, paths: &[String], parent: Option<git::Oid>) -> Result<()> {
+pub fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
+    repository: &Repository,
+    paths: A,
+    parent: Option<git::Oid>,
+) -> Result<()> {
+    let paths = paths.as_ref();
     if paths.is_empty() {
         return Ok(());
     }
@@ -53,12 +62,14 @@ pub fn merge_parent(repository: &Repository) -> Result<Option<git::Oid>> {
     }
 }
 
-pub fn resolve(repository: &Repository, path: &str) -> Result<()> {
+pub fn resolve<P: AsRef<Path>>(repository: &Repository, path: P) -> Result<()> {
+    let path = path.as_ref();
     let conflicts_path = repository.git_repository.path().join("conflicts");
     let file = std::fs::File::open(conflicts_path.clone())?;
     let reader = std::io::BufReader::new(file);
     let mut remaining = Vec::new();
-    for line in reader.lines().map_while(Result::ok) {
+    for line in reader.lines().map_ok(PathBuf::from) {
+        let line = line?;
         if line != path {
             remaining.push(line);
         }
@@ -93,10 +104,14 @@ pub fn is_conflicting<P: AsRef<Path>>(repository: &Repository, path: Option<P>) 
 
     let file = std::fs::File::open(conflicts_path)?;
     let reader = std::io::BufReader::new(file);
-    let files = reader.lines().map_while(Result::ok).collect::<Vec<_>>();
+    let mut files = reader.lines().map_ok(PathBuf::from);
     if let Some(pathname) = path {
+        let pathname = pathname.as_ref();
+
         // check if pathname is one of the lines in conflicts_path file
         for line in files {
+            let line = line?;
+
             if line == pathname {
                 return Ok(true);
             }
