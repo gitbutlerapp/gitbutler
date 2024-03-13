@@ -1,10 +1,10 @@
 import { type AIClient, type PromptMessage, MessageRole } from '$lib/backend/aiClient';
-import type { OpenAIModel } from '$lib/backend/aiService';
+import type { OpenAIModelName } from '$lib/backend/aiService';
 import type OpenAI from 'openai';
 
 export class OpenAIClient implements AIClient {
 	constructor(
-		private model: OpenAIModel,
+		private modelName: OpenAIModelName,
 		private openAI: OpenAI
 	) {}
 
@@ -15,7 +15,7 @@ export class OpenAIClient implements AIClient {
 			// @ts-expect-error There is a type mismatch where it seems to want a "name" paramater
 			// that isn't required https://github.com/openai/openai-openapi/issues/118#issuecomment-1847667988
 			messages,
-			model: this.model,
+			model: this.modelName,
 			max_tokens: 400
 		});
 
