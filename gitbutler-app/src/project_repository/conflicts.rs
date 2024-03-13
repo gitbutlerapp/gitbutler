@@ -21,8 +21,8 @@ pub fn mark(repository: &Repository, paths: &[String], parent: Option<git::Oid>)
     // write all the file paths to a file on disk
     let mut file = std::fs::File::create(conflicts_path)?;
     for path in paths {
-        file.write_all(path.as_bytes()).unwrap();
-        file.write_all(b"\n").unwrap();
+        file.write_all(path.as_ref().as_os_str().as_encoded_bytes())?;
+        file.write_all(b"\n")?;
     }
 
     if let Some(parent) = parent {
@@ -85,7 +85,7 @@ pub fn conflicting_files(repository: &Repository) -> Result<Vec<String>> {
     Ok(reader.lines().map_while(Result::ok).collect())
 }
 
-pub fn is_conflicting(repository: &Repository, path: Option<&str>) -> Result<bool> {
+pub fn is_conflicting<P: AsRef<Path>>(repository: &Repository, path: Option<P>) -> Result<bool> {
     let conflicts_path = repository.git_repository.path().join("conflicts");
     if !conflicts_path.exists() {
         return Ok(false);
@@ -103,7 +103,7 @@ pub fn is_conflicting(repository: &Repository, path: Option<&str>) -> Result<boo
         }
         Ok(false)
     } else {
-        Ok(!files.is_empty())
+        Ok(files.next().transpose().map(|x| x.is_some())?)
     }
 }
 
