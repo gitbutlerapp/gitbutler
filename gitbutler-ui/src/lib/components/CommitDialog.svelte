@@ -22,7 +22,6 @@
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { createEventDispatcher } from 'svelte';
 	import { quintOut } from 'svelte/easing';
-	import { get } from 'svelte/store';
 	import { fly, slide } from 'svelte/transition';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -49,11 +48,11 @@
 	function getCommitMessageTitleAndDescription(commitMessage: string) {
 		// Split the commit message into title and description
 		// get the first line as title and the rest as description
-		const [summary, ...description] = commitMessage.split('\n');
+		const [summary, ...description] = commitMessage.trim().split(/\n+(.*)/s);
+		console.log('summary and description', summary, description);
 		return {
 			summary: summary || '',
-			// remove top new line
-			description: description.join('\n').replace(/^\n/, '') || ''
+			description: description[0] || ''
 		};
 	}
 
@@ -61,7 +60,7 @@
 		return `${message.summary}\n${message.description}`;
 	}
 
-	let commitMessageSet = getCommitMessageTitleAndDescription(get(currentCommitMessage));
+	let commitMessageSet = getCommitMessageTitleAndDescription($currentCommitMessage);
 	let isCommitting = false;
 
 	let summaryTextareaElement: HTMLTextAreaElement;
@@ -75,8 +74,7 @@
 		if (el) el.focus();
 	}
 
-	function commit() {
-		// console.log('commitMessage', commitMessage);
+	async function commit() {
 		if (!commitMessageSet.summary) return;
 		isCommitting = true;
 		branchController
@@ -199,7 +197,7 @@
 						}
 					}}
 					spellcheck={false}
-					class="text-base-body-14 commit-box__textarea commit-box__textarea__title"
+					class="text-base-body-13 text-semibold commit-box__textarea commit-box__textarea__title"
 					class:commit-box__textarea_bottom-padding={commitMessageSet.description.length == 0 &&
 						commitMessageSet.summary.length == 0}
 					rows="1"
