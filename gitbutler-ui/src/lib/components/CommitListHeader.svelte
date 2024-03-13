@@ -7,7 +7,7 @@
 	export let expanded: boolean;
 	export let type: CommitStatus;
 	export let height: number | undefined;
-	export let upstreamCommitCount = 0;
+	export let commitCount = 0;
 
 	let element: HTMLButtonElement | undefined = undefined;
 
@@ -23,7 +23,7 @@
 		{:else if type == 'integrated'}
 			Integrated
 		{:else if type == 'upstream'}
-			{upstreamCommitCount} upstream {upstreamCommitCount == 1 ? 'commit' : 'commits'}
+			{commitCount} upstream {commitCount == 1 ? 'commit' : 'commits'}
 			<Icon name="warning" color="warn" />
 		{/if}
 	</div>

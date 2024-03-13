@@ -6,7 +6,14 @@
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { AnyFile, BaseBranch, Branch, CommitStatus } from '$lib/vbranches/types';
+	import type {
+		AnyFile,
+		BaseBranch,
+		Branch,
+		Commit,
+		CommitStatus,
+		RemoteCommit
+	} from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let branch: Branch;
@@ -19,12 +26,12 @@
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let isUnapplied: boolean;
 	export let branchCount: number = 0;
+	export let commits: Commit[] | RemoteCommit[];
 
 	let headerHeight: number;
 
 	$: headCommit = branch.commits[0];
 
-	$: commits = type == 'upstream' ? [] : branch.commits.filter((c) => c.status == type);
 	$: hasCommits = commits && commits.length > 0;
 	$: remoteRequiresForcePush = type === 'remote' && branch.requiresForce;
 
@@ -33,7 +40,13 @@
 
 {#if hasCommits || remoteRequiresForcePush}
 	<div class="commit-list card" class:upstream={type == 'upstream'}>
-		<CommitListHeader {type} bind:expanded bind:height={headerHeight} isExpandable={hasCommits} />
+		<CommitListHeader
+			{type}
+			bind:expanded
+			bind:height={headerHeight}
+			isExpandable={hasCommits}
+			commitCount={commits.length}
+		/>
 		{#if expanded}
 			<div class="commit-list__content">
 				{#if hasCommits}

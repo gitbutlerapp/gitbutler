@@ -4,7 +4,7 @@
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, Branch, AnyFile } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, AnyFile, RemoteBranchData } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let project: Project;
@@ -16,29 +16,38 @@
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let isUnapplied: boolean;
 	export let branchCount: number;
+	export let remoteBranchData: RemoteBranchData | undefined;
+
+	$: unknownCommits = remoteBranchData?.commits.filter(
+		(remoteCommit) => !branch.commits.find((commit) => remoteCommit.id == commit.id)
+	);
 </script>
 
+{#if unknownCommits && unknownCommits.length > 0}
+	<CommitList
+		{branch}
+		{base}
+		{project}
+		{branchController}
+		{branchService}
+		{branchCount}
+		{githubService}
+		{isUnapplied}
+		{selectedFiles}
+		commits={unknownCommits}
+		type="upstream"
+	/>
+{/if}
 <CommitList
 	{branch}
 	{base}
 	{project}
 	{branchController}
 	{branchService}
-	{branchCount}
 	{githubService}
 	{isUnapplied}
 	{selectedFiles}
-	type="upstream"
-/>
-<CommitList
-	{branch}
-	{base}
-	{project}
-	{branchController}
-	{branchService}
-	{githubService}
-	{isUnapplied}
-	{selectedFiles}
+	commits={branch.commits.filter((c) => c.status == 'local')}
 	type="local"
 />
 <CommitList
@@ -51,6 +60,7 @@
 	{isUnapplied}
 	{selectedFiles}
 	type="remote"
+	commits={branch.commits.filter((c) => c.status == 'remote')}
 />
 <CommitList
 	{branch}
@@ -62,4 +72,5 @@
 	{isUnapplied}
 	{selectedFiles}
 	type="integrated"
+	commits={branch.commits.filter((c) => c.status == 'integrated')}
 />
