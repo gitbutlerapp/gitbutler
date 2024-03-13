@@ -50,7 +50,6 @@
 		// Split the commit message into title and description
 		// get the first line as title and the rest as description
 		const [summary, description] = commitMessage.trim().split(/\n+(.*)/s);
-		console.log('summary and description', summary, description);
 		return {
 			summary: summary || '',
 			description: description || ''
