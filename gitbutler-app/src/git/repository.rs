@@ -1,8 +1,4 @@
-use std::{
-    io::Write,
-    path::{self, Path},
-    str,
-};
+use std::{io::Write, path::Path, str};
 
 use git2::Submodule;
 use git2_hooks::HookResult;
@@ -31,25 +27,22 @@ impl From<git2::Repository> for Repository {
 
 impl Repository {
     #[cfg(test)]
-    pub fn init_bare<P: AsRef<path::Path>>(path: P) -> Result<Self> {
+    pub fn init_bare<P: AsRef<Path>>(path: P) -> Result<Self> {
         let inner = git2::Repository::init_bare(path)?;
         Ok(Repository(inner))
     }
 
-    pub fn init<P: AsRef<path::Path>>(path: P) -> Result<Self> {
+    pub fn init<P: AsRef<Path>>(path: P) -> Result<Self> {
         let inner = git2::Repository::init(path)?;
         Ok(Repository(inner))
     }
 
-    pub fn open<P: AsRef<path::Path>>(path: P) -> Result<Self> {
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         let inner = git2::Repository::open(path)?;
         Ok(Repository(inner))
     }
 
-    pub fn init_opts<P: AsRef<path::Path>>(
-        path: P,
-        opts: &git2::RepositoryInitOptions,
-    ) -> Result<Self> {
+    pub fn init_opts<P: AsRef<Path>>(path: P, opts: &git2::RepositoryInitOptions) -> Result<Self> {
         let inner = git2::Repository::init_opts(path, opts)?;
         Ok(Repository(inner))
     }
@@ -67,9 +60,9 @@ impl Repository {
         Ok(())
     }
 
-    pub fn add_submodule(&self, url: &Url, path: &path::Path) -> Result<Submodule<'_>> {
+    pub fn add_submodule<P: AsRef<Path>>(&self, url: &Url, path: P) -> Result<Submodule<'_>> {
         self.0
-            .submodule(&url.to_string(), path, false)
+            .submodule(&url.to_string(), path.as_ref(), false)
             .map_err(Into::into)
     }
 
@@ -207,7 +200,7 @@ impl Repository {
         self.0.revwalk().map_err(Into::into)
     }
 
-    pub fn is_path_ignored<P: AsRef<path::Path>>(&self, path: P) -> Result<bool> {
+    pub fn is_path_ignored<P: AsRef<Path>>(&self, path: P) -> Result<bool> {
         self.0.is_path_ignored(path).map_err(Into::into)
     }
 
@@ -231,8 +224,11 @@ impl Repository {
         self.0.index().map(Into::into).map_err(Into::into)
     }
 
-    pub fn blob_path(&self, path: &path::Path) -> Result<Oid> {
-        self.0.blob_path(path).map(Into::into).map_err(Into::into)
+    pub fn blob_path<P: AsRef<Path>>(&self, path: P) -> Result<Oid> {
+        self.0
+            .blob_path(path.as_ref())
+            .map(Into::into)
+            .map_err(Into::into)
     }
 
     pub fn cherry_pick(&self, base: &Commit, target: &Commit) -> Result<Index> {
@@ -309,11 +305,11 @@ impl Repository {
         TreeBuilder::new(self, tree)
     }
 
-    pub fn path(&self) -> &path::Path {
+    pub fn path(&self) -> &Path {
         self.0.path()
     }
 
-    pub fn workdir(&self) -> Option<&path::Path> {
+    pub fn workdir(&self) -> Option<&Path> {
         self.0.workdir()
     }
 
@@ -390,9 +386,9 @@ impl Repository {
         }
     }
 
-    pub fn checkout_index_path<'a>(&'a self, path: &'a path::Path) -> Result<()> {
+    pub fn checkout_index_path<'a, P: AsRef<Path>>(&'a self, path: P) -> Result<()> {
         let mut builder = git2::build::CheckoutBuilder::new();
-        builder.path(path);
+        builder.path(path.as_ref());
         builder.force();
 
         let mut index = self.0.index()?;
