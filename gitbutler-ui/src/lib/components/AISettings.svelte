@@ -42,7 +42,7 @@
 		openAIKey = (await gitConfig.get('gitbutler.aiOpenAIKey')) || undefined;
 		anthropicModelName =
 			(await gitConfig.get<AnthropicModelName>('gitbutler.aiAnthropicModelName')) ||
-			AnthropicModelName.Sonnet;
+			AnthropicModelName.Haiku;
 		anthropicKey = (await gitConfig.get('gitbutler.aiAnthropicKey')) || undefined;
 	});
 
@@ -82,6 +82,10 @@
 		{
 			name: 'Opus',
 			value: AnthropicModelName.Opus
+		},
+		{
+			name: 'Haiku',
+			value: AnthropicModelName.Haiku
 		}
 	];
 
