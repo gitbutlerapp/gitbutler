@@ -179,18 +179,9 @@ jobs:
       - check-gitbutler-core
     runs-on: ubuntu-latest
     steps:
-      - name: Decide whether the needed jobs succeeded or failed
+      - name: Check that all jobs that ran, succeeded
         uses: re-actors/alls-green@release/v1
         with:
-          allowed-skips: >-
-            ${{
-              needs.changes.outputs.rust != 'true'
-              && '
-              check-gitbutler-app,
-              check-gitbutler-changeset,
-              check-gitbutler-core,
-              '
-              || ''
-            }}
+          allowed-skips: ${{ toJSON(needs) }}
           jobs: ${{ toJSON(needs) }}
 
