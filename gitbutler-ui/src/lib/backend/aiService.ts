@@ -1,8 +1,10 @@
 import { AnthropicAIClient } from '$lib/backend/aiClients/anthropic';
 import { ButlerAIClient } from '$lib/backend/aiClients/butler';
 import { OpenAIClient } from '$lib/backend/aiClients/openAI';
+import * as toasts from '$lib/utils/toasts';
 import OpenAI from 'openai';
 import { get, writable, type Writable } from 'svelte/store';
+import type { AIClient } from './aiClient';
 import type { User, getCloudApiClient } from './cloud';
 import type { GitConfig } from './gitConfig';
 import type { Observable } from 'rxjs';
@@ -74,7 +76,7 @@ export class AIService {
 	// This optionally returns a summarizer. There are a few conditions for how this may occur
 	// Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
 	// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
-	async buildClient() {
+	async buildClient(): Promise<undefined | AIClient> {
 		const modelKind =
 			(await this.gitConfig.get<ModelKind>('gitbutler.aiModelProvider')) || ModelKind.OpenAI;
 		const openAIKeyOption =
@@ -89,8 +91,12 @@ export class AIService {
 		) {
 			const user = get(this.user$);
 
-			// TODO: Provide feedback to user
-			if (!user) return;
+			if (!user) {
+				toasts.error("When using GitButler's API to summarize code, you must be logged in");
+
+				return;
+			}
+
 			return new ButlerAIClient(this.cloud, user, ModelKind.OpenAI);
 		}
 
@@ -100,8 +106,13 @@ export class AIService {
 				OpenAIModelName.GPT35Turbo;
 			const openAIKey = await this.gitConfig.get('gitbutler.aiOpenAIKey');
 
-			// TODO: Provide feedback to user
-			if (!openAIKey) return;
+			if (!openAIKey) {
+				toasts.error(
+					'When using OpenAI in a bring your own key configuration, you must provide a valid token'
+				);
+
+				return;
+			}
 
 			const openAI = new OpenAI({ apiKey: openAIKey, dangerouslyAllowBrowser: true });
 			return new OpenAIClient(openAIModelName, openAI);
@@ -109,11 +120,17 @@ export class AIService {
 		if (modelKind == ModelKind.Anthropic) {
 			const anthropicModelName =
 				(await this.gitConfig.get<AnthropicModelName>('gitbutler.aiAnthropicModelName')) ||
-				AnthropicModelName.Sonnet;
+				AnthropicModelName.Haiku;
 			const anthropicKey = await this.gitConfig.get('gitbutler.aiAnthropicKey');
 
 			// TODO: Provide feedback to user
-			if (!anthropicKey) return;
+			if (!anthropicKey) {
+				toasts.error(
+					'When using Anthropic in a bring your own key configuration, you must provide a valid token'
+				);
+
+				return;
+			}
 
 			return new AnthropicAIClient(anthropicKey, anthropicModelName);
 		}
