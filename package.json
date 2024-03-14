@@ -1,19 +1,20 @@
 {
-  "name": "git-butler-tauri",
-  "private": true,
-  "scripts": {
-    "dev": "pnpm --filter @gitbutler/ui run dev",
-    "test": "pnpm --filter @gitbutler/ui run test",
-    "build": "pnpm --filter @gitbutler/ui run build",
-    "build:nightly": "pnpm --filter @gitbutler/ui run build:nightly",
-    "build:development": "pnpm --filter @gitbutler/ui run build:development",
-    "check": "pnpm --filter @gitbutler/ui run check",
-    "lint": "pnpm --filter @gitbutler/ui run lint",
-    "format": "pnpm --filter @gitbutler/ui run format",
-    "tauri": "tauri",
-    "prepare": "pnpm --filter @gitbutler/ui run prepare"
-  },
-  "devDependencies": {
-    "@tauri-apps/cli": "^1.5.10"
-  }
+	"name": "git-butler-tauri",
+	"private": true,
+	"scripts": {
+		"dev": "pnpm --filter @gitbutler/ui run dev",
+		"test": "pnpm --filter @gitbutler/ui run test",
+		"test:watch": "pnpm --filter @gitbutler/ui run test:watch",
+		"build": "pnpm --filter @gitbutler/ui run build",
+		"build:nightly": "pnpm --filter @gitbutler/ui run build:nightly",
+		"build:development": "pnpm --filter @gitbutler/ui run build:development",
+		"check": "pnpm --filter @gitbutler/ui run check",
+		"lint": "pnpm --filter @gitbutler/ui run lint",
+		"format": "pnpm --filter @gitbutler/ui run format",
+		"tauri": "tauri",
+		"prepare": "pnpm --filter @gitbutler/ui run prepare"
+	},
+	"devDependencies": {
+		"@tauri-apps/cli": "^1.5.10"
+	}
 }
