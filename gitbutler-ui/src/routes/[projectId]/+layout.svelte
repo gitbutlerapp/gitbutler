@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { syncToCloud } from '$lib/backend/cloud';
 	import { handleMenuActions } from '$lib/backend/menuActions';
+	import { ProjectService } from '$lib/backend/projects';
 	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
@@ -8,12 +9,13 @@
 	import { subscribe as menuSubscribe } from '$lib/menu';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/random';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
 	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
 
+	setContext(ProjectService, data.projectService);
 	$: projectService = data.projectService;
 	$: branchController = data.branchController;
 	$: githubService = data.githubService;
@@ -51,16 +53,20 @@
 		goto(`/${projectId}/setup`, { replaceState: true });
 	}
 
-	onMount(() =>
-		unsubscribe(
+	onMount(() => {
+		return unsubscribe(
 			menuSubscribe(data.projectId),
 			hotkeys.on('Meta+Shift+S', () => syncToCloud(projectId))
-		)
-	);
+		);
+	});
 
 	onDestroy(() => {
 		clearFetchInterval();
 	});
+
+	$: if (data) {
+		setContext('hello', data.projectId);
+	}
 </script>
 
 {#if !$project$}

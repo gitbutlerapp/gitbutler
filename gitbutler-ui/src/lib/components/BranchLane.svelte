@@ -23,6 +23,7 @@
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
@@ -35,6 +36,7 @@
 	export let user: User | undefined;
 	export let projectPath: string;
 	export let githubService: GitHubService;
+	export let baseBranchService: BaseBranchService;
 
 	$: selectedOwnership = writable(Ownership.fromBranch(branch));
 	$: selected = setSelected($selectedFiles, branch);
@@ -82,6 +84,7 @@
 		{cloud}
 		{branchController}
 		{branchService}
+		{baseBranchService}
 		{selectedOwnership}
 		bind:commitBoxOpen
 		bind:isLaneCollapsed

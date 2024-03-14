@@ -109,21 +109,24 @@ function subscribeToVirtualBranches(projectId: string, callback: (branches: Bran
 }
 
 export class BaseBranchService {
-	base$: Observable<BaseBranch | null | undefined>;
-	busy$ = new BehaviorSubject(false);
-	error$ = new BehaviorSubject<any>(undefined);
-	private reload$ = new BehaviorSubject<void>(undefined);
+	readonly base$: Observable<BaseBranch | null | undefined>;
+	readonly busy$ = new BehaviorSubject(false);
+	readonly error$ = new BehaviorSubject<any>(undefined);
+	private readonly reload$ = new BehaviorSubject<void>(undefined);
 
 	constructor(
-		private projectId: string,
+		private readonly projectId: string,
+		readonly remoteUrl$: BehaviorSubject<string | undefined>,
 		fetches$: Observable<unknown>,
-		head$: Observable<string>
+		readonly head$: Observable<string>
 	) {
 		this.base$ = combineLatest([fetches$, head$, this.reload$]).pipe(
 			debounceTime(100),
 			switchMap(async () => {
 				this.busy$.next(true);
-				return await getBaseBranch({ projectId });
+				const baseBranch = await getBaseBranch({ projectId });
+				if (baseBranch?.remoteUrl) this.remoteUrl$.next(baseBranch.remoteUrl);
+				return baseBranch;
 			}),
 			tap(() => this.busy$.next(false)),
 			// Start with undefined to prevent delay in updating $baseBranch$ value in

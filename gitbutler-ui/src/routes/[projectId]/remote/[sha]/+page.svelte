@@ -14,7 +14,7 @@
 	$: base$ = data.baseBranchService.base$;
 
 	$: branch = $branches$?.find((b) => b.sha == $page.params.sha);
-	$: pr$ = githubService.get(branch?.displayName);
+	$: pr = githubService.getPr(branch?.displayName);
 </script>
 
 {#if $error$}
@@ -27,7 +27,7 @@
 		projectPath={$project$.path}
 		project={$project$}
 		base={$base$}
-		pr={$pr$}
+		{pr}
 		{branchController}
 		{branch}
 	/>

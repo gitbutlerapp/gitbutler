@@ -19,8 +19,7 @@
 	export let hasCommits: boolean;
 
 	$: githubServiceState$ = githubService.getState(branch.id);
-	$: githubEnabled$ = githubService.isEnabled$;
-	$: pr$ = githubService.get(branch.upstreamName);
+	$: pr = githubService.getPr(branch.upstreamName);
 
 	let isPushing: boolean;
 	let isMerging: boolean;
@@ -41,7 +40,7 @@
 
 	async function createPr(createPrOpts: CreatePrOpts): Promise<PullRequest | undefined> {
 		const opts = { ...defaultPrOpts, ...createPrOpts };
-		if (!githubService.isEnabled()) {
+		if (!githubService.isEnabled) {
 			toast.error('Cannot create PR without GitHub credentials');
 			return;
 		}
@@ -62,15 +61,15 @@
 
 {#if !isUnapplied && type != 'integrated'}
 	<div class="actions" class:hasCommits>
-		{#if $githubEnabled$ && (type == 'local' || type == 'remote')}
+		{#if githubService.isEnabled && (type == 'local' || type == 'remote')}
 			<PushButton
 				wide
 				isLoading={isPushing || $githubServiceState$?.busy}
-				isPr={!!$pr$}
+				isPr={!!pr}
 				{type}
 				{branch}
 				{projectId}
-				githubEnabled={$githubEnabled$}
+				githubEnabled={true}
 				on:trigger={async (e) => {
 					try {
 						if (e.detail.action == BranchAction.Pr) {

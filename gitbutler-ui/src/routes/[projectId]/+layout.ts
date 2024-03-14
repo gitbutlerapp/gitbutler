@@ -1,5 +1,4 @@
 import { BranchService } from '$lib/branches/service';
-import { GitHubService } from '$lib/github/service';
 import { getFetchNotifications } from '$lib/stores/fetches';
 import { getHeads } from '$lib/stores/head';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
@@ -10,13 +9,21 @@ import { map } from 'rxjs';
 export const prerender = false;
 
 export async function load({ params, parent }) {
-	const { authService, projectService, userService } = await parent();
+	// prettier-ignore
+	const {
+        authService,
+        githubService,
+        projectService,
+        remoteUrl$,
+    } = await parent();
+
 	const projectId = params.projectId;
 	const project$ = projectService.getProject(projectId);
 	const fetches$ = getFetchNotifications(projectId);
 	const heads$ = getHeads(projectId);
 	const gbBranchActive$ = heads$.pipe(map((head) => head == 'gitbutler/integration'));
-	const baseBranchService = new BaseBranchService(projectId, fetches$, heads$);
+
+	const baseBranchService = new BaseBranchService(projectId, remoteUrl$, fetches$, heads$);
 	const vbranchService = new VirtualBranchService(projectId, gbBranchActive$);
 
 	const remoteBranchService = new RemoteBranchService(
@@ -31,8 +38,6 @@ export async function load({ params, parent }) {
 		remoteBranchService,
 		baseBranchService
 	);
-
-	const githubService = new GitHubService(userService, baseBranchService);
 	const branchService = new BranchService(
 		vbranchService,
 		remoteBranchService,
@@ -40,19 +45,18 @@ export async function load({ params, parent }) {
 		branchController
 	);
 
-	const user$ = userService.user$;
-
 	return {
-		projectId,
 		authService,
-		branchController,
 		baseBranchService,
-		githubService,
-		vbranchService,
-		remoteBranchService,
-		user$,
-		project$,
+		branchController,
 		branchService,
+		githubService,
+		projectId,
+		remoteBranchService,
+		vbranchService,
+
+		// These observables are provided for convenience
+		project$,
 		gbBranchActive$
 	};
 }

@@ -24,7 +24,6 @@
 
 	export const textFilter$ = new BehaviorSubject<string | undefined>(undefined);
 
-	const githubEnabled$ = githubService.isEnabled$;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const height = persisted<number | undefined>(undefined, 'branchesHeight');
 
@@ -149,7 +148,7 @@
 				{includeStashed}
 				{hideBots}
 				{hideInactive}
-				showPrCheckbox={$githubEnabled$}
+				showPrCheckbox={githubService.isEnabled}
 				on:action
 			/>
 		</BranchesHeader>

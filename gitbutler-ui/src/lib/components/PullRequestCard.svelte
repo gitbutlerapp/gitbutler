@@ -1,13 +1,16 @@
 <script lang="ts">
+	import IconButton from './IconButton.svelte';
 	import MergeButton from './MergeButton.svelte';
 	import Tag, { type TagColor } from './Tag.svelte';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
+	import { sleep } from '$lib/utils/sleep';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { onDestroy } from 'svelte';
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
-	import type { ChecksStatus } from '$lib/github/types';
+	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
+	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { Branch } from '$lib/vbranches/types';
 	import type iconsJson from '../icons/icons.json';
 
@@ -17,12 +20,33 @@
 	export let githubService: GitHubService;
 	export let projectId: string;
 	export let isUnapplied = false;
+	export let baseBranchService: BaseBranchService;
 
 	let isMerging = false;
 	let isFetching = false;
-	let checksStatus: ChecksStatus | null | undefined;
+	let isFetchingDetails = false;
+	let checksStatus: ChecksStatus | null | undefined = undefined;
+	let detailedPr: DetailedPullRequest | undefined;
 
-	$: pr$ = githubService.get(branch.upstreamName);
+	$: pr$ = githubService.getPr$(branch.upstreamName);
+	$: if (branch && pr$) {
+		isFetchingDetails = true;
+		sleep(1000).then(() => {
+			updateDetailedPullRequest($pr$?.targetBranch, false);
+			fetchChecks();
+		});
+	}
+
+	async function updateDetailedPullRequest(targetBranch: string | undefined, skipCache: boolean) {
+		isFetchingDetails = true;
+		try {
+			detailedPr = await githubService.getDetailedPullRequest(targetBranch, skipCache);
+		} catch {
+			toasts.error('Failed to fetch PR details');
+		} finally {
+			isFetchingDetails = false;
+		}
+	}
 
 	function updateContextMenu(copyablePrUrl: string) {
 		if (popupMenu) popupMenu.$destroy();
@@ -32,7 +56,7 @@
 		});
 	}
 
-	async function fetchPrStatus() {
+	async function fetchChecks() {
 		isFetching = true;
 		try {
 			checksStatus = await githubService.checks($pr$?.targetBranch);
@@ -69,16 +93,15 @@
 			// Stop polling for status.
 			return;
 		}
-		setTimeout(() => fetchPrStatus(), timeUntilUdate * 1000);
+		setTimeout(() => fetchChecks(), timeUntilUdate * 1000);
 	}
 
-	$: checksIcon = getChecksIcon(checksStatus);
+	$: checksIcon = getChecksIcon(checksStatus, isFetching);
 	$: checksColor = getChecksColor(checksStatus);
+	$: checksText = getChecksText(checksStatus);
 	$: statusIcon = getStatusIcon();
 	$: statusColor = getStatusColor();
 	$: statusLabel = getPrStatusLabel();
-
-	$: if ($pr$) fetchPrStatus();
 
 	// TODO: Refactor away the code duplication in the following functions
 	function getChecksColor(status: ChecksStatus): TagColor | undefined {
@@ -91,9 +114,12 @@
 		return 'warning';
 	}
 
-	function getChecksIcon(status: ChecksStatus): keyof typeof iconsJson | undefined {
-		if (isFetching) return 'spinner';
-		if (!status) return;
+	function getChecksIcon(
+		status: ChecksStatus,
+		fetching: boolean
+	): keyof typeof iconsJson | undefined {
+		if (status === null) return;
+		if (fetching || !status) return 'spinner';
 		if (!status.hasChecks) return;
 		if (status.error) return 'error-small';
 		if (status.completed) {
@@ -103,8 +129,8 @@
 		return 'spinner';
 	}
 
-	function statusToTagText(status: ChecksStatus | undefined): string | undefined {
-		if (!status) return;
+	function getChecksText(status: ChecksStatus | undefined | null): string | undefined {
+		if (!status) return 'Checks';
 		if (!status.hasChecks) return 'No checks';
 		if (status.error) return 'error';
 		if (status.completed) {
@@ -144,10 +170,21 @@
 </script>
 
 {#if $pr$?.htmlUrl}
+	{@const pr = $pr$}
 	<div class="card pr-card">
+		<div class="floating-button">
+			<IconButton
+				icon="update-small"
+				loading={isFetchingDetails}
+				on:click={async () => {
+					updateDetailedPullRequest(pr?.targetBranch, true);
+					fetchChecks();
+				}}
+			/>
+		</div>
 		<div class="pr-title text-base-13 font-semibold">
-			<span style="color: var(--clr-theme-scale-ntrl-50)">PR #{$pr$.number}:</span>
-			{$pr$.title}
+			<span style="color: var(--clr-theme-scale-ntrl-50)">PR #{pr.number}:</span>
+			{pr.title}
 		</div>
 		<div class="pr-tags">
 			<Tag
@@ -165,10 +202,10 @@
 					filled={checksIcon == 'success-small'}
 					clickable
 					verticalOrientation={isLaneCollapsed}
-					on:mousedown={fetchPrStatus}
+					on:mousedown={fetchChecks}
 					help="Checks status"
 				>
-					{statusToTagText(checksStatus)}
+					{checksText}
 				</Tag>
 			{:else}
 				<Tag
@@ -187,7 +224,7 @@
 				shrinkable
 				verticalOrientation={isLaneCollapsed}
 				on:mousedown={(e) => {
-					const url = $pr$?.htmlUrl;
+					const url = pr?.htmlUrl;
 					if (url) openExternalUrl(url);
 					e.preventDefault();
 					e.stopPropagation();
@@ -209,28 +246,28 @@
         determining "no checks will run for this PR" such that we can show the merge button
         immediately.
         -->
-		{#if $pr$}
+		{#if pr}
 			<div class="pr-actions">
 				<MergeButton
 					{projectId}
 					wide
-					disabled={isFetching || isUnapplied || !$pr$ || (!!checksStatus && !checksStatus.success)}
+					disabled={isFetching || isUnapplied || !pr || detailedPr?.mergeableState == 'blocked'}
 					loading={isMerging}
 					help="Merge pull request and refresh"
 					on:click={async (e) => {
+						if (!pr) return;
 						isMerging = true;
 						const method = e.detail.method;
 						try {
-							if ($pr$) {
-								await githubService.merge($pr$.number, method);
-							}
+							await githubService.merge(pr.number, method);
 						} catch {
 							// TODO: Should we show the error from GitHub?
 							toasts.error('Failed to merge pull request');
 						} finally {
 							isMerging = false;
-							await fetchPrStatus();
+							await fetchChecks();
 							await branchService.reloadVirtualBranches();
+							baseBranchService.reload();
 						}
 					}}
 				/>
@@ -241,6 +278,7 @@
 
 <style lang="postcss">
 	.pr-card {
+		position: relative;
 		padding: var(--space-14);
 	}
 
@@ -259,5 +297,11 @@
 	.pr-actions {
 		margin-top: var(--space-14);
 		display: flex;
+	}
+
+	.floating-button {
+		position: absolute;
+		right: var(--space-6);
+		top: var(--space-6);
 	}
 </style>

@@ -38,6 +38,7 @@
 		{branch}
 		{branchController}
 		{branchService}
+		{baseBranchService}
 		base={$baseBranch$}
 		{cloud}
 		project={$project$}

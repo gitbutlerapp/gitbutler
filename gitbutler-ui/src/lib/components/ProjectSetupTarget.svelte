@@ -10,11 +10,13 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { createEventDispatcher } from 'svelte';
+	import type { GitHubService } from '$lib/github/service';
 	import type { UserService } from '$lib/stores/user';
 
 	export let userService: UserService;
 	export let projectId: string;
 	export let remoteBranches: { name: string }[];
+	export let githubService: GitHubService;
 
 	$: user$ = userService.user$;
 
@@ -165,7 +167,7 @@
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
 				{#if !$user$?.github_access_token}
-					<GithubIntegration {userService} disabled={!$user$} />
+					<GithubIntegration {userService} {githubService} disabled={!$user$} />
 				{/if}
 			</svelte:fragment>
 		</SetupFeature>

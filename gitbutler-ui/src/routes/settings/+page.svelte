@@ -28,7 +28,7 @@
 
 	export let data: PageData;
 
-	const { cloud, user$, userService, authService } = data;
+	$: ({ cloud, user$, userService, authService, githubService } = data);
 	const fileTypes = ['image/jpeg', 'image/png'];
 
 	// TODO: Maybe break these into components?
@@ -324,7 +324,7 @@
 	{:else if currentSection === 'integrations'}
 		<ContentWrapper title="Integrations">
 			{#if $user$}
-				<GithubIntegration {userService} />
+				<GithubIntegration {userService} {githubService} />
 			{/if}
 		</ContentWrapper>
 	{/if}
