@@ -386,7 +386,7 @@ impl Repository {
         }
     }
 
-    pub fn checkout_index_path<'a, P: AsRef<Path>>(&'a self, path: P) -> Result<()> {
+    pub fn checkout_index_path<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let mut builder = git2::build::CheckoutBuilder::new();
         builder.path(path.as_ref());
         builder.force();
