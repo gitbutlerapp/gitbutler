@@ -105,6 +105,17 @@ pub async fn git_test_fetch(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
+pub async fn git_index_size(handle: tauri::AppHandle, project_id: &str) -> Result<usize, Error> {
+    let app = handle.state::<app::App>();
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".to_string(),
+    })?;
+    Ok(app.git_index_size(&project_id).expect("git index size"))
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
 pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let app = handle.state::<app::App>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {

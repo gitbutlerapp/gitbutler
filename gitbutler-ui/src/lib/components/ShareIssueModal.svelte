@@ -7,12 +7,19 @@
 	import * as toasts from '$lib/utils/toasts';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import { page } from '$app/stores';
+	import { invoke } from '$lib/backend/ipc';
 
 	export let user: User | undefined;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 
 	export function show() {
 		modal.show();
+	}
+
+	function gitIndexLength() {
+		return invoke<void>('git_index_size', {
+			projectId: projectId
+		});
 	}
 
 	let modal: Modal;
@@ -41,9 +48,14 @@
 			: new Blob([file], { type: 'application/zip' });
 	}
 
-	function onSubmit() {
+	async function onSubmit() {
 		const message = messageInputValue;
 		const email = user?.email ?? emailInputValue;
+		let context = 'Browser: ' + navigator.userAgent + '\n';
+		context += 'URL: ' + window.location.href + '\n';
+		const indexLength = await gitIndexLength();
+		context += 'Length of index: ' + indexLength + '\n';
+
 		toasts.promise(
 			Promise.all([
 				sendLogs ? zip.logs().then((path) => readZipFile(path, 'logs.zip')) : undefined,
@@ -57,6 +69,7 @@
 				cloud.feedback.create(user?.access_token, {
 					email,
 					message,
+					context,
 					logs,
 					data,
 					repo
@@ -83,7 +96,7 @@
 <Modal bind:this={modal} on:close={onClose} title="Share debug data with GitButler team for review">
 	<div class="flex flex-col gap-4">
 		<p class="text-color-3">
-			If you are having trouble, please share your project and logs with the Gitbutler team. We will
+			If you are having trouble, please share your project and logs with the GitButler team. We will
 			review it for you and help identify how we can help resolve the issue.
 		</p>
 

@@ -155,6 +155,7 @@ export function getCloudApiClient(
 				const formData = new FormData();
 				formData.append('message', params.message);
 				if (params.email) formData.append('email', params.email);
+				if (params.context) formData.append('context', params.context);
 				if (params.logs) formData.append('logs', params.logs);
 				if (params.repo) formData.append('repo', params.repo);
 				if (params.data) formData.append('data', params.data);
