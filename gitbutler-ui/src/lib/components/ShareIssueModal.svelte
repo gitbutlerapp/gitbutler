@@ -1,14 +1,14 @@
 <script lang="ts">
 	import TextArea from './TextArea.svelte';
+	import { invoke } from '$lib/backend/ipc';
 	import * as zip from '$lib/backend/zip';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import * as toasts from '$lib/utils/toasts';
+	import { getVersion } from '@tauri-apps/api/app';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import { page } from '$app/stores';
-	import { invoke } from '$lib/backend/ipc';
-	import { getVersion } from '@tauri-apps/api/app';
 
 	export let user: User | undefined;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
