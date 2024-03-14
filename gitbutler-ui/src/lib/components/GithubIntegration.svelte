@@ -5,21 +5,22 @@
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import { getAuthenticated } from '$lib/github/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import * as toasts from '$lib/utils/toasts';
+	import type { GitHubService } from '$lib/github/service';
 	import type { UserService } from '$lib/stores/user';
 
 	export let userService: UserService;
+	export let githubService: GitHubService;
 	export let minimal = false;
 	export let disabled = false;
 
 	$: user$ = userService.user$;
 
-	let isCheckingStatus = false;
-
+	let loading = false;
 	let userCode = '';
 	let deviceCode = '';
+	let gitHubOauthModal: Modal;
 
 	function gitHubStartOauth() {
 		initDeviceOauth().then((verification) => {
@@ -29,37 +30,33 @@
 		});
 	}
 
-	let gitHubOauthModal: Modal;
-	function gitHubOauthCheckStatus(deviceCode: string) {
-		isCheckingStatus = true;
-		let u = $user$;
-
-		checkAuthStatus({ deviceCode })
-			.then(async (access_token) => {
-				if (u) {
-					u.github_access_token = access_token;
-					u.github_username = await getAuthenticated(access_token);
-					userService.setUser(u);
-
-					toasts.success('GitHub authenticated');
-
-					isCheckingStatus = false;
-					gitHubOauthModal.close();
-				}
-			})
-			.catch((err) => {
-				console.log(err);
-				isCheckingStatus = false;
-				gitHubOauthModal.close();
-			});
+	async function gitHubOauthCheckStatus(deviceCode: string) {
+		loading = true;
+		let user = $user$;
+		if (!user) return;
+		try {
+			const accessToken = await checkAuthStatus({ deviceCode });
+			user.github_access_token = accessToken;
+			// TODO: Refactor so we don't have to call this twice
+			userService.setUser(user);
+			user.github_username = await githubService.fetchGitHubLogin();
+			userService.setUser(user);
+			toasts.success('GitHub authenticated');
+		} catch (err: any) {
+			console.error(err);
+			toasts.success('GitHub authentication failed');
+		} finally {
+			loading = false;
+			gitHubOauthModal.close();
+		}
 	}
 
 	function forgetGitHub(): void {
-		let u = $user$;
-		if (u) {
-			u.github_access_token = '';
-			u.github_username = '';
-			userService.setUser(u);
+		let user = $user$;
+		if (user) {
+			user.github_access_token = '';
+			user.github_username = '';
+			userService.setUser(user);
 		}
 	}
 </script>
@@ -149,9 +146,9 @@
 				<Button
 					kind="filled"
 					color="primary"
-					loading={isCheckingStatus}
+					{loading}
 					on:click={async () => {
-						gitHubOauthCheckStatus(deviceCode);
+						await gitHubOauthCheckStatus(deviceCode);
 					}}
 				>
 					Check the status and close

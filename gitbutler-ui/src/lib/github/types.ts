@@ -1,13 +1,6 @@
 import type { Author } from '$lib/vbranches/types';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 
-export interface GitHubIntegrationContext {
-	authToken: string;
-	owner: string;
-	repo: string;
-	username: string;
-}
-
 export interface Label {
 	name: string;
 	description: string | undefined;
@@ -30,6 +23,36 @@ export interface PullRequest {
 	closedAt?: Date;
 }
 
+export type DetailedGitHubPullRequest = RestEndpointMethodTypes['pulls']['get']['response']['data'];
+
+export interface DetailedPullRequest {
+	targetBranch: string;
+	createdAt: Date;
+	mergedAt?: Date;
+	closedAt?: Date;
+	htmlUrl: string;
+	mergeable: boolean;
+	mergeableState: string;
+	rebaseable: boolean;
+	squashable: boolean;
+}
+
+export function parseGitHubDetailedPullRequest(
+	data: DetailedGitHubPullRequest
+): DetailedPullRequest {
+	return {
+		targetBranch: data.base.ref,
+		htmlUrl: data.html_url,
+		createdAt: new Date(data.created_at),
+		mergedAt: data.merged_at ? new Date(data.merged_at) : undefined,
+		closedAt: data.closed_at ? new Date(data.closed_at) : undefined,
+		mergeable: !!data.mergeable,
+		mergeableState: data.mergeable_state,
+		rebaseable: !!data.rebaseable,
+		squashable: !!data.mergeable // Enabled whenever merge is enabled
+	};
+}
+
 export type ChecksStatus =
 	| {
 			startedAt?: Date;
@@ -46,13 +69,11 @@ export function ghResponseToInstance(
 		| RestEndpointMethodTypes['pulls']['create']['response']['data']
 		| RestEndpointMethodTypes['pulls']['list']['response']['data'][number]
 ): PullRequest {
-	const labels: Label[] = pr.labels.map((label) => {
-		return {
-			name: label.name,
-			description: label.description || undefined,
-			color: label.color
-		};
-	});
+	const labels: Label[] = pr.labels.map((label) => ({
+		name: label.name,
+		description: label.description || undefined,
+		color: label.color
+	}));
 
 	return {
 		htmlUrl: pr.html_url,

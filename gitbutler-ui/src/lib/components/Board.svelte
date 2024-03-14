@@ -11,6 +11,7 @@
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 
 	export let project: Project;
@@ -25,6 +26,7 @@
 	export let branchController: BranchController;
 	export let branchService: BranchService;
 	export let githubService: GitHubService;
+	export let baseBranchService: BaseBranchService;
 
 	export let user: User | undefined;
 
@@ -117,6 +119,7 @@
 					{base}
 					{cloud}
 					{branchController}
+					{baseBranchService}
 					{branchService}
 					branchCount={branches.filter((c) => c.active).length}
 					{projectPath}

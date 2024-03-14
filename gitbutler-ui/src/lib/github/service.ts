@@ -1,14 +1,15 @@
-import { newClient } from '$lib/github/client';
 import {
 	type PullRequest,
-	type GitHubIntegrationContext,
 	ghResponseToInstance,
 	type ChecksStatus,
-	MergeMethod
+	MergeMethod,
+	type DetailedPullRequest,
+	parseGitHubDetailedPullRequest as parsePullRequestResponse
 } from '$lib/github/types';
 import { showToast, type Toast } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import * as toasts from '$lib/utils/toasts';
+import { Octokit } from '@octokit/rest';
 import lscache from 'lscache';
 import posthog from 'posthog-js';
 import {
@@ -25,95 +26,100 @@ import {
 } from 'rxjs';
 import {
 	catchError,
-	distinct,
+	delay,
+	finalize,
 	map,
 	retry,
 	shareReplay,
 	switchMap,
+	take,
 	tap,
 	timeout
 } from 'rxjs/operators';
-import type { UserService } from '$lib/stores/user';
-import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
-import type { Octokit } from '@octokit/rest';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
+export type PrCacheKey = { value: Promise<DetailedPullRequest | undefined>; fetchedAt: Date };
 
 export class GitHubService {
-	prs$: Observable<PullRequest[]>;
-	error$ = new BehaviorSubject<string | undefined>(undefined);
+	readonly prs$ = new BehaviorSubject<PullRequest[]>([]);
 
+	private prCache = new Map<string, PrCacheKey>();
+
+	private error$ = new BehaviorSubject<string | undefined>(undefined);
 	private stateMap = new Map<string, BehaviorSubject<PrState>>();
 	private reload$ = new BehaviorSubject<{ skipCache: boolean } | undefined>(undefined);
 	private fresh$ = new Subject<void>();
 
-	private ctx$: Observable<GitHubIntegrationContext | undefined>;
-	private octokit$: Observable<Octokit | undefined>;
-
-	// For use with user initiated actions like merging
-	private ctx: GitHubIntegrationContext | undefined;
-	private octokit: Octokit | undefined;
-
-	private enabled = false;
+	private _octokit: Octokit | undefined;
+	private _repo: string | undefined;
+	private _owner: string | undefined;
 
 	constructor(
-		userService: UserService,
-		private baseBranchService: BaseBranchService
+		accessToken$: Observable<string | undefined>,
+		remoteUrl$: Observable<string | undefined>
 	) {
-		// A few things will cause the baseBranch to update, so we filter for distinct
-		// changes to the remoteUrl.
-		const distinctUrl$ = baseBranchService.base$.pipe(distinct((ctx) => ctx?.remoteUrl));
+		combineLatest([accessToken$, remoteUrl$])
+			.pipe(
+				tap(([accessToken, remoteUrl]) => {
+					if (!remoteUrl?.includes('github') || !accessToken) {
+						return of();
+					}
+					this._octokit = new Octokit({
+						auth: accessToken,
+						userAgent: 'GitButler Client',
+						baseUrl: 'https://api.github.com'
+					});
+					const [owner, repo] = remoteUrl.split('.git')[0].split(/\/|:/).slice(-2);
+					this._repo = repo;
+					this._owner = owner;
+				}),
+				shareReplay(1)
+			)
+			.subscribe();
 
-		this.ctx$ = combineLatest([userService.user$, distinctUrl$]).pipe(
-			switchMap(([user, baseBranch]) => {
-				const remoteUrl = baseBranch?.remoteUrl;
-				const authToken = user?.github_access_token;
-				const username = user?.github_username || '';
-				if (!remoteUrl || !remoteUrl.includes('github') || !authToken) {
-					this.enabled = false;
-					return of();
-				}
-				this.enabled = true;
-				const [owner, repo] = remoteUrl.split('.git')[0].split(/\/|:/).slice(-2);
-				return of({ authToken, owner, repo, username });
-			}),
-			distinct((val) => JSON.stringify(val)),
-			tap((ctx) => (this.ctx = ctx)),
-			shareReplay(1)
-		);
-
-		// Create a github client
-		this.octokit$ = this.ctx$.pipe(
-			map((ctx) => (ctx ? newClient(ctx.authToken) : undefined)),
-			tap((octokit) => (this.octokit = octokit)),
-			shareReplay(1)
-		);
-
-		// Load pull requests
-		this.prs$ = combineLatest([this.ctx$, this.octokit$, this.reload$]).pipe(
-			tap(() => this.error$.next(undefined)),
-			switchMap(([ctx, octokit, reload]) => {
-				if (!ctx || !octokit) return EMPTY;
-				const prs = loadPrs(ctx, octokit, !!reload?.skipCache);
-				this.fresh$.next();
-				return prs;
-			}),
-			shareReplay(1),
-			catchError((err) => {
-				console.log(err);
-				this.error$.next(err);
-				return of([]);
-			})
-		);
+		combineLatest([this.reload$, accessToken$, remoteUrl$])
+			.pipe(
+				tap(() => this.error$.next(undefined)),
+				switchMap(([reload]) => {
+					if (!this.isEnabled) return EMPTY;
+					const prs = this.fetchPrs(!!reload?.skipCache);
+					this.fresh$.next();
+					return prs;
+				}),
+				shareReplay(1),
+				catchError((err) => {
+					console.error(err);
+					toasts.error('Failed to load pull requests');
+					this.error$.next(err);
+					return of([]);
+				}),
+				tap((prs) => this.prs$.next(prs))
+			)
+			.subscribe();
 	}
 
-	isEnabled(): boolean {
-		return this.enabled;
+	get isEnabled(): boolean {
+		return !!this._octokit;
 	}
 
-	get isEnabled$(): Observable<boolean> {
-		return this.octokit$.pipe(map((octokit) => !!octokit));
+	get octokit(): Octokit {
+		if (!this._octokit) throw new Error('No GitHub client available');
+		return this._octokit;
+	}
+
+	get repo(): string {
+		if (!this._repo) throw new Error('No repo name specified');
+		return this._repo;
+	}
+
+	get owner(): string {
+		if (!this._owner) throw new Error('No owner name specified');
+		return this._owner;
+	}
+
+	get prs() {
+		return this.prs$.value;
 	}
 
 	async reload(): Promise<void> {
@@ -132,8 +138,74 @@ export class GitHubService {
 		return await fresh;
 	}
 
-	get(branch: string | undefined): Observable<PullRequest | undefined> | undefined {
+	fetchPrs(skipCache: boolean): Observable<PullRequest[]> {
+		return new Observable<PullRequest[]>((subscriber) => {
+			const key = this.owner + '/' + this.repo;
+
+			if (!skipCache) {
+				const cachedRsp = lscache.get(key);
+				if (cachedRsp) subscriber.next(cachedRsp.data.map(ghResponseToInstance));
+			}
+
+			try {
+				this.octokit.rest.pulls
+					.list({
+						owner: this.owner,
+						repo: this.repo
+					})
+					.then((rsp) => {
+						lscache.set(key, rsp, 1440); // 1 day ttl
+						subscriber.next(rsp.data.map(ghResponseToInstance));
+					})
+					.catch((e) => subscriber.error(e));
+			} catch (e) {
+				console.error(e);
+			}
+		});
+	}
+
+	async getDetailedPullRequest(
+		branch: string | undefined,
+		skipCache: boolean
+	): Promise<DetailedPullRequest | undefined> {
 		if (!branch) return;
+
+		// We should remove this cache when `list_virtual_branches` no longer triggers
+		// immedate updates on the subscription.
+		const cacheHit = this.prCache.get(branch);
+		if (cacheHit && !skipCache) {
+			if (new Date().getTime() - cacheHit.fetchedAt.getTime() < 1000 * 5) {
+				return await cacheHit.value;
+			}
+		}
+
+		const pr = this.getPr(branch);
+		if (!pr) {
+			toasts.error('Failed to get pull request data'); // TODO: Notify user
+			return;
+		}
+
+		const resp = await this.octokit.pulls.get({
+			owner: this.owner,
+			repo: this.repo,
+			pull_number: pr.number,
+			headers: {
+				'X-GitHub-Api-Version': '2022-11-28'
+			}
+		});
+		const detailedPr = Promise.resolve(parsePullRequestResponse(resp.data));
+
+		if (detailedPr) this.prCache.set(branch, { value: detailedPr, fetchedAt: new Date() });
+		return await detailedPr;
+	}
+
+	getPr(branch: string | undefined): PullRequest | undefined {
+		if (!branch) return;
+		return this.prs?.find((pr) => pr.targetBranch == branch);
+	}
+
+	getPr$(branch: string | undefined): Observable<PullRequest | undefined> {
+		if (!branch) return of(undefined);
 		return this.prs$.pipe(map((prs) => prs.find((pr) => pr.targetBranch == branch)));
 	}
 
@@ -165,48 +237,37 @@ export class GitHubService {
 		upstreamName: string,
 		draft: boolean
 	): Promise<{ pr: PullRequest } | { err: string | { message: string; help: string } }> {
-		if (!this.enabled) {
-			throw "Can't create PR when service not enabled";
-		}
 		this.setBusy('creating_pr', branchId);
 		return firstValueFrom(
 			// We have to wrap with defer becasue using `async` functions with operators
 			// create a promise that will stay rejected when rejected.
-			defer(() =>
-				combineLatest([this.octokit$, this.ctx$]).pipe(
-					switchMap(async ([octokit, ctx]) => {
-						if (!octokit || !ctx) {
-							throw "Can't create PR without credentials";
-						}
-						try {
-							const rsp = await octokit.rest.pulls.create({
-								owner: ctx.owner,
-								repo: ctx.repo,
-								head: upstreamName,
-								base,
-								title,
-								body,
-								draft
-							});
-							await this.reload();
-							posthog.capture('PR Successful');
-							return { pr: ghResponseToInstance(rsp.data) };
-						} catch (err: any) {
-							const toast = mapErrorToToast(err);
-							if (toast) {
-								// TODO: This needs disambiguation, not the same as `toasts.error`
-								// Show toast with rich content
-								showToast(toast);
-								// Handled errors should not be retried
-								return { err };
-							} else {
-								// Rethrow so that error is retried
-								throw err;
-							}
-						}
-					})
-				)
-			).pipe(
+			defer(async () => {
+				try {
+					const rsp = await this.octokit.rest.pulls.create({
+						owner: this.owner,
+						repo: this.repo,
+						head: upstreamName,
+						base,
+						title,
+						body,
+						draft
+					});
+					posthog.capture('PR Successful');
+					return { pr: ghResponseToInstance(rsp.data) };
+				} catch (err: any) {
+					const toast = mapErrorToToast(err);
+					if (toast) {
+						// TODO: This needs disambiguation, not the same as `toasts.error`
+						// Show toast with rich content
+						showToast(toast);
+						// Handled errors should not be retried
+						return { err };
+					} else {
+						// Rethrow so that error is retried
+						throw err;
+					}
+				}
+			}).pipe(
 				retry({
 					count: 2,
 					delay: 500
@@ -248,7 +309,13 @@ export class GitHubService {
 					}
 					return throwError(() => err.message);
 				}),
-				tap(() => this.setIdle(branchId))
+				tap(() => this.setIdle(branchId)),
+				// Makes finalize happen after first and only result
+				take(1),
+				// Wait for GitHub to become eventually consistent. If we refresh too quickly then
+				// then it'll show as mergeable and no checks even if checks are present.
+				delay(1000),
+				finalize(async () => await this.reload())
 			)
 		);
 	}
@@ -260,7 +327,8 @@ export class GitHubService {
 		// the pull request has been created.
 		let resp: Awaited<ReturnType<typeof this.fetchChecksWithRetries>>;
 		try {
-			resp = await this.fetchChecksWithRetries(ref, 5, 2000);
+			// resp = await this.fetchChecksWithRetries(ref, 5, 2000);
+			resp = await this.fetchChecks(ref);
 		} catch (err: any) {
 			return { error: err };
 		}
@@ -291,6 +359,17 @@ export class GitHubService {
 		};
 	}
 
+	async fetchChecks(ref: string) {
+		return await this.octokit.checks.listForRef({
+			owner: this.owner,
+			repo: this.repo,
+			ref: ref,
+			headers: {
+				'X-GitHub-Api-Version': '2022-11-28'
+			}
+		});
+	}
+
 	async fetchChecksWithRetries(ref: string, retries: number, delayMs: number) {
 		let resp = await this.fetchChecks(ref);
 		let retried = 0;
@@ -303,61 +382,28 @@ export class GitHubService {
 		return resp;
 	}
 
-	async fetchChecks(ref: string) {
-		if (!this.octokit || !this.ctx) throw 'GitHub client not available';
-		return await this.octokit.checks.listForRef({
-			owner: this.ctx.owner,
-			repo: this.ctx.repo,
-			ref: ref,
-			headers: {
-				'X-GitHub-Api-Version': '2022-11-28'
-			}
-		});
-	}
-
 	async merge(pullNumber: number, method: MergeMethod) {
-		if (!this.octokit || !this.ctx) return;
 		try {
-			await this.octokit.pulls.merge({
-				owner: this.ctx.owner,
-				repo: this.ctx.repo,
+			return await this.octokit.pulls.merge({
+				owner: this.owner,
+				repo: this.repo,
 				pull_number: pullNumber,
 				merge_method: method
 			});
-			await this.baseBranchService.fetchFromTarget();
 		} finally {
 			this.reload();
 		}
 	}
-}
 
-function loadPrs(
-	ctx: GitHubIntegrationContext,
-	octokit: Octokit,
-	skipCache: boolean
-): Observable<PullRequest[]> {
-	return new Observable<PullRequest[]>((subscriber) => {
-		const key = ctx.owner + '/' + ctx.repo;
-
-		if (!skipCache) {
-			const cachedRsp = lscache.get(key);
-			if (cachedRsp) subscriber.next(cachedRsp.data.map(ghResponseToInstance));
-		}
-
+	async fetchGitHubLogin(): Promise<string> {
 		try {
-			octokit.rest.pulls
-				.list({
-					owner: ctx.owner,
-					repo: ctx.repo
-				})
-				.then((rsp) => {
-					lscache.set(key, rsp, 1440); // 1 day ttl
-					subscriber.next(rsp.data.map(ghResponseToInstance));
-				});
+			const rsp = await this.octokit.users.getAuthenticated();
+			return rsp.data.login;
 		} catch (e) {
 			console.error(e);
+			throw e;
 		}
-	});
+	}
 }
 
 /**

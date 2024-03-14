@@ -19,8 +19,6 @@
 	export let projectId: string;
 	export let pr: PullRequest | undefined;
 
-	// $: prStatus$ = githubService.getStatus($pr$?.targetBranch);
-
 	let meatballButton: HTMLDivElement;
 	let container: HTMLDivElement;
 	let isApplying = false;

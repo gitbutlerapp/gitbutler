@@ -23,7 +23,7 @@
 		e.stopPropagation();
 		if (cloudEnabled) syncToCloud(projectId); // don't wait for this
 		await baseBranchService.fetchFromTarget();
-		if (githubService.isEnabled()) {
+		if (githubService.isEnabled) {
 			await githubService.reload();
 		}
 	}}

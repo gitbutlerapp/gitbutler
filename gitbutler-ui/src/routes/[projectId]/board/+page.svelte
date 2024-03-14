@@ -20,7 +20,6 @@
 	$: project$ = data.project$;
 	$: activeBranches$ = vbranchService.activeBranches$;
 	$: error$ = vbranchService.branchesError$;
-	$: githubEnabled$ = githubService.isEnabled$;
 
 	let viewport: HTMLDivElement;
 	let contents: HTMLDivElement;
@@ -30,7 +29,7 @@
 	function shouldShowHttpsWarning() {
 		if (httpsWarningBannerDismissed) return false;
 		if (!$base$?.remoteUrl.startsWith('https')) return false;
-		if ($base$?.remoteUrl.includes('github.com') && $githubEnabled$) return false;
+		if ($base$?.remoteUrl.includes('github.com') && githubService.isEnabled) return false;
 		return true;
 	}
 </script>
@@ -54,6 +53,7 @@
 				<Board
 					{branchController}
 					{branchService}
+					{baseBranchService}
 					project={$project$}
 					{cloud}
 					base={$base$}

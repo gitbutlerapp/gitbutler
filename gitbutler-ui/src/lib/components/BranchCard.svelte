@@ -37,6 +37,7 @@
 	import type { GitHubService } from '$lib/github/service';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import type { BranchController } from '$lib/vbranches/branchController';
+	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { BaseBranch, Branch, LocalFile, RemoteBranchData } from '$lib/vbranches/types';
 
 	export let branch: Branch;
@@ -52,14 +53,11 @@
 	export let githubService: GitHubService;
 	export let selectedOwnership: Writable<Ownership>;
 	export let commitBoxOpen: Writable<boolean>;
-
 	export let isLaneCollapsed: Persisted<boolean>;
+	export let baseBranchService: BaseBranchService;
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
-
-	let scrollViewport: HTMLElement;
-	let rsViewport: HTMLElement;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
@@ -68,6 +66,8 @@
 
 	let laneWidth: number;
 	let remoteBranchData: RemoteBranchData | undefined;
+	let scrollViewport: HTMLElement;
+	let rsViewport: HTMLElement;
 
 	$: upstream = branch.upstream;
 	$: if (upstream) reloadRemoteBranch();
@@ -215,6 +215,7 @@
 						{branch}
 						{branchService}
 						{githubService}
+						{baseBranchService}
 						{isUnapplied}
 						isLaneCollapsed={$isLaneCollapsed}
 					/>

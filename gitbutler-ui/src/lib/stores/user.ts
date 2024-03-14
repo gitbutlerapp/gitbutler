@@ -4,15 +4,15 @@ import { getCloudApiClient, type User } from '$lib/backend/cloud';
 import { invoke } from '$lib/backend/ipc';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
-import { BehaviorSubject, Observable, Subject, merge, shareReplay } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, distinct, map, merge, shareReplay } from 'rxjs';
 
 export class UserService {
-	private cloud = getCloudApiClient();
+	private readonly cloud = getCloudApiClient();
 
-	reset$ = new Subject<User | undefined>();
-	loading$ = new BehaviorSubject(false);
+	readonly reset$ = new Subject<User | undefined>();
+	readonly loading$ = new BehaviorSubject(false);
 
-	user$ = merge(
+	readonly user$ = merge(
 		new Observable<User | undefined>((subscriber) => {
 			invoke<User | undefined>('get_user').then((user) => {
 				if (user) {
@@ -24,6 +24,11 @@ export class UserService {
 		}),
 		this.reset$
 	).pipe(shareReplay(1));
+
+	readonly accessToken$ = this.user$.pipe(
+		map((user) => user?.github_access_token),
+		distinct()
+	);
 
 	constructor() {}
 

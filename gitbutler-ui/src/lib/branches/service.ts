@@ -1,7 +1,7 @@
 import { capture } from '$lib/analytics/posthog';
 import { CombinedBranch } from '$lib/branches/types';
 import { Observable, combineLatest } from 'rxjs';
-import { startWith, switchMap } from 'rxjs/operators';
+import { shareReplay, startWith, switchMap } from 'rxjs/operators';
 import type { GitHubService } from '$lib/github/service';
 import type { PullRequest } from '$lib/github/types';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
@@ -20,20 +20,17 @@ export class BranchService {
 	) {
 		const vbranchesWithEmpty$ = vbranchService.branches$.pipe(startWith([]));
 		const branchesWithEmpty$ = remoteBranchService.branches$.pipe(startWith([]));
-		const prWithEmpty$ = githubService.prs$.pipe(startWith([]));
+		const prWithEmpty$ = githubService.prs$;
 
 		this.branches$ = combineLatest([vbranchesWithEmpty$, branchesWithEmpty$, prWithEmpty$]).pipe(
-			switchMap(
-				([vbranches, remoteBranches, pullRequests]) =>
-					new Observable<CombinedBranch[]>((observer) => {
-						const contributions = mergeBranchesAndPrs(
-							vbranches,
-							pullRequests,
-							remoteBranches || []
-						);
-						observer.next(contributions);
-					})
-			)
+			switchMap(([vbranches, remoteBranches, pullRequests]) => {
+				return new Observable<CombinedBranch[]>((observer) => {
+					const contributions = mergeBranchesAndPrs(vbranches, pullRequests, remoteBranches || []);
+					observer.next(contributions);
+					observer.complete();
+				});
+			}),
+			shareReplay(1)
 		);
 	}
 

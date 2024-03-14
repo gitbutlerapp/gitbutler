@@ -5,6 +5,7 @@
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import type { AuthService } from '$lib/backend/auth';
 	import type { Project, ProjectService } from '$lib/backend/projects';
+	import type { GitHubService } from '$lib/github/service';
 	import type { UserService } from '$lib/stores/user';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
@@ -17,6 +18,7 @@
 	export let project: Project;
 	export let userService: UserService;
 	export let remoteBranches: { name: string }[];
+	export let githubService: GitHubService;
 
 	$: user$ = userService.user$;
 
@@ -63,6 +65,7 @@
 			projectId={project.id}
 			{userService}
 			{remoteBranches}
+			{githubService}
 			on:branchSelected={(e) => {
 				selectedBranch = e.detail;
 			}}
