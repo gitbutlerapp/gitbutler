@@ -8,6 +8,7 @@
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import { page } from '$app/stores';
 	import { invoke } from '$lib/backend/ipc';
+	import { getVersion } from '@tauri-apps/api/app';
 
 	export let user: User | undefined;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
@@ -51,9 +52,14 @@
 	async function onSubmit() {
 		const message = messageInputValue;
 		const email = user?.email ?? emailInputValue;
-		let context = 'Browser: ' + navigator.userAgent + '\n';
-		context += 'URL: ' + window.location.href + '\n';
+
+		// put together context information to send with the feedback
+		let context = '';
+		const appVersion = await getVersion();
 		const indexLength = await gitIndexLength();
+		context += 'GitButler Version: ' + appVersion + '\n';
+		context += 'Browser: ' + navigator.userAgent + '\n';
+		context += 'URL: ' + window.location.href + '\n';
 		context += 'Length of index: ' + indexLength + '\n';
 
 		toasts.promise(
