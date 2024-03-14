@@ -92,10 +92,11 @@
 				<label for="email">Email</label>
 				<input
 					name="email"
-					placeholder="Provide an email if you want to hear back from us"
+					placeholder="Provide an email so that we can get back to you"
 					type="email"
 					class="input"
 					bind:value={emailInputValue}
+					required
 					autocomplete="off"
 					autocorrect="off"
 					spellcheck="true"
