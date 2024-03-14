@@ -6,7 +6,7 @@
 // the merge parent file is removed when the merge is complete
 
 use std::{
-    io::{BufRead, IoSlice, Write},
+    io::{BufRead, Write},
     path::{Path, PathBuf},
 };
 
