@@ -52,7 +52,8 @@ export enum OpenAIModelName {
 
 export enum AnthropicModelName {
 	Opus = 'claude-3-opus-20240229',
-	Sonnet = 'claude-3-sonnet-20240229'
+	Sonnet = 'claude-3-sonnet-20240229',
+	Haiku = 'claude-3-haiku-20240307'
 }
 
 export const AI_SERVICE_CONTEXT = Symbol();
