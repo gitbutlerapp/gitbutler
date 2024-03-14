@@ -1,9 +1,13 @@
-use std::{path, str};
+use std::{
+    io::Write,
+    path::{self, Path},
+    str,
+};
 
 use git2::Submodule;
 use git2_hooks::HookResult;
 
-use crate::keys;
+use crate::{keys, path::Normalize};
 
 use super::{
     Blob, Branch, Commit, Config, Index, Oid, Reference, Refname, Remote, Result, Signature, Tree,
@@ -50,10 +54,13 @@ impl Repository {
         Ok(Repository(inner))
     }
 
-    pub fn add_disk_alternate(&self, path: &str) -> Result<()> {
+    pub fn add_disk_alternate<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let alternates_path = self.0.path().join("objects/info/alternates");
         if !alternates_path.exists() {
-            std::fs::write(alternates_path, format!("{path}\n"))?;
+            let path = path.as_ref().normalize();
+            let mut alternates_file = std::fs::File::create(&alternates_path)?;
+            alternates_file.write_all(path.as_path().as_os_str().as_encoded_bytes())?;
+            alternates_file.write_all(b"\n")?;
             self.0.odb().and_then(|odb| odb.refresh())?;
         }
 
