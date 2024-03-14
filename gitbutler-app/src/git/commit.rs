@@ -25,7 +25,7 @@ impl<'repo> From<&'repo Commit<'repo>> for &'repo git2::Commit<'repo> {
 }
 
 impl<'repo> Commit<'repo> {
-    pub fn id(&self) -> Oid {
+    pub fn id<'a>(&'a self) -> Oid {
         self.commit.id().into()
     }
 
