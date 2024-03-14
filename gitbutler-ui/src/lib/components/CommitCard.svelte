@@ -2,7 +2,7 @@
 	import BranchFiles from './BranchFiles.svelte';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
-	import { projectCurrentCommitMessage } from '$lib/config/config';
+	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -34,7 +34,7 @@
 	export let branchId: string | undefined = undefined;
 
 	const selectedOwnership = writable(Ownership.default());
-	const currentCommitMessage = projectCurrentCommitMessage(projectId, branchId || '');
+	const currentCommitMessage = persistedCommitMessage(projectId, branchId || '');
 
 	let showFiles = false;
 

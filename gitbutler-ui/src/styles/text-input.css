@@ -18,7 +18,8 @@
 		);
 	}
 
-	&:focus {
+	&:focus,
+	&:focus-within {
 		background: color-mix(
 			in srgb,
 			var(--clr-theme-container-light),
@@ -41,17 +42,4 @@
 		border-color: var(--clr-theme-scale-ntrl-70);
 		background-color: var(--clr-theme-container-pale);
 	}
-}
-
-.text-input__focused {
-	border-color: color-mix(
-		in srgb,
-		var(--clr-theme-container-outline-light),
-		var(--darken-tint-extradark)
-	);
-	background: color-mix(
-		in srgb,
-		var(--clr-theme-container-light),
-		var(--clr-theme-container-pale) 20%
-	);
 }

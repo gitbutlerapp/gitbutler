@@ -13,14 +13,13 @@
 		projectCommitGenerationExtraConcise,
 		projectCommitGenerationUseEmojis,
 		projectRunCommitHooks,
-		projectCurrentCommitMessage
+		persistedCommitMessage
 	} from '$lib/config/config';
 	import { persisted } from '$lib/persisted/persisted';
 	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { setAutoHeight, useAutoHeight } from '$lib/utils/useAutoHeight';
+	import { setAutoHeight } from '$lib/utils/useAutoHeight';
 	import { useResize } from '$lib/utils/useResize';
-	import { invoke } from '@tauri-apps/api/tauri';
 	import { createEventDispatcher } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { fly, slide } from 'svelte/transition';
@@ -44,68 +43,62 @@
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 	const runCommitHooks = projectRunCommitHooks(projectId);
-	const currentCommitMessage = projectCurrentCommitMessage(projectId, branch.id);
+	const commitMessage = persistedCommitMessage(projectId, branch.id);
+	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
+	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(projectId);
 
-	function getCommitMessageTitleAndDescription(commitMessage: string) {
-		// Split the commit message into title and description
-		// get the first line as title and the rest as description
-		const [summary, description] = commitMessage.trim().split(/\n+(.*)/s);
-		return {
-			summary: summary || '',
-			description: description || ''
-		};
-	}
-
-	function concatCommitMessage(message: { summary: string; description: string }) {
-		return `${message.summary}\n${message.description}`;
-	}
-
-	let commitMessageSet = getCommitMessageTitleAndDescription($currentCommitMessage);
 	let isCommitting = false;
+	let aiLoading = false;
 
-	let summaryTextareaElement: HTMLTextAreaElement;
-	let descriptionTextareaElement: HTMLTextAreaElement;
+	let contextMenu: ContextMenu;
+	let summarizer: Summarizer | undefined;
 
-	// need to detect if the textareas wrapper is focused
-	let isTextareaFocused = false;
-	let isSecondTextareaFocused = false;
+	let titleTextArea: HTMLTextAreaElement;
+	let descriptionTextArea: HTMLTextAreaElement;
+
+	$: [title, description] = splitMessage($commitMessage);
+	$: if ($commitMessage) {
+		setAutoHeight(titleTextArea);
+		setAutoHeight(descriptionTextArea);
+	}
+	$: if (user) {
+		const aiProvider = new ButlerAIProvider(cloud, user);
+		summarizer = new Summarizer(aiProvider);
+	}
+
+	function splitMessage(message: string) {
+		const parts = message.trim().split(/\n+(.*)/s);
+		return [parts[0] || '', parts[1] || ''];
+	}
+
+	function concatMessage(title: string, description: string) {
+		const message = `${title}\n\n${description}`;
+		return message.trim();
+	}
 
 	function focusTextareaOnMount(el: HTMLTextAreaElement) {
 		if (el) el.focus();
 	}
 
 	async function commit() {
-		if (!commitMessageSet.summary) return;
+		const message = concatMessage(title, description);
+		if (!message) return;
 		isCommitting = true;
-		branchController
-			.commitBranch(
+		try {
+			await branchController.commitBranch(
 				branch.id,
-				concatCommitMessage(commitMessageSet),
+				message,
 				$selectedOwnership.toString(),
 				$runCommitHooks
-			)
-			.then(() => {
-				commitMessageSet.summary = '';
-				commitMessageSet.description = '';
-				currentCommitMessage.set('');
-			})
-			.finally(() => (isCommitting = false));
+			);
+			$commitMessage = '';
+		} finally {
+			isCommitting = false;
+		}
 	}
 
-	export function git_get_config(params: { key: string }) {
-		return invoke<string>('git_get_global_config', params);
-	}
-
-	let summarizer: Summarizer | undefined;
-
-	$: if (user) {
-		const aiProvider = new ButlerAIProvider(cloud, user);
-
-		summarizer = new Summarizer(aiProvider);
-	}
-
-	let isGeneratingCommitMessage = false;
 	async function generateCommitMessage(files: LocalFile[]) {
+		if (!user || !summarizer) return;
 		const diff = files
 			.map((f) => f.hunks.filter((h) => $selectedOwnership.containsHunk(f.id, h.id)))
 			.flat()
@@ -113,9 +106,6 @@
 			.flat()
 			.join('\n')
 			.slice(0, 5000);
-
-		if (!user) return;
-		if (!summarizer) return;
 
 		// Branches get their names generated only if there are at least 4 lines of code
 		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
@@ -125,129 +115,79 @@
 			dispatch('action', 'generate-branch-name');
 		}
 
-		isGeneratingCommitMessage = true;
-		summarizer
-			.commit(diff, $commitGenerationUseEmojis, $commitGenerationExtraConcise)
-			.then((message) => {
-				commitMessageSet = getCommitMessageTitleAndDescription(message);
-				currentCommitMessage.set(message);
-
-				setTimeout(() => {
-					summaryTextareaElement.focus();
-					setAutoHeight(summaryTextareaElement);
-					setAutoHeight(descriptionTextareaElement);
-				}, 0);
-			})
-			.catch(() => {
-				toasts.error('Failed to generate commit message');
-			})
-			.finally(() => {
-				isGeneratingCommitMessage = false;
-			});
-	}
-	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
-	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(projectId);
-
-	let contextMenu: ContextMenu;
-
-	// concat commit message set into a single commit message
-	$: if (commitMessageSet.summary.length > 0) {
-		currentCommitMessage.set(concatCommitMessage(commitMessageSet));
-	}
-	// move description to title if title is empty
-	$: if (commitMessageSet.summary.length == 0 && commitMessageSet.description.length > 0) {
-		const messageSet = getCommitMessageTitleAndDescription(commitMessageSet.description);
-		commitMessageSet.summary = messageSet.summary;
-		commitMessageSet.description = messageSet.description;
-	}
-	// set auto height on textareas on each message change
-	$: if (commitMessageSet) {
-		setAutoHeight(summaryTextareaElement);
-		setAutoHeight(descriptionTextareaElement);
+		aiLoading = true;
+		try {
+			$commitMessage = await summarizer.commit(
+				diff,
+				$commitGenerationUseEmojis,
+				$commitGenerationExtraConcise
+			);
+		} catch {
+			toasts.error('Failed to generate commit message');
+		} finally {
+			aiLoading = false;
+		}
+		setTimeout(() => titleTextArea.focus(), 0);
 	}
 </script>
 
 <div class="commit-box" class:commit-box__expanded={$expanded}>
 	{#if $expanded}
 		<div class="commit-box__expander" transition:slide={{ duration: 150, easing: quintOut }}>
-			<div
-				class="commit-box__textarea-wrapper text-input"
-				class:text-input__focused={$expanded && (isTextareaFocused || isSecondTextareaFocused)}
-			>
+			<div class="commit-box__textarea-wrapper text-input">
 				<textarea
-					bind:this={summaryTextareaElement}
-					bind:value={commitMessageSet.summary}
+					value={title}
+					placeholder="Commit summary"
+					disabled={aiLoading}
+					class="text-base-body-13 text-semibold commit-box__textarea commit-box__textarea__title"
+					class:commit-box__textarea_bottom-padding={title.length == 0 && description.length == 0}
+					spellcheck="false"
+					rows="1"
+					bind:this={titleTextArea}
 					use:focusTextareaOnMount
 					use:useResize={() => {
-						setAutoHeight(summaryTextareaElement);
-						setAutoHeight(descriptionTextareaElement);
+						setAutoHeight(titleTextArea);
+						setAutoHeight(descriptionTextArea);
 					}}
-					on:input={useAutoHeight}
-					on:focus={(e) => {
-						useAutoHeight(e);
-						isTextareaFocused = true;
-					}}
-					on:blur={() => {
-						isTextareaFocused = false;
-					}}
+					on:focus={(e) => setAutoHeight(e.currentTarget)}
+					on:input={() => ($commitMessage = concatMessage(titleTextArea.value, description))}
 					on:keydown={(e) => {
-						if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-							commit();
-						}
-
+						if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') commit();
 						if (e.key === 'Tab' || e.key === 'Enter') {
 							e.preventDefault();
-							descriptionTextareaElement.focus();
+							descriptionTextArea.focus();
 						}
 					}}
-					spellcheck={false}
-					class="text-base-body-13 text-semibold commit-box__textarea commit-box__textarea__title"
-					class:commit-box__textarea_bottom-padding={commitMessageSet.description.length == 0 &&
-						commitMessageSet.summary.length == 0}
-					rows="1"
-					disabled={isGeneratingCommitMessage}
-					placeholder="Commit summary"
 				/>
 
-				{#if commitMessageSet.summary.length > 0}
+				{#if title.length > 0}
 					<textarea
-						bind:this={descriptionTextareaElement}
-						bind:value={commitMessageSet.description}
-						on:focus={(e) => {
-							useAutoHeight(e);
-							isSecondTextareaFocused = true;
-						}}
-						on:blur={() => {
-							isSecondTextareaFocused = false;
-						}}
-						use:setAutoHeight
-						spellcheck={false}
-						class="text-base-body-13 commit-box__textarea commit-box__textarea__description"
-						class:commit-box__textarea_bottom-padding={commitMessageSet.summary.length > 0}
-						rows="1"
-						disabled={isGeneratingCommitMessage}
+						value={description}
+						disabled={aiLoading}
 						placeholder="Commit description (optional)"
+						class="text-base-body-13 commit-box__textarea commit-box__textarea__description"
+						class:commit-box__textarea_bottom-padding={description.length > 0}
+						spellcheck="false"
+						rows="1"
+						bind:this={descriptionTextArea}
+						on:focus={(e) => setAutoHeight(e.currentTarget)}
+						on:input={() => ($commitMessage = concatMessage(title, descriptionTextArea.value))}
 						on:keydown={(e) => {
-							if (commitMessageSet.description.length == 0 && e.key === 'Backspace') {
+							const value = e.currentTarget.value;
+							if (e.key == 'Backspace' && value.length == 0) {
 								e.preventDefault();
-								summaryTextareaElement.focus();
-							}
-
-							// select previous textarea on cmd+a if this textarea is empty
-							if (
-								e.key === 'a' &&
-								(e.metaKey || e.ctrlKey) &&
-								commitMessageSet.description.length == 0
-							) {
+								titleTextArea.focus();
+								setAutoHeight(e.currentTarget);
+							} else if (e.key == 'a' && (e.metaKey || e.ctrlKey) && value.length == 0) {
+								// select previous textarea on cmd+a if this textarea is empty
 								e.preventDefault();
-								summaryTextareaElement.focus();
-								summaryTextareaElement.setSelectionRange(0, summaryTextareaElement.value.length);
+								titleTextArea.select();
 							}
 						}}
 					/>
 				{/if}
 
-				{#if commitMessageSet.summary.length > 50}
+				{#if title.length > 50}
 					<div
 						transition:fly={{ y: 2, duration: 150 }}
 						class="commit-box__textarea-tooltip"
@@ -271,7 +211,7 @@
 						icon="ai-small"
 						color="neutral"
 						disabled={!$aiGenEnabled || !user}
-						loading={isGeneratingCommitMessage}
+						loading={aiLoading}
 						on:click={() => generateCommitMessage(branch.files)}
 					>
 						Generate message
@@ -315,8 +255,7 @@
 			color="primary"
 			kind="filled"
 			loading={isCommitting}
-			disabled={(isCommitting || !commitMessageSet.summary || $selectedOwnership.isEmpty()) &&
-				$expanded}
+			disabled={(isCommitting || !title || $selectedOwnership.isEmpty()) && $expanded}
 			id="commit-to-branch"
 			on:click={() => {
 				if ($expanded) {
@@ -341,19 +280,21 @@
 		transition: background-color var(--transition-medium);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 	}
+
 	.commit-box__expander {
 		display: flex;
 		flex-direction: column;
 		margin-bottom: var(--space-12);
 	}
+
 	.commit-box__textarea-wrapper {
 		position: relative;
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-4);
-		/* padding: var(--space-12) var(--space-12) var(--space-48) var(--space-12); */
 		padding: 0;
 	}
+
 	.commit-box__textarea {
 		overflow: hidden;
 		display: flex;
@@ -361,9 +302,7 @@
 		align-items: flex-end;
 		gap: var(--space-16);
 		background: none;
-
 		resize: none;
-
 		&:focus {
 			outline: none;
 		}
@@ -405,7 +344,6 @@
 		gap: var(--space-6);
 	}
 
-	/* modifiers */
 	.commit-box__expanded {
 		background-color: var(--clr-theme-container-pale);
 	}
