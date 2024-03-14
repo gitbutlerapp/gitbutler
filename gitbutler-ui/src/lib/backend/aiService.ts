@@ -123,15 +123,12 @@ export class AIService {
 		diff: string,
 		useEmojiStyle: boolean,
 		useBriefStyle: boolean,
-		commitTemplate?: string
+		commitTemplate: string = defaultCommitTemplate
 	) {
 		const aiClient = await this.buildClient();
 		if (!aiClient) return;
 
-		let prompt = (commitTemplate || defaultCommitTemplate).replaceAll(
-			'%{diff}',
-			diff.slice(0, diffLengthLimit)
-		);
+		let prompt = commitTemplate.replaceAll('%{diff}', diff.slice(0, diffLengthLimit));
 
 		if (useBriefStyle) {
 			prompt = prompt.replaceAll(
@@ -160,14 +157,11 @@ export class AIService {
 		return description.length > 0 ? `${summary}\n\n${description}` : summary;
 	}
 
-	async branch(diff: string, branchTemplate?: string) {
+	async branch(diff: string, branchTemplate: string = defaultBranchTemplate) {
 		const aiClient = await this.buildClient();
 		if (!aiClient) return;
 
-		const prompt = (branchTemplate || defaultBranchTemplate).replaceAll(
-			'%{diff}',
-			diff.slice(0, diffLengthLimit)
-		);
+		const prompt = branchTemplate.replaceAll('%{diff}', diff.slice(0, diffLengthLimit));
 
 		let message = await aiClient.evaluate(prompt);
 
