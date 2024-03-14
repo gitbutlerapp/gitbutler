@@ -184,6 +184,7 @@
 				color="ghost"
 				clickable
 				border
+				shrinkable
 				verticalOrientation={isLaneCollapsed}
 				on:mousedown={(e) => {
 					const url = $pr$?.htmlUrl;
