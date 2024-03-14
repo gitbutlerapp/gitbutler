@@ -76,6 +76,7 @@
 		flex-shrink: 0;
 	}
 	.label {
+		white-space: nowrap;
 		display: inline-block;
 		padding: 0 var(--space-2);
 	}
