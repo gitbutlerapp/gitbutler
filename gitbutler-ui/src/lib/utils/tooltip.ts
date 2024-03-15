@@ -47,7 +47,7 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 	}
 
 	function show() {
-		if (!text) return;
+		if (!text || !node.isConnected) return;
 		tooltip = document.createElement('div') as HTMLDivElement;
 		// TODO: Can we co-locate tooltip.js & tooltip.postcss?
 		tooltip.classList.add('tooltip', 'text-base-11'); // see tooltip.postcss
