@@ -145,6 +145,15 @@ impl App {
             .map_err(|e| Error::Other(anyhow::anyhow!(e.to_string())))
     }
 
+    pub fn git_index_size(&self, project_id: &ProjectId) -> Result<usize, Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let size = project_repository
+            .git_index_size()
+            .context("failed to get index size")?;
+        Ok(size)
+    }
+
     pub fn git_head(&self, project_id: &ProjectId) -> Result<String, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;

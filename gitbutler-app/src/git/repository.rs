@@ -224,6 +224,10 @@ impl Repository {
         self.0.index().map(Into::into).map_err(Into::into)
     }
 
+    pub fn index_size(&self) -> Result<usize> {
+        Ok(self.0.index()?.len())
+    }
+
     pub fn blob_path<P: AsRef<Path>>(&self, path: P) -> Result<Oid> {
         self.0
             .blob_path(path.as_ref())

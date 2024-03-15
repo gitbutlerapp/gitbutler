@@ -1,10 +1,12 @@
 <script lang="ts">
 	import TextArea from './TextArea.svelte';
+	import { invoke } from '$lib/backend/ipc';
 	import * as zip from '$lib/backend/zip';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import * as toasts from '$lib/utils/toasts';
+	import { getVersion } from '@tauri-apps/api/app';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import { page } from '$app/stores';
 
@@ -13,6 +15,12 @@
 
 	export function show() {
 		modal.show();
+	}
+
+	function gitIndexLength() {
+		return invoke<void>('git_index_size', {
+			projectId: projectId
+		});
 	}
 
 	let modal: Modal;
@@ -41,9 +49,19 @@
 			: new Blob([file], { type: 'application/zip' });
 	}
 
-	function onSubmit() {
+	async function onSubmit() {
 		const message = messageInputValue;
 		const email = user?.email ?? emailInputValue;
+
+		// put together context information to send with the feedback
+		let context = '';
+		const appVersion = await getVersion();
+		const indexLength = await gitIndexLength();
+		context += 'GitButler Version: ' + appVersion + '\n';
+		context += 'Browser: ' + navigator.userAgent + '\n';
+		context += 'URL: ' + window.location.href + '\n';
+		context += 'Length of index: ' + indexLength + '\n';
+
 		toasts.promise(
 			Promise.all([
 				sendLogs ? zip.logs().then((path) => readZipFile(path, 'logs.zip')) : undefined,
@@ -57,6 +75,7 @@
 				cloud.feedback.create(user?.access_token, {
 					email,
 					message,
+					context,
 					logs,
 					data,
 					repo
@@ -83,7 +102,7 @@
 <Modal bind:this={modal} on:close={onClose} title="Share debug data with GitButler team for review">
 	<div class="flex flex-col gap-4">
 		<p class="text-color-3">
-			If you are having trouble, please share your project and logs with the Gitbutler team. We will
+			If you are having trouble, please share your project and logs with the GitButler team. We will
 			review it for you and help identify how we can help resolve the issue.
 		</p>
 
