@@ -4,6 +4,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
@@ -12,17 +13,16 @@
 		projectCommitGenerationExtraConcise,
 		projectCommitGenerationUseEmojis,
 		projectRunCommitHooks,
-		projectCurrentCommitMessage
+		persistedCommitMessage
 	} from '$lib/config/config';
 	import { persisted } from '$lib/persisted/persisted';
 	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { useAutoHeight } from '$lib/utils/useAutoHeight';
-	import { invoke } from '@tauri-apps/api/tauri';
+	import { setAutoHeight } from '$lib/utils/useAutoHeight';
+	import { useResize } from '$lib/utils/useResize';
 	import { createEventDispatcher } from 'svelte';
 	import { quintOut } from 'svelte/easing';
-	import { get } from 'svelte/store';
-	import { slide } from 'svelte/transition';
+	import { fly, slide } from 'svelte/transition';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
@@ -39,49 +39,66 @@
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let user: User | undefined;
 	export let selectedOwnership: Writable<Ownership>;
+	export const expanded = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 	const runCommitHooks = projectRunCommitHooks(projectId);
-	const currentCommitMessage = projectCurrentCommitMessage(projectId, branch.id);
-	export const expanded = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
+	const commitMessage = persistedCommitMessage(projectId, branch.id);
+	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
+	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(projectId);
 
-	let commitMessage: string = get(currentCommitMessage) || '';
 	let isCommitting = false;
-	let textareaElement: HTMLTextAreaElement;
-	$: if (textareaElement && commitMessage && expanded) {
-		textareaElement.style.height = 'auto';
-		textareaElement.style.height = `${textareaElement.scrollHeight + 2}px`;
-	}
+	let aiLoading = false;
 
-	function focusTextareaOnMount(el: HTMLTextAreaElement) {
-		if (el) el.focus();
-	}
-
-	function commit() {
-		if (!commitMessage) return;
-		isCommitting = true;
-		branchController
-			.commitBranch(branch.id, commitMessage, $selectedOwnership.toString(), $runCommitHooks)
-			.then(() => {
-				commitMessage = '';
-				currentCommitMessage.set('');
-			})
-			.finally(() => (isCommitting = false));
-	}
-
-	export function git_get_config(params: { key: string }) {
-		return invoke<string>('git_get_global_config', params);
-	}
-
+	let contextMenu: ContextMenu;
 	let summarizer: Summarizer | undefined;
+
+	let titleTextArea: HTMLTextAreaElement;
+	let descriptionTextArea: HTMLTextAreaElement;
+
+	$: [title, description] = splitMessage($commitMessage);
+	$: if ($commitMessage) updateHeights();
 	$: if (user) {
 		const aiProvider = new ButlerAIProvider(cloud, user);
-
 		summarizer = new Summarizer(aiProvider);
 	}
 
-	let isGeneratingCommitMessage = false;
+	function splitMessage(message: string) {
+		const parts = message.split(/\n+(.*)/s);
+		return [parts[0] || '', parts[1] || ''];
+	}
+
+	function concatMessage(title: string, description: string) {
+		return `${title}\n\n${description}`;
+	}
+
+	function focusTextareaOnMount(el: HTMLTextAreaElement) {
+		el.focus();
+	}
+
+	function updateHeights() {
+		setAutoHeight(titleTextArea);
+		setAutoHeight(descriptionTextArea);
+	}
+
+	async function commit() {
+		const message = concatMessage(title, description);
+		isCommitting = true;
+		try {
+			await branchController.commitBranch(
+				branch.id,
+				message.trim(),
+				$selectedOwnership.toString(),
+				$runCommitHooks
+			);
+			$commitMessage = '';
+		} finally {
+			isCommitting = false;
+		}
+	}
+
 	async function generateCommitMessage(files: LocalFile[]) {
+		if (!user || !summarizer) return;
 		const diff = files
 			.map((f) => f.hunks.filter((h) => $selectedOwnership.containsHunk(f.id, h.id)))
 			.flat()
@@ -89,9 +106,6 @@
 			.flat()
 			.join('\n')
 			.slice(0, 5000);
-
-		if (!user) return;
-		if (!summarizer) return;
 
 		// Branches get their names generated only if there are at least 4 lines of code
 		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
@@ -101,52 +115,98 @@
 			dispatch('action', 'generate-branch-name');
 		}
 
-		isGeneratingCommitMessage = true;
-		summarizer
-			.commit(diff, $commitGenerationUseEmojis, $commitGenerationExtraConcise)
-			.then((message) => {
-				commitMessage = message;
-				currentCommitMessage.set(message);
+		aiLoading = true;
+		try {
+			$commitMessage = await summarizer.commit(
+				diff,
+				$commitGenerationUseEmojis,
+				$commitGenerationExtraConcise
+			);
+		} catch {
+			toasts.error('Failed to generate commit message');
+		} finally {
+			aiLoading = false;
+		}
 
-				setTimeout(() => {
-					textareaElement.focus();
-				}, 0);
-			})
-			.catch(() => {
-				toasts.error('Failed to generate commit message');
-			})
-			.finally(() => {
-				isGeneratingCommitMessage = false;
-			});
+		setTimeout(() => {
+			updateHeights();
+			descriptionTextArea.focus();
+		}, 0);
 	}
-	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
-	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(projectId);
-
-	let contextMenu: ContextMenu;
 </script>
 
 <div class="commit-box" class:commit-box__expanded={$expanded}>
 	{#if $expanded}
 		<div class="commit-box__expander" transition:slide={{ duration: 150, easing: quintOut }}>
-			<div class="commit-box__textarea-wrapper">
+			<div class="commit-box__textarea-wrapper text-input">
 				<textarea
-					bind:this={textareaElement}
-					bind:value={commitMessage}
+					value={title}
+					placeholder="Commit summary"
+					disabled={aiLoading}
+					class="text-base-body-13 text-semibold commit-box__textarea commit-box__textarea__title"
+					class:commit-box__textarea_bottom-padding={title.length == 0 && description.length == 0}
+					spellcheck="false"
+					rows="1"
+					bind:this={titleTextArea}
 					use:focusTextareaOnMount
-					on:input={useAutoHeight}
-					on:focus={useAutoHeight}
-					on:change={() => currentCommitMessage.set(commitMessage)}
+					use:useResize={() => {
+						setAutoHeight(titleTextArea);
+						setAutoHeight(descriptionTextArea);
+					}}
+					on:focus={(e) => setAutoHeight(e.currentTarget)}
+					on:input={(e) => {
+						$commitMessage = concatMessage(e.currentTarget.value, description);
+					}}
 					on:keydown={(e) => {
-						if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-							commit();
+						if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') commit();
+						if (e.key === 'Tab' || e.key === 'Enter') {
+							e.preventDefault();
+							descriptionTextArea.focus();
 						}
 					}}
-					spellcheck={false}
-					class="text-input text-base-body-13 commit-box__textarea"
-					rows="1"
-					disabled={isGeneratingCommitMessage}
-					placeholder="Your commit message here"
 				/>
+
+				{#if title.length > 0}
+					<textarea
+						value={description}
+						disabled={aiLoading}
+						placeholder="Commit description (optional)"
+						class="text-base-body-13 commit-box__textarea commit-box__textarea__description"
+						class:commit-box__textarea_bottom-padding={description.length > 0 || title.length > 0}
+						spellcheck="false"
+						rows="1"
+						bind:this={descriptionTextArea}
+						on:focus={(e) => setAutoHeight(e.currentTarget)}
+						on:input={(e) => {
+							$commitMessage = concatMessage(title, e.currentTarget.value);
+						}}
+						on:keydown={(e) => {
+							const value = e.currentTarget.value;
+							if (e.key == 'Backspace' && value.length == 0) {
+								e.preventDefault();
+								titleTextArea.focus();
+								setAutoHeight(e.currentTarget);
+							} else if (e.key == 'a' && (e.metaKey || e.ctrlKey) && value.length == 0) {
+								// select previous textarea on cmd+a if this textarea is empty
+								e.preventDefault();
+								titleTextArea.select();
+							}
+						}}
+					/>
+				{/if}
+
+				{#if title.length > 50}
+					<div
+						transition:fly={{ y: 2, duration: 150 }}
+						class="commit-box__textarea-tooltip"
+						use:tooltip={{
+							text: '50 characters or less is best. Extra info can be added in the description.',
+							delay: 200
+						}}
+					>
+						<Icon name="blitz" />
+					</div>
+				{/if}
 
 				<div
 					class="commit-box__texarea-actions"
@@ -159,7 +219,7 @@
 						icon="ai-small"
 						color="neutral"
 						disabled={!$aiGenEnabled || !user}
-						loading={isGeneratingCommitMessage}
+						loading={aiLoading}
 						on:click={() => generateCommitMessage(branch.files)}
 					>
 						Generate message
@@ -203,7 +263,7 @@
 			color="primary"
 			kind="filled"
 			loading={isCommitting}
-			disabled={(isCommitting || !commitMessage || $selectedOwnership.isEmpty()) && $expanded}
+			disabled={(isCommitting || !title || $selectedOwnership.isEmpty()) && $expanded}
 			id="commit-to-branch"
 			on:click={() => {
 				if ($expanded) {
@@ -228,27 +288,57 @@
 		transition: background-color var(--transition-medium);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 	}
+
 	.commit-box__expander {
 		display: flex;
 		flex-direction: column;
 		margin-bottom: var(--space-12);
 	}
+
 	.commit-box__textarea-wrapper {
 		position: relative;
 		display: flex;
 		flex-direction: column;
+		gap: var(--space-4);
+		padding: 0;
 	}
+
 	.commit-box__textarea {
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-
-		padding: var(--space-12) var(--space-12) var(--space-48) var(--space-12);
 		align-items: flex-end;
 		gap: var(--space-16);
-
+		background: none;
 		resize: none;
+		&:focus {
+			outline: none;
+		}
 	}
+
+	.commit-box__textarea-tooltip {
+		position: absolute;
+		display: flex;
+		bottom: var(--space-12);
+		left: var(--space-12);
+		padding: var(--space-2);
+		border-radius: 100%;
+		background: var(--clr-theme-container-pale);
+		color: var(--clr-theme-scale-ntrl-40);
+	}
+
+	.commit-box__textarea__title {
+		padding: var(--space-12) var(--space-12) 0 var(--space-12);
+	}
+
+	.commit-box__textarea__description {
+		padding: 0 var(--space-12) var(--space-12) var(--space-12);
+	}
+
+	.commit-box__textarea_bottom-padding {
+		padding-bottom: var(--space-48);
+	}
+
 	.commit-box__texarea-actions {
 		position: absolute;
 		display: flex;
@@ -262,7 +352,6 @@
 		gap: var(--space-6);
 	}
 
-	/* modifiers */
 	.commit-box__expanded {
 		background-color: var(--clr-theme-container-pale);
 	}

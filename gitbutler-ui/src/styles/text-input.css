@@ -18,7 +18,8 @@
 		);
 	}
 
-	&:focus {
+	&:focus,
+	&:focus-within {
 		background: color-mix(
 			in srgb,
 			var(--clr-theme-container-light),

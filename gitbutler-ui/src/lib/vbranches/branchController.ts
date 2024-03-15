@@ -64,6 +64,7 @@ export class BranchController {
 		} catch (err: any) {
 			toasts.error('Failed to commit changes');
 			posthog.capture('Commit Failed', err);
+			throw err;
 		}
 	}
 
