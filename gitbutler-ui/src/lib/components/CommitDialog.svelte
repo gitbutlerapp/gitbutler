@@ -57,37 +57,37 @@
 	let descriptionTextArea: HTMLTextAreaElement;
 
 	$: [title, description] = splitMessage($commitMessage);
-	$: if ($commitMessage) {
-		setAutoHeight(titleTextArea);
-		setAutoHeight(descriptionTextArea);
-	}
+	$: if ($commitMessage) updateHeights();
 	$: if (user) {
 		const aiProvider = new ButlerAIProvider(cloud, user);
 		summarizer = new Summarizer(aiProvider);
 	}
 
 	function splitMessage(message: string) {
-		const parts = message.trim().split(/\n+(.*)/s);
+		const parts = message.split(/\n+(.*)/s);
 		return [parts[0] || '', parts[1] || ''];
 	}
 
 	function concatMessage(title: string, description: string) {
-		const message = `${title}\n\n${description}`;
-		return message.trim();
+		return `${title}\n\n${description}`;
 	}
 
 	function focusTextareaOnMount(el: HTMLTextAreaElement) {
-		if (el) el.focus();
+		el.focus();
+	}
+
+	function updateHeights() {
+		setAutoHeight(titleTextArea);
+		setAutoHeight(descriptionTextArea);
 	}
 
 	async function commit() {
 		const message = concatMessage(title, description);
-		if (!message) return;
 		isCommitting = true;
 		try {
 			await branchController.commitBranch(
 				branch.id,
-				message,
+				message.trim(),
 				$selectedOwnership.toString(),
 				$runCommitHooks
 			);
@@ -127,7 +127,11 @@
 		} finally {
 			aiLoading = false;
 		}
-		setTimeout(() => titleTextArea.focus(), 0);
+
+		setTimeout(() => {
+			updateHeights();
+			descriptionTextArea.focus();
+		}, 0);
 	}
 </script>
 
@@ -150,7 +154,9 @@
 						setAutoHeight(descriptionTextArea);
 					}}
 					on:focus={(e) => setAutoHeight(e.currentTarget)}
-					on:input={() => ($commitMessage = concatMessage(titleTextArea.value, description))}
+					on:input={(e) => {
+						$commitMessage = concatMessage(e.currentTarget.value, description);
+					}}
 					on:keydown={(e) => {
 						if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') commit();
 						if (e.key === 'Tab' || e.key === 'Enter') {
@@ -166,12 +172,14 @@
 						disabled={aiLoading}
 						placeholder="Commit description (optional)"
 						class="text-base-body-13 commit-box__textarea commit-box__textarea__description"
-						class:commit-box__textarea_bottom-padding={description.length > 0}
+						class:commit-box__textarea_bottom-padding={description.length > 0 || title.length > 0}
 						spellcheck="false"
 						rows="1"
 						bind:this={descriptionTextArea}
 						on:focus={(e) => setAutoHeight(e.currentTarget)}
-						on:input={() => ($commitMessage = concatMessage(title, descriptionTextArea.value))}
+						on:input={(e) => {
+							$commitMessage = concatMessage(title, e.currentTarget.value);
+						}}
 						on:keydown={(e) => {
 							const value = e.currentTarget.value;
 							if (e.key == 'Backspace' && value.length == 0) {
