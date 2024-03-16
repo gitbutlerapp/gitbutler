@@ -4,7 +4,6 @@
 	import CommitListItem from './CommitListItem.svelte';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
-	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type {
 		AnyFile,
@@ -21,7 +20,6 @@
 	export let project: Project;
 	export let branchController: BranchController;
 	export let type: CommitStatus;
-	export let githubService: GitHubService;
 	export let branchService: BranchService;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let isUnapplied: boolean;
@@ -75,7 +73,6 @@
 					{branchController}
 					{branchService}
 					{branch}
-					{githubService}
 					{type}
 					{base}
 					{isUnapplied}

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import PushButton, { BranchAction } from './PushButton.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import { GitHubService } from '$lib/github/service';
+	import { getContextByClass } from '$lib/utils/context';
 	import toast from 'svelte-french-toast';
 	import type { BranchService } from '$lib/branches/service';
-	import type { GitHubService } from '$lib/github/service';
 	import type { PullRequest } from '$lib/github/types';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch, CommitStatus } from '$lib/vbranches/types';
@@ -13,10 +14,11 @@
 	export let isUnapplied: boolean;
 	export let branchController: BranchController;
 	export let branchService: BranchService;
-	export let githubService: GitHubService;
 	export let base: BaseBranch | undefined | null;
 	export let projectId: string;
 	export let hasCommits: boolean;
+
+	const githubService = getContextByClass(GitHubService);
 
 	$: githubServiceState$ = githubService.getState(branch.id);
 	$: pr = githubService.getPr(branch.upstreamName);

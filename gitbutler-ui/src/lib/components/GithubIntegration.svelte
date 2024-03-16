@@ -5,16 +5,16 @@
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import { GitHubService } from '$lib/github/service';
 	import { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import type { GitHubService } from '$lib/github/service';
 
-	export let githubService: GitHubService;
 	export let minimal = false;
 	export let disabled = false;
 
+	const githubService = getContextByClass(GitHubService);
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
 

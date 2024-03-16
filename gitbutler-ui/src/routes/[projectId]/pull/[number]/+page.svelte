@@ -1,14 +1,17 @@
 <script lang="ts">
 	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
+	import { GitHubService } from '$lib/github/service';
+	import { getContextByClass } from '$lib/utils/context';
 	import { map } from 'rxjs';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 
 	export let data: PageData;
 
+	const githubService = getContextByClass(GitHubService);
+
 	$: branchController = data.branchController;
-	$: githubService = data.githubService;
 	$: pr = githubService.prs$?.pipe(
 		map((prs) => prs.find((b) => b.number.toString() == $page.params.number))
 	);

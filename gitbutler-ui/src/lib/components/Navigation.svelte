@@ -16,7 +16,6 @@
 	import type { User } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
-	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
@@ -25,7 +24,6 @@
 	export let branchController: BranchController;
 	export let project: Project;
 	export let user: User | undefined;
-	export let githubService: GitHubService;
 
 	const minResizerWidth = 280;
 	const minResizerRatio = 150;
@@ -122,12 +120,7 @@
 				{/if}
 				<ProjectSelector {project} isNavCollapsed={$isNavCollapsed} />
 				<div class="domains">
-					<BaseBranchCard
-						{project}
-						{baseBranchService}
-						{githubService}
-						isNavCollapsed={$isNavCollapsed}
-					/>
+					<BaseBranchCard {project} {baseBranchService} isNavCollapsed={$isNavCollapsed} />
 					<DomainButton
 						href={`/${project.id}/board`}
 						domain="workspace"
@@ -143,7 +136,6 @@
 				<Branches
 					projectId={project.id}
 					{branchService}
-					{githubService}
 					on:scrollbarDragging={(e) => (isScrollbarDragging = e.detail)}
 				/>
 			{/if}

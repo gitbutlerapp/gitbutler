@@ -30,7 +30,7 @@
 
 	export let data: PageData;
 
-	$: ({ cloud, authService, githubService } = data);
+	$: ({ cloud, authService } = data);
 
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
@@ -330,7 +330,7 @@
 	{:else if currentSection === 'integrations'}
 		<ContentWrapper title="Integrations">
 			{#if $user}
-				<GithubIntegration {githubService} />
+				<GithubIntegration />
 			{/if}
 		</ContentWrapper>
 	{/if}

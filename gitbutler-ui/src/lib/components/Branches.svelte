@@ -5,25 +5,26 @@
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
+	import { GitHubService } from '$lib/github/service';
 	import { persisted } from '$lib/persisted/persisted';
 	import { storeToObservable } from '$lib/rxjs/store';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import { getContextByClass } from '$lib/utils/context';
 	import { BehaviorSubject, combineLatest } from 'rxjs';
 	import { createEventDispatcher } from 'svelte';
 	import { getContext, onDestroy, onMount } from 'svelte';
 	import { derived } from 'svelte/store';
 	import type { BranchService } from '$lib/branches/service';
 	import type { CombinedBranch } from '$lib/branches/types';
-	import type { GitHubService } from '$lib/github/service';
 
 	const dispatch = createEventDispatcher<{ scrollbarDragging: boolean }>();
 
 	export let branchService: BranchService;
-	export let githubService: GitHubService;
 	export let projectId: string;
 
 	export const textFilter$ = new BehaviorSubject<string | undefined>(undefined);
 
+	const githubService = getContextByClass(GitHubService);
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const height = persisted<number | undefined>(undefined, 'branchesHeight');
 

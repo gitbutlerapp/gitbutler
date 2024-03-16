@@ -3,9 +3,13 @@
 	import IconLink from '$lib/components/IconLink.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
+	import { GitHubService } from '$lib/github/service';
+	import { getContextByClass } from '$lib/utils/context';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
+
+	const githubService = getContextByClass(GitHubService);
 
 	$: vbranchService = data.vbranchService;
 	$: branchController = data.branchController;
@@ -14,7 +18,6 @@
 	$: projectId = data.projectId;
 	$: base$ = baseBranchService.base$;
 	$: user$ = data.user$;
-	$: githubService = data.githubService;
 	$: branchService = data.branchService;
 
 	$: project$ = data.project$;
@@ -61,7 +64,6 @@
 					projectPath={$project$?.path}
 					branchesError={$error$}
 					user={$user$}
-					{githubService}
 				/>
 			</div>
 			<Scrollbar {viewport} {contents} horz zIndex={50} />
