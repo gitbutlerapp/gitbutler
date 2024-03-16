@@ -12,27 +12,23 @@
 	import { dropzone } from '$lib/dragging/dropzone';
 	import { getContextByClass } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
-	import {
-		RemoteCommit,
-		type BaseBranch,
-		type Branch,
-		type Commit,
-		type AnyFile
-	} from '$lib/vbranches/types';
+	import { RemoteCommit, type Branch, type Commit, type AnyFile } from '$lib/vbranches/types';
 	import { get, type Writable } from 'svelte/store';
 	import type { Project } from '$lib/backend/projects';
 
 	export let branch: Branch;
 	export let project: Project;
 	export let commit: Commit | RemoteCommit;
-	export let base: BaseBranch | undefined | null;
 	export let isHeadCommit: boolean;
 	export let isChained: boolean;
 	export let isUnapplied = false;
 	export let selectedFiles: Writable<AnyFile[]>;
 
 	const branchController = getContextByClass(BranchController);
+	const baseBranchService = getContextByClass(BaseBranchService);
+	const base = baseBranchService.base;
 
 	function acceptAmend(commit: Commit | RemoteCommit) {
 		if (commit instanceof RemoteCommit) {
@@ -133,12 +129,11 @@
 		<DropzoneOverlay class="squash-dz-marker" label="Squash" />
 
 		<CommitCard
-			{base}
 			{branch}
 			{commit}
 			projectId={project.id}
 			{project}
-			commitUrl={base?.commitUrl(commit.id)}
+			commitUrl={$base?.commitUrl(commit.id)}
 			{isHeadCommit}
 			{isUnapplied}
 			{selectedFiles}

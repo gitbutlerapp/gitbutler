@@ -8,22 +8,15 @@
 	import { getContextByClass } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
-	import {
-		LocalFile,
-		RemoteCommit,
-		Commit,
-		RemoteFile,
-		Branch,
-		BaseBranch
-	} from '$lib/vbranches/types';
+	import { LocalFile, RemoteCommit, Commit, RemoteFile, Branch } from '$lib/vbranches/types';
 	import { writable, type Writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 	import type { Project } from '$lib/backend/projects';
 
 	export let branch: Branch | undefined = undefined;
-	export let base: BaseBranch | undefined | null = undefined;
 	export let project: Project | undefined;
 	export let commit: Commit | RemoteCommit;
 	export let projectId: string;
@@ -34,6 +27,8 @@
 	export let branchId: string | undefined = undefined;
 
 	const branchController = getContextByClass(BranchController);
+	const baseBranchService = getContextByClass(BaseBranchService);
+	const base = baseBranchService.base;
 
 	const selectedOwnership = writable(Ownership.default());
 	const currentCommitMessage = persistedCommitMessage(projectId, branchId || '');
@@ -52,14 +47,14 @@
 	}
 
 	function resetHeadCommit() {
-		if (!branch || !base) {
+		if (!branch || !$base) {
 			console.error('Unable to reset head commit');
 			return;
 		}
 		if (branch.commits.length > 1) {
 			branchController.resetBranch(branch.id, branch.commits[1].id);
-		} else if (branch.commits.length === 1 && base) {
-			branchController.resetBranch(branch.id, base.baseSha);
+		} else if (branch.commits.length === 1 && $base) {
+			branchController.resetBranch(branch.id, $base.baseSha);
 		}
 	}
 

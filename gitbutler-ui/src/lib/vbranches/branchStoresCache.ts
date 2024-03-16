@@ -1,5 +1,6 @@
 import { BaseBranch, Branch, VirtualBranches } from './types';
 import { Code, invoke, listen } from '$lib/backend/ipc';
+import { observableToStore } from '$lib/rxjs/store';
 import * as toasts from '$lib/utils/toasts';
 import { plainToInstance } from 'class-transformer';
 import {
@@ -20,6 +21,7 @@ import {
 	startWith,
 	Subject
 } from 'rxjs';
+import type { Readable } from 'svelte/store';
 
 export class VirtualBranchService {
 	branches$: Observable<Branch[] | undefined>;
@@ -114,6 +116,9 @@ export class BaseBranchService {
 	readonly error$ = new BehaviorSubject<any>(undefined);
 	private readonly reload$ = new BehaviorSubject<void>(undefined);
 
+	base: Readable<BaseBranch | null | undefined>;
+	error: Readable<string | undefined>;
+
 	constructor(
 		private readonly projectId: string,
 		readonly remoteUrl$: BehaviorSubject<string | undefined>,
@@ -139,6 +144,7 @@ export class BaseBranchService {
 				return of(null);
 			})
 		);
+		[this.base, this.error] = observableToStore(this.base$);
 	}
 
 	async fetchFromTarget() {

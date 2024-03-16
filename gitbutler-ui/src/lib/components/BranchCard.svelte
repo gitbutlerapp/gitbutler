@@ -36,12 +36,11 @@
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { Persisted } from '$lib/persisted/persisted';
-	import type { BaseBranch, Branch, LocalFile, RemoteBranchData } from '$lib/vbranches/types';
+	import type { Branch, LocalFile, RemoteBranchData } from '$lib/vbranches/types';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
 	export let project: Project;
-	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchCount = 1;
 	export let user: User | undefined;
@@ -163,7 +162,6 @@
 		<BranchHeader
 			{isUnapplied}
 			{branch}
-			{base}
 			bind:isLaneCollapsed
 			projectId={project.id}
 			on:action={(e) => {
@@ -195,7 +193,6 @@
 					<BranchHeader
 						{isUnapplied}
 						{branch}
-						{base}
 						bind:isLaneCollapsed
 						projectId={project.id}
 						on:action={(e) => {
@@ -322,7 +319,6 @@
 					</div>
 
 					<BranchCommits
-						{base}
 						{branch}
 						{project}
 						{branchCount}

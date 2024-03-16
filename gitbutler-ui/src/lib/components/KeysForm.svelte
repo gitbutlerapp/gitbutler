@@ -18,14 +18,13 @@
 	export let project: Project;
 
 	const baseBranchService = getContextByClass(BaseBranchService);
+	const base = baseBranchService.base;
 
 	// Used by credential checker before target branch set
 	export let remoteName = '';
 	export let branchName = '';
 
 	const projectService = getContextByClass(ProjectService);
-
-	$: base$ = baseBranchService.base$;
 
 	let credentialCheck: CredentialCheck;
 	let sshKey = '';
@@ -219,8 +218,8 @@
 				bind:this={credentialCheck}
 				projectId={project.id}
 				{authService}
-				remoteName={remoteName || $base$?.remoteName}
-				branchName={branchName || $base$?.shortName}
+				remoteName={remoteName || $base?.remoteName}
+				branchName={branchName || $base?.shortName}
 			/>
 		</SectionCard>
 	</form>

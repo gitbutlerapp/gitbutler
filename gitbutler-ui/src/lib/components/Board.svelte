@@ -7,20 +7,22 @@
 	import { cloneWithRotation } from '$lib/dragging/draggable';
 	import { getContextByClass } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { open } from '@tauri-apps/api/shell';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
-	import type { BaseBranch, Branch } from '$lib/vbranches/types';
+	import type { Branch } from '$lib/vbranches/types';
 
 	export let project: Project;
 	export let projectPath: string;
 	export let branches: Branch[] | undefined;
 	export let branchesError: any;
-	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let user: User | undefined;
 
 	const branchController = getContextByClass(BranchController);
+	const baseBranchService = getContextByClass(BaseBranchService);
+	const base = baseBranchService.base;
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;
@@ -108,7 +110,6 @@
 				<BranchLane
 					{branch}
 					{project}
-					{base}
 					{cloud}
 					branchCount={branches.filter((c) => c.active).length}
 					{projectPath}
@@ -171,10 +172,10 @@
 					<div class="empty-board__suggestions__block">
 						<h3 class="text-base-14 text-bold">Recent commits</h3>
 						<div class="empty-board__suggestions__links">
-							{#each (base?.recentCommits || []).slice(0, 4) as commit}
+							{#each ($base?.recentCommits || []).slice(0, 4) as commit}
 								<a
 									class="empty-board__suggestions__link"
-									href={base?.commitUrl(commit.id)}
+									href={$base?.commitUrl(commit.id)}
 									target="_blank"
 									rel="noreferrer"
 									title="Open in browser"

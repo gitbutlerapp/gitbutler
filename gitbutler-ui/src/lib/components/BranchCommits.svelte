@@ -1,12 +1,11 @@
 <script lang="ts">
 	import CommitList from './CommitList.svelte';
 	import type { Project } from '$lib/backend/projects';
-	import type { BaseBranch, Branch, AnyFile, RemoteBranchData } from '$lib/vbranches/types';
+	import type { Branch, AnyFile, RemoteBranchData } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let project: Project;
 	export let branch: Branch;
-	export let base: BaseBranch | undefined | null;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let isUnapplied: boolean;
 	export let branchCount: number;
@@ -20,7 +19,6 @@
 {#if unknownCommits && unknownCommits.length > 0}
 	<CommitList
 		{branch}
-		{base}
 		{project}
 		{branchCount}
 		{isUnapplied}
@@ -31,7 +29,6 @@
 {/if}
 <CommitList
 	{branch}
-	{base}
 	{project}
 	{isUnapplied}
 	{selectedFiles}
@@ -40,7 +37,6 @@
 />
 <CommitList
 	{branch}
-	{base}
 	{project}
 	{isUnapplied}
 	{selectedFiles}
@@ -49,7 +45,6 @@
 />
 <CommitList
 	{branch}
-	{base}
 	{project}
 	{isUnapplied}
 	{selectedFiles}

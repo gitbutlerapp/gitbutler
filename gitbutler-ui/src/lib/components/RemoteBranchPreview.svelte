@@ -6,6 +6,8 @@
 	import CommitCard from '$lib/components/CommitCard.svelte';
 	import { type SettingsStore, SETTINGS_CONTEXT } from '$lib/settings/userSettings';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
+	import { getContextByClass } from '$lib/utils/context';
+	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
@@ -13,14 +15,16 @@
 	import { writable } from 'svelte/store';
 	import type { Project } from '$lib/backend/projects';
 	import type { PullRequest } from '$lib/github/types';
-	import type { AnyFile, BaseBranch, RemoteBranch } from '$lib/vbranches/types';
+	import type { AnyFile, RemoteBranch } from '$lib/vbranches/types';
 
 	export let project: Project | undefined;
-	export let base: BaseBranch | undefined | null;
 	export let branch: RemoteBranch;
 	export let projectId: string;
 	export let projectPath: string;
 	export let pr: PullRequest | undefined;
+
+	const baseBranchService = getContextByClass(BaseBranchService);
+	const base = baseBranchService.base;
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'branchPreviewLaneWidth';
@@ -57,7 +61,7 @@
 	>
 		<ScrollableContainer wide>
 			<div class="branch-preview">
-				<BranchPreviewHeader {projectId} {base} {branch} {pr} />
+				<BranchPreviewHeader {projectId} base={$base} {branch} {pr} />
 				{#if pr?.body}
 					<div class="card">
 						<div class="card__header">PR Description</div>
@@ -75,7 +79,7 @@
 									{project}
 									{projectId}
 									{selectedFiles}
-									commitUrl={base?.commitUrl(commit.id)}
+									commitUrl={$base?.commitUrl(commit.id)}
 								/>
 							{/each}
 						</div>

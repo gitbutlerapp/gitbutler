@@ -11,12 +11,11 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import toast from 'svelte-french-toast';
 	import type { Persisted } from '$lib/persisted/persisted';
-	import type { BaseBranch, Branch } from '$lib/vbranches/types';
+	import type { Branch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied = false;
 	export let branch: Branch;
-	export let base: BaseBranch | undefined | null;
 	export let projectId: string;
 	export let isLaneCollapsed: Persisted<boolean>;
 
@@ -70,7 +69,6 @@
 
 			<div class="collapsed-lane__info__details">
 				<ActiveBranchStatus
-					{base}
 					{branch}
 					{isUnapplied}
 					{hasIntegratedCommits}
@@ -95,7 +93,6 @@
 				</div>
 				<div class="header__remote-branch">
 					<ActiveBranchStatus
-						{base}
 						{branch}
 						{isUnapplied}
 						{hasIntegratedCommits}

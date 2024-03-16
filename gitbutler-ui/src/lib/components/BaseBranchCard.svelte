@@ -14,7 +14,7 @@
 
 	const baseBranchService = getContextByClass(BaseBranchService);
 
-	$: base$ = baseBranchService.base$;
+	$: base = baseBranchService.base;
 	$: selected = $page.url.href.endsWith('/base');
 
 	let baseContents: HTMLElement;
@@ -28,9 +28,9 @@
 	bind:this={baseContents}
 >
 	{#if isNavCollapsed}
-		{#if ($base$?.behind || 0) > 0}
+		{#if ($base?.behind || 0) > 0}
 			<div class="small-count-badge">
-				<span class="text-base-9 text-bold">{$base$?.behind || 0}</span>
+				<span class="text-base-9 text-bold">{$base?.behind || 0}</span>
 			</div>
 		{/if}
 	{/if}
@@ -40,13 +40,13 @@
 		<div class="content">
 			<div class="row_1">
 				<span class="text-base-14 text-semibold trunk-label">Trunk</span>
-				{#if ($base$?.behind || 0) > 0}
-					<Badge count={$base$?.behind || 0} help="Unmerged upstream commits" />
+				{#if ($base?.behind || 0) > 0}
+					<Badge count={$base?.behind || 0} help="Unmerged upstream commits" />
 				{/if}
 				<SyncButton projectId={project.id} cloudEnabled={project?.api?.sync || false} />
 			</div>
 			<div class="row_2 text-base-12">
-				{#if $base$?.remoteUrl.includes('github.com')}
+				{#if $base?.remoteUrl.includes('github.com')}
 					<!-- GitHub logo -->
 					<svg
 						style="width:0.75rem; height: 0.75rem"
@@ -64,7 +64,7 @@
 				{:else}
 					<Icon name="branch" />
 				{/if}
-				{$base$?.branchName}
+				{$base?.branchName}
 			</div>
 		</div>
 	{/if}
