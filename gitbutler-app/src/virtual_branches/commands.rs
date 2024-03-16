@@ -14,7 +14,7 @@ use crate::{
 use super::{
     branch::BranchId,
     controller::{Controller, ControllerError},
-    BaseBranch, RemoteBranchFile,
+    BaseBranch, Branch, RemoteBranchFile,
 };
 
 impl<E: Into<Error>> From<ControllerError<E>> for Error {
@@ -68,6 +68,36 @@ pub async fn commit_virtual_branch(
         .await?;
     emit_vbranches(&handle, &project_id).await;
     Ok(oid)
+}
+
+/// This is a test command. It retrieves the virtual branches state from the gitbutler repository (legacy state) and persists it into a flat TOML file
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn save_vbranches_state(
+    handle: AppHandle,
+    project_id: &str,
+    branch_ids: Vec<&str>,
+) -> Result<(), Error> {
+    let project_id = project_id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".to_string(),
+    })?;
+
+    let mut ids: Vec<BranchId> = Vec::new();
+    for branch_id in &branch_ids {
+        let id: gitbutler_core::id::Id<Branch> =
+            branch_id.parse().map_err(|_| Error::UserError {
+                code: Code::Validation,
+                message: "Malformed branch id".to_string(),
+            })?;
+        ids.push(id);
+    }
+
+    handle
+        .state::<Controller>()
+        .save_vbranches_state(&project_id, ids)
+        .await?;
+    return Ok(());
 }
 
 #[tauri::command(async)]

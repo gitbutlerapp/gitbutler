@@ -5,11 +5,10 @@ use tokio::sync::Semaphore;
 
 use crate::{
     error::Error,
-    gb_repository,
-    git::{self},
-    keys, project_repository,
+    gb_repository, git, keys, project_repository,
     projects::{self, ProjectId},
     users,
+    virtual_branches::state::{VirtualBranches, VirtualBranchesHandle},
 };
 
 use super::{
@@ -100,6 +99,33 @@ impl Controller {
         self.inner(project_id)
             .await
             .can_apply_virtual_branch(project_id, branch_id)
+    }
+
+    /// Retrieves the virtual branches state from the gitbutler repository (legacy state) and persists it into a flat TOML file
+    pub async fn save_vbranches_state(
+        &self,
+        project_id: &ProjectId,
+        branch_ids: Vec<BranchId>,
+    ) -> Result<(), Error> {
+        let vbranches_state = self
+            .inner(project_id)
+            .await
+            .get_vbranches_state(project_id, branch_ids)?;
+        let project = self.projects.get(project_id).map_err(Error::from)?;
+        // TODO: this should be constructed somewhere else
+        let state_handle = VirtualBranchesHandle::new(project.path.join(".git").as_path());
+        if vbranches_state.default_target.is_some() {
+            state_handle
+                .set_default_target(vbranches_state.default_target.unwrap())
+                .await?;
+        }
+        for (id, target) in vbranches_state.branch_targets {
+            state_handle.set_branch_target(id, target).await?;
+        }
+        for (_, branch) in vbranches_state.branches {
+            state_handle.set_branch(branch).await?;
+        }
+        Ok(())
     }
 
     pub async fn list_virtual_branches(
@@ -483,6 +509,54 @@ impl ControllerInner {
         .context("failed to open gitbutler repository")?;
         super::is_virtual_branch_mergeable(&gb_repository, &project_repository, branch_id)
             .map_err(Into::into)
+    }
+
+    /// Retrieves the virtual branches state from the gitbutler repository (legacy state)
+    pub fn get_vbranches_state(
+        &self,
+        project_id: &ProjectId,
+        branch_ids: Vec<BranchId>,
+    ) -> Result<VirtualBranches, Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let user = self.users.get_user().context("failed to get user")?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open gitbutler repository")?;
+        let current_session = gb_repository
+            .get_or_create_current_session()
+            .context("failed to get or create current session")?;
+        let session_reader = crate::sessions::Reader::open(&gb_repository, &current_session)
+            .context("failed to open current session")?;
+        let target_reader = super::target::Reader::new(&session_reader);
+        let branch_reader = super::branch::Reader::new(&session_reader);
+
+        let default_target = target_reader
+            .read_default()
+            .context("failed to read target")?;
+
+        let mut branches: HashMap<BranchId, super::Branch> = HashMap::new();
+        let mut branch_targets: HashMap<BranchId, super::target::Target> = HashMap::new();
+
+        for branch_id in branch_ids {
+            let branch = branch_reader
+                .read(&branch_id)
+                .context("failed to read branch")?;
+            branches.insert(branch_id, branch);
+            let target = target_reader
+                .read(&branch_id)
+                .context("failed to read target")?;
+            branch_targets.insert(branch_id, target);
+        }
+
+        Ok(VirtualBranches {
+            default_target: Some(default_target),
+            branch_targets,
+            branches,
+        })
     }
 
     pub async fn list_virtual_branches(
