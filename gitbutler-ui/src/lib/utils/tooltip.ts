@@ -22,9 +22,10 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 	function setOpts(opts: ToolTipOptions | string | undefined) {
 		if (typeof opts == 'string') {
 			text = opts;
-		} else {
+		} else if (opts) {
 			({ text, delay } = opts || {});
 		}
+		if (tooltip && text) tooltip.innerText = text;
 	}
 
 	setOpts(optsOrString);
