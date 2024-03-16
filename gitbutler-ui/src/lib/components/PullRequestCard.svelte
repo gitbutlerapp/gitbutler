@@ -3,7 +3,7 @@
 	import MergeButton from './MergeButton.svelte';
 	import Tag, { type TagColor } from './Tag.svelte';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
-	import { sleep } from '$lib/utils/sleep';
+	import { createTimeAgoStore } from '$lib/utils/timeAgo';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { onDestroy } from 'svelte';
@@ -13,6 +13,7 @@
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { Branch } from '$lib/vbranches/types';
 	import type iconsJson from '../icons/icons.json';
+	import type { Readable } from 'svelte/store';
 
 	export let isLaneCollapsed: boolean;
 	export let branchService: BranchService;
@@ -23,80 +24,89 @@
 	export let baseBranchService: BaseBranchService;
 
 	let isMerging = false;
-	let isFetching = false;
+	let isFetchingChecks = false;
 	let isFetchingDetails = false;
-	let checksStatus: ChecksStatus | null | undefined = undefined;
+	let checksError: string | undefined;
+	let detailsError: string | undefined;
 	let detailedPr: DetailedPullRequest | undefined;
+	let mergeableState: string | undefined;
+	let checksStatus: ChecksStatus | null | undefined = undefined;
+	let lastDetailsFetch: Readable<string> | undefined;
+	let lastChecksFetch: Readable<string> | undefined;
 
 	$: pr$ = githubService.getPr$(branch.upstreamName);
-	$: if (branch && pr$) {
-		isFetchingDetails = true;
-		sleep(1000).then(() => {
-			updateDetailedPullRequest($pr$?.targetBranch, false);
-			fetchChecks();
-		});
+	$: if (branch && $pr$) updateDetailsAndChecks();
+
+	async function updateDetailsAndChecks() {
+		if (!isFetchingChecks) fetchChecks();
+		if (!isFetchingDetails) updateDetailedPullRequest($pr$?.targetBranch, false);
 	}
 
 	async function updateDetailedPullRequest(targetBranch: string | undefined, skipCache: boolean) {
+		detailsError = undefined;
 		isFetchingDetails = true;
 		try {
 			detailedPr = await githubService.getDetailedPullRequest(targetBranch, skipCache);
-		} catch {
+			mergeableState = detailedPr?.mergeableState;
+			lastDetailsFetch = createTimeAgoStore(new Date(), true);
+		} catch (err: any) {
+			detailsError = err.message;
 			toasts.error('Failed to fetch PR details');
+			console.error(err);
 		} finally {
 			isFetchingDetails = false;
 		}
 	}
 
-	function updateContextMenu(copyablePrUrl: string) {
-		if (popupMenu) popupMenu.$destroy();
-		return new ViewPrContextMenu({
-			target: document.body,
-			props: { prUrl: copyablePrUrl }
-		});
-	}
-
 	async function fetchChecks() {
-		isFetching = true;
+		checksError = undefined;
+		isFetchingChecks = true;
 		try {
 			checksStatus = await githubService.checks($pr$?.targetBranch);
+			lastChecksFetch = createTimeAgoStore(new Date(), true);
 		} catch (e: any) {
 			if (!e.message.includes('No commit found')) {
+				checksError = e.message;
 				toasts.error('Failed to fetch PR status');
 				console.error(e);
 			}
 			checksStatus = undefined;
 		} finally {
-			isFetching = false;
+			isFetchingChecks = false;
 		}
 
-		if (checksStatus) scheduleNextPrFetch();
+		if (checksStatus) scheduleNextUpdate();
 	}
 
-	function scheduleNextPrFetch() {
-		if (checksStatus?.error) return 'error';
-		if (!checksStatus || checksStatus.completed) {
-			return;
-		}
+	function scheduleNextUpdate() {
+		if (checksStatus?.error) return;
+		if (!checksStatus || checksStatus.completed) return;
+
 		const startedAt = checksStatus.startedAt;
 		if (!startedAt) return;
+
 		const secondsAgo = (new Date().getTime() - startedAt.getTime()) / 1000;
 		let timeUntilUdate: number | undefined = undefined;
-		if (secondsAgo < 600) {
+
+		if (secondsAgo < 60) {
+			timeUntilUdate = 10;
+		} else if (secondsAgo < 600) {
 			timeUntilUdate = 30;
 		} else if (secondsAgo < 1200) {
 			timeUntilUdate = 60;
 		} else if (secondsAgo < 3600) {
 			timeUntilUdate = 120;
+		} else if (secondsAgo < 7200) {
+			// Stop polling after 2h
+			timeUntilUdate = undefined;
 		}
 		if (!timeUntilUdate) {
-			// Stop polling for status.
 			return;
 		}
-		setTimeout(() => fetchChecks(), timeUntilUdate * 1000);
+		setTimeout(() => updateDetailsAndChecks(), timeUntilUdate * 1000);
 	}
 
-	$: checksIcon = getChecksIcon(checksStatus, isFetching);
+	$: checksIcon = getChecksIcon(checksStatus, isFetchingChecks);
 	$: checksColor = getChecksColor(checksStatus);
 	$: checksText = getChecksText(checksStatus);
 	$: statusIcon = getStatusIcon();
@@ -105,8 +115,9 @@
 
 	// TODO: Refactor away the code duplication in the following functions
 	function getChecksColor(status: ChecksStatus): TagColor | undefined {
-		if (!status) return;
-		if (!status.hasChecks) return 'ghost';
+		if (checksError || detailsError) return 'error';
+		if (!status) return 'light';
+		if (!status.hasChecks) return 'light';
 		if (status.error) return 'error';
 		if (status.completed) {
 			return status.success ? 'success' : 'error';
@@ -118,6 +129,7 @@
 		status: ChecksStatus,
 		fetching: boolean
 	): keyof typeof iconsJson | undefined {
+		if (checksError || detailsError) return 'warning-small';
 		if (status === null) return;
 		if (fetching || !status) return 'spinner';
 		if (!status.hasChecks) return;
@@ -130,6 +142,7 @@
 	}
 
 	function getChecksText(status: ChecksStatus | undefined | null): string | undefined {
+		if (checksError || detailsError) return 'Failed to load';
 		if (!status) return 'Checks';
 		if (!status.hasChecks) return 'No checks';
 		if (status.error) return 'error';
@@ -138,7 +151,7 @@
 		}
 		// Checking this second to last let's us keep the previous tag color unless
 		// checks are currently running.
-		if (isFetching) return 'Checks';
+		if (isFetchingChecks) return 'Checks';
 		return 'Checks are running';
 	}
 
@@ -160,6 +173,14 @@
 		return 'success';
 	}
 
+	function updateContextMenu(copyablePrUrl: string) {
+		if (popupMenu) popupMenu.$destroy();
+		return new ViewPrContextMenu({
+			target: document.body,
+			props: { prUrl: copyablePrUrl }
+		});
+	}
+
 	$: popupMenu = updateContextMenu($pr$?.htmlUrl || '');
 
 	onDestroy(() => {
@@ -176,9 +197,9 @@
 			<IconButton
 				icon="update-small"
 				loading={isFetchingDetails}
+				help={$lastDetailsFetch ? 'Updated ' + $lastDetailsFetch : ''}
 				on:click={async () => {
-					updateDetailedPullRequest(pr?.targetBranch, true);
-					fetchChecks();
+					await updateDetailsAndChecks();
 				}}
 			/>
 		</div>
@@ -195,27 +216,17 @@
 			>
 				{statusLabel}
 			</Tag>
-			{#if branch.upstream && checksIcon}
-				<Tag
-					icon={checksIcon}
-					color={checksColor}
-					filled={checksIcon == 'success-small'}
-					clickable
-					verticalOrientation={isLaneCollapsed}
-					on:mousedown={fetchChecks}
-					help="Checks status"
-				>
-					{checksText}
-				</Tag>
-			{:else}
-				<Tag
-					color="light"
-					verticalOrientation={isLaneCollapsed}
-					help="There are no checks for this pull request"
-				>
-					No checks
-				</Tag>
-			{/if}
+			<Tag
+				icon={checksIcon}
+				color={checksColor}
+				filled={checksIcon == 'success-small'}
+				clickable
+				verticalOrientation={isLaneCollapsed}
+				on:mousedown={fetchChecks}
+				help={`Updated ${$lastChecksFetch}`}
+			>
+				{checksText}
+			</Tag>
 			<Tag
 				icon="open-link"
 				color="ghost"
@@ -251,7 +262,7 @@
 				<MergeButton
 					{projectId}
 					wide
-					disabled={isFetching || isUnapplied || !pr || detailedPr?.mergeableState == 'blocked'}
+					disabled={isFetchingChecks || isUnapplied || !pr || mergeableState == 'blocked'}
 					loading={isMerging}
 					help="Merge pull request and refresh"
 					on:click={async (e) => {
@@ -260,14 +271,14 @@
 						const method = e.detail.method;
 						try {
 							await githubService.merge(pr.number, method);
-						} catch {
-							// TODO: Should we show the error from GitHub?
+						} catch (err) {
+							console.error(err);
 							toasts.error('Failed to merge pull request');
 						} finally {
 							isMerging = false;
-							await fetchChecks();
-							await branchService.reloadVirtualBranches();
-							baseBranchService.reload();
+							baseBranchService.fetchFromTarget();
+							branchService.reloadVirtualBranches();
+							updateDetailsAndChecks();
 						}
 					}}
 				/>
