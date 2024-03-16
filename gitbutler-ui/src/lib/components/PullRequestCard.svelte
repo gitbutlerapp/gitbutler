@@ -2,6 +2,7 @@
 	import IconButton from './IconButton.svelte';
 	import MergeButton from './MergeButton.svelte';
 	import Tag, { type TagColor } from './Tag.svelte';
+	import { BranchService } from '$lib/branches/service';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { getContextByClass } from '$lib/utils/context';
@@ -10,14 +11,13 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { onDestroy } from 'svelte';
-	import type { BranchService } from '$lib/branches/service';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
 	import type { Branch } from '$lib/vbranches/types';
 	import type iconsJson from '../icons/icons.json';
 	import type { Readable } from 'svelte/store';
 
 	export let isLaneCollapsed: boolean;
-	export let branchService: BranchService;
+	const branchService = getContextByClass(BranchService);
 	export let branch: Branch;
 	export let projectId: string;
 	export let isUnapplied = false;

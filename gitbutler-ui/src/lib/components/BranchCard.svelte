@@ -35,7 +35,6 @@
 	import { get, type Writable } from 'svelte/store';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
-	import type { BranchService } from '$lib/branches/service';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import type { BaseBranch, Branch, LocalFile, RemoteBranchData } from '$lib/vbranches/types';
 
@@ -44,7 +43,6 @@
 	export let project: Project;
 	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
-	export let branchService: BranchService;
 	export let branchCount = 1;
 	export let user: User | undefined;
 	export let selectedFiles: Writable<LocalFile[]>;
@@ -209,7 +207,6 @@
 					<PullRequestCard
 						projectId={project.id}
 						{branch}
-						{branchService}
 						{isUnapplied}
 						isLaneCollapsed={$isLaneCollapsed}
 					/>
@@ -328,7 +325,6 @@
 						{base}
 						{branch}
 						{project}
-						{branchService}
 						{branchCount}
 						{isUnapplied}
 						{selectedFiles}
