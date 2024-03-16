@@ -36,7 +36,6 @@
 	<BranchLane
 		{branch}
 		{branchService}
-		{baseBranchService}
 		base={$baseBranch$}
 		{cloud}
 		project={$project$}

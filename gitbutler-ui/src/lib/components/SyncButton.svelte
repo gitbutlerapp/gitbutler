@@ -5,13 +5,13 @@
 	import { GitHubService } from '$lib/github/service';
 	import { getContextByClass } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
-	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
 	export let projectId: string;
-	export let baseBranchService: BaseBranchService;
 	export let cloudEnabled: boolean;
 
 	const githubService = getContextByClass(GitHubService);
+	const baseBranchService = getContextByClass(BaseBranchService);
 
 	$: base$ = baseBranchService.base$;
 	$: baseServiceBusy$ = baseBranchService.busy$;

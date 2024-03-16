@@ -8,12 +8,10 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import type { AuthService } from '$lib/backend/auth';
 	import type { Project } from '$lib/backend/projects';
-	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { goto } from '$app/navigation';
 
 	export let authService: AuthService;
 	const branchController = getContextByClass(BranchController);
-	export let baseBranchService: BaseBranchService;
 	export let project: Project;
 	export let remoteBranches: { name: string }[];
 
@@ -44,7 +42,7 @@
 >
 	{#if selectedBranch}
 		{@const [remoteName, branchName] = selectedBranch.split(/\/(.*)/s)}
-		<KeysForm {project} {authService} {baseBranchService} {remoteName} {branchName} />
+		<KeysForm {project} {authService} {remoteName} {branchName} />
 		<div class="actions">
 			<Button kind="outlined" color="neutral" on:mousedown={() => (selectedBranch = '')}
 				>Back</Button

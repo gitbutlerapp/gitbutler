@@ -9,6 +9,7 @@
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/random';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { onDestroy, onMount, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
 	import { goto } from '$app/navigation';
@@ -27,6 +28,7 @@
 	$: user$ = data.user$;
 
 	$: setContext(BranchController, data.branchController);
+	$: setContext(BaseBranchService, data.baseBranchService);
 
 	let intervalId: any;
 	handleMenuActions(data.projectId);
@@ -77,7 +79,7 @@
 	<NotOnGitButlerBranch project={$project$} baseBranch={$baseBranch$} />
 {:else if $baseBranch$}
 	<div class="view-wrap" role="group" on:dragover|preventDefault>
-		<Navigation {branchService} {baseBranchService} project={$project$} user={$user$} />
+		<Navigation {branchService} project={$project$} user={$user$} />
 		<slot />
 	</div>
 {:else}

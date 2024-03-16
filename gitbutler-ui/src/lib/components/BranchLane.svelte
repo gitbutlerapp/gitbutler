@@ -21,7 +21,6 @@
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
-	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
@@ -32,7 +31,6 @@
 	export let branchCount = 1;
 	export let user: User | undefined;
 	export let projectPath: string;
-	export let baseBranchService: BaseBranchService;
 
 	$: selectedOwnership = writable(Ownership.fromBranch(branch));
 	$: selected = setSelected($selectedFiles, branch);
@@ -79,7 +77,6 @@
 		{base}
 		{cloud}
 		{branchService}
-		{baseBranchService}
 		{selectedOwnership}
 		{commitBoxOpen}
 		bind:isLaneCollapsed

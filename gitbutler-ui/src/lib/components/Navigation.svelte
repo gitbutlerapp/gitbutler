@@ -16,10 +16,8 @@
 	import type { User } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
-	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
 	export let branchService: BranchService;
-	export let baseBranchService: BaseBranchService;
 	export let project: Project;
 	export let user: User | undefined;
 
@@ -118,13 +116,12 @@
 				{/if}
 				<ProjectSelector {project} isNavCollapsed={$isNavCollapsed} />
 				<div class="domains">
-					<BaseBranchCard {project} {baseBranchService} isNavCollapsed={$isNavCollapsed} />
+					<BaseBranchCard {project} isNavCollapsed={$isNavCollapsed} />
 					<DomainButton
 						href={`/${project.id}/board`}
 						domain="workspace"
 						label="Workspace"
 						iconSrc="/images/domain-icons/working-branches.svg"
-						{baseBranchService}
 						isNavCollapsed={$isNavCollapsed}
 					/>
 				</div>

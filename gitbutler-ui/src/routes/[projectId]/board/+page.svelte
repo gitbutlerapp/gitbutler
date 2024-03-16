@@ -54,7 +54,6 @@
 			<div class="scroll-contents" bind:this={contents}>
 				<Board
 					{branchService}
-					{baseBranchService}
 					project={$project$}
 					{cloud}
 					base={$base$}
