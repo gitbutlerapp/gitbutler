@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AI_SERVICE_CONTEXT, type AIService } from '$lib/backend/aiService';
+	import { AIService } from '$lib/backend/aiService';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
@@ -20,7 +20,7 @@
 	import { setAutoHeight } from '$lib/utils/useAutoHeight';
 	import { useResize } from '$lib/utils/useResize';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { createEventDispatcher, getContext } from 'svelte';
+	import { createEventDispatcher } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { fly, slide } from 'svelte/transition';
 	import type { User } from '$lib/backend/cloud';
@@ -28,7 +28,7 @@
 	import type { Branch, LocalFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	const aiService = getContext<AIService>(AI_SERVICE_CONTEXT);
+	const aiService = getContextByClass(AIService);
 
 	const dispatch = createEventDispatcher<{
 		action: 'generate-branch-name';
@@ -112,11 +112,12 @@
 
 		aiLoading = true;
 		try {
-			const generatedMessage = await aiService.commit(
+			const generatedMessage = await aiService.summarizeCommit({
 				diff,
-				$commitGenerationUseEmojis,
-				$commitGenerationExtraConcise
-			);
+				useEmojiStyle: $commitGenerationUseEmojis,
+				useBriefStyle: $commitGenerationExtraConcise,
+				userToken: user?.access_token
+			});
 
 			if (generatedMessage) {
 				$commitMessage = generatedMessage;

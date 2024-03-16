@@ -3,11 +3,9 @@ import { ButlerAIClient } from '$lib/backend/aiClients/butler';
 import { OpenAIClient } from '$lib/backend/aiClients/openAI';
 import * as toasts from '$lib/utils/toasts';
 import OpenAI from 'openai';
-import { get, writable, type Writable } from 'svelte/store';
 import type { AIClient } from './aiClient';
-import type { User, getCloudApiClient } from './cloud';
-import type { GitConfig } from './gitConfig';
-import type { Observable } from 'rxjs';
+import type { getCloudApiClient } from './cloud';
+import type { GitConfigService } from './gitConfigService';
 
 const diffLengthLimit = 20000;
 
@@ -58,25 +56,16 @@ export enum AnthropicModelName {
 	Haiku = 'claude-3-haiku-20240307'
 }
 
-export const AI_SERVICE_CONTEXT = Symbol();
-
 export class AIService {
-	private user$: Writable<User | undefined>;
-
 	constructor(
-		private gitConfig: GitConfig,
-		private cloud: ReturnType<typeof getCloudApiClient>,
-		user$: Observable<User | undefined>
-	) {
-		this.user$ = writable<User | undefined>();
-
-		user$.subscribe((user) => this.user$.set(user));
-	}
+		private gitConfig: GitConfigService,
+		private cloud: ReturnType<typeof getCloudApiClient>
+	) {}
 
 	// This optionally returns a summarizer. There are a few conditions for how this may occur
 	// Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
 	// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
-	async buildClient(): Promise<undefined | AIClient> {
+	async buildClient(userToken?: string): Promise<undefined | AIClient> {
 		const modelKind =
 			(await this.gitConfig.get<ModelKind>('gitbutler.aiModelProvider')) || ModelKind.OpenAI;
 		const openAIKeyOption =
@@ -89,15 +78,13 @@ export class AIService {
 			(modelKind == ModelKind.OpenAI && openAIKeyOption == KeyOption.ButlerAPI) ||
 			(modelKind == ModelKind.Anthropic && anthropicKeyOption == KeyOption.ButlerAPI)
 		) {
-			const user = get(this.user$);
-
-			if (!user) {
+			if (!userToken) {
 				toasts.error("When using GitButler's API to summarize code, you must be logged in");
 
 				return;
 			}
 
-			return new ButlerAIClient(this.cloud, user, ModelKind.OpenAI);
+			return new ButlerAIClient(this.cloud, userToken, ModelKind.OpenAI);
 		}
 
 		if (modelKind == ModelKind.OpenAI) {
@@ -136,13 +123,20 @@ export class AIService {
 		}
 	}
 
-	async commit(
-		diff: string,
-		useEmojiStyle: boolean,
-		useBriefStyle: boolean,
-		commitTemplate: string = defaultCommitTemplate
-	) {
-		const aiClient = await this.buildClient();
+	async summarizeCommit({
+		diff,
+		useEmojiStyle = false,
+		useBriefStyle = false,
+		commitTemplate = defaultCommitTemplate,
+		userToken
+	}: {
+		diff: string;
+		useEmojiStyle?: boolean;
+		useBriefStyle?: boolean;
+		commitTemplate?: string;
+		userToken?: string;
+	}) {
+		const aiClient = await this.buildClient(userToken);
 		if (!aiClient) return;
 
 		let prompt = commitTemplate.replaceAll('%{diff}', diff.slice(0, diffLengthLimit));
@@ -174,8 +168,16 @@ export class AIService {
 		return description.length > 0 ? `${summary}\n\n${description}` : summary;
 	}
 
-	async branch(diff: string, branchTemplate: string = defaultBranchTemplate) {
-		const aiClient = await this.buildClient();
+	async summarizeBranch({
+		diff,
+		branchTemplate = defaultBranchTemplate,
+		userToken = undefined
+	}: {
+		diff: string;
+		branchTemplate?: string;
+		userToken?: string;
+	}) {
+		const aiClient = await this.buildClient(userToken);
 		if (!aiClient) return;
 
 		const prompt = branchTemplate.replaceAll('%{diff}', diff.slice(0, diffLengthLimit));

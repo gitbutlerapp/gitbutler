@@ -8,42 +8,45 @@
 		ModelKind,
 		OpenAIModelName
 	} from '$lib/backend/aiService';
-	import { GIT_CONFING_CONTEXT, GitConfig } from '$lib/backend/gitConfig';
+	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import { getContext, onMount } from 'svelte';
+	import { getContextByClass } from '$lib/utils/context';
+	import { onMount } from 'svelte';
 
-	const gitConfig = getContext<GitConfig>(GIT_CONFING_CONTEXT);
+	const gitConfigService = getContextByClass(GitConfigService);
 
 	let modelKind: ModelKind;
-	$: gitConfig.set('gitbutler.aiModelProvider', modelKind);
+	$: gitConfigService.set('gitbutler.aiModelProvider', modelKind);
 	let openAIKeyOption: KeyOption;
-	$: gitConfig.set('gitbutler.aiOpenAIKeyOption', openAIKeyOption);
+	$: gitConfigService.set('gitbutler.aiOpenAIKeyOption', openAIKeyOption);
 	let anthropicKeyOption: KeyOption;
-	$: gitConfig.set('gitbutler.aiAnthropicKeyOption', anthropicKeyOption);
+	$: gitConfigService.set('gitbutler.aiAnthropicKeyOption', anthropicKeyOption);
 	let openAIKey: string | undefined;
-	$: if (openAIKey) gitConfig.set('gitbutler.aiOpenAIKey', openAIKey);
+	$: if (openAIKey) gitConfigService.set('gitbutler.aiOpenAIKey', openAIKey);
 	let openAIModelName: OpenAIModelName;
-	$: gitConfig.set('gitbutler.aiOpenAIModelName', openAIModelName);
+	$: gitConfigService.set('gitbutler.aiOpenAIModelName', openAIModelName);
 	let anthropicKey: string | undefined;
-	$: if (anthropicKey) gitConfig.set('gitbutler.aiAnthropicKey', anthropicKey);
+	$: if (anthropicKey) gitConfigService.set('gitbutler.aiAnthropicKey', anthropicKey);
 	let anthropicModelName: AnthropicModelName;
-	$: gitConfig.set('gitbutler.aiAnthropicModelName', anthropicModelName);
+	$: gitConfigService.set('gitbutler.aiAnthropicModelName', anthropicModelName);
 
 	onMount(async () => {
-		modelKind = (await gitConfig.get<ModelKind>('gitbutler.aiModelProvider')) || ModelKind.OpenAI;
+		modelKind =
+			(await gitConfigService.get<ModelKind>('gitbutler.aiModelProvider')) || ModelKind.OpenAI;
 		openAIKeyOption =
-			(await gitConfig.get<KeyOption>('gitbutler.aiOpenAIKeyOption')) || KeyOption.ButlerAPI;
+			(await gitConfigService.get<KeyOption>('gitbutler.aiOpenAIKeyOption')) || KeyOption.ButlerAPI;
 		anthropicKeyOption =
-			(await gitConfig.get<KeyOption>('gitbutler.aiAnthropicKeyOption')) || KeyOption.ButlerAPI;
+			(await gitConfigService.get<KeyOption>('gitbutler.aiAnthropicKeyOption')) ||
+			KeyOption.ButlerAPI;
 		openAIModelName =
-			(await gitConfig.get<OpenAIModelName>('gitbutler.aiOpenAIModelName')) ||
+			(await gitConfigService.get<OpenAIModelName>('gitbutler.aiOpenAIModelName')) ||
 			OpenAIModelName.GPT35Turbo;
-		openAIKey = (await gitConfig.get('gitbutler.aiOpenAIKey')) || undefined;
+		openAIKey = (await gitConfigService.get('gitbutler.aiOpenAIKey')) || undefined;
 		anthropicModelName =
-			(await gitConfig.get<AnthropicModelName>('gitbutler.aiAnthropicModelName')) ||
+			(await gitConfigService.get<AnthropicModelName>('gitbutler.aiAnthropicModelName')) ||
 			AnthropicModelName.Haiku;
-		anthropicKey = (await gitConfig.get('gitbutler.aiAnthropicKey')) || undefined;
+		anthropicKey = (await gitConfigService.get('gitbutler.aiAnthropicKey')) || undefined;
 	});
 
 	$: if (form) form.modelKind.value = modelKind;
