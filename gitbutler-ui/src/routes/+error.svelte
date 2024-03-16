@@ -2,9 +2,9 @@
 	import { page } from '$app/stores';
 
 	$: if ($page.error) {
-		console.error($page.url, $page.error);
+		console.error($page.url.toString(), $page.error);
 	} else {
-		console.log($page.url, $page.status);
+		console.log($page.url.toString(), $page.status.toString());
 	}
 
 	$: message = $page.error

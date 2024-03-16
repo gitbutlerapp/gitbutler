@@ -27,7 +27,7 @@ export class RemoteBranchService {
 			switchMap(() => listRemoteBranches(projectId)),
 			shareReplay(1),
 			catchError((e) => {
-				console.log(e);
+				console.error(e);
 				this.branchesError$.next(e);
 				toasts.error(`Failed load remote branches`);
 				return of([]);

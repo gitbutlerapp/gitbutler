@@ -144,9 +144,6 @@
 			branchId={branch.id}
 		/>
 	</div>
-	<!-- <div class="reset-head">
-			<IconButton icon="cross-small" on:click={() => resetHeadCommit()} />
-		</div> -->
 </div>
 
 <style lang="postcss">
