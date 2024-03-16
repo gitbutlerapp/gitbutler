@@ -96,7 +96,6 @@
 		}
 
 		return () => {
-			observer.unobserve(contents);
 			observer.disconnect();
 			viewport.removeEventListener('scroll', onScroll);
 		};
