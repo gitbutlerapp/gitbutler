@@ -104,3 +104,30 @@ export enum MergeMethod {
 	Rebase = 'rebase',
 	Squash = 'squash'
 }
+
+export type GitHubListCheckSuitesResp =
+	RestEndpointMethodTypes['checks']['listSuitesForRef']['response']['data'];
+export type GitHubCheckSuites =
+	RestEndpointMethodTypes['checks']['listSuitesForRef']['response']['data']['check_suites'];
+
+export type CheckSuites =
+	| {
+			count: number;
+			items?: CheckSuite[];
+	  }
+	| null
+	| undefined;
+
+export type CheckSuite = {
+	name?: string;
+	count?: number;
+};
+
+export function parseGitHubCheckSuites(data: GitHubListCheckSuitesResp): CheckSuite[] {
+	console.log(data);
+	const result = data.check_suites.map((checkSuite) => ({
+		name: checkSuite.app?.name,
+		count: checkSuite.latest_check_runs_count
+	}));
+	return result;
+}
