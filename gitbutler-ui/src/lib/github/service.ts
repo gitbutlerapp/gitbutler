@@ -4,7 +4,9 @@ import {
 	type ChecksStatus,
 	MergeMethod,
 	type DetailedPullRequest,
-	parseGitHubDetailedPullRequest as parsePullRequestResponse
+	parseGitHubDetailedPullRequest as parsePullRequestResponse,
+	parseGitHubCheckSuites,
+	type CheckSuites
 } from '$lib/github/types';
 import { showToast, type Toast } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
@@ -199,6 +201,13 @@ export class GitHubService {
 		return await detailedPr;
 	}
 
+	async getPreviousChecksCount(ref: string) {
+		const checkSuites = await this.getCheckSuites(ref);
+		const items = checkSuites?.items;
+		if (!items) return 0;
+		return items.map((suite) => suite.count || 0).reduce((a, b) => a + b, 0);
+	}
+
 	getPr(branch: string | undefined): PullRequest | undefined {
 		if (!branch) return;
 		return this.prs?.find((pr) => pr.targetBranch == branch);
@@ -327,8 +336,7 @@ export class GitHubService {
 		// the pull request has been created.
 		let resp: Awaited<ReturnType<typeof this.fetchChecksWithRetries>>;
 		try {
-			// resp = await this.fetchChecksWithRetries(ref, 5, 2000);
-			resp = await this.fetchChecks(ref);
+			resp = await this.fetchChecksWithRetries(ref, 5, 2000);
 		} catch (err: any) {
 			return { error: err };
 		}
@@ -359,6 +367,19 @@ export class GitHubService {
 		};
 	}
 
+	async getCheckSuites(ref: string | undefined): Promise<CheckSuites> {
+		if (!ref) return null;
+		const resp = await this.octokit.checks.listSuitesForRef({
+			owner: this.owner,
+			repo: this.repo,
+			ref: ref,
+			headers: {
+				'X-GitHub-Api-Version': '2022-11-28'
+			}
+		});
+		return { count: resp.data.total_count, items: parseGitHubCheckSuites(resp.data) };
+	}
+
 	async fetchChecks(ref: string) {
 		return await this.octokit.checks.listForRef({
 			owner: this.owner,
@@ -373,9 +394,18 @@ export class GitHubService {
 	async fetchChecksWithRetries(ref: string, retries: number, delayMs: number) {
 		let resp = await this.fetchChecks(ref);
 		let retried = 0;
+		let previousCount: number | undefined;
 
 		while (resp.data.total_count == 0 && retried < retries) {
+			if (previousCount === undefined) {
+				previousCount = await this.getPreviousChecksCount(ref);
+				if (previousCount == 0) {
+					console.log('Skipping retries because no checks');
+					return resp;
+				}
+			}
 			await sleep(delayMs);
+			console.log('Retrying fetch checks');
 			resp = await this.fetchChecks(ref);
 			retried++;
 		}
