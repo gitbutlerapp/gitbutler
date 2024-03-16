@@ -3,12 +3,13 @@
 	import MergeButton from './MergeButton.svelte';
 	import Tag, { type TagColor } from './Tag.svelte';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
+	import { GitHubService } from '$lib/github/service';
+	import { getContextByClass } from '$lib/utils/context';
 	import { createTimeAgoStore } from '$lib/utils/timeAgo';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { onDestroy } from 'svelte';
 	import type { BranchService } from '$lib/branches/service';
-	import type { GitHubService } from '$lib/github/service';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { Branch } from '$lib/vbranches/types';
@@ -18,10 +19,11 @@
 	export let isLaneCollapsed: boolean;
 	export let branchService: BranchService;
 	export let branch: Branch;
-	export let githubService: GitHubService;
 	export let projectId: string;
 	export let isUnapplied = false;
 	export let baseBranchService: BaseBranchService;
+
+	const githubService = getContextByClass(GitHubService);
 
 	let isMerging = false;
 	let isFetchingChecks = false;

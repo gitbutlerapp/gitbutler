@@ -12,11 +12,9 @@
 	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import { createEventDispatcher } from 'svelte';
-	import type { GitHubService } from '$lib/github/service';
 
 	export let projectId: string;
 	export let remoteBranches: { name: string }[];
-	export let githubService: GitHubService;
 
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
@@ -168,7 +166,7 @@
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
 				{#if !$user?.github_access_token}
-					<GithubIntegration {githubService} disabled={!$user} />
+					<GithubIntegration disabled={!$user} />
 				{/if}
 			</svelte:fragment>
 		</SetupFeature>

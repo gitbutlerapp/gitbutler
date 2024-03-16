@@ -4,14 +4,12 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { tooltip } from '$lib/utils/tooltip';
 	import type { Project } from '$lib/backend/projects';
-	import type { GitHubService } from '$lib/github/service';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
 	export let project: Project;
 	export let baseBranchService: BaseBranchService;
-	export let githubService: GitHubService;
 	export let isNavCollapsed: boolean;
 
 	$: base$ = baseBranchService.base$;
@@ -46,7 +44,6 @@
 				<SyncButton
 					projectId={project.id}
 					{baseBranchService}
-					{githubService}
 					cloudEnabled={project?.api?.sync || false}
 				/>
 			</div>

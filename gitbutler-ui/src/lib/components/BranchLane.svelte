@@ -21,7 +21,6 @@
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
-	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
@@ -35,7 +34,6 @@
 	export let branchCount = 1;
 	export let user: User | undefined;
 	export let projectPath: string;
-	export let githubService: GitHubService;
 	export let baseBranchService: BaseBranchService;
 
 	$: selectedOwnership = writable(Ownership.fromBranch(branch));
@@ -91,7 +89,6 @@
 		{branchCount}
 		{user}
 		{selectedFiles}
-		{githubService}
 	/>
 
 	{#if selected}

@@ -12,7 +12,6 @@
 	$: authService = data.authService;
 	$: projectId = data.projectId;
 	$: project$ = data.project$;
-	$: githubService = data.githubService;
 </script>
 
 {#await getRemoteBranches(projectId)}
@@ -32,7 +31,6 @@
 			{baseBranchService}
 			{branchController}
 			{remoteBranches}
-			{githubService}
 		/>
 	{/if}
 {:catch}

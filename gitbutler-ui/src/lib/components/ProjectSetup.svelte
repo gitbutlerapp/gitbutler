@@ -7,7 +7,6 @@
 	import { getContextByClass } from '$lib/utils/context';
 	import type { AuthService } from '$lib/backend/auth';
 	import type { Project } from '$lib/backend/projects';
-	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { goto } from '$app/navigation';
@@ -17,7 +16,6 @@
 	export let baseBranchService: BaseBranchService;
 	export let project: Project;
 	export let remoteBranches: { name: string }[];
-	export let githubService: GitHubService;
 
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
@@ -57,7 +55,6 @@
 		<ProjectSetupTarget
 			projectId={project.id}
 			{remoteBranches}
-			{githubService}
 			on:branchSelected={(e) => {
 				selectedBranch = e.detail;
 			}}

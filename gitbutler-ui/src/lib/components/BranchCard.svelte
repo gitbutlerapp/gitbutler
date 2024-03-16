@@ -34,7 +34,6 @@
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
-	import type { GitHubService } from '$lib/github/service';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
@@ -50,7 +49,6 @@
 	export let branchCount = 1;
 	export let user: User | undefined;
 	export let selectedFiles: Writable<LocalFile[]>;
-	export let githubService: GitHubService;
 	export let selectedOwnership: Writable<Ownership>;
 	export let isLaneCollapsed: Persisted<boolean>;
 	export let baseBranchService: BaseBranchService;
@@ -215,7 +213,6 @@
 						projectId={project.id}
 						{branch}
 						{branchService}
-						{githubService}
 						{baseBranchService}
 						{isUnapplied}
 						isLaneCollapsed={$isLaneCollapsed}
@@ -337,7 +334,6 @@
 						{base}
 						{branch}
 						{project}
-						{githubService}
 						{branchController}
 						{branchService}
 						{branchCount}

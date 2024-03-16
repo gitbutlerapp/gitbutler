@@ -26,7 +26,6 @@
 	$: branches$ = vbranchService.branches$;
 	$: error$ = vbranchService.branchesError$;
 	$: branch = $branches$?.find((b) => b.id == $page.params.branchId);
-	$: githubService = data.githubService;
 </script>
 
 {#if $error$}
@@ -45,7 +44,6 @@
 		isUnapplied={!branch.active}
 		user={$user$}
 		projectPath={$project$.path}
-		{githubService}
 	/>
 {:else}
 	<p>Branch no longer exists</p>

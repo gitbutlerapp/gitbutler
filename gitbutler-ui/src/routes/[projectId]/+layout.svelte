@@ -15,7 +15,6 @@
 	export let data: LayoutData;
 
 	$: branchController = data.branchController;
-	$: githubService = data.githubService;
 	$: vbranchService = data.vbranchService;
 	$: branchesError$ = vbranchService.branchesError$;
 	$: project$ = data.project$;
@@ -84,7 +83,6 @@
 			{branchController}
 			project={$project$}
 			user={$user$}
-			{githubService}
 		/>
 		<slot />
 	</div>

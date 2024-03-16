@@ -9,7 +9,6 @@
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
-	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
@@ -25,7 +24,6 @@
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
 	export let branchService: BranchService;
-	export let githubService: GitHubService;
 	export let baseBranchService: BaseBranchService;
 
 	export let user: User | undefined;
@@ -124,7 +122,6 @@
 					branchCount={branches.filter((c) => c.active).length}
 					{projectPath}
 					{user}
-					{githubService}
 				/>
 			</div>
 		{/each}

@@ -2,14 +2,16 @@
 	import { syncToCloud } from '$lib/backend/cloud';
 	import Icon from '$lib/components/Icon.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
+	import { GitHubService } from '$lib/github/service';
+	import { getContextByClass } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
-	import type { GitHubService } from '$lib/github/service';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
-	export let githubService: GitHubService;
 	export let projectId: string;
 	export let baseBranchService: BaseBranchService;
 	export let cloudEnabled: boolean;
+
+	const githubService = getContextByClass(GitHubService);
 
 	$: base$ = baseBranchService.base$;
 	$: baseServiceBusy$ = baseBranchService.busy$;
