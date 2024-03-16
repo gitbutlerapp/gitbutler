@@ -1,20 +1,27 @@
-import { AnthropicAIClient } from './aiClients/anthropic';
-import { ButlerAIClient } from './aiClients/butler';
-import { OpenAIClient } from './aiClients/openAI';
-import { AIService, AnthropicModelName, KeyOption, ModelKind, OpenAIModelName } from './aiService';
-import { getCloudApiClient } from './cloud';
+import { AnthropicAIClient } from '$lib/backend/aiClients/anthropic';
+import { ButlerAIClient } from '$lib/backend/aiClients/butler';
+import { OpenAIClient } from '$lib/backend/aiClients/openAI';
+import {
+	AIService,
+	AnthropicModelName,
+	ConfigKeys,
+	KeyOption,
+	ModelKind,
+	OpenAIModelName
+} from '$lib/backend/aiService';
+import { getCloudApiClient } from '$lib/backend/cloud';
 import { expect, test, describe, vi } from 'vitest';
-import type { AIClient } from './aiClient';
-import type { GitConfigService } from './gitConfigService';
+import type { AIClient } from '$lib/backend/aiClient';
+import type { GitConfigService } from '$lib/backend/gitConfigService';
 
 const defaultGitConfig = Object.freeze({
-	'gitbutler.aiModelProvider': ModelKind.OpenAI,
-	'gitbutler.aiOpenAIKeyOption': KeyOption.ButlerAPI,
-	'gitbutler.aiAnthropicKeyOption': KeyOption.ButlerAPI,
-	'gitbutler.aiOpenAIKey': undefined,
-	'gitbutler.aiOpenAIModelName': OpenAIModelName.GPT35Turbo,
-	'gitbutler.aiAnthropicKey': undefined,
-	'gitbutler.aiAnthropicModelName': AnthropicModelName.Haiku
+	[ConfigKeys.ModelProvider]: ModelKind.OpenAI,
+	[ConfigKeys.OpenAIKeyOption]: KeyOption.ButlerAPI,
+	[ConfigKeys.OpenAIKey]: undefined,
+	[ConfigKeys.OpenAIModelName]: OpenAIModelName.GPT35Turbo,
+	[ConfigKeys.AnthropicKeyOption]: KeyOption.ButlerAPI,
+	[ConfigKeys.AnthropicKey]: undefined,
+	[ConfigKeys.AnthropicModelName]: AnthropicModelName.Haiku
 });
 
 class DummyGitConfigService implements GitConfigService {
