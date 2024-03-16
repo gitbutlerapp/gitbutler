@@ -167,12 +167,13 @@
 	--radius-l: var(--space-12);
 	--radius-m: var(--space-6);
 	--radius-s: var(--space-4);
-	--size-btn-xxs: 0.875rem;
-	--size-btn-xs: 1rem;
-	--size-btn-s: 1.25rem;
-	--size-btn-m: 1.625rem;
-	--size-btn-l: 2rem;
-	--size-btn-xl: 2.25rem;
+	--size-btn-xxs: 0.875rem; /* 14px / 16px = 0.875rem */
+	--size-btn-xs: 1rem; /* 16px / 16px = 1rem */
+	--size-btn-s: 1.25rem; /* 20px / 16px = 1.25rem */
+	--size-btn-m: 1.75rem; /* 28px / 16px = 1.75rem */
+	--size-btn-l: 2rem; /* 32px / 16px = 2rem */
+	--size-btn-xl: 2.25rem; /* 36px / 16px = 2.25rem */
+	--size-btn-xxl: 2.5rem; /* 40px / 16px = 2.5rem */
 	--space-2: 0.125rem; /* 2px / 16px = 0.125rem */
 	--space-4: 0.25rem; /* 4px / 16px = 0.25rem */
 	--space-6: 0.375rem; /* 6px / 16px = 0.375rem */
