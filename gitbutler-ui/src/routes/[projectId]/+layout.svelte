@@ -2,7 +2,6 @@
 	import { syncToCloud } from '$lib/backend/cloud';
 	import { handleMenuActions } from '$lib/backend/menuActions';
 	import { BranchService } from '$lib/branches/service';
-	import BaseBranch from '$lib/components/BaseBranch.svelte';
 	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
@@ -12,6 +11,7 @@
 	import { unsubscribe } from '$lib/utils/random';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { BaseBranch } from '$lib/vbranches/types';
 	import { onDestroy, onMount, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
 	import { goto } from '$app/navigation';
@@ -27,11 +27,14 @@
 	$: baseError$ = baseBranchService.error$;
 	$: gbBranchActive$ = data.gbBranchActive$;
 	$: user$ = data.user$;
+	$: branchService = data.branchService;
+	$: branchController = data.branchController;
+	$: baseBranch = baseBranchService.base;
 
-	$: setContext(BranchController, data.branchController);
-	$: setContext(BranchService, data.branchService);
-	$: setContext(BaseBranchService, data.baseBranchService);
-	$: setContext(BaseBranch, data.baseBranchService.base);
+	$: setContext(BranchController, branchController);
+	$: setContext(BranchService, branchService);
+	$: setContext(BaseBranchService, baseBranchService);
+	$: setContext(BaseBranch, baseBranch);
 
 	let intervalId: any;
 	handleMenuActions(data.projectId);
@@ -80,7 +83,7 @@
 	<ProblemLoadingRepo project={$project$} error={$branchesError$} />
 {:else if !$gbBranchActive$ && $baseBranch$}
 	<NotOnGitButlerBranch project={$project$} baseBranch={$baseBranch$} />
-{:else if $baseBranch$}
+{:else if $baseBranch}
 	<div class="view-wrap" role="group" on:dragover|preventDefault>
 		<Navigation project={$project$} user={$user$} />
 		<slot />
