@@ -1,14 +1,12 @@
 <script lang="ts">
 	import CommitList from './CommitList.svelte';
 	import type { Project } from '$lib/backend/projects';
-	import type { BranchService } from '$lib/branches/service';
 	import type { BaseBranch, Branch, AnyFile, RemoteBranchData } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let project: Project;
 	export let branch: Branch;
 	export let base: BaseBranch | undefined | null;
-	export let branchService: BranchService;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let isUnapplied: boolean;
 	export let branchCount: number;
@@ -24,7 +22,6 @@
 		{branch}
 		{base}
 		{project}
-		{branchService}
 		{branchCount}
 		{isUnapplied}
 		{selectedFiles}
@@ -36,7 +33,6 @@
 	{branch}
 	{base}
 	{project}
-	{branchService}
 	{isUnapplied}
 	{selectedFiles}
 	commits={branch.commits.filter((c) => c.status == 'local')}
@@ -46,7 +42,6 @@
 	{branch}
 	{base}
 	{project}
-	{branchService}
 	{isUnapplied}
 	{selectedFiles}
 	type="remote"
@@ -56,7 +51,6 @@
 	{branch}
 	{base}
 	{project}
-	{branchService}
 	{isUnapplied}
 	{selectedFiles}
 	type="integrated"

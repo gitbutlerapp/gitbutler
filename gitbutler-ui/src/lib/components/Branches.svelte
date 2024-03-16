@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchItem from './BranchItem.svelte';
 	import BranchesHeader from './BranchesHeader.svelte';
+	import { BranchService } from '$lib/branches/service';
 	import FilterPopupMenu from '$lib/components/FilterPopupMenu.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
@@ -14,16 +15,15 @@
 	import { createEventDispatcher } from 'svelte';
 	import { getContext, onDestroy, onMount } from 'svelte';
 	import { derived } from 'svelte/store';
-	import type { BranchService } from '$lib/branches/service';
 	import type { CombinedBranch } from '$lib/branches/types';
 
 	const dispatch = createEventDispatcher<{ scrollbarDragging: boolean }>();
 
-	export let branchService: BranchService;
 	export let projectId: string;
 
 	export const textFilter$ = new BehaviorSubject<string | undefined>(undefined);
 
+	const branchService = getContextByClass(BranchService);
 	const githubService = getContextByClass(GitHubService);
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const height = persisted<number | undefined>(undefined, 'branchesHeight');

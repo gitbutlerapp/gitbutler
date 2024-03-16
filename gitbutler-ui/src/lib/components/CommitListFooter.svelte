@@ -1,18 +1,18 @@
 <script lang="ts">
 	import PushButton, { BranchAction } from './PushButton.svelte';
+	import { BranchService } from '$lib/branches/service';
 	import Button from '$lib/components/Button.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { getContextByClass } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import toast from 'svelte-french-toast';
-	import type { BranchService } from '$lib/branches/service';
 	import type { PullRequest } from '$lib/github/types';
 	import type { BaseBranch, Branch, CommitStatus } from '$lib/vbranches/types';
 
 	export let branch: Branch;
 	export let type: CommitStatus;
 	export let isUnapplied: boolean;
-	export let branchService: BranchService;
+	const branchService = getContextByClass(BranchService);
 	export let base: BaseBranch | undefined | null;
 	export let projectId: string;
 	export let hasCommits: boolean;

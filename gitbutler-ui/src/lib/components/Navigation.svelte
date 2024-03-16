@@ -15,9 +15,7 @@
 	import { getContext } from 'svelte';
 	import type { User } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
-	import type { BranchService } from '$lib/branches/service';
 
-	export let branchService: BranchService;
 	export let project: Project;
 	export let user: User | undefined;
 
@@ -129,7 +127,6 @@
 			{#if !$isNavCollapsed}
 				<Branches
 					projectId={project.id}
-					{branchService}
 					on:scrollbarDragging={(e) => (isScrollbarDragging = e.detail)}
 				/>
 			{/if}

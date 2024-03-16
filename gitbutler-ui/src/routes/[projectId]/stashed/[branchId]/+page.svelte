@@ -21,7 +21,6 @@
 	$: vbranchService = data.vbranchService;
 	$: baseBranchService = data.baseBranchService;
 	$: baseBranch$ = baseBranchService.base$;
-	$: branchService = data.branchService;
 
 	$: branches$ = vbranchService.branches$;
 	$: error$ = vbranchService.branchesError$;
@@ -35,7 +34,6 @@
 {:else if branch}
 	<BranchLane
 		{branch}
-		{branchService}
 		base={$baseBranch$}
 		{cloud}
 		project={$project$}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { syncToCloud } from '$lib/backend/cloud';
 	import { handleMenuActions } from '$lib/backend/menuActions';
+	import { BranchService } from '$lib/branches/service';
 	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
@@ -19,7 +20,6 @@
 	$: vbranchService = data.vbranchService;
 	$: branchesError$ = vbranchService.branchesError$;
 	$: project$ = data.project$;
-	$: branchService = data.branchService;
 	$: projectId = data.projectId;
 	$: baseBranchService = data.baseBranchService;
 	$: baseBranch$ = baseBranchService.base$;
@@ -29,6 +29,7 @@
 
 	$: setContext(BranchController, data.branchController);
 	$: setContext(BaseBranchService, data.baseBranchService);
+	$: setContext(BranchService, data.branchService);
 
 	let intervalId: any;
 	handleMenuActions(data.projectId);
@@ -79,7 +80,7 @@
 	<NotOnGitButlerBranch project={$project$} baseBranch={$baseBranch$} />
 {:else if $baseBranch$}
 	<div class="view-wrap" role="group" on:dragover|preventDefault>
-		<Navigation {branchService} project={$project$} user={$user$} />
+		<Navigation project={$project$} user={$user$} />
 		<slot />
 	</div>
 {:else}

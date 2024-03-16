@@ -17,7 +17,6 @@
 	$: projectId = data.projectId;
 	$: base$ = baseBranchService.base$;
 	$: user$ = data.user$;
-	$: branchService = data.branchService;
 
 	$: project$ = data.project$;
 	$: activeBranches$ = vbranchService.activeBranches$;
@@ -53,7 +52,6 @@
 		<div class="scroll-viewport hide-native-scrollbar" bind:this={viewport}>
 			<div class="scroll-contents" bind:this={contents}>
 				<Board
-					{branchService}
 					project={$project$}
 					{cloud}
 					base={$base$}
