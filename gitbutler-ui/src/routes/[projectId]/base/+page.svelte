@@ -22,7 +22,7 @@
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	const baseBranchService = getContextByClass(BaseBranchService);
-	const base = baseBranchService.base;
+	const baseBranch = baseBranchService.base;
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
@@ -48,7 +48,7 @@
 
 {#if $error$}
 	<p>Error...</p>
-{:else if !$base}
+{:else if !$baseBranch}
 	<FullscreenLoading />
 {:else}
 	<div class="base">
@@ -59,7 +59,7 @@
 		>
 			<ScrollableContainer>
 				<div class="card">
-					<BaseBranch {projectId} base={$base} {selectedFiles} project={$project$} />
+					<BaseBranch {projectId} base={$baseBranch} {selectedFiles} project={$project$} />
 				</div>
 			</ScrollableContainer>
 			<Resizer

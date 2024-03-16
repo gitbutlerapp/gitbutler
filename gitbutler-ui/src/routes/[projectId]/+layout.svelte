@@ -2,6 +2,7 @@
 	import { syncToCloud } from '$lib/backend/cloud';
 	import { handleMenuActions } from '$lib/backend/menuActions';
 	import { BranchService } from '$lib/branches/service';
+	import BaseBranch from '$lib/components/BaseBranch.svelte';
 	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
@@ -28,8 +29,9 @@
 	$: user$ = data.user$;
 
 	$: setContext(BranchController, data.branchController);
-	$: setContext(BaseBranchService, data.baseBranchService);
 	$: setContext(BranchService, data.branchService);
+	$: setContext(BaseBranchService, data.baseBranchService);
+	$: setContext(BaseBranch, data.baseBranchService.base);
 
 	let intervalId: any;
 	handleMenuActions(data.projectId);

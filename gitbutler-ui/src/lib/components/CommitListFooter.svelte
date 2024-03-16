@@ -3,12 +3,11 @@
 	import { BranchService } from '$lib/branches/service';
 	import Button from '$lib/components/Button.svelte';
 	import { GitHubService } from '$lib/github/service';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { BaseBranch, type Branch, type CommitStatus } from '$lib/vbranches/types';
 	import toast from 'svelte-french-toast';
 	import type { PullRequest } from '$lib/github/types';
-	import type { Branch, CommitStatus } from '$lib/vbranches/types';
 
 	export let branch: Branch;
 	export let type: CommitStatus;
@@ -19,8 +18,7 @@
 	const branchService = getContextByClass(BranchService);
 	const githubService = getContextByClass(GitHubService);
 	const branchController = getContextByClass(BranchController);
-	const baseBranchService = getContextByClass(BaseBranchService);
-	const base = baseBranchService.base;
+	const baseBranch = getContextStoreByClass(BaseBranch);
 
 	$: githubServiceState$ = githubService.getState(branch.id);
 	$: pr$ = githubService.getPr$(branch.upstreamName);
@@ -49,14 +47,14 @@
 			return;
 		}
 
-		if (!$base?.shortName) {
+		if (!$baseBranch?.shortName) {
 			toast.error('Cannot create PR without base branch');
 			return;
 		}
 
 		isPushing = true;
 		try {
-			return await branchService.createPr(branch, $base.shortName, opts.draft);
+			return await branchService.createPr(branch, $baseBranch.shortName, opts.draft);
 		} finally {
 			isPushing = false;
 		}

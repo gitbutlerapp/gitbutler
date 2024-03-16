@@ -12,7 +12,7 @@
 
 	const githubService = getContextByClass(GitHubService);
 	const baseBranchService = getContextByClass(BaseBranchService);
-	const base = baseBranchService.base;
+	const baseBranch = baseBranchService.base;
 
 	$: vbranchService = data.vbranchService;
 	$: cloud = data.cloud;
@@ -30,8 +30,8 @@
 
 	function shouldShowHttpsWarning() {
 		if (httpsWarningBannerDismissed) return false;
-		if (!$base?.remoteUrl.startsWith('https')) return false;
-		if ($base?.remoteUrl.includes('github.com') && githubService.isEnabled) return false;
+		if (!$baseBranch?.remoteUrl.startsWith('https')) return false;
+		if ($baseBranch?.remoteUrl.includes('github.com') && githubService.isEnabled) return false;
 		return true;
 	}
 </script>

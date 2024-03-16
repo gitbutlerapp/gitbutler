@@ -1,8 +1,8 @@
 <script lang="ts">
 	import UpdateBaseButton from './UpdateBaseButton.svelte';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContextStoreByClass } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { BaseBranch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
@@ -12,8 +12,7 @@
 	export let iconSrc: string;
 	export let isNavCollapsed: boolean;
 
-	const baseBranchService = getContextByClass(BaseBranchService);
-	const base = baseBranchService.base;
+	const baseBranch = getContextStoreByClass(BaseBranch);
 
 	$: selected = $page.url.href.includes(href);
 </script>
@@ -29,7 +28,7 @@
 
 		{#if !isNavCollapsed}
 			<span class="text-base-14 text-semibold" class:collapsed-txt={isNavCollapsed}>{label}</span>
-			{#if ($base?.behind || 0) > 0 && !isNavCollapsed}
+			{#if ($baseBranch?.behind || 0) > 0 && !isNavCollapsed}
 				<UpdateBaseButton />
 			{/if}
 		{/if}
