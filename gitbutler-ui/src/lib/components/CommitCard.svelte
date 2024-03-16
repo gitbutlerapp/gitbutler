@@ -5,7 +5,9 @@
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableCommit, nonDraggable } from '$lib/dragging/draggables';
+	import { getContextByClass } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import {
@@ -19,7 +21,6 @@
 	import { writable, type Writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 	import type { Project } from '$lib/backend/projects';
-	import type { BranchController } from '$lib/vbranches/branchController';
 
 	export let branch: Branch | undefined = undefined;
 	export let base: BaseBranch | undefined | null = undefined;
@@ -30,8 +31,9 @@
 	export let isHeadCommit: boolean = false;
 	export let isUnapplied = false;
 	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
-	export let branchController: BranchController;
 	export let branchId: string | undefined = undefined;
+
+	const branchController = getContextByClass(BranchController);
 
 	const selectedOwnership = writable(Ownership.default());
 	const currentCommitMessage = persistedCommitMessage(projectId, branchId || '');
@@ -127,7 +129,6 @@
 				{isUnapplied}
 				{selectedOwnership}
 				{selectedFiles}
-				{branchController}
 				{project}
 				allowMultiple={true}
 				readonly={true}

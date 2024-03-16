@@ -7,15 +7,17 @@
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { normalizeBranchName } from '$lib/utils/branch';
+	import { getContextByClass } from '$lib/utils/context';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import { createEventDispatcher } from 'svelte';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Branch } from '$lib/vbranches/types';
 
-	export let branchController: BranchController;
 	export let branch: Branch;
 	export let projectId: string;
 	export let visible: boolean;
 	export let isUnapplied = false;
+
+	const branchController = getContextByClass(BranchController);
 
 	let deleteBranchModal: Modal;
 	let renameRemoteModal: Modal;

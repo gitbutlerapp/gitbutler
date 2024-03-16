@@ -5,28 +5,26 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import { cloneWithRotation } from '$lib/dragging/draggable';
+	import { getContextByClass } from '$lib/utils/context';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import { open } from '@tauri-apps/api/shell';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 
 	export let project: Project;
 	export let projectPath: string;
-
 	export let branches: Branch[] | undefined;
 	export let branchesError: any;
-
 	export let base: BaseBranch | undefined | null;
-
 	export let cloud: ReturnType<typeof getCloudApiClient>;
-	export let branchController: BranchController;
 	export let branchService: BranchService;
 	export let baseBranchService: BaseBranchService;
-
 	export let user: User | undefined;
+
+	const branchController = getContextByClass(BranchController);
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;
@@ -116,7 +114,6 @@
 					{project}
 					{base}
 					{cloud}
-					{branchController}
 					{baseBranchService}
 					{branchService}
 					branchCount={branches.filter((c) => c.active).length}
@@ -200,7 +197,7 @@
 				</div>
 			</div>
 		{:else}
-			<NewBranchDropZone {branchController} />
+			<NewBranchDropZone />
 		{/if}
 	</div>
 {/if}

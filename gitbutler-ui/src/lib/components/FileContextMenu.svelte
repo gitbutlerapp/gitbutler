@@ -5,16 +5,19 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import { getContextByClass } from '$lib/utils/context';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import * as toasts from '$lib/utils/toasts';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import { join } from '@tauri-apps/api/path';
 	import { open } from '@tauri-apps/api/shell';
 	import type { Project } from '$lib/backend/projects';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { AnyFile } from '$lib/vbranches/types';
 
 	export let project: Project | undefined;
-	export let branchController: BranchController;
+
+	const branchController = getContextByClass(BranchController);
+
 	let confirmationModal: Modal;
 	let popupMenu: PopupMenu;
 

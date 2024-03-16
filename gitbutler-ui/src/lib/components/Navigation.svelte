@@ -16,12 +16,10 @@
 	import type { User } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
 	export let branchService: BranchService;
 	export let baseBranchService: BaseBranchService;
-	export let branchController: BranchController;
 	export let project: Project;
 	export let user: User | undefined;
 
@@ -126,7 +124,6 @@
 						domain="workspace"
 						label="Workspace"
 						iconSrc="/images/domain-icons/working-branches.svg"
-						{branchController}
 						{baseBranchService}
 						isNavCollapsed={$isNavCollapsed}
 					/>

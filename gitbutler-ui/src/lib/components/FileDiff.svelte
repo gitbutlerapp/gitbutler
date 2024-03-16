@@ -5,7 +5,6 @@
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { tooltip } from '$lib/utils/tooltip';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Commit } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
@@ -16,7 +15,6 @@
 	export let isLarge: boolean;
 	export let sections: (HunkSection | ContentSection)[];
 	export let projectPath: string | undefined;
-	export let branchController: BranchController;
 	export let isUnapplied: boolean;
 	export let selectable = false;
 	export let selectedOwnership: Writable<Ownership> | undefined = undefined;
@@ -82,7 +80,6 @@
 						{isUnapplied}
 						{projectPath}
 						{selectedOwnership}
-						{branchController}
 						{isFileLocked}
 						{minWidth}
 						{readonly}

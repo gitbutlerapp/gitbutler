@@ -7,7 +7,6 @@
 	import TreeListFolder from './TreeListFolder.svelte';
 	import { maybeMoveSelection } from '$lib/utils/selection';
 	import type { Project } from '$lib/backend/projects';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { TreeNode } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile, LocalFile, RemoteFile } from '$lib/vbranches/types';
@@ -24,7 +23,6 @@
 	export let isUnapplied: boolean;
 	export let allowMultiple = false;
 	export let readonly = false;
-	export let branchController: BranchController;
 	export let files: LocalFile[] | RemoteFile[];
 
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
@@ -83,7 +81,6 @@
 					{isUnapplied}
 					{readonly}
 					{allowMultiple}
-					{branchController}
 					{files}
 					{project}
 					on:checked
@@ -103,7 +100,6 @@
 		{selectedOwnership}
 		{selectedFiles}
 		{readonly}
-		{branchController}
 		{project}
 		showCheckbox={showCheckboxes}
 		on:click={(e) => {
@@ -154,7 +150,6 @@
 						{isUnapplied}
 						{readonly}
 						{allowMultiple}
-						{branchController}
 						{files}
 						{project}
 						on:checked

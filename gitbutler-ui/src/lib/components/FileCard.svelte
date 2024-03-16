@@ -2,8 +2,9 @@
 	import FileCardHeader from './FileCardHeader.svelte';
 	import FileDiff from './FileDiff.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
+	import { getContextByClass } from '$lib/utils/context';
 	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
-	import type { BranchController } from '$lib/vbranches/branchController';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile, Commit } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
@@ -12,12 +13,13 @@
 	export let file: AnyFile;
 	export let conflicted: boolean;
 	export let projectPath: string | undefined;
-	export let branchController: BranchController;
 	export let isUnapplied: boolean;
 	export let selectable = false;
 	export let readonly = false;
 	export let selectedOwnership: Writable<Ownership>;
 	export let branchCommits: Commit[] = [];
+
+	const branchController = getContextByClass(BranchController);
 
 	let sections: (HunkSection | ContentSection)[] = [];
 
@@ -57,7 +59,6 @@
 			{projectPath}
 			{isFileLocked}
 			{isUnapplied}
-			{branchController}
 			{selectable}
 			{branchId}
 			{selectedOwnership}

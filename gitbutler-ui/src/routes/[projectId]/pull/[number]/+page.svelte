@@ -4,25 +4,21 @@
 	import { GitHubService } from '$lib/github/service';
 	import { getContextByClass } from '$lib/utils/context';
 	import { map } from 'rxjs';
-	import type { PageData } from './$types';
 	import { page } from '$app/stores';
-
-	export let data: PageData;
 
 	const githubService = getContextByClass(GitHubService);
 
-	$: branchController = data.branchController;
-	$: pr = githubService.prs$?.pipe(
+	$: pr$ = githubService.prs$?.pipe(
 		map((prs) => prs.find((b) => b.number.toString() == $page.params.number))
 	);
 </script>
 
 <div class="wrapper overflow-y-auto overscroll-none">
 	<div class="inner flex">
-		{#if !$pr}
+		{#if !$pr$}
 			<FullscreenLoading />
-		{:else if pr}
-			<PullRequestPreview {branchController} pullrequest={$pr} />
+		{:else if pr$}
+			<PullRequestPreview pullrequest={$pr$} />
 		{:else}
 			<p>Branch doesn't seem to exist</p>
 		{/if}

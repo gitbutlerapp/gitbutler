@@ -2,14 +2,12 @@
 	import CommitList from './CommitList.svelte';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch, AnyFile, RemoteBranchData } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let project: Project;
 	export let branch: Branch;
 	export let base: BaseBranch | undefined | null;
-	export let branchController: BranchController;
 	export let branchService: BranchService;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let isUnapplied: boolean;
@@ -26,7 +24,6 @@
 		{branch}
 		{base}
 		{project}
-		{branchController}
 		{branchService}
 		{branchCount}
 		{isUnapplied}
@@ -39,7 +36,6 @@
 	{branch}
 	{base}
 	{project}
-	{branchController}
 	{branchService}
 	{isUnapplied}
 	{selectedFiles}
@@ -50,7 +46,6 @@
 	{branch}
 	{base}
 	{project}
-	{branchController}
 	{branchService}
 	{isUnapplied}
 	{selectedFiles}
@@ -61,7 +56,6 @@
 	{branch}
 	{base}
 	{project}
-	{branchController}
 	{branchService}
 	{isUnapplied}
 	{selectedFiles}

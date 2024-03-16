@@ -10,6 +10,8 @@
 		isDraggableCommit
 	} from '$lib/dragging/draggables';
 	import { dropzone } from '$lib/dragging/dropzone';
+	import { getContextByClass } from '$lib/utils/context';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
 	import {
 		RemoteCommit,
@@ -20,7 +22,6 @@
 	} from '$lib/vbranches/types';
 	import { get, type Writable } from 'svelte/store';
 	import type { Project } from '$lib/backend/projects';
-	import type { BranchController } from '$lib/vbranches/branchController';
 
 	export let branch: Branch;
 	export let project: Project;
@@ -29,8 +30,9 @@
 	export let isHeadCommit: boolean;
 	export let isChained: boolean;
 	export let isUnapplied = false;
-	export let branchController: BranchController;
 	export let selectedFiles: Writable<AnyFile[]>;
+
+	const branchController = getContextByClass(BranchController);
 
 	function acceptAmend(commit: Commit | RemoteCommit) {
 		if (commit instanceof RemoteCommit) {
@@ -140,7 +142,6 @@
 			{isHeadCommit}
 			{isUnapplied}
 			{selectedFiles}
-			{branchController}
 			branchId={branch.id}
 		/>
 	</div>

@@ -3,7 +3,6 @@
 	import { maybeMoveSelection } from '$lib/utils/selection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import type { Project } from '$lib/backend/projects';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
@@ -17,7 +16,6 @@
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let allowMultiple = false;
 	export let readonly = false;
-	export let branchController: BranchController;
 
 	$: sortedFiles = sortLikeFileTree(files);
 </script>
@@ -30,7 +28,6 @@
 		{isUnapplied}
 		{selectedFiles}
 		{selectedOwnership}
-		{branchController}
 		{project}
 		showCheckbox={showCheckboxes}
 		selected={$selectedFiles.includes(file)}

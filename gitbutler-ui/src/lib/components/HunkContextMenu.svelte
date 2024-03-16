@@ -3,12 +3,15 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import { getContextByClass } from '$lib/utils/context';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import { open } from '@tauri-apps/api/shell';
-	import type { BranchController } from '$lib/vbranches/branchController';
 
 	export let filePath: string;
 	export let projectPath: string | undefined;
-	export let branchController: BranchController;
+
+	const branchController = getContextByClass(BranchController);
+
 	let popupMenu: PopupMenu;
 
 	export function openByMouse(e: MouseEvent, item: any) {

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import Tag from './Tag.svelte';
+	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import type { BranchController } from '$lib/vbranches/branchController';
+	import { BranchController } from '$lib/vbranches/branchController';
 
-	export let branchController: BranchController;
+	const branchController = getContextByClass(BranchController);
 
 	let loading = false;
 </script>

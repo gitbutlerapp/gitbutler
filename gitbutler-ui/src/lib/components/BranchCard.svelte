@@ -26,7 +26,9 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
+	import { getContextByClass } from '$lib/utils/context';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import { filesToOwnership, type Ownership } from '$lib/vbranches/ownership';
 	import lscache from 'lscache';
 	import { getContext, onMount } from 'svelte';
@@ -35,7 +37,6 @@
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
 	import type { Persisted } from '$lib/persisted/persisted';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { BaseBranch, Branch, LocalFile, RemoteBranchData } from '$lib/vbranches/types';
 
@@ -45,15 +46,15 @@
 	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchService: BranchService;
-	export let branchController: BranchController;
 	export let branchCount = 1;
 	export let user: User | undefined;
 	export let selectedFiles: Writable<LocalFile[]>;
 	export let selectedOwnership: Writable<Ownership>;
 	export let isLaneCollapsed: Persisted<boolean>;
 	export let baseBranchService: BaseBranchService;
+	export let commitBoxOpen: Writable<boolean>;
 
-	export const commitBoxOpen = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
+	const branchController = getContextByClass(BranchController);
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
@@ -165,7 +166,6 @@
 	<div class="collapsed-lane-wrapper">
 		<BranchHeader
 			{isUnapplied}
-			{branchController}
 			{branch}
 			{base}
 			bind:isLaneCollapsed
@@ -198,7 +198,6 @@
 				>
 					<BranchHeader
 						{isUnapplied}
-						{branchController}
 						{branch}
 						{base}
 						bind:isLaneCollapsed
@@ -266,7 +265,6 @@
 									branchId={branch.id}
 									files={branch.files}
 									{isUnapplied}
-									{branchController}
 									{project}
 									{selectedOwnership}
 									{selectedFiles}
@@ -277,7 +275,6 @@
 								{#if branch.active}
 									<CommitDialog
 										projectId={project.id}
-										{branchController}
 										{branch}
 										{cloud}
 										{selectedOwnership}
@@ -334,7 +331,6 @@
 						{base}
 						{branch}
 						{project}
-						{branchController}
 						{branchService}
 						{branchCount}
 						{isUnapplied}

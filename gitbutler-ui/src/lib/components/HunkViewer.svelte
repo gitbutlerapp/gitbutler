@@ -7,26 +7,21 @@
 	import { draggableHunk } from '$lib/dragging/draggables';
 	import { onDestroy } from 'svelte';
 	import type { HunkSection } from '$lib/utils/fileSections';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Hunk } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let viewport: HTMLDivElement | undefined = undefined;
 	export let contents: HTMLDivElement | undefined = undefined;
-
 	export let filePath: string;
 	export let section: HunkSection;
 	export let branchId: string | undefined;
 	export let projectPath: string | undefined;
-
 	export let minWidth: number;
 	export let selectable = false;
 	export let isUnapplied: boolean;
 	export let isFileLocked: boolean;
 	export let readonly: boolean = false;
-
-	export let branchController: BranchController;
 	export let selectedOwnership: Writable<Ownership> | undefined = undefined;
 	export let linesModified: number;
 
@@ -43,7 +38,7 @@
 		if (popupMenu) popupMenu.$destroy();
 		return new HunkContextMenu({
 			target: document.body,
-			props: { projectPath, filePath, branchController }
+			props: { projectPath, filePath }
 		});
 	}
 

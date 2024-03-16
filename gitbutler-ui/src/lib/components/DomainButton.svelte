@@ -1,7 +1,6 @@
 <script lang="ts">
 	import UpdateBaseButton from './UpdateBaseButton.svelte';
 	import { tooltip } from '$lib/utils/tooltip';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -10,12 +9,10 @@
 	export let domain: string;
 	export let label: string;
 	export let iconSrc: string;
-	export let branchController: BranchController;
 	export let baseBranchService: BaseBranchService;
 	export let isNavCollapsed: boolean;
 
 	$: base$ = baseBranchService.base$;
-
 	$: selected = $page.url.href.includes(href);
 </script>
 
@@ -31,7 +28,7 @@
 		{#if !isNavCollapsed}
 			<span class="text-base-14 text-semibold" class:collapsed-txt={isNavCollapsed}>{label}</span>
 			{#if ($base$?.behind || 0) > 0 && !isNavCollapsed}
-				<UpdateBaseButton {branchController} />
+				<UpdateBaseButton />
 			{/if}
 		{/if}
 	{:else}

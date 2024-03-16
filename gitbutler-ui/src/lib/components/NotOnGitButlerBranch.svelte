@@ -9,11 +9,11 @@
 	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import type { BranchController } from '$lib/vbranches/branchController';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
-	export let branchController: BranchController;
+	const branchController = getContextByClass(BranchController);
 	export let project: Project | undefined;
 	export let baseBranch: BaseBranch;
 

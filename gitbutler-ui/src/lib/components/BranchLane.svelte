@@ -16,12 +16,11 @@
 	import lscache from 'lscache';
 	import { getContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
-	import { writable, type Writable } from 'svelte/store';
+	import { writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
 	export let branch: Branch;
@@ -29,7 +28,6 @@
 	export let project: Project;
 	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
-	export let branchController: BranchController;
 	export let branchService: BranchService;
 	export let branchCount = 1;
 	export let user: User | undefined;
@@ -41,9 +39,9 @@
 
 	const selectedFiles = writable<LocalFile[]>([]);
 
-	let commitBoxOpen: Writable<boolean>;
 	let rsViewport: HTMLElement;
 
+	const commitBoxOpen = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
 	const defaultFileWidthRem = persisted<number | undefined>(30, 'defaulFileWidth' + project.id);
 	const fileWidthKey = 'fileWidth_';
 	let fileWidth: number;
@@ -80,11 +78,10 @@
 		{project}
 		{base}
 		{cloud}
-		{branchController}
 		{branchService}
 		{baseBranchService}
 		{selectedOwnership}
-		bind:commitBoxOpen
+		{commitBoxOpen}
 		bind:isLaneCollapsed
 		{branchCount}
 		{user}
@@ -103,7 +100,6 @@
 				branchId={branch.id}
 				file={selected}
 				{projectPath}
-				{branchController}
 				{selectedOwnership}
 				{isUnapplied}
 				branchCommits={branch.commits}
