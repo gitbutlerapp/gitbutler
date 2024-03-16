@@ -12,8 +12,14 @@ export function observableToStore<T>(
 ): [Readable<T | undefined>, Readable<string | undefined>] {
 	let unsubscribe: any = undefined;
 
-	const store = writable<T | undefined>(undefined, () => unsubscribe);
-	const error = writable<string | undefined>();
+	const store = writable<T | undefined>(undefined, () => {
+		// This runs when the last subscriber unsubscribes
+		return () => {
+			// TODO: Investigate why project switching breaks without `setTimeout`
+			setTimeout(() => unsubscribe(), 0);
+		};
+	});
+	const error = writable<string>();
 
 	const subscription = observable
 		.pipe(
