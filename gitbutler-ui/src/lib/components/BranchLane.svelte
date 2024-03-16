@@ -6,13 +6,7 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import {
-		RemoteFile,
-		type BaseBranch,
-		type Branch,
-		type LocalFile,
-		type AnyFile
-	} from '$lib/vbranches/types';
+	import { RemoteFile, type Branch, type LocalFile, type AnyFile } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { getContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
@@ -24,7 +18,6 @@
 	export let branch: Branch;
 	export let isUnapplied = false;
 	export let project: Project;
-	export let base: BaseBranch | undefined | null;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchCount = 1;
 	export let user: User | undefined;
@@ -72,7 +65,6 @@
 		{branch}
 		{isUnapplied}
 		{project}
-		{base}
 		{cloud}
 		{selectedOwnership}
 		{commitBoxOpen}

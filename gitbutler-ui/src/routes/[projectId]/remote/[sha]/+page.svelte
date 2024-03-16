@@ -14,7 +14,6 @@
 	$: remoteBranchService = data.remoteBranchService;
 	$: branches$ = remoteBranchService.branches$;
 	$: error$ = remoteBranchService.branchesError$;
-	$: base$ = data.baseBranchService.base$;
 
 	$: branch = $branches$?.find((b) => b.sha == $page.params.sha);
 	$: pr = githubService.getPr(branch?.displayName);
@@ -29,7 +28,6 @@
 		projectId={$project$.id}
 		projectPath={$project$.path}
 		project={$project$}
-		base={$base$}
 		{pr}
 		{branch}
 	/>

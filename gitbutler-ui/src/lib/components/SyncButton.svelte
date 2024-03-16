@@ -12,8 +12,8 @@
 
 	const githubService = getContextByClass(GitHubService);
 	const baseBranchService = getContextByClass(BaseBranchService);
+	const base = baseBranchService.base;
 
-	$: base$ = baseBranchService.base$;
 	$: baseServiceBusy$ = baseBranchService.busy$;
 </script>
 
@@ -39,8 +39,8 @@
 	<span class="text-base-11 text-semibold sync-btn__label" use:tooltip={'Last fetch from upstream'}>
 		{#if $baseServiceBusy$}
 			<div class="sync-btn__busy-label">busy…</div>
-		{:else if $base$?.lastFetched}
-			<TimeAgo date={$base$?.lastFetched} />
+		{:else if $base?.lastFetched}
+			<TimeAgo date={$base?.lastFetched} />
 		{/if}
 	</span>
 </button>

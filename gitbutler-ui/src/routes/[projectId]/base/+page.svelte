@@ -5,6 +5,8 @@
 	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import { getContextByClass } from '$lib/utils/context';
+	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import lscache from 'lscache';
 	import { getContext, onMount } from 'svelte';
@@ -19,13 +21,14 @@
 	const selectedFiles = writable<AnyFile[]>([]);
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
+	const baseBranchService = getContextByClass(BaseBranchService);
+	const base = baseBranchService.base;
+
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
 
 	$: project$ = data.project$;
 	$: projectId = data.projectId;
-	$: baseBranchService = data.baseBranchService;
-	$: base$ = baseBranchService.base$;
 	$: error$ = baseBranchService.error$;
 
 	$: projectPath = $project$.path;
@@ -45,7 +48,7 @@
 
 {#if $error$}
 	<p>Error...</p>
-{:else if !$base$}
+{:else if !$base}
 	<FullscreenLoading />
 {:else}
 	<div class="base">
@@ -56,7 +59,7 @@
 		>
 			<ScrollableContainer>
 				<div class="card">
-					<BaseBranch {projectId} base={$base$} {selectedFiles} project={$project$} />
+					<BaseBranch {projectId} base={$base} {selectedFiles} project={$project$} />
 				</div>
 			</ScrollableContainer>
 			<Resizer

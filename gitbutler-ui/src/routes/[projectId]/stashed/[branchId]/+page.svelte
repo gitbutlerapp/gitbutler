@@ -19,8 +19,6 @@
 
 	$: branchController = data.branchController;
 	$: vbranchService = data.vbranchService;
-	$: baseBranchService = data.baseBranchService;
-	$: baseBranch$ = baseBranchService.base$;
 
 	$: branches$ = vbranchService.branches$;
 	$: error$ = vbranchService.branchesError$;
@@ -34,7 +32,6 @@
 {:else if branch}
 	<BranchLane
 		{branch}
-		base={$baseBranch$}
 		{cloud}
 		project={$project$}
 		isUnapplied={!branch.active}

@@ -5,17 +5,18 @@
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import { GitHubService } from '$lib/github/service';
 	import { getContextByClass } from '$lib/utils/context';
+	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
 
 	const githubService = getContextByClass(GitHubService);
+	const baseBranchService = getContextByClass(BaseBranchService);
+	const base = baseBranchService.base;
 
 	$: vbranchService = data.vbranchService;
-	$: baseBranchService = data.baseBranchService;
 	$: cloud = data.cloud;
 	$: projectId = data.projectId;
-	$: base$ = baseBranchService.base$;
 	$: user$ = data.user$;
 
 	$: project$ = data.project$;
@@ -29,8 +30,8 @@
 
 	function shouldShowHttpsWarning() {
 		if (httpsWarningBannerDismissed) return false;
-		if (!$base$?.remoteUrl.startsWith('https')) return false;
-		if ($base$?.remoteUrl.includes('github.com') && githubService.isEnabled) return false;
+		if (!$base?.remoteUrl.startsWith('https')) return false;
+		if ($base?.remoteUrl.includes('github.com') && githubService.isEnabled) return false;
 		return true;
 	}
 </script>
@@ -54,7 +55,6 @@
 				<Board
 					project={$project$}
 					{cloud}
-					base={$base$}
 					branches={$activeBranches$}
 					projectPath={$project$?.path}
 					branchesError={$error$}
