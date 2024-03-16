@@ -10,6 +10,7 @@ import {
 	OpenAIModelName
 } from '$lib/backend/aiService';
 import { getCloudApiClient } from '$lib/backend/cloud';
+import * as toasts from '$lib/utils/toasts';
 import { expect, test, describe, vi } from 'vitest';
 import type { AIClient } from '$lib/backend/aiClient';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
@@ -78,9 +79,13 @@ describe.concurrent('AIService', () => {
 		});
 
 		test('With default configuration, When a user is undefined. It returns undefined', async () => {
+			const toastErrorSpy = vi.spyOn(toasts, 'error');
 			const aiService = buildDefaultAIService();
 
 			expect(await aiService.buildClient()).toBe(undefined);
+			expect(toastErrorSpy).toHaveBeenLastCalledWith(
+				"When using GitButler's API to summarize code, you must be logged in"
+			);
 		});
 
 		test('When token is bring your own, When a openAI token is present. It returns OpenAIClient', async () => {
@@ -95,6 +100,7 @@ describe.concurrent('AIService', () => {
 		});
 
 		test('When token is bring your own, When a openAI token is blank. It returns undefined', async () => {
+			const toastErrorSpy = vi.spyOn(toasts, 'error');
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
 				'gitbutler.aiOpenAIKeyOption': KeyOption.BringYourOwn,
@@ -103,6 +109,9 @@ describe.concurrent('AIService', () => {
 			const aiService = new AIService(gitConfig, cloud);
 
 			expect(await aiService.buildClient()).toBe(undefined);
+			expect(toastErrorSpy).toHaveBeenLastCalledWith(
+				'When using OpenAI in a bring your own key configuration, you must provide a valid token'
+			);
 		});
 
 		test('When ai provider is Anthropic, When token is bring your own, When an anthropic token is present. It returns AnthropicAIClient', async () => {
@@ -118,6 +127,7 @@ describe.concurrent('AIService', () => {
 		});
 
 		test('When ai provider is Anthropic, When token is bring your own, When an anthropic token is blank. It returns undefined', async () => {
+			const toastErrorSpy = vi.spyOn(toasts, 'error');
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
 				'gitbutler.aiModelProvider': ModelKind.Anthropic,
@@ -127,6 +137,9 @@ describe.concurrent('AIService', () => {
 			const aiService = new AIService(gitConfig, cloud);
 
 			expect(await aiService.buildClient()).toBe(undefined);
+			expect(toastErrorSpy).toHaveBeenLastCalledWith(
+				'When using Anthropic in a bring your own key configuration, you must provide a valid token'
+			);
 		});
 	});
 
