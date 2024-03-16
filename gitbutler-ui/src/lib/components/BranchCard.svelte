@@ -52,9 +52,10 @@
 	export let selectedFiles: Writable<LocalFile[]>;
 	export let githubService: GitHubService;
 	export let selectedOwnership: Writable<Ownership>;
-	export let commitBoxOpen: Writable<boolean>;
 	export let isLaneCollapsed: Persisted<boolean>;
 	export let baseBranchService: BaseBranchService;
+
+	export const commitBoxOpen = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
@@ -284,7 +285,7 @@
 										{cloud}
 										{selectedOwnership}
 										{user}
-										bind:expanded={commitBoxOpen}
+										expanded={commitBoxOpen}
 										on:action={(e) => {
 											if (e.detail == 'generate-branch-name') {
 												generateBranchName();

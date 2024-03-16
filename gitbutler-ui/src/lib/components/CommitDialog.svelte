@@ -15,7 +15,6 @@
 		projectRunCommitHooks,
 		persistedCommitMessage
 	} from '$lib/config/config';
-	import { persisted } from '$lib/persisted/persisted';
 	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { setAutoHeight } from '$lib/utils/useAutoHeight';
@@ -39,7 +38,7 @@
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let user: User | undefined;
 	export let selectedOwnership: Writable<Ownership>;
-	export const expanded = persisted<boolean>(false, 'commitBoxExpanded_' + branch.id);
+	export let expanded: Writable<boolean>;
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 	const runCommitHooks = projectRunCommitHooks(projectId);
