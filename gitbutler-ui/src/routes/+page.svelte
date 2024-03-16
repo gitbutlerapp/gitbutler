@@ -5,19 +5,18 @@
 	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import Welcome from '$lib/components/Welcome.svelte';
 	import { appAnalyticsConfirmed } from '$lib/config/appSettings';
+	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import { map } from 'rxjs';
-	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
-	export let data: PageData;
-	$: ({ userService } = data);
-
 	const projectService = getContextByClass(ProjectService);
-	const projects$ = projectService.projects$;
+	const userService = getContextByClass(UserService);
 
-	$: user$ = userService.user$;
+	const projects$ = projectService.projects$;
+	const user = userService.user;
+
 	$: debug = $page.url.searchParams.get('debug');
 
 	const analyticsConfirmed = appAnalyticsConfirmed();
@@ -39,7 +38,7 @@
 	<FullscreenLoading />
 {:else if !$analyticsConfirmed}
 	<DecorativeSplitView
-		user={$user$}
+		user={$user}
 		imgSet={{
 			light: '/images/img_analytics-light.webp',
 			dark: '/images/img_analytics-dark.webp'
@@ -49,12 +48,12 @@
 	</DecorativeSplitView>
 {:else if $redirect$ === null}
 	<DecorativeSplitView
-		user={$user$}
+		user={$user}
 		imgSet={{
 			light: '/images/img_moon-door-light.webp',
 			dark: '/images/img_moon-door-dark.webp'
 		}}
 	>
-		<Welcome {userService} />
+		<Welcome />
 	</DecorativeSplitView>
 {/if}

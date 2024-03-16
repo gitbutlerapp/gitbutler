@@ -6,21 +6,20 @@
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import { ProjectService, type Project } from '$lib/backend/projects';
 	import Icon from '$lib/components/Icon.svelte';
+	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import type { UserService } from '$lib/stores/user';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
 	export let branchController: BranchController;
 	export let project: Project | undefined;
-	export let userService: UserService;
 	export let baseBranch: BaseBranch;
 
 	const projectService = getContextByClass(ProjectService);
-
-	$: user$ = userService.user$;
+	const userService = getContextByClass(UserService);
+	const user = userService.user;
 
 	let isDeleting = false;
 	let deleteConfirmationModal: RemoveProjectButton;
@@ -45,7 +44,7 @@
 </script>
 
 <DecorativeSplitView
-	user={$user$}
+	user={$user}
 	imgSet={{
 		light: '/images/img_hmm-path-light.webp',
 		dark: '/images/img_hmm-path-dark.webp'

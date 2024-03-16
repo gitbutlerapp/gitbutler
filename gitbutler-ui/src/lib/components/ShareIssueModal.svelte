@@ -5,13 +5,17 @@
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import { UserService } from '$lib/stores/user';
+	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { getVersion } from '@tauri-apps/api/app';
-	import type { User, getCloudApiClient } from '$lib/backend/cloud';
+	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import { page } from '$app/stores';
 
-	export let user: User | undefined;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
+
+	const userService = getContextByClass(UserService);
+	const user = userService.user;
 
 	export function show() {
 		modal.show();
@@ -51,7 +55,7 @@
 
 	async function onSubmit() {
 		const message = messageInputValue;
-		const email = user?.email ?? emailInputValue;
+		const email = $user?.email ?? emailInputValue;
 
 		// put together context information to send with the feedback
 		let context = '';
@@ -72,7 +76,7 @@
 					? zip.projectData({ projectId }).then((path) => readZipFile(path, 'project.zip'))
 					: undefined
 			]).then(async ([logs, data, repo]) =>
-				cloud.feedback.create(user?.access_token, {
+				cloud.feedback.create($user?.access_token, {
 					email,
 					message,
 					context,
@@ -106,7 +110,7 @@
 			review it for you and help identify how we can help resolve the issue.
 		</p>
 
-		{#if !user}
+		{#if !$user}
 			<div class="flex flex-col gap-1">
 				<label for="email">Email</label>
 				<input

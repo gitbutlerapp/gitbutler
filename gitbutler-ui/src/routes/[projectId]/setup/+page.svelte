@@ -9,7 +9,6 @@
 
 	$: branchController = data.branchController;
 	$: baseBranchService = data.baseBranchService;
-	$: userService = data.userService;
 	$: authService = data.authService;
 	$: projectId = data.projectId;
 	$: project$ = data.project$;
@@ -22,7 +21,6 @@
 {:then remoteBranches}
 	{#if remoteBranches.length == 0}
 		<ProblemLoadingRepo
-			{userService}
 			project={$project$}
 			error="Currently, GitButler requires a remote branch to base its virtual branch work on. To
 						use virtual branches, please push your code to a remote branch to use as a base"
@@ -33,14 +31,12 @@
 			{authService}
 			{baseBranchService}
 			{branchController}
-			{userService}
 			{remoteBranches}
 			{githubService}
 		/>
 	{/if}
 {:catch}
 	<ProblemLoadingRepo
-		{userService}
 		project={$project$}
 		error="Currently, GitButler requires a remote branch to base its virtual branch work on. To
 						use virtual branches, please push your code to a remote branch to use as a base"

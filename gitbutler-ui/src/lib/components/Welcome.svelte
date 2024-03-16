@@ -5,9 +5,6 @@
 	import IconLink from '$lib/components/IconLink.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import { getContextByClass } from '$lib/utils/context';
-	import type { UserService } from '$lib/stores/user';
-
-	export let userService: UserService;
 
 	const projectService = getContextByClass(ProjectService);
 
@@ -40,7 +37,7 @@
 			</svelte:fragment>
 		</WelcomeAction>
 		<!-- Using instance of user here to not hide after login -->
-		<WelcomeSigninAction {userService} />
+		<WelcomeSigninAction />
 	</div>
 
 	<div class="links">

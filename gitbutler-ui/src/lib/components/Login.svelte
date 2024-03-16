@@ -1,19 +1,19 @@
 <script lang="ts">
 	import Button from './Button.svelte';
 	import { getCloudApiClient, type LoginToken } from '$lib/backend/cloud';
+	import { UserService } from '$lib/stores/user';
+	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { createEventDispatcher } from 'svelte';
 	import { derived, writable } from 'svelte/store';
-	import type { UserService } from '$lib/stores/user';
 
 	const cloud = getCloudApiClient();
+	const userService = getContextByClass(UserService);
+	const user = userService.user;
 
-	export let userService: UserService;
 	export let minimal = false;
 	export let wide = false;
-
-	$: user$ = userService.user$;
 
 	const token = writable<LoginToken | null>(null);
 	const authUrl = derived(token, ($token) => $token?.url as string);
@@ -50,7 +50,7 @@
 	const dispatch = createEventDispatcher<{ login: void; logout: void }>();
 </script>
 
-{#if $user$}
+{#if $user}
 	<Button
 		kind="filled"
 		color="error"

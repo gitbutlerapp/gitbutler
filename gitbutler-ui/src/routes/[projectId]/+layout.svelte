@@ -20,7 +20,6 @@
 	$: branchesError$ = vbranchService.branchesError$;
 	$: project$ = data.project$;
 	$: branchService = data.branchService;
-	$: userService = data.userService;
 	$: projectId = data.projectId;
 
 	$: baseBranchService = data.baseBranchService;
@@ -72,16 +71,11 @@
 	<!-- Be careful, this works because of the redirect above -->
 	<slot />
 {:else if $baseError$}
-	<ProblemLoadingRepo {userService} project={$project$} error={$baseError$} />
+	<ProblemLoadingRepo project={$project$} error={$baseError$} />
 {:else if $branchesError$}
-	<ProblemLoadingRepo {userService} project={$project$} error={$branchesError$} />
+	<ProblemLoadingRepo project={$project$} error={$branchesError$} />
 {:else if !$gbBranchActive$ && $baseBranch$}
-	<NotOnGitButlerBranch
-		{userService}
-		{branchController}
-		project={$project$}
-		baseBranch={$baseBranch$}
-	/>
+	<NotOnGitButlerBranch {branchController} project={$project$} baseBranch={$baseBranch$} />
 {:else if $baseBranch$}
 	<div class="view-wrap" role="group" on:dragover|preventDefault>
 		<Navigation

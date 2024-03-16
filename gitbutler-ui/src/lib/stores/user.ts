@@ -2,9 +2,11 @@ import { resetPostHog, setPostHogUser } from '$lib/analytics/posthog';
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { getCloudApiClient, type User } from '$lib/backend/cloud';
 import { invoke } from '$lib/backend/ipc';
+import { observableToStore } from '$lib/rxjs/store';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
 import { BehaviorSubject, Observable, Subject, distinct, map, merge, shareReplay } from 'rxjs';
+import type { Readable } from 'svelte/motion';
 
 export class UserService {
 	private readonly cloud = getCloudApiClient();
@@ -30,7 +32,12 @@ export class UserService {
 		distinct()
 	);
 
-	constructor() {}
+	user: Readable<User | undefined>;
+	error: Readable<string | undefined>;
+
+	constructor() {
+		[this.user, this.error] = observableToStore(this.user$);
+	}
 
 	async setUser(user: User | undefined) {
 		if (user) await invoke('set_user', { user });

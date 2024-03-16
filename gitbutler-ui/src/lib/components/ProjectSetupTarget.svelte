@@ -9,16 +9,17 @@
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
+	import { UserService } from '$lib/stores/user';
+	import { getContextByClass } from '$lib/utils/context';
 	import { createEventDispatcher } from 'svelte';
 	import type { GitHubService } from '$lib/github/service';
-	import type { UserService } from '$lib/stores/user';
 
-	export let userService: UserService;
 	export let projectId: string;
 	export let remoteBranches: { name: string }[];
 	export let githubService: GitHubService;
 
-	$: user$ = userService.user$;
+	const userService = getContextByClass(UserService);
+	const user = userService.user;
 
 	const dispatch = createEventDispatcher<{
 		branchSelected: string;
@@ -92,7 +93,7 @@
 			<svelte:fragment slot="title">GitButler features</svelte:fragment>
 
 			<svelte:fragment slot="body">
-				{#if $user$}
+				{#if $user}
 					<label class="project-setup__toggle-label" for="aiGenEnabled"
 						>Enable automatic branch and commit message generation (uses OpenAI's API).</label
 					>
@@ -101,7 +102,7 @@
 				{/if}
 			</svelte:fragment>
 			<svelte:fragment slot="toggle">
-				{#if $user$}
+				{#if $user}
 					<Toggle
 						name="aiGenEnabled"
 						bind:this={aiGenCheckbox}
@@ -115,16 +116,16 @@
 			</svelte:fragment>
 
 			<svelte:fragment slot="actions">
-				{#if !$user$}
-					<Login {userService} />
+				{#if !$user}
+					<Login />
 				{/if}
 			</svelte:fragment>
 		</SetupFeature>
 
 		<SetupFeature
-			disabled={!$user$}
-			success={!!$user$?.github_access_token}
-			topBorder={!!$user$ && !$user$?.github_access_token}
+			disabled={!$user}
+			success={!!$user?.github_access_token}
+			topBorder={!!$user && !$user?.github_access_token}
 		>
 			<svelte:fragment slot="icon">
 				<svg
@@ -143,7 +144,7 @@
 			</svelte:fragment>
 			<svelte:fragment slot="title">
 				GitHub features
-				{#if $user$?.github_access_token}
+				{#if $user?.github_access_token}
 					enabled
 					<svg
 						class="success-icon"
@@ -166,8 +167,8 @@
 				Enable creation of pull requests from within the app.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
-				{#if !$user$?.github_access_token}
-					<GithubIntegration {userService} {githubService} disabled={!$user$} />
+				{#if !$user?.github_access_token}
+					<GithubIntegration {githubService} disabled={!$user} />
 				{/if}
 			</svelte:fragment>
 		</SetupFeature>
