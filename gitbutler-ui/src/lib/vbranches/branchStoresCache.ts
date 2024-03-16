@@ -116,8 +116,8 @@ export class BaseBranchService {
 	readonly error$ = new BehaviorSubject<any>(undefined);
 	private readonly reload$ = new BehaviorSubject<void>(undefined);
 
-	base: Readable<BaseBranch | null | undefined>;
-	error: Readable<string | undefined>;
+	readonly base: Readable<BaseBranch | null | undefined>;
+	readonly error: Readable<string | undefined>;
 
 	constructor(
 		private readonly projectId: string,
