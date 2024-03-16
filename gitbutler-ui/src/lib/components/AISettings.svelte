@@ -4,6 +4,7 @@
 	import TextBox from './TextBox.svelte';
 	import {
 		AnthropicModelName,
+		ConfigKeys,
 		KeyOption,
 		ModelKind,
 		OpenAIModelName
@@ -17,36 +18,48 @@
 	const gitConfigService = getContextByClass(GitConfigService);
 
 	let modelKind: ModelKind;
-	$: gitConfigService.set('gitbutler.aiModelProvider', modelKind);
 	let openAIKeyOption: KeyOption;
-	$: gitConfigService.set('gitbutler.aiOpenAIKeyOption', openAIKeyOption);
 	let anthropicKeyOption: KeyOption;
-	$: gitConfigService.set('gitbutler.aiAnthropicKeyOption', anthropicKeyOption);
 	let openAIKey: string | undefined;
-	$: if (openAIKey) gitConfigService.set('gitbutler.aiOpenAIKey', openAIKey);
 	let openAIModelName: OpenAIModelName;
-	$: gitConfigService.set('gitbutler.aiOpenAIModelName', openAIModelName);
 	let anthropicKey: string | undefined;
-	$: if (anthropicKey) gitConfigService.set('gitbutler.aiAnthropicKey', anthropicKey);
 	let anthropicModelName: AnthropicModelName;
+
+	$: gitConfigService.set('gitbutler.aiModelProvider', modelKind);
+
+	$: gitConfigService.set('gitbutler.aiOpenAIKeyOption', openAIKeyOption);
+	$: gitConfigService.set('gitbutler.aiOpenAIModelName', openAIModelName);
+	$: if (openAIKey) gitConfigService.set('gitbutler.aiOpenAIKey', openAIKey);
+
+	$: gitConfigService.set('gitbutler.aiAnthropicKeyOption', anthropicKeyOption);
 	$: gitConfigService.set('gitbutler.aiAnthropicModelName', anthropicModelName);
+	$: if (anthropicKey) gitConfigService.set('gitbutler.aiAnthropicKey', anthropicKey);
 
 	onMount(async () => {
-		modelKind =
-			(await gitConfigService.get<ModelKind>('gitbutler.aiModelProvider')) || ModelKind.OpenAI;
-		openAIKeyOption =
-			(await gitConfigService.get<KeyOption>('gitbutler.aiOpenAIKeyOption')) || KeyOption.ButlerAPI;
-		anthropicKeyOption =
-			(await gitConfigService.get<KeyOption>('gitbutler.aiAnthropicKeyOption')) ||
-			KeyOption.ButlerAPI;
-		openAIModelName =
-			(await gitConfigService.get<OpenAIModelName>('gitbutler.aiOpenAIModelName')) ||
-			OpenAIModelName.GPT35Turbo;
-		openAIKey = (await gitConfigService.get('gitbutler.aiOpenAIKey')) || undefined;
-		anthropicModelName =
-			(await gitConfigService.get<AnthropicModelName>('gitbutler.aiAnthropicModelName')) ||
-			AnthropicModelName.Haiku;
-		anthropicKey = (await gitConfigService.get('gitbutler.aiAnthropicKey')) || undefined;
+		modelKind = await gitConfigService.getWithDefault<ModelKind>(
+			ConfigKeys.ModelProvider,
+			ModelKind.OpenAI
+		);
+
+		openAIKeyOption = await gitConfigService.getWithDefault<KeyOption>(
+			ConfigKeys.OpenAIKeyOption,
+			KeyOption.ButlerAPI
+		);
+		openAIModelName = await gitConfigService.getWithDefault<OpenAIModelName>(
+			ConfigKeys.OpenAIModelName,
+			OpenAIModelName.GPT35Turbo
+		);
+		openAIKey = await gitConfigService.get(ConfigKeys.OpenAIKey);
+
+		anthropicKeyOption = await gitConfigService.getWithDefault<KeyOption>(
+			ConfigKeys.AnthropicKeyOption,
+			KeyOption.ButlerAPI
+		);
+		anthropicModelName = await gitConfigService.getWithDefault<AnthropicModelName>(
+			ConfigKeys.AnthropicModelName,
+			AnthropicModelName.Haiku
+		);
+		anthropicKey = await gitConfigService.get(ConfigKeys.AnthropicKey);
 	});
 
 	$: if (form) form.modelKind.value = modelKind;
