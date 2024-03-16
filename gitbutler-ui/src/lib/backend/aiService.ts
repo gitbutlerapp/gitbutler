@@ -177,10 +177,8 @@ export class AIService {
 			message = message.split('\n')[0];
 		}
 
-		const parts = message.split(/\n+(.*?)\w*/s);
-		const [summary, description] = [parts[0] || '', parts[1] || ''];
-
-		return description.length > 0 ? `${summary}\n\n${description}` : summary;
+		const [summary, description] = message.split(/\n+(.*)/s);
+		return description ? `${summary}\n\n${description}` : summary;
 	}
 
 	async summarizeBranch({
