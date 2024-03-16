@@ -13,7 +13,7 @@
 			function updateStore() {
 				if (!date) return;
 				const seconds = Math.round(Math.abs((new Date().getTime() - date.getTime()) / 1000));
-				const secondsUntilNextUpdate = Number.isNaN(seconds)
+				const msUntilNextUpdate = Number.isNaN(seconds)
 					? 1000
 					: getSecondsUntilUpdate(seconds) * 1000;
 				if (seconds < 60) {
@@ -23,7 +23,7 @@
 				}
 				timeoutId = window.setTimeout(() => {
 					updateStore();
-				}, secondsUntilNextUpdate);
+				}, msUntilNextUpdate);
 			}
 			updateStore();
 			return () => {
