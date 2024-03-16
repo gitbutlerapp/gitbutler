@@ -149,7 +149,6 @@
 		observer.observe(contents);
 
 		return () => {
-			observer.unobserve(contents);
 			observer.disconnect();
 		};
 	}

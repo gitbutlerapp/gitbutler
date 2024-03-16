@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { syncToCloud } from '$lib/backend/cloud';
 	import { handleMenuActions } from '$lib/backend/menuActions';
-	import { ProjectService } from '$lib/backend/projects';
 	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
@@ -15,8 +14,6 @@
 
 	export let data: LayoutData;
 
-	setContext(ProjectService, data.projectService);
-	$: projectService = data.projectService;
 	$: branchController = data.branchController;
 	$: githubService = data.githubService;
 	$: vbranchService = data.vbranchService;
@@ -75,13 +72,12 @@
 	<!-- Be careful, this works because of the redirect above -->
 	<slot />
 {:else if $baseError$}
-	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$baseError$} />
+	<ProblemLoadingRepo {userService} project={$project$} error={$baseError$} />
 {:else if $branchesError$}
-	<ProblemLoadingRepo {projectService} {userService} project={$project$} error={$branchesError$} />
+	<ProblemLoadingRepo {userService} project={$project$} error={$branchesError$} />
 {:else if !$gbBranchActive$ && $baseBranch$}
 	<NotOnGitButlerBranch
 		{userService}
-		{projectService}
 		{branchController}
 		project={$project$}
 		baseBranch={$baseBranch$}
@@ -95,7 +91,6 @@
 			project={$project$}
 			user={$user$}
 			{githubService}
-			{projectService}
 		/>
 		<slot />
 	</div>

@@ -2,11 +2,13 @@
 	import Button from './Button.svelte';
 	import Select from './Select.svelte';
 	import SelectItem from './SelectItem.svelte';
-	import type { Project, ProjectService } from '$lib/backend/projects';
+	import { ProjectService, type Project } from '$lib/backend/projects';
+	import { getContextByClass } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
 
-	export let projectService: ProjectService;
 	export let project: Project | undefined;
+
+	const projectService = getContextByClass(ProjectService);
 
 	$: projects$ = projectService.projects$;
 

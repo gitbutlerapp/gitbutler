@@ -4,10 +4,9 @@
 	import { clickOutside } from '$lib/clickOutside';
 	import Icon from '$lib/components/Icon.svelte';
 	import { tooltip } from '$lib/utils/tooltip';
-	import type { Project, ProjectService } from '$lib/backend/projects';
+	import type { Project } from '$lib/backend/projects';
 
 	export let project: Project | undefined;
-	export let projectService: ProjectService;
 	export let isNavCollapsed: boolean;
 
 	let popup: ProjectsPopup;
@@ -40,7 +39,7 @@
 			</div>
 		{/if}
 	</button>
-	<ProjectsPopup bind:this={popup} {projectService} {isNavCollapsed} />
+	<ProjectsPopup bind:this={popup} {isNavCollapsed} />
 </div>
 
 <style lang="postcss">

@@ -3,24 +3,26 @@
 	import RadioButton from './RadioButton.svelte';
 	import SectionCard from './SectionCard.svelte';
 	import TextBox from './TextBox.svelte';
+	import { ProjectService, type Key, type KeyType, type Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
+	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { onMount } from 'svelte';
 	import type { AuthService } from '$lib/backend/auth';
-	import type { Key, KeyType, Project, ProjectService } from '$lib/backend/projects';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
 	export let authService: AuthService;
 	export let baseBranchService: BaseBranchService;
-	export let projectService: ProjectService;
 	export let project: Project;
 
 	// Used by credential checker before target branch set
 	export let remoteName = '';
 	export let branchName = '';
+
+	const projectService = getContextByClass(ProjectService);
 
 	$: base$ = baseBranchService.base$;
 

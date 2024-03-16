@@ -1,13 +1,15 @@
 <script lang="ts">
 	import WelcomeAction from './WelcomeAction.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
+	import { ProjectService } from '$lib/backend/projects';
 	import IconLink from '$lib/components/IconLink.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
-	import type { ProjectService } from '$lib/backend/projects';
+	import { getContextByClass } from '$lib/utils/context';
 	import type { UserService } from '$lib/stores/user';
 
-	export let projectService: ProjectService;
 	export let userService: UserService;
+
+	const projectService = getContextByClass(ProjectService);
 
 	let newProjectLoading = false;
 

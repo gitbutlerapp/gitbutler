@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../styles/main.postcss';
 
+	import { ProjectService } from '$lib/backend/projects';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
 	import ToastController from '$lib/notifications/ToastController.svelte';
@@ -20,6 +21,8 @@
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
 	setContext(SETTINGS_CONTEXT, userSettings);
+
+	$: setContext(ProjectService, data.projectService);
 
 	let shareIssueModal: ShareIssueModal;
 

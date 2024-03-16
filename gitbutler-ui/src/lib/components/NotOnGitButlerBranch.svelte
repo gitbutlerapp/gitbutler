@@ -4,19 +4,21 @@
 	import Link from './Link.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
+	import { ProjectService, type Project } from '$lib/backend/projects';
 	import Icon from '$lib/components/Icon.svelte';
+	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import type { Project, ProjectService } from '$lib/backend/projects';
 	import type { UserService } from '$lib/stores/user';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
-	export let projectService: ProjectService;
 	export let branchController: BranchController;
 	export let project: Project | undefined;
 	export let userService: UserService;
 	export let baseBranch: BaseBranch;
+
+	const projectService = getContextByClass(ProjectService);
 
 	$: user$ = userService.user$;
 
@@ -86,7 +88,7 @@
 		</div>
 
 		<div class="switchrepo__project">
-			<ProjectSwitcher {projectService} {project} />
+			<ProjectSwitcher {project} />
 		</div>
 	</div>
 </DecorativeSplitView>

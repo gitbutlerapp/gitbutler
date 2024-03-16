@@ -4,7 +4,7 @@
 	import ProjectSetupTarget from './ProjectSetupTarget.svelte';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import type { AuthService } from '$lib/backend/auth';
-	import type { Project, ProjectService } from '$lib/backend/projects';
+	import type { Project } from '$lib/backend/projects';
 	import type { GitHubService } from '$lib/github/service';
 	import type { UserService } from '$lib/stores/user';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -14,7 +14,6 @@
 	export let authService: AuthService;
 	export let branchController: BranchController;
 	export let baseBranchService: BaseBranchService;
-	export let projectService: ProjectService;
 	export let project: Project;
 	export let userService: UserService;
 	export let remoteBranches: { name: string }[];
@@ -46,14 +45,7 @@
 >
 	{#if selectedBranch}
 		{@const [remoteName, branchName] = selectedBranch.split(/\/(.*)/s)}
-		<KeysForm
-			{project}
-			{authService}
-			{baseBranchService}
-			{projectService}
-			{remoteName}
-			{branchName}
-		/>
+		<KeysForm {project} {authService} {baseBranchService} {remoteName} {branchName} />
 		<div class="actions">
 			<Button kind="outlined" color="neutral" on:mousedown={() => (selectedBranch = '')}
 				>Back</Button
