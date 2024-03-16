@@ -10,11 +10,16 @@
 		isDraggableCommit
 	} from '$lib/dragging/draggables';
 	import { dropzone } from '$lib/dragging/dropzone';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
-	import { RemoteCommit, type Branch, type Commit, type AnyFile } from '$lib/vbranches/types';
+	import {
+		RemoteCommit,
+		type Branch,
+		type Commit,
+		type AnyFile,
+		BaseBranch
+	} from '$lib/vbranches/types';
 	import { get, type Writable } from 'svelte/store';
 	import type { Project } from '$lib/backend/projects';
 
@@ -27,8 +32,7 @@
 	export let selectedFiles: Writable<AnyFile[]>;
 
 	const branchController = getContextByClass(BranchController);
-	const baseBranchService = getContextByClass(BaseBranchService);
-	const base = baseBranchService.base;
+	const baseBranch = getContextStoreByClass(BaseBranch);
 
 	function acceptAmend(commit: Commit | RemoteCommit) {
 		if (commit instanceof RemoteCommit) {
@@ -133,7 +137,7 @@
 			{commit}
 			projectId={project.id}
 			{project}
-			commitUrl={$base?.commitUrl(commit.id)}
+			commitUrl={$baseBranch?.commitUrl(commit.id)}
 			{isHeadCommit}
 			{isUnapplied}
 			{selectedFiles}

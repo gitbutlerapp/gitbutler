@@ -5,13 +5,12 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import { cloneWithRotation } from '$lib/dragging/draggable';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { BaseBranch, type Branch } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
-	import type { Branch } from '$lib/vbranches/types';
 
 	export let project: Project;
 	export let projectPath: string;
@@ -21,8 +20,7 @@
 	export let user: User | undefined;
 
 	const branchController = getContextByClass(BranchController);
-	const baseBranchService = getContextByClass(BaseBranchService);
-	const base = baseBranchService.base;
+	const baseBranch = getContextStoreByClass(BaseBranch);
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;
@@ -172,10 +170,10 @@
 					<div class="empty-board__suggestions__block">
 						<h3 class="text-base-14 text-bold">Recent commits</h3>
 						<div class="empty-board__suggestions__links">
-							{#each ($base?.recentCommits || []).slice(0, 4) as commit}
+							{#each ($baseBranch?.recentCommits || []).slice(0, 4) as commit}
 								<a
 									class="empty-board__suggestions__link"
-									href={$base?.commitUrl(commit.id)}
+									href={$baseBranch?.commitUrl(commit.id)}
 									target="_blank"
 									rel="noreferrer"
 									title="Open in browser"

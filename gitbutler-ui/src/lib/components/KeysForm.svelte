@@ -7,18 +7,17 @@
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { BaseBranch } from '$lib/vbranches/types';
 	import { onMount } from 'svelte';
 	import type { AuthService } from '$lib/backend/auth';
 
 	export let authService: AuthService;
 	export let project: Project;
 
-	const baseBranchService = getContextByClass(BaseBranchService);
-	const base = baseBranchService.base;
+	const baseBranch = getContextStoreByClass(BaseBranch);
 
 	// Used by credential checker before target branch set
 	export let remoteName = '';
@@ -218,8 +217,8 @@
 				bind:this={credentialCheck}
 				projectId={project.id}
 				{authService}
-				remoteName={remoteName || $base?.remoteName}
-				branchName={branchName || $base?.shortName}
+				remoteName={remoteName || $baseBranch?.remoteName}
+				branchName={branchName || $baseBranch?.shortName}
 			/>
 		</SectionCard>
 	</form>

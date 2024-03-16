@@ -1,9 +1,9 @@
 <script lang="ts">
+	import BaseBranch from './BaseBranch.svelte';
 	import Tag from '$lib/components/Tag.svelte';
 	import { normalizeBranchName } from '$lib/utils/branch';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContextStoreByClass } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { Branch } from '$lib/vbranches/types';
 
 	export let branch: Branch;
@@ -11,8 +11,7 @@
 	export let hasIntegratedCommits = false;
 	export let isLaneCollapsed: boolean;
 
-	const baseBranchService = getContextByClass(BaseBranchService);
-	const base = baseBranchService.base;
+	const baseBranch = getContextStoreByClass(BaseBranch);
 </script>
 
 {#if !branch.upstream}
@@ -67,7 +66,7 @@
 		shrinkable
 		verticalOrientation={isLaneCollapsed}
 		on:click={(e) => {
-			const url = $base?.branchUrl(branch.upstream?.name);
+			const url = $baseBranch?.branchUrl(branch.upstream?.name);
 			if (url) openExternalUrl(url);
 			e.preventDefault();
 			e.stopPropagation();
