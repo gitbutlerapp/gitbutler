@@ -20,11 +20,15 @@ const defaultGitConfig = Object.freeze({
 class DummyGitConfigService implements GitConfigService {
 	constructor(private config: { [index: string]: string | undefined }) {}
 
-	async get<T extends string>(key: string): Promise<T | null> {
-		return (this.config[key] || null) as T | null;
+	async get<T extends string>(key: string): Promise<T | undefined> {
+		return (this.config[key] || undefined) as T | undefined;
 	}
 
-	async set<T extends string>(key: string, value: T): Promise<T | null> {
+	async getWithDefault<T extends string>(key: string): Promise<T> {
+		return this.config[key] as T;
+	}
+
+	async set<T extends string>(key: string, value: T): Promise<T | undefined> {
 		return (this.config[key] = value);
 	}
 }
@@ -42,14 +46,14 @@ class DummyAIClient implements AIClient {
 
 const examplePatch = `
 @@ -52,7 +52,8 @@
- 
+
  export enum AnthropicModelName {
  	Opus = 'claude-3-opus-20240229',
 -	Sonnet = 'claude-3-sonnet-20240229'
 +	Sonnet = 'claude-3-sonnet-20240229',
 +	Haiku = 'claude-3-haiku-20240307'
  }
- 
+
  export const AI_SERVICE_CONTEXT = Symbol();
 `;
 

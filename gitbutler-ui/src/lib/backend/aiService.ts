@@ -56,6 +56,30 @@ export enum AnthropicModelName {
 	Haiku = 'claude-3-haiku-20240307'
 }
 
+export enum ConfigKeys {
+	ModelProvider = 'gitbutler.aiModelProvider',
+	OpenAIKeyOption = 'gitbutler.aiOpenAIKeyOption',
+	OpenAIModelName = 'gitbutler.aiOpenAIModelName',
+	OpenAIKey = 'gitbutler.aiOpenAIKey',
+	AnthropicKeyOption = 'gitbutler.aiAnthropicKeyOption',
+	AnthropicModelName = 'gitbutler.aiAnthropicModelName',
+	AnthropicKey = 'gitbutler.aiAnthropicKey'
+}
+
+type SummarizeCommitOpts = {
+	diff: string;
+	useEmojiStyle?: boolean;
+	useBriefStyle?: boolean;
+	commitTemplate?: string;
+	userToken?: string;
+};
+
+type SummarizeBranchOpts = {
+	diff: string;
+	branchTemplate?: string;
+	userToken?: string;
+};
+
 export class AIService {
 	constructor(
 		private gitConfig: GitConfigService,
@@ -66,13 +90,18 @@ export class AIService {
 	// Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
 	// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
 	async buildClient(userToken?: string): Promise<undefined | AIClient> {
-		const modelKind =
-			(await this.gitConfig.get<ModelKind>('gitbutler.aiModelProvider')) || ModelKind.OpenAI;
-		const openAIKeyOption =
-			(await this.gitConfig.get<KeyOption>('gitbutler.aiOpenAIKeyOption')) || KeyOption.ButlerAPI;
-		const anthropicKeyOption =
-			(await this.gitConfig.get<KeyOption>('gitbutler.aiAnthropicKeyOption')) ||
-			KeyOption.ButlerAPI;
+		const modelKind = await this.gitConfig.getWithDefault<ModelKind>(
+			ConfigKeys.ModelProvider,
+			ModelKind.OpenAI
+		);
+		const openAIKeyOption = await this.gitConfig.getWithDefault<KeyOption>(
+			ConfigKeys.OpenAIKeyOption,
+			KeyOption.ButlerAPI
+		);
+		const anthropicKeyOption = await this.gitConfig.getWithDefault<KeyOption>(
+			ConfigKeys.AnthropicKeyOption,
+			KeyOption.ButlerAPI
+		);
 
 		if (
 			(modelKind == ModelKind.OpenAI && openAIKeyOption == KeyOption.ButlerAPI) ||
@@ -80,24 +109,22 @@ export class AIService {
 		) {
 			if (!userToken) {
 				toasts.error("When using GitButler's API to summarize code, you must be logged in");
-
 				return;
 			}
-
 			return new ButlerAIClient(this.cloud, userToken, ModelKind.OpenAI);
 		}
 
 		if (modelKind == ModelKind.OpenAI) {
-			const openAIModelName =
-				(await this.gitConfig.get<OpenAIModelName>('gitbutler.aiOpenAIModelName')) ||
-				OpenAIModelName.GPT35Turbo;
-			const openAIKey = await this.gitConfig.get('gitbutler.aiOpenAIKey');
+			const openAIModelName = await this.gitConfig.getWithDefault<OpenAIModelName>(
+				ConfigKeys.OpenAIModelName,
+				OpenAIModelName.GPT35Turbo
+			);
+			const openAIKey = await this.gitConfig.get(ConfigKeys.OpenAIKey);
 
 			if (!openAIKey) {
 				toasts.error(
 					'When using OpenAI in a bring your own key configuration, you must provide a valid token'
 				);
-
 				return;
 			}
 
@@ -105,17 +132,16 @@ export class AIService {
 			return new OpenAIClient(openAIModelName, openAI);
 		}
 		if (modelKind == ModelKind.Anthropic) {
-			const anthropicModelName =
-				(await this.gitConfig.get<AnthropicModelName>('gitbutler.aiAnthropicModelName')) ||
-				AnthropicModelName.Haiku;
-			const anthropicKey = await this.gitConfig.get('gitbutler.aiAnthropicKey');
+			const anthropicModelName = await this.gitConfig.getWithDefault<AnthropicModelName>(
+				ConfigKeys.AnthropicModelName,
+				AnthropicModelName.Haiku
+			);
+			const anthropicKey = await this.gitConfig.get(ConfigKeys.AnthropicKey);
 
-			// TODO: Provide feedback to user
 			if (!anthropicKey) {
 				toasts.error(
 					'When using Anthropic in a bring your own key configuration, you must provide a valid token'
 				);
-
 				return;
 			}
 
@@ -129,31 +155,21 @@ export class AIService {
 		useBriefStyle = false,
 		commitTemplate = defaultCommitTemplate,
 		userToken
-	}: {
-		diff: string;
-		useEmojiStyle?: boolean;
-		useBriefStyle?: boolean;
-		commitTemplate?: string;
-		userToken?: string;
-	}) {
+	}: SummarizeCommitOpts) {
 		const aiClient = await this.buildClient(userToken);
 		if (!aiClient) return;
 
 		let prompt = commitTemplate.replaceAll('%{diff}', diff.slice(0, diffLengthLimit));
 
-		if (useBriefStyle) {
-			prompt = prompt.replaceAll(
-				'%{brief_style}',
-				'The commit message must be only one sentence and as short as possible.'
-			);
-		} else {
-			prompt = prompt.replaceAll('%{brief_style}', '');
-		}
-		if (useEmojiStyle) {
-			prompt = prompt.replaceAll('%{emoji_style}', 'Make use of GitMoji in the title prefix.');
-		} else {
-			prompt = prompt.replaceAll('%{emoji_style}', "Don't use any emoji.");
-		}
+		const briefPart = useBriefStyle
+			? 'The commit message must be only one sentence and as short as possible.'
+			: '';
+		prompt = prompt.replaceAll('%{brief_style}', briefPart);
+
+		const emojiPart = useEmojiStyle
+			? 'Make use of GitMoji in the title prefix.'
+			: "Don't use any emoji.";
+		prompt = prompt.replaceAll('%{emoji_style}', emojiPart);
 
 		let message = await aiClient.evaluate(prompt);
 
@@ -161,9 +177,8 @@ export class AIService {
 			message = message.split('\n')[0];
 		}
 
-		const firstNewLine = message.indexOf('\n');
-		const summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
-		const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
+		const parts = message.split(/\n+(.*?)\w*/s);
+		const [summary, description] = [parts[0] || '', parts[1] || ''];
 
 		return description.length > 0 ? `${summary}\n\n${description}` : summary;
 	}
@@ -172,20 +187,12 @@ export class AIService {
 		diff,
 		branchTemplate = defaultBranchTemplate,
 		userToken = undefined
-	}: {
-		diff: string;
-		branchTemplate?: string;
-		userToken?: string;
-	}) {
+	}: SummarizeBranchOpts) {
 		const aiClient = await this.buildClient(userToken);
 		if (!aiClient) return;
 
 		const prompt = branchTemplate.replaceAll('%{diff}', diff.slice(0, diffLengthLimit));
-
-		let message = await aiClient.evaluate(prompt);
-
-		message = message.replaceAll(' ', '-');
-		message = message.replaceAll('\n', '-');
-		return message;
+		const message = await aiClient.evaluate(prompt);
+		return message.replaceAll(' ', '-').replaceAll('\n', '-');
 	}
 }
