@@ -12,16 +12,11 @@
 	let applyConflictedModal: Modal;
 	let deleteBranchModal: Modal;
 
-	$: projectId = data.projectId;
-	$: user$ = data.user$;
-	$: cloud = data.cloud;
-	$: project$ = data.project$;
-
-	$: branchController = data.branchController;
-	$: vbranchService = data.vbranchService;
-
+	$: ({ projectId, project$, cloud, userService, branchController, vbranchService } = data);
 	$: branches$ = vbranchService.branches$;
-	$: error$ = vbranchService.branchesError$;
+	$: error$ = vbranchService.activeBranches$;
+	$: user = userService.user;
+
 	$: branch = $branches$?.find((b) => b.id == $page.params.branchId);
 </script>
 
@@ -35,7 +30,7 @@
 		{cloud}
 		project={$project$}
 		isUnapplied={!branch.active}
-		user={$user$}
+		user={$user}
 		projectPath={$project$.path}
 	/>
 {:else}

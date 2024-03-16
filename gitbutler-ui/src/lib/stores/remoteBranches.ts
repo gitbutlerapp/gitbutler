@@ -1,4 +1,5 @@
 import { invoke } from '$lib/backend/ipc';
+import { observableToStore } from '$lib/rxjs/store';
 import * as toasts from '$lib/utils/toasts';
 import { RemoteBranch, RemoteBranchData } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
@@ -7,14 +8,15 @@ import {
 	Observable,
 	catchError,
 	combineLatest,
-	of,
 	shareReplay,
 	switchMap
 } from 'rxjs';
+import type { Readable } from 'svelte/store';
 
 export class RemoteBranchService {
+	branches: Readable<RemoteBranch[] | undefined>;
 	branches$: Observable<RemoteBranch[]>;
-	branchesError$ = new BehaviorSubject<any>(undefined);
+	error: Readable<string | undefined>;
 	private reload$ = new BehaviorSubject<void>(undefined);
 
 	constructor(
@@ -28,11 +30,11 @@ export class RemoteBranchService {
 			shareReplay(1),
 			catchError((e) => {
 				console.error(e);
-				this.branchesError$.next(e);
 				toasts.error(`Failed load remote branches`);
-				return of([]);
+				throw e;
 			})
 		);
+		[this.branches, this.error] = observableToStore(this.branches$);
 	}
 
 	reload() {

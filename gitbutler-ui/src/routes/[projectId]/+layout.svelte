@@ -18,18 +18,20 @@
 
 	export let data: LayoutData;
 
-	$: vbranchService = data.vbranchService;
-	$: branchesError$ = vbranchService.branchesError$;
-	$: project$ = data.project$;
-	$: projectId = data.projectId;
-	$: baseBranchService = data.baseBranchService;
-	$: baseBranch$ = baseBranchService.base$;
-	$: baseError$ = baseBranchService.error$;
-	$: gbBranchActive$ = data.gbBranchActive$;
-	$: user$ = data.user$;
-	$: branchService = data.branchService;
-	$: branchController = data.branchController;
+	$: ({
+		vbranchService,
+		project$,
+		projectId,
+		baseBranchService,
+		gbBranchActive$,
+		user$,
+		branchService,
+		branchController
+	} = data);
+
+	$: branchesError = vbranchService.branchesError;
 	$: baseBranch = baseBranchService.base;
+	$: baseError = baseBranchService.error;
 
 	$: setContext(BranchController, branchController);
 	$: setContext(BranchService, branchService);
@@ -45,44 +47,40 @@
 	function setupFetchInterval() {
 		baseBranchService.fetchFromTarget();
 		clearFetchInterval();
-		intervalId = setInterval(() => baseBranchService.fetchFromTarget(), 15 * 60 * 1000);
+		const intervalMs = 15 * 60 * 1000; // 15 minutes
+		intervalId = setInterval(() => baseBranchService.fetchFromTarget(), intervalMs);
 	}
 
 	function clearFetchInterval() {
 		if (intervalId) clearInterval(intervalId);
 	}
 
-	$: if ($baseBranch$ === null) {
-		goto(`/${projectId}/setup`, { replaceState: true });
-	}
+	// TODO: Is this an ok way to redirect?
+	$: if ($baseBranch === null) goto(`/${projectId}/setup`, { replaceState: true });
 
 	onMount(() => {
+		// Once on load and every time the project id changes
+		handleMenuActions(data.projectId);
 		return unsubscribe(
 			menuSubscribe(data.projectId),
 			hotkeys.on('Meta+Shift+S', () => syncToCloud(projectId))
 		);
 	});
 
-	onDestroy(() => {
-		clearFetchInterval();
-	});
-
-	$: if (data) {
-		setContext('hello', data.projectId);
-	}
+	onDestroy(() => clearFetchInterval());
 </script>
 
 {#if !$project$}
 	<p>Project not found!</p>
-{:else if $baseBranch$ === null}
+{:else if $baseBranch === null}
 	<!-- Be careful, this works because of the redirect above -->
 	<slot />
-{:else if $baseError$}
-	<ProblemLoadingRepo project={$project$} error={$baseError$} />
-{:else if $branchesError$}
-	<ProblemLoadingRepo project={$project$} error={$branchesError$} />
-{:else if !$gbBranchActive$ && $baseBranch$}
-	<NotOnGitButlerBranch project={$project$} baseBranch={$baseBranch$} />
+{:else if $baseError}
+	<ProblemLoadingRepo project={$project$} error={$baseError} />
+{:else if $branchesError}
+	<ProblemLoadingRepo project={$project$} error={$branchesError} />
+{:else if !$gbBranchActive$ && $baseBranch}
+	<NotOnGitButlerBranch project={$project$} baseBranch={$baseBranch} />
 {:else if $baseBranch}
 	<div class="view-wrap" role="group" on:dragover|preventDefault>
 		<Navigation project={$project$} user={$user$} />
