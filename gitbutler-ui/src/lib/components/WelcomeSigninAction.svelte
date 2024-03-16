@@ -1,13 +1,13 @@
 <script lang="ts">
 	import WelcomeAction from './WelcomeAction.svelte';
 	import ImgThemed from '$lib/components/ImgThemed.svelte';
-	import type { UserService } from '$lib/stores/user';
+	import { UserService } from '$lib/stores/user';
+	import { getContextByClass } from '$lib/utils/context';
 
-	export let userService: UserService;
+	const userService = getContextByClass(UserService);
+	const user = userService.user;
 
 	let loginSignupLoading = false;
-
-	const user$ = userService.user$;
 
 	async function onLoginOrSignup() {
 		loginSignupLoading = true;
@@ -26,7 +26,7 @@
 	}, 60 * 1000);
 </script>
 
-{#if !$user$}
+{#if !$user}
 	<WelcomeAction
 		title="Log in or Sign up"
 		loading={loginSignupLoading}

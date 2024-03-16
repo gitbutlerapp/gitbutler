@@ -5,17 +5,18 @@
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
+	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import type { GitHubService } from '$lib/github/service';
-	import type { UserService } from '$lib/stores/user';
 
-	export let userService: UserService;
 	export let githubService: GitHubService;
 	export let minimal = false;
 	export let disabled = false;
 
-	$: user$ = userService.user$;
+	const userService = getContextByClass(UserService);
+	const user = userService.user;
 
 	let loading = false;
 	let userCode = '';
@@ -32,15 +33,14 @@
 
 	async function gitHubOauthCheckStatus(deviceCode: string) {
 		loading = true;
-		let user = $user$;
-		if (!user) return;
+		if (!$user) return;
 		try {
 			const accessToken = await checkAuthStatus({ deviceCode });
-			user.github_access_token = accessToken;
+			$user.github_access_token = accessToken;
 			// TODO: Refactor so we don't have to call this twice
-			userService.setUser(user);
-			user.github_username = await githubService.fetchGitHubLogin();
-			userService.setUser(user);
+			userService.setUser($user);
+			$user.github_username = await githubService.fetchGitHubLogin();
+			userService.setUser($user);
 			toasts.success('GitHub authenticated');
 		} catch (err: any) {
 			console.error(err);
@@ -52,11 +52,10 @@
 	}
 
 	function forgetGitHub(): void {
-		let user = $user$;
-		if (user) {
-			user.github_access_token = '';
-			user.github_username = '';
-			userService.setUser(user);
+		if ($user) {
+			$user.github_access_token = '';
+			$user.github_username = '';
+			userService.setUser($user);
 		}
 	}
 </script>
@@ -67,7 +66,7 @@
 	<SectionCard orientation="row">
 		<svelte:fragment slot="iconSide">
 			<div class="icon-wrapper">
-				{#if $user$?.github_access_token}
+				{#if $user?.github_access_token}
 					<div class="icon-wrapper__tick">
 						<Icon name="success" color="success" size={18} />
 					</div>
@@ -91,7 +90,7 @@
 		<svelte:fragment slot="caption">
 			Allows you to view and create Pull Requests from GitButler.
 		</svelte:fragment>
-		{#if $user$?.github_access_token}
+		{#if $user?.github_access_token}
 			<Button {disabled} kind="outlined" color="neutral" icon="bin-small" on:click={forgetGitHub}
 				>Forget</Button
 			>

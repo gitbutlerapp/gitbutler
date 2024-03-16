@@ -2,10 +2,13 @@
 	import '../styles/main.postcss';
 
 	import { ProjectService } from '$lib/backend/projects';
+	import { UpdaterService } from '$lib/backend/updater';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
+	import { GitHubService } from '$lib/github/service';
 	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
+	import { UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/random';
@@ -16,13 +19,16 @@
 	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
-	const { cloud, user$, updaterService } = data;
+	const { cloud } = data;
 
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
 	setContext(SETTINGS_CONTEXT, userSettings);
 
+	$: setContext(UserService, data.userService);
 	$: setContext(ProjectService, data.projectService);
+	$: setContext(UpdaterService, data.updaterService);
+	$: setContext(GitHubService, data.githubService);
 
 	let shareIssueModal: ShareIssueModal;
 
@@ -53,9 +59,9 @@
 	<slot />
 </div>
 <Toaster />
-<ShareIssueModal bind:this={shareIssueModal} user={$user$} {cloud} />
+<ShareIssueModal bind:this={shareIssueModal} {cloud} />
 <ToastController />
-<AppUpdater {updaterService} />
+<AppUpdater />
 
 <style lang="postcss">
 	.app-root {

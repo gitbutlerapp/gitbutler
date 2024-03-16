@@ -8,6 +8,8 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
+	import { UserService } from '$lib/stores/user';
+	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import type { Project } from '$lib/backend/projects';
 	import type { PageData } from './$types';
@@ -17,11 +19,12 @@
 
 	$: projectService = data.projectService;
 	$: project$ = data.project$;
-	$: userService = data.userService;
-	$: user$ = data.user$;
 	$: cloud = data.cloud;
 	$: authService = data.authService;
 	$: baseBranchService = data.baseBranchService;
+
+	const userService = getContextByClass(UserService);
+	const user = userService.user;
 
 	let deleteConfirmationModal: RemoveProjectButton;
 	let isDeleting = false;
@@ -53,8 +56,8 @@
 
 	async function onDetailsUpdated(e: { detail: Project }) {
 		const api =
-			$user$ && e.detail.api
-				? await cloud.projects.update($user$?.access_token, e.detail.api.repository_id, {
+			$user && e.detail.api
+				? await cloud.projects.update($user?.access_token, e.detail.api.repository_id, {
 						name: e.detail.title,
 						description: e.detail.description
 					})
@@ -70,7 +73,7 @@
 	<FullscreenLoading />
 {:else}
 	<ContentWrapper title="Project settings">
-		<CloudForm project={$project$} user={$user$} {userService} on:updated={onCloudUpdated} />
+		<CloudForm project={$project$} on:updated={onCloudUpdated} />
 		<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
 		<KeysForm project={$project$} {authService} {baseBranchService} />
 		<Spacer />

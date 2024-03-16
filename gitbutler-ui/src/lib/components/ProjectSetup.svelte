@@ -3,10 +3,11 @@
 	import KeysForm from './KeysForm.svelte';
 	import ProjectSetupTarget from './ProjectSetupTarget.svelte';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
+	import { UserService } from '$lib/stores/user';
+	import { getContextByClass } from '$lib/utils/context';
 	import type { AuthService } from '$lib/backend/auth';
 	import type { Project } from '$lib/backend/projects';
 	import type { GitHubService } from '$lib/github/service';
-	import type { UserService } from '$lib/stores/user';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { goto } from '$app/navigation';
@@ -15,11 +16,11 @@
 	export let branchController: BranchController;
 	export let baseBranchService: BaseBranchService;
 	export let project: Project;
-	export let userService: UserService;
 	export let remoteBranches: { name: string }[];
 	export let githubService: GitHubService;
 
-	$: user$ = userService.user$;
+	const userService = getContextByClass(UserService);
+	const user = userService.user;
 
 	let selectedBranch = '';
 	let loading = false;
@@ -37,7 +38,7 @@
 </script>
 
 <DecorativeSplitView
-	user={$user$}
+	user={$user}
 	imgSet={{
 		light: '/images/img_moon-door-light.webp',
 		dark: '/images/img_moon-door-dark.webp'
@@ -55,7 +56,6 @@
 	{:else}
 		<ProjectSetupTarget
 			projectId={project.id}
-			{userService}
 			{remoteBranches}
 			{githubService}
 			on:branchSelected={(e) => {

@@ -1,21 +1,23 @@
 <script lang="ts">
 	import SectionCard from './SectionCard.svelte';
-	import { getCloudApiClient, type User } from '$lib/backend/cloud';
+	import { getCloudApiClient } from '$lib/backend/cloud';
 	import Link from '$lib/components/Link.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
+	import { UserService } from '$lib/stores/user';
+	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type { Project } from '$lib/backend/projects';
-	import type { UserService } from '$lib/stores/user';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	export let project: Project;
-	export let user: User | undefined;
-	export let userService: UserService;
+
+	const userService = getContextByClass(UserService);
+	const user = userService.user;
 
 	const cloud = getCloudApiClient();
 	const aiGenEnabled = projectAiGenEnabled(project.id);
@@ -27,18 +29,18 @@
 
 	onMount(async () => {
 		if (!project?.api) return;
-		if (!user) return;
-		const cloudProject = await cloud.projects.get(user.access_token, project.api.repository_id);
+		if (!$user) return;
+		const cloudProject = await cloud.projects.get($user.access_token, project.api.repository_id);
 		if (cloudProject === project.api) return;
 		dispatch('updated', { ...project, api: { ...cloudProject, sync: project.api.sync } });
 	});
 
 	async function onSyncChange(sync: boolean) {
-		if (!user) return;
+		if (!$user) return;
 		try {
 			const cloudProject =
 				project.api ??
-				(await cloud.projects.create(user.access_token, {
+				(await cloud.projects.create($user.access_token, {
 					name: project.title,
 					description: project.description,
 					uid: project.id
@@ -60,7 +62,7 @@
 	}
 </script>
 
-{#if user}
+{#if $user}
 	<div class="aigen-wrap">
 		<SectionCard labelFor="aiGenEnabled" on:click={aiGenToggle} orientation="row">
 			<svelte:fragment slot="title">Enable branch and commit message generation</svelte:fragment>
@@ -93,7 +95,7 @@
 
 	<Spacer />
 
-	{#if user.role === 'admin'}
+	{#if $user.role === 'admin'}
 		<h3 class="text-base-15 text-bold">Full data synchronization</h3>
 
 		<SectionCard labelFor="historySync" on:change={(e) => onSyncChange(e.detail)} orientation="row">
@@ -122,7 +124,7 @@
 		<Spacer />
 	{/if}
 {:else}
-	<WelcomeSigninAction {userService} />
+	<WelcomeSigninAction />
 	<Spacer />
 {/if}
 

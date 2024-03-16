@@ -15,7 +15,9 @@
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import ProfileSIdebar from '$lib/components/settings/ProfileSIdebar.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
+	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { invoke } from '@tauri-apps/api/tauri';
@@ -28,7 +30,11 @@
 
 	export let data: PageData;
 
-	$: ({ cloud, user$, userService, authService, githubService } = data);
+	$: ({ cloud, authService, githubService } = data);
+
+	const userService = getContextByClass(UserService);
+	const user = userService.user;
+
 	const fileTypes = ['image/jpeg', 'image/png'];
 
 	// TODO: Maybe break these into components?
@@ -47,15 +53,15 @@
 	let deleteConfirmationModal: Modal;
 
 	$: saving = false;
-	$: userPicture = $user$?.picture;
+	$: userPicture = $user?.picture;
 
-	$: if ($user$ && !loaded) {
+	$: if ($user && !loaded) {
 		loaded = true;
-		cloud.user.get($user$?.access_token).then((cloudUser) => {
-			cloudUser.github_access_token = $user$?.github_access_token; // prevent overwriting with null
+		cloud.user.get($user?.access_token).then((cloudUser) => {
+			cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
 			userService.setUser(cloudUser);
 		});
-		newName = $user$?.name || '';
+		newName = $user?.name || '';
 	}
 
 	function onPictureChange(e: Event) {
@@ -65,13 +71,13 @@
 		if (file && fileTypes.includes(file.type)) {
 			userPicture = URL.createObjectURL(file);
 		} else {
-			userPicture = $user$?.picture;
+			userPicture = $user?.picture;
 			toasts.error('Please use a valid image file');
 		}
 	}
 
 	async function onSubmit(e: SubmitEvent) {
-		if (!$user$) return;
+		if (!$user) return;
 		saving = true;
 
 		const target = e.target as HTMLFormElement;
@@ -79,11 +85,11 @@
 		const picture = formData.get('picture') as File | undefined;
 
 		try {
-			const updatedUser = await cloud.user.update($user$.access_token, {
+			const updatedUser = await cloud.user.update($user.access_token, {
 				name: newName,
 				picture: picture
 			});
-			updatedUser.github_access_token = $user$?.github_access_token; // prevent overwriting with null
+			updatedUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
 			userService.setUser(updatedUser);
 			toasts.success('Profile updated');
 		} catch (e) {
@@ -143,10 +149,10 @@
 </script>
 
 <section class="profile-page">
-	<ProfileSIdebar bind:currentSection showIntegrations={!!$user$} />
+	<ProfileSIdebar bind:currentSection showIntegrations={!!$user} />
 	{#if currentSection === 'profile'}
 		<ContentWrapper title="Profile">
-			{#if $user$}
+			{#if $user}
 				<SectionCard>
 					<form on:submit={onSubmit} class="profile-form">
 						<label id="profile-picture" class="focus-state profile-pic-wrapper" for="picture">
@@ -159,7 +165,7 @@
 								class="hidden-input"
 							/>
 
-							{#if $user$.picture}
+							{#if $user.picture}
 								<img class="profile-pic" src={userPicture} alt="" />
 							{/if}
 
@@ -169,7 +175,7 @@
 						<div id="contact-info" class="contact-info">
 							<div class="contact-info__fields">
 								<TextBox label="Full name" bind:value={newName} required />
-								<TextBox label="Email" bind:value={$user$.email} readonly />
+								<TextBox label="Email" bind:value={$user.email} readonly />
 							</div>
 
 							<Button loading={saving} color="primary">Update profile</Button>
@@ -177,7 +183,7 @@
 					</form>
 				</SectionCard>
 			{:else}
-				<WelcomeSigninAction {userService} />
+				<WelcomeSigninAction />
 				<Spacer />
 			{/if}
 
@@ -208,14 +214,14 @@
 
 			<Spacer />
 
-			{#if $user$}
+			{#if $user}
 				<SectionCard orientation="row">
 					<svelte:fragment slot="title">Signing out</svelte:fragment>
 					<svelte:fragment slot="caption">
 						Ready to take a break? Click here to log out and unwind.
 					</svelte:fragment>
 
-					<Login {userService} />
+					<Login />
 				</SectionCard>
 			{/if}
 
@@ -323,8 +329,8 @@
 		</ContentWrapper>
 	{:else if currentSection === 'integrations'}
 		<ContentWrapper title="Integrations">
-			{#if $user$}
-				<GithubIntegration {userService} {githubService} />
+			{#if $user}
+				<GithubIntegration {githubService} />
 			{/if}
 		</ContentWrapper>
 	{/if}
