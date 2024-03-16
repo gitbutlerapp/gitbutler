@@ -1,7 +1,10 @@
 mod reader;
 mod writer;
 
-use serde::{ser::SerializeStruct, Serialize, Serializer};
+use std::str::FromStr;
+
+use serde::{ser::SerializeStruct, Deserializer, Serializer};
+use serde::{Deserialize, Serialize};
 
 pub use reader::TargetReader as Reader;
 pub use writer::TargetWriter as Writer;
@@ -26,6 +29,29 @@ impl Serialize for Target {
         state.serialize_field("remoteUrl", &self.remote_url)?;
         state.serialize_field("sha", &self.sha.to_string())?;
         state.end()
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Target {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        #[derive(Debug, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct TargetData {
+            branch_name: String,
+            remote_name: String,
+            remote_url: String,
+            sha: String,
+        }
+        let target_data: TargetData = serde::Deserialize::deserialize(d)?;
+        let sha = git::Oid::from_str(&target_data.sha)
+            .map_err(|x| serde::de::Error::custom(x.message()))?;
+
+        let target = Target {
+            branch: git::RemoteRefname::new(&target_data.remote_name, &target_data.branch_name),
+            remote_url: target_data.remote_url,
+            sha,
+        };
+        Ok(target)
     }
 }
 

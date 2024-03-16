@@ -14,6 +14,7 @@ pretty_assertions = "1.4"
 tempfile = "3.10"
 
 [dependencies]
+toml = "0.8.11"
 anyhow = "1.0.80"
 async-trait = "0.1.77"
 backoff = "0.4.0"

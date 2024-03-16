@@ -22,7 +22,7 @@ pub type BranchId = Id<Branch>;
 // store. it is more or less equivalent to a git branch reference, but it is not
 // stored or accessible from the git repository itself. it is stored in our
 // session storage under the branches/ directory.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Branch {
     pub id: BranchId,
     pub name: String,
@@ -31,7 +31,15 @@ pub struct Branch {
     pub upstream: Option<git::RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
     pub upstream_head: Option<git::Oid>,
+    #[serde(
+        serialize_with = "serialize_u128",
+        deserialize_with = "deserialize_u128"
+    )]
     pub created_timestamp_ms: u128,
+    #[serde(
+        serialize_with = "serialize_u128",
+        deserialize_with = "deserialize_u128"
+    )]
     pub updated_timestamp_ms: u128,
     /// tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
     pub tree: git::Oid,
@@ -43,6 +51,22 @@ pub struct Branch {
     // is Some(timestamp), the branch is considered a default destination for new changes.
     // if more than one branch is selected, the branch with the highest timestamp wins.
     pub selected_for_changes: Option<i64>,
+}
+
+fn serialize_u128<S>(x: &u128, s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    s.serialize_str(&x.to_string())
+}
+
+fn deserialize_u128<'de, D>(d: D) -> Result<u128, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(d)?;
+    let x: u128 = s.parse().map_err(serde::de::Error::custom)?;
+    Ok(x)
 }
 
 impl Branch {
