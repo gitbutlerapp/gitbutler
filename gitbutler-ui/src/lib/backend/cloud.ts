@@ -1,6 +1,7 @@
 import { isLoading, invoke } from './ipc';
 import { nanoid } from 'nanoid';
 import type { PromptMessage } from '$lib/backend/aiClient';
+import type { ModelKind } from '$lib/backend/aiService';
 import { PUBLIC_API_BASE_URL, PUBLIC_CHAIN_API } from '$env/static/public';
 
 const apiUrl = new URL('/api/', new URL(PUBLIC_API_BASE_URL));
@@ -104,6 +105,7 @@ interface EvaluatePromptParams {
 	messages: PromptMessage[];
 	temperature?: number;
 	max_tokens?: number;
+	model_kind?: ModelKind;
 }
 
 export function getCloudApiClient(

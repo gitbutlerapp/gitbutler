@@ -14,7 +14,8 @@ export class ButlerAIClient implements AIClient {
 
 		const response = await this.cloud.ai.evaluatePrompt(this.userToken, {
 			messages,
-			max_tokens: 400
+			max_tokens: 400,
+			model_kind: this.modelKind
 		});
 
 		return response.message;
