@@ -14,7 +14,7 @@
 	import { onMount } from 'svelte';
 	import { getContext } from 'svelte';
 	import type { User } from '$lib/backend/cloud';
-	import type { Project, ProjectService } from '$lib/backend/projects';
+	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
 	import type { GitHubService } from '$lib/github/service';
 	import type { BranchController } from '$lib/vbranches/branchController';
@@ -26,7 +26,6 @@
 	export let project: Project;
 	export let user: User | undefined;
 	export let githubService: GitHubService;
-	export let projectService: ProjectService;
 
 	const minResizerWidth = 280;
 	const minResizerRatio = 150;
@@ -121,7 +120,7 @@
 				{#if $platformName == 'darwin'}
 					<div class="drag-region" data-tauri-drag-region />
 				{/if}
-				<ProjectSelector {project} {projectService} isNavCollapsed={$isNavCollapsed} />
+				<ProjectSelector {project} isNavCollapsed={$isNavCollapsed} />
 				<div class="domains">
 					<BaseBranchCard
 						{project}

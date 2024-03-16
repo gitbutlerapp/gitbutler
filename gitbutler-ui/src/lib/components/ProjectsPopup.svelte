@@ -1,13 +1,14 @@
 <script lang="ts">
 	import ListItem from './ListItem.svelte';
-	import type { ProjectService } from '$lib/backend/projects';
+	import { ProjectService } from '$lib/backend/projects';
+	import { getContextByClass } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
-	export let projectService: ProjectService;
 	export let isNavCollapsed: boolean;
 
-	$: projects$ = projectService.projects$;
+	const projectService = getContextByClass(ProjectService);
+	const projects$ = projectService.projects$;
 
 	let hidden = true;
 	let loading = false;

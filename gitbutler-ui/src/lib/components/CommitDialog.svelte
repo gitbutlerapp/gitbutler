@@ -150,7 +150,6 @@
 					use:focusTextareaOnMount
 					use:useResize={() => {
 						setAutoHeight(titleTextArea);
-						setAutoHeight(descriptionTextArea);
 					}}
 					on:focus={(e) => setAutoHeight(e.currentTarget)}
 					on:input={(e) => {
@@ -175,6 +174,7 @@
 						spellcheck="false"
 						rows="1"
 						bind:this={descriptionTextArea}
+						use:useResize={() => setAutoHeight(descriptionTextArea)}
 						on:focus={(e) => setAutoHeight(e.currentTarget)}
 						on:input={(e) => {
 							$commitMessage = concatMessage(title, e.currentTarget.value);

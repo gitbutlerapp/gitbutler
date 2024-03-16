@@ -72,7 +72,7 @@
 	<ContentWrapper title="Project settings">
 		<CloudForm project={$project$} user={$user$} {userService} on:updated={onCloudUpdated} />
 		<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
-		<KeysForm project={$project$} {authService} {baseBranchService} {projectService} />
+		<KeysForm project={$project$} {authService} {baseBranchService} />
 		<Spacer />
 		<PreferencesForm project={$project$} on:updated={onPreferencesUpdated} />
 		<SectionCard>
