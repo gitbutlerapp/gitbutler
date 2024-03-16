@@ -3,17 +3,19 @@
 	import CommitCard from '$lib/components/CommitCard.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
+	import { getContextByClass } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import type { Project } from '$lib/backend/projects';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let project: Project | undefined;
 	export let base: BaseBranch;
 	export let projectId: string;
-	export let branchController: BranchController;
 	export let selectedFiles: Writable<AnyFile[]>;
+
+	const branchController = getContextByClass(BranchController);
 
 	const mergeUpstreamWarningDismissed = projectMergeUpstreamWarningDismissed(
 		branchController.projectId
@@ -57,7 +59,6 @@
 						{project}
 						{projectId}
 						{selectedFiles}
-						{branchController}
 						commitUrl={base.commitUrl(commit.id)}
 					/>
 				{/each}
@@ -82,7 +83,6 @@
 				{project}
 				{projectId}
 				{selectedFiles}
-				{branchController}
 				commitUrl={base.commitUrl(commit.id)}
 			/>
 		{/each}

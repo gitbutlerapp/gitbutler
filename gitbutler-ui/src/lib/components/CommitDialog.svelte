@@ -15,15 +15,16 @@
 		projectRunCommitHooks,
 		persistedCommitMessage
 	} from '$lib/config/config';
+	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { setAutoHeight } from '$lib/utils/useAutoHeight';
 	import { useResize } from '$lib/utils/useResize';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import { createEventDispatcher } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { fly, slide } from 'svelte/transition';
 	import type { User, getCloudApiClient } from '$lib/backend/cloud';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Branch, LocalFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
@@ -33,12 +34,13 @@
 	}>();
 
 	export let projectId: string;
-	export let branchController: BranchController;
 	export let branch: Branch;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let user: User | undefined;
 	export let selectedOwnership: Writable<Ownership>;
 	export let expanded: Writable<boolean>;
+
+	const branchController = getContextByClass(BranchController);
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 	const runCommitHooks = projectRunCommitHooks(projectId);

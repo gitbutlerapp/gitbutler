@@ -24,7 +24,6 @@
 
 	$: project$ = data.project$;
 	$: projectId = data.projectId;
-	$: branchController = data.branchController;
 	$: baseBranchService = data.baseBranchService;
 	$: base$ = baseBranchService.base$;
 	$: error$ = baseBranchService.error$;
@@ -57,13 +56,7 @@
 		>
 			<ScrollableContainer>
 				<div class="card">
-					<BaseBranch
-						{projectId}
-						base={$base$}
-						{branchController}
-						{selectedFiles}
-						project={$project$}
-					/>
+					<BaseBranch {projectId} base={$base$} {selectedFiles} project={$project$} />
 				</div>
 			</ScrollableContainer>
 			<Resizer
@@ -83,7 +76,6 @@
 					branchId={'blah'}
 					file={selected}
 					{projectPath}
-					{branchController}
 					{selectedOwnership}
 					isUnapplied={false}
 					readonly={true}

@@ -11,7 +11,6 @@
 	const githubService = getContextByClass(GitHubService);
 
 	$: project$ = data.project$;
-	$: branchController = data.branchController;
 	$: remoteBranchService = data.remoteBranchService;
 	$: branches$ = remoteBranchService.branches$;
 	$: error$ = remoteBranchService.branchesError$;
@@ -32,7 +31,6 @@
 		project={$project$}
 		base={$base$}
 		{pr}
-		{branchController}
 		{branch}
 	/>
 {:else}

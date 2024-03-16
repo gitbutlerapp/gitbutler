@@ -6,20 +6,21 @@
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import toast from 'svelte-french-toast';
 	import type { Persisted } from '$lib/persisted/persisted';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied = false;
 	export let branch: Branch;
 	export let base: BaseBranch | undefined | null;
-	export let branchController: BranchController;
 	export let projectId: string;
-
 	export let isLaneCollapsed: Persisted<boolean>;
+
+	const branchController = getContextByClass(BranchController);
 
 	let meatballButton: HTMLDivElement;
 	let visible = false;
@@ -214,14 +215,7 @@
 									handler: () => (visible = false)
 								}}
 							>
-								<BranchLanePopupMenu
-									{branchController}
-									{branch}
-									{projectId}
-									{isUnapplied}
-									bind:visible
-									on:action
-								/>
+								<BranchLanePopupMenu {branch} {projectId} {isUnapplied} bind:visible on:action />
 							</div>
 						</div>
 					{/if}

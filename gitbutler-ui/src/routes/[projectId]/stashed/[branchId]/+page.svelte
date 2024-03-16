@@ -35,7 +35,6 @@
 {:else if branch}
 	<BranchLane
 		{branch}
-		{branchController}
 		{branchService}
 		{baseBranchService}
 		base={$baseBranch$}

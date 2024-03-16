@@ -12,7 +12,6 @@
 	const githubService = getContextByClass(GitHubService);
 
 	$: vbranchService = data.vbranchService;
-	$: branchController = data.branchController;
 	$: baseBranchService = data.baseBranchService;
 	$: cloud = data.cloud;
 	$: projectId = data.projectId;
@@ -54,7 +53,6 @@
 		<div class="scroll-viewport hide-native-scrollbar" bind:this={viewport}>
 			<div class="scroll-contents" bind:this={contents}>
 				<Board
-					{branchController}
 					{branchService}
 					{baseBranchService}
 					project={$project$}

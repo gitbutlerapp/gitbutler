@@ -8,25 +8,25 @@
 	import { subscribe as menuSubscribe } from '$lib/menu';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/random';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import { onDestroy, onMount, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
 	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
 
-	$: branchController = data.branchController;
 	$: vbranchService = data.vbranchService;
 	$: branchesError$ = vbranchService.branchesError$;
 	$: project$ = data.project$;
 	$: branchService = data.branchService;
 	$: projectId = data.projectId;
-
 	$: baseBranchService = data.baseBranchService;
 	$: baseBranch$ = baseBranchService.base$;
 	$: baseError$ = baseBranchService.error$;
 	$: gbBranchActive$ = data.gbBranchActive$;
-
 	$: user$ = data.user$;
+
+	$: setContext(BranchController, data.branchController);
 
 	let intervalId: any;
 	handleMenuActions(data.projectId);
@@ -74,16 +74,10 @@
 {:else if $branchesError$}
 	<ProblemLoadingRepo project={$project$} error={$branchesError$} />
 {:else if !$gbBranchActive$ && $baseBranch$}
-	<NotOnGitButlerBranch {branchController} project={$project$} baseBranch={$baseBranch$} />
+	<NotOnGitButlerBranch project={$project$} baseBranch={$baseBranch$} />
 {:else if $baseBranch$}
 	<div class="view-wrap" role="group" on:dragover|preventDefault>
-		<Navigation
-			{branchService}
-			{baseBranchService}
-			{branchController}
-			project={$project$}
-			user={$user$}
-		/>
+		<Navigation {branchService} {baseBranchService} project={$project$} user={$user$} />
 		<slot />
 	</div>
 {:else}

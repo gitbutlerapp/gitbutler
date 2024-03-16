@@ -5,14 +5,14 @@
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import type { AuthService } from '$lib/backend/auth';
 	import type { Project } from '$lib/backend/projects';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { goto } from '$app/navigation';
 
 	export let authService: AuthService;
-	export let branchController: BranchController;
+	const branchController = getContextByClass(BranchController);
 	export let baseBranchService: BaseBranchService;
 	export let project: Project;
 	export let remoteBranches: { name: string }[];

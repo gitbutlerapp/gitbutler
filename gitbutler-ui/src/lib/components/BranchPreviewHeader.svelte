@@ -4,20 +4,22 @@
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
+	import { getContextByClass } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import { onDestroy } from 'svelte';
 	import toast from 'svelte-french-toast';
 	import type { PullRequest } from '$lib/github/types';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, RemoteBranch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
 	export let branch: RemoteBranch;
 	export let base: BaseBranch | undefined | null;
-	export let branchController: BranchController;
 	export let projectId: string;
 	export let pr: PullRequest | undefined;
+
+	const branchController = getContextByClass(BranchController);
 
 	let meatballButton: HTMLDivElement;
 	let container: HTMLDivElement;

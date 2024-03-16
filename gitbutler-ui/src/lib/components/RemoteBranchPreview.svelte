@@ -13,7 +13,6 @@
 	import { writable } from 'svelte/store';
 	import type { Project } from '$lib/backend/projects';
 	import type { PullRequest } from '$lib/github/types';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { AnyFile, BaseBranch, RemoteBranch } from '$lib/vbranches/types';
 
 	export let project: Project | undefined;
@@ -21,7 +20,6 @@
 	export let branch: RemoteBranch;
 	export let projectId: string;
 	export let projectPath: string;
-	export let branchController: BranchController;
 	export let pr: PullRequest | undefined;
 
 	const defaultBranchWidthRem = 30;
@@ -59,7 +57,7 @@
 	>
 		<ScrollableContainer wide>
 			<div class="branch-preview">
-				<BranchPreviewHeader {projectId} {base} {branch} {pr} {branchController} />
+				<BranchPreviewHeader {projectId} {base} {branch} {pr} />
 				{#if pr?.body}
 					<div class="card">
 						<div class="card__header">PR Description</div>
@@ -77,7 +75,6 @@
 									{project}
 									{projectId}
 									{selectedFiles}
-									{branchController}
 									commitUrl={base?.commitUrl(commit.id)}
 								/>
 							{/each}
@@ -103,7 +100,6 @@
 				branchId={'blah'}
 				file={selected}
 				{projectPath}
-				{branchController}
 				{selectedOwnership}
 				isUnapplied={false}
 				readonly={true}

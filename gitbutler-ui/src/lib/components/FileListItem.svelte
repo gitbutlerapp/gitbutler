@@ -8,7 +8,6 @@
 	import { updateFocus } from '$lib/utils/selection';
 	import { onDestroy } from 'svelte';
 	import type { Project } from '$lib/backend/projects';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
@@ -22,7 +21,6 @@
 	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let readonly = false;
-	export let branchController: BranchController;
 
 	let checked = false;
 	let indeterminate = false;
@@ -41,7 +39,7 @@
 		if (popupMenu) popupMenu.$destroy();
 		return new FileContextMenu({
 			target: document.body,
-			props: { branchController, project }
+			props: { project }
 		});
 	}
 

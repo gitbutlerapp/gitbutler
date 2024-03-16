@@ -4,7 +4,6 @@
 	import CommitListItem from './CommitListItem.svelte';
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
-	import type { BranchController } from '$lib/vbranches/branchController';
 	import type {
 		AnyFile,
 		BaseBranch,
@@ -18,7 +17,6 @@
 	export let branch: Branch;
 	export let base: BaseBranch | undefined | null;
 	export let project: Project;
-	export let branchController: BranchController;
 	export let type: CommitStatus;
 	export let branchService: BranchService;
 	export let selectedFiles: Writable<AnyFile[]>;
@@ -52,7 +50,6 @@
 						{#each commits as commit, idx (commit.id)}
 							<CommitListItem
 								{branch}
-								{branchController}
 								{commit}
 								{base}
 								{project}
@@ -70,7 +67,6 @@
 						branches.
 					</div>{/if}
 				<CommitListFooter
-					{branchController}
 					{branchService}
 					{branch}
 					{type}

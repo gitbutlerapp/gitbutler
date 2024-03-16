@@ -7,7 +7,6 @@
 
 	export let data: PageData;
 
-	$: branchController = data.branchController;
 	$: baseBranchService = data.baseBranchService;
 	$: authService = data.authService;
 	$: projectId = data.projectId;
@@ -25,13 +24,7 @@
 						use virtual branches, please push your code to a remote branch to use as a base"
 		/>
 	{:else}
-		<ProjectSetup
-			project={$project$}
-			{authService}
-			{baseBranchService}
-			{branchController}
-			{remoteBranches}
-		/>
+		<ProjectSetup project={$project$} {authService} {baseBranchService} {remoteBranches} />
 	{/if}
 {:catch}
 	<ProblemLoadingRepo
