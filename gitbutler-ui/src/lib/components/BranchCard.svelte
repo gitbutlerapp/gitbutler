@@ -8,7 +8,7 @@
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
-	import { AIService, AI_SERVICE_CONTEXT } from '$lib/backend/aiService';
+	import { AIService } from '$lib/backend/aiService';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -53,7 +53,7 @@
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
 
-	const aiService = getContext<AIService>(AI_SERVICE_CONTEXT);
+	const aiService = getContextByClass(AIService);
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
@@ -90,7 +90,7 @@
 			.join('\n')
 			.slice(0, 5000);
 
-		const message = await aiService.branch(diff);
+		const message = await aiService.summarizeBranch({ diff, userToken: user?.access_token });
 
 		if (message && message !== branch.name) {
 			branch.name = message;

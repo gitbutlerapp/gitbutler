@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { deleteAllData } from '$lib/backend/data';
-	import { GIT_CONFING_CONTEXT, type GitConfig } from '$lib/backend/gitConfig';
+	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import AiSettings from '$lib/components/AISettings.svelte';
 	import AnalyticsSettings from '$lib/components/AnalyticsSettings.svelte';
 	import Button from '$lib/components/Button.svelte';
@@ -31,7 +31,7 @@
 
 	export let data: PageData;
 
-	const gitConfig = getContext<GitConfig>(GIT_CONFING_CONTEXT);
+	const gitConfig = getContextByClass(GitConfigService);
 
 	$: ({ cloud, authService } = data);
 

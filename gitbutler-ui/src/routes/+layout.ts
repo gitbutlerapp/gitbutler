@@ -3,7 +3,7 @@ import { initSentry } from '$lib/analytics/sentry';
 import { AIService } from '$lib/backend/aiService';
 import { AuthService } from '$lib/backend/auth';
 import { getCloudApiClient } from '$lib/backend/cloud';
-import { GitConfig } from '$lib/backend/gitConfig';
+import { GitConfigService } from '$lib/backend/gitConfigService';
 import { ProjectService } from '$lib/backend/projects';
 import { UpdaterService } from '$lib/backend/updater';
 import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
@@ -55,8 +55,8 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 
 	const cloud = getCloudApiClient({ fetch: realFetch });
 
-	const gitConfig = new GitConfig();
-	const aiService = new AIService(gitConfig, cloud, userService.user$);
+	const gitConfig = new GitConfigService();
+	const aiService = new AIService(gitConfig, cloud);
 
 	return {
 		authService,

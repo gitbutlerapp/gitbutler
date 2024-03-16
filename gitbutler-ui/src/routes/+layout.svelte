@@ -1,8 +1,8 @@
 <script lang="ts">
 	import '../styles/main.postcss';
 
-	import { AI_SERVICE_CONTEXT } from '$lib/backend/aiService';
-	import { GIT_CONFING_CONTEXT } from '$lib/backend/gitConfig';
+	import { AIService } from '$lib/backend/aiService';
+	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { ProjectService } from '$lib/backend/projects';
 	import { UpdaterService } from '$lib/backend/updater';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
@@ -31,10 +31,8 @@
 	$: setContext(ProjectService, data.projectService);
 	$: setContext(UpdaterService, data.updaterService);
 	$: setContext(GitHubService, data.githubService);
-
-	// TODO: Integrate with change to move entirly over to context API
-	setContext(GIT_CONFING_CONTEXT, data.gitConfig);
-	setContext(AI_SERVICE_CONTEXT, data.aiService);
+	$: setContext(GitConfigService, data.gitConfig);
+	$: setContext(AIService, data.aiService);
 
 	let shareIssueModal: ShareIssueModal;
 
