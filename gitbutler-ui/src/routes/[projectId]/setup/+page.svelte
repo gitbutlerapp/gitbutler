@@ -7,9 +7,7 @@
 
 	export let data: PageData;
 
-	$: authService = data.authService;
-	$: projectId = data.projectId;
-	$: project$ = data.project$;
+	$: ({ authService, projectId, project$ } = data);
 </script>
 
 {#await getRemoteBranches(projectId)}

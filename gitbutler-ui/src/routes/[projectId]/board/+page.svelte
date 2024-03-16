@@ -14,14 +14,10 @@
 	const baseBranchService = getContextByClass(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
-	$: vbranchService = data.vbranchService;
-	$: cloud = data.cloud;
-	$: projectId = data.projectId;
-	$: user$ = data.user$;
+	$: ({ vbranchService, cloud, projectId, user$, project$ } = data);
 
-	$: project$ = data.project$;
 	$: activeBranches$ = vbranchService.activeBranches$;
-	$: error$ = vbranchService.branchesError$;
+	$: error$ = vbranchService.branchesError;
 
 	let viewport: HTMLDivElement;
 	let contents: HTMLDivElement;

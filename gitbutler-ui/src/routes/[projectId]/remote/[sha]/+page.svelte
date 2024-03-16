@@ -11,17 +11,15 @@
 	const githubService = getContextByClass(GitHubService);
 
 	$: project$ = data.project$;
-	$: remoteBranchService = data.remoteBranchService;
-	$: branches$ = remoteBranchService.branches$;
-	$: error$ = remoteBranchService.branchesError$;
+	$: ({ error, branches } = data.remoteBranchService);
 
-	$: branch = $branches$?.find((b) => b.sha == $page.params.sha);
+	$: branch = $branches?.find((b) => b.sha == $page.params.sha);
 	$: pr = githubService.getPr(branch?.displayName);
 </script>
 
-{#if $error$}
+{#if $error}
 	<p>Error...</p>
-{:else if !$branches$}
+{:else if !$branches}
 	<FullscreenLoading />
 {:else if branch}
 	<RemoteBranchPreview

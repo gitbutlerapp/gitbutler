@@ -21,13 +21,13 @@ import {
 	startWith,
 	Subject
 } from 'rxjs';
-import type { Readable } from 'svelte/store';
+import { writable, type Readable } from 'svelte/store';
 
 export class VirtualBranchService {
 	branches$: Observable<Branch[] | undefined>;
 	stashedBranches$: Observable<Branch[] | undefined>;
 	activeBranches$: Observable<Branch[] | undefined>;
-	branchesError$ = new BehaviorSubject<any>(undefined);
+	branchesError = writable<any>();
 	private reload$ = new BehaviorSubject<void>(undefined);
 	private fresh$ = new Subject<void>();
 
@@ -62,7 +62,7 @@ export class VirtualBranchService {
 			startWith(undefined),
 			shareReplay(1),
 			catchError((err) => {
-				this.branchesError$.next(err);
+				this.branchesError.set(err);
 				return [];
 			})
 		);
@@ -77,7 +77,7 @@ export class VirtualBranchService {
 	}
 
 	async reload() {
-		this.branchesError$.next(undefined);
+		this.branchesError.set(undefined);
 		const fresh = firstValueFrom(
 			this.fresh$.pipe(
 				timeout(10000),
