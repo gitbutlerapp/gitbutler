@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 
 export class GitConfigService {
 	async get<T extends string>(key: string): Promise<T | undefined> {
-		return await invoke<T | undefined>('git_get_global_config', { key });
+		return (await invoke<T | undefined>('git_get_global_config', { key })) || undefined;
 	}
 
 	async getWithDefault<T extends string>(key: string, defaultValue: T): Promise<T> {
