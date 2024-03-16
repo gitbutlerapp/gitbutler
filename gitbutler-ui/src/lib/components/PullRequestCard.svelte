@@ -8,10 +8,10 @@
 	import { createTimeAgoStore } from '$lib/utils/timeAgo';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { onDestroy } from 'svelte';
 	import type { BranchService } from '$lib/branches/service';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
-	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { Branch } from '$lib/vbranches/types';
 	import type iconsJson from '../icons/icons.json';
 	import type { Readable } from 'svelte/store';
@@ -21,7 +21,8 @@
 	export let branch: Branch;
 	export let projectId: string;
 	export let isUnapplied = false;
-	export let baseBranchService: BaseBranchService;
+
+	const baseBranchService = getContextByClass(BaseBranchService);
 
 	const githubService = getContextByClass(GitHubService);
 

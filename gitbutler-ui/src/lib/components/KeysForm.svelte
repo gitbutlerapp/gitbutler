@@ -10,13 +10,14 @@
 	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { onMount } from 'svelte';
 	import type { AuthService } from '$lib/backend/auth';
-	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
 	export let authService: AuthService;
-	export let baseBranchService: BaseBranchService;
 	export let project: Project;
+
+	const baseBranchService = getContextByClass(BaseBranchService);
 
 	// Used by credential checker before target branch set
 	export let remoteName = '';

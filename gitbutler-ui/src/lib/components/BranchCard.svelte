@@ -37,7 +37,6 @@
 	import type { Project } from '$lib/backend/projects';
 	import type { BranchService } from '$lib/branches/service';
 	import type { Persisted } from '$lib/persisted/persisted';
-	import type { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { BaseBranch, Branch, LocalFile, RemoteBranchData } from '$lib/vbranches/types';
 
 	export let branch: Branch;
@@ -51,7 +50,6 @@
 	export let selectedFiles: Writable<LocalFile[]>;
 	export let selectedOwnership: Writable<Ownership>;
 	export let isLaneCollapsed: Persisted<boolean>;
-	export let baseBranchService: BaseBranchService;
 	export let commitBoxOpen: Writable<boolean>;
 
 	const branchController = getContextByClass(BranchController);
@@ -212,7 +210,6 @@
 						projectId={project.id}
 						{branch}
 						{branchService}
-						{baseBranchService}
 						{isUnapplied}
 						isLaneCollapsed={$isLaneCollapsed}
 					/>

@@ -21,7 +21,6 @@
 	$: project$ = data.project$;
 	$: cloud = data.cloud;
 	$: authService = data.authService;
-	$: baseBranchService = data.baseBranchService;
 
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
@@ -75,7 +74,7 @@
 	<ContentWrapper title="Project settings">
 		<CloudForm project={$project$} on:updated={onCloudUpdated} />
 		<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
-		<KeysForm project={$project$} {authService} {baseBranchService} />
+		<KeysForm project={$project$} {authService} />
 		<Spacer />
 		<PreferencesForm project={$project$} on:updated={onPreferencesUpdated} />
 		<SectionCard>
