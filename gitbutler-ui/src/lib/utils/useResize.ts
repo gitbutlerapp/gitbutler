@@ -11,7 +11,7 @@ export function useResize(element: HTMLElement, callback: (width: number, height
 
 	return {
 		destroy() {
-			resizeObserver.unobserve(element);
+			resizeObserver.disconnect();
 		}
 	};
 }
