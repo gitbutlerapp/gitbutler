@@ -7,7 +7,6 @@
 
 <button class="action" class:loading on:click on:mousedown disabled={loading}>
 	<div class="icon">
-		<!-- prettier-ignore -->
 		<slot name="icon" />
 	</div>
 	<div class="action__content">
@@ -33,7 +32,7 @@
 		position: relative;
 		padding: var(--size-16);
 		flex-direction: row;
-		gap: var(--size-16);
+		gap: var(--size-20);
 		align-items: center;
 		text-align: left;
 		transition:
@@ -88,9 +87,14 @@
 	}
 
 	.icon {
-		position: relative;
-		z-index: 1;
+		opacity: 0.8;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		flex-shrink: 0;
-		width: calc(var(--size-40) * 2);
+		width: 5rem;
+		height: 5rem;
+		border-radius: var(--radius-l);
+		background-color: var(--clr-theme-component-illustration-bg);
 	}
 </style>

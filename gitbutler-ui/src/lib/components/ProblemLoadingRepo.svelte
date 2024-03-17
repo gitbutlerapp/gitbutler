@@ -2,6 +2,7 @@
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
+	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import { ProjectService, type Project } from '$lib/backend/projects';
 	import Icon from '$lib/components/Icon.svelte';
 	import { UserService } from '$lib/stores/user';
@@ -36,13 +37,7 @@
 	}
 </script>
 
-<DecorativeSplitView
-	user={$user}
-	imgSet={{
-		light: '/images/img_repo-load-error-light.webp',
-		dark: '/images/img_repo-load-error-dark.webp'
-	}}
->
+<DecorativeSplitView user={$user} img={loadErrorSvg}>
 	<div class="problem" data-tauri-drag-region>
 		<p class="problem__project text-bold"><Icon name="repo-book" /> {project?.title}</p>
 		<p class="problem__title text-base-body-18 text-bold" data-tauri-drag-region>

@@ -4,6 +4,7 @@
 	import Link from './Link.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
+	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import { ProjectService, type Project } from '$lib/backend/projects';
 	import Icon from '$lib/components/Icon.svelte';
 	import { UserService } from '$lib/stores/user';
@@ -43,13 +44,7 @@
 	}
 </script>
 
-<DecorativeSplitView
-	user={$user}
-	imgSet={{
-		light: '/images/img_hmm-path-light.webp',
-		dark: '/images/img_hmm-path-dark.webp'
-	}}
->
+<DecorativeSplitView user={$user} img={derectionDoubtSvg}>
 	<div class="switchrepo">
 		<p class="project-name text-bold"><Icon name="repo-book" /> {project?.title}</p>
 		<p class="switchrepo__title text-base-body-18 text-bold">
