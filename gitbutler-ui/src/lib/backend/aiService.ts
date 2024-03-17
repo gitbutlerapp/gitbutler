@@ -14,8 +14,10 @@ Please could you write a commit message for my changes.
 Explain what were the changes and why the changes were done.
 Focus the most important changes.
 Use the present tense.
-Always use semantic commit prefixes.
+Use a semantic commit prefix.
 Hard wrap lines at 72 characters.
+Ensure the title is only 50 characters.
+Do not start any lines with the hash symbol.
 Only respond with the commit message.
 %{brief_style}
 %{emoji_style}
@@ -29,6 +31,7 @@ Please could you write a branch name for my changes.
 A branch name represent a brief description of the changes in the diff (branch).
 Branch names should contain no whitespace and instead use dashes to separate words.
 Branch names should contain a maximum of 5 words.
+Only respond with the branch name.
 
 Here is my git diff:
 %{diff}
