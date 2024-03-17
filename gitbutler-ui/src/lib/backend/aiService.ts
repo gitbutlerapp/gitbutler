@@ -111,7 +111,7 @@ export class AIService {
 				toasts.error("When using GitButler's API to summarize code, you must be logged in");
 				return;
 			}
-			return new ButlerAIClient(this.cloud, userToken, ModelKind.OpenAI);
+			return new ButlerAIClient(this.cloud, userToken, modelKind);
 		}
 
 		if (modelKind == ModelKind.OpenAI) {
