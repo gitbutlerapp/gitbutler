@@ -32,6 +32,6 @@
 		overflow-y: auto;
 	}
 	.inner {
-		padding: var(--space-16);
+		padding: var(--size-16);
 	}
 </style>

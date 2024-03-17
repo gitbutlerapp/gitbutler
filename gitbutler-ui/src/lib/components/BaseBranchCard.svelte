@@ -74,8 +74,8 @@
 	.base-branch-card {
 		position: relative;
 		display: flex;
-		gap: var(--space-10);
-		padding: var(--space-10);
+		gap: var(--size-10);
+		padding: var(--size-10);
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 	}
@@ -88,28 +88,28 @@
 
 	.icon {
 		border-radius: var(--radius-s);
-		height: var(--space-20);
-		width: var(--space-20);
+		height: var(--size-20);
+		width: var(--size-20);
 		flex-shrink: 0;
 	}
 	.content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-8);
+		gap: var(--size-8);
 	}
 	.trunk-label {
 		color: var(--clr-theme-scale-ntrl-0);
 	}
 	.row_1 {
 		display: flex;
-		gap: var(--space-6);
+		gap: var(--size-6);
 		align-items: center;
 		color: var(--clr-theme-scale-ntrl-10);
 	}
 	.row_2 {
 		display: flex;
 		align-items: center;
-		gap: var(--space-4);
+		gap: var(--size-4);
 		color: var(--clr-theme-scale-ntrl-40);
 	}
 	.small-count-badge {
@@ -120,8 +120,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: var(--space-2);
-		min-width: var(--space-14);
+		padding: var(--size-2);
+		min-width: var(--size-14);
 		background-color: var(--clr-theme-err-element);
 		color: var(--clr-theme-scale-ntrl-100);
 		border-radius: var(--radius-m);

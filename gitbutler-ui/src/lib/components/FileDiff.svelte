@@ -67,7 +67,12 @@
 						<span class="added">+{added}</span>
 						<span class="removed">-{removed}</span>
 						{#if section.hunk.locked}
-							<div use:tooltip={{ text: getLockedTooltip(section.hunk.lockedTo), delay: 500 }}>
+							<div
+								use:tooltip={{
+									text: getLockedTooltip(section.hunk.lockedTo),
+									delay: 500
+								}}
+							>
 								<Icon name="locked-small" color="warn" />
 							</div>
 						{/if}
@@ -98,18 +103,18 @@
 		position: relative;
 		max-height: 100%;
 		flex-shrink: 0;
-		padding: var(--space-16);
-		gap: var(--space-16);
+		padding: var(--size-16);
+		gap: var(--size-16);
 	}
 	.hunk-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-10);
+		gap: var(--size-10);
 	}
 	.indicators {
 		display: flex;
 		align-items: center;
-		gap: var(--space-2);
+		gap: var(--size-2);
 	}
 	.added {
 		color: #45b156;

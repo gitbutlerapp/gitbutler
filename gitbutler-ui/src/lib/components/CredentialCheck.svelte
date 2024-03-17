@@ -120,14 +120,14 @@
 	.credential-check {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-16);
+		gap: var(--size-16);
 	}
 
 	.checks-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-4);
-		margin-top: var(--space-4);
+		gap: var(--size-4);
+		margin-top: var(--size-4);
 	}
 
 	.check-icon {
@@ -137,11 +137,11 @@
 
 	.check-result {
 		display: flex;
-		gap: var(--space-6);
+		gap: var(--size-6);
 	}
 
 	.help-text {
-		margin-top: var(--space-6);
+		margin-top: var(--size-6);
 	}
 
 	.disclaimer {
@@ -149,6 +149,6 @@
 		background: var(--clr-theme-container-pale);
 		border-radius: var(--radius-m);
 		background: var(--clr-theme-container-pale);
-		padding: var(--space-10) var(--space-12);
+		padding: var(--size-10) var(--size-12);
 	}
 </style>

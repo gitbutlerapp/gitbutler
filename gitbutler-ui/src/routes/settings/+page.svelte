@@ -344,7 +344,7 @@
 
 	.profile-form {
 		display: flex;
-		gap: var(--space-24);
+		gap: var(--size-24);
 	}
 
 	.hidden-input {
@@ -387,11 +387,11 @@
 
 	.profile-pic__edit-label {
 		position: absolute;
-		bottom: var(--space-8);
-		left: var(--space-8);
+		bottom: var(--size-8);
+		left: var(--size-8);
 		color: var(--clr-core-ntrl-100);
 		background-color: color-mix(in srgb, var(--clr-core-ntrl-0), transparent 30%);
-		padding: var(--space-4) var(--space-6);
+		padding: var(--size-4) var(--size-6);
 		border-radius: var(--radius-m);
 		opacity: 0;
 		transition: opacity var(--transition-medium);
@@ -401,7 +401,7 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-20);
+		gap: var(--size-20);
 		align-items: flex-end;
 	}
 
@@ -409,12 +409,12 @@
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-12);
+		gap: var(--size-12);
 	}
 
 	.row-buttons {
 		display: flex;
 		justify-content: flex-end;
-		gap: var(--space-8);
+		gap: var(--size-8);
 	}
 </style>

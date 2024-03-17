@@ -1,5 +1,5 @@
 .text-input {
-	padding: var(--space-4) var(--space-12);
+	padding: var(--size-4) var(--size-12);
 	color: var(--clr-theme-scale-ntrl-0);
 	background-color: var(--clr-theme-container-light);
 	border: 1px solid var(--clr-theme-container-outline-light);

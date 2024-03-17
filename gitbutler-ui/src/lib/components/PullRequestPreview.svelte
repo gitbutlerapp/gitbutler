@@ -69,10 +69,10 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-16);
+		gap: var(--size-16);
 	}
 	.card__content {
-		gap: var(--space-12);
+		gap: var(--size-12);
 	}
 	.body {
 		white-space: wrap;

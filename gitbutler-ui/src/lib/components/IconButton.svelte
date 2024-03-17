@@ -52,23 +52,23 @@
 		cursor: default;
 	}
 	.x-large {
-		height: var(--size-btn-xl);
-		width: var(--size-btn-xl);
-		padding: var(--space-12);
+		height: var(--size-control-xl);
+		width: var(--size-control-xl);
+		padding: var(--size-12);
 	}
 	.large {
-		height: var(--size-btn-l);
-		width: var(--size-btn-l);
-		padding: var(--space-8);
+		height: var(--size-control-l);
+		width: var(--size-control-l);
+		padding: var(--size-8);
 	}
 	.medium {
-		height: var(--size-btn-m);
-		width: var(--size-btn-m);
-		padding: var(--space-4);
+		height: var(--size-control-m);
+		width: var(--size-control-m);
+		padding: var(--size-4);
 	}
 	.small {
-		height: var(--size-btn-s);
-		width: var(--size-btn-s);
-		padding: var(--space-2);
+		height: var(--size-control-s);
+		width: var(--size-control-s);
+		padding: var(--size-2);
 	}
 </style>

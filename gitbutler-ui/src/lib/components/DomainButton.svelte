@@ -41,17 +41,17 @@
 	.domain-button {
 		display: flex;
 		align-items: center;
-		gap: var(--space-10);
+		gap: var(--size-10);
 		border-radius: var(--radius-m);
-		padding: var(--space-10);
+		padding: var(--size-10);
 		color: var(--clr-theme-scale-ntrl-0);
 		transition: background-color var(--transition-fast);
 	}
 
 	.icon {
 		border-radius: var(--radius-s);
-		height: var(--space-20);
-		width: var(--space-20);
+		height: var(--size-20);
+		width: var(--size-20);
 		flex-shrink: 0;
 	}
 

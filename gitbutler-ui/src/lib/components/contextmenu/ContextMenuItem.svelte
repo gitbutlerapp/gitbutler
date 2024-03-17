@@ -45,10 +45,10 @@
 		text-align: left;
 		align-items: center;
 		color: var(--clr-theme-scale-ntrl-0);
-		height: var(--space-24);
-		padding: var(--space-4) var(--space-6);
+		height: var(--size-24);
+		padding: var(--size-4) var(--size-6);
 		border-radius: var(--radius-s);
-		gap: var(--space-12);
+		gap: var(--size-12);
 		transition: background-color var(--transition-fast);
 		&:not(.disabled):hover {
 			transition: none;

@@ -33,9 +33,9 @@
 		position: absolute;
 		display: flex;
 		flex-direction: column;
-		bottom: var(--space-20);
-		right: var(--space-20);
-		gap: var(--space-8);
+		bottom: var(--size-20);
+		right: var(--size-20);
+		gap: var(--size-8);
 		max-width: 30rem;
 		z-index: 50;
 	}

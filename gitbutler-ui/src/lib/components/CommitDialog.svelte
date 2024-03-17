@@ -283,7 +283,7 @@
 	.commit-box {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-14);
+		padding: var(--size-14);
 		background: var(--clr-theme-container-light);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
 		transition: background-color var(--transition-medium);
@@ -293,14 +293,14 @@
 	.commit-box__expander {
 		display: flex;
 		flex-direction: column;
-		margin-bottom: var(--space-12);
+		margin-bottom: var(--size-12);
 	}
 
 	.commit-box__textarea-wrapper {
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-4);
+		gap: var(--size-4);
 		padding: 0;
 	}
 
@@ -309,7 +309,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-end;
-		gap: var(--space-16);
+		gap: var(--size-16);
 		background: none;
 		resize: none;
 		&:focus {
@@ -320,37 +320,37 @@
 	.commit-box__textarea-tooltip {
 		position: absolute;
 		display: flex;
-		bottom: var(--space-12);
-		left: var(--space-12);
-		padding: var(--space-2);
+		bottom: var(--size-12);
+		left: var(--size-12);
+		padding: var(--size-2);
 		border-radius: 100%;
 		background: var(--clr-theme-container-pale);
 		color: var(--clr-theme-scale-ntrl-40);
 	}
 
 	.commit-box__textarea__title {
-		padding: var(--space-12) var(--space-12) 0 var(--space-12);
+		padding: var(--size-12) var(--size-12) 0 var(--size-12);
 	}
 
 	.commit-box__textarea__description {
-		padding: 0 var(--space-12) var(--space-12) var(--space-12);
+		padding: 0 var(--size-12) var(--size-12) var(--size-12);
 	}
 
 	.commit-box__textarea_bottom-padding {
-		padding-bottom: var(--space-48);
+		padding-bottom: var(--size-48);
 	}
 
 	.commit-box__texarea-actions {
 		position: absolute;
 		display: flex;
-		right: var(--space-12);
-		bottom: var(--space-12);
+		right: var(--size-12);
+		bottom: var(--size-12);
 	}
 
 	.actions {
 		display: flex;
 		justify-content: right;
-		gap: var(--space-6);
+		gap: var(--size-6);
 	}
 
 	.commit-box__expanded {

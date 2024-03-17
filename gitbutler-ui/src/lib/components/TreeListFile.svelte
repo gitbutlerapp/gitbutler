@@ -97,7 +97,7 @@
 				/>
 			{/if}
 			<div class="name-wrapper">
-				<img src={getVSIFileIcon(file.path)} alt="js" style="width: var(--space-12)" class="icon" />
+				<img src={getVSIFileIcon(file.path)} alt="js" style="width: var(--size-12)" class="icon" />
 				<span class="name text-base-12">
 					{file.filename}
 				</span>
@@ -111,7 +111,7 @@
 	.draggable-wrapper {
 		display: inline-block;
 		width: 100%;
-		margin-bottom: var(--space-2);
+		margin-bottom: var(--size-2);
 		&:last-child {
 			margin-bottom: 0;
 		}
@@ -119,9 +119,9 @@
 	.tree-list-file {
 		display: inline-flex;
 		align-items: center;
-		height: var(--size-btn-m);
-		padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6);
-		gap: var(--space-6);
+		height: var(--size-control-m);
+		padding: var(--size-6) var(--size-8) var(--size-6) var(--size-6);
+		gap: var(--size-6);
 		border-radius: var(--radius-s);
 		width: 100%;
 		max-width: 100%;
@@ -139,13 +139,13 @@
 	.content-wrapper {
 		display: flex;
 		align-items: center;
-		gap: var(--space-10);
+		gap: var(--size-10);
 		overflow: hidden;
 	}
 	.name-wrapper {
 		display: flex;
 		align-items: center;
-		gap: var(--space-6);
+		gap: var(--size-6);
 		overflow: hidden;
 	}
 	.name {

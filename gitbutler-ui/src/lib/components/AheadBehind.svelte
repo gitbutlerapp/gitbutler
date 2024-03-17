@@ -35,8 +35,8 @@
 	}
 	.ahead,
 	.behind {
-		padding: var(--space-2);
-		min-width: var(--space-12);
+		padding: var(--size-2);
+		min-width: var(--size-12);
 	}
 	.behind {
 		border-right: 1px solid var(--clr-theme-container-outline-light);

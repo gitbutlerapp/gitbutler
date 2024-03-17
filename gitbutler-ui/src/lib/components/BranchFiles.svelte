@@ -70,15 +70,15 @@
 		}
 	}
 	.branch-files__header {
-		padding-top: var(--space-14);
-		padding-bottom: var(--space-12);
-		padding-left: var(--space-14);
-		padding-right: var(--space-14);
+		padding-top: var(--size-14);
+		padding-bottom: var(--size-12);
+		padding-left: var(--size-14);
+		padding-right: var(--size-14);
 	}
 	.files-padding {
 		padding-top: 0;
-		padding-bottom: var(--space-12);
-		padding-left: var(--space-14);
-		padding-right: var(--space-14);
+		padding-bottom: var(--size-12);
+		padding-left: var(--size-14);
+		padding-right: var(--size-14);
 	}
 </style>

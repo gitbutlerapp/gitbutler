@@ -165,14 +165,14 @@
 
 	.step-section {
 		display: flex;
-		gap: var(--space-16);
-		margin-left: var(--space-8);
+		gap: var(--size-16);
+		margin-left: var(--size-8);
 
 		&:last-child {
 			& .step-section__content {
 				border-bottom: none;
 				margin-bottom: 0;
-				padding-bottom: var(--space-12);
+				padding-bottom: var(--size-12);
 			}
 		}
 	}
@@ -181,10 +181,10 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-		gap: var(--space-12);
-		margin-left: var(--space-8);
-		padding-bottom: var(--space-20);
-		margin-bottom: var(--space-20);
+		gap: var(--size-12);
+		margin-left: var(--size-8);
+		padding-bottom: var(--size-20);
+		margin-bottom: var(--size-20);
 		border-bottom: 1px solid var(--clr-theme-container-outline-light);
 	}
 
@@ -192,15 +192,15 @@
 		position: relative;
 		width: 1px;
 		border-right: 1px dashed var(--clr-theme-scale-ntrl-60);
-		margin-top: var(--space-4);
+		margin-top: var(--size-4);
 
 		&::before {
 			content: '';
 			position: absolute;
 			left: 50%;
 			transform: translateX(-50%);
-			width: var(--space-10);
-			height: var(--space-10);
+			width: var(--size-10);
+			height: var(--size-10);
 			background-color: var(--clr-theme-scale-ntrl-60);
 			border-radius: 100%;
 		}
@@ -209,15 +209,15 @@
 	.step-last {
 		position: relative;
 		width: 1px;
-		margin-top: var(--space-4);
+		margin-top: var(--size-4);
 
 		&::before {
 			content: '';
 			position: absolute;
 			left: 50%;
 			transform: translateX(-50%);
-			width: var(--space-10);
-			height: var(--space-10);
+			width: var(--size-10);
+			height: var(--size-10);
 			background-color: var(--clr-theme-scale-ntrl-60);
 			border-radius: 100%;
 		}
@@ -232,18 +232,18 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		bottom: calc(var(--space-4) * -1);
-		right: calc(var(--space-4) * -1);
+		bottom: calc(var(--size-4) * -1);
+		right: calc(var(--size-4) * -1);
 		background-color: var(--clr-theme-scale-ntrl-100);
 		border-radius: 50px;
 	}
 
 	.code-wrapper {
 		display: flex;
-		gap: var(--space-10);
+		gap: var(--size-10);
 		align-items: center;
 		align-self: flex-start;
-		padding: var(--space-6) var(--space-6) var(--space-6) var(--space-8);
+		padding: var(--size-6) var(--size-6) var(--size-6) var(--size-8);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-theme-container-pale);
 		user-select: text;

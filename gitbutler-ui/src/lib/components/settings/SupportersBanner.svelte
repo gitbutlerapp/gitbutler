@@ -24,7 +24,7 @@
 	.banner {
 		display: flex;
 		align-items: center;
-		padding: var(--space-16);
+		padding: var(--size-16);
 		border-radius: var(--radius-m);
 		background-color: #d7f2f1;
 

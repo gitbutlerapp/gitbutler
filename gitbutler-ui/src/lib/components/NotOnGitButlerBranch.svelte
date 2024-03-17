@@ -95,31 +95,31 @@
 <style lang="postcss">
 	.project-name {
 		display: flex;
-		gap: var(--space-8);
+		gap: var(--size-8);
 		align-items: center;
 		line-height: 120%;
 		color: var(--clr-theme-scale-ntrl-30);
-		margin-bottom: var(--space-20);
+		margin-bottom: var(--size-20);
 	}
 
 	.switchrepo__title {
 		color: var(--clr-theme-scale-ntrl-30);
-		margin-bottom: var(--space-12);
+		margin-bottom: var(--size-12);
 	}
 
 	.switchrepo__message {
 		color: var(--clr-theme-scale-ntrl-50);
-		margin-bottom: var(--space-20);
+		margin-bottom: var(--size-20);
 	}
 	.switchrepo__actions {
 		display: flex;
-		gap: var(--space-8);
-		padding-bottom: var(--space-24);
+		gap: var(--size-8);
+		padding-bottom: var(--size-24);
 		flex-wrap: wrap;
 	}
 
 	.switchrepo__project {
-		padding-top: var(--space-24);
+		padding-top: var(--size-24);
 		border-top: 1px dashed var(--clr-theme-scale-ntrl-60);
 	}
 
@@ -127,6 +127,6 @@
 		font-family: 'Spline Sans Mono', monospace;
 		border-radius: var(--radius-s);
 		background: var(--clr-theme-container-sub);
-		padding: var(--space-2) var(--space-4);
+		padding: var(--size-2) var(--size-4);
 	}
 </style>

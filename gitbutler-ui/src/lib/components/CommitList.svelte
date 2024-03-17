@@ -75,15 +75,15 @@
 	.commit-list__content {
 		display: flex;
 		flex-direction: column;
-		padding: 0 var(--space-14) var(--space-14) var(--space-14);
-		gap: var(--space-8);
+		padding: 0 var(--size-14) var(--size-14) var(--size-14);
+		gap: var(--size-8);
 	}
 	.upstream-message {
 		color: var(--clr-theme-scale-warn-30);
 		border-radius: var(--radius-m);
 		background: var(--clr-theme-scale-warn-80);
-		padding: var(--space-12);
-		margin-left: var(--space-16);
+		padding: var(--size-12);
+		margin-left: var(--size-16);
 	}
 
 	.commits {

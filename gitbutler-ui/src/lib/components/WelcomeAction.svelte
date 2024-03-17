@@ -31,9 +31,9 @@
 		border: 1px solid var(--clr-theme-container-outline-light);
 		display: flex;
 		position: relative;
-		padding: var(--space-16);
+		padding: var(--size-16);
 		flex-direction: row;
-		gap: var(--space-16);
+		gap: var(--size-16);
 		align-items: center;
 		text-align: left;
 		transition:
@@ -67,14 +67,14 @@
 		z-index: 0;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-10);
+		gap: var(--size-10);
 		transition: opacity var(--transition-slow);
 	}
 
 	.action__spinner {
 		position: absolute;
-		top: var(--space-10);
-		right: var(--space-10);
+		top: var(--size-10);
+		right: var(--size-10);
 		display: flex;
 	}
 
@@ -91,6 +91,6 @@
 		position: relative;
 		z-index: 1;
 		flex-shrink: 0;
-		width: calc(var(--space-40) * 2);
+		width: calc(var(--size-40) * 2);
 	}
 </style>

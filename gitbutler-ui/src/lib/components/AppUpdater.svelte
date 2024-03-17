@@ -152,15 +152,15 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: var(--space-16);
+		gap: var(--size-16);
 
 		width: 100%;
 		max-width: 220px;
 
 		position: fixed;
-		bottom: var(--space-12);
-		left: var(--space-12);
-		padding: var(--space-24);
+		bottom: var(--size-12);
+		left: var(--size-12);
+		padding: var(--size-24);
 		background-color: var(--clr-theme-container-light);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		border-radius: var(--radius-m);
@@ -174,7 +174,7 @@
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-8);
+		gap: var(--size-8);
 	}
 
 	/* STATUS SECTION */
@@ -187,7 +187,7 @@
 		flex-direction: column;
 		align-items: center;
 
-		height: var(--size-btn-m);
+		height: var(--size-control-m);
 		width: 100%;
 		background-color: var(--clr-theme-pop-element);
 		border-radius: var(--radius-m);
@@ -235,7 +235,7 @@
 
 	.busy {
 		& .status-section {
-			height: var(--space-4);
+			height: var(--size-4);
 		}
 
 		& .sliding-gradient {
@@ -301,8 +301,8 @@
 
 	.floating-button {
 		position: absolute;
-		right: var(--space-10);
-		top: var(--space-10);
+		right: var(--size-10);
+		top: var(--size-10);
 	}
 
 	@keyframes moving-arrow {

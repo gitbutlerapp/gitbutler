@@ -131,14 +131,14 @@
 		display: flex;
 		overflow-x: auto;
 		align-items: flex-start;
-		padding: var(--space-12) var(--space-12) var(--space-12) var(--space-6);
+		padding: var(--size-12) var(--size-12) var(--size-12) var(--size-6);
 	}
 
 	.branch-preview {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-8);
-		margin: var(--space-12) var(--space-6) var(--space-12) var(--space-12);
+		gap: var(--size-8);
+		margin: var(--size-12) var(--size-6) var(--size-12) var(--size-12);
 	}
 
 	.card__content {

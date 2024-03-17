@@ -113,23 +113,23 @@
 	.list-item-wrapper {
 		display: flex;
 		align-items: center;
-		gap: var(--space-8);
+		gap: var(--size-8);
 	}
 
 	.file-list-item {
 		flex: 1;
 		display: flex;
 		align-items: center;
-		height: var(--space-28);
-		padding: var(--space-4) var(--space-8);
-		gap: var(--space-16);
+		height: var(--size-28);
+		padding: var(--size-4) var(--size-8);
+		gap: var(--size-16);
 		border-radius: var(--radius-s);
 		max-width: 100%;
 		overflow: hidden;
 		text-align: left;
 		user-select: none;
 		outline: none;
-		margin-bottom: var(--space-2);
+		margin-bottom: var(--size-2);
 		transition: background-color var(--transition-fast);
 		background: var(--clr-theme-container-light);
 		&:not(.selected-draggable):hover {
@@ -147,7 +147,7 @@
 		align-items: center;
 		flex-grow: 1;
 		flex-shrink: 1;
-		gap: var(--space-10);
+		gap: var(--size-10);
 		overflow: hidden;
 	}
 	.info {
@@ -155,12 +155,12 @@
 		align-items: center;
 		flex-grow: 1;
 		flex-shrink: 1;
-		gap: var(--space-6);
+		gap: var(--size-6);
 		overflow: hidden;
 	}
 
 	.file-icon {
-		width: var(--space-12);
+		width: var(--size-12);
 	}
 	.name {
 		color: var(--clr-theme-scale-ntrl-0);

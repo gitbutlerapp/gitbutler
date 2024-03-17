@@ -52,12 +52,12 @@
 	.fields-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-16);
+		gap: var(--size-16);
 	}
 
 	.description-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-8);
+		gap: var(--size-8);
 	}
 </style>

@@ -67,7 +67,7 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-6);
+		gap: var(--size-6);
 	}
 
 	.textbox__input-wrap {
@@ -78,7 +78,7 @@
 		z-index: 1;
 		position: relative;
 		flex-grow: 1;
-		height: var(--size-btn-l);
+		height: var(--size-control-l);
 		width: 100%;
 
 		&:disabled {
@@ -109,19 +109,19 @@
 
 	.textbox__left-orient {
 		& .textbox__input {
-			padding-left: calc(var(--space-32) + var(--space-2));
+			padding-left: calc(var(--size-32) + var(--size-2));
 		}
 		& .textbox__icon {
-			left: var(--space-12);
+			left: var(--size-12);
 		}
 	}
 
 	.textbox__right-orient {
 		& .textbox__input {
-			padding-right: calc(var(--space-32) + var(--space-2));
+			padding-right: calc(var(--size-32) + var(--size-2));
 		}
 		& .textbox__icon {
-			right: var(--space-12);
+			right: var(--size-12);
 		}
 	}
 

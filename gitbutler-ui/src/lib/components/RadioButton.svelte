@@ -24,9 +24,9 @@
 	.radio {
 		appearance: none;
 		cursor: pointer;
-		width: var(--space-16);
-		height: var(--space-16);
-		border-radius: var(--space-16);
+		width: var(--size-16);
+		height: var(--size-16);
+		border-radius: var(--size-16);
 		background-color: var(--clr-theme-container-light);
 		box-shadow: inset 0 0 0 1px var(--clr-theme-container-outline-light);
 		transition:
@@ -83,11 +83,11 @@
 		&::after {
 			content: '';
 			position: absolute;
-			top: var(--space-4);
-			left: var(--space-4);
-			width: calc(100% - var(--space-8));
-			height: calc(100% - var(--space-8));
-			border-radius: var(--space-16);
+			top: var(--size-4);
+			left: var(--size-4);
+			width: calc(100% - var(--size-8));
+			height: calc(100% - var(--size-8));
+			border-radius: var(--size-16);
 			background-color: var(--clr-theme-scale-ntrl-0);
 			transition: background-color var(--transition-fast);
 			transform: scale(0.5);
@@ -97,8 +97,8 @@
 		/* modifiers */
 
 		&.small {
-			width: var(--space-14);
-			height: var(--space-14);
+			width: var(--size-14);
+			height: var(--size-14);
 		}
 	}
 </style>

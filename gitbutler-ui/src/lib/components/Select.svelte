@@ -116,7 +116,7 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-6);
+		gap: var(--size-6);
 	}
 
 	.select__label {
@@ -130,7 +130,7 @@
 		top: 100%;
 		width: 100%;
 		z-index: 50;
-		margin-top: var(--space-4);
+		margin-top: var(--size-4);
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		background: var(--clr-theme-container-light);
@@ -141,8 +141,8 @@
 	.options__group {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-6);
-		gap: var(--space-2);
+		padding: var(--size-6);
+		gap: var(--size-2);
 
 		&:not(&:first-child):last-child {
 			border-top: 1px solid var(--clr-theme-container-outline-light);

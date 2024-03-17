@@ -144,7 +144,7 @@
 			& .folding-button {
 				pointer-events: auto;
 				opacity: 1;
-				right: calc(var(--space-6) * -1);
+				right: calc(var(--size-6) * -1);
 			}
 		}
 	}
@@ -160,19 +160,19 @@
 	}
 	.drag-region {
 		flex-shrink: 0;
-		height: var(--space-20);
+		height: var(--size-20);
 	}
 	.navigation-top {
 		display: flex;
 		flex-direction: column;
-		padding-bottom: var(--space-24);
-		padding-left: var(--space-14);
-		padding-right: var(--space-14);
+		padding-bottom: var(--size-24);
+		padding-left: var(--size-14);
+		padding-right: var(--size-14);
 	}
 	.domains {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-4);
+		gap: var(--size-4);
 	}
 
 	.resizer-wrapper {
@@ -180,7 +180,7 @@
 		top: 0;
 		right: 0;
 		height: 100%;
-		width: var(--space-4);
+		width: var(--size-4);
 	}
 
 	.folding-button {
@@ -189,10 +189,10 @@
 		align-items: center;
 		justify-content: center;
 		position: absolute;
-		right: calc(var(--space-4) * -1);
+		right: calc(var(--size-4) * -1);
 		top: 50%;
 		width: 0.875rem;
-		height: var(--space-36);
+		height: var(--size-36);
 		background: var(--clr-theme-container-light);
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-theme-container-outline-light);
@@ -234,7 +234,7 @@
 	.navigation.collapsed {
 		width: auto;
 		justify-content: space-between;
-		padding-bottom: var(--space-16);
+		padding-bottom: var(--size-16);
 	}
 
 	.resizer-hovered {

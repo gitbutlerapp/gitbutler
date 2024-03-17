@@ -42,8 +42,8 @@
 <style>
 	.project-avatar {
 		flex-shrink: 0;
-		width: var(--space-20);
-		height: var(--space-20);
+		width: var(--size-20);
+		height: var(--size-20);
 		border-radius: var(--radius-m);
 	}
 

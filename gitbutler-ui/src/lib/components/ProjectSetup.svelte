@@ -62,7 +62,7 @@
 
 <style lang="postcss">
 	.actions {
-		margin-top: var(--space-20);
+		margin-top: var(--size-20);
 		text-align: right;
 	}
 </style>

@@ -49,10 +49,10 @@
 	.sync-btn {
 		display: flex;
 		align-items: center;
-		gap: var(--space-2);
-		height: var(--space-20);
-		padding-left: var(--space-2);
-		padding-right: var(--space-4);
+		gap: var(--size-2);
+		height: var(--size-20);
+		padding-left: var(--size-2);
+		padding-right: var(--size-4);
 		background: var(--clr-theme-container-light);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		border-radius: var(--radius-m);
@@ -99,6 +99,6 @@
 	}
 
 	.sync-btn__busy-label {
-		padding-left: var(--space-4);
+		padding-left: var(--size-4);
 	}
 </style>

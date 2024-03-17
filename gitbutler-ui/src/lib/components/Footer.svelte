@@ -34,21 +34,21 @@
 	.footer {
 		display: flex;
 		justify-content: space-between;
-		padding: var(--space-12);
+		padding: var(--size-12);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
 		border-color: var(--clr-theme-container-outline-light);
 	}
 
 	.left-btns {
 		display: flex;
-		gap: var(--space-2);
+		gap: var(--size-2);
 	}
 
 	.footer.collapsed {
 		flex-direction: column;
-		padding: 0 var(--space-14);
+		padding: 0 var(--size-14);
 		align-items: flex-start;
-		gap: var(--space-4);
+		gap: var(--size-4);
 		border: none;
 
 		& .left-btns {

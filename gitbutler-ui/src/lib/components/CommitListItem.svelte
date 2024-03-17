@@ -148,7 +148,7 @@
 
 <style lang="postcss">
 	.commit-list-item {
-		padding: 0 0 var(--space-6) var(--space-16);
+		padding: 0 0 var(--size-6) var(--size-16);
 		position: relative;
 
 		&:last-child {

@@ -167,11 +167,11 @@
 	}
 	.line-wrapper {
 		position: relative;
-		padding-left: var(--space-12);
-		padding-right: var(--space-6);
+		padding-left: var(--size-12);
+		padding-right: var(--size-6);
 	}
 	.line {
-		width: var(--space-2);
+		width: var(--size-2);
 		height: 100%;
 		border-left: 1px dashed var(--clr-theme-scale-ntrl-60);
 	}

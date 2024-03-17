@@ -36,8 +36,8 @@
 <style lang="postcss">
 	.setup-feature {
 		display: flex;
-		gap: var(--space-16);
-		padding: var(--space-20);
+		gap: var(--size-16);
+		padding: var(--size-20);
 	}
 	.disabled.setup-feature {
 		background: var(--clr-theme-container-pale);
@@ -51,11 +51,11 @@
 		display: flex;
 		flex-direction: column;
 		flex-grow: 1;
-		gap: var(--space-10);
+		gap: var(--size-10);
 	}
 
 	.setup-feature__title {
-		gap: var(--space-6);
+		gap: var(--size-6);
 		line-height: 120%;
 	}
 
@@ -63,7 +63,7 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
-		gap: var(--space-10);
+		gap: var(--size-10);
 	}
 
 	.disabled .setup-feature__icon {
@@ -71,7 +71,7 @@
 	}
 
 	.setup-feature__actions {
-		margin-top: var(--space-6);
+		margin-top: var(--size-6);
 
 		&:empty {
 			display: none;
@@ -80,7 +80,7 @@
 
 	.setup-feature__row {
 		display: flex;
-		gap: var(--space-10);
+		gap: var(--size-10);
 		align-items: center;
 	}
 

@@ -38,9 +38,9 @@
 	.header {
 		display: flex;
 		align-items: center;
-		padding: var(--space-16) var(--space-14) var(--space-16) var(--space-14);
+		padding: var(--size-16) var(--size-14) var(--size-16) var(--size-14);
 		justify-content: space-between;
-		gap: var(--space-8);
+		gap: var(--size-8);
 
 		&:hover {
 			& .expander {
@@ -52,7 +52,7 @@
 		display: flex;
 		align-items: center;
 		color: var(--clr-theme-scale-ntrl-0);
-		gap: var(--space-8);
+		gap: var(--size-8);
 		overflow-x: hidden;
 	}
 

@@ -15,10 +15,10 @@
 		align-items: center;
 		justify-content: center;
 		text-align: center;
-		height: var(--space-16);
-		min-width: var(--space-16);
-		border-radius: var(--space-16);
-		padding: 0 var(--space-4);
+		height: var(--size-16);
+		min-width: var(--size-16);
+		border-radius: var(--size-16);
+		padding: 0 var(--size-4);
 		color: var(--clr-theme-scale-ntrl-30);
 		background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-40) 16%, transparent);
 		line-height: 90%;

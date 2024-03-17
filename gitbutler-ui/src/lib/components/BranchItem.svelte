@@ -55,10 +55,10 @@
 <style lang="postcss">
 	.branch {
 		display: flex;
-		gap: var(--space-10);
+		gap: var(--size-10);
 		width: 100%;
 
-		padding: var(--space-10) var(--space-8);
+		padding: var(--size-10) var(--size-8);
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 	}
@@ -67,14 +67,14 @@
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
-		gap: var(--space-6);
+		gap: var(--size-6);
 		overflow: hidden;
 	}
 
 	.branch__details {
 		display: flex;
 		align-items: center;
-		gap: var(--space-6);
+		gap: var(--size-6);
 		justify-content: space-between;
 	}
 

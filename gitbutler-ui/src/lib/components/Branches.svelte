@@ -216,11 +216,11 @@
 	.scroll-container {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-12);
+		gap: var(--size-12);
 		width: 100%;
-		padding-bottom: var(--space-16);
-		padding-left: var(--space-14);
-		padding-right: var(--space-14);
+		padding-bottom: var(--size-16);
+		padding-left: var(--size-14);
+		padding-right: var(--size-14);
 	}
 	.branch-list {
 		flex: 1;
@@ -235,7 +235,7 @@
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		gap: var(--space-2);
+		gap: var(--size-2);
 	}
 
 	/* EMPTY STATE */
@@ -245,7 +245,7 @@
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		gap: var(--space-10);
+		gap: var(--size-10);
 	}
 
 	.branch-list__empty-state__image {

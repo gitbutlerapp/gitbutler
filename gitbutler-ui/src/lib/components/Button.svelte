@@ -83,12 +83,12 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		padding: var(--space-4) var(--space-6);
+		padding: var(--size-4) var(--size-6);
 		border-radius: var(--radius-m);
 		flex-shrink: 0;
-		gap: var(--space-2);
-		height: var(--size-btn-m);
-		min-width: var(--size-btn-m);
+		gap: var(--size-2);
+		height: var(--size-control-m);
+		min-width: var(--size-control-m);
 		background: transparent;
 		transition: background-color var(--transition-fast);
 		cursor: pointer;
@@ -114,7 +114,7 @@
 	}
 	.label {
 		display: inline-flex;
-		padding: 0 var(--space-2);
+		padding: 0 var(--size-2);
 	}
 
 	.neutral-filled {
@@ -191,13 +191,13 @@
 	/* SIZE MODIFIERS */
 
 	.btn.medium {
-		height: var(--size-btn-m);
-		padding: var(--space-4) var(--space-6);
+		height: var(--size-control-m);
+		padding: var(--size-4) var(--size-6);
 	}
 
 	.btn.large {
-		height: var(--size-btn-l);
-		padding: var(--space-6) var(--space-8);
+		height: var(--size-control-l);
+		padding: var(--size-6) var(--size-8);
 	}
 
 	/* DROPDOWN */

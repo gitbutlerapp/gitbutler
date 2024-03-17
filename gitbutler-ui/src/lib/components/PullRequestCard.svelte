@@ -293,30 +293,30 @@
 <style lang="postcss">
 	.pr-card {
 		position: relative;
-		padding: var(--space-14);
+		padding: var(--size-14);
 	}
 
 	.pr-title {
 		color: var(--clr-theme-scale-ntrl-0);
-		margin-bottom: var(--space-12);
-		margin-right: var(--space-28);
+		margin-bottom: var(--size-12);
+		margin-right: var(--size-28);
 		user-select: text;
 		cursor: text;
 	}
 
 	.pr-tags {
 		display: flex;
-		gap: var(--space-4);
+		gap: var(--size-4);
 	}
 
 	.pr-actions {
-		margin-top: var(--space-14);
+		margin-top: var(--size-14);
 		display: flex;
 	}
 
 	.floating-button {
 		position: absolute;
-		right: var(--space-6);
-		top: var(--space-6);
+		right: var(--size-6);
+		top: var(--size-6);
 	}
 </style>
