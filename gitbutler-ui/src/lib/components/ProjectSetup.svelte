@@ -2,6 +2,7 @@
 	import Button from './Button.svelte';
 	import KeysForm from './KeysForm.svelte';
 	import ProjectSetupTarget from './ProjectSetupTarget.svelte';
+	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
@@ -33,13 +34,7 @@
 	}
 </script>
 
-<DecorativeSplitView
-	user={$user}
-	imgSet={{
-		light: '/images/img_moon-door-light.webp',
-		dark: '/images/img_moon-door-dark.webp'
-	}}
->
+<DecorativeSplitView user={$user} img={newProjectSvg}>
 	{#if selectedBranch}
 		{@const [remoteName, branchName] = selectedBranch.split(/\/(.*)/s)}
 		<KeysForm {project} {authService} {remoteName} {branchName} />

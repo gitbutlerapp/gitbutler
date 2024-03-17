@@ -1,6 +1,6 @@
 <script lang="ts">
 	import WelcomeAction from './WelcomeAction.svelte';
-	import ImgThemed from '$lib/components/ImgThemed.svelte';
+	import signinSvg from '$lib/assets/no-projects/signin.svg?raw';
 	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 
@@ -33,12 +33,7 @@
 		on:mousedown={onLoginOrSignup}
 	>
 		<svelte:fragment slot="icon">
-			<ImgThemed
-				imgSet={{
-					light: '/images/welcome-signin-light.webp',
-					dark: '/images/welcome-signin-dark.webp'
-				}}
-			/>
+			{@html signinSvg}
 		</svelte:fragment>
 		<svelte:fragment slot="message">
 			Enable GitButler features like automatic branch and commit message generation.

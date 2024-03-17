@@ -1,4 +1,6 @@
 <script lang="ts">
+	import analyticsSvg from '$lib/assets/illustrations/analytics.svg?raw';
+	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { ProjectService } from '$lib/backend/projects';
 	import AnalyticsConfirmation from '$lib/components/AnalyticsConfirmation.svelte';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
@@ -37,23 +39,11 @@
 {#if $redirect$ === undefined}
 	<FullscreenLoading />
 {:else if !$analyticsConfirmed}
-	<DecorativeSplitView
-		user={$user}
-		imgSet={{
-			light: '/images/img_analytics-light.webp',
-			dark: '/images/img_analytics-dark.webp'
-		}}
-	>
+	<DecorativeSplitView user={$user} img={analyticsSvg}>
 		<AnalyticsConfirmation {analyticsConfirmed} />
 	</DecorativeSplitView>
 {:else if $redirect$ === null}
-	<DecorativeSplitView
-		user={$user}
-		imgSet={{
-			light: '/images/img_moon-door-light.webp',
-			dark: '/images/img_moon-door-dark.webp'
-		}}
-	>
+	<DecorativeSplitView user={$user} img={newProjectSvg}>
 		<Welcome />
 	</DecorativeSplitView>
 {/if}
