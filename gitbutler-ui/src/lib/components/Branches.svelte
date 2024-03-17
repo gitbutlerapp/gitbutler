@@ -158,6 +158,7 @@
 				bind:viewport
 				showBorderWhenScrolled
 				on:dragging={(e) => dispatch('scrollbarDragging', e.detail)}
+				fillViewport={$filteredBranches$.length == 0}
 			>
 				<div class="scroll-container">
 					<TextBox
@@ -165,22 +166,25 @@
 						placeholder="Search"
 						on:input={(e) => textFilter$.next(e.detail)}
 					/>
-					<div bind:this={contents} class="content">
-						{#each $filteredBranches$ as branch}
-							<BranchItem {projectId} {branch} />
-						{/each}
-					</div>
+
+					{#if $filteredBranches$.length > 0}
+						<div bind:this={contents} class="content">
+							{#each $filteredBranches$ as branch}
+								<BranchItem {projectId} {branch} />
+							{/each}
+						</div>
+					{:else}
+						<div class="branch-list__empty-state">
+							<div class="branch-list__empty-state__image">
+								{@html noBranchesSvg}
+							</div>
+							<span class="branch-list__empty-state__caption text-base-body-14 text-semibold"
+								>No branches match your filter</span
+							>
+						</div>
+					{/if}
 				</div>
 			</ScrollableContainer>
-		{:else if $branches$.length > 0}
-			<div class="branch-list__empty-state">
-				<div class="branch-list__empty-state__image">
-					{@html noBranchesSvg}
-				</div>
-				<span class="branch-list__empty-state__caption text-base-body-14 text-semibold"
-					>No branches match your filter</span
-				>
-			</div>
 		{:else}
 			<div class="branch-list__empty-state">
 				<div class="branch-list__empty-state__image">
@@ -208,6 +212,7 @@
 		flex-direction: column;
 		gap: var(--size-12);
 		width: 100%;
+		height: 100%;
 		padding-bottom: var(--size-16);
 		padding-left: var(--size-14);
 		padding-right: var(--size-14);
