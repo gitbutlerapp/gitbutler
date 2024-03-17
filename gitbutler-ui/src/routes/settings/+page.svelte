@@ -237,7 +237,7 @@
 					Remove projects…
 				</Button>
 
-				<Modal bind:this={deleteConfirmationModal} title="Remove all projects">
+				<Modal bind:this={deleteConfirmationModal} width="small" title="Remove all projects">
 					<p>Are you sure you want to remove all GitButler projects?</p>
 
 					<svelte:fragment slot="controls" let:close>

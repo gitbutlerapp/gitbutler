@@ -28,7 +28,7 @@
 	Remove project…
 </Button>
 
-<Modal bind:this={modal}>
+<Modal bind:this={modal} width="small">
 	<div class="remove-project-description">
 		<p class="text-base-body-14">
 			Are you sure you want to remove
