@@ -68,6 +68,6 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-8);
+		gap: var(--size-8);
 	}
 </style>

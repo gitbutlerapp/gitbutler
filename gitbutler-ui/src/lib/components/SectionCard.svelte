@@ -70,8 +70,8 @@
 <style lang="post-css">
 	.section-card {
 		display: flex;
-		gap: var(--space-16);
-		padding: var(--space-16);
+		gap: var(--size-16);
+		padding: var(--size-16);
 		border-left: 1px solid var(--clr-theme-container-outline-light);
 		border-right: 1px solid var(--clr-theme-container-outline-light);
 		background-color: var(--clr-theme-container-light);
@@ -94,14 +94,14 @@
 		background: var(--clr-theme-warn-container);
 	}
 	.extra-padding {
-		padding: var(--space-20);
+		padding: var(--size-20);
 	}
 
 	.section-card__content {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-8);
+		gap: var(--size-8);
 		user-select: text;
 	}
 

@@ -132,7 +132,7 @@
 	.aigen-wrap {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-4);
+		gap: var(--size-4);
 	}
 
 	.api-link {

@@ -31,11 +31,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: var(--space-16);
-		padding: 0 var(--space-4);
+		height: var(--size-16);
+		padding: 0 var(--size-4);
 		background-color: var(--clr-theme-container-light);
-		border-radius: var(--space-16);
-		margin-left: calc(var(--space-4) * -1);
+		border-radius: var(--size-16);
+		margin-left: calc(var(--size-4) * -1);
 		border: 1px solid var(--clr-theme-container-outline-light);
 
 		& span {

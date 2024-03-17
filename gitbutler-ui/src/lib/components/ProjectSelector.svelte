@@ -45,16 +45,16 @@
 <style lang="postcss">
 	.wrapper {
 		position: relative;
-		margin-top: var(--space-14);
-		margin-bottom: var(--space-16);
+		margin-top: var(--size-14);
+		margin-bottom: var(--size-16);
 		height: fit-content;
 	}
 
 	.button {
 		display: flex;
-		gap: var(--space-10);
+		gap: var(--size-10);
 		width: 100%;
-		padding: var(--space-10);
+		padding: var(--size-10);
 		border-radius: var(--radius-m);
 
 		background-color: var(--clr-theme-container-pale);

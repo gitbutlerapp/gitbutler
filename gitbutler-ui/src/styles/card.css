@@ -9,25 +9,25 @@
 .card__header {
 	display: flex;
 	justify-content: space-between;
-	padding: var(--space-16);
-	gap: var(--space-8);
+	padding: var(--size-16);
+	gap: var(--size-8);
 	border-bottom: 1px solid var(--clr-theme-container-outline-light);
 }
 
 .card__title {
-	padding: var(--space-4) var(--space-6);
+	padding: var(--size-4) var(--size-6);
 }
 
 .card__content {
 	display: flex;
 	flex-direction: column;
-	padding: var(--space-16);
+	padding: var(--size-16);
 }
 
 .card__footer {
 	display: flex;
-	gap: var(--space-6);
-	padding: var(--space-16);
+	gap: var(--size-6);
+	padding: var(--size-16);
 	justify-content: space-between;
 	border-top: 1px solid var(--clr-theme-container-outline-light);
 }

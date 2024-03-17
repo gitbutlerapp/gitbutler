@@ -43,13 +43,13 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-6);
+		gap: var(--size-6);
 	}
 	.textarea {
 		width: 100%;
 		resize: none;
-		padding-top: var(--space-12);
-		padding-bottom: var(--space-12);
+		padding-top: var(--size-12);
+		padding-bottom: var(--size-12);
 	}
 
 	.textbox__label {

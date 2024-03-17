@@ -52,7 +52,7 @@
 		cursor: pointer;
 		display: inline-flex;
 		align-items: center;
-		gap: var(--space-2);
+		gap: var(--size-2);
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 		text-decoration: underline;

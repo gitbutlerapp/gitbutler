@@ -181,8 +181,8 @@
 			<ScrollableContainer
 				wide
 				padding={{
-					top: `var(--space-12)`,
-					bottom: `var(--space-12)`
+					top: `var(--size-12)`,
+					bottom: `var(--size-12)`
 				}}
 			>
 				<div
@@ -399,8 +399,8 @@
 		flex-direction: column;
 		flex: 1;
 		min-height: 100%;
-		gap: var(--space-8);
-		padding: var(--space-12);
+		gap: var(--size-8);
+		padding: var(--size-12);
 	}
 
 	.card {
@@ -411,7 +411,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: var(--space-8);
+		gap: var(--size-8);
 		max-width: 14rem;
 	}
 
@@ -425,7 +425,7 @@
 		color: var(--clr-theme-scale-ntrl-60);
 		background: var(--clr-theme-container-light);
 		justify-content: center;
-		padding: var(--space-48) 0;
+		padding: var(--size-48) 0;
 		border-radius: var(--radius-m);
 		cursor: default; /* was defaulting to text cursor */
 	}
@@ -451,7 +451,7 @@
 
 	.new-branch__image {
 		width: 7.5rem;
-		margin-bottom: var(--space-10);
+		margin-bottom: var(--size-10);
 	}
 
 	/* hunks drop zone */
@@ -484,7 +484,7 @@
 	.collapsed-lane-wrapper {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-12);
+		padding: var(--size-12);
 		height: 100%;
 		border-right: 1px solid var(--clr-theme-container-outline-light);
 	}

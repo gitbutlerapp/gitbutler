@@ -49,8 +49,8 @@
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
-		padding: var(--space-14) var(--space-14) var(--space-12) var(--space-14);
-		gap: var(--space-8);
+		padding: var(--size-14) var(--size-14) var(--size-12) var(--size-14);
+		gap: var(--size-8);
 		border-bottom: 1px solid transparent;
 		transition: border-bottom var(--transition-fast);
 		position: relative;
@@ -60,7 +60,7 @@
 	}
 	.filter-popup-menu {
 		position: absolute;
-		top: calc(var(--size-btn-m) + var(--space-4));
+		top: calc(var(--size-control-m) + var(--size-4));
 		right: 0;
 		z-index: 10;
 		min-width: 10rem;
@@ -68,6 +68,6 @@
 	.branches-title {
 		display: flex;
 		align-items: center;
-		gap: var(--space-4);
+		gap: var(--size-4);
 	}
 </style>

@@ -78,11 +78,11 @@
 	.header__title {
 		display: flex;
 		align-items: center;
-		gap: var(--space-4);
+		gap: var(--size-4);
 		color: var(--clr-theme-scale-ntrl-0);
 	}
 	.header__left {
 		display: flex;
-		gap: var(--space-10);
+		gap: var(--size-10);
 	}
 </style>

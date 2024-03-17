@@ -30,7 +30,7 @@
 	.file-status {
 		display: flex;
 		align-items: center;
-		gap: var(--space-4);
+		gap: var(--size-4);
 	}
 	.file-status__icons {
 		display: flex;

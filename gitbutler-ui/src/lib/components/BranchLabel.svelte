@@ -58,7 +58,7 @@
 		autocomplete="off"
 		autocorrect="off"
 		spellcheck="false"
-		style={`width: calc(${inputWidth}px + var(--space-12))`}
+		style={`width: calc(${inputWidth}px + var(--size-12))`}
 	/>
 {:else}
 	<div
@@ -76,10 +76,10 @@
 <style lang="postcss">
 	.branch-name,
 	.branch-name-input {
-		height: var(--space-20);
+		height: var(--size-20);
 		pointer-events: auto;
 		color: var(--clr-theme-scale-ntrl-0);
-		padding: var(--space-2) var(--space-4);
+		padding: var(--size-2) var(--size-4);
 		border-radius: var(--radius-s);
 		border: 1px solid transparent;
 	}

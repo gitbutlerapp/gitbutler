@@ -33,7 +33,7 @@
 		align-items: center;
 		color: var(--clr-theme-scale-ntrl-10);
 		font-weight: 700;
-		padding: var(--space-8) var(--space-8);
+		padding: var(--size-8) var(--size-8);
 		justify-content: space-between;
 		border-radius: var(--radius-m);
 		width: 100%;
@@ -54,7 +54,7 @@
 			color: var(--clr-theme-scale-ntrl-50);
 		}
 		& .label {
-			height: var(--space-16);
+			height: var(--size-16);
 			text-overflow: ellipsis;
 			overflow-x: hidden;
 		}

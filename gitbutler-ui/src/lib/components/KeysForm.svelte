@@ -228,7 +228,7 @@
 	.git-auth-wrap {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-16);
+		gap: var(--size-16);
 
 		& p {
 			color: var(--clr-theme-scale-ntrl-30);
@@ -238,20 +238,20 @@
 	.inputs-group {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-16);
+		gap: var(--size-16);
 		width: 100%;
 	}
 
 	.input-with-button {
 		display: flex;
-		gap: var(--space-8);
+		gap: var(--size-8);
 		align-items: flex-end;
 	}
 
 	.row-buttons {
 		display: flex;
 		justify-content: flex-end;
-		gap: var(--space-8);
+		gap: var(--size-8);
 	}
 
 	.git-radio {

@@ -94,9 +94,9 @@
 	.info-message {
 		color: var(--clr-theme-scale-ntrl-0);
 		display: flex;
-		padding: var(--space-16);
+		padding: var(--size-16);
 		border-radius: var(--radius-m);
-		gap: var(--space-12);
+		gap: var(--size-12);
 		background-color: var(--clr-theme-container-light);
 		transition:
 			background-color var(--transition-slow),
@@ -106,18 +106,18 @@
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
-		gap: var(--space-12);
+		gap: var(--size-12);
 		overflow-x: hidden;
 	}
 	.info-message__content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-8);
+		gap: var(--size-8);
 		user-select: text;
 	}
 	.info-message__actions {
 		display: flex;
-		gap: var(--space-6);
+		gap: var(--size-6);
 		justify-content: flex-end;
 	}
 	.info-message__text {
@@ -181,10 +181,10 @@
 		word-break: break-all; /* allow long links to wrap */
 	}
 	:global(.info-message__text p:not(:last-child)) {
-		margin-bottom: var(--space-10);
+		margin-bottom: var(--size-10);
 	}
 	:global(.info-message__text ul) {
 		list-style-type: circle;
-		padding: 0 0 0 var(--space-16);
+		padding: 0 0 0 var(--size-16);
 	}
 </style>

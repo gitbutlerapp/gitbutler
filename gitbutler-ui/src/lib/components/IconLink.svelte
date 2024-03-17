@@ -16,8 +16,8 @@
 	.link {
 		display: flex;
 		align-items: center;
-		gap: var(--space-10);
-		padding: var(--space-4) var(--space-6);
+		gap: var(--size-10);
+		padding: var(--size-4) var(--size-6);
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 

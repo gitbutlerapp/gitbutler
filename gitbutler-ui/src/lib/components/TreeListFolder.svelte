@@ -46,7 +46,7 @@
 		<div class="name-wrapper">
 			<!-- folder-icon.svg -->
 			<svg
-				style="width: var(--space-12)"
+				style="width: var(--size-12)"
 				viewBox="0 0 12 12"
 				fill="none"
 				xmlns="http://www.w3.org/2000/svg"
@@ -81,12 +81,12 @@
 	.tree-list-folder {
 		display: flex;
 		align-items: center;
-		height: var(--space-28);
+		height: var(--size-28);
 		width: 100%;
-		padding: var(--space-4) var(--space-8) var(--space-4) var(--space-4);
-		gap: var(--space-6);
+		padding: var(--size-4) var(--size-8) var(--size-4) var(--size-4);
+		gap: var(--size-6);
 		border-radius: var(--radius-s);
-		margin-bottom: var(--space-2);
+		margin-bottom: var(--size-2);
 		&:hover {
 			background: color-mix(in srgb, var(--clr-theme-container-light), var(--darken-tint-light));
 
@@ -98,12 +98,12 @@
 	.content-wrapper {
 		display: flex;
 		align-items: center;
-		gap: var(--space-10);
+		gap: var(--size-10);
 	}
 	.name-wrapper {
 		display: flex;
 		align-items: center;
-		gap: var(--space-6);
+		gap: var(--size-6);
 	}
 	.name {
 		color: var(--clr-theme-scale-ntrl-0);

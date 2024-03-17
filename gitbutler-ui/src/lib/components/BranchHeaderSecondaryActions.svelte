@@ -47,7 +47,7 @@
 <style lang="post-css">
 	.branch-popup-menu {
 		position: absolute;
-		top: calc(100% + var(--space-4));
+		top: calc(100% + var(--size-4));
 		right: 0;
 		z-index: 10;
 	}

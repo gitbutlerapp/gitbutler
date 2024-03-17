@@ -55,15 +55,15 @@
 	/* modifiers */
 
 	.s-large {
-		max-width: calc(var(--space-64) * 13);
+		max-width: calc(var(--size-64) * 13);
 	}
 
 	.s-default {
-		max-width: calc(var(--space-64) * 9);
+		max-width: calc(var(--size-64) * 9);
 	}
 
 	.s-small {
-		max-width: calc(var(--space-64) * 6);
+		max-width: calc(var(--size-64) * 6);
 	}
 
 	.open-modal {

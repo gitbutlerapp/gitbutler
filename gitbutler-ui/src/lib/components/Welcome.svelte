@@ -79,39 +79,39 @@
 	.welcome__actions {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-8);
-		margin-top: var(--space-32);
+		gap: var(--size-8);
+		margin-top: var(--size-32);
 	}
 
 	.links {
 		display: flex;
-		gap: var(--space-56);
-		padding: var(--space-28);
+		gap: var(--size-56);
+		padding: var(--size-28);
 		background: var(--clr-theme-container-pale);
 		border-radius: var(--radius-l);
-		margin-top: var(--space-20);
+		margin-top: var(--size-20);
 	}
 
 	.links__section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-20);
+		gap: var(--size-20);
 	}
 
 	.education-links {
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: var(--space-6);
-		margin-left: calc(var(--space-6) * -1);
+		gap: var(--size-6);
+		margin-left: calc(var(--size-6) * -1);
 	}
 
 	.community-links {
 		display: flex;
 		flex-wrap: wrap;
-		column-gap: var(--space-12);
-		row-gap: var(--space-4);
-		max-width: calc(var(--space-64) * 3);
-		margin-left: calc(var(--space-6) * -1);
+		column-gap: var(--size-12);
+		row-gap: var(--size-4);
+		max-width: calc(var(--size-64) * 3);
+		margin-left: calc(var(--size-6) * -1);
 	}
 </style>

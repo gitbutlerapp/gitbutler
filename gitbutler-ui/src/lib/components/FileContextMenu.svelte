@@ -126,10 +126,10 @@
 <style lang="postcss">
 	.file-list {
 		list-style: disc;
-		padding-left: var(--space-20);
-		padding-top: var(--space-6);
+		padding-left: var(--size-20);
+		padding-top: var(--size-6);
 	}
 	.file-list li {
-		padding: var(--space-2);
+		padding: var(--size-2);
 	}
 </style>

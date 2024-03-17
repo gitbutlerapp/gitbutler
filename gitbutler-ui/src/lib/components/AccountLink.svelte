@@ -43,10 +43,10 @@
 		display: flex;
 		align-items: center;
 		overflow-x: hidden;
-		gap: var(--space-8);
+		gap: var(--size-8);
 
-		height: var(--size-btn-l);
-		padding: var(--space-6) var(--space-8);
+		height: var(--size-control-l);
+		padding: var(--size-6) var(--size-8);
 		border-radius: var(--radius-m);
 
 		color: var(--clr-theme-scale-ntrl-50);
@@ -88,14 +88,14 @@
 	.anon-icon,
 	.profile-picture {
 		border-radius: var(--radius-m);
-		width: var(--space-20);
-		height: var(--space-20);
+		width: var(--size-20);
+		height: var(--size-20);
 	}
 	.anon-icon {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: var(--space-2);
+		padding: var(--size-2);
 		background: var(--clr-theme-pop-element);
 		color: var(--clr-theme-pop-on-element);
 	}
@@ -103,13 +103,13 @@
 	/* MODIFIERS */
 	.btn.collapsed {
 		overflow-x: initial;
-		padding: var(--space-8);
+		padding: var(--size-8);
 		height: auto;
 
 		& .anon-icon,
 		.profile-picture {
-			width: var(--space-24);
-			height: var(--space-24);
+			width: var(--size-24);
+			height: var(--size-24);
 		}
 	}
 </style>

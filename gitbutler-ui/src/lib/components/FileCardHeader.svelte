@@ -72,29 +72,29 @@
 <style lang="postcss">
 	.header {
 		display: flex;
-		padding: var(--space-16);
-		gap: var(--space-12);
+		padding: var(--size-16);
+		gap: var(--size-12);
 		border-bottom: 1px solid var(--clr-theme-container-outline-light);
 	}
 	.header__inner {
 		display: flex;
 		flex-grow: 1;
-		gap: var(--space-6);
+		gap: var(--size-6);
 		overflow: hidden;
 	}
 	.header__info {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-8);
+		gap: var(--size-8);
 		width: 100%;
 	}
 	.header__tags {
 		display: flex;
-		gap: var(--space-6);
+		gap: var(--size-6);
 	}
 	.header__tag-group {
 		display: flex;
-		gap: var(--space-2);
+		gap: var(--size-2);
 	}
 	.header__filetitle {
 		width: 100%;
@@ -109,8 +109,8 @@
 	}
 	.icon {
 		flex-shrink: 0;
-		width: var(--space-14);
-		height: var(--space-14);
-		margin-top: calc(var(--space-2) / 2);
+		width: var(--size-14);
+		height: var(--size-14);
+		margin-top: calc(var(--size-2) / 2);
 	}
 </style>

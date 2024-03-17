@@ -6,7 +6,7 @@
 			return '';
 		}
 
-		return `margin-top: var(--space-${margin}); margin-bottom: var(--space-${margin});`;
+		return `margin-top: var(--size-${margin}); margin-bottom: var(--size-${margin});`;
 	}
 </script>
 

@@ -63,7 +63,7 @@
 	.project-switcher {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-10);
+		gap: var(--size-10);
 		align-items: flex-end;
 	}
 </style>

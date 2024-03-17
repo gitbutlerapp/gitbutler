@@ -23,7 +23,7 @@ export function createContainerForMultiDrag(children: Element[]): HTMLDivElement
 	const inner = document.createElement('div');
 	inner.style.display = 'flex';
 	inner.style.flexDirection = 'column';
-	inner.style.gap = 'var(--space-2)';
+	inner.style.gap = 'var(--size-2)';
 	children.forEach((child) => {
 		inner.appendChild(cloneWithPreservedDimensions(child));
 	});

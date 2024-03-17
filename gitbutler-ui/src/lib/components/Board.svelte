@@ -232,20 +232,20 @@
 		border-radius: var(--radius-l);
 		width: 86%;
 		max-width: 45rem;
-		padding: var(--space-32);
+		padding: var(--size-32);
 	}
 
 	.empty-board__image {
 		width: 14.125rem;
-		margin-top: var(--space-10);
-		margin-bottom: var(--space-20);
+		margin-top: var(--size-10);
+		margin-bottom: var(--size-20);
 		transform: translateX(-3rem);
 	}
 
 	.empty-board__about {
 		display: flex;
 		flex-direction: column;
-		margin-bottom: var(--space-32);
+		margin-bottom: var(--size-32);
 	}
 
 	.empty-board__about h3 {
@@ -259,13 +259,13 @@
 	.empty-board__suggestions {
 		display: flex;
 		flex-direction: row;
-		gap: var(--space-80);
+		gap: var(--size-80);
 	}
 
 	.empty-board__suggestions__block {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-16);
+		gap: var(--size-16);
 		min-width: 8rem;
 	}
 
@@ -276,8 +276,8 @@
 	.empty-board__suggestions__links {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-6);
-		margin-left: calc(var(--space-4) * -1);
+		gap: var(--size-6);
+		margin-left: calc(var(--size-4) * -1);
 	}
 
 	.empty-board__suggestions__link {
@@ -285,9 +285,9 @@
 		display: flex;
 		width: fit-content;
 		max-width: 100%;
-		padding: var(--space-2) var(--space-6) var(--space-2) var(--space-4);
+		padding: var(--size-2) var(--size-6) var(--size-2) var(--size-4);
 		border-radius: var(--radius-s);
-		gap: var(--space-10);
+		gap: var(--size-10);
 		transition: background-color var(--transition-fast);
 		overflow: hidden;
 
@@ -297,7 +297,7 @@
 
 		& span {
 			color: var(--clr-theme-scale-ntrl-40);
-			margin-top: calc(var(--space-6) / 2);
+			margin-top: calc(var(--size-6) / 2);
 			white-space: nowrap;
 			text-overflow: ellipsis;
 			overflow: hidden;

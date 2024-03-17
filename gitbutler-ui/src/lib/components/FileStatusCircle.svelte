@@ -14,8 +14,8 @@
 <style lang="postcss">
 	.status {
 		border-radius: 100%;
-		width: var(--space-8);
-		height: var(--space-8);
+		width: var(--size-8);
+		height: var(--size-8);
 		border-radius: 100%;
 		flex-shrink: 0;
 	}

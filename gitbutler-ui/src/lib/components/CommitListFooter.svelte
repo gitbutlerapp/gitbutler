@@ -130,7 +130,7 @@
 
 <style lang="postcss">
 	.hasCommits {
-		padding-left: var(--space-16);
+		padding-left: var(--size-16);
 	}
 	.actions {
 		&:empty {

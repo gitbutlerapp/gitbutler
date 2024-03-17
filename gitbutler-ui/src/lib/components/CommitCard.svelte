@@ -179,7 +179,7 @@
 		display: flex;
 		flex-direction: column;
 
-		border-radius: var(--space-6);
+		border-radius: var(--size-6);
 		background-color: var(--clr-theme-container-light);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		overflow: hidden;
@@ -200,8 +200,8 @@
 		cursor: pointer;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-10);
-		padding: var(--space-14);
+		gap: var(--size-10);
+		padding: var(--size-14);
 	}
 
 	.is-commit-open {
@@ -212,7 +212,7 @@
 		);
 
 		& .commit__header {
-			padding-bottom: var(--space-16);
+			padding-bottom: var(--size-16);
 			border-bottom: 1px solid var(--clr-theme-container-outline-light);
 
 			&:hover {
@@ -225,14 +225,14 @@
 		}
 
 		& .commit__message {
-			margin-bottom: var(--space-4);
+			margin-bottom: var(--size-4);
 		}
 	}
 
 	.commit__message {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-6);
+		gap: var(--size-6);
 	}
 
 	.commit__title {
@@ -254,7 +254,7 @@
 	.commit__row {
 		display: flex;
 		align-items: center;
-		gap: var(--space-8);
+		gap: var(--size-8);
 	}
 
 	.commit__author {
@@ -262,17 +262,17 @@
 		flex: 1;
 		display: flex;
 		align-items: center;
-		gap: var(--space-6);
+		gap: var(--size-6);
 	}
 
 	.commit__avatar {
-		width: var(--space-16);
-		height: var(--space-16);
+		width: var(--size-16);
+		height: var(--size-16);
 		border-radius: 100%;
 	}
 
 	.commit__author-name {
-		max-width: calc(100% - var(--space-16));
+		max-width: calc(100% - var(--size-16));
 	}
 
 	.commit__time,
@@ -287,8 +287,8 @@
 	.files__footer {
 		display: flex;
 		justify-content: flex-end;
-		gap: var(--space-8);
-		padding: var(--space-14);
+		gap: var(--size-8);
+		padding: var(--size-14);
 		border-top: 1px solid var(--clr-theme-container-outline-light);
 	}
 </style>

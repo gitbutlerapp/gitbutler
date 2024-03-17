@@ -109,11 +109,11 @@
 		display: flex;
 		overflow-x: auto;
 		align-items: flex-start;
-		padding: var(--space-12) var(--space-12) var(--space-12) var(--space-6);
+		padding: var(--size-12) var(--size-12) var(--size-12) var(--size-6);
 		width: 50rem;
 	}
 	.card {
-		margin: var(--space-12) var(--space-6) var(--space-12) var(--space-12);
-		padding: var(--space-16);
+		margin: var(--size-12) var(--size-6) var(--size-12) var(--size-12);
+		padding: var(--size-16);
 	}
 </style>

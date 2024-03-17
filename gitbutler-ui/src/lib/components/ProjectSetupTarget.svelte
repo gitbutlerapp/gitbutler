@@ -183,7 +183,7 @@
 	.project-setup {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-20);
+		gap: var(--size-20);
 	}
 
 	.features-wrapper {
@@ -193,14 +193,14 @@
 	.project-setup__info {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-12);
+		gap: var(--size-12);
 	}
 
 	.floating-buttons {
 		display: flex;
 		justify-content: flex-end;
 		width: 100%;
-		gap: var(--space-8);
+		gap: var(--size-8);
 	}
 
 	.project-setup__toggle-label {
@@ -209,6 +209,6 @@
 
 	.success-icon {
 		display: inline;
-		margin-top: calc(var(--space-2) * -1);
+		margin-top: calc(var(--size-2) * -1);
 	}
 </style>

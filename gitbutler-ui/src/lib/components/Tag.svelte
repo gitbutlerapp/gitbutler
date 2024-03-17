@@ -67,8 +67,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: var(--size-btn-s);
-		padding: var(--space-2) var(--space-4);
+		height: var(--size-control-s);
+		padding: var(--size-2) var(--size-4);
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 	}
@@ -78,7 +78,7 @@
 	.label {
 		white-space: nowrap;
 		display: inline-block;
-		padding: 0 var(--space-2);
+		padding: 0 var(--size-2);
 	}
 	.clickable {
 		cursor: pointer;
@@ -232,8 +232,8 @@
 	.verticalOrientation {
 		writing-mode: vertical-rl;
 		height: max-content;
-		width: var(--size-btn-s);
-		padding: var(--space-4) var(--space-2);
+		width: var(--size-control-s);
+		padding: var(--size-4) var(--size-2);
 		transform: rotate(180deg);
 	}
 
@@ -242,6 +242,6 @@
 	}
 
 	.verticalLabel {
-		padding: var(--space-2) 0;
+		padding: var(--size-2) 0;
 	}
 </style>

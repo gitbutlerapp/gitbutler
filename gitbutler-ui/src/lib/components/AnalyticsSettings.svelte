@@ -71,13 +71,13 @@
 	.analytics-settings {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-28);
+		gap: var(--size-28);
 	}
 
 	.analytics-settings__content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-16);
+		gap: var(--size-16);
 	}
 
 	.analytics-settings__text {
@@ -87,6 +87,6 @@
 	.analytics-settings__actions {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-8);
+		gap: var(--size-8);
 	}
 </style>
