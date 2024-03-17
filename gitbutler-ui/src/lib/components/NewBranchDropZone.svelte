@@ -1,8 +1,10 @@
 <script lang="ts">
-	import BottomSheetSvg from './BottomSheetSvg.svelte';
-	import HandSvg from './HandSvg.svelte';
-	import MiddleSheetSvg from './MiddleSheetSvg.svelte';
-	import TopSheetSvg from './TopSheetSvg.svelte';
+	// import images
+	import bottomSheetSvg from '$lib/assets/new-branch/bottom-sheet.svg?raw';
+	import handSvg from '$lib/assets/new-branch/hand.svg?raw';
+	import middleSheetSvg from '$lib/assets/new-branch/middle-sheet.svg?raw';
+	import topSheetSvg from '$lib/assets/new-branch/top-sheet.svg?raw';
+	// import components
 	import Button from '$lib/components/Button.svelte';
 	import {
 		isDraggableHunk,
@@ -50,21 +52,20 @@
 		<div class="new-virtual-branch__content">
 			<div class="stimg">
 				<div class="stimg__hand">
-					<HandSvg />
+					{@html handSvg}
 				</div>
 				<div class="stimg__top-sheet">
-					<TopSheetSvg />
+					{@html topSheetSvg}
 				</div>
 				<div class="stimg__middle-sheet">
-					<MiddleSheetSvg />
+					{@html middleSheetSvg}
 				</div>
 				<div class="stimg__bottom-sheet">
-					<BottomSheetSvg />
+					{@html bottomSheetSvg}
 				</div>
 
 				<div class="stimg__branch">
 					<div class="stimg__branch-plus" />
-					<div class="stimg__branch-back"></div>
 				</div>
 			</div>
 
@@ -153,50 +154,39 @@
 		left: 8px;
 		width: 44px;
 		height: 53px;
-		background-image: var(--topsheet-src);
 	}
 
 	.stimg__middle-sheet {
 		z-index: 3;
 		top: 42px;
-		left: 29px;
+		left: 23px;
 		width: 44px;
 		height: 40px;
-		background-image: var(--middlesheet-src);
 	}
 
 	.stimg__bottom-sheet {
 		z-index: 2;
 		top: 66px;
-		left: 50px;
+		left: 44px;
 		width: 44px;
 		height: 41px;
-		background-image: var(--bottomsheet-src);
 	}
 
 	.stimg__branch {
 		z-index: 1;
 		top: 0;
-		left: 45px;
-		width: 66px;
-		height: 95px;
-	}
-
-	.stimg__branch-back {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background-color: color-mix(in srgb, var(--clr-core-pop-50) 24%, transparent);
+		left: 35px;
+		width: 77px;
+		height: 83px;
+		background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-60) 26%, transparent);
 		border-radius: 12px;
-		opacity: 0.5;
 	}
 
 	.stimg__branch-plus {
 		position: absolute;
-		top: 14px;
-		left: 16px;
+		top: 16px;
+		left: 50%;
+		transform: translateX(-50%);
 		width: 34px;
 		height: 34px;
 		opacity: 0.3;
@@ -210,7 +200,7 @@
 			transform: translate(-50%, -50%);
 			width: 100%;
 			height: 2px;
-			background-color: var(--clr-theme-scale-pop-40);
+			background-color: var(--clr-theme-scale-ntrl-20);
 		}
 
 		&::after {
@@ -268,18 +258,12 @@
 				transform: translate(-5px, 0);
 			}
 
-			& .stimg__branch-back {
-				opacity: 0.6;
-				transform: scale(1.2) translate(0, -5px);
-			}
-
 			& .stimg__branch-plus {
-				transform: translateY(-5px);
 				opacity: 0.4;
 
 				&::before,
 				&::after {
-					width: 140%;
+					width: 110%;
 				}
 			}
 		}
