@@ -16,9 +16,7 @@
 	export let selectedItemId: any = undefined;
 	export let placeholder = '';
 
-	$: if (selectedItemId) {
-		value = items.find((item) => item[itemId] == selectedItemId);
-	}
+	$: if (selectedItemId) value = items.find((item) => item[itemId] == selectedItemId);
 
 	const SLOTS = $$props.$$slots;
 	const dispatch = createEventDispatcher<{ select: { value: any } }>();
