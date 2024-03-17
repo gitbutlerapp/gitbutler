@@ -1,9 +1,9 @@
 <script lang="ts">
 	import BranchItem from './BranchItem.svelte';
 	import BranchesHeader from './BranchesHeader.svelte';
+	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { BranchService } from '$lib/branches/service';
 	import FilterPopupMenu from '$lib/components/FilterPopupMenu.svelte';
-	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import { GitHubService } from '$lib/github/service';
@@ -175,12 +175,7 @@
 		{:else if $branches$.length > 0}
 			<div class="branch-list__empty-state">
 				<div class="branch-list__empty-state__image">
-					<ImgThemed
-						imgSet={{
-							light: '/images/no-branches-light.webp',
-							dark: '/images/no-branches-dark.webp'
-						}}
-					/>
+					{@html noBranchesSvg}
 				</div>
 				<span class="branch-list__empty-state__caption text-base-body-14 text-semibold"
 					>No branches match your filter</span
@@ -189,12 +184,7 @@
 		{:else}
 			<div class="branch-list__empty-state">
 				<div class="branch-list__empty-state__image">
-					<ImgThemed
-						imgSet={{
-							light: '/images/no-branches-light.webp',
-							dark: '/images/no-branches-dark.webp'
-						}}
-					/>
+					{@html noBranchesSvg}
 				</div>
 				<span class="branch-list__empty-state__caption text-base-body-14 text-semibold"
 					>You have no branches</span

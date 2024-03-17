@@ -6,9 +6,10 @@
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
 	import PullRequestCard from './PullRequestCard.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
+	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
+	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { ButlerAIProvider } from '$lib/backend/aiProviders';
 	import { Summarizer } from '$lib/backend/summarizer';
-	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -283,12 +284,7 @@
 							<div class="new-branch card" data-dnd-ignore>
 								<div class="new-branch__content">
 									<div class="new-branch__image">
-										<ImgThemed
-											imgSet={{
-												light: '/images/lane-new-light.webp',
-												dark: '/images/lane-new-dark.webp'
-											}}
-										/>
+										{@html laneNewSvg}
 									</div>
 									<h2 class="new-branch__title text-base-body-15 text-semibold">
 										This is a new branch.
@@ -303,12 +299,7 @@
 							<div class="no-changes card" data-dnd-ignore>
 								<div class="new-branch__content">
 									<div class="new-branch__image">
-										<ImgThemed
-											imgSet={{
-												light: '/images/lane-no-changes-light.webp',
-												dark: '/images/lane-no-changes-dark.webp'
-											}}
-										/>
+										{@html noChangesSvg}
 									</div>
 									<h2 class="new-branch__caption text-base-body-13">
 										No uncommitted changes<br />on this branch
@@ -345,22 +336,6 @@
 				/>
 			</div>
 		</div>
-		<!-- <div class="divider-line">
-			<Resizer
-				viewport={rsViewport}
-				direction="right"
-				minWidth={320}
-				sticky
-				defaultLineColor={$selectedFiles.length > 0
-					? 'transparent'
-					: 'var(--clr-theme-container-outline-light)'}
-				on:width={(e) => {
-					laneWidth = e.detail / (16 * $userSettings.zoom);
-					lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
-					$defaultBranchWidthRem = laneWidth;
-				}}
-			/>
-		</div> -->
 	</div>
 {/if}
 
