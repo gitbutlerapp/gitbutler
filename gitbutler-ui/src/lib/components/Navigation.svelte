@@ -13,7 +13,6 @@
 	import { from } from 'rxjs';
 	import { onMount } from 'svelte';
 	import { getContext } from 'svelte';
-	import { fade } from 'svelte/transition';
 	import type { User } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 
