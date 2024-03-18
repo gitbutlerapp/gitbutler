@@ -20,7 +20,7 @@
 	import { setAutoHeight } from '$lib/utils/useAutoHeight';
 	import { useResize } from '$lib/utils/useResize';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { fly, slide } from 'svelte/transition';
 	import type { User } from '$lib/backend/cloud';
@@ -135,6 +135,12 @@
 			descriptionTextArea.focus();
 		}, 0);
 	}
+
+	let aiConfigurationValid = false;
+
+	onMount(async () => {
+		aiConfigurationValid = await aiService.configurationValid(user?.access_token);
+	});
 </script>
 
 <div class="commit-box" class:commit-box__expanded={$expanded}>
@@ -212,15 +218,15 @@
 
 				<div
 					class="commit-box__texarea-actions"
-					use:tooltip={$aiGenEnabled && user
+					use:tooltip={$aiGenEnabled && aiConfigurationValid
 						? ''
-						: 'You must be logged in and have summary generation enabled to use this feature'}
+						: 'You must be logged in or have provided your own API key and have summary generation enabled to use this feature'}
 				>
 					<DropDownButton
 						kind="outlined"
 						icon="ai-small"
 						color="neutral"
-						disabled={!$aiGenEnabled || !user}
+						disabled={!($aiGenEnabled && aiConfigurationValid)}
 						loading={aiLoading}
 						on:click={() => generateCommitMessage(branch.files)}
 					>

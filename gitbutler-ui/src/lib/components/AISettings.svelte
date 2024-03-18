@@ -2,6 +2,7 @@
 	import Select from './Select.svelte';
 	import SelectItem from './SelectItem.svelte';
 	import TextBox from './TextBox.svelte';
+	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
 	import {
 		AnthropicModelName,
 		GitAIConfigKey,
@@ -12,10 +13,13 @@
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import { onMount } from 'svelte';
 
 	const gitConfigService = getContextByClass(GitConfigService);
+	const userService = getContextByClass(UserService);
+	const user = userService.user;
 
 	let modelKind: ModelKind;
 	let openAIKeyOption: KeyOption;
@@ -166,6 +170,8 @@
 							{item.name}
 						</SelectItem>
 					</Select>
+				{:else if !$user}
+					<WelcomeSigninAction prompt="A user is required to make use of the GitButler API" />
 				{/if}
 			</div>
 		</SectionCard>
@@ -219,6 +225,8 @@
 							{item.name}
 						</SelectItem>
 					</Select>
+				{:else if !$user}
+					<WelcomeSigninAction prompt="A user is required to make use of the GitButler API" />
 				{/if}
 			</div>
 		</SectionCard>

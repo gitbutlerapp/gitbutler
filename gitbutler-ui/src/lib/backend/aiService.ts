@@ -89,6 +89,35 @@ export class AIService {
 		private cloud: ReturnType<typeof getCloudApiClient>
 	) {}
 
+	async configurationValid(userToken?: string) {
+		const modelKind = await this.gitConfig.getWithDefault<ModelKind>(
+			GitAIConfigKey.ModelProvider,
+			ModelKind.OpenAI
+		);
+		const openAIKeyOption = await this.gitConfig.getWithDefault<KeyOption>(
+			GitAIConfigKey.OpenAIKeyOption,
+			KeyOption.ButlerAPI
+		);
+		const openAIKey = await this.gitConfig.get(GitAIConfigKey.OpenAIKey);
+		const anthropicKeyOption = await this.gitConfig.getWithDefault<KeyOption>(
+			GitAIConfigKey.AnthropicKeyOption,
+			KeyOption.ButlerAPI
+		);
+		const anthropicKey = await this.gitConfig.get(GitAIConfigKey.AnthropicKey);
+
+		if (
+			(modelKind == ModelKind.OpenAI && openAIKeyOption == KeyOption.ButlerAPI) ||
+			(modelKind == ModelKind.Anthropic && anthropicKeyOption == KeyOption.ButlerAPI)
+		) {
+			return Boolean(userToken);
+		}
+
+		return Boolean(
+			(modelKind == ModelKind.OpenAI && openAIKey) ||
+				(modelKind == ModelKind.Anthropic && anthropicKey)
+		);
+	}
+
 	// This optionally returns a summarizer. There are a few conditions for how this may occur
 	// Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
 	// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
