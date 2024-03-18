@@ -78,9 +78,9 @@
 	--clr-theme-component-illustration-outline: #475050;
 	--clr-theme-component-overlay-bg: #d6d6d666;
 	--clr-theme-container-light: var(--clr-core-ntrl-100);
-	--clr-theme-container-outline-light: var(--clr-core-ntrl-70);
-	--clr-theme-container-outline-pale: var(--clr-core-ntrl-60);
-	--clr-theme-container-outline-sub: var(--clr-core-ntrl-50);
+	--clr-theme-container-outline-light: var(--clr-core-ntrl-60);
+	--clr-theme-container-outline-pale: var(--clr-core-ntrl-50);
+	--clr-theme-container-outline-sub: var(--clr-core-ntrl-40);
 	--clr-theme-container-pale: var(--clr-core-ntrl-90);
 	--clr-theme-container-sub: var(--clr-core-ntrl-80);
 	--clr-theme-err-container: var(--clr-core-err-90);
@@ -176,6 +176,9 @@
 	--clr-theme-warn-on-container: var(--clr-core-warn-40);
 	--clr-theme-warn-on-element: var(--clr-core-warn-90);
 	--clr-theme-warn-outline: var(--clr-core-warn-50);
+	--fx-shadow-l: 0 10px 40px 0 #0000001a;
+	--fx-shadow-m: 0 6px 30px 0 #00000014;
+	--fx-shadow-s: 0 4px 14px 0 #0000000f;
 	--radius-l: 0.75rem;
 	--radius-m: 0.375rem;
 	--radius-s: 0.25rem;
