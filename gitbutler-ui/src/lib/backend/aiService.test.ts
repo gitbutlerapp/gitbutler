@@ -91,8 +91,8 @@ describe.concurrent('AIService', () => {
 		test('When token is bring your own, When a openAI token is present. It returns OpenAIClient', async () => {
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
-				'gitbutler.aiOpenAIKeyOption': KeyOption.BringYourOwn,
-				'gitbutler.aiOpenAIKey': 'sk-asdfasdf'
+				[ConfigKeys.OpenAIKeyOption]: KeyOption.BringYourOwn,
+				[ConfigKeys.OpenAIKey]: 'sk-asdfasdf'
 			});
 			const aiService = new AIService(gitConfig, cloud);
 
@@ -103,8 +103,8 @@ describe.concurrent('AIService', () => {
 			const toastErrorSpy = vi.spyOn(toasts, 'error');
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
-				'gitbutler.aiOpenAIKeyOption': KeyOption.BringYourOwn,
-				'gitbutler.aiOpenAIKey': undefined
+				[ConfigKeys.OpenAIKeyOption]: KeyOption.BringYourOwn,
+				[ConfigKeys.OpenAIKey]: undefined
 			});
 			const aiService = new AIService(gitConfig, cloud);
 
@@ -117,9 +117,9 @@ describe.concurrent('AIService', () => {
 		test('When ai provider is Anthropic, When token is bring your own, When an anthropic token is present. It returns AnthropicAIClient', async () => {
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
-				'gitbutler.aiModelProvider': ModelKind.Anthropic,
-				'gitbutler.aiAnthropicKeyOption': KeyOption.BringYourOwn,
-				'gitbutler.aiAnthropicKey': 'sk-ant-api03-asdfasdf'
+				[ConfigKeys.ModelProvider]: ModelKind.Anthropic,
+				[ConfigKeys.AnthropicKeyOption]: KeyOption.BringYourOwn,
+				[ConfigKeys.AnthropicKey]: 'sk-ant-api03-asdfasdf'
 			});
 			const aiService = new AIService(gitConfig, cloud);
 
@@ -130,9 +130,9 @@ describe.concurrent('AIService', () => {
 			const toastErrorSpy = vi.spyOn(toasts, 'error');
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
-				'gitbutler.aiModelProvider': ModelKind.Anthropic,
-				'gitbutler.aiAnthropicKeyOption': KeyOption.BringYourOwn,
-				'gitbutler.aiAnthropicKey': undefined
+				[ConfigKeys.ModelProvider]: ModelKind.Anthropic,
+				[ConfigKeys.AnthropicKeyOption]: KeyOption.BringYourOwn,
+				[ConfigKeys.AnthropicKey]: undefined
 			});
 			const aiService = new AIService(gitConfig, cloud);
 
