@@ -4,7 +4,7 @@
 	import { ProjectService } from '$lib/backend/projects';
 	import AnalyticsConfirmation from '$lib/components/AnalyticsConfirmation.svelte';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
-	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
+	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import Welcome from '$lib/components/Welcome.svelte';
 	import { appAnalyticsConfirmed } from '$lib/config/appSettings';
 	import { UserService } from '$lib/stores/user';
@@ -37,7 +37,7 @@
 </script>
 
 {#if $redirect$ === undefined}
-	<FullscreenLoading />
+	<FullviewLoading />
 {:else if !$analyticsConfirmed}
 	<DecorativeSplitView user={$user} img={analyticsSvg}>
 		<AnalyticsConfirmation {analyticsConfirmed} />

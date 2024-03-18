@@ -1,5 +1,5 @@
 <script lang="ts">
-	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
+	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import RemoteBranchPreview from '$lib/components/RemoteBranchPreview.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { getContextByClass } from '$lib/utils/context';
@@ -20,7 +20,7 @@
 {#if $error}
 	<p>Error...</p>
 {:else if !$branches}
-	<FullscreenLoading />
+	<FullviewLoading />
 {:else if branch}
 	<RemoteBranchPreview
 		projectId={$project$.id}

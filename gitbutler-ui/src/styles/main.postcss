@@ -119,3 +119,20 @@ dialog::backdrop {
 .dark dialog::backdrop {
 	background-color: rgba(0, 0, 0, 0.35);
 }
+
+/* TRANSITION ANIMATION */
+
+.transition-fly {
+	animation: transition-fly 0.25s forwards ease-in-out;
+}
+
+@keyframes transition-fly {
+	0% {
+		transform: translateY(var(--size-6));
+		opacity: 0;
+	}
+	100% {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
+	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { getContextByClass } from '$lib/utils/context';
@@ -16,7 +16,7 @@
 <div class="wrapper overflow-y-auto overscroll-none">
 	<div class="inner flex">
 		{#if !$pr$}
-			<FullscreenLoading />
+			<FullviewLoading />
 		{:else if pr$}
 			<PullRequestPreview pullrequest={$pr$} />
 		{:else}

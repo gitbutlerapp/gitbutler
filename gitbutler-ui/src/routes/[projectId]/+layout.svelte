@@ -2,7 +2,6 @@
 	import { syncToCloud } from '$lib/backend/cloud';
 	import { handleMenuActions } from '$lib/backend/menuActions';
 	import { BranchService } from '$lib/branches/service';
-	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
@@ -81,13 +80,11 @@
 	<ProblemLoadingRepo project={$project$} error={$branchesError} />
 {:else if !$gbBranchActive$ && $baseBranch}
 	<NotOnGitButlerBranch project={$project$} baseBranch={$baseBranch} />
-{:else if $baseBranch}
+{:else}
 	<div class="view-wrap" role="group" on:dragover|preventDefault>
 		<Navigation project={$project$} user={$user$} />
 		<slot />
 	</div>
-{:else}
-	<FullscreenLoading />
 {/if}
 
 <style>

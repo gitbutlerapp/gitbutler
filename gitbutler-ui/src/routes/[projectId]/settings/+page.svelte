@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CloudForm from '$lib/components/CloudForm.svelte';
 	import DetailsForm from '$lib/components/DetailsForm.svelte';
-	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
+	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import KeysForm from '$lib/components/KeysForm.svelte';
 	import PreferencesForm from '$lib/components/PreferencesForm.svelte';
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
@@ -69,7 +69,7 @@
 </script>
 
 {#if !$project$}
-	<FullscreenLoading />
+	<FullviewLoading />
 {:else}
 	<ContentWrapper title="Project settings">
 		<CloudForm project={$project$} on:updated={onCloudUpdated} />

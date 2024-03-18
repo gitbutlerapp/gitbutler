@@ -1,5 +1,5 @@
 <script lang="ts" async="true">
-	import FullscreenLoading from './FullscreenLoading.svelte';
+	import FullviewLoading from './FullviewLoading.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import dzenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import BranchLane from '$lib/components/BranchLane.svelte';
@@ -33,7 +33,7 @@
 {#if branchesError}
 	<div class="p-4" data-tauri-drag-region>Something went wrong...</div>
 {:else if !branches}
-	<FullscreenLoading />
+	<FullviewLoading />
 {:else}
 	<div
 		class="board"
@@ -115,7 +115,11 @@
 		{/each}
 
 		{#if branches.length == 0}
-			<div data-tauri-drag-region class="empty-board__wrapper">
+			<div
+				data-tauri-drag-region
+				class="empty-board__wrapper"
+				class:transition-fly={branches.length == 0}
+			>
 				<div class="empty-board">
 					<div class="empty-board__content">
 						<div class="empty-board__about">
@@ -181,7 +185,7 @@
 						</div>
 					</div>
 
-					<div data-tauri-drag-region class="empty-board__image-wrapper">
+					<div data-tauri-drag-region class="empty-board__image-frame">
 						<div class="empty-board__image">
 							{@html dzenSvg}
 						</div>
@@ -240,6 +244,7 @@
 		width: 100%;
 		gap: var(--size-48);
 		max-width: 46rem;
+		min-height: 20rem;
 		padding: var(--size-32);
 	}
 
@@ -251,21 +256,66 @@
 		padding-left: var(--size-4);
 	}
 
-	.empty-board__image-wrapper {
+	.empty-board__image-frame {
 		flex-shrink: 0;
 		position: relative;
 		width: 11.2rem;
 		height: auto;
 		border-radius: var(--radius-l);
 		background-color: var(--clr-theme-component-illustration-bg);
+
+		&::before {
+			content: '';
+			display: block;
+			position: absolute;
+			bottom: 12%;
+			left: 50%;
+			width: 6.5rem;
+			height: 1.5rem;
+			transform: translateX(-50%) scale(1.15);
+			border-radius: 100%;
+			background-color: var(--clr-theme-component-illustration-outline);
+			opacity: 0.08;
+			animation: shadow-scale 5.5s infinite ease-in-out;
+			animation-delay: 3s;
+		}
 	}
 
 	.empty-board__image {
 		position: absolute;
 		top: 50%;
 		left: 50%;
-		transform: translate(-50%, -50%);
+		transform: translate(-50%, -70%) translateZ(0);
 		width: 13.3rem;
+		animation: hovering 5.5s infinite ease-in-out;
+		animation-delay: 3s;
+	}
+
+	@keyframes hovering {
+		0% {
+			transform: translate(-50%, -70%) translateZ(0);
+		}
+		50% {
+			transform: translate(-50%, -65%) translateZ(0);
+		}
+		100% {
+			transform: translate(-50%, -70%) translateZ(0);
+		}
+	}
+
+	@keyframes shadow-scale {
+		0% {
+			opacity: 0.08;
+			transform: translateX(-50%) scale(1.15);
+		}
+		50% {
+			opacity: 0.12;
+			transform: translateX(-50%) scale(1);
+		}
+		100% {
+			opacity: 0.08;
+			transform: translateX(-50%) scale(1.15);
+		}
 	}
 
 	.empty-board__about {
