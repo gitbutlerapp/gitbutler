@@ -244,6 +244,7 @@
 		width: 100%;
 		gap: var(--size-48);
 		max-width: 46rem;
+		min-height: 20rem;
 		padding: var(--size-32);
 	}
 
