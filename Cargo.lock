@@ -1932,7 +1932,6 @@ dependencies = [
  "futures",
  "git2",
  "git2-hooks",
- "gitbutler-core",
  "governor",
  "itertools 0.12.1",
  "lazy_static",
@@ -1992,15 +1991,6 @@ dependencies = [
  "mmap-rs",
  "paste",
  "thiserror",
-]
-
-[[package]]
-name = "gitbutler-core"
-version = "0.0.0"
-dependencies = [
- "rusqlite",
- "serde",
- "uuid",
 ]
 
 [[package]]

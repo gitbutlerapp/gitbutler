@@ -14,6 +14,7 @@ pub(crate) mod fs;
 pub(crate) mod gb_repository;
 pub(crate) mod git;
 pub(crate) mod github;
+pub(crate) mod id;
 pub(crate) mod keys;
 pub(crate) mod lock;
 pub(crate) mod logs;
@@ -37,12 +38,6 @@ pub(crate) mod zip;
 
 #[cfg(test)]
 pub(crate) mod tests;
-
-#[deprecated = "use `gitbutler-core` instead"]
-pub(crate) mod id {
-    #[deprecated = "use `gitbutler-core` instead"]
-    pub use gitbutler_core::id::Id;
-}
 
 use std::path::PathBuf;
 

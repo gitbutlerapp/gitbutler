@@ -29,7 +29,6 @@ fslock = "0.2.1"
 futures = "0.3"
 git2.workspace = true
 git2-hooks = "0.3"
-gitbutler-core = { workspace = true }
 governor = "0.6.3"
 itertools = "0.12"
 lazy_static = "1.4.0"
