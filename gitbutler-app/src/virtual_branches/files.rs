@@ -12,7 +12,7 @@ use crate::virtual_branches::context;
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranchFile {
     pub path: path::PathBuf,
-    pub hunks: Vec<diff::Hunk>,
+    pub hunks: Vec<diff::GitHunk>,
     pub binary: bool,
 }
 
@@ -37,7 +37,7 @@ pub fn list_remote_commit_files(
     let commit_tree = commit.tree().context("failed to get commit tree")?;
     let parent_tree = parent.tree().context("failed to get parent tree")?;
     let diff = diff::trees(repository, &parent_tree, &commit_tree, context_lines)?;
-    let diff = diff::diff_files_to_hunks(diff);
+    let diff = diff::diff_files_to_hunks(&diff);
 
     let mut files = diff
         .into_iter()
@@ -90,7 +90,7 @@ fn files_with_hunk_context(
                     )
                 }
             })
-            .collect::<Vec<diff::Hunk>>();
+            .collect::<Vec<diff::GitHunk>>();
     }
     Ok(files)
 }

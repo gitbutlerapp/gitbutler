@@ -258,7 +258,7 @@ mod test {
             )
             .parse()
             .unwrap(),
-            ownership: branch::Ownership::default(),
+            ownership: branch::BranchOwnershipClaims::default(),
             order: TEST_INDEX.load(Ordering::Relaxed),
             selected_for_changes: None,
         }

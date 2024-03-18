@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-    branch::{BranchId, Ownership},
+    branch::{BranchId, BranchOwnershipClaims},
     errors::{
         self, FetchFromTargetError, GetBaseBranchDataError, GetRemoteBranchDataError,
         IsRemoteBranchMergableError, ListRemoteBranchesError,
@@ -72,7 +72,7 @@ impl Controller {
         project_id: &ProjectId,
         branch_id: &BranchId,
         message: &str,
-        ownership: Option<&Ownership>,
+        ownership: Option<&BranchOwnershipClaims>,
         run_hooks: bool,
     ) -> Result<git::Oid, ControllerError<errors::CommitError>> {
         self.inner(project_id)
@@ -132,7 +132,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
     ) -> Result<
-        (Vec<super::VirtualBranch>, bool, Vec<git::diff::DiffFile>),
+        (Vec<super::VirtualBranch>, bool, Vec<git::diff::FileDiff>),
         ControllerError<errors::ListVirtualBranchesError>,
     > {
         self.inner(project_id)
@@ -223,7 +223,6 @@ impl Controller {
             .update_virtual_branch(project_id, branch_update)
             .await
     }
-
     pub async fn delete_virtual_branch(
         &self,
         project_id: &ProjectId,
@@ -249,7 +248,7 @@ impl Controller {
     pub async fn unapply_ownership(
         &self,
         project_id: &ProjectId,
-        ownership: &Ownership,
+        ownership: &BranchOwnershipClaims,
     ) -> Result<(), ControllerError<errors::UnapplyOwnershipError>> {
         self.inner(project_id)
             .await
@@ -272,7 +271,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-        ownership: &Ownership,
+        ownership: &BranchOwnershipClaims,
     ) -> Result<git::Oid, ControllerError<errors::AmendError>> {
         self.inner(project_id)
             .await
@@ -443,7 +442,7 @@ impl ControllerInner {
         project_id: &ProjectId,
         branch_id: &BranchId,
         message: &str,
-        ownership: Option<&Ownership>,
+        ownership: Option<&BranchOwnershipClaims>,
         run_hooks: bool,
     ) -> Result<git::Oid, ControllerError<errors::CommitError>> {
         let _permit = self.semaphore.acquire().await;
@@ -563,7 +562,7 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
     ) -> Result<
-        (Vec<super::VirtualBranch>, bool, Vec<git::diff::DiffFile>),
+        (Vec<super::VirtualBranch>, bool, Vec<git::diff::FileDiff>),
         ControllerError<errors::ListVirtualBranchesError>,
     > {
         let _permit = self.semaphore.acquire().await;
@@ -792,7 +791,7 @@ impl ControllerInner {
     pub async fn unapply_ownership(
         &self,
         project_id: &ProjectId,
-        ownership: &Ownership,
+        ownership: &BranchOwnershipClaims,
     ) -> Result<(), ControllerError<errors::UnapplyOwnershipError>> {
         let _permit = self.semaphore.acquire().await;
 
@@ -818,7 +817,7 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-        ownership: &Ownership,
+        ownership: &BranchOwnershipClaims,
     ) -> Result<git::Oid, ControllerError<errors::AmendError>> {
         let _permit = self.semaphore.acquire().await;
 

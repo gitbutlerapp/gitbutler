@@ -5,7 +5,7 @@ use crate::{
     projects::ProjectId,
 };
 
-use super::{branch::Ownership, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
+use super::{branch::BranchOwnershipClaims, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
 
 #[derive(Debug, thiserror::Error)]
 pub enum VerifyError {
@@ -202,7 +202,7 @@ pub enum AmendError {
     #[error("force push not allowed")]
     ForcePushNotAllowed(ForcePushNotAllowedError),
     #[error("target ownership not found")]
-    TargetOwnerhshipNotFound(Ownership),
+    TargetOwnerhshipNotFound(BranchOwnershipClaims),
     #[error("branch has no commits")]
     BranchHasNoCommits,
     #[error("default target not set")]

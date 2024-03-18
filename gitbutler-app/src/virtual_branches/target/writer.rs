@@ -139,8 +139,8 @@ mod tests {
             )
             .parse()
             .unwrap(),
-            ownership: branch::Ownership {
-                files: vec![branch::FileOwnership {
+            ownership: branch::BranchOwnershipClaims {
+                claims: vec![branch::OwnershipClaim {
                     file_path: format!("file/{}", TEST_INDEX.load(Ordering::Relaxed)).into(),
                     hunks: vec![],
                 }],

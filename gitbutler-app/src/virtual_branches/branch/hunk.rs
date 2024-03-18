@@ -12,8 +12,8 @@ pub struct Hunk {
     pub end: u32,
 }
 
-impl From<&diff::Hunk> for Hunk {
-    fn from(hunk: &diff::Hunk) -> Self {
+impl From<&diff::GitHunk> for Hunk {
+    fn from(hunk: &diff::GitHunk) -> Self {
         Hunk {
             start: hunk.new_start,
             end: hunk.new_start + hunk.new_lines,
@@ -146,11 +146,15 @@ impl Hunk {
         self.start <= line && self.end >= line
     }
 
-    pub fn intersects(&self, another: &Hunk) -> bool {
-        self.contains(another.start)
-            || self.contains(another.end)
+    pub fn intersects(&self, another: &diff::GitHunk) -> bool {
+        self.contains(another.new_start)
+            || self.contains(another.new_start + another.new_lines)
             || another.contains(self.start)
             || another.contains(self.end)
+    }
+
+    pub fn shallow_eq(&self, other: &diff::GitHunk) -> bool {
+        self.start == other.new_start && self.end == other.new_start + other.new_lines
     }
 }
 

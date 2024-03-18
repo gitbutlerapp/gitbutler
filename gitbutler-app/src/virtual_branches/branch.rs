@@ -4,9 +4,9 @@ mod ownership;
 mod reader;
 mod writer;
 
-pub use file_ownership::FileOwnership;
+pub use file_ownership::OwnershipClaim;
 pub use hunk::Hunk;
-pub use ownership::Ownership;
+pub use ownership::BranchOwnershipClaims;
 pub use reader::BranchReader as Reader;
 pub use writer::BranchWriter as Writer;
 
@@ -45,7 +45,7 @@ pub struct Branch {
     pub tree: git::Oid,
     /// head is id of the last "virtual" commit in this branch
     pub head: git::Oid,
-    pub ownership: Ownership,
+    pub ownership: BranchOwnershipClaims,
     // order is the number by which UI should sort branches
     pub order: usize,
     // is Some(timestamp), the branch is considered a default destination for new changes.
@@ -80,7 +80,7 @@ pub struct BranchUpdateRequest {
     pub id: BranchId,
     pub name: Option<String>,
     pub notes: Option<String>,
-    pub ownership: Option<Ownership>,
+    pub ownership: Option<BranchOwnershipClaims>,
     pub order: Option<usize>,
     pub upstream: Option<String>, // just the branch name, so not refs/remotes/origin/branchA, just branchA
     pub selected_for_changes: Option<bool>,
@@ -89,7 +89,7 @@ pub struct BranchUpdateRequest {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct BranchCreateRequest {
     pub name: Option<String>,
-    pub ownership: Option<Ownership>,
+    pub ownership: Option<BranchOwnershipClaims>,
     pub order: Option<usize>,
     pub selected_for_changes: Option<bool>,
 }

@@ -198,8 +198,8 @@ mod tests {
             )
             .parse()
             .unwrap(),
-            ownership: branch::Ownership {
-                files: vec![branch::FileOwnership {
+            ownership: branch::BranchOwnershipClaims {
+                claims: vec![branch::OwnershipClaim {
                     file_path: format!("file/{}:1-2", TEST_INDEX.load(Ordering::Relaxed)).into(),
                     hunks: vec![],
                 }],
@@ -299,7 +299,7 @@ mod tests {
             upstream: Some("refs/remotes/origin/upstream_updated".parse().unwrap()),
             created_timestamp_ms: 2,
             updated_timestamp_ms: 3,
-            ownership: branch::Ownership { files: vec![] },
+            ownership: branch::BranchOwnershipClaims { claims: vec![] },
             ..branch.clone()
         };
 

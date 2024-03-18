@@ -10,7 +10,7 @@ use crate::{
     project_repository::{self, LogUntil},
     projects::FetchResult,
     reader, sessions, users,
-    virtual_branches::branch::Ownership,
+    virtual_branches::branch::BranchOwnershipClaims,
 };
 
 use super::{
@@ -209,14 +209,14 @@ pub fn set_base_branch(
             .unwrap_or(false);
         let context_lines = if use_context { 3_u32 } else { 0_u32 };
         let wd_diff = diff::workdir(repo, &current_head_commit.id(), context_lines)?;
-        let wd_diff = diff::diff_files_to_hunks(wd_diff);
+        let wd_diff = diff::diff_files_to_hunks(&wd_diff);
         if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
             let hunks_by_filepath =
                 super::virtual_hunks_by_filepath(&project_repository.project().path, &wd_diff);
 
             // assign ownership to the branch
             let ownership = hunks_by_filepath.values().flatten().fold(
-                Ownership::default(),
+                BranchOwnershipClaims::default(),
                 |mut ownership, hunk| {
                     ownership.put(
                         &format!("{}:{}", hunk.file_path.display(), hunk.id)

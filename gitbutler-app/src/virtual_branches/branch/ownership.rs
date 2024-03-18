@@ -2,20 +2,20 @@ use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use super::FileOwnership;
+use super::OwnershipClaim;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Ownership {
-    pub files: Vec<FileOwnership>,
+pub struct BranchOwnershipClaims {
+    pub claims: Vec<OwnershipClaim>,
 }
 
-impl Serialize for Ownership {
+impl Serialize for BranchOwnershipClaims {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.to_string().as_str())
     }
 }
 
-impl<'de> Deserialize<'de> for Ownership {
+impl<'de> Deserialize<'de> for BranchOwnershipClaims {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -25,33 +25,33 @@ impl<'de> Deserialize<'de> for Ownership {
     }
 }
 
-impl fmt::Display for Ownership {
+impl fmt::Display for BranchOwnershipClaims {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for file in &self.files {
+        for file in &self.claims {
             writeln!(f, "{}", file)?;
         }
         Ok(())
     }
 }
 
-impl FromStr for Ownership {
+impl FromStr for BranchOwnershipClaims {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut ownership = Ownership::default();
+        let mut ownership = BranchOwnershipClaims::default();
         for line in s.lines() {
-            ownership.files.push(line.parse()?);
+            ownership.claims.push(line.parse()?);
         }
         Ok(ownership)
     }
 }
 
-impl Ownership {
+impl BranchOwnershipClaims {
     pub fn is_empty(&self) -> bool {
-        self.files.is_empty()
+        self.claims.is_empty()
     }
 
-    pub fn contains(&self, another: &Ownership) -> bool {
+    pub fn contains(&self, another: &BranchOwnershipClaims) -> bool {
         if another.is_empty() {
             return true;
         }
@@ -60,9 +60,9 @@ impl Ownership {
             return false;
         }
 
-        for file_ownership in &another.files {
+        for file_ownership in &another.claims {
             let mut found = false;
-            for self_file_ownership in &self.files {
+            for self_file_ownership in &self.claims {
                 if self_file_ownership.file_path == file_ownership.file_path
                     && self_file_ownership.contains(file_ownership)
                 {
@@ -78,29 +78,29 @@ impl Ownership {
         true
     }
 
-    pub fn put(&mut self, ownership: &FileOwnership) {
+    pub fn put(&mut self, ownership: &OwnershipClaim) {
         let target = self
-            .files
+            .claims
             .iter()
             .filter(|o| !o.is_full()) // only consider explicit ownership
             .find(|o| o.file_path == ownership.file_path)
             .cloned();
 
-        self.files
+        self.claims
             .retain(|o| o.is_full() || o.file_path != ownership.file_path);
 
         if let Some(target) = target {
-            self.files.insert(0, target.plus(ownership));
+            self.claims.insert(0, target.plus(ownership));
         } else {
-            self.files.insert(0, ownership.clone());
+            self.claims.insert(0, ownership.clone());
         }
     }
 
     // modifies the ownership in-place and returns the file ownership that was taken, if any.
-    pub fn take(&mut self, ownership: &FileOwnership) -> Vec<FileOwnership> {
+    pub fn take(&mut self, ownership: &OwnershipClaim) -> Vec<OwnershipClaim> {
         let mut taken = Vec::new();
         let mut remaining = Vec::new();
-        for file_ownership in &self.files {
+        for file_ownership in &self.claims {
             if file_ownership.file_path == ownership.file_path {
                 let (taken_ownership, remaining_ownership) = file_ownership.minus(ownership);
                 if let Some(taken_ownership) = taken_ownership {
@@ -114,7 +114,7 @@ impl Ownership {
             }
         }
 
-        self.files = remaining;
+        self.claims = remaining;
 
         taken
     }
@@ -128,123 +128,131 @@ mod tests {
 
     #[test]
     fn test_ownership() {
-        let ownership = "src/main.rs:0-100\nsrc/main2.rs:200-300".parse::<Ownership>();
+        let ownership = "src/main.rs:0-100\nsrc/main2.rs:200-300".parse::<BranchOwnershipClaims>();
         assert!(ownership.is_ok());
         let ownership = ownership.unwrap();
-        assert_eq!(ownership.files.len(), 2);
+        assert_eq!(ownership.claims.len(), 2);
         assert_eq!(
-            ownership.files[0],
-            "src/main.rs:0-100".parse::<FileOwnership>().unwrap()
+            ownership.claims[0],
+            "src/main.rs:0-100".parse::<OwnershipClaim>().unwrap()
         );
         assert_eq!(
-            ownership.files[1],
-            "src/main2.rs:200-300".parse::<FileOwnership>().unwrap()
+            ownership.claims[1],
+            "src/main2.rs:200-300".parse::<OwnershipClaim>().unwrap()
         );
     }
 
     #[test]
     fn test_ownership_2() {
-        let ownership = "src/main.rs:0-100\nsrc/main2.rs:200-300".parse::<Ownership>();
+        let ownership = "src/main.rs:0-100\nsrc/main2.rs:200-300".parse::<BranchOwnershipClaims>();
         assert!(ownership.is_ok());
         let ownership = ownership.unwrap();
-        assert_eq!(ownership.files.len(), 2);
+        assert_eq!(ownership.claims.len(), 2);
         assert_eq!(
-            ownership.files[0],
-            "src/main.rs:0-100".parse::<FileOwnership>().unwrap()
+            ownership.claims[0],
+            "src/main.rs:0-100".parse::<OwnershipClaim>().unwrap()
         );
         assert_eq!(
-            ownership.files[1],
-            "src/main2.rs:200-300".parse::<FileOwnership>().unwrap()
+            ownership.claims[1],
+            "src/main2.rs:200-300".parse::<OwnershipClaim>().unwrap()
         );
     }
 
     #[test]
     fn test_put() {
-        let mut ownership = "src/main.rs:0-100".parse::<Ownership>().unwrap();
-        ownership.put(&"src/main.rs:200-300".parse::<FileOwnership>().unwrap());
-        assert_eq!(ownership.files.len(), 1);
+        let mut ownership = "src/main.rs:0-100"
+            .parse::<BranchOwnershipClaims>()
+            .unwrap();
+        ownership.put(&"src/main.rs:200-300".parse::<OwnershipClaim>().unwrap());
+        assert_eq!(ownership.claims.len(), 1);
         assert_eq!(
-            ownership.files[0],
+            ownership.claims[0],
             "src/main.rs:200-300,0-100"
-                .parse::<FileOwnership>()
+                .parse::<OwnershipClaim>()
                 .unwrap()
         );
     }
 
     #[test]
     fn test_put_2() {
-        let mut ownership = "src/main.rs:0-100".parse::<Ownership>().unwrap();
-        ownership.put(&"src/main.rs2:200-300".parse::<FileOwnership>().unwrap());
-        assert_eq!(ownership.files.len(), 2);
+        let mut ownership = "src/main.rs:0-100"
+            .parse::<BranchOwnershipClaims>()
+            .unwrap();
+        ownership.put(&"src/main.rs2:200-300".parse::<OwnershipClaim>().unwrap());
+        assert_eq!(ownership.claims.len(), 2);
         assert_eq!(
-            ownership.files[0],
-            "src/main.rs2:200-300".parse::<FileOwnership>().unwrap()
+            ownership.claims[0],
+            "src/main.rs2:200-300".parse::<OwnershipClaim>().unwrap()
         );
         assert_eq!(
-            ownership.files[1],
-            "src/main.rs:0-100".parse::<FileOwnership>().unwrap()
+            ownership.claims[1],
+            "src/main.rs:0-100".parse::<OwnershipClaim>().unwrap()
         );
     }
 
     #[test]
     fn test_put_3() {
         let mut ownership = "src/main.rs:0-100\nsrc/main2.rs:100-200"
-            .parse::<Ownership>()
+            .parse::<BranchOwnershipClaims>()
             .unwrap();
-        ownership.put(&"src/main2.rs:200-300".parse::<FileOwnership>().unwrap());
-        assert_eq!(ownership.files.len(), 2);
+        ownership.put(&"src/main2.rs:200-300".parse::<OwnershipClaim>().unwrap());
+        assert_eq!(ownership.claims.len(), 2);
         assert_eq!(
-            ownership.files[0],
+            ownership.claims[0],
             "src/main2.rs:200-300,100-200"
-                .parse::<FileOwnership>()
+                .parse::<OwnershipClaim>()
                 .unwrap()
         );
         assert_eq!(
-            ownership.files[1],
-            "src/main.rs:0-100".parse::<FileOwnership>().unwrap()
+            ownership.claims[1],
+            "src/main.rs:0-100".parse::<OwnershipClaim>().unwrap()
         );
     }
 
     #[test]
     fn test_put_4() {
         let mut ownership = "src/main.rs:0-100\nsrc/main2.rs:100-200"
-            .parse::<Ownership>()
+            .parse::<BranchOwnershipClaims>()
             .unwrap();
-        ownership.put(&"src/main2.rs:100-200".parse::<FileOwnership>().unwrap());
-        assert_eq!(ownership.files.len(), 2);
+        ownership.put(&"src/main2.rs:100-200".parse::<OwnershipClaim>().unwrap());
+        assert_eq!(ownership.claims.len(), 2);
         assert_eq!(
-            ownership.files[0],
-            "src/main2.rs:100-200".parse::<FileOwnership>().unwrap()
+            ownership.claims[0],
+            "src/main2.rs:100-200".parse::<OwnershipClaim>().unwrap()
         );
         assert_eq!(
-            ownership.files[1],
-            "src/main.rs:0-100".parse::<FileOwnership>().unwrap()
+            ownership.claims[1],
+            "src/main.rs:0-100".parse::<OwnershipClaim>().unwrap()
         );
     }
 
     #[test]
     fn test_put_7() {
-        let mut ownership = "src/main.rs:100-200".parse::<Ownership>().unwrap();
-        ownership.put(&"src/main.rs:100-200".parse::<FileOwnership>().unwrap());
-        assert_eq!(ownership.files.len(), 1);
+        let mut ownership = "src/main.rs:100-200"
+            .parse::<BranchOwnershipClaims>()
+            .unwrap();
+        ownership.put(&"src/main.rs:100-200".parse::<OwnershipClaim>().unwrap());
+        assert_eq!(ownership.claims.len(), 1);
         assert_eq!(
-            ownership.files[0],
-            "src/main.rs:100-200".parse::<FileOwnership>().unwrap()
+            ownership.claims[0],
+            "src/main.rs:100-200".parse::<OwnershipClaim>().unwrap()
         );
     }
 
     #[test]
     fn test_take_1() {
-        let mut ownership = "src/main.rs:100-200,200-300".parse::<Ownership>().unwrap();
-        let taken = ownership.take(&"src/main.rs:100-200".parse::<FileOwnership>().unwrap());
-        assert_eq!(ownership.files.len(), 1);
+        let mut ownership = "src/main.rs:100-200,200-300"
+            .parse::<BranchOwnershipClaims>()
+            .unwrap();
+        let taken = ownership.take(&"src/main.rs:100-200".parse::<OwnershipClaim>().unwrap());
+        assert_eq!(ownership.claims.len(), 1);
         assert_eq!(
-            ownership.files[0],
-            "src/main.rs:200-300".parse::<FileOwnership>().unwrap()
+            ownership.claims[0],
+            "src/main.rs:200-300".parse::<OwnershipClaim>().unwrap()
         );
         assert_eq!(
             taken,
-            vec!["src/main.rs:100-200".parse::<FileOwnership>().unwrap()]
+            vec!["src/main.rs:100-200".parse::<OwnershipClaim>().unwrap()]
         );
     }
 
@@ -252,32 +260,38 @@ mod tests {
     fn test_equal() {
         for (a, b, expected) in vec![
             (
-                "src/main.rs:100-200".parse::<Ownership>().unwrap(),
-                "src/main.rs:100-200".parse::<Ownership>().unwrap(),
+                "src/main.rs:100-200"
+                    .parse::<BranchOwnershipClaims>()
+                    .unwrap(),
+                "src/main.rs:100-200"
+                    .parse::<BranchOwnershipClaims>()
+                    .unwrap(),
                 true,
             ),
             (
                 "src/main.rs:100-200\nsrc/main1.rs:300-400\n"
-                    .parse::<Ownership>()
+                    .parse::<BranchOwnershipClaims>()
                     .unwrap(),
-                "src/main.rs:100-200".parse::<Ownership>().unwrap(),
+                "src/main.rs:100-200"
+                    .parse::<BranchOwnershipClaims>()
+                    .unwrap(),
                 false,
             ),
             (
                 "src/main.rs:100-200\nsrc/main1.rs:300-400\n"
-                    .parse::<Ownership>()
+                    .parse::<BranchOwnershipClaims>()
                     .unwrap(),
                 "src/main.rs:100-200\nsrc/main1.rs:300-400\n"
-                    .parse::<Ownership>()
+                    .parse::<BranchOwnershipClaims>()
                     .unwrap(),
                 true,
             ),
             (
                 "src/main.rs:300-400\nsrc/main1.rs:100-200\n"
-                    .parse::<Ownership>()
+                    .parse::<BranchOwnershipClaims>()
                     .unwrap(),
                 "src/main1.rs:100-200\nsrc/main.rs:300-400\n"
-                    .parse::<Ownership>()
+                    .parse::<BranchOwnershipClaims>()
                     .unwrap(),
                 false,
             ),

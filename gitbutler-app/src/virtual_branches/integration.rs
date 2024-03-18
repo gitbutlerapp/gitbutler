@@ -128,7 +128,7 @@ pub fn update_gitbutler_integration(
             message.push_str(&branch.head.to_string());
             message.push('\n');
         }
-        for file in &branch.ownership.files {
+        for file in &branch.ownership.claims {
             message.push_str("   - ");
             message.push_str(&file.file_path.display().to_string());
             message.push('\n');
