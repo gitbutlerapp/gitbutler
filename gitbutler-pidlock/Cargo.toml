@@ -1,0 +1,12 @@
+[package]
+name = "gitbutler-pidlock"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+polonius-the-crab = "0.4.1"
+sysinfo = "0.30.7"
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3.10.1"
