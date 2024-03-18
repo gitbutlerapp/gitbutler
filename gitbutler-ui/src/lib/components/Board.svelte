@@ -118,12 +118,6 @@
 
 		{#if branches.length == 0}
 			<div class="empty-board">
-				<div class="empty-board__image-wrapper">
-					<div class="empty-board__image">
-						{@html dzenSvg}
-					</div>
-				</div>
-
 				<div class="empty-board__content">
 					<div class="empty-board__about">
 						<h3 class="text-serif-40">You are up to date</h3>
@@ -187,6 +181,12 @@
 						</div>
 					</div>
 				</div>
+
+				<div class="empty-board__image-wrapper">
+					<div class="empty-board__image">
+						{@html dzenSvg}
+					</div>
+				</div>
 			</div>
 		{:else}
 			<NewBranchDropZone />
@@ -231,19 +231,20 @@
 		width: 100%;
 		gap: var(--size-48);
 		max-width: 46rem;
-		padding: var(--size-20) var(--size-32) var(--size-32) var(--size-20);
+		padding: var(--size-32);
 	}
 
 	.empty-board__content {
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+		padding-left: var(--size-4);
 	}
 
 	.empty-board__image-wrapper {
 		flex-shrink: 0;
 		position: relative;
-		width: 11rem;
+		width: 11.2rem;
 		height: auto;
 		border-radius: var(--radius-l);
 		background-color: var(--clr-theme-component-illustration-bg);
@@ -254,7 +255,7 @@
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
-		width: 15rem;
+		width: 13.3rem;
 	}
 
 	.empty-board__about {
