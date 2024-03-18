@@ -2143,7 +2143,6 @@ fn get_applied_status(
 
     // write updated state if not resolving
     if !project_repository.is_resolving() {
-        println!("WRITING BRANCH FILES");
         let branch_writer =
             branch::Writer::new(gb_repository).context("failed to create writer")?;
         for (vbranch, files) in &mut hunks_by_branch {
