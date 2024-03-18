@@ -89,7 +89,7 @@ export class AIService {
 		private cloud: ReturnType<typeof getCloudApiClient>
 	) {}
 
-	async configurationValid(userToken?: string) {
+	async validateConfiguration(userToken?: string): Promise<boolean> {
 		const modelKind = await this.gitConfig.getWithDefault<ModelKind>(
 			GitAIConfigKey.ModelProvider,
 			ModelKind.OpenAI
@@ -109,12 +109,12 @@ export class AIService {
 			(modelKind == ModelKind.OpenAI && openAIKeyOption == KeyOption.ButlerAPI) ||
 			(modelKind == ModelKind.Anthropic && anthropicKeyOption == KeyOption.ButlerAPI)
 		) {
-			return Boolean(userToken);
+			return !!userToken;
 		}
 
-		return Boolean(
-			(modelKind == ModelKind.OpenAI && openAIKey) ||
-				(modelKind == ModelKind.Anthropic && anthropicKey)
+		return (
+			(modelKind == ModelKind.OpenAI && !!openAIKey) ||
+			(modelKind == ModelKind.Anthropic && !!anthropicKey)
 		);
 	}
 

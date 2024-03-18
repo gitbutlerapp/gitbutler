@@ -44,7 +44,7 @@
 	$: setAIConfigurationValid($user);
 
 	async function setAIConfigurationValid(user: User | undefined) {
-		aiConfigurationValid = await aiService.configurationValid(user?.access_token);
+		aiConfigurationValid = await aiService.validateConfiguration(user?.access_token);
 	}
 </script>
 

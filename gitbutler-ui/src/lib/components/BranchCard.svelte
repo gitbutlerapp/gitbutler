@@ -113,7 +113,7 @@
 		generateBranchName();
 	}
 
-	onMount(async () => {
+	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey + branch.id);
 	});
 
