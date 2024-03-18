@@ -2046,6 +2046,7 @@ fn get_applied_status(
                     .filter_map(|claimed_hunk| {
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
+                            let hash = diff_hash(&git_diff_hunk.diff);
                             if claimed_hunk.shallow_eq(git_diff_hunk) {
                                 // try to re-use old timestamp
                                 let timestamp = claimed_hunk.timestam_ms().unwrap_or(mtime);
@@ -2058,7 +2059,11 @@ fn get_applied_status(
                                     .push(git_diff_hunk.clone());
 
                                 git_diff_hunks.remove(i);
-                                return Some(claimed_hunk.with_timestamp(timestamp));
+                                return Some(
+                                    claimed_hunk
+                                        .with_timestamp(timestamp)
+                                        .with_hash(hash.as_str()),
+                                );
                             } else if claimed_hunk.intersects(git_diff_hunk) {
                                 // if it's an intersection, push the hunk to the beginning,
                                 // indicating the the hunk has been updated
@@ -2074,8 +2079,12 @@ fn get_applied_status(
                                 git_diff_hunks.remove(i);
 
                                 // return updated version, with new hash and/or timestamp
-                                // TODO: Where does new hash and timestamp come from?
-                                return Some(claimed_hunk.clone().with_timestamp(mtime));
+                                return Some(
+                                    claimed_hunk
+                                        .clone()
+                                        .with_timestamp(mtime)
+                                        .with_hash(hash.as_str()),
+                                );
                             }
                         }
                         None
