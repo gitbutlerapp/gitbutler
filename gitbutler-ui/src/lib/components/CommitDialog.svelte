@@ -304,7 +304,7 @@
 	.commit-box__textarea-wrapper {
 		display: flex;
 		position: relative;
-		padding-bottom: var(--size-48);
+		padding: 0 0 var(--size-48);
 		flex-direction: column;
 		gap: var(--size-4);
 	}

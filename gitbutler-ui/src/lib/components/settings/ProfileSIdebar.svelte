@@ -121,7 +121,7 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: space-between;
-		padding: calc(var(--size-40) + var(--size-4)) var(--size-14) var(--size-14) var(--size-14);
+		padding: calc(var(--size-36) + var(--size-4)) var(--size-14) var(--size-14) var(--size-14);
 		border-right: 1px solid var(--clr-theme-container-outline-light);
 		background-color: var(--clr-theme-container-light);
 		height: 100%;
