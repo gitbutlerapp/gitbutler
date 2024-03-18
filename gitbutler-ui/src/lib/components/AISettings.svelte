@@ -4,7 +4,7 @@
 	import TextBox from './TextBox.svelte';
 	import {
 		AnthropicModelName,
-		ConfigKeys,
+		GitAIConfigKey,
 		KeyOption,
 		ModelKind,
 		OpenAIModelName
@@ -37,29 +37,29 @@
 
 	onMount(async () => {
 		modelKind = await gitConfigService.getWithDefault<ModelKind>(
-			ConfigKeys.ModelProvider,
+			GitAIConfigKey.ModelProvider,
 			ModelKind.OpenAI
 		);
 
 		openAIKeyOption = await gitConfigService.getWithDefault<KeyOption>(
-			ConfigKeys.OpenAIKeyOption,
+			GitAIConfigKey.OpenAIKeyOption,
 			KeyOption.ButlerAPI
 		);
 		openAIModelName = await gitConfigService.getWithDefault<OpenAIModelName>(
-			ConfigKeys.OpenAIModelName,
+			GitAIConfigKey.OpenAIModelName,
 			OpenAIModelName.GPT35Turbo
 		);
-		openAIKey = await gitConfigService.get(ConfigKeys.OpenAIKey);
+		openAIKey = await gitConfigService.get(GitAIConfigKey.OpenAIKey);
 
 		anthropicKeyOption = await gitConfigService.getWithDefault<KeyOption>(
-			ConfigKeys.AnthropicKeyOption,
+			GitAIConfigKey.AnthropicKeyOption,
 			KeyOption.ButlerAPI
 		);
 		anthropicModelName = await gitConfigService.getWithDefault<AnthropicModelName>(
-			ConfigKeys.AnthropicModelName,
+			GitAIConfigKey.AnthropicModelName,
 			AnthropicModelName.Haiku
 		);
-		anthropicKey = await gitConfigService.get(ConfigKeys.AnthropicKey);
+		anthropicKey = await gitConfigService.get(GitAIConfigKey.AnthropicKey);
 	});
 
 	$: if (form) form.modelKind.value = modelKind;

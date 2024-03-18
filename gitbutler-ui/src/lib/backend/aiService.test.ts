@@ -4,7 +4,7 @@ import { OpenAIClient } from '$lib/backend/aiClients/openAI';
 import {
 	AIService,
 	AnthropicModelName,
-	ConfigKeys,
+	GitAIConfigKey,
 	KeyOption,
 	ModelKind,
 	OpenAIModelName
@@ -16,13 +16,13 @@ import type { AIClient } from '$lib/backend/aiClient';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
 
 const defaultGitConfig = Object.freeze({
-	[ConfigKeys.ModelProvider]: ModelKind.OpenAI,
-	[ConfigKeys.OpenAIKeyOption]: KeyOption.ButlerAPI,
-	[ConfigKeys.OpenAIKey]: undefined,
-	[ConfigKeys.OpenAIModelName]: OpenAIModelName.GPT35Turbo,
-	[ConfigKeys.AnthropicKeyOption]: KeyOption.ButlerAPI,
-	[ConfigKeys.AnthropicKey]: undefined,
-	[ConfigKeys.AnthropicModelName]: AnthropicModelName.Haiku
+	[GitAIConfigKey.ModelProvider]: ModelKind.OpenAI,
+	[GitAIConfigKey.OpenAIKeyOption]: KeyOption.ButlerAPI,
+	[GitAIConfigKey.OpenAIKey]: undefined,
+	[GitAIConfigKey.OpenAIModelName]: OpenAIModelName.GPT35Turbo,
+	[GitAIConfigKey.AnthropicKeyOption]: KeyOption.ButlerAPI,
+	[GitAIConfigKey.AnthropicKey]: undefined,
+	[GitAIConfigKey.AnthropicModelName]: AnthropicModelName.Haiku
 });
 
 class DummyGitConfigService implements GitConfigService {
@@ -91,8 +91,8 @@ describe.concurrent('AIService', () => {
 		test('When token is bring your own, When a openAI token is present. It returns OpenAIClient', async () => {
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
-				[ConfigKeys.OpenAIKeyOption]: KeyOption.BringYourOwn,
-				[ConfigKeys.OpenAIKey]: 'sk-asdfasdf'
+				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn,
+				[GitAIConfigKey.OpenAIKey]: 'sk-asdfasdf'
 			});
 			const aiService = new AIService(gitConfig, cloud);
 
@@ -103,8 +103,8 @@ describe.concurrent('AIService', () => {
 			const toastErrorSpy = vi.spyOn(toasts, 'error');
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
-				[ConfigKeys.OpenAIKeyOption]: KeyOption.BringYourOwn,
-				[ConfigKeys.OpenAIKey]: undefined
+				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn,
+				[GitAIConfigKey.OpenAIKey]: undefined
 			});
 			const aiService = new AIService(gitConfig, cloud);
 
@@ -117,9 +117,9 @@ describe.concurrent('AIService', () => {
 		test('When ai provider is Anthropic, When token is bring your own, When an anthropic token is present. It returns AnthropicAIClient', async () => {
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
-				[ConfigKeys.ModelProvider]: ModelKind.Anthropic,
-				[ConfigKeys.AnthropicKeyOption]: KeyOption.BringYourOwn,
-				[ConfigKeys.AnthropicKey]: 'sk-ant-api03-asdfasdf'
+				[GitAIConfigKey.ModelProvider]: ModelKind.Anthropic,
+				[GitAIConfigKey.AnthropicKeyOption]: KeyOption.BringYourOwn,
+				[GitAIConfigKey.AnthropicKey]: 'sk-ant-api03-asdfasdf'
 			});
 			const aiService = new AIService(gitConfig, cloud);
 
@@ -130,9 +130,9 @@ describe.concurrent('AIService', () => {
 			const toastErrorSpy = vi.spyOn(toasts, 'error');
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
-				[ConfigKeys.ModelProvider]: ModelKind.Anthropic,
-				[ConfigKeys.AnthropicKeyOption]: KeyOption.BringYourOwn,
-				[ConfigKeys.AnthropicKey]: undefined
+				[GitAIConfigKey.ModelProvider]: ModelKind.Anthropic,
+				[GitAIConfigKey.AnthropicKeyOption]: KeyOption.BringYourOwn,
+				[GitAIConfigKey.AnthropicKey]: undefined
 			});
 			const aiService = new AIService(gitConfig, cloud);
 
