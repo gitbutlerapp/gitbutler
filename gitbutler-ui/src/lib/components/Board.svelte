@@ -117,74 +117,76 @@
 		{/each}
 
 		{#if branches.length == 0}
-			<div class="empty-board">
-				<div class="empty-board__content">
-					<div class="empty-board__about">
-						<h3 class="text-serif-40">You are up to date</h3>
-						<p class="text-base-body-14">
-							Your working directory matches the base branch.
-							<br />
-							Any edits auto-create a virtual branch for easy management.
-						</p>
-					</div>
+			<div data-tauri-drag-region class="empty-board__wrapper">
+				<div class="empty-board">
+					<div class="empty-board__content">
+						<div class="empty-board__about">
+							<h3 class="text-serif-40">You are up to date</h3>
+							<p class="text-base-body-14">
+								Your working directory matches the base branch.
+								<br />
+								Any edits auto-create a virtual branch for easy management.
+							</p>
+						</div>
 
-					<div class="empty-board__suggestions">
-						<div class="empty-board__suggestions__block">
-							<h3 class="text-base-14 text-bold">Start</h3>
-							<div class="empty-board__suggestions__links">
-								<a
-									class="empty-board__suggestions__link"
-									target="_blank"
-									rel="noreferrer"
-									href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
-								>
-									<div class="empty-board__suggestions__link__icon">
-										<Icon name="docs" />
-									</div>
+						<div class="empty-board__suggestions">
+							<div class="empty-board__suggestions__block">
+								<h3 class="text-base-14 text-bold">Start</h3>
+								<div class="empty-board__suggestions__links">
+									<a
+										class="empty-board__suggestions__link"
+										target="_blank"
+										rel="noreferrer"
+										href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
+									>
+										<div class="empty-board__suggestions__link__icon">
+											<Icon name="docs" />
+										</div>
 
-									<span class="text-base-12">GitButler Docs</span>
-								</a>
-								<div
-									class="empty-board__suggestions__link"
-									role="button"
-									tabindex="0"
-									on:keypress={() => open(`vscode://file${projectPath}/`)}
-									on:click={() => open(`vscode://file${projectPath}/`)}
-								>
-									<div class="empty-board__suggestions__link__icon">
-										<Icon name="vscode" />
+										<span class="text-base-12">GitButler Docs</span>
+									</a>
+									<div
+										class="empty-board__suggestions__link"
+										role="button"
+										tabindex="0"
+										on:keypress={() => open(`vscode://file${projectPath}/`)}
+										on:click={() => open(`vscode://file${projectPath}/`)}
+									>
+										<div class="empty-board__suggestions__link__icon">
+											<Icon name="vscode" />
+										</div>
+										<span class="text-base-12">Open in VSCode</span>
 									</div>
-									<span class="text-base-12">Open in VSCode</span>
+								</div>
+							</div>
+
+							<div class="empty-board__suggestions__block">
+								<h3 class="text-base-14 text-bold">Recent commits</h3>
+								<div class="empty-board__suggestions__links">
+									{#each ($baseBranch?.recentCommits || []).slice(0, 4) as commit}
+										<a
+											class="empty-board__suggestions__link"
+											href={$baseBranch?.commitUrl(commit.id)}
+											target="_blank"
+											rel="noreferrer"
+											title="Open in browser"
+										>
+											<div class="empty-board__suggestions__link__icon">
+												<Icon name="commit" />
+											</div>
+
+											<span class="text-base-12">{commit.description}</span>
+										</a>
+									{/each}
 								</div>
 							</div>
 						</div>
-
-						<div class="empty-board__suggestions__block">
-							<h3 class="text-base-14 text-bold">Recent commits</h3>
-							<div class="empty-board__suggestions__links">
-								{#each ($baseBranch?.recentCommits || []).slice(0, 4) as commit}
-									<a
-										class="empty-board__suggestions__link"
-										href={$baseBranch?.commitUrl(commit.id)}
-										target="_blank"
-										rel="noreferrer"
-										title="Open in browser"
-									>
-										<div class="empty-board__suggestions__link__icon">
-											<Icon name="commit" />
-										</div>
-
-										<span class="text-base-12">{commit.description}</span>
-									</a>
-								{/each}
-							</div>
-						</div>
 					</div>
-				</div>
 
-				<div class="empty-board__image-wrapper">
-					<div class="empty-board__image">
-						{@html dzenSvg}
+					<div data-tauri-drag-region class="empty-board__image-wrapper">
+						<div class="empty-board__image">
+							{@html dzenSvg}
+						</div>
 					</div>
 				</div>
 			</div>
@@ -221,10 +223,19 @@
 		user-select: auto;
 	}
 
-	.empty-board {
-		user-select: none;
+	/* EMPTY BOARD */
+
+	.empty-board__wrapper {
 		display: flex;
-		margin: auto;
+		justify-content: center;
+		align-items: center;
+		height: 100%;
+		width: 100%;
+		padding: 0 var(--size-40);
+	}
+
+	.empty-board {
+		display: flex;
 		background-color: var(--clr-theme-container-light);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		border-radius: var(--radius-l);
@@ -235,6 +246,7 @@
 	}
 
 	.empty-board__content {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
