@@ -14,14 +14,14 @@
 
 	$: ({ projectId, project$, cloud, userService, branchController, vbranchService } = data);
 	$: branches$ = vbranchService.branches$;
-	$: error$ = vbranchService.activeBranches$;
+	$: error = vbranchService.branchesError;
 	$: user = userService.user;
 
 	$: branch = $branches$?.find((b) => b.id == $page.params.branchId);
 </script>
 
-{#if $error$}
-	<p>Error...</p>
+{#if $error}
+	<p>{JSON.stringify($error)}</p>
 {:else if !$branches$}
 	<FullscreenLoading />
 {:else if branch}
