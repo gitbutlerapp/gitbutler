@@ -122,12 +122,6 @@
 					<div class="empty-board__image">
 						{@html dzenSvg}
 					</div>
-					<!-- <ImgThemed
-						imgSet={{
-							light: '/images/dzen-pc-light.webp',
-							dark: '/images/dzen-pc-dark.webp'
-						}}
-					/> -->
 				</div>
 
 				<div class="empty-board__content">
