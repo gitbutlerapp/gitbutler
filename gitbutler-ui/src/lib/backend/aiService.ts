@@ -59,7 +59,7 @@ export enum AnthropicModelName {
 	Haiku = 'claude-3-haiku-20240307'
 }
 
-export enum ConfigKeys {
+export enum GitAIConfigKey {
 	ModelProvider = 'gitbutler.aiModelProvider',
 	OpenAIKeyOption = 'gitbutler.aiOpenAIKeyOption',
 	OpenAIModelName = 'gitbutler.aiOpenAIModelName',
@@ -94,15 +94,15 @@ export class AIService {
 	// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
 	async buildClient(userToken?: string): Promise<undefined | AIClient> {
 		const modelKind = await this.gitConfig.getWithDefault<ModelKind>(
-			ConfigKeys.ModelProvider,
+			GitAIConfigKey.ModelProvider,
 			ModelKind.OpenAI
 		);
 		const openAIKeyOption = await this.gitConfig.getWithDefault<KeyOption>(
-			ConfigKeys.OpenAIKeyOption,
+			GitAIConfigKey.OpenAIKeyOption,
 			KeyOption.ButlerAPI
 		);
 		const anthropicKeyOption = await this.gitConfig.getWithDefault<KeyOption>(
-			ConfigKeys.AnthropicKeyOption,
+			GitAIConfigKey.AnthropicKeyOption,
 			KeyOption.ButlerAPI
 		);
 
@@ -119,10 +119,10 @@ export class AIService {
 
 		if (modelKind == ModelKind.OpenAI) {
 			const openAIModelName = await this.gitConfig.getWithDefault<OpenAIModelName>(
-				ConfigKeys.OpenAIModelName,
+				GitAIConfigKey.OpenAIModelName,
 				OpenAIModelName.GPT35Turbo
 			);
-			const openAIKey = await this.gitConfig.get(ConfigKeys.OpenAIKey);
+			const openAIKey = await this.gitConfig.get(GitAIConfigKey.OpenAIKey);
 
 			if (!openAIKey) {
 				toasts.error(
@@ -136,10 +136,10 @@ export class AIService {
 		}
 		if (modelKind == ModelKind.Anthropic) {
 			const anthropicModelName = await this.gitConfig.getWithDefault<AnthropicModelName>(
-				ConfigKeys.AnthropicModelName,
+				GitAIConfigKey.AnthropicModelName,
 				AnthropicModelName.Haiku
 			);
-			const anthropicKey = await this.gitConfig.get(ConfigKeys.AnthropicKey);
+			const anthropicKey = await this.gitConfig.get(GitAIConfigKey.AnthropicKey);
 
 			if (!anthropicKey) {
 				toasts.error(
