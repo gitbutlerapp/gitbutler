@@ -1,9 +1,9 @@
 <script lang="ts" async="true">
 	import FullscreenLoading from './FullscreenLoading.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
+	import dzenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import BranchLane from '$lib/components/BranchLane.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import { cloneWithRotation } from '$lib/dragging/draggable';
 	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -118,73 +118,78 @@
 
 		{#if branches.length == 0}
 			<div class="empty-board">
-				<div class="empty-board__image">
-					<ImgThemed
+				<div class="empty-board__image-wrapper">
+					<div class="empty-board__image">
+						{@html dzenSvg}
+					</div>
+					<!-- <ImgThemed
 						imgSet={{
 							light: '/images/dzen-pc-light.webp',
 							dark: '/images/dzen-pc-dark.webp'
 						}}
-					/>
+					/> -->
 				</div>
 
-				<div class="empty-board__about">
-					<h3 class="text-serif-40">You are up to date</h3>
-					<p class="text-base-body-14">
-						Your working directory matches the base branch.
-						<br />
-						Any edits auto-create a virtual branch for easy management.
-					</p>
-				</div>
-
-				<div class="empty-board__suggestions">
-					<div class="empty-board__suggestions__block">
-						<h3 class="text-base-14 text-bold">Start</h3>
-						<div class="empty-board__suggestions__links">
-							<a
-								class="empty-board__suggestions__link"
-								target="_blank"
-								rel="noreferrer"
-								href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
-							>
-								<div class="empty-board__suggestions__link__icon">
-									<Icon name="docs" />
-								</div>
-
-								<span class="text-base-12">GitButler Docs</span>
-							</a>
-							<div
-								class="empty-board__suggestions__link"
-								role="button"
-								tabindex="0"
-								on:keypress={() => open(`vscode://file${projectPath}/`)}
-								on:click={() => open(`vscode://file${projectPath}/`)}
-							>
-								<div class="empty-board__suggestions__link__icon">
-									<Icon name="vscode" />
-								</div>
-								<span class="text-base-12">Open in VSCode</span>
-							</div>
-						</div>
+				<div class="empty-board__content">
+					<div class="empty-board__about">
+						<h3 class="text-serif-40">You are up to date</h3>
+						<p class="text-base-body-14">
+							Your working directory matches the base branch.
+							<br />
+							Any edits auto-create a virtual branch for easy management.
+						</p>
 					</div>
 
-					<div class="empty-board__suggestions__block">
-						<h3 class="text-base-14 text-bold">Recent commits</h3>
-						<div class="empty-board__suggestions__links">
-							{#each ($baseBranch?.recentCommits || []).slice(0, 4) as commit}
+					<div class="empty-board__suggestions">
+						<div class="empty-board__suggestions__block">
+							<h3 class="text-base-14 text-bold">Start</h3>
+							<div class="empty-board__suggestions__links">
 								<a
 									class="empty-board__suggestions__link"
-									href={$baseBranch?.commitUrl(commit.id)}
 									target="_blank"
 									rel="noreferrer"
-									title="Open in browser"
+									href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
 								>
 									<div class="empty-board__suggestions__link__icon">
-										<Icon name="commit" />
+										<Icon name="docs" />
 									</div>
 
-									<span class="text-base-12">{commit.description}</span>
+									<span class="text-base-12">GitButler Docs</span>
 								</a>
-							{/each}
+								<div
+									class="empty-board__suggestions__link"
+									role="button"
+									tabindex="0"
+									on:keypress={() => open(`vscode://file${projectPath}/`)}
+									on:click={() => open(`vscode://file${projectPath}/`)}
+								>
+									<div class="empty-board__suggestions__link__icon">
+										<Icon name="vscode" />
+									</div>
+									<span class="text-base-12">Open in VSCode</span>
+								</div>
+							</div>
+						</div>
+
+						<div class="empty-board__suggestions__block">
+							<h3 class="text-base-14 text-bold">Recent commits</h3>
+							<div class="empty-board__suggestions__links">
+								{#each ($baseBranch?.recentCommits || []).slice(0, 4) as commit}
+									<a
+										class="empty-board__suggestions__link"
+										href={$baseBranch?.commitUrl(commit.id)}
+										target="_blank"
+										rel="noreferrer"
+										title="Open in browser"
+									>
+										<div class="empty-board__suggestions__link__icon">
+											<Icon name="commit" />
+										</div>
+
+										<span class="text-base-12">{commit.description}</span>
+									</a>
+								{/each}
+							</div>
 						</div>
 					</div>
 				</div>
@@ -225,21 +230,37 @@
 	.empty-board {
 		user-select: none;
 		display: flex;
-		flex-direction: column;
 		margin: auto;
 		background-color: var(--clr-theme-container-light);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		border-radius: var(--radius-l);
-		width: 86%;
+		width: 100%;
+		gap: var(--size-48);
 		max-width: 45rem;
-		padding: var(--size-32);
+		padding: var(--size-20) var(--size-32) var(--size-32) var(--size-20);
+	}
+
+	.empty-board__content {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.empty-board__image-wrapper {
+		flex-shrink: 0;
+		position: relative;
+		width: 11rem;
+		height: auto;
+		border-radius: var(--radius-l);
+		background-color: var(--clr-theme-component-illustration-bg);
 	}
 
 	.empty-board__image {
-		width: 14.125rem;
-		margin-top: var(--size-10);
-		margin-bottom: var(--size-20);
-		transform: translateX(-3rem);
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: 15rem;
 	}
 
 	.empty-board__about {
