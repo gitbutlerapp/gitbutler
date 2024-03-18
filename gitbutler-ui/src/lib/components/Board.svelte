@@ -238,6 +238,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+		padding-left: var(--size-4);
 	}
 
 	.empty-board__image-wrapper {
