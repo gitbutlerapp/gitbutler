@@ -230,7 +230,7 @@
 		border-radius: var(--radius-l);
 		width: 100%;
 		gap: var(--size-48);
-		max-width: 45rem;
+		max-width: 46rem;
 		padding: var(--size-20) var(--size-32) var(--size-32) var(--size-20);
 	}
 
@@ -274,7 +274,7 @@
 	.empty-board__suggestions {
 		display: flex;
 		flex-direction: row;
-		gap: var(--size-80);
+		gap: var(--size-40);
 	}
 
 	.empty-board__suggestions__block {
