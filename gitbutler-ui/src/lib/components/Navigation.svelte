@@ -13,6 +13,7 @@
 	import { from } from 'rxjs';
 	import { onMount } from 'svelte';
 	import { getContext } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import type { User } from '$lib/backend/cloud';
 	import type { Project } from '$lib/backend/projects';
 
@@ -68,6 +69,7 @@
 				/>
 			</svg>
 		</button>
+
 		<Resizer
 			{viewport}
 			direction="right"
@@ -158,6 +160,7 @@
 		max-height: 100%;
 		user-select: none;
 	}
+
 	.drag-region {
 		flex-shrink: 0;
 		height: var(--size-20);
@@ -182,6 +185,8 @@
 		height: 100%;
 		width: var(--size-4);
 	}
+
+	/* FOLDING BUTTON */
 
 	.folding-button {
 		z-index: 42;

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BaseBranch from '$lib/components/BaseBranch.svelte';
 	import FileCard from '$lib/components/FileCard.svelte';
-	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
@@ -13,6 +12,7 @@
 	import { writable } from 'svelte/store';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { PageData } from './$types';
+	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 
 	export let data: PageData;
 
@@ -49,7 +49,7 @@
 {#if $error$}
 	<p>Error...</p>
 {:else if !$baseBranch}
-	<FullscreenLoading />
+	<FullviewLoading />
 {:else}
 	<div class="base">
 		<div

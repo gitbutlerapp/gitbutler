@@ -1,9 +1,9 @@
 <script lang="ts">
-	import FullscreenLoading from '$lib/components/FullscreenLoading.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSetup from '$lib/components/ProjectSetup.svelte';
 	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
 	import type { PageData } from './$types';
+	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 
 	export let data: PageData;
 
@@ -12,7 +12,7 @@
 
 {#await getRemoteBranches(projectId)}
 	<!--TODO: Add project id -->
-	<FullscreenLoading />
+	<FullviewLoading />
 {:then remoteBranches}
 	{#if remoteBranches.length == 0}
 		<ProblemLoadingRepo

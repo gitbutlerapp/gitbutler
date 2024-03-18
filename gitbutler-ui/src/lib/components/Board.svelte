@@ -1,5 +1,5 @@
 <script lang="ts" async="true">
-	import FullscreenLoading from './FullscreenLoading.svelte';
+	import FullviewLoading from './FullviewLoading.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import dzenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import BranchLane from '$lib/components/BranchLane.svelte';
@@ -33,7 +33,7 @@
 {#if branchesError}
 	<div class="p-4" data-tauri-drag-region>Something went wrong...</div>
 {:else if !branches}
-	<FullscreenLoading />
+	<FullviewLoading />
 {:else}
 	<div
 		class="board"
