@@ -139,7 +139,7 @@
 	let aiConfigurationValid = false;
 
 	onMount(async () => {
-		aiConfigurationValid = await aiService.configurationValid(user?.access_token);
+		aiConfigurationValid = await aiService.validateConfiguration(user?.access_token);
 	});
 </script>
 
