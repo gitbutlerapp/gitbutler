@@ -192,7 +192,8 @@ export class GitHubService {
 			repo: this.repo,
 			pull_number: pr.number,
 			headers: {
-				'X-GitHub-Api-Version': '2022-11-28'
+				'X-GitHub-Api-Version': '2022-11-28',
+				'If-None-Match': ''
 			}
 		});
 		const detailedPr = Promise.resolve(parsePullRequestResponse(resp.data));
@@ -334,12 +335,7 @@ export class GitHubService {
 
 		// Fetch with retries since checks might not be available _right_ after
 		// the pull request has been created.
-		let resp: Awaited<ReturnType<typeof this.fetchChecksWithRetries>>;
-		try {
-			resp = await this.fetchChecksWithRetries(ref, 5, 2000);
-		} catch (err: any) {
-			return { error: err };
-		}
+		const resp = await this.fetchChecksWithRetries(ref, 5, 2000);
 
 		// If there are no checks then there is no status to report
 		const checks = resp.data.check_runs;
@@ -386,7 +382,8 @@ export class GitHubService {
 			repo: this.repo,
 			ref: ref,
 			headers: {
-				'X-GitHub-Api-Version': '2022-11-28'
+				'X-GitHub-Api-Version': '2022-11-28',
+				'If-None-Match': ''
 			}
 		});
 	}

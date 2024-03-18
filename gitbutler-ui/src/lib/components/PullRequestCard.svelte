@@ -70,7 +70,7 @@
 		} catch (e: any) {
 			if (!e.message.includes('No commit found')) {
 				checksError = e.message;
-				toasts.error('Failed to fetch PR status');
+				toasts.error('Failed to fetch checks');
 				console.error(e);
 			}
 			checksStatus = undefined;
