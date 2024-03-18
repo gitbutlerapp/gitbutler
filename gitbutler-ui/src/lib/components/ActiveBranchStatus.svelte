@@ -1,10 +1,9 @@
 <script lang="ts">
-	import BaseBranch from './BaseBranch.svelte';
 	import Tag from '$lib/components/Tag.svelte';
 	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContextStoreByClass } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
-	import type { Branch } from '$lib/vbranches/types';
+	import { BaseBranch, type Branch } from '$lib/vbranches/types';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
