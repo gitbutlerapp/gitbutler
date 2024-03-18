@@ -85,11 +85,10 @@ pub async fn save_vbranches_state(
 
     let mut ids: Vec<BranchId> = Vec::new();
     for branch_id in &branch_ids {
-        let id: gitbutler_core::id::Id<Branch> =
-            branch_id.parse().map_err(|_| Error::UserError {
-                code: Code::Validation,
-                message: "Malformed branch id".to_string(),
-            })?;
+        let id: crate::id::Id<Branch> = branch_id.parse().map_err(|_| Error::UserError {
+            code: Code::Validation,
+            message: "Malformed branch id".to_string(),
+        })?;
         ids.push(id);
     }
 

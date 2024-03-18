@@ -13,7 +13,6 @@ jobs:
       node: ${{ steps.filter.outputs.node }}
       rust: ${{ steps.filter.outputs.rust }}
       gitbutler-app: ${{ steps.filter.outputs.gitbutler-app }}
-      gitbutler-core: ${{ steps.filter.outputs.gitbutler-core }}
       gitbutler-changeset: ${{ steps.filter.outputs.gitbutler-changeset }}
     steps:
       - uses: actions/checkout@v4
@@ -34,9 +33,6 @@ jobs:
               - 'gitbutler-!(ui)/**'
             gitbutler-app:
               - *any-rust
-            gitbutler-core:
-              - *rust
-              - 'gitbutler-core/**'
             gitbutler-changeset:
               - *rust
               - 'gitbutler-changeset/**'
@@ -91,7 +87,7 @@ jobs:
       - uses: ./.github/actions/init-env-rust
       # TODO(qix-): we have to exclude the app here for now because for some
       # TODO(qix-): reason it doesn't build with the docs feature enabled.
-      - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-core -p gitbutler-changeset
+      - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-changeset
         env:
           RUSTDOCFLAGS: -Dwarnings
 
@@ -143,45 +139,25 @@ jobs:
           features: ${{ toJson(matrix.features) }}
           action: ${{ matrix.action }}
 
-  check-gitbutler-core:
-    needs: [changes, rust-init]
-    if: ${{ needs.changes.outputs.gitbutler-core == 'true' }}
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
-    strategy:
-      matrix:
-        action:
-          - test
-          - check
-          - check-tests
-        features:
-          - ''
-          - '*'
-          - []
-          - [serde]
-          - [rusqlite]
-          - [serde, rusqlite]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/check-crate
-        with:
-          crate: gitbutler-core
-          features: ${{ toJson(matrix.features) }}
-          action: ${{ matrix.action }}
-
   check-rust:
     if: always()
     needs:
       - changes
       - check-gitbutler-app
       - check-gitbutler-changeset
-      - check-gitbutler-core
     runs-on: ubuntu-latest
     steps:
-      - name: Check that all jobs that ran, succeeded
+      - name: Decide whether the needed jobs succeeded or failed
         uses: re-actors/alls-green@release/v1
         with:
-          allowed-skips: ${{ toJSON(needs) }}
+          allowed-skips: >-
+            ${{
+              needs.changes.outputs.rust != 'true'
+              && '
+              check-gitbutler-app,
+              check-gitbutler-changeset,
+              '
+              || ''
+            }}
           jobs: ${{ toJSON(needs) }}
 
