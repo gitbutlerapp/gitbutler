@@ -162,7 +162,7 @@
 			>
 				<div class="scroll-container">
 					<TextBox
-						icon="filter"
+						icon="search"
 						placeholder="Search"
 						on:input={(e) => textFilter$.next(e.detail)}
 					/>
