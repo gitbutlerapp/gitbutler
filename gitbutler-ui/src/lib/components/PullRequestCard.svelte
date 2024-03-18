@@ -199,6 +199,7 @@
 		<div class="floating-button">
 			<IconButton
 				icon="update-small"
+				size="m"
 				loading={isFetchingDetails}
 				help={$lastDetailsFetch ? 'Updated ' + $lastDetailsFetch : ''}
 				on:click={async () => {
