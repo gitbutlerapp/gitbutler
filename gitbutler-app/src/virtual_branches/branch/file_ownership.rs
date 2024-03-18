@@ -5,12 +5,12 @@ use anyhow::{Context, Result};
 use super::hunk::Hunk;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct FileOwnership {
+pub struct OwnershipClaim {
     pub file_path: path::PathBuf,
     pub hunks: Vec<Hunk>,
 }
 
-impl FromStr for FileOwnership {
+impl FromStr for OwnershipClaim {
     type Err = anyhow::Error;
 
     fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
@@ -43,12 +43,12 @@ impl FromStr for FileOwnership {
     }
 }
 
-impl FileOwnership {
+impl OwnershipClaim {
     pub fn is_full(&self) -> bool {
         self.hunks.is_empty()
     }
 
-    pub fn contains(&self, another: &FileOwnership) -> bool {
+    pub fn contains(&self, another: &OwnershipClaim) -> bool {
         if !self.file_path.eq(&another.file_path) {
             return false;
         }
@@ -67,7 +67,7 @@ impl FileOwnership {
     }
 
     // return a copy of self, with another ranges added
-    pub fn plus(&self, another: &FileOwnership) -> FileOwnership {
+    pub fn plus(&self, another: &OwnershipClaim) -> OwnershipClaim {
         if !self.file_path.eq(&another.file_path) {
             return self.clone();
         }
@@ -93,7 +93,7 @@ impl FileOwnership {
             hunks.insert(0, hunk.clone());
         });
 
-        FileOwnership {
+        OwnershipClaim {
             file_path: self.file_path.clone(),
             hunks,
         }
@@ -101,7 +101,10 @@ impl FileOwnership {
 
     // returns (taken, remaining)
     // if all of the ranges are removed, return None
-    pub fn minus(&self, another: &FileOwnership) -> (Option<FileOwnership>, Option<FileOwnership>) {
+    pub fn minus(
+        &self,
+        another: &OwnershipClaim,
+    ) -> (Option<OwnershipClaim>, Option<OwnershipClaim>) {
         if !self.file_path.eq(&another.file_path) {
             // no changes
             return (None, Some(self.clone()));
@@ -138,7 +141,7 @@ impl FileOwnership {
             if taken.is_empty() {
                 None
             } else {
-                Some(FileOwnership {
+                Some(OwnershipClaim {
                     file_path: self.file_path.clone(),
                     hunks: taken,
                 })
@@ -146,7 +149,7 @@ impl FileOwnership {
             if left.is_empty() {
                 None
             } else {
-                Some(FileOwnership {
+                Some(OwnershipClaim {
                     file_path: self.file_path.clone(),
                     hunks: left,
                 })
@@ -155,7 +158,7 @@ impl FileOwnership {
     }
 }
 
-impl fmt::Display for FileOwnership {
+impl fmt::Display for OwnershipClaim {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         if self.hunks.is_empty() {
             write!(f, "{}", self.file_path.display())
@@ -180,10 +183,10 @@ mod tests {
 
     #[test]
     fn parse_ownership() {
-        let ownership: FileOwnership = "foo/bar.rs:1-2,4-5".parse().unwrap();
+        let ownership: OwnershipClaim = "foo/bar.rs:1-2,4-5".parse().unwrap();
         assert_eq!(
             ownership,
-            FileOwnership {
+            OwnershipClaim {
                 file_path: "foo/bar.rs".into(),
                 hunks: vec![(1..=2).into(), (4..=5).into()]
             }
@@ -192,8 +195,8 @@ mod tests {
 
     #[test]
     fn parse_ownership_tricky_file_name() {
-        assert_eq!("file:name:1-2,4-5".parse::<FileOwnership>().unwrap(), {
-            FileOwnership {
+        assert_eq!("file:name:1-2,4-5".parse::<OwnershipClaim>().unwrap(), {
+            OwnershipClaim {
                 file_path: "file:name".into(),
                 hunks: vec![(1..=2).into(), (4..=5).into()],
             }
@@ -202,18 +205,18 @@ mod tests {
 
     #[test]
     fn parse_ownership_no_ranges() {
-        "foo/bar.rs".parse::<FileOwnership>().unwrap_err();
+        "foo/bar.rs".parse::<OwnershipClaim>().unwrap_err();
     }
 
     #[test]
     fn ownership_to_from_string() {
-        let ownership = FileOwnership {
+        let ownership = OwnershipClaim {
             file_path: "foo/bar.rs".into(),
             hunks: vec![(1..=2).into(), (4..=5).into()],
         };
         assert_eq!(ownership.to_string(), "foo/bar.rs:1-2,4-5".to_string());
         assert_eq!(
-            ownership.to_string().parse::<FileOwnership>().unwrap(),
+            ownership.to_string().parse::<OwnershipClaim>().unwrap(),
             ownership
         );
     }
@@ -237,9 +240,9 @@ mod tests {
         .into_iter()
         .map(|(a, b, expected)| {
             (
-                a.parse::<FileOwnership>().unwrap(),
-                b.parse::<FileOwnership>().unwrap(),
-                expected.parse::<FileOwnership>().unwrap(),
+                a.parse::<OwnershipClaim>().unwrap(),
+                b.parse::<OwnershipClaim>().unwrap(),
+                expected.parse::<OwnershipClaim>().unwrap(),
             )
         })
         .for_each(|(a, b, expected)| {
@@ -289,11 +292,11 @@ mod tests {
         .into_iter()
         .map(|(a, b, expected)| {
             (
-                a.parse::<FileOwnership>().unwrap(),
-                b.parse::<FileOwnership>().unwrap(),
+                a.parse::<OwnershipClaim>().unwrap(),
+                b.parse::<OwnershipClaim>().unwrap(),
                 (
-                    expected.0.map(|s| s.parse::<FileOwnership>().unwrap()),
-                    expected.1.map(|s| s.parse::<FileOwnership>().unwrap()),
+                    expected.0.map(|s| s.parse::<OwnershipClaim>().unwrap()),
+                    expected.1.map(|s| s.parse::<OwnershipClaim>().unwrap()),
                 ),
             )
         })
@@ -318,8 +321,8 @@ mod tests {
         .into_iter()
         .map(|(a, b, expected)| {
             (
-                a.parse::<FileOwnership>().unwrap(),
-                b.parse::<FileOwnership>().unwrap(),
+                a.parse::<OwnershipClaim>().unwrap(),
+                b.parse::<OwnershipClaim>().unwrap(),
                 expected,
             )
         })

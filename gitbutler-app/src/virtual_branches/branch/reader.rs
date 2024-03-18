@@ -28,7 +28,7 @@ mod tests {
     use crate::{
         sessions,
         tests::{Case, Suite},
-        virtual_branches::branch::Ownership,
+        virtual_branches::branch::BranchOwnershipClaims,
     };
 
     use super::{super::Writer, *};
@@ -74,8 +74,8 @@ mod tests {
             )
             .parse()
             .unwrap(),
-            ownership: Ownership {
-                files: vec![format!("file/{}:1-2", TEST_INDEX.load(Ordering::Relaxed))
+            ownership: BranchOwnershipClaims {
+                claims: vec![format!("file/{}:1-2", TEST_INDEX.load(Ordering::Relaxed))
                     .parse()
                     .unwrap()],
             },

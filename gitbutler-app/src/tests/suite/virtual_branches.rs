@@ -45,7 +45,7 @@ impl Default for Test {
 }
 
 mod unapply_ownership {
-    use crate::virtual_branches::branch::Ownership;
+    use crate::virtual_branches::branch::BranchOwnershipClaims;
 
     use super::*;
 
@@ -88,7 +88,9 @@ mod unapply_ownership {
         controller
             .unapply_ownership(
                 &project_id,
-                &"file.txt:1-5,7-11".parse::<Ownership>().unwrap(),
+                &"file.txt:1-5,7-11"
+                    .parse::<BranchOwnershipClaims>()
+                    .unwrap(),
             )
             .await
             .unwrap();
@@ -4356,7 +4358,7 @@ mod amend {
 
         // amend without head commit
         fs::write(repository.path().join("file2.txt"), "content").unwrap();
-        let to_amend: branch::Ownership = "file2.txt:1-2".parse().unwrap();
+        let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         assert!(matches!(
             controller
                 .amend(&project_id, &branch_id, &to_amend)
@@ -4421,7 +4423,7 @@ mod amend {
         {
             // amend another hunk
             fs::write(repository.path().join("file2.txt"), "content2").unwrap();
-            let to_amend: branch::Ownership = "file2.txt:1-2".parse().unwrap();
+            let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
             controller
                 .amend(&project_id, &branch_id, &to_amend)
                 .await
@@ -4487,7 +4489,7 @@ mod amend {
 
         {
             fs::write(repository.path().join("file2.txt"), "content2").unwrap();
-            let to_amend: branch::Ownership = "file2.txt:1-2".parse().unwrap();
+            let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
             assert!(matches!(
                 controller
                     .amend(&project_id, &branch_id, &to_amend)
@@ -4541,7 +4543,7 @@ mod amend {
         {
             // amend another hunk
             fs::write(repository.path().join("file2.txt"), "content2").unwrap();
-            let to_amend: branch::Ownership = "file2.txt:1-2".parse().unwrap();
+            let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
             controller
                 .amend(&project_id, &branch_id, &to_amend)
                 .await
@@ -4608,7 +4610,7 @@ mod amend {
         {
             // amend another hunk
             fs::write(repository.path().join("file.txt"), "more content").unwrap();
-            let to_amend: branch::Ownership = "file.txt:1-2".parse().unwrap();
+            let to_amend: branch::BranchOwnershipClaims = "file.txt:1-2".parse().unwrap();
             controller
                 .amend(&project_id, &branch_id, &to_amend)
                 .await
@@ -4675,7 +4677,7 @@ mod amend {
 
         {
             // amend non existing hunk
-            let to_amend: branch::Ownership = "file2.txt:1-2".parse().unwrap();
+            let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
             assert!(matches!(
                 controller
                     .amend(&project_id, &branch_id, &to_amend)

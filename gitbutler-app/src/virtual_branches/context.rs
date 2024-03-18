@@ -8,14 +8,14 @@ pub fn hunk_with_context(
     context_lines: usize,
     file_lines_before: &[&str],
     change_type: diff::ChangeType,
-) -> diff::Hunk {
+) -> diff::GitHunk {
     let diff_lines = hunk_diff
         .lines()
         .map(std::string::ToString::to_string)
         .collect::<Vec<_>>();
     if diff_lines.is_empty() {
         #[allow(clippy::cast_possible_truncation)]
-        return diff::Hunk {
+        return diff::GitHunk {
             diff: hunk_diff.to_owned(),
             old_start: hunk_old_start_line as u32,
             old_lines: 0,
@@ -110,7 +110,7 @@ pub fn hunk_with_context(
     diff.push('\n');
 
     #[allow(clippy::cast_possible_truncation)]
-    let hunk = diff::Hunk {
+    let hunk = diff::GitHunk {
         diff,
         old_start: start_line_before as u32,
         old_lines: line_count_before as u32,

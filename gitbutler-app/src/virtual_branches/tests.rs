@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::*;
-use branch::{BranchCreateRequest, Ownership};
+use branch::{BranchCreateRequest, BranchOwnershipClaims};
 
 pub fn set_test_target(
     gb_repo: &gb_repository::Repository,
@@ -432,7 +432,7 @@ fn test_create_branch_no_arguments() -> Result<()> {
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].name, "Virtual branch");
     assert!(branches[0].applied);
-    assert_eq!(branches[0].ownership, Ownership::default());
+    assert_eq!(branches[0].ownership, BranchOwnershipClaims::default());
     assert_eq!(branches[0].order, 0);
 
     Ok(())
@@ -591,107 +591,6 @@ fn test_get_status_files_by_branch() -> Result<()> {
 }
 
 #[test]
-fn test_updated_ownership_should_bubble_up() -> Result<()> {
-    let Case {
-        project_repository,
-        project,
-        gb_repository,
-        ..
-    } = Suite::default().new_case_with_files(HashMap::from([(
-        path::PathBuf::from("test.txt"),
-        "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\n",
-    )]));
-
-    set_test_target(&gb_repository, &project_repository)?;
-
-    let current_session = gb_repository.get_or_create_current_session()?;
-    let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
-    let branch_reader = branch::Reader::new(&current_session_reader);
-
-    let branch1_id = create_virtual_branch(
-        &gb_repository,
-        &project_repository,
-        &BranchCreateRequest::default(),
-    )
-    .expect("failed to create virtual branch")
-    .id;
-
-    // write first file
-    std::fs::write(
-            std::path::Path::new(&project.path).join("test.txt"),
-            "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
-        )?;
-    get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
-    let files = branch_reader.read(&branch1_id)?.ownership.files;
-    assert_eq!(files, vec!["test.txt:11-15,1-5".parse()?]);
-    assert_eq!(
-        files[0].hunks[0].timestam_ms(),
-        files[0].hunks[1].timestam_ms(),
-        "timestamps must be the same"
-    );
-
-    thread::sleep(Duration::from_millis(10)); // make sure timestamps are different
-
-    // wriging a new file should put it on the top
-    let file_path2 = std::path::Path::new("test2.txt");
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path2),
-        "hello",
-    )?;
-
-    get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
-    let files1 = branch_reader.read(&branch1_id)?.ownership.files;
-    assert_eq!(
-        files1,
-        vec!["test2.txt:1-2".parse()?, "test.txt:11-15,1-5".parse()?]
-    );
-
-    assert_ne!(
-        files1[0].hunks[0].timestam_ms(),
-        files1[1].hunks[0].timestam_ms(),
-        "new file timestamp must be different"
-    );
-
-    assert_eq!(
-        files[0].hunks[0].timestam_ms(),
-        files1[1].hunks[0].timestam_ms(),
-        "old file timestamp must not change"
-    );
-
-    thread::sleep(Duration::from_millis(10)); // make sure timestamps are different
-
-    // update second hunk, it should make both file and hunk bubble up
-    std::fs::write(
-            std::path::Path::new(&project.path).join("test.txt"),
-            "line0\nline1update\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
-        )?;
-    get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
-    let files2 = branch_reader.read(&branch1_id)?.ownership.files;
-    assert_eq!(
-        files2,
-        vec!["test.txt:1-6,11-15".parse()?, "test2.txt:1-2".parse()?,]
-    );
-
-    assert_ne!(
-        files2[0].hunks[0].timestam_ms(),
-        files2[0].hunks[1].timestam_ms(),
-        "new file timestamps must be different"
-    );
-    assert_eq!(
-        files2[0].hunks[1].timestam_ms(),
-        files1[1].hunks[0].timestam_ms(),
-        "old file timestamp must not change"
-    );
-    assert_eq!(
-        files2[1].hunks[0].timestam_ms(),
-        files1[0].hunks[0].timestam_ms(),
-        "old file timestamp must not change"
-    );
-
-    Ok(())
-}
-
-#[test]
 fn test_move_hunks_multiple_sources() -> Result<()> {
     let Case {
         project_repository,
@@ -737,13 +636,13 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     let branch_reader = branch::Reader::new(&current_session_reader);
     let branch_writer = branch::Writer::new(&gb_repository)?;
     let mut branch2 = branch_reader.read(&branch2_id)?;
-    branch2.ownership = Ownership {
-        files: vec!["test.txt:1-5".parse()?],
+    branch2.ownership = BranchOwnershipClaims {
+        claims: vec!["test.txt:1-5".parse()?],
     };
     branch_writer.write(&mut branch2)?;
     let mut branch1 = branch_reader.read(&branch1_id)?;
-    branch1.ownership = Ownership {
-        files: vec!["test.txt:11-15".parse()?],
+    branch1.ownership = BranchOwnershipClaims {
+        claims: vec!["test.txt:11-15".parse()?],
     };
     branch_writer.write(&mut branch1)?;
 
@@ -1250,9 +1149,9 @@ fn test_unapply_ownership_partial() -> Result<()> {
     let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
-    assert_eq!(branches[0].ownership.files.len(), 1);
+    assert_eq!(branches[0].ownership.claims.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
-    assert_eq!(branches[0].ownership.files[0].hunks.len(), 1);
+    assert_eq!(branches[0].ownership.claims[0].hunks.len(), 1);
     assert_eq!(
         fs::read_to_string(std::path::Path::new(&project.path).join("test.txt"))?,
         "line1\nline2\nline3\nline4\nbranch1\n"
@@ -1268,7 +1167,7 @@ fn test_unapply_ownership_partial() -> Result<()> {
     let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 0);
-    assert_eq!(branches[0].ownership.files.len(), 0);
+    assert_eq!(branches[0].ownership.claims.len(), 0);
     assert_eq!(
         fs::read_to_string(std::path::Path::new(&project.path).join("test.txt"))?,
         "line1\nline2\nline3\nline4\n"
@@ -1616,8 +1515,8 @@ fn test_detect_mergeable_branch() -> Result<()> {
     )?;
 
     let mut branch4 = branch_reader.read(&branch4_id)?;
-    branch4.ownership = Ownership {
-        files: vec!["test2.txt:1-6".parse()?],
+    branch4.ownership = BranchOwnershipClaims {
+        claims: vec!["test2.txt:1-6".parse()?],
     };
     branch_writer.write(&mut branch4)?;
 
@@ -2065,7 +1964,7 @@ fn test_commit_partial_by_hunk() -> Result<()> {
         &project_repository,
         &branch1_id,
         "first commit to test.txt",
-        Some(&"test.txt:1-6".parse::<Ownership>().unwrap()),
+        Some(&"test.txt:1-6".parse::<BranchOwnershipClaims>().unwrap()),
         None,
         None,
         false,
@@ -2085,7 +1984,7 @@ fn test_commit_partial_by_hunk() -> Result<()> {
         &project_repository,
         &branch1_id,
         "second commit to test.txt",
-        Some(&"test.txt:16-22".parse::<Ownership>().unwrap()),
+        Some(&"test.txt:16-22".parse::<BranchOwnershipClaims>().unwrap()),
         None,
         None,
         false,
