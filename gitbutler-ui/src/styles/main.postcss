@@ -120,30 +120,6 @@ dialog::backdrop {
 	background-color: rgba(0, 0, 0, 0.35);
 }
 
-/* SKELETON ANIMATION */
-
-.skeleton {
-	--loader-background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-60) 10%, transparent);
-	--loader-highlight-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-60) 30%, transparent);
-	background: linear-gradient(
-		90deg,
-		var(--loader-background-color) 25%,
-		var(--loader-highlight-color) 50%,
-		var(--loader-background-color) 75%
-	);
-	background-size: 200% 100%;
-	animation: skeleton-animation 2s infinite ease-in-out;
-}
-
-@keyframes skeleton-animation {
-	0% {
-		background-position: 200% 0;
-	}
-	100% {
-		background-position: -200% 0;
-	}
-}
-
 /* TRANSITION ANIMATION */
 
 .transition-fly {
