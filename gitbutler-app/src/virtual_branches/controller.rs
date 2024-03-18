@@ -114,10 +114,8 @@ impl Controller {
         let project = self.projects.get(project_id).map_err(Error::from)?;
         // TODO: this should be constructed somewhere else
         let state_handle = VirtualBranchesHandle::new(project.path.join(".git").as_path());
-        if vbranches_state.default_target.is_some() {
-            state_handle
-                .set_default_target(vbranches_state.default_target.unwrap())
-                .await?;
+        if let Some(default_target) = vbranches_state.default_target {
+            state_handle.set_default_target(default_target).await?;
         }
         for (id, target) in vbranches_state.branch_targets {
             state_handle.set_branch_target(id, target).await?;
