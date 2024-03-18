@@ -150,14 +150,6 @@ jobs:
       - name: Decide whether the needed jobs succeeded or failed
         uses: re-actors/alls-green@release/v1
         with:
-          allowed-skips: >-
-            ${{
-              needs.changes.outputs.rust != 'true'
-              && '
-              check-gitbutler-app,
-              check-gitbutler-changeset,
-              '
-              || ''
-            }}
+          allowed-skips: ${{ toJSON(needs) }}
           jobs: ${{ toJSON(needs) }}
 
