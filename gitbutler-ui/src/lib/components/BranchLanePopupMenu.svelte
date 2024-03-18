@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { AIService } from '$lib/backend/aiService';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
@@ -6,10 +7,12 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { UserService } from '$lib/stores/user';
 	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContextByClass } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createEventDispatcher } from 'svelte';
+	import type { User } from '$lib/backend/cloud';
 	import type { Branch } from '$lib/vbranches/types';
 
 	export let branch: Branch;
@@ -18,6 +21,9 @@
 	export let isUnapplied = false;
 
 	const branchController = getContextByClass(BranchController);
+	const aiService = getContextByClass(AIService);
+	const userService = getContextByClass(UserService);
+	const user = userService.user;
 
 	let deleteBranchModal: Modal;
 	let renameRemoteModal: Modal;
@@ -32,6 +38,14 @@
 	$: commits = branch.commits;
 	$: hasIntegratedCommits =
 		commits.length > 0 ? commits.some((c) => c.status == 'integrated') : false;
+
+	let aiConfigurationValid = false;
+
+	$: setAIConfigurationValid($user);
+
+	async function setAIConfigurationValid(user: User | undefined) {
+		aiConfigurationValid = await aiService.configurationValid(user?.access_token);
+	}
 </script>
 
 {#if visible}
@@ -69,7 +83,10 @@
 					dispatch('action', 'generate-branch-name');
 					visible = false;
 				}}
-				disabled={isUnapplied || !$aiGenEnabled || branch.files?.length == 0 || !branch.active}
+				disabled={isUnapplied ||
+					!($aiGenEnabled && aiConfigurationValid) ||
+					branch.files?.length == 0 ||
+					!branch.active}
 			/>
 		</ContextMenuSection>
 		<ContextMenuSection>

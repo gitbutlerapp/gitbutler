@@ -4,6 +4,9 @@
 	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 
+	export let prompt: string =
+		'Enable GitButler features like automatic branch and commit message generation.';
+
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
 
@@ -35,8 +38,6 @@
 		<svelte:fragment slot="icon">
 			{@html signinSvg}
 		</svelte:fragment>
-		<svelte:fragment slot="message">
-			Enable GitButler features like automatic branch and commit message generation.
-		</svelte:fragment>
+		<svelte:fragment slot="message">{prompt}</svelte:fragment>
 	</WelcomeAction>
 {/if}
