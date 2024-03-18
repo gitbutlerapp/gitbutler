@@ -5,9 +5,10 @@
 	export let viewport: HTMLDivElement | undefined = undefined;
 	export let contents: HTMLDivElement | undefined = undefined;
 	export let height: string | undefined = undefined;
-	export let minHeight: string | undefined = undefined;
-	export let scrollable: boolean | undefined = undefined;
+	export let fillViewport: boolean = false;
 	export let maxHeight: number | undefined = undefined;
+	export let scrollable: boolean | undefined = undefined;
+
 	export let scrolled = false;
 	export let wide = false;
 	export let initiallyVisible = false;
@@ -39,7 +40,6 @@
 	class="scrollable"
 	class:scrolled={showBorderWhenScrolled && scrolled}
 	style:flex-grow={wide ? 1 : 0}
-	style:min-height={minHeight}
 >
 	<div
 		bind:this={viewport}
@@ -50,7 +50,7 @@
 		style:height
 		style:overflow-y={scrollable ? 'auto' : 'hidden'}
 	>
-		<div bind:this={contents} class="contents">
+		<div bind:this={contents} class="contents" class:fill-viewport={fillViewport}>
 			<slot />
 		</div>
 		<Scrollbar
@@ -83,5 +83,12 @@
 	}
 	.scrolled {
 		border-top: 1px solid var(--clr-theme-container-outline-light);
+	}
+
+	/* MODIFIERS */
+	.fill-viewport {
+		display: initial;
+		min-height: 100%;
+		min-width: 100%;
 	}
 </style>

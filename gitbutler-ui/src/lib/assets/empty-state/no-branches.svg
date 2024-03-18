@@ -1,0 +1,30 @@
+<svg width="130" height="130" viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_2507_35712)">
+<path opacity="0.45" fill-rule="evenodd" clip-rule="evenodd" d="M32.0002 7.99826C37.523 7.99833 42.0001 12.4755 42 17.9984L41.9997 41.9989L56.9994 41.9983L57 61.9983L21.9995 61.9995L22 17.9981C22.0001 12.4753 26.4773 7.99819 32.0002 7.99826Z" fill="var(--clr-theme-scale-ntrl-60)"/>
+<path opacity="0.32" fill-rule="evenodd" clip-rule="evenodd" d="M102 27.9983C96.4773 27.9983 92.0003 32.4755 92.0003 37.9984L92.0006 61.9989L77.0005 61.9983L76.9999 81.9983L112.001 81.9995L112 37.9981C112 32.4753 107.523 27.9982 102 27.9983Z" fill="var(--clr-theme-scale-ntrl-60)"/>
+<path opacity="0.26" fill-rule="evenodd" clip-rule="evenodd" d="M67 14C72.5228 14 77 18.4772 77 24L77 101L57 101L57 24C57 18.4772 61.4772 14 67 14Z" fill="var(--clr-theme-scale-ntrl-60)"/>
+<g opacity="0.27">
+<rect x="87" y="95" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="92" y="112" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="106" y="94" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="79" y="115" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="119" y="109" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="59" y="120" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="69" y="110" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="52" y="112" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="36" y="115" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="46" y="102" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="30" y="101" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="41" y="93" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="109" y="119" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="101" y="105" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="21" y="118" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+<rect x="15" y="101" width="3.20122" height="3.20122" fill="var(--clr-theme-scale-ntrl-60)"/>
+</g>
+</g>
+<defs>
+<clipPath id="clip0_2507_35712">
+<rect width="130" height="130" fill="white"/>
+</clipPath>
+</defs>
+</svg>

@@ -17,7 +17,7 @@
 			</svg>
 		</i>
 	</div>
-	<img class="banner-img" src="/images/banners/support.webp" alt="" />
+	<img class="banner-img" src="/images/banners/support.svg" alt="" />
 </a>
 
 <style>

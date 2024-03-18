@@ -1,9 +1,9 @@
 <script lang="ts">
 	import WelcomeAction from './WelcomeAction.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
+	import newProjectSvg from '$lib/assets/no-projects/new-project.svg?raw';
 	import { ProjectService } from '$lib/backend/projects';
 	import IconLink from '$lib/components/IconLink.svelte';
-	import ImgThemed from '$lib/components/ImgThemed.svelte';
 	import { getContextByClass } from '$lib/utils/context';
 
 	const projectService = getContextByClass(ProjectService);
@@ -25,12 +25,7 @@
 	<div class="welcome__actions">
 		<WelcomeAction title="Add new project" loading={newProjectLoading} on:mousedown={onNewProject}>
 			<svelte:fragment slot="icon">
-				<ImgThemed
-					imgSet={{
-						light: '/images/welcome-new-project-light.webp',
-						dark: '/images/welcome-new-project-dark.webp'
-					}}
-				/>
+				{@html newProjectSvg}
 			</svelte:fragment>
 			<svelte:fragment slot="message">
 				Verify valid Git repository in selected folder before importing.
