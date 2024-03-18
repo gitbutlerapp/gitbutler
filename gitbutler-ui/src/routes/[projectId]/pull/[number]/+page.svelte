@@ -1,10 +1,10 @@
 <script lang="ts">
+	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { getContextByClass } from '$lib/utils/context';
 	import { map } from 'rxjs';
 	import { page } from '$app/stores';
-	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 
 	const githubService = getContextByClass(GitHubService);
 

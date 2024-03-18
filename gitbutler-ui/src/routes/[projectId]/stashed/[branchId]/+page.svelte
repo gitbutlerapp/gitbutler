@@ -1,11 +1,11 @@
 <script lang="ts">
 	import BranchLane from '$lib/components//BranchLane.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 
 	export let data: PageData;
 

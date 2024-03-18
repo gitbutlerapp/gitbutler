@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CloudForm from '$lib/components/CloudForm.svelte';
 	import DetailsForm from '$lib/components/DetailsForm.svelte';
+	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import KeysForm from '$lib/components/KeysForm.svelte';
 	import PreferencesForm from '$lib/components/PreferencesForm.svelte';
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
@@ -13,7 +14,6 @@
 	import type { Project } from '$lib/backend/projects';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
-	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 
 	export let data: PageData;
 

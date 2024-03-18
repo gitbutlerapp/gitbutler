@@ -1,10 +1,10 @@
 <script lang="ts">
+	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import RemoteBranchPreview from '$lib/components/RemoteBranchPreview.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { getContextByClass } from '$lib/utils/context';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
-	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 
 	export let data: PageData;
 

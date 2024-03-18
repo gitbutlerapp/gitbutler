@@ -1,9 +1,9 @@
 <script lang="ts">
+	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSetup from '$lib/components/ProjectSetup.svelte';
 	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
 	import type { PageData } from './$types';
-	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 
 	export let data: PageData;
 

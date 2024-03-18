@@ -2,7 +2,6 @@
 	import { syncToCloud } from '$lib/backend/cloud';
 	import { handleMenuActions } from '$lib/backend/menuActions';
 	import { BranchService } from '$lib/branches/service';
-	// import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
