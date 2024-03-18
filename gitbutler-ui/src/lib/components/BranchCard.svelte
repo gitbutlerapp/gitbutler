@@ -28,6 +28,7 @@
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { getContextByClass } from '$lib/utils/context';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
+	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { filesToOwnership, type Ownership } from '$lib/vbranches/ownership';
 	import lscache from 'lscache';
@@ -90,11 +91,16 @@
 			.join('\n')
 			.slice(0, 5000);
 
-		const message = await aiService.summarizeBranch({ diff, userToken: user?.access_token });
+		try {
+			const message = await aiService.summarizeBranch({ diff, userToken: user?.access_token });
 
-		if (message && message !== branch.name) {
-			branch.name = message;
-			branchController.updateBranchName(branch.id, branch.name);
+			if (message && message !== branch.name) {
+				branch.name = message;
+				branchController.updateBranchName(branch.id, branch.name);
+			}
+		} catch (e) {
+			console.error(e);
+			toasts.error('Failed to generate branch name');
 		}
 	}
 
