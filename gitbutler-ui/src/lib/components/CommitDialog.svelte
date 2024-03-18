@@ -152,7 +152,6 @@
 					placeholder="Commit summary"
 					disabled={aiLoading}
 					class="text-base-body-13 text-semibold commit-box__textarea commit-box__textarea__title"
-					class:commit-box__textarea_bottom-padding={title.length == 0 && description.length == 0}
 					spellcheck="false"
 					rows="1"
 					bind:this={titleTextArea}
@@ -179,7 +178,6 @@
 						disabled={aiLoading}
 						placeholder="Commit description (optional)"
 						class="text-base-body-13 commit-box__textarea commit-box__textarea__description"
-						class:commit-box__textarea_bottom-padding={description.length > 0 || title.length > 0}
 						spellcheck="false"
 						rows="1"
 						bind:this={descriptionTextArea}
@@ -304,11 +302,11 @@
 	}
 
 	.commit-box__textarea-wrapper {
-		position: relative;
 		display: flex;
+		position: relative;
+		padding-bottom: var(--size-48);
 		flex-direction: column;
 		gap: var(--size-4);
-		padding: 0;
 	}
 
 	.commit-box__textarea {
@@ -340,11 +338,7 @@
 	}
 
 	.commit-box__textarea__description {
-		padding: 0 var(--size-12) var(--size-12) var(--size-12);
-	}
-
-	.commit-box__textarea_bottom-padding {
-		padding-bottom: var(--size-48);
+		padding: 0 var(--size-12) 0 var(--size-12);
 	}
 
 	.commit-box__texarea-actions {
