@@ -87,8 +87,7 @@
 		<slot />
 	</div>
 {:else}
-	<h1>kjflskjflkjsdlfj</h1>
-	<!-- <FullscreenLoading /> -->
+	<FullscreenLoading />
 {/if}
 
 <style>
