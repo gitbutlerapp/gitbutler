@@ -72,6 +72,7 @@ export class VirtualBranches {
 
 export class Branch {
 	id!: string;
+	head!: string;
 	name!: string;
 	notes!: string;
 	// Active means the branch has been applied to the workspace
