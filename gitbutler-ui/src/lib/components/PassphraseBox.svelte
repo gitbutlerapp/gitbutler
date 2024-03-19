@@ -1,0 +1,71 @@
+<script lang="ts">
+	import Button from './Button.svelte';
+	import TextBox from './TextBox.svelte';
+	import { createEventDispatcher } from 'svelte';
+
+	export let prompt: string = 'passphrase';
+	export let value: string = '';
+	export let submitLabel: string = 'Submit';
+	export let submitDisabled: boolean = false;
+	export let isSubmitting: boolean = true;
+	export let loadingLabel: string = 'Pushing';
+
+	const dispatch = createEventDispatcher<{
+		change: string;
+		input: string;
+		submit: void;
+		cancel: void;
+	}>();
+</script>
+
+<div class="passbox">
+	<span class="text-base-body-11 passbox__helper-text"
+		>To push your changes, please provide your {prompt}</span
+	>
+	<TextBox
+		type="password"
+		bind:value
+		on:change={(e) => dispatch('change', e.detail)}
+		on:input={(e) => dispatch('input', e.detail)}
+		on:keydown={(e) => {
+			if (e.detail.key === 'Enter') {
+				dispatch('submit');
+			}
+		}}
+	/>
+	<div class="passbox__actions">
+		<Button
+			color="neutral"
+			disabled={isSubmitting}
+			kind="outlined"
+			on:click={() => dispatch('cancel')}>Cancel</Button
+		>
+		<Button
+			on:click={() => dispatch('submit')}
+			disabled={submitDisabled || isSubmitting}
+			grow
+			icon={isSubmitting ? 'spinner' : undefined}
+			>{!isSubmitting ? submitLabel : loadingLabel}</Button
+		>
+	</div>
+</div>
+
+<style>
+	.passbox {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-8);
+		padding: var(--size-14);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-theme-container-pale);
+	}
+
+	.passbox__helper-text {
+		color: var(--clr-theme-scale-ntrl-50);
+	}
+
+	.passbox__actions {
+		display: flex;
+		gap: var(--size-6);
+	}
+</style>
