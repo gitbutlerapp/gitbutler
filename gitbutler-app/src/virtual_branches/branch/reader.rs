@@ -100,11 +100,15 @@ mod tests {
 
     #[test]
     fn test_read_override() -> Result<()> {
-        let Case { gb_repository, .. } = Suite::default().new_case();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = Suite::default().new_case();
 
         let mut branch = test_branch();
 
-        let writer = Writer::new(&gb_repository)?;
+        let writer = Writer::new(&gb_repository, project.path.as_path())?;
         writer.write(&mut branch)?;
 
         let session = gb_repository.get_current_session()?.unwrap();

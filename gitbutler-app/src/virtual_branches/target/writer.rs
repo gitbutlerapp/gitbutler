@@ -1,6 +1,12 @@
+use std::path;
+
 use anyhow::{Context, Result};
 
-use crate::{gb_repository, reader, virtual_branches::BranchId, writer};
+use crate::{
+    gb_repository, reader,
+    virtual_branches::{state::VirtualBranchesHandle, BranchId},
+    writer,
+};
 
 use super::Target;
 
@@ -8,16 +14,22 @@ pub struct TargetWriter<'writer> {
     repository: &'writer gb_repository::Repository,
     writer: writer::DirWriter,
     reader: reader::Reader<'writer>,
+    state_handle: VirtualBranchesHandle,
 }
 
 impl<'writer> TargetWriter<'writer> {
-    pub fn new(repository: &'writer gb_repository::Repository) -> Result<Self, std::io::Error> {
+    pub fn new(
+        repository: &'writer gb_repository::Repository,
+        path: &path::Path,
+    ) -> Result<Self, std::io::Error> {
         let reader = reader::Reader::open(&repository.root())?;
         let writer = writer::DirWriter::open(repository.root())?;
+        let state_handle = VirtualBranchesHandle::new(path.join(".git").as_path());
         Ok(Self {
             repository,
             writer,
             reader,
+            state_handle,
         })
     }
 
@@ -47,6 +59,9 @@ impl<'writer> TargetWriter<'writer> {
         self.writer
             .batch(&batch)
             .context("Failed to write default target")?;
+
+        // Write in the state file as well
+        let _ = self.state_handle.set_default_target(target.clone());
 
         Ok(())
     }
@@ -85,6 +100,9 @@ impl<'writer> TargetWriter<'writer> {
         self.writer
             .batch(&batch)
             .context("Failed to write target")?;
+
+        // Write in the state file as well
+        let _ = self.state_handle.set_branch_target(*id, target.clone());
 
         Ok(())
     }
@@ -152,7 +170,11 @@ mod tests {
 
     #[test]
     fn test_write() -> Result<()> {
-        let Case { gb_repository, .. } = Suite::default().new_case();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = Suite::default().new_case();
 
         let mut branch = test_branch();
         let target = Target {
@@ -161,10 +183,10 @@ mod tests {
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };
 
-        let branch_writer = branch::Writer::new(&gb_repository)?;
+        let branch_writer = branch::Writer::new(&gb_repository, project.path.as_path())?;
         branch_writer.write(&mut branch)?;
 
-        let target_writer = TargetWriter::new(&gb_repository)?;
+        let target_writer = TargetWriter::new(&gb_repository, project.path.as_path())?;
         target_writer.write(&branch.id, &target)?;
 
         let root = gb_repository
@@ -239,7 +261,11 @@ mod tests {
 
     #[test]
     fn test_should_update() -> Result<()> {
-        let Case { gb_repository, .. } = Suite::default().new_case();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = Suite::default().new_case();
 
         let mut branch = test_branch();
         let target = Target {
@@ -248,9 +274,9 @@ mod tests {
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };
 
-        let branch_writer = branch::Writer::new(&gb_repository)?;
+        let branch_writer = branch::Writer::new(&gb_repository, project.path.as_path())?;
         branch_writer.write(&mut branch)?;
-        let target_writer = TargetWriter::new(&gb_repository)?;
+        let target_writer = TargetWriter::new(&gb_repository, project.path.as_path())?;
         target_writer.write(&branch.id, &target)?;
 
         let updated_target = Target {

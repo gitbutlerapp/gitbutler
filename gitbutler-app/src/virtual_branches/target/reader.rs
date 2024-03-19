@@ -143,7 +143,11 @@ mod tests {
 
     #[test]
     fn test_read_override_target() -> Result<()> {
-        let Case { gb_repository, .. } = Suite::default().new_case();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = Suite::default().new_case();
 
         let mut branch = test_branch();
 
@@ -161,13 +165,13 @@ mod tests {
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };
 
-        let branch_writer = branch::Writer::new(&gb_repository)?;
+        let branch_writer = branch::Writer::new(&gb_repository, project.path.as_path())?;
         branch_writer.write(&mut branch)?;
 
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
-        let target_writer = TargetWriter::new(&gb_repository)?;
+        let target_writer = TargetWriter::new(&gb_repository, project.path.as_path())?;
         let reader = TargetReader::new(&session_reader);
 
         target_writer.write_default(&default_target)?;

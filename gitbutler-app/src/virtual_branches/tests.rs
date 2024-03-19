@@ -31,7 +31,7 @@ pub fn set_test_target(
         .expect("failed to add remote");
     remote.push(&["refs/heads/master:refs/heads/master"], None)?;
 
-    target::Writer::new(gb_repo)?
+    target::Writer::new(gb_repo, project_repository.project().path.as_path())?
         .write_default(&target::Target {
             branch: "refs/remotes/origin/master".parse().unwrap(),
             remote_url: remote_repo.path().to_str().unwrap().parse().unwrap(),
@@ -634,7 +634,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
     let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch_writer = branch::Writer::new(&gb_repository)?;
+    let branch_writer = branch::Writer::new(&gb_repository, project.path.as_path())?;
     let mut branch2 = branch_reader.read(&branch2_id)?;
     branch2.ownership = BranchOwnershipClaims {
         claims: vec!["test.txt:1-5".parse()?],
@@ -911,11 +911,12 @@ fn test_merge_vbranch_upstream_clean_rebase() -> Result<()> {
     )?;
 
     set_test_target(&gb_repository, &project_repository)?;
-    target::Writer::new(&gb_repository)?.write_default(&target::Target {
-        branch: "refs/remotes/origin/master".parse().unwrap(),
-        remote_url: "origin".to_string(),
-        sha: target_oid,
-    })?;
+    target::Writer::new(&gb_repository, project_repository.project().path.as_path())?
+        .write_default(&target::Target {
+            branch: "refs/remotes/origin/master".parse().unwrap(),
+            remote_url: "origin".to_string(),
+            sha: target_oid,
+        })?;
 
     // add some uncommitted work
     let file_path2 = std::path::Path::new("test2.txt");
@@ -925,7 +926,7 @@ fn test_merge_vbranch_upstream_clean_rebase() -> Result<()> {
     )?;
 
     let remote_branch: git::RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
-    let branch_writer = branch::Writer::new(&gb_repository)?;
+    let branch_writer = branch::Writer::new(&gb_repository, project.path.as_path())?;
     let mut branch = create_virtual_branch(
         &gb_repository,
         &project_repository,
@@ -1035,11 +1036,13 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
     )?;
 
     set_test_target(&gb_repository, &project_repository)?;
-    target::Writer::new(&gb_repository)?.write_default(&target::Target {
-        branch: "refs/remotes/origin/master".parse().unwrap(),
-        remote_url: "origin".to_string(),
-        sha: target_oid,
-    })?;
+    target::Writer::new(&gb_repository, project.path.as_path())?.write_default(
+        &target::Target {
+            branch: "refs/remotes/origin/master".parse().unwrap(),
+            remote_url: "origin".to_string(),
+            sha: target_oid,
+        },
+    )?;
 
     // add some uncommitted work
     std::fs::write(
@@ -1048,7 +1051,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
     )?;
 
     let remote_branch: git::RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
-    let branch_writer = branch::Writer::new(&gb_repository)?;
+    let branch_writer = branch::Writer::new(&gb_repository, project.path.as_path())?;
     let mut branch = create_virtual_branch(
         &gb_repository,
         &project_repository,
@@ -1410,7 +1413,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
     let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch_writer = branch::Writer::new(&gb_repository)?;
+    let branch_writer = branch::Writer::new(&gb_repository, project.path.as_path())?;
 
     update_branch(
         &gb_repository,
@@ -1604,11 +1607,13 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         "update target",
     )?;
 
-    target::Writer::new(&gb_repository)?.write_default(&target::Target {
-        branch: "refs/remotes/origin/master".parse().unwrap(),
-        remote_url: "http://origin.com/project".to_string(),
-        sha: base_commit,
-    })?;
+    target::Writer::new(&gb_repository, project_repository.path())?.write_default(
+        &target::Target {
+            branch: "refs/remotes/origin/master".parse().unwrap(),
+            remote_url: "http://origin.com/project".to_string(),
+            sha: base_commit,
+        },
+    )?;
     project_repository
         .git_repository
         .remote("origin", &"http://origin.com/project".parse().unwrap())?;
