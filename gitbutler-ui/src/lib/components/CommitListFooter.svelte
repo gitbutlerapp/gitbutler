@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PassphraseBox from './PassphraseBox.svelte';
 	import PushButton, { BranchAction } from './PushButton.svelte';
 	import { BranchService } from '$lib/branches/service';
 	import Button from '$lib/components/Button.svelte';
@@ -59,11 +60,29 @@
 			isPushing = false;
 		}
 	}
+
+	let isPassphraseBoxVisible = false;
+	let passphraseInputValue = 'sdf';
+	let isSubmitting = false;
 </script>
 
 {#if !isUnapplied && type != 'integrated'}
 	<div class="actions" class:hasCommits>
-		{#if githubService.isEnabled && (type == 'local' || type == 'remote')}
+		{#if isPassphraseBoxVisible}
+			<PassphraseBox
+				bind:value={passphraseInputValue}
+				{isSubmitting}
+				on:submit={() => {
+					isSubmitting = true;
+					setTimeout(() => {
+						isSubmitting = false;
+					}, 2000);
+				}}
+				on:cancel={() => {
+					isPassphraseBoxVisible = false;
+				}}
+			/>
+		{:else if githubService.isEnabled && (type == 'local' || type == 'remote')}
 			<PushButton
 				wide
 				isLoading={isPushing || $githubServiceState$?.busy}
@@ -133,6 +152,9 @@
 		padding-left: var(--size-16);
 	}
 	.actions {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-8);
 		&:empty {
 			display: none;
 		}

@@ -20,7 +20,11 @@
 
 	export let type: 'text' | 'password' | 'select' = 'text';
 
-	const dispatch = createEventDispatcher<{ input: string; change: string }>();
+	const dispatch = createEventDispatcher<{
+		input: string;
+		change: string;
+		keydown: KeyboardEvent;
+	}>();
 
 	let showPassword = false;
 </script>
@@ -60,6 +64,7 @@
 			on:mousedown
 			on:input={(e) => dispatch('input', e.currentTarget.value)}
 			on:change={(e) => dispatch('change', e.currentTarget.value)}
+			on:keydown={(e) => dispatch('keydown', e)}
 		/>
 
 		{#if type == 'password'}
