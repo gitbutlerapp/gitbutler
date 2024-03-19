@@ -27,6 +27,7 @@ export type DetailedGitHubPullRequest = RestEndpointMethodTypes['pulls']['get'][
 
 export interface DetailedPullRequest {
 	targetBranch: string;
+	draft?: boolean;
 	createdAt: Date;
 	mergedAt?: Date;
 	closedAt?: Date;
@@ -42,6 +43,7 @@ export function parseGitHubDetailedPullRequest(
 ): DetailedPullRequest {
 	return {
 		targetBranch: data.base.ref,
+		draft: data.draft,
 		htmlUrl: data.html_url,
 		createdAt: new Date(data.created_at),
 		mergedAt: data.merged_at ? new Date(data.merged_at) : undefined,
