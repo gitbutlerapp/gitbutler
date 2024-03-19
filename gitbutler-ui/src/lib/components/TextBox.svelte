@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 
 	export let element: HTMLElement | undefined = undefined;
@@ -17,6 +17,7 @@
 	export let noselect = false;
 	export let selectall = false;
 	export let spellcheck = false;
+	export let focus = false;
 
 	export let type: 'text' | 'password' | 'select' = 'text';
 
@@ -27,6 +28,11 @@
 	}>();
 
 	let showPassword = false;
+	let htmlInput: HTMLInputElement;
+
+	onMount(() => {
+		if (focus) htmlInput.focus();
+	});
 </script>
 
 <div class="textbox" bind:this={element} class:wide>
@@ -60,6 +66,7 @@
 			class:select-none={noselect}
 			class:select-all={selectall}
 			bind:value
+			bind:this={htmlInput}
 			on:click
 			on:mousedown
 			on:input={(e) => dispatch('input', e.currentTarget.value)}
@@ -72,6 +79,7 @@
 				class="textbox__show-hide-icon"
 				on:click={() => {
 					showPassword = !showPassword;
+					htmlInput.focus();
 				}}
 			>
 				<Icon name={showPassword ? 'eye-shown' : 'eye-hidden'} />

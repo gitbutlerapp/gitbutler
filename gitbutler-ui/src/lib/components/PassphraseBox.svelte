@@ -1,36 +1,37 @@
 <script lang="ts">
 	import Button from './Button.svelte';
 	import TextBox from './TextBox.svelte';
+	import { PromptService, type SystemPrompt } from '$lib/backend/prompt';
+	import { getContextByClass } from '$lib/utils/context';
 	import { createEventDispatcher } from 'svelte';
 
-	export let prompt: string = 'passphrase';
 	export let value: string = '';
-	export let submitLabel: string = 'Submit';
 	export let submitDisabled: boolean = false;
 	export let isSubmitting: boolean = true;
-	export let loadingLabel: string = 'Pushing';
+	export let prompt: SystemPrompt | undefined;
+
+	const promptService = getContextByClass(PromptService);
 
 	const dispatch = createEventDispatcher<{
 		change: string;
 		input: string;
-		submit: void;
+		submit: string;
 		cancel: void;
 	}>();
 </script>
 
 <div class="passbox">
-	<span class="text-base-body-11 passbox__helper-text"
-		>To push your changes, please provide your {prompt}</span
-	>
+	<span class="text-base-body-11 passbox__helper-text">
+		To push your changes, please provide your {prompt}
+	</span>
 	<TextBox
+		focus
 		type="password"
 		bind:value
 		on:change={(e) => dispatch('change', e.detail)}
 		on:input={(e) => dispatch('input', e.detail)}
 		on:keydown={(e) => {
-			if (e.detail.key === 'Enter') {
-				dispatch('submit');
-			}
+			if (e.detail.key === 'Enter') dispatch('submit', value);
 		}}
 	/>
 	<div class="passbox__actions">
@@ -38,15 +39,25 @@
 			color="neutral"
 			disabled={isSubmitting}
 			kind="outlined"
-			on:click={() => dispatch('cancel')}>Cancel</Button
+			on:click={async () => {
+				if (!prompt) return;
+				await promptService.cancel(prompt.id);
+				prompt = undefined;
+				dispatch('cancel');
+			}}
 		>
+			Cancel
+		</Button>
 		<Button
-			on:click={() => dispatch('submit')}
-			disabled={submitDisabled || isSubmitting}
 			grow
-			icon={isSubmitting ? 'spinner' : undefined}
-			>{!isSubmitting ? submitLabel : loadingLabel}</Button
+			on:click={() => {
+				dispatch('submit', value);
+			}}
+			disabled={submitDisabled || isSubmitting}
+			loading={isSubmitting}
 		>
+			Submit
+		</Button>
 	</div>
 </div>
 
