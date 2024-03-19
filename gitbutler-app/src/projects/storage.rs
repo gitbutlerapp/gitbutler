@@ -71,6 +71,13 @@ impl Storage {
 
     pub fn get(&self, id: &ProjectId) -> Result<project::Project, Error> {
         let projects = self.list()?;
+        for project in &projects {
+            self.update(&UpdateRequest {
+                id: project.id,
+                preferred_key: Some(project.preferred_key.clone()),
+                ..Default::default()
+            })?;
+        }
         match projects.into_iter().find(|p| p.id == *id) {
             Some(project) => Ok(project),
             None => Err(Error::NotFound),

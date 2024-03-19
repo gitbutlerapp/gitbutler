@@ -13,7 +13,6 @@ pub enum AuthKey {
     GitCredentialsHelper,
     Local {
         private_key_path: path::PathBuf,
-        passphrase: Option<String>,
     },
 }
 
