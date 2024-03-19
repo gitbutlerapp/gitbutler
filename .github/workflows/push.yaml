@@ -14,6 +14,7 @@ jobs:
       rust: ${{ steps.filter.outputs.rust }}
       gitbutler-app: ${{ steps.filter.outputs.gitbutler-app }}
       gitbutler-changeset: ${{ steps.filter.outputs.gitbutler-changeset }}
+      gitbutler-git: ${{ steps.filter.outputs.gitbutler-git }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -36,6 +37,9 @@ jobs:
             gitbutler-changeset:
               - *rust
               - 'gitbutler-changeset/**'
+            gitbutler-git:
+              - *rust
+              - 'gitbutler-git/**'
 
   lint-node:
     needs: changes
@@ -87,7 +91,7 @@ jobs:
       - uses: ./.github/actions/init-env-rust
       # TODO(qix-): we have to exclude the app here for now because for some
       # TODO(qix-): reason it doesn't build with the docs feature enabled.
-      - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-changeset
+      - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-changeset -p gitbutler-git
         env:
           RUSTDOCFLAGS: -Dwarnings
 
@@ -139,12 +143,37 @@ jobs:
           features: ${{ toJson(matrix.features) }}
           action: ${{ matrix.action }}
 
+  check-gitbutler-git:
+    needs: [changes, rust-init]
+    if: ${{ needs.changes.outputs.gitbutler-git == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    strategy:
+      matrix:
+        action:
+          - test
+          - check
+        features:
+          - ''
+          - '*'
+          - []
+          - [tokio]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/check-crate
+        with:
+          crate: gitbutler-git
+          features: ${{ toJson(matrix.features) }}
+          action: ${{ matrix.action }}
+
   check-rust:
     if: always()
     needs:
       - changes
       - check-gitbutler-app
       - check-gitbutler-changeset
+      - check-gitbutler-git
     runs-on: ubuntu-latest
     steps:
       - name: Decide whether the needed jobs succeeded or failed

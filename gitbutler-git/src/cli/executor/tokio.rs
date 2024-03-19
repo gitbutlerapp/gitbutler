@@ -2,7 +2,7 @@
 
 #[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
-use std::{collections::HashMap, fs::Permissions, time::Duration};
+use std::{collections::HashMap, fs::Permissions, path::Path, time::Duration};
 use tokio::process::Command;
 
 /// A [`super::GitExecutor`] implementation using the `git` command-line tool
@@ -14,9 +14,10 @@ unsafe impl super::GitExecutor for TokioExecutor {
     type Error = std::io::Error;
     type ServerHandle = TokioAskpassServer;
 
-    async fn execute_raw(
+    async fn execute_raw<P: AsRef<Path>>(
         &self,
         args: &[&str],
+        cwd: P,
         envs: Option<HashMap<String, String>>,
     ) -> Result<(usize, String, String), Self::Error> {
         let mut cmd = Command::new("git");
@@ -37,6 +38,7 @@ unsafe impl super::GitExecutor for TokioExecutor {
 
         cmd.kill_on_drop(true);
         cmd.args(args);
+        cmd.current_dir(cwd);
 
         if let Some(envs) = envs {
             cmd.envs(envs);
