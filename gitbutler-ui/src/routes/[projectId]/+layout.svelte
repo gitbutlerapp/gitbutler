@@ -69,23 +69,26 @@
 	onDestroy(() => clearFetchInterval());
 </script>
 
-{#if !$project$}
-	<p>Project not found!</p>
-{:else if $baseBranch === null}
-	<!-- Be careful, this works because of the redirect above -->
-	<slot />
-{:else if $baseError}
-	<ProblemLoadingRepo project={$project$} error={$baseError} />
-{:else if $branchesError}
-	<ProblemLoadingRepo project={$project$} error={$branchesError} />
-{:else if !$gbBranchActive$ && $baseBranch}
-	<NotOnGitButlerBranch project={$project$} baseBranch={$baseBranch} />
-{:else}
-	<div class="view-wrap" role="group" on:dragover|preventDefault>
-		<Navigation project={$project$} user={$user$} />
+<!-- forces components to be recreated when projectId changes -->
+{#key projectId}
+	{#if !$project$}
+		<p>Project not found!</p>
+	{:else if $baseBranch === null}
+		<!-- Be careful, this works because of the redirect above -->
 		<slot />
-	</div>
-{/if}
+	{:else if $baseError}
+		<ProblemLoadingRepo project={$project$} error={$baseError} />
+	{:else if $branchesError}
+		<ProblemLoadingRepo project={$project$} error={$branchesError} />
+	{:else if !$gbBranchActive$ && $baseBranch}
+		<NotOnGitButlerBranch project={$project$} baseBranch={$baseBranch} />
+	{:else}
+		<div class="view-wrap" role="group" on:dragover|preventDefault>
+			<Navigation project={$project$} user={$user$} />
+			<slot />
+		</div>
+	{/if}
+{/key}
 
 <style>
 	.view-wrap {
