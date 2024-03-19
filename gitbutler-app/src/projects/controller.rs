@@ -200,6 +200,13 @@ impl Controller {
             tracing::error!(project_id = %project.id, ?error, "failed to remove .git/gitbutler.json data",);
         }
 
+        let virtual_branches_path = project.path.join(".git/virtual_branches.toml");
+        if virtual_branches_path.exists() {
+            if let Err(error) = std::fs::remove_file(virtual_branches_path) {
+                tracing::error!(project_id = %project.id, ?error, "failed to remove .git/virtual_branches.toml data",);
+            }
+        }
+
         Ok(())
     }
 
