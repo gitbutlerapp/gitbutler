@@ -1,7 +1,7 @@
-use std::{collections::HashMap, fs, io::Write, path, thread, time::Duration};
+use std::{collections::HashMap, fs, io::Write, path};
 
 use anyhow::{Context, Result};
-use pretty_assertions::{assert_eq, assert_ne};
+use pretty_assertions::assert_eq;
 #[cfg(target_family = "unix")]
 use std::{
     fs::Permissions,
