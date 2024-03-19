@@ -1577,14 +1577,20 @@ mod fetch_from_target {
         let before_fetch = controller.get_base_branch_data(&project_id).await.unwrap();
         assert!(before_fetch.unwrap().last_fetched_ms.is_none());
 
-        let fetch = controller.fetch_from_target(&project_id).await.unwrap();
+        let fetch = controller
+            .fetch_from_target(&project_id, None)
+            .await
+            .unwrap();
         assert!(fetch.last_fetched_ms.is_some());
 
         let after_fetch = controller.get_base_branch_data(&project_id).await.unwrap();
         assert!(after_fetch.as_ref().unwrap().last_fetched_ms.is_some());
         assert_eq!(fetch.last_fetched_ms, after_fetch.unwrap().last_fetched_ms);
 
-        let second_fetch = controller.fetch_from_target(&project_id).await.unwrap();
+        let second_fetch = controller
+            .fetch_from_target(&project_id, None)
+            .await
+            .unwrap();
         assert!(second_fetch.last_fetched_ms.is_some());
         assert_ne!(fetch.last_fetched_ms, second_fetch.last_fetched_ms);
 
@@ -5764,7 +5770,10 @@ mod create_virtual_branch_from_branch {
 
         {
             // should mark commits as integrated
-            controller.fetch_from_target(&project_id).await.unwrap();
+            controller
+                .fetch_from_target(&project_id, None)
+                .await
+                .unwrap();
 
             let branch = controller
                 .list_virtual_branches(&project_id)

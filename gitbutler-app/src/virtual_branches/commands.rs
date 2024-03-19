@@ -646,14 +646,25 @@ pub async fn squash_branch_commit(
 pub async fn fetch_from_target(
     handle: tauri::AppHandle,
     project_id: &str,
+    action: Option<String>,
 ) -> Result<BaseBranch, Error> {
     let project_id = project_id.parse().map_err(|_| Error::UserError {
         code: Code::Validation,
         message: "Malformed project id".into(),
     })?;
+    let askpass_broker = handle
+        .state::<crate::askpass::AskpassBroker>()
+        .inner()
+        .clone();
     let base_branch = handle
         .state::<Controller>()
-        .fetch_from_target(&project_id)
+        .fetch_from_target(
+            &project_id,
+            Some((
+                askpass_broker,
+                action.unwrap_or_else(|| "unknown".to_string()),
+            )),
+        )
         .await?;
     emit_vbranches(&handle, &project_id).await;
     Ok(base_branch)

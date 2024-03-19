@@ -479,7 +479,7 @@ impl Repository {
                         &remote,
                         gitbutler_git::RefSpec::parse(refspec).unwrap(),
                         with_force,
-                        handle_git_prompt,
+                        handle_git_prompt_push,
                         askpass_broker,
                     ))
             })
@@ -541,8 +541,35 @@ impl Repository {
         &self,
         remote_name: &str,
         credentials: &git::credentials::Helper,
+        askpass: Option<(AskpassBroker, String)>,
     ) -> Result<(), RemoteError> {
-        let refspec = &format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
+        let refspec = format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
+
+        // NOTE(qix-): This is a nasty hack, however the codebase isn't structured
+        // NOTE(qix-): in a way that allows us to really incorporate new backends
+        // NOTE(qix-): without a lot of work. This is a temporary measure to
+        // NOTE(qix-): work around a time-sensitive change that was necessary
+        // NOTE(qix-): without having to refactor a large portion of the codebase.
+        if self.project.preferred_key == AuthKey::SystemExecutable {
+            let path = self.path().to_path_buf();
+            let remote = remote_name.to_string();
+            return std::thread::spawn(move || {
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(gitbutler_git::fetch(
+                        path,
+                        gitbutler_git::tokio::TokioExecutor,
+                        &remote,
+                        gitbutler_git::RefSpec::parse(refspec).unwrap(),
+                        handle_git_prompt_fetch,
+                        askpass,
+                    ))
+            })
+            .join()
+            .unwrap()
+            .map_err(|e| RemoteError::Other(e.into()));
+        }
+
         let auth_flows = credentials.help(self, remote_name)?;
         for (mut remote, callbacks) in auth_flows {
             if let Some(url) = remote.url().context("failed to get remote url")? {
@@ -559,7 +586,7 @@ impl Repository {
                 fetch_opts.remote_callbacks(cbs);
                 fetch_opts.prune(git2::FetchPrune::On);
 
-                match remote.fetch(&[refspec], Some(&mut fetch_opts)) {
+                match remote.fetch(&[&refspec], Some(&mut fetch_opts)) {
                     Ok(()) => {
                         tracing::info!(project_id = %self.project.id, %refspec, "git fetched");
                         return Ok(());
@@ -624,22 +651,41 @@ pub enum LogUntil {
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
-struct AskpassPromptContext {
+struct AskpassPromptPushContext {
     branch_id: Option<BranchId>,
 }
 
-#[allow(unused_variables)]
-async fn handle_git_prompt(
+#[derive(Debug, Clone, serde::Serialize)]
+struct AskpassPromptFetchContext {
+    action: String,
+}
+
+async fn handle_git_prompt_push(
     prompt: String,
     askpass: Option<(AskpassBroker, Option<BranchId>)>,
 ) -> Option<String> {
     if let Some((askpass_broker, branch_id)) = askpass {
-        tracing::info!("received prompt for branch {branch_id:?}: {prompt:?}");
+        tracing::info!("received prompt for branch push {branch_id:?}: {prompt:?}");
         askpass_broker
-            .submit_prompt(prompt, AskpassPromptContext { branch_id })
+            .submit_prompt(prompt, AskpassPromptPushContext { branch_id })
             .await
     } else {
-        tracing::warn!("received askpass prompt but no broker was supplied; returning None");
+        tracing::warn!("received askpass push prompt but no broker was supplied; returning None");
+        None
+    }
+}
+
+async fn handle_git_prompt_fetch(
+    prompt: String,
+    askpass: Option<(AskpassBroker, String)>,
+) -> Option<String> {
+    if let Some((askpass_broker, action)) = askpass {
+        tracing::info!("received prompt for fetch with action {action:?}: {prompt:?}");
+        askpass_broker
+            .submit_prompt(prompt, AskpassPromptFetchContext { action })
+            .await
+    } else {
+        tracing::warn!("received askpass fetch prompt but no broker was supplied; returning None");
         None
     }
 }

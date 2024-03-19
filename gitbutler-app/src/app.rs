@@ -141,11 +141,12 @@ impl App {
         project_id: &ProjectId,
         remote_name: &str,
         credentials: &git::credentials::Helper,
+        askpass: Option<(AskpassBroker, String)>,
     ) -> Result<(), Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         project_repository
-            .fetch(remote_name, credentials)
+            .fetch(remote_name, credentials, askpass)
             .map_err(|e| Error::Other(anyhow::anyhow!(e.to_string())))
     }
 
