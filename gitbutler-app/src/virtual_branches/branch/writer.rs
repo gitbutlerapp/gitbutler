@@ -1,6 +1,8 @@
+use std::path;
+
 use anyhow::Result;
 
-use crate::{gb_repository, reader, writer};
+use crate::{gb_repository, reader, virtual_branches::state::VirtualBranchesHandle, writer};
 
 use super::Branch;
 
@@ -8,16 +10,22 @@ pub struct BranchWriter<'writer> {
     repository: &'writer gb_repository::Repository,
     writer: writer::DirWriter,
     reader: reader::Reader<'writer>,
+    state_handle: VirtualBranchesHandle,
 }
 
 impl<'writer> BranchWriter<'writer> {
-    pub fn new(repository: &'writer gb_repository::Repository) -> Result<Self, std::io::Error> {
+    pub fn new(
+        repository: &'writer gb_repository::Repository,
+        path: &path::Path,
+    ) -> Result<Self, std::io::Error> {
         let reader = reader::Reader::open(repository.root())?;
         let writer = writer::DirWriter::open(repository.root())?;
+        let state_handle = VirtualBranchesHandle::new(path.join(".git").as_path());
         Ok(Self {
             repository,
             writer,
             reader,
+            state_handle,
         })
     }
 
@@ -31,6 +39,8 @@ impl<'writer> BranchWriter<'writer> {
                 self.repository.mark_active_session()?;
                 let _lock = self.repository.lock();
                 self.writer.remove(format!("branches/{}", branch.id))?;
+                // Write in the state file as well
+                let _ = self.state_handle.remove_branch(branch.id);
                 Ok(())
             }
             Err(reader::Error::NotFound) => Ok(()),
@@ -142,6 +152,9 @@ impl<'writer> BranchWriter<'writer> {
 
         self.writer.batch(&batch)?;
 
+        // Write in the state file as well
+        self.state_handle.set_branch(branch.clone())?;
+
         Ok(())
     }
 }
@@ -211,11 +224,15 @@ mod tests {
 
     #[test]
     fn test_write_branch() -> Result<()> {
-        let Case { gb_repository, .. } = Suite::default().new_case();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = Suite::default().new_case();
 
         let mut branch = test_branch();
 
-        let writer = BranchWriter::new(&gb_repository)?;
+        let writer = BranchWriter::new(&gb_repository, project.path.as_path())?;
         writer.write(&mut branch)?;
 
         let root = gb_repository
@@ -272,11 +289,15 @@ mod tests {
 
     #[test]
     fn test_should_create_session() -> Result<()> {
-        let Case { gb_repository, .. } = Suite::default().new_case();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = Suite::default().new_case();
 
         let mut branch = test_branch();
 
-        let writer = BranchWriter::new(&gb_repository)?;
+        let writer = BranchWriter::new(&gb_repository, project.path.as_path())?;
         writer.write(&mut branch)?;
 
         assert!(gb_repository.get_current_session()?.is_some());
@@ -286,11 +307,15 @@ mod tests {
 
     #[test]
     fn test_should_update() -> Result<()> {
-        let Case { gb_repository, .. } = Suite::default().new_case();
+        let Case {
+            gb_repository,
+            project,
+            ..
+        } = Suite::default().new_case();
 
         let mut branch = test_branch();
 
-        let writer = BranchWriter::new(&gb_repository)?;
+        let writer = BranchWriter::new(&gb_repository, project.path.as_path())?;
         writer.write(&mut branch)?;
 
         let mut updated_branch = Branch {
