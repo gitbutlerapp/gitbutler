@@ -219,7 +219,7 @@ pub fn apply_branch(
             })
         })?;
 
-    let writer = branch::Writer::new(gb_repository, project_repository.project().path.as_path())
+    let writer = branch::Writer::new(gb_repository, &project_repository.project().path)
         .context("failed to create branch writer")?;
 
     let mut branch = match branch::Reader::new(&current_session_reader).read(branch_id) {
@@ -662,9 +662,8 @@ pub fn unapply_branch(
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
 
-    let branch_writer =
-        branch::Writer::new(gb_repository, project_repository.project().path.as_path())
-            .context("failed to create writer")?;
+    let branch_writer = branch::Writer::new(gb_repository, &project_repository.project().path)
+        .context("failed to create writer")?;
 
     let final_tree = if conflicts::is_resolving(project_repository) {
         // when applying branch leads to a conflict, all other branches are unapplied.
@@ -1287,9 +1286,8 @@ pub fn create_virtual_branch(
         .unwrap_or(all_virtual_branches.len())
         .clamp(0, all_virtual_branches.len());
 
-    let branch_writer =
-        branch::Writer::new(gb_repository, project_repository.project().path.as_path())
-            .context("failed to create writer")?;
+    let branch_writer = branch::Writer::new(gb_repository, &project_repository.project().path)
+        .context("failed to create writer")?;
 
     let selected_for_changes = if let Some(selected_for_changes) = create.selected_for_changes {
         if selected_for_changes {
@@ -1507,9 +1505,8 @@ pub fn merge_virtual_branch_upstream(
         let merge_tree = repo
             .find_tree(merge_tree_oid)
             .context("failed to find merge tree")?;
-        let branch_writer =
-            branch::Writer::new(gb_repository, project_repository.project().path.as_path())
-                .context("failed to create writer")?;
+        let branch_writer = branch::Writer::new(gb_repository, &project_repository.project().path)
+            .context("failed to create writer")?;
 
         if *project_repository.project().ok_with_force_push {
             // attempt a rebase
@@ -1617,9 +1614,8 @@ pub fn update_branch(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
     let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch_writer =
-        branch::Writer::new(gb_repository, project_repository.project().path.as_path())
-            .context("failed to create writer")?;
+    let branch_writer = branch::Writer::new(gb_repository, &project_repository.project().path)
+        .context("failed to create writer")?;
 
     let mut branch = branch_reader
         .read(&branch_update.id)
@@ -1724,9 +1720,8 @@ pub fn delete_branch(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
     let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch_writer =
-        branch::Writer::new(gb_repository, project_repository.project().path.as_path())
-            .context("failed to create writer")?;
+    let branch_writer = branch::Writer::new(gb_repository, &project_repository.project().path)
+        .context("failed to create writer")?;
 
     let branch = match branch_reader.read(branch_id) {
         Ok(branch) => Ok(branch),
@@ -2163,9 +2158,8 @@ fn get_applied_status(
 
     // write updated state if not resolving
     if !project_repository.is_resolving() {
-        let branch_writer =
-            branch::Writer::new(gb_repository, project_repository.project().path.as_path())
-                .context("failed to create writer")?;
+        let branch_writer = branch::Writer::new(gb_repository, &project_repository.project().path)
+            .context("failed to create writer")?;
         for (vbranch, files) in &mut hunks_by_branch {
             vbranch.tree = write_tree(project_repository, default_target, files)?;
             branch_writer
@@ -2251,9 +2245,8 @@ pub fn reset_branch(
         ));
     }
 
-    let branch_writer =
-        branch::Writer::new(gb_repository, project_repository.project().path.as_path())
-            .context("failed to create writer")?;
+    let branch_writer = branch::Writer::new(gb_repository, &project_repository.project().path)
+        .context("failed to create writer")?;
     branch.head = target_commit_oid;
     branch_writer
         .write(&mut branch)
@@ -2590,7 +2583,7 @@ pub fn commit(
     }
 
     // update the virtual branch head
-    let writer = branch::Writer::new(gb_repository, project_repository.project().path.as_path())
+    let writer = branch::Writer::new(gb_repository, &project_repository.project().path)
         .context("failed to create writer")?;
     branch.tree = tree_oid;
     branch.head = commit_oid;
@@ -2619,9 +2612,8 @@ pub fn push(
         .map_err(errors::PushError::Other)?;
 
     let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch_writer =
-        branch::Writer::new(gb_repository, project_repository.project().path.as_path())
-            .context("failed to create writer")?;
+    let branch_writer = branch::Writer::new(gb_repository, &project_repository.project().path)
+        .context("failed to create writer")?;
 
     let mut vbranch = branch_reader.read(branch_id).map_err(|error| match error {
         reader::Error::NotFound => errors::PushError::BranchNotFound(errors::BranchNotFoundError {
@@ -3065,9 +3057,8 @@ pub fn amend(
         )
         .context("failed to create commit")?;
 
-    let branch_writer =
-        branch::Writer::new(gb_repository, project_repository.project().path.as_path())
-            .context("failed to create writer")?;
+    let branch_writer = branch::Writer::new(gb_repository, &project_repository.project().path)
+        .context("failed to create writer")?;
     target_branch.head = commit_oid;
     branch_writer.write(target_branch)?;
 
@@ -3249,9 +3240,8 @@ pub fn cherry_pick(
             .context("failed to checkout final tree")?;
 
         // update branch status
-        let writer =
-            branch::Writer::new(gb_repository, project_repository.project().path.as_path())
-                .context("failed to create writer")?;
+        let writer = branch::Writer::new(gb_repository, &project_repository.project().path)
+            .context("failed to create writer")?;
         branch.head = commit_oid;
         writer
             .write(&mut branch)
@@ -3443,7 +3433,7 @@ pub fn squash(
     };
 
     // save new branch head
-    let writer = branch::Writer::new(gb_repository, project_repository.project().path.as_path())
+    let writer = branch::Writer::new(gb_repository, &project_repository.project().path)
         .context("failed to create writer")?;
     branch.head = new_head_id;
     writer
@@ -3620,7 +3610,7 @@ pub fn update_commit_message(
     };
 
     // save new branch head
-    let writer = branch::Writer::new(gb_repository, project_repository.project().path.as_path())
+    let writer = branch::Writer::new(gb_repository, &project_repository.project().path)
         .context("failed to create writer")?;
     branch.head = new_head_id;
     writer
@@ -3746,9 +3736,8 @@ pub fn move_commit(
         return Err(errors::MoveCommitError::SourceLocked);
     }
 
-    let branch_writer =
-        branch::Writer::new(gb_repository, project_repository.project().path.as_path())
-            .context("failed to create writer")?;
+    let branch_writer = branch::Writer::new(gb_repository, &project_repository.project().path)
+        .context("failed to create writer")?;
     let branch_reader = branch::Reader::new(&latest_session_reader);
 
     // move files ownerships from source branch to the destination branch
@@ -3965,7 +3954,7 @@ pub fn create_virtual_branch_from_branch(
         selected_for_changes,
     };
 
-    let writer = branch::Writer::new(gb_repository, project_repository.project().path.as_path())
+    let writer = branch::Writer::new(gb_repository, &project_repository.project().path)
         .context("failed to create writer")?;
     writer
         .write(&mut branch)

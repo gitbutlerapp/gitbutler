@@ -108,7 +108,7 @@ mod tests {
 
         let mut branch = test_branch();
 
-        let writer = Writer::new(&gb_repository, project.path.as_path())?;
+        let writer = Writer::new(&gb_repository, &project.path)?;
         writer.write(&mut branch)?;
 
         let session = gb_repository.get_current_session()?.unwrap();

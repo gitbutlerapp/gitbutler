@@ -152,10 +152,10 @@ mod tests {
             ..
         } = Suite::default().new_case();
 
-        let target_writer = target::Writer::new(&gb_repository, project.path.as_path())?;
+        let target_writer = target::Writer::new(&gb_repository, &project.path)?;
         target_writer.write_default(&test_target())?;
 
-        let branch_writer = branch::Writer::new(&gb_repository, project.path.as_path())?;
+        let branch_writer = branch::Writer::new(&gb_repository, &project.path)?;
         let mut branch_1 = test_branch();
         branch_writer.write(&mut branch_1)?;
         let mut branch_2 = test_branch();

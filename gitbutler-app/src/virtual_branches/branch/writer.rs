@@ -14,13 +14,13 @@ pub struct BranchWriter<'writer> {
 }
 
 impl<'writer> BranchWriter<'writer> {
-    pub fn new(
+    pub fn new<P: AsRef<path::Path>>(
         repository: &'writer gb_repository::Repository,
-        path: &path::Path,
+        path: P,
     ) -> Result<Self, std::io::Error> {
         let reader = reader::Reader::open(repository.root())?;
         let writer = writer::DirWriter::open(repository.root())?;
-        let state_handle = VirtualBranchesHandle::new(path.join(".git").as_path());
+        let state_handle = VirtualBranchesHandle::new(path.as_ref().join(".git").as_path());
         Ok(Self {
             repository,
             writer,
@@ -232,7 +232,7 @@ mod tests {
 
         let mut branch = test_branch();
 
-        let writer = BranchWriter::new(&gb_repository, project.path.as_path())?;
+        let writer = BranchWriter::new(&gb_repository, &project.path)?;
         writer.write(&mut branch)?;
 
         let root = gb_repository
@@ -297,7 +297,7 @@ mod tests {
 
         let mut branch = test_branch();
 
-        let writer = BranchWriter::new(&gb_repository, project.path.as_path())?;
+        let writer = BranchWriter::new(&gb_repository, &project.path)?;
         writer.write(&mut branch)?;
 
         assert!(gb_repository.get_current_session()?.is_some());
@@ -315,7 +315,7 @@ mod tests {
 
         let mut branch = test_branch();
 
-        let writer = BranchWriter::new(&gb_repository, project.path.as_path())?;
+        let writer = BranchWriter::new(&gb_repository, &project.path)?;
         writer.write(&mut branch)?;
 
         let mut updated_branch = Branch {

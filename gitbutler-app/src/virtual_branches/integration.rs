@@ -263,9 +263,8 @@ fn verify_head_is_clean(
     .context("failed to create virtual branch")?;
 
     // rebasing the extra commits onto the new branch
-    let writer =
-        super::branch::Writer::new(gb_repository, project_repository.project().path.as_path())
-            .context("failed to create writer")?;
+    let writer = super::branch::Writer::new(gb_repository, &project_repository.project().path)
+        .context("failed to create writer")?;
     extra_commits.reverse();
     let mut head = new_branch.head;
     for commit in extra_commits {
