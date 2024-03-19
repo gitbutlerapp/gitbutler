@@ -235,7 +235,7 @@ where
 
 /// Fetches the given refspec from the given remote in the repository
 /// at the given path. Any prompts for the user are passed to the asynchronous
-/// callback `on_promp` which should return the user's response or `None` if the
+/// callback `on_prompt` which should return the user's response or `None` if the
 /// operation should be aborted, in which case an `Err` value is returned from this
 /// function.
 pub async fn fetch<P, F, Fut, E>(
@@ -268,6 +268,61 @@ where
         if let Some(refname) = stderr
             .lines()
             .find(|line| line.to_lowercase().contains("couldn't find remote ref"))
+            .map(|line| line.split_whitespace().last().unwrap_or_default())
+        {
+            Err(crate::Error::RefNotFound(refname.to_owned()))?
+        } else if stderr.to_lowercase().contains("permission denied") {
+            Err(crate::Error::AuthorizationFailed(Error::<E>::Failed {
+                status,
+                args: args.into_iter().map(Into::into).collect(),
+                stdout,
+                stderr,
+            }))?
+        } else {
+            Err(Error::<E>::Failed {
+                status,
+                args: args.into_iter().map(Into::into).collect(),
+                stdout,
+                stderr,
+            })?
+        }
+    }
+}
+
+/// Pushes a refspec to the given remote in the repository at the given path.
+/// Any prompts for the user are passed to the asynchronous callback `on_prompt`,
+/// which should return the user's response or `None` if the operation should be
+/// aborted, in which case an `Err` value is returned from this function.
+pub async fn push<P, F, Fut, E>(
+    repo_path: P,
+    executor: E,
+    remote: &str,
+    refspec: RefSpec,
+    on_prompt: F,
+) -> Result<(), crate::Error<Error<E>>>
+where
+    P: AsRef<Path>,
+    E: GitExecutor,
+    F: Fn(&str) -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+{
+    let mut args = vec!["push", "--quiet"];
+
+    let refspec = refspec.to_string();
+
+    args.push(remote);
+    args.push(&refspec);
+
+    let (status, stdout, stderr) =
+        execute_with_auth_harness(repo_path, executor, &args, None, on_prompt).await?;
+
+    if status == 0 {
+        Ok(())
+    } else {
+        // Was the ref not found?
+        if let Some(refname) = stderr
+            .lines()
+            .find(|line| line.to_lowercase().contains("does not match any"))
             .map(|line| line.split_whitespace().last().unwrap_or_default())
         {
             Err(crate::Error::RefNotFound(refname.to_owned()))?
