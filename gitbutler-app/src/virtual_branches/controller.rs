@@ -373,10 +373,11 @@ impl Controller {
     pub async fn fetch_from_target(
         &self,
         project_id: &ProjectId,
+        askpass: Option<(AskpassBroker, String)>,
     ) -> Result<BaseBranch, ControllerError<errors::FetchFromTargetError>> {
         self.inner(project_id)
             .await
-            .fetch_from_target(project_id)
+            .fetch_from_target(project_id, askpass)
             .await
     }
 
@@ -974,6 +975,7 @@ impl ControllerInner {
     pub async fn fetch_from_target(
         &self,
         project_id: &ProjectId,
+        askpass: Option<(AskpassBroker, String)>,
     ) -> Result<BaseBranch, ControllerError<errors::FetchFromTargetError>> {
         let project = self.projects.get(project_id).map_err(Error::from)?;
         let mut project_repository =
@@ -997,7 +999,7 @@ impl ControllerInner {
             .map_err(ControllerError::Action)?;
 
         let project_data_last_fetched = match project_repository
-            .fetch(default_target.branch.remote(), &self.helper)
+            .fetch(default_target.branch.remote(), &self.helper, askpass)
             .map_err(errors::FetchFromTargetError::Remote)
         {
             Ok(()) => projects::FetchResult::Fetched {
