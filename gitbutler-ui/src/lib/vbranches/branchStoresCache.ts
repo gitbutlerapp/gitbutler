@@ -80,7 +80,7 @@ export class VirtualBranchService {
 		this.branchesError.set(undefined);
 		const fresh = firstValueFrom(
 			this.fresh$.pipe(
-				timeout(10000),
+				timeout(30000),
 				catchError(() => {
 					// Observable never errors for any other reasons
 					const err = 'Timed out while reloading virtual branches';
