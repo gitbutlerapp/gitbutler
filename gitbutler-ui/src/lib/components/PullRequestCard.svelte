@@ -40,6 +40,13 @@
 	$: pr$ = githubService.getPr$(branch.upstreamName);
 	$: if (branch && $pr$) updateDetailsAndChecks();
 
+	$: checksIcon = getChecksIcon(checksStatus, isFetchingChecks);
+	$: checksColor = getChecksColor(checksStatus);
+	$: checksText = getChecksText(checksStatus);
+	$: statusIcon = getStatusIcon(detailedPr);
+	$: statusColor = getStatusColor(detailedPr);
+	$: statusLabel = getPrStatusLabel(detailedPr);
+
 	async function updateDetailsAndChecks() {
 		if (!isFetchingChecks) fetchChecks();
 		if (!isFetchingDetails) updateDetailedPullRequest($pr$?.targetBranch, false);
@@ -109,13 +116,6 @@
 		setTimeout(() => updateDetailsAndChecks(), timeUntilUdate * 1000);
 	}
 
-	$: checksIcon = getChecksIcon(checksStatus, isFetchingChecks);
-	$: checksColor = getChecksColor(checksStatus);
-	$: checksText = getChecksText(checksStatus);
-	$: statusIcon = getStatusIcon();
-	$: statusColor = getStatusColor();
-	$: statusLabel = getPrStatusLabel();
-
 	// TODO: Refactor away the code duplication in the following functions
 	function getChecksColor(status: ChecksStatus): TagColor | undefined {
 		if (checksError || detailsError) return 'error';
@@ -158,21 +158,24 @@
 		return 'Checks are running';
 	}
 
-	function getPrStatusLabel(): string | undefined {
-		if ($pr$?.mergedAt) return 'Merged';
-		if ($pr$?.closedAt) return 'Closed';
+	function getPrStatusLabel(pr: DetailedPullRequest | undefined): string {
+		if (pr?.mergedAt) return 'Merged';
+		if (pr?.closedAt) return 'Closed';
+		if (pr?.draft) return 'Draft';
 		return 'Open';
 	}
 
-	function getStatusIcon(): keyof typeof iconsJson | undefined {
-		if ($pr$?.mergedAt) return 'merged-pr-small';
-		if ($pr$?.closedAt) return 'closed-pr-small';
+	function getStatusIcon(pr: DetailedPullRequest | undefined): keyof typeof iconsJson | undefined {
+		if (pr?.mergedAt) return 'merged-pr-small';
+		if (pr?.closedAt) return 'closed-pr-small';
+		if (pr?.closedAt) return 'draft-pr-small';
 		return 'pr-small';
 	}
 
-	function getStatusColor(): TagColor {
-		if ($pr$?.mergedAt) return 'purple';
-		if ($pr$?.closedAt) return 'error';
+	function getStatusColor(pr: DetailedPullRequest | undefined): TagColor {
+		if (pr?.mergedAt) return 'purple';
+		if (pr?.closedAt) return 'error';
+		if (pr?.draft) return 'light';
 		return 'success';
 	}
 
