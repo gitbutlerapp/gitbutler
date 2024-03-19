@@ -99,6 +99,7 @@ pub async fn git_test_fetch(
     handle: tauri::AppHandle,
     project_id: &str,
     remote_name: &str,
+    action: Option<String>,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     let helper = handle.state::<crate::git::credentials::Helper>();
@@ -114,7 +115,7 @@ pub async fn git_test_fetch(
         &project_id,
         remote_name,
         &helper,
-        Some((askpass_broker, "test".to_string())),
+        Some((askpass_broker, action.unwrap_or_else(|| "test".to_string()))),
     )
     .map_err(|e| Error::UserError {
         code: Code::Unknown,
