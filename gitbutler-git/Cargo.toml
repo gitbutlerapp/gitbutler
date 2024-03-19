@@ -8,37 +8,24 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "gitbutler-git-askpass"
-path = "src/backend/cli/bin/askpass.rs"
-required-features = ["cli"]
+path = "src/cli/bin/askpass.rs"
 
 [[bin]]
 name = "gitbutler-git-setsid"
-path = "src/backend/cli/bin/setsid.rs"
-required-features = ["cli"]
+path = "src/cli/bin/setsid.rs"
 
 [features]
-default = ["git2", "cli", "serde", "tokio"]
-cli = ["dep:nix", "dep:rand", "dep:futures", "dep:sysinfo"]
-git2 = ["dep:git2", "dep:dirs"]
+default = ["serde", "tokio"]
 serde = ["dep:serde"]
 tokio = ["dep:tokio"]
 
 [dependencies]
 thiserror.workspace = true
-git2 = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = ["process", "rt", "process", "time", "io-util", "net", "fs", "sync"]}
-rand = { version = "0.8.5", optional = true }
-futures = { version = "0.3.30", optional = true }
-sysinfo = { version = "0.30.5", optional = true }
-dirs = { version = "5.0.1", optional = true }
-
-[dev-dependencies]
-git2.workspace = true # Used for tests
-async-trait = "0.1.77"
-russh = { version = "0.41.0-beta.4", features = ["openssl"] }
-russh-keys = "0.41.0-beta.3"
-tokio = { workspace = true, features = ["rt-multi-thread"] }
+rand = "0.8.5"
+futures = "0.3.30"
+sysinfo = "0.30.5"
 
 [target."cfg(unix)".dependencies]
-nix = { version = "0.27.1", optional = true, features = ["process", "socket", "user"] }
+nix = { version = "0.27.1", features = ["process", "socket", "user"] }

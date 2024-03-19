@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, path::Path, time::Duration};
 
 #[cfg(any(test, feature = "tokio"))]
 pub mod tokio;
@@ -56,9 +56,10 @@ pub unsafe trait GitExecutor {
     ///
     /// `Err` is returned if the command could not be executed,
     /// **not** if the command returned a non-zero exit code.
-    async fn execute_raw(
+    async fn execute_raw<P: AsRef<Path>>(
         &self,
         args: &[&str],
+        cwd: P,
         envs: Option<HashMap<String, String>>,
     ) -> Result<(usize, String, String), Self::Error>;
 
@@ -67,9 +68,10 @@ pub unsafe trait GitExecutor {
     ///
     /// Implementers should use this method over [`Self::execute_raw`]
     /// when possible.
-    async fn execute(
+    async fn execute<P: AsRef<Path>>(
         &self,
         args: &[&str],
+        cwd: P,
         envs: Option<HashMap<String, String>>,
     ) -> Result<(usize, String, String), Self::Error> {
         let mut args = args.as_ref().to_vec();
@@ -86,7 +88,7 @@ pub unsafe trait GitExecutor {
         envs.insert("GIT_TERMINAL_PROMPT".into(), "0".into());
         envs.insert("LC_ALL".into(), "C".into()); // Force English. We need this for parsing output.
 
-        self.execute_raw(&args, Some(envs)).await
+        self.execute_raw(&args, cwd, Some(envs)).await
     }
 
     /// Creates a named pipe server that is compatible with

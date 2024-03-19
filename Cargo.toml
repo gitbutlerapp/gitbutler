@@ -2,6 +2,7 @@
 members = [
     "gitbutler-app",
     "gitbutler-changeset",
+    "gitbutler-git",
 ]
 resolver = "2"
 
