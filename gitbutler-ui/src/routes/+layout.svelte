@@ -4,6 +4,7 @@
 	import { AIService } from '$lib/backend/aiService';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { ProjectService } from '$lib/backend/projects';
+	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
@@ -21,7 +22,7 @@
 	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
-	const { cloud } = data;
+	$: ({ cloud, promptService } = data);
 
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
@@ -33,6 +34,7 @@
 	$: setContext(GitHubService, data.githubService);
 	$: setContext(GitConfigService, data.gitConfig);
 	$: setContext(AIService, data.aiService);
+	$: setContext(PromptService, promptService);
 
 	let shareIssueModal: ShareIssueModal;
 
