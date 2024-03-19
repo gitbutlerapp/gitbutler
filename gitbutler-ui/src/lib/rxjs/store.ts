@@ -14,6 +14,19 @@ export function observableToStore<T>(
 	let subscription: Subscription | undefined = undefined;
 
 	const store = writable<T | undefined>(undefined, () => {
+		// This runs when the store is first subscribed to
+		subscription = observable
+			.pipe(
+				catchError((e: any) => {
+					error.set(e.message);
+					return of(undefined);
+				})
+			)
+			.subscribe((item) => {
+				store.set(item);
+			});
+		unsubscribe = subscription.unsubscribe;
+
 		// This runs when the last subscriber unsubscribes
 		return () => {
 			// TODO: Investigate why project switching breaks without `setTimeout`
@@ -24,16 +37,5 @@ export function observableToStore<T>(
 	});
 	const error = writable<string>();
 
-	subscription = observable
-		.pipe(
-			catchError((e: any) => {
-				error.set(e.message);
-				return of(undefined);
-			})
-		)
-		.subscribe((item) => {
-			store.set(item);
-		});
-	unsubscribe = subscription.unsubscribe;
 	return [store, error];
 }
