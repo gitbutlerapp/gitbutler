@@ -298,6 +298,7 @@ pub async fn push<P, F, Fut, E>(
     executor: E,
     remote: &str,
     refspec: RefSpec,
+    force: bool,
     on_prompt: F,
 ) -> Result<(), crate::Error<Error<E>>>
 where
@@ -312,6 +313,10 @@ where
 
     args.push(remote);
     args.push(&refspec);
+
+    if force {
+        args.push("--force");
+    }
 
     let (status, stdout, stderr) =
         execute_with_auth_harness(repo_path, executor, &args, None, on_prompt).await?;
