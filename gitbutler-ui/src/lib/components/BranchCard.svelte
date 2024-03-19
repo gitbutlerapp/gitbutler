@@ -92,7 +92,10 @@
 			.slice(0, 5000);
 
 		try {
-			const message = await aiService.summarizeBranch({ diff, userToken: user?.access_token });
+			const message = await aiService.summarizeBranch({
+				diff,
+				userToken: user?.access_token
+			});
 
 			if (message && message !== branch.name) {
 				branch.name = message;
@@ -331,7 +334,7 @@
 					sticky
 					defaultLineColor={$selectedFiles.length > 0
 						? 'transparent'
-						: 'var(--clr-theme-container-outline-light)'}
+						: 'color-mix(in srgb,var(--clr-theme-container-outline-light) 60%, transparent)'}
 					on:width={(e) => {
 						laneWidth = e.detail / (16 * $userSettings.zoom);
 						lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
