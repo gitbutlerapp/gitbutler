@@ -34,16 +34,12 @@
 	let privateKeyPath =
 		typeof project.preferred_key == 'string' ? '' : project.preferred_key.local.private_key_path;
 
-	let privateKeyPassphrase =
-		typeof project.preferred_key == 'string' ? '' : project.preferred_key.local.passphrase;
-
 	function setLocalKey() {
 		if (privateKeyPath.trim().length == 0) return;
 		updateKey({
 			preferred_key: {
 				local: {
-					private_key_path: privateKeyPath.trim(),
-					passphrase: privateKeyPassphrase || undefined
+					private_key_path: privateKeyPath.trim()
 				}
 			}
 		});
@@ -56,8 +52,6 @@
 			toasts.error(err.message);
 		}
 	}
-
-	let showPassphrase = false;
 
 	let form: HTMLFormElement;
 
@@ -124,25 +118,6 @@
 						placeholder="for example: ~/.ssh/id_rsa"
 						bind:value={privateKeyPath}
 					/>
-
-					<div class="input-with-button">
-						<TextBox
-							label="Passphrase (optional)"
-							type={showPassphrase ? 'text' : 'password'}
-							bind:value={privateKeyPassphrase}
-							wide
-						/>
-						<Button
-							size="large"
-							color="neutral"
-							kind="outlined"
-							icon={showPassphrase ? 'eye-shown' : 'eye-hidden'}
-							on:click={() => (showPassphrase = !showPassphrase)}
-							width={150}
-						>
-							{showPassphrase ? 'Hide passphrase' : 'Show passphrase'}
-						</Button>
-					</div>
 				</div>
 			</SectionCard>
 		{/if}

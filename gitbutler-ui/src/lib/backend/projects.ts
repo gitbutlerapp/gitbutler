@@ -18,7 +18,7 @@ import { goto } from '$app/navigation';
 
 export type KeyType = 'default' | 'generated' | 'gitCredentialsHelper' | 'local';
 export type LocalKey = {
-	local: { private_key_path: string; passphrase?: string };
+	local: { private_key_path: string };
 };
 
 export type Key = Exclude<KeyType, 'local'> | LocalKey;
