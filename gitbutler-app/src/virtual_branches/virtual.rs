@@ -15,6 +15,7 @@ use regex::Regex;
 use serde::Serialize;
 
 use crate::{
+    askpass::AskpassBroker,
     dedup::{dedup, dedup_fmt},
     gb_repository,
     git::{
@@ -2593,6 +2594,7 @@ pub fn push(
     branch_id: &BranchId,
     with_force: bool,
     credentials: &git::credentials::Helper,
+    askpass: Option<(AskpassBroker, Option<BranchId>)>,
 ) -> Result<(), errors::PushError> {
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -2649,7 +2651,14 @@ pub fn push(
         ))
     };
 
-    project_repository.push(&vbranch.head, &remote_branch, with_force, credentials, None)?;
+    project_repository.push(
+        &vbranch.head,
+        &remote_branch,
+        with_force,
+        credentials,
+        None,
+        askpass,
+    )?;
 
     vbranch.upstream = Some(remote_branch.clone());
     vbranch.upstream_head = Some(vbranch.head);

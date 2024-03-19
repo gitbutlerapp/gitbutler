@@ -3,6 +3,7 @@
 
 pub(crate) mod analytics;
 pub(crate) mod app;
+pub(crate) mod askpass;
 pub(crate) mod assets;
 pub(crate) mod commands;
 pub(crate) mod database;
@@ -102,6 +103,9 @@ fn main() {
                     std::fs::create_dir_all(&app_cache_dir).expect("failed to create cache dir");
 
                     tracing::info!(version = %app_handle.package_info().version, name = %app_handle.package_info().name, "starting app");
+
+                    let askpass_broker = askpass::AskpassBroker::init(app_handle.clone());
+                    app_handle.manage(askpass_broker);
 
                     let storage_controller = storage::Storage::new(&app_data_dir);
                     app_handle.manage(storage_controller.clone());
@@ -282,6 +286,7 @@ fn main() {
                     keys::commands::get_public_key,
                     github::commands::init_device_oauth,
                     github::commands::check_auth_status,
+                    askpass::commands::submit_prompt_response,
                 ])
                 .menu(menu::build(tauri_context.package_info()))
                 .on_menu_event(|event|menu::handle_event(&event))

@@ -3,12 +3,15 @@ use std::{collections::HashMap, path};
 use anyhow::{Context, Result};
 
 use crate::{
+    askpass::AskpassBroker,
     gb_repository, git,
     project_repository::{self, conflicts},
     projects::{self, ProjectId},
     reader,
     sessions::{self, SessionId},
-    users, watcher,
+    users,
+    virtual_branches::BranchId,
+    watcher,
 };
 
 #[derive(Clone)]
@@ -124,11 +127,12 @@ impl App {
         remote_name: &str,
         branch_name: &str,
         credentials: &git::credentials::Helper,
+        askpass: Option<(AskpassBroker, Option<BranchId>)>,
     ) -> Result<(), Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         project_repository
-            .git_test_push(credentials, remote_name, branch_name)
+            .git_test_push(credentials, remote_name, branch_name, askpass)
             .map_err(Error::Other)
     }
 

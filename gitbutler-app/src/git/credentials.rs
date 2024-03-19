@@ -185,6 +185,10 @@ impl Helper {
                     .collect())
             }
             projects::AuthKey::Default => self.default_flow(remote, project_repository),
+            projects::AuthKey::SystemExecutable => {
+                tracing::error!("WARNING: FIXME: this codepath should NEVER be hit. Something is seriously wrong.");
+                self.default_flow(remote, project_repository)
+            }
         }
     }
 

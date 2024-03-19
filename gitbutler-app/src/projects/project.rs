@@ -4,12 +4,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{git, id::Id, types::default_true::DefaultTrue};
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum AuthKey {
     #[default]
     Default,
     Generated,
+    SystemExecutable,
     GitCredentialsHelper,
     Local {
         private_key_path: path::PathBuf,

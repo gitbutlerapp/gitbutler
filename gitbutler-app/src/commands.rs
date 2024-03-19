@@ -76,11 +76,21 @@ pub async fn git_test_push(
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
-    app.git_test_push(&project_id, remote_name, branch_name, &helper)
-        .map_err(|e| Error::UserError {
-            code: Code::Unknown,
-            message: e.to_string(),
-        })
+    let askpass_broker = handle
+        .state::<crate::askpass::AskpassBroker>()
+        .inner()
+        .clone();
+    app.git_test_push(
+        &project_id,
+        remote_name,
+        branch_name,
+        &helper,
+        Some((askpass_broker, None)),
+    )
+    .map_err(|e| Error::UserError {
+        code: Code::Unknown,
+        message: e.to_string(),
+    })
 }
 
 #[tauri::command(async)]

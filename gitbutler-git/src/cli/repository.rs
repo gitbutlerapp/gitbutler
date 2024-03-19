@@ -59,18 +59,20 @@ pub type Error<E> = RepositoryError<
 >;
 
 #[cold]
-async fn execute_with_auth_harness<P, F, Fut, E>(
+async fn execute_with_auth_harness<P, F, Fut, E, Extra>(
     repo_path: P,
     executor: E,
     args: &[&str],
     envs: Option<HashMap<String, String>>,
-    on_prompt: F,
+    mut on_prompt: F,
+    extra: Extra,
 ) -> Result<(usize, String, String), Error<E>>
 where
     P: AsRef<Path>,
     E: GitExecutor,
-    F: Fn(&str) -> Fut,
+    F: FnMut(String, Extra) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
+    Extra: Send + Clone,
 {
     let path = std::env::current_exe().map_err(Error::<E>::NoSelfExe)?;
 
@@ -136,10 +138,17 @@ where
         envs.insert("DISPLAY".into(), ":".into());
     }
 
+    let base_ssh_command = match envs.get("GIT_SSH_COMMAND") {
+        Some(v) => v.clone(),
+        None => get_core_sshcommand(&executor, &repo_path)
+            .await
+            .unwrap_or_else(|| "ssh".into()),
+    };
+
     envs.insert(
         "GIT_SSH_COMMAND".into(),
         format!(
-            "{}{} -o StrictHostKeyChecking=accept-new -o KbdInteractiveAuthentication=no{}",
+            "{}{base_ssh_command} -o StrictHostKeyChecking=accept-new -o KbdInteractiveAuthentication=no{}",
             {
                 #[cfg(not(target_os = "windows"))]
                 {
@@ -150,7 +159,6 @@ where
                     ""
                 }
             },
-            envs.get("GIT_SSH_COMMAND").unwrap_or(&"ssh".into()),
             {
                 // In test environments, we don't want to pollute the user's known hosts file.
                 // So, we just use /dev/null instead.
@@ -180,7 +188,7 @@ where
             res = child_process => {
                 return res;
             },
-            res = sock_server.accept(Some(Duration::from_secs(60))).fuse() => {
+            res = sock_server.accept(Some(Duration::from_secs(120))).fuse() => {
                 let mut sock = res.map_err(Error::<E>::AskpassServer)?;
 
                 // get the PID of the peer
@@ -222,7 +230,7 @@ where
                 let prompt = sock.read_line().await.map_err(Error::<E>::AskpassIo)?;
 
                 // call the prompt handler
-                let response = on_prompt(&prompt).await;
+                let response = on_prompt(prompt.clone(), extra.clone()).await;
                 if let Some(response) = response {
                     sock.write_line(&response).await.map_err(Error::<E>::AskpassIo)?;
                 } else {
@@ -238,18 +246,20 @@ where
 /// callback `on_prompt` which should return the user's response or `None` if the
 /// operation should be aborted, in which case an `Err` value is returned from this
 /// function.
-pub async fn fetch<P, F, Fut, E>(
+pub async fn fetch<P, F, Fut, E, Extra>(
     repo_path: P,
     executor: E,
     remote: &str,
     refspec: RefSpec,
     on_prompt: F,
+    extra: Extra,
 ) -> Result<(), crate::Error<Error<E>>>
 where
     P: AsRef<Path>,
     E: GitExecutor,
-    F: Fn(&str) -> Fut,
+    F: FnMut(String, Extra) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
+    Extra: Send + Clone,
 {
     let mut args = vec!["fetch", "--quiet", "--no-write-fetch-head"];
 
@@ -259,7 +269,7 @@ where
     args.push(&refspec);
 
     let (status, stdout, stderr) =
-        execute_with_auth_harness(repo_path, executor, &args, None, on_prompt).await?;
+        execute_with_auth_harness(repo_path, executor, &args, None, on_prompt, extra).await?;
 
     if status == 0 {
         Ok(())
@@ -293,19 +303,21 @@ where
 /// Any prompts for the user are passed to the asynchronous callback `on_prompt`,
 /// which should return the user's response or `None` if the operation should be
 /// aborted, in which case an `Err` value is returned from this function.
-pub async fn push<P, F, Fut, E>(
+pub async fn push<P, F, Fut, E, Extra>(
     repo_path: P,
     executor: E,
     remote: &str,
     refspec: RefSpec,
     force: bool,
     on_prompt: F,
+    extra: Extra,
 ) -> Result<(), crate::Error<Error<E>>>
 where
     P: AsRef<Path>,
     E: GitExecutor,
-    F: Fn(&str) -> Fut,
+    F: FnMut(String, Extra) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
+    Extra: Send + Clone,
 {
     let mut args = vec!["push", "--quiet"];
 
@@ -319,7 +331,7 @@ where
     }
 
     let (status, stdout, stderr) =
-        execute_with_auth_harness(repo_path, executor, &args, None, on_prompt).await?;
+        execute_with_auth_harness(repo_path, executor, &args, None, on_prompt, extra).await?;
 
     if status == 0 {
         Ok(())
@@ -347,4 +359,21 @@ where
             })?
         }
     }
+}
+
+async fn get_core_sshcommand<E: GitExecutor, P: AsRef<Path>>(
+    executor: &E,
+    cwd: P,
+) -> Option<String> {
+    executor
+        .execute(&["config", "--get", "core.sshCommand"], cwd, None)
+        .await
+        .map(|(status, stdout, _)| {
+            if status != 0 {
+                None
+            } else {
+                Some(stdout.trim().to_string())
+            }
+        })
+        .unwrap_or(None)
 }

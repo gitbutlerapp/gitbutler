@@ -108,6 +108,7 @@ mod unapply_ownership {
 }
 
 mod create_commit {
+
     use super::*;
 
     #[tokio::test]
@@ -219,7 +220,7 @@ mod create_commit {
             .await
             .unwrap();
         controller
-            .push_virtual_branch(&project_id, &branch_id, false)
+            .push_virtual_branch(&project_id, &branch_id, false, None)
             .await
             .unwrap();
 
@@ -518,6 +519,7 @@ mod references {
     }
 
     mod push_virtual_branch {
+
         use super::*;
 
         #[tokio::test]
@@ -552,7 +554,7 @@ mod references {
                 .await
                 .unwrap();
             controller
-                .push_virtual_branch(&project_id, &branch1_id, false)
+                .push_virtual_branch(&project_id, &branch1_id, false, None)
                 .await
                 .unwrap();
 
@@ -605,7 +607,7 @@ mod references {
                     .await
                     .unwrap();
                 controller
-                    .push_virtual_branch(&project_id, &branch1_id, false)
+                    .push_virtual_branch(&project_id, &branch1_id, false, None)
                     .await
                     .unwrap();
                 branch1_id
@@ -642,7 +644,7 @@ mod references {
                     .await
                     .unwrap();
                 controller
-                    .push_virtual_branch(&project_id, &branch2_id, false)
+                    .push_virtual_branch(&project_id, &branch2_id, false, None)
                     .await
                     .unwrap();
                 branch2_id
@@ -1603,6 +1605,7 @@ mod update_base_branch {
     use super::*;
 
     mod unapplied_branch {
+
         use super::*;
 
         #[tokio::test]
@@ -1810,7 +1813,7 @@ mod update_base_branch {
                     .unwrap();
 
                 controller
-                    .push_virtual_branch(&project_id, &branch_id, false)
+                    .push_virtual_branch(&project_id, &branch_id, false, None)
                     .await
                     .unwrap();
 
@@ -2170,7 +2173,7 @@ mod update_base_branch {
                 fs::write(repository.path().join("file2.txt"), "other").unwrap();
 
                 controller
-                    .push_virtual_branch(&project_id, &branch_id, false)
+                    .push_virtual_branch(&project_id, &branch_id, false, None)
                     .await
                     .unwrap();
 
@@ -2333,7 +2336,7 @@ mod update_base_branch {
                     .await
                     .unwrap();
                 controller
-                    .push_virtual_branch(&project_id, &branch_id, false)
+                    .push_virtual_branch(&project_id, &branch_id, false, None)
                     .await
                     .unwrap();
             }
@@ -2367,6 +2370,7 @@ mod update_base_branch {
     }
 
     mod applied_branch {
+
         use super::*;
 
         #[tokio::test]
@@ -2565,7 +2569,7 @@ mod update_base_branch {
                     .unwrap();
 
                 controller
-                    .push_virtual_branch(&project_id, &branch_id, false)
+                    .push_virtual_branch(&project_id, &branch_id, false, None)
                     .await
                     .unwrap();
 
@@ -2828,7 +2832,7 @@ mod update_base_branch {
                         .await
                         .unwrap();
                     controller
-                        .push_virtual_branch(&project_id, &branch_id, false)
+                        .push_virtual_branch(&project_id, &branch_id, false, None)
                         .await
                         .unwrap();
 
@@ -2900,7 +2904,7 @@ mod update_base_branch {
                         .await
                         .unwrap();
                     controller
-                        .push_virtual_branch(&project_id, &branch_id, false)
+                        .push_virtual_branch(&project_id, &branch_id, false, None)
                         .await
                         .unwrap();
 
@@ -3064,7 +3068,7 @@ mod update_base_branch {
                     .await
                     .unwrap();
                 controller
-                    .push_virtual_branch(&project_id, &branch_id, false)
+                    .push_virtual_branch(&project_id, &branch_id, false, None)
                     .await
                     .unwrap();
 
@@ -3187,7 +3191,7 @@ mod update_base_branch {
 
             // push the branch
             controller
-                .push_virtual_branch(&project_id, &branch_id, false)
+                .push_virtual_branch(&project_id, &branch_id, false, None)
                 .await
                 .unwrap();
 
@@ -3283,7 +3287,7 @@ mod update_base_branch {
             };
 
             controller
-                .push_virtual_branch(&project_id, &branch_id, false)
+                .push_virtual_branch(&project_id, &branch_id, false, None)
                 .await
                 .unwrap();
 
@@ -3365,7 +3369,7 @@ mod update_base_branch {
             };
 
             controller
-                .push_virtual_branch(&project_id, &branch_id, false)
+                .push_virtual_branch(&project_id, &branch_id, false, None)
                 .await
                 .unwrap();
 
@@ -3502,7 +3506,7 @@ mod update_base_branch {
                     .await
                     .unwrap();
                 controller
-                    .push_virtual_branch(&project_id, &branch_id, false)
+                    .push_virtual_branch(&project_id, &branch_id, false, None)
                     .await
                     .unwrap();
             }
@@ -3800,6 +3804,7 @@ mod reset_virtual_branch {
 }
 
 mod upstream {
+
     use super::*;
 
     #[tokio::test]
@@ -3841,7 +3846,7 @@ mod upstream {
 
         // push
         controller
-            .push_virtual_branch(&project_id, &branch1_id, false)
+            .push_virtual_branch(&project_id, &branch1_id, false, None)
             .await
             .unwrap();
 
@@ -3908,7 +3913,7 @@ mod upstream {
 
         // push
         controller
-            .push_virtual_branch(&project_id, &branch1_id, false)
+            .push_virtual_branch(&project_id, &branch1_id, false, None)
             .await
             .unwrap();
 
@@ -3955,6 +3960,7 @@ mod cherry_pick {
     use super::*;
 
     mod cleanly {
+
         use super::*;
 
         #[tokio::test]
@@ -3993,7 +3999,7 @@ mod cherry_pick {
             };
 
             controller
-                .push_virtual_branch(&project_id, &branch_id, false)
+                .push_virtual_branch(&project_id, &branch_id, false, None)
                 .await
                 .unwrap();
 
@@ -4065,7 +4071,7 @@ mod cherry_pick {
             };
 
             controller
-                .push_virtual_branch(&project_id, &branch_id, false)
+                .push_virtual_branch(&project_id, &branch_id, false, None)
                 .await
                 .unwrap();
 
@@ -4175,6 +4181,7 @@ mod cherry_pick {
     }
 
     mod with_conflicts {
+
         use super::*;
 
         #[tokio::test]
@@ -4221,7 +4228,7 @@ mod cherry_pick {
             };
 
             controller
-                .push_virtual_branch(&project_id, &branch_id, false)
+                .push_virtual_branch(&project_id, &branch_id, false, None)
                 .await
                 .unwrap();
 
@@ -4335,6 +4342,7 @@ mod cherry_pick {
 }
 
 mod amend {
+
     use super::*;
 
     #[tokio::test]
@@ -4416,7 +4424,7 @@ mod amend {
         };
 
         controller
-            .push_virtual_branch(&project_id, &branch_id, false)
+            .push_virtual_branch(&project_id, &branch_id, false, None)
             .await
             .unwrap();
 
@@ -4483,7 +4491,7 @@ mod amend {
         };
 
         controller
-            .push_virtual_branch(&project_id, &branch_id, false)
+            .push_virtual_branch(&project_id, &branch_id, false, None)
             .await
             .unwrap();
 
@@ -4904,6 +4912,7 @@ mod init {
 }
 
 mod squash {
+
     use super::*;
 
     #[tokio::test]
@@ -5096,7 +5105,7 @@ mod squash {
         };
 
         controller
-            .push_virtual_branch(&project_id, &branch_id, false)
+            .push_virtual_branch(&project_id, &branch_id, false, None)
             .await
             .unwrap();
 
@@ -5179,7 +5188,7 @@ mod squash {
         };
 
         controller
-            .push_virtual_branch(&project_id, &branch_id, false)
+            .push_virtual_branch(&project_id, &branch_id, false, None)
             .await
             .unwrap();
 
@@ -5263,6 +5272,7 @@ mod squash {
 }
 
 mod update_commit_message {
+
     use super::*;
 
     #[tokio::test]
@@ -5450,7 +5460,7 @@ mod update_commit_message {
         };
 
         controller
-            .push_virtual_branch(&project_id, &branch_id, false)
+            .push_virtual_branch(&project_id, &branch_id, false, None)
             .await
             .unwrap();
 
@@ -5520,7 +5530,7 @@ mod update_commit_message {
         };
 
         controller
-            .push_virtual_branch(&project_id, &branch_id, false)
+            .push_virtual_branch(&project_id, &branch_id, false, None)
             .await
             .unwrap();
 
@@ -5680,7 +5690,7 @@ mod create_virtual_branch_from_branch {
                 .await
                 .unwrap();
             controller
-                .push_virtual_branch(&project_id, &branch_id, false)
+                .push_virtual_branch(&project_id, &branch_id, false, None)
                 .await
                 .unwrap();
 
@@ -5731,7 +5741,7 @@ mod create_virtual_branch_from_branch {
         {
             // merge branch into master
             controller
-                .push_virtual_branch(&project_id, &branch_id, false)
+                .push_virtual_branch(&project_id, &branch_id, false, None)
                 .await
                 .unwrap();
 
