@@ -1,9 +1,10 @@
 use std::{collections::HashMap, path, sync::Arc};
 
 use anyhow::Context;
-use tokio::sync::Semaphore;
+use tokio::{sync::Semaphore, task::JoinHandle};
 
 use crate::{
+    askpass::AskpassBroker,
     error::Error,
     gb_repository, git, keys, project_repository,
     projects::{self, ProjectId},
@@ -305,10 +306,11 @@ impl Controller {
         project_id: &ProjectId,
         branch_id: &BranchId,
         with_force: bool,
+        askpass: Option<(AskpassBroker, Option<BranchId>)>,
     ) -> Result<(), ControllerError<errors::PushError>> {
         self.inner(project_id)
             .await
-            .push_virtual_branch(project_id, branch_id, with_force)
+            .push_virtual_branch(project_id, branch_id, with_force, askpass)
             .await
     }
 
@@ -863,19 +865,25 @@ impl ControllerInner {
         project_id: &ProjectId,
         branch_id: &BranchId,
         with_force: bool,
+        askpass: Option<(AskpassBroker, Option<BranchId>)>,
     ) -> Result<(), ControllerError<errors::PushError>> {
         let _permit = self.semaphore.acquire().await;
-
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
+        let helper = self.helper.clone();
+        let project_id = *project_id;
+        let branch_id = *branch_id;
+        self.with_verify_branch_async(&project_id, move |gb_repository, project_repository, _| {
             super::push(
                 project_repository,
                 gb_repository,
-                branch_id,
+                &branch_id,
                 with_force,
-                &self.helper,
+                &helper,
+                askpass,
             )
-            .map_err(Into::into)
-        })
+        })?
+        .await
+        .map_err(|e| ControllerError::Other(e.into()))?
+        .map_err(ControllerError::Action)
     }
 
     pub async fn cherry_pick(
@@ -1073,5 +1081,30 @@ impl ControllerInner {
         .context("failed to open gitbutler repository")?;
         super::integration::verify_branch(&gb_repository, &project_repository)?;
         action(&gb_repository, &project_repository, user.as_ref()).map_err(ControllerError::Action)
+    }
+
+    fn with_verify_branch_async<T: Send + 'static, E: Into<Error> + Send + 'static>(
+        &self,
+        project_id: &ProjectId,
+        action: impl FnOnce(
+                &gb_repository::Repository,
+                &project_repository::Repository,
+                Option<&users::User>,
+            ) -> Result<T, E>
+            + Send
+            + 'static,
+    ) -> Result<JoinHandle<Result<T, E>>, ControllerError<E>> {
+        let local_data_dir = self.local_data_dir.clone();
+        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let project_repository =
+            project_repository::Repository::open(&project).map_err(Error::from)?;
+        let user = self.users.get_user().map_err(Error::from)?;
+        let gb_repository =
+            gb_repository::Repository::open(&local_data_dir, &project_repository, user.as_ref())
+                .context("failed to open gitbutler repository")?;
+        super::integration::verify_branch(&gb_repository, &project_repository)?;
+        Ok(tokio::task::spawn_blocking(move || {
+            action(&gb_repository, &project_repository, user.as_ref())
+        }))
     }
 }

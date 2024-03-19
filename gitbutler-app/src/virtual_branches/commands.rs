@@ -406,9 +406,15 @@ pub async fn push_virtual_branch(
         code: Code::Validation,
         message: "Malformed branch id".to_string(),
     })?;
+    let askpass_broker = handle.state::<crate::askpass::AskpassBroker>();
     handle
         .state::<Controller>()
-        .push_virtual_branch(&project_id, &branch_id, with_force)
+        .push_virtual_branch(
+            &project_id,
+            &branch_id,
+            with_force,
+            Some((askpass_broker.inner().clone(), Some(branch_id))),
+        )
         .await?;
     emit_vbranches(&handle, &project_id).await;
     Ok(())

@@ -7,9 +7,12 @@ use std::{
 use anyhow::{Context, Result};
 
 use crate::{
+    askpass::AskpassBroker,
     git::{self, credentials::HelpError, Url},
-    keys, projects, ssh, users,
-    virtual_branches::Branch,
+    keys,
+    projects::{self, AuthKey},
+    ssh, users,
+    virtual_branches::{Branch, BranchId},
 };
 
 use super::conflicts;
@@ -167,6 +170,7 @@ impl Repository {
         credentials: &git::credentials::Helper,
         remote_name: &str,
         branch_name: &str,
+        askpass: Option<(AskpassBroker, Option<BranchId>)>,
     ) -> Result<()> {
         let target_branch_refname =
             git::Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
@@ -185,13 +189,27 @@ impl Repository {
             remote_name, branch_name,
         ))?;
 
-        match self.push(&commit_id, &refname, false, credentials, None) {
+        match self.push(
+            &commit_id,
+            &refname,
+            false,
+            credentials,
+            None,
+            askpass.clone(),
+        ) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
 
         let empty_refspec = Some(format!(":refs/heads/{}", branch_name));
-        match self.push(&commit_id, &refname, false, credentials, empty_refspec) {
+        match self.push(
+            &commit_id,
+            &refname,
+            false,
+            credentials,
+            empty_refspec,
+            askpass,
+        ) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
@@ -434,6 +452,7 @@ impl Repository {
         with_force: bool,
         credentials: &git::credentials::Helper,
         refspec: Option<String>,
+        askpass_broker: Option<(AskpassBroker, Option<BranchId>)>,
     ) -> Result<(), RemoteError> {
         let refspec = refspec.unwrap_or_else(|| {
             if with_force {
@@ -442,6 +461,32 @@ impl Repository {
                 format!("{}:refs/heads/{}", head, branch.branch())
             }
         });
+
+        // NOTE(qix-): This is a nasty hack, however the codebase isn't structured
+        // NOTE(qix-): in a way that allows us to really incorporate new backends
+        // NOTE(qix-): without a lot of work. This is a temporary measure to
+        // NOTE(qix-): work around a time-sensitive change that was necessary
+        // NOTE(qix-): without having to refactor a large portion of the codebase.
+        if self.project.preferred_key == AuthKey::SystemExecutable {
+            let path = self.path().to_path_buf();
+            let remote = branch.remote().to_string();
+            return std::thread::spawn(move || {
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(gitbutler_git::push(
+                        path,
+                        gitbutler_git::tokio::TokioExecutor,
+                        &remote,
+                        gitbutler_git::RefSpec::parse(refspec).unwrap(),
+                        with_force,
+                        handle_git_prompt,
+                        askpass_broker,
+                    ))
+            })
+            .join()
+            .unwrap()
+            .map_err(|e| RemoteError::Other(e.into()));
+        }
 
         let auth_flows = credentials.help(self, branch.remote())?;
         for (mut remote, callbacks) in auth_flows {
@@ -576,4 +621,25 @@ pub enum LogUntil {
     When(Box<OidFilter>),
     #[cfg(test)]
     End,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct AskpassPromptContext {
+    branch_id: Option<BranchId>,
+}
+
+#[allow(unused_variables)]
+async fn handle_git_prompt(
+    prompt: String,
+    askpass: Option<(AskpassBroker, Option<BranchId>)>,
+) -> Option<String> {
+    if let Some((askpass_broker, branch_id)) = askpass {
+        tracing::info!("received prompt for branch {branch_id:?}: {prompt:?}");
+        askpass_broker
+            .submit_prompt(prompt, AskpassPromptContext { branch_id })
+            .await
+    } else {
+        tracing::warn!("received askpass prompt but no broker was supplied; returning None");
+        None
+    }
 }

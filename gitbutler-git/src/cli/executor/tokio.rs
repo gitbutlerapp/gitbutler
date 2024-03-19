@@ -24,7 +24,7 @@ unsafe impl super::GitExecutor for TokioExecutor {
 
         // Output the command being executed to stderr, for debugging purposes
         // (only on test configs).
-        #[cfg(test)]
+        #[cfg(any(test, debug_assertions))]
         {
             let mut envs_str = String::new();
             if let Some(envs) = &envs {
@@ -45,6 +45,16 @@ unsafe impl super::GitExecutor for TokioExecutor {
         }
 
         let output = cmd.output().await?;
+
+        #[cfg(any(test, debug_assertions))]
+        {
+            eprintln!(
+                "\n\n GIT STDOUT:\n\n{}\n\nGIT STDERR:\n\n{}\n\nGIT EXIT CODE: {}\n",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr),
+                output.status.code().unwrap_or(127) as usize
+            );
+        }
 
         Ok((
             output.status.code().unwrap_or(127) as usize,

@@ -1935,6 +1935,7 @@ dependencies = [
  "futures",
  "git2",
  "git2-hooks",
+ "gitbutler-git",
  "governor",
  "itertools 0.12.1",
  "lazy_static",
