@@ -202,6 +202,51 @@ impl Controller {
 
         Ok(())
     }
+
+    pub fn get_local_config(
+        &self,
+        id: &ProjectId,
+        key: &str,
+    ) -> Result<Option<String>, ConfigError> {
+        let project = self.projects_storage.get(id).map_err(|error| match error {
+            super::storage::Error::NotFound => ConfigError::NotFound,
+            error => ConfigError::Other(error.into()),
+        })?;
+
+        let repo = project_repository::Repository::open(&project)
+            .map_err(|e| ConfigError::Other(e.into()))?;
+        repo.config()
+            .get_local(key)
+            .map_err(|e| ConfigError::Other(e.into()))
+    }
+
+    pub fn set_local_config(
+        &self,
+        id: &ProjectId,
+        key: &str,
+        value: &str,
+    ) -> Result<(), ConfigError> {
+        let project = self.projects_storage.get(id).map_err(|error| match error {
+            super::storage::Error::NotFound => ConfigError::NotFound,
+            error => ConfigError::Other(error.into()),
+        })?;
+
+        let repo = project_repository::Repository::open(&project)
+            .map_err(|e| ConfigError::Other(e.into()))?;
+        repo.config()
+            .set_local(key, value)
+            .map_err(|e| ConfigError::Other(e.into()))?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ConfigError {
+    #[error("project not found")]
+    NotFound,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
 }
 
 #[derive(Debug, thiserror::Error)]

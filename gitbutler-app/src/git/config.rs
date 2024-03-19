@@ -46,6 +46,25 @@ impl Config {
             Err(e) => Err(e),
         }
     }
+
+    pub fn set_local(&self, key: &str, val: &str) -> Result<()> {
+        match self.config.open_level(git2::ConfigLevel::Local) {
+            Ok(mut local) => local.set_str(key, val).map_err(Into::into),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn get_local(&self, key: &str) -> Result<Option<String>> {
+        match self
+            .config
+            .open_level(git2::ConfigLevel::Local)
+            .and_then(|local| local.get_string(key))
+        {
+            Ok(value) => Ok(Some(value)),
+            Err(e) if e.code() == git2::ErrorCode::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
 }
 
 #[cfg(test)]

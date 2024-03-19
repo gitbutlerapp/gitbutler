@@ -158,3 +158,44 @@ pub async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Er
         .await
         .map_err(Into::into)
 }
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn git_get_local_config(
+    handle: tauri::AppHandle,
+    id: &str,
+    key: &str,
+) -> Result<Option<String>, Error> {
+    let id = id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".into(),
+    })?;
+    handle
+        .state::<Controller>()
+        .get_local_config(&id, key)
+        .map_err(|e| Error::UserError {
+            code: Code::Projects,
+            message: e.to_string(),
+        })
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn git_set_local_config(
+    handle: tauri::AppHandle,
+    id: &str,
+    key: &str,
+    value: &str,
+) -> Result<(), Error> {
+    let id = id.parse().map_err(|_| Error::UserError {
+        code: Code::Validation,
+        message: "Malformed project id".into(),
+    })?;
+    handle
+        .state::<Controller>()
+        .set_local_config(&id, key, value)
+        .map_err(|e| Error::UserError {
+            code: Code::Projects,
+            message: e.to_string(),
+        })
+}
