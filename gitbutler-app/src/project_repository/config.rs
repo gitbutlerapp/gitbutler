@@ -40,4 +40,12 @@ impl Config<'_> {
     pub fn user_email(&self) -> Result<Option<String>, git::Error> {
         self.git_repository.config()?.get_string("user.email")
     }
+
+    pub fn set_local(&self, key: &str, val: &str) -> Result<(), git::Error> {
+        self.git_repository.config()?.set_local(key, val)
+    }
+
+    pub fn get_local(&self, key: &str) -> Result<Option<String>, git::Error> {
+        self.git_repository.config()?.get_local(key)
+    }
 }

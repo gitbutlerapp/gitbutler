@@ -247,6 +247,8 @@ fn main() {
                     projects::commands::update_project,
                     projects::commands::delete_project,
                     projects::commands::list_projects,
+                    projects::commands::git_get_local_config,
+                    projects::commands::git_set_local_config,
                     sessions::commands::list_sessions,
                     deltas::commands::list_deltas,
                     virtual_branches::commands::list_virtual_branches,
