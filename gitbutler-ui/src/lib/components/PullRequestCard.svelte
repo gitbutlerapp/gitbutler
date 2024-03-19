@@ -75,14 +75,11 @@
 			checksStatus = await githubService.checks($pr$?.targetBranch);
 			lastChecksFetch = createTimeAgoStore(new Date(), true);
 		} catch (e: any) {
+			console.error(e);
 			checksError = e.message;
-			// No commit found if branch has been removed or pr merged
-			if (e.message.includes('No commit found')) {
-				checksStatus = { error: 'Could not load checks' };
-			} else {
-				checksError = e.message;
+			checksStatus = { error: 'could not load checks' };
+			if (!e.message.includes('No commit found')) {
 				toasts.error('Failed to fetch checks');
-				console.error(e);
 			}
 		} finally {
 			isFetchingChecks = false;
@@ -226,7 +223,7 @@
 			>
 				{statusLabel}
 			</Tag>
-			{#if checksStatus !== null}
+			{#if !pr.closedAt && checksStatus !== null}
 				<Tag
 					icon={checksIcon}
 					color={checksColor}
