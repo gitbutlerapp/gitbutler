@@ -21,6 +21,8 @@
 	export let type: 'text' | 'password' | 'select' = 'text';
 
 	const dispatch = createEventDispatcher<{ input: string; change: string }>();
+
+	let showPassword = false;
 </script>
 
 <div class="textbox" bind:this={element} class:wide>
@@ -48,7 +50,7 @@
 			{placeholder}
 			{spellcheck}
 			{disabled}
-			{...{ type }}
+			{...type == 'password' && showPassword ? { type: 'text' } : { type }}
 			class="text-input textbox__input text-base-13"
 			class:textbox__readonly={type != 'select' && readonly}
 			class:select-none={noselect}
@@ -59,6 +61,17 @@
 			on:input={(e) => dispatch('input', e.currentTarget.value)}
 			on:change={(e) => dispatch('change', e.currentTarget.value)}
 		/>
+
+		{#if type == 'password'}
+			<button
+				class="textbox__show-hide-icon"
+				on:click={() => {
+					showPassword = !showPassword;
+				}}
+			>
+				<Icon name={showPassword ? 'eye-shown' : 'eye-hidden'} />
+			</button>
+		{/if}
 	</div>
 </div>
 
@@ -103,6 +116,26 @@
 		top: 50%;
 		color: var(--clr-theme-scale-ntrl-50);
 		transform: translateY(-50%);
+	}
+
+	.textbox__show-hide-icon {
+		z-index: 2;
+		position: absolute;
+		top: 50%;
+		right: var(--size-6);
+		color: var(--clr-theme-scale-ntrl-50);
+		transform: translateY(-50%);
+		display: flex;
+		padding: var(--size-2) var(--size-4);
+		border-radius: var(--radius-m);
+		transition: background-color var(--transition-fast);
+
+		&:hover,
+		&:focus {
+			color: var(--clr-theme-scale-ntrl-40);
+			outline: none;
+			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
+		}
 	}
 
 	/* Modifiers */
