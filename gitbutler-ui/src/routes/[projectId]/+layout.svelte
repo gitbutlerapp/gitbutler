@@ -82,7 +82,7 @@
 		<ProblemLoadingRepo project={$project$} error={$branchesError} />
 	{:else if !$gbBranchActive$ && $baseBranch}
 		<NotOnGitButlerBranch project={$project$} baseBranch={$baseBranch} />
-	{:else}
+	{:else if $baseBranch}
 		<div class="view-wrap" role="group" on:dragover|preventDefault>
 			<Navigation project={$project$} user={$user$} />
 			<slot />
