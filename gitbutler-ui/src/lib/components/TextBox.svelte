@@ -112,7 +112,7 @@
 			padding-left: calc(var(--size-32) + var(--size-2));
 		}
 		& .textbox__icon {
-			left: var(--size-12);
+			left: var(--size-10);
 		}
 	}
 
@@ -121,7 +121,7 @@
 			padding-right: calc(var(--size-32) + var(--size-2));
 		}
 		& .textbox__icon {
-			right: var(--size-12);
+			right: var(--size-10);
 		}
 	}
 
