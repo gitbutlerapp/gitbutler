@@ -1,6 +1,7 @@
 <script lang="ts">
 	import PassphraseBox from './PassphraseBox.svelte';
 	import PushButton, { BranchAction } from './PushButton.svelte';
+	import { PromptService, type SystemPrompt } from '$lib/backend/prompt';
 	import { BranchService } from '$lib/branches/service';
 	import Button from '$lib/components/Button.svelte';
 	import { GitHubService } from '$lib/github/service';
@@ -19,13 +20,20 @@
 	const branchService = getContextByClass(BranchService);
 	const githubService = getContextByClass(GitHubService);
 	const branchController = getContextByClass(BranchController);
+	const promptService = getContextByClass(PromptService);
 	const baseBranch = getContextStoreByClass(BaseBranch);
 
 	$: githubServiceState$ = githubService.getState(branch.id);
 	$: pr$ = githubService.getPr$(branch.upstreamName);
 
+	$: prompt$ = promptService.prompt$;
+	$: if ($prompt$) showPrompt($prompt$);
+
+	let prompt: SystemPrompt | undefined;
 	let isPushing: boolean;
 	let isMerging: boolean;
+	let passphrase = '';
+	let isSubmitting = false;
 
 	interface CreatePrOpts {
 		draft: boolean;
@@ -61,25 +69,27 @@
 		}
 	}
 
-	let isPassphraseBoxVisible = false;
-	let passphraseInputValue = 'sdf';
-	let isSubmitting = false;
+	function showPrompt(newPrompt: SystemPrompt) {
+		if (newPrompt.context?.branch_id == branch.id) prompt = newPrompt;
+	}
 </script>
 
 {#if !isUnapplied && type != 'integrated'}
 	<div class="actions" class:hasCommits>
-		{#if isPassphraseBoxVisible}
+		{#if prompt && type == 'local'}
 			<PassphraseBox
-				bind:value={passphraseInputValue}
+				bind:value={passphrase}
+				{prompt}
 				{isSubmitting}
-				on:submit={() => {
+				on:submit={async () => {
+					if (!prompt) return;
 					isSubmitting = true;
-					setTimeout(() => {
-						isSubmitting = false;
-					}, 2000);
+					await promptService.respond({ id: prompt.id, response: passphrase });
+					isSubmitting = false;
+					prompt = undefined;
 				}}
-				on:cancel={() => {
-					isPassphraseBoxVisible = false;
+				on:cancel={async () => {
+					prompt = undefined;
 				}}
 			/>
 		{:else if githubService.isEnabled && (type == 'local' || type == 'remote')}
@@ -152,9 +162,6 @@
 		padding-left: var(--size-16);
 	}
 	.actions {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-8);
 		&:empty {
 			display: none;
 		}

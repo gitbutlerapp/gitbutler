@@ -5,6 +5,7 @@ import { AuthService } from '$lib/backend/auth';
 import { getCloudApiClient } from '$lib/backend/cloud';
 import { GitConfigService } from '$lib/backend/gitConfigService';
 import { ProjectService } from '$lib/backend/projects';
+import { PromptService } from '$lib/backend/prompt';
 import { UpdaterService } from '$lib/backend/updater';
 import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
 import { GitHubService } from '$lib/github/service';
@@ -41,6 +42,7 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 	const authService = new AuthService();
 	const projectService = new ProjectService(defaultPath);
 	const updaterService = new UpdaterService();
+	const promptService = new PromptService();
 	const userService = new UserService();
 	const user$ = userService.user$;
 
@@ -64,6 +66,7 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 		githubService,
 		projectService,
 		updaterService,
+		promptService,
 		userService,
 
 		// These observables are provided for convenience

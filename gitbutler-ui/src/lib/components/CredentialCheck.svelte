@@ -21,23 +21,17 @@
 		if (!remoteName || !branchName) return;
 		loading = true;
 		errors = 0;
+		checks = [];
 
 		try {
-			checks = [
-				{ name: 'Fetch', promise: authService.checkGitFetch(projectId, remoteName) },
-				{
-					name: 'Push',
-					promise: authService.checkGitPush(projectId, remoteName, branchName)
-				}
-			];
-			await Promise.allSettled(
-				checks.map((c) =>
-					c.promise.catch((reason) => {
-						++errors; // Shows error state as soon as any promise is rejected
-						throw reason;
-					})
-				)
-			);
+			const fetchCheck = authService.checkGitFetch(projectId, remoteName);
+			checks = [{ name: 'Fetch', promise: fetchCheck }];
+			await fetchCheck;
+			const pushCheck = authService.checkGitPush(projectId, remoteName, branchName);
+			checks = [...checks, { name: 'Push', promise: pushCheck }];
+			await pushCheck;
+		} catch {
+			errors = 1;
 		} finally {
 			loading = false;
 		}

@@ -24,7 +24,7 @@
 		e.preventDefault();
 		e.stopPropagation();
 		if (cloudEnabled) syncToCloud(projectId); // don't wait for this
-		await baseBranchService.fetchFromTarget();
+		await baseBranchService.fetchFromTarget('modal');
 		if (githubService.isEnabled) {
 			await githubService.reload();
 		}

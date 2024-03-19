@@ -18,15 +18,14 @@
 	export let project: Project;
 
 	const baseBranch = getContextStoreByClass(BaseBranch);
+	const projectService = getContextByClass(ProjectService);
 
 	// Used by credential checker before target branch set
 	export let remoteName = '';
 	export let branchName = '';
 
-	const projectService = getContextByClass(ProjectService);
-
-	let credentialCheck: CredentialCheck;
 	let sshKey = '';
+	let credentialCheck: CredentialCheck;
 
 	let selectedType: KeyType =
 		typeof project.preferred_key == 'string' ? project.preferred_key : 'local';
@@ -166,6 +165,21 @@
 				</div>
 			</SectionCard>
 		{/if}
+
+		<SectionCard
+			roundedTop={false}
+			roundedBottom={false}
+			orientation="row"
+			labelFor="git-executable"
+		>
+			<svelte:fragment slot="title">Use a Git executable</svelte:fragment>
+
+			<svelte:fragment slot="caption">Git executable must be present on your PATH</svelte:fragment>
+
+			<svelte:fragment slot="actions">
+				<RadioButton name="credentialType" value="systemExecutable" id="git-executable" />
+			</svelte:fragment>
+		</SectionCard>
 
 		<SectionCard
 			roundedTop={false}
