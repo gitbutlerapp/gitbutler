@@ -10,7 +10,7 @@ pub use self::executor::Uid;
 
 pub use self::{
     executor::{AskpassServer, FileStat, GitExecutor, Pid, Socket},
-    repository::fetch,
+    repository::{fetch, push},
 };
 
 #[cfg(feature = "tokio")]
