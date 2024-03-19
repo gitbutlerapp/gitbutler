@@ -144,10 +144,7 @@ impl Helper {
         }
 
         match &project_repository.project().preferred_key {
-            projects::AuthKey::Local {
-                private_key_path,
-                passphrase,
-            } => {
+            projects::AuthKey::Local { private_key_path } => {
                 let ssh_remote = if remote_url.scheme == super::Scheme::Ssh {
                     Ok(remote)
                 } else {
@@ -159,7 +156,7 @@ impl Helper {
                     ssh_remote,
                     vec![Credential::Ssh(SshCredential::Keyfile {
                         key_path: private_key_path.clone(),
-                        passphrase: passphrase.clone(),
+                        passphrase: None,
                     })],
                 )])
             }
@@ -457,7 +454,6 @@ mod tests {
                     github_access_token: Some("token"),
                     preferred_key: projects::AuthKey::Local {
                         private_key_path: PathBuf::from("/tmp/id_rsa"),
-                        passphrase: None,
                     },
                     ..Default::default()
                 };
@@ -483,7 +479,6 @@ mod tests {
                     github_access_token: Some("token"),
                     preferred_key: projects::AuthKey::Local {
                         private_key_path: PathBuf::from("/tmp/id_rsa"),
-                        passphrase: None,
                     },
                     ..Default::default()
                 };
@@ -660,7 +655,6 @@ mod tests {
                         github_access_token: Some("token"),
                         preferred_key: projects::AuthKey::Local {
                             private_key_path: PathBuf::from("/tmp/id_rsa"),
-                            passphrase: None,
                         },
                         ..Default::default()
                     };
@@ -686,7 +680,6 @@ mod tests {
                         github_access_token: Some("token"),
                         preferred_key: projects::AuthKey::Local {
                             private_key_path: PathBuf::from("/tmp/id_rsa"),
-                            passphrase: None,
                         },
                         ..Default::default()
                     };
