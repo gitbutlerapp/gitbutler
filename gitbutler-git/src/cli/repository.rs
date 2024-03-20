@@ -261,7 +261,7 @@ where
     Fut: std::future::Future<Output = Option<String>>,
     Extra: Send + Clone,
 {
-    let mut args = vec!["fetch", "--quiet", "--no-write-fetch-head"];
+    let mut args = vec!["fetch", "--quiet"];
 
     let refspec = refspec.to_string();
 
