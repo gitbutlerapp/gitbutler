@@ -1,6 +1,6 @@
 {
 	"build": {
-		"beforeBuildCommand": "pnpm build:nightly"
+		"beforeBuildCommand": "pnpm build:nightly && cargo build --release -p gitbutler-git && ./gitbutler-app/inject-git-binaries.sh"
 	},
 	"package": {
 		"productName": "GitButler Nightly"
@@ -14,7 +14,11 @@
 				"icons/128x128@2x.png",
 				"icons/icon.icns",
 				"icons/icon.ico"
-			]
+			],
+            "externalBin": [
+                "gitbutler-git-setsid",
+                "gitbutler-git-askpass"
+            ]
 		},
 		"security": {
 			"csp": {

@@ -152,7 +152,7 @@ where
             {
                 #[cfg(not(target_os = "windows"))]
                 {
-                    format!("{setsid_path} ")
+                    format!("'{setsid_path}' ")
                 }
                 #[cfg(target_os = "windows")]
                 {
