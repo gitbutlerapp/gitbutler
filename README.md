@@ -107,7 +107,7 @@ You can find our end user documentation at: https://docs.gitbutler.com
 ## Bugs and Feature Requests
 
 If you have a bug or feature request, feel free to open an [issue](https://github.com/gitbutlerapp/gitbutler/issues/new),
-or [join our Discord server](https://discord.gg/wDKZCPEjXC).
+or [join our Discord server](https://discord.gg/MmFkmaJ42D).
 
 ## AI Commit Message Generation
 

@@ -53,7 +53,7 @@
 		<div class="links__section">
 			<p class="links__title text-base-14 text-bold">Join our community</p>
 			<div class="community-links">
-				<IconLink icon="discord" href="https://discord.gg/wDKZCPEjXC">Discord</IconLink>
+				<IconLink icon="discord" href="https://discord.gg/MmFkmaJ42D">Discord</IconLink>
 				<IconLink icon="x" href="https://twitter.com/gitbutler">X</IconLink>
 				<IconLink icon="instagram" href="https://www.instagram.com/gitbutler/">Instagram</IconLink>
 			</div>
