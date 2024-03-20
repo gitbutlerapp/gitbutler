@@ -29,10 +29,14 @@ unsafe impl super::GitExecutor for TokioExecutor {
             let mut envs_str = String::new();
             if let Some(envs) = &envs {
                 for (key, value) in envs.iter() {
-                    envs_str.push_str(&format!("{}={} ", key, value));
+                    envs_str.push_str(&format!("{key}={value:?} "));
                 }
             }
-            let args_str = args.join(" ");
+            let args_str = args
+                .iter()
+                .map(|s| format!("{s:?}"))
+                .collect::<Vec<_>>()
+                .join(" ");
             eprintln!("env {envs_str} git {args_str}");
         }
 
