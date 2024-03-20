@@ -83,16 +83,13 @@
 	async function generateBranchName() {
 		if (!aiGenEnabled) return;
 
-		const diff = branch.files
-			.map((f) => f.hunks)
-			.flat()
-			.map((h) => h.diff)
-			.flat()
-			.join('\n')
-			.slice(0, 5000);
+		const hunks = branch.files.flatMap((f) => f.hunks);
 
 		try {
-			const message = await aiService.summarizeBranch({ diff, userToken: $user?.access_token });
+			const message = await aiService.summarizeBranch({
+				hunks,
+				userToken: $user?.access_token
+			});
 
 			if (message && message !== branch.name) {
 				branch.name = message;

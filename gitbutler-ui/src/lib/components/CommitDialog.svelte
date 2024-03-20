@@ -90,14 +90,9 @@
 	}
 
 	async function generateCommitMessage(files: LocalFile[]) {
-		const diff = files
-			.map((f) => f.hunks.filter((h) => $selectedOwnership.containsHunk(f.id, h.id)))
-			.flat()
-			.map((h) => h.diff)
-			.flat()
-			.join('\n')
-			.slice(0, 5000);
-
+		const hunks = files.flatMap((f) =>
+			f.hunks.filter((h) => $selectedOwnership.containsHunk(f.id, h.id))
+		);
 		// Branches get their names generated only if there are at least 4 lines of code
 		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
 		// or the user has to manually trigger the name generation from the meatball menu
@@ -109,7 +104,7 @@
 		aiLoading = true;
 		try {
 			const generatedMessage = await aiService.summarizeCommit({
-				diff,
+				hunks,
 				useEmojiStyle: $commitGenerationUseEmojis,
 				useBriefStyle: $commitGenerationExtraConcise,
 				userToken: $user?.access_token
