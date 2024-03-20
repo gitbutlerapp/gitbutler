@@ -22,7 +22,7 @@ export class PromptService {
 	prompt$ = new Subject<SystemPrompt>();
 
 	private unlisten = listen<SystemPrompt>('git_prompt', async (e) => {
-		// You can send an action token to e.g. `fetch_target_data` and it will be echoed in
+		// You can send an action token to e.g. `fetch_from_target` and it will be echoed in
 		// these events. The action `auto` is used by the `BaseBranchService` so we can not
 		// respond to them.
 		if (e.payload.context?.action != 'auto') {

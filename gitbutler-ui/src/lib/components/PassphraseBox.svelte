@@ -22,7 +22,7 @@
 
 <div class="passbox">
 	<span class="text-base-body-11 passbox__helper-text">
-		{prompt}
+		{prompt?.prompt}
 	</span>
 	<TextBox
 		focus
