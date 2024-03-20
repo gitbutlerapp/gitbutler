@@ -8,7 +8,7 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import * as hotkeys from '$lib/utils/hotkeys';
-	import { unsubscribe } from '$lib/utils/random';
+	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { platform } from '@tauri-apps/api/os';
 	import { from } from 'rxjs';
 	import { onMount } from 'svelte';

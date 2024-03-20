@@ -15,8 +15,8 @@
 	import { UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
 	import * as hotkeys from '$lib/utils/hotkeys';
-	import { unsubscribe } from '$lib/utils/random';
 	import { initTheme } from '$lib/utils/theme';
+	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { onMount, setContext } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
