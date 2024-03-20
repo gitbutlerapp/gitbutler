@@ -209,6 +209,17 @@ export class BranchController {
                     `,
 					style: 'error'
 				});
+			} else if (err.code === 'errors.projects.git.auth') {
+				showToast({
+					title: 'Git push failed',
+					message: `
+                        Your branch cannot be pushed due to a Project remote authentication error. Please make sure you have added your SSH key to GitHub. To add your SSH key to GitHub, please navigate to your project settings and enable SSH key authentication. You can find detailed instructions in the [documentation](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)
+						on adding an SSH key to your GitHub account.
+
+                        \`\`\`${err.message}\`\`\`
+                    `,
+					style: 'error'
+				});
 			} else {
 				showToast({
 					title: 'Git push failed',
@@ -218,7 +229,7 @@ export class BranchController {
                         Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
                         on fetching and pushing for ways to resolve the problem.
 
-                        \`\`\`${err.message}\`\`\`
+                        \`\`\`${err.message+" the error code--> "+ err.code}\`\`\`
                     `,
 					style: 'error'
 				});
