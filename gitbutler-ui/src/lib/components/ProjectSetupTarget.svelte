@@ -1,4 +1,5 @@
 <script async lang="ts">
+	import ProjectNameLabel from './ProjectNameLabel.svelte';
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
@@ -14,6 +15,7 @@
 	import { createEventDispatcher } from 'svelte';
 
 	export let projectId: string;
+	export let projectName: string;
 	export let remoteBranches: { name: string }[];
 
 	const userService = getContextByClass(UserService);
@@ -40,7 +42,8 @@
 
 <div class="project-setup">
 	<div class="project-setup__info">
-		<p class="text-base-body-14 text-bold">Target branch</p>
+		<ProjectNameLabel {projectName} />
+		<h3 class="text-base-body-14 text-bold">Target branch</h3>
 		<p class="text-base-body-12">
 			This is the branch that you consider "production", normally something like "origin/master" or
 			"origin/main".
