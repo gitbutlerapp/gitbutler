@@ -21,45 +21,62 @@
 			modal.show();
 		}
 	}
+
+	async function submit() {
+		if (!prompt) return;
+		isSubmitting = true;
+		try {
+			await promptService.respond({ id: prompt.id, response: value });
+		} catch (err) {
+			console.error(err);
+		} finally {
+			isSubmitting = false;
+			clear();
+		}
+	}
+
+	async function cancel() {
+		if (!prompt) return;
+		try {
+			await promptService.cancel(prompt.id);
+		} catch (err) {
+			console.error(err);
+		} finally {
+			clear();
+		}
+	}
+
+	function clear() {
+		modal.close();
+		prompt = undefined;
+		value = '';
+	}
 </script>
 
 <Modal bind:this={modal} width="small" title={prompt?.prompt}>
-	<TextBox focus type="password" bind:value />
+	<TextBox
+		focus
+		type="password"
+		bind:value
+		on:keydown={(e) => {
+			if (e.detail.key == 'Enter') submit();
+		}}
+	/>
 
-	<svelte:fragment slot="controls" let:close>
+	<svelte:fragment slot="controls">
 		<Button
 			color="neutral"
 			disabled={isSubmitting}
 			kind="outlined"
-			on:click={async () => {
-				if (!prompt) return;
-				try {
-					await promptService.cancel(prompt.id);
-				} catch (err) {
-					console.error(err);
-				} finally {
-					prompt = undefined;
-					close();
-				}
+			on:click={() => {
+				cancel();
 			}}
 		>
 			Cancel
 		</Button>
 		<Button
 			grow
-			on:click={async () => {
-				if (!prompt) return;
-				isSubmitting = true;
-				try {
-					await promptService.respond({ id: prompt.id, response: value });
-				} catch (err) {
-					console.error(err);
-				} finally {
-					isSubmitting = false;
-					value = '';
-					close();
-				}
-			}}
+			on:click={async () => await submit()}
 			disabled={isSubmitting}
 			loading={isSubmitting}
 		>
