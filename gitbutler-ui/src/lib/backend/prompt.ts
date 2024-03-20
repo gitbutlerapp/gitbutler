@@ -6,6 +6,7 @@ export type SystemPrompt = {
 	id: string;
 	prompt: string;
 	context?: {
+		// TODO: camelCase this field
 		branch_id?: string;
 		action?: string;
 	};
@@ -20,19 +21,19 @@ type PromptResponse = {
 export class PromptService {
 	prompt$ = new Subject<SystemPrompt>();
 
-	constructor() {
-		this.subscribe(async (payload) => {
-			if (payload.context?.action == 'auto') {
-				this.cancel(payload.id).then(() => console.log('cancelled auto askpass', payload));
-			} else {
-				this.prompt$.next(payload);
-			}
-		});
-	}
+	private unlisten = listen<SystemPrompt>('git_prompt', async (e) => {
+		// You can send an action token to e.g. `fetch_target_data` and it will be echoed in
+		// these events. The action `auto` is used by the `BaseBranchService` so we can not
+		// respond to them.
+		if (e.payload.context?.action != 'auto') {
+			this.prompt$.next(e.payload);
+		} else {
+			// Always cancel actions that are marked "auto", e.g. periodic sync
+			await this.cancel(e.payload.id);
+		}
+	});
 
-	private subscribe(callback: (params: SystemPrompt) => Promise<void> | void) {
-		return listen<SystemPrompt>('git_prompt', (e) => callback(e.payload));
-	}
+	constructor() {}
 
 	async respond(payload: PromptResponse) {
 		return await invoke('submit_prompt_response', payload);
@@ -40,5 +41,9 @@ export class PromptService {
 
 	async cancel(id: string) {
 		return await invoke('submit_prompt_response', { id: id, response: null });
+	}
+
+	destroy() {
+		this.unlisten();
 	}
 }
