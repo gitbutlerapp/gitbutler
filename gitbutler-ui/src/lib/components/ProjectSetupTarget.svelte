@@ -213,5 +213,6 @@
 	.success-icon {
 		display: inline;
 		margin-top: calc(var(--size-2) * -1);
+		margin-left: var(--size-2);
 	}
 </style>
