@@ -1,11 +1,12 @@
 import { AnthropicAIClient } from '$lib/backend/aiClients/anthropic';
 import { ButlerAIClient } from '$lib/backend/aiClients/butler';
 import { OpenAIClient } from '$lib/backend/aiClients/openAI';
+import { splitMessage } from '$lib/utils/commitMessage';
 import * as toasts from '$lib/utils/toasts';
 import OpenAI from 'openai';
-import type { AIClient } from './aiClient';
-import type { getCloudApiClient } from './cloud';
-import type { GitConfigService } from './gitConfigService';
+import type { AIClient } from '$lib/backend/aiClient';
+import type { getCloudApiClient } from '$lib/backend/cloud';
+import type { GitConfigService } from '$lib/backend/gitConfigService';
 
 const diffLengthLimit = 20000;
 
@@ -209,8 +210,8 @@ export class AIService {
 			message = message.split('\n')[0];
 		}
 
-		const [summary, description] = message.split(/\n+(.*)/s);
-		return description ? `${summary}\n\n${description}` : summary;
+		const { title, description } = splitMessage(message);
+		return description ? `${title}\n\n${description}` : title;
 	}
 
 	async summarizeBranch({
