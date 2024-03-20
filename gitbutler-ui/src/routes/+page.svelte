@@ -43,7 +43,7 @@
 		<AnalyticsConfirmation {analyticsConfirmed} />
 	</DecorativeSplitView>
 {:else if $redirect$ === null}
-	<DecorativeSplitView user={$user} img={newProjectSvg}>
+	<DecorativeSplitView user={$user} img={newProjectSvg} showLinks={false}>
 		<Welcome />
 	</DecorativeSplitView>
 {/if}
