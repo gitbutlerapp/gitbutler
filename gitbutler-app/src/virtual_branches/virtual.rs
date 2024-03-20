@@ -2665,7 +2665,7 @@ pub fn push(
         with_force,
         credentials,
         None,
-        askpass.clone(),
+        askpass,
     )?;
 
     vbranch.upstream = Some(remote_branch.clone());
@@ -2673,12 +2673,6 @@ pub fn push(
     branch_writer
         .write(&mut vbranch)
         .context("failed to write target branch after push")?;
-
-    project_repository.fetch(
-        remote_branch.remote(),
-        credentials,
-        askpass.map(|(broker, _)| (broker, "push".to_string())),
-    )?;
 
     Ok(())
 }
