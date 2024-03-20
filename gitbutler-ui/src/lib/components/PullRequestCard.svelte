@@ -223,7 +223,7 @@
 			>
 				{statusLabel}
 			</Tag>
-			{#if !pr.closedAt && checksStatus !== null}
+			{#if !detailedPr?.closedAt && checksStatus !== null}
 				<Tag
 					icon={checksIcon}
 					color={checksColor}
