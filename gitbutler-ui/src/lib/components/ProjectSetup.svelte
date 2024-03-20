@@ -47,6 +47,7 @@
 	{:else}
 		<ProjectSetupTarget
 			projectId={project.id}
+			projectName={project.title}
 			{remoteBranches}
 			on:branchSelected={(e) => {
 				selectedBranch = e.detail;

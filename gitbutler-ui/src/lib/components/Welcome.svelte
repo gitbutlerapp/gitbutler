@@ -43,7 +43,7 @@
 					icon="docs"
 					href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
 				>
-					GitButler Docs
+					GitButler docs
 				</IconLink>
 				<IconLink icon="video" href="https://www.youtube.com/@gitbutlerapp">
 					Watch tutorials

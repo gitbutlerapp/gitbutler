@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CredentialCheck from './CredentialCheck.svelte';
+	import ProjectNameLabel from './ProjectNameLabel.svelte';
 	import RadioButton from './RadioButton.svelte';
 	import SectionCard from './SectionCard.svelte';
 	import TextBox from './TextBox.svelte';
@@ -72,6 +73,7 @@
 </script>
 
 <div class="git-auth-wrap">
+	<ProjectNameLabel projectName={project.title} />
 	<h3 class="text-base-15 text-bold">Git Authentication</h3>
 	<p class="text-base-body-12">
 		Configure the authentication flow for GitButler when authenticating with your Git remote
@@ -229,12 +231,6 @@
 		flex-direction: column;
 		gap: var(--size-16);
 		width: 100%;
-	}
-
-	.input-with-button {
-		display: flex;
-		gap: var(--size-8);
-		align-items: flex-end;
 	}
 
 	.row-buttons {

@@ -41,15 +41,15 @@
 							href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
 						>
 							<Icon name="docs" opacity={0.6} />
-							<span class="text-base-14 text-semibold">GitButler Docs</span>
+							<span class="text-base-14 text-semibold">GitButler docs</span>
 						</a>
 						<a
 							class="right-side__link"
 							target="_blank"
-							href="https://www.youtube.com/@gitbutlerapp"
+							href="https://discord.com/invite/MmFkmaJ42D"
 						>
-							<Icon name="video" opacity={0.6} />
-							<span class="text-base-14 text-semibold">Watch tutorials</span>
+							<Icon name="discord" opacity={0.6} />
+							<span class="text-base-14 text-semibold">Join community</span>
 						</a>
 					</div>
 

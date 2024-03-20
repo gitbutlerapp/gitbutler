@@ -2,11 +2,11 @@
 	import Button from './Button.svelte';
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
 	import Link from './Link.svelte';
+	import ProjectNameLabel from './ProjectNameLabel.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import { ProjectService, type Project } from '$lib/backend/projects';
-	import Icon from '$lib/components/Icon.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
@@ -46,7 +46,9 @@
 
 <DecorativeSplitView user={$user} img={derectionDoubtSvg}>
 	<div class="switchrepo">
-		<p class="project-name text-bold"><Icon name="repo-book" /> {project?.title}</p>
+		<div class="project-name">
+			<ProjectNameLabel projectName={project?.title} />
+		</div>
 		<p class="switchrepo__title text-base-body-18 text-bold">
 			Looks like you've switched away from <span class="repo-name"> gitbutler/integration </span>
 		</p>

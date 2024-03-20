@@ -145,7 +145,7 @@
 											<Icon name="docs" />
 										</div>
 
-										<span class="text-base-12">GitButler Docs</span>
+										<span class="text-base-12">GitButler docs</span>
 									</a>
 									<div
 										class="empty-board__suggestions__link"

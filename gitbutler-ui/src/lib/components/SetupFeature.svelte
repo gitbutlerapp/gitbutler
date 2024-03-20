@@ -71,8 +71,6 @@
 	}
 
 	.setup-feature__actions {
-		margin-top: var(--size-6);
-
 		&:empty {
 			display: none;
 		}
