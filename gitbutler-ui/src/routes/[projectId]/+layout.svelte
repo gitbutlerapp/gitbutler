@@ -7,7 +7,7 @@
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import { subscribe as menuSubscribe } from '$lib/menu';
 	import * as hotkeys from '$lib/utils/hotkeys';
-	import { unsubscribe } from '$lib/utils/random';
+	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { BaseBranch } from '$lib/vbranches/types';
