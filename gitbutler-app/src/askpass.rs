@@ -66,7 +66,7 @@ impl AskpassBroker {
 pub mod commands {
     use super::{AppHandle, AskpassBroker, AskpassRequest, Id, Manager};
     #[tauri::command(async)]
-    #[tracing::instrument(skip(handle))]
+    #[tracing::instrument(skip(handle, response))]
     pub async fn submit_prompt_response(
         handle: AppHandle,
         id: Id<AskpassRequest>,
