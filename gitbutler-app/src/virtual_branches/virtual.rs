@@ -1513,7 +1513,7 @@ pub fn merge_virtual_branch_upstream(
             let (_, committer) = project_repository.git_signatures(user)?;
             let mut rebase_options = git2::RebaseOptions::new();
             rebase_options.quiet(true);
-            rebase_options.inmemory(true);
+            rebase_options.inmemory(false);
             let mut rebase = repo
                 .rebase(
                     Some(branch.head),
@@ -1526,16 +1526,44 @@ pub fn merge_virtual_branch_upstream(
             let mut rebase_success = true;
             // check to see if these commits have already been pushed
             let mut last_rebase_head = upstream_commit.id();
-            while rebase.next().is_some() {
-                let index = rebase
-                    .inmemory_index()
-                    .context("failed to get inmemory index")?;
+            loop {
+                let rebase_operation = rebase.next();
+
+                if rebase_operation.is_none() {
+                    break;
+                }
+
+                let rebase_operation = rebase_operation.unwrap().unwrap();
+
+                let mut index = project_repository.get_index().unwrap();
                 if index.has_conflicts() {
                     rebase_success = false;
                     break;
                 }
 
-                if let Ok(commit_id) = rebase.commit(None, &committer.clone().into(), None) {
+                if signing_key.is_some() {
+                    let commit_id = rebase_operation.id();
+                    let commit = project_repository.find_commit(commit_id.into()).unwrap();
+                    let message = commit.message().unwrap();
+                    let tree_id = index.write_tree().unwrap();
+                    let tree = project_repository.find_tree(tree_id).unwrap();
+
+                    let head = project_repository.get_head().unwrap();
+                    let head_commit = head.peel_to_commit().unwrap();
+
+                    if let Ok(commit_id) = project_repository.commit(
+                        user,
+                        message,
+                        &tree,
+                        &[&head_commit],
+                        signing_key,
+                    ) {
+                        last_rebase_head = commit_id;
+                    } else {
+                        rebase_success = false;
+                        break;
+                    }
+                } else if let Ok(commit_id) = rebase.commit(None, &committer.clone().into(), None) {
                     last_rebase_head = commit_id.into();
                 } else {
                     rebase_success = false;
