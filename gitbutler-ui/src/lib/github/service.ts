@@ -43,6 +43,11 @@ export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
 export type PrCacheKey = { value: Promise<DetailedPullRequest | undefined>; fetchedAt: Date };
 
+const DEFAULT_HEADERS = {
+	'X-GitHub-Api-Version': '2022-11-28',
+	'If-None-Match': ''
+};
+
 export class GitHubService {
 	readonly prs$ = new BehaviorSubject<PullRequest[]>([]);
 
@@ -152,6 +157,7 @@ export class GitHubService {
 			try {
 				this.octokit.rest.pulls
 					.list({
+						headers: DEFAULT_HEADERS,
 						owner: this.owner,
 						repo: this.repo
 					})
@@ -188,13 +194,10 @@ export class GitHubService {
 		}
 
 		const resp = await this.octokit.pulls.get({
+			headers: DEFAULT_HEADERS,
 			owner: this.owner,
 			repo: this.repo,
-			pull_number: pr.number,
-			headers: {
-				'X-GitHub-Api-Version': '2022-11-28',
-				'If-None-Match': ''
-			}
+			pull_number: pr.number
 		});
 		const detailedPr = Promise.resolve(parsePullRequestResponse(resp.data));
 
@@ -366,25 +369,20 @@ export class GitHubService {
 	async getCheckSuites(ref: string | undefined): Promise<CheckSuites> {
 		if (!ref) return null;
 		const resp = await this.octokit.checks.listSuitesForRef({
+			headers: DEFAULT_HEADERS,
 			owner: this.owner,
 			repo: this.repo,
-			ref: ref,
-			headers: {
-				'X-GitHub-Api-Version': '2022-11-28'
-			}
+			ref: ref
 		});
 		return { count: resp.data.total_count, items: parseGitHubCheckSuites(resp.data) };
 	}
 
 	async fetchChecks(ref: string) {
 		return await this.octokit.checks.listForRef({
+			headers: DEFAULT_HEADERS,
 			owner: this.owner,
 			repo: this.repo,
-			ref: ref,
-			headers: {
-				'X-GitHub-Api-Version': '2022-11-28',
-				'If-None-Match': ''
-			}
+			ref: ref
 		});
 	}
 
