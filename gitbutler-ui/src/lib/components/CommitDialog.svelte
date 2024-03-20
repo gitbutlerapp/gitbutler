@@ -172,7 +172,7 @@
 					}}
 				/>
 
-				{#if title.length > 0}
+				{#if title.length > 0 || description}
 					<textarea
 						value={description}
 						disabled={aiLoading}
