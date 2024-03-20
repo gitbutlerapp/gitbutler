@@ -14,6 +14,7 @@
 		projectRunCommitHooks,
 		persistedCommitMessage
 	} from '$lib/config/config';
+	import { splitMessage } from '$lib/utils/commitMessage';
 	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
@@ -56,13 +57,8 @@
 	let titleTextArea: HTMLTextAreaElement;
 	let descriptionTextArea: HTMLTextAreaElement;
 
-	$: [title, description] = splitMessage($commitMessage);
+	$: ({ title, description } = splitMessage($commitMessage));
 	$: if ($commitMessage) updateHeights();
-
-	function splitMessage(message: string) {
-		const parts = message.split(/\n+(.*)/s);
-		return [parts[0] || '', parts[1] || ''];
-	}
 
 	function concatMessage(title: string, description: string) {
 		return `${title}\n\n${description}`;

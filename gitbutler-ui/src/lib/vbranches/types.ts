@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '$lib/utils/string';
 import { Type, Transform } from 'class-transformer';
 
@@ -131,26 +132,15 @@ export class Commit {
 	}
 
 	get descriptionTitle(): string | undefined {
-		return this.descriptionLines[0];
+		return splitMessage(this.description).title || undefined;
 	}
 
 	get descriptionBody(): string | undefined {
-		let sliceCount = 1;
-
-		// Remove a blank first line
-		if (this.descriptionLines[1] == '') {
-			sliceCount = 2;
-		}
-
-		return this.descriptionLines.slice(sliceCount).join('\n');
+		return splitMessage(this.description).description || undefined;
 	}
 
 	isParentOf(possibleChild: Commit) {
 		return possibleChild.parentIds.includes(this.id);
-	}
-
-	private get descriptionLines() {
-		return this.description.split('\n');
 	}
 }
 
@@ -166,22 +156,11 @@ export class RemoteCommit {
 	}
 
 	get descriptionTitle(): string | undefined {
-		return this.descriptionLines[0];
+		return splitMessage(this.description).title || undefined;
 	}
 
 	get descriptionBody(): string | undefined {
-		let sliceCount = 1;
-
-		// Remove a blank first line
-		if (this.descriptionLines[1] == '') {
-			sliceCount = 2;
-		}
-
-		return this.descriptionLines.slice(sliceCount).join('\n');
-	}
-
-	private get descriptionLines() {
-		return this.description.split('\n');
+		return splitMessage(this.description).description || undefined;
 	}
 }
 
