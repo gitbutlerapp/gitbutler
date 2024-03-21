@@ -45,7 +45,6 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 	const updaterService = new UpdaterService();
 	const promptService = new PromptService();
 	const userService = new UserService(cloud);
-	const user$ = userService.user$;
 
 	// We're declaring a remoteUrl$ observable here that is written to by `BaseBranchService`. This
 	// is a bit awkard, but `GitHubService` needs to be available at the root scoped layout.ts, such
@@ -67,11 +66,8 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 		updaterService,
 		promptService,
 		userService,
-
 		// These observables are provided for convenience
 		remoteUrl$,
-		user$,
-
 		gitConfig,
 		aiService
 	};

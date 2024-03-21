@@ -5,7 +5,6 @@
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import { ProjectService, Project } from '$lib/backend/projects';
 	import Icon from '$lib/components/Icon.svelte';
-	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { goto } from '$app/navigation';
@@ -14,9 +13,6 @@
 
 	const projectService = getContextByClass(ProjectService);
 	const project = getContextByClass(Project);
-
-	const userService = getContextByClass(UserService);
-	const user = userService.user;
 
 	let loading = false;
 	let deleteConfirmationModal: RemoveProjectButton;
@@ -38,7 +34,7 @@
 	}
 </script>
 
-<DecorativeSplitView user={$user} img={loadErrorSvg}>
+<DecorativeSplitView img={loadErrorSvg}>
 	<div class="problem" data-tauri-drag-region>
 		<p class="problem__project text-bold"><Icon name="repo-book" /> {project?.title}</p>
 		<p class="problem__title text-base-body-18 text-bold" data-tauri-drag-region>

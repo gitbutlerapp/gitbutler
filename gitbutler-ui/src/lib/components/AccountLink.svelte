@@ -1,11 +1,13 @@
 <script lang="ts">
+	import { User } from '$lib/backend/cloud';
 	import Icon from '$lib/components/Icon.svelte';
-	import type { User } from '$lib/backend/cloud';
+	import { getContextStoreByClass } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
 
-	export let user: User | undefined;
 	export let pop = false;
 	export let isNavCollapsed = false;
+
+	const user = getContextStoreByClass(User);
 </script>
 
 <button
@@ -16,21 +18,15 @@
 >
 	{#if !isNavCollapsed}
 		<span class="name text-base-13 text-semibold">
-			{#if user}
-				{#if user.name}
-					{user.name}
-				{:else if user.given_name}
-					{user.given_name}
-				{:else if user.email}
-					{user.email}
-				{/if}
+			{#if $user}
+				{$user.name || $user.given_name || $user.email}
 			{:else}
 				Account
 			{/if}
 		</span>
 	{/if}
-	{#if user?.picture}
-		<img class="profile-picture" src={user.picture} alt="Avatar" />
+	{#if $user?.picture}
+		<img class="profile-picture" src={$user.picture} alt="Avatar" />
 	{:else}
 		<div class="anon-icon">
 			<Icon name="profile" />

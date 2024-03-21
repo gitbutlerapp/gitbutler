@@ -24,7 +24,6 @@
 		projectId,
 		baseBranchService,
 		gbBranchActive$,
-		user$,
 		branchService,
 		branchController
 	} = data);
@@ -86,7 +85,7 @@
 		<NotOnGitButlerBranch baseBranch={$baseBranch} />
 	{:else if $baseBranch}
 		<div class="view-wrap" role="group" on:dragover|preventDefault>
-			<Navigation user={$user$} />
+			<Navigation />
 			<slot />
 		</div>
 	{/if}

@@ -10,11 +10,9 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch, type Branch } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';
-	import type { User } from '$lib/backend/cloud';
 
 	export let branches: Branch[] | undefined;
 	export let branchesError: any;
-	export let user: User | undefined;
 
 	const branchController = getContextByClass(BranchController);
 	const baseBranch = getContextStoreByClass(BaseBranch);
@@ -103,7 +101,7 @@
 					clone?.remove();
 				}}
 			>
-				<BranchLane {branch} branchCount={branches.filter((c) => c.active).length} {user} />
+				<BranchLane {branch} branchCount={branches.filter((c) => c.active).length} />
 			</div>
 		{/each}
 

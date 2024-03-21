@@ -7,7 +7,6 @@
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import { ProjectService, Project } from '$lib/backend/projects';
-	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -19,8 +18,6 @@
 	const branchController = getContextByClass(BranchController);
 	const projectService = getContextByClass(ProjectService);
 	const project = getContextByClass(Project);
-	const userService = getContextByClass(UserService);
-	const user = userService.user;
 
 	let isDeleting = false;
 	let deleteConfirmationModal: RemoveProjectButton;
@@ -44,7 +41,7 @@
 	}
 </script>
 
-<DecorativeSplitView user={$user} img={derectionDoubtSvg}>
+<DecorativeSplitView img={derectionDoubtSvg}>
 	<div class="switchrepo">
 		<div class="project-name">
 			<ProjectNameLabel projectName={project?.title} />

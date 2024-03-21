@@ -2,10 +2,8 @@
 	import AccountLink from '$lib/components/AccountLink.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import * as events from '$lib/utils/events';
-	import type { User } from '$lib/backend/cloud';
 	import { goto } from '$app/navigation';
 
-	export let user: User | undefined;
 	export let projectId: string | undefined;
 	export let isNavCollapsed: boolean;
 </script>
@@ -27,7 +25,7 @@
 			on:mousedown={() => goto(`/${projectId}/settings`)}
 		/>
 	</div>
-	<AccountLink {user} {isNavCollapsed} />
+	<AccountLink {isNavCollapsed} />
 </div>
 
 <style lang="postcss">

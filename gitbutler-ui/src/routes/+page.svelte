@@ -7,17 +7,14 @@
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import Welcome from '$lib/components/Welcome.svelte';
 	import { appAnalyticsConfirmed } from '$lib/config/appSettings';
-	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import { map } from 'rxjs';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
 	const projectService = getContextByClass(ProjectService);
-	const userService = getContextByClass(UserService);
 
 	const projects$ = projectService.projects$;
-	const user = userService.user;
 
 	$: debug = $page.url.searchParams.get('debug');
 
@@ -39,11 +36,11 @@
 {#if $redirect$ === undefined}
 	<FullviewLoading />
 {:else if !$analyticsConfirmed}
-	<DecorativeSplitView user={$user} img={analyticsSvg}>
+	<DecorativeSplitView img={analyticsSvg}>
 		<AnalyticsConfirmation {analyticsConfirmed} />
 	</DecorativeSplitView>
 {:else if $redirect$ === null}
-	<DecorativeSplitView user={$user} img={newProjectSvg} showLinks={false}>
+	<DecorativeSplitView img={newProjectSvg} showLinks={false}>
 		<Welcome />
 	</DecorativeSplitView>
 {/if}
