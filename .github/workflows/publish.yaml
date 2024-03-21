@@ -62,6 +62,13 @@ jobs:
       - name: Ensure we have a working Perl toolchain
         if: runner.os == 'Windows'
         run: cpanm ExtUtils::Manifest App::cpanminus Locale::Maketext::Simple
+      - name: Set Perl environment variables
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "PERL=$(which perl)" >> $GITHUB_ENV
+          echo "OPENSSL_SRC_PERL=$(which perl)" >> $GITHUB_ENV
+
 
       - uses: actions/checkout@v4
         with:
@@ -101,6 +108,13 @@ jobs:
         shell: bash
         if: runner.os == 'Linux'
         run: sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Confirm PERL environment variables are set correctly
+        shell: bash
+        if: runner.os == 'Windows'
+        run: |
+          echo "PERL=$PERL"
+          echo "OPENSSL_SRC_PERL=$OPENSSL_SRC_PERL"
 
       - name: Build binary
         shell: bash
