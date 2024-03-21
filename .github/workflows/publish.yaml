@@ -65,8 +65,8 @@ jobs:
       - name: Set Perl environment variables
         if: runner.os == 'Windows'
         run: |
-          echo "PERL=$(where.exe perl)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          echo "OPENSSL_SRC_PERL=$(where.exe perl)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          echo "PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          echo "OPENSSL_SRC_PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - uses: actions/checkout@v4
         with:
