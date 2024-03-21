@@ -4,10 +4,10 @@
 	import { AIService } from '$lib/backend/aiService';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { ProjectService } from '$lib/backend/projects';
-	import { PromptService, type SystemPrompt } from '$lib/backend/prompt';
+	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
-	import ModalPrompt from '$lib/components/ModalPrompt.svelte';
+	import PromptModal from '$lib/components/PromptModal.svelte';
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import ToastController from '$lib/notifications/ToastController.svelte';
@@ -43,15 +43,6 @@
 	$: document.documentElement.style.fontSize = zoom + 'rem';
 	$: userSettings.update((s) => ({ ...s, zoom: zoom }));
 
-	$: prompt$ = promptService.prompt$;
-	if ($prompt$) processPrompt($prompt$);
-
-	function processPrompt(newPrompt: SystemPrompt) {
-		if (newPrompt.context?.action == 'auto') {
-			promptService.cancel(newPrompt.id);
-		}
-	}
-
 	onMount(() => {
 		return unsubscribe(
 			events.on('goto', (path: string) => goto(path)),
@@ -78,7 +69,7 @@
 <ShareIssueModal bind:this={shareIssueModal} {cloud} />
 <ToastController />
 <AppUpdater />
-<ModalPrompt />
+<PromptModal />
 
 <style lang="postcss">
 	.app-root {
