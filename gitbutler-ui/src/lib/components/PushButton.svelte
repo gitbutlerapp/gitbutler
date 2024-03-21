@@ -7,17 +7,18 @@
 </script>
 
 <script lang="ts">
+	import { Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { persisted, type Persisted } from '$lib/persisted/persisted';
+	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { createEventDispatcher } from 'svelte';
 	import type { Branch } from '$lib/vbranches/types';
 
-	export let projectId: string;
 	export let type: string;
 	export let isLoading = false;
 	export let githubEnabled: boolean;
@@ -25,13 +26,15 @@
 	export let branch: Branch;
 	export let isPr = false;
 
-	function defaultAction(projectId: string): Persisted<BranchAction> {
+	const project = getContextByClass(Project);
+
+	function defaultAction(): Persisted<BranchAction> {
 		const key = 'projectDefaultAction_';
-		return persisted<BranchAction>(BranchAction.Push, key + projectId);
+		return persisted<BranchAction>(BranchAction.Push, key + project.id);
 	}
 
 	const dispatch = createEventDispatcher<{ trigger: { action: BranchAction } }>();
-	const preferredAction = defaultAction(projectId);
+	const preferredAction = defaultAction();
 
 	let contextMenu: ContextMenu;
 	let dropDown: DropDownButton;

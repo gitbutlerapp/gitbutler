@@ -18,7 +18,7 @@ export async function load({ params, parent }) {
     } = await parent();
 
 	const projectId = params.projectId;
-	const project$ = projectService.getProject(projectId);
+	const project = await projectService.getProject(projectId);
 	const fetches$ = getFetchNotifications(projectId);
 	const heads$ = getHeads(projectId);
 	const gbBranchActive$ = heads$.pipe(map((head) => head == 'gitbutler/integration'));
@@ -52,11 +52,11 @@ export async function load({ params, parent }) {
 		branchService,
 		githubService,
 		projectId,
+		project,
 		remoteBranchService,
 		vbranchService,
 
 		// These observables are provided for convenience
-		project$,
 		gbBranchActive$
 	};
 }

@@ -1,12 +1,13 @@
 <script lang="ts">
 	import SectionCard from './SectionCard.svelte';
 	import Spacer from './Spacer.svelte';
+	import { Project } from '$lib/backend/projects';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
+	import { getContextByClass } from '$lib/utils/context';
 	import { createEventDispatcher } from 'svelte';
-	import type { Project } from '$lib/backend/projects';
 
-	export let project: Project;
+	const project = getContextByClass(Project);
 
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;

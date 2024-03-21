@@ -14,7 +14,6 @@
 	export let branch: Branch;
 	export let type: CommitStatus;
 	export let isUnapplied: boolean;
-	export let projectId: string;
 	export let hasCommits: boolean;
 
 	const branchService = getContextByClass(BranchService);
@@ -80,7 +79,6 @@
 				isPr={!!$pr$}
 				{type}
 				{branch}
-				{projectId}
 				githubEnabled={true}
 				on:trigger={async (e) => {
 					try {

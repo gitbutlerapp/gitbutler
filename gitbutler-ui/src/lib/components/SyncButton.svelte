@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { syncToCloud } from '$lib/backend/cloud';
+	import { Project } from '$lib/backend/projects';
 	import Icon from '$lib/components/Icon.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { GitHubService } from '$lib/github/service';
@@ -7,14 +8,16 @@
 	import { tooltip } from '$lib/utils/tooltip';
 	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
-	export let projectId: string;
-	export let cloudEnabled: boolean;
+	const project = getContextByClass(Project);
+
+	let cloudEnabled: boolean;
 
 	const githubService = getContextByClass(GitHubService);
 	const baseBranchService = getContextByClass(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
 	$: baseServiceBusy$ = baseBranchService.busy$;
+	$: cloudEnabled = project?.api?.sync || false;
 </script>
 
 <button
@@ -23,7 +26,7 @@
 	on:mousedown={async (e) => {
 		e.preventDefault();
 		e.stopPropagation();
-		if (cloudEnabled) syncToCloud(projectId); // don't wait for this
+		if (cloudEnabled) syncToCloud(project.id); // don't wait for this
 		await baseBranchService.fetchFromTarget('modal');
 		if (githubService.isEnabled) {
 			await githubService.reload();

@@ -2,6 +2,7 @@
 	import FullviewLoading from './FullviewLoading.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import dzenSvg from '$lib/assets/dzen-pc.svg?raw';
+	import { Project } from '$lib/backend/projects';
 	import BranchLane from '$lib/components/BranchLane.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { cloneWithRotation } from '$lib/dragging/draggable';
@@ -10,16 +11,14 @@
 	import { BaseBranch, type Branch } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';
 	import type { User } from '$lib/backend/cloud';
-	import type { Project } from '$lib/backend/projects';
 
-	export let project: Project;
-	export let projectPath: string;
 	export let branches: Branch[] | undefined;
 	export let branchesError: any;
 	export let user: User | undefined;
 
 	const branchController = getContextByClass(BranchController);
 	const baseBranch = getContextStoreByClass(BaseBranch);
+	const project = getContextByClass(Project);
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;
@@ -104,13 +103,7 @@
 					clone?.remove();
 				}}
 			>
-				<BranchLane
-					{branch}
-					{project}
-					branchCount={branches.filter((c) => c.active).length}
-					{projectPath}
-					{user}
-				/>
+				<BranchLane {branch} branchCount={branches.filter((c) => c.active).length} {user} />
 			</div>
 		{/each}
 
@@ -145,14 +138,14 @@
 											<Icon name="docs" />
 										</div>
 
-										<span class="text-base-12">GitButler docs</span>
+										<span class="text-base-12">GitButler Docs</span>
 									</a>
 									<div
 										class="empty-board__suggestions__link"
 										role="button"
 										tabindex="0"
-										on:keypress={() => open(`vscode://file${projectPath}/`)}
-										on:click={() => open(`vscode://file${projectPath}/`)}
+										on:keypress={() => open(`vscode://file${project.path}/`)}
+										on:click={() => open(`vscode://file${project.path}/`)}
 									>
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="vscode" />

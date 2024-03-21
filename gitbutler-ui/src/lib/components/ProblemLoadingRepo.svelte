@@ -3,17 +3,18 @@
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
-	import { ProjectService, type Project } from '$lib/backend/projects';
+	import { ProjectService, Project } from '$lib/backend/projects';
 	import Icon from '$lib/components/Icon.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { goto } from '$app/navigation';
 
-	export let project: Project;
 	export let error: any = undefined;
 
 	const projectService = getContextByClass(ProjectService);
+	const project = getContextByClass(Project);
+
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
 
@@ -59,7 +60,7 @@
 		</div>
 
 		<div class="problem__switcher">
-			<ProjectSwitcher {project} />
+			<ProjectSwitcher />
 		</div>
 	</div>
 </DecorativeSplitView>

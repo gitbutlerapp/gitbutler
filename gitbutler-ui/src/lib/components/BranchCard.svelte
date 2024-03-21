@@ -9,6 +9,7 @@
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { AIService } from '$lib/backend/aiService';
+	import { Project } from '$lib/backend/projects';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -35,13 +36,11 @@
 	import { getContext, onMount } from 'svelte';
 	import { get, type Writable } from 'svelte/store';
 	import type { User } from '$lib/backend/cloud';
-	import type { Project } from '$lib/backend/projects';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import type { Branch, LocalFile, RemoteBranchData } from '$lib/vbranches/types';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
-	export let project: Project;
 	export let branchCount = 1;
 	export let user: User | undefined;
 	export let selectedFiles: Writable<LocalFile[]>;
@@ -50,6 +49,7 @@
 	export let commitBoxOpen: Writable<boolean>;
 
 	const branchController = getContextByClass(BranchController);
+	const project = getContextByClass(Project);
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
@@ -92,10 +92,7 @@
 			.slice(0, 5000);
 
 		try {
-			const message = await aiService.summarizeBranch({
-				diff,
-				userToken: user?.access_token
-			});
+			const message = await aiService.summarizeBranch({ diff, userToken: user?.access_token });
 
 			if (message && message !== branch.name) {
 				branch.name = message;
@@ -265,7 +262,6 @@
 									branchId={branch.id}
 									files={branch.files}
 									{isUnapplied}
-									{project}
 									{selectedOwnership}
 									{selectedFiles}
 									showCheckboxes={$commitBoxOpen}
@@ -316,14 +312,7 @@
 						{/if}
 					</div>
 
-					<BranchCommits
-						{branch}
-						{project}
-						{branchCount}
-						{isUnapplied}
-						{selectedFiles}
-						{remoteBranchData}
-					/>
+					<BranchCommits {branch} {branchCount} {isUnapplied} {selectedFiles} {remoteBranchData} />
 				</div>
 			</ScrollableContainer>
 			<div class="divider-line">

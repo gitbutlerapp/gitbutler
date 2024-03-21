@@ -5,7 +5,7 @@
 	import SectionCard from './SectionCard.svelte';
 	import TextBox from './TextBox.svelte';
 	import { AuthService } from '$lib/backend/auth';
-	import { ProjectService, type Key, type KeyType, type Project } from '$lib/backend/projects';
+	import { ProjectService, type Key, type KeyType, Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
@@ -15,7 +15,7 @@
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { onMount } from 'svelte';
 
-	export let project: Project;
+	const project = getContextByClass(Project);
 
 	const authService = getContextByClass(AuthService);
 	const baseBranch = getContextStoreByClass(BaseBranch);

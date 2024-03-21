@@ -2,12 +2,12 @@ import { invoke } from '$lib/backend/ipc';
 import { persisted } from '$lib/persisted/persisted';
 import * as toasts from '$lib/utils/toasts';
 import { open } from '@tauri-apps/api/dialog';
+import { plainToInstance } from 'class-transformer';
 import {
 	BehaviorSubject,
 	catchError,
 	firstValueFrom,
 	from,
-	map,
 	shareReplay,
 	skip,
 	switchMap
@@ -23,17 +23,17 @@ export type LocalKey = {
 
 export type Key = Exclude<KeyType, 'local'> | LocalKey;
 
-export type Project = {
-	id: string;
-	title: string;
+export class Project {
+	id!: string;
+	title!: string;
 	description?: string;
-	path: string;
+	path!: string;
 	api?: CloudProject & { sync: boolean };
-	preferred_key: Key;
-	ok_with_force_push: boolean;
+	preferred_key!: Key;
+	ok_with_force_push!: boolean;
 	omit_certificate_check: boolean | undefined;
 	use_diff_context: boolean | undefined;
-};
+}
 
 export class ProjectService {
 	private reload$ = new BehaviorSubject<void>(undefined);
@@ -41,7 +41,9 @@ export class ProjectService {
 	error$ = new BehaviorSubject<any>(undefined);
 
 	projects$ = this.reload$.pipe(
-		switchMap(() => from(invoke<Project[]>('list_projects'))),
+		switchMap(() =>
+			from(invoke<Project[]>('list_projects').then((p) => plainToInstance(Project, p)))
+		),
 		shareReplay(1),
 		catchError((e) => {
 			this.error$.next(e);
@@ -51,18 +53,8 @@ export class ProjectService {
 
 	constructor(private homeDir: string | undefined) {}
 
-	getProject(projectId: string) {
-		return this.projects$.pipe(
-			map((projects) => {
-				const project = projects.find((p) => p.id == projectId);
-				if (!project) {
-					// We need to abort loading of /[projectId]/ if no project exists, such
-					// that the type here is of Project rather than Project | undefined.
-					throw 'Project not found';
-				}
-				return project;
-			})
-		);
+	async getProject(projectId: string) {
+		return await invoke<Project>('get_project', { id: projectId });
 	}
 
 	async updateProject(params: {

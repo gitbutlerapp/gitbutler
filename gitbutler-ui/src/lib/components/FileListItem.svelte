@@ -7,12 +7,10 @@
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { updateFocus } from '$lib/utils/selection';
 	import { onDestroy } from 'svelte';
-	import type { Project } from '$lib/backend/projects';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	export let project: Project | undefined;
 	export let branchId: string;
 	export let file: AnyFile;
 	export let isUnapplied: boolean;
@@ -38,8 +36,7 @@
 	function updateContextMenu() {
 		if (popupMenu) popupMenu.$destroy();
 		return new FileContextMenu({
-			target: document.body,
-			props: { project }
+			target: document.body
 		});
 	}
 

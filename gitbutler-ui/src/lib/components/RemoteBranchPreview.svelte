@@ -3,25 +3,23 @@
 	import FileCard from './FileCard.svelte';
 	import Resizer from './Resizer.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
+	import { Project } from '$lib/backend/projects';
 	import CommitCard from '$lib/components/CommitCard.svelte';
 	import { type SettingsStore, SETTINGS_CONTEXT } from '$lib/settings/userSettings';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
-	import { getContextStoreByClass } from '$lib/utils/context';
+	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { BaseBranch, type AnyFile, type RemoteBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
 	import { getContext, onMount } from 'svelte';
 	import { writable } from 'svelte/store';
-	import type { Project } from '$lib/backend/projects';
 	import type { PullRequest } from '$lib/github/types';
 
-	export let project: Project | undefined;
 	export let branch: RemoteBranch;
-	export let projectId: string;
-	export let projectPath: string;
 	export let pr: PullRequest | undefined;
 
+	const project = getContextByClass(Project);
 	const baseBranch = getContextStoreByClass(BaseBranch);
 
 	const defaultBranchWidthRem = 30;
@@ -59,7 +57,7 @@
 	>
 		<ScrollableContainer wide>
 			<div class="branch-preview">
-				<BranchPreviewHeader {projectId} base={$baseBranch} {branch} {pr} />
+				<BranchPreviewHeader base={$baseBranch} {branch} {pr} />
 				{#if pr?.body}
 					<div class="card">
 						<div class="card__header">PR Description</div>
@@ -68,14 +66,12 @@
 						</div>
 					</div>
 				{/if}
-				{#await getRemoteBranchData(projectId, branch.name) then branchData}
+				{#await getRemoteBranchData(project.id, branch.name) then branchData}
 					{#if branchData.commits && branchData.commits.length > 0}
 						<div class="flex w-full flex-col gap-y-2">
 							{#each branchData.commits as commit (commit.id)}
 								<CommitCard
 									{commit}
-									{project}
-									{projectId}
 									{selectedFiles}
 									commitUrl={$baseBranch?.commitUrl(commit.id)}
 								/>
@@ -101,7 +97,6 @@
 				conflicted={selected.conflicted}
 				branchId={'blah'}
 				file={selected}
-				{projectPath}
 				{selectedOwnership}
 				isUnapplied={false}
 				readonly={true}

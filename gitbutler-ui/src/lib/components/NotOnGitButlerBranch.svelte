@@ -6,7 +6,7 @@
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
-	import { ProjectService, type Project } from '$lib/backend/projects';
+	import { ProjectService, Project } from '$lib/backend/projects';
 	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
@@ -14,11 +14,11 @@
 	import type { BaseBranch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
-	const branchController = getContextByClass(BranchController);
-	export let project: Project | undefined;
 	export let baseBranch: BaseBranch;
 
+	const branchController = getContextByClass(BranchController);
 	const projectService = getContextByClass(ProjectService);
+	const project = getContextByClass(Project);
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
 
@@ -84,7 +84,7 @@
 		</div>
 
 		<div class="switchrepo__project">
-			<ProjectSwitcher {project} />
+			<ProjectSwitcher />
 		</div>
 	</div>
 </DecorativeSplitView>

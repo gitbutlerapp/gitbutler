@@ -12,7 +12,7 @@
 	let applyConflictedModal: Modal;
 	let deleteBranchModal: Modal;
 
-	$: ({ projectId, project$, userService, branchController, vbranchService } = data);
+	$: ({ projectId, userService, branchController, vbranchService } = data);
 	$: branches$ = vbranchService.branches$;
 	$: error = vbranchService.branchesError;
 	$: user = userService.user;
@@ -25,13 +25,7 @@
 {:else if !$branches$}
 	<FullviewLoading />
 {:else if branch}
-	<BranchLane
-		{branch}
-		project={$project$}
-		isUnapplied={!branch.active}
-		user={$user}
-		projectPath={$project$.path}
-	/>
+	<BranchLane {branch} isUnapplied={!branch.active} user={$user} />
 {:else}
 	<p>Branch no longer exists</p>
 {/if}

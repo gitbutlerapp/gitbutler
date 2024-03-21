@@ -1,18 +1,18 @@
 <script lang="ts">
 	import SyncButton from './SyncButton.svelte';
+	import { Project } from '$lib/backend/projects';
 	import Badge from '$lib/components/Badge.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { getContextByClass } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
-	import type { Project } from '$lib/backend/projects';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
-	export let project: Project;
 	export let isNavCollapsed: boolean;
 
 	const baseBranchService = getContextByClass(BaseBranchService);
+	const project = getContextByClass(Project);
 
 	$: base = baseBranchService.base;
 	$: selected = $page.url.href.endsWith('/base');
@@ -43,7 +43,7 @@
 				{#if ($base?.behind || 0) > 0}
 					<Badge count={$base?.behind || 0} help="Unmerged upstream commits" />
 				{/if}
-				<SyncButton projectId={project.id} cloudEnabled={project?.api?.sync || false} />
+				<SyncButton />
 			</div>
 			<div class="row_2 text-base-12">
 				{#if $base?.remoteUrl.includes('github.com')}
