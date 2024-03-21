@@ -1,16 +1,13 @@
-#[cfg(not(target_os = "windows"))]
 use nix::{
     libc::{c_int, wait, EXIT_FAILURE, WEXITSTATUS, WIFEXITED, WIFSIGNALED, WTERMSIG},
     unistd::{fork, setsid, ForkResult},
 };
 use std::{os::unix::process::CommandExt, process};
 
-#[cfg(target_os = "windows")]
 pub fn main() {
     panic!("This binary is only meant to be run on Unix-like systems. It exists on Windows only because Cargo cannot switch off bins based on target platform.");
 }
 
-#[cfg(not(target_os = "windows"))]
 pub fn main() {
     let has_pipe_var = std::env::var("GITBUTLER_ASKPASS_PIPE")
         .map(|v| !v.is_empty())
