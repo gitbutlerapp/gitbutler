@@ -7,15 +7,13 @@
 	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import type { AuthService } from '$lib/backend/auth';
 	import type { Project } from '$lib/backend/projects';
 	import { goto } from '$app/navigation';
 
-	export let authService: AuthService;
-	const branchController = getContextByClass(BranchController);
 	export let project: Project;
 	export let remoteBranches: { name: string }[];
 
+	const branchController = getContextByClass(BranchController);
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
 
@@ -37,7 +35,7 @@
 <DecorativeSplitView user={$user} img={newProjectSvg}>
 	{#if selectedBranch}
 		{@const [remoteName, branchName] = selectedBranch.split(/\/(.*)/s)}
-		<KeysForm {project} {authService} {remoteName} {branchName} />
+		<KeysForm {project} {remoteName} {branchName} />
 		<div class="actions">
 			<Button kind="outlined" color="neutral" on:mousedown={() => (selectedBranch = '')}
 				>Back</Button

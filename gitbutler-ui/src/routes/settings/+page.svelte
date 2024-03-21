@@ -60,7 +60,7 @@
 
 	$: if ($user && !loaded) {
 		loaded = true;
-		cloud.user.get($user?.access_token).then((cloudUser) => {
+		cloud.getUser($user?.access_token).then((cloudUser) => {
 			cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
 			userService.setUser(cloudUser);
 		});
@@ -88,7 +88,7 @@
 		const picture = formData.get('picture') as File | undefined;
 
 		try {
-			const updatedUser = await cloud.user.update($user.access_token, {
+			const updatedUser = await cloud.updateUser($user.access_token, {
 				name: newName,
 				picture: picture
 			});

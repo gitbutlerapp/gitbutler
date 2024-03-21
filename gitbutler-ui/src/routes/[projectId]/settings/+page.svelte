@@ -15,12 +15,13 @@
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 
+	// TODO: Too much functionality here for a +page.svelte file
+
 	export let data: PageData;
 
 	$: projectService = data.projectService;
 	$: project$ = data.project$;
 	$: cloud = data.cloud;
-	$: authService = data.authService;
 
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
@@ -56,7 +57,7 @@
 	async function onDetailsUpdated(e: { detail: Project }) {
 		const api =
 			$user && e.detail.api
-				? await cloud.projects.update($user?.access_token, e.detail.api.repository_id, {
+				? await cloud.updateProject($user?.access_token, e.detail.api.repository_id, {
 						name: e.detail.title,
 						description: e.detail.description
 					})
@@ -74,7 +75,7 @@
 	<ContentWrapper title="Project settings">
 		<CloudForm project={$project$} on:updated={onCloudUpdated} />
 		<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
-		<KeysForm project={$project$} {authService} />
+		<KeysForm project={$project$} />
 		<Spacer />
 		<PreferencesForm project={$project$} on:updated={onPreferencesUpdated} />
 		<SectionCard>

@@ -7,7 +7,7 @@
 
 	export let data: PageData;
 
-	$: ({ authService, projectId, project$ } = data);
+	$: ({ projectId, project$ } = data);
 </script>
 
 {#await getRemoteBranches(projectId)}
@@ -21,7 +21,7 @@
 						use virtual branches, please push your code to a remote branch to use as a base"
 		/>
 	{:else}
-		<ProjectSetup project={$project$} {authService} {remoteBranches} />
+		<ProjectSetup project={$project$} {remoteBranches} />
 	{/if}
 {:catch}
 	<ProblemLoadingRepo
