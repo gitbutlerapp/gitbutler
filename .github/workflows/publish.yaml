@@ -33,6 +33,7 @@ jobs:
           - macos-latest # [macOs, x64]
           - macos-latest-xlarge # [macOs, ARM64]
           - ubuntu-20.04 # [linux, x64]
+          - windows-latest # [windows, x64]
 
     runs-on: ${{ matrix.platform }}
 
@@ -47,24 +48,28 @@ jobs:
       - uses: ./.github/actions/init-env-node
 
       - name: Set nightly params
+        shell: bash
         if: ${{!!github.event.workflow_run }}
         run: |
           echo "channel=nightly" >> $GITHUB_ENV
           echo "bump=patch" >> $GITHUB_ENV
 
       - name: Use input params
+        shell: bash
         if: ${{ !github.event.workflow_run }}
         run: |
           echo "channel=${{ github.event.inputs.channel }}" >> $GITHUB_ENV
           echo "bump=${{ github.event.inputs.bump }}" >> $GITHUB_ENV
 
       - name: Set env variable with version
+        shell: bash
         run: |
           CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r '.version')"
           NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
           echo "version=$NEXT_VERSION" >> $GITHUB_ENV
 
       - name: import gpg key
+        shell: bash
         if: runner.os == 'Linux'
         uses: crazy-max/ghaction-import-gpg@v6
         with:
@@ -72,26 +77,29 @@ jobs:
           passphrase: ${{ secrets.APPIMAGE_KEY_PASSPHRASE }}
 
       - name: install linux dependencies
+        shell: bash
         if: runner.os == 'Linux'
         run: sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
       - name: Build binary
+        shell: bash
         run: |
           ./scripts/release.sh \
             --sign \
             --channel                    "${{ env.channel }}" \
             --dist                       "./release" \
-            --version                    "${{ env.version }}" \
-            --tauri-private-key          "${{ secrets.TAURI_PRIVATE_KEY }}"  \
-            --tauri-key-password         "${{ secrets.TAURI_KEY_PASSWORD }}" \
-            --apple-certificate          "${{ secrets.APPLE_CERTIFICATE }}" \
-            --apple-certificate-password "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" \
-            --apple-signing-identity     "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
-            --apple-id                   "${{ secrets.APPLE_ID }}" \
-            --apple-team-id              "${{ secrets.APPLE_PROVIDER_SHORT_NAME }}" \
-            --apple-password             "${{ secrets.APPLE_PASSWORD }}" \
-            --appimage-key-id            "${{ secrets.APPIMAGE_KEY_ID }}" \
-            --appimage-key-passphrase    "${{ secrets.APPIMAGE_KEY_PASSPHRASE }}"
+            --version                    "${{ env.version }}"
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_PROVIDER_SHORT_NAME }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPIMAGE_KEY_ID: ${{ secrets.APPIMAGE_KEY_ID }}
+          APPIMAGE_KEY_PASSPHRASE: ${{ secrets.APPIMAGE_KEY_PASSPHRASE }}
 
       - uses: shallwefootball/s3-upload-action@master
         name: Upload To S3
@@ -105,6 +113,7 @@ jobs:
 
       # tell our server to update with the version number
       - name: Tell our server to update
+        shell: bash
         run: |
           curl 'https://app.gitbutler.com/api/releases' \
             --fail \
@@ -114,6 +123,7 @@ jobs:
             --data '{"channel":"${{ env.channel }}","version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'
 
       - name: Tag release
+        shell: bash
         env:
           TAG_NAME: "${{ env.channel }}/${{ env.version }}"
         run: |

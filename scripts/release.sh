@@ -9,17 +9,7 @@ PWD="$(dirname $(readlink -f -- $0))"
 CHANNEL=""
 DO_SIGN="false"
 DO_BUNDLE_UPDATE="false"
-TAURI_PRIVATE_KEY=""
-TAURI_KEY_PASSWORD=""
-APPLE_CERTIFICATE=""
-APPLE_CERTIFICATE_PASSWORD=""
-APPLE_SIGNING_IDENTITY=""
-APPLE_ID=""
-APPLE_PASSWORD=""
-APPIMAGE_KEY_ID=""
-APPIMAGE_KEY_PASSPHRASE=""
 VERSION=""
-SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"
 
 function help() {
 	local to="$1"
@@ -29,16 +19,6 @@ function help() {
 	echo "flags:" 1>&$to
 	echo "  --version                     release version." 1>&$to
 	echo "  --dist                        path to store artifacts in." 1>&$to
-	echo "  --tauri-private-key           path or string of tauri updater private key." 1>&$to
-	echo "  --tauri-key-password          password for tauri updater private key." 1>&$to
-	echo "  --apple-certificate           base64 string of the .p12 certificate, exported from the keychain." 1>&$to
-	echo "  --apple-certificate-password  password for the .p12 certificate." 1>&$to
-	echo "  --apple-signing-identity      the name of the keychain entry that contains the signing certificate." 1>&$to
-	echo "  --apple-id                    the apple id to use for signing." 1>&$to
-	echo "  --apple-team-id               the apple team id to use for signing." 1>&$to
-	echo "  --apple-password              the password for the apple id." 1>&$to
-	echo "  --appimage-key-id             the gpg key id to use for signing the appimage." 1>&$to
-	echo "  --appimage-key-passphrase     the gpg key passphrase to use for signing the appimage." 1>&$to
 	echo "  --sign                        if set, will sign the app." 1>&$to
 	echo "  --channel                     the channel to use for the release (release | nightly)." 1>&$to
 	echo "  --help                        display this message." 1>&$to
@@ -64,8 +44,11 @@ function os() {
 	Linux)
 		echo "linux"
 		;;
+	Windows|MSYS*|MINGW*)
+		echo "windows"
+		;;
 	*)
-		error "$os: unsupprted"
+		error "$os: unsupported"
 		;;
 	esac
 }
@@ -109,56 +92,6 @@ while [[ $# -gt 0 ]]; do
 		shift
 		shift
 		;;
-	--tauri-private-key)
-		TAURI_PRIVATE_KEY="$2"
-		shift
-		shift
-		;;
-	--tauri-key-password)
-		TAURI_KEY_PASSWORD="$2"
-		shift
-		shift
-		;;
-	--apple-certificate)
-		APPLE_CERTIFICATE="$2"
-		shift
-		shift
-		;;
-	--apple-certificate-password)
-		APPLE_CERTIFICATE_PASSWORD="$2"
-		shift
-		shift
-		;;
-	--apple-signing-identity)
-		APPLE_SIGNING_IDENTITY="$2"
-		shift
-		shift
-		;;
-	--apple-id)
-		APPLE_ID="$2"
-		shift
-		shift
-		;;
-	--apple-team-id)
-		APPLE_TEAM_ID="$2"
-		shift
-		shift
-		;;
-	--apple-password)
-		APPLE_PASSWORD="$2"
-		shift
-		shift
-		;;
-	--appimage-key-id)
-		APPIMAGE_KEY_ID="$2"
-		shift
-		shift
-		;;
-	--appimage-key-passphrase)
-		APPIMAGE_KEY_PASSPHRASE="$2"
-		shift
-		shift
-		;;
 	--sign)
 		DO_SIGN="true"
 		shift
@@ -174,10 +107,10 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-[ -z "$VERSION" ] && error "--version is not set"
+[ -z "${VERSION-}" ] && error "--version is not set"
 
-[ -z "$TAURI_PRIVATE_KEY" ] && error "--tauri-private-key is not set"
-[ -z "$TAURI_KEY_PASSWORD" ] && error "--tauri-key-password is not set"
+[ -z "${TAURI_PRIVATE_KEY-}" ] && error '$TAURI_PRIVATE_KEY is not set'
+[ -z "${TAURI_KEY_PASSWORD-}" ] && error '$TAURI_KEY_PASSWORD is not set'
 
 if [ "$CHANNEL" != "release" ] && [ "$CHANNEL" != "nightly" ]; then
 	error "--channel must be either 'release' or 'nightly'"
@@ -188,12 +121,12 @@ export TAURI_KEY_PASSWORD="$TAURI_KEY_PASSWORD"
 
 if [ "$DO_SIGN" = "true" ]; then
 	if [ "$OS" = "macos" ]; then
-		[ -z "$APPLE_CERTIFICATE" ] && error "--apple-certificate is not set"
-		[ -z "$APPLE_CERTIFICATE_PASSWORD" ] && error "--apple-certificate-password is not set"
-		[ -z "$APPLE_SIGNING_IDENTITY" ] && error "--apple-signing-identity is not set"
-		[ -z "$APPLE_ID" ] && error "--apple-id is not set"
-		[ -z "$APPLE_TEAM_ID" ] && error "--apple-team-id is not set"
-		[ -z "$APPLE_PASSWORD" ] && error "--apple-password is not set"
+		[ -z "${APPLE_CERTIFICATE-}" ] && error '$APPLE_CERTIFICATE is not set'
+		[ -z "${APPLE_CERTIFICATE_PASSWORD-}" ] && error '$APPLE_CERTIFICATE_PASSWORD is not set'
+		[ -z "${APPLE_SIGNING_IDENTITY-}" ] && error '$APPLE_SIGNING_IDENTITY is not set'
+		[ -z "${APPLE_ID-}" ] && error '$APPLE_ID is not set'
+		[ -z "${APPLE_TEAM_ID-}" ] && error '$APPLE_TEAM_ID is not set'
+		[ -z "${APPLE_PASSWORD-}" ] && error '$APPLE_PASSWORD is not set'
 		export APPLE_CERTIFICATE="$APPLE_CERTIFICATE"
 		export APPLE_CERTIFICATE_PASSWORD="$APPLE_CERTIFICATE_PASSWORD"
 		export APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY"
@@ -201,11 +134,14 @@ if [ "$DO_SIGN" = "true" ]; then
 		export APPLE_TEAM_ID="$APPLE_TEAM_ID"
 		export APPLE_PASSWORD="$APPLE_PASSWORD"
 	elif [ "$OS" == "linux" ]; then
-		[ -z "$APPIMAGE_KEY_ID" ] && error "--appimage-key-id is not set"
-		[ -z "$APPIMAGE_KEY_PASSPHRASE" ] && error "--appimage-key-passphrase is not set"
+		[ -z "${APPIMAGE_KEY_ID-}" ] && error '$APPIMAGE_KEY_ID is not set'
+		[ -z "${APPIMAGE_KEY_PASSPHRASE-}" ] && error '$APPIMAGE_KEY_PASSPHRASE is not set'
 		export SIGN=1
 		export SIGN_KEY="$APPIMAGE_KEY_ID"
 		export APPIMAGETOOL_SIGN_PASSPHRASE="$APPIMAGE_KEY_PASSPHRASE"
+	elif [ "$OS" == "windows" ]; then
+		info "$OS: signing is not (yet) supported; skipping"
+		DO_SIGN="false"
 	else
 		error "signing is not supported on $(uname -s)"
 	fi
@@ -217,6 +153,7 @@ info "  version: $VERSION"
 info "  os: $OS"
 info "  arch: $ARCH"
 info "  dist: $DIST"
+info "  sign: $DO_SIGN"
 
 TMP_DIR="$(mktemp -d)"
 trap "rm -rf '$TMP_DIR'" exit
@@ -271,6 +208,21 @@ elif [ "$OS" = "linux" ]; then
 	info "  - $RELEASE_DIR/$(basename "$APPIMAGE_UPDATER")"
 	info "  - $RELEASE_DIR/$(basename "$APPIMAGE_UPDATER_SIG")"
 	info "  - $RELEASE_DIR/$(basename "$DEB")"
+elif [ "$OS" = "windows" ]; then
+	WINDOWS_INSTALLER="$(find $BUNDLE_DIR/windows -name \*.msi)"
+	WINDOWS_UPDATER="$(find $BUNDLE_DIR/windows -name \*.msi.zip)"
+	WINDOWS_UPDATER_SIG="$(find $BUNDLE_DIR/windows -name \*.msi.zip.sig)"
+
+	cp "$WINDOWS_INSTALLER" "$RELEASE_DIR"
+	cp "$WINDOWS_UPDATER" "$RELEASE_DIR"
+	cp "$WINDOWS_UPDATER_SIG" "$RELEASE_DIR"
+
+	info "built:"
+	info "  - $RELEASE_DIR/$(basename "$WINDOWS_INSTALLER")"
+	info "  - $RELEASE_DIR/$(basename "$WINDOWS_UPDATER")"
+	info "  - $RELEASE_DIR/$(basename "$WINDOWS_UPDATER_SIG")"
+else
+	error "unsupported os: $OS"
 fi
 
 info "done! bye!"

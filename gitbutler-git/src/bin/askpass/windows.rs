@@ -43,7 +43,7 @@ impl UnixCompatibility for PipeStream {
 
         let r = unsafe {
             winapi::um::namedpipeapi::SetNamedPipeHandleState(
-                self.as_raw_handle(),
+                self.as_raw_handle() as winapi::um::winnt::HANDLE,
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
                 timeout_ptr,
