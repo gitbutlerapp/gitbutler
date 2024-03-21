@@ -56,8 +56,6 @@ jobs:
         run: |
           git config --global core.autocrlf false
           git config --global core.eol lf
-      - uses: actions/checkout@v2
-        if: runner.os == 'Windows'
       - name: perl -V
         if: runner.os == 'Windows'
         run: which perl && perl -V
