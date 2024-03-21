@@ -2053,7 +2053,8 @@ fn get_applied_status(
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
                             let hash = diff_hash(&git_diff_hunk.diff);
-                            if claimed_hunk.shallow_eq(git_diff_hunk) {
+                            // Eq compares hashes first, and if one of the hunks lacks a hash, it compares line numbers
+                            if claimed_hunk.eq(&Hunk::from(git_diff_hunk)) {
                                 // try to re-use old timestamp
                                 let timestamp = claimed_hunk.timestam_ms().unwrap_or(mtime);
                                 // push hunk to the end of the list, preserving the order
