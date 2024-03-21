@@ -3,13 +3,15 @@
 	import Icon from './Icon.svelte';
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
+	import { AuthService } from '$lib/backend/auth';
+	import { getContextByClass } from '$lib/utils/context';
 	import { slide } from 'svelte/transition';
-	import type { AuthService } from '$lib/backend/auth';
 
-	export let authService: AuthService;
 	export let projectId: string;
 	export let remoteName: string | null | undefined;
 	export let branchName: string | null | undefined;
+
+	const authService = getContextByClass(AuthService);
 
 	type Check = { name: string; promise: Promise<any> };
 	$: checks = [] as Check[];
