@@ -1,12 +1,13 @@
 <script lang="ts">
+	import { Project } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import TextArea from '$lib/components/TextArea.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
+	import { getContextByClass } from '$lib/utils/context';
 	import { createEventDispatcher } from 'svelte';
-	import type { Project } from '$lib/backend/projects';
 
-	export let project: Project;
+	const project = getContextByClass(Project);
 
 	let title = project?.title;
 	let description = project?.description;

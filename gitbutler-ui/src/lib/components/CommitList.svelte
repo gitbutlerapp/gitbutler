@@ -2,12 +2,10 @@
 	import CommitListFooter from './CommitListFooter.svelte';
 	import CommitListHeader from './CommitListHeader.svelte';
 	import CommitListItem from './CommitListItem.svelte';
-	import type { Project } from '$lib/backend/projects';
 	import type { AnyFile, Branch, Commit, CommitStatus, RemoteCommit } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let branch: Branch;
-	export let project: Project;
 	export let type: CommitStatus;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let isUnapplied: boolean;
@@ -41,7 +39,6 @@
 							<CommitListItem
 								{branch}
 								{commit}
-								{project}
 								{isUnapplied}
 								{selectedFiles}
 								isChained={idx != commits.length - 1}
@@ -55,7 +52,7 @@
 						You have {branchCount} active branches. To merge upstream work, we will unapply all other
 						branches.
 					</div>{/if}
-				<CommitListFooter {branch} {type} {isUnapplied} projectId={project.id} {hasCommits} />
+				<CommitListFooter {branch} {type} {isUnapplied} {hasCommits} />
 			</div>
 		{/if}
 	</div>

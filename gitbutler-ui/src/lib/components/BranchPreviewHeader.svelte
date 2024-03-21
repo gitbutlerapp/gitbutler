@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
 	import Tag from './Tag.svelte';
+	import { Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
@@ -16,10 +17,10 @@
 
 	export let branch: RemoteBranch;
 	export let base: BaseBranch | undefined | null;
-	export let projectId: string;
 	export let pr: PullRequest | undefined;
 
 	const branchController = getContextByClass(BranchController);
+	const project = getContextByClass(Project);
 
 	let meatballButton: HTMLDivElement;
 	let container: HTMLDivElement;
@@ -101,7 +102,7 @@
 						isApplying = true;
 						try {
 							await branchController.createvBranchFromBranch(branch.name);
-							goto(`/${projectId}/board`);
+							goto(`/${project.id}/board`);
 						} catch (e) {
 							const err = 'Failed to apply branch';
 							toast.error(err);

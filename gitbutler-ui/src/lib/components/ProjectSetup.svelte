@@ -3,16 +3,16 @@
 	import KeysForm from './KeysForm.svelte';
 	import ProjectSetupTarget from './ProjectSetupTarget.svelte';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
+	import { Project } from '$lib/backend/projects';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import type { Project } from '$lib/backend/projects';
 	import { goto } from '$app/navigation';
 
-	export let project: Project;
 	export let remoteBranches: { name: string }[];
 
+	const project = getContextByClass(Project);
 	const branchController = getContextByClass(BranchController);
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
@@ -35,7 +35,7 @@
 <DecorativeSplitView user={$user} img={newProjectSvg}>
 	{#if selectedBranch}
 		{@const [remoteName, branchName] = selectedBranch.split(/\/(.*)/s)}
-		<KeysForm {project} {remoteName} {branchName} />
+		<KeysForm {remoteName} {branchName} />
 		<div class="actions">
 			<Button kind="outlined" color="neutral" on:mousedown={() => (selectedBranch = '')}
 				>Back</Button
@@ -44,7 +44,6 @@
 		</div>
 	{:else}
 		<ProjectSetupTarget
-			projectId={project.id}
 			projectName={project.title}
 			{remoteBranches}
 			on:branchSelected={(e) => {

@@ -1,5 +1,6 @@
 <script async lang="ts">
 	import ProjectNameLabel from './ProjectNameLabel.svelte';
+	import { Project } from '$lib/backend/projects';
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
@@ -14,10 +15,10 @@
 	import { getContextByClass } from '$lib/utils/context';
 	import { createEventDispatcher } from 'svelte';
 
-	export let projectId: string;
 	export let projectName: string;
 	export let remoteBranches: { name: string }[];
 
+	const project = getContextByClass(Project);
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
 
@@ -25,8 +26,8 @@
 		branchSelected: string;
 	}>();
 
-	const aiGenEnabled = projectAiGenEnabled(projectId);
-	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(projectId);
+	const aiGenEnabled = projectAiGenEnabled(project.id);
+	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
 
 	let aiGenCheckbox: Toggle;
 	let loading = false;

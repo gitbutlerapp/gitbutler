@@ -5,8 +5,10 @@
 	import Footer from './Footer.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
 	import Resizer from './Resizer.svelte';
+	import { Project } from '$lib/backend/projects';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import { getContextByClass } from '$lib/utils/context';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { platform } from '@tauri-apps/api/os';
@@ -14,15 +16,14 @@
 	import { onMount } from 'svelte';
 	import { getContext } from 'svelte';
 	import type { User } from '$lib/backend/cloud';
-	import type { Project } from '$lib/backend/projects';
 
-	export let project: Project;
 	export let user: User | undefined;
 
+	const platformName = from(platform());
 	const minResizerWidth = 280;
 	const minResizerRatio = 150;
-	const platformName = from(platform());
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
+	const project = getContextByClass(Project);
 	const defaultTrayWidthRem = persisted<number | undefined>(
 		undefined,
 		'defaulTrayWidth_ ' + project.id
@@ -113,9 +114,9 @@
 				{#if $platformName == 'darwin'}
 					<div class="drag-region" data-tauri-drag-region />
 				{/if}
-				<ProjectSelector {project} isNavCollapsed={$isNavCollapsed} />
+				<ProjectSelector isNavCollapsed={$isNavCollapsed} />
 				<div class="domains">
-					<BaseBranchCard {project} isNavCollapsed={$isNavCollapsed} />
+					<BaseBranchCard isNavCollapsed={$isNavCollapsed} />
 					<DomainButton
 						href={`/${project.id}/board`}
 						domain="workspace"

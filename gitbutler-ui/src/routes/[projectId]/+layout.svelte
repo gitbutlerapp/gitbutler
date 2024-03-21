@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { syncToCloud } from '$lib/backend/cloud';
 	import { handleMenuActions } from '$lib/backend/menuActions';
+	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
@@ -19,7 +20,7 @@
 
 	$: ({
 		vbranchService,
-		project$,
+		project,
 		projectId,
 		baseBranchService,
 		gbBranchActive$,
@@ -36,9 +37,10 @@
 	$: setContext(BranchService, branchService);
 	$: setContext(BaseBranchService, baseBranchService);
 	$: setContext(BaseBranch, baseBranch);
+	$: setContext(Project, project);
 
 	let intervalId: any;
-	handleMenuActions(data.projectId);
+	handleMenuActions(projectId);
 
 	// Once on load and every time the project id changes
 	$: if (projectId) setupFetchInterval();
@@ -59,9 +61,9 @@
 
 	onMount(() => {
 		// Once on load and every time the project id changes
-		handleMenuActions(data.projectId);
+		handleMenuActions(projectId);
 		return unsubscribe(
-			menuSubscribe(data.projectId),
+			menuSubscribe(projectId),
 			hotkeys.on('Meta+Shift+S', () => syncToCloud(projectId))
 		);
 	});
@@ -71,20 +73,20 @@
 
 <!-- forces components to be recreated when projectId changes -->
 {#key projectId}
-	{#if !$project$}
+	{#if !project}
 		<p>Project not found!</p>
 	{:else if $baseBranch === null}
 		<!-- Be careful, this works because of the redirect above -->
 		<slot />
 	{:else if $baseError}
-		<ProblemLoadingRepo project={$project$} error={$baseError} />
+		<ProblemLoadingRepo error={$baseError} />
 	{:else if $branchesError}
-		<ProblemLoadingRepo project={$project$} error={$branchesError} />
+		<ProblemLoadingRepo error={$branchesError} />
 	{:else if !$gbBranchActive$ && $baseBranch}
-		<NotOnGitButlerBranch project={$project$} baseBranch={$baseBranch} />
+		<NotOnGitButlerBranch baseBranch={$baseBranch} />
 	{:else if $baseBranch}
 		<div class="view-wrap" role="group" on:dragover|preventDefault>
-			<Navigation project={$project$} user={$user$} />
+			<Navigation user={$user$} />
 			<slot />
 		</div>
 	{/if}

@@ -2,6 +2,7 @@
 	import SectionCard from './SectionCard.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
 	import { CloudClient } from '$lib/backend/cloud';
+	import { Project } from '$lib/backend/projects';
 	import Link from '$lib/components/Link.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
@@ -11,13 +12,11 @@
 	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { createEventDispatcher, onMount } from 'svelte';
-	import type { Project } from '$lib/backend/projects';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
-
-	export let project: Project;
 
 	const userService = getContextByClass(UserService);
 	const cloud = getContextByClass(CloudClient);
+	const project = getContextByClass(Project);
 	const user = userService.user;
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);

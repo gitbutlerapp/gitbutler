@@ -12,7 +12,6 @@
 	export let branchId: string;
 	export let file: AnyFile;
 	export let conflicted: boolean;
-	export let projectPath: string | undefined;
 	export let isUnapplied: boolean;
 	export let selectable = false;
 	export let readonly = false;
@@ -56,7 +55,6 @@
 			isBinary={file.binary}
 			{readonly}
 			{sections}
-			{projectPath}
 			{isFileLocked}
 			{isUnapplied}
 			{selectable}

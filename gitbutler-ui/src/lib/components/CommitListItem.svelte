@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CommitCard from './CommitCard.svelte';
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
+	import { Project } from '$lib/backend/projects';
 	import {
 		isDraggableHunk,
 		type DraggableCommit,
@@ -21,10 +22,8 @@
 		BaseBranch
 	} from '$lib/vbranches/types';
 	import { get, type Writable } from 'svelte/store';
-	import type { Project } from '$lib/backend/projects';
 
 	export let branch: Branch;
-	export let project: Project;
 	export let commit: Commit | RemoteCommit;
 	export let isHeadCommit: boolean;
 	export let isChained: boolean;
@@ -33,6 +32,7 @@
 
 	const branchController = getContextByClass(BranchController);
 	const baseBranch = getContextStoreByClass(BaseBranch);
+	const project = getContextByClass(Project);
 
 	function acceptAmend(commit: Commit | RemoteCommit) {
 		if (commit instanceof RemoteCommit) {
@@ -135,8 +135,6 @@
 		<CommitCard
 			{branch}
 			{commit}
-			projectId={project.id}
-			{project}
 			commitUrl={$baseBranch?.commitUrl(commit.id)}
 			{isHeadCommit}
 			{isUnapplied}

@@ -1,10 +1,12 @@
 <script lang="ts">
 	import BranchCard from './BranchCard.svelte';
 	import FileCard from './FileCard.svelte';
+	import { Project } from '$lib/backend/projects';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectLaneCollapsed } from '$lib/config/config';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import { getContextByClass } from '$lib/utils/context';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { RemoteFile, type Branch, type LocalFile, type AnyFile } from '$lib/vbranches/types';
 	import lscache from 'lscache';
@@ -13,18 +15,16 @@
 	import { writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 	import type { User } from '$lib/backend/cloud';
-	import type { Project } from '$lib/backend/projects';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
-	export let project: Project;
 	export let branchCount = 1;
 	export let user: User | undefined;
-	export let projectPath: string;
 
 	$: selectedOwnership = writable(Ownership.fromBranch(branch));
 	$: selected = setSelected($selectedFiles, branch);
 
+	const project = getContextByClass(Project);
 	const selectedFiles = writable<LocalFile[]>([]);
 
 	let rsViewport: HTMLElement;
@@ -63,7 +63,6 @@
 	<BranchCard
 		{branch}
 		{isUnapplied}
-		{project}
 		{selectedOwnership}
 		{commitBoxOpen}
 		bind:isLaneCollapsed
@@ -83,7 +82,6 @@
 				conflicted={selected.conflicted}
 				branchId={branch.id}
 				file={selected}
-				{projectPath}
 				{selectedOwnership}
 				{isUnapplied}
 				branchCommits={branch.commits}

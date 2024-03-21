@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BranchFiles from './BranchFiles.svelte';
+	import { Project } from '$lib/backend/projects';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
@@ -20,12 +21,9 @@
 	} from '$lib/vbranches/types';
 	import { writable, type Writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
-	import type { Project } from '$lib/backend/projects';
 
 	export let branch: Branch | undefined = undefined;
-	export let project: Project | undefined;
 	export let commit: Commit | RemoteCommit;
-	export let projectId: string;
 	export let commitUrl: string | undefined = undefined;
 	export let isHeadCommit: boolean = false;
 	export let isUnapplied = false;
@@ -36,14 +34,16 @@
 	const baseBranch = getContextStoreByClass(BaseBranch);
 
 	const selectedOwnership = writable(Ownership.default());
-	const currentCommitMessage = persistedCommitMessage(projectId, branchId || '');
+	const project = getContextByClass(Project);
+
+	const currentCommitMessage = persistedCommitMessage(project.id, branchId || '');
 
 	let showFiles = false;
 
 	let files: RemoteFile[] = [];
 
 	async function loadFiles() {
-		files = await listRemoteCommitFiles(projectId, commit.id);
+		files = await listRemoteCommitFiles(project.id, commit.id);
 	}
 
 	function onClick() {
@@ -129,7 +129,6 @@
 				{isUnapplied}
 				{selectedOwnership}
 				{selectedFiles}
-				{project}
 				allowMultiple={true}
 				readonly={true}
 			/>

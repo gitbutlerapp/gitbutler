@@ -3,8 +3,10 @@
 	import HunkContextMenu from './HunkContextMenu.svelte';
 	import HunkLine from './HunkLine.svelte';
 	import Scrollbar from './Scrollbar.svelte';
+	import { Project } from '$lib/backend/projects';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableHunk } from '$lib/dragging/draggables';
+	import { getContextByClass } from '$lib/utils/context';
 	import { onDestroy } from 'svelte';
 	import type { HunkSection } from '$lib/utils/fileSections';
 	import type { Ownership } from '$lib/vbranches/ownership';
@@ -16,7 +18,6 @@
 	export let filePath: string;
 	export let section: HunkSection;
 	export let branchId: string | undefined;
-	export let projectPath: string | undefined;
 	export let minWidth: number;
 	export let selectable = false;
 	export let isUnapplied: boolean;
@@ -24,6 +25,8 @@
 	export let readonly: boolean = false;
 	export let selectedOwnership: Writable<Ownership> | undefined = undefined;
 	export let linesModified: number;
+
+	const project = getContextByClass(Project);
 
 	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
 		if (!selectedOwnership) return;
@@ -38,7 +41,7 @@
 		if (popupMenu) popupMenu.$destroy();
 		return new HunkContextMenu({
 			target: document.body,
-			props: { projectPath, filePath }
+			props: { projectPath: project.path, filePath }
 		});
 	}
 

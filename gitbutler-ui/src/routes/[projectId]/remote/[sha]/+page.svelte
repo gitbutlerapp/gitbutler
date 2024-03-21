@@ -10,7 +10,6 @@
 
 	const githubService = getContextByClass(GitHubService);
 
-	$: project$ = data.project$;
 	$: ({ error, branches } = data.remoteBranchService);
 
 	$: branch = $branches?.find((b) => b.sha == $page.params.sha);
@@ -22,13 +21,7 @@
 {:else if !$branches}
 	<FullviewLoading />
 {:else if branch}
-	<RemoteBranchPreview
-		projectId={$project$.id}
-		projectPath={$project$.path}
-		project={$project$}
-		{pr}
-		{branch}
-	/>
+	<RemoteBranchPreview {pr} {branch} />
 {:else}
 	<p>Branch doesn't seem to exist</p>
 {/if}

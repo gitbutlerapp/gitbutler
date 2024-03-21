@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Button from './Button.svelte';
 	import Modal from './Modal.svelte';
+	import { Project } from '$lib/backend/projects';
 	import PopupMenu from '$lib/components/PopupMenu.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
@@ -11,12 +12,10 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { join } from '@tauri-apps/api/path';
 	import { open } from '@tauri-apps/api/shell';
-	import type { Project } from '$lib/backend/projects';
 	import type { AnyFile } from '$lib/vbranches/types';
 
-	export let project: Project | undefined;
-
 	const branchController = getContextByClass(BranchController);
+	const project = getContextByClass(Project);
 
 	let confirmationModal: Modal;
 	let popupMenu: PopupMenu;

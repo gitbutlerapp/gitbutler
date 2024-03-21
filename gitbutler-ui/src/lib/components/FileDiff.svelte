@@ -14,7 +14,6 @@
 	export let isBinary: boolean;
 	export let isLarge: boolean;
 	export let sections: (HunkSection | ContentSection)[];
-	export let projectPath: string | undefined;
 	export let isUnapplied: boolean;
 	export let selectable = false;
 	export let selectedOwnership: Writable<Ownership> | undefined = undefined;
@@ -83,7 +82,6 @@
 						{branchId}
 						{selectable}
 						{isUnapplied}
-						{projectPath}
 						{selectedOwnership}
 						{isFileLocked}
 						{minWidth}

@@ -1,13 +1,15 @@
 <script lang="ts">
 	import ProjectAvatar from './ProjectAvatar.svelte';
 	import ProjectsPopup from './ProjectsPopup.svelte';
+	import { Project } from '$lib/backend/projects';
 	import { clickOutside } from '$lib/clickOutside';
 	import Icon from '$lib/components/Icon.svelte';
+	import { getContextByClass } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
-	import type { Project } from '$lib/backend/projects';
 
-	export let project: Project | undefined;
 	export let isNavCollapsed: boolean;
+
+	const project = getContextByClass(Project);
 
 	let popup: ProjectsPopup;
 	let visible: boolean = false;

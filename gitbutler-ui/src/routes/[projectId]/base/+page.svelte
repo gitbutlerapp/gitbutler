@@ -12,9 +12,6 @@
 	import { getContext, onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 	import type { AnyFile } from '$lib/vbranches/types';
-	import type { PageData } from './$types';
-
-	export let data: PageData;
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'historyLaneWidth';
@@ -27,11 +24,7 @@
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
 
-	$: project$ = data.project$;
-	$: projectId = data.projectId;
 	$: error$ = baseBranchService.error$;
-
-	$: projectPath = $project$.path;
 
 	$: selectedOwnership = writable(Ownership.default());
 	$: selected = setSelected($selectedFiles);
@@ -59,7 +52,7 @@
 		>
 			<ScrollableContainer>
 				<div class="card">
-					<BaseBranch {projectId} base={$baseBranch} {selectedFiles} project={$project$} />
+					<BaseBranch base={$baseBranch} {selectedFiles} />
 				</div>
 			</ScrollableContainer>
 			<Resizer
@@ -78,7 +71,6 @@
 					conflicted={selected.conflicted}
 					branchId={'blah'}
 					file={selected}
-					{projectPath}
 					{selectedOwnership}
 					isUnapplied={false}
 					readonly={true}
