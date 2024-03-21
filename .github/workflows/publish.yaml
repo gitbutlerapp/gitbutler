@@ -80,6 +80,10 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
+      - name: install CPAN dependencies
+        if: runner.os == 'Windows'
+        run: cpan Locale::Maketext::Simple
+
       - name: Build binary
         shell: bash
         run: |
