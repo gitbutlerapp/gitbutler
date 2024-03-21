@@ -1838,16 +1838,6 @@ fn get_mtime(cache: &mut HashMap<PathBuf, u128>, file_path: &PathBuf) -> u128 {
     }
 }
 
-fn diff_hash(diff: &str) -> String {
-    let addition = diff
-        .lines()
-        .skip(1) // skip the first line which is the diff header
-        .filter(|line| line.starts_with('+') || line.starts_with('-')) // exclude context lines
-        .collect::<Vec<_>>()
-        .join("\n");
-    format!("{:x}", md5::compute(addition))
-}
-
 pub fn virtual_hunks_by_filepath(
     project_path: &Path,
     diff: &HashMap<PathBuf, Vec<diff::GitHunk>>,
@@ -1866,7 +1856,7 @@ pub fn virtual_hunks_by_filepath(
                     start: hunk.new_start,
                     end: hunk.new_start + hunk.new_lines,
                     binary: hunk.binary,
-                    hash: diff_hash(&hunk.diff),
+                    hash: Hunk::hash(&hunk.diff),
                     locked: false,
                     locked_to: None,
                     change_type: hunk.change_type,
@@ -2052,7 +2042,7 @@ fn get_applied_status(
                     .filter_map(|claimed_hunk| {
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
-                            let hash = diff_hash(&git_diff_hunk.diff);
+                            let hash = Hunk::hash(&git_diff_hunk.diff);
                             // Eq compares hashes first, and if one of the hunks lacks a hash, it compares line numbers
                             if claimed_hunk.eq(&Hunk::from(git_diff_hunk)) {
                                 // try to re-use old timestamp
@@ -2132,7 +2122,7 @@ fn get_applied_status(
                     file_path: filepath.clone(),
                     hunks: vec![Hunk::from(&hunk)
                         .with_timestamp(get_mtime(&mut mtimes, &filepath))
-                        .with_hash(diff_hash(hunk.diff.as_str()).as_str())],
+                        .with_hash(Hunk::hash(hunk.diff.as_str()).as_str())],
                 });
             diffs_by_branch
                 .entry(virtual_branches[default_vbranch_pos].id)

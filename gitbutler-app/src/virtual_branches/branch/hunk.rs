@@ -156,6 +156,16 @@ impl Hunk {
     pub fn shallow_eq(&self, other: &diff::GitHunk) -> bool {
         self.start == other.new_start && self.end == other.new_start + other.new_lines
     }
+
+    pub fn hash(diff: &str) -> String {
+        let addition = diff
+            .lines()
+            .skip(1) // skip the first line which is the diff header
+            .filter(|line| line.starts_with('+') || line.starts_with('-')) // exclude context lines
+            .collect::<Vec<_>>()
+            .join("\n");
+        format!("{:x}", md5::compute(addition))
+    }
 }
 
 #[cfg(test)]
