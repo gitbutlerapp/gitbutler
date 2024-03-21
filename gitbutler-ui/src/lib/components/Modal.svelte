@@ -28,7 +28,7 @@
 				{#if icon}
 					<Icon name={icon} />
 				{/if}
-				<h2 class="text-base-13 text-semibold" title={hoverText}>
+				<h2 class="text-base-14 text-semibold" title={hoverText}>
 					{title}
 				</h2>
 			</div>
@@ -53,7 +53,6 @@
 
 <style lang="postcss">
 	.modal__header {
-		color: var(--clr-theme-scale-ntrl-50);
 		display: flex;
 		padding: var(--size-16);
 		gap: var(--size-8);

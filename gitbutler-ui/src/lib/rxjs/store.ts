@@ -1,4 +1,4 @@
-import { Observable, Subscription, catchError, of } from 'rxjs';
+import { Observable, Subscription, catchError } from 'rxjs';
 import { writable, type Readable, type Writable } from 'svelte/store';
 
 export function storeToObservable<T>(svelteStore: Writable<T> | Readable<T>): Observable<T> {
@@ -17,12 +17,15 @@ export function observableToStore<T>(
 		// This runs when the store is first subscribed to
 		subscription = observable
 			.pipe(
-				catchError((e: any) => {
-					error.set(e.message);
-					return of(undefined);
+				catchError((e: any, caught) => {
+					store.set(undefined);
+					error.set(e);
+					// We reconnect with the caught stream to keep going
+					return caught;
 				})
 			)
 			.subscribe((item) => {
+				error.set(undefined);
 				store.set(item);
 			});
 		unsubscribe = subscription.unsubscribe;
@@ -35,7 +38,7 @@ export function observableToStore<T>(
 			}, 0);
 		};
 	});
-	const error = writable<string>();
+	const error = writable<any>();
 
 	return [store, error];
 }

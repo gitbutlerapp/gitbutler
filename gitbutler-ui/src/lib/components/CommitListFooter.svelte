@@ -1,7 +1,7 @@
 <script lang="ts">
 	import PassphraseBox from './PassphraseBox.svelte';
 	import PushButton, { BranchAction } from './PushButton.svelte';
-	import { PromptService, type SystemPrompt } from '$lib/backend/prompt';
+	import { PromptService } from '$lib/backend/prompt';
 	import { BranchService } from '$lib/branches/service';
 	import Button from '$lib/components/Button.svelte';
 	import { GitHubService } from '$lib/github/service';
@@ -23,17 +23,16 @@
 	const promptService = getContextByClass(PromptService);
 	const baseBranch = getContextStoreByClass(BaseBranch);
 
+	const [prompt, promptError] = promptService.filter({
+		branchId: branch.id,
+		timeoutMs: 30000
+	});
+
 	$: githubServiceState$ = githubService.getState(branch.id);
 	$: pr$ = githubService.getPr$(branch.upstreamName);
 
-	$: prompt$ = promptService.prompt$;
-	$: if ($prompt$) showPrompt($prompt$);
-
-	let prompt: SystemPrompt | undefined;
 	let isPushing: boolean;
 	let isMerging: boolean;
-	let passphrase = '';
-	let isSubmitting = false;
 
 	interface CreatePrOpts {
 		draft: boolean;
@@ -68,30 +67,12 @@
 			isPushing = false;
 		}
 	}
-
-	function showPrompt(newPrompt: SystemPrompt) {
-		if (newPrompt.context?.branch_id == branch.id) prompt = newPrompt;
-	}
 </script>
 
 {#if !isUnapplied && type != 'integrated'}
 	<div class="actions" class:hasCommits>
-		{#if prompt && type == 'local'}
-			<PassphraseBox
-				bind:value={passphrase}
-				{prompt}
-				{isSubmitting}
-				on:submit={async () => {
-					if (!prompt) return;
-					isSubmitting = true;
-					await promptService.respond({ id: prompt.id, response: passphrase });
-					isSubmitting = false;
-					prompt = undefined;
-				}}
-				on:cancel={async () => {
-					prompt = undefined;
-				}}
-			/>
+		{#if $prompt && type == 'local'}
+			<PassphraseBox prompt={$prompt} error={$promptError} />
 		{:else if githubService.isEnabled && (type == 'local' || type == 'remote')}
 			<PushButton
 				wide

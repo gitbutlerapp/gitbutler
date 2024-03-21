@@ -3,63 +3,63 @@
 	import TextBox from './TextBox.svelte';
 	import { PromptService, type SystemPrompt } from '$lib/backend/prompt';
 	import { getContextByClass } from '$lib/utils/context';
-	import { createEventDispatcher } from 'svelte';
+	import * as toasts from '$lib/utils/toasts';
 
-	export let value: string = '';
-	export let submitDisabled: boolean = false;
-	export let isSubmitting: boolean = true;
 	export let prompt: SystemPrompt | undefined;
+	export let error: any;
+	export let value: string = '';
+
+	let submitDisabled: boolean = false;
+	let isSubmitting = false;
 
 	const promptService = getContextByClass(PromptService);
 
-	const dispatch = createEventDispatcher<{
-		change: string;
-		input: string;
-		submit: string;
-		cancel: void;
-	}>();
+	async function submit() {
+		if (!prompt) return;
+		isSubmitting = true;
+		await promptService.respond({ id: prompt.id, response: value });
+		isSubmitting = false;
+	}
+
+	if (error) toasts.error(error);
 </script>
 
-<div class="passbox">
-	<span class="text-base-body-11 passbox__helper-text">
-		{prompt?.prompt}
-	</span>
-	<TextBox
-		focus
-		type="password"
-		bind:value
-		on:change={(e) => dispatch('change', e.detail)}
-		on:input={(e) => dispatch('input', e.detail)}
-		on:keydown={(e) => {
-			if (e.detail.key === 'Enter') dispatch('submit', value);
-		}}
-	/>
-	<div class="passbox__actions">
-		<Button
-			color="neutral"
-			disabled={isSubmitting}
-			kind="outlined"
-			on:click={async () => {
-				if (!prompt) return;
-				await promptService.cancel(prompt.id);
-				prompt = undefined;
-				dispatch('cancel');
+{#if prompt}
+	<div class="passbox">
+		<span class="text-base-body-11 passbox__helper-text">
+			{prompt?.prompt}
+		</span>
+		<TextBox
+			focus
+			type="password"
+			bind:value
+			on:keydown={(e) => {
+				if (e.detail.key === 'Enter') submit();
 			}}
-		>
-			Cancel
-		</Button>
-		<Button
-			grow
-			on:click={() => {
-				dispatch('submit', value);
-			}}
-			disabled={submitDisabled || isSubmitting}
-			loading={isSubmitting}
-		>
-			Submit
-		</Button>
+		/>
+		<div class="passbox__actions">
+			<Button
+				color="neutral"
+				disabled={isSubmitting}
+				kind="outlined"
+				on:click={async () => {
+					if (!prompt) return;
+					await promptService.cancel(prompt.id);
+				}}
+			>
+				Cancel
+			</Button>
+			<Button
+				grow
+				on:click={async () => await submit()}
+				disabled={submitDisabled || isSubmitting}
+				loading={isSubmitting}
+			>
+				Submit
+			</Button>
+		</div>
 	</div>
-</div>
+{/if}
 
 <style>
 	.passbox {
