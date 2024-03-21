@@ -37,8 +37,8 @@
 					rows={3}
 					placeholder="Project description"
 					bind:value={description}
-					on:change={(e) => {
-						project.description = e.detail;
+					on:change={() => {
+						project.description = description;
 						dispatch('updated', project);
 					}}
 				/>
