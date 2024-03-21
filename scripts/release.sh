@@ -209,9 +209,9 @@ elif [ "$OS" = "linux" ]; then
 	info "  - $RELEASE_DIR/$(basename "$APPIMAGE_UPDATER_SIG")"
 	info "  - $RELEASE_DIR/$(basename "$DEB")"
 elif [ "$OS" = "windows" ]; then
-	WINDOWS_INSTALLER="$(find $BUNDLE_DIR/windows -name \*.msi)"
-	WINDOWS_UPDATER="$(find $BUNDLE_DIR/windows -name \*.msi.zip)"
-	WINDOWS_UPDATER_SIG="$(find $BUNDLE_DIR/windows -name \*.msi.zip.sig)"
+	WINDOWS_INSTALLER="$(find $BUNDLE_DIR/msi -name \*.msi)"
+	WINDOWS_UPDATER="$(find $BUNDLE_DIR/msi -name \*.msi.zip)"
+	WINDOWS_UPDATER_SIG="$(find $BUNDLE_DIR/msi -name \*.msi.zip.sig)"
 
 	cp "$WINDOWS_INSTALLER" "$RELEASE_DIR"
 	cp "$WINDOWS_UPDATER" "$RELEASE_DIR"
