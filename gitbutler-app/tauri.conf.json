@@ -57,7 +57,7 @@
 				"icons/dev/icon.icns",
 				"icons/dev/icon.ico"
 			],
-			"targets": ["app", "dmg", "appimage", "deb", "updater"]
+			"targets": ["app", "dmg", "appimage", "deb", "updater", "msi"]
 		},
 		"security": {
 			"csp": {

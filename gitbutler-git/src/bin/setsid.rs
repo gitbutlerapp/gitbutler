@@ -3,6 +3,7 @@
 // NOTE(qix-): build anyway. We'll address this at a later time.
 // NOTE(qix-):
 // NOTE(qix-): For now, we just stub out the main function on windows and panic.
+#![cfg_attr(windows, windows_subsystem = "windows")]
 
 #[cfg(unix)]
 include!("setsid/unix.rs");
