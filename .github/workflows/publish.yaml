@@ -69,7 +69,6 @@ jobs:
           echo "version=$NEXT_VERSION" >> $GITHUB_ENV
 
       - name: import gpg key
-        shell: bash
         if: runner.os == 'Linux'
         uses: crazy-max/ghaction-import-gpg@v6
         with:
