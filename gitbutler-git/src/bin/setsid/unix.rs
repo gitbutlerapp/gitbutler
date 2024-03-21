@@ -5,10 +5,6 @@ use nix::{
 use std::{os::unix::process::CommandExt, process};
 
 pub fn main() {
-    panic!("This binary is only meant to be run on Unix-like systems. It exists on Windows only because Cargo cannot switch off bins based on target platform.");
-}
-
-pub fn main() {
     let has_pipe_var = std::env::var("GITBUTLER_ASKPASS_PIPE")
         .map(|v| !v.is_empty())
         .unwrap_or(false);
