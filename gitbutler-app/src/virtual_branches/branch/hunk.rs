@@ -17,7 +17,7 @@ impl From<&diff::GitHunk> for Hunk {
         Hunk {
             start: hunk.new_start,
             end: hunk.new_start + hunk.new_lines,
-            hash: None,
+            hash: Some(Hunk::hash(&hunk.diff)),
             timestamp_ms: None,
         }
     }
