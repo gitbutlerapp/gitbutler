@@ -15,12 +15,13 @@
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 
+	// TODO: Too much functionality here for a +page.svelte file
+
 	export let data: PageData;
 
 	$: projectService = data.projectService;
 	$: project$ = data.project$;
 	$: cloud = data.cloud;
-	$: authService = data.authService;
 
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
@@ -74,7 +75,7 @@
 	<ContentWrapper title="Project settings">
 		<CloudForm project={$project$} on:updated={onCloudUpdated} />
 		<DetailsForm project={$project$} on:updated={onDetailsUpdated} />
-		<KeysForm project={$project$} {authService} />
+		<KeysForm project={$project$} />
 		<Spacer />
 		<PreferencesForm project={$project$} on:updated={onPreferencesUpdated} />
 		<SectionCard>

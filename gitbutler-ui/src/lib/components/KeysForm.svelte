@@ -4,6 +4,7 @@
 	import RadioButton from './RadioButton.svelte';
 	import SectionCard from './SectionCard.svelte';
 	import TextBox from './TextBox.svelte';
+	import { AuthService } from '$lib/backend/auth';
 	import { ProjectService, type Key, type KeyType, type Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
@@ -13,11 +14,10 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { onMount } from 'svelte';
-	import type { AuthService } from '$lib/backend/auth';
 
-	export let authService: AuthService;
 	export let project: Project;
 
+	const authService = getContextByClass(AuthService);
 	const baseBranch = getContextStoreByClass(BaseBranch);
 	const projectService = getContextByClass(ProjectService);
 
@@ -207,7 +207,6 @@
 			<CredentialCheck
 				bind:this={credentialCheck}
 				projectId={project.id}
-				{authService}
 				remoteName={remoteName || $baseBranch?.remoteName}
 				branchName={branchName || $baseBranch?.shortName}
 			/>

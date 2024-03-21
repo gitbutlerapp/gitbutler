@@ -2,6 +2,7 @@
 	import '../styles/main.postcss';
 
 	import { AIService } from '$lib/backend/aiService';
+	import { AuthService } from '$lib/backend/auth';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { ProjectService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
@@ -23,7 +24,7 @@
 	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
-	$: ({ cloud, promptService } = data);
+	$: ({ cloud } = data);
 
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
@@ -35,7 +36,8 @@
 	$: setContext(GitHubService, data.githubService);
 	$: setContext(GitConfigService, data.gitConfig);
 	$: setContext(AIService, data.aiService);
-	$: setContext(PromptService, promptService);
+	$: setContext(PromptService, data.promptService);
+	$: setContext(AuthService, data.authService);
 
 	let shareIssueModal: ShareIssueModal;
 
