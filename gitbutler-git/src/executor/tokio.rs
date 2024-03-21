@@ -28,7 +28,16 @@ unsafe impl super::GitExecutor for TokioExecutor {
         cwd: P,
         envs: Option<HashMap<String, String>>,
     ) -> Result<(usize, String, String), Self::Error> {
-        let mut cmd = Command::new("git");
+        let mut cmd = Command::new({
+            #[cfg(unix)]
+            {
+                "git"
+            }
+            #[cfg(windows)]
+            {
+                "git.exe"
+            }
+        });
 
         // Output the command being executed to stderr, for debugging purposes
         // (only on test configs).

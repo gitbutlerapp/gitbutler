@@ -88,7 +88,16 @@ where
     let path = path.parent().unwrap();
 
     let askpath_path = path
-        .with_file_name("gitbutler-git-askpass")
+        .with_file_name({
+            #[cfg(unix)]
+            {
+                "gitbutler-git-askpass"
+            }
+            #[cfg(windows)]
+            {
+                "gitbutler-git-askpass.exe"
+            }
+        })
         .to_string_lossy()
         .into_owned();
 
