@@ -21,8 +21,14 @@ impl Socket for BufStream<NamedPipeServer> {
         let mut out_pid: winapi::shared::minwindef::ULONG = 0;
 
         #[allow(unsafe_code)]
-        let r =
-            unsafe { winapi::um::winbase::GetNamedPipeClientProcessId(raw_handle, &mut out_pid) };
+        let r = unsafe {
+            winapi::um::winbase::GetNamedPipeClientProcessId(
+                // We need the `as` here to make rustdoc shut up
+                // about winapi using different type defs for docs.
+                raw_handle as winapi::um::winnt::HANDLE,
+                &mut out_pid,
+            )
+        };
 
         if r == 0 {
             Err(std::io::Error::last_os_error())

@@ -1,4 +1,4 @@
-//! A [Tokio](https://tokio.rs)-based [`super::GitExecutor`] implementation.
+//! A [Tokio](https://tokio.rs)-based Git executor implementation.
 
 #[cfg(unix)]
 mod unix;
@@ -13,7 +13,7 @@ pub use self::unix::TokioAskpassServer;
 #[cfg(windows)]
 pub use self::windows::TokioAskpassServer;
 
-/// A [`super::GitExecutor`] implementation using the `git` command-line tool
+/// A Git executor implementation using the `git` command-line tool
 /// via [`tokio::process::Command`].
 pub struct TokioExecutor;
 
