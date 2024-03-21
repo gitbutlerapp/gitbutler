@@ -7,14 +7,19 @@
 #![deny(missing_docs, unsafe_code)]
 #![allow(async_fn_in_trait)]
 #![cfg_attr(test, feature(async_closure))]
+#![cfg_attr(windows, feature(windows_by_handle))]
 #![feature(impl_trait_in_assoc_type)]
 
-mod cli;
 mod error;
+pub(crate) mod executor;
 mod refspec;
+mod repository;
+
+#[cfg(feature = "tokio")]
+pub use self::executor::tokio;
 
 pub use self::{
-    cli::*,
     error::Error,
     refspec::{Error as RefSpecError, RefSpec},
+    repository::{fetch, push},
 };

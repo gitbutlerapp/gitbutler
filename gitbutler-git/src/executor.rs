@@ -142,7 +142,7 @@ pub unsafe trait GitExecutor {
     /// during askpass authentication.
     ///
     /// **Do not follow symbolic links.**
-    async fn stat(&self, path: &str) -> Result<FileStat, Self::Error>;
+    async fn stat<P: AsRef<Path>>(&self, path: P) -> Result<FileStat, Self::Error>;
 }
 
 /// Stats for a file on the filesystem.
