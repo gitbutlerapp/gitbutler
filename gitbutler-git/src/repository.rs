@@ -88,11 +88,20 @@ where
     let path = path.parent().unwrap();
 
     let askpath_path = path
-        .with_file_name("gitbutler-git-askpass")
+        .with_file_name({
+            #[cfg(unix)]
+            {
+                "gitbutler-git-askpass"
+            }
+            #[cfg(windows)]
+            {
+                "gitbutler-git-askpass.exe"
+            }
+        })
         .to_string_lossy()
         .into_owned();
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(unix)]
     let setsid_path = path
         .with_file_name("gitbutler-git-setsid")
         .to_string_lossy()
@@ -103,7 +112,7 @@ where
         .await
         .map_err(Error::<E>::Exec)?;
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(unix)]
     let setsid_stat = executor
         .stat(&setsid_path)
         .await
@@ -150,11 +159,11 @@ where
         format!(
             "{}{base_ssh_command} -o StrictHostKeyChecking=accept-new -o KbdInteractiveAuthentication=no{}",
             {
-                #[cfg(not(target_os = "windows"))]
+                #[cfg(unix)]
                 {
                     format!("'{setsid_path}' ")
                 }
-                #[cfg(target_os = "windows")]
+                #[cfg(windows)]
                 {
                     ""
                 }
@@ -198,6 +207,9 @@ where
                 // TODO(qix-): see if dropping sysinfo for a more bespoke implementation is worth it.
                 let mut system = sysinfo::System::new();
                 system.refresh_processes();
+
+                // We can ignore clippy here since the type is different depending on the platform.
+                #[allow(clippy::useless_conversion)]
                 let peer_path = system
                     .process(sysinfo::Pid::from_u32(peer_pid.try_into().map_err(|_| Error::<E>::NoSuchPid(peer_pid))?))
                     .and_then(|p| p.exe().map(|exe| exe.to_string_lossy().into_owned()))
@@ -206,15 +218,28 @@ where
                 // stat the askpass executable that is being invoked
                 let peer_stat = executor.stat(&peer_path).await.map_err(Error::<E>::Exec)?;
 
-                if peer_stat.ino == askpath_stat.ino {
+                let valid_executable = if peer_stat.ino == askpath_stat.ino {
                     if peer_stat.dev != askpath_stat.dev {
                         return Err(Error::<E>::AskpassDeviceMismatch)?;
                     }
-                } else if peer_stat.ino == setsid_stat.ino {
+
+                    true
+                } else {
+                    false
+                };
+
+                #[cfg(unix)]
+                let valid_executable = valid_executable || if peer_stat.ino == setsid_stat.ino {
                     if peer_stat.dev != setsid_stat.dev {
                         return Err(Error::<E>::AskpassDeviceMismatch)?;
                     }
+
+                    true
                 } else {
+                    false
+                };
+
+                if !valid_executable {
                     return Err(Error::<E>::AskpassExecutableMismatch)?;
                 }
 
