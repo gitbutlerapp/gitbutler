@@ -1,7 +1,7 @@
 <script lang="ts">
 	import SectionCard from './SectionCard.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
-	import { getCloudApiClient } from '$lib/backend/cloud';
+	import { CloudClient } from '$lib/backend/cloud';
 	import Link from '$lib/components/Link.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
@@ -17,9 +17,9 @@
 	export let project: Project;
 
 	const userService = getContextByClass(UserService);
+	const cloud = getContextByClass(CloudClient);
 	const user = userService.user;
 
-	const cloud = getCloudApiClient();
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
 
@@ -30,7 +30,7 @@
 	onMount(async () => {
 		if (!project?.api) return;
 		if (!$user) return;
-		const cloudProject = await cloud.projects.get($user.access_token, project.api.repository_id);
+		const cloudProject = await cloud.getProject($user.access_token, project.api.repository_id);
 		if (cloudProject === project.api) return;
 		dispatch('updated', { ...project, api: { ...cloudProject, sync: project.api.sync } });
 	});
@@ -40,7 +40,7 @@
 		try {
 			const cloudProject =
 				project.api ??
-				(await cloud.projects.create($user.access_token, {
+				(await cloud.createProject($user.access_token, {
 					name: project.title,
 					description: project.description,
 					uid: project.id

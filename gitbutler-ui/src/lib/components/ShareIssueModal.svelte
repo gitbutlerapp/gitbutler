@@ -1,5 +1,6 @@
 <script lang="ts">
 	import TextArea from './TextArea.svelte';
+	import { CloudClient } from '$lib/backend/cloud';
 	import { invoke } from '$lib/backend/ipc';
 	import * as zip from '$lib/backend/zip';
 	import Button from '$lib/components/Button.svelte';
@@ -9,11 +10,9 @@
 	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { getVersion } from '@tauri-apps/api/app';
-	import type { getCloudApiClient } from '$lib/backend/cloud';
 	import { page } from '$app/stores';
 
-	export let cloud: ReturnType<typeof getCloudApiClient>;
-
+	const cloud = getContextByClass(CloudClient);
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
 
@@ -76,7 +75,7 @@
 					? zip.projectData({ projectId }).then((path) => readZipFile(path, 'project.zip'))
 					: undefined
 			]).then(async ([logs, data, repo]) =>
-				cloud.feedback.create($user?.access_token, {
+				cloud.createFeedback($user?.access_token, {
 					email,
 					message,
 					context,

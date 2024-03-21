@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Button from './Button.svelte';
-	import { getCloudApiClient, type LoginToken } from '$lib/backend/cloud';
+	import { CloudClient, type LoginToken } from '$lib/backend/cloud';
 	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
@@ -8,7 +8,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { derived, writable } from 'svelte/store';
 
-	const cloud = getCloudApiClient();
+	const cloud = getContextByClass(CloudClient);
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
 
@@ -21,7 +21,7 @@
 	let signUpOrLoginLoading = false;
 
 	async function pollForUser(token: string) {
-		const apiUser = await cloud.login.user.get(token).catch(() => null);
+		const apiUser = await cloud.getLoginUser(token).catch(() => null);
 		if (apiUser) {
 			userService.setUser(apiUser);
 			return;
@@ -36,7 +36,7 @@
 	async function onSignUpOrLoginClick() {
 		signUpOrLoginLoading = true;
 		try {
-			token.set(await cloud.login.token.create());
+			token.set(await cloud.createLoginToken());
 		} catch (err: any) {
 			console.error(err);
 			toasts.error('Could not create login token');

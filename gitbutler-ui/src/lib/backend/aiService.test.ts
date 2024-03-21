@@ -1,3 +1,4 @@
+import { CloudClient } from './cloud';
 import { AnthropicAIClient } from '$lib/backend/aiClients/anthropic';
 import { ButlerAIClient } from '$lib/backend/aiClients/butler';
 import { OpenAIClient } from '$lib/backend/aiClients/openAI';
@@ -9,7 +10,6 @@ import {
 	ModelKind,
 	OpenAIModelName
 } from '$lib/backend/aiService';
-import { getCloudApiClient } from '$lib/backend/cloud';
 import * as toasts from '$lib/utils/toasts';
 import { expect, test, describe, vi } from 'vitest';
 import type { AIClient } from '$lib/backend/aiClient';
@@ -42,7 +42,7 @@ class DummyGitConfigService implements GitConfigService {
 }
 
 const fetchMock = vi.fn();
-const cloud = getCloudApiClient({ fetch: fetchMock });
+const cloud = new CloudClient(fetchMock);
 
 class DummyAIClient implements AIClient {
 	constructor(private response = 'lorem ipsum') {}

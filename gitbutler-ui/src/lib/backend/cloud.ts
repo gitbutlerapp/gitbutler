@@ -1,19 +1,12 @@
-import { isLoading, invoke } from './ipc';
-import { nanoid } from 'nanoid';
+import { invoke } from './ipc';
 import type { PromptMessage } from '$lib/backend/aiClient';
 import type { ModelKind } from '$lib/backend/aiService';
-import { PUBLIC_API_BASE_URL, PUBLIC_CHAIN_API } from '$env/static/public';
+import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 const apiUrl = new URL('/api/', new URL(PUBLIC_API_BASE_URL));
 
 function getUrl(path: string) {
 	return new URL(path, apiUrl).toString();
-}
-
-const chainApiUrl = new URL(PUBLIC_CHAIN_API);
-
-function getChainUrl(path: string) {
-	return new URL(path, chainApiUrl).toString();
 }
 
 export type Feedback = {
@@ -67,40 +60,6 @@ async function parseResponseJSON(response: Response) {
 	}
 }
 
-type FetchMiddleware = (f: typeof fetch) => typeof fetch;
-
-function fetchWith(fetch: typeof window.fetch, ...middlewares: FetchMiddleware[]) {
-	return middlewares.reduce((f, middleware) => middleware(f), fetch);
-}
-
-function withRequestId(fetch: any) {
-	return async (url: RequestInfo | URL, options: any) => {
-		const requestId = nanoid();
-		if (!options) options = {};
-		options.headers = {
-			...options?.headers,
-			'X-Request-Id': requestId
-		};
-		const result = fetch(url, options);
-		return result;
-	};
-}
-
-function withLog(fetch: any) {
-	return async (url: RequestInfo | URL, options: any) => {
-		const item = { name: url.toString(), startedAt: new Date() };
-		try {
-			isLoading.push(item);
-			const resp = await fetch(url, options);
-			return resp;
-		} catch (e: any) {
-			console.error('fetch', e);
-			throw e;
-		} finally {
-			isLoading.pop(item);
-		}
-	};
-}
 interface EvaluatePromptParams {
 	messages: PromptMessage[];
 	temperature?: number;
@@ -108,188 +67,175 @@ interface EvaluatePromptParams {
 	model_kind?: ModelKind;
 }
 
-export function getCloudApiClient(
-	{ fetch: realFetch }: { fetch: typeof window.fetch } = {
-		fetch: window.fetch
+export class CloudClient {
+	fetch: ((input: RequestInfo | URL, init?: RequestInit | undefined) => Promise<Response>) &
+		((input: RequestInfo | URL, init?: RequestInit | undefined) => Promise<Response>);
+
+	constructor(realFetch: typeof window.fetch = window.fetch) {
+		this.fetch = realFetch;
 	}
-) {
-	const fetch = fetchWith(realFetch, withRequestId, withLog);
-	return {
-		login: {
-			token: {
-				create: (): Promise<LoginToken> =>
-					fetch(getUrl('login/token.json'), {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json'
-						},
-						body: JSON.stringify({})
-					})
-						.then(parseResponseJSON)
-						.then((token) => {
-							const url = new URL(token.url);
-							url.host = apiUrl.host;
-							return {
-								...token,
-								url: url.toString()
-							};
-						})
+
+	async createLoginToken(): Promise<LoginToken> {
+		const response = await this.fetch(getUrl('login/token.json'), {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
 			},
-			user: {
-				get: (token: string): Promise<User> =>
-					fetch(getUrl(`login/user/${token}.json`), {
-						method: 'GET'
-					}).then(parseResponseJSON)
-			}
-		},
-		feedback: {
-			create: async (
-				token: string | undefined,
-				params: {
-					email?: string;
-					message: string;
-					context?: string;
-					logs?: Blob | File;
-					data?: Blob | File;
-					repo?: Blob | File;
-				}
-			): Promise<Feedback> => {
-				const formData = new FormData();
-				formData.append('message', params.message);
-				if (params.email) formData.append('email', params.email);
-				if (params.context) formData.append('context', params.context);
-				if (params.logs) formData.append('logs', params.logs);
-				if (params.repo) formData.append('repo', params.repo);
-				if (params.data) formData.append('data', params.data);
-				const headers: HeadersInit = token ? { 'X-Auth-Token': token } : {};
-				return fetch(getUrl(`feedback`), {
-					method: 'PUT',
-					headers,
-					body: formData
-				}).then(parseResponseJSON);
-			}
-		},
-		user: {
-			get: (token: string): Promise<User> =>
-				fetch(getUrl(`user.json`), {
-					method: 'GET',
-					headers: {
-						'X-Auth-Token': token
-					}
-				}).then(parseResponseJSON),
-			update: async (token: string, params: { name?: string; picture?: File }) => {
-				const formData = new FormData();
-				if (params.name) {
-					formData.append('name', params.name);
-				}
-				if (params.picture) {
-					formData.append('avatar', params.picture);
-				}
-				return fetch(getUrl(`user.json`), {
-					method: 'PUT',
-					headers: {
-						'X-Auth-Token': token
-					},
-					body: formData
-				}).then(parseResponseJSON);
-			}
-		},
-		ai: {
-			evaluatePrompt: (token: string, params: EvaluatePromptParams): Promise<{ message: string }> =>
-				fetch(getUrl('evaluate_prompt/predict.json'), {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-Auth-Token': token
-					},
-					body: JSON.stringify(params)
-				}).then(parseResponseJSON)
-		},
-		chat: {
-			new: (token: string, repositoryId: string): Promise<{ id: string }> =>
-				fetch(getChainUrl(`${repositoryId}/chat`), {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-Auth-Token': token
-					}
-				}).then(parseResponseJSON),
-			history: (
-				token: string,
-				repositoryId: string,
-				chatId: string
-			): Promise<{ history: []; sequence: number }> =>
-				fetch(getChainUrl(`${repositoryId}/chat/${chatId}`), {
-					method: 'GET',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-Auth-Token': token
-					}
-				}).then(parseResponseJSON),
-			newMessage: (
-				token: string,
-				repositoryId: string,
-				chatId: string,
-				message: string
-			): Promise<{ sequence: number }> =>
-				fetch(getChainUrl(`${repositoryId}/chat/${chatId}`), {
-					method: 'PATCH',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-Auth-Token': token
-					},
-					body: JSON.stringify({ text: message })
-				}).then(parseResponseJSON)
-		},
-		projects: {
-			create: (
-				token: string,
-				params: { name: string; description?: string; uid?: string }
-			): Promise<Project> =>
-				fetch(getUrl('projects.json'), {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-Auth-Token': token
-					},
-					body: JSON.stringify(params)
-				}).then(parseResponseJSON),
-			update: (
-				token: string,
-				repositoryId: string,
-				params: { name: string; description?: string }
-			): Promise<Project> =>
-				fetch(getUrl(`projects/${repositoryId}.json`), {
-					method: 'PUT',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-Auth-Token': token
-					},
-					body: JSON.stringify(params)
-				}).then(parseResponseJSON),
-			list: (token: string): Promise<Project[]> =>
-				fetch(getUrl('projects.json'), {
-					method: 'GET',
-					headers: {
-						'X-Auth-Token': token
-					}
-				}).then(parseResponseJSON),
-			get: (token: string, repositoryId: string): Promise<Project> =>
-				fetch(getUrl(`projects/${repositoryId}.json`), {
-					method: 'GET',
-					headers: {
-						'X-Auth-Token': token
-					}
-				}).then(parseResponseJSON),
-			delete: (token: string, repositoryId: string): Promise<void> =>
-				fetch(getUrl(`projects/${repositoryId}.json`), {
-					method: 'DELETE',
-					headers: {
-						'X-Auth-Token': token
-					}
-				}).then(parseResponseJSON)
+			body: JSON.stringify({})
+		});
+		const token = await parseResponseJSON(response);
+		const url = new URL(token.url);
+		url.host = apiUrl.host;
+		return {
+			...token,
+			url: url.toString()
+		};
+	}
+
+	async getLoginUser(token: string): Promise<User> {
+		const response = await this.fetch(getUrl(`login/user/${token}.json`), {
+			method: 'GET'
+		});
+		return parseResponseJSON(response);
+	}
+
+	async createFeedback(
+		token: string | undefined,
+		params: {
+			email?: string;
+			message: string;
+			context?: string;
+			logs?: Blob | File;
+			data?: Blob | File;
+			repo?: Blob | File;
 		}
-	};
+	): Promise<Feedback> {
+		const formData = new FormData();
+		formData.append('message', params.message);
+		if (params.email) formData.append('email', params.email);
+		if (params.context) formData.append('context', params.context);
+		if (params.logs) formData.append('logs', params.logs);
+		if (params.repo) formData.append('repo', params.repo);
+		if (params.data) formData.append('data', params.data);
+		const headers: HeadersInit = token ? { 'X-Auth-Token': token } : {};
+		const response = await this.fetch(getUrl(`feedback`), {
+			method: 'PUT',
+			headers,
+			body: formData
+		});
+		return parseResponseJSON(response);
+	}
+
+	async getUser(token: string): Promise<User> {
+		const response = await this.fetch(getUrl(`user.json`), {
+			method: 'GET',
+			headers: {
+				'X-Auth-Token': token
+			}
+		});
+		return parseResponseJSON(response);
+	}
+
+	async updateUser(token: string, params: { name?: string; picture?: File }): Promise<any> {
+		const formData = new FormData();
+		if (params.name) {
+			formData.append('name', params.name);
+		}
+		if (params.picture) {
+			formData.append('avatar', params.picture);
+		}
+		const response = await this.fetch(getUrl(`user.json`), {
+			method: 'PUT',
+			headers: {
+				'X-Auth-Token': token
+			},
+			body: formData
+		});
+		return parseResponseJSON(response);
+	}
+
+	async evaluateAIPrompt(
+		token: string,
+		params: EvaluatePromptParams
+	): Promise<{ message: string }> {
+		const response = await this.fetch(getUrl('evaluate_prompt/predict.json'), {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-Auth-Token': token
+			},
+			body: JSON.stringify(params)
+		});
+		return parseResponseJSON(response);
+	}
+
+	async createProject(
+		token: string,
+		params: {
+			name: string;
+			description?: string;
+			uid?: string;
+		}
+	): Promise<Project> {
+		const response = await this.fetch(getUrl('projects.json'), {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-Auth-Token': token
+			},
+			body: JSON.stringify(params)
+		});
+		return parseResponseJSON(response);
+	}
+
+	async updateProject(
+		token: string,
+		repositoryId: string,
+		params: {
+			name: string;
+			description?: string;
+		}
+	): Promise<Project> {
+		const response = await this.fetch(getUrl(`projects/${repositoryId}.json`), {
+			method: 'PUT',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-Auth-Token': token
+			},
+			body: JSON.stringify(params)
+		});
+		return parseResponseJSON(response);
+	}
+
+	async listProjects(token: string): Promise<Project[]> {
+		const response = await this.fetch(getUrl('projects.json'), {
+			method: 'GET',
+			headers: {
+				'X-Auth-Token': token
+			}
+		});
+		return parseResponseJSON(response);
+	}
+
+	async getProject(token: string, repositoryId: string): Promise<Project> {
+		const response = await this.fetch(getUrl(`projects/${repositoryId}.json`), {
+			method: 'GET',
+			headers: {
+				'X-Auth-Token': token
+			}
+		});
+		return parseResponseJSON(response);
+	}
+
+	async deleteProject(token: string, repositoryId: string): Promise<void> {
+		const response = await this.fetch(getUrl(`projects/${repositoryId}.json`), {
+			method: 'DELETE',
+			headers: {
+				'X-Auth-Token': token
+			}
+		});
+		return parseResponseJSON(response);
+	}
 }
 
 export async function syncToCloud(projectId: string | undefined) {

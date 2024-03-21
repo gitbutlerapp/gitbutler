@@ -3,6 +3,7 @@
 
 	import { AIService } from '$lib/backend/aiService';
 	import { AuthService } from '$lib/backend/auth';
+	import { CloudClient } from '$lib/backend/cloud';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { ProjectService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
@@ -24,7 +25,6 @@
 	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
-	$: ({ cloud } = data);
 
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
@@ -38,6 +38,7 @@
 	$: setContext(AIService, data.aiService);
 	$: setContext(PromptService, data.promptService);
 	$: setContext(AuthService, data.authService);
+	$: setContext(CloudClient, data.cloud);
 
 	let shareIssueModal: ShareIssueModal;
 
@@ -68,7 +69,7 @@
 	<slot />
 </div>
 <Toaster />
-<ShareIssueModal bind:this={shareIssueModal} {cloud} />
+<ShareIssueModal bind:this={shareIssueModal} />
 <ToastController />
 <AppUpdater />
 <PromptModal />

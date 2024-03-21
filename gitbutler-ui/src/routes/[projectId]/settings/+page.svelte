@@ -57,7 +57,7 @@
 	async function onDetailsUpdated(e: { detail: Project }) {
 		const api =
 			$user && e.detail.api
-				? await cloud.projects.update($user?.access_token, e.detail.api.repository_id, {
+				? await cloud.updateProject($user?.access_token, e.detail.api.repository_id, {
 						name: e.detail.title,
 						description: e.detail.description
 					})

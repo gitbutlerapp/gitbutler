@@ -1,16 +1,14 @@
 import { resetPostHog, setPostHogUser } from '$lib/analytics/posthog';
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
-import { getCloudApiClient, type User } from '$lib/backend/cloud';
 import { invoke } from '$lib/backend/ipc';
 import { observableToStore } from '$lib/rxjs/store';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
 import { BehaviorSubject, Observable, Subject, distinct, map, merge, shareReplay } from 'rxjs';
+import type { CloudClient, User } from '$lib/backend/cloud';
 import type { Readable } from 'svelte/motion';
 
 export class UserService {
-	private readonly cloud = getCloudApiClient();
-
 	readonly reset$ = new Subject<User | undefined>();
 	readonly loading$ = new BehaviorSubject(false);
 
@@ -35,7 +33,7 @@ export class UserService {
 	user: Readable<User | undefined>;
 	error: Readable<string | undefined>;
 
-	constructor() {
+	constructor(private cloud: CloudClient) {
 		[this.user, this.error] = observableToStore(this.user$);
 	}
 
@@ -60,7 +58,7 @@ export class UserService {
 		this.logout();
 		this.loading$.next(true);
 		try {
-			const token = await this.cloud.login.token.create();
+			const token = await this.cloud.createLoginToken();
 			openExternalUrl(token.url);
 
 			// Assumed min time for login flow
@@ -78,7 +76,7 @@ export class UserService {
 	private async pollForUser(token: string): Promise<User | undefined> {
 		let apiUser: User | null;
 		for (let i = 0; i < 120; i++) {
-			apiUser = await this.cloud.login.user.get(token).catch(() => null);
+			apiUser = await this.cloud.getLoginUser(token).catch(() => null);
 			if (apiUser) {
 				this.setUser(apiUser);
 				return apiUser;

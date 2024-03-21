@@ -5,7 +5,7 @@ import { splitMessage } from '$lib/utils/commitMessage';
 import * as toasts from '$lib/utils/toasts';
 import OpenAI from 'openai';
 import type { AIClient } from '$lib/backend/aiClient';
-import type { getCloudApiClient } from '$lib/backend/cloud';
+import type { CloudClient } from '$lib/backend/cloud';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
 
 const diffLengthLimit = 20000;
@@ -87,7 +87,7 @@ type SummarizeBranchOpts = {
 export class AIService {
 	constructor(
 		private gitConfig: GitConfigService,
-		private cloud: ReturnType<typeof getCloudApiClient>
+		private cloud: CloudClient
 	) {}
 
 	async validateConfiguration(userToken?: string): Promise<boolean> {

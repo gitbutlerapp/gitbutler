@@ -2,7 +2,7 @@ import { initPostHog } from '$lib/analytics/posthog';
 import { initSentry } from '$lib/analytics/sentry';
 import { AIService } from '$lib/backend/aiService';
 import { AuthService } from '$lib/backend/auth';
-import { getCloudApiClient } from '$lib/backend/cloud';
+import { CloudClient } from '$lib/backend/cloud';
 import { GitConfigService } from '$lib/backend/gitConfigService';
 import { ProjectService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
@@ -39,11 +39,12 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 	// https://github.com/sveltejs/kit/issues/905
 	const defaultPath = await (await import('@tauri-apps/api/path')).homeDir();
 
+	const cloud = new CloudClient(realFetch);
 	const authService = new AuthService();
 	const projectService = new ProjectService(defaultPath);
 	const updaterService = new UpdaterService();
 	const promptService = new PromptService();
-	const userService = new UserService();
+	const userService = new UserService(cloud);
 	const user$ = userService.user$;
 
 	// We're declaring a remoteUrl$ observable here that is written to by `BaseBranchService`. This
@@ -54,8 +55,6 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 	// could easily get an observable of the remote url from `BaseBranchService`.
 	const remoteUrl$ = new BehaviorSubject<string | undefined>(undefined);
 	const githubService = new GitHubService(userService.accessToken$, remoteUrl$);
-
-	const cloud = getCloudApiClient({ fetch: realFetch });
 
 	const gitConfig = new GitConfigService();
 	const aiService = new AIService(gitConfig, cloud);
