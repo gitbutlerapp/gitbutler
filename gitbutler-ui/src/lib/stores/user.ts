@@ -1,11 +1,12 @@
 import { resetPostHog, setPostHogUser } from '$lib/analytics/posthog';
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
+import { User, type CloudClient } from '$lib/backend/cloud';
 import { invoke } from '$lib/backend/ipc';
 import { observableToStore } from '$lib/rxjs/store';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
+import { plainToInstance } from 'class-transformer';
 import { BehaviorSubject, Observable, Subject, distinct, map, merge, shareReplay } from 'rxjs';
-import type { CloudClient, User } from '$lib/backend/cloud';
 import type { Readable } from 'svelte/motion';
 
 export class UserService {
@@ -14,8 +15,9 @@ export class UserService {
 
 	readonly user$ = merge(
 		new Observable<User | undefined>((subscriber) => {
-			invoke<User | undefined>('get_user').then((user) => {
-				if (user) {
+			invoke<User | undefined>('get_user').then((userData) => {
+				if (userData) {
+					const user = plainToInstance(User, userData);
 					subscriber.next(user);
 					setPostHogUser(user);
 					setSentryUser(user);

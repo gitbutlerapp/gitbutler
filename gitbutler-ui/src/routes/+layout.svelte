@@ -3,7 +3,7 @@
 
 	import { AIService } from '$lib/backend/aiService';
 	import { AuthService } from '$lib/backend/auth';
-	import { CloudClient } from '$lib/backend/cloud';
+	import { CloudClient, User } from '$lib/backend/cloud';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { ProjectService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
@@ -39,6 +39,7 @@
 	$: setContext(PromptService, data.promptService);
 	$: setContext(AuthService, data.authService);
 	$: setContext(CloudClient, data.cloud);
+	$: setContext(User, data.userService.user);
 
 	let shareIssueModal: ShareIssueModal;
 

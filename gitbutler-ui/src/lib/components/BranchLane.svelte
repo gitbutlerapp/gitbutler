@@ -14,12 +14,10 @@
 	import { quintOut } from 'svelte/easing';
 	import { writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
-	import type { User } from '$lib/backend/cloud';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
 	export let branchCount = 1;
-	export let user: User | undefined;
 
 	$: selectedOwnership = writable(Ownership.fromBranch(branch));
 	$: selected = setSelected($selectedFiles, branch);
@@ -67,7 +65,6 @@
 		{commitBoxOpen}
 		bind:isLaneCollapsed
 		{branchCount}
-		{user}
 		{selectedFiles}
 	/>
 

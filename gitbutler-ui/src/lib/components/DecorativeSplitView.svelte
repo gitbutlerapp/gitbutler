@@ -2,11 +2,13 @@
 	import AccountLink from './AccountLink.svelte';
 	import Icon from './Icon.svelte';
 	import gbLogoSvg from '$lib/assets/gb-logo.svg?raw';
-	import type { User } from '$lib/backend/cloud';
+	import { User } from '$lib/backend/cloud';
+	import { getContextStoreByClass } from '$lib/utils/context';
 
-	export let user: User | undefined = undefined;
 	export let showLinks: boolean = true;
 	export let img: string | undefined = undefined;
+
+	const user = getContextStoreByClass(User);
 </script>
 
 <div class="decorative-split-view">
@@ -21,7 +23,7 @@
 			{#if user}
 				<div class="right-side__header">
 					<div class="account-button">
-						<AccountLink {user} pop />
+						<AccountLink pop />
 					</div>
 				</div>
 			{/if}

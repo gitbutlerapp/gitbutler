@@ -9,6 +9,7 @@
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { AIService } from '$lib/backend/aiService';
+	import { User } from '$lib/backend/cloud';
 	import { Project } from '$lib/backend/projects';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
@@ -27,7 +28,7 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -35,14 +36,12 @@
 	import lscache from 'lscache';
 	import { getContext, onMount } from 'svelte';
 	import { get, type Writable } from 'svelte/store';
-	import type { User } from '$lib/backend/cloud';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import type { Branch, LocalFile, RemoteBranchData } from '$lib/vbranches/types';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
 	export let branchCount = 1;
-	export let user: User | undefined;
 	export let selectedFiles: Writable<LocalFile[]>;
 	export let selectedOwnership: Writable<Ownership>;
 	export let isLaneCollapsed: Persisted<boolean>;
@@ -50,6 +49,7 @@
 
 	const branchController = getContextByClass(BranchController);
 	const project = getContextByClass(Project);
+	const user = getContextStoreByClass(User);
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
@@ -92,7 +92,7 @@
 			.slice(0, 5000);
 
 		try {
-			const message = await aiService.summarizeBranch({ diff, userToken: user?.access_token });
+			const message = await aiService.summarizeBranch({ diff, userToken: $user?.access_token });
 
 			if (message && message !== branch.name) {
 				branch.name = message;
@@ -273,7 +273,6 @@
 										projectId={project.id}
 										{branch}
 										{selectedOwnership}
-										{user}
 										expanded={commitBoxOpen}
 										on:action={(e) => {
 											if (e.detail == 'generate-branch-name') {

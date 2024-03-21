@@ -5,7 +5,6 @@
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
-	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { goto } from '$app/navigation';
@@ -14,8 +13,6 @@
 
 	const project = getContextByClass(Project);
 	const branchController = getContextByClass(BranchController);
-	const userService = getContextByClass(UserService);
-	const user = userService.user;
 
 	let selectedBranch = '';
 	let loading = false;
@@ -32,7 +29,7 @@
 	}
 </script>
 
-<DecorativeSplitView user={$user} img={newProjectSvg}>
+<DecorativeSplitView img={newProjectSvg}>
 	{#if selectedBranch}
 		{@const [remoteName, branchName] = selectedBranch.split(/\/(.*)/s)}
 		<KeysForm {remoteName} {branchName} />

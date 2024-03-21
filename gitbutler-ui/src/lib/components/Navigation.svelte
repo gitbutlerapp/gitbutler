@@ -15,9 +15,6 @@
 	import { from } from 'rxjs';
 	import { onMount } from 'svelte';
 	import { getContext } from 'svelte';
-	import type { User } from '$lib/backend/cloud';
-
-	export let user: User | undefined;
 
 	const platformName = from(platform());
 	const minResizerWidth = 280;
@@ -132,7 +129,7 @@
 					on:scrollbarDragging={(e) => (isScrollbarDragging = e.detail)}
 				/>
 			{/if}
-			<Footer {user} projectId={project.id} isNavCollapsed={$isNavCollapsed} />
+			<Footer projectId={project.id} isNavCollapsed={$isNavCollapsed} />
 		{/if}
 	</div>
 </aside>

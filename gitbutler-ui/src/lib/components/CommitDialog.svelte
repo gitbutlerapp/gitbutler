@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { AIService } from '$lib/backend/aiService';
+	import { User } from '$lib/backend/cloud';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
@@ -15,7 +16,7 @@
 		persistedCommitMessage
 	} from '$lib/config/config';
 	import { splitMessage } from '$lib/utils/commitMessage';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { setAutoHeight } from '$lib/utils/useAutoHeight';
@@ -24,7 +25,6 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { fly, slide } from 'svelte/transition';
-	import type { User } from '$lib/backend/cloud';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Branch, LocalFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
@@ -37,11 +37,11 @@
 
 	export let projectId: string;
 	export let branch: Branch;
-	export let user: User | undefined;
 	export let selectedOwnership: Writable<Ownership>;
 	export let expanded: Writable<boolean>;
 
 	const branchController = getContextByClass(BranchController);
+	const user = getContextStoreByClass(User);
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 	const runCommitHooks = projectRunCommitHooks(projectId);
@@ -112,7 +112,7 @@
 				diff,
 				useEmojiStyle: $commitGenerationUseEmojis,
 				useBriefStyle: $commitGenerationExtraConcise,
-				userToken: user?.access_token
+				userToken: $user?.access_token
 			});
 
 			if (generatedMessage) {
@@ -135,7 +135,7 @@
 	let aiConfigurationValid = false;
 
 	onMount(async () => {
-		aiConfigurationValid = await aiService.validateConfiguration(user?.access_token);
+		aiConfigurationValid = await aiService.validateConfiguration($user?.access_token);
 	});
 </script>
 
