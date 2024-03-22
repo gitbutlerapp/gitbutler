@@ -61,6 +61,15 @@ unsafe impl super::GitExecutor for TokioExecutor {
         cmd.args(args);
         cmd.current_dir(cwd);
 
+        #[cfg(windows)]
+        {
+            // On windows, CLI applications that aren't the `windows` subsystem
+            // will create and show a console window that pops up next to the
+            // main application window when run. We disable this behavior when
+            // running `git.exe` by setting the `CREATE_NO_WINDOW` flag.
+            cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+        }
+
         if let Some(envs) = envs {
             cmd.envs(envs);
         }
