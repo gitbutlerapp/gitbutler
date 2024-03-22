@@ -19,8 +19,6 @@ pub struct Proxy {
     semaphores: sync::Arc<tokio::sync::Mutex<HashMap<url::Url, Semaphore>>>,
 }
 
-const ASSET_SCHEME: &str = "asset";
-
 impl Proxy {
     pub fn new(cache_dir: path::PathBuf) -> Self {
         Proxy {
@@ -139,7 +137,12 @@ impl Proxy {
 
     // takes a url of a remote assets, downloads it into cache and returns a url that points to the cached file
     pub async fn proxy(&self, src: &Url) -> Result<Url> {
-        if src.scheme() == ASSET_SCHEME {
+        #[cfg(unix)]
+        if src.scheme() == "asset" {
+            return Ok(src.clone());
+        }
+
+        if src.scheme() == "https" && src.host_str() == Some("asset.localhost") {
             return Ok(src.clone());
         }
 
@@ -186,10 +189,15 @@ impl Proxy {
     }
 }
 
+#[cfg(unix)]
+fn build_asset_url(path: &str) -> Url {
+    Url::parse(&format!("asset://localhost/{}", urlencoding::encode(path))).unwrap()
+}
+
+#[cfg(windows)]
 fn build_asset_url(path: &str) -> Url {
     Url::parse(&format!(
-        "{}://localhost/{}",
-        ASSET_SCHEME,
+        "https://asset.localhost/{}",
         urlencoding::encode(path)
     ))
     .unwrap()
