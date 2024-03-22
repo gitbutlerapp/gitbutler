@@ -174,7 +174,7 @@ impl From<git::Signature<'_>> for Author {
 }
 
 pub fn normalize_branch_name(name: &str) -> String {
-    let pattern = Regex::new("[^A-Za-z0-9_/.]+").unwrap();
+    let pattern = Regex::new("[^A-Za-z0-9_/.#]+").unwrap();
     pattern.replace_all(name, "-").to_string()
 }
 
