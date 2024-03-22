@@ -25,6 +25,7 @@
 	export let clickable = false;
 	export let shrinkable = false;
 	export let verticalOrientation = false;
+	export let loading = false;
 </script>
 
 <div
@@ -54,7 +55,9 @@
 	<span class="label" class:verticalLabel={verticalOrientation}>
 		<slot />
 	</span>
-	{#if icon}
+	{#if loading}
+		<Icon name="spinner" />
+	{:else if icon}
 		<div class="icon" class:verticalIcon={verticalOrientation}>
 			<Icon name={icon} spinnerRadius={3.5} />
 		</div>
