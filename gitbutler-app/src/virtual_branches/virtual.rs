@@ -3998,4 +3998,11 @@ mod tests {
         assert!(joined(10, 13, 13, 16));
         assert!(!joined(10, 13, 14, 17));
     }
+
+    #[test]
+    fn test_normalize_branch_name() {
+        assert_eq!(normalize_branch_name("feature/branch"), "feature/branch");
+        assert_eq!(normalize_branch_name("foo#branch"), "foo#branch");
+        assert_eq!(normalize_branch_name("foo!branch"), "foo-branch");
+    }
 }
