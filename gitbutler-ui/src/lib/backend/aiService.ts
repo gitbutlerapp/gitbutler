@@ -7,8 +7,9 @@ import OpenAI from 'openai';
 import type { AIClient } from '$lib/backend/aiClient';
 import type { CloudClient } from '$lib/backend/cloud';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
+import type { Hunk } from '$lib/vbranches/types';
 
-const diffLengthLimit = 20000;
+const diffLengthLimit = 5000;
 
 const defaultCommitTemplate = `
 Please could you write a commit message for my changes.
@@ -71,7 +72,7 @@ export enum GitAIConfigKey {
 }
 
 type SummarizeCommitOpts = {
-	diff: string;
+	hunks: Hunk[];
 	useEmojiStyle?: boolean;
 	useBriefStyle?: boolean;
 	commitTemplate?: string;
@@ -79,10 +80,24 @@ type SummarizeCommitOpts = {
 };
 
 type SummarizeBranchOpts = {
-	diff: string;
+	hunks: Hunk[];
 	branchTemplate?: string;
 	userToken?: string;
 };
+
+// Exported for testing only
+export function buildDiff(hunks: Hunk[], limit: number) {
+	return shuffle(hunks.map((h) => `${h.filePath} - ${h.diff}`))
+		.join('\n')
+		.slice(0, limit);
+}
+
+function shuffle<T>(items: T[]): T[] {
+	return items
+		.map((item) => ({ item, value: Math.random() }))
+		.sort()
+		.map((item) => item.item);
+}
 
 export class AIService {
 	constructor(
@@ -183,7 +198,7 @@ export class AIService {
 	}
 
 	async summarizeCommit({
-		diff,
+		hunks,
 		useEmojiStyle = false,
 		useBriefStyle = false,
 		commitTemplate = defaultCommitTemplate,
@@ -192,7 +207,7 @@ export class AIService {
 		const aiClient = await this.buildClient(userToken);
 		if (!aiClient) return;
 
-		let prompt = commitTemplate.replaceAll('%{diff}', diff.slice(0, diffLengthLimit));
+		let prompt = commitTemplate.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit));
 
 		const briefPart = useBriefStyle
 			? 'The commit message must be only one sentence and as short as possible.'
@@ -215,14 +230,14 @@ export class AIService {
 	}
 
 	async summarizeBranch({
-		diff,
+		hunks,
 		branchTemplate = defaultBranchTemplate,
 		userToken = undefined
 	}: SummarizeBranchOpts) {
 		const aiClient = await this.buildClient(userToken);
 		if (!aiClient) return;
 
-		const prompt = branchTemplate.replaceAll('%{diff}', diff.slice(0, diffLengthLimit));
+		const prompt = branchTemplate.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit));
 		const message = await aiClient.evaluate(prompt);
 		return message.replaceAll(' ', '-').replaceAll('\n', '-');
 	}

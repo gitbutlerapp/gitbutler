@@ -8,9 +8,12 @@ import {
 	GitAIConfigKey,
 	KeyOption,
 	ModelKind,
-	OpenAIModelName
+	OpenAIModelName,
+	buildDiff
 } from '$lib/backend/aiService';
 import * as toasts from '$lib/utils/toasts';
+import { Hunk } from '$lib/vbranches/types';
+import { plainToInstance } from 'class-transformer';
 import { expect, test, describe, vi } from 'vitest';
 import type { AIClient } from '$lib/backend/aiClient';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
@@ -52,7 +55,7 @@ class DummyAIClient implements AIClient {
 	}
 }
 
-const examplePatch = `
+const diff1 = `
 @@ -52,7 +52,8 @@
 
  export enum AnthropicModelName {
@@ -64,6 +67,38 @@ const examplePatch = `
 
  export const AI_SERVICE_CONTEXT = Symbol();
 `;
+
+const hunk1 = plainToInstance(Hunk, {
+	id: 'asdf',
+	diff: diff1,
+	modifiedAt: new Date().toISOString(),
+	filePath: 'foo/bar/baz.ts',
+	locked: false,
+	lockedTo: undefined,
+	changeType: 'added'
+});
+
+const diff2 = `
+@@ -52,7 +52,8 @@
+ }
+ async function commit() {
+ 	console.log('quack quack goes the dog');
++	const message = concatMessage(title, description);
+ 	isCommitting = true;
+ try {
+`;
+
+const hunk2 = plainToInstance(Hunk, {
+	id: 'asdf',
+	diff: diff2,
+	modifiedAt: new Date().toISOString(),
+	filePath: 'random.ts',
+	locked: false,
+	lockedTo: undefined,
+	changeType: 'added'
+});
+
+const exampleHunks = [hunk1, hunk2];
 
 function buildDefaultAIService() {
 	const gitConfig = new DummyGitConfigService(structuredClone(defaultGitConfig));
@@ -149,7 +184,7 @@ describe.concurrent('AIService', () => {
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue((async () => undefined)());
 
-			expect(await aiService.summarizeCommit({ diff: examplePatch })).toBe(undefined);
+			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toBe(undefined);
 		});
 
 		test('When the AI returns a single line commit message, it returns it unchanged', async () => {
@@ -161,7 +196,7 @@ describe.concurrent('AIService', () => {
 				(async () => new DummyAIClient(clientResponse))()
 			);
 
-			expect(await aiService.summarizeCommit({ diff: examplePatch })).toBe('single line commit');
+			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toBe('single line commit');
 		});
 
 		test('When the AI returns a title and body that is split by a single new line, it replaces it with two', async () => {
@@ -173,7 +208,7 @@ describe.concurrent('AIService', () => {
 				(async () => new DummyAIClient(clientResponse))()
 			);
 
-			expect(await aiService.summarizeCommit({ diff: examplePatch })).toBe('one\n\nnew line');
+			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toBe('one\n\nnew line');
 		});
 
 		test('When the commit is in brief mode, When the AI returns a title and body, it takes just the title', async () => {
@@ -185,7 +220,7 @@ describe.concurrent('AIService', () => {
 				(async () => new DummyAIClient(clientResponse))()
 			);
 
-			expect(await aiService.summarizeCommit({ diff: examplePatch, useBriefStyle: true })).toBe(
+			expect(await aiService.summarizeCommit({ hunks: exampleHunks, useBriefStyle: true })).toBe(
 				'one'
 			);
 		});
@@ -197,7 +232,7 @@ describe.concurrent('AIService', () => {
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue((async () => undefined)());
 
-			expect(await aiService.summarizeBranch({ diff: examplePatch })).toBe(undefined);
+			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toBe(undefined);
 		});
 
 		test('When the AI client returns a string with spaces, it replaces them with hypens', async () => {
@@ -209,7 +244,7 @@ describe.concurrent('AIService', () => {
 				(async () => new DummyAIClient(clientResponse))()
 			);
 
-			expect(await aiService.summarizeBranch({ diff: examplePatch })).toBe('with-spaces-included');
+			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toBe('with-spaces-included');
 		});
 
 		test('When the AI client returns multiple lines, it replaces them with hypens', async () => {
@@ -221,7 +256,7 @@ describe.concurrent('AIService', () => {
 				(async () => new DummyAIClient(clientResponse))()
 			);
 
-			expect(await aiService.summarizeBranch({ diff: examplePatch })).toBe(
+			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toBe(
 				'with-new-lines-included'
 			);
 		});
@@ -235,9 +270,32 @@ describe.concurrent('AIService', () => {
 				(async () => new DummyAIClient(clientResponse))()
 			);
 
-			expect(await aiService.summarizeBranch({ diff: examplePatch })).toBe(
+			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toBe(
 				'with-new-lines-included'
 			);
 		});
+	});
+});
+
+describe.concurrent('buildDiff', () => {
+	test('When provided one hunk, it returns the formatted diff', () => {
+		const expectedOutput = `${hunk1.filePath} - ${hunk1.diff}`;
+
+		expect(buildDiff([hunk1], 10000)).to.eq(expectedOutput);
+	});
+
+	test('When provided one hunk and its longer than the limit, it returns the truncated formatted diff', () => {
+		expect(buildDiff([hunk1], 100).length).to.eq(100);
+	});
+
+	test('When provided multiple hunks, it joins them together with newlines', () => {
+		const expectedOutput1 = `${hunk1.filePath} - ${hunk1.diff}\n${hunk2.filePath} - ${hunk2.diff}`;
+		const expectedOutput2 = `${hunk2.filePath} - ${hunk2.diff}\n${hunk1.filePath} - ${hunk1.diff}`;
+
+		const outputMatchesExpectedValue = [expectedOutput1, expectedOutput2].includes(
+			buildDiff([hunk1, hunk1], 10000)
+		);
+
+		expect(outputMatchesExpectedValue).toBeTruthy;
 	});
 });
