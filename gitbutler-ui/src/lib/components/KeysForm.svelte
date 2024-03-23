@@ -8,6 +8,7 @@
 	import { ProjectService, type Key, type KeyType, Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
+	import Section from '$lib/components/settings/Section.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
@@ -24,6 +25,7 @@
 	// Used by credential checker before target branch set
 	export let remoteName = '';
 	export let branchName = '';
+	export let showProjectName = false;
 
 	let sshKey = '';
 	let credentialCheck: CredentialCheck;
@@ -72,13 +74,15 @@
 	});
 </script>
 
-<div class="git-auth-wrap">
-	<ProjectNameLabel projectName={project.title} />
-	<h3 class="text-base-15 text-bold">Git Authentication</h3>
-	<p class="text-base-body-12">
+<Section>
+	<svelte:fragment slot="top"
+		>{#if showProjectName}<ProjectNameLabel projectName={project.title} />{/if}</svelte:fragment
+	>
+	<svelte:fragment slot="title">Git authentication</svelte:fragment>
+	<svelte:fragment slot="description">
 		Configure the authentication flow for GitButler when authenticating with your Git remote
 		provider.
-	</p>
+	</svelte:fragment>
 
 	<form class="git-radio" bind:this={form} on:change={(e) => onFormChange(e.currentTarget)}>
 		<SectionCard roundedBottom={false} orientation="row" labelFor="credential-default">
@@ -212,19 +216,9 @@
 			/>
 		</SectionCard>
 	</form>
-</div>
+</Section>
 
 <style lang="postcss">
-	.git-auth-wrap {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-16);
-
-		& p {
-			color: var(--clr-theme-scale-ntrl-30);
-		}
-	}
-
 	.inputs-group {
 		display: flex;
 		flex-direction: column;

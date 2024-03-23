@@ -71,7 +71,7 @@
 <ContentWrapper title="Project settings">
 	<CloudForm on:updated={onCloudUpdated} />
 	<DetailsForm on:updated={onDetailsUpdated} />
-	<KeysForm />
+	<KeysForm showProjectName={false} />
 	<Spacer />
 	<PreferencesForm on:updated={onPreferencesUpdated} />
 	<SectionCard>

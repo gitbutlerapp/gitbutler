@@ -6,6 +6,7 @@
 	import Link from '$lib/components/Link.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
+	import Section from '$lib/components/settings/Section.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { UserService } from '$lib/stores/user';
@@ -63,83 +64,83 @@
 
 {#if !$user}
 	<WelcomeSigninAction />
-
 	<Spacer />
 {/if}
 
-<div class="aigen-wrap">
-	<h3 class="text-base-15 text-bold">AI Options</h3>
-	<p class="text-base-body-12">
+<Section spacer>
+	<svelte:fragment slot="title">AI options</svelte:fragment>
+	<svelte:fragment slot="description">
 		GitButler supports the use of OpenAI and Anthropic to provide commit message and branch name
 		generation. This works either through GitButler's API or in a bring your own key configuration
 		and can be configured in the main preferences screen.
-	</p>
+	</svelte:fragment>
 
-	<SectionCard labelFor="aiGenEnabled" on:click={aiGenToggle} orientation="row">
-		<svelte:fragment slot="title">Enable branch and commit message generation</svelte:fragment>
-		<svelte:fragment slot="caption">
-			If enabled, diffs will sent to OpenAI or Anthropic's servers when pressing the "Generate
-			message" and "Generate branch name" button.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle id="aiGenEnabled" checked={$aiGenEnabled} on:change={aiGenToggle} />
-		</svelte:fragment>
-	</SectionCard>
+	<div class="options">
+		<SectionCard labelFor="aiGenEnabled" on:click={aiGenToggle} orientation="row">
+			<svelte:fragment slot="title">Enable branch and commit message generation</svelte:fragment>
+			<svelte:fragment slot="caption">
+				If enabled, diffs will sent to OpenAI or Anthropic's servers when pressing the "Generate
+				message" and "Generate branch name" button.
+			</svelte:fragment>
+			<svelte:fragment slot="actions">
+				<Toggle id="aiGenEnabled" checked={$aiGenEnabled} on:change={aiGenToggle} />
+			</svelte:fragment>
+		</SectionCard>
 
-	<SectionCard
-		labelFor="branchNameGen"
-		disabled={!$aiGenEnabled}
-		on:click={aiGenBranchNamesToggle}
-		orientation="row"
-	>
-		<svelte:fragment slot="title">Automatically generate branch names</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle
-				id="branchNameGen"
-				disabled={!$aiGenEnabled}
-				checked={$aiGenAutoBranchNamingEnabled}
-				on:change={aiGenBranchNamesToggle}
-			/>
-		</svelte:fragment>
-	</SectionCard>
-</div>
-
-<Spacer />
+		<SectionCard
+			labelFor="branchNameGen"
+			disabled={!$aiGenEnabled}
+			on:click={aiGenBranchNamesToggle}
+			orientation="row"
+		>
+			<svelte:fragment slot="title">Automatically generate branch names</svelte:fragment>
+			<svelte:fragment slot="actions">
+				<Toggle
+					id="branchNameGen"
+					disabled={!$aiGenEnabled}
+					checked={$aiGenAutoBranchNamingEnabled}
+					on:change={aiGenBranchNamesToggle}
+				/>
+			</svelte:fragment>
+		</SectionCard>
+	</div>
+</Section>
 
 {#if $user?.role === 'admin'}
-	<h3 class="text-base-15 text-bold">Full data synchronization</h3>
+	<Section spacer>
+		<svelte:fragment slot="title">Full data synchronization</svelte:fragment>
 
-	<SectionCard labelFor="historySync" on:change={(e) => onSyncChange(e.detail)} orientation="row">
-		<svelte:fragment slot="caption">
-			Sync my history, repository and branch data for backup, sharing and team features.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle
-				id="historySync"
-				checked={project.api?.sync || false}
-				on:change={(e) => onSyncChange(e.detail)}
-			/>
-		</svelte:fragment>
-	</SectionCard>
+		<SectionCard labelFor="historySync" on:change={(e) => onSyncChange(e.detail)} orientation="row">
+			<svelte:fragment slot="caption">
+				Sync my history, repository and branch data for backup, sharing and team features.
+			</svelte:fragment>
+			<svelte:fragment slot="actions">
+				<Toggle
+					id="historySync"
+					checked={project.api?.sync || false}
+					on:change={(e) => onSyncChange(e.detail)}
+				/>
+			</svelte:fragment>
+		</SectionCard>
 
-	{#if project.api}
-		<div class="api-link">
-			<Link
-				target="_blank"
-				rel="noreferrer"
-				href="{PUBLIC_API_BASE_URL}projects/{project.api?.repository_id}"
-				>Go to GitButler Cloud Project</Link
-			>
-		</div>
-	{/if}
-	<Spacer />
+		{#if project.api}
+			<div class="api-link">
+				<Link
+					target="_blank"
+					rel="noreferrer"
+					href="{PUBLIC_API_BASE_URL}projects/{project.api?.repository_id}"
+					>Go to GitButler Cloud Project</Link
+				>
+			</div>
+		{/if}
+	</Section>
 {/if}
 
 <style lang="post-css">
-	.aigen-wrap {
+	.options {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-4);
+		gap: var(--size-8);
 	}
 
 	.api-link {

@@ -253,7 +253,7 @@
 		width: 11.2rem;
 		height: auto;
 		border-radius: var(--radius-l);
-		background-color: var(--clr-theme-component-illustration-bg);
+		background-color: var(--clr-theme-illustration-bg);
 
 		&::before {
 			content: '';
@@ -265,7 +265,7 @@
 			height: 1.5rem;
 			transform: translateX(-50%) scale(1.15);
 			border-radius: 100%;
-			background-color: var(--clr-theme-component-illustration-outline);
+			background-color: var(--clr-theme-illustration-outline);
 			opacity: 0.08;
 			animation: shadow-scale 5.5s infinite ease-in-out;
 			animation-delay: 3s;

@@ -111,7 +111,7 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		background-color: var(--clr-theme-component-illustration-bg);
+		background-color: var(--clr-theme-illustration-bg);
 		border-radius: var(--size-8);
 	}
 

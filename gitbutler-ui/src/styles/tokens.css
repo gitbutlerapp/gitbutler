@@ -10,9 +10,9 @@
 	--clr-core-err-20: #481e23;
 	--clr-core-err-30: #6f2f35;
 	--clr-core-err-40: #a83d47;
-	--clr-core-err-50: #e6616d;
-	--clr-core-err-60: #f1a7ae;
-	--clr-core-err-70: #f8ced3;
+	--clr-core-err-50: #de6671;
+	--clr-core-err-60: #eba4ab;
+	--clr-core-err-70: #f5cbd0;
 	--clr-core-err-80: #fbe5e7;
 	--clr-core-err-90: #fdf1f4;
 	--clr-core-err-95: #fff8fb;
@@ -23,7 +23,7 @@
 	--clr-core-ntrl-30: #4d4c4c;
 	--clr-core-ntrl-40: #595958;
 	--clr-core-ntrl-50: #807f7e;
-	--clr-core-ntrl-60: #c4c4c2;
+	--clr-core-ntrl-60: #bfbfbd;
 	--clr-core-ntrl-70: #d9d9d7;
 	--clr-core-ntrl-80: #e7e7e5;
 	--clr-core-ntrl-90: #f5f5f3;
@@ -34,9 +34,9 @@
 	--clr-core-pop-20: #174543;
 	--clr-core-pop-30: #29605e;
 	--clr-core-pop-40: #288a85;
-	--clr-core-pop-50: #41b4ae;
-	--clr-core-pop-60: #95dfdc;
-	--clr-core-pop-70: #bee9e7;
+	--clr-core-pop-50: #4db2ad;
+	--clr-core-pop-60: #93ccc9;
+	--clr-core-pop-70: #bce3e1;
 	--clr-core-pop-80: #d6f0ee;
 	--clr-core-pop-90: #edf8f7;
 	--clr-core-pop-95: #f4fbfa;
@@ -55,11 +55,11 @@
 	--clr-core-succ-10: #11271d;
 	--clr-core-succ-20: #1d4934;
 	--clr-core-succ-30: #256f4d;
-	--clr-core-succ-40: #309165;
-	--clr-core-succ-50: #3bb078;
-	--clr-core-succ-60: #88d7b3;
-	--clr-core-succ-70: #bae8d3;
-	--clr-core-succ-80: #d9f2e6;
+	--clr-core-succ-40: #3d8765;
+	--clr-core-succ-50: #63ba90;
+	--clr-core-succ-60: #93c7af;
+	--clr-core-succ-70: #b8e0cd;
+	--clr-core-succ-80: #d6f0e4;
 	--clr-core-succ-90: #e8f7f0;
 	--clr-core-succ-95: #f6fcfb;
 	--clr-core-warn-5: #211608;
@@ -67,16 +67,12 @@
 	--clr-core-warn-20: #4e3513;
 	--clr-core-warn-30: #7e551b;
 	--clr-core-warn-40: #b5751c;
-	--clr-core-warn-50: #e0962e;
-	--clr-core-warn-60: #f5c480;
-	--clr-core-warn-70: #ffdfb3;
+	--clr-core-warn-50: #d99b45;
+	--clr-core-warn-60: #e5ba7c;
+	--clr-core-warn-70: #fadbaf;
 	--clr-core-warn-80: #ffeed6;
 	--clr-core-warn-90: #fff3e2;
 	--clr-core-warn-95: #fdf7ed;
-	--clr-theme-component-illustration-bg: #d6f0ee;
-	--clr-theme-component-illustration-fill: #fcfcf1;
-	--clr-theme-component-illustration-outline: #475050;
-	--clr-theme-component-overlay-bg: #d6d6d666;
 	--clr-theme-container-light: var(--clr-core-ntrl-100);
 	--clr-theme-container-outline-light: var(--clr-core-ntrl-60);
 	--clr-theme-container-outline-pale: var(--clr-core-ntrl-50);
@@ -88,6 +84,10 @@
 	--clr-theme-err-on-container: var(--clr-core-err-40);
 	--clr-theme-err-on-element: var(--clr-core-err-90);
 	--clr-theme-err-outline: var(--clr-core-err-50);
+	--clr-theme-illustration-bg: #d6f0ee;
+	--clr-theme-illustration-fill: #fcfcf1;
+	--clr-theme-illustration-outline: #475050;
+	--clr-theme-overlay-bg: #d6d6d666;
 	--clr-theme-pop-container: var(--clr-core-pop-90);
 	--clr-theme-pop-element: var(--clr-core-pop-50);
 	--clr-theme-pop-on-container: var(--clr-core-pop-10);
@@ -175,7 +175,7 @@
 	--clr-theme-warn-element: var(--clr-core-warn-50);
 	--clr-theme-warn-on-container: var(--clr-core-warn-40);
 	--clr-theme-warn-on-element: var(--clr-core-warn-90);
-	--clr-theme-warn-outline: var(--clr-core-warn-50);
+	--clr-theme-warn-outline: var(--clr-core-warn-40);
 	--fx-shadow-l: 0 10px 40px 0 #0000001a;
 	--fx-shadow-m: 0 6px 30px 0 #00000014;
 	--fx-shadow-s: 0 4px 14px 0 #0000000f;
@@ -212,10 +212,6 @@
 }
 
 :root.dark {
-	--clr-theme-component-illustration-bg: #174543;
-	--clr-theme-component-illustration-fill: #95b5aa;
-	--clr-theme-component-illustration-outline: #142222;
-	--clr-theme-component-overlay-bg: #00000059;
 	--clr-theme-container-light: var(--clr-core-ntrl-20);
 	--clr-theme-container-outline-light: var(--clr-core-ntrl-40);
 	--clr-theme-container-outline-pale: var(--clr-core-ntrl-50);
@@ -227,6 +223,10 @@
 	--clr-theme-err-on-container: var(--clr-core-err-50);
 	--clr-theme-err-on-element: var(--clr-core-err-90);
 	--clr-theme-err-outline: var(--clr-core-err-50);
+	--clr-theme-illustration-bg: #174543;
+	--clr-theme-illustration-fill: #95b5aa;
+	--clr-theme-illustration-outline: #142222;
+	--clr-theme-overlay-bg: #00000059;
 	--clr-theme-pop-container: var(--clr-core-pop-20);
 	--clr-theme-pop-element: var(--clr-core-pop-40);
 	--clr-theme-pop-on-container: var(--clr-core-pop-80);
