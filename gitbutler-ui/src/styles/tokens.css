@@ -175,7 +175,7 @@
 	--clr-theme-warn-element: var(--clr-core-warn-50);
 	--clr-theme-warn-on-container: var(--clr-core-warn-40);
 	--clr-theme-warn-on-element: var(--clr-core-warn-90);
-	--clr-theme-warn-outline: var(--clr-core-warn-50);
+	--clr-theme-warn-outline: var(--clr-core-warn-40);
 	--fx-shadow-l: 0 10px 40px 0 #0000001a;
 	--fx-shadow-m: 0 6px 30px 0 #00000014;
 	--fx-shadow-s: 0 4px 14px 0 #0000000f;

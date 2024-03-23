@@ -78,6 +78,7 @@
 
 <style lang="postcss">
 	.btn {
+		--btn-outline-fill-hover-transparency: transparent 95%;
 		z-index: 1;
 		position: relative;
 		display: inline-flex;
@@ -146,10 +147,16 @@
 	.primary-outline {
 		color: var(--clr-theme-pop-outline);
 		border: 1px solid var(--clr-theme-pop-outline);
+
 		&:hover,
 		&:focus {
 			color: color-mix(in srgb, var(--clr-theme-pop-outline), var(--darken-mid));
 			border: 1px solid color-mix(in srgb, var(--clr-theme-pop-outline), var(--darken-mid));
+			background: color-mix(
+				in srgb,
+				var(--btn-outline-fill-hover-transparency),
+				var(--clr-theme-pop-element)
+			);
 		}
 	}
 
@@ -168,6 +175,11 @@
 		&:focus {
 			color: color-mix(in srgb, var(--clr-theme-warn-outline), var(--darken-mid));
 			border: 1px solid color-mix(in srgb, var(--clr-theme-warn-outline), var(--darken-mid));
+			background: color-mix(
+				in srgb,
+				var(--btn-outline-fill-hover-transparency),
+				var(--clr-theme-warn-element)
+			);
 		}
 	}
 	.error-filled {
@@ -185,6 +197,11 @@
 		&:focus {
 			color: color-mix(in srgb, var(--clr-theme-err-outline), var(--darken-mid));
 			border: 1px solid color-mix(in srgb, var(--clr-theme-err-outline), var(--darken-mid));
+			background: color-mix(
+				in srgb,
+				var(--btn-outline-fill-hover-transparency),
+				var(--clr-theme-err-element)
+			);
 		}
 	}
 
