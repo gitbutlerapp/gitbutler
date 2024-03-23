@@ -51,7 +51,7 @@
 						on:mousedown={() => onMenuClick('git-stuff')}
 					>
 						<Icon name="git" />
-						<span class="text-base-14 text-semibold">Git Stuff</span>
+						<span class="text-base-14 text-semibold">Git stuff</span>
 					</button>
 				</li>
 				<li>
@@ -82,8 +82,8 @@
 						class:item_selected={currentSection === 'ai'}
 						on:mousedown={() => onMenuClick('ai')}
 					>
-						<Icon name="search" />
-						<span class="text-base-14 text-semibold">AI Options</span>
+						<Icon name="ai" />
+						<span class="text-base-14 text-semibold">AI options</span>
 					</button>
 				</li>
 			</ul>
@@ -164,7 +164,7 @@
 		display: flex;
 		align-items: center;
 		gap: var(--size-10);
-		padding: var(--size-8);
+		padding: var(--size-10) var(--size-8);
 		border-radius: var(--radius-m);
 		width: 100%;
 		color: var(--clr-theme-scale-ntrl-30);

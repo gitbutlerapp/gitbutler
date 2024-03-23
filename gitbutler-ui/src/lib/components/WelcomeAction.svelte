@@ -26,7 +26,7 @@
 	.action {
 		position: relative;
 		overflow: hidden;
-		border-radius: var(--radius-l);
+		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-theme-container-outline-light);
 		display: flex;
 		position: relative;
@@ -38,16 +38,16 @@
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast);
+		background-color: var(--clr-theme-container-light);
 
-		&:hover {
-			background-color: color-mix(in srgb, var(--clr-theme-scale-pop-50) 6%, transparent);
-			border: 1px solid color-mix(in srgb, var(--clr-theme-scale-pop-50) 30%, transparent);
-		}
-
+		&:hover,
 		&:focus {
 			outline: none;
-			background-color: color-mix(in srgb, var(--clr-theme-scale-pop-50) 6%, transparent);
-			border: 1px solid color-mix(in srgb, var(--clr-theme-scale-pop-50) 60%, transparent);
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-light),
+				var(--darken-tint-extralight)
+			);
 		}
 	}
 
@@ -62,6 +62,7 @@
 	}
 
 	.action__content {
+		flex: 1;
 		position: relative;
 		z-index: 0;
 		display: flex;
@@ -94,7 +95,7 @@
 		flex-shrink: 0;
 		width: 5rem;
 		height: 5rem;
-		border-radius: var(--radius-l);
+		border-radius: var(--radius-m);
 		background-color: var(--clr-theme-illustration-bg);
 	}
 </style>

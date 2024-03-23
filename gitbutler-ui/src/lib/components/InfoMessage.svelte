@@ -8,6 +8,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '../icons/icons.json';
 
+	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let style: MessageStyle = 'neutral';
 	export let outlined: boolean = true;
 	export let filled: boolean = false;
@@ -55,7 +56,7 @@
 	class:has-background={filled}
 	class:shadow
 >
-	<Icon name={iconMap[style]} color={iconColorMap[style]} />
+	<Icon name={icon ? icon : iconMap[style]} color={iconColorMap[style]} />
 	<div class="info-message__inner">
 		<div class="info-message__content">
 			{#if title || SLOTS.title}

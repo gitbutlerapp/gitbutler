@@ -240,7 +240,7 @@
 	{:else if currentSection === 'git-stuff'}
 		<ContentWrapper title="Git stuff">
 			<SectionCard labelFor="committerSigning" orientation="row">
-				<svelte:fragment slot="title">Credit GitButler as the Committer</svelte:fragment>
+				<svelte:fragment slot="title">Credit GitButler as the committer</svelte:fragment>
 				<svelte:fragment slot="caption">
 					By default, everything in the GitButler client is free to use. You can opt in to crediting
 					us as the committer in your virtual branch commits to help spread the word.
@@ -264,7 +264,7 @@
 			<Spacer />
 
 			<SectionCard>
-				<svelte:fragment slot="title">SSH Key</svelte:fragment>
+				<svelte:fragment slot="title">SSH key</svelte:fragment>
 				<svelte:fragment slot="caption">
 					GitButler uses SSH keys to authenticate with your Git provider. Add the following public
 					key to your Git provider to enable GitButler to push code.
@@ -278,7 +278,7 @@
 						icon="copy"
 						on:click={() => copyToClipboard(sshKey)}
 					>
-						Copy to Clipboard
+						Copy to clipboard
 					</Button>
 					<Button
 						kind="outlined"
@@ -294,7 +294,7 @@
 			</SectionCard>
 
 			<SectionCard labelFor="signingSetting" orientation="row">
-				<svelte:fragment slot="title">Sign Commits with the above SSH Key</svelte:fragment>
+				<svelte:fragment slot="title">Sign commits with the above SSH key</svelte:fragment>
 				<svelte:fragment slot="caption">
 					If you want GitButler to sign your commits with the SSH key we generated, then you can add
 					that key to GitHub as a signing key to have those commits verified.
@@ -322,7 +322,7 @@
 			{/if}
 		</ContentWrapper>
 	{:else if currentSection == 'ai'}
-		<ContentWrapper title="AI Options">
+		<ContentWrapper title="AI options">
 			<AiSettings />
 		</ContentWrapper>
 	{/if}
@@ -340,9 +340,9 @@
 	}
 
 	.hidden-input {
+		cursor: pointer;
 		z-index: 1;
 		position: absolute;
-		background-color: red;
 		width: 100%;
 		height: 100%;
 		opacity: 0;

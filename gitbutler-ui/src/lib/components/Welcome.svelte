@@ -83,7 +83,7 @@
 		gap: var(--size-56);
 		padding: var(--size-28);
 		background: var(--clr-theme-container-pale);
-		border-radius: var(--radius-l);
+		border-radius: var(--radius-m);
 		margin-top: var(--size-20);
 	}
 

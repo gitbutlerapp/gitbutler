@@ -116,7 +116,13 @@
 		</SectionCard>
 
 		{#if selectedType == 'local'}
-			<SectionCard hasTopRadius={false} roundedTop={false} roundedBottom={false} orientation="row">
+			<SectionCard
+				topDivider
+				hasTopRadius={false}
+				roundedTop={false}
+				roundedBottom={false}
+				orientation="row"
+			>
 				<div class="inputs-group">
 					<TextBox
 						label="Path to private key"
@@ -147,7 +153,7 @@
 		</SectionCard>
 
 		{#if selectedType === 'generated'}
-			<SectionCard roundedTop={false} roundedBottom={false}>
+			<SectionCard topDivider roundedTop={false} roundedBottom={false}>
 				<TextBox id="sshKey" readonly selectall bind:value={sshKey} wide />
 				<div class="row-buttons">
 					<Button
