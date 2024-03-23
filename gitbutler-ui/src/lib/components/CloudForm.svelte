@@ -68,7 +68,7 @@
 {/if}
 
 <div class="aigen-wrap">
-	<h3 class="text-base-15 text-bold">AI Options</h3>
+	<h3 class="text-base-15 text-bold">AI options</h3>
 	<p class="text-base-body-12">
 		GitButler supports the use of OpenAI and Anthropic to provide commit message and branch name
 		generation. This works either through GitButler's API or in a bring your own key configuration

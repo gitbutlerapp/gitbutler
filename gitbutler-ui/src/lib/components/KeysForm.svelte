@@ -24,6 +24,7 @@
 	// Used by credential checker before target branch set
 	export let remoteName = '';
 	export let branchName = '';
+	export let showProjectName = true;
 
 	let sshKey = '';
 	let credentialCheck: CredentialCheck;
@@ -73,8 +74,11 @@
 </script>
 
 <div class="git-auth-wrap">
-	<ProjectNameLabel projectName={project.title} />
-	<h3 class="text-base-15 text-bold">Git Authentication</h3>
+	{#if showProjectName}
+		<ProjectNameLabel projectName={project.title} />
+	{/if}
+
+	<h3 class="text-base-15 text-bold">Git authentication</h3>
 	<p class="text-base-body-12">
 		Configure the authentication flow for GitButler when authenticating with your Git remote
 		provider.
