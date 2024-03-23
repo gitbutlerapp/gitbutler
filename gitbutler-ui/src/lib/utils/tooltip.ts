@@ -95,15 +95,15 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 		// Note that we don't check if width of tooltip is wider than the window.
 
 		if (showBelow) {
-			tooltip.style.top = `${(nodeTop + nodeHeight + padding) / 16}rem`;
+			tooltip.style.top = `${nodeTop + nodeHeight + padding}px`;
 		} else {
-			tooltip.style.top = `${(nodeTop - tooltipHeight - padding) / 16}rem`;
+			tooltip.style.top = `${nodeTop - tooltipHeight - padding}px`;
 		}
 
 		let leftPos = nodeLeft - (tooltipWidth - nodeWidth) / 2;
 		if (leftPos < padding) leftPos = padding;
 		if (leftPos + tooltipWidth > windowWidth) leftPos = windowWidth - tooltipWidth - padding;
-		tooltip.style.left = `${leftPos / 16}rem`;
+		tooltip.style.left = `${leftPos}px`;
 	}
 
 	node.addEventListener('mouseover', onMouseOver);
