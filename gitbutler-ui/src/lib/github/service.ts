@@ -172,37 +172,50 @@ export class GitHubService {
 		});
 	}
 
-	async getDetailedPullRequest(
+	async getDetailedPr(
 		branch: string | undefined,
 		skipCache: boolean
 	): Promise<DetailedPullRequest | undefined> {
 		if (!branch) return;
 
-		// We should remove this cache when `list_virtual_branches` no longer triggers
-		// immedate updates on the subscription.
-		const cacheHit = this.prCache.get(branch);
-		if (cacheHit && !skipCache) {
-			if (new Date().getTime() - cacheHit.fetchedAt.getTime() < 1000 * 5) {
-				return await cacheHit.value;
-			}
+		const cachedPr = this.prCache.get(branch);
+		if (cachedPr && !skipCache) {
+			if (new Date().getTime() - cachedPr.fetchedAt.getTime() < 1000 * 2)
+				return await cachedPr.value;
 		}
 
-		const pr = this.getPr(branch);
-		if (!pr) {
-			toasts.error('Failed to get pull request data'); // TODO: Notify user
+		const prNumber = this.getListedPr(branch)?.number;
+		if (!prNumber) {
+			toasts.error('No pull request number for branch ' + branch);
 			return;
 		}
 
-		const resp = await this.octokit.pulls.get({
-			headers: DEFAULT_HEADERS,
-			owner: this.owner,
-			repo: this.repo,
-			pull_number: pr.number
-		});
-		const detailedPr = Promise.resolve(parsePullRequestResponse(resp.data));
+		const request = async () => {
+			const resp = await this.octokit.pulls.get({
+				headers: DEFAULT_HEADERS,
+				owner: this.owner,
+				repo: this.repo,
+				pull_number: prNumber
+			});
+			return parsePullRequestResponse(resp.data);
+		};
 
-		if (detailedPr) this.prCache.set(branch, { value: detailedPr, fetchedAt: new Date() });
-		return await detailedPr;
+		// Right after pushing GitHub will respond with status 422, retries are necessary
+		let attempt = 0;
+		let pr = await request();
+
+		while (!pr && attempt < 3) {
+			attempt++;
+			try {
+				pr = await request();
+				if (pr) this.prCache.set(branch, { value: Promise.resolve(pr), fetchedAt: new Date() });
+				return pr;
+			} catch (err: any) {
+				if (err.status != 422) throw err;
+			}
+		}
+		if (!pr) throw 'Failed to fetch pull request details';
+		return pr;
 	}
 
 	async getPreviousChecksCount(ref: string) {
@@ -212,7 +225,7 @@ export class GitHubService {
 		return items.map((suite) => suite.count || 0).reduce((a, b) => a + b, 0);
 	}
 
-	getPr(branch: string | undefined): PullRequest | undefined {
+	getListedPr(branch: string | undefined): PullRequest | undefined {
 		if (!branch) return;
 		return this.prs?.find((pr) => pr.targetBranch == branch);
 	}

@@ -56,7 +56,7 @@
 		detailsError = undefined;
 		isFetchingDetails = true;
 		try {
-			detailedPr = await githubService.getDetailedPullRequest(targetBranch, skipCache);
+			detailedPr = await githubService.getDetailedPr(targetBranch, skipCache);
 			mergeableState = detailedPr?.mergeableState;
 			lastDetailsFetch = createTimeAgoStore(new Date(), true);
 		} catch (err: any) {

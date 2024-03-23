@@ -13,7 +13,7 @@
 	$: ({ error, branches } = data.remoteBranchService);
 
 	$: branch = $branches?.find((b) => b.sha == $page.params.sha);
-	$: pr = githubService.getPr(branch?.displayName);
+	$: pr = githubService.getListedPr(branch?.displayName);
 </script>
 
 {#if $error}
