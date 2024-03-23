@@ -9,6 +9,7 @@
 	export let extraPadding = false;
 	export let roundedTop = true;
 	export let roundedBottom = true;
+	export let topDivider = false;
 	export let bottomBorder = true;
 	export let background: SectionCardBackground = undefined;
 	export let noBorder = false;
@@ -27,6 +28,7 @@
 	class:extra-padding={extraPadding}
 	class:rounded-top={roundedTop}
 	class:rounded-bottom={roundedBottom}
+	class:top-divider={topDivider}
 	class:bottom-border={bottomBorder}
 	class:no-border={noBorder}
 	class:loading={background == 'loading'}
@@ -69,6 +71,7 @@
 
 <style lang="post-css">
 	.section-card {
+		position: relative;
 		display: flex;
 		gap: var(--size-16);
 		padding: var(--size-16);
@@ -124,6 +127,20 @@
 	.rounded-bottom {
 		border-bottom-left-radius: var(--radius-m);
 		border-bottom-right-radius: var(--radius-m);
+	}
+
+	.top-divider {
+		&::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			display: block;
+			width: 100%;
+			height: 1px;
+			background-color: var(--clr-theme-container-outline-light);
+			opacity: 0.5;
+		}
 	}
 
 	.bottom-border {
