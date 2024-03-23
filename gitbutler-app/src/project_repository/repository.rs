@@ -1,5 +1,5 @@
 use std::{
-    path,
+    any, path,
     str::FromStr,
     sync::{atomic::AtomicUsize, Arc},
 };
@@ -495,6 +495,7 @@ impl Repository {
                     ssh::check_known_host(&url).context("failed to check known host")?;
                 }
             }
+            let mut update_refs_error: Option<git2::Error> = None;
             for callback in callbacks {
                 let mut cbs: git2::RemoteCallbacks = callback.into();
                 if self.project.omit_certificate_check.unwrap_or(false) {
@@ -502,15 +503,17 @@ impl Repository {
                 }
                 cbs.push_update_reference(|_reference: &str, status: Option<&str>| {
                     if let Some(status) = status {
+                        update_refs_error = Some(git2::Error::from_str(status));
                         return Err(git2::Error::from_str(status));
                     };
                     Ok(())
                 });
 
-                match remote.push(
+                let push_result = remote.push(
                     &[refspec.as_str()],
                     Some(&mut git2::PushOptions::new().remote_callbacks(cbs)),
-                ) {
+                );
+                match push_result {
                     Ok(()) => {
                         tracing::info!(
                             project_id = %self.project.id,
@@ -529,7 +532,12 @@ impl Repository {
                         tracing::warn!(project_id = %self.project.id, ?error, "git push failed");
                         return Err(RemoteError::Network);
                     }
-                    Err(error) => return Err(RemoteError::Other(error.into())),
+                    Err(error) => {
+                        if let Some(e) = update_refs_error.as_ref() {
+                            return Err(RemoteError::Other(anyhow::anyhow!(e.to_string())));
+                        }
+                        return Err(RemoteError::Other(error.into()));
+                    }
                 }
             }
         }
