@@ -415,7 +415,11 @@ pub async fn push_virtual_branch(
             with_force,
             Some((askpass_broker.inner().clone(), Some(branch_id))),
         )
-        .await?;
+        .await
+        .map_err(|e| Error::UserError {
+            code: Code::Unknown,
+            message: e.to_string(),
+        })?;
     emit_vbranches(&handle, &project_id).await;
     Ok(())
 }
