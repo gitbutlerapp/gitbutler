@@ -57,7 +57,7 @@
 				icon="unfold-lane"
 				kind="outlined"
 				color="neutral"
-				help="Collapse lane"
+				help="Expand lane"
 				on:mousedown={expandLane}
 			/>
 		</div>
