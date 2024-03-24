@@ -178,6 +178,17 @@
 			<SectionCard>
 				<svelte:fragment slot="title">Appearance</svelte:fragment>
 				<ThemeSelector {userSettings} />
+				<TextBox
+					label="Tab Size"
+					value={$userSettings.tabSize.toString()}
+					on:change={(e) => {
+						userSettings.update((s) => ({
+							...s,
+							tabSize: parseInt(e.detail) || $userSettings.tabSize
+						}));
+					}}
+					placeholder={$userSettings.tabSize.toString()}
+				/>
 			</SectionCard>
 
 			<SectionCard labelFor="hoverScrollbarVisability" orientation="row">
