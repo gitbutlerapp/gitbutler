@@ -91,7 +91,7 @@
 		</ContextMenuSection>
 		<ContextMenuSection>
 			<ContextMenuItem
-				label="Set branch name"
+				label="Set remote branch name"
 				disabled={isUnapplied || hasIntegratedCommits}
 				on:click={() => {
 					newRemoteName = branch.upstreamName || normalizeBranchName(branch.name) || '';
@@ -130,12 +130,7 @@
 				visible = false;
 			}}
 		>
-			<TextBox
-				label="Remote branch name"
-				id="newRemoteName"
-				bind:value={newRemoteName}
-				focus
-			/>
+			<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
 		</form>
 	</svelte:fragment>
 
