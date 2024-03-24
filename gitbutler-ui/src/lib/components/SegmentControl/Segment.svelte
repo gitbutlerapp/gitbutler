@@ -35,9 +35,9 @@
 	class:left={index == 0}
 	class:right={index == $length - 1}
 	role="tab"
+	tabindex={isSelected ? -1 : 0}
 	aria-selected={isSelected}
 	aria-disabled={disabled}
-	tabindex={!isSelected ? 0 : -1}
 	{...$$restProps}
 	on:mousedown|preventDefault={() => {
 		if (index !== $selectedSegmentIndex && !disabled) {
@@ -107,6 +107,10 @@
 			& > .icon {
 				color: var(--clr-theme-scale-ntrl-50);
 				cursor: default;
+			}
+
+			&:focus {
+				outline: none;
 			}
 		}
 		&.left {
