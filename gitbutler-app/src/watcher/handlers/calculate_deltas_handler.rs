@@ -828,8 +828,10 @@ mod test {
         )]));
         let listener = Handler::from_path(&suite.local_app_data);
 
-        let branch_writer = virtual_branches::branch::Writer::new(&gb_repository, &project.path)?;
-        let target_writer = virtual_branches::target::Writer::new(&gb_repository, &project.path)?;
+        let branch_writer =
+            virtual_branches::branch::Writer::new(&gb_repository, project.gb_dir())?;
+        let target_writer =
+            virtual_branches::target::Writer::new(&gb_repository, project.gb_dir())?;
         let default_target = test_target();
         target_writer.write_default(&default_target)?;
         let mut vbranch0 = test_branch();
@@ -884,8 +886,10 @@ mod test {
         )]));
         let listener = Handler::from_path(&suite.local_app_data);
 
-        let branch_writer = virtual_branches::branch::Writer::new(&gb_repository, &project.path)?;
-        let target_writer = virtual_branches::target::Writer::new(&gb_repository, &project.path)?;
+        let branch_writer =
+            virtual_branches::branch::Writer::new(&gb_repository, project.gb_dir())?;
+        let target_writer =
+            virtual_branches::target::Writer::new(&gb_repository, project.gb_dir())?;
         let default_target = test_target();
         target_writer.write_default(&default_target)?;
         let mut vbranch0 = test_branch();

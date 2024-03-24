@@ -165,13 +165,13 @@ mod tests {
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };
 
-        let branch_writer = branch::Writer::new(&gb_repository, &project.path)?;
+        let branch_writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
         branch_writer.write(&mut branch)?;
 
         let session = gb_repository.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repository, &session)?;
 
-        let target_writer = TargetWriter::new(&gb_repository, &project.path)?;
+        let target_writer = TargetWriter::new(&gb_repository, project.gb_dir())?;
         let reader = TargetReader::new(&session_reader);
 
         target_writer.write_default(&default_target)?;
