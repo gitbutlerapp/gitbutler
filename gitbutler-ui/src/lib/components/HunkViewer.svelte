@@ -6,9 +6,9 @@
 	import { Project } from '$lib/backend/projects';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableHunk } from '$lib/dragging/draggables';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { getContextByClass } from '$lib/utils/context';
 	import { getContext, onDestroy } from 'svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import type { HunkSection } from '$lib/utils/fileSections';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Hunk } from '$lib/vbranches/types';
