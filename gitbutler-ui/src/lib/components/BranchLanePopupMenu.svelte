@@ -141,7 +141,7 @@
 
 	<svelte:fragment slot="controls" let:close>
 		<Button color="neutral" kind="outlined" on:click={close}>Cancel</Button>
-		<Button color="primary" type="submit" form="branch-name-form">Rename</Button>
+		<Button color="primary" form="branch-name-form">Rename</Button>
 	</svelte:fragment>
 </Modal>
 
