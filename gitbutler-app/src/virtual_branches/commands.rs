@@ -115,7 +115,8 @@ pub async fn list_virtual_branches(
         .await?;
 
     // Migration: If use_diff_context is not already set and if there are no vbranches, set use_diff_context to true
-    if !uses_diff_context && branches.is_empty() {
+    let has_active_branches = branches.iter().any(|branch| branch.active);
+    if !uses_diff_context && !has_active_branches {
         let _ = handle
             .state::<projects::Controller>()
             .update(&projects::UpdateRequest {
