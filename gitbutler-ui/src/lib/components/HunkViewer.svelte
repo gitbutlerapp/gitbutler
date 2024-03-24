@@ -7,7 +7,8 @@
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableHunk } from '$lib/dragging/draggables';
 	import { getContextByClass } from '$lib/utils/context';
-	import { onDestroy } from 'svelte';
+	import { getContext, onDestroy } from 'svelte';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import type { HunkSection } from '$lib/utils/fileSections';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Hunk } from '$lib/vbranches/types';
@@ -26,6 +27,7 @@
 	export let selectedOwnership: Writable<Ownership> | undefined = undefined;
 	export let linesModified: number;
 
+	const userSettings = getContext(SETTINGS_CONTEXT) as SettingsStore;
 	const project = getContextByClass(Project);
 
 	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
@@ -91,6 +93,7 @@
 							{minWidth}
 							{selectable}
 							{draggingDisabled}
+							tabSize={$userSettings.tabSize}
 							selected={$selectedOwnership?.containsHunk(hunk.filePath, hunk.id)}
 							on:selected={(e) => onHunkSelected(hunk, e.detail)}
 							sectionType={subsection.sectionType}
