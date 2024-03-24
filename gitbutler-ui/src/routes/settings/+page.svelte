@@ -176,19 +176,30 @@
 			{/if}
 
 			<SectionCard>
-				<svelte:fragment slot="title">Appearance</svelte:fragment>
+				<svelte:fragment slot="title">Theme</svelte:fragment>
 				<ThemeSelector {userSettings} />
-				<TextBox
-					label="Tab Size"
-					value={$userSettings.tabSize.toString()}
-					on:change={(e) => {
-						userSettings.update((s) => ({
-							...s,
-							tabSize: parseInt(e.detail) || $userSettings.tabSize
-						}));
-					}}
-					placeholder={$userSettings.tabSize.toString()}
-				/>
+			</SectionCard>
+
+			<SectionCard orientation="row" centerAlign>
+				<svelte:fragment slot="title">Hunks tab size</svelte:fragment>
+
+				<svelte:fragment slot="actions">
+					<TextBox
+						type="number"
+						width={100}
+						textAlign="center"
+						value={$userSettings.tabSize.toString()}
+						minVal={2}
+						maxVal={8}
+						on:change={(e) => {
+							userSettings.update((s) => ({
+								...s,
+								tabSize: parseInt(e.detail) || $userSettings.tabSize
+							}));
+						}}
+						placeholder={$userSettings.tabSize.toString()}
+					/>
+				</svelte:fragment>
 			</SectionCard>
 
 			<SectionCard labelFor="hoverScrollbarVisability" orientation="row">

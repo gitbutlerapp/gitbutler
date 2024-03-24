@@ -6,6 +6,7 @@
 	import { createEventDispatcher } from 'svelte';
 
 	export let orientation: 'row' | 'column' = 'column';
+	export let centerAlign = false;
 	export let extraPadding = false;
 	export let roundedTop = true;
 	export let roundedBottom = true;
@@ -25,6 +26,7 @@
 	for={labelFor}
 	class="section-card"
 	style:flex-direction={orientation}
+	class:center-align={centerAlign && orientation === 'row'}
 	class:extra-padding={extraPadding}
 	class:rounded-top={roundedTop}
 	class:rounded-bottom={roundedBottom}
@@ -166,5 +168,9 @@
 	.disabled {
 		pointer-events: none;
 		opacity: 0.5;
+	}
+
+	.center-align {
+		align-items: center;
 	}
 </style>
