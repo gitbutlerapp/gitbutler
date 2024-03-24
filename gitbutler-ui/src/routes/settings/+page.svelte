@@ -181,7 +181,10 @@
 			</SectionCard>
 
 			<SectionCard orientation="row" centerAlign>
-				<svelte:fragment slot="title">Hunks tab size</svelte:fragment>
+				<svelte:fragment slot="title">Tab size</svelte:fragment>
+				<svelte:fragment slot="caption">
+					The number of spaces a tab is equal to when previewing code changes.
+				</svelte:fragment>
 
 				<svelte:fragment slot="actions">
 					<TextBox
