@@ -189,7 +189,7 @@
 						width={100}
 						textAlign="center"
 						value={$userSettings.tabSize.toString()}
-						minVal={2}
+						minVal={1}
 						maxVal={8}
 						on:change={(e) => {
 							userSettings.update((s) => ({

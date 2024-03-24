@@ -100,6 +100,7 @@
 					on:click={() => {
 						htmlInput.stepDown();
 						dispatch('input', htmlInput.value);
+						dispatch('change', htmlInput.value);
 
 						isInputValid = htmlInput.checkValidity();
 					}}
@@ -111,6 +112,7 @@
 					on:click={() => {
 						htmlInput.stepUp();
 						dispatch('input', htmlInput.value);
+						dispatch('change', htmlInput.value);
 
 						isInputValid = htmlInput.checkValidity();
 					}}
