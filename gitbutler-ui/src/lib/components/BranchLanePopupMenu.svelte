@@ -121,20 +121,27 @@
 {/if}
 
 <Modal width="small" bind:this={renameRemoteModal}>
-	<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName}></TextBox>
-
-	<svelte:fragment slot="controls" let:close>
-		<Button color="neutral" kind="outlined" on:click={close}>Cancel</Button>
-		<Button
-			color="primary"
-			on:click={() => {
+	<svelte:fragment let:close>
+		<form
+			id="branch-name-form"
+			on:submit={() => {
 				branchController.updateBranchRemoteName(branch.id, newRemoteName);
 				close();
 				visible = false;
 			}}
 		>
-			Rename
-		</Button>
+			<TextBox
+				label="Remote branch name"
+				id="newRemoteName"
+				bind:value={newRemoteName}
+				focus
+			/>
+		</form>
+	</svelte:fragment>
+
+	<svelte:fragment slot="controls" let:close>
+		<Button color="neutral" kind="outlined" on:click={close}>Cancel</Button>
+		<Button color="primary" type="submit" form="branch-name-form">Rename</Button>
 	</svelte:fragment>
 </Modal>
 

@@ -41,7 +41,7 @@
 	{/if}
 
 	<div class="modal__body custom-scrollbar">
-		<slot {item} />
+		<slot {item} {close} />
 	</div>
 
 	{#if $$slots.controls}

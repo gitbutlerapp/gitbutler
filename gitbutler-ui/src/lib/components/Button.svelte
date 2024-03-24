@@ -63,6 +63,7 @@
 	on:mousedown
 	{id}
 	tabindex={notClickable ? -1 : tabindex}
+	{...$$restProps}
 >
 	{#if SLOTS}
 		<span class="label text-base-12 text-semibold">
