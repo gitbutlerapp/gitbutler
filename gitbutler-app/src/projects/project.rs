@@ -1,4 +1,7 @@
-use std::{path, time};
+use std::{
+    path::{self, PathBuf},
+    time,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -98,5 +101,12 @@ impl Project {
             .as_ref()
             .map(|api| api.code_git_url.is_some())
             .unwrap_or_default()
+    }
+
+    /// Returns the path to the directory containing the `GitButler` state for this project.
+    ///
+    /// Normally this is `.git/gitbutler` in the project's repository.
+    pub fn gb_dir(&self) -> PathBuf {
+        self.path.join(".git").join("gitbutler")
     }
 }

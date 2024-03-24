@@ -189,7 +189,7 @@ pub fn set_base_branch(
         sha: target_commit_oid,
     };
 
-    let target_writer = target::Writer::new(gb_repository, &project_repository.project().path)
+    let target_writer = target::Writer::new(gb_repository, project_repository.project().gb_dir())
         .context("failed to create target writer")?;
     target_writer.write_default(&target)?;
 
@@ -278,7 +278,7 @@ pub fn set_base_branch(
             };
 
             let branch_writer =
-                branch::Writer::new(gb_repository, &project_repository.project().path)
+                branch::Writer::new(gb_repository, project_repository.project().gb_dir())
                     .context("failed to create branch writer")?;
             branch_writer.write(&mut branch)?;
         }
@@ -380,7 +380,7 @@ pub fn update_base_branch(
             target.sha
         ))?;
 
-    let branch_writer = branch::Writer::new(gb_repository, &project_repository.project().path)
+    let branch_writer = branch::Writer::new(gb_repository, project_repository.project().gb_dir())
         .context("failed to create branch writer")?;
 
     let use_context = project_repository
@@ -599,7 +599,7 @@ pub fn update_base_branch(
     )?;
 
     // write new target oid
-    let target_writer = target::Writer::new(gb_repository, &project_repository.project().path)
+    let target_writer = target::Writer::new(gb_repository, project_repository.project().gb_dir())
         .context("failed to create target writer")?;
     target_writer.write_default(&target::Target {
         sha: new_target_commit.id(),

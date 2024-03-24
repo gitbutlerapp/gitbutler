@@ -87,6 +87,11 @@ impl Controller {
             .add(&project)
             .context("failed to add project to storage")?;
 
+        // Create a .git/gitbutler directory for app data
+        if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
+            tracing::error!(project_id = %project.id, ?error, "failed to create {:?} on project add", project.gb_dir());
+        }
+
         if let Some(watchers) = &self.watchers {
             watchers.watch(&project)?;
         }
@@ -155,10 +160,31 @@ impl Controller {
     }
 
     pub fn get(&self, id: &ProjectId) -> Result<Project, GetError> {
-        self.projects_storage.get(id).map_err(|error| match error {
+        let project = self.projects_storage.get(id).map_err(|error| match error {
             super::storage::Error::NotFound => GetError::NotFound,
             error => GetError::Other(error.into()),
-        })
+        });
+        if let Ok(project) = &project {
+            if !project.gb_dir().exists() {
+                if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
+                    tracing::error!(project_id = %project.id, ?error, "failed to create {:?} on project get", project.gb_dir());
+                }
+            }
+            // Clean up old virtual_branches.toml that was never used
+            if project
+                .path
+                .join(".git")
+                .join("virtual_branches.toml")
+                .exists()
+            {
+                if let Err(error) =
+                    std::fs::remove_file(project.path.join(".git").join("virtual_branches.toml"))
+                {
+                    tracing::error!(project_id = %project.id, ?error, "failed to remove old virtual_branches.toml");
+                }
+            }
+        }
+        project
     }
 
     pub fn list(&self) -> Result<Vec<Project>, ListError> {

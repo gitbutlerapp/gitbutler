@@ -265,7 +265,7 @@ impl Repository {
             .collect::<Vec<_>>();
 
         let src_target_reader = virtual_branches::target::Reader::new(&last_session_reader);
-        let dst_target_writer = virtual_branches::target::Writer::new(self, &self.project.path)
+        let dst_target_writer = virtual_branches::target::Writer::new(self, self.project.gb_dir())
             .context("failed to open target writer for current session")?;
 
         // copy default target
@@ -295,7 +295,7 @@ impl Repository {
                 .with_context(|| format!("{}: failed to write target", branch.id))?;
         }
 
-        let dst_branch_writer = virtual_branches::branch::Writer::new(self, &self.project.path)
+        let dst_branch_writer = virtual_branches::branch::Writer::new(self, self.project.gb_dir())
             .context("failed to open branch writer for current session")?;
 
         // copy branches that we don't already have

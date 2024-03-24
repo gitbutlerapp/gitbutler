@@ -24,7 +24,7 @@ impl<'writer> TargetWriter<'writer> {
     ) -> Result<Self, std::io::Error> {
         let reader = reader::Reader::open(&repository.root())?;
         let writer = writer::DirWriter::open(repository.root())?;
-        let state_handle = VirtualBranchesHandle::new(path.as_ref().join(".git").as_path());
+        let state_handle = VirtualBranchesHandle::new(path.as_ref());
         Ok(Self {
             repository,
             writer,
@@ -183,10 +183,10 @@ mod tests {
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };
 
-        let branch_writer = branch::Writer::new(&gb_repository, &project.path)?;
+        let branch_writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
         branch_writer.write(&mut branch)?;
 
-        let target_writer = TargetWriter::new(&gb_repository, &project.path)?;
+        let target_writer = TargetWriter::new(&gb_repository, project.gb_dir())?;
         target_writer.write(&branch.id, &target)?;
 
         let root = gb_repository
@@ -274,9 +274,9 @@ mod tests {
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };
 
-        let branch_writer = branch::Writer::new(&gb_repository, &project.path)?;
+        let branch_writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
         branch_writer.write(&mut branch)?;
-        let target_writer = TargetWriter::new(&gb_repository, &project.path)?;
+        let target_writer = TargetWriter::new(&gb_repository, project.gb_dir())?;
         target_writer.write(&branch.id, &target)?;
 
         let updated_target = Target {
