@@ -37,7 +37,7 @@
 	role="tab"
 	aria-selected={isSelected}
 	aria-disabled={disabled}
-	tabindex={isSelected ? 0 : -1}
+	tabindex={!isSelected ? 0 : -1}
 	{...$$restProps}
 	on:mousedown|preventDefault={() => {
 		if (index !== $selectedSegmentIndex && !disabled) {
@@ -46,10 +46,11 @@
 		}
 	}}
 	on:keydown={({ key }) => {
-		if (key === 'ArrowRight') {
-			context.setSelected(index + 1);
-		} else if (key === 'ArrowLeft') {
-			context.setSelected(index - 1);
+		if (key === 'Enter' || key === ' ') {
+			if (index !== $selectedSegmentIndex && !disabled) {
+				context.setSelected(index);
+				dispatcher('select', id);
+			}
 		}
 	}}
 >
@@ -67,6 +68,7 @@
 
 <style lang="postcss">
 	.btn {
+		cursor: pointer;
 		display: inline-flex;
 		flex-grow: 1;
 		flex-basis: 0;
@@ -80,41 +82,31 @@
 
 		border-top-width: 1px;
 		border-bottom-width: 1px;
+		border-left-width: 1px;
+
 		border-color: var(--clr-theme-container-outline-light);
 
 		transition: background var(--transition-fast);
 
-		cursor: pointer;
-
-		&:hover {
+		&:hover,
+		&:focus {
 			background-color: color-mix(
 				in srgb,
 				var(--clr-theme-container-light),
-				var(--darken-tint-light)
+				var(--darken-tint-extralight)
 			);
 		}
 
 		&[aria-selected='true'] {
 			background-color: var(--clr-theme-container-pale);
 			padding: var(--size-4) var(--size-8);
-			border-right-width: 1px;
-			border-left-width: 1px;
 
 			cursor: default;
 
-			& > .label {
-				color: var(--clr-theme-scale-ntrl-40);
-				cursor: default;
-			}
+			& > .label,
 			& > .icon {
 				color: var(--clr-theme-scale-ntrl-50);
 				cursor: default;
-			}
-			&.left {
-				border-right-width: 1px;
-			}
-			&.right {
-				border-left-width: 1px;
 			}
 		}
 		&.left {
@@ -134,11 +126,9 @@
 		justify-content: center;
 		align-items: center;
 		color: var(--clr-theme-scale-ntrl-30);
-		cursor: pointer;
 	}
 
 	.label {
-		color: var(--clr-theme-scale-ntrl-0);
-		cursor: pointer;
+		color: var(--clr-theme-scale-ntrl-30);
 	}
 </style>
