@@ -2071,17 +2071,19 @@ fn get_applied_status(
                                     .or_default()
                                     .insert(0, git_diff_hunk.clone());
 
+                                let updated_hunk = Hunk {
+                                    start: git_diff_hunk.new_start,
+                                    end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
+                                    timestamp_ms: Some(mtime),
+                                    hash: Some(hash.clone()),
+                                };
+
                                 // remove the hunk from the current hunks because each hunk can
                                 // only be owned once
                                 git_diff_hunks.remove(i);
 
                                 // return updated version, with new hash and/or timestamp
-                                return Some(
-                                    claimed_hunk
-                                        .clone()
-                                        .with_timestamp(mtime)
-                                        .with_hash(hash.as_str()),
-                                );
+                                return Some(updated_hunk);
                             }
                         }
                         None
