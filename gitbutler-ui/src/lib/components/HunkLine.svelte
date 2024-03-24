@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { create } from '$lib/components/Differ/CodeHighlighter';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { SectionType } from '$lib/utils/fileSections';
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, getContext } from 'svelte';
 	import type { Line } from '$lib/utils/fileSections';
+
+	const userSettings = getContext(SETTINGS_CONTEXT) as SettingsStore;
 
 	export let line: Line;
 	export let sectionType: SectionType;
@@ -40,7 +43,12 @@
 			: 'bg-light-50 border-light-300 dark:bg-dark-700 dark:border-dark-400';
 </script>
 
-<div class="code-line text-sm" role="group" on:contextmenu|preventDefault>
+<div
+	class="code-line text-sm"
+	role="group"
+	style="--tab-size: {$userSettings.tabSize}"
+	on:contextmenu|preventDefault
+>
 	<div class="code-line__numbers-line">
 		<button
 			on:click={() => selectable && dispatch('selected', !selected)}
@@ -80,6 +88,7 @@
 		font-family: monospace;
 		background-color: var(----clr-theme-container-light);
 		white-space: pre;
+		tab-size: var(--tab-size);
 	}
 
 	.line {
