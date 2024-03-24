@@ -16,6 +16,7 @@ export interface Settings {
 	defaultTreeHeight: number;
 	zoom: number;
 	scrollbarVisabilityOnHover: boolean;
+	tabSize: number;
 }
 
 const defaults: Settings = {
@@ -29,7 +30,8 @@ const defaults: Settings = {
 	defaultTreeHeight: 100,
 	stashedBranchesHeight: 150,
 	zoom: 1,
-	scrollbarVisabilityOnHover: false
+	scrollbarVisabilityOnHover: false,
+	tabSize: 4
 };
 
 export type SettingsStore = Writable<Settings>;

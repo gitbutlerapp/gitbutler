@@ -12,6 +12,7 @@
 	export let selected: boolean = true;
 	export let readonly: boolean = false;
 	export let draggingDisabled: boolean = false;
+	export let tabSize = 4;
 
 	const dispatch = createEventDispatcher<{ selected: boolean }>();
 
@@ -40,7 +41,12 @@
 			: 'bg-light-50 border-light-300 dark:bg-dark-700 dark:border-dark-400';
 </script>
 
-<div class="code-line text-sm" role="group" on:contextmenu|preventDefault>
+<div
+	class="code-line text-sm"
+	role="group"
+	style="--tab-size: {tabSize}"
+	on:contextmenu|preventDefault
+>
 	<div class="code-line__numbers-line">
 		<button
 			on:click={() => selectable && dispatch('selected', !selected)}
@@ -78,8 +84,9 @@
 		width: 100%;
 		min-width: max-content;
 		font-family: monospace;
-		background-color: var(----clr-theme-container-light);
+		background-color: var(--clr-theme-container-light);
 		white-space: pre;
+		tab-size: var(--tab-size);
 	}
 
 	.line {

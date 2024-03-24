@@ -136,3 +136,27 @@ dialog::backdrop {
 		opacity: 1;
 	}
 }
+
+/* STATES */
+
+.shaky {
+	animation: shaky 0.35s forwards;
+}
+
+@keyframes shaky {
+	0% {
+		transform: translateX(-3px);
+	}
+	25% {
+		transform: translateX(3px);
+	}
+	50% {
+		transform: translateX(-2px);
+	}
+	75% {
+		transform: translateX(2px);
+	}
+	100% {
+		transform: translateX(0);
+	}
+}
