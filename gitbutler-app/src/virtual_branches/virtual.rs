@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     hash::Hash,
     path::{Path, PathBuf},
     time, vec,
@@ -1791,48 +1791,23 @@ fn set_ownership(
         return Ok(());
     }
 
-    let mut virtual_branches = Iterator::new(session_reader)
+    let virtual_branches = Iterator::new(session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|branch| branch.applied)
-        .filter(|branch| branch.id != target_branch.id)
-        .collect::<Vec<_>>();
+        .context("failed to read virtual branches")?;
 
-    let mut branch_claims: Vec<(branch::Branch, Vec<OwnershipClaim>)> = Vec::new();
-    for file_ownership in &ownership.claims {
-        for branch in &mut virtual_branches {
-            let taken = branch.ownership.take(file_ownership);
-            branch_claims.push((branch.clone(), taken));
-        }
-    }
-
-    // Check consistency and reject changes if they would result in a hunk being claimed by multiple branches
-    let mut seen = HashSet::new();
-    for (_, claims) in branch_claims.clone() {
-        for claim in claims {
-            for hunk in claim.hunks {
-                if !seen.insert(format!(
-                    "{}-{}-{}",
-                    claim.file_path.to_str().unwrap_or_default(),
-                    hunk.start,
-                    hunk.end
-                )) {
-                    return Err(anyhow::anyhow!("inconsistent ownership claims"));
-                }
-            }
-        }
-    }
-
-    for (branch, taken) in &mut branch_claims {
-        if !taken.is_empty() {
+    let mut claim_outcomes =
+        branch::reconcile_claims(virtual_branches, target_branch, &ownership.claims)?;
+    for claim_outcome in &mut claim_outcomes {
+        if !claim_outcome.removed_claims.is_empty() {
             branch_writer
-                .write(branch)
+                .write(&mut claim_outcome.updated_branch)
                 .context("failed to write ownership for branch".to_string())?;
         }
     }
 
+    // Updates the claiming branch that was passed as mutable state with the new ownership claims
+    // TODO: remove mutable reference to target_branch
     target_branch.ownership = ownership.clone();
 
     Ok(())
