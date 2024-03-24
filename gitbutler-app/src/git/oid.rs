@@ -7,6 +7,12 @@ pub struct Oid {
     oid: git2::Oid,
 }
 
+impl Default for Oid {
+    fn default() -> Self {
+        git2::Oid::zero().into()
+    }
+}
+
 impl Serialize for Oid {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

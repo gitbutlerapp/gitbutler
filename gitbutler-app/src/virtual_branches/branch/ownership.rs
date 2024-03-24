@@ -1,8 +1,9 @@
-use std::{fmt, str::FromStr};
+use std::{collections::HashSet, fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use super::OwnershipClaim;
+use super::{Branch, OwnershipClaim};
+use anyhow::Result;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BranchOwnershipClaims {
@@ -120,11 +121,176 @@ impl BranchOwnershipClaims {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ClaimOutcome {
+    pub updated_branch: Branch,
+    pub removed_claims: Vec<OwnershipClaim>,
+}
+pub fn reconcile_claims(
+    all_branches: Vec<Branch>,
+    claiming_branch: &Branch,
+    new_claims: &Vec<OwnershipClaim>,
+) -> Result<Vec<ClaimOutcome>> {
+    let mut other_branches = all_branches
+        .into_iter()
+        .filter(|branch| branch.applied)
+        .filter(|branch| branch.id != claiming_branch.id)
+        .collect::<Vec<_>>();
+
+    let mut claim_outcomes: Vec<ClaimOutcome> = Vec::new();
+
+    for file_ownership in new_claims {
+        for branch in &mut other_branches {
+            let taken = branch.ownership.take(file_ownership);
+            claim_outcomes.push(ClaimOutcome {
+                updated_branch: branch.clone(),
+                removed_claims: taken,
+            });
+        }
+    }
+
+    // Add the claiming branch to the list of outcomes
+    claim_outcomes.push(ClaimOutcome {
+        updated_branch: Branch {
+            ownership: BranchOwnershipClaims {
+                claims: new_claims.clone(),
+            },
+            ..claiming_branch.clone()
+        },
+        removed_claims: Vec::new(),
+    });
+
+    // Check the outcomes consistency and error out if they would result in a hunk being claimed by multiple branches
+    let mut seen = HashSet::new();
+    for outcome in claim_outcomes.clone() {
+        for claim in outcome.updated_branch.ownership.claims {
+            for hunk in claim.hunks {
+                if !seen.insert(format!(
+                    "{}-{}-{}",
+                    claim.file_path.to_str().unwrap_or_default(),
+                    hunk.start,
+                    hunk.end
+                )) {
+                    return Err(anyhow::anyhow!("inconsistent ownership claims"));
+                }
+            }
+        }
+    }
+
+    Ok(claim_outcomes)
+}
+
 #[cfg(test)]
 mod tests {
-    use std::vec;
+    use std::{path::PathBuf, vec};
+
+    use crate::virtual_branches::branch::Hunk;
 
     use super::*;
+
+    #[test]
+    fn test_reconcile_ownership_simple() {
+        let branch_a = Branch {
+            name: "a".to_string(),
+            ownership: BranchOwnershipClaims {
+                claims: vec![OwnershipClaim {
+                    file_path: PathBuf::from("foo"),
+                    hunks: vec![
+                        Hunk {
+                            start: 1,
+                            end: 3,
+                            hash: Some("1,3".to_string()),
+                            timestamp_ms: None,
+                        },
+                        Hunk {
+                            start: 4,
+                            end: 6,
+                            hash: Some("4,6".to_string()),
+                            timestamp_ms: None,
+                        },
+                    ],
+                }],
+            },
+            applied: true,
+            ..Default::default()
+        };
+        let branch_b = Branch {
+            name: "b".to_string(),
+            ownership: BranchOwnershipClaims {
+                claims: vec![OwnershipClaim {
+                    file_path: PathBuf::from("foo"),
+                    hunks: vec![Hunk {
+                        start: 7,
+                        end: 9,
+                        hash: Some("7,9".to_string()),
+                        timestamp_ms: None,
+                    }],
+                }],
+            },
+            applied: true,
+            ..Default::default()
+        };
+        let all_branches: Vec<Branch> = vec![branch_a.clone(), branch_b.clone()];
+        let claim: Vec<OwnershipClaim> = vec![OwnershipClaim {
+            file_path: PathBuf::from("foo"),
+            hunks: vec![
+                Hunk {
+                    start: 4,
+                    end: 6,
+                    hash: Some("4,6".to_string()),
+                    timestamp_ms: None,
+                },
+                Hunk {
+                    start: 7,
+                    end: 9,
+                    hash: Some("9,7".to_string()),
+                    timestamp_ms: None,
+                },
+            ],
+        }];
+        let claim_outcomes = reconcile_claims(all_branches.clone(), &branch_b, &claim).unwrap();
+        assert_eq!(claim_outcomes.len(), all_branches.len());
+        assert_eq!(claim_outcomes[0].updated_branch.id, branch_a.id);
+        assert_eq!(claim_outcomes[1].updated_branch.id, branch_b.id);
+
+        assert_eq!(
+            claim_outcomes[0].updated_branch.ownership,
+            BranchOwnershipClaims {
+                claims: vec![OwnershipClaim {
+                    file_path: PathBuf::from("foo"),
+                    hunks: vec![Hunk {
+                        start: 1,
+                        end: 3,
+                        hash: Some("1,3".to_string()),
+                        timestamp_ms: None,
+                    },],
+                }],
+            }
+        );
+
+        assert_eq!(
+            claim_outcomes[1].updated_branch.ownership,
+            BranchOwnershipClaims {
+                claims: vec![OwnershipClaim {
+                    file_path: PathBuf::from("foo"),
+                    hunks: vec![
+                        Hunk {
+                            start: 4,
+                            end: 6,
+                            hash: Some("4,6".to_string()),
+                            timestamp_ms: None,
+                        },
+                        Hunk {
+                            start: 7,
+                            end: 9,
+                            hash: Some("9,7".to_string()),
+                            timestamp_ms: None,
+                        },
+                    ],
+                }],
+            }
+        );
+    }
 
     #[test]
     fn test_ownership() {

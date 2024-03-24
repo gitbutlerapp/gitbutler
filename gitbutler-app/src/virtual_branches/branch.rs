@@ -6,6 +6,7 @@ mod writer;
 
 pub use file_ownership::OwnershipClaim;
 pub use hunk::Hunk;
+pub use ownership::reconcile_claims;
 pub use ownership::BranchOwnershipClaims;
 pub use reader::BranchReader as Reader;
 pub use writer::BranchWriter as Writer;
@@ -22,7 +23,7 @@ pub type BranchId = Id<Branch>;
 // store. it is more or less equivalent to a git branch reference, but it is not
 // stored or accessible from the git repository itself. it is stored in our
 // session storage under the branches/ directory.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Branch {
     pub id: BranchId,
     pub name: String,
