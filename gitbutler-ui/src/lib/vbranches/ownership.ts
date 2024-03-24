@@ -1,7 +1,9 @@
 import type { Branch, AnyFile } from './types';
 
 export function filesToOwnership(files: AnyFile[]) {
-	return files.map((f) => `${f.path}:${f.hunks.map(({ id }) => id).join(',')}`).join('\n');
+	return files
+		.map((f) => `${f.path}:${f.hunks.map(({ id, hash }) => `${id}-${hash}`).join(',')}`)
+		.join('\n');
 }
 
 export class Ownership {

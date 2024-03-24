@@ -19,6 +19,7 @@ export class Hunk {
 	})
 	modifiedAt!: Date;
 	filePath!: string;
+	hash?: string;
 	locked!: boolean;
 	lockedTo!: string | undefined;
 	changeType!: ChangeType;
@@ -166,6 +167,7 @@ export class RemoteCommit {
 
 export class RemoteHunk {
 	diff!: string;
+	hash?: string;
 
 	get id(): string {
 		return hashCode(this.diff);
