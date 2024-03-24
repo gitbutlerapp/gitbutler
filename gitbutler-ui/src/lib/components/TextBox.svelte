@@ -65,33 +65,6 @@
 			</div>
 		{/if}
 
-		{#if type == 'number'}
-			<div class="textbox__count-actions">
-				<button
-					class="textbox__count-btn"
-					on:click={() => {
-						htmlInput.stepDown();
-						dispatch('input', htmlInput.value);
-
-						isInputValid = htmlInput.checkValidity();
-					}}
-				>
-					<Icon name="minus-small" />
-				</button>
-				<button
-					class="textbox__count-btn"
-					on:click={() => {
-						htmlInput.stepUp();
-						dispatch('input', htmlInput.value);
-
-						isInputValid = htmlInput.checkValidity();
-					}}
-				>
-					<Icon name="plus-small" />
-				</button>
-			</div>
-		{/if}
-
 		<input
 			{id}
 			{readonly}
@@ -119,6 +92,33 @@
 			on:change={(e) => dispatch('change', e.currentTarget.value)}
 			on:keydown={(e) => dispatch('keydown', e)}
 		/>
+
+		{#if type == 'number'}
+			<div class="textbox__count-actions">
+				<button
+					class="textbox__count-btn"
+					on:click={() => {
+						htmlInput.stepDown();
+						dispatch('input', htmlInput.value);
+
+						isInputValid = htmlInput.checkValidity();
+					}}
+				>
+					<Icon name="minus-small" />
+				</button>
+				<button
+					class="textbox__count-btn"
+					on:click={() => {
+						htmlInput.stepUp();
+						dispatch('input', htmlInput.value);
+
+						isInputValid = htmlInput.checkValidity();
+					}}
+				>
+					<Icon name="plus-small" />
+				</button>
+			</div>
+		{/if}
 
 		{#if type == 'password'}
 			<button
