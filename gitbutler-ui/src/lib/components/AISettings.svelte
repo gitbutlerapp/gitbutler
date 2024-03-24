@@ -16,29 +16,37 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContextByClass } from '$lib/utils/context';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 
 	const gitConfigService = getContextByClass(GitConfigService);
 	const userService = getContextByClass(UserService);
 	const user = userService.user;
 
-	let modelKind: ModelKind;
-	let openAIKeyOption: KeyOption;
-	let anthropicKeyOption: KeyOption;
+	let initialized = false;
+
+	let modelKind: ModelKind | undefined;
+	let openAIKeyOption: KeyOption | undefined;
+	let anthropicKeyOption: KeyOption | undefined;
 	let openAIKey: string | undefined;
-	let openAIModelName: OpenAIModelName;
+	let openAIModelName: OpenAIModelName | undefined;
 	let anthropicKey: string | undefined;
-	let anthropicModelName: AnthropicModelName;
+	let anthropicModelName: AnthropicModelName | undefined;
 
-	$: gitConfigService.set('gitbutler.aiModelProvider', modelKind);
+	function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
+		if (!initialized) return;
 
-	$: gitConfigService.set('gitbutler.aiOpenAIKeyOption', openAIKeyOption);
-	$: gitConfigService.set('gitbutler.aiOpenAIModelName', openAIModelName);
-	$: if (openAIKey) gitConfigService.set('gitbutler.aiOpenAIKey', openAIKey);
+		gitConfigService.set(key, value || '');
+	}
 
-	$: gitConfigService.set('gitbutler.aiAnthropicKeyOption', anthropicKeyOption);
-	$: gitConfigService.set('gitbutler.aiAnthropicModelName', anthropicModelName);
-	$: if (anthropicKey) gitConfigService.set('gitbutler.aiAnthropicKey', anthropicKey);
+	$: setConfiguration(GitAIConfigKey.ModelProvider, modelKind);
+
+	$: setConfiguration(GitAIConfigKey.OpenAIKeyOption, openAIKeyOption);
+	$: setConfiguration(GitAIConfigKey.OpenAIModelName, openAIModelName);
+	$: setConfiguration(GitAIConfigKey.OpenAIKey, openAIKey);
+
+	$: setConfiguration(GitAIConfigKey.AnthropicKeyOption, anthropicKeyOption);
+	$: setConfiguration(GitAIConfigKey.AnthropicModelName, anthropicModelName);
+	$: setConfiguration(GitAIConfigKey.AnthropicKey, anthropicKey);
 
 	onMount(async () => {
 		modelKind = await gitConfigService.getWithDefault<ModelKind>(
@@ -65,6 +73,11 @@
 			AnthropicModelName.Haiku
 		);
 		anthropicKey = await gitConfigService.get(GitAIConfigKey.AnthropicKey);
+
+		// Ensure reactive declarations have finished running before we set initialized to true
+		await tick();
+
+		initialized = true;
 	});
 
 	$: if (form) form.modelKind.value = modelKind;
