@@ -1,5 +1,6 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
+    hash::Hash,
     path::{Path, PathBuf},
     time, vec,
 };
@@ -1799,15 +1800,36 @@ fn set_ownership(
         .filter(|branch| branch.id != target_branch.id)
         .collect::<Vec<_>>();
 
+    let mut branch_claims: Vec<(branch::Branch, Vec<OwnershipClaim>)> = Vec::new();
     for file_ownership in &ownership.claims {
         for branch in &mut virtual_branches {
             let taken = branch.ownership.take(file_ownership);
-            if !taken.is_empty() {
-                branch_writer.write(branch).context(format!(
-                    "failed to write source branch for {}",
-                    file_ownership
-                ))?;
+            branch_claims.push((branch.clone(), taken));
+        }
+    }
+
+    // Check consistency and reject changes if they would result in a hunk being claimed by multiple branches
+    let mut seen = HashSet::new();
+    for (_, claims) in branch_claims.clone() {
+        for claim in claims {
+            for hunk in claim.hunks {
+                if !seen.insert(format!(
+                    "{}-{}-{}",
+                    claim.file_path.to_str().unwrap_or_default(),
+                    hunk.start,
+                    hunk.end
+                )) {
+                    return Err(anyhow::anyhow!("inconsistent ownership claims"));
+                }
             }
+        }
+    }
+
+    for (branch, taken) in &mut branch_claims {
+        if !taken.is_empty() {
+            branch_writer
+                .write(branch)
+                .context("failed to write ownership for branch".to_string())?;
         }
     }
 
