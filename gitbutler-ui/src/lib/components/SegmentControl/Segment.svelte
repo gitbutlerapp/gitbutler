@@ -75,7 +75,7 @@
 		gap: var(--size-4);
 
 		height: var(--size-control-m);
-		background-color: var(--clr-theme-container-pale);
+		background-color: var(--clr-theme-container-light);
 		padding: var(--size-4) var(--size-8);
 
 		border-top-width: 1px;
@@ -89,13 +89,13 @@
 		&:hover {
 			background-color: color-mix(
 				in srgb,
-				var(--clr-theme-container-pale),
+				var(--clr-theme-container-light),
 				var(--darken-tint-light)
 			);
 		}
 
 		&[aria-selected='true'] {
-			background-color: var(--clr-theme-container-light);
+			background-color: var(--clr-theme-container-pale);
 			padding: var(--size-4) var(--size-8);
 			border-right-width: 1px;
 			border-left-width: 1px;
@@ -103,11 +103,11 @@
 			cursor: default;
 
 			& > .label {
-				color: var(--clr-theme-scale-ntrl-0);
+				color: var(--clr-theme-scale-ntrl-40);
 				cursor: default;
 			}
 			& > .icon {
-				color: var(--clr-theme-scale-ntrl-30);
+				color: var(--clr-theme-scale-ntrl-50);
 				cursor: default;
 			}
 			&.left {
@@ -133,12 +133,12 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-theme-scale-ntrl-30);
 		cursor: pointer;
 	}
 
 	.label {
-		color: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-theme-scale-ntrl-0);
 		cursor: pointer;
 	}
 </style>
