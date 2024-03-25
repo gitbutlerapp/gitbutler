@@ -27,10 +27,10 @@ runs:
       if: inputs.action == 'test'
       shell: bash
 
-    - run: cargo clippy -p ${{ inputs.crate }} --all-targets $(cat /tmp/features)
+    - run: cargo clippy -p ${{ inputs.crate }} --all-targets $(cat /tmp/features) -- -D warnings
       if: inputs.action == 'check'
       shell: bash
 
-    - run: cargo clippy -p ${{ inputs.crate }} --all-targets --tests $(cat /tmp/features)
+    - run: cargo clippy -p ${{ inputs.crate }} --all-targets --tests $(cat /tmp/features) -- -D warnings
       if: inputs.action == 'check-tests'
       shell: bash
