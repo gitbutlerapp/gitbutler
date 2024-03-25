@@ -80,8 +80,8 @@ impl Database {
                         .parse()
                         .context("Failed to parse timestamp_ms as u64")?;
                     let delta = delta::Delta {
-                        timestamp_ms,
                         operations,
+                        timestamp_ms,
                     };
                     if let Some(deltas_for_file_path) = deltas.get_mut(&file_path) {
                         deltas_for_file_path.push(delta);

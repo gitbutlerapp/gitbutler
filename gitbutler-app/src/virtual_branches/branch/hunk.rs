@@ -112,10 +112,10 @@ impl Hunk {
             Err(anyhow!("invalid range: {}-{}", start, end))
         } else {
             Ok(Hunk {
-                start,
-                end,
                 hash,
                 timestamp_ms,
+                start,
+                end,
             })
         }
     }

@@ -48,14 +48,7 @@ pub fn update_gitbutler_integration(
     let mut prev_head = head.name().unwrap().to_string();
     let mut prev_sha = head.target().unwrap().to_string();
     let integration_file = repo.path().join("integration");
-    if prev_head != GITBUTLER_INTEGRATION_REFERENCE.to_string() {
-        // we are moving from a regular branch to our gitbutler integration branch, save the original
-        // write a file to .git/integration with the previous head and name
-        let mut file = std::fs::File::create(integration_file)?;
-        prev_head.push(':');
-        prev_head.push_str(&prev_sha);
-        file.write_all(prev_head.as_bytes())?;
-    } else {
+    if prev_head == GITBUTLER_INTEGRATION_REFERENCE.to_string() {
         // read the .git/integration file
         if let Ok(mut integration_file) = std::fs::File::open(integration_file) {
             let mut prev_data = String::new();
@@ -65,6 +58,13 @@ pub fn update_gitbutler_integration(
             prev_head = parts[0].to_string();
             prev_sha = parts[1].to_string();
         }
+    } else {
+        // we are moving from a regular branch to our gitbutler integration branch, save the original
+        // write a file to .git/integration with the previous head and name
+        let mut file = std::fs::File::create(integration_file)?;
+        prev_head.push(':');
+        prev_head.push_str(&prev_sha);
+        file.write_all(prev_head.as_bytes())?;
     }
 
     // commit index to temp head for the merge

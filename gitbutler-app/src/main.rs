@@ -4,6 +4,14 @@
     all(windows, not(test), not(debug_assertions)),
     windows_subsystem = "windows"
 )]
+// FIXME(qix-): Stuff we want to fix but don't have a lot of time for.
+// FIXME(qix-): PRs welcome!
+#![allow(
+    clippy::used_underscore_binding,
+    clippy::module_name_repetitions,
+    clippy::struct_field_names,
+    clippy::too_many_lines
+)]
 
 pub(crate) mod analytics;
 pub(crate) mod app;
@@ -52,6 +60,7 @@ use tauri::{generate_context, Manager, Wry};
 use tauri_plugin_log::LogTarget;
 use tauri_plugin_store::{with_store, JsonValue, StoreCollection};
 
+#[allow(clippy::too_many_lines)]
 fn main() {
     let tauri_context = generate_context!();
 

@@ -34,3 +34,8 @@ nix = { version = "0.27.1", features = ["process", "socket", "user"] }
 winapi = { version = "0.3.9", features = ["winbase", "namedpipeapi"] }
 # synchronous named pipes for the askpass utility
 windows-named-pipe = "0.1.0"
+
+[lints.clippy]
+all = "deny"
+perf = "deny"
+correctness = "deny"

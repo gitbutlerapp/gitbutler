@@ -863,17 +863,17 @@ pub fn list_virtual_branches(
             .context(format!("failed to get log for branch {}", branch.name))?
             .iter()
             .map(|commit| {
-                is_remote = if !is_remote {
-                    pushed_commits.contains_key(&commit.id())
-                } else {
+                is_remote = if is_remote {
                     is_remote
+                } else {
+                    pushed_commits.contains_key(&commit.id())
                 };
 
                 // only check for integration if we haven't already found an integration
-                is_integrated = if !is_integrated {
-                    is_commit_integrated(project_repository, &default_target, commit)?
-                } else {
+                is_integrated = if is_integrated {
                     is_integrated
+                } else {
+                    is_commit_integrated(project_repository, &default_target, commit)?
                 };
 
                 commit_to_vbranch_commit(

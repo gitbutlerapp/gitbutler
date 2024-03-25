@@ -8,3 +8,8 @@ thiserror.workspace = true
 
 [dev-dependencies]
 paste = "1.0.14"
+
+[lints.clippy]
+all = "deny"
+perf = "deny"
+correctness = "deny"
