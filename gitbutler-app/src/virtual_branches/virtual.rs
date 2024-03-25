@@ -21,7 +21,7 @@ use crate::{
     gb_repository,
     git::{
         self,
-        diff::{self, diff_files_to_hunks},
+        diff::{self, diff_files_to_hunks, GitHunk},
         show, Commit, Refname, RemoteRefname,
     },
     keys,
@@ -1184,7 +1184,46 @@ pub fn calculate_non_commited_diffs(
         }
     }
 
+    // Revert back to the original line numbers from all hunks in the workspace
+    // This is done because the hunks in non_commited_diff have line numbers relative to the vbranch, which would be incorrect for the workspace
+    let non_commited_diff: HashMap<PathBuf, Vec<GitHunk>> = non_commited_diff
+        .into_iter()
+        .map(|(path, uncommitted_hunks)| {
+            let all_hunks = files.get(&path);
+            if let Some(all_hunks) = all_hunks {
+                let hunks = line_agnostic_hunk_intersection(uncommitted_hunks, all_hunks);
+                (path, hunks)
+            } else {
+                (path, uncommitted_hunks)
+            }
+        })
+        .collect();
+
     Ok(non_commited_diff)
+}
+
+/// Given two lists of hunks, returns the intersection based on the diff content and disregarding line numbers
+///
+/// Since the hunks are not identical, the retuned hunks are the ones from the second argument
+/// # Arguments
+/// * `left` - A list of hunks
+/// * `right` - A list of hunks to return from
+/// # Returns
+/// * A list of hunks that are present in both `left` and `right`, copied from `right`
+fn line_agnostic_hunk_intersection(left: Vec<GitHunk>, right: &Vec<GitHunk>) -> Vec<GitHunk> {
+    let mut result = Vec::new();
+    for l in left {
+        // Skip the header containing line numbers
+        let l_diff = l.diff.split("@@").collect::<Vec<&str>>()[2];
+        for r in right {
+            let r_diff = r.diff.split("@@").collect::<Vec<&str>>()[2];
+            if l_diff == r_diff {
+                result.push(r.clone());
+                break;
+            }
+        }
+    }
+    result
 }
 
 fn list_virtual_commit_files(
