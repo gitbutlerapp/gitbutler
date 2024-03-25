@@ -133,8 +133,6 @@ jobs:
           - ''
           - '*'
           - []
-          - [git2]
-          - [mmap]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/check-crate
