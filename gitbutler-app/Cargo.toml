@@ -80,7 +80,6 @@ gitbutler-git = { path = "../gitbutler-git" }
 all = "deny"
 perf = "deny"
 correctness = "deny"
-pedantic = "deny"
 
 
 [features]
