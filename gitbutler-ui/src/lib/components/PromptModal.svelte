@@ -49,13 +49,12 @@
 	}
 
 	function clear() {
-		console.log('clearing');
 		modal.close();
 		value = '';
 	}
 </script>
 
-<Modal bind:this={modal} width="small" title="Git fetch requires input">
+<Modal bind:this={modal} on:close={() => cancel()} width="small" title="Git fetch requires input">
 	<div class="message">
 		{#if $error}
 			{$error.message}
