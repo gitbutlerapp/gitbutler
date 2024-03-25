@@ -8,7 +8,7 @@ publish = false
 doctest = false
 
 [dependencies]
-thiserror.workspace = true
+unbounded-interval-tree = "1.1.2"
 
 [dev-dependencies]
 paste = "1.0.14"

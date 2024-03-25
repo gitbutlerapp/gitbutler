@@ -2034,7 +2034,7 @@ name = "gitbutler-changeset"
 version = "0.0.0"
 dependencies = [
  "paste",
- "thiserror",
+ "unbounded-interval-tree",
 ]
 
 [[package]]
@@ -6414,6 +6414,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b72f89f0ca32e4db1c04e2a72f5345d59796d4866a1ee0609084569f73683dc8"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "unbounded-interval-tree"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fac967d0ba617b6fd7f558750a2924a7086998ae52524b75aba74a719c11264"
+dependencies = [
+ "rand 0.8.5",
 ]
 
 [[package]]

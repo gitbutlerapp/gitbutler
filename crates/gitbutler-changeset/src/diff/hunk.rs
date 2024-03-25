@@ -1,5 +1,7 @@
 use core::fmt;
 
+use crate::LineSpan;
+
 /// A single line change in a diff. Note that
 /// hunks MUST NOT have context lines.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,6 +39,32 @@ pub trait RawHunk {
     /// Returns an iterator over the additions and removals
     /// in the hunk.
     fn changes(&self) -> Self::ChangeIterator;
+
+    /// Returns a set of spans for additions and removals
+    /// (in that order).
+    fn spans(&self) -> (LineSpan, LineSpan) {
+        let removal_start = self.get_removal_start();
+        let addition_start = self.get_addition_start();
+
+        let mut removal_end = removal_start;
+        let mut addition_end = addition_start;
+
+        for change in self.changes() {
+            match change {
+                Change::Addition(_) => {
+                    addition_end += 1;
+                }
+                Change::Removal(_) => {
+                    removal_end += 1;
+                }
+            }
+        }
+
+        (
+            LineSpan::new(removal_start, removal_end),
+            LineSpan::new(addition_start, addition_end),
+        )
+    }
 }
 
 /// Formats the hunk as a unified diff.
@@ -82,11 +110,11 @@ pub trait FormatHunk: RawHunk {
         for (i, change) in self.changes().enumerate() {
             let line = match change {
                 Change::Addition(line) => {
-                    write!(f, "+{}", line)?;
+                    write!(f, "+{line}")?;
                     line
                 }
                 Change::Removal(line) => {
-                    write!(f, "-{}", line)?;
+                    write!(f, "-{line}")?;
                     line
                 }
             };

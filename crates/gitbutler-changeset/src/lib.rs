@@ -51,7 +51,11 @@ pub(crate) mod signature;
 pub(crate) mod span;
 
 pub use self::{
-    diff::hunk::{Change, FormatHunk, RawHunk},
+    diff::{
+        conflict::Conflict,
+        file::File,
+        hunk::{Change, FormatHunk, RawHunk},
+    },
     signature::Signature,
     span::LineSpan,
 };

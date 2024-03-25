@@ -34,7 +34,7 @@ fn extract() {
     let mut start = 0;
     for (i, line) in lines.iter().enumerate() {
         // If it's not the last line, add 1 for the newline character.
-        let end = start + line.len() + (i != (lines.len() - 1)) as usize;
+        let end = start + line.len() + usize::from(i != (lines.len() - 1));
         offsets.push((start, end));
         start = end;
     }

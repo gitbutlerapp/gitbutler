@@ -1,3 +1,5 @@
+use std::ops::{Range, RangeBounds};
+
 /// A line-based span of text.
 ///
 /// All line spans are at least one line long.
@@ -98,10 +100,32 @@ impl LineSpan {
         }
 
         start_offset.map(|start_offset| {
-            let end_offset = end_offset
-                .map(|i| if i > text.len() { i - 1 } else { i })
-                .unwrap_or_else(|| text.len());
+            let end_offset = end_offset.map_or_else(|| text.len(), |i| if i > text.len() { i - 1 } else { i });
             (&text[start_offset..end_offset], start_offset, end_offset)
         })
+    }
+}
+
+impl RangeBounds<usize> for LineSpan {
+    #[inline]
+    fn start_bound(&self) -> std::ops::Bound<&usize> {
+        std::ops::Bound::Included(&self.start)
+    }
+
+    #[inline]
+    fn end_bound(&self) -> std::ops::Bound<&usize> {
+        std::ops::Bound::Excluded(&self.end)
+    }
+}
+
+impl From<LineSpan> for Range<usize> {
+    fn from(value: LineSpan) -> Range<usize> {
+        value.start..value.end
+    }
+}
+
+impl From<Range<usize>> for LineSpan {
+    fn from(value: Range<usize>) -> LineSpan {
+        LineSpan::new(value.start, value.end)
     }
 }
