@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use crate::{projects::ProjectId, watcher};
 use anyhow::Context;
 use tauri::{AppHandle, Manager};
@@ -12,9 +10,9 @@ use crate::{
 };
 
 use super::{
-    branch::BranchId,
+    branch::{BranchId, BranchOwnershipClaims},
     controller::{Controller, ControllerError},
-    BaseBranch, Branch, RemoteBranchFile,
+    BaseBranch, RemoteBranchFile,
 };
 
 impl<E: Into<Error>> From<ControllerError<E>> for Error {
@@ -38,16 +36,9 @@ pub async fn commit_virtual_branch(
     project_id: ProjectId,
     branch: BranchId,
     message: &str,
-    ownership: Option<&str>,
+    ownership: Option<BranchOwnershipClaims>,
     run_hooks: bool,
 ) -> Result<git::Oid, Error> {
-    let ownership = ownership
-        .map(str::parse)
-        .transpose()
-        .map_err(|_| Error::UserError {
-            code: Code::Validation,
-            message: "Malformed ownership".to_string(),
-        })?;
     let oid = handle
         .state::<Controller>()
         .create_commit(&project_id, &branch, message, ownership.as_ref(), run_hooks)
@@ -62,20 +53,11 @@ pub async fn commit_virtual_branch(
 pub async fn save_vbranches_state(
     handle: AppHandle,
     project_id: ProjectId,
-    branch_ids: Vec<&str>,
+    branch_ids: Vec<BranchId>,
 ) -> Result<(), Error> {
-    let mut ids: Vec<BranchId> = Vec::new();
-    for branch_id in &branch_ids {
-        let id: crate::id::Id<Branch> = branch_id.parse().map_err(|_| Error::UserError {
-            code: Code::Validation,
-            message: "Malformed branch id".to_string(),
-        })?;
-        ids.push(id);
-    }
-
     handle
         .state::<Controller>()
-        .save_vbranches_state(&project_id, ids)
+        .save_vbranches_state(&project_id, branch_ids)
         .await?;
     return Ok(());
 }
@@ -132,12 +114,8 @@ pub async fn create_virtual_branch(
 pub async fn create_virtual_branch_from_branch(
     handle: AppHandle,
     project_id: ProjectId,
-    branch: &str,
+    branch: git::Refname,
 ) -> Result<BranchId, Error> {
-    let branch = branch.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed branch name".to_string(),
-    })?;
     let branch_id = handle
         .state::<Controller>()
         .create_virtual_branch_from_branch(&project_id, &branch)
@@ -151,15 +129,11 @@ pub async fn create_virtual_branch_from_branch(
 pub async fn merge_virtual_branch_upstream(
     handle: AppHandle,
     project_id: ProjectId,
-    branch: &str,
+    branch: BranchId,
 ) -> Result<(), Error> {
-    let branch_id = branch.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed branch id".to_string(),
-    })?;
     handle
         .state::<Controller>()
-        .merge_virtual_branch_upstream(&project_id, &branch_id)
+        .merge_virtual_branch_upstream(&project_id, &branch)
         .await?;
     emit_vbranches(&handle, &project_id).await;
     Ok(())
@@ -282,12 +256,8 @@ pub async fn unapply_branch(
 pub async fn unapply_ownership(
     handle: AppHandle,
     project_id: ProjectId,
-    ownership: &str,
+    ownership: BranchOwnershipClaims,
 ) -> Result<(), Error> {
-    let ownership = ownership.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed ownership".to_string(),
-    })?;
     handle
         .state::<Controller>()
         .unapply_ownership(&project_id, &ownership)
@@ -361,12 +331,8 @@ pub async fn can_apply_virtual_branch(
 pub async fn can_apply_remote_branch(
     handle: AppHandle,
     project_id: ProjectId,
-    branch: &str,
+    branch: git::RemoteRefname,
 ) -> Result<bool, Error> {
-    let branch = branch.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed branch name".to_string(),
-    })?;
     handle
         .state::<Controller>()
         .can_apply_remote_branch(&project_id, &branch)
@@ -379,12 +345,8 @@ pub async fn can_apply_remote_branch(
 pub async fn list_remote_commit_files(
     handle: AppHandle,
     project_id: ProjectId,
-    commit_oid: &str,
+    commit_oid: git::Oid,
 ) -> Result<Vec<RemoteBranchFile>, Error> {
-    let commit_oid = commit_oid.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed commit oid".to_string(),
-    })?;
     handle
         .state::<Controller>()
         .list_remote_commit_files(&project_id, commit_oid)
@@ -398,12 +360,8 @@ pub async fn reset_virtual_branch(
     handle: AppHandle,
     project_id: ProjectId,
     branch_id: BranchId,
-    target_commit_oid: &str,
+    target_commit_oid: git::Oid,
 ) -> Result<(), Error> {
-    let target_commit_oid = target_commit_oid.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed commit oid".to_string(),
-    })?;
     handle
         .state::<Controller>()
         .reset_virtual_branch(&project_id, &branch_id, target_commit_oid)
@@ -418,12 +376,8 @@ pub async fn cherry_pick_onto_virtual_branch(
     handle: AppHandle,
     project_id: ProjectId,
     branch_id: BranchId,
-    target_commit_oid: &str,
+    target_commit_oid: git::Oid,
 ) -> Result<Option<git::Oid>, Error> {
-    let target_commit_oid = target_commit_oid.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed commit oid".to_string(),
-    })?;
     let oid = handle
         .state::<Controller>()
         .cherry_pick(&project_id, &branch_id, target_commit_oid)
@@ -438,12 +392,8 @@ pub async fn amend_virtual_branch(
     handle: AppHandle,
     project_id: ProjectId,
     branch_id: BranchId,
-    ownership: &str,
+    ownership: BranchOwnershipClaims,
 ) -> Result<git::Oid, Error> {
-    let ownership = ownership.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed ownership".into(),
-    })?;
     let oid = handle
         .state::<Controller>()
         .amend(&project_id, &branch_id, &ownership)
@@ -470,12 +420,8 @@ pub async fn list_remote_branches(
 pub async fn get_remote_branch_data(
     handle: tauri::AppHandle,
     project_id: ProjectId,
-    refname: &str,
+    refname: git::Refname,
 ) -> Result<super::RemoteBranchData, Error> {
-    let refname = git::Refname::from_str(refname).map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed refname".to_string(),
-    })?;
     let branch_data = handle
         .state::<Controller>()
         .get_remote_branch_data(&project_id, &refname)
@@ -493,12 +439,8 @@ pub async fn squash_branch_commit(
     handle: tauri::AppHandle,
     project_id: ProjectId,
     branch_id: BranchId,
-    target_commit_oid: &str,
+    target_commit_oid: git::Oid,
 ) -> Result<(), Error> {
-    let target_commit_oid = target_commit_oid.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed commit oid".into(),
-    })?;
     handle
         .state::<Controller>()
         .squash(&project_id, &branch_id, target_commit_oid)
@@ -537,13 +479,9 @@ pub async fn fetch_from_target(
 pub async fn move_commit(
     handle: tauri::AppHandle,
     project_id: ProjectId,
-    commit_oid: &str,
+    commit_oid: git::Oid,
     target_branch_id: BranchId,
 ) -> Result<(), Error> {
-    let commit_oid = commit_oid.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed commit oid".into(),
-    })?;
     handle
         .state::<Controller>()
         .move_commit(&project_id, &target_branch_id, commit_oid)
@@ -558,13 +496,9 @@ pub async fn update_commit_message(
     handle: tauri::AppHandle,
     project_id: ProjectId,
     branch_id: BranchId,
-    commit_oid: &str,
+    commit_oid: git::Oid,
     message: &str,
 ) -> Result<(), Error> {
-    let commit_oid = commit_oid.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed commit oid".into(),
-    })?;
     handle
         .state::<Controller>()
         .update_commit_message(&project_id, &branch_id, commit_oid, message)
