@@ -44,9 +44,14 @@
 //! or the [GitButler website](https://gitbutler.com).
 #![deny(missing_docs)]
 #![allow(clippy::doc_markdown, clippy::missing_errors_doc)]
-#![feature(impl_trait_in_assoc_type, iter_map_windows, slice_as_chunks)]
+#![feature(slice_as_chunks)]
 
-mod signature;
-mod span;
+pub(crate) mod diff;
+pub(crate) mod signature;
+pub(crate) mod span;
 
-pub use self::{signature::Signature, span::LineSpan};
+pub use self::{
+    diff::hunk::{Change, FormatHunk, RawHunk},
+    signature::Signature,
+    span::LineSpan,
+};
