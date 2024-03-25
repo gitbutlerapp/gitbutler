@@ -146,6 +146,9 @@
 
 	.textbox__input-wrap {
 		position: relative;
+		&.disabled .textbox__icon {
+			color: var(--clr-theme-scale-ntrl-60);
+		}
 	}
 
 	.textbox__input {
@@ -154,12 +157,6 @@
 		flex-grow: 1;
 		height: var(--size-control-l);
 		width: 100%;
-
-		&:disabled {
-			& .textbox__icon {
-				color: var(--clr-theme-scale-ntrl-60);
-			}
-		}
 	}
 
 	.textbox__label {
