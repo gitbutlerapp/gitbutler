@@ -1,3 +1,4 @@
+#![allow(clippy::used_underscore_binding)]
 use std::path;
 
 use tauri::{AppHandle, Manager};

@@ -13,7 +13,7 @@ pub struct DeltasWriter<'writer> {
 
 impl<'writer> DeltasWriter<'writer> {
     pub fn new(repository: &'writer gb_repository::Repository) -> Result<Self, std::io::Error> {
-        writer::DirWriter::open(repository.root()).map(|writer| Self { writer, repository })
+        writer::DirWriter::open(repository.root()).map(|writer| Self { repository, writer })
     }
 
     pub fn write<P: AsRef<std::path::Path>>(&self, path: P, deltas: &Vec<Delta>) -> Result<()> {

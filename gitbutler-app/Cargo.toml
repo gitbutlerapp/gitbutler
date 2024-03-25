@@ -76,6 +76,13 @@ zip = "0.6.5"
 tempfile = "3.10"
 gitbutler-git = { path = "../gitbutler-git" }
 
+[lints.clippy]
+all = "deny"
+perf = "deny"
+correctness = "deny"
+pedantic = "deny"
+
+
 [features]
 # by default Tauri runs in production mode
 # when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is a URL
@@ -88,6 +95,3 @@ custom-protocol = ["tauri/custom-protocol"]
 
 sentry = ["dep:sentry", "error-context"]
 error-context = ["dep:backtrace", "sentry/backtrace"]
-
-[lints]
-workspace = true

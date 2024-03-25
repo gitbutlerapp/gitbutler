@@ -19,10 +19,10 @@ pub fn to_https_url(url: &Url) -> Result<Url, ConvertError> {
             scheme: Scheme::Https,
             user: None,
             serialize_alternative_form: true,
-            path: if !url.path.starts_with(&[b'/']) {
-                format!("/{}", url.path.to_str().unwrap()).into()
-            } else {
+            path: if url.path.starts_with(&[b'/']) {
                 url.path.clone()
+            } else {
+                format!("/{}", url.path.to_str().unwrap()).into()
             },
             ..url.clone()
         }),
