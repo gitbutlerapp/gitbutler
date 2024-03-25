@@ -1,5 +1,6 @@
 use std::{collections::HashSet, fmt, str::FromStr};
 
+use itertools::Itertools;
 use serde::{Deserialize, Serialize, Serializer};
 
 use super::{Branch, OwnershipClaim};
@@ -129,7 +130,7 @@ pub struct ClaimOutcome {
 pub fn reconcile_claims(
     all_branches: Vec<Branch>,
     claiming_branch: &Branch,
-    new_claims: &Vec<OwnershipClaim>,
+    new_claims: &[OwnershipClaim],
 ) -> Result<Vec<ClaimOutcome>> {
     let mut other_branches = all_branches
         .into_iter()
@@ -139,21 +140,22 @@ pub fn reconcile_claims(
 
     let mut claim_outcomes: Vec<ClaimOutcome> = Vec::new();
 
-    for file_ownership in new_claims {
-        for branch in &mut other_branches {
-            let taken = branch.ownership.take(file_ownership);
-            claim_outcomes.push(ClaimOutcome {
-                updated_branch: branch.clone(),
-                removed_claims: taken,
-            });
-        }
+    for branch in &mut other_branches {
+        let taken = new_claims
+            .iter()
+            .flat_map(|c| branch.ownership.take(c))
+            .collect_vec();
+        claim_outcomes.push(ClaimOutcome {
+            updated_branch: branch.clone(),
+            removed_claims: taken,
+        });
     }
 
     // Add the claiming branch to the list of outcomes
     claim_outcomes.push(ClaimOutcome {
         updated_branch: Branch {
             ownership: BranchOwnershipClaims {
-                claims: new_claims.clone(),
+                claims: new_claims.to_owned(),
             },
             ..claiming_branch.clone()
         },
