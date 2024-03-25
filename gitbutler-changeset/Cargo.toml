@@ -3,15 +3,8 @@ name = "gitbutler-changeset"
 version = "0.0.0"
 edition = "2021"
 
-[features]
-default = ["git2", "mmap"]
-git2 = ["dep:git2"]
-mmap = ["dep:mmap-rs"]
-
 [dependencies]
 thiserror.workspace = true
-git2 = { workspace = true, optional = true }
-mmap-rs = { version = "0.6.1", optional = true }
 
 [dev-dependencies]
 paste = "1.0.14"

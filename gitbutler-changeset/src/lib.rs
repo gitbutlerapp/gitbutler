@@ -46,14 +46,7 @@
 #![allow(clippy::doc_markdown, clippy::missing_errors_doc)]
 #![feature(impl_trait_in_assoc_type, iter_map_windows, slice_as_chunks)]
 
-mod linefile;
 mod signature;
 mod span;
 
-#[cfg(feature = "mmap")]
-pub use self::linefile::mmap::MmapLineFile;
-pub use self::{
-    linefile::{memory::MemoryLineFile, CrlfBehavior, LineEndings, LineFile},
-    signature::Signature,
-    span::LineSpan,
-};
+pub use self::{signature::Signature, span::LineSpan};
