@@ -1214,9 +1214,9 @@ fn line_agnostic_hunk_intersection(left: Vec<GitHunk>, right: &Vec<GitHunk>) -> 
     let mut result = Vec::new();
     for l in left {
         // Skip the header containing line numbers
-        let l_diff = l.diff.split("@@").collect::<Vec<&str>>()[2];
+        let l_diff = l.diff.split("@@").collect::<Vec<&str>>().pop();
         for r in right {
-            let r_diff = r.diff.split("@@").collect::<Vec<&str>>()[2];
+            let r_diff = r.diff.split("@@").collect::<Vec<&str>>().pop();
             if l_diff == r_diff {
                 result.push(r.clone());
                 break;
