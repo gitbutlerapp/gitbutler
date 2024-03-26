@@ -1163,6 +1163,13 @@ pub fn calculate_non_commited_diffs(
     .context("failed to diff trees")?;
     let non_commited_diff = diff::diff_files_to_hunks(&non_commited_diff);
 
+    let workspace_diff = diff::workdir(
+        &project_repository.git_repository,
+        &branch.head,
+        context_lines(project_repository),
+    )?;
+    let workspace_diff = diff::diff_files_to_hunks(&workspace_diff);
+
     // record conflicts resolution
     // TODO: this feels out of place. move it somewhere else?
     let conflicting_files = conflicts::conflicting_files(project_repository)?;
@@ -1189,7 +1196,7 @@ pub fn calculate_non_commited_diffs(
     let non_commited_diff: HashMap<PathBuf, Vec<GitHunk>> = non_commited_diff
         .into_iter()
         .map(|(path, uncommitted_hunks)| {
-            let all_hunks = files.get(&path);
+            let all_hunks = workspace_diff.get(&path);
             if let Some(all_hunks) = all_hunks {
                 let hunks = line_agnostic_hunk_intersection(uncommitted_hunks, all_hunks);
                 (path, hunks)
