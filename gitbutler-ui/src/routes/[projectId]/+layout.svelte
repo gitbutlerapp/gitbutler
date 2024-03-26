@@ -1,12 +1,10 @@
 <script lang="ts">
 	import { syncToCloud } from '$lib/backend/cloud';
-	import { handleMenuActions } from '$lib/backend/menuActions';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
-	import { subscribe as menuSubscribe } from '$lib/menu';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -25,7 +23,8 @@
 		baseBranchService,
 		gbBranchActive$,
 		branchService,
-		branchController
+		branchController,
+		menuBarManager
 	} = data);
 
 	$: branchesError = vbranchService.branchesError;
@@ -39,10 +38,11 @@
 	$: setContext(Project, project);
 
 	let intervalId: any;
-	handleMenuActions(projectId);
 
 	// Once on load and every time the project id changes
 	$: if (projectId) setupFetchInterval();
+
+	$: menuBarManager.setProjectId(projectId);
 
 	function setupFetchInterval() {
 		baseBranchService.fetchFromTarget();
@@ -59,12 +59,12 @@
 	$: if ($baseBranch === null) goto(`/${projectId}/setup`, { replaceState: true });
 
 	onMount(() => {
-		// Once on load and every time the project id changes
-		handleMenuActions(projectId);
-		return unsubscribe(
-			menuSubscribe(projectId),
-			hotkeys.on('Meta+Shift+S', () => syncToCloud(projectId))
-		);
+		const cloudSyncSubscription = hotkeys.on('Meta+Shift+S', () => syncToCloud(projectId));
+
+		return () => {
+			unsubscribe(cloudSyncSubscription)();
+			menuBarManager.setProjectId(undefined);
+		};
 	});
 
 	onDestroy(() => clearFetchInterval());
