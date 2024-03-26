@@ -125,7 +125,7 @@
 		if (status.completed) {
 			return status.success ? 'success' : 'error';
 		}
-		return 'neutral';
+		return 'warning';
 	}
 
 	function getChecksIcon(
