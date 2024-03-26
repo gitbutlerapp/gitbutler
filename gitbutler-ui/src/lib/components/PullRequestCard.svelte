@@ -119,13 +119,13 @@
 	// TODO: Refactor away the code duplication in the following functions
 	function getChecksColor(status: ChecksStatus): TagStyle | undefined {
 		if (checksError || detailsError) return 'error';
-		if (!status) return 'ghost';
-		if (!status.hasChecks) return 'ghost';
+		if (!status) return 'neutral';
+		if (!status.hasChecks) return 'neutral';
 		if (status.error) return 'error';
 		if (status.completed) {
 			return status.success ? 'success' : 'error';
 		}
-		return 'warning';
+		return 'neutral';
 	}
 
 	function getChecksIcon(
@@ -165,7 +165,9 @@
 		return 'Open';
 	}
 
-	function getStatusIcon(pr: DetailedPullRequest | undefined): keyof typeof iconsJson | undefined {
+	function getStatusIcon(
+		pr: DetailedPullRequest | undefined
+	): keyof typeof iconsJson | undefined {
 		if (pr?.mergedAt) return 'merged-pr-small';
 		if (pr?.closedAt) return 'closed-pr-small';
 		if (pr?.closedAt) return 'draft-pr-small';
@@ -175,7 +177,7 @@
 	function getStatusColor(pr: DetailedPullRequest | undefined): TagStyle {
 		if (pr?.mergedAt) return 'purple';
 		if (pr?.closedAt) return 'error';
-		if (pr?.draft) return 'ghost';
+		if (pr?.draft) return 'neutral';
 		return 'success';
 	}
 
@@ -271,7 +273,10 @@
 				<MergeButton
 					{projectId}
 					wide
-					disabled={isFetchingChecks || isUnapplied || pr?.draft || mergeableState == 'blocked'}
+					disabled={isFetchingChecks ||
+						isUnapplied ||
+						pr?.draft ||
+						mergeableState == 'blocked'}
 					loading={isMerging}
 					help="Merge pull request and refresh"
 					on:click={async (e) => {
