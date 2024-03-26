@@ -9,7 +9,7 @@ import { PromptService } from '$lib/backend/prompt';
 import { UpdaterService } from '$lib/backend/updater';
 import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
 import { GitHubService } from '$lib/github/service';
-import { MenuBarManager } from '$lib/menuBarManager';
+import { MenuBarController } from '$lib/menuBarController';
 import { UserService } from '$lib/stores/user';
 import lscache from 'lscache';
 import { BehaviorSubject, config } from 'rxjs';
@@ -59,7 +59,7 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 	const gitConfig = new GitConfigService();
 	const aiService = new AIService(gitConfig, cloud);
 
-	const menuBarManager = MenuBarManager.getInstance();
+	const menuBarController = MenuBarController.getInstance();
 
 	return {
 		authService,
@@ -73,6 +73,6 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 		remoteUrl$,
 		gitConfig,
 		aiService,
-		menuBarManager
+		menuBarController
 	};
 }

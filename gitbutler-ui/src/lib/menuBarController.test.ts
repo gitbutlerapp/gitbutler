@@ -1,9 +1,9 @@
 import * as ipc from '$lib/backend/ipc';
-import { MenuBarManager } from '$lib/menuBarManager';
+import { MenuBarController } from '$lib/menuBarController';
 import { expect, test, describe, afterEach, vi, beforeEach } from 'vitest';
 
 // Don't run tests as concurrent to avoid race conditions with shared state
-describe('MenuBarManager', () => {
+describe('MenuBarController', () => {
 	beforeEach(() => {
 		// Mock implementations because they depend on window
 		vi.spyOn(ipc, 'listen').mockImplementation(async () => async () => undefined);
@@ -11,13 +11,13 @@ describe('MenuBarManager', () => {
 	});
 	afterEach(() => {
 		// Ensure fresh state for MenuBarManager
-		MenuBarManager.instance = undefined;
+		MenuBarController.instance = undefined;
 	});
 
 	describe('.getInstance', () => {
 		test('It should return the same instance when called multiple times', () => {
-			const first = MenuBarManager.getInstance();
-			const second = MenuBarManager.getInstance();
+			const first = MenuBarController.getInstance();
+			const second = MenuBarController.getInstance();
 
 			expect(first).toBe(second);
 		});
@@ -26,20 +26,20 @@ describe('MenuBarManager', () => {
 	describe('#setProjectId', () => {
 		test('When called with a projectId; It should set the subscription', async () => {
 			// @ts-expect-error testing lifecycle of private property
-			MenuBarManager.getInstance().subscription = undefined;
+			MenuBarController.getInstance().subscription = undefined;
 
-			await MenuBarManager.getInstance().setProjectId('fooey');
+			await MenuBarController.getInstance().setProjectId('fooey');
 
 			// @ts-expect-error testing lifecycle of private property
-			expect(MenuBarManager.getInstance().subscription).toBeTruthy();
+			expect(MenuBarController.getInstance().subscription).toBeTruthy();
 		});
 
 		test('When called with a projectId and a subscription is already in place; It should unsubscribe the old subscription', async () => {
 			const spy = vi.fn();
 			// @ts-expect-error testing lifecycle of private property
-			MenuBarManager.getInstance().subscription = spy;
+			MenuBarController.getInstance().subscription = spy;
 
-			await MenuBarManager.getInstance().setProjectId('barey');
+			await MenuBarController.getInstance().setProjectId('barey');
 
 			expect(spy).toHaveBeenCalled();
 		});
@@ -47,9 +47,9 @@ describe('MenuBarManager', () => {
 		test('When called with undefined and a subscription is already in place; It should unsubscribe the old subscription', async () => {
 			const spy = vi.fn();
 			// @ts-expect-error testing lifecycle of private property
-			MenuBarManager.getInstance().subscription = spy;
+			MenuBarController.getInstance().subscription = spy;
 
-			await MenuBarManager.getInstance().setProjectId(undefined);
+			await MenuBarController.getInstance().setProjectId(undefined);
 
 			expect(spy).toHaveBeenCalled();
 		});

@@ -25,7 +25,7 @@
 		gbBranchActive$,
 		branchService,
 		branchController,
-		menuBarManager
+		menuBarController
 	} = data);
 
 	$: branchesError = vbranchService.branchesError;
@@ -44,7 +44,7 @@
 	// Once on load and every time the project id changes
 	$: if (projectId) setupFetchInterval();
 
-	$: menuBarManager.setProjectId(projectId);
+	$: menuBarController.setProjectId(projectId);
 
 	// We need to setup the project if default target not set
 	$: if ($baseError instanceof NoDefaultTarget) {
@@ -67,7 +67,7 @@
 
 		return () => {
 			unsubscribe(cloudSyncSubscription)();
-			menuBarManager.setProjectId(undefined);
+			menuBarController.setProjectId(undefined);
 		};
 	});
 

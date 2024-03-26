@@ -2,12 +2,12 @@ import { invoke, listen as listenIpc } from '$lib/backend/ipc';
 import { unsubscribe } from '$lib/utils/unsubscribe';
 import { goto } from '$app/navigation';
 
-export class MenuBarManager {
-	static instance?: MenuBarManager;
+export class MenuBarController {
+	static instance?: MenuBarController;
 
 	static getInstance() {
 		if (!this.instance) {
-			this.instance = new MenuBarManager();
+			this.instance = new MenuBarController();
 		}
 
 		return this.instance;
