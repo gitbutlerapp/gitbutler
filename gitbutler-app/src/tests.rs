@@ -140,12 +140,13 @@ pub fn temp_dir() -> path::PathBuf {
 
 pub fn empty_bare_repository() -> git::Repository {
     let path = temp_dir();
-    git::Repository::init_bare(path).expect("failed to init repository")
+    git::Repository::init_opts(path, &init_opts_bare()).expect("failed to init repository")
 }
 
 pub fn test_repository() -> git::Repository {
     let path = temp_dir();
-    let repository = git::Repository::init(path).expect("failed to init repository");
+    let repository =
+        git::Repository::init_opts(path, &init_opts()).expect("failed to init repository");
     let mut index = repository.index().expect("failed to get index");
     let oid = index.write_tree().expect("failed to write tree");
     let signature = git::Signature::now("test", "test@email.com").unwrap();
@@ -188,4 +189,16 @@ pub fn commit_all(repository: &git::Repository) -> git::Oid {
         )
         .expect("failed to commit");
     commit_oid
+}
+
+fn init_opts() -> git2::RepositoryInitOptions {
+    let mut opts = git2::RepositoryInitOptions::new();
+    opts.initial_head("master");
+    opts
+}
+
+pub fn init_opts_bare() -> git2::RepositoryInitOptions {
+    let mut opts = init_opts();
+    opts.bare(true);
+    opts
 }

@@ -28,7 +28,7 @@ impl From<git2::Repository> for Repository {
 impl Repository {
     #[cfg(test)]
     pub fn init_bare<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let inner = git2::Repository::init_bare(path)?;
+        let inner = git2::Repository::init_opts(path, &crate::tests::init_opts_bare())?;
         Ok(Repository(inner))
     }
 
