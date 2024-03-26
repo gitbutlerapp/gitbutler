@@ -1,4 +1,4 @@
-import { Observable, Subscription, catchError } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 import { writable, type Readable, type Writable } from 'svelte/store';
 
 export function storeToObservable<T>(svelteStore: Writable<T> | Readable<T>): Observable<T> {
@@ -15,26 +15,23 @@ export function observableToStore<T>(
 
 	const store = writable<T | undefined>(undefined, () => {
 		// This runs when the store is first subscribed to
-		subscription = observable
-			.pipe(
-				catchError((e: any, caught) => {
-					store.set(undefined);
-					error.set(e);
-					// We reconnect with the caught stream to keep going
-					return caught;
-				})
-			)
-			.subscribe((item) => {
+		subscription = observable.subscribe({
+			next: (item) => {
 				error.set(undefined);
 				store.set(item);
-			});
+			},
+			error: (err) => {
+				store.set(undefined);
+				error.set(err);
+			}
+		});
 		unsubscribe = subscription.unsubscribe;
 
 		// This runs when the last subscriber unsubscribes
 		return () => {
 			// TODO: Investigate why project switching breaks without `setTimeout`
 			setTimeout(() => {
-				if (subscription?.closed) unsubscribe();
+				if (subscription && !subscription.closed) unsubscribe();
 			}, 0);
 		};
 	});
