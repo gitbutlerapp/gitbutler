@@ -1161,7 +1161,7 @@ pub fn calculate_non_commited_diffs(
         context_lines(project_repository),
     )
     .context("failed to diff trees")?;
-    let non_commited_diff = diff::diff_files_to_hunks(&non_commited_diff);
+    let mut non_commited_diff = diff::diff_files_to_hunks(&non_commited_diff);
 
     let workspace_diff = diff::workdir(
         &project_repository.git_repository,
@@ -1193,18 +1193,21 @@ pub fn calculate_non_commited_diffs(
 
     // Revert back to the original line numbers from all hunks in the workspace
     // This is done because the hunks in non_commited_diff have line numbers relative to the vbranch, which would be incorrect for the workspace
-    let non_commited_diff: HashMap<PathBuf, Vec<GitHunk>> = non_commited_diff
-        .into_iter()
-        .map(|(path, uncommitted_hunks)| {
-            let all_hunks = workspace_diff.get(&path);
-            if let Some(all_hunks) = all_hunks {
-                let hunks = line_agnostic_hunk_intersection(uncommitted_hunks, all_hunks);
-                (path, hunks)
-            } else {
-                (path, uncommitted_hunks)
-            }
-        })
-        .collect();
+    // Applies only to branches that are applied (in the workspace)
+    if branch.applied {
+        non_commited_diff = non_commited_diff
+            .into_iter()
+            .map(|(path, uncommitted_hunks)| {
+                let all_hunks = workspace_diff.get(&path);
+                if let Some(all_hunks) = all_hunks {
+                    let hunks = line_agnostic_hunk_intersection(uncommitted_hunks, all_hunks);
+                    (path, hunks)
+                } else {
+                    (path, uncommitted_hunks)
+                }
+            })
+            .collect();
+    }
 
     Ok(non_commited_diff)
 }
