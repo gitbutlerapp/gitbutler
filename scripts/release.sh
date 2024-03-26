@@ -165,6 +165,11 @@ jq '.package.version="'"$VERSION"'"' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
 
 FEATURES=""
 
+# Remove when we we have signing working on windows
+if [ "$CHANNEL" == "release" ] && [ "$OS" = "windows" ]; then
+	exit 0
+fi
+
 if [ "$CHANNEL" == "nightly" ]; then
 	FEATURES="$FEATURES devtools"
 fi
