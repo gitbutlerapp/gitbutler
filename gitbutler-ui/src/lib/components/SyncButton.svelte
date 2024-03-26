@@ -21,9 +21,9 @@
 
 <Tag
 	clickable
-	border
 	reversedDirection
-	color="ghost"
+	style="ghost"
+	kind="solid"
 	icon="update-small"
 	help="Last fetch from upstream"
 	loading={$baseServiceBusy$}

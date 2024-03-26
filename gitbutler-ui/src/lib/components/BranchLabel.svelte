@@ -89,7 +89,11 @@
 		transition: background-color var(--transition-fast);
 		&:hover,
 		&:focus {
-			background-color: var(--clr-theme-container-pale);
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-light),
+				var(--darken-tint-mid)
+			);
 			outline: none;
 		}
 	}
@@ -101,16 +105,17 @@
 		white-space: pre;
 	}
 	.branch-name-input {
-		/* width: 100%; */
 		min-width: 1rem;
 		max-width: 100%;
 		background-color: var(--clr-theme-container-light);
-		/* border: 1px solid var(--clr-theme-container-outline-light); */
 		outline: none;
 		&:focus {
 			outline: none;
-			/* border-color: var(--clr-theme-container-outline-light); */
-			background-color: var(--clr-theme-container-pale);
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-light),
+				var(--darken-tint-mid)
+			);
 		}
 	}
 </style>

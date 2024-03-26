@@ -1,7 +1,7 @@
 <script lang="ts">
 	import IconButton from './IconButton.svelte';
 	import MergeButton from './MergeButton.svelte';
-	import Tag, { type TagColor } from './Tag.svelte';
+	import Tag, { type TagStyle } from './Tag.svelte';
 	import { BranchService } from '$lib/branches/service';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
 	import { GitHubService } from '$lib/github/service';
@@ -117,10 +117,10 @@
 	}
 
 	// TODO: Refactor away the code duplication in the following functions
-	function getChecksColor(status: ChecksStatus): TagColor | undefined {
+	function getChecksColor(status: ChecksStatus): TagStyle | undefined {
 		if (checksError || detailsError) return 'error';
-		if (!status) return 'light';
-		if (!status.hasChecks) return 'light';
+		if (!status) return 'neutral';
+		if (!status.hasChecks) return 'neutral';
 		if (status.error) return 'error';
 		if (status.completed) {
 			return status.success ? 'success' : 'error';
@@ -172,10 +172,10 @@
 		return 'pr-small';
 	}
 
-	function getStatusColor(pr: DetailedPullRequest | undefined): TagColor {
+	function getStatusColor(pr: DetailedPullRequest | undefined): TagStyle {
 		if (pr?.mergedAt) return 'purple';
 		if (pr?.closedAt) return 'error';
-		if (pr?.draft) return 'light';
+		if (pr?.draft) return 'neutral';
 		return 'success';
 	}
 
@@ -217,8 +217,8 @@
 		<div class="pr-tags">
 			<Tag
 				icon={statusIcon}
-				color={statusColor}
-				filled={statusLabel !== 'Open'}
+				style={statusColor}
+				kind={statusLabel !== 'Open' ? 'solid' : 'soft'}
 				verticalOrientation={isLaneCollapsed}
 			>
 				{statusLabel}
@@ -226,8 +226,8 @@
 			{#if !detailedPr?.closedAt && checksStatus !== null}
 				<Tag
 					icon={checksIcon}
-					color={checksColor}
-					filled={checksIcon == 'success-small'}
+					style={checksColor}
+					kind={checksIcon == 'success-small' ? 'solid' : 'soft'}
 					clickable
 					verticalOrientation={isLaneCollapsed}
 					on:mousedown={fetchChecks}
@@ -238,9 +238,9 @@
 			{/if}
 			<Tag
 				icon="open-link"
-				color="ghost"
+				style="ghost"
+				kind="solid"
 				clickable
-				border
 				shrinkable
 				verticalOrientation={isLaneCollapsed}
 				on:mousedown={(e) => {

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import Tag, { type TagColor } from './Tag.svelte';
+	import Tag, { type TagStyle } from './Tag.svelte';
 	import type { FileStatus } from '$lib/utils/fileStatus';
 
 	export let status: FileStatus;
 
-	function statusToColor(status: FileStatus): TagColor {
+	function statusToColor(status: FileStatus): TagStyle {
 		switch (status) {
 			case 'A':
 				return 'success';
@@ -16,4 +16,4 @@
 	}
 </script>
 
-<Tag color={statusToColor(status)}>{status}</Tag>
+<Tag style={statusToColor(status)}>{status}</Tag>

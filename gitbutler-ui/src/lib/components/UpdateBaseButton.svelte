@@ -10,9 +10,9 @@
 </script>
 
 <Tag
-	color="error"
+	style="error"
+	kind="solid"
 	help="Merge upstream commits into common base"
-	filled
 	clickable
 	on:click={async () => {
 		loading = true;

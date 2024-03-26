@@ -1,13 +1,6 @@
 <script lang="ts" context="module">
-	export type TagColor =
-		| 'success'
-		| 'error'
-		| 'warning'
-		| 'ghost'
-		| 'light'
-		| 'dark'
-		| 'pop'
-		| 'purple';
+	export type TagStyle = 'neutral' | 'ghost' | 'pop' | 'success' | 'error' | 'warning' | 'purple';
+	export type TagKind = 'soft' | 'solid';
 </script>
 
 <script lang="ts">
@@ -15,42 +8,33 @@
 	import { tooltip } from '$lib/utils/tooltip';
 	import type iconsJson from '$lib/icons/icons.json';
 
+	// Interaction props
 	export let help = '';
-	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let reversedDirection = false;
-	export let color: TagColor = 'light';
-	export let border = false;
-	export let filled = false;
 	export let disabled = false;
 	export let clickable = false;
+	export let loading = false;
+	// Layout props
 	export let shrinkable = false;
 	export let verticalOrientation = false;
-	export let loading = false;
+	export let icon: keyof typeof iconsJson | undefined = undefined;
+	export let reversedDirection = false;
+	// Style props
+	export let style: TagStyle = 'neutral';
+	export let kind: TagKind = 'soft';
 </script>
 
 <div
-	class="tag text-base-11 text-semibold"
-	class:ghost={color == 'ghost'}
-	class:light={color == 'light'}
-	class:dark={color == 'dark'}
-	class:success={color == 'success'}
-	class:error={color == 'error'}
-	class:warning={color == 'warning'}
-	class:purple={color == 'purple'}
-	class:pop={color == 'pop'}
-	class:tag-border={border}
-	class:filled
+	class="tag text-base-11 text-semibold {style} {kind}"
 	class:disabled
 	class:shrinkable
-	class:iconLeft={reversedDirection}
+	class:reversedDirection
 	class:verticalOrientation
 	class:not-button={!clickable}
+	role={clickable ? 'button' : undefined}
+	use:tooltip={help}
 	on:click
 	on:mousedown
 	on:contextmenu
-	role={clickable ? 'button' : undefined}
-	class:clickable
-	use:tooltip={help}
 >
 	<span class="label" class:verticalLabel={verticalOrientation}>
 		<slot />
@@ -65,8 +49,9 @@
 </div>
 
 <style lang="postcss">
+	/* BASE */
 	.tag {
-		cursor: default;
+		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -74,6 +59,10 @@
 		padding: var(--size-2) var(--size-4);
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
+
+		/* component variables */
+		--soft-bg-ratio: transparent 80%;
+		--soft-hover-ratio: transparent 75%;
 	}
 	.icon {
 		flex-shrink: 0;
@@ -83,53 +72,84 @@
 		display: inline-block;
 		padding: 0 var(--size-2);
 	}
-	.clickable {
-		cursor: pointer;
-	}
 
-	/* colors */
+	/* STYLES */
+	.neutral {
+		/* kind */
+		&.soft {
+			color: var(--clr-theme-scale-ntrl-40);
+			background: color-mix(in srgb, var(--clr-core-ntrl-50), var(--soft-bg-ratio));
+			/* if button */
+			&:not(.not-button):hover {
+				color: var(--clr-theme-scale-ntrl-30);
+				background: color-mix(in srgb, var(--clr-core-ntrl-50), var(--soft-hover-ratio));
+			}
+		}
+		&.solid {
+			color: var(--clr-theme-scale-ntrl-100);
+			background: var(--clr-theme-scale-ntrl-40);
+			/* if button */
+			&:not(.not-button):hover {
+				background: var(--clr-theme-scale-ntrl-30);
+			}
+		}
+	}
 
 	.ghost {
-		color: var(--clr-theme-scale-ntrl-40);
-		&:not(.not-button):hover {
-			background: color-mix(in srgb, var(--clr-core-ntrl-50), transparent 90%);
+		&.soft,
+		&.solid {
+			color: var(--clr-theme-scale-ntrl-40);
+			background: transparent;
+			&:not(.not-button):hover {
+				color: var(--clr-theme-scale-ntrl-30);
+				background: color-mix(in srgb, transparent, var(--darken-tint-light));
+			}
 		}
-		&.tag-border {
+
+		&.solid {
 			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-60);
+
+			&:not(.not-button):hover {
+				color: var(--clr-theme-scale-ntrl-30);
+				background: color-mix(in srgb, transparent, var(--darken-tint-light));
+			}
 		}
 	}
 
-	.light {
-		color: var(--clr-theme-scale-ntrl-40);
-		background: color-mix(in srgb, var(--clr-core-ntrl-50), transparent 85%);
-		&:not(.not-button):hover {
-			background: color-mix(in srgb, var(--clr-core-ntrl-50), transparent 75%);
+	.pop {
+		&.soft {
+			color: var(--clr-theme-scale-pop-20);
+			background: color-mix(in srgb, var(--clr-core-pop-50), var(--soft-bg-ratio));
+			/* if button */
+			&:not(.not-button):hover {
+				color: var(--clr-theme-scale-pop-10);
+				background: color-mix(in srgb, var(--clr-core-pop-50), var(--soft-hover-ratio));
+			}
 		}
-		&.tag-border {
-			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-60);
-		}
-	}
-
-	.dark {
-		color: var(--clr-theme-scale-ntrl-100);
-		background: var(--clr-theme-scale-ntrl-40);
-		&:not(.not-button):hover {
-			background: var(--clr-theme-scale-ntrl-30);
+		&.solid {
+			color: var(--clr-theme-pop-on-element);
+			background: var(--clr-theme-pop-element);
+			/* if button */
+			&:not(.not-button):hover {
+				background: color-mix(in srgb, var(--clr-theme-pop-element), var(--darken-mid));
+			}
 		}
 	}
 
 	.success {
-		color: var(--clr-theme-scale-succ-20);
-		background: color-mix(in srgb, var(--clr-core-succ-50), transparent 80%);
-		&:not(.not-button):hover {
-			background: color-mix(in srgb, var(--clr-core-succ-50), transparent 70%);
+		&.soft {
+			color: var(--clr-theme-scale-succ-20);
+			background: color-mix(in srgb, var(--clr-core-succ-50), var(--soft-bg-ratio));
+			/* if button */
+			&:not(.not-button):hover {
+				color: var(--clr-theme-scale-succ-10);
+				background: color-mix(in srgb, var(--clr-core-succ-50), var(--soft-hover-ratio));
+			}
 		}
-		&.tag-border {
-			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-succ-60);
-		}
-		&.filled {
+		&.solid {
 			color: var(--clr-theme-succ-on-element);
 			background: var(--clr-theme-succ-element);
+			/* if button */
 			&:not(.not-button):hover {
 				background: color-mix(in srgb, var(--clr-theme-succ-element), var(--darken-mid));
 			}
@@ -137,17 +157,19 @@
 	}
 
 	.error {
-		color: var(--clr-theme-scale-err-20);
-		background: color-mix(in srgb, var(--clr-core-err-50), transparent 80%);
-		&:not(.not-button):hover {
-			background: color-mix(in srgb, var(--clr-core-err-50), transparent 70%);
+		&.soft {
+			color: var(--clr-theme-scale-err-20);
+			background: color-mix(in srgb, var(--clr-core-err-50), var(--soft-bg-ratio));
+			/* if button */
+			&:not(.not-button):hover {
+				color: var(--clr-theme-scale-err-10);
+				background: color-mix(in srgb, var(--clr-core-err-50), var(--soft-hover-ratio));
+			}
 		}
-		&.tag-border {
-			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-err-60);
-		}
-		&.filled {
+		&.solid {
 			color: var(--clr-theme-err-on-element);
 			background: var(--clr-theme-err-element);
+			/* if button */
 			&:not(.not-button):hover {
 				background: color-mix(in srgb, var(--clr-theme-err-element), var(--darken-mid));
 			}
@@ -155,17 +177,19 @@
 	}
 
 	.warning {
-		color: var(--clr-theme-scale-warn-20);
-		background: color-mix(in srgb, var(--clr-core-warn-50), transparent 80%);
-		&:not(.not-button):hover {
-			background: color-mix(in srgb, var(--clr-core-warn-50), transparent 70%);
+		&.soft {
+			color: var(--clr-theme-scale-warn-20);
+			background: color-mix(in srgb, var(--clr-core-warn-50), var(--soft-bg-ratio));
+			/* if button */
+			&:not(.not-button):hover {
+				color: var(--clr-theme-scale-warn-10);
+				background: color-mix(in srgb, var(--clr-core-warn-50), var(--soft-hover-ratio));
+			}
 		}
-		&.tag-border {
-			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-warn-60);
-		}
-		&.filled {
+		&.solid {
 			color: var(--clr-theme-warn-on-element);
 			background: var(--clr-theme-warn-element);
+			/* if button */
 			&:not(.not-button):hover {
 				background: color-mix(in srgb, var(--clr-theme-warn-element), var(--darken-mid));
 			}
@@ -173,37 +197,21 @@
 	}
 
 	.purple {
-		color: var(--clr-theme-scale-purple-20);
-		background: color-mix(in srgb, var(--clr-core-purple-50), transparent 80%);
-		&:not(.not-button):hover {
-			background: color-mix(in srgb, var(--clr-core-purple-50), transparent 70%);
-		}
-		&.tag-border {
-			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-purple-60);
-		}
-		&.filled {
-			color: var(--clr-theme-purple-on-element);
-			background: var(--clr-theme-purple-element);
+		&.soft {
+			color: var(--clr-theme-scale-purple-20);
+			background: color-mix(in srgb, var(--clr-core-purple-50), var(--soft-bg-ratio));
+			/* if button */
 			&:not(.not-button):hover {
-				background: color-mix(in srgb, var(--clr-theme-purple-element), var(--darken-mid));
+				color: var(--clr-theme-scale-purple-10);
+				background: color-mix(in srgb, var(--clr-core-purple-50), var(--soft-hover-ratio));
 			}
 		}
-	}
-
-	.pop {
-		color: var(--clr-theme-scale-pop-20);
-		background: color-mix(in srgb, var(--clr-core-pop-50), transparent 80%);
-		&:not(.not-button):hover {
-			background: color-mix(in srgb, var(--clr-core-pop-50), transparent 70%);
-		}
-		&.tag-border {
-			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-pop-60);
-		}
-		&.filled {
-			color: var(--clr-theme-pop-on-element);
-			background: var(--clr-theme-pop-element);
+		&.solid {
+			color: var(--clr-theme-purple-on-element);
+			background: var(--clr-theme-purple-element);
+			/* if button */
 			&:not(.not-button):hover {
-				background: color-mix(in srgb, var(--clr-theme-pop-element), var(--darken-mid));
+				background: color-mix(in srgb, var(--clr-theme-purple-element), var(--darken-mid));
 			}
 		}
 	}
@@ -211,15 +219,16 @@
 	/* modifiers */
 
 	.not-button {
+		cursor: default;
 		user-select: none;
 	}
 
 	.disabled {
-		background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 10%, transparent);
-		color: var(--clr-core-ntrl-50);
+		pointer-events: none;
+		opacity: 0.6;
 	}
 
-	.iconLeft {
+	.reversedDirection {
 		flex-direction: row-reverse;
 	}
 
