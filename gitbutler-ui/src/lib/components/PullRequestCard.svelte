@@ -165,9 +165,7 @@
 		return 'Open';
 	}
 
-	function getStatusIcon(
-		pr: DetailedPullRequest | undefined
-	): keyof typeof iconsJson | undefined {
+	function getStatusIcon(pr: DetailedPullRequest | undefined): keyof typeof iconsJson | undefined {
 		if (pr?.mergedAt) return 'merged-pr-small';
 		if (pr?.closedAt) return 'closed-pr-small';
 		if (pr?.closedAt) return 'draft-pr-small';
@@ -273,10 +271,7 @@
 				<MergeButton
 					{projectId}
 					wide
-					disabled={isFetchingChecks ||
-						isUnapplied ||
-						pr?.draft ||
-						mergeableState == 'blocked'}
+					disabled={isFetchingChecks || isUnapplied || pr?.draft || mergeableState == 'blocked'}
 					loading={isMerging}
 					help="Merge pull request and refresh"
 					on:click={async (e) => {

@@ -102,7 +102,7 @@
 			background: transparent;
 			&:not(.not-button):hover {
 				color: var(--clr-theme-scale-ntrl-30);
-				background: color-mix(in srgb, transparent, var(--darken-tint-mid));
+				background: color-mix(in srgb, transparent, var(--darken-tint-light));
 			}
 		}
 
@@ -111,7 +111,7 @@
 
 			&:not(.not-button):hover {
 				color: var(--clr-theme-scale-ntrl-30);
-				background: color-mix(in srgb, transparent, var(--darken-tint-mid));
+				background: color-mix(in srgb, transparent, var(--darken-tint-light));
 			}
 		}
 	}
