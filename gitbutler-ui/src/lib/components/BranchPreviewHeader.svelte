@@ -58,8 +58,8 @@
 				</div>
 				<Tag
 					icon="open-link"
-					color="ghost"
-					border
+					style="ghost"
+					kind="solid"
 					clickable
 					shrinkable
 					on:click={(e) => {
@@ -74,8 +74,8 @@
 				{#if pr?.htmlUrl}
 					<Tag
 						icon="pr-small"
-						color="ghost"
-						border
+						style="ghost"
+						kind="solid"
 						clickable
 						on:click={(e) => {
 							const url = pr?.htmlUrl;

@@ -75,7 +75,7 @@
 					isLaneCollapsed={$isLaneCollapsed}
 				/>
 				{#if branch.selectedForChanges}
-					<Tag color="pop" filled icon="target" verticalOrientation>Default branch</Tag>
+					<Tag style="pop" kind="solid" icon="target" verticalOrientation>Default branch</Tag>
 				{/if}
 			</div>
 		</div>
@@ -103,7 +103,7 @@
 						{#if !isMergeable}
 							<Tag
 								icon="locked-small"
-								color="warning"
+								style="warning"
 								help="Applying this branch will add merge conflict markers that you will have to resolve"
 							>
 								Conflict

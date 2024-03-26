@@ -89,7 +89,11 @@
 		transition: background-color var(--transition-fast);
 		&:hover,
 		&:focus {
-			background-color: var(--clr-theme-container-pale);
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-light),
+				var(--darken-tint-mid)
+			);
 			outline: none;
 		}
 	}
@@ -107,7 +111,11 @@
 		outline: none;
 		&:focus {
 			outline: none;
-			background-color: var(--clr-theme-container-pale);
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-light),
+				var(--darken-tint-mid)
+			);
 		}
 	}
 </style>

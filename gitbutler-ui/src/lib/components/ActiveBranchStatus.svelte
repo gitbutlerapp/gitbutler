@@ -17,7 +17,7 @@
 	{#if !branch.active}
 		<Tag
 			icon="virtual-branch-small"
-			color="light"
+			style="neutral"
 			help="These changes are stashed away from your working directory."
 			reversedDirection
 			verticalOrientation={isLaneCollapsed}>unapplied</Tag
@@ -25,7 +25,8 @@
 	{:else if hasIntegratedCommits}
 		<Tag
 			icon="pr-small"
-			color="success"
+			style="success"
+			kind="solid"
 			help="These changes have been integrated upstream, update your workspace to make this lane disappear."
 			reversedDirection
 			verticalOrientation={isLaneCollapsed}>Integrated</Tag
@@ -33,7 +34,7 @@
 	{:else}
 		<Tag
 			icon="virtual-branch-small"
-			color="light"
+			style="neutral"
 			help="These changes are in your working directory."
 			reversedDirection
 			verticalOrientation={isLaneCollapsed}>Virtual</Tag
@@ -41,6 +42,7 @@
 	{/if}
 	{#if !isUnapplied && !isLaneCollapsed}
 		<Tag
+			style="neutral"
 			shrinkable
 			disabled
 			help="Branch name that will be used when pushing. You can change it from the lane menu."
@@ -51,7 +53,8 @@
 	{/if}
 {:else}
 	<Tag
-		color="dark"
+		style="neutral"
+		kind="solid"
 		icon="remote-branch-small"
 		help="At least some of your changes have been pushed"
 		verticalOrientation={isLaneCollapsed}
@@ -59,8 +62,8 @@
 	>
 	<Tag
 		icon="open-link"
-		color="ghost"
-		border
+		style="ghost"
+		kind="solid"
 		clickable
 		shrinkable
 		verticalOrientation={isLaneCollapsed}
