@@ -1,5 +1,6 @@
 #![allow(unused)]
 use crate::git;
+use crate::tests::init_opts;
 use std::{path, str::from_utf8};
 
 pub fn temp_dir() -> std::path::PathBuf {
@@ -16,8 +17,8 @@ pub struct TestProject {
 impl Default for TestProject {
     fn default() -> Self {
         let path = temp_dir();
-        let local_repository =
-            git::Repository::init(path.clone()).expect("failed to init repository");
+        let local_repository = git::Repository::init_opts(path.clone(), &init_opts())
+            .expect("failed to init repository");
         let mut index = local_repository.index().expect("failed to get index");
         let oid = index.write_tree().expect("failed to write tree");
         let signature = git::Signature::now("test", "test@email.com").unwrap();
@@ -324,6 +325,9 @@ impl TestProject {
         repo.checkout_tree(reference_head.tree().unwrap().as_object(), None)
             .unwrap();
 
+        // be sure that `HEAD` points to the actual head - `git2` seems to initialize it
+        // with `init.defaultBranch`, causing failure otherwise.
+        repo.set_head("refs/heads/master");
         submodule.add_finalize().unwrap();
     }
 }

@@ -3,6 +3,7 @@ use std::{collections::HashMap, path, thread, time};
 use anyhow::Result;
 use pretty_assertions::assert_eq;
 
+use crate::tests::init_opts_bare;
 use crate::{
     deltas::{self, operations::Operation},
     projects::{self, ApiProject, ProjectId},
@@ -13,7 +14,7 @@ use crate::{
 
 fn test_remote_repository() -> Result<git2::Repository> {
     let path = tempfile::tempdir()?.path().to_str().unwrap().to_string();
-    let repo_a = git2::Repository::init_bare(path)?;
+    let repo_a = git2::Repository::init_opts(path, &init_opts_bare())?;
     Ok(repo_a)
 }
 
