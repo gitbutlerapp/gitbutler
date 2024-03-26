@@ -26,7 +26,7 @@ impl From<&diff::GitHunk> for Hunk {
 impl PartialEq for Hunk {
     fn eq(&self, other: &Self) -> bool {
         if self.hash.is_some() && other.hash.is_some() {
-            self.hash == other.hash
+            self.hash == other.hash && self.start == other.start && self.end == other.end
         } else {
             self.start == other.start && self.end == other.end
         }
@@ -233,7 +233,7 @@ mod tests {
             (
                 "1-2-abc".parse::<Hunk>().unwrap(),
                 "2-3-abc".parse::<Hunk>().unwrap(),
-                true,
+                false,
             ),
             (
                 "1-2".parse::<Hunk>().unwrap(),
