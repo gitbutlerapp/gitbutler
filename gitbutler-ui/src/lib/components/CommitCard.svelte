@@ -82,9 +82,9 @@
 				</span>
 				{#if isUndoable && !showFiles}
 					<Tag
-						color="ghost"
+						style="ghost"
+						kind="solid"
 						icon="undo-small"
-						border
 						clickable
 						on:click={(e) => {
 							currentCommitMessage.set(commit.description);
@@ -137,9 +137,9 @@
 				<div class="files__footer">
 					{#if isUndoable}
 						<Tag
-							color="ghost"
+							style="ghost"
+							kind="solid"
 							icon="undo-small"
-							border
 							clickable
 							on:click={(e) => {
 								currentCommitMessage.set(commit.description);
@@ -150,9 +150,9 @@
 					{/if}
 					{#if hasCommitUrl}
 						<Tag
-							color="ghost"
+							style="ghost"
+							kind="solid"
 							icon="open-link"
-							border
 							clickable
 							on:click={() => {
 								if (commitUrl) openExternalUrl(commitUrl);

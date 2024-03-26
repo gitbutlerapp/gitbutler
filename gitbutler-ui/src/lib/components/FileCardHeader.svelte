@@ -42,22 +42,22 @@
 						{#if isFileLocked}
 							<Tag
 								icon="locked-small"
-								color="warning"
+								style="warning"
 								help="File changes cannot be moved because part of this file was already committed into this branch"
 								>Locked</Tag
 							>
 						{/if}
 						{#if file.conflicted}
-							<Tag icon="warning-small" color="error">Has conflicts</Tag>
+							<Tag icon="warning-small" style="error">Has conflicts</Tag>
 						{/if}
 					</div>
 				{/if}
 				<div class="header__tag-group">
 					{#if fileStats.added}
-						<Tag color="success">+{fileStats.added}</Tag>
+						<Tag style="success">+{fileStats.added}</Tag>
 					{/if}
 					{#if fileStats.removed}
-						<Tag color="error">-{fileStats.removed}</Tag>
+						<Tag style="error">-{fileStats.removed}</Tag>
 					{/if}
 					{#if fileStatus}
 						<FileStatusTag status={fileStatus} />
