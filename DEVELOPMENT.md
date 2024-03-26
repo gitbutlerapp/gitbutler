@@ -262,7 +262,7 @@ PUBLIC_API_BASE_URL=https://app.gitbutler.com/
 
 ## Joining the GitButler Team
 
-If you are interested in joining our small but tightly knit engineering team, we are currenly looking for the following roles:
+If you are interested in joining our small but tightly knit engineering team, we are currently looking for the following roles:
 
 - [Senior Rust developer](https://gitbutler.homerun.co/senior-rust-developer) (Onsite Berlin)
 - [Senior TypeScript developer](https://gitbutler.homerun.co/senior-typescript-developer) (Onsite Berlin)
