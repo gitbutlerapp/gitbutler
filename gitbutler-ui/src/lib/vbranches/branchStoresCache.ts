@@ -110,6 +110,8 @@ function subscribeToVirtualBranches(projectId: string, callback: (branches: Bran
 	);
 }
 
+export class NoDefaultTarget extends Error {}
+
 export class BaseBranchService {
 	readonly base$: Observable<BaseBranch | null | undefined>;
 	readonly busy$ = new BehaviorSubject(false);
@@ -117,7 +119,7 @@ export class BaseBranchService {
 	private readonly reload$ = new BehaviorSubject<void>(undefined);
 
 	readonly base: Readable<BaseBranch | null | undefined>;
-	readonly error: Readable<string | undefined>;
+	readonly error: Readable<any>;
 
 	constructor(
 		private readonly projectId: string,
@@ -130,19 +132,24 @@ export class BaseBranchService {
 			switchMap(async () => {
 				this.busy$.next(true);
 				const baseBranch = await getBaseBranch({ projectId });
-				if (baseBranch?.remoteUrl) this.remoteUrl$.next(baseBranch.remoteUrl);
+				if (!baseBranch) {
+					throw new NoDefaultTarget();
+				}
+				this.busy$.next(false);
 				return baseBranch;
 			}),
-			tap(() => this.busy$.next(false)),
+			tap((baseBranch) => {
+				if (baseBranch?.remoteUrl) this.remoteUrl$.next(baseBranch.remoteUrl);
+			}),
+			catchError((e) => {
+				this.remoteUrl$.next(undefined);
+				this.busy$.next(false);
+				throw e;
+			}),
 			// Start with undefined to prevent delay in updating $baseBranch$ value in
 			// layout.svelte when navigating between projects.
 			startWith(undefined),
-			shareReplay(1),
-			catchError((e) => {
-				this.busy$.next(false);
-				this.error$.next(e);
-				return of(null);
-			})
+			shareReplay(1)
 		);
 		[this.base, this.error] = observableToStore(this.base$);
 	}
@@ -163,7 +170,7 @@ export class BaseBranchService {
 			} else if (err.code === Code.ProjectsGitAuth) {
 				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
 			} else {
-				toasts.error(`Failed to fetch branch: ${err.message}`);
+				toasts.error(`${err.message}`);
 			}
 			console.error(err);
 		} finally {

@@ -18,7 +18,11 @@ export async function load({ params, parent }) {
     } = await parent();
 
 	const projectId = params.projectId;
+	// Getting the project should be one of few, if not the only await expression in
+	// this function. It delays drawing the page, but currently the benefit from having this
+	// synchronously available are much greater than the cost.
 	const project = await projectService.getProject(projectId);
+
 	const fetches$ = getFetchNotifications(projectId);
 	const heads$ = getHeads(projectId);
 	const gbBranchActive$ = heads$.pipe(map((head) => head == 'gitbutler/integration'));

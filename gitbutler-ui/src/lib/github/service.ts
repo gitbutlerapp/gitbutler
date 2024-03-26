@@ -41,7 +41,7 @@ import {
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
-export type PrCacheKey = { value: Promise<DetailedPullRequest | undefined>; fetchedAt: Date };
+export type PrCacheKey = { value: DetailedPullRequest | undefined; fetchedAt: Date };
 
 const DEFAULT_HEADERS = {
 	'X-GitHub-Api-Version': '2022-11-28',
@@ -178,10 +178,11 @@ export class GitHubService {
 	): Promise<DetailedPullRequest | undefined> {
 		if (!branch) return;
 
-		const cachedPr = this.prCache.get(branch);
-		if (cachedPr && !skipCache) {
-			if (new Date().getTime() - cachedPr.fetchedAt.getTime() < 1000 * 2)
-				return await cachedPr.value;
+		const cachedPr = !skipCache && this.prCache.get(branch);
+		if (cachedPr) {
+			const cacheTimeMs = 2 * 1000;
+			const age = new Date().getTime() - cachedPr.fetchedAt.getTime();
+			if (age < cacheTimeMs) return cachedPr.value;
 		}
 
 		const prNumber = this.getListedPr(branch)?.number;
@@ -208,10 +209,11 @@ export class GitHubService {
 			attempt++;
 			try {
 				pr = await request();
-				if (pr) this.prCache.set(branch, { value: Promise.resolve(pr), fetchedAt: new Date() });
+				if (pr) this.prCache.set(branch, { value: pr, fetchedAt: new Date() });
 				return pr;
 			} catch (err: any) {
 				if (err.status != 422) throw err;
+				await sleep(1000);
 			}
 		}
 		if (!pr) throw 'Failed to fetch pull request details';
@@ -405,7 +407,7 @@ export class GitHubService {
 		let previousCount: number | undefined;
 
 		while (resp.data.total_count == 0 && retried < retries) {
-			if (previousCount === undefined) {
+			if (previousCount === undefined && retried > 0) {
 				previousCount = await this.getPreviousChecksCount(ref);
 				if (previousCount == 0) {
 					console.log('Skipping retries because no checks');
@@ -413,7 +415,6 @@ export class GitHubService {
 				}
 			}
 			await sleep(delayMs);
-			console.log('Retrying fetch checks');
 			resp = await this.fetchChecks(ref);
 			retried++;
 		}

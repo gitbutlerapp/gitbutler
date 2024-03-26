@@ -10,7 +10,7 @@
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { BaseBranchService, NoDefaultTarget } from '$lib/vbranches/branchStoresCache';
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { onDestroy, onMount, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
@@ -22,6 +22,7 @@
 		vbranchService,
 		project,
 		projectId,
+		projectService,
 		baseBranchService,
 		gbBranchActive$,
 		branchService,
@@ -31,6 +32,7 @@
 	$: branchesError = vbranchService.branchesError;
 	$: baseBranch = baseBranchService.base;
 	$: baseError = baseBranchService.error;
+	$: projectError = projectService.error$;
 
 	$: setContext(BranchController, branchController);
 	$: setContext(BranchService, branchService);
@@ -44,6 +46,11 @@
 	// Once on load and every time the project id changes
 	$: if (projectId) setupFetchInterval();
 
+	// We need to setup the project if default target not set
+	$: if ($baseError instanceof NoDefaultTarget) {
+		goto(`/${projectId}/setup`, { replaceState: true });
+	}
+
 	function setupFetchInterval() {
 		baseBranchService.fetchFromTarget();
 		clearFetchInterval();
@@ -54,9 +61,6 @@
 	function clearFetchInterval() {
 		if (intervalId) clearInterval(intervalId);
 	}
-
-	// TODO: Is this an ok way to redirect?
-	$: if ($baseBranch === null) goto(`/${projectId}/setup`, { replaceState: true });
 
 	onMount(() => {
 		// Once on load and every time the project id changes
@@ -74,13 +78,15 @@
 {#key projectId}
 	{#if !project}
 		<p>Project not found!</p>
-	{:else if $baseBranch === null}
-		<!-- Be careful, this works because of the redirect above -->
+	{:else if $baseError instanceof NoDefaultTarget}
+		<!-- Note that this requires the redirect above to work -->
 		<slot />
 	{:else if $baseError}
 		<ProblemLoadingRepo error={$baseError} />
 	{:else if $branchesError}
 		<ProblemLoadingRepo error={$branchesError} />
+	{:else if $projectError}
+		<ProblemLoadingRepo error={$projectError} />
 	{:else if !$gbBranchActive$ && $baseBranch}
 		<NotOnGitButlerBranch baseBranch={$baseBranch} />
 	{:else if $baseBranch}
