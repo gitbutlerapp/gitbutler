@@ -51,6 +51,15 @@
 		if (showFiles) loadFiles();
 	}
 
+	function onKeyup(e: KeyboardEvent) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			showFiles = !showFiles;
+			if (showFiles) {
+				loadFiles();
+			}
+		}
+	}
+
 	function resetHeadCommit() {
 		if (!branch || !$baseBranch) {
 			console.error('Unable to reset head commit');
@@ -74,7 +83,7 @@
 	class="commit"
 	class:is-commit-open={showFiles}
 >
-	<div class="commit__header" on:click={onClick} on:keyup={onClick} role="button" tabindex="0">
+	<div class="commit__header" on:click={onClick} on:keyup={onKeyup} role="button" tabindex="0">
 		<div class="commit__message">
 			<div class="commit__row">
 				<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
