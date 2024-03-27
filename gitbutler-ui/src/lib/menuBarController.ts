@@ -22,10 +22,7 @@ export class MenuBarController {
 		// If no project id is provided, stay unsubscribed
 		if (!projectId) return;
 
-		invoke('menu_item_set_enabled', {
-			menuItemId: 'project/settings',
-			enabled: true
-		});
+		this.setProjectSettingsEnabled(true);
 
 		const projectSettingsSubscription = listenIpc<string>('menu://project/settings/clicked', () => {
 			goto(`/${projectId}/settings/`);
@@ -33,10 +30,14 @@ export class MenuBarController {
 
 		this.subscription = async () => {
 			await unsubscribe(projectSettingsSubscription)();
-			await invoke('menu_item_set_enabled', {
-				menuItemId: 'project/settings',
-				enabled: false
-			});
+			await this.setProjectSettingsEnabled(false);
 		};
+	}
+
+	setProjectSettingsEnabled(enabled: boolean) {
+		return invoke('menu_item_set_enabled', {
+			menuItemId: 'project/settings',
+			enabled
+		});
 	}
 }

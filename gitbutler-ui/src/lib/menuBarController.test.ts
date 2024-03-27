@@ -34,6 +34,20 @@ describe('MenuBarController', () => {
 			expect(MenuBarController.getInstance().subscription).toBeTruthy();
 		});
 
+		test('When called with a projectId; It should enable the project settings button', async () => {
+			// @ts-expect-error testing lifecycle of private property
+			MenuBarController.getInstance().subscription = undefined;
+
+			const spy = vi
+				.spyOn(MenuBarController.getInstance(), 'setProjectSettingsEnabled')
+				.mockImplementation(async () => undefined);
+
+			await MenuBarController.getInstance().setProjectId('fooey');
+
+			expect(spy).toHaveBeenCalledOnce();
+			expect(spy).toHaveBeenCalledWith(true);
+		});
+
 		test('When called with a projectId and a subscription is already in place; It should unsubscribe the old subscription', async () => {
 			const spy = vi.fn();
 			// @ts-expect-error testing lifecycle of private property
@@ -44,6 +58,20 @@ describe('MenuBarController', () => {
 			expect(spy).toHaveBeenCalled();
 		});
 
+		test('When called with a projectId and a subscription is already in place; It should disable the project settings button then re-enable it', async () => {
+			await MenuBarController.getInstance().setProjectId('bar');
+
+			const spy = vi
+				.spyOn(MenuBarController.getInstance(), 'setProjectSettingsEnabled')
+				.mockImplementation(async () => undefined);
+
+			await MenuBarController.getInstance().setProjectId('fooey');
+
+			expect(spy).toHaveBeenCalledTimes(2);
+			expect(spy).toHaveBeenNthCalledWith(1, false);
+			expect(spy).toHaveBeenNthCalledWith(2, true);
+		});
+
 		test('When called with undefined and a subscription is already in place; It should unsubscribe the old subscription', async () => {
 			const spy = vi.fn();
 			// @ts-expect-error testing lifecycle of private property
@@ -52,6 +80,19 @@ describe('MenuBarController', () => {
 			await MenuBarController.getInstance().setProjectId(undefined);
 
 			expect(spy).toHaveBeenCalled();
+		});
+
+		test('When called with undefined and a subscription is already in place; It should disable the project settings button', async () => {
+			await MenuBarController.getInstance().setProjectId('bar');
+
+			const spy = vi
+				.spyOn(MenuBarController.getInstance(), 'setProjectSettingsEnabled')
+				.mockImplementation(async () => undefined);
+
+			await MenuBarController.getInstance().setProjectId(undefined);
+
+			expect(spy).toHaveBeenCalledOnce();
+			expect(spy).toHaveBeenCalledWith(false);
 		});
 	});
 });
