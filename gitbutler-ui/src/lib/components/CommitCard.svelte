@@ -46,17 +46,14 @@
 		files = await listRemoteCommitFiles(project.id, commit.id);
 	}
 
-	function onClick() {
+	function toggleFiles() {
 		showFiles = !showFiles;
 		if (showFiles) loadFiles();
 	}
 
 	function onKeyup(e: KeyboardEvent) {
-		if (e.key === 'Enter' || e.key === ' ') {
-			showFiles = !showFiles;
-			if (showFiles) {
-				loadFiles();
-			}
+		if (e.key == 'Enter' || e.key == ' ') {
+			toggleFiles();
 		}
 	}
 
@@ -83,7 +80,7 @@
 	class="commit"
 	class:is-commit-open={showFiles}
 >
-	<div class="commit__header" on:click={onClick} on:keyup={onKeyup} role="button" tabindex="0">
+	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
 		<div class="commit__message">
 			<div class="commit__row">
 				<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
