@@ -37,7 +37,8 @@
 	let htmlInput: HTMLInputElement;
 
 	onMount(() => {
-		if (focus) htmlInput.focus();
+		if (selectall) htmlInput.select();
+		else if (focus) htmlInput.focus();
 	});
 </script>
 
@@ -78,7 +79,6 @@
 			class="text-input textbox__input text-base-13"
 			class:textbox__readonly={type != 'select' && readonly}
 			class:select-none={noselect}
-			class:select-all={selectall}
 			style:text-align={textAlign}
 			bind:value
 			bind:this={htmlInput}
