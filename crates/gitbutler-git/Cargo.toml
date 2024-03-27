@@ -2,6 +2,7 @@
 name = "gitbutler-git"
 version = "0.0.0"
 edition = "2021"
+publish = false
 
 [lib]
 path = "src/lib.rs"
@@ -22,7 +23,7 @@ tokio = ["dep:tokio"]
 [dependencies]
 thiserror.workspace = true
 serde = { workspace = true, optional = true }
-tokio = { workspace = true, optional = true, features = ["process", "rt", "process", "time", "io-util", "net", "fs", "sync"]}
+tokio = { workspace = true, optional = true, features = ["process", "rt", "process", "time", "io-util", "net", "fs", "sync"] }
 rand = "0.8.5"
 futures = "0.3.30"
 sysinfo = "0.30.5"
