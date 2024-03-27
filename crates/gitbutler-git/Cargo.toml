@@ -6,14 +6,17 @@ publish = false
 
 [lib]
 path = "src/lib.rs"
+doctest = false
 
 [[bin]]
 name = "gitbutler-git-askpass"
 path = "src/bin/askpass.rs"
+test = false
 
 [[bin]]
 name = "gitbutler-git-setsid"
 path = "src/bin/setsid.rs"
+test = false
 
 [features]
 default = ["serde", "tokio"]
