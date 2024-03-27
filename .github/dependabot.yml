@@ -9,7 +9,7 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
