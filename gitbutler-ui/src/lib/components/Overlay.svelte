@@ -12,9 +12,6 @@
 		dialog.showModal();
 		open = true;
 	}
-	export function isOpen() {
-		open;
-	}
 
 	export function close() {
 		if (!open) return;
