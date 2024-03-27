@@ -1,7 +1,7 @@
 import { capture } from '$lib/analytics/posthog';
 import { CombinedBranch } from '$lib/branches/types';
-import { Observable, combineLatest } from 'rxjs';
-import { shareReplay, startWith, switchMap } from 'rxjs/operators';
+import { Observable, combineLatest, of } from 'rxjs';
+import { catchError, shareReplay, startWith, switchMap } from 'rxjs/operators';
 import type { GitHubService } from '$lib/github/service';
 import type { PullRequest } from '$lib/github/types';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
@@ -18,9 +18,15 @@ export class BranchService {
 		private githubService: GitHubService,
 		private branchController: BranchController
 	) {
-		const vbranchesWithEmpty$ = vbranchService.branches$.pipe(startWith([]));
-		const branchesWithEmpty$ = remoteBranchService.branches$.pipe(startWith([]));
-		const prWithEmpty$ = githubService.prs$;
+		const vbranchesWithEmpty$ = vbranchService.branches$.pipe(
+			startWith([]),
+			catchError(() => of(undefined))
+		);
+		const branchesWithEmpty$ = remoteBranchService.branches$.pipe(
+			startWith([]),
+			catchError(() => of(undefined))
+		);
+		const prWithEmpty$ = githubService.prs$.pipe(catchError(() => of(undefined)));
 
 		this.branches$ = combineLatest([vbranchesWithEmpty$, branchesWithEmpty$, prWithEmpty$]).pipe(
 			switchMap(([vbranches, remoteBranches, pullRequests]) => {
@@ -91,8 +97,8 @@ export class BranchService {
 
 function mergeBranchesAndPrs(
 	vbranches: Branch[] | undefined,
-	pullRequests: PullRequest[],
-	remoteBranches: RemoteBranch[]
+	pullRequests: PullRequest[] | undefined,
+	remoteBranches: RemoteBranch[] | undefined
 ): CombinedBranch[] {
 	const contributions: CombinedBranch[] = [];
 
@@ -101,32 +107,43 @@ function mergeBranchesAndPrs(
 		contributions.push(
 			...vbranches.map((vb) => {
 				const upstream = vb.upstream?.upstream;
-				const pr = upstream
-					? pullRequests.find((pr) => isBranchNameMatch(pr.targetBranch, upstream))
-					: undefined;
+				const pr =
+					upstream && pullRequests
+						? pullRequests.find((pr) => isBranchNameMatch(pr.targetBranch, upstream))
+						: undefined;
 				return new CombinedBranch({ vbranch: vb, remoteBranch: vb.upstream, pr });
 			})
 		);
 	}
 
 	// Then remote branches that have no virtual branch, combined with pull requests if present
-	contributions.push(
-		...remoteBranches
-			.filter((rb) => !vbranches?.some((vb) => isBranchNameMatch(rb.name, vb.upstreamName)))
-			.map((rb) => {
-				const pr = pullRequests.find((pr) => isBranchNameMatch(pr.targetBranch, rb.name));
-				return new CombinedBranch({ remoteBranch: rb, pr });
-			})
-	);
+	if (remoteBranches) {
+		contributions.push(
+			...remoteBranches
+				.filter((rb) => !vbranches?.some((vb) => isBranchNameMatch(rb.name, vb.upstreamName)))
+				.map((rb) => {
+					const pr = pullRequests
+						? pullRequests.find((pr) => isBranchNameMatch(pr.targetBranch, rb.name))
+						: undefined;
+					return new CombinedBranch({ remoteBranch: rb, pr });
+				})
+		);
+	}
 
 	// And finally pull requests that lack any corresponding branch
-	contributions.push(
-		...pullRequests
-			.filter((pr) => !remoteBranches.some((rb) => isBranchNameMatch(pr.targetBranch, rb.name)))
-			.map((pr) => {
-				return new CombinedBranch({ pr });
-			})
-	);
+	if (pullRequests) {
+		contributions.push(
+			...pullRequests
+				.filter((pr) =>
+					remoteBranches
+						? !remoteBranches.some((rb) => isBranchNameMatch(pr.targetBranch, rb.name))
+						: false
+				)
+				.map((pr) => {
+					return new CombinedBranch({ pr });
+				})
+		);
+	}
 
 	// This should be everything considered a branch in one list
 	const filtered = contributions
