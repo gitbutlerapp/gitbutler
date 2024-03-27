@@ -5633,8 +5633,8 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-context-menu"
-version = "0.7.0"
-source = "git+https://github.com/c2r0b/tauri-plugin-context-menu?branch=main#0845b1564806c5885d8d915b2ad7ac86c16f634d"
+version = "0.7.1"
+source = "git+https://github.com/c2r0b/tauri-plugin-context-menu?branch=main#d8dcbcb944cf43eb946e65116ca358ee81f4f838"
 dependencies = [
  "cocoa",
  "dispatch",
