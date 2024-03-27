@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ListItem from './ListItem.svelte';
+	import ScrollableContainer from './ScrollableContainer.svelte';
 	import { ProjectService } from '$lib/backend/projects';
 	import { getContextByClass } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
@@ -26,22 +27,24 @@
 {#if !hidden}
 	<div class="popup" class:collapsed={isNavCollapsed}>
 		{#if $projects$.length > 0}
-			<div class="popup__projects">
-				{#each $projects$ as project}
-					{@const selected = project.id == $page.params.projectId}
-					<ListItem
-						{selected}
-						icon={selected ? 'tick' : undefined}
-						on:click={() => {
-							hide();
-							projectService.setLastOpenedProject(project.id);
-							goto(`/${project.id}/board`);
-						}}
-					>
-						{project.title}
-					</ListItem>
-				{/each}
-			</div>
+			<ScrollableContainer maxHeight="20rem">
+				<div class="popup__projects">
+					{#each $projects$ as project}
+						{@const selected = project.id == $page.params.projectId}
+						<ListItem
+							{selected}
+							icon={selected ? 'tick' : undefined}
+							on:click={() => {
+								hide();
+								projectService.setLastOpenedProject(project.id);
+								goto(`/${project.id}/board`);
+							}}
+						>
+							{project.title}
+						</ListItem>
+					{/each}
+				</div>
+			</ScrollableContainer>
 		{/if}
 		<div class="popup__actions">
 			<ListItem
