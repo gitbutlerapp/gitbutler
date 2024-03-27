@@ -77,7 +77,7 @@
 	.neutral {
 		/* kind */
 		&.soft {
-			color: var(--clr-theme-scale-ntrl-40);
+			color: var(--clr-theme-scale-ntrl-30);
 			background: color-mix(in srgb, var(--clr-core-ntrl-50), var(--soft-bg-ratio));
 			/* if button */
 			&:not(.not-button):hover {
@@ -87,7 +87,7 @@
 		}
 		&.solid {
 			color: var(--clr-theme-scale-ntrl-100);
-			background: var(--clr-theme-scale-ntrl-40);
+			background: var(--clr-theme-scale-ntrl-30);
 			/* if button */
 			&:not(.not-button):hover {
 				background: var(--clr-theme-scale-ntrl-30);
@@ -98,7 +98,7 @@
 	.ghost {
 		&.soft,
 		&.solid {
-			color: var(--clr-theme-scale-ntrl-40);
+			color: var(--clr-theme-scale-ntrl-30);
 			background: transparent;
 			&:not(.not-button):hover {
 				color: var(--clr-theme-scale-ntrl-30);
