@@ -42,7 +42,7 @@ r2d2_sqlite = "0.22.0"
 rand = "0.8.5"
 refinery = { version = "0.8", features = [ "rusqlite" ] }
 regex = "1.10"
-reqwest = "0.11.24"
+reqwest = { version = "0.12.2", features = ["json"] }
 resolve-path = "0.1.0"
 rusqlite.workspace = true
 sentry = { version = "0.32", optional = true, features = ["backtrace", "contexts", "panic", "transport", "anyhow", "debug-images", "reqwest", "native-tls" ] }
