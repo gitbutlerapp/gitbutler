@@ -62,7 +62,7 @@ pub fn list_remote_branches(
     let remote_branches = project_repository
         .git_repository
         .branches(Some(git2::BranchType::Remote))
-        .context("failed to list remove branches")?
+        .context("failed to list remote branches")?
         .flatten()
         .map(|(branch, _)| branch)
         .map(|branch| branch_to_remote_branch(&branch))

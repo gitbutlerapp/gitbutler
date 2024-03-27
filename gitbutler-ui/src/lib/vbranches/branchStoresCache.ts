@@ -146,7 +146,7 @@ export class BaseBranchService {
 				this.busy$.next(false);
 				throw e;
 			}),
-			// Start with undefined to prevent delay in updating $baseBranch$ value in
+			// Start with undefined to prevent delay in updating $baseBranch value in
 			// layout.svelte when navigating between projects.
 			startWith(undefined),
 			shareReplay(1)
