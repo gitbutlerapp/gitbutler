@@ -9,11 +9,9 @@
 	import { GitHubService } from '$lib/github/service';
 	import { persisted } from '$lib/persisted/persisted';
 	import { storeToObservable } from '$lib/rxjs/store';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
 	import { getContextByClass } from '$lib/utils/context';
 	import { BehaviorSubject, combineLatest } from 'rxjs';
 	import { createEventDispatcher } from 'svelte';
-	import { getContext, onDestroy, onMount } from 'svelte';
 	import { derived } from 'svelte/store';
 	import type { CombinedBranch } from '$lib/branches/types';
 
@@ -25,8 +23,6 @@
 
 	const branchService = getContextByClass(BranchService);
 	const githubService = getContextByClass(GitHubService);
-	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const height = persisted<number | undefined>(undefined, 'branchesHeight');
 
 	let includePrs = persisted(true, 'includePrs_' + projectId);
 	let includeRemote = persisted(true, 'includeRemote_' + projectId);
@@ -64,12 +60,8 @@
 		}
 	);
 
-	let resizeGuard: HTMLElement;
 	let viewport: HTMLDivElement;
 	let contents: HTMLElement;
-
-	let observer: ResizeObserver;
-	let maxHeight: number;
 
 	function filterByType(
 		branches: CombinedBranch[],
@@ -114,99 +106,64 @@
 			return ms < 14 * 86400 * 1000;
 		});
 	}
-
-	function updateResizable() {
-		if (resizeGuard) {
-			maxHeight = resizeGuard.offsetHeight / (16 * $userSettings.zoom);
-		}
-	}
-
-	onMount(() => {
-		updateResizable();
-		observer = new ResizeObserver(() => updateResizable());
-		if (viewport) observer.observe(resizeGuard);
-
-		// Set explicit height if not found in storage. In practice this means
-		// that the height is by default maximised, and won't shift when filters
-		// are applied/unapplied.
-		if (!$height && maxHeight) {
-			$height = maxHeight;
-		}
-	});
-
-	onDestroy(() => observer.disconnect());
 </script>
 
-<div class="resize-guard" bind:this={resizeGuard}>
-	<div class="branch-list">
-		<BranchesHeader count={$filteredBranches$?.length ?? 0} filtersActive={$filtersActive}>
-			<FilterPopupMenu
-				slot="context-menu"
-				let:visible
-				{visible}
-				{includePrs}
-				{includeRemote}
-				{includeStashed}
-				{hideBots}
-				{hideInactive}
-				showPrCheckbox={githubService.isEnabled}
-				on:action
-			/>
-		</BranchesHeader>
-		{#if $branches$?.length > 0}
-			<ScrollableContainer
-				bind:viewport
-				showBorderWhenScrolled
-				on:dragging={(e) => dispatch('scrollbarDragging', e.detail)}
-				fillViewport={$filteredBranches$.length == 0}
-			>
-				<div class="scroll-container">
-					<TextBox
-						icon="search"
-						placeholder="Search"
-						on:input={(e) => textFilter$.next(e.detail)}
-					/>
+<div class="branch-list">
+	<BranchesHeader count={$filteredBranches$?.length ?? 0} filtersActive={$filtersActive}>
+		<FilterPopupMenu
+			slot="context-menu"
+			let:visible
+			{visible}
+			{includePrs}
+			{includeRemote}
+			{includeStashed}
+			{hideBots}
+			{hideInactive}
+			showPrCheckbox={githubService.isEnabled}
+			on:action
+		/>
+	</BranchesHeader>
+	{#if $branches$?.length > 0}
+		<ScrollableContainer
+			bind:viewport
+			showBorderWhenScrolled
+			on:dragging={(e) => dispatch('scrollbarDragging', e.detail)}
+			fillViewport={$filteredBranches$.length == 0}
+		>
+			<div class="scroll-container">
+				<TextBox icon="search" placeholder="Search" on:input={(e) => textFilter$.next(e.detail)} />
 
-					{#if $filteredBranches$.length > 0}
-						<div bind:this={contents} class="content">
-							{#each $filteredBranches$ as branch}
-								<BranchItem {projectId} {branch} />
-							{/each}
+				{#if $filteredBranches$.length > 0}
+					<div bind:this={contents} class="content">
+						{#each $filteredBranches$ as branch}
+							<BranchItem {projectId} {branch} />
+						{/each}
+					</div>
+				{:else}
+					<div class="branch-list__empty-state">
+						<div class="branch-list__empty-state__image">
+							{@html noBranchesSvg}
 						</div>
-					{:else}
-						<div class="branch-list__empty-state">
-							<div class="branch-list__empty-state__image">
-								{@html noBranchesSvg}
-							</div>
-							<span class="branch-list__empty-state__caption text-base-body-14 text-semibold"
-								>No branches match your filter</span
-							>
-						</div>
-					{/if}
-				</div>
-			</ScrollableContainer>
-		{:else}
-			<div class="branch-list__empty-state">
-				<div class="branch-list__empty-state__image">
-					{@html noBranchesSvg}
-				</div>
-				<span class="branch-list__empty-state__caption text-base-body-14 text-semibold"
-					>You have no branches</span
-				>
+						<span class="branch-list__empty-state__caption text-base-body-14 text-semibold"
+							>No branches match your filter</span
+						>
+					</div>
+				{/if}
 			</div>
-		{/if}
-	</div>
+		</ScrollableContainer>
+	{:else}
+		<div class="branch-list__empty-state">
+			<div class="branch-list__empty-state__image">
+				{@html noBranchesSvg}
+			</div>
+			<span class="branch-list__empty-state__caption text-base-body-14 text-semibold"
+				>You have no branches</span
+			>
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
-	.resize-guard {
-		display: flex;
-		flex-direction: column;
-		flex-grow: 1;
-		justify-content: flex-end;
-		position: relative;
-		overflow-y: hidden;
-	}
 	.scroll-container {
 		display: flex;
 		flex-direction: column;
