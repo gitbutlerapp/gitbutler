@@ -1,14 +1,11 @@
 mod controller;
 mod iterator;
 mod reader;
-mod session;
+pub mod session;
 mod writer;
 
 pub mod commands;
 pub mod database;
-
-#[cfg(test)]
-mod tests;
 
 pub use controller::Controller;
 pub use database::Database;

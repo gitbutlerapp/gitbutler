@@ -1,13 +1,13 @@
 mod analytics_handler;
-mod calculate_deltas_handler;
+pub mod calculate_deltas_handler;
 mod caltulate_virtual_branches_handler;
-mod fetch_gitbutler_data;
+pub mod fetch_gitbutler_data;
 mod filter_ignored_files;
 mod flush_session;
-mod git_file_change;
+pub mod git_file_change;
 mod index_handler;
 mod push_gitbutler_data;
-mod push_project_to_gitbutler;
+pub mod push_project_to_gitbutler;
 
 use std::time;
 
@@ -194,12 +194,4 @@ impl Handler {
             events::Event::IndexAll(project_id) => self.index_handler.reindex(project_id),
         }
     }
-}
-
-#[cfg(test)]
-fn test_remote_repository() -> Result<git2::Repository> {
-    let path = tempfile::tempdir()?.path().to_str().unwrap().to_string();
-    let repo_a = git2::Repository::init_opts(path, &crate::tests::init_opts_bare())?;
-
-    Ok(repo_a)
 }

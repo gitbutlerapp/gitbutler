@@ -37,7 +37,7 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    fn new(
+    pub fn new(
         local_data_dir: path::PathBuf,
         projects: projects::Controller,
         users: users::Controller,
@@ -130,111 +130,5 @@ impl Handler {
             ))]),
             _ => Ok(vec![]),
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use std::fs;
-
-    use events::Event;
-    use pretty_assertions::assert_eq;
-
-    use crate::{
-        tests::{Case, Suite},
-        watcher::handlers,
-    };
-
-    use super::*;
-
-    #[test]
-    fn test_flush_session() -> Result<()> {
-        let suite = Suite::default();
-        let Case {
-            project,
-            gb_repository,
-            ..
-        } = suite.new_case();
-
-        assert!(gb_repository.get_current_session()?.is_none());
-        create_new_session_via_new_file(&project, &suite);
-        assert!(gb_repository.get_current_session()?.is_some());
-
-        let listener = Handler {
-            local_data_dir: suite.local_app_data,
-            projects: suite.projects,
-            users: suite.users,
-        };
-
-        let flush_file_path = project.path.join(".git/GB_FLUSH");
-        fs::write(flush_file_path.as_path(), "")?;
-
-        let result = listener.handle("GB_FLUSH", &project.id)?;
-
-        assert_eq!(result.len(), 1);
-        assert!(matches!(result[0], Event::Flush(_, _)));
-
-        assert!(!flush_file_path.exists(), "flush file deleted");
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_do_not_flush_session_if_file_is_missing() -> Result<()> {
-        let suite = Suite::default();
-        let Case {
-            project,
-            gb_repository,
-            ..
-        } = suite.new_case();
-
-        assert!(gb_repository.get_current_session()?.is_none());
-        create_new_session_via_new_file(&project, &suite);
-        assert!(gb_repository.get_current_session()?.is_some());
-
-        let listener = Handler {
-            local_data_dir: suite.local_app_data,
-            projects: suite.projects,
-            users: suite.users,
-        };
-
-        let result = listener.handle("GB_FLUSH", &project.id)?;
-
-        assert_eq!(result.len(), 0);
-
-        Ok(())
-    }
-
-    fn create_new_session_via_new_file(project: &projects::Project, suite: &Suite) {
-        fs::write(project.path.join("test.txt"), "test").unwrap();
-
-        let file_change_listener =
-            handlers::calculate_deltas_handler::Handler::from_path(&suite.local_app_data);
-        file_change_listener
-            .handle("test.txt", &project.id)
-            .unwrap();
-    }
-
-    #[test]
-    fn test_flush_deletes_flush_file_without_session_to_flush() -> Result<()> {
-        let suite = Suite::default();
-        let Case { project, .. } = suite.new_case();
-
-        let listener = Handler {
-            local_data_dir: suite.local_app_data,
-            projects: suite.projects,
-            users: suite.users,
-        };
-
-        let flush_file_path = project.path.join(".git/GB_FLUSH");
-        fs::write(flush_file_path.as_path(), "")?;
-
-        let result = listener.handle("GB_FLUSH", &project.id)?;
-
-        assert_eq!(result.len(), 0);
-
-        assert!(!flush_file_path.exists(), "flush file deleted");
-
-        Ok(())
     }
 }

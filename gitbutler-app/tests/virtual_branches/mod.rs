@@ -1,21 +1,31 @@
-use std::{collections::HashMap, fs, io::Write, path};
+mod branch;
+mod iterator;
+mod target;
+
+use std::{collections::HashMap, io::Write};
 
 use anyhow::{Context, Result};
 use pretty_assertions::assert_eq;
+use std::path::{Path, PathBuf};
 #[cfg(target_family = "unix")]
 use std::{
     fs::Permissions,
     os::unix::{fs::symlink, prelude::*},
 };
 
-use crate::{
-    gb_repository, git, project_repository, reader, sessions,
-    tests::{self, empty_bare_repository, Case, Suite},
+use crate::{commit_all, empty_bare_repository, Case, Suite};
+use gitbutler_app::{
+    gb_repository, git, project_repository, reader, sessions, virtual_branches,
     virtual_branches::errors::CommitError,
 };
 
-use super::*;
-use branch::{BranchCreateRequest, BranchOwnershipClaims};
+use gitbutler_app::virtual_branches::branch::{BranchCreateRequest, BranchOwnershipClaims};
+use gitbutler_app::virtual_branches::integration::verify_branch;
+use gitbutler_app::virtual_branches::{
+    apply_branch, commit, create_virtual_branch, is_remote_branch_mergeable,
+    is_virtual_branch_mergeable, list_remote_branches, merge_virtual_branch_upstream,
+    unapply_ownership, update_branch,
+};
 
 pub fn set_test_target(
     gb_repo: &gb_repository::Repository,
@@ -31,15 +41,15 @@ pub fn set_test_target(
         .expect("failed to add remote");
     remote.push(&["refs/heads/master:refs/heads/master"], None)?;
 
-    target::Writer::new(gb_repo, project_repository.project().gb_dir())?
-        .write_default(&target::Target {
+    virtual_branches::target::Writer::new(gb_repo, project_repository.project().gb_dir())?
+        .write_default(&virtual_branches::target::Target {
             branch: "refs/remotes/origin/master".parse().unwrap(),
             remote_url: remote_repo.path().to_str().unwrap().parse().unwrap(),
             sha: remote_repo.head().unwrap().target().unwrap(),
         })
         .expect("failed to write target");
 
-    super::integration::update_gitbutler_integration(gb_repo, project_repository)
+    virtual_branches::integration::update_gitbutler_integration(gb_repo, project_repository)
         .expect("failed to update integration");
 
     Ok(())
@@ -53,14 +63,8 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
         gb_repository,
         ..
     } = Suite::default().new_case_with_files(HashMap::from([
-        (
-            path::PathBuf::from("test.txt"),
-            "line1\nline2\nline3\nline4\n",
-        ),
-        (
-            path::PathBuf::from("test2.txt"),
-            "line5\nline6\nline7\nline8\n",
-        ),
+        (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
+        (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));
 
     set_test_target(&gb_repository, &project_repository)?;
@@ -74,11 +78,12 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     .id;
 
     std::fs::write(
-        std::path::Path::new(&project.path).join("test.txt"),
+        Path::new(&project.path).join("test.txt"),
         "line0\nline1\nline2\nline3\nline4\n",
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.commits.len(), 0);
@@ -96,18 +101,20 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     )?;
 
     // status (no files)
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 0);
     assert_eq!(branch.commits.len(), 1);
 
     std::fs::write(
-        std::path::Path::new(&project.path).join("test2.txt"),
+        Path::new(&project.path).join("test2.txt"),
         "line5\nline6\nlineBLAH\nline7\nline8\n",
     )?;
 
     // should have just the last change now, the other line is committed
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.commits.len(), 1);
@@ -124,14 +131,8 @@ fn test_signed_commit() -> Result<()> {
         project_repository,
         ..
     } = suite.new_case_with_files(HashMap::from([
-        (
-            path::PathBuf::from("test.txt"),
-            "line1\nline2\nline3\nline4\n",
-        ),
-        (
-            path::PathBuf::from("test2.txt"),
-            "line5\nline6\nline7\nline8\n",
-        ),
+        (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
+        (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));
 
     set_test_target(&gb_repository, &project_repository)?;
@@ -145,7 +146,7 @@ fn test_signed_commit() -> Result<()> {
     .id;
 
     std::fs::write(
-        std::path::Path::new(&project.path).join("test.txt"),
+        Path::new(&project.path).join("test.txt"),
         "line0\nline1\nline2\nline3\nline4\n",
     )?;
 
@@ -167,7 +168,8 @@ fn test_signed_commit() -> Result<()> {
         false,
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository).unwrap();
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
     let commit_obj = project_repository.git_repository.find_commit(*commit_id)?;
     // check the raw_header contains the string "SSH SIGNATURE"
@@ -185,14 +187,14 @@ fn test_track_binary_files() -> Result<()> {
         ..
     } = Suite::default().new_case();
 
-    let file_path = std::path::Path::new("test.txt");
+    let file_path = Path::new("test.txt");
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    let file_path2 = std::path::Path::new("test2.txt");
+    let file_path2 = Path::new("test2.txt");
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path2),
+        Path::new(&project.path).join(file_path2),
         "line5\nline6\nline7\nline8\n",
     )?;
     // add a binary file
@@ -202,9 +204,9 @@ fn test_track_binary_files() -> Result<()> {
         255, 255, 0, // Yellow pixel
         0, 255, 0, // Green pixel
     ];
-    let mut file = fs::File::create(std::path::Path::new(&project.path).join("image.bin"))?;
+    let mut file = std::fs::File::create(Path::new(&project.path).join("image.bin"))?;
     file.write_all(&image_data)?;
-    tests::commit_all(&project_repository.git_repository);
+    commit_all(&project_repository.git_repository);
 
     set_test_target(&gb_repository, &project_repository)?;
 
@@ -218,7 +220,7 @@ fn test_track_binary_files() -> Result<()> {
 
     // test file change
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path2),
+        Path::new(&project.path).join(file_path2),
         "line5\nline6\nline7\nline8\nline9\n",
     )?;
 
@@ -229,10 +231,11 @@ fn test_track_binary_files() -> Result<()> {
         0, 0, 255, // Blue pixel
         255, 255, 0, // Yellow pixel
     ];
-    let mut file = fs::File::create(std::path::Path::new(&project.path).join("image.bin"))?;
+    let mut file = std::fs::File::create(Path::new(&project.path).join("image.bin"))?;
     file.write_all(&image_data)?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 2);
     let img_file = &branch
@@ -259,7 +262,8 @@ fn test_track_binary_files() -> Result<()> {
     )?;
 
     // status (no files)
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository).unwrap();
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
     let commit_obj = project_repository.git_repository.find_commit(*commit_id)?;
     let tree = commit_obj.tree()?;
@@ -273,7 +277,7 @@ fn test_track_binary_files() -> Result<()> {
         255, 255, 0, // Yellow pixel
         0, 0, 255, // Blue pixel
     ];
-    let mut file = fs::File::create(std::path::Path::new(&project.path).join("image.bin"))?;
+    let mut file = std::fs::File::create(Path::new(&project.path).join("image.bin"))?;
     file.write_all(&image_data)?;
 
     // commit
@@ -288,7 +292,8 @@ fn test_track_binary_files() -> Result<()> {
         false,
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository).unwrap();
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
     // get tree from commit_id
     let commit_obj = project_repository.git_repository.find_commit(*commit_id)?;
@@ -312,12 +317,8 @@ fn test_create_branch_with_ownership() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    let file_path = std::path::Path::new("test.txt");
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
-        "line1\nline2\n",
-    )
-    .unwrap();
+    let file_path = Path::new("test.txt");
+    std::fs::write(Path::new(&project.path).join(file_path), "line1\nline2\n").unwrap();
 
     let branch0 = create_virtual_branch(
         &gb_repository,
@@ -326,11 +327,12 @@ fn test_create_branch_with_ownership() -> Result<()> {
     )
     .expect("failed to create virtual branch");
 
-    get_status_by_branch(&gb_repository, &project_repository).expect("failed to get status");
+    virtual_branches::get_status_by_branch(&gb_repository, &project_repository)
+        .expect("failed to get status");
 
     let current_session = gb_repository.get_or_create_current_session().unwrap();
     let current_session_reader = sessions::Reader::open(&gb_repository, &current_session).unwrap();
-    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch_reader = virtual_branches::branch::Reader::new(&current_session_reader);
     let branch0 = branch_reader.read(&branch0.id).unwrap();
 
     let branch1 = create_virtual_branch(
@@ -343,7 +345,7 @@ fn test_create_branch_with_ownership() -> Result<()> {
     )
     .expect("failed to create virtual branch");
 
-    let statuses = get_status_by_branch(&gb_repository, &project_repository)
+    let statuses = virtual_branches::get_status_by_branch(&gb_repository, &project_repository)
         .expect("failed to get status")
         .0;
 
@@ -394,8 +396,8 @@ fn test_create_branch_in_the_middle() -> Result<()> {
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
 
-    let mut branches = iterator::BranchIterator::new(&current_session_reader)?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+    let mut branches = virtual_branches::Iterator::new(&current_session_reader)?
+        .collect::<Result<Vec<virtual_branches::Branch>, reader::Error>>()
         .expect("failed to read branches");
     branches.sort_by_key(|b| b.order);
     assert_eq!(branches.len(), 3);
@@ -426,8 +428,8 @@ fn test_create_branch_no_arguments() -> Result<()> {
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
 
-    let branches = iterator::BranchIterator::new(&current_session_reader)?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+    let branches = virtual_branches::Iterator::new(&current_session_reader)?
+        .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
         .expect("failed to read branches");
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].name, "Virtual branch");
@@ -449,11 +451,8 @@ fn test_hunk_expantion() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    let file_path = std::path::Path::new("test.txt");
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
-        "line1\nline2\n",
-    )?;
+    let file_path = Path::new("test.txt");
+    std::fs::write(Path::new(&project.path).join(file_path), "line1\nline2\n")?;
 
     let branch1_id = create_virtual_branch(
         &gb_repository,
@@ -470,7 +469,7 @@ fn test_hunk_expantion() -> Result<()> {
     .expect("failed to create virtual branch")
     .id;
 
-    let statuses = get_status_by_branch(&gb_repository, &project_repository)
+    let statuses = virtual_branches::get_status_by_branch(&gb_repository, &project_repository)
         .expect("failed to get status")
         .0;
 
@@ -487,7 +486,7 @@ fn test_hunk_expantion() -> Result<()> {
     update_branch(
         &gb_repository,
         &project_repository,
-        branch::BranchUpdateRequest {
+        virtual_branches::branch::BranchUpdateRequest {
             id: branch1_id,
             order: Some(1),
             ..Default::default()
@@ -496,7 +495,7 @@ fn test_hunk_expantion() -> Result<()> {
     update_branch(
         &gb_repository,
         &project_repository,
-        branch::BranchUpdateRequest {
+        virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             order: Some(0),
             ..Default::default()
@@ -505,11 +504,11 @@ fn test_hunk_expantion() -> Result<()> {
 
     // a slightly different hunk should still go to the same branch
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\n",
     )?;
 
-    let statuses = get_status_by_branch(&gb_repository, &project_repository)
+    let statuses = virtual_branches::get_status_by_branch(&gb_repository, &project_repository)
         .expect("failed to get status")
         .0;
     let files_by_branch_id = statuses
@@ -534,7 +533,7 @@ fn test_get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    let statuses = get_status_by_branch(&gb_repository, &project_repository)
+    let statuses = virtual_branches::get_status_by_branch(&gb_repository, &project_repository)
         .expect("failed to get status")
         .0;
 
@@ -554,11 +553,8 @@ fn test_get_status_files_by_branch() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    let file_path = std::path::Path::new("test.txt");
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
-        "line1\nline2\n",
-    )?;
+    let file_path = Path::new("test.txt");
+    std::fs::write(Path::new(&project.path).join(file_path), "line1\nline2\n")?;
 
     let branch1_id = create_virtual_branch(
         &gb_repository,
@@ -575,7 +571,7 @@ fn test_get_status_files_by_branch() -> Result<()> {
     .expect("failed to create virtual branch")
     .id;
 
-    let statuses = get_status_by_branch(&gb_repository, &project_repository)
+    let statuses = virtual_branches::get_status_by_branch(&gb_repository, &project_repository)
         .expect("failed to get status")
         .0;
     let files_by_branch_id = statuses
@@ -598,7 +594,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
         gb_repository,
         ..
     } = Suite::default().new_case_with_files(HashMap::from([(
-        path::PathBuf::from("test.txt"),
+        PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\n",
     )]));
 
@@ -627,14 +623,14 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     .id;
 
     std::fs::write(
-            std::path::Path::new(&project.path).join("test.txt"),
-            "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
-        )?;
+        Path::new(&project.path).join("test.txt"),
+        "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
+    )?;
 
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
-    let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch_writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
+    let branch_reader = virtual_branches::branch::Reader::new(&current_session_reader);
+    let branch_writer = virtual_branches::branch::Writer::new(&gb_repository, project.gb_dir())?;
     let mut branch2 = branch_reader.read(&branch2_id)?;
     branch2.ownership = BranchOwnershipClaims {
         claims: vec!["test.txt:1-5".parse()?],
@@ -646,7 +642,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     };
     branch_writer.write(&mut branch1)?;
 
-    let statuses = get_status_by_branch(&gb_repository, &project_repository)
+    let statuses = virtual_branches::get_status_by_branch(&gb_repository, &project_repository)
         .expect("failed to get status")
         .0;
 
@@ -665,14 +661,14 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     update_branch(
         &gb_repository,
         &project_repository,
-        branch::BranchUpdateRequest {
+        virtual_branches::branch::BranchUpdateRequest {
             id: branch3_id,
             ownership: Some("test.txt:1-5,11-15".parse()?),
             ..Default::default()
         },
     )?;
 
-    let statuses = get_status_by_branch(&gb_repository, &project_repository)
+    let statuses = virtual_branches::get_status_by_branch(&gb_repository, &project_repository)
         .expect("failed to get status")
         .0;
 
@@ -686,15 +682,15 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
     assert_eq!(files_by_branch_id[&branch3_id].len(), 1);
     assert_eq!(
-        files_by_branch_id[&branch3_id][std::path::Path::new("test.txt")].len(),
+        files_by_branch_id[&branch3_id][Path::new("test.txt")].len(),
         2
     );
     assert_eq!(
-        files_by_branch_id[&branch3_id][std::path::Path::new("test.txt")][0].diff,
+        files_by_branch_id[&branch3_id][Path::new("test.txt")][0].diff,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
     assert_eq!(
-        files_by_branch_id[&branch3_id][std::path::Path::new("test.txt")][1].diff,
+        files_by_branch_id[&branch3_id][Path::new("test.txt")][1].diff,
         "@@ -10,3 +11,4 @@ line9\n line10\n line11\n line12\n+line13\n"
     );
     Ok(())
@@ -705,19 +701,19 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
     let Case {
         project_repository,
         project,
-    gb_repository,
+        gb_repository,
         ..
     } = Suite::default().new_case_with_files(HashMap::from([(
-        path::PathBuf::from("test.txt"),
-            "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
+        PathBuf::from("test.txt"),
+        "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
     )]));
 
     set_test_target(&gb_repository, &project_repository)?;
 
     std::fs::write(
-            std::path::Path::new(&project.path).join("test.txt"),
-            "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\n",
-        )?;
+        Path::new(&project.path).join("test.txt"),
+        "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\n",
+    )?;
 
     let branch1_id = create_virtual_branch(
         &gb_repository,
@@ -734,7 +730,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
     .expect("failed to create virtual branch")
     .id;
 
-    let statuses = get_status_by_branch(&gb_repository, &project_repository)
+    let statuses = virtual_branches::get_status_by_branch(&gb_repository, &project_repository)
         .expect("failed to get status")
         .0;
     let files_by_branch_id = statuses
@@ -750,14 +746,14 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
     update_branch(
         &gb_repository,
         &project_repository,
-        branch::BranchUpdateRequest {
+        virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
         },
     )?;
 
-    let statuses = get_status_by_branch(&gb_repository, &project_repository)
+    let statuses = virtual_branches::get_status_by_branch(&gb_repository, &project_repository)
         .expect("failed to get status")
         .0;
 
@@ -769,21 +765,21 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
     assert_eq!(files_by_branch_id.len(), 2);
     assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
     assert_eq!(
-        files_by_branch_id[&branch1_id][std::path::Path::new("test.txt")].len(),
+        files_by_branch_id[&branch1_id][Path::new("test.txt")].len(),
         1
     );
     assert_eq!(
-        files_by_branch_id[&branch1_id][std::path::Path::new("test.txt")][0].diff,
+        files_by_branch_id[&branch1_id][Path::new("test.txt")][0].diff,
         "@@ -11,3 +12,4 @@ line10\n line11\n line12\n line13\n+line14\n"
     );
 
     assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
     assert_eq!(
-        files_by_branch_id[&branch2_id][std::path::Path::new("test.txt")].len(),
+        files_by_branch_id[&branch2_id][Path::new("test.txt")].len(),
         1
     );
     assert_eq!(
-        files_by_branch_id[&branch2_id][std::path::Path::new("test.txt")][0].diff,
+        files_by_branch_id[&branch2_id][Path::new("test.txt")][0].diff,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
 
@@ -798,16 +794,16 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
         gb_repository,
         ..
     } = Suite::default().new_case_with_files(HashMap::from([(
-        path::PathBuf::from("test.txt"),
+        PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline13\nline14\n",
     )]));
 
     set_test_target(&gb_repository, &project_repository)?;
 
     std::fs::write(
-            std::path::Path::new(&project.path).join("test.txt"),
-            "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n",
-        )?;
+        Path::new(&project.path).join("test.txt"),
+        "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n",
+    )?;
 
     create_virtual_branch(
         &gb_repository,
@@ -816,29 +812,29 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
     )
     .expect("failed to create virtual branch");
 
-    let statuses = get_status_by_branch(&gb_repository, &project_repository)
+    let statuses = virtual_branches::get_status_by_branch(&gb_repository, &project_repository)
         .expect("failed to get status")
         .0;
     assert_eq!(
-        statuses[0].1[std::path::Path::new("test.txt")][0].diff,
+        statuses[0].1[Path::new("test.txt")][0].diff,
         "@@ -11,5 +11,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
     );
 
     std::fs::write(
-            std::path::Path::new(&project.path).join("test.txt"),
-            "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n",
-        )?;
+        Path::new(&project.path).join("test.txt"),
+        "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n",
+    )?;
 
-    let statuses = get_status_by_branch(&gb_repository, &project_repository)
+    let statuses = virtual_branches::get_status_by_branch(&gb_repository, &project_repository)
         .expect("failed to get status")
         .0;
 
     assert_eq!(
-        statuses[0].1[std::path::Path::new("test.txt")][0].diff,
+        statuses[0].1[Path::new("test.txt")][0].diff,
         "@@ -11,5 +12,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
     );
     assert_eq!(
-        statuses[0].1[std::path::Path::new("test.txt")][1].diff,
+        statuses[0].1[Path::new("test.txt")][1].diff,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
 
@@ -856,12 +852,12 @@ fn test_merge_vbranch_upstream_clean_rebase() -> Result<()> {
     } = suite.new_case();
 
     // create a commit and set the target
-    let file_path = std::path::Path::new("test.txt");
+    let file_path = Path::new("test.txt");
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    tests::commit_all(&project_repository.git_repository);
+    commit_all(&project_repository.git_repository);
     let target_oid = project_repository
         .git_repository
         .head()
@@ -870,11 +866,11 @@ fn test_merge_vbranch_upstream_clean_rebase() -> Result<()> {
         .unwrap();
 
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
     // add a commit to the target branch it's pointing to so there is something "upstream"
-    tests::commit_all(&project_repository.git_repository);
+    commit_all(&project_repository.git_repository);
     let last_push = project_repository
         .git_repository
         .head()
@@ -884,11 +880,11 @@ fn test_merge_vbranch_upstream_clean_rebase() -> Result<()> {
 
     // coworker adds some work
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\ncoworker work\n",
     )?;
 
-    tests::commit_all(&project_repository.git_repository);
+    commit_all(&project_repository.git_repository);
     let coworker_work = project_repository
         .git_repository
         .head()
@@ -906,28 +902,24 @@ fn test_merge_vbranch_upstream_clean_rebase() -> Result<()> {
 
     // revert to our file
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
 
     set_test_target(&gb_repository, &project_repository)?;
-    target::Writer::new(&gb_repository, project_repository.project().gb_dir())?.write_default(
-        &target::Target {
-            branch: "refs/remotes/origin/master".parse().unwrap(),
-            remote_url: "origin".to_string(),
-            sha: target_oid,
-        },
-    )?;
+    virtual_branches::target::Writer::new(&gb_repository, project_repository.project().gb_dir())?
+        .write_default(&virtual_branches::target::Target {
+        branch: "refs/remotes/origin/master".parse().unwrap(),
+        remote_url: "origin".to_string(),
+        sha: target_oid,
+    })?;
 
     // add some uncommitted work
-    let file_path2 = std::path::Path::new("test2.txt");
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path2),
-        "file2\n",
-    )?;
+    let file_path2 = Path::new("test2.txt");
+    std::fs::write(Path::new(&project.path).join(file_path2), "file2\n")?;
 
     let remote_branch: git::RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
-    let branch_writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
+    let branch_writer = virtual_branches::branch::Writer::new(&gb_repository, project.gb_dir())?;
     let mut branch = create_virtual_branch(
         &gb_repository,
         &project_repository,
@@ -941,7 +933,8 @@ fn test_merge_vbranch_upstream_clean_rebase() -> Result<()> {
         .context("failed to write target branch after push")?;
 
     // create the branch
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch1 = &branches[0];
     assert_eq!(branch1.files.len(), 1);
     assert_eq!(branch1.commits.len(), 1);
@@ -955,15 +948,16 @@ fn test_merge_vbranch_upstream_clean_rebase() -> Result<()> {
         None,
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch1 = &branches[0];
 
-    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+    let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!(
         "line1\nline2\nline3\nline4\nupstream\ncoworker work\n",
         String::from_utf8(contents)?
     );
-    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path2))?;
+    let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("file2\n", String::from_utf8(contents)?);
     assert_eq!(branch1.files.len(), 1);
     assert_eq!(branch1.commits.len(), 2);
@@ -982,12 +976,12 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
     } = Suite::default().new_case();
 
     // create a commit and set the target
-    let file_path = std::path::Path::new("test.txt");
+    let file_path = Path::new("test.txt");
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    tests::commit_all(&project_repository.git_repository);
+    commit_all(&project_repository.git_repository);
     let target_oid = project_repository
         .git_repository
         .head()
@@ -996,11 +990,11 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
         .unwrap();
 
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
     // add a commit to the target branch it's pointing to so there is something "upstream"
-    tests::commit_all(&project_repository.git_repository);
+    commit_all(&project_repository.git_repository);
     let last_push = project_repository
         .git_repository
         .head()
@@ -1010,11 +1004,11 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
 
     // coworker adds some work
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\ncoworker work\n",
     )?;
 
-    tests::commit_all(&project_repository.git_repository);
+    commit_all(&project_repository.git_repository);
     let coworker_work = project_repository
         .git_repository
         .head()
@@ -1032,25 +1026,27 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
 
     // revert to our file
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
 
     set_test_target(&gb_repository, &project_repository)?;
-    target::Writer::new(&gb_repository, project.gb_dir())?.write_default(&target::Target {
-        branch: "refs/remotes/origin/master".parse().unwrap(),
-        remote_url: "origin".to_string(),
-        sha: target_oid,
-    })?;
+    virtual_branches::target::Writer::new(&gb_repository, project.gb_dir())?.write_default(
+        &virtual_branches::target::Target {
+            branch: "refs/remotes/origin/master".parse().unwrap(),
+            remote_url: "origin".to_string(),
+            sha: target_oid,
+        },
+    )?;
 
     // add some uncommitted work
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\nother side\n",
     )?;
 
     let remote_branch: git::RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
-    let branch_writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
+    let branch_writer = virtual_branches::branch::Writer::new(&gb_repository, project.gb_dir())?;
     let mut branch = create_virtual_branch(
         &gb_repository,
         &project_repository,
@@ -1064,7 +1060,8 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
         .context("failed to write target branch after push")?;
 
     // create the branch
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch1 = &branches[0];
 
     assert_eq!(branch1.files.len(), 1);
@@ -1073,9 +1070,10 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
 
     merge_virtual_branch_upstream(&gb_repository, &project_repository, &branch1.id, None, None)?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch1 = &branches[0];
-    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+    let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
 
     assert_eq!(
         "line1\nline2\nline3\nline4\nupstream\n<<<<<<< ours\nother side\n=======\ncoworker work\n>>>>>>> theirs\n",
@@ -1088,12 +1086,13 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
 
     // fix the conflict
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\nother side\ncoworker work\n",
     )?;
 
     // make gb see the conflict resolution
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     assert!(branches[0].conflicted);
 
     // commit the merge resolution
@@ -1108,7 +1107,8 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
         false,
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch1 = &branches[0];
     assert!(!branch1.conflicted);
     assert_eq!(branch1.files.len(), 0);
@@ -1130,14 +1130,14 @@ fn test_unapply_ownership_partial() -> Result<()> {
         gb_repository,
         ..
     } = Suite::default().new_case_with_files(HashMap::from([(
-        path::PathBuf::from("test.txt"),
+        PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\n",
     )]));
 
     set_test_target(&gb_repository, &project_repository)?;
 
     std::fs::write(
-        std::path::Path::new(&project.path).join("test.txt"),
+        Path::new(&project.path).join("test.txt"),
         "line1\nline2\nline3\nline4\nbranch1\n",
     )?;
 
@@ -1148,14 +1148,15 @@ fn test_unapply_ownership_partial() -> Result<()> {
     )
     .expect("failed to create virtual branch");
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].ownership.claims.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
     assert_eq!(branches[0].ownership.claims[0].hunks.len(), 1);
     assert_eq!(
-        fs::read_to_string(std::path::Path::new(&project.path).join("test.txt"))?,
+        std::fs::read_to_string(Path::new(&project.path).join("test.txt"))?,
         "line1\nline2\nline3\nline4\nbranch1\n"
     );
 
@@ -1166,12 +1167,13 @@ fn test_unapply_ownership_partial() -> Result<()> {
     )
     .unwrap();
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 0);
     assert_eq!(branches[0].ownership.claims.len(), 0);
     assert_eq!(
-        fs::read_to_string(std::path::Path::new(&project.path).join("test.txt"))?,
+        std::fs::read_to_string(Path::new(&project.path).join("test.txt"))?,
         "line1\nline2\nline3\nline4\n"
     );
 
@@ -1179,7 +1181,7 @@ fn test_unapply_ownership_partial() -> Result<()> {
 }
 
 #[test]
-fn test_apply_unapply_branch() -> Result<()> {
+fn unapply_branch() -> Result<()> {
     let Case {
         project,
         project_repository,
@@ -1188,24 +1190,21 @@ fn test_apply_unapply_branch() -> Result<()> {
     } = Suite::default().new_case();
 
     // create a commit and set the target
-    let file_path = std::path::Path::new("test.txt");
+    let file_path = Path::new("test.txt");
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    tests::commit_all(&project_repository.git_repository);
+    commit_all(&project_repository.git_repository);
 
     set_test_target(&gb_repository, &project_repository)?;
 
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nbranch1\n",
     )?;
-    let file_path2 = std::path::Path::new("test2.txt");
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path2),
-        "line5\nline6\n",
-    )?;
+    let file_path2 = Path::new("test2.txt");
+    std::fs::write(Path::new(&project.path).join(file_path2), "line5\nline6\n")?;
 
     let branch1_id = create_virtual_branch(
         &gb_repository,
@@ -1225,48 +1224,51 @@ fn test_apply_unapply_branch() -> Result<()> {
     update_branch(
         &gb_repository,
         &project_repository,
-        branch::BranchUpdateRequest {
+        virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test2.txt:1-3".parse()?),
             ..Default::default()
         },
     )?;
 
-    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+    let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!(
         "line1\nline2\nline3\nline4\nbranch1\n",
         String::from_utf8(contents)?
     );
-    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path2))?;
+    let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
     assert_eq!(branch.files.len(), 1);
     assert!(branch.active);
 
-    unapply_branch(&gb_repository, &project_repository, &branch1_id)?;
+    virtual_branches::unapply_branch(&gb_repository, &project_repository, &branch1_id)?;
 
-    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+    let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
-    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path2))?;
+    let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
     assert_eq!(branch.files.len(), 1);
     assert!(!branch.active);
 
     apply_branch(&gb_repository, &project_repository, &branch1_id, None, None)?;
-    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+    let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!(
         "line1\nline2\nline3\nline4\nbranch1\n",
         String::from_utf8(contents)?
     );
-    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path2))?;
+    let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
     assert_eq!(branch.files.len(), 1);
     assert!(branch.active);
@@ -1284,27 +1286,18 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
     } = Suite::default().new_case();
 
     // create a commit and set the target
-    let file_path = std::path::Path::new("test.txt");
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
-        "file1\n",
-    )?;
-    let file_path2 = std::path::Path::new("test2.txt");
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path2),
-        "file2\n",
-    )?;
-    tests::commit_all(&project_repository.git_repository);
+    let file_path = Path::new("test.txt");
+    std::fs::write(Path::new(&project.path).join(file_path), "file1\n")?;
+    let file_path2 = Path::new("test2.txt");
+    std::fs::write(Path::new(&project.path).join(file_path2), "file2\n")?;
+    commit_all(&project_repository.git_repository);
 
     set_test_target(&gb_repository, &project_repository)?;
 
     // rm file_path2, add file3
-    std::fs::remove_file(std::path::Path::new(&project.path).join(file_path2))?;
-    let file_path3 = std::path::Path::new("test3.txt");
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path3),
-        "file3\n",
-    )?;
+    std::fs::remove_file(Path::new(&project.path).join(file_path2))?;
+    let file_path3 = Path::new("test3.txt");
+    std::fs::write(Path::new(&project.path).join(file_path3), "file3\n")?;
 
     let branch2_id = create_virtual_branch(
         &gb_repository,
@@ -1324,7 +1317,7 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
     update_branch(
         &gb_repository,
         &project_repository,
-        branch::BranchUpdateRequest {
+        virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test2.txt:0-0".parse()?),
             ..Default::default()
@@ -1333,33 +1326,29 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
     update_branch(
         &gb_repository,
         &project_repository,
-        branch::BranchUpdateRequest {
+        virtual_branches::branch::BranchUpdateRequest {
             id: branch3_id,
             ownership: Some("test3.txt:1-2".parse()?),
             ..Default::default()
         },
     )?;
 
-    unapply_branch(&gb_repository, &project_repository, &branch2_id)?;
+    virtual_branches::unapply_branch(&gb_repository, &project_repository, &branch2_id)?;
     // check that file2 is back
-    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path2))?;
+    let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("file2\n", String::from_utf8(contents)?);
 
-    unapply_branch(&gb_repository, &project_repository, &branch3_id)?;
+    virtual_branches::unapply_branch(&gb_repository, &project_repository, &branch3_id)?;
     // check that file3 is gone
-    assert!(!std::path::Path::new(&project.path)
-        .join(file_path3)
-        .exists());
+    assert!(!Path::new(&project.path).join(file_path3).exists());
 
     apply_branch(&gb_repository, &project_repository, &branch2_id, None, None)?;
     // check that file2 is gone
-    assert!(!std::path::Path::new(&project.path)
-        .join(file_path2)
-        .exists());
+    assert!(!Path::new(&project.path).join(file_path2).exists());
 
     apply_branch(&gb_repository, &project_repository, &branch3_id, None, None)?;
     // check that file3 is back
-    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path3))?;
+    let contents = std::fs::read(Path::new(&project.path).join(file_path3))?;
     assert_eq!("file3\n", String::from_utf8(contents)?);
 
     Ok(())
@@ -1375,24 +1364,21 @@ fn test_detect_mergeable_branch() -> Result<()> {
     } = Suite::default().new_case();
 
     // create a commit and set the target
-    let file_path = std::path::Path::new("test.txt");
+    let file_path = Path::new("test.txt");
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    tests::commit_all(&project_repository.git_repository);
+    commit_all(&project_repository.git_repository);
 
     set_test_target(&gb_repository, &project_repository)?;
 
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nbranch1\n",
     )?;
-    let file_path4 = std::path::Path::new("test4.txt");
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path4),
-        "line5\nline6\n",
-    )?;
+    let file_path4 = Path::new("test4.txt");
+    std::fs::write(Path::new(&project.path).join(file_path4), "line5\nline6\n")?;
 
     let branch1_id = create_virtual_branch(
         &gb_repository,
@@ -1411,13 +1397,13 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
-    let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch_writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
+    let branch_reader = virtual_branches::branch::Reader::new(&current_session_reader);
+    let branch_writer = virtual_branches::branch::Writer::new(&gb_repository, project.gb_dir())?;
 
     update_branch(
         &gb_repository,
         &project_repository,
-        branch::BranchUpdateRequest {
+        virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test4.txt:1-3".parse()?),
             ..Default::default()
@@ -1426,8 +1412,8 @@ fn test_detect_mergeable_branch() -> Result<()> {
     .expect("failed to update branch");
 
     // unapply both branches and create some conflicting ones
-    unapply_branch(&gb_repository, &project_repository, &branch1_id)?;
-    unapply_branch(&gb_repository, &project_repository, &branch2_id)?;
+    virtual_branches::unapply_branch(&gb_repository, &project_repository, &branch1_id)?;
+    virtual_branches::unapply_branch(&gb_repository, &project_repository, &branch2_id)?;
 
     project_repository
         .git_repository
@@ -1438,10 +1424,10 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
     // create an upstream remote conflicting commit
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
-    tests::commit_all(&project_repository.git_repository);
+    commit_all(&project_repository.git_repository);
     let up_target = project_repository
         .git_repository
         .head()
@@ -1457,15 +1443,12 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
     // revert content and write a mergeable branch
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    let file_path3 = std::path::Path::new("test3.txt");
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path3),
-        "file3\n",
-    )?;
-    tests::commit_all(&project_repository.git_repository);
+    let file_path3 = Path::new("test3.txt");
+    std::fs::write(Path::new(&project.path).join(file_path3), "file3\n")?;
+    commit_all(&project_repository.git_repository);
     let up_target = project_repository
         .git_repository
         .head()
@@ -1479,7 +1462,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
         "update target",
     )?;
     // remove file_path3
-    std::fs::remove_file(std::path::Path::new(&project.path).join(file_path3))?;
+    std::fs::remove_file(Path::new(&project.path).join(file_path3))?;
 
     project_repository
         .git_repository
@@ -1505,14 +1488,14 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
     // branch3 conflicts with branch1 and remote_branch
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path),
+        Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nbranch3\n",
     )?;
 
     // branch4 conflicts with branch2
-    let file_path2 = std::path::Path::new("test2.txt");
+    let file_path2 = Path::new("test2.txt");
     std::fs::write(
-        std::path::Path::new(&project.path).join(file_path2),
+        Path::new(&project.path).join(file_path2),
         "line1\nline2\nline3\nline4\nbranch4\n",
     )?;
 
@@ -1522,7 +1505,8 @@ fn test_detect_mergeable_branch() -> Result<()> {
     };
     branch_writer.write(&mut branch4)?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     assert_eq!(branches.len(), 4);
 
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
@@ -1575,9 +1559,9 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         gb_repository,
         ..
     } = Suite::default().new_case_with_files(HashMap::from([
-        (path::PathBuf::from("test.txt"), "file1\n"),
-        (path::PathBuf::from("test2.txt"), "file2\n"),
-        (path::PathBuf::from("test3.txt"), "file3\n"),
+        (PathBuf::from("test.txt"), "file1\n"),
+        (PathBuf::from("test2.txt"), "file2\n"),
+        (PathBuf::from("test3.txt"), "file3\n"),
     ]));
 
     let base_commit = project_repository
@@ -1588,10 +1572,10 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         .unwrap();
 
     std::fs::write(
-        std::path::Path::new(&project.path).join("test.txt"),
+        Path::new(&project.path).join("test.txt"),
         "file1\nversion2\n",
     )?;
-    tests::commit_all(&project_repository.git_repository);
+    commit_all(&project_repository.git_repository);
 
     let upstream_commit = project_repository
         .git_repository
@@ -1606,17 +1590,19 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         "update target",
     )?;
 
-    target::Writer::new(&gb_repository, project_repository.project().gb_dir())?.write_default(
-        &target::Target {
-            branch: "refs/remotes/origin/master".parse().unwrap(),
-            remote_url: "http://origin.com/project".to_string(),
-            sha: base_commit,
-        },
-    )?;
+    virtual_branches::target::Writer::new(&gb_repository, project_repository.project().gb_dir())?
+        .write_default(&virtual_branches::target::Target {
+        branch: "refs/remotes/origin/master".parse().unwrap(),
+        remote_url: "http://origin.com/project".to_string(),
+        sha: base_commit,
+    })?;
     project_repository
         .git_repository
         .remote("origin", &"http://origin.com/project".parse().unwrap())?;
-    super::integration::update_gitbutler_integration(&gb_repository, &project_repository)?;
+    virtual_branches::integration::update_gitbutler_integration(
+        &gb_repository,
+        &project_repository,
+    )?;
 
     // create vbranches, one integrated, one not
     let branch1_id = create_virtual_branch(
@@ -1642,19 +1628,19 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
     .id;
 
     std::fs::write(
-        std::path::Path::new(&project.path).join("test2.txt"),
+        Path::new(&project.path).join("test2.txt"),
         "file2\nversion2\n",
     )?;
 
     std::fs::write(
-        std::path::Path::new(&project.path).join("test3.txt"),
+        Path::new(&project.path).join("test3.txt"),
         "file3\nversion2\n",
     )?;
 
     update_branch(
         &gb_repository,
         &project_repository,
-        branch::BranchUpdateRequest {
+        virtual_branches::branch::BranchUpdateRequest {
             id: branch1_id,
             name: Some("integrated".to_string()),
             ownership: Some("test.txt:1-2".parse()?),
@@ -1665,7 +1651,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
     update_branch(
         &gb_repository,
         &project_repository,
-        branch::BranchUpdateRequest {
+        virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             name: Some("not integrated".to_string()),
             ownership: Some("test2.txt:1-2".parse()?),
@@ -1676,7 +1662,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
     update_branch(
         &gb_repository,
         &project_repository,
-        branch::BranchUpdateRequest {
+        virtual_branches::branch::BranchUpdateRequest {
             id: branch3_id,
             name: Some("not committed".to_string()),
             ownership: Some("test3.txt:1-2".parse()?),
@@ -1706,7 +1692,8 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         false,
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
 
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
     assert!(branch1.commits.iter().any(|c| c.is_integrated));
@@ -1734,8 +1721,8 @@ fn test_commit_same_hunk_twice() -> Result<()> {
         gb_repository,
         ..
     } = Suite::default().new_case_with_files(HashMap::from([(
-        path::PathBuf::from("test.txt"),
-            "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
+        PathBuf::from("test.txt"),
+        "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )]));
 
     set_test_target(&gb_repository, &project_repository)?;
@@ -1749,11 +1736,12 @@ fn test_commit_same_hunk_twice() -> Result<()> {
     .id;
 
     std::fs::write(
-            std::path::Path::new(&project.path).join("test.txt"),
-            "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
-        )?;
+        Path::new(&project.path).join("test.txt"),
+        "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
+    )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1);
@@ -1772,7 +1760,8 @@ fn test_commit_same_hunk_twice() -> Result<()> {
         false,
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 0, "no files expected");
@@ -1788,11 +1777,12 @@ fn test_commit_same_hunk_twice() -> Result<()> {
     // update same lines
 
     std::fs::write(
-            std::path::Path::new(&project.path).join("test.txt"),
-            "line1\nPATCH1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
-        )?;
+        Path::new(&project.path).join("test.txt"),
+        "line1\nPATCH1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
+    )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1, "one file should be changed");
@@ -1809,7 +1799,8 @@ fn test_commit_same_hunk_twice() -> Result<()> {
         false,
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(
@@ -1835,8 +1826,8 @@ fn test_commit_same_file_twice() -> Result<()> {
         gb_repository,
         ..
     } = Suite::default().new_case_with_files(HashMap::from([(
-        path::PathBuf::from("test.txt"),
-            "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
+        PathBuf::from("test.txt"),
+        "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )]));
 
     set_test_target(&gb_repository, &project_repository)?;
@@ -1850,11 +1841,12 @@ fn test_commit_same_file_twice() -> Result<()> {
     .id;
 
     std::fs::write(
-            std::path::Path::new(&project.path).join("test.txt"),
-            "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
-        )?;
+        Path::new(&project.path).join("test.txt"),
+        "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
+    )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1);
@@ -1873,7 +1865,8 @@ fn test_commit_same_file_twice() -> Result<()> {
         false,
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 0, "no files expected");
@@ -1889,11 +1882,12 @@ fn test_commit_same_file_twice() -> Result<()> {
     // add second patch
 
     std::fs::write(
-            std::path::Path::new(&project.path).join("file.txt"),
-            "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\npatch2\nline11\nline12\n",
-        )?;
+        Path::new(&project.path).join("file.txt"),
+        "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\npatch2\nline11\nline12\n",
+    )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1, "one file should be changed");
@@ -1910,7 +1904,8 @@ fn test_commit_same_file_twice() -> Result<()> {
         false,
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(
@@ -1936,8 +1931,8 @@ fn test_commit_partial_by_hunk() -> Result<()> {
         gb_repository,
         ..
     } = Suite::default().new_case_with_files(HashMap::from([(
-        path::PathBuf::from("test.txt"),
-            "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
+        PathBuf::from("test.txt"),
+        "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )]));
 
     set_test_target(&gb_repository, &project_repository)?;
@@ -1951,11 +1946,12 @@ fn test_commit_partial_by_hunk() -> Result<()> {
     .id;
 
     std::fs::write(
-            std::path::Path::new(&project.path).join("test.txt"),
-            "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\npatch2\nline11\nline12\n",
-        )?;
+        Path::new(&project.path).join("test.txt"),
+        "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\npatch2\nline11\nline12\n",
+    )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1);
@@ -1974,7 +1970,8 @@ fn test_commit_partial_by_hunk() -> Result<()> {
         false,
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1);
@@ -1994,7 +1991,8 @@ fn test_commit_partial_by_hunk() -> Result<()> {
         false,
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 0);
@@ -2015,8 +2013,8 @@ fn test_commit_partial_by_file() -> Result<()> {
         gb_repository,
         ..
     } = Suite::default().new_case_with_files(HashMap::from([
-        (path::PathBuf::from("test.txt"), "file1\n"),
-        (path::PathBuf::from("test2.txt"), "file2\n"),
+        (PathBuf::from("test.txt"), "file1\n"),
+        (PathBuf::from("test2.txt"), "file2\n"),
     ]));
 
     let commit1_oid = project_repository
@@ -2033,13 +2031,10 @@ fn test_commit_partial_by_file() -> Result<()> {
     set_test_target(&gb_repository, &project_repository)?;
 
     // remove file
-    std::fs::remove_file(std::path::Path::new(&project.path).join("test2.txt"))?;
+    std::fs::remove_file(Path::new(&project.path).join("test2.txt"))?;
     // add new file
-    let file_path3 = std::path::Path::new("test3.txt");
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path3),
-        "file3\n",
-    )?;
+    let file_path3 = Path::new("test3.txt");
+    std::fs::write(Path::new(&project.path).join(file_path3), "file3\n")?;
 
     let branch1_id = create_virtual_branch(
         &gb_repository,
@@ -2061,7 +2056,8 @@ fn test_commit_partial_by_file() -> Result<()> {
         false,
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     // branch one test.txt has just the 1st and 3rd hunks applied
@@ -2091,8 +2087,8 @@ fn test_commit_add_and_delete_files() -> Result<()> {
         gb_repository,
         ..
     } = Suite::default().new_case_with_files(HashMap::from([
-        (path::PathBuf::from("test.txt"), "file1\n"),
-        (path::PathBuf::from("test2.txt"), "file2\n"),
+        (PathBuf::from("test.txt"), "file1\n"),
+        (PathBuf::from("test2.txt"), "file2\n"),
     ]));
 
     let commit1_oid = project_repository
@@ -2109,13 +2105,10 @@ fn test_commit_add_and_delete_files() -> Result<()> {
     set_test_target(&gb_repository, &project_repository)?;
 
     // remove file
-    std::fs::remove_file(std::path::Path::new(&project.path).join("test2.txt"))?;
+    std::fs::remove_file(Path::new(&project.path).join("test2.txt"))?;
     // add new file
-    let file_path3 = std::path::Path::new("test3.txt");
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path3),
-        "file3\n",
-    )?;
+    let file_path3 = Path::new("test3.txt");
+    std::fs::write(Path::new(&project.path).join(file_path3), "file3\n")?;
 
     let branch1_id = create_virtual_branch(
         &gb_repository,
@@ -2137,7 +2130,8 @@ fn test_commit_add_and_delete_files() -> Result<()> {
         false,
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     // branch one test.txt has just the 1st and 3rd hunks applied
@@ -2168,25 +2162,25 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
         gb_repository,
         ..
     } = Suite::default().new_case_with_files(HashMap::from([
-        (path::PathBuf::from("test.txt"), "file1\n"),
-        (path::PathBuf::from("test2.txt"), "file2\n"),
+        (PathBuf::from("test.txt"), "file1\n"),
+        (PathBuf::from("test2.txt"), "file2\n"),
     ]));
 
     set_test_target(&gb_repository, &project_repository)?;
 
     // add symlinked file
-    let file_path3 = std::path::Path::new("test3.txt");
-    let src = std::path::Path::new(&project.path).join("test2.txt");
-    let dst = std::path::Path::new(&project.path).join(file_path3);
+    let file_path3 = Path::new("test3.txt");
+    let src = Path::new(&project.path).join("test2.txt");
+    let dst = Path::new(&project.path).join(file_path3);
     symlink(src, dst)?;
 
     // add executable
-    let file_path4 = std::path::Path::new("test4.bin");
-    let exec = std::path::Path::new(&project.path).join(file_path4);
+    let file_path4 = Path::new("test4.bin");
+    let exec = Path::new(&project.path).join(file_path4);
     std::fs::write(&exec, "exec\n")?;
-    let permissions = fs::metadata(&exec)?.permissions();
+    let permissions = std::fs::metadata(&exec)?.permissions();
     let new_permissions = Permissions::from_mode(permissions.mode() | 0o111); // Add execute permission
-    fs::set_permissions(&exec, new_permissions)?;
+    std::fs::set_permissions(&exec, new_permissions)?;
 
     let branch1_id = create_virtual_branch(
         &gb_repository,
@@ -2208,7 +2202,8 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
         false,
     )?;
 
-    let (branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     let commit = &branch1.commits[0].id;
@@ -2237,7 +2232,7 @@ fn tree_to_file_list(repository: &git::Repository, tree: &git::Tree) -> Vec<Stri
     let mut file_list = Vec::new();
     tree.walk(|_, entry| {
         let path = entry.name().unwrap();
-        let entry = tree.get_path(std::path::Path::new(path)).unwrap();
+        let entry = tree.get_path(Path::new(path)).unwrap();
         let object = entry.to_object(repository).unwrap();
         if object.kind() == Some(git2::ObjectType::Blob) {
             file_list.push(path.to_string());
@@ -2255,7 +2250,7 @@ fn tree_to_entry_list(
     let mut file_list = Vec::new();
     tree.walk(|_root, entry| {
         let path = entry.name().unwrap();
-        let entry = tree.get_path(std::path::Path::new(path)).unwrap();
+        let entry = tree.get_path(Path::new(path)).unwrap();
         let object = entry.to_object(repository).unwrap();
         let blob = object.as_blob().expect("failed to get blob");
         // convert content to string
@@ -2294,23 +2289,21 @@ fn test_verify_branch_commits_to_integration() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    integration::verify_branch(&gb_repository, &project_repository).unwrap();
+    verify_branch(&gb_repository, &project_repository).unwrap();
 
     //  write two commits
-    let file_path2 = std::path::Path::new("test2.txt");
-    std::fs::write(std::path::Path::new(&project.path).join(file_path2), "file")?;
-    tests::commit_all(&project_repository.git_repository);
-    std::fs::write(
-        std::path::Path::new(&project.path).join(file_path2),
-        "update",
-    )?;
-    tests::commit_all(&project_repository.git_repository);
+    let file_path2 = Path::new("test2.txt");
+    std::fs::write(Path::new(&project.path).join(file_path2), "file")?;
+    commit_all(&project_repository.git_repository);
+    std::fs::write(Path::new(&project.path).join(file_path2), "update")?;
+    commit_all(&project_repository.git_repository);
 
     // verify puts commits onto the virtual branch
-    integration::verify_branch(&gb_repository, &project_repository).unwrap();
+    verify_branch(&gb_repository, &project_repository).unwrap();
 
     // one virtual branch with two commits was created
-    let (virtual_branches, _, _) = list_virtual_branches(&gb_repository, &project_repository)?;
+    let (virtual_branches, _, _) =
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)?;
     assert_eq!(virtual_branches.len(), 1);
 
     let branch = &virtual_branches.first().unwrap();
@@ -2330,13 +2323,13 @@ fn test_verify_branch_not_integration() -> Result<()> {
 
     set_test_target(&gb_repository, &project_repository)?;
 
-    integration::verify_branch(&gb_repository, &project_repository).unwrap();
+    verify_branch(&gb_repository, &project_repository).unwrap();
 
     project_repository
         .git_repository
         .set_head(&"refs/heads/master".parse().unwrap())?;
 
-    let verify_result = integration::verify_branch(&gb_repository, &project_repository);
+    let verify_result = verify_branch(&gb_repository, &project_repository);
     assert!(verify_result.is_err());
     assert_eq!(
         verify_result.unwrap_err().to_string(),
@@ -2355,14 +2348,8 @@ fn test_pre_commit_hook_rejection() -> Result<()> {
         project_repository,
         ..
     } = suite.new_case_with_files(HashMap::from([
-        (
-            path::PathBuf::from("test.txt"),
-            "line1\nline2\nline3\nline4\n",
-        ),
-        (
-            path::PathBuf::from("test2.txt"),
-            "line5\nline6\nline7\nline8\n",
-        ),
+        (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
+        (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));
 
     set_test_target(&gb_repository, &project_repository)?;
@@ -2376,7 +2363,7 @@ fn test_pre_commit_hook_rejection() -> Result<()> {
     .id;
 
     std::fs::write(
-        std::path::Path::new(&project.path).join("test.txt"),
+        Path::new(&project.path).join("test.txt"),
         "line0\nline1\nline2\nline3\nline4\n",
     )?;
 
@@ -2424,14 +2411,8 @@ fn test_post_commit_hook() -> Result<()> {
         project_repository,
         ..
     } = suite.new_case_with_files(HashMap::from([
-        (
-            path::PathBuf::from("test.txt"),
-            "line1\nline2\nline3\nline4\n",
-        ),
-        (
-            path::PathBuf::from("test2.txt"),
-            "line5\nline6\nline7\nline8\n",
-        ),
+        (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
+        (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));
 
     set_test_target(&gb_repository, &project_repository)?;
@@ -2445,7 +2426,7 @@ fn test_post_commit_hook() -> Result<()> {
     .id;
 
     std::fs::write(
-        std::path::Path::new(&project.path).join("test.txt"),
+        Path::new(&project.path).join("test.txt"),
         "line0\nline1\nline2\nline3\nline4\n",
     )?;
 
@@ -2493,14 +2474,8 @@ fn test_commit_msg_hook_rejection() -> Result<()> {
         project_repository,
         ..
     } = suite.new_case_with_files(HashMap::from([
-        (
-            path::PathBuf::from("test.txt"),
-            "line1\nline2\nline3\nline4\n",
-        ),
-        (
-            path::PathBuf::from("test2.txt"),
-            "line5\nline6\nline7\nline8\n",
-        ),
+        (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
+        (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));
 
     set_test_target(&gb_repository, &project_repository)?;
@@ -2514,7 +2489,7 @@ fn test_commit_msg_hook_rejection() -> Result<()> {
     .id;
 
     std::fs::write(
-        std::path::Path::new(&project.path).join("test.txt"),
+        Path::new(&project.path).join("test.txt"),
         "line0\nline1\nline2\nline3\nline4\n",
     )?;
 

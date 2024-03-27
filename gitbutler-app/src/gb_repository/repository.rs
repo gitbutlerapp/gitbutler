@@ -417,7 +417,6 @@ impl Repository {
         }
     }
 
-    #[cfg(test)]
     pub fn flush(
         &self,
         project_repository: &project_repository::Repository,
@@ -513,15 +512,15 @@ impl Repository {
         }
     }
 
-    pub(crate) fn root(&self) -> std::path::PathBuf {
+    pub fn root(&self) -> std::path::PathBuf {
         self.git_repository.path().join("gitbutler")
     }
 
-    pub(crate) fn session_path(&self) -> std::path::PathBuf {
+    pub fn session_path(&self) -> std::path::PathBuf {
         self.root().join("session")
     }
 
-    pub(crate) fn session_wd_path(&self) -> std::path::PathBuf {
+    pub fn session_wd_path(&self) -> std::path::PathBuf {
         self.session_path().join("wd")
     }
 
@@ -963,35 +962,37 @@ pub enum RemoteError {
     Other(#[from] anyhow::Error),
 }
 
-#[cfg(test)]
-mod test {
-    use std::path::PathBuf;
-
-    use anyhow::Result;
-    use pretty_assertions::assert_eq;
-
-    use crate::tests::{Case, Suite};
-
-    #[test]
-    fn test_alternates_file_being_set() -> Result<()> {
-        let Case {
-            gb_repository,
-            project_repository,
-            ..
-        } = Suite::default().new_case();
-
-        let file_content = std::fs::read_to_string(
-            gb_repository
-                .git_repository
-                .path()
-                .join("objects/info/alternates"),
-        )?;
-
-        let file_content = PathBuf::from(file_content.trim());
-        let project_path = project_repository.path().to_path_buf().join(".git/objects");
-
-        assert_eq!(file_content, project_path);
-
-        Ok(())
-    }
-}
+// TODO: this is a unit-test - could use code from `tests::common` via custom module path
+//       to make it work.
+// #[cfg(test)]
+// mod test {
+//     use std::path::PathBuf;
+//
+//     use anyhow::Result;
+//     use pretty_assertions::assert_eq;
+//
+//     use crate::tests::{Case, Suite};
+//
+//     #[test]
+//     fn test_alternates_file_being_set() -> Result<()> {
+//         let Case {
+//             gb_repository,
+//             project_repository,
+//             ..
+//         } = Suite::default().new_case();
+//
+//         let file_content = std::fs::read_to_string(
+//             gb_repository
+//                 .git_repository
+//                 .path()
+//                 .join("objects/info/alternates"),
+//         )?;
+//
+//         let file_content = PathBuf::from(file_content.trim());
+//         let project_path = project_repository.path().to_path_buf().join(".git/objects");
+//
+//         assert_eq!(file_content, project_path);
+//
+//         Ok(())
+//     }
+// }

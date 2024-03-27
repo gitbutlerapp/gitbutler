@@ -46,28 +46,3 @@ impl Database {
         Ok(result)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::tests;
-
-    use super::*;
-
-    #[test]
-    fn smoke() {
-        let data_dir = tests::temp_dir();
-        let db = Database::open_in_directory(data_dir).unwrap();
-        db.transaction(|tx| {
-            tx.execute("CREATE TABLE test (id INTEGER PRIMARY KEY)", [])
-                .unwrap();
-            tx.execute("INSERT INTO test (id) VALUES (1)", []).unwrap();
-            let mut stmt = tx.prepare("SELECT id FROM test").unwrap();
-            let mut rows = stmt.query([]).unwrap();
-            let row = rows.next().unwrap().unwrap();
-            let id: i32 = row.get(0).unwrap();
-            assert_eq!(id, 1_i32);
-            Ok(())
-        })
-        .unwrap();
-    }
-}

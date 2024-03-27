@@ -20,7 +20,6 @@ impl Storage {
         Storage { storage }
     }
 
-    #[cfg(test)]
     pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Storage {
         Storage::new(storage::Storage::new(path))
     }

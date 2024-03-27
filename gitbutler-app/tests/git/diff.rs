@@ -3,13 +3,13 @@ use std::{collections::HashMap, path, thread, time};
 use anyhow::Result;
 use pretty_assertions::assert_eq;
 
-use crate::tests::init_opts_bare;
-use crate::{
+use crate::init_opts_bare;
+use crate::{Case, Suite};
+use gitbutler_app::{
     deltas::{self, operations::Operation},
     projects::{self, ApiProject, ProjectId},
     reader,
     sessions::{self, SessionId},
-    tests::{Case, Suite},
 };
 
 fn test_remote_repository() -> Result<git2::Repository> {
