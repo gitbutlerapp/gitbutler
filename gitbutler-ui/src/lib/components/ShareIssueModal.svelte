@@ -52,7 +52,7 @@
 			: new Blob([file], { type: 'application/zip' });
 	}
 
-	async function onSubmit() {
+	async function submit() {
 		const message = messageInputValue;
 		const email = $user?.email ?? emailInputValue;
 
@@ -93,16 +93,21 @@
 				error: 'Failed to send feedback'
 			}
 		);
-		onClose();
+		close();
 	}
 
-	function onClose() {
+	function close() {
 		reset();
 		modal.close();
 	}
 </script>
 
-<Modal bind:this={modal} on:close={onClose} title="Share debug data with GitButler team for review">
+<Modal
+	bind:this={modal}
+	on:close={() => close()}
+	on:submit={() => submit()}
+	title="Share debug data with GitButler team for review"
+>
 	<div class="flex flex-col gap-4">
 		<p class="text-color-3">
 			If you are having trouble, please share your project and logs with the GitButler team. We will
@@ -169,7 +174,7 @@
 	</div>
 
 	<svelte:fragment slot="controls">
-		<Button kind="outlined" on:click={onClose}>Close</Button>
-		<Button color="primary" on:click={onSubmit}>Share with GitButler</Button>
+		<Button kind="outlined" type="reset">Close</Button>
+		<Button color="primary" type="submit">Share with GitButler</Button>
 	</svelte:fragment>
 </Modal>
