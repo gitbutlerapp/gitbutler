@@ -22,33 +22,35 @@
 </script>
 
 <Overlay bind:this={modal} let:close on:close {width}>
-	{#if title}
-		<div class="modal__header">
-			<div class="modal__header__content" class:adjust-header={$$slots.header_controls}>
-				{#if icon}
-					<Icon name={icon} />
-				{/if}
-				<h2 class="text-base-14 text-semibold" title={hoverText}>
-					{title}
-				</h2>
-			</div>
-			{#if $$slots.header_controls}
-				<div class="modal__header__actions">
-					<slot name="header_controls" />
+	<form on:submit>
+		{#if title}
+			<div class="modal__header">
+				<div class="modal__header__content" class:adjust-header={$$slots.header_controls}>
+					{#if icon}
+						<Icon name={icon} />
+					{/if}
+					<h2 class="text-base-14 text-semibold" title={hoverText}>
+						{title}
+					</h2>
 				</div>
-			{/if}
-		</div>
-	{/if}
+				{#if $$slots.header_controls}
+					<div class="modal__header__actions">
+						<slot name="header_controls" />
+					</div>
+				{/if}
+			</div>
+		{/if}
 
-	<div class="modal__body custom-scrollbar">
-		<slot {item} {close} />
-	</div>
-
-	{#if $$slots.controls}
-		<div class="modal__footer">
-			<slot name="controls" {item} {close} />
+		<div class="modal__body custom-scrollbar">
+			<slot {item} {close} />
 		</div>
-	{/if}
+
+		{#if $$slots.controls}
+			<div class="modal__footer">
+				<slot name="controls" {item} {close} />
+			</div>
+		{/if}
+	</form>
 </Overlay>
 
 <style lang="postcss">

@@ -54,7 +54,13 @@
 	}
 </script>
 
-<Modal bind:this={modal} on:close={() => cancel()} width="small" title="Git fetch requires input">
+<Modal
+	bind:this={modal}
+	width="small"
+	title="Git fetch requires input"
+	on:submit={() => submit()}
+	on:close={() => cancel()}
+>
 	<div class="message">
 		{#if $error}
 			{$error.message}
@@ -62,29 +68,13 @@
 			<code>{$prompt?.prompt}</code>
 		{/if}
 	</div>
-	<TextBox
-		focus
-		type="password"
-		bind:value
-		on:keydown={(e) => {
-			if (e.detail.key == 'Enter') submit();
-		}}
-	/>
+	<TextBox focus type="password" bind:value />
 
 	<svelte:fragment slot="controls">
-		<Button
-			color="neutral"
-			disabled={loading}
-			kind="outlined"
-			on:click={() => {
-				cancel();
-			}}
-		>
+		<Button type="reset" kind="outlined" color="neutral" disabled={loading} on:click={cancel}>
 			Cancel
 		</Button>
-		<Button grow disabled={!!$error || loading} on:click={async () => await submit()} {loading}>
-			Submit
-		</Button>
+		<Button type="submit" grow disabled={!!$error || loading} {loading}>Submit</Button>
 	</svelte:fragment>
 </Modal>
 
