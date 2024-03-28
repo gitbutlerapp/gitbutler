@@ -66,6 +66,8 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 	let dragHandle: HTMLElement | null;
 	let clone: HTMLElement | undefined;
 
+	let selectedElements: HTMLElement[] = [];
+
 	const onDropListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
 	const onDragLeaveListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
 	const onDragEnterListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
@@ -89,9 +91,17 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 		// If the draggable specifies a selector then we check if we're dragging selected
 		// elements, falling back to the single node executing the drag.
 		if (opts.selector) {
-			const selectedElements = Array.from(document.querySelectorAll(opts.selector).values());
+			selectedElements = Array.from(
+				document.querySelectorAll(opts.selector || '').values() as Iterable<HTMLElement>
+			);
+
 			if (selectedElements.length > 0) {
 				clone = createContainerForMultiDrag(selectedElements);
+
+				// Dim the original element while dragging
+				selectedElements.forEach((element) => {
+					element.style.opacity = '0.5';
+				});
 			}
 		}
 		if (!clone) {
@@ -99,9 +109,6 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 		}
 
 		document.body.appendChild(clone);
-
-		// Dim the original element while dragging
-		node.style.opacity = '0.6';
 
 		// activate destination zones
 		dzRegistry
@@ -170,11 +177,15 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 	}
 
 	function handleDragEnd(e: DragEvent) {
-		node.style.opacity = '1';
 		if (clone) {
 			clone.remove();
 			clone = undefined;
 		}
+
+		// reset the opacity of the selected elements
+		selectedElements.forEach((element) => {
+			element.style.opacity = '1';
+		});
 
 		// deactivate destination zones
 		dzRegistry
