@@ -2,22 +2,23 @@
 use crate::init_opts;
 use gitbutler_app::git;
 use std::{path, str::from_utf8};
+use tempfile::TempDir;
 
-pub fn temp_dir() -> std::path::PathBuf {
-    tempfile::tempdir()
-        .expect("failed to create temp dir")
-        .into_path()
+pub fn temp_dir() -> TempDir {
+    tempfile::tempdir().unwrap()
 }
 
 pub struct TestProject {
     local_repository: git::Repository,
+    local_tmp: TempDir,
     remote_repository: git::Repository,
+    remote_tmp: TempDir,
 }
 
 impl Default for TestProject {
     fn default() -> Self {
-        let path = temp_dir();
-        let local_repository = git::Repository::init_opts(path.clone(), &init_opts())
+        let local_tmp = temp_dir();
+        let local_repository = git::Repository::init_opts(local_tmp.path(), &init_opts())
             .expect("failed to init repository");
         let mut index = local_repository.index().expect("failed to get index");
         let oid = index.write_tree().expect("failed to write tree");
@@ -35,9 +36,9 @@ impl Default for TestProject {
             )
             .expect("failed to commit");
 
-        let remote_path = temp_dir();
+        let remote_tmp = temp_dir();
         let remote_repository = git::Repository::init_opts(
-            remote_path,
+            remote_tmp.path(),
             git2::RepositoryInitOptions::new()
                 .bare(true)
                 .external_template(false),
@@ -63,7 +64,9 @@ impl Default for TestProject {
 
         Self {
             local_repository,
+            local_tmp,
             remote_repository,
+            remote_tmp,
         }
     }
 }
@@ -335,8 +338,9 @@ impl TestProject {
 pub mod paths {
     use super::temp_dir;
     use std::path;
+    use tempfile::TempDir;
 
-    pub fn data_dir() -> path::PathBuf {
+    pub fn data_dir() -> TempDir {
         temp_dir()
     }
 }

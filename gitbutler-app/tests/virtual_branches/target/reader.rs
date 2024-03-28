@@ -53,10 +53,11 @@ fn test_branch() -> gitbutler_app::virtual_branches::branch::Branch {
 
 #[test]
 fn read_not_found() -> Result<()> {
-    let Case { gb_repository, .. } = Suite::default().new_case();
+    let suite = Suite::default();
+    let Case { gb_repository, .. } = &suite.new_case();
 
     let session = gb_repository.get_or_create_current_session()?;
-    let session_reader = gitbutler_app::sessions::Reader::open(&gb_repository, &session)?;
+    let session_reader = gitbutler_app::sessions::Reader::open(gb_repository, &session)?;
 
     let reader = target::Reader::new(&session_reader);
     let result = reader.read(&BranchId::generate());
@@ -68,7 +69,8 @@ fn read_not_found() -> Result<()> {
 
 #[test]
 fn read_deprecated_format() -> Result<()> {
-    let Case { gb_repository, .. } = Suite::default().new_case();
+    let suite = Suite::default();
+    let Case { gb_repository, .. } = &suite.new_case();
 
     let writer = gitbutler_app::writer::DirWriter::open(gb_repository.root())?;
     writer
@@ -88,7 +90,7 @@ fn read_deprecated_format() -> Result<()> {
         .unwrap();
 
     let session = gb_repository.get_or_create_current_session()?;
-    let session_reader = gitbutler_app::sessions::Reader::open(&gb_repository, &session)?;
+    let session_reader = gitbutler_app::sessions::Reader::open(gb_repository, &session)?;
     let reader = target::Reader::new(&session_reader);
 
     let read = reader.read_default().unwrap();
@@ -105,11 +107,12 @@ fn read_deprecated_format() -> Result<()> {
 
 #[test]
 fn read_override_target() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let mut branch = test_branch();
 
@@ -128,13 +131,13 @@ fn read_override_target() -> Result<()> {
     };
 
     let branch_writer =
-        gitbutler_app::virtual_branches::branch::Writer::new(&gb_repository, project.gb_dir())?;
+        gitbutler_app::virtual_branches::branch::Writer::new(gb_repository, project.gb_dir())?;
     branch_writer.write(&mut branch)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
-    let session_reader = gitbutler_app::sessions::Reader::open(&gb_repository, &session)?;
+    let session_reader = gitbutler_app::sessions::Reader::open(gb_repository, &session)?;
 
-    let target_writer = target::Writer::new(&gb_repository, project.gb_dir())?;
+    let target_writer = target::Writer::new(gb_repository, project.gb_dir())?;
     let reader = target::Reader::new(&session_reader);
 
     target_writer.write_default(&default_target)?;

@@ -2,6 +2,7 @@ use std::{collections::HashMap, path, thread, time};
 
 use anyhow::Result;
 use pretty_assertions::assert_eq;
+use tempfile::TempDir;
 
 use crate::init_opts_bare;
 use crate::{Case, Suite};
@@ -12,15 +13,16 @@ use gitbutler_app::{
     sessions::{self, SessionId},
 };
 
-fn new_test_remote_repository() -> Result<git2::Repository> {
-    let path = tempfile::tempdir()?.path().to_str().unwrap().to_string();
-    let repo_a = git2::Repository::init_opts(path, &init_opts_bare())?;
-    Ok(repo_a)
+fn new_test_remote_repository() -> Result<(git2::Repository, TempDir)> {
+    let tmp = tempfile::tempdir()?;
+    let repo_a = git2::Repository::init_opts(&tmp, &init_opts_bare())?;
+    Ok((repo_a, tmp))
 }
 
 #[test]
 fn get_current_session_writer_should_use_existing_session() -> Result<()> {
-    let Case { gb_repository, .. } = Suite::default().new_case();
+    let suite = Suite::default();
+    let Case { gb_repository, .. } = &suite.new_case();
 
     let current_session_1 = gb_repository.get_or_create_current_session()?;
     let current_session_2 = gb_repository.get_or_create_current_session()?;
@@ -31,7 +33,8 @@ fn get_current_session_writer_should_use_existing_session() -> Result<()> {
 
 #[test]
 fn must_not_return_init_session() -> Result<()> {
-    let Case { gb_repository, .. } = Suite::default().new_case();
+    let suite = Suite::default();
+    let Case { gb_repository, .. } = &suite.new_case();
 
     assert!(gb_repository.get_current_session()?.is_none());
 
@@ -43,13 +46,14 @@ fn must_not_return_init_session() -> Result<()> {
 
 #[test]
 fn must_not_flush_without_current_session() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
-    let session = gb_repository.flush(&project_repository, None)?;
+    let session = gb_repository.flush(project_repository, None)?;
     assert!(session.is_none());
 
     let iter = gb_repository.get_sessions_iterator()?;
@@ -60,30 +64,31 @@ fn must_not_flush_without_current_session() -> Result<()> {
 
 #[test]
 fn non_empty_repository() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project_repository,
         ..
-    } = Suite::default()
-        .new_case_with_files(HashMap::from([(path::PathBuf::from("test.txt"), "test")]));
+    } = &suite.new_case_with_files(HashMap::from([(path::PathBuf::from("test.txt"), "test")]));
 
     gb_repository.get_or_create_current_session()?;
-    gb_repository.flush(&project_repository, None)?;
+    gb_repository.flush(project_repository, None)?;
 
     Ok(())
 }
 
 #[test]
 fn must_flush_current_session() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     gb_repository.get_or_create_current_session()?;
 
-    let session = gb_repository.flush(&project_repository, None)?;
+    let session = gb_repository.flush(project_repository, None)?;
     assert!(session.is_some());
 
     let iter = gb_repository.get_sessions_iterator()?;
@@ -94,10 +99,11 @@ fn must_flush_current_session() -> Result<()> {
 
 #[test]
 fn list_deltas_from_current_session() -> Result<()> {
-    let Case { gb_repository, .. } = Suite::default().new_case();
+    let suite = Suite::default();
+    let Case { gb_repository, .. } = &suite.new_case();
 
     let current_session = gb_repository.get_or_create_current_session()?;
-    let writer = deltas::Writer::new(&gb_repository)?;
+    let writer = deltas::Writer::new(gb_repository)?;
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
@@ -106,7 +112,7 @@ fn list_deltas_from_current_session() -> Result<()> {
         }],
     )?;
 
-    let session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
+    let session_reader = sessions::Reader::open(gb_repository, &current_session)?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read(None)?;
 
@@ -125,13 +131,14 @@ fn list_deltas_from_current_session() -> Result<()> {
 
 #[test]
 fn list_deltas_from_flushed_session() {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
-    let writer = deltas::Writer::new(&gb_repository).unwrap();
+    let writer = deltas::Writer::new(gb_repository).unwrap();
     writer
         .write(
             "test.txt",
@@ -141,9 +148,9 @@ fn list_deltas_from_flushed_session() {
             }],
         )
         .unwrap();
-    let session = gb_repository.flush(&project_repository, None).unwrap();
+    let session = gb_repository.flush(project_repository, None).unwrap();
 
-    let session_reader = sessions::Reader::open(&gb_repository, &session.unwrap()).unwrap();
+    let session_reader = sessions::Reader::open(gb_repository, &session.unwrap()).unwrap();
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read(None).unwrap();
 
@@ -160,13 +167,14 @@ fn list_deltas_from_flushed_session() {
 
 #[test]
 fn list_files_from_current_session() {
-    let Case { gb_repository, .. } = Suite::default().new_case_with_files(HashMap::from([(
+    let suite = Suite::default();
+    let Case { gb_repository, .. } = &suite.new_case_with_files(HashMap::from([(
         path::PathBuf::from("test.txt"),
         "Hello World",
     )]));
 
     let current = gb_repository.get_or_create_current_session().unwrap();
-    let reader = sessions::Reader::open(&gb_repository, &current).unwrap();
+    let reader = sessions::Reader::open(gb_repository, &current).unwrap();
     let files = reader.files(None).unwrap();
 
     assert_eq!(files.len(), 1);
@@ -178,21 +186,22 @@ fn list_files_from_current_session() {
 
 #[test]
 fn list_files_from_flushed_session() {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project_repository,
         ..
-    } = Suite::default().new_case_with_files(HashMap::from([(
+    } = &suite.new_case_with_files(HashMap::from([(
         path::PathBuf::from("test.txt"),
         "Hello World",
     )]));
 
     gb_repository.get_or_create_current_session().unwrap();
     let session = gb_repository
-        .flush(&project_repository, None)
+        .flush(project_repository, None)
         .unwrap()
         .unwrap();
-    let reader = sessions::Reader::open(&gb_repository, &session).unwrap();
+    let reader = sessions::Reader::open(gb_repository, &session).unwrap();
     let files = reader.files(None).unwrap();
 
     assert_eq!(files.len(), 1);
@@ -205,7 +214,7 @@ fn list_files_from_flushed_session() {
 #[tokio::test]
 async fn remote_syncronization() {
     // first, crate a remote, pretending it's a cloud
-    let cloud = new_test_remote_repository().unwrap();
+    let (cloud, _tmp) = new_test_remote_repository().unwrap();
     let api_project = ApiProject {
         name: "test-sync".to_string(),
         description: None,
@@ -300,7 +309,7 @@ async fn remote_syncronization() {
 #[tokio::test]
 async fn remote_sync_order() {
     // first, crate a remote, pretending it's a cloud
-    let cloud = new_test_remote_repository().unwrap();
+    let (cloud, _tmp) = new_test_remote_repository().unwrap();
     let api_project = projects::ApiProject {
         name: "test-sync".to_string(),
         description: None,
@@ -422,11 +431,12 @@ async fn remote_sync_order() {
 
 #[test]
 fn gitbutler_file() {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let session = gb_repository.get_or_create_current_session().unwrap();
 

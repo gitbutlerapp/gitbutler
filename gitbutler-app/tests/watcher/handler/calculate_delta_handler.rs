@@ -84,14 +84,14 @@ fn register_existing_commited_file() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
+    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
     let listener = Handler::from_path(&suite.local_app_data);
 
     std::fs::write(project.path.join("test.txt"), "test2")?;
     listener.handle("test.txt", &project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
-    let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+    let session_reader = sessions::Reader::open(gb_repository, &session)?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read_file("test.txt")?.unwrap();
     assert_eq!(deltas.len(), 1);
@@ -115,7 +115,7 @@ fn register_must_init_current_session() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     std::fs::write(project.path.join("test.txt"), "test")?;
@@ -133,7 +133,7 @@ fn register_must_not_override_current_session() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     std::fs::write(project.path.join("test.txt"), "test")?;
@@ -156,7 +156,7 @@ fn register_binfile() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     std::fs::write(
@@ -167,7 +167,7 @@ fn register_binfile() -> Result<()> {
     listener.handle("test.bin", &project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
-    let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+    let session_reader = sessions::Reader::open(gb_repository, &session)?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read_file("test.bin")?.unwrap();
 
@@ -188,7 +188,7 @@ fn register_empty_new_file() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     std::fs::write(project.path.join("test.txt"), "")?;
@@ -196,7 +196,7 @@ fn register_empty_new_file() -> Result<()> {
     listener.handle("test.txt", &project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
-    let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+    let session_reader = sessions::Reader::open(gb_repository, &session)?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read_file("test.txt")?.unwrap();
     assert_eq!(deltas.len(), 1);
@@ -216,7 +216,7 @@ fn register_new_file() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     std::fs::write(project.path.join("test.txt"), "test")?;
@@ -224,7 +224,7 @@ fn register_new_file() -> Result<()> {
     listener.handle("test.txt", &project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
-    let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+    let session_reader = sessions::Reader::open(gb_repository, &session)?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read_file("test.txt")?.unwrap();
     assert_eq!(deltas.len(), 1);
@@ -249,7 +249,7 @@ fn register_no_changes_saved_thgoughout_flushes() -> Result<()> {
         project_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     // file change, wd and deltas are written
@@ -257,13 +257,13 @@ fn register_no_changes_saved_thgoughout_flushes() -> Result<()> {
     listener.handle("test.txt", &project.id)?;
 
     // make two more sessions.
-    gb_repository.flush(&project_repository, None)?;
+    gb_repository.flush(project_repository, None)?;
     gb_repository.get_or_create_current_session()?;
-    gb_repository.flush(&project_repository, None)?;
+    gb_repository.flush(project_repository, None)?;
 
     // after some sessions, files from the first change are still there.
     let session = gb_repository.get_or_create_current_session()?;
-    let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+    let session_reader = sessions::Reader::open(gb_repository, &session)?;
     let files = session_reader.files(None)?;
     assert_eq!(files.len(), 1);
 
@@ -277,14 +277,14 @@ fn register_new_file_twice() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     std::fs::write(project.path.join("test.txt"), "test")?;
     listener.handle("test.txt", &project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
-    let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+    let session_reader = sessions::Reader::open(gb_repository, &session)?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read_file("test.txt")?.unwrap();
     assert_eq!(deltas.len(), 1);
@@ -329,7 +329,7 @@ fn register_file_deleted() -> Result<()> {
         project_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     {
@@ -341,7 +341,7 @@ fn register_file_deleted() -> Result<()> {
     {
         // current session must have the deltas, but not the file (it didn't exist)
         let session = gb_repository.get_current_session()?.unwrap();
-        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+        let session_reader = sessions::Reader::open(gb_repository, &session)?;
         let deltas_reader = deltas::Reader::new(&session_reader);
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
         assert_eq!(deltas.len(), 1);
@@ -359,12 +359,12 @@ fn register_file_deleted() -> Result<()> {
         assert!(files.is_empty());
     }
 
-    gb_repository.flush(&project_repository, None)?;
+    gb_repository.flush(project_repository, None)?;
 
     {
         // file should be available in the next session, but not deltas just yet.
         let session = gb_repository.get_or_create_current_session()?;
-        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+        let session_reader = sessions::Reader::open(gb_repository, &session)?;
         let files = session_reader.files(None).unwrap();
         assert_eq!(files.len(), 1);
         assert_eq!(
@@ -387,12 +387,12 @@ fn register_file_deleted() -> Result<()> {
         assert_eq!(deltas[0].operations[0], Operation::Delete((0, 4)),);
     }
 
-    gb_repository.flush(&project_repository, None)?;
+    gb_repository.flush(project_repository, None)?;
 
     {
         // since file was deleted in the previous session, it should not exist in the new one.
         let session = gb_repository.get_or_create_current_session()?;
-        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+        let session_reader = sessions::Reader::open(gb_repository, &session)?;
         let files = session_reader.files(None).unwrap();
         assert!(files.is_empty());
     }
@@ -408,7 +408,7 @@ fn flow_with_commits() -> Result<()> {
         project,
         project_repository,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     let size = 10;
@@ -423,7 +423,7 @@ fn flow_with_commits() -> Result<()> {
 
         commit_all(&project_repository.git_repository);
         listener.handle(relative_file_path, &project.id)?;
-        assert!(gb_repository.flush(&project_repository, None)?.is_some());
+        assert!(gb_repository.flush(project_repository, None)?.is_some());
     }
 
     // get all the created sessions
@@ -450,7 +450,7 @@ fn flow_with_commits() -> Result<()> {
         // collect all operations from sessions in the reverse order
         let mut operations: Vec<Operation> = vec![];
         for session in &mut *sessions_slice {
-            let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
+            let session_reader = sessions::Reader::open(gb_repository, session).unwrap();
             let deltas_reader = deltas::Reader::new(&session_reader);
             let deltas_by_filepath = deltas_reader.read(None).unwrap();
             for deltas in deltas_by_filepath.values() {
@@ -463,7 +463,7 @@ fn flow_with_commits() -> Result<()> {
         }
 
         let reader =
-            sessions::Reader::open(&gb_repository, sessions_slice.first().unwrap()).unwrap();
+            sessions::Reader::open(gb_repository, sessions_slice.first().unwrap()).unwrap();
         let files = reader.files(None).unwrap();
 
         if i == 0 {
@@ -495,7 +495,7 @@ fn flow_no_commits() -> Result<()> {
         project,
         project_repository,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     let size = 10;
@@ -509,7 +509,7 @@ fn flow_no_commits() -> Result<()> {
         )?;
 
         listener.handle(relative_file_path, &project.id)?;
-        assert!(gb_repository.flush(&project_repository, None)?.is_some());
+        assert!(gb_repository.flush(project_repository, None)?.is_some());
     }
 
     // get all the created sessions
@@ -536,7 +536,7 @@ fn flow_no_commits() -> Result<()> {
         // collect all operations from sessions in the reverse order
         let mut operations: Vec<Operation> = vec![];
         for session in &mut *sessions_slice {
-            let session_reader = sessions::Reader::open(&gb_repository, session).unwrap();
+            let session_reader = sessions::Reader::open(gb_repository, session).unwrap();
             let deltas_reader = deltas::Reader::new(&session_reader);
             let deltas_by_filepath = deltas_reader.read(None).unwrap();
             for deltas in deltas_by_filepath.values() {
@@ -549,7 +549,7 @@ fn flow_no_commits() -> Result<()> {
         }
 
         let reader =
-            sessions::Reader::open(&gb_repository, sessions_slice.first().unwrap()).unwrap();
+            sessions::Reader::open(gb_repository, sessions_slice.first().unwrap()).unwrap();
         let files = reader.files(None).unwrap();
 
         if i == 0 {
@@ -580,7 +580,7 @@ fn flow_signle_session() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     let size = 10_i32;
@@ -599,7 +599,7 @@ fn flow_signle_session() -> Result<()> {
     // collect all operations from sessions in the reverse order
     let mut operations: Vec<Operation> = vec![];
     let session = gb_repository.get_current_session()?.unwrap();
-    let session_reader = sessions::Reader::open(&gb_repository, &session).unwrap();
+    let session_reader = sessions::Reader::open(gb_repository, &session).unwrap();
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas_by_filepath = deltas_reader.read(None).unwrap();
     for deltas in deltas_by_filepath.values() {
@@ -610,7 +610,7 @@ fn flow_signle_session() -> Result<()> {
         }
     }
 
-    let reader = sessions::Reader::open(&gb_repository, &session).unwrap();
+    let reader = sessions::Reader::open(gb_repository, &session).unwrap();
     let files = reader.files(None).unwrap();
 
     let base_file = files.get(&relative_file_path.to_path_buf());
@@ -635,11 +635,11 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
         project,
         project_repository,
         ..
-    } = suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
+    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
     let listener = Handler::from_path(&suite.local_app_data);
 
-    let branch_writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
-    let target_writer = virtual_branches::target::Writer::new(&gb_repository, project.gb_dir())?;
+    let branch_writer = branch::Writer::new(gb_repository, project.gb_dir())?;
+    let target_writer = virtual_branches::target::Writer::new(gb_repository, project.gb_dir())?;
     let default_target = new_test_target();
     target_writer.write_default(&default_target)?;
     let mut vbranch0 = new_test_branch();
@@ -652,14 +652,14 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
     std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
     listener.handle("test.txt", &project.id)?;
 
-    let flushed_session = gb_repository.flush(&project_repository, None).unwrap();
+    let flushed_session = gb_repository.flush(project_repository, None).unwrap();
 
     // create a new session
     let session = gb_repository.get_or_create_current_session().unwrap();
     assert_ne!(session.id, flushed_session.unwrap().id);
 
     // ensure that the virtual branch is still there and selected
-    let session_reader = sessions::Reader::open(&gb_repository, &session).unwrap();
+    let session_reader = sessions::Reader::open(gb_repository, &session).unwrap();
 
     let branches = virtual_branches::Iterator::new(&session_reader)
         .unwrap()
@@ -688,11 +688,11 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
         project,
         project_repository,
         ..
-    } = suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
+    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
     let listener = Handler::from_path(&suite.local_app_data);
 
-    let branch_writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
-    let target_writer = virtual_branches::target::Writer::new(&gb_repository, project.gb_dir())?;
+    let branch_writer = branch::Writer::new(gb_repository, project.gb_dir())?;
+    let target_writer = virtual_branches::target::Writer::new(gb_repository, project.gb_dir())?;
     let default_target = new_test_target();
     target_writer.write_default(&default_target)?;
     let mut vbranch0 = new_test_branch();
@@ -705,7 +705,7 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
     std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
     listener.handle("test.txt", &project.id).unwrap();
 
-    let flushed_session = gb_repository.flush(&project_repository, None).unwrap();
+    let flushed_session = gb_repository.flush(project_repository, None).unwrap();
 
     // hard delete branches state from disk
     std::fs::remove_dir_all(gb_repository.root()).unwrap();
@@ -715,7 +715,7 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
     assert_ne!(session.id, flushed_session.unwrap().id);
 
     // ensure that the virtual branch is still there and selected
-    let session_reader = sessions::Reader::open(&gb_repository, &session).unwrap();
+    let session_reader = sessions::Reader::open(gb_repository, &session).unwrap();
 
     let branches = virtual_branches::Iterator::new(&session_reader)
         .unwrap()
@@ -747,7 +747,7 @@ mod flush_wd {
             project,
             project_repository,
             ..
-        } = suite.new_case();
+        } = &suite.new_case();
         let listener = Handler::from_path(&suite.local_app_data);
 
         // write a file into session
@@ -755,7 +755,7 @@ mod flush_wd {
         listener.handle("test.txt", &project.id).unwrap();
 
         let flushed_session = gb_repository
-            .flush(&project_repository, None)
+            .flush(project_repository, None)
             .unwrap()
             .unwrap();
         {
@@ -783,7 +783,7 @@ mod flush_wd {
         listener.handle("one/two/test2.txt", &project.id).unwrap();
 
         let flushed_session = gb_repository
-            .flush(&project_repository, None)
+            .flush(project_repository, None)
             .unwrap()
             .unwrap();
         {
@@ -820,7 +820,7 @@ mod flush_wd {
             project,
             project_repository,
             ..
-        } = suite.new_case();
+        } = &suite.new_case();
         let listener = Handler::from_path(&suite.local_app_data);
 
         // write a file into session
@@ -831,7 +831,7 @@ mod flush_wd {
         listener.handle("one/two/test2.txt", &project.id).unwrap();
 
         let flushed_session = gb_repository
-            .flush(&project_repository, None)
+            .flush(project_repository, None)
             .unwrap()
             .unwrap();
         {
@@ -866,7 +866,7 @@ mod flush_wd {
         listener.handle("one/two/test2.txt", &project.id).unwrap();
 
         let flushed_session = gb_repository
-            .flush(&project_repository, None)
+            .flush(project_repository, None)
             .unwrap()
             .unwrap();
         {
@@ -893,7 +893,7 @@ mod flush_wd {
             project,
             project_repository,
             ..
-        } = suite.new_case();
+        } = &suite.new_case();
         let listener = Handler::from_path(&suite.local_app_data);
 
         // write a file into session
@@ -904,7 +904,7 @@ mod flush_wd {
         listener.handle("one/two/test2.txt", &project.id).unwrap();
 
         let flushed_session = gb_repository
-            .flush(&project_repository, None)
+            .flush(project_repository, None)
             .unwrap()
             .unwrap();
         {
@@ -940,7 +940,7 @@ mod flush_wd {
         listener.handle("one/two/test2.txt", &project.id).unwrap();
 
         let flushed_session = gb_repository
-            .flush(&project_repository, None)
+            .flush(project_repository, None)
             .unwrap()
             .unwrap();
         {

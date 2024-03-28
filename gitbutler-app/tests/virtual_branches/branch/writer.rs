@@ -59,15 +59,16 @@ fn new_test_branch() -> Branch {
 
 #[test]
 fn write_branch() -> anyhow::Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let mut branch = new_test_branch();
 
-    let writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
+    let writer = branch::Writer::new(gb_repository, project.gb_dir())?;
     writer.write(&mut branch)?;
 
     let root = gb_repository
@@ -124,15 +125,16 @@ fn write_branch() -> anyhow::Result<()> {
 
 #[test]
 fn should_create_session() -> anyhow::Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let mut branch = new_test_branch();
 
-    let writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
+    let writer = branch::Writer::new(gb_repository, project.gb_dir())?;
     writer.write(&mut branch)?;
 
     assert!(gb_repository.get_current_session()?.is_some());
@@ -142,15 +144,16 @@ fn should_create_session() -> anyhow::Result<()> {
 
 #[test]
 fn should_update() -> anyhow::Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let mut branch = new_test_branch();
 
-    let writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
+    let writer = branch::Writer::new(gb_repository, project.gb_dir())?;
     writer.write(&mut branch)?;
 
     let mut updated_branch = Branch {

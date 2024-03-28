@@ -15,13 +15,13 @@ fn flush_session() -> Result<()> {
         project,
         gb_repository,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
 
     assert!(gb_repository.get_current_session()?.is_none());
-    create_new_session_via_new_file(&project, &suite);
+    create_new_session_via_new_file(project, &suite);
     assert!(gb_repository.get_current_session()?.is_some());
 
-    let listener = Handler::new(suite.local_app_data, suite.projects, suite.users);
+    let listener = Handler::new(suite.local_app_data().into(), suite.projects, suite.users);
 
     let flush_file_path = project.path.join(".git/GB_FLUSH");
     fs::write(flush_file_path.as_path(), "")?;
@@ -43,13 +43,13 @@ fn do_not_flush_session_if_file_is_missing() -> Result<()> {
         project,
         gb_repository,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
 
     assert!(gb_repository.get_current_session()?.is_none());
-    create_new_session_via_new_file(&project, &suite);
+    create_new_session_via_new_file(project, &suite);
     assert!(gb_repository.get_current_session()?.is_some());
 
-    let listener = Handler::new(suite.local_app_data, suite.projects, suite.users);
+    let listener = Handler::new(suite.local_app_data().into(), suite.projects, suite.users);
 
     let result = listener.handle("GB_FLUSH", &project.id)?;
 
@@ -71,9 +71,9 @@ fn create_new_session_via_new_file(project: &projects::Project, suite: &Suite) {
 #[test]
 fn flush_deletes_flush_file_without_session_to_flush() -> Result<()> {
     let suite = Suite::default();
-    let Case { project, .. } = suite.new_case();
+    let Case { project, .. } = &suite.new_case();
 
-    let listener = Handler::new(suite.local_app_data, suite.projects, suite.users);
+    let listener = Handler::new(suite.local_app_data().into(), suite.projects, suite.users);
 
     let flush_file_path = project.path.join(".git/GB_FLUSH");
     fs::write(flush_file_path.as_path(), "")?;

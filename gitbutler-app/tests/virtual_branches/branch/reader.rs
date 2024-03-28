@@ -59,10 +59,11 @@ fn test_branch() -> Branch {
 
 #[test]
 fn read_not_found() -> Result<()> {
-    let Case { gb_repository, .. } = Suite::default().new_case();
+    let suite = Suite::default();
+    let Case { gb_repository, .. } = &suite.new_case();
 
     let session = gb_repository.get_or_create_current_session()?;
-    let session_reader = gitbutler_app::sessions::Reader::open(&gb_repository, &session)?;
+    let session_reader = gitbutler_app::sessions::Reader::open(gb_repository, &session)?;
 
     let reader = branch::Reader::new(&session_reader);
     let result = reader.read(&BranchId::generate());
@@ -74,19 +75,20 @@ fn read_not_found() -> Result<()> {
 
 #[test]
 fn read_override() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let mut branch = test_branch();
 
-    let writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
+    let writer = branch::Writer::new(gb_repository, project.gb_dir())?;
     writer.write(&mut branch)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
-    let session_reader = gitbutler_app::sessions::Reader::open(&gb_repository, &session)?;
+    let session_reader = gitbutler_app::sessions::Reader::open(gb_repository, &session)?;
 
     let reader = branch::Reader::new(&session_reader);
 

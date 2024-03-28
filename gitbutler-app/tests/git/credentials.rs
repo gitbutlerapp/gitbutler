@@ -26,7 +26,7 @@ impl TestCase<'_> {
         let keys = keys::Controller::from_path(&local_app_data);
         let helper = Helper::new(keys, users, self.home_dir.clone());
 
-        let repo = test_repository();
+        let (repo, _tmp) = test_repository();
         repo.remote(
             "origin",
             &self.remote_url.parse().expect("failed to parse remote url"),

@@ -21,7 +21,7 @@ mod controller {
             assert_eq!(once, twice);
 
             // check permissions of the private key
-            let permissions = fs::metadata(suite.local_app_data.join("keys/ed25519"))
+            let permissions = fs::metadata(suite.local_app_data().join("keys/ed25519"))
                 .unwrap()
                 .permissions();
             let perms = format!("{:o}", permissions.mode());
