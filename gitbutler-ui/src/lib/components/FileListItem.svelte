@@ -90,6 +90,7 @@
 		use:draggable={{
 			data: new DraggableFile($branch?.id || '', file, selectedFiles),
 			disabled: readonly || isUnapplied,
+			viewportId: 'board-viewport',
 			selector: '.selected-draggable'
 		}}
 		role="button"
@@ -137,7 +138,7 @@
 		user-select: none;
 		outline: none;
 		background: var(--clr-theme-container-light);
-		border: 1px solid var(--clr-theme-container-light);
+		border: 1px solid transparent;
 
 		&:not(.selected-draggable):hover {
 			background-color: color-mix(
@@ -187,7 +188,8 @@
 	}
 
 	.selected-draggable {
-		background-color: var(--clr-scale-pop-80);
+		background-color: var(--clr-theme-scale-pop-80);
+		border: 1px solid var(--clr-theme-container-light);
 
 		&:hover {
 			background-color: color-mix(
