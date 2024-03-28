@@ -13,6 +13,36 @@ use gitbutler_app::{
     sessions::{self, SessionId},
 };
 
+mod repository {
+    use std::path::PathBuf;
+
+    use crate::{Case, Suite};
+    use anyhow::Result;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn alternates_file_being_set() -> Result<()> {
+        let Case {
+            gb_repository,
+            project_repository,
+            ..
+        } = Suite::default().new_case();
+
+        let file_content = std::fs::read_to_string(
+            gb_repository
+                .git_repository_path()
+                .join("objects/info/alternates"),
+        )?;
+
+        let file_content = PathBuf::from(file_content.trim());
+        let project_path = project_repository.path().to_path_buf().join(".git/objects");
+
+        assert_eq!(file_content, project_path);
+
+        Ok(())
+    }
+}
+
 fn new_test_remote_repository() -> Result<git2::Repository> {
     let path = tempfile::tempdir()?.path().to_str().unwrap().to_string();
     let repo_a = git2::Repository::init_opts(path, &init_opts_bare())?;
