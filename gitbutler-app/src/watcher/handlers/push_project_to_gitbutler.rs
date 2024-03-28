@@ -17,7 +17,7 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    inner: Arc<Mutex<HandlerInner>>,
+    inner: Arc<Mutex<State>>,
 }
 
 impl TryFrom<&AppHandle> for Handler {
@@ -29,8 +29,7 @@ impl TryFrom<&AppHandle> for Handler {
         } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
             let projects = value.state::<projects::Controller>().inner().clone();
             let users = value.state::<users::Controller>().inner().clone();
-            let inner = HandlerInner::new(app_data_dir, projects, users);
-            let handler = Handler::new(inner);
+            let handler = Handler::new(app_data_dir, projects, users, 1000);
             value.manage(handler.clone());
             Ok(handler)
         } else {
@@ -40,44 +39,32 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    fn new(inner: HandlerInner) -> Self {
+    pub fn new(
+        local_data_dir: path::PathBuf,
+        project_store: projects::Controller,
+        users: users::Controller,
+        batch_size: usize,
+    ) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(inner)),
+            inner: Arc::new(Mutex::new(State {
+                local_data_dir,
+                project_store,
+                users,
+                batch_size,
+            })),
         }
     }
 
     pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
-        if let Ok(inner) = self.inner.try_lock() {
-            inner.handle(project_id).await
+        if let Ok(state) = self.inner.try_lock() {
+            Self::handle_inner(&state, project_id).await
         } else {
             Ok(vec![])
         }
     }
-}
 
-pub struct HandlerInner {
-    local_data_dir: path::PathBuf,
-    project_store: projects::Controller,
-    users: users::Controller,
-    batch_size: usize,
-}
-
-impl HandlerInner {
-    fn new(
-        local_data_dir: path::PathBuf,
-        project_store: projects::Controller,
-        users: users::Controller,
-    ) -> Self {
-        Self {
-            local_data_dir,
-            project_store,
-            users,
-            batch_size: 1000,
-        }
-    }
-
-    pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
-        let project = self
+    async fn handle_inner(state: &State, project_id: &ProjectId) -> Result<Vec<events::Event>> {
+        let project = state
             .project_store
             .get(project_id)
             .context("failed to get project")?;
@@ -86,7 +73,7 @@ impl HandlerInner {
             return Ok(vec![]);
         }
 
-        let user = self.users.get_user()?;
+        let user = state.users.get_user()?;
         let project_repository =
             project_repository::Repository::open(&project).context("failed to open repository")?;
 
@@ -97,7 +84,7 @@ impl HandlerInner {
             .copied();
 
         let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
+            &state.local_data_dir,
             &project_repository,
             user.as_ref(),
         )?;
@@ -111,15 +98,15 @@ impl HandlerInner {
             .unwrap_or_default();
 
         if target_changed {
-            match self
-                .push_target(
-                    &project_repository,
-                    &default_target,
-                    gb_code_last_commit,
-                    project_id,
-                    &user,
-                )
-                .await
+            match Self::push_target(
+                state,
+                &project_repository,
+                &default_target,
+                gb_code_last_commit,
+                project_id,
+                &user,
+            )
+            .await
             {
                 Ok(()) => {}
                 Err(project_repository::RemoteError::Network) => return Ok(vec![]),
@@ -134,13 +121,13 @@ impl HandlerInner {
         };
 
         // make sure last push time is updated
-        self.update_project(project_id, &default_target.sha).await?;
+        Self::update_project(state, project_id, &default_target.sha).await?;
 
         Ok(vec![])
     }
 
     async fn push_target(
-        &self,
+        state: &State,
         project_repository: &project_repository::Repository,
         default_target: &crate::virtual_branches::target::Target,
         gb_code_last_commit: Option<Oid>,
@@ -149,7 +136,7 @@ impl HandlerInner {
     ) -> Result<(), project_repository::RemoteError> {
         let ids = batch_rev_walk(
             &project_repository.git_repository,
-            self.batch_size,
+            state.batch_size,
             default_target.sha,
             gb_code_last_commit,
         )?;
@@ -167,7 +154,7 @@ impl HandlerInner {
 
             project_repository.push_to_gitbutler_server(user.as_ref(), &[&refspec])?;
 
-            self.update_project(project_id, id).await?;
+            Self::update_project(state, project_id, id).await?;
 
             tracing::info!(
                 %project_id,
@@ -193,11 +180,12 @@ impl HandlerInner {
     }
 
     async fn update_project(
-        &self,
+        state: &State,
         project_id: &crate::id::Id<projects::Project>,
         id: &Oid,
     ) -> Result<(), project_repository::RemoteError> {
-        self.project_store
+        state
+            .project_store
             .update(&projects::UpdateRequest {
                 id: *project_id,
                 gitbutler_code_push_state: Some(CodePushState {
@@ -211,6 +199,13 @@ impl HandlerInner {
 
         Ok(())
     }
+}
+
+struct State {
+    local_data_dir: path::PathBuf,
+    project_store: projects::Controller,
+    users: users::Controller,
+    batch_size: usize,
 }
 
 fn push_all_refs(
@@ -284,422 +279,4 @@ fn batch_rev_walk(
         }
     }
     Ok(oids)
-}
-
-#[cfg(test)]
-mod test {
-    use std::collections::HashMap;
-    use std::path::PathBuf;
-
-    use crate::project_repository::LogUntil;
-    use crate::tests::{Case, Suite};
-    use crate::virtual_branches::set_test_target;
-
-    use super::super::test_remote_repository;
-    use super::*;
-
-    fn log_walk(repo: &git2::Repository, head: git::Oid) -> Vec<git::Oid> {
-        let mut walker = repo.revwalk().unwrap();
-        walker.push(head.into()).unwrap();
-        walker.map(|oid| oid.unwrap().into()).collect::<Vec<_>>()
-    }
-
-    #[tokio::test]
-    async fn test_push_error() -> Result<()> {
-        let suite = Suite::default();
-        let Case { project, .. } = suite.new_case();
-
-        let api_project = projects::ApiProject {
-            name: "test-sync".to_string(),
-            description: None,
-            repository_id: "123".to_string(),
-            git_url: String::new(),
-            code_git_url: Some(String::new()),
-            created_at: 0_i32.to_string(),
-            updated_at: 0_i32.to_string(),
-            sync: true,
-        };
-
-        suite
-            .projects
-            .update(&projects::UpdateRequest {
-                id: project.id,
-                api: Some(api_project.clone()),
-                ..Default::default()
-            })
-            .await?;
-
-        let listener = HandlerInner {
-            local_data_dir: suite.local_app_data,
-            project_store: suite.projects,
-            users: suite.users,
-            batch_size: 100,
-        };
-
-        let res = listener.handle(&project.id).await;
-
-        res.unwrap_err();
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_push_simple() -> Result<()> {
-        let suite = Suite::default();
-        let Case {
-            project,
-            gb_repository,
-            project_repository,
-            ..
-        } = suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
-
-        suite.sign_in();
-
-        set_test_target(&gb_repository, &project_repository).unwrap();
-
-        let target_id = gb_repository.default_target().unwrap().unwrap().sha;
-
-        let reference = project_repository.l(target_id, LogUntil::End).unwrap();
-
-        let cloud_code = test_remote_repository()?;
-
-        let api_project = projects::ApiProject {
-            name: "test-sync".to_string(),
-            description: None,
-            repository_id: "123".to_string(),
-            git_url: String::new(),
-            code_git_url: Some(cloud_code.path().to_str().unwrap().to_string()),
-            created_at: 0_i32.to_string(),
-            updated_at: 0_i32.to_string(),
-            sync: true,
-        };
-
-        suite
-            .projects
-            .update(&projects::UpdateRequest {
-                id: project.id,
-                api: Some(api_project.clone()),
-                ..Default::default()
-            })
-            .await?;
-
-        cloud_code.find_commit(target_id.into()).unwrap_err();
-
-        {
-            let listener = HandlerInner {
-                local_data_dir: suite.local_app_data,
-                project_store: suite.projects.clone(),
-                users: suite.users,
-                batch_size: 10,
-            };
-
-            let res = listener.handle(&project.id).await.unwrap();
-            assert!(res.is_empty());
-        }
-
-        cloud_code.find_commit(target_id.into()).unwrap();
-
-        let pushed = log_walk(&cloud_code, target_id);
-        assert_eq!(reference.len(), pushed.len());
-        assert_eq!(reference, pushed);
-
-        assert_eq!(
-            suite
-                .projects
-                .get(&project.id)
-                .unwrap()
-                .gitbutler_code_push_state
-                .unwrap()
-                .id,
-            target_id
-        );
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_push_remote_ref() -> Result<()> {
-        let suite = Suite::default();
-        let Case {
-            project,
-            gb_repository,
-            project_repository,
-            ..
-        } = suite.new_case();
-
-        suite.sign_in();
-
-        set_test_target(&gb_repository, &project_repository).unwrap();
-
-        let cloud_code: git::Repository = test_remote_repository()?.into();
-
-        let remote_repo: git::Repository = test_remote_repository()?.into();
-
-        let last_commit = create_initial_commit(&remote_repo);
-
-        remote_repo
-            .reference(
-                &git::Refname::Local(git::LocalRefname::new("refs/heads/testbranch", None)),
-                last_commit,
-                false,
-                "",
-            )
-            .unwrap();
-
-        let mut remote = project_repository
-            .git_repository
-            .remote("tr", &remote_repo.path().to_str().unwrap().parse().unwrap())
-            .unwrap();
-
-        remote
-            .fetch(&["+refs/heads/*:refs/remotes/tr/*"], None)
-            .unwrap();
-
-        project_repository
-            .git_repository
-            .find_commit(last_commit)
-            .unwrap();
-
-        let api_project = projects::ApiProject {
-            name: "test-sync".to_string(),
-            description: None,
-            repository_id: "123".to_string(),
-            git_url: String::new(),
-            code_git_url: Some(cloud_code.path().to_str().unwrap().to_string()),
-            created_at: 0_i32.to_string(),
-            updated_at: 0_i32.to_string(),
-            sync: true,
-        };
-
-        suite
-            .projects
-            .update(&projects::UpdateRequest {
-                id: project.id,
-                api: Some(api_project.clone()),
-                ..Default::default()
-            })
-            .await?;
-
-        {
-            let listener = HandlerInner {
-                local_data_dir: suite.local_app_data,
-                project_store: suite.projects.clone(),
-                users: suite.users,
-                batch_size: 10,
-            };
-
-            listener.handle(&project.id).await.unwrap();
-        }
-
-        cloud_code.find_commit(last_commit).unwrap();
-
-        Ok(())
-    }
-
-    fn create_initial_commit(repo: &git::Repository) -> git::Oid {
-        let signature = git::Signature::now("test", "test@email.com").unwrap();
-
-        let mut index = repo.index().unwrap();
-        let oid = index.write_tree().unwrap();
-
-        repo.commit(
-            None,
-            &signature,
-            &signature,
-            "initial commit",
-            &repo.find_tree(oid).unwrap(),
-            &[],
-        )
-        .unwrap()
-    }
-
-    fn create_test_commits(repo: &git::Repository, commits: usize) -> git::Oid {
-        let signature = git::Signature::now("test", "test@email.com").unwrap();
-
-        let mut last = None;
-
-        for i in 0..commits {
-            let mut index = repo.index().unwrap();
-            let oid = index.write_tree().unwrap();
-            let head = repo.head().unwrap();
-
-            last = Some(
-                repo.commit(
-                    Some(&head.name().unwrap()),
-                    &signature,
-                    &signature,
-                    format!("commit {i}").as_str(),
-                    &repo.find_tree(oid).unwrap(),
-                    &[&repo
-                        .find_commit(repo.refname_to_id("HEAD").unwrap())
-                        .unwrap()],
-                )
-                .unwrap(),
-            );
-        }
-
-        last.unwrap()
-    }
-
-    #[tokio::test]
-    async fn test_push_batches() -> Result<()> {
-        let suite = Suite::default();
-        let Case {
-            project,
-            gb_repository,
-            project_repository,
-            ..
-        } = suite.new_case();
-
-        suite.sign_in();
-
-        {
-            let head: git::Oid = project_repository
-                .get_head()
-                .unwrap()
-                .peel_to_commit()
-                .unwrap()
-                .id();
-
-            let reference = project_repository.l(head, LogUntil::End).unwrap();
-            assert_eq!(reference.len(), 2);
-
-            let head = create_test_commits(&project_repository.git_repository, 10);
-
-            let reference = project_repository.l(head, LogUntil::End).unwrap();
-            assert_eq!(reference.len(), 12);
-        }
-
-        set_test_target(&gb_repository, &project_repository).unwrap();
-
-        let target_id = gb_repository.default_target().unwrap().unwrap().sha;
-
-        let reference = project_repository.l(target_id, LogUntil::End).unwrap();
-
-        let cloud_code = test_remote_repository()?;
-
-        let api_project = projects::ApiProject {
-            name: "test-sync".to_string(),
-            description: None,
-            repository_id: "123".to_string(),
-            git_url: String::new(),
-            code_git_url: Some(cloud_code.path().to_str().unwrap().to_string()),
-            created_at: 0_i32.to_string(),
-            updated_at: 0_i32.to_string(),
-            sync: true,
-        };
-
-        suite
-            .projects
-            .update(&projects::UpdateRequest {
-                id: project.id,
-                api: Some(api_project.clone()),
-                ..Default::default()
-            })
-            .await?;
-
-        {
-            let listener = HandlerInner {
-                local_data_dir: suite.local_app_data.clone(),
-                project_store: suite.projects.clone(),
-                users: suite.users.clone(),
-                batch_size: 2,
-            };
-
-            listener.handle(&project.id).await.unwrap();
-        }
-
-        cloud_code.find_commit(target_id.into()).unwrap();
-
-        let pushed = log_walk(&cloud_code, target_id);
-        assert_eq!(reference.len(), pushed.len());
-        assert_eq!(reference, pushed);
-
-        assert_eq!(
-            suite
-                .projects
-                .get(&project.id)
-                .unwrap()
-                .gitbutler_code_push_state
-                .unwrap()
-                .id,
-            target_id
-        );
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_push_again_no_change() -> Result<()> {
-        let suite = Suite::default();
-        let Case {
-            project,
-            gb_repository,
-            project_repository,
-            ..
-        } = suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
-
-        suite.sign_in();
-
-        set_test_target(&gb_repository, &project_repository).unwrap();
-
-        let target_id = gb_repository.default_target().unwrap().unwrap().sha;
-
-        let reference = project_repository.l(target_id, LogUntil::End).unwrap();
-
-        let cloud_code = test_remote_repository()?;
-
-        let api_project = projects::ApiProject {
-            name: "test-sync".to_string(),
-            description: None,
-            repository_id: "123".to_string(),
-            git_url: String::new(),
-            code_git_url: Some(cloud_code.path().to_str().unwrap().to_string()),
-            created_at: 0_i32.to_string(),
-            updated_at: 0_i32.to_string(),
-            sync: true,
-        };
-
-        suite
-            .projects
-            .update(&projects::UpdateRequest {
-                id: project.id,
-                api: Some(api_project.clone()),
-                ..Default::default()
-            })
-            .await?;
-
-        cloud_code.find_commit(target_id.into()).unwrap_err();
-
-        {
-            let listener = HandlerInner {
-                local_data_dir: suite.local_app_data,
-                project_store: suite.projects.clone(),
-                users: suite.users,
-                batch_size: 10,
-            };
-
-            let res = listener.handle(&project.id).await.unwrap();
-            assert!(res.is_empty());
-        }
-
-        cloud_code.find_commit(target_id.into()).unwrap();
-
-        let pushed = log_walk(&cloud_code, target_id);
-        assert_eq!(reference.len(), pushed.len());
-        assert_eq!(reference, pushed);
-
-        assert_eq!(
-            suite
-                .projects
-                .get(&project.id)
-                .unwrap()
-                .gitbutler_code_push_state
-                .unwrap()
-                .id,
-            target_id
-        );
-
-        Ok(())
-    }
 }

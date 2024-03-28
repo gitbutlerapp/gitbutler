@@ -1,11 +1,9 @@
+mod database;
+
 use anyhow::Result;
 
-use crate::{
-    sessions::{self, session::SessionId},
-    tests::{Case, Suite},
-};
-
-use super::Writer;
+use crate::{Case, Suite};
+use gitbutler_app::sessions::{self, session::SessionId};
 
 #[test]
 fn test_should_not_write_session_with_hash() {
@@ -22,7 +20,7 @@ fn test_should_not_write_session_with_hash() {
         },
     };
 
-    assert!(Writer::new(&gb_repository)
+    assert!(sessions::Writer::new(&gb_repository)
         .unwrap()
         .write(&session)
         .is_err());
@@ -43,7 +41,7 @@ fn test_should_write_full_session() -> Result<()> {
         },
     };
 
-    Writer::new(&gb_repository)?.write(&session)?;
+    sessions::Writer::new(&gb_repository)?.write(&session)?;
 
     assert_eq!(
         std::fs::read_to_string(gb_repository.session_path().join("meta/id"))?,
@@ -84,7 +82,7 @@ fn test_should_write_partial_session() -> Result<()> {
         },
     };
 
-    Writer::new(&gb_repository)?.write(&session)?;
+    sessions::Writer::new(&gb_repository)?.write(&session)?;
 
     assert_eq!(
         std::fs::read_to_string(gb_repository.session_path().join("meta/id"))?,

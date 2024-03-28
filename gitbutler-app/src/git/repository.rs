@@ -26,24 +26,18 @@ impl From<git2::Repository> for Repository {
 }
 
 impl Repository {
-    #[cfg(test)]
-    pub fn init_bare<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let inner = git2::Repository::init_opts(path, &crate::tests::init_opts_bare())?;
-        Ok(Repository(inner))
-    }
-
     pub fn init<P: AsRef<Path>>(path: P) -> Result<Self> {
         let inner = git2::Repository::init(path)?;
         Ok(Repository(inner))
     }
 
-    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let inner = git2::Repository::open(path)?;
+    pub fn init_opts<P: AsRef<Path>>(path: P, opts: &git2::RepositoryInitOptions) -> Result<Self> {
+        let inner = git2::Repository::init_opts(path, opts)?;
         Ok(Repository(inner))
     }
 
-    pub fn init_opts<P: AsRef<Path>>(path: P, opts: &git2::RepositoryInitOptions) -> Result<Self> {
-        let inner = git2::Repository::init_opts(path, opts)?;
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let inner = git2::Repository::open(path)?;
         Ok(Repository(inner))
     }
 

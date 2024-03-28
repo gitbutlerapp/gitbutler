@@ -1,7 +1,5 @@
-use crate::{
-    gb_repository, git, project_repository, projects,
-    tests::common::{paths, TestProject},
-};
+use crate::common::{paths, TestProject};
+use gitbutler_app::{gb_repository, git, project_repository, projects};
 use std::path;
 
 mod init {

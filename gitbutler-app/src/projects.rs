@@ -7,5 +7,4 @@ pub use controller::*;
 pub use project::{AuthKey, CodePushState, FetchResult, Project, ProjectId};
 pub use storage::UpdateRequest;
 
-#[cfg(test)]
 pub use project::ApiProject;

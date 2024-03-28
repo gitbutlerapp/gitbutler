@@ -142,7 +142,7 @@ pub struct CommitReader<'reader> {
 }
 
 impl<'reader> CommitReader<'reader> {
-    fn new(
+    pub fn new(
         repository: &'reader git::Repository,
         commit: &git::Commit<'reader>,
     ) -> Result<CommitReader<'reader>> {
@@ -177,7 +177,7 @@ impl<'reader> CommitReader<'reader> {
         Ok(Content::from(&blob))
     }
 
-    fn list_files<P: AsRef<Path>>(&self, dir_path: P) -> Result<Vec<PathBuf>> {
+    pub fn list_files<P: AsRef<Path>>(&self, dir_path: P) -> Result<Vec<PathBuf>> {
         let dir_path = dir_path.as_ref();
         let mut files = vec![];
         self.tree
@@ -204,7 +204,7 @@ impl<'reader> CommitReader<'reader> {
         Ok(files)
     }
 
-    fn exists<P: AsRef<Path>>(&self, file_path: P) -> bool {
+    pub fn exists<P: AsRef<Path>>(&self, file_path: P) -> bool {
         self.tree.get_path(file_path.normalize()).is_ok()
     }
 }
@@ -439,191 +439,5 @@ impl TryFrom<&Content> for bool {
     fn try_from(content: &Content) -> Result<Self, Self::Error> {
         let text: String = content.try_into()?;
         text.parse().map_err(FromError::ParseBool)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use anyhow::Result;
-
-    use crate::tests;
-
-    #[test]
-    fn test_directory_reader_read_file() -> Result<()> {
-        let dir = tests::temp_dir();
-
-        let file_path = Path::new("test.txt");
-        fs::write(dir.join(file_path), "test")?;
-
-        let reader = Reader::open(dir.clone())?;
-        assert_eq!(reader.read(file_path)?, Content::UTF8("test".to_string()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_commit_reader_read_file() -> Result<()> {
-        let repository = tests::test_repository();
-
-        let file_path = Path::new("test.txt");
-        fs::write(repository.path().parent().unwrap().join(file_path), "test")?;
-
-        let oid = tests::commit_all(&repository);
-
-        fs::write(repository.path().parent().unwrap().join(file_path), "test2")?;
-
-        let reader = Reader::from_commit(&repository, &repository.find_commit(oid)?)?;
-        assert_eq!(reader.read(file_path)?, Content::UTF8("test".to_string()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_reader_list_files_should_return_relative() -> Result<()> {
-        let dir = tests::temp_dir();
-
-        fs::write(dir.join("test1.txt"), "test")?;
-        fs::create_dir_all(dir.join("dir"))?;
-        fs::write(dir.join("dir").join("test.txt"), "test")?;
-
-        let reader = Reader::open(dir.clone())?;
-        let files = reader.list_files(Path::new("dir"))?;
-        assert_eq!(files.len(), 1);
-        assert!(files.contains(&Path::new("test.txt").to_path_buf()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_reader_list_files() -> Result<()> {
-        let dir = tests::temp_dir();
-
-        fs::write(dir.join("test.txt"), "test")?;
-        fs::create_dir_all(dir.join("dir"))?;
-        fs::write(dir.join("dir").join("test.txt"), "test")?;
-
-        let reader = Reader::open(dir.clone())?;
-        let files = reader.list_files(Path::new(""))?;
-        assert_eq!(files.len(), 2);
-        assert!(files.contains(&Path::new("test.txt").to_path_buf()));
-        assert!(files.contains(&Path::new("dir/test.txt").to_path_buf()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_commit_reader_list_files_should_return_relative() -> Result<()> {
-        let repository = tests::test_repository();
-
-        fs::write(
-            repository.path().parent().unwrap().join("test1.txt"),
-            "test",
-        )?;
-        fs::create_dir_all(repository.path().parent().unwrap().join("dir"))?;
-        fs::write(
-            repository
-                .path()
-                .parent()
-                .unwrap()
-                .join("dir")
-                .join("test.txt"),
-            "test",
-        )?;
-
-        let oid = tests::commit_all(&repository);
-
-        fs::remove_dir_all(repository.path().parent().unwrap().join("dir"))?;
-
-        let reader = CommitReader::new(&repository, &repository.find_commit(oid)?)?;
-        let files = reader.list_files(Path::new("dir"))?;
-        assert_eq!(files.len(), 1);
-        assert!(files.contains(&Path::new("test.txt").to_path_buf()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_commit_reader_list_files() -> Result<()> {
-        let repository = tests::test_repository();
-
-        fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
-        fs::create_dir_all(repository.path().parent().unwrap().join("dir"))?;
-        fs::write(
-            repository
-                .path()
-                .parent()
-                .unwrap()
-                .join("dir")
-                .join("test.txt"),
-            "test",
-        )?;
-
-        let oid = tests::commit_all(&repository);
-
-        fs::remove_dir_all(repository.path().parent().unwrap().join("dir"))?;
-
-        let reader = CommitReader::new(&repository, &repository.find_commit(oid)?)?;
-        let files = reader.list_files(Path::new(""))?;
-        assert_eq!(files.len(), 2);
-        assert!(files.contains(&Path::new("test.txt").to_path_buf()));
-        assert!(files.contains(&Path::new("dir/test.txt").to_path_buf()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_directory_reader_exists() -> Result<()> {
-        let dir = tests::temp_dir();
-
-        fs::write(dir.join("test.txt"), "test")?;
-
-        let reader = Reader::open(dir.clone())?;
-        assert!(reader.exists(Path::new("test.txt"))?);
-        assert!(!reader.exists(Path::new("test2.txt"))?);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_commit_reader_exists() -> Result<()> {
-        let repository = tests::test_repository();
-
-        fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
-
-        let oid = tests::commit_all(&repository);
-
-        fs::remove_file(repository.path().parent().unwrap().join("test.txt"))?;
-
-        let reader = CommitReader::new(&repository, &repository.find_commit(oid)?)?;
-        assert!(reader.exists(Path::new("test.txt")));
-        assert!(!reader.exists(Path::new("test2.txt")));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_from_bytes() {
-        for (bytes, expected) in [
-            ("test".as_bytes(), Content::UTF8("test".to_string())),
-            (&[0, 159, 146, 150, 159, 146, 150], Content::Binary),
-        ] {
-            assert_eq!(Content::from(bytes), expected);
-        }
-    }
-
-    #[test]
-    fn test_serialize_content() {
-        for (content, expected) in [
-            (
-                Content::UTF8("test".to_string()),
-                r#"{"type":"utf8","value":"test"}"#,
-            ),
-            (Content::Binary, r#"{"type":"binary"}"#),
-            (Content::Large, r#"{"type":"large"}"#),
-        ] {
-            assert_eq!(serde_json::to_string(&content).unwrap(), expected);
-        }
     }
 }

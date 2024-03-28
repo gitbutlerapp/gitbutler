@@ -1,7 +1,6 @@
-use crate::{
-    projects::Controller,
-    tests::common::{self, paths},
-};
+use gitbutler_app::projects::Controller;
+
+use crate::common::{self, paths};
 
 pub fn new() -> Controller {
     let data_dir = paths::data_dir();
@@ -22,7 +21,7 @@ mod add {
     }
 
     mod error {
-        use crate::projects::AddError;
+        use gitbutler_app::projects::AddError;
 
         use super::*;
 
