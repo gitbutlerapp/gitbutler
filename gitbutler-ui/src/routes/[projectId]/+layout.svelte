@@ -5,6 +5,7 @@
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
+	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -24,8 +25,7 @@
 		baseBranchService,
 		gbBranchActive$,
 		branchService,
-		branchController,
-		menuBarController
+		branchController
 	} = data);
 
 	$: branchesError = vbranchService.branchesError;
@@ -43,8 +43,6 @@
 
 	// Once on load and every time the project id changes
 	$: if (projectId) setupFetchInterval();
-
-	$: menuBarController.setProjectId(projectId);
 
 	// We need to setup the project if default target not set
 	$: if ($baseError instanceof NoDefaultTarget) {
@@ -65,10 +63,7 @@
 	onMount(() => {
 		const cloudSyncSubscription = hotkeys.on('Meta+Shift+S', () => syncToCloud(projectId));
 
-		return () => {
-			unsubscribe(cloudSyncSubscription)();
-			menuBarController.setProjectId(undefined);
-		};
+		return unsubscribe(cloudSyncSubscription);
 	});
 
 	onDestroy(() => clearFetchInterval());
@@ -76,6 +71,8 @@
 
 <!-- forces components to be recreated when projectId changes -->
 {#key projectId}
+	<ProjectSettingsMenuAction />
+
 	{#if !project}
 		<p>Project not found!</p>
 	{:else if $baseError instanceof NoDefaultTarget}
