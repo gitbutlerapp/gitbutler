@@ -13,44 +13,28 @@
     clippy::too_many_lines
 )]
 
-pub(crate) mod analytics;
-pub(crate) mod app;
-pub(crate) mod askpass;
-pub(crate) mod assets;
-pub(crate) mod commands;
-pub(crate) mod database;
-pub(crate) mod dedup;
-pub(crate) mod deltas;
-pub(crate) mod error;
-pub(crate) mod events;
-pub(crate) mod fs;
-pub(crate) mod gb_repository;
-pub(crate) mod git;
-pub(crate) mod github;
-pub(crate) mod id;
-pub(crate) mod keys;
-pub(crate) mod lock;
-pub(crate) mod logs;
-pub(crate) mod menu;
-pub(crate) mod path;
-pub(crate) mod project_repository;
-pub(crate) mod projects;
-pub(crate) mod reader;
-pub(crate) mod sentry;
-pub(crate) mod sessions;
-pub(crate) mod ssh;
-pub(crate) mod storage;
-pub(crate) mod types;
-pub(crate) mod users;
-pub(crate) mod virtual_branches;
-pub(crate) mod watcher;
+use gitbutler_app::analytics;
+use gitbutler_app::app;
+use gitbutler_app::askpass;
+use gitbutler_app::assets;
+use gitbutler_app::commands;
+use gitbutler_app::database;
+use gitbutler_app::deltas;
+use gitbutler_app::git;
+use gitbutler_app::github;
+use gitbutler_app::keys;
+use gitbutler_app::logs;
+use gitbutler_app::menu;
+use gitbutler_app::projects;
+use gitbutler_app::sentry;
+use gitbutler_app::sessions;
+use gitbutler_app::storage;
+use gitbutler_app::users;
+use gitbutler_app::virtual_branches;
+use gitbutler_app::watcher;
 #[cfg(target_os = "windows")]
-pub(crate) mod windows;
-pub(crate) mod writer;
-pub(crate) mod zip;
-
-#[cfg(test)]
-pub(crate) mod tests;
+use gitbutler_app::windows;
+use gitbutler_app::zip;
 
 use std::path::PathBuf;
 

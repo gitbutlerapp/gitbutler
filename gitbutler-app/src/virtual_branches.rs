@@ -8,7 +8,7 @@ pub mod errors;
 mod files;
 pub use files::*;
 
-mod integration;
+pub mod integration;
 pub use integration::GITBUTLER_INTEGRATION_REFERENCE;
 
 mod base;
@@ -21,11 +21,6 @@ pub mod commands;
 
 mod iterator;
 pub use iterator::BranchIterator as Iterator;
-
-#[cfg(test)]
-mod tests;
-#[cfg(test)]
-pub use tests::set_test_target;
 
 mod r#virtual;
 pub use r#virtual::*;

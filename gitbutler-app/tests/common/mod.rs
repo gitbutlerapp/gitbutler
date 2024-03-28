@@ -1,6 +1,6 @@
 #![allow(unused)]
-use crate::git;
-use crate::tests::init_opts;
+use crate::init_opts;
+use gitbutler_app::git;
 use std::{path, str::from_utf8};
 
 pub fn temp_dir() -> std::path::PathBuf {

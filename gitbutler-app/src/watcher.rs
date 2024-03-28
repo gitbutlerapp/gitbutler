@@ -1,6 +1,6 @@
 mod dispatchers;
 mod events;
-mod handlers;
+pub mod handlers;
 
 use std::{collections::HashMap, path, sync::Arc, time};
 

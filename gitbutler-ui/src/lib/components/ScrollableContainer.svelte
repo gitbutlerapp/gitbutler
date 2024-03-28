@@ -6,7 +6,7 @@
 	export let contents: HTMLDivElement | undefined = undefined;
 	export let height: string | undefined = undefined;
 	export let fillViewport: boolean = false;
-	export let maxHeight: number | undefined = undefined;
+	export let maxHeight: string | undefined = undefined;
 	export let scrollable: boolean | undefined = undefined;
 
 	export let scrolled = false;
@@ -26,7 +26,6 @@
 		observer = new ResizeObserver(() => {
 			if (viewport && contents) {
 				scrollable = viewport.offsetHeight < contents.offsetHeight;
-				maxHeight = contents.offsetHeight;
 			}
 		});
 		if (viewport) observer.observe(viewport);
@@ -40,6 +39,7 @@
 	class="scrollable"
 	class:scrolled={showBorderWhenScrolled && scrolled}
 	style:flex-grow={wide ? 1 : 0}
+	style:max-height={maxHeight}
 >
 	<div
 		bind:this={viewport}

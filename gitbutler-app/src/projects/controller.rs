@@ -26,7 +26,6 @@ impl Controller {
         }
     }
 
-    #[cfg(test)]
     pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Self {
         let pathbuf = path.as_ref().to_path_buf();
         Self {

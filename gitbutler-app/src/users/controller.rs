@@ -12,7 +12,6 @@ impl Controller {
         Controller { storage }
     }
 
-    #[cfg(test)]
     pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Controller {
         Controller::new(Storage::from_path(path))
     }

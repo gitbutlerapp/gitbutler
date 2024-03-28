@@ -25,6 +25,7 @@
 	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' = 'auto';
 	export let help = '';
 	export let width: number | undefined = undefined;
+	export let type: 'submit' | 'reset' | undefined = undefined;
 
 	export let element: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
 
@@ -61,6 +62,7 @@
 	disabled={disabled || loading}
 	on:click
 	on:mousedown
+	{type}
 	{id}
 	tabindex={notClickable ? -1 : tabindex}
 >

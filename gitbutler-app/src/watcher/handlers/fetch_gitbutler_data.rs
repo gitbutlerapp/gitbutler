@@ -10,7 +10,7 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    inner: Arc<Mutex<InnerHandler>>,
+    state: Arc<Mutex<State>>,
 }
 
 impl TryFrom<&AppHandle> for Handler {
@@ -22,8 +22,7 @@ impl TryFrom<&AppHandle> for Handler {
         } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
             let projects = value.state::<projects::Controller>().inner().clone();
             let users = value.state::<users::Controller>().inner().clone();
-            let inner = InnerHandler::new(app_data_dir, projects, users);
-            let handler = Handler::new(inner);
+            let handler = Handler::new(app_data_dir, projects, users);
             value.manage(handler.clone());
             Ok(handler)
         } else {
@@ -33,41 +32,17 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    fn new(inner: InnerHandler) -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(inner)),
-        }
-    }
-
-    pub async fn handle(
-        &self,
-        project_id: &ProjectId,
-        now: &time::SystemTime,
-    ) -> Result<Vec<events::Event>> {
-        if let Ok(inner) = self.inner.try_lock() {
-            inner.handle(project_id, now).await
-        } else {
-            Ok(vec![])
-        }
-    }
-}
-
-struct InnerHandler {
-    local_data_dir: path::PathBuf,
-    projects: projects::Controller,
-    users: users::Controller,
-}
-
-impl InnerHandler {
-    fn new(
+    pub fn new(
         local_data_dir: path::PathBuf,
         projects: projects::Controller,
         users: users::Controller,
     ) -> Self {
         Self {
-            local_data_dir,
-            projects,
-            users,
+            state: Arc::new(Mutex::new(State {
+                local_data_dir,
+                projects,
+                users,
+            })),
         }
     }
 
@@ -76,9 +51,21 @@ impl InnerHandler {
         project_id: &ProjectId,
         now: &time::SystemTime,
     ) -> Result<Vec<events::Event>> {
-        let user = self.users.get_user()?;
+        if let Ok(state) = self.state.try_lock() {
+            Self::handle_inner(&state, project_id, now).await
+        } else {
+            Ok(vec![])
+        }
+    }
 
-        let project = self
+    async fn handle_inner(
+        state: &State,
+        project_id: &ProjectId,
+        now: &time::SystemTime,
+    ) -> Result<Vec<events::Event>> {
+        let user = state.users.get_user()?;
+
+        let project = state
             .projects
             .get(project_id)
             .context("failed to get project")?;
@@ -90,7 +77,7 @@ impl InnerHandler {
         let project_repository =
             project_repository::Repository::open(&project).context("failed to open repository")?;
         let gb_repo = gb_repository::Repository::open(
-            &self.local_data_dir,
+            &state.local_data_dir,
             &project_repository,
             user.as_ref(),
         )
@@ -132,7 +119,8 @@ impl InnerHandler {
             }
         };
 
-        self.projects
+        state
+            .projects
             .update(&projects::UpdateRequest {
                 id: *project_id,
                 gitbutler_data_last_fetched: Some(fetch_result),
@@ -161,71 +149,8 @@ impl InnerHandler {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use std::time::SystemTime;
-
-    use pretty_assertions::assert_eq;
-
-    use crate::tests::{Case, Suite};
-
-    use super::super::test_remote_repository;
-    use super::*;
-
-    #[tokio::test]
-    async fn test_fetch_success() -> Result<()> {
-        let suite = Suite::default();
-        let Case { project, .. } = suite.new_case();
-
-        let cloud = test_remote_repository()?;
-
-        let api_project = projects::ApiProject {
-            name: "test-sync".to_string(),
-            description: None,
-            repository_id: "123".to_string(),
-            git_url: cloud.path().to_str().unwrap().to_string(),
-            code_git_url: None,
-            created_at: 0_i32.to_string(),
-            updated_at: 0_i32.to_string(),
-            sync: true,
-        };
-
-        suite
-            .projects
-            .update(&projects::UpdateRequest {
-                id: project.id,
-                api: Some(api_project.clone()),
-                ..Default::default()
-            })
-            .await?;
-
-        let listener = InnerHandler {
-            local_data_dir: suite.local_app_data,
-            projects: suite.projects,
-            users: suite.users,
-        };
-
-        listener
-            .handle(&project.id, &SystemTime::now())
-            .await
-            .unwrap();
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_fetch_fail_no_sync() {
-        let suite = Suite::default();
-        let Case { project, .. } = suite.new_case();
-
-        let listener = InnerHandler {
-            local_data_dir: suite.local_app_data,
-            projects: suite.projects,
-            users: suite.users,
-        };
-
-        let res = listener.handle(&project.id, &SystemTime::now()).await;
-
-        assert_eq!(&res.unwrap_err().to_string(), "sync disabled");
-    }
+struct State {
+    local_data_dir: path::PathBuf,
+    projects: projects::Controller,
+    users: users::Controller,
 }

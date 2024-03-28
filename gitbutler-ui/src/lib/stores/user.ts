@@ -10,10 +10,10 @@ import { BehaviorSubject, Observable, Subject, distinct, map, merge, shareReplay
 import type { Readable } from 'svelte/motion';
 
 export class UserService {
-	readonly reset$ = new Subject<User | undefined>();
-	readonly loading$ = new BehaviorSubject(false);
+	private reset$ = new Subject<User | undefined>();
+	private loading$ = new BehaviorSubject(false);
 
-	readonly user$ = merge(
+	private user$ = merge(
 		new Observable<User | undefined>((subscriber) => {
 			invoke<User | undefined>('get_user').then((userData) => {
 				if (userData) {
@@ -32,8 +32,8 @@ export class UserService {
 		distinct()
 	);
 
-	user: Readable<User | undefined>;
-	error: Readable<string | undefined>;
+	readonly user: Readable<User | undefined>;
+	readonly error: Readable<string | undefined>;
 
 	constructor(private cloud: CloudClient) {
 		[this.user, this.error] = observableToStore(this.user$);

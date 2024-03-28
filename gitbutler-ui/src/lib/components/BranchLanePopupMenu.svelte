@@ -91,7 +91,7 @@
 		</ContextMenuSection>
 		<ContextMenuSection>
 			<ContextMenuItem
-				label="Set branch name"
+				label="Set remote branch name"
 				disabled={isUnapplied || hasIntegratedCommits}
 				on:click={() => {
 					newRemoteName = branch.upstreamName || normalizeBranchName(branch.name) || '';
@@ -120,21 +120,22 @@
 	</ContextMenu>
 {/if}
 
-<Modal width="small" bind:this={renameRemoteModal}>
-	<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName}></TextBox>
+<Modal
+	width="small"
+	bind:this={renameRemoteModal}
+	on:submit={() => {
+		branchController.updateBranchRemoteName(branch.id, newRemoteName);
+		renameRemoteModal.close();
+		visible = false;
+	}}
+>
+	<svelte:fragment>
+		<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
+	</svelte:fragment>
 
 	<svelte:fragment slot="controls" let:close>
-		<Button color="neutral" kind="outlined" on:click={close}>Cancel</Button>
-		<Button
-			color="primary"
-			on:click={() => {
-				branchController.updateBranchRemoteName(branch.id, newRemoteName);
-				close();
-				visible = false;
-			}}
-		>
-			Rename
-		</Button>
+		<Button color="neutral" type="reset" kind="outlined" on:click={close}>Cancel</Button>
+		<Button color="primary" type="submit">Rename</Button>
 	</svelte:fragment>
 </Modal>
 
