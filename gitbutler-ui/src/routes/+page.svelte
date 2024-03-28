@@ -7,12 +7,12 @@
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import Welcome from '$lib/components/Welcome.svelte';
 	import { appAnalyticsConfirmed } from '$lib/config/appSettings';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { map } from 'rxjs';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
-	const projectService = getContextByClass(ProjectService);
+	const projectService = getContext(ProjectService);
 
 	const projects$ = projectService.projects$;
 

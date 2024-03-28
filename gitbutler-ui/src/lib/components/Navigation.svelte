@@ -7,20 +7,19 @@
 	import Resizer from './Resizer.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { persisted } from '$lib/persisted/persisted';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { getContextByClass } from '$lib/utils/context';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { platform } from '@tauri-apps/api/os';
 	import { from } from 'rxjs';
 	import { onMount } from 'svelte';
-	import { getContext } from 'svelte';
 
 	const platformName = from(platform());
 	const minResizerWidth = 280;
 	const minResizerRatio = 150;
-	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const project = getContextByClass(Project);
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const project = getContext(Project);
 	const defaultTrayWidthRem = persisted<number | undefined>(
 		undefined,
 		'defaulTrayWidth_ ' + project.id

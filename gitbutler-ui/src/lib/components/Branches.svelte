@@ -9,7 +9,7 @@
 	import { GitHubService } from '$lib/github/service';
 	import { persisted } from '$lib/persisted/persisted';
 	import { storeToObservable } from '$lib/rxjs/store';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { BehaviorSubject, combineLatest } from 'rxjs';
 	import { createEventDispatcher } from 'svelte';
 	import { derived } from 'svelte/store';
@@ -21,8 +21,8 @@
 
 	export const textFilter$ = new BehaviorSubject<string | undefined>(undefined);
 
-	const branchService = getContextByClass(BranchService);
-	const githubService = getContextByClass(GitHubService);
+	const branchService = getContext(BranchService);
+	const githubService = getContext(GitHubService);
 
 	let includePrs = persisted(true, 'includePrs_' + projectId);
 	let includeRemote = persisted(true, 'includeRemote_' + projectId);

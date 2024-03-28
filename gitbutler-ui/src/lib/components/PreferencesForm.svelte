@@ -4,10 +4,10 @@
 	import { Project } from '$lib/backend/projects';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { createEventDispatcher } from 'svelte';
 
-	const project = getContextByClass(Project);
+	const project = getContext(Project);
 
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;

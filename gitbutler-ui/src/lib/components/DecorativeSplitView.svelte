@@ -3,12 +3,12 @@
 	import Icon from './Icon.svelte';
 	import gbLogoSvg from '$lib/assets/gb-logo.svg?raw';
 	import { User } from '$lib/backend/cloud';
-	import { getContextStoreByClass } from '$lib/utils/context';
+	import { getContextStore } from '$lib/utils/context';
 
 	export let showLinks: boolean = true;
 	export let img: string | undefined = undefined;
 
-	const user = getContextStoreByClass(User);
+	const user = getContextStore(User);
 </script>
 
 <div class="decorative-split-view">

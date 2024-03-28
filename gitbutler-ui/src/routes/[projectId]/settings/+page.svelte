@@ -9,7 +9,7 @@
 	import Spacer from '$lib/components/Spacer.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import { UserService } from '$lib/stores/user';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
@@ -21,8 +21,8 @@
 	$: projectService = data.projectService;
 	$: cloud = data.cloud;
 
-	const project = getContextByClass(Project);
-	const userService = getContextByClass(UserService);
+	const project = getContext(Project);
+	const userService = getContext(UserService);
 	const user = userService.user;
 
 	let deleteConfirmationModal: RemoveProjectButton;

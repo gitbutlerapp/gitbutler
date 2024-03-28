@@ -7,13 +7,13 @@
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import { UserService } from '$lib/stores/user';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { page } from '$app/stores';
 
-	const cloud = getContextByClass(CloudClient);
-	const userService = getContextByClass(UserService);
+	const cloud = getContext(CloudClient);
+	const userService = getContext(UserService);
 	const user = userService.user;
 
 	export function show() {

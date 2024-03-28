@@ -10,14 +10,14 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { UserService } from '$lib/stores/user';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
-	const userService = getContextByClass(UserService);
-	const cloud = getContextByClass(CloudClient);
-	const project = getContextByClass(Project);
+	const userService = getContext(UserService);
+	const cloud = getContext(CloudClient);
+	const project = getContext(Project);
 	const user = userService.user;
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);

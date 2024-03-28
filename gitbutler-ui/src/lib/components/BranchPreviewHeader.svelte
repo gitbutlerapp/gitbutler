@@ -5,7 +5,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -19,8 +19,8 @@
 	export let base: BaseBranch | undefined | null;
 	export let pr: PullRequest | undefined;
 
-	const branchController = getContextByClass(BranchController);
-	const project = getContextByClass(Project);
+	const branchController = getContext(BranchController);
+	const project = getContext(Project);
 
 	let meatballButton: HTMLDivElement;
 	let container: HTMLDivElement;

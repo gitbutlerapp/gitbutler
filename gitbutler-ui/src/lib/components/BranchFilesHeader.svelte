@@ -3,15 +3,16 @@
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import Segment from '$lib/components/SegmentControl/Segment.svelte';
 	import SegmentedControl from '$lib/components/SegmentControl/SegmentedControl.svelte';
-	import type { Ownership } from '$lib/vbranches/ownership';
+	import { getContextStore } from '$lib/utils/context';
+	import { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let files: AnyFile[];
-	export let selectedOwnership: Writable<Ownership>;
 	export let showCheckboxes = false;
-
 	export let selectedListMode: string;
+
+	const selectedOwnership: Writable<Ownership> = getContextStore(Ownership);
 
 	function selectAll(selectedOwnership: Writable<Ownership>, files: AnyFile[]) {
 		files.forEach((f) =>

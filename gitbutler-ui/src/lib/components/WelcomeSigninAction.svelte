@@ -2,12 +2,12 @@
 	import WelcomeAction from './WelcomeAction.svelte';
 	import signinSvg from '$lib/assets/no-projects/signin.svg?raw';
 	import { UserService } from '$lib/stores/user';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 
 	export let prompt: string =
 		'Enable GitButler features like automatic branch and commit message generation.';
 
-	const userService = getContextByClass(UserService);
+	const userService = getContext(UserService);
 	const user = userService.user;
 
 	let loginSignupLoading = false;

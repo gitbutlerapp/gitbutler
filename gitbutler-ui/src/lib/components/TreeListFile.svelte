@@ -5,9 +5,10 @@
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { getContextStore } from '$lib/utils/context';
 	import { updateFocus } from '$lib/utils/selection';
+	import { Ownership } from '$lib/vbranches/ownership';
 	import { onDestroy } from 'svelte';
-	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
@@ -16,7 +17,6 @@
 	export let selected: boolean;
 	export let isUnapplied: boolean;
 	export let showCheckbox: boolean = false;
-	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let readonly = false;
 
@@ -24,6 +24,7 @@
 	let indeterminate = false;
 	let draggableElt: HTMLDivElement;
 
+	const selectedOwnership: Writable<Ownership> = getContextStore(Ownership);
 	$: updateOwnership($selectedOwnership);
 
 	function updateOwnership(ownership: Ownership) {

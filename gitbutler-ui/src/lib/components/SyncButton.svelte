@@ -4,15 +4,15 @@
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { GitHubService } from '$lib/github/service';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
-	const project = getContextByClass(Project);
+	const project = getContext(Project);
 
 	let cloudEnabled: boolean;
 
-	const githubService = getContextByClass(GitHubService);
-	const baseBranchService = getContextByClass(BaseBranchService);
+	const githubService = getContext(GitHubService);
+	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
 	$: baseServiceBusy$ = baseBranchService.busy$;

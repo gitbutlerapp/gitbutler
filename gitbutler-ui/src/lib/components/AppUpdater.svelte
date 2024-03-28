@@ -3,11 +3,11 @@
 	import IconButton from './IconButton.svelte';
 	import { UpdaterService } from '$lib/backend/updater';
 	import { showToast } from '$lib/notifications/toasts';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { tap } from 'rxjs';
 	import { fade } from 'svelte/transition';
 
-	const updaterService = getContextByClass(UpdaterService);
+	const updaterService = getContext(UpdaterService);
 
 	$: update$ = updaterService.update$.pipe(
 		// Reset dismissed boolean when a new version becomes available

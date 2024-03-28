@@ -10,17 +10,17 @@
 	import Link from '$lib/components/Link.svelte';
 	import Section from '$lib/components/settings/Section.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
-	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
+	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { onMount } from 'svelte';
 
-	const project = getContextByClass(Project);
+	const project = getContext(Project);
 
-	const authService = getContextByClass(AuthService);
-	const baseBranch = getContextStoreByClass(BaseBranch);
-	const projectService = getContextByClass(ProjectService);
+	const authService = getContext(AuthService);
+	const baseBranch = getContextStore(BaseBranch);
+	const projectService = getContext(ProjectService);
 
 	// Used by credential checker before target branch set
 	export let remoteName = '';

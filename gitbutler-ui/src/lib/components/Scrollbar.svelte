@@ -3,11 +3,11 @@
 </script>
 
 <script lang="ts">
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { getContextStoreBySymbol } from '$lib/utils/context';
 	import { onDestroy, createEventDispatcher } from 'svelte';
-	import { getContext } from 'svelte';
 
-	const userSettings = getContext(SETTINGS_CONTEXT) as SettingsStore;
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	export let viewport: Element;
 	export let contents: Element;

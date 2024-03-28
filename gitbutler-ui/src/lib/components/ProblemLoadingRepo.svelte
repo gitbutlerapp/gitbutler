@@ -5,14 +5,14 @@
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import { ProjectService, Project } from '$lib/backend/projects';
 	import Icon from '$lib/components/Icon.svelte';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { goto } from '$app/navigation';
 
 	export let error: any = undefined;
 
-	const projectService = getContextByClass(ProjectService);
-	const project = getContextByClass(Project);
+	const projectService = getContext(ProjectService);
+	const project = getContext(Project);
 
 	let loading = false;
 	let deleteConfirmationModal: RemoveProjectButton;

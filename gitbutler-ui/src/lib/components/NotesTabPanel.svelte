@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 
 	export let notes: string;
-	const branchController = getContextByClass(BranchController);
+	const branchController = getContext(BranchController);
 	export let branchId: string;
 
 	function handleUpdateNotes() {

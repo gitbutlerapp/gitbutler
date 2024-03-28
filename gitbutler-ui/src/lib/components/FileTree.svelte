@@ -5,9 +5,10 @@
 <script lang="ts">
 	import TreeListFile from './TreeListFile.svelte';
 	import TreeListFolder from './TreeListFolder.svelte';
+	import { getContextStore } from '$lib/utils/context';
 	import { maybeMoveSelection } from '$lib/utils/selection';
+	import { Ownership } from '$lib/vbranches/ownership';
 	import type { TreeNode } from '$lib/vbranches/filetree';
-	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile, LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
@@ -15,13 +16,14 @@
 	export let node: TreeNode;
 	export let isRoot = false;
 	export let showCheckboxes = false;
-	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let branchId: string;
 	export let isUnapplied: boolean;
 	export let allowMultiple = false;
 	export let readonly = false;
 	export let files: LocalFile[] | RemoteFile[];
+
+	const selectedOwnership: Writable<Ownership> = getContextStore(Ownership);
 
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
@@ -72,7 +74,6 @@
 			<li>
 				<svelte:self
 					node={childNode}
-					{selectedOwnership}
 					{showCheckboxes}
 					{selectedFiles}
 					{branchId}
@@ -94,7 +95,6 @@
 		{branchId}
 		{isUnapplied}
 		selected={$selectedFiles.includes(file)}
-		{selectedOwnership}
 		{selectedFiles}
 		{readonly}
 		showCheckbox={showCheckboxes}
@@ -119,7 +119,6 @@
 {:else if node.children.length > 0}
 	<!-- Node is a folder -->
 	<TreeListFolder
-		{selectedOwnership}
 		showCheckbox={showCheckboxes}
 		{isIndeterminate}
 		{isChecked}
@@ -139,7 +138,6 @@
 					<svelte:self
 						node={childNode}
 						expanded={true}
-						{selectedOwnership}
 						{showCheckboxes}
 						{selectedFiles}
 						{branchId}

@@ -55,6 +55,12 @@ export class LocalFile {
 	get hunkIds() {
 		return this.hunks.map((h) => h.id);
 	}
+
+	get lockedIds(): string[] {
+		return this.hunks
+			.map((hunk) => hunk.lockedTo)
+			.filter((lockedTo): lockedTo is string => !!lockedTo);
+	}
 }
 
 export class SkippedFile {
@@ -102,6 +108,9 @@ export class Branch {
 	// Indicates that branch is default target for new changes
 	selectedForChanges!: boolean;
 }
+
+// Used for dependency injection
+export const BRANCH = Symbol('branch');
 
 export type CommitStatus = 'local' | 'remote' | 'integrated' | 'upstream';
 
@@ -165,6 +174,11 @@ export class RemoteCommit {
 	}
 }
 
+export const LOCAL_COMMITS = Symbol('LocalCommtis');
+export const REMOTE_COMMITS = Symbol('RemoteCommits');
+export const INTEGRATED_COMMITS = Symbol('IntegratedCommits');
+export const UNKNOWN_COMMITS = Symbol('UnknownCommits');
+
 export class RemoteHunk {
 	diff!: string;
 	hash?: string;
@@ -206,6 +220,10 @@ export class RemoteFile {
 
 	get hunkIds() {
 		return this.hunks.map((h) => h.id);
+	}
+
+	get lockedIds(): string[] {
+		return [];
 	}
 }
 

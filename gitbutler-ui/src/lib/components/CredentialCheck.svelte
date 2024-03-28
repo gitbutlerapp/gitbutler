@@ -4,14 +4,14 @@
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
 	import { AuthService } from '$lib/backend/auth';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { slide } from 'svelte/transition';
 
 	export let projectId: string;
 	export let remoteName: string | null | undefined;
 	export let branchName: string | null | undefined;
 
-	const authService = getContextByClass(AuthService);
+	const authService = getContext(AuthService);
 
 	type Check = { name: string; promise: Promise<any> };
 	$: checks = [] as Check[];

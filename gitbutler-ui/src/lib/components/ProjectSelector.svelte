@@ -4,12 +4,12 @@
 	import { Project } from '$lib/backend/projects';
 	import { clickOutside } from '$lib/clickOutside';
 	import Icon from '$lib/components/Icon.svelte';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 
 	export let isNavCollapsed: boolean;
 
-	const project = getContextByClass(Project);
+	const project = getContext(Project);
 
 	let popup: ProjectsPopup;
 	let visible: boolean = false;

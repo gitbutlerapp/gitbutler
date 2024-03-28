@@ -1,8 +1,9 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
-	import type { SettingsStore } from '$lib/settings/userSettings';
+	import type { Settings } from '$lib/settings/userSettings';
+	import type { Writable } from 'svelte/store';
 
-	export let userSettings: SettingsStore;
+	export let userSettings: Writable<Settings>;
 
 	const themes = [
 		{

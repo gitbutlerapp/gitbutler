@@ -15,11 +15,11 @@
 	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { UserService } from '$lib/stores/user';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { onMount, tick } from 'svelte';
 
-	const gitConfigService = getContextByClass(GitConfigService);
-	const userService = getContextByClass(UserService);
+	const gitConfigService = getContext(GitConfigService);
+	const userService = getContext(UserService);
 	const user = userService.user;
 
 	let initialized = false;

@@ -16,26 +16,26 @@
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import ProfileSIdebar from '$lib/components/settings/ProfileSIdebar.svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { onMount } from 'svelte';
-	import { getContext } from 'svelte';
 	import type { PageData } from './$types';
+	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
-	const userSettings = getContext(SETTINGS_CONTEXT) as SettingsStore;
+	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
 	export let data: PageData;
 
-	const gitConfig = getContextByClass(GitConfigService);
+	const gitConfig = getContext(GitConfigService);
 
 	$: ({ cloud, authService } = data);
 
-	const userService = getContextByClass(UserService);
+	const userService = getContext(UserService);
 	const user = userService.user;
 
 	const fileTypes = ['image/jpeg', 'image/png'];

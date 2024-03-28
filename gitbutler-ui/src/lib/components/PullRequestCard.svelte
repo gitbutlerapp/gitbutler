@@ -5,26 +5,25 @@
 	import { BranchService } from '$lib/branches/service';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
 	import { GitHubService } from '$lib/github/service';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { createTimeAgoStore } from '$lib/utils/timeAgo';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { onDestroy } from 'svelte';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
-	import type { Branch } from '$lib/vbranches/types';
 	import type iconsJson from '../icons/icons.json';
 	import type { Readable } from 'svelte/store';
 
 	export let isLaneCollapsed: boolean;
-	const branchService = getContextByClass(BranchService);
-	export let branch: Branch;
+	const branchService = getContext(BranchService);
+	export let branchName: string | undefined;
 	export let projectId: string;
 	export let isUnapplied = false;
 
-	const baseBranchService = getContextByClass(BaseBranchService);
+	const baseBranchService = getContext(BaseBranchService);
 
-	const githubService = getContextByClass(GitHubService);
+	const githubService = getContext(GitHubService);
 
 	let isMerging = false;
 	let isFetchingChecks = false;
@@ -37,8 +36,8 @@
 	let lastDetailsFetch: Readable<string> | undefined;
 	let lastChecksFetch: Readable<string> | undefined;
 
-	$: pr$ = githubService.getPr$(branch.upstreamName);
-	$: if (branch && $pr$) updateDetailsAndChecks();
+	$: pr$ = githubService.getPr$(branchName);
+	$: if (branchName && $pr$) updateDetailsAndChecks();
 
 	$: checksIcon = getChecksIcon(checksStatus, isFetchingChecks);
 	$: checksColor = getChecksColor(checksStatus);

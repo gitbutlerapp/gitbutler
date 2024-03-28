@@ -5,30 +5,30 @@
 	import { BranchService } from '$lib/branches/service';
 	import Button from '$lib/components/Button.svelte';
 	import { GitHubService } from '$lib/github/service';
-	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
+	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranch, type Branch, type CommitStatus } from '$lib/vbranches/types';
+	import { BaseBranch, Branch, type CommitStatus } from '$lib/vbranches/types';
 	import toast from 'svelte-french-toast';
 	import type { PullRequest } from '$lib/github/types';
 
-	export let branch: Branch;
 	export let type: CommitStatus;
 	export let isUnapplied: boolean;
 	export let hasCommits: boolean;
 
-	const branchService = getContextByClass(BranchService);
-	const githubService = getContextByClass(GitHubService);
-	const branchController = getContextByClass(BranchController);
-	const promptService = getContextByClass(PromptService);
-	const baseBranch = getContextStoreByClass(BaseBranch);
+	const branchService = getContext(BranchService);
+	const githubService = getContext(GitHubService);
+	const branchController = getContext(BranchController);
+	const promptService = getContext(PromptService);
+	const baseBranch = getContextStore(BaseBranch);
+	const branch = getContextStore(Branch);
 
 	const [prompt, promptError] = promptService.filter({
-		branchId: branch.id,
+		branchId: $branch.id,
 		timeoutMs: 30000
 	});
 
-	$: githubServiceState$ = githubService.getState(branch.id);
-	$: pr$ = githubService.getPr$(branch.upstreamName);
+	$: githubServiceState$ = githubService.getState($branch.id);
+	$: pr$ = githubService.getPr$($branch.upstreamName);
 
 	let isPushing: boolean;
 	let isMerging: boolean;
@@ -43,7 +43,7 @@
 
 	async function push() {
 		isPushing = true;
-		await branchController.pushBranch(branch.id, branch.requiresForce);
+		await branchController.pushBranch($branch.id, $branch.requiresForce);
 		isPushing = false;
 	}
 
@@ -61,7 +61,7 @@
 
 		isPushing = true;
 		try {
-			return await branchService.createPr(branch, $baseBranch.shortName, opts.draft);
+			return await branchService.createPr($branch, $baseBranch.shortName, opts.draft);
 		} finally {
 			isPushing = false;
 		}
@@ -78,7 +78,7 @@
 				isLoading={isPushing || $githubServiceState$?.busy}
 				isPr={!!$pr$}
 				{type}
-				{branch}
+				branch={$branch}
 				githubEnabled={true}
 				on:trigger={async (e) => {
 					try {
@@ -108,7 +108,7 @@
 					}
 				}}
 			>
-				{#if branch.requiresForce}
+				{#if $branch.requiresForce}
 					Force Push
 				{:else}
 					Push
@@ -122,7 +122,7 @@
 				on:click={async () => {
 					isMerging = true;
 					try {
-						await branchController.mergeUpstream(branch.id);
+						await branchController.mergeUpstream($branch.id);
 					} catch (err) {
 						toast.error('Failed to merge upstream commits');
 					} finally {

@@ -1,13 +1,13 @@
 import { appWindow, type Theme } from '@tauri-apps/api/window';
-import { writable } from 'svelte/store';
-import type { SettingsStore } from '$lib/settings/userSettings';
+import { writable, type Writable } from 'svelte/store';
+import type { Settings } from '$lib/settings/userSettings';
 
 export const theme = writable('dark');
 
 let systemTheme: string | null;
 let selectedTheme: string | undefined;
 
-export function initTheme(userSettings: SettingsStore) {
+export function initTheme(userSettings: Writable<Settings>) {
 	appWindow.theme().then((value: Theme | null) => {
 		systemTheme = value;
 		updateDom();

@@ -4,14 +4,14 @@
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import { GitHubService } from '$lib/github/service';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
 
-	const githubService = getContextByClass(GitHubService);
-	const baseBranchService = getContextByClass(BaseBranchService);
+	const githubService = getContext(GitHubService);
+	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
 	$: ({ vbranchService, projectId } = data);
