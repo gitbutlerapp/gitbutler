@@ -1,7 +1,9 @@
-type MaybePromise<T> = T | Promise<T>;
+type MaybePromise<T> = T | Promise<T> | undefined;
 
-export function unsubscribe(...unsubscribers: MaybePromise<() => void>[]) {
+export function unsubscribe(...unsubscribers: MaybePromise<() => any>[]) {
 	return () => {
-		unsubscribers.forEach((unsubscriber) => Promise.resolve(unsubscriber).then((fn) => fn()));
+		const promises = unsubscribers.map(async (unsubscriber) => (await unsubscriber)?.());
+
+		return Promise.all(promises);
 	};
 }
