@@ -5,8 +5,8 @@ use crate::temp_dir;
 #[tokio::test]
 async fn lock_same_instance() {
     let dir_path = temp_dir();
-    std::fs::write(dir_path.join("file.txt"), "").unwrap();
-    let dir = Dir::new(&dir_path).unwrap();
+    std::fs::write(dir_path.path().join("file.txt"), "").unwrap();
+    let dir = Dir::new(dir_path.path()).unwrap();
 
     let (tx, rx) = std::sync::mpsc::sync_channel(1);
 
@@ -39,7 +39,7 @@ async fn lock_same_instance() {
     .unwrap();
 
     assert_eq!(
-        std::fs::read_to_string(dir_path.join("file.txt")).unwrap(),
+        std::fs::read_to_string(dir_path.path().join("file.txt")).unwrap(),
         "2"
     );
 }
@@ -47,13 +47,13 @@ async fn lock_same_instance() {
 #[tokio::test]
 async fn lock_different_instances() {
     let dir_path = temp_dir();
-    std::fs::write(dir_path.join("file.txt"), "").unwrap();
+    std::fs::write(dir_path.path().join("file.txt"), "").unwrap();
 
     let (tx, rx) = std::sync::mpsc::sync_channel(1);
 
     // spawn a task that will signal right after aquireing the lock
     let _ = tokio::spawn({
-        let dir_path = dir_path.clone();
+        let dir_path = dir_path.path().to_owned();
         async move {
             // one dir instance is created on a separate thread
             let dir = Dir::new(&dir_path).unwrap();
@@ -85,7 +85,7 @@ async fn lock_different_instances() {
     .unwrap();
 
     assert_eq!(
-        std::fs::read_to_string(dir_path.join("file.txt")).unwrap(),
+        std::fs::read_to_string(dir_path.path().join("file.txt")).unwrap(),
         "2"
     );
 }

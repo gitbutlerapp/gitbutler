@@ -68,7 +68,8 @@ fn new_test_target() -> virtual_branches::target::Target {
 
 #[test]
 fn empty_iterator() -> Result<()> {
-    let Case { gb_repository, .. } = Suite::default().new_case();
+    let suite = Suite::default();
+    let Case { gb_repository, .. } = &suite.new_case();
 
     let session = gb_repository.get_or_create_current_session()?;
     let session_reader = gitbutler_app::sessions::Reader::open(&gb_repository, &session)?;
@@ -82,11 +83,12 @@ fn empty_iterator() -> Result<()> {
 
 #[test]
 fn iterate_all() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let target_writer =
         gitbutler_app::virtual_branches::target::Writer::new(&gb_repository, project.gb_dir())?;

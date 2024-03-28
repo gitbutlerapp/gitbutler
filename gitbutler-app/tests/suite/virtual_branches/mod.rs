@@ -1,4 +1,5 @@
 use std::{fs, path, str::FromStr};
+use tempfile::TempDir;
 
 use crate::common::{paths, TestProject};
 use gitbutler_app::{
@@ -13,6 +14,7 @@ struct Test {
     project_id: ProjectId,
     projects: projects::Controller,
     controller: Controller,
+    _data_dir: TempDir,
 }
 
 impl Default for Test {
@@ -31,8 +33,15 @@ impl Default for Test {
         Self {
             repository: test_project,
             project_id: project.id,
-            controller: Controller::new(data_dir, projects.clone(), users, keys, helper),
+            controller: Controller::new(
+                data_dir.path().into(),
+                projects.clone(),
+                users,
+                keys,
+                helper,
+            ),
             projects,
+            _data_dir: data_dir,
         }
     }
 }

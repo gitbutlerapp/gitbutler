@@ -21,7 +21,7 @@ mod init {
 
         let project_repository = project_repository::Repository::open(&project).unwrap();
 
-        gb_repository::Repository::open(&data_dir, &project_repository, None).unwrap();
+        gb_repository::Repository::open(data_dir.path(), &project_repository, None).unwrap();
     }
 
     #[test]
@@ -43,7 +43,7 @@ mod init {
 
         let project_repository = project_repository::Repository::open(&project).unwrap();
 
-        gb_repository::Repository::open(&data_dir, &project_repository, None).unwrap();
+        gb_repository::Repository::open(data_dir.path(), &project_repository, None).unwrap();
     }
 
     #[test]
@@ -70,7 +70,7 @@ mod init {
 
         let project_repository = project_repository::Repository::open(&project).unwrap();
 
-        gb_repository::Repository::open(&data_dir, &project_repository, None).unwrap();
+        gb_repository::Repository::open(data_dir.path(), &project_repository, None).unwrap();
     }
 }
 
@@ -91,7 +91,7 @@ mod flush {
         let project_repository = project_repository::Repository::open(&project).unwrap();
 
         let gb_repo =
-            gb_repository::Repository::open(&data_dir, &project_repository, None).unwrap();
+            gb_repository::Repository::open(data_dir.path(), &project_repository, None).unwrap();
 
         std::fs::write(project.path.join("file"), "content").unwrap();
         std::fs::hard_link(project.path.join("file"), project.path.join("link")).unwrap();
@@ -114,7 +114,7 @@ mod flush {
         let project_repository = project_repository::Repository::open(&project).unwrap();
 
         let gb_repo =
-            gb_repository::Repository::open(&data_dir, &project_repository, None).unwrap();
+            gb_repository::Repository::open(data_dir.path(), &project_repository, None).unwrap();
 
         std::fs::create_dir_all(project.path.join("dir")).unwrap();
         std::fs::write(project.path.join("dir/file"), "content").unwrap();
@@ -138,14 +138,10 @@ mod flush {
         let project_repository = project_repository::Repository::open(&project).unwrap();
 
         let gb_repo =
-            gb_repository::Repository::open(&data_dir, &project_repository, None).unwrap();
+            gb_repository::Repository::open(data_dir.path(), &project_repository, None).unwrap();
 
-        let submodule_url: git::Url = TestProject::default()
-            .path()
-            .display()
-            .to_string()
-            .parse()
-            .unwrap();
+        let project = TestProject::default();
+        let submodule_url: git::Url = project.path().display().to_string().parse().unwrap();
         test_project.add_submodule(&submodule_url, path::Path::new("submodule"));
 
         gb_repo.flush(&project_repository, None).unwrap();

@@ -10,9 +10,9 @@ fn directory_reader_read_file() -> Result<()> {
     let dir = temp_dir();
 
     let file_path = Path::new("test.txt");
-    fs::write(dir.join(file_path), "test")?;
+    fs::write(dir.path().join(file_path), "test")?;
 
-    let reader = Reader::open(dir.clone())?;
+    let reader = Reader::open(dir.path())?;
     assert_eq!(reader.read(file_path)?, Content::UTF8("test".to_string()));
 
     Ok(())
@@ -20,7 +20,7 @@ fn directory_reader_read_file() -> Result<()> {
 
 #[test]
 fn commit_reader_read_file() -> Result<()> {
-    let repository = test_repository();
+    let (repository, _tmp) = test_repository();
 
     let file_path = Path::new("test.txt");
     fs::write(repository.path().parent().unwrap().join(file_path), "test")?;
@@ -39,11 +39,11 @@ fn commit_reader_read_file() -> Result<()> {
 fn reader_list_files_should_return_relative() -> Result<()> {
     let dir = temp_dir();
 
-    fs::write(dir.join("test1.txt"), "test")?;
-    fs::create_dir_all(dir.join("dir"))?;
-    fs::write(dir.join("dir").join("test.txt"), "test")?;
+    fs::write(dir.path().join("test1.txt"), "test")?;
+    fs::create_dir_all(dir.path().join("dir"))?;
+    fs::write(dir.path().join("dir").join("test.txt"), "test")?;
 
-    let reader = Reader::open(dir.clone())?;
+    let reader = Reader::open(dir.path())?;
     let files = reader.list_files(Path::new("dir"))?;
     assert_eq!(files.len(), 1);
     assert!(files.contains(&Path::new("test.txt").to_path_buf()));
@@ -55,11 +55,11 @@ fn reader_list_files_should_return_relative() -> Result<()> {
 fn reader_list_files() -> Result<()> {
     let dir = temp_dir();
 
-    fs::write(dir.join("test.txt"), "test")?;
-    fs::create_dir_all(dir.join("dir"))?;
-    fs::write(dir.join("dir").join("test.txt"), "test")?;
+    fs::write(dir.path().join("test.txt"), "test")?;
+    fs::create_dir_all(dir.path().join("dir"))?;
+    fs::write(dir.path().join("dir").join("test.txt"), "test")?;
 
-    let reader = Reader::open(dir.clone())?;
+    let reader = Reader::open(dir.path())?;
     let files = reader.list_files(Path::new(""))?;
     assert_eq!(files.len(), 2);
     assert!(files.contains(&Path::new("test.txt").to_path_buf()));
@@ -70,7 +70,7 @@ fn reader_list_files() -> Result<()> {
 
 #[test]
 fn commit_reader_list_files_should_return_relative() -> Result<()> {
-    let repository = test_repository();
+    let (repository, _tmp) = test_repository();
 
     fs::write(
         repository.path().parent().unwrap().join("test1.txt"),
@@ -101,7 +101,7 @@ fn commit_reader_list_files_should_return_relative() -> Result<()> {
 
 #[test]
 fn commit_reader_list_files() -> Result<()> {
-    let repository = test_repository();
+    let (repository, _tmp) = test_repository();
 
     fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
     fs::create_dir_all(repository.path().parent().unwrap().join("dir"))?;
@@ -132,9 +132,9 @@ fn commit_reader_list_files() -> Result<()> {
 fn directory_reader_exists() -> Result<()> {
     let dir = temp_dir();
 
-    fs::write(dir.join("test.txt"), "test")?;
+    fs::write(dir.path().join("test.txt"), "test")?;
 
-    let reader = Reader::open(dir.clone())?;
+    let reader = Reader::open(dir.path())?;
     assert!(reader.exists(Path::new("test.txt"))?);
     assert!(!reader.exists(Path::new("test2.txt"))?);
 
@@ -143,7 +143,7 @@ fn directory_reader_exists() -> Result<()> {
 
 #[test]
 fn commit_reader_exists() -> Result<()> {
-    let repository = test_repository();
+    let (repository, _tmp) = test_repository();
 
     fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
 

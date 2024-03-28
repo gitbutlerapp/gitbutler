@@ -84,7 +84,7 @@ fn register_existing_commited_file() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
+    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
     let listener = Handler::from_path(&suite.local_app_data);
 
     std::fs::write(project.path.join("test.txt"), "test2")?;
@@ -115,7 +115,7 @@ fn register_must_init_current_session() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     std::fs::write(project.path.join("test.txt"), "test")?;
@@ -133,7 +133,7 @@ fn register_must_not_override_current_session() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     std::fs::write(project.path.join("test.txt"), "test")?;
@@ -156,7 +156,7 @@ fn register_binfile() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     std::fs::write(
@@ -188,7 +188,7 @@ fn register_empty_new_file() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     std::fs::write(project.path.join("test.txt"), "")?;
@@ -216,7 +216,7 @@ fn register_new_file() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     std::fs::write(project.path.join("test.txt"), "test")?;
@@ -249,7 +249,7 @@ fn register_no_changes_saved_thgoughout_flushes() -> Result<()> {
         project_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     // file change, wd and deltas are written
@@ -277,7 +277,7 @@ fn register_new_file_twice() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     std::fs::write(project.path.join("test.txt"), "test")?;
@@ -329,7 +329,7 @@ fn register_file_deleted() -> Result<()> {
         project_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     {
@@ -408,7 +408,7 @@ fn flow_with_commits() -> Result<()> {
         project,
         project_repository,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     let size = 10;
@@ -495,7 +495,7 @@ fn flow_no_commits() -> Result<()> {
         project,
         project_repository,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     let size = 10;
@@ -580,7 +580,7 @@ fn flow_signle_session() -> Result<()> {
         gb_repository,
         project,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
     let listener = Handler::from_path(&suite.local_app_data);
 
     let size = 10_i32;
@@ -635,7 +635,7 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
         project,
         project_repository,
         ..
-    } = suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
+    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
     let listener = Handler::from_path(&suite.local_app_data);
 
     let branch_writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
@@ -688,7 +688,7 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
         project,
         project_repository,
         ..
-    } = suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
+    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
     let listener = Handler::from_path(&suite.local_app_data);
 
     let branch_writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
@@ -747,7 +747,7 @@ mod flush_wd {
             project,
             project_repository,
             ..
-        } = suite.new_case();
+        } = &suite.new_case();
         let listener = Handler::from_path(&suite.local_app_data);
 
         // write a file into session
@@ -820,7 +820,7 @@ mod flush_wd {
             project,
             project_repository,
             ..
-        } = suite.new_case();
+        } = &suite.new_case();
         let listener = Handler::from_path(&suite.local_app_data);
 
         // write a file into session
@@ -893,7 +893,7 @@ mod flush_wd {
             project,
             project_repository,
             ..
-        } = suite.new_case();
+        } = &suite.new_case();
         let listener = Handler::from_path(&suite.local_app_data);
 
         // write a file into session

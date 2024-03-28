@@ -11,7 +11,7 @@ mod unapplied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -91,7 +91,7 @@ mod unapplied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -177,7 +177,7 @@ mod unapplied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -268,7 +268,7 @@ mod unapplied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -356,7 +356,7 @@ mod unapplied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -444,7 +444,7 @@ mod unapplied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -539,7 +539,7 @@ mod unapplied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         {
             fs::write(repository.path().join("file.txt"), "first").unwrap();
@@ -647,7 +647,7 @@ mod unapplied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -702,7 +702,7 @@ mod unapplied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -776,7 +776,7 @@ mod applied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -852,7 +852,7 @@ mod applied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -933,7 +933,7 @@ mod applied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -1019,7 +1019,7 @@ mod applied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -1102,7 +1102,7 @@ mod applied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -1189,7 +1189,7 @@ mod applied_branch {
                 controller,
                 projects,
                 ..
-            } = Test::default();
+            } = &Test::default();
 
             // make sure we have an undiscovered commit in the remote branch
             {
@@ -1203,7 +1203,7 @@ mod applied_branch {
 
             projects
                 .update(&projects::UpdateRequest {
-                    id: project_id,
+                    id: *project_id,
                     ok_with_force_push: Some(true),
                     ..Default::default()
                 })
@@ -1269,7 +1269,7 @@ mod applied_branch {
                 controller,
                 projects,
                 ..
-            } = Test::default();
+            } = &Test::default();
 
             // make sure we have an undiscovered commit in the remote branch
             {
@@ -1310,7 +1310,7 @@ mod applied_branch {
 
             projects
                 .update(&projects::UpdateRequest {
-                    id: project_id,
+                    id: *project_id,
                     ok_with_force_push: Some(false),
                     ..Default::default()
                 })
@@ -1350,7 +1350,7 @@ mod applied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -1435,7 +1435,7 @@ mod applied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         {
             fs::write(repository.path().join("file.txt"), "first").unwrap();
@@ -1537,7 +1537,7 @@ mod applied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -1648,11 +1648,11 @@ mod applied_branch {
             controller,
             projects,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         projects
             .update(&projects::UpdateRequest {
-                id: project_id,
+                id: *project_id,
                 ok_with_force_push: Some(false),
                 ..Default::default()
             })
@@ -1738,7 +1738,7 @@ mod applied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         controller
             .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
@@ -1820,7 +1820,7 @@ mod applied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {
@@ -1870,7 +1870,7 @@ mod applied_branch {
             project_id,
             controller,
             ..
-        } = Test::default();
+        } = &Test::default();
 
         // make sure we have an undiscovered commit in the remote branch
         {

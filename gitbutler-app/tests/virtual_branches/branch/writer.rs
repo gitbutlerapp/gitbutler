@@ -59,11 +59,12 @@ fn new_test_branch() -> Branch {
 
 #[test]
 fn write_branch() -> anyhow::Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let mut branch = new_test_branch();
 
@@ -124,11 +125,12 @@ fn write_branch() -> anyhow::Result<()> {
 
 #[test]
 fn should_create_session() -> anyhow::Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let mut branch = new_test_branch();
 
@@ -142,11 +144,12 @@ fn should_create_session() -> anyhow::Result<()> {
 
 #[test]
 fn should_update() -> anyhow::Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let mut branch = new_test_branch();
 

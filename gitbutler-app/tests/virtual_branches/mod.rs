@@ -31,7 +31,7 @@ pub fn set_test_target(
     gb_repo: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<()> {
-    let remote_repo = empty_bare_repository();
+    let (remote_repo, _tmp) = empty_bare_repository();
     let mut remote = project_repository
         .git_repository
         .remote(
@@ -57,12 +57,13 @@ pub fn set_test_target(
 
 #[test]
 fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project,
         project_repository,
         gb_repository,
         ..
-    } = Suite::default().new_case_with_files(HashMap::from([
+    } = &suite.new_case_with_files(HashMap::from([
         (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
         (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));
@@ -130,7 +131,7 @@ fn signed_commit() -> Result<()> {
         gb_repository,
         project_repository,
         ..
-    } = suite.new_case_with_files(HashMap::from([
+    } = &suite.new_case_with_files(HashMap::from([
         (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
         (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));
@@ -180,12 +181,13 @@ fn signed_commit() -> Result<()> {
 
 #[test]
 fn track_binary_files() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let file_path = Path::new("test.txt");
     std::fs::write(
@@ -308,12 +310,13 @@ fn track_binary_files() -> Result<()> {
 
 #[test]
 fn create_branch_with_ownership() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project,
         project_repository,
         gb_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     set_test_target(&gb_repository, &project_repository)?;
 
@@ -363,11 +366,12 @@ fn create_branch_with_ownership() -> Result<()> {
 
 #[test]
 fn create_branch_in_the_middle() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         gb_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     set_test_target(&gb_repository, &project_repository)?;
 
@@ -410,11 +414,12 @@ fn create_branch_in_the_middle() -> Result<()> {
 
 #[test]
 fn create_branch_no_arguments() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         gb_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     set_test_target(&gb_repository, &project_repository)?;
 
@@ -442,12 +447,13 @@ fn create_branch_no_arguments() -> Result<()> {
 
 #[test]
 fn hunk_expantion() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     set_test_target(&gb_repository, &project_repository)?;
 
@@ -525,11 +531,12 @@ fn hunk_expantion() -> Result<()> {
 
 #[test]
 fn get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         gb_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     set_test_target(&gb_repository, &project_repository)?;
 
@@ -544,12 +551,13 @@ fn get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
 
 #[test]
 fn get_status_files_by_branch() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     set_test_target(&gb_repository, &project_repository)?;
 
@@ -588,12 +596,13 @@ fn get_status_files_by_branch() -> Result<()> {
 
 #[test]
 fn move_hunks_multiple_sources() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case_with_files(HashMap::from([(
+    } = &suite.new_case_with_files(HashMap::from([(
         PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\n",
     )]));
@@ -698,12 +707,13 @@ fn move_hunks_multiple_sources() -> Result<()> {
 
 #[test]
 fn move_hunks_partial_explicitly() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case_with_files(HashMap::from([(
+    } = &suite.new_case_with_files(HashMap::from([(
         PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
     )]));
@@ -788,12 +798,13 @@ fn move_hunks_partial_explicitly() -> Result<()> {
 
 #[test]
 fn add_new_hunk_to_the_end() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case_with_files(HashMap::from([(
+    } = &suite.new_case_with_files(HashMap::from([(
         PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline13\nline14\n",
     )]));
@@ -849,7 +860,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
         project,
         gb_repository,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
 
     // create a commit and set the target
     let file_path = Path::new("test.txt");
@@ -968,12 +979,13 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
 
 #[test]
 fn merge_vbranch_upstream_conflict() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     // create a commit and set the target
     let file_path = Path::new("test.txt");
@@ -1124,12 +1136,13 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
 
 #[test]
 fn unapply_ownership_partial() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case_with_files(HashMap::from([(
+    } = &suite.new_case_with_files(HashMap::from([(
         PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\n",
     )]));
@@ -1182,12 +1195,13 @@ fn unapply_ownership_partial() -> Result<()> {
 
 #[test]
 fn unapply_branch() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project,
         project_repository,
         gb_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     // create a commit and set the target
     let file_path = Path::new("test.txt");
@@ -1278,12 +1292,13 @@ fn unapply_branch() -> Result<()> {
 
 #[test]
 fn apply_unapply_added_deleted_files() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project,
         project_repository,
         gb_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     // create a commit and set the target
     let file_path = Path::new("test.txt");
@@ -1356,12 +1371,13 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
 
 #[test]
 fn detect_mergeable_branch() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project,
         project_repository,
         gb_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     // create a commit and set the target
     let file_path = Path::new("test.txt");
@@ -1553,12 +1569,13 @@ fn upstream_integrated_vbranch() -> Result<()> {
     // ok, we need a vbranch with some work and an upstream target that also includes that work, but the base is behind
     // plus a branch with work not in upstream so we can see that it is not included in the vbranch
 
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case_with_files(HashMap::from([
+    } = &suite.new_case_with_files(HashMap::from([
         (PathBuf::from("test.txt"), "file1\n"),
         (PathBuf::from("test2.txt"), "file2\n"),
         (PathBuf::from("test3.txt"), "file3\n"),
@@ -1715,12 +1732,13 @@ fn upstream_integrated_vbranch() -> Result<()> {
 
 #[test]
 fn commit_same_hunk_twice() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case_with_files(HashMap::from([(
+    } = &suite.new_case_with_files(HashMap::from([(
         PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )]));
@@ -1820,12 +1838,13 @@ fn commit_same_hunk_twice() -> Result<()> {
 
 #[test]
 fn commit_same_file_twice() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case_with_files(HashMap::from([(
+    } = &suite.new_case_with_files(HashMap::from([(
         PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )]));
@@ -1925,12 +1944,13 @@ fn commit_same_file_twice() -> Result<()> {
 
 #[test]
 fn commit_partial_by_hunk() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case_with_files(HashMap::from([(
+    } = &suite.new_case_with_files(HashMap::from([(
         PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )]));
@@ -2007,12 +2027,13 @@ fn commit_partial_by_hunk() -> Result<()> {
 
 #[test]
 fn commit_partial_by_file() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case_with_files(HashMap::from([
+    } = &suite.new_case_with_files(HashMap::from([
         (PathBuf::from("test.txt"), "file1\n"),
         (PathBuf::from("test2.txt"), "file2\n"),
     ]));
@@ -2081,12 +2102,13 @@ fn commit_partial_by_file() -> Result<()> {
 
 #[test]
 fn commit_add_and_delete_files() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case_with_files(HashMap::from([
+    } = &suite.new_case_with_files(HashMap::from([
         (PathBuf::from("test.txt"), "file1\n"),
         (PathBuf::from("test2.txt"), "file2\n"),
     ]));
@@ -2156,12 +2178,13 @@ fn commit_add_and_delete_files() -> Result<()> {
 #[test]
 #[cfg(target_family = "unix")]
 fn commit_executable_and_symlinks() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case_with_files(HashMap::from([
+    } = &suite.new_case_with_files(HashMap::from([
         (PathBuf::from("test.txt"), "file1\n"),
         (PathBuf::from("test2.txt"), "file2\n"),
     ]));
@@ -2280,12 +2303,13 @@ fn tree_to_entry_list(
 
 #[test]
 fn verify_branch_commits_to_integration() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         project,
         gb_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     set_test_target(&gb_repository, &project_repository)?;
 
@@ -2315,11 +2339,12 @@ fn verify_branch_commits_to_integration() -> Result<()> {
 
 #[test]
 fn verify_branch_not_integration() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         project_repository,
         gb_repository,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     set_test_target(&gb_repository, &project_repository)?;
 
@@ -2347,7 +2372,7 @@ fn pre_commit_hook_rejection() -> Result<()> {
         gb_repository,
         project_repository,
         ..
-    } = suite.new_case_with_files(HashMap::from([
+    } = &suite.new_case_with_files(HashMap::from([
         (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
         (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));
@@ -2410,7 +2435,7 @@ fn post_commit_hook() -> Result<()> {
         gb_repository,
         project_repository,
         ..
-    } = suite.new_case_with_files(HashMap::from([
+    } = &suite.new_case_with_files(HashMap::from([
         (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
         (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));
@@ -2473,7 +2498,7 @@ fn commit_msg_hook_rejection() -> Result<()> {
         gb_repository,
         project_repository,
         ..
-    } = suite.new_case_with_files(HashMap::from([
+    } = &suite.new_case_with_files(HashMap::from([
         (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
         (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));

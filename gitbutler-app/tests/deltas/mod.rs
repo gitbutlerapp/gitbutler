@@ -7,7 +7,7 @@ mod database {
 
     #[test]
     fn insert_query() -> anyhow::Result<()> {
-        let db = test_database();
+        let (db, _tmp) = test_database();
         let database = Database::new(db);
 
         let project_id = ProjectId::generate();
@@ -33,7 +33,7 @@ mod database {
 
     #[test]
     fn insert_update() -> anyhow::Result<()> {
-        let db = test_database();
+        let (db, _tmp) = test_database();
         let database = Database::new(db);
 
         let project_id = ProjectId::generate();
@@ -66,7 +66,7 @@ mod database {
 
     #[test]
     fn aggregate_deltas_by_file() -> anyhow::Result<()> {
-        let db = test_database();
+        let (db, _tmp) = test_database();
         let database = Database::new(db);
 
         let project_id = ProjectId::generate();
@@ -115,7 +115,8 @@ mod writer {
 
     #[test]
     fn write_no_vbranches() -> anyhow::Result<()> {
-        let Case { gb_repository, .. } = Suite::default().new_case();
+        let suite = Suite::default();
+        let Case { gb_repository, .. } = &suite.new_case();
 
         let deltas_writer = deltas::Writer::new(&gb_repository)?;
 

@@ -4,7 +4,7 @@ use gitbutler_app::database::Database;
 #[test]
 fn smoke() {
     let data_dir = temp_dir();
-    let db = Database::open_in_directory(data_dir).unwrap();
+    let db = Database::open_in_directory(data_dir.path()).unwrap();
     db.transaction(|tx| {
         tx.execute("CREATE TABLE test (id INTEGER PRIMARY KEY)", [])
             .unwrap();

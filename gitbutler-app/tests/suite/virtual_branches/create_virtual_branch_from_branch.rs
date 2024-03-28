@@ -130,7 +130,7 @@ async fn no_conflicts() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     {
         // create a remote branch

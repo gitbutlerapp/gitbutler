@@ -56,11 +56,12 @@ fn test_branch() -> branch::Branch {
 
 #[test]
 fn write() -> anyhow::Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let mut branch = test_branch();
     let target = Target {
@@ -147,11 +148,12 @@ fn write() -> anyhow::Result<()> {
 
 #[test]
 fn should_update() -> anyhow::Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let mut branch = test_branch();
     let target = Target {
