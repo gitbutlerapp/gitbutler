@@ -6,7 +6,7 @@ use crate::{commit_all, temp_dir, test_repository};
 use anyhow::Result;
 
 #[test]
-fn test_directory_reader_read_file() -> Result<()> {
+fn directory_reader_read_file() -> Result<()> {
     let dir = temp_dir();
 
     let file_path = Path::new("test.txt");
@@ -19,7 +19,7 @@ fn test_directory_reader_read_file() -> Result<()> {
 }
 
 #[test]
-fn test_commit_reader_read_file() -> Result<()> {
+fn commit_reader_read_file() -> Result<()> {
     let repository = test_repository();
 
     let file_path = Path::new("test.txt");
@@ -36,7 +36,7 @@ fn test_commit_reader_read_file() -> Result<()> {
 }
 
 #[test]
-fn test_reader_list_files_should_return_relative() -> Result<()> {
+fn reader_list_files_should_return_relative() -> Result<()> {
     let dir = temp_dir();
 
     fs::write(dir.join("test1.txt"), "test")?;
@@ -52,7 +52,7 @@ fn test_reader_list_files_should_return_relative() -> Result<()> {
 }
 
 #[test]
-fn test_reader_list_files() -> Result<()> {
+fn reader_list_files() -> Result<()> {
     let dir = temp_dir();
 
     fs::write(dir.join("test.txt"), "test")?;
@@ -69,7 +69,7 @@ fn test_reader_list_files() -> Result<()> {
 }
 
 #[test]
-fn test_commit_reader_list_files_should_return_relative() -> Result<()> {
+fn commit_reader_list_files_should_return_relative() -> Result<()> {
     let repository = test_repository();
 
     fs::write(
@@ -100,7 +100,7 @@ fn test_commit_reader_list_files_should_return_relative() -> Result<()> {
 }
 
 #[test]
-fn test_commit_reader_list_files() -> Result<()> {
+fn commit_reader_list_files() -> Result<()> {
     let repository = test_repository();
 
     fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
@@ -129,7 +129,7 @@ fn test_commit_reader_list_files() -> Result<()> {
 }
 
 #[test]
-fn test_directory_reader_exists() -> Result<()> {
+fn directory_reader_exists() -> Result<()> {
     let dir = temp_dir();
 
     fs::write(dir.join("test.txt"), "test")?;
@@ -142,7 +142,7 @@ fn test_directory_reader_exists() -> Result<()> {
 }
 
 #[test]
-fn test_commit_reader_exists() -> Result<()> {
+fn commit_reader_exists() -> Result<()> {
     let repository = test_repository();
 
     fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
@@ -159,7 +159,7 @@ fn test_commit_reader_exists() -> Result<()> {
 }
 
 #[test]
-fn test_from_bytes() {
+fn from_bytes() {
     for (bytes, expected) in [
         ("test".as_bytes(), Content::UTF8("test".to_string())),
         (&[0, 159, 146, 150, 159, 146, 150], Content::Binary),
@@ -169,7 +169,7 @@ fn test_from_bytes() {
 }
 
 #[test]
-fn test_serialize_content() {
+fn serialize_content() {
     for (content, expected) in [
         (
             Content::UTF8("test".to_string()),

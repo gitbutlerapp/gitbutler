@@ -88,7 +88,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_write() {
+    fn write() {
         let root = tempfile::tempdir().unwrap();
         let writer = DirWriter::open(root.path()).unwrap();
         writer.write("foo/bar", b"baz").unwrap();
@@ -99,7 +99,7 @@ mod tests {
     }
 
     #[test]
-    fn test_remove() {
+    fn remove() {
         let root = tempfile::tempdir().unwrap();
         let writer = DirWriter::open(root.path()).unwrap();
         writer.remove("foo/bar").unwrap();

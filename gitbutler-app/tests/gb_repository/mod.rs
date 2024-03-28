@@ -13,14 +13,14 @@ use gitbutler_app::{
     sessions::{self, SessionId},
 };
 
-fn test_remote_repository() -> Result<git2::Repository> {
+fn new_test_remote_repository() -> Result<git2::Repository> {
     let path = tempfile::tempdir()?.path().to_str().unwrap().to_string();
     let repo_a = git2::Repository::init_opts(path, &init_opts_bare())?;
     Ok(repo_a)
 }
 
 #[test]
-fn test_get_current_session_writer_should_use_existing_session() -> Result<()> {
+fn get_current_session_writer_should_use_existing_session() -> Result<()> {
     let Case { gb_repository, .. } = Suite::default().new_case();
 
     let current_session_1 = gb_repository.get_or_create_current_session()?;
@@ -31,7 +31,7 @@ fn test_get_current_session_writer_should_use_existing_session() -> Result<()> {
 }
 
 #[test]
-fn test_must_not_return_init_session() -> Result<()> {
+fn must_not_return_init_session() -> Result<()> {
     let Case { gb_repository, .. } = Suite::default().new_case();
 
     assert!(gb_repository.get_current_session()?.is_none());
@@ -43,7 +43,7 @@ fn test_must_not_return_init_session() -> Result<()> {
 }
 
 #[test]
-fn test_must_not_flush_without_current_session() -> Result<()> {
+fn must_not_flush_without_current_session() -> Result<()> {
     let Case {
         gb_repository,
         project_repository,
@@ -60,7 +60,7 @@ fn test_must_not_flush_without_current_session() -> Result<()> {
 }
 
 #[test]
-fn test_non_empty_repository() -> Result<()> {
+fn non_empty_repository() -> Result<()> {
     let Case {
         gb_repository,
         project_repository,
@@ -75,7 +75,7 @@ fn test_non_empty_repository() -> Result<()> {
 }
 
 #[test]
-fn test_must_flush_current_session() -> Result<()> {
+fn must_flush_current_session() -> Result<()> {
     let Case {
         gb_repository,
         project_repository,
@@ -94,7 +94,7 @@ fn test_must_flush_current_session() -> Result<()> {
 }
 
 #[test]
-fn test_list_deltas_from_current_session() -> Result<()> {
+fn list_deltas_from_current_session() -> Result<()> {
     let Case { gb_repository, .. } = Suite::default().new_case();
 
     let current_session = gb_repository.get_or_create_current_session()?;
@@ -125,7 +125,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
 }
 
 #[test]
-fn test_list_deltas_from_flushed_session() {
+fn list_deltas_from_flushed_session() {
     let Case {
         gb_repository,
         project_repository,
@@ -160,7 +160,7 @@ fn test_list_deltas_from_flushed_session() {
 }
 
 #[test]
-fn test_list_files_from_current_session() {
+fn list_files_from_current_session() {
     let Case { gb_repository, .. } = Suite::default().new_case_with_files(HashMap::from([(
         path::PathBuf::from("test.txt"),
         "Hello World",
@@ -178,7 +178,7 @@ fn test_list_files_from_current_session() {
 }
 
 #[test]
-fn test_list_files_from_flushed_session() {
+fn list_files_from_flushed_session() {
     let Case {
         gb_repository,
         project_repository,
@@ -204,9 +204,9 @@ fn test_list_files_from_flushed_session() {
 }
 
 #[tokio::test]
-async fn test_remote_syncronization() {
+async fn remote_syncronization() {
     // first, crate a remote, pretending it's a cloud
-    let cloud = test_remote_repository().unwrap();
+    let cloud = new_test_remote_repository().unwrap();
     let api_project = ApiProject {
         name: "test-sync".to_string(),
         description: None,
@@ -299,9 +299,9 @@ async fn test_remote_syncronization() {
 }
 
 #[tokio::test]
-async fn test_remote_sync_order() {
+async fn remote_sync_order() {
     // first, crate a remote, pretending it's a cloud
-    let cloud = test_remote_repository().unwrap();
+    let cloud = new_test_remote_repository().unwrap();
     let api_project = projects::ApiProject {
         name: "test-sync".to_string(),
         description: None,
@@ -422,7 +422,7 @@ async fn test_remote_sync_order() {
 }
 
 #[test]
-fn test_gitbutler_file() {
+fn gitbutler_file() {
     let Case {
         gb_repository,
         project_repository,

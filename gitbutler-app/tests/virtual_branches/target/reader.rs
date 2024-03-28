@@ -52,7 +52,7 @@ fn test_branch() -> gitbutler_app::virtual_branches::branch::Branch {
 }
 
 #[test]
-fn test_read_not_found() -> Result<()> {
+fn read_not_found() -> Result<()> {
     let Case { gb_repository, .. } = Suite::default().new_case();
 
     let session = gb_repository.get_or_create_current_session()?;
@@ -67,7 +67,7 @@ fn test_read_not_found() -> Result<()> {
 }
 
 #[test]
-fn test_read_deprecated_format() -> Result<()> {
+fn read_deprecated_format() -> Result<()> {
     let Case { gb_repository, .. } = Suite::default().new_case();
 
     let writer = gitbutler_app::writer::DirWriter::open(gb_repository.root())?;
@@ -104,7 +104,7 @@ fn test_read_deprecated_format() -> Result<()> {
 }
 
 #[test]
-fn test_read_override_target() -> Result<()> {
+fn read_override_target() -> Result<()> {
     let Case {
         gb_repository,
         project,

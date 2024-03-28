@@ -55,7 +55,7 @@ fn test_branch() -> branch::Branch {
 }
 
 #[test]
-fn test_write() -> anyhow::Result<()> {
+fn write() -> anyhow::Result<()> {
     let Case {
         gb_repository,
         project,
@@ -146,7 +146,7 @@ fn test_write() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_should_update() -> anyhow::Result<()> {
+fn should_update() -> anyhow::Result<()> {
     let Case {
         gb_repository,
         project,

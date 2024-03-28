@@ -13,15 +13,18 @@ mod keys;
 mod lock;
 mod reader;
 mod sessions;
+mod types;
 pub mod virtual_branches;
 mod watcher;
+mod zip;
 
-use std::{collections::HashMap, fs, path};
+use std::path::PathBuf;
+use std::{collections::HashMap, fs};
 
 use tempfile::tempdir;
 
 pub struct Suite {
-    pub local_app_data: path::PathBuf,
+    pub local_app_data: PathBuf,
     pub storage: gitbutler_app::storage::Storage,
     pub users: gitbutler_app::users::Controller,
     pub projects: gitbutler_app::projects::Controller,
@@ -57,7 +60,7 @@ impl Suite {
         user
     }
 
-    fn project(&self, fs: HashMap<path::PathBuf, &str>) -> gitbutler_app::projects::Project {
+    fn project(&self, fs: HashMap<PathBuf, &str>) -> gitbutler_app::projects::Project {
         let repository = test_repository();
         for (path, contents) in fs {
             if let Some(parent) = path.parent() {
@@ -77,7 +80,7 @@ impl Suite {
             .expect("failed to add project")
     }
 
-    pub fn new_case_with_files(&self, fs: HashMap<path::PathBuf, &str>) -> Case {
+    pub fn new_case_with_files(&self, fs: HashMap<PathBuf, &str>) -> Case {
         let project = self.project(fs);
         Case::new(self, project)
     }
@@ -145,7 +148,7 @@ pub fn test_database() -> gitbutler_app::database::Database {
     gitbutler_app::database::Database::open_in_directory(temp_dir()).unwrap()
 }
 
-pub fn temp_dir() -> path::PathBuf {
+pub fn temp_dir() -> PathBuf {
     let path = tempdir().unwrap().path().to_path_buf();
     fs::create_dir_all(&path).unwrap();
     path

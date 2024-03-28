@@ -3,7 +3,7 @@ use gitbutler_app::lock::Dir;
 use crate::temp_dir;
 
 #[tokio::test]
-async fn test_lock_same_instance() {
+async fn lock_same_instance() {
     let dir_path = temp_dir();
     std::fs::write(dir_path.join("file.txt"), "").unwrap();
     let dir = Dir::new(&dir_path).unwrap();
@@ -45,7 +45,7 @@ async fn test_lock_same_instance() {
 }
 
 #[tokio::test]
-async fn test_lock_different_instances() {
+async fn lock_different_instances() {
     let dir_path = temp_dir();
     std::fs::write(dir_path.join("file.txt"), "").unwrap();
 

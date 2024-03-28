@@ -1,7 +1,7 @@
 use crate::test_repository;
 
 #[test]
-pub fn test_set_str() {
+pub fn set_str() {
     let repo = test_repository();
     let mut config = repo.config().unwrap();
     config.set_str("test.key", "test.value").unwrap();
@@ -12,7 +12,7 @@ pub fn test_set_str() {
 }
 
 #[test]
-pub fn test_set_bool() {
+pub fn set_bool() {
     let repo = test_repository();
     let mut config = repo.config().unwrap();
     config.set_bool("test.key", true).unwrap();
@@ -20,14 +20,14 @@ pub fn test_set_bool() {
 }
 
 #[test]
-pub fn test_get_string_none() {
+pub fn get_string_none() {
     let repo = test_repository();
     let config = repo.config().unwrap();
     assert_eq!(config.get_string("test.key").unwrap(), None);
 }
 
 #[test]
-pub fn test_get_bool_none() {
+pub fn get_bool_none() {
     let repo = test_repository();
     let config = repo.config().unwrap();
     assert_eq!(config.get_bool("test.key").unwrap(), None);

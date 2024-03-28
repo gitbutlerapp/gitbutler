@@ -85,7 +85,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_retry() {
+    async fn retry() {
         let inner_client = MockClient::new();
         let retry_client = super::Client::new(inner_client.clone());
 
