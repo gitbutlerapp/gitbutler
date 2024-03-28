@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 
 use crate::{
     askpass::AskpassBroker,
-    git::{self, credentials::HelpError, Url},
+    git::{self, credentials::HelpError, Oid, Url},
     keys,
     projects::{self, AuthKey},
     ssh, users,
@@ -136,6 +136,21 @@ impl Repository {
     pub fn get_head(&self) -> Result<git::Reference, git::Error> {
         let head = self.git_repository.head()?;
         Ok(head)
+    }
+
+    pub fn get_index(&self) -> Result<git::Index, git::Error> {
+        let index = self.git_repository.index()?;
+        Ok(index)
+    }
+
+    pub fn find_commit(&self, oid: Oid) -> Result<git::Commit, git::Error> {
+        let commit = self.git_repository.find_commit(oid)?;
+        Ok(commit)
+    }
+
+    pub fn find_tree(&self, oid: Oid) -> Result<git::Tree, git::Error> {
+        let tree = self.git_repository.find_tree(oid)?;
+        Ok(tree)
     }
 
     pub fn get_wd_tree(&self) -> Result<git::Tree> {
