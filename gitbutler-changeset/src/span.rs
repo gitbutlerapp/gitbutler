@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// A line-based span of text.
 ///
 /// All line spans are at least one line long.
@@ -106,6 +108,32 @@ impl LineSpan {
     }
 }
 
+impl fmt::Display for LineSpan {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.start + 1)?;
+        let line_count = self.line_count();
+        if line_count != 1 {
+            write!(f, ",{line_count}")?;
+        }
+        Ok(())
+    }
+}
+
+impl From<LineSpan> for std::ops::Range<usize> {
+    fn from(span: LineSpan) -> Self {
+        span.start..span.end
+    }
+}
+
+impl From<std::ops::Range<usize>> for LineSpan {
+    fn from(range: std::ops::Range<usize>) -> Self {
+        Self {
+            start: range.start,
+            end: range.end,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -201,5 +229,23 @@ mod tests {
         assert!(!span.intersects(&LineSpan::new(0, 5))); // Before start
         assert!(!span.intersects(&LineSpan::new(11, 20))); // After end
         assert!(!span.intersects(&LineSpan::new(11, 12))); // Just after end
+    }
+
+    #[test]
+    fn span_display_single_line() {
+        let span = LineSpan::new(5, 6);
+        assert_eq!(format!("{span}"), "6");
+    }
+
+    #[test]
+    fn span_display_multi_line() {
+        let span = LineSpan::new(5, 10);
+        assert_eq!(format!("{span}"), "6,5");
+    }
+
+    #[test]
+    fn span_display_empty() {
+        let span = LineSpan::new(5, 5);
+        assert_eq!(format!("{span}"), "6,0");
     }
 }

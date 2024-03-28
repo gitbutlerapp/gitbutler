@@ -4,7 +4,7 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-thiserror.workspace = true
+unbounded-interval-tree.workspace = true
 
 [dev-dependencies]
 paste = "1.0.14"
