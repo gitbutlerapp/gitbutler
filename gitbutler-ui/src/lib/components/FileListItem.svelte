@@ -138,7 +138,7 @@
 		user-select: none;
 		outline: none;
 		background: var(--clr-theme-container-light);
-		border: 1px solid var(--clr-theme-container-light);
+		border: 1px solid transparent;
 
 		&:not(.selected-draggable):hover {
 			background-color: color-mix(
