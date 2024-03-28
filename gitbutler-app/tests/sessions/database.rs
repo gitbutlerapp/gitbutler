@@ -3,7 +3,7 @@ use gitbutler_app::projects::ProjectId;
 use gitbutler_app::sessions::{session, Database, Session, SessionId};
 
 #[test]
-fn test_insert_query() -> anyhow::Result<()> {
+fn insert_query() -> anyhow::Result<()> {
     let db = test_database();
     println!("0");
     let database = Database::new(db);
@@ -46,7 +46,7 @@ fn test_insert_query() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_update() -> anyhow::Result<()> {
+fn update() -> anyhow::Result<()> {
     let db = test_database();
     let database = Database::new(db);
 

@@ -56,7 +56,7 @@ pub fn set_test_target(
 }
 
 #[test]
-fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
+fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     let Case {
         project,
         project_repository,
@@ -123,7 +123,7 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
 }
 
 #[test]
-fn test_signed_commit() -> Result<()> {
+fn signed_commit() -> Result<()> {
     let suite = Suite::default();
     let Case {
         project,
@@ -179,7 +179,7 @@ fn test_signed_commit() -> Result<()> {
 }
 
 #[test]
-fn test_track_binary_files() -> Result<()> {
+fn track_binary_files() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -307,7 +307,7 @@ fn test_track_binary_files() -> Result<()> {
 }
 
 #[test]
-fn test_create_branch_with_ownership() -> Result<()> {
+fn create_branch_with_ownership() -> Result<()> {
     let Case {
         project,
         project_repository,
@@ -362,7 +362,7 @@ fn test_create_branch_with_ownership() -> Result<()> {
 }
 
 #[test]
-fn test_create_branch_in_the_middle() -> Result<()> {
+fn create_branch_in_the_middle() -> Result<()> {
     let Case {
         project_repository,
         gb_repository,
@@ -409,7 +409,7 @@ fn test_create_branch_in_the_middle() -> Result<()> {
 }
 
 #[test]
-fn test_create_branch_no_arguments() -> Result<()> {
+fn create_branch_no_arguments() -> Result<()> {
     let Case {
         project_repository,
         gb_repository,
@@ -441,7 +441,7 @@ fn test_create_branch_no_arguments() -> Result<()> {
 }
 
 #[test]
-fn test_hunk_expantion() -> Result<()> {
+fn hunk_expantion() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -524,7 +524,7 @@ fn test_hunk_expantion() -> Result<()> {
 }
 
 #[test]
-fn test_get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
+fn get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
     let Case {
         project_repository,
         gb_repository,
@@ -543,7 +543,7 @@ fn test_get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
 }
 
 #[test]
-fn test_get_status_files_by_branch() -> Result<()> {
+fn get_status_files_by_branch() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -587,7 +587,7 @@ fn test_get_status_files_by_branch() -> Result<()> {
 }
 
 #[test]
-fn test_move_hunks_multiple_sources() -> Result<()> {
+fn move_hunks_multiple_sources() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -697,7 +697,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
 }
 
 #[test]
-fn test_move_hunks_partial_explicitly() -> Result<()> {
+fn move_hunks_partial_explicitly() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -787,7 +787,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
 }
 
 #[test]
-fn test_add_new_hunk_to_the_end() -> Result<()> {
+fn add_new_hunk_to_the_end() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -842,7 +842,7 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
 }
 
 #[test]
-fn test_merge_vbranch_upstream_clean_rebase() -> Result<()> {
+fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     let suite = Suite::default();
     let Case {
         project_repository,
@@ -967,7 +967,7 @@ fn test_merge_vbranch_upstream_clean_rebase() -> Result<()> {
 }
 
 #[test]
-fn test_merge_vbranch_upstream_conflict() -> Result<()> {
+fn merge_vbranch_upstream_conflict() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -1123,7 +1123,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
 }
 
 #[test]
-fn test_unapply_ownership_partial() -> Result<()> {
+fn unapply_ownership_partial() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -1277,7 +1277,7 @@ fn unapply_branch() -> Result<()> {
 }
 
 #[test]
-fn test_apply_unapply_added_deleted_files() -> Result<()> {
+fn apply_unapply_added_deleted_files() -> Result<()> {
     let Case {
         project,
         project_repository,
@@ -1355,7 +1355,7 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
 }
 
 #[test]
-fn test_detect_mergeable_branch() -> Result<()> {
+fn detect_mergeable_branch() -> Result<()> {
     let Case {
         project,
         project_repository,
@@ -1549,7 +1549,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
 }
 
 #[test]
-fn test_upstream_integrated_vbranch() -> Result<()> {
+fn upstream_integrated_vbranch() -> Result<()> {
     // ok, we need a vbranch with some work and an upstream target that also includes that work, but the base is behind
     // plus a branch with work not in upstream so we can see that it is not included in the vbranch
 
@@ -1714,7 +1714,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
 }
 
 #[test]
-fn test_commit_same_hunk_twice() -> Result<()> {
+fn commit_same_hunk_twice() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -1819,7 +1819,7 @@ fn test_commit_same_hunk_twice() -> Result<()> {
 }
 
 #[test]
-fn test_commit_same_file_twice() -> Result<()> {
+fn commit_same_file_twice() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -1924,7 +1924,7 @@ fn test_commit_same_file_twice() -> Result<()> {
 }
 
 #[test]
-fn test_commit_partial_by_hunk() -> Result<()> {
+fn commit_partial_by_hunk() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -2006,7 +2006,7 @@ fn test_commit_partial_by_hunk() -> Result<()> {
 }
 
 #[test]
-fn test_commit_partial_by_file() -> Result<()> {
+fn commit_partial_by_file() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -2080,7 +2080,7 @@ fn test_commit_partial_by_file() -> Result<()> {
 }
 
 #[test]
-fn test_commit_add_and_delete_files() -> Result<()> {
+fn commit_add_and_delete_files() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -2155,7 +2155,7 @@ fn test_commit_add_and_delete_files() -> Result<()> {
 
 #[test]
 #[cfg(target_family = "unix")]
-fn test_commit_executable_and_symlinks() -> Result<()> {
+fn commit_executable_and_symlinks() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -2279,7 +2279,7 @@ fn tree_to_entry_list(
 }
 
 #[test]
-fn test_verify_branch_commits_to_integration() -> Result<()> {
+fn verify_branch_commits_to_integration() -> Result<()> {
     let Case {
         project_repository,
         project,
@@ -2314,7 +2314,7 @@ fn test_verify_branch_commits_to_integration() -> Result<()> {
 }
 
 #[test]
-fn test_verify_branch_not_integration() -> Result<()> {
+fn verify_branch_not_integration() -> Result<()> {
     let Case {
         project_repository,
         gb_repository,
@@ -2340,7 +2340,7 @@ fn test_verify_branch_not_integration() -> Result<()> {
 }
 
 #[test]
-fn test_pre_commit_hook_rejection() -> Result<()> {
+fn pre_commit_hook_rejection() -> Result<()> {
     let suite = Suite::default();
     let Case {
         project,
@@ -2403,7 +2403,7 @@ fn test_pre_commit_hook_rejection() -> Result<()> {
 }
 
 #[test]
-fn test_post_commit_hook() -> Result<()> {
+fn post_commit_hook() -> Result<()> {
     let suite = Suite::default();
     let Case {
         project,
@@ -2466,7 +2466,7 @@ fn test_post_commit_hook() -> Result<()> {
 }
 
 #[test]
-fn test_commit_msg_hook_rejection() -> Result<()> {
+fn commit_msg_hook_rejection() -> Result<()> {
     let suite = Suite::default();
     let Case {
         project,

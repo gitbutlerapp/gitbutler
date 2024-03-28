@@ -58,7 +58,7 @@ fn test_branch() -> Branch {
 }
 
 #[test]
-fn test_read_not_found() -> Result<()> {
+fn read_not_found() -> Result<()> {
     let Case { gb_repository, .. } = Suite::default().new_case();
 
     let session = gb_repository.get_or_create_current_session()?;
@@ -73,7 +73,7 @@ fn test_read_not_found() -> Result<()> {
 }
 
 #[test]
-fn test_read_override() -> Result<()> {
+fn read_override() -> Result<()> {
     let Case {
         gb_repository,
         project,

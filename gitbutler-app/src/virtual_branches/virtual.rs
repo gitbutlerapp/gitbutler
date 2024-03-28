@@ -4050,7 +4050,7 @@ mod tests {
     }
 
     #[test]
-    fn test_normalize_branch_name() {
+    fn normalize_branch_name_test() {
         assert_eq!(normalize_branch_name("feature/branch"), "feature/branch");
         assert_eq!(normalize_branch_name("foo#branch"), "foo#branch");
         assert_eq!(normalize_branch_name("foo!branch"), "foo-branch");

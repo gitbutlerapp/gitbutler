@@ -6,7 +6,7 @@ use crate::{Case, Suite};
 use gitbutler_app::sessions::{self, session::SessionId};
 
 #[test]
-fn test_should_not_write_session_with_hash() {
+fn should_not_write_session_with_hash() {
     let Case { gb_repository, .. } = Suite::default().new_case();
 
     let session = sessions::Session {
@@ -27,7 +27,7 @@ fn test_should_not_write_session_with_hash() {
 }
 
 #[test]
-fn test_should_write_full_session() -> Result<()> {
+fn should_write_full_session() -> Result<()> {
     let Case { gb_repository, .. } = Suite::default().new_case();
 
     let session = sessions::Session {
@@ -68,7 +68,7 @@ fn test_should_write_full_session() -> Result<()> {
 }
 
 #[test]
-fn test_should_write_partial_session() -> Result<()> {
+fn should_write_partial_session() -> Result<()> {
     let Case { gb_repository, .. } = Suite::default().new_case();
 
     let session = sessions::Session {

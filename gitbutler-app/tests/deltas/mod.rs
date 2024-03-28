@@ -103,6 +103,9 @@ mod database {
     }
 }
 
+mod document;
+mod operations;
+
 mod writer {
     use gitbutler_app::deltas::operations::Operation;
     use gitbutler_app::{deltas, sessions};
