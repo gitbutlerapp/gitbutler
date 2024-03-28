@@ -6,6 +6,14 @@ rust-version = "1.57"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
+[lib]
+doctest = false
+
+[[bin]]
+name = "gitbutler-app"
+path = "src/main.rs"
+test = false
+
 [build-dependencies]
 tauri-build = { version = "1.5", features = [] }
 
