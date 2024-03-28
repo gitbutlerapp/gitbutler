@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
 	import FileListItem from './FileListItem.svelte';
+	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { maybeMoveSelection } from '$lib/utils/selection';
 	import { getCommitStore, getSelectedFileIds } from '$lib/vbranches/contexts';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
@@ -30,17 +31,7 @@
 		showCheckbox={showCheckboxes}
 		selected={$selectedFileIds && $fileSelection.has(file.id, $commit?.id)}
 		on:click={(e) => {
-			const isAlreadySelected = $selectedFileIds && $fileSelection.has(file.id, $commit?.id);
-			if (isAlreadySelected && e.shiftKey) {
-				$fileSelection.remove(file.id, $commit?.id);
-			} else if (isAlreadySelected) {
-				$fileSelection.clear();
-			} else if (e.shiftKey && allowMultiple) {
-				$fileSelection.add(file.id, $commit?.id);
-			} else {
-				$fileSelection.clear();
-				$fileSelection.add(file.id, $commit?.id);
-			}
+			selectFilesInList(e, file, $fileSelection, sortedFiles, allowMultiple, $commit);
 		}}
 		on:keydown={(e) => {
 			e.preventDefault();

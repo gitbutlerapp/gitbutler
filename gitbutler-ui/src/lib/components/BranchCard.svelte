@@ -290,7 +290,7 @@
 					direction="right"
 					minWidth={320}
 					sticky
-					defaultLineColor={$selectedFileIds.length > 0
+					defaultLineColor={$selectedFileIds.length == 1
 						? 'transparent'
 						: 'color-mix(in srgb,var(--clr-container-outline-light) 60%, transparent)'}
 					on:width={(e) => {

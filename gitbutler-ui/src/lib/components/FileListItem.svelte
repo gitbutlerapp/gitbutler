@@ -76,8 +76,8 @@
 	<div
 		bind:this={draggableElt}
 		class="file-list-item"
-		id={`file-${file.id}`}
 		class:selected-draggable={selected}
+		id={`file-${file.id}`}
 		on:click
 		on:keydown
 		on:dragstart={() => {
@@ -136,12 +136,15 @@
 		text-align: left;
 		user-select: none;
 		outline: none;
-		margin-bottom: var(--size-2);
-		transition: background-color var(--transition-fast);
-		background: var(--clr-container-light);
+		background: var(--clr-theme-container-light);
+		border: 1px solid var(--clr-theme-container-light);
+
 		&:not(.selected-draggable):hover {
-			transition: none;
-			background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-container-light),
+				var(--darken-tint-light)
+			);
 		}
 	}
 
@@ -182,11 +185,16 @@
 		overflow: hidden;
 		opacity: 0.3;
 	}
+
 	.selected-draggable {
 		background-color: var(--clr-scale-pop-80);
 
 		&:hover {
-			background-color: color-mix(in srgb, var(--clr-scale-pop-80), var(--darken-extralight));
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-scale-pop-80),
+				var(--darken-tint-extralight)
+			);
 		}
 	}
 </style>
