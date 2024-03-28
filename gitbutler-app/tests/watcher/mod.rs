@@ -1008,7 +1008,7 @@ mod handler {
 
         use crate::watcher::handler::test_remote_repository;
         use crate::{Case, Suite};
-        use gitbutler_app::watcher::handlers::fetch_gitbutler_data::InnerHandler;
+        use gitbutler_app::watcher::handlers::fetch_gitbutler_data::Handler;
 
         #[tokio::test]
         async fn test_fetch_success() -> anyhow::Result<()> {
@@ -1037,12 +1037,7 @@ mod handler {
                 })
                 .await?;
 
-            let listener = InnerHandler {
-                local_data_dir: suite.local_app_data,
-                projects: suite.projects,
-                users: suite.users,
-            };
-
+            let listener = Handler::new(suite.local_app_data, suite.projects, suite.users);
             listener
                 .handle(&project.id, &SystemTime::now())
                 .await
@@ -1056,12 +1051,7 @@ mod handler {
             let suite = Suite::default();
             let Case { project, .. } = suite.new_case();
 
-            let listener = InnerHandler {
-                local_data_dir: suite.local_app_data,
-                projects: suite.projects,
-                users: suite.users,
-            };
-
+            let listener = Handler::new(suite.local_app_data, suite.projects, suite.users);
             let res = listener.handle(&project.id, &SystemTime::now()).await;
 
             assert_eq!(&res.unwrap_err().to_string(), "sync disabled");
@@ -1169,7 +1159,7 @@ mod handler {
         use crate::watcher::handler::test_remote_repository;
         use crate::{Case, Suite};
         use gitbutler_app::project_repository::LogUntil;
-        use gitbutler_app::watcher::handlers::push_project_to_gitbutler::HandlerInner;
+        use gitbutler_app::watcher::handlers::push_project_to_gitbutler::Handler;
 
         fn log_walk(repo: &git2::Repository, head: git::Oid) -> Vec<git::Oid> {
             let mut walker = repo.revwalk().unwrap();
@@ -1202,13 +1192,7 @@ mod handler {
                 })
                 .await?;
 
-            let listener = HandlerInner {
-                local_data_dir: suite.local_app_data,
-                project_store: suite.projects,
-                users: suite.users,
-                batch_size: 100,
-            };
-
+            let listener = Handler::new(suite.local_app_data, suite.projects, suite.users, 100);
             let res = listener.handle(&project.id).await;
 
             res.unwrap_err();
@@ -1259,13 +1243,12 @@ mod handler {
             cloud_code.find_commit(target_id.into()).unwrap_err();
 
             {
-                let listener = HandlerInner {
-                    local_data_dir: suite.local_app_data,
-                    project_store: suite.projects.clone(),
-                    users: suite.users,
-                    batch_size: 10,
-                };
-
+                let listener = Handler::new(
+                    suite.local_app_data,
+                    suite.projects.clone(),
+                    suite.users,
+                    10,
+                );
                 let res = listener.handle(&project.id).await.unwrap();
                 assert!(res.is_empty());
             }
@@ -1354,13 +1337,12 @@ mod handler {
                 .await?;
 
             {
-                let listener = HandlerInner {
-                    local_data_dir: suite.local_app_data,
-                    project_store: suite.projects.clone(),
-                    users: suite.users,
-                    batch_size: 10,
-                };
-
+                let listener = Handler::new(
+                    suite.local_app_data,
+                    suite.projects.clone(),
+                    suite.users,
+                    10,
+                );
                 listener.handle(&project.id).await.unwrap();
             }
 
@@ -1472,13 +1454,12 @@ mod handler {
                 .await?;
 
             {
-                let listener = HandlerInner {
-                    local_data_dir: suite.local_app_data.clone(),
-                    project_store: suite.projects.clone(),
-                    users: suite.users.clone(),
-                    batch_size: 2,
-                };
-
+                let listener = Handler::new(
+                    suite.local_app_data.clone(),
+                    suite.projects.clone(),
+                    suite.users.clone(),
+                    2,
+                );
                 listener.handle(&project.id).await.unwrap();
             }
 
@@ -1545,13 +1526,12 @@ mod handler {
             cloud_code.find_commit(target_id.into()).unwrap_err();
 
             {
-                let listener = HandlerInner {
-                    local_data_dir: suite.local_app_data,
-                    project_store: suite.projects.clone(),
-                    users: suite.users,
-                    batch_size: 10,
-                };
-
+                let listener = Handler::new(
+                    suite.local_app_data,
+                    suite.projects.clone(),
+                    suite.users,
+                    10,
+                );
                 let res = listener.handle(&project.id).await.unwrap();
                 assert!(res.is_empty());
             }

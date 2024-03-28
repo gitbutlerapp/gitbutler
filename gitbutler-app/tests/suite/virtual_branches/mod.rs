@@ -1,10 +1,3 @@
-//TODO(ST): see if this can be fixed
-#![allow(
-    clippy::redundant_closure_for_method_calls,
-    clippy::rest_pat_in_fully_bound_structs,
-    clippy::dbg_macro
-)]
-
 use std::{fs, path, str::FromStr};
 
 use crate::common::{paths, TestProject};

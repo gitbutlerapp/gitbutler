@@ -17,7 +17,7 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    inner: Arc<Mutex<HandlerInner>>,
+    inner: Arc<Mutex<State>>,
 }
 
 impl TryFrom<&AppHandle> for Handler {
@@ -29,8 +29,7 @@ impl TryFrom<&AppHandle> for Handler {
         } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
             let projects = value.state::<projects::Controller>().inner().clone();
             let users = value.state::<users::Controller>().inner().clone();
-            let inner = HandlerInner::new(app_data_dir, projects, users);
-            let handler = Handler::new(inner);
+            let handler = Handler::new(app_data_dir, projects, users, 1000);
             value.manage(handler.clone());
             Ok(handler)
         } else {
@@ -40,45 +39,32 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    fn new(inner: HandlerInner) -> Self {
+    pub fn new(
+        local_data_dir: path::PathBuf,
+        project_store: projects::Controller,
+        users: users::Controller,
+        batch_size: usize,
+    ) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(inner)),
+            inner: Arc::new(Mutex::new(State {
+                local_data_dir,
+                project_store,
+                users,
+                batch_size,
+            })),
         }
     }
 
     pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
-        if let Ok(inner) = self.inner.try_lock() {
-            inner.handle(project_id).await
+        if let Ok(state) = self.inner.try_lock() {
+            Self::handle_inner(&state, project_id).await
         } else {
             Ok(vec![])
         }
     }
-}
 
-// TODO(ST): rename to state, move logic into handler itself.
-pub struct HandlerInner {
-    pub local_data_dir: path::PathBuf,
-    pub project_store: projects::Controller,
-    pub users: users::Controller,
-    pub batch_size: usize,
-}
-
-impl HandlerInner {
-    fn new(
-        local_data_dir: path::PathBuf,
-        project_store: projects::Controller,
-        users: users::Controller,
-    ) -> Self {
-        Self {
-            local_data_dir,
-            project_store,
-            users,
-            batch_size: 1000,
-        }
-    }
-
-    pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
-        let project = self
+    async fn handle_inner(state: &State, project_id: &ProjectId) -> Result<Vec<events::Event>> {
+        let project = state
             .project_store
             .get(project_id)
             .context("failed to get project")?;
@@ -87,7 +73,7 @@ impl HandlerInner {
             return Ok(vec![]);
         }
 
-        let user = self.users.get_user()?;
+        let user = state.users.get_user()?;
         let project_repository =
             project_repository::Repository::open(&project).context("failed to open repository")?;
 
@@ -98,7 +84,7 @@ impl HandlerInner {
             .copied();
 
         let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
+            &state.local_data_dir,
             &project_repository,
             user.as_ref(),
         )?;
@@ -112,15 +98,15 @@ impl HandlerInner {
             .unwrap_or_default();
 
         if target_changed {
-            match self
-                .push_target(
-                    &project_repository,
-                    &default_target,
-                    gb_code_last_commit,
-                    project_id,
-                    &user,
-                )
-                .await
+            match Self::push_target(
+                state,
+                &project_repository,
+                &default_target,
+                gb_code_last_commit,
+                project_id,
+                &user,
+            )
+            .await
             {
                 Ok(()) => {}
                 Err(project_repository::RemoteError::Network) => return Ok(vec![]),
@@ -135,13 +121,13 @@ impl HandlerInner {
         };
 
         // make sure last push time is updated
-        self.update_project(project_id, &default_target.sha).await?;
+        Self::update_project(state, project_id, &default_target.sha).await?;
 
         Ok(vec![])
     }
 
     async fn push_target(
-        &self,
+        state: &State,
         project_repository: &project_repository::Repository,
         default_target: &crate::virtual_branches::target::Target,
         gb_code_last_commit: Option<Oid>,
@@ -150,7 +136,7 @@ impl HandlerInner {
     ) -> Result<(), project_repository::RemoteError> {
         let ids = batch_rev_walk(
             &project_repository.git_repository,
-            self.batch_size,
+            state.batch_size,
             default_target.sha,
             gb_code_last_commit,
         )?;
@@ -168,7 +154,7 @@ impl HandlerInner {
 
             project_repository.push_to_gitbutler_server(user.as_ref(), &[&refspec])?;
 
-            self.update_project(project_id, id).await?;
+            Self::update_project(state, project_id, id).await?;
 
             tracing::info!(
                 %project_id,
@@ -194,11 +180,12 @@ impl HandlerInner {
     }
 
     async fn update_project(
-        &self,
+        state: &State,
         project_id: &crate::id::Id<projects::Project>,
         id: &Oid,
     ) -> Result<(), project_repository::RemoteError> {
-        self.project_store
+        state
+            .project_store
             .update(&projects::UpdateRequest {
                 id: *project_id,
                 gitbutler_code_push_state: Some(CodePushState {
@@ -212,6 +199,13 @@ impl HandlerInner {
 
         Ok(())
     }
+}
+
+struct State {
+    local_data_dir: path::PathBuf,
+    project_store: projects::Controller,
+    users: users::Controller,
+    batch_size: usize,
 }
 
 fn push_all_refs(
