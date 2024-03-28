@@ -1,5 +1,4 @@
 <script lang="ts">
-	import BranchCard from './BranchCard.svelte';
 	import FileCard from './FileCard.svelte';
 	import { Project } from '$lib/backend/projects';
 	import Resizer from '$lib/components/Resizer.svelte';

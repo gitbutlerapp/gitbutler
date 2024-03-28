@@ -28,6 +28,12 @@ export class FileSelection {
 		return [...this._fileIds.values()].map((fileId) => callback(fileId));
 	}
 
+	set(values: string[]) {
+		this._fileIds.clear();
+		values.forEach((value) => this._fileIds.add(value));
+		this.fileIds.set([...this._fileIds.values()]);
+	}
+
 	clear() {
 		this._fileIds.clear();
 		this.fileIds.set([]);
