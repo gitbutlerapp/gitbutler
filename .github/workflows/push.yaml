@@ -113,6 +113,12 @@ jobs:
           - ''
     steps:
       - uses: actions/checkout@v4
+      # there's a runtime dependency on gitbutler-git-askpass and gitbutler-git-setsid
+      - uses: ./.github/actions/check-crate
+        with:
+          crate: gitbutler-git
+          features: ${{ toJson(matrix.features) }}
+          action: ${{ matrix.action }}
       - uses: ./.github/actions/check-crate
         with:
           crate: gitbutler-app

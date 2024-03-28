@@ -10,9 +10,9 @@ use crate::{git, id::Id, types::default_true::DefaultTrue};
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum AuthKey {
-    #[default]
     Default,
     Generated,
+    #[default]
     SystemExecutable,
     GitCredentialsHelper,
     Local {
