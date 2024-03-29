@@ -11,7 +11,6 @@ export const prerender = false;
 export async function load({ params, parent }) {
 	// prettier-ignore
 	const {
-        authService,
         githubService,
         projectService,
         remoteUrl$,
@@ -50,11 +49,9 @@ export async function load({ params, parent }) {
 	);
 
 	return {
-		authService,
 		baseBranchService,
 		branchController,
 		branchService,
-		githubService,
 		projectId,
 		project,
 		remoteBranchService,
