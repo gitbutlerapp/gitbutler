@@ -68,7 +68,7 @@
 				{/if}
 				{#await getRemoteBranchData(project.id, branch.name) then branchData}
 					{#if branchData.commits && branchData.commits.length > 0}
-						<div class="flex w-full flex-col gap-y-2">
+						<div class="branch-preview__commits-list">
 							{#each branchData.commits as commit (commit.id)}
 								<CommitCard
 									{commit}
@@ -138,5 +138,11 @@
 
 	.card__content {
 		user-select: text;
+	}
+
+	.branch-preview__commits-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-8);
 	}
 </style>
