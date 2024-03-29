@@ -7,7 +7,7 @@ mod database {
 
     #[test]
     fn insert_query() -> anyhow::Result<()> {
-        let db = test_database();
+        let (db, _tmp) = test_database();
         let database = Database::new(db);
 
         let project_id = ProjectId::generate();
@@ -33,7 +33,7 @@ mod database {
 
     #[test]
     fn insert_update() -> anyhow::Result<()> {
-        let db = test_database();
+        let (db, _tmp) = test_database();
         let database = Database::new(db);
 
         let project_id = ProjectId::generate();
@@ -66,7 +66,7 @@ mod database {
 
     #[test]
     fn aggregate_deltas_by_file() -> anyhow::Result<()> {
-        let db = test_database();
+        let (db, _tmp) = test_database();
         let database = Database::new(db);
 
         let project_id = ProjectId::generate();
@@ -103,6 +103,9 @@ mod database {
     }
 }
 
+mod document;
+mod operations;
+
 mod writer {
     use gitbutler_app::deltas::operations::Operation;
     use gitbutler_app::{deltas, sessions};
@@ -112,12 +115,13 @@ mod writer {
 
     #[test]
     fn write_no_vbranches() -> anyhow::Result<()> {
-        let Case { gb_repository, .. } = Suite::default().new_case();
+        let suite = Suite::default();
+        let Case { gb_repository, .. } = &suite.new_case();
 
-        let deltas_writer = deltas::Writer::new(&gb_repository)?;
+        let deltas_writer = deltas::Writer::new(gb_repository)?;
 
         let session = gb_repository.get_or_create_current_session()?;
-        let session_reader = sessions::Reader::open(&gb_repository, &session)?;
+        let session_reader = sessions::Reader::open(gb_repository, &session)?;
         let deltas_reader = gitbutler_app::deltas::Reader::new(&session_reader);
 
         let path = "test.txt";

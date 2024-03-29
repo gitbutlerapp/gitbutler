@@ -55,12 +55,13 @@ fn test_branch() -> branch::Branch {
 }
 
 #[test]
-fn test_write() -> anyhow::Result<()> {
+fn write() -> anyhow::Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let mut branch = test_branch();
     let target = Target {
@@ -69,10 +70,10 @@ fn test_write() -> anyhow::Result<()> {
         sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
     };
 
-    let branch_writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
+    let branch_writer = branch::Writer::new(gb_repository, project.gb_dir())?;
     branch_writer.write(&mut branch)?;
 
-    let target_writer = target::Writer::new(&gb_repository, project.gb_dir())?;
+    let target_writer = target::Writer::new(gb_repository, project.gb_dir())?;
     target_writer.write(&branch.id, &target)?;
 
     let root = gb_repository
@@ -146,12 +147,13 @@ fn test_write() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_should_update() -> anyhow::Result<()> {
+fn should_update() -> anyhow::Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let mut branch = test_branch();
     let target = Target {
@@ -160,9 +162,9 @@ fn test_should_update() -> anyhow::Result<()> {
         sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
     };
 
-    let branch_writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
+    let branch_writer = branch::Writer::new(gb_repository, project.gb_dir())?;
     branch_writer.write(&mut branch)?;
-    let target_writer = target::Writer::new(&gb_repository, project.gb_dir())?;
+    let target_writer = target::Writer::new(gb_repository, project.gb_dir())?;
     target_writer.write(&branch.id, &target)?;
 
     let updated_target = Target {

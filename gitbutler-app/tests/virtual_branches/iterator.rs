@@ -8,7 +8,7 @@ use crate::{Case, Suite};
 
 static TEST_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 
-fn test_branch() -> virtual_branches::branch::Branch {
+fn new_test_branch() -> virtual_branches::branch::Branch {
     TEST_INDEX.fetch_add(1, Ordering::Relaxed);
 
     virtual_branches::branch::Branch {
@@ -47,7 +47,7 @@ fn test_branch() -> virtual_branches::branch::Branch {
 
 static TEST_TARGET_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 
-fn test_target() -> virtual_branches::target::Target {
+fn new_test_target() -> virtual_branches::target::Target {
     virtual_branches::target::Target {
         branch: format!(
             "refs/remotes/branch name{}/remote name {}",
@@ -67,11 +67,12 @@ fn test_target() -> virtual_branches::target::Target {
 }
 
 #[test]
-fn test_empty_iterator() -> Result<()> {
-    let Case { gb_repository, .. } = Suite::default().new_case();
+fn empty_iterator() -> Result<()> {
+    let suite = Suite::default();
+    let Case { gb_repository, .. } = &suite.new_case();
 
     let session = gb_repository.get_or_create_current_session()?;
-    let session_reader = gitbutler_app::sessions::Reader::open(&gb_repository, &session)?;
+    let session_reader = gitbutler_app::sessions::Reader::open(gb_repository, &session)?;
 
     let iter = virtual_branches::Iterator::new(&session_reader)?;
 
@@ -81,28 +82,29 @@ fn test_empty_iterator() -> Result<()> {
 }
 
 #[test]
-fn test_iterate_all() -> Result<()> {
+fn iterate_all() -> Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
     let target_writer =
-        gitbutler_app::virtual_branches::target::Writer::new(&gb_repository, project.gb_dir())?;
-    target_writer.write_default(&test_target())?;
+        gitbutler_app::virtual_branches::target::Writer::new(gb_repository, project.gb_dir())?;
+    target_writer.write_default(&new_test_target())?;
 
     let branch_writer =
-        gitbutler_app::virtual_branches::branch::Writer::new(&gb_repository, project.gb_dir())?;
-    let mut branch_1 = test_branch();
+        gitbutler_app::virtual_branches::branch::Writer::new(gb_repository, project.gb_dir())?;
+    let mut branch_1 = new_test_branch();
     branch_writer.write(&mut branch_1)?;
-    let mut branch_2 = test_branch();
+    let mut branch_2 = new_test_branch();
     branch_writer.write(&mut branch_2)?;
-    let mut branch_3 = test_branch();
+    let mut branch_3 = new_test_branch();
     branch_writer.write(&mut branch_3)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
-    let session_reader = gitbutler_app::sessions::Reader::open(&gb_repository, &session)?;
+    let session_reader = gitbutler_app::sessions::Reader::open(gb_repository, &session)?;
 
     let iter = virtual_branches::Iterator::new(&session_reader)?
         .collect::<Result<Vec<_>, gitbutler_app::reader::Error>>()?;

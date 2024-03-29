@@ -157,7 +157,7 @@ pub mod gb {
             use super::*;
 
             #[test]
-            fn test_error_context() {
+            fn error_context() {
                 fn low_level_io() -> std::result::Result<(), std::io::Error> {
                     Err(std::io::Error::new(std::io::ErrorKind::Other, "oh no!"))
                 }

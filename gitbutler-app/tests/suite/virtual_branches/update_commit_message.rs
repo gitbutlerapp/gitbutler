@@ -7,22 +7,22 @@ async fn head() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(&project_id, &branch_id, "commit one", None, false)
+            .create_commit(project_id, &branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
@@ -30,7 +30,7 @@ async fn head() {
     {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
         controller
-            .create_commit(&project_id, &branch_id, "commit two", None, false)
+            .create_commit(project_id, &branch_id, "commit two", None, false)
             .await
             .unwrap()
     };
@@ -38,14 +38,14 @@ async fn head() {
     let commit_three_oid = {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
         controller
-            .create_commit(&project_id, &branch_id, "commit three", None, false)
+            .create_commit(project_id, &branch_id, "commit three", None, false)
             .await
             .unwrap()
     };
 
     controller
         .update_commit_message(
-            &project_id,
+            project_id,
             &branch_id,
             commit_three_oid,
             "commit three updated",
@@ -54,7 +54,7 @@ async fn head() {
         .unwrap();
 
     let branch = controller
-        .list_virtual_branches(&project_id)
+        .list_virtual_branches(project_id)
         .await
         .unwrap()
         .0
@@ -81,22 +81,22 @@ async fn middle() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(&project_id, &branch_id, "commit one", None, false)
+            .create_commit(project_id, &branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
@@ -104,7 +104,7 @@ async fn middle() {
     let commit_two_oid = {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
         controller
-            .create_commit(&project_id, &branch_id, "commit two", None, false)
+            .create_commit(project_id, &branch_id, "commit two", None, false)
             .await
             .unwrap()
     };
@@ -112,23 +112,18 @@ async fn middle() {
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
         controller
-            .create_commit(&project_id, &branch_id, "commit three", None, false)
+            .create_commit(project_id, &branch_id, "commit three", None, false)
             .await
             .unwrap()
     };
 
     controller
-        .update_commit_message(
-            &project_id,
-            &branch_id,
-            commit_two_oid,
-            "commit two updated",
-        )
+        .update_commit_message(project_id, &branch_id, commit_two_oid, "commit two updated")
         .await
         .unwrap();
 
     let branch = controller
-        .list_virtual_branches(&project_id)
+        .list_virtual_branches(project_id)
         .await
         .unwrap()
         .0
@@ -155,16 +150,16 @@ async fn forcepush_allowed() {
         controller,
         projects,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     projects
         .update(&projects::UpdateRequest {
-            id: project_id,
+            id: *project_id,
             ok_with_force_push: Some(true),
             ..Default::default()
         })
@@ -172,35 +167,30 @@ async fn forcepush_allowed() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(&project_id, &branch_id, "commit one", None, false)
+            .create_commit(project_id, &branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
 
     controller
-        .push_virtual_branch(&project_id, &branch_id, false, None)
+        .push_virtual_branch(project_id, &branch_id, false, None)
         .await
         .unwrap();
 
     controller
-        .update_commit_message(
-            &project_id,
-            &branch_id,
-            commit_one_oid,
-            "commit one updated",
-        )
+        .update_commit_message(project_id, &branch_id, commit_one_oid, "commit one updated")
         .await
         .unwrap();
 
     let branch = controller
-        .list_virtual_branches(&project_id)
+        .list_virtual_branches(project_id)
         .await
         .unwrap()
         .0
@@ -225,16 +215,16 @@ async fn forcepush_forbidden() {
         controller,
         projects,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     projects
         .update(&projects::UpdateRequest {
-            id: project_id,
+            id: *project_id,
             ok_with_force_push: Some(false),
             ..Default::default()
         })
@@ -242,31 +232,26 @@ async fn forcepush_forbidden() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(&project_id, &branch_id, "commit one", None, false)
+            .create_commit(project_id, &branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
 
     controller
-        .push_virtual_branch(&project_id, &branch_id, false, None)
+        .push_virtual_branch(project_id, &branch_id, false, None)
         .await
         .unwrap();
 
     assert!(matches!(
         controller
-            .update_commit_message(
-                &project_id,
-                &branch_id,
-                commit_one_oid,
-                "commit one updated",
-            )
+            .update_commit_message(project_id, &branch_id, commit_one_oid, "commit one updated",)
             .await
             .unwrap_err(),
         ControllerError::Action(errors::UpdateCommitMessageError::ForcePushNotAllowed(_))
@@ -280,22 +265,22 @@ async fn root() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(&project_id, &branch_id, "commit one", None, false)
+            .create_commit(project_id, &branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
@@ -303,7 +288,7 @@ async fn root() {
     {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
         controller
-            .create_commit(&project_id, &branch_id, "commit two", None, false)
+            .create_commit(project_id, &branch_id, "commit two", None, false)
             .await
             .unwrap()
     };
@@ -311,23 +296,18 @@ async fn root() {
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
         controller
-            .create_commit(&project_id, &branch_id, "commit three", None, false)
+            .create_commit(project_id, &branch_id, "commit three", None, false)
             .await
             .unwrap()
     };
 
     controller
-        .update_commit_message(
-            &project_id,
-            &branch_id,
-            commit_one_oid,
-            "commit one updated",
-        )
+        .update_commit_message(project_id, &branch_id, commit_one_oid, "commit one updated")
         .await
         .unwrap();
 
     let branch = controller
-        .list_virtual_branches(&project_id)
+        .list_virtual_branches(project_id)
         .await
         .unwrap()
         .0
@@ -353,29 +333,29 @@ async fn empty() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(&project_id, &branch_id, "commit one", None, false)
+            .create_commit(project_id, &branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
 
     assert!(matches!(
         controller
-            .update_commit_message(&project_id, &branch_id, commit_one_oid, "",)
+            .update_commit_message(project_id, &branch_id, commit_one_oid, "",)
             .await,
         Err(ControllerError::Action(
             errors::UpdateCommitMessageError::EmptyMessage

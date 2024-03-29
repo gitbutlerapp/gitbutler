@@ -1,3 +1,5 @@
+const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
+
 pub(crate) mod common;
 mod suite {
     mod gb_repository;
@@ -13,19 +15,30 @@ mod keys;
 mod lock;
 mod reader;
 mod sessions;
+mod types;
 pub mod virtual_branches;
 mod watcher;
+mod zip;
 
-use std::{collections::HashMap, fs, path};
+use std::path::{Path, PathBuf};
+use std::{collections::HashMap, fs};
 
-use tempfile::tempdir;
+use tempfile::{tempdir, TempDir};
 
 pub struct Suite {
-    pub local_app_data: path::PathBuf,
+    pub local_app_data: Option<TempDir>,
     pub storage: gitbutler_app::storage::Storage,
     pub users: gitbutler_app::users::Controller,
     pub projects: gitbutler_app::projects::Controller,
     pub keys: gitbutler_app::keys::Controller,
+}
+
+impl Drop for Suite {
+    fn drop(&mut self) {
+        if std::env::var_os(VAR_NO_CLEANUP).is_some() {
+            let _ = self.local_app_data.take().unwrap().into_path();
+        }
+    }
 }
 
 impl Default for Suite {
@@ -37,7 +50,7 @@ impl Default for Suite {
         let keys = gitbutler_app::keys::Controller::from_path(&local_app_data);
         Self {
             storage,
-            local_app_data,
+            local_app_data: Some(local_app_data),
             users,
             projects,
             keys,
@@ -46,6 +59,9 @@ impl Default for Suite {
 }
 
 impl Suite {
+    pub fn local_app_data(&self) -> &Path {
+        self.local_app_data.as_ref().unwrap().path()
+    }
     pub fn sign_in(&self) -> gitbutler_app::users::User {
         let user = gitbutler_app::users::User {
             name: Some("test".to_string()),
@@ -57,8 +73,8 @@ impl Suite {
         user
     }
 
-    fn project(&self, fs: HashMap<path::PathBuf, &str>) -> gitbutler_app::projects::Project {
-        let repository = test_repository();
+    fn project(&self, fs: HashMap<PathBuf, &str>) -> (gitbutler_app::projects::Project, TempDir) {
+        let (repository, tmp) = test_repository();
         for (path, contents) in fs {
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(repository.path().parent().unwrap().join(parent))
@@ -72,14 +88,17 @@ impl Suite {
         }
         commit_all(&repository);
 
-        self.projects
-            .add(repository.path().parent().unwrap())
-            .expect("failed to add project")
+        (
+            self.projects
+                .add(repository.path().parent().unwrap())
+                .expect("failed to add project"),
+            tmp,
+        )
     }
 
-    pub fn new_case_with_files(&self, fs: HashMap<path::PathBuf, &str>) -> Case {
-        let project = self.project(fs);
-        Case::new(self, project)
+    pub fn new_case_with_files(&self, fs: HashMap<PathBuf, &str>) -> Case {
+        let (project, project_tmp) = self.project(fs);
+        Case::new(self, project, project_tmp)
     }
 
     pub fn new_case(&self) -> Case {
@@ -93,29 +112,49 @@ pub struct Case<'a> {
     pub project_repository: gitbutler_app::project_repository::Repository,
     pub gb_repository: gitbutler_app::gb_repository::Repository,
     pub credentials: gitbutler_app::git::credentials::Helper,
+    /// The directory containing the `project_repository`
+    project_tmp: Option<TempDir>,
+}
+
+impl Drop for Case<'_> {
+    fn drop(&mut self) {
+        if let Some(tmp) = self
+            .project_tmp
+            .take()
+            .filter(|_| std::env::var_os(VAR_NO_CLEANUP).is_some())
+        {
+            let _ = tmp.into_path();
+        }
+    }
 }
 
 impl<'a> Case<'a> {
-    fn new(suite: &'a Suite, project: gitbutler_app::projects::Project) -> Case<'a> {
+    fn new(
+        suite: &'a Suite,
+        project: gitbutler_app::projects::Project,
+        project_tmp: TempDir,
+    ) -> Case<'a> {
         let project_repository = gitbutler_app::project_repository::Repository::open(&project)
             .expect("failed to create project repository");
         let gb_repository = gitbutler_app::gb_repository::Repository::open(
-            &suite.local_app_data,
+            suite.local_app_data(),
             &project_repository,
             None,
         )
         .expect("failed to open gb repository");
-        let credentials = gitbutler_app::git::credentials::Helper::from_path(&suite.local_app_data);
+        let credentials =
+            gitbutler_app::git::credentials::Helper::from_path(suite.local_app_data());
         Case {
             suite,
             project,
             gb_repository,
             project_repository,
+            project_tmp: Some(project_tmp),
             credentials,
         }
     }
 
-    pub fn refresh(&self) -> Self {
+    pub fn refresh(mut self) -> Self {
         let project = self
             .suite
             .projects
@@ -125,11 +164,11 @@ impl<'a> Case<'a> {
             .expect("failed to create project repository");
         let user = self.suite.users.get_user().expect("failed to get user");
         let credentials =
-            gitbutler_app::git::credentials::Helper::from_path(&self.suite.local_app_data);
+            gitbutler_app::git::credentials::Helper::from_path(self.suite.local_app_data());
         Self {
             suite: self.suite,
             gb_repository: gitbutler_app::gb_repository::Repository::open(
-                &self.suite.local_app_data,
+                self.suite.local_app_data(),
                 &project_repository,
                 user.as_ref(),
             )
@@ -137,29 +176,33 @@ impl<'a> Case<'a> {
             credentials,
             project_repository,
             project,
+            project_tmp: self.project_tmp.take(),
         }
     }
 }
 
-pub fn test_database() -> gitbutler_app::database::Database {
-    gitbutler_app::database::Database::open_in_directory(temp_dir()).unwrap()
+pub fn test_database() -> (gitbutler_app::database::Database, TempDir) {
+    let tmp = temp_dir();
+    let db = gitbutler_app::database::Database::open_in_directory(&tmp).unwrap();
+    (db, tmp)
 }
 
-pub fn temp_dir() -> path::PathBuf {
-    let path = tempdir().unwrap().path().to_path_buf();
-    fs::create_dir_all(&path).unwrap();
-    path
+pub fn temp_dir() -> TempDir {
+    tempdir().unwrap()
 }
 
-pub fn empty_bare_repository() -> gitbutler_app::git::Repository {
-    let path = temp_dir();
-    gitbutler_app::git::Repository::init_opts(path, &init_opts_bare())
-        .expect("failed to init repository")
+pub fn empty_bare_repository() -> (gitbutler_app::git::Repository, TempDir) {
+    let tmp = temp_dir();
+    (
+        gitbutler_app::git::Repository::init_opts(&tmp, &init_opts_bare())
+            .expect("failed to init repository"),
+        tmp,
+    )
 }
 
-pub fn test_repository() -> gitbutler_app::git::Repository {
-    let path = temp_dir();
-    let repository = gitbutler_app::git::Repository::init_opts(path, &init_opts())
+pub fn test_repository() -> (gitbutler_app::git::Repository, TempDir) {
+    let tmp = temp_dir();
+    let repository = gitbutler_app::git::Repository::init_opts(&tmp, &init_opts())
         .expect("failed to init repository");
     let mut index = repository.index().expect("failed to get index");
     let oid = index.write_tree().expect("failed to write tree");
@@ -174,7 +217,7 @@ pub fn test_repository() -> gitbutler_app::git::Repository {
             &[],
         )
         .expect("failed to commit");
-    repository
+    (repository, tmp)
 }
 
 pub fn commit_all(repository: &gitbutler_app::git::Repository) -> gitbutler_app::git::Oid {

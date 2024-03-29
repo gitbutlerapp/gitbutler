@@ -7,26 +7,26 @@ async fn unapply_with_data() {
         controller,
         repository,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     controller
-        .unapply_virtual_branch(&project_id, &branches[0].id)
+        .unapply_virtual_branch(project_id, &branches[0].id)
         .await
         .unwrap();
 
     assert!(!repository.path().join("file.txt").exists());
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert!(!branches[0].active);
 }
@@ -38,7 +38,7 @@ async fn conflicting() {
         controller,
         repository,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     // make sure we have an undiscovered commit in the remote branch
     {
@@ -51,7 +51,7 @@ async fn conflicting() {
     }
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
@@ -60,14 +60,14 @@ async fn conflicting() {
 
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert!(branches[0].base_current);
         assert!(branches[0].active);
         assert_eq!(branches[0].files[0].hunks[0].diff, "@@ -1 +1 @@\n-first\n\\ No newline at end of file\n+conflict\n\\ No newline at end of file\n");
 
         controller
-            .unapply_virtual_branch(&project_id, &branches[0].id)
+            .unapply_virtual_branch(project_id, &branches[0].id)
             .await
             .unwrap();
 
@@ -76,7 +76,7 @@ async fn conflicting() {
 
     {
         // update base branch, causing conflict
-        controller.update_base_branch(&project_id).await.unwrap();
+        controller.update_base_branch(project_id).await.unwrap();
 
         assert_eq!(
             std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
@@ -84,7 +84,7 @@ async fn conflicting() {
         );
 
         let branch = controller
-            .list_virtual_branches(&project_id)
+            .list_virtual_branches(project_id)
             .await
             .unwrap()
             .0
@@ -98,7 +98,7 @@ async fn conflicting() {
     {
         // apply branch, it should conflict
         controller
-            .apply_virtual_branch(&project_id, &branch_id)
+            .apply_virtual_branch(project_id, &branch_id)
             .await
             .unwrap();
 
@@ -108,7 +108,7 @@ async fn conflicting() {
         );
 
         let branch = controller
-            .list_virtual_branches(&project_id)
+            .list_virtual_branches(project_id)
             .await
             .unwrap()
             .0
@@ -122,7 +122,7 @@ async fn conflicting() {
 
     {
         controller
-            .unapply_virtual_branch(&project_id, &branch_id)
+            .unapply_virtual_branch(project_id, &branch_id)
             .await
             .unwrap();
 
@@ -132,7 +132,7 @@ async fn conflicting() {
         );
 
         let branch = controller
-            .list_virtual_branches(&project_id)
+            .list_virtual_branches(project_id)
             .await
             .unwrap()
             .0
@@ -152,26 +152,26 @@ async fn delete_if_empty() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     controller
-        .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     controller
-        .unapply_virtual_branch(&project_id, &branches[0].id)
+        .unapply_virtual_branch(project_id, &branches[0].id)
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 0);
 }

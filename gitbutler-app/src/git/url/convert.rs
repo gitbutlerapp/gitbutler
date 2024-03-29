@@ -8,7 +8,7 @@ pub enum ConvertError {
     UnsupportedPair { from: Scheme, to: Scheme },
 }
 
-pub fn to_https_url(url: &Url) -> Result<Url, ConvertError> {
+pub(crate) fn to_https_url(url: &Url) -> Result<Url, ConvertError> {
     match url.scheme {
         Scheme::Https => Ok(url.clone()),
         Scheme::Http => Ok(Url {
@@ -33,7 +33,7 @@ pub fn to_https_url(url: &Url) -> Result<Url, ConvertError> {
     }
 }
 
-pub fn to_ssh_url(url: &Url) -> Result<Url, ConvertError> {
+pub(crate) fn to_ssh_url(url: &Url) -> Result<Url, ConvertError> {
     match url.scheme {
         Scheme::Ssh => Ok(url.clone()),
         Scheme::Http | Scheme::Https => Ok(Url {

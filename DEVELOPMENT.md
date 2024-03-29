@@ -77,6 +77,12 @@ You'll have to re-run this occasionally when our deps change.
 
 ### Run the app
 
+First, run cargo build such that supplementary bins such as `gitbutler-git-askpass` and `gitbutler-git-setsid` are created:
+
+```bash
+$ cargo build
+```
+
 Now you should be able to run the app in development mode:
 
 ```bash

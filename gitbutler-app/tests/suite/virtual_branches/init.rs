@@ -10,7 +10,13 @@ async fn twice() {
 
     let test_project = TestProject::default();
 
-    let controller = Controller::new(data_dir, projects.clone(), users, keys, helper);
+    let controller = Controller::new(
+        data_dir.path().into(),
+        projects.clone(),
+        users,
+        keys,
+        helper,
+    );
 
     {
         let project = projects
@@ -59,18 +65,18 @@ async fn dirty_non_target() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     repository.checkout(&"refs/heads/some-feature".parse().unwrap());
 
     fs::write(repository.path().join("file.txt"), "content").unwrap();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
@@ -87,16 +93,16 @@ async fn dirty_target() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     fs::write(repository.path().join("file.txt"), "content").unwrap();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
@@ -111,18 +117,18 @@ async fn commit_on_non_target_local() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     repository.checkout(&"refs/heads/some-feature".parse().unwrap());
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     repository.commit_all("commit on target");
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].commits.len(), 1);
@@ -137,7 +143,7 @@ async fn commit_on_non_target_remote() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     repository.checkout(&"refs/heads/some-feature".parse().unwrap());
     fs::write(repository.path().join("file.txt"), "content").unwrap();
@@ -145,11 +151,11 @@ async fn commit_on_non_target_remote() {
     repository.push_branch(&"refs/heads/some-feature".parse().unwrap());
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].commits.len(), 1);
@@ -164,17 +170,17 @@ async fn commit_on_target() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     repository.commit_all("commit on target");
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].commits.len(), 1);
@@ -189,22 +195,18 @@ async fn submodule() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
-    let submodule_url: git::Url = TestProject::default()
-        .path()
-        .display()
-        .to_string()
-        .parse()
-        .unwrap();
+    let project = TestProject::default();
+    let submodule_url: git::Url = project.path().display().to_string().parse().unwrap();
     repository.add_submodule(&submodule_url, path::Path::new("submodule"));
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);

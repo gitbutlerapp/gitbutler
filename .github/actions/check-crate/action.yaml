@@ -25,6 +25,8 @@ runs:
 
     - run: cargo test --locked -p ${{ inputs.crate }} --all-targets $(cat /tmp/features)
       if: inputs.action == 'test'
+      env:
+        GITBUTLER_TESTS_NO_CLEANUP: "1"
       shell: bash
 
     - run: cargo clippy -p ${{ inputs.crate }} --all-targets $(cat /tmp/features) -- -D warnings

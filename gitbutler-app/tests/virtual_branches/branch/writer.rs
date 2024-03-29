@@ -15,7 +15,7 @@ use super::*;
 
 static TEST_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 
-fn test_branch() -> Branch {
+fn new_test_branch() -> Branch {
     TEST_INDEX.fetch_add(1, Ordering::Relaxed);
 
     Branch {
@@ -58,16 +58,17 @@ fn test_branch() -> Branch {
 }
 
 #[test]
-fn test_write_branch() -> anyhow::Result<()> {
+fn write_branch() -> anyhow::Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
-    let mut branch = test_branch();
+    let mut branch = new_test_branch();
 
-    let writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
+    let writer = branch::Writer::new(gb_repository, project.gb_dir())?;
     writer.write(&mut branch)?;
 
     let root = gb_repository
@@ -123,16 +124,17 @@ fn test_write_branch() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_should_create_session() -> anyhow::Result<()> {
+fn should_create_session() -> anyhow::Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
-    let mut branch = test_branch();
+    let mut branch = new_test_branch();
 
-    let writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
+    let writer = branch::Writer::new(gb_repository, project.gb_dir())?;
     writer.write(&mut branch)?;
 
     assert!(gb_repository.get_current_session()?.is_some());
@@ -141,16 +143,17 @@ fn test_should_create_session() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_should_update() -> anyhow::Result<()> {
+fn should_update() -> anyhow::Result<()> {
+    let suite = Suite::default();
     let Case {
         gb_repository,
         project,
         ..
-    } = Suite::default().new_case();
+    } = &suite.new_case();
 
-    let mut branch = test_branch();
+    let mut branch = new_test_branch();
 
-    let writer = branch::Writer::new(&gb_repository, project.gb_dir())?;
+    let writer = branch::Writer::new(gb_repository, project.gb_dir())?;
     writer.write(&mut branch)?;
 
     let mut updated_branch = Branch {
