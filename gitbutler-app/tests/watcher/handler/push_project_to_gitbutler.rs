@@ -42,8 +42,8 @@ async fn push_error() -> Result<()> {
 
     let listener = Handler::new(
         suite.local_app_data().into(),
-        suite.projects,
-        suite.users,
+        suite.projects.clone(),
+        suite.users.clone(),
         100,
     );
     let res = listener.handle(&project.id).await;
@@ -99,7 +99,7 @@ async fn push_simple() -> Result<()> {
         let listener = Handler::new(
             suite.local_app_data().into(),
             suite.projects.clone(),
-            suite.users,
+            suite.users.clone(),
             10,
         );
         let res = listener.handle(&project.id).await.unwrap();
@@ -195,7 +195,7 @@ async fn push_remote_ref() -> Result<()> {
         let listener = Handler::new(
             suite.local_app_data().into(),
             suite.projects.clone(),
-            suite.users,
+            suite.users.clone(),
             10,
         );
         listener.handle(&project.id).await.unwrap();
@@ -384,7 +384,7 @@ async fn push_again_no_change() -> Result<()> {
         let listener = Handler::new(
             suite.local_app_data().into(),
             suite.projects.clone(),
-            suite.users,
+            suite.users.clone(),
             10,
         );
         let res = listener.handle(&project.id).await.unwrap();

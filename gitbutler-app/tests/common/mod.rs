@@ -1,5 +1,5 @@
 #![allow(unused)]
-use crate::init_opts;
+use crate::{init_opts, VAR_NO_CLEANUP};
 use gitbutler_app::git;
 use std::{path, str::from_utf8};
 use tempfile::TempDir;
@@ -10,9 +10,18 @@ pub fn temp_dir() -> TempDir {
 
 pub struct TestProject {
     local_repository: git::Repository,
-    local_tmp: TempDir,
+    local_tmp: Option<TempDir>,
     remote_repository: git::Repository,
-    remote_tmp: TempDir,
+    remote_tmp: Option<TempDir>,
+}
+
+impl Drop for TestProject {
+    fn drop(&mut self) {
+        if std::env::var_os(VAR_NO_CLEANUP).is_some() {
+            let _ = self.local_tmp.take().unwrap().into_path();
+            let _ = self.remote_tmp.take().unwrap().into_path();
+        }
+    }
 }
 
 impl Default for TestProject {
@@ -64,9 +73,9 @@ impl Default for TestProject {
 
         Self {
             local_repository,
-            local_tmp,
+            local_tmp: Some(local_tmp),
             remote_repository,
-            remote_tmp,
+            remote_tmp: Some(remote_tmp),
         }
     }
 }

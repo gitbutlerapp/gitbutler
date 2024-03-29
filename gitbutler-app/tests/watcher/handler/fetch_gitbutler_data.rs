@@ -34,7 +34,11 @@ async fn fetch_success() -> anyhow::Result<()> {
         })
         .await?;
 
-    let listener = Handler::new(suite.local_app_data().into(), suite.projects, suite.users);
+    let listener = Handler::new(
+        suite.local_app_data().into(),
+        suite.projects.clone(),
+        suite.users.clone(),
+    );
     listener
         .handle(&project.id, &SystemTime::now())
         .await
@@ -48,7 +52,11 @@ async fn fetch_fail_no_sync() {
     let suite = Suite::default();
     let Case { project, .. } = &suite.new_case();
 
-    let listener = Handler::new(suite.local_app_data().into(), suite.projects, suite.users);
+    let listener = Handler::new(
+        suite.local_app_data().into(),
+        suite.projects.clone(),
+        suite.users.clone(),
+    );
     let res = listener.handle(&project.id, &SystemTime::now()).await;
 
     assert_eq!(&res.unwrap_err().to_string(), "sync disabled");

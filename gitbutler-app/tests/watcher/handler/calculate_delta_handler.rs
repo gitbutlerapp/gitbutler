@@ -85,7 +85,7 @@ fn register_existing_commited_file() -> Result<()> {
         project,
         ..
     } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
-    let listener = Handler::from_path(&suite.local_app_data);
+    let listener = Handler::from_path(suite.local_app_data());
 
     std::fs::write(project.path.join("test.txt"), "test2")?;
     listener.handle("test.txt", &project.id)?;
@@ -116,7 +116,7 @@ fn register_must_init_current_session() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(&suite.local_app_data);
+    let listener = Handler::from_path(suite.local_app_data());
 
     std::fs::write(project.path.join("test.txt"), "test")?;
     listener.handle("test.txt", &project.id)?;
@@ -134,7 +134,7 @@ fn register_must_not_override_current_session() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(&suite.local_app_data);
+    let listener = Handler::from_path(suite.local_app_data());
 
     std::fs::write(project.path.join("test.txt"), "test")?;
     listener.handle("test.txt", &project.id)?;
@@ -157,7 +157,7 @@ fn register_binfile() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(&suite.local_app_data);
+    let listener = Handler::from_path(suite.local_app_data());
 
     std::fs::write(
         project.path.join("test.bin"),
@@ -189,7 +189,7 @@ fn register_empty_new_file() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(&suite.local_app_data);
+    let listener = Handler::from_path(suite.local_app_data());
 
     std::fs::write(project.path.join("test.txt"), "")?;
 
@@ -217,7 +217,7 @@ fn register_new_file() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(&suite.local_app_data);
+    let listener = Handler::from_path(suite.local_app_data());
 
     std::fs::write(project.path.join("test.txt"), "test")?;
 
@@ -250,7 +250,7 @@ fn register_no_changes_saved_thgoughout_flushes() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(&suite.local_app_data);
+    let listener = Handler::from_path(suite.local_app_data());
 
     // file change, wd and deltas are written
     std::fs::write(project.path.join("test.txt"), "test")?;
@@ -278,7 +278,7 @@ fn register_new_file_twice() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(&suite.local_app_data);
+    let listener = Handler::from_path(suite.local_app_data());
 
     std::fs::write(project.path.join("test.txt"), "test")?;
     listener.handle("test.txt", &project.id)?;
@@ -330,7 +330,7 @@ fn register_file_deleted() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(&suite.local_app_data);
+    let listener = Handler::from_path(suite.local_app_data());
 
     {
         // write file
@@ -409,7 +409,7 @@ fn flow_with_commits() -> Result<()> {
         project_repository,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(&suite.local_app_data);
+    let listener = Handler::from_path(suite.local_app_data());
 
     let size = 10;
     let relative_file_path = Path::new("one/two/test.txt");
@@ -496,7 +496,7 @@ fn flow_no_commits() -> Result<()> {
         project_repository,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(&suite.local_app_data);
+    let listener = Handler::from_path(suite.local_app_data());
 
     let size = 10;
     let relative_file_path = Path::new("one/two/test.txt");
@@ -581,7 +581,7 @@ fn flow_signle_session() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(&suite.local_app_data);
+    let listener = Handler::from_path(suite.local_app_data());
 
     let size = 10_i32;
     let relative_file_path = Path::new("one/two/test.txt");
@@ -636,7 +636,7 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
         project_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
-    let listener = Handler::from_path(&suite.local_app_data);
+    let listener = Handler::from_path(suite.local_app_data());
 
     let branch_writer = branch::Writer::new(gb_repository, project.gb_dir())?;
     let target_writer = virtual_branches::target::Writer::new(gb_repository, project.gb_dir())?;
@@ -689,7 +689,7 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
         project_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
-    let listener = Handler::from_path(&suite.local_app_data);
+    let listener = Handler::from_path(suite.local_app_data());
 
     let branch_writer = branch::Writer::new(gb_repository, project.gb_dir())?;
     let target_writer = virtual_branches::target::Writer::new(gb_repository, project.gb_dir())?;
@@ -748,7 +748,7 @@ mod flush_wd {
             project_repository,
             ..
         } = &suite.new_case();
-        let listener = Handler::from_path(&suite.local_app_data);
+        let listener = Handler::from_path(suite.local_app_data());
 
         // write a file into session
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
@@ -821,7 +821,7 @@ mod flush_wd {
             project_repository,
             ..
         } = &suite.new_case();
-        let listener = Handler::from_path(&suite.local_app_data);
+        let listener = Handler::from_path(suite.local_app_data());
 
         // write a file into session
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
@@ -894,7 +894,7 @@ mod flush_wd {
             project_repository,
             ..
         } = &suite.new_case();
-        let listener = Handler::from_path(&suite.local_app_data);
+        let listener = Handler::from_path(suite.local_app_data());
 
         // write a file into session
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();

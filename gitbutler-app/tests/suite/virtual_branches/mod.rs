@@ -2,6 +2,7 @@ use std::{fs, path, str::FromStr};
 use tempfile::TempDir;
 
 use crate::common::{paths, TestProject};
+use crate::VAR_NO_CLEANUP;
 use gitbutler_app::{
     git, keys,
     projects::{self, ProjectId},
@@ -14,7 +15,15 @@ struct Test {
     project_id: ProjectId,
     projects: projects::Controller,
     controller: Controller,
-    _data_dir: TempDir,
+    data_dir: Option<TempDir>,
+}
+
+impl Drop for Test {
+    fn drop(&mut self) {
+        if std::env::var_os(VAR_NO_CLEANUP).is_some() {
+            let _ = self.data_dir.take().unwrap().into_path();
+        }
+    }
 }
 
 impl Default for Test {
@@ -41,7 +50,7 @@ impl Default for Test {
                 helper,
             ),
             projects,
-            _data_dir: data_dir,
+            data_dir: Some(data_dir),
         }
     }
 }

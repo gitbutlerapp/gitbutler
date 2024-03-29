@@ -14,7 +14,7 @@ mod controller {
         #[test]
         fn get_or_create() {
             let suite = Suite::default();
-            let controller = Controller::new(Storage::from_path(&suite.local_app_data));
+            let controller = Controller::new(Storage::from_path(suite.local_app_data()));
 
             let once = controller.get_or_create().unwrap();
             let twice = controller.get_or_create().unwrap();

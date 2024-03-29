@@ -1,3 +1,5 @@
+const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
+
 pub(crate) mod common;
 mod suite {
     mod gb_repository;
@@ -24,11 +26,19 @@ use std::{collections::HashMap, fs};
 use tempfile::{tempdir, TempDir};
 
 pub struct Suite {
-    pub local_app_data: TempDir,
+    pub local_app_data: Option<TempDir>,
     pub storage: gitbutler_app::storage::Storage,
     pub users: gitbutler_app::users::Controller,
     pub projects: gitbutler_app::projects::Controller,
     pub keys: gitbutler_app::keys::Controller,
+}
+
+impl Drop for Suite {
+    fn drop(&mut self) {
+        if std::env::var_os(VAR_NO_CLEANUP).is_some() {
+            let _ = self.local_app_data.take().unwrap().into_path();
+        }
+    }
 }
 
 impl Default for Suite {
@@ -40,7 +50,7 @@ impl Default for Suite {
         let keys = gitbutler_app::keys::Controller::from_path(&local_app_data);
         Self {
             storage,
-            local_app_data,
+            local_app_data: Some(local_app_data),
             users,
             projects,
             keys,
@@ -50,7 +60,7 @@ impl Default for Suite {
 
 impl Suite {
     pub fn local_app_data(&self) -> &Path {
-        self.local_app_data.path()
+        self.local_app_data.as_ref().unwrap().path()
     }
     pub fn sign_in(&self) -> gitbutler_app::users::User {
         let user = gitbutler_app::users::User {
@@ -103,7 +113,19 @@ pub struct Case<'a> {
     pub gb_repository: gitbutler_app::gb_repository::Repository,
     pub credentials: gitbutler_app::git::credentials::Helper,
     /// The directory containing the `project_repository`
-    project_tmp: TempDir,
+    project_tmp: Option<TempDir>,
+}
+
+impl Drop for Case<'_> {
+    fn drop(&mut self) {
+        if let Some(tmp) = self
+            .project_tmp
+            .take()
+            .filter(|_| std::env::var_os(VAR_NO_CLEANUP).is_some())
+        {
+            let _ = tmp.into_path();
+        }
+    }
 }
 
 impl<'a> Case<'a> {
@@ -120,18 +142,19 @@ impl<'a> Case<'a> {
             None,
         )
         .expect("failed to open gb repository");
-        let credentials = gitbutler_app::git::credentials::Helper::from_path(&suite.local_app_data);
+        let credentials =
+            gitbutler_app::git::credentials::Helper::from_path(suite.local_app_data());
         Case {
             suite,
             project,
             gb_repository,
             project_repository,
-            project_tmp,
+            project_tmp: Some(project_tmp),
             credentials,
         }
     }
 
-    pub fn refresh(self) -> Self {
+    pub fn refresh(mut self) -> Self {
         let project = self
             .suite
             .projects
@@ -141,7 +164,7 @@ impl<'a> Case<'a> {
             .expect("failed to create project repository");
         let user = self.suite.users.get_user().expect("failed to get user");
         let credentials =
-            gitbutler_app::git::credentials::Helper::from_path(&self.suite.local_app_data);
+            gitbutler_app::git::credentials::Helper::from_path(self.suite.local_app_data());
         Self {
             suite: self.suite,
             gb_repository: gitbutler_app::gb_repository::Repository::open(
@@ -153,7 +176,7 @@ impl<'a> Case<'a> {
             credentials,
             project_repository,
             project,
-            project_tmp: self.project_tmp,
+            project_tmp: self.project_tmp.take(),
         }
     }
 }
