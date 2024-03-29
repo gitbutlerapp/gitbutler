@@ -288,7 +288,7 @@ export class BaseBranch {
 	}
 
 	commitUrl(commitId: string): string | undefined {
-        // Different Git providers use different paths for the commit url:
+		// Different Git providers use different paths for the commit url:
 		if (this.isBitBucket) {
 			return `${this.repoBaseUrl}/commits/${commitId}`;
 		}
@@ -306,18 +306,18 @@ export class BaseBranch {
 		if (!upstreamBranchName) return undefined;
 		const baseBranchName = this.branchName.split('/')[1];
 		const branchName = upstreamBranchName.split('/').slice(3).join('/');
-        if (this.isBitBucket) {
-            return `${this.repoBaseUrl.trim()}/branch/${branchName}?dest=${baseBranchName}`;
+		if (this.isBitBucket) {
+			return `${this.repoBaseUrl.trim()}/branch/${branchName}?dest=${baseBranchName}`;
 		}
-        // The following branch path is good for at least Gitlab and Github:
+		// The following branch path is good for at least Gitlab and Github:
 		return `${this.repoBaseUrl.trim()}/compare/${baseBranchName}...${branchName}`;
 	}
 
-    private get isBitBucket(): boolean {
-        return this.repoBaseUrl.includes('bitbucket.org');
-    }
+	private get isBitBucket(): boolean {
+		return this.repoBaseUrl.includes('bitbucket.org');
+	}
 
-    private get isGitlab(): boolean {
-        return this.repoBaseUrl.includes('gitlab.com');
-    }
+	private get isGitlab(): boolean {
+		return this.repoBaseUrl.includes('gitlab.com');
+	}
 }
