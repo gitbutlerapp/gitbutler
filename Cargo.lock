@@ -1907,6 +1907,67 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "backoff",
+ "backtrace",
+ "bstr 1.9.1",
+ "byteorder",
+ "chrono",
+ "console-subscriber",
+ "diffy",
+ "filetime",
+ "fslock",
+ "futures",
+ "git2",
+ "git2-hooks",
+ "gitbutler-git",
+ "governor",
+ "itertools 0.12.1",
+ "lazy_static",
+ "log",
+ "md5",
+ "nonzero_ext",
+ "notify",
+ "notify-debouncer-full",
+ "num_cpus",
+ "once_cell",
+ "pretty_assertions",
+ "r2d2",
+ "r2d2_sqlite",
+ "rand 0.8.5",
+ "refinery",
+ "regex",
+ "reqwest 0.12.2",
+ "resolve-path",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "similar",
+ "slug",
+ "ssh-key",
+ "ssh2",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "toml 0.8.12",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "url",
+ "urlencoding",
+ "uuid",
+ "walkdir",
+ "zip",
+]
+
+[[package]]
 name = "gitbutler-app"
 version = "0.0.0"
 dependencies = [

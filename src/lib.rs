@@ -13,15 +13,7 @@
     clippy::too_many_lines
 )]
 
-pub mod analytics;
-pub mod app;
 pub mod askpass;
-pub mod commands;
-pub mod events;
-pub mod logs;
-pub mod menu;
-pub mod watcher;
-
 pub mod assets;
 pub mod database;
 pub mod dedup;
@@ -30,7 +22,6 @@ pub mod error;
 pub mod fs;
 pub mod gb_repository;
 pub mod git;
-pub mod github;
 pub mod id;
 pub mod keys;
 pub mod lock;
@@ -38,7 +29,6 @@ pub mod path;
 pub mod project_repository;
 pub mod projects;
 pub mod reader;
-pub mod sentry;
 pub mod sessions;
 pub mod ssh;
 pub mod storage;
