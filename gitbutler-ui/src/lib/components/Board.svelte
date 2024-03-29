@@ -142,8 +142,8 @@
 										class="empty-board__suggestions__link"
 										role="button"
 										tabindex="0"
-										on:keypress={() => open(`vscode://file${project.path}/`)}
-										on:click={() => open(`vscode://file${project.path}/`)}
+										on:keypress={() => open(`vscode://file${project.path}/?windowId=_blank`)}
+										on:click={() => open(`vscode://file${project.path}/?windowId=_blank`)}
 									>
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="vscode" />
