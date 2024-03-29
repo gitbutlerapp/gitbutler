@@ -7,8 +7,8 @@ use std::{
 use once_cell::sync::Lazy;
 
 use crate::{Case, Suite};
-use gitbutler_app::virtual_branches::target::Target;
 use gitbutler_app::virtual_branches::{branch, target, BranchId};
+use gitbutler_app::virtual_branches::{target::Target, VirtualBranchesHandle};
 
 static TEST_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 
@@ -70,10 +70,12 @@ fn write() -> anyhow::Result<()> {
         sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
     };
 
-    let branch_writer = branch::Writer::new(gb_repository, project.gb_dir())?;
+    let branch_writer =
+        branch::Writer::new(gb_repository, VirtualBranchesHandle::new(project.gb_dir()))?;
     branch_writer.write(&mut branch)?;
 
-    let target_writer = target::Writer::new(gb_repository, project.gb_dir())?;
+    let target_writer =
+        target::Writer::new(gb_repository, VirtualBranchesHandle::new(project.gb_dir()))?;
     target_writer.write(&branch.id, &target)?;
 
     let root = gb_repository
@@ -162,9 +164,11 @@ fn should_update() -> anyhow::Result<()> {
         sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
     };
 
-    let branch_writer = branch::Writer::new(gb_repository, project.gb_dir())?;
+    let branch_writer =
+        branch::Writer::new(gb_repository, VirtualBranchesHandle::new(project.gb_dir()))?;
     branch_writer.write(&mut branch)?;
-    let target_writer = target::Writer::new(gb_repository, project.gb_dir())?;
+    let target_writer =
+        target::Writer::new(gb_repository, VirtualBranchesHandle::new(project.gb_dir()))?;
     target_writer.write(&branch.id, &target)?;
 
     let updated_target = Target {

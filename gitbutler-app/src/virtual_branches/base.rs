@@ -16,7 +16,7 @@ use crate::{
 use super::{
     branch, errors,
     integration::{update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE},
-    target, BranchId, RemoteCommit,
+    target, BranchId, RemoteCommit, VirtualBranchesHandle,
 };
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -189,8 +189,11 @@ pub fn set_base_branch(
         sha: target_commit_oid,
     };
 
-    let target_writer = target::Writer::new(gb_repository, project_repository.project().gb_dir())
-        .context("failed to create target writer")?;
+    let target_writer = target::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(project_repository.project().gb_dir()),
+    )
+    .context("failed to create target writer")?;
     target_writer.write_default(&target)?;
 
     let head_name: git::Refname = current_head
@@ -277,9 +280,11 @@ pub fn set_base_branch(
                 selected_for_changes: None,
             };
 
-            let branch_writer =
-                branch::Writer::new(gb_repository, project_repository.project().gb_dir())
-                    .context("failed to create branch writer")?;
+            let branch_writer = branch::Writer::new(
+                gb_repository,
+                VirtualBranchesHandle::new(project_repository.project().gb_dir()),
+            )
+            .context("failed to create branch writer")?;
             branch_writer.write(&mut branch)?;
         }
     }
@@ -380,8 +385,11 @@ pub fn update_base_branch(
             target.sha
         ))?;
 
-    let branch_writer = branch::Writer::new(gb_repository, project_repository.project().gb_dir())
-        .context("failed to create branch writer")?;
+    let branch_writer = branch::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(project_repository.project().gb_dir()),
+    )
+    .context("failed to create branch writer")?;
 
     let use_context = project_repository
         .project()
@@ -599,8 +607,11 @@ pub fn update_base_branch(
     )?;
 
     // write new target oid
-    let target_writer = target::Writer::new(gb_repository, project_repository.project().gb_dir())
-        .context("failed to create target writer")?;
+    let target_writer = target::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(project_repository.project().gb_dir()),
+    )
+    .context("failed to create target writer")?;
     target_writer.write_default(&target::Target {
         sha: new_target_commit.id(),
         ..target

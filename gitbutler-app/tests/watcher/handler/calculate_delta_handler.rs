@@ -1,4 +1,5 @@
 use anyhow::Result;
+use gitbutler_app::virtual_branches::VirtualBranchesHandle;
 use std::path::{Path, PathBuf};
 use std::{
     collections::HashMap,
@@ -638,8 +639,12 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
     } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
     let listener = Handler::from_path(suite.local_app_data());
 
-    let branch_writer = branch::Writer::new(gb_repository, project.gb_dir())?;
-    let target_writer = virtual_branches::target::Writer::new(gb_repository, project.gb_dir())?;
+    let branch_writer =
+        branch::Writer::new(gb_repository, VirtualBranchesHandle::new(project.gb_dir()))?;
+    let target_writer = virtual_branches::target::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(project.gb_dir()),
+    )?;
     let default_target = new_test_target();
     target_writer.write_default(&default_target)?;
     let mut vbranch0 = new_test_branch();
@@ -691,8 +696,12 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
     } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
     let listener = Handler::from_path(suite.local_app_data());
 
-    let branch_writer = branch::Writer::new(gb_repository, project.gb_dir())?;
-    let target_writer = virtual_branches::target::Writer::new(gb_repository, project.gb_dir())?;
+    let branch_writer =
+        branch::Writer::new(gb_repository, VirtualBranchesHandle::new(project.gb_dir()))?;
+    let target_writer = virtual_branches::target::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(project.gb_dir()),
+    )?;
     let default_target = new_test_target();
     target_writer.write_default(&default_target)?;
     let mut vbranch0 = new_test_branch();

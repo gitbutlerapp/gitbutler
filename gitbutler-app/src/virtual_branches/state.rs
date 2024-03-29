@@ -32,7 +32,7 @@ pub struct VirtualBranchesHandle {
 
 impl VirtualBranchesHandle {
     /// Creates a new concurrency-safe handle to the state of virtual branches.
-    pub fn new(base_path: &Path) -> Self {
+    pub fn new(base_path: PathBuf) -> Self {
         let file_path = base_path.join("virtual_branches.toml");
         Self { file_path }
     }

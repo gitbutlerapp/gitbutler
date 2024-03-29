@@ -29,3 +29,4 @@ mod remote;
 pub use remote::*;
 
 mod state;
+pub use state::VirtualBranchesHandle;

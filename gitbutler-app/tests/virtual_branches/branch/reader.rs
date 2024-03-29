@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 
 use crate::{Case, Suite};
 use gitbutler_app::virtual_branches::branch::BranchOwnershipClaims;
-use gitbutler_app::virtual_branches::{branch, Branch, BranchId};
+use gitbutler_app::virtual_branches::{branch, Branch, BranchId, VirtualBranchesHandle};
 
 static TEST_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 
@@ -84,7 +84,7 @@ fn read_override() -> Result<()> {
 
     let mut branch = test_branch();
 
-    let writer = branch::Writer::new(gb_repository, project.gb_dir())?;
+    let writer = branch::Writer::new(gb_repository, VirtualBranchesHandle::new(project.gb_dir()))?;
     writer.write(&mut branch)?;
 
     let session = gb_repository.get_current_session()?.unwrap();

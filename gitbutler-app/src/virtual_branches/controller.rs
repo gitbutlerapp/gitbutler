@@ -114,7 +114,7 @@ impl Controller {
             .get_vbranches_state(project_id, branch_ids)?;
         let project = self.projects.get(project_id).map_err(Error::from)?;
         // TODO: this should be constructed somewhere else
-        let state_handle = VirtualBranchesHandle::new(project.path.join(".git").as_path());
+        let state_handle = VirtualBranchesHandle::new(project.gb_dir());
         if let Some(default_target) = vbranches_state.default_target {
             state_handle.set_default_target(default_target)?;
         }
