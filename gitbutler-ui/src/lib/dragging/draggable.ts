@@ -101,7 +101,7 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 		// elements, falling back to the single node executing the drag.
 		if (opts.selector) {
 			selectedElements = Array.from(
-				document.querySelectorAll(opts.selector || '').values() as Iterable<HTMLElement>
+				document.querySelectorAll(opts.selector).values() as Iterable<HTMLElement>
 			);
 
 			if (selectedElements.length > 0) {
