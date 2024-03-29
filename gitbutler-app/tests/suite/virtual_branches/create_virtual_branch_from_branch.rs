@@ -7,10 +7,10 @@ async fn integration() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
@@ -18,22 +18,22 @@ async fn integration() {
         // make a remote branch
 
         let branch_id = controller
-            .create_virtual_branch(&project_id, &super::branch::BranchCreateRequest::default())
+            .create_virtual_branch(project_id, &super::branch::BranchCreateRequest::default())
             .await
             .unwrap();
 
         std::fs::write(repository.path().join("file.txt"), "first\n").unwrap();
         controller
-            .create_commit(&project_id, &branch_id, "first", None, false)
+            .create_commit(project_id, &branch_id, "first", None, false)
             .await
             .unwrap();
         controller
-            .push_virtual_branch(&project_id, &branch_id, false, None)
+            .push_virtual_branch(project_id, &branch_id, false, None)
             .await
             .unwrap();
 
         let branch = controller
-            .list_virtual_branches(&project_id)
+            .list_virtual_branches(project_id)
             .await
             .unwrap()
             .0
@@ -44,7 +44,7 @@ async fn integration() {
         let name = branch.upstream.unwrap().name;
 
         controller
-            .delete_virtual_branch(&project_id, &branch_id)
+            .delete_virtual_branch(project_id, &branch_id)
             .await
             .unwrap();
 
@@ -53,7 +53,7 @@ async fn integration() {
 
     // checkout a existing remote branch
     let branch_id = controller
-        .create_virtual_branch_from_branch(&project_id, &branch_name)
+        .create_virtual_branch_from_branch(project_id, &branch_name)
         .await
         .unwrap();
 
@@ -62,7 +62,7 @@ async fn integration() {
         std::fs::write(repository.path().join("file.txt"), "first\nsecond").unwrap();
 
         controller
-            .create_commit(&project_id, &branch_id, "second", None, false)
+            .create_commit(project_id, &branch_id, "second", None, false)
             .await
             .unwrap();
     }
@@ -79,12 +79,12 @@ async fn integration() {
     {
         // merge branch into master
         controller
-            .push_virtual_branch(&project_id, &branch_id, false, None)
+            .push_virtual_branch(project_id, &branch_id, false, None)
             .await
             .unwrap();
 
         let branch = controller
-            .list_virtual_branches(&project_id)
+            .list_virtual_branches(project_id)
             .await
             .unwrap()
             .0
@@ -103,12 +103,12 @@ async fn integration() {
     {
         // should mark commits as integrated
         controller
-            .fetch_from_target(&project_id, None)
+            .fetch_from_target(project_id, None)
             .await
             .unwrap();
 
         let branch = controller
-            .list_virtual_branches(&project_id)
+            .list_virtual_branches(project_id)
             .await
             .unwrap()
             .0
@@ -130,7 +130,7 @@ async fn no_conflicts() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     {
         // create a remote branch
@@ -143,22 +143,22 @@ async fn no_conflicts() {
     }
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert!(branches.is_empty());
 
     let branch_id = controller
         .create_virtual_branch_from_branch(
-            &project_id,
+            project_id,
             &"refs/remotes/origin/branch".parse().unwrap(),
         )
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, branch_id);
     assert_eq!(branches[0].commits.len(), 1);
@@ -172,7 +172,7 @@ async fn conflicts_with_uncommited() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     {
         // create a remote branch
@@ -185,7 +185,7 @@ async fn conflicts_with_uncommited() {
     }
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
@@ -193,7 +193,7 @@ async fn conflicts_with_uncommited() {
     {
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
     };
 
@@ -201,13 +201,13 @@ async fn conflicts_with_uncommited() {
 
     let new_branch_id = controller
         .create_virtual_branch_from_branch(
-            &project_id,
+            project_id,
             &"refs/remotes/origin/branch".parse().unwrap(),
         )
         .await
         .unwrap();
     let new_branch = controller
-        .list_virtual_branches(&project_id)
+        .list_virtual_branches(project_id)
         .await
         .unwrap()
         .0
@@ -226,7 +226,7 @@ async fn conflicts_with_commited() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     {
         // create a remote branch
@@ -239,7 +239,7 @@ async fn conflicts_with_commited() {
     }
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
@@ -247,11 +247,11 @@ async fn conflicts_with_commited() {
     {
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
 
         controller
-            .create_commit(&project_id, &branches[0].id, "hej", None, false)
+            .create_commit(project_id, &branches[0].id, "hej", None, false)
             .await
             .unwrap();
     };
@@ -260,13 +260,13 @@ async fn conflicts_with_commited() {
 
     let new_branch_id = controller
         .create_virtual_branch_from_branch(
-            &project_id,
+            project_id,
             &"refs/remotes/origin/branch".parse().unwrap(),
         )
         .await
         .unwrap();
     let new_branch = controller
-        .list_virtual_branches(&project_id)
+        .list_virtual_branches(project_id)
         .await
         .unwrap()
         .0
@@ -284,10 +284,10 @@ async fn from_default_target() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
@@ -296,7 +296,7 @@ async fn from_default_target() {
     assert!(matches!(
         controller
             .create_virtual_branch_from_branch(
-                &project_id,
+                project_id,
                 &"refs/remotes/origin/master".parse().unwrap(),
             )
             .await
@@ -313,10 +313,10 @@ async fn from_non_existent_branch() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
@@ -325,7 +325,7 @@ async fn from_non_existent_branch() {
     assert!(matches!(
         controller
             .create_virtual_branch_from_branch(
-                &project_id,
+                project_id,
                 &"refs/remotes/origin/branch".parse().unwrap(),
             )
             .await
@@ -343,7 +343,7 @@ async fn from_state_remote_branch() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     {
         // create a remote branch
@@ -361,19 +361,19 @@ async fn from_state_remote_branch() {
     }
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
         .create_virtual_branch_from_branch(
-            &project_id,
+            project_id,
             &"refs/remotes/origin/branch".parse().unwrap(),
         )
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, branch_id);
     assert_eq!(branches[0].commits.len(), 1);

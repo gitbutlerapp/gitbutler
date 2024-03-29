@@ -7,15 +7,15 @@ async fn should_lock_updated_hunks() {
         controller,
         repository,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -25,7 +25,7 @@ async fn should_lock_updated_hunks() {
         fs::write(repository.path().join("file.txt"), "content").unwrap();
 
         let branch = controller
-            .list_virtual_branches(&project_id)
+            .list_virtual_branches(project_id)
             .await
             .unwrap()
             .0
@@ -39,7 +39,7 @@ async fn should_lock_updated_hunks() {
     }
 
     controller
-        .create_commit(&project_id, &branch_id, "test", None, false)
+        .create_commit(project_id, &branch_id, "test", None, false)
         .await
         .unwrap();
 
@@ -48,7 +48,7 @@ async fn should_lock_updated_hunks() {
         fs::write(repository.path().join("file.txt"), "updated content").unwrap();
 
         let branch = controller
-            .list_virtual_branches(&project_id)
+            .list_virtual_branches(project_id)
             .await
             .unwrap()
             .0
@@ -69,7 +69,7 @@ async fn should_not_lock_disjointed_hunks() {
         controller,
         repository,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     let mut lines: Vec<_> = (0_i32..24_i32).map(|i| format!("line {}", i)).collect();
     fs::write(repository.path().join("file.txt"), lines.clone().join("\n")).unwrap();
@@ -77,12 +77,12 @@ async fn should_not_lock_disjointed_hunks() {
     repository.push();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -91,7 +91,7 @@ async fn should_not_lock_disjointed_hunks() {
         lines[12] = "commited stuff".to_string();
         fs::write(repository.path().join("file.txt"), lines.clone().join("\n")).unwrap();
         let branch = controller
-            .list_virtual_branches(&project_id)
+            .list_virtual_branches(project_id)
             .await
             .unwrap()
             .0
@@ -105,11 +105,11 @@ async fn should_not_lock_disjointed_hunks() {
     }
 
     controller
-        .create_commit(&project_id, &branch_id, "test commit", None, false)
+        .create_commit(project_id, &branch_id, "test commit", None, false)
         .await
         .unwrap();
     controller
-        .push_virtual_branch(&project_id, &branch_id, false, None)
+        .push_virtual_branch(project_id, &branch_id, false, None)
         .await
         .unwrap();
 
@@ -119,7 +119,7 @@ async fn should_not_lock_disjointed_hunks() {
         changed_lines[0] = "updated line".to_string();
         fs::write(repository.path().join("file.txt"), changed_lines.join("\n")).unwrap();
         let branch = controller
-            .list_virtual_branches(&project_id)
+            .list_virtual_branches(project_id)
             .await
             .unwrap()
             .0
@@ -139,7 +139,7 @@ async fn should_not_lock_disjointed_hunks() {
         changed_lines[23] = "updated line".to_string();
         fs::write(repository.path().join("file.txt"), changed_lines.join("\n")).unwrap();
         let branch = controller
-            .list_virtual_branches(&project_id)
+            .list_virtual_branches(project_id)
             .await
             .unwrap()
             .0
@@ -159,7 +159,7 @@ async fn should_not_lock_disjointed_hunks() {
         changed_lines[10] = "updated line".to_string();
         fs::write(repository.path().join("file.txt"), changed_lines.join("\n")).unwrap();
         let branch = controller
-            .list_virtual_branches(&project_id)
+            .list_virtual_branches(project_id)
             .await
             .unwrap()
             .0
@@ -180,7 +180,7 @@ async fn should_not_lock_disjointed_hunks() {
         changed_lines[14] = "updated line".to_string();
         fs::write(repository.path().join("file.txt"), changed_lines.join("\n")).unwrap();
         let branch = controller
-            .list_virtual_branches(&project_id)
+            .list_virtual_branches(project_id)
             .await
             .unwrap()
             .0

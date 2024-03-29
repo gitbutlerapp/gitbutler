@@ -10,15 +10,15 @@ async fn should_unapply_with_commits() {
         controller,
         repository,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -28,7 +28,7 @@ async fn should_unapply_with_commits() {
     )
     .unwrap();
     controller
-        .create_commit(&project_id, &branch_id, "test", None, false)
+        .create_commit(project_id, &branch_id, "test", None, false)
         .await
         .unwrap();
 
@@ -41,7 +41,7 @@ async fn should_unapply_with_commits() {
 
     controller
         .unapply_ownership(
-            &project_id,
+            project_id,
             &"file.txt:1-5,7-11"
                 .parse::<BranchOwnershipClaims>()
                 .unwrap(),
@@ -50,7 +50,7 @@ async fn should_unapply_with_commits() {
         .unwrap();
 
     let branch = controller
-        .list_virtual_branches(&project_id)
+        .list_virtual_branches(project_id)
         .await
         .unwrap()
         .0

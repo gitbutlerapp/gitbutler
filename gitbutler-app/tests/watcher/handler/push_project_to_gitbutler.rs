@@ -18,7 +18,7 @@ fn log_walk(repo: &git2::Repository, head: git::Oid) -> Vec<git::Oid> {
 #[tokio::test]
 async fn push_error() -> Result<()> {
     let suite = Suite::default();
-    let Case { project, .. } = suite.new_case();
+    let Case { project, .. } = &suite.new_case();
 
     let api_project = projects::ApiProject {
         name: "test-sync".to_string(),
@@ -40,7 +40,12 @@ async fn push_error() -> Result<()> {
         })
         .await?;
 
-    let listener = Handler::new(suite.local_app_data, suite.projects, suite.users, 100);
+    let listener = Handler::new(
+        suite.local_app_data().into(),
+        suite.projects.clone(),
+        suite.users.clone(),
+        100,
+    );
     let res = listener.handle(&project.id).await;
 
     res.unwrap_err();
@@ -56,17 +61,17 @@ async fn push_simple() -> Result<()> {
         gb_repository,
         project_repository,
         ..
-    } = suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
+    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
 
     suite.sign_in();
 
-    set_test_target(&gb_repository, &project_repository).unwrap();
+    set_test_target(gb_repository, project_repository).unwrap();
 
     let target_id = gb_repository.default_target().unwrap().unwrap().sha;
 
     let reference = project_repository.l(target_id, LogUntil::End).unwrap();
 
-    let cloud_code = test_remote_repository()?;
+    let (cloud_code, _tmp) = test_remote_repository()?;
 
     let api_project = projects::ApiProject {
         name: "test-sync".to_string(),
@@ -92,9 +97,9 @@ async fn push_simple() -> Result<()> {
 
     {
         let listener = Handler::new(
-            suite.local_app_data,
+            suite.local_app_data().into(),
             suite.projects.clone(),
-            suite.users,
+            suite.users.clone(),
             10,
         );
         let res = listener.handle(&project.id).await.unwrap();
@@ -129,15 +134,17 @@ async fn push_remote_ref() -> Result<()> {
         gb_repository,
         project_repository,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
 
     suite.sign_in();
 
-    set_test_target(&gb_repository, &project_repository).unwrap();
+    set_test_target(gb_repository, project_repository).unwrap();
 
-    let cloud_code: git::Repository = test_remote_repository()?.into();
+    let (cloud_code, _tmp) = test_remote_repository()?;
+    let cloud_code: git::Repository = cloud_code.into();
 
-    let remote_repo: git::Repository = test_remote_repository()?.into();
+    let (remote_repo, _tmp) = test_remote_repository()?;
+    let remote_repo: git::Repository = remote_repo.into();
 
     let last_commit = create_initial_commit(&remote_repo);
 
@@ -186,9 +193,9 @@ async fn push_remote_ref() -> Result<()> {
 
     {
         let listener = Handler::new(
-            suite.local_app_data,
+            suite.local_app_data().into(),
             suite.projects.clone(),
-            suite.users,
+            suite.users.clone(),
             10,
         );
         listener.handle(&project.id).await.unwrap();
@@ -252,7 +259,7 @@ async fn push_batches() -> Result<()> {
         gb_repository,
         project_repository,
         ..
-    } = suite.new_case();
+    } = &suite.new_case();
 
     suite.sign_in();
 
@@ -273,13 +280,13 @@ async fn push_batches() -> Result<()> {
         assert_eq!(reference.len(), 12);
     }
 
-    set_test_target(&gb_repository, &project_repository).unwrap();
+    set_test_target(gb_repository, project_repository).unwrap();
 
     let target_id = gb_repository.default_target().unwrap().unwrap().sha;
 
     let reference = project_repository.l(target_id, LogUntil::End).unwrap();
 
-    let cloud_code = test_remote_repository()?;
+    let (cloud_code, _tmp) = test_remote_repository()?;
 
     let api_project = projects::ApiProject {
         name: "test-sync".to_string(),
@@ -303,7 +310,7 @@ async fn push_batches() -> Result<()> {
 
     {
         let listener = Handler::new(
-            suite.local_app_data.clone(),
+            suite.local_app_data().into(),
             suite.projects.clone(),
             suite.users.clone(),
             2,
@@ -339,17 +346,17 @@ async fn push_again_no_change() -> Result<()> {
         gb_repository,
         project_repository,
         ..
-    } = suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
+    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
 
     suite.sign_in();
 
-    set_test_target(&gb_repository, &project_repository).unwrap();
+    set_test_target(gb_repository, project_repository).unwrap();
 
     let target_id = gb_repository.default_target().unwrap().unwrap().sha;
 
     let reference = project_repository.l(target_id, LogUntil::End).unwrap();
 
-    let cloud_code = test_remote_repository()?;
+    let (cloud_code, _tmp) = test_remote_repository()?;
 
     let api_project = projects::ApiProject {
         name: "test-sync".to_string(),
@@ -375,9 +382,9 @@ async fn push_again_no_change() -> Result<()> {
 
     {
         let listener = Handler::new(
-            suite.local_app_data,
+            suite.local_app_data().into(),
             suite.projects.clone(),
-            suite.users,
+            suite.users.clone(),
             10,
         );
         let res = listener.handle(&project.id).await.unwrap();

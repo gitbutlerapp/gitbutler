@@ -1,10 +1,12 @@
 use gitbutler_app::projects::Controller;
+use tempfile::TempDir;
 
 use crate::common::{self, paths};
 
-pub fn new() -> Controller {
+pub fn new() -> (Controller, TempDir) {
     let data_dir = paths::data_dir();
-    Controller::from_path(data_dir)
+    let controller = Controller::from_path(&data_dir);
+    (controller, data_dir)
 }
 
 mod add {
@@ -12,7 +14,7 @@ mod add {
 
     #[test]
     fn success() {
-        let controller = new();
+        let (controller, _tmp) = new();
         let repository = common::TestProject::default();
         let path = repository.path();
         let project = controller.add(path).unwrap();
@@ -27,29 +29,20 @@ mod add {
 
         #[test]
         fn missing() {
-            let controller = new();
-            let path = tempfile::tempdir().unwrap().into_path();
+            let (controller, _tmp) = new();
+            let tmp = tempfile::tempdir().unwrap();
             assert!(matches!(
-                controller.add(path.join("missing")),
+                controller.add(tmp.path().join("missing")),
                 Err(AddError::PathNotFound)
             ));
         }
 
         #[test]
         fn not_git() {
-            let controller = new();
-            let path = tempfile::tempdir().unwrap().into_path();
+            let (controller, _tmp) = new();
+            let tmp = tempfile::tempdir().unwrap();
+            let path = tmp.path();
             std::fs::write(path.join("file.txt"), "hello world").unwrap();
-            assert!(matches!(
-                controller.add(&path),
-                Err(AddError::NotAGitRepository)
-            ));
-        }
-
-        #[test]
-        fn empty() {
-            let controller = new();
-            let path = tempfile::tempdir().unwrap().into_path();
             assert!(matches!(
                 controller.add(path),
                 Err(AddError::NotAGitRepository)
@@ -57,8 +50,18 @@ mod add {
         }
 
         #[test]
+        fn empty() {
+            let (controller, _tmp) = new();
+            let tmp = tempfile::tempdir().unwrap();
+            assert!(matches!(
+                controller.add(tmp.path()),
+                Err(AddError::NotAGitRepository)
+            ));
+        }
+
+        #[test]
         fn twice() {
-            let controller = new();
+            let (controller, _tmp) = new();
             let repository = common::TestProject::default();
             let path = repository.path();
             controller.add(path).unwrap();

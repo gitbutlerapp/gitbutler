@@ -7,24 +7,24 @@ async fn should_unapply_diff() {
         controller,
         repository,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     // write some
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
 
     controller
-        .delete_virtual_branch(&project_id, &branches[0].id)
+        .delete_virtual_branch(project_id, &branches[0].id)
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 0);
     assert!(!repository.path().join("file.txt").exists());
 
@@ -43,16 +43,16 @@ async fn should_remove_reference() {
         controller,
         repository,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let id = controller
         .create_virtual_branch(
-            &project_id,
+            project_id,
             &branch::BranchCreateRequest {
                 name: Some("name".to_string()),
                 ..Default::default()
@@ -62,11 +62,11 @@ async fn should_remove_reference() {
         .unwrap();
 
     controller
-        .delete_virtual_branch(&project_id, &id)
+        .delete_virtual_branch(project_id, &id)
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 0);
 
     let refnames = repository

@@ -7,16 +7,16 @@ async fn deltect_conflict() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch1_id = {
         let branch1_id = controller
-            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
         fs::write(repository.path().join("file.txt"), "branch one").unwrap();
@@ -26,14 +26,14 @@ async fn deltect_conflict() {
 
     // unapply first vbranch
     controller
-        .unapply_virtual_branch(&project_id, &branch1_id)
+        .unapply_virtual_branch(project_id, &branch1_id)
         .await
         .unwrap();
 
     {
         // create another vbranch that conflicts with the first one
         controller
-            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
         fs::write(repository.path().join("file.txt"), "branch two").unwrap();
@@ -42,13 +42,13 @@ async fn deltect_conflict() {
     {
         // it should not be possible to apply the first branch
         assert!(!controller
-            .can_apply_virtual_branch(&project_id, &branch1_id)
+            .can_apply_virtual_branch(project_id, &branch1_id)
             .await
             .unwrap());
 
         assert!(matches!(
             controller
-                .apply_virtual_branch(&project_id, &branch1_id)
+                .apply_virtual_branch(project_id, &branch1_id)
                 .await,
             Err(ControllerError::Action(
                 errors::ApplyBranchError::BranchConflicts(_)
@@ -64,7 +64,7 @@ async fn rebase_commit() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     // make sure we have an undiscovered commit in the remote branch
     {
@@ -78,24 +78,24 @@ async fn rebase_commit() {
     }
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch1_id = {
         // create a branch with some commited work
         let branch1_id = controller
-            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
         fs::write(repository.path().join("another_file.txt"), "virtual").unwrap();
 
         controller
-            .create_commit(&project_id, &branch1_id, "virtual commit", None, false)
+            .create_commit(project_id, &branch1_id, "virtual commit", None, false)
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
@@ -108,7 +108,7 @@ async fn rebase_commit() {
     {
         // unapply first vbranch
         controller
-            .unapply_virtual_branch(&project_id, &branch1_id)
+            .unapply_virtual_branch(project_id, &branch1_id)
             .await
             .unwrap();
 
@@ -121,7 +121,7 @@ async fn rebase_commit() {
             "one"
         );
 
-        let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 0);
@@ -131,10 +131,10 @@ async fn rebase_commit() {
 
     {
         // fetch remote
-        controller.update_base_branch(&project_id).await.unwrap();
+        controller.update_base_branch(project_id).await.unwrap();
 
         // branch is stil unapplied
-        let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 0);
@@ -155,12 +155,12 @@ async fn rebase_commit() {
     {
         // apply first vbranch again
         controller
-            .apply_virtual_branch(&project_id, &branch1_id)
+            .apply_virtual_branch(project_id, &branch1_id)
             .await
             .unwrap();
 
         // it should be rebased
-        let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 0);
@@ -187,7 +187,7 @@ async fn rebase_work() {
         project_id,
         controller,
         ..
-    } = Test::default();
+    } = &Test::default();
 
     // make sure we have an undiscovered commit in the remote branch
     {
@@ -199,19 +199,19 @@ async fn rebase_work() {
     }
 
     controller
-        .set_base_branch(&project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch1_id = {
         // make a branch with some work
         let branch1_id = controller
-            .create_virtual_branch(&project_id, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
         fs::write(repository.path().join("another_file.txt"), "").unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
@@ -224,11 +224,11 @@ async fn rebase_work() {
     {
         // unapply first vbranch
         controller
-            .unapply_virtual_branch(&project_id, &branch1_id)
+            .unapply_virtual_branch(project_id, &branch1_id)
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 1);
@@ -241,10 +241,10 @@ async fn rebase_work() {
 
     {
         // fetch remote
-        controller.update_base_branch(&project_id).await.unwrap();
+        controller.update_base_branch(project_id).await.unwrap();
 
         // first branch is stil unapplied
-        let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 1);
@@ -259,12 +259,12 @@ async fn rebase_work() {
     {
         // apply first vbranch again
         controller
-            .apply_virtual_branch(&project_id, &branch1_id)
+            .apply_virtual_branch(project_id, &branch1_id)
             .await
             .unwrap();
 
         // workdir should be rebased, and work should be restored
-        let (branches, _, _) = controller.list_virtual_branches(&project_id).await.unwrap();
+        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 1);
