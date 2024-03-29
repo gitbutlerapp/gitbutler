@@ -3,7 +3,7 @@ use std::{path, vec};
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
-use crate::{
+use gitbutler::{
     deltas, gb_repository, project_repository,
     projects::{self, ProjectId},
     reader, sessions, users,

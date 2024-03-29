@@ -2,7 +2,7 @@ mod database;
 
 use anyhow::Result;
 
-use crate::{Case, Suite};
+use crate::shared::{Case, Suite};
 use gitbutler::sessions::{self, session::SessionId};
 
 #[test]

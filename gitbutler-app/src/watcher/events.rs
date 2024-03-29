@@ -1,11 +1,13 @@
 use std::{fmt::Display, path};
 
-use crate::{
-    analytics, deltas, events,
+use gitbutler::{
+    deltas,
     projects::ProjectId,
     reader,
     sessions::{self, SessionId},
 };
+
+use crate::{analytics, events};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Event {

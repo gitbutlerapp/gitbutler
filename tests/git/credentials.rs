@@ -2,7 +2,7 @@ use gitbutler::git::credentials::{Credential, Helper, HttpsCredential, SshCreden
 use gitbutler::{keys, project_repository, projects, users};
 use std::path::PathBuf;
 
-use crate::{temp_dir, test_repository};
+use crate::shared::{temp_dir, test_repository};
 
 #[derive(Default)]
 struct TestCase<'a> {

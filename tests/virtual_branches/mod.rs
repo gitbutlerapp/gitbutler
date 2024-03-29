@@ -13,12 +13,10 @@ use std::{
     os::unix::{fs::symlink, prelude::*},
 };
 
-use crate::{commit_all, empty_bare_repository, Case, Suite};
-use gitbutler::{
-    gb_repository, git, project_repository, reader, sessions, virtual_branches,
-    virtual_branches::errors::CommitError,
-};
+use crate::shared::{commit_all, Case, Suite};
+use gitbutler::{git, reader, sessions, virtual_branches, virtual_branches::errors::CommitError};
 
+use crate::shared::virtual_branches::set_test_target;
 use gitbutler::virtual_branches::branch::{BranchCreateRequest, BranchOwnershipClaims};
 use gitbutler::virtual_branches::integration::verify_branch;
 use gitbutler::virtual_branches::{
@@ -26,34 +24,6 @@ use gitbutler::virtual_branches::{
     is_virtual_branch_mergeable, list_remote_branches, merge_virtual_branch_upstream,
     unapply_ownership, update_branch,
 };
-
-pub fn set_test_target(
-    gb_repo: &gb_repository::Repository,
-    project_repository: &project_repository::Repository,
-) -> Result<()> {
-    let (remote_repo, _tmp) = empty_bare_repository();
-    let mut remote = project_repository
-        .git_repository
-        .remote(
-            "origin",
-            &remote_repo.path().to_str().unwrap().parse().unwrap(),
-        )
-        .expect("failed to add remote");
-    remote.push(&["refs/heads/master:refs/heads/master"], None)?;
-
-    virtual_branches::target::Writer::new(gb_repo, project_repository.project().gb_dir())?
-        .write_default(&virtual_branches::target::Target {
-            branch: "refs/remotes/origin/master".parse().unwrap(),
-            remote_url: remote_repo.path().to_str().unwrap().parse().unwrap(),
-            sha: remote_repo.head().unwrap().target().unwrap(),
-        })
-        .expect("failed to write target");
-
-    virtual_branches::integration::update_gitbutler_integration(gb_repo, project_repository)
-        .expect("failed to update integration");
-
-    Ok(())
-}
 
 #[test]
 fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {

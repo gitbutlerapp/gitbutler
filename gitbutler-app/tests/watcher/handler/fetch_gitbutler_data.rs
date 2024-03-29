@@ -1,10 +1,10 @@
 use std::time::SystemTime;
 
-use gitbutler_app::projects;
+use gitbutler::projects;
 use pretty_assertions::assert_eq;
 
+use crate::shared::{Case, Suite};
 use crate::watcher::handler::test_remote_repository;
-use crate::{Case, Suite};
 use gitbutler_app::watcher::handlers::fetch_gitbutler_data::Handler;
 
 #[tokio::test]

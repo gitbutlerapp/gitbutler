@@ -2,7 +2,7 @@ use gitbutler::reader::{CommitReader, Content, Reader};
 use std::fs;
 use std::path::Path;
 
-use crate::{commit_all, temp_dir, test_repository};
+use crate::shared::{commit_all, temp_dir, test_repository};
 use anyhow::Result;
 
 #[test]

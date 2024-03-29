@@ -1,10 +1,10 @@
 use anyhow::Result;
 use std::fs;
 
-use gitbutler_app::projects;
+use gitbutler::projects;
 use pretty_assertions::assert_eq;
 
-use crate::{Case, Suite};
+use crate::shared::{Case, Suite};
 use gitbutler_app::watcher::handlers::git_file_change::Handler;
 use gitbutler_app::watcher::{handlers, Event};
 

@@ -84,6 +84,7 @@ walkdir = "2.5.0"
 zip = "0.6.5"
 tempfile = "3.10"
 gitbutler-git = { path = "../gitbutler-git" }
+gitbutler = { path = "../" }
 
 [lints.clippy]
 all = "deny"

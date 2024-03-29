@@ -1,4 +1,4 @@
-mod controller;
+pub mod controller;
 pub use controller::Controller;
 
 use std::{

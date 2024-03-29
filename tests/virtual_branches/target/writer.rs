@@ -6,7 +6,7 @@ use std::{
 
 use once_cell::sync::Lazy;
 
-use crate::{Case, Suite};
+use crate::shared::{Case, Suite};
 use gitbutler::virtual_branches::target::Target;
 use gitbutler::virtual_branches::{branch, target, BranchId};
 

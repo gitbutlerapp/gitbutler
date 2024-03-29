@@ -10,7 +10,7 @@ use governor::{
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
-use crate::{
+use gitbutler::{
     project_repository,
     projects::{self, ProjectId},
 };

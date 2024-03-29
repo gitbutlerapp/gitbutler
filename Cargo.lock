@@ -1973,6 +1973,7 @@ dependencies = [
  "futures",
  "git2",
  "git2-hooks",
+ "gitbutler",
  "gitbutler-git",
  "governor",
  "itertools 0.12.1",

@@ -9,7 +9,7 @@ mod controller {
         #[cfg(target_family = "unix")]
         use std::os::unix::prelude::*;
 
-        use crate::Suite;
+        use crate::shared::Suite;
 
         #[test]
         fn get_or_create() {

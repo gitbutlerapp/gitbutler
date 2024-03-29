@@ -1,4 +1,4 @@
-use crate::common::{paths, TestProject};
+use crate::shared::{paths, TestProject};
 use gitbutler::{gb_repository, git, project_repository, projects};
 use std::path;
 

@@ -7,13 +7,13 @@ use std::{
 
 use once_cell::sync::Lazy;
 
-use crate::{commit_all, Case, Suite};
-use gitbutler_app::watcher::handlers::calculate_deltas_handler::Handler;
-use gitbutler_app::{
+use crate::shared::{commit_all, Case, Suite};
+use gitbutler::{
     deltas::{self, operations::Operation},
     reader, sessions,
     virtual_branches::{self, branch},
 };
+use gitbutler_app::watcher::handlers::calculate_deltas_handler::Handler;
 
 use self::branch::BranchId;
 
@@ -663,7 +663,7 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
 
     let branches = virtual_branches::Iterator::new(&session_reader)
         .unwrap()
-        .collect::<Result<Vec<virtual_branches::Branch>, gitbutler_app::reader::Error>>()
+        .collect::<Result<Vec<virtual_branches::Branch>, gitbutler::reader::Error>>()
         .unwrap()
         .into_iter()
         .collect::<Vec<virtual_branches::Branch>>();
@@ -719,7 +719,7 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
 
     let branches = virtual_branches::Iterator::new(&session_reader)
         .unwrap()
-        .collect::<Result<Vec<virtual_branches::Branch>, gitbutler_app::reader::Error>>()
+        .collect::<Result<Vec<virtual_branches::Branch>, gitbutler::reader::Error>>()
         .unwrap()
         .into_iter()
         .collect::<Vec<virtual_branches::Branch>>();

@@ -1,4 +1,4 @@
-use crate::test_repository;
+use crate::shared::test_repository;
 
 #[test]
 pub fn set_str() {

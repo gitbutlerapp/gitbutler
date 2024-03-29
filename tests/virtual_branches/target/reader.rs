@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use anyhow::Result;
 use once_cell::sync::Lazy;
 
-use crate::{Case, Suite};
+use crate::shared::{Case, Suite};
 
 static TEST_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 

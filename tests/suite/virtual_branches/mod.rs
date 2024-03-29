@@ -1,8 +1,8 @@
 use std::{fs, path, str::FromStr};
 use tempfile::TempDir;
 
-use crate::common::{paths, TestProject};
-use crate::VAR_NO_CLEANUP;
+use crate::shared::VAR_NO_CLEANUP;
+use crate::shared::{paths, TestProject};
 use gitbutler::{
     git, keys,
     projects::{self, ProjectId},

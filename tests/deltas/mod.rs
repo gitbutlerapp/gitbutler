@@ -1,5 +1,5 @@
 mod database {
-    use crate::test_database;
+    use crate::shared::test_database;
     use gitbutler::deltas::{operations, Database, Delta};
     use gitbutler::projects::ProjectId;
     use gitbutler::sessions::SessionId;
@@ -111,7 +111,7 @@ mod writer {
     use gitbutler::{deltas, sessions};
     use std::vec;
 
-    use crate::{Case, Suite};
+    use crate::shared::{Case, Suite};
 
     #[test]
     fn write_no_vbranches() -> anyhow::Result<()> {

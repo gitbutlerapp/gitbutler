@@ -1,4 +1,4 @@
-mod controller;
+pub mod controller;
 mod iterator;
 mod reader;
 pub mod session;

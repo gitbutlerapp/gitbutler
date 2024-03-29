@@ -1,4 +1,4 @@
-mod controller;
+pub mod controller;
 mod key;
 pub mod storage;
 

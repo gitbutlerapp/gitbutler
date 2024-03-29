@@ -7,7 +7,7 @@ use anyhow::Context;
 use gitbutler::virtual_branches::branch;
 use once_cell::sync::Lazy;
 
-use crate::{Case, Suite};
+use crate::shared::{Case, Suite};
 
 use self::branch::BranchId;
 

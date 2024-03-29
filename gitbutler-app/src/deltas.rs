@@ -1,16 +1,43 @@
-mod controller;
-mod delta;
-mod document;
-mod reader;
-mod writer;
+pub mod commands {
+    use std::collections::HashMap;
 
-pub mod commands;
-pub mod database;
-pub mod operations;
+    use tauri::{AppHandle, Manager};
+    use tracing::instrument;
 
-pub use controller::Controller;
-pub use database::Database;
-pub use delta::Delta;
-pub use document::Document;
-pub use reader::DeltasReader as Reader;
-pub use writer::DeltasWriter as Writer;
+    use crate::error::{Code, Error};
+
+    use gitbutler::deltas::{controller::ListError, Controller, Delta};
+
+    impl From<ListError> for Error {
+        fn from(value: ListError) -> Self {
+            match value {
+                ListError::Other(error) => {
+                    tracing::error!(?error);
+                    Error::Unknown
+                }
+            }
+        }
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(handle))]
+    pub async fn list_deltas(
+        handle: AppHandle,
+        project_id: &str,
+        session_id: &str,
+        paths: Option<Vec<&str>>,
+    ) -> Result<HashMap<String, Vec<Delta>>, Error> {
+        let session_id = session_id.parse().map_err(|_| Error::UserError {
+            message: "Malformed session id".to_string(),
+            code: Code::Validation,
+        })?;
+        let project_id = project_id.parse().map_err(|_| Error::UserError {
+            code: Code::Validation,
+            message: "Malformed project id".to_string(),
+        })?;
+        handle
+            .state::<Controller>()
+            .list_by_session_id(&project_id, &session_id, &paths)
+            .map_err(Into::into)
+    }
+}

@@ -1,4 +1,4 @@
-mod controller;
+pub mod controller;
 mod delta;
 mod document;
 mod reader;

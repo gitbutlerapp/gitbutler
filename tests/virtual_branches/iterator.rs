@@ -4,7 +4,7 @@ use anyhow::Result;
 use gitbutler::virtual_branches;
 use once_cell::sync::Lazy;
 
-use crate::{Case, Suite};
+use crate::shared::{Case, Suite};
 
 static TEST_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 

@@ -1,6 +1,6 @@
 use gitbutler::lock::Dir;
 
-use crate::temp_dir;
+use crate::shared::temp_dir;
 
 #[tokio::test]
 async fn lock_same_instance() {

@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
-use crate::{
+use gitbutler::{
     deltas,
     projects::ProjectId,
     reader,

@@ -1,5 +1,6 @@
 #![allow(unused)]
-use crate::{init_opts, VAR_NO_CLEANUP};
+
+use crate::shared::{init_opts, VAR_NO_CLEANUP};
 use gitbutler::git;
 use std::{path, str::from_utf8};
 use tempfile::TempDir;
@@ -341,15 +342,5 @@ impl TestProject {
         // with `init.defaultBranch`, causing failure otherwise.
         repo.set_head("refs/heads/master");
         submodule.add_finalize().unwrap();
-    }
-}
-
-pub mod paths {
-    use super::temp_dir;
-    use std::path;
-    use tempfile::TempDir;
-
-    pub fn data_dir() -> TempDir {
-        temp_dir()
     }
 }

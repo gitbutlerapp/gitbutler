@@ -3,8 +3,9 @@ use std::path;
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
-use crate::{
-    deltas, events as app_events, gb_repository, project_repository,
+use crate::events as app_events;
+use gitbutler::{
+    deltas, gb_repository, project_repository,
     projects::{self, ProjectId},
     sessions::{self, SessionId},
     users,

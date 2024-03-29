@@ -1,4 +1,4 @@
-use crate::test_database;
+use crate::shared::test_database;
 use gitbutler::projects::ProjectId;
 use gitbutler::sessions::{session, Database, Session, SessionId};
 

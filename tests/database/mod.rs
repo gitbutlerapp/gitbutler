@@ -1,4 +1,4 @@
-use crate::temp_dir;
+use crate::shared::temp_dir;
 use gitbutler::database::Database;
 
 #[test]

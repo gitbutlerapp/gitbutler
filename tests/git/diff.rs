@@ -4,8 +4,8 @@ use anyhow::Result;
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
-use crate::init_opts_bare;
-use crate::{Case, Suite};
+use crate::shared::init_opts_bare;
+use crate::shared::{Case, Suite};
 use gitbutler::{
     deltas::{self, operations::Operation},
     projects::{self, ApiProject, ProjectId},
