@@ -4,6 +4,7 @@
 	import BranchHeader from './BranchHeader.svelte';
 	import CommitDialog from './CommitDialog.svelte';
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
+	import InfoMessage from './InfoMessage.svelte';
 	import PullRequestCard from './PullRequestCard.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
@@ -245,16 +246,6 @@
 
 						{#if branch.files?.length > 0}
 							<div class="card">
-								{#if branch.active && branch.conflicted}
-									<div class="mb-2 bg-red-500 p-2 font-bold text-white">
-										{#if branch.files.some((f) => f.conflicted)}
-											This virtual branch conflicts with upstream changes. Please resolve all
-											conflicts and commit before you can continue.
-										{:else}
-											Please commit your resolved conflicts to continue.
-										{/if}
-									</div>
-								{/if}
 								<BranchFiles
 									branchId={branch.id}
 									files={branch.files}
@@ -265,6 +256,21 @@
 									allowMultiple={true}
 									readonly={false}
 								/>
+								{#if branch.active && branch.conflicted}
+									<div class="card-notifications">
+										<InfoMessage noRadius filled outlined={false} style="error">
+											<svelte:fragment slot="title">
+												{#if branch.files.some((f) => f.conflicted)}
+													This virtual branch conflicts with upstream changes. Please resolve all
+													conflicts and commit before you can continue.
+												{:else}
+													Please commit your resolved conflicts to continue.
+												{/if}
+											</svelte:fragment>
+										</InfoMessage>
+									</div>
+								{/if}
+
 								{#if branch.active}
 									<CommitDialog
 										projectId={project.id}
@@ -372,6 +378,12 @@
 
 	.card {
 		flex: 1;
+	}
+
+	.card-notifications {
+		display: flex;
+		flex-direction: column;
+		padding: 0 var(--size-12) var(--size-12) var(--size-12);
 	}
 
 	.new-branch__content {

@@ -32,7 +32,7 @@
 	<div class="remove-project-description">
 		<p class="text-base-body-14">
 			Are you sure you want to remove
-			<span class="font-bold">{projectTitle}</span> from GitButler?
+			<span class="text-bold">{projectTitle}</span> from GitButler?
 		</p>
 
 		<p class="text-base-body-12 details-text">
