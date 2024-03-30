@@ -9,7 +9,7 @@
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
 
-	$: projects$ = projectService.projects$;
+	const projects = projectService.projects;
 
 	let loading = false;
 	let select: Select;
@@ -22,7 +22,7 @@
 		label="Switch to another project"
 		itemId="id"
 		labelId="title"
-		items={$projects$}
+		items={$projects}
 		placeholder="Select a project..."
 		wide
 		bind:value={selectValue}

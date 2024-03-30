@@ -8,38 +8,36 @@
 	import Welcome from '$lib/components/Welcome.svelte';
 	import { appAnalyticsConfirmed } from '$lib/config/appSettings';
 	import { getContext } from '$lib/utils/context';
-	import { map } from 'rxjs';
+	import { derived } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
 	const projectService = getContext(ProjectService);
 
-	const projects$ = projectService.projects$;
+	const projects = projectService.projects;
 
 	$: debug = $page.url.searchParams.get('debug');
 
 	const analyticsConfirmed = appAnalyticsConfirmed();
 	const persistedId = projectService.getLastOpenedProject();
-	const redirect$ = projects$.pipe(
-		map((projects) => {
-			if (debug) return null;
-			const projectId = projects.find((p) => p.id == persistedId)?.id;
-			if (projectId) return projectId;
-			if (projects.length > 0) return projects[0].id;
-			return null;
-		})
-	);
+	const redirect = derived(projects, (projects) => {
+		if (debug || !projects) return null;
+		const projectId = projects.find((p) => p.id == persistedId)?.id;
+		if (projectId) return projectId;
+		if (projects.length > 0) return projects[0].id;
+		return null;
+	});
 
-	$: if ($redirect$) goto(`/${$redirect$}/`);
+	$: if ($redirect) goto(`/${$redirect}/`);
 </script>
 
-{#if $redirect$ === undefined}
+{#if $redirect === undefined}
 	<FullviewLoading />
 {:else if !$analyticsConfirmed}
 	<DecorativeSplitView img={analyticsSvg}>
 		<AnalyticsConfirmation {analyticsConfirmed} />
 	</DecorativeSplitView>
-{:else if $redirect$ === null}
+{:else if $redirect === null}
 	<DecorativeSplitView img={newProjectSvg} showLinks={false}>
 		<Welcome />
 	</DecorativeSplitView>

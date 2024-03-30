@@ -154,7 +154,6 @@
 		<BranchHeader
 			{isUnapplied}
 			bind:isLaneCollapsed
-			projectId={project.id}
 			on:action={(e) => {
 				if (e.detail == 'generate-branch-name') {
 					generateBranchName();
@@ -184,18 +183,13 @@
 					<BranchHeader
 						{isUnapplied}
 						bind:isLaneCollapsed
-						projectId={project.id}
 						on:action={(e) => {
 							if (e.detail == 'generate-branch-name') {
 								generateBranchName();
 							}
 						}}
 					/>
-					<PullRequestCard
-						projectId={project.id}
-						{isUnapplied}
-						isLaneCollapsed={$isLaneCollapsed}
-					/>
+					<PullRequestCard {isUnapplied} isLaneCollapsed={$isLaneCollapsed} />
 					<!-- DROPZONES -->
 					<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
 					<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />

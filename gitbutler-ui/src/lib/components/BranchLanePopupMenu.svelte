@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { AIService } from '$lib/backend/aiService';
+	import { User } from '$lib/backend/cloud';
+	import { Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
@@ -7,25 +9,23 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { UserService } from '$lib/stores/user';
 	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Branch } from '$lib/vbranches/types';
 	import { createEventDispatcher } from 'svelte';
-	import type { User } from '$lib/backend/cloud';
 
-	export let projectId: string;
 	export let visible: boolean;
 	export let isUnapplied = false;
 
-	const branchController = getContext(BranchController);
+	const user = getContextStore(User);
+	const project = getContext(Project);
 	const aiService = getContext(AIService);
-	const userService = getContext(UserService);
-	const user = userService.user;
 	const branchStore = getContextStore(Branch);
-	$: branch = $branchStore;
+	const aiGenEnabled = projectAiGenEnabled(project.id);
+	const branchController = getContext(BranchController);
 
+	let aiConfigurationValid = false;
 	let deleteBranchModal: Modal;
 	let renameRemoteModal: Modal;
 	let newRemoteName: string;
@@ -34,15 +34,10 @@
 		action: 'expand' | 'collapse' | 'generate-branch-name';
 	}>();
 
-	const aiGenEnabled = projectAiGenEnabled(projectId);
-
+	$: branch = $branchStore;
 	$: commits = branch.commits;
-	$: hasIntegratedCommits =
-		commits.length > 0 ? commits.some((c) => c.status == 'integrated') : false;
-
-	let aiConfigurationValid = false;
-
 	$: setAIConfigurationValid($user);
+	$: hasIntegratedCommits = branch.integratedCommits.length > 0;
 
 	async function setAIConfigurationValid(user: User | undefined) {
 		aiConfigurationValid = await aiService.validateConfiguration(user?.access_token);

@@ -3,6 +3,7 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import Tag from './Tag.svelte';
+	import { Project } from '$lib/backend/projects';
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
@@ -15,11 +16,12 @@
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied = false;
-	export let projectId: string;
 	export let isLaneCollapsed: Persisted<boolean>;
 
 	const branchController = getContext(BranchController);
 	const branchStore = getContextStore(Branch);
+	const project = getContext(Project);
+
 	$: branch = $branchStore;
 
 	let meatballButton: HTMLDivElement;
@@ -153,7 +155,7 @@
 								isDeleting = true;
 								try {
 									await branchController.deleteBranch(branch.id);
-									goto(`/${projectId}/board`);
+									goto(`/${project.id}/board`);
 								} catch (e) {
 									const err = 'Failed to delete branch';
 									toasts.error(err);
@@ -175,7 +177,7 @@
 								isApplying = true;
 								try {
 									await branchController.applyBranch(branch.id);
-									goto(`/${projectId}/board`);
+									goto(`/${project.id}/board`);
 								} catch (e) {
 									const err = 'Failed to apply branch';
 									toast.error(err);
@@ -211,7 +213,7 @@
 									handler: () => (visible = false)
 								}}
 							>
-								<BranchLanePopupMenu {projectId} {isUnapplied} bind:visible on:action />
+								<BranchLanePopupMenu {isUnapplied} bind:visible on:action />
 							</div>
 						</div>
 					{/if}

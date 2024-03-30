@@ -2,6 +2,7 @@
 	import IconButton from './IconButton.svelte';
 	import MergeButton from './MergeButton.svelte';
 	import Tag, { type TagStyle } from './Tag.svelte';
+	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
 	import { GitHubService } from '$lib/github/service';
@@ -17,13 +18,13 @@
 	import type { Readable } from 'svelte/store';
 
 	export let isLaneCollapsed: boolean;
-	export let projectId: string;
 	export let isUnapplied = false;
 
 	const branch = getContextStore(Branch);
 	const branchService = getContext(BranchService);
 	const baseBranchService = getContext(BaseBranchService);
 	const githubService = getContext(GitHubService);
+	const project = getContext(Project);
 
 	let isMerging = false;
 	let isFetchingChecks = false;
@@ -268,8 +269,8 @@
 		{#if pr}
 			<div class="pr-actions">
 				<MergeButton
-					{projectId}
 					wide
+					projectId={project.id}
 					disabled={isFetchingChecks || isUnapplied || pr?.draft || mergeableState == 'blocked'}
 					loading={isMerging}
 					help="Merge pull request and refresh"
