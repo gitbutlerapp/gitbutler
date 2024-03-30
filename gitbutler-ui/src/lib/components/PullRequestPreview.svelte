@@ -37,11 +37,11 @@
 						{pullrequest.author?.name}
 					</span>
 					wants to merge into
-					<span class="code-line">
+					<span class="code-string">
 						{pullrequest.sourceBranch}
 					</span>
 					from
-					<span class="code-line">
+					<span class="code-string">
 						{pullrequest.targetBranch}
 					</span>
 				</div>

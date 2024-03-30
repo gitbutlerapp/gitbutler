@@ -8,6 +8,7 @@
 	export let disabled = false;
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let label: string | undefined = undefined;
+	export let size: 'small' | 'medium' = 'medium';
 
 	let ref: HTMLButtonElement | undefined;
 	const dispatcher = createEventDispatcher<{ select: string }>();
@@ -31,7 +32,7 @@
 
 <button
 	bind:this={ref}
-	class="btn"
+	class="segment-btn segment-{size}"
 	class:left={index == 0}
 	class:right={index == $length - 1}
 	role="tab"
@@ -67,7 +68,7 @@
 </button>
 
 <style lang="postcss">
-	.btn {
+	.segment-btn {
 		cursor: pointer;
 		display: inline-flex;
 		flex-grow: 1;
@@ -77,8 +78,6 @@
 		gap: var(--size-4);
 
 		height: var(--size-control-m);
-		background-color: var(--clr-theme-container-light);
-		padding: var(--size-4) var(--size-8);
 
 		border-top-width: 1px;
 		border-bottom-width: 1px;
@@ -99,7 +98,6 @@
 
 		&[aria-selected='true'] {
 			background-color: var(--clr-theme-container-pale);
-			padding: var(--size-4) var(--size-8);
 
 			cursor: default;
 
@@ -134,5 +132,16 @@
 
 	.label {
 		color: var(--clr-theme-scale-ntrl-30);
+	}
+
+	/* MODIFIERS */
+	.segment-small {
+		height: var(--size-control-s);
+		padding: var(--size-2) var(--size-4);
+	}
+
+	.segment-medium {
+		height: var(--size-control-m);
+		padding: var(--size-4) var(--size-8);
 	}
 </style>
