@@ -1907,7 +1907,58 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler"
+name = "gitbutler-app"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "backoff",
+ "backtrace",
+ "chrono",
+ "console-subscriber",
+ "futures",
+ "git2",
+ "gitbutler-core",
+ "governor",
+ "itertools 0.12.1",
+ "log",
+ "nonzero_ext",
+ "notify",
+ "notify-debouncer-full",
+ "once_cell",
+ "pretty_assertions",
+ "reqwest 0.12.2",
+ "sentry",
+ "sentry-tracing",
+ "serde",
+ "serde_json",
+ "slug",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-context-menu",
+ "tauri-plugin-log",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-store",
+ "tauri-plugin-window-state",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "gitbutler-changeset"
+version = "0.0.0"
+dependencies = [
+ "paste",
+ "thiserror",
+]
+
+[[package]]
+name = "gitbutler-core"
 version = "0.0.0"
 dependencies = [
  "anyhow",
@@ -1953,57 +2004,6 @@ dependencies = [
  "uuid",
  "walkdir",
  "zip",
-]
-
-[[package]]
-name = "gitbutler-app"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "backoff",
- "backtrace",
- "chrono",
- "console-subscriber",
- "futures",
- "git2",
- "gitbutler",
- "governor",
- "itertools 0.12.1",
- "log",
- "nonzero_ext",
- "notify",
- "notify-debouncer-full",
- "once_cell",
- "pretty_assertions",
- "reqwest 0.12.2",
- "sentry",
- "sentry-tracing",
- "serde",
- "serde_json",
- "slug",
- "tauri",
- "tauri-build",
- "tauri-plugin-context-menu",
- "tauri-plugin-log",
- "tauri-plugin-single-instance",
- "tauri-plugin-store",
- "tauri-plugin-window-state",
- "tempfile",
- "thiserror",
- "tokio",
- "tokio-util",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "gitbutler-changeset"
-version = "0.0.0"
-dependencies = [
- "paste",
- "thiserror",
 ]
 
 [[package]]
