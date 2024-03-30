@@ -1,8 +1,6 @@
 use std::{collections::HashMap, path};
 
 use anyhow::{Context, Result};
-
-use crate::watcher;
 use gitbutler_core::{
     askpass::AskpassBroker,
     gb_repository, git,
@@ -13,6 +11,8 @@ use gitbutler_core::{
     users,
     virtual_branches::BranchId,
 };
+
+use crate::watcher;
 
 #[derive(Clone)]
 pub struct App {

@@ -1,8 +1,7 @@
 use anyhow::{Context, Result};
 
-use crate::{git, reader};
-
 use super::{Session, SessionError};
+use crate::{git, reader};
 
 pub struct SessionsIterator<'iterator> {
     git_repository: &'iterator git::Repository,

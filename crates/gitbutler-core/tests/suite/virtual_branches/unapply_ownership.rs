@@ -1,7 +1,8 @@
-use crate::suite::virtual_branches::Test;
-use gitbutler_core::virtual_branches::branch;
-use gitbutler_core::virtual_branches::branch::BranchOwnershipClaims;
 use std::fs;
+
+use gitbutler_core::virtual_branches::{branch, branch::BranchOwnershipClaims};
+
+use crate::suite::virtual_branches::Test;
 
 #[tokio::test]
 async fn should_unapply_with_commits() {

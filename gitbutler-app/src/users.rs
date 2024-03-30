@@ -1,14 +1,15 @@
 pub mod commands {
+    use gitbutler_core::{
+        assets,
+        users::{
+            controller::{self, Controller, GetError},
+            User,
+        },
+    };
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
     use crate::{error::Error, sentry};
-
-    use gitbutler_core::{
-        assets,
-        users::controller::{self, Controller, GetError},
-        users::User,
-    };
 
     impl From<GetError> for Error {
         fn from(value: GetError) -> Self {

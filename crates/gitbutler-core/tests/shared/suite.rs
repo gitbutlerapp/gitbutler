@@ -1,8 +1,12 @@
-use std::path::{Path, PathBuf};
-use std::{collections::HashMap, fs};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
+
+use tempfile::{tempdir, TempDir};
 
 use crate::shared::{init_opts, init_opts_bare, VAR_NO_CLEANUP};
-use tempfile::{tempdir, TempDir};
 
 pub struct Suite {
     pub local_app_data: Option<TempDir>,

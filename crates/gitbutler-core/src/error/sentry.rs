@@ -1,9 +1,11 @@
-use crate::error::gb::{ErrorCode, ErrorContext};
+use std::collections::BTreeMap;
+
 use sentry::{
     protocol::{value::Map, Event, Exception, Value},
     types::Uuid,
 };
-use std::collections::BTreeMap;
+
+use crate::error::gb::{ErrorCode, ErrorContext};
 
 pub trait SentrySender {
     fn send_to_sentry(self) -> Uuid;

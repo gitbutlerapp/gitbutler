@@ -3,10 +3,8 @@ mod writer;
 
 use std::str::FromStr;
 
-use serde::{ser::SerializeStruct, Deserializer, Serializer};
-use serde::{Deserialize, Serialize};
-
 pub use reader::TargetReader as Reader;
+use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 pub use writer::TargetWriter as Writer;
 
 use crate::git;

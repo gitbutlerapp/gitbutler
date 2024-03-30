@@ -1,6 +1,5 @@
-use crate::storage;
-
 use super::PrivateKey;
+use crate::storage;
 
 #[derive(Clone)]
 pub struct Storage {

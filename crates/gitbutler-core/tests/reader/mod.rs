@@ -1,9 +1,9 @@
+use std::{fs, path::Path};
+
+use anyhow::Result;
 use gitbutler_core::reader::{CommitReader, Content, Reader};
-use std::fs;
-use std::path::Path;
 
 use crate::shared::{commit_all, temp_dir, test_repository};
-use anyhow::Result;
 
 #[test]
 fn directory_reader_read_file() -> Result<()> {

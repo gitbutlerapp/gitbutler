@@ -1,16 +1,16 @@
 use std::{collections::HashMap, path};
 
 use anyhow::Context;
-use tauri::Manager;
-use tracing::instrument;
-
-use crate::{app, watcher};
 use gitbutler_core::{
     error::{Code, Error},
     gb_repository, git, project_repository, projects, reader,
     sessions::SessionId,
     users,
 };
+use tauri::Manager;
+use tracing::instrument;
+
+use crate::{app, watcher};
 
 impl From<app::Error> for Error {
     fn from(value: app::Error) -> Self {

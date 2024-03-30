@@ -1,13 +1,12 @@
 use std::{path, vec};
 
 use anyhow::{Context, Result};
-use tauri::{AppHandle, Manager};
-
 use gitbutler_core::{
     deltas, gb_repository, project_repository,
     projects::{self, ProjectId},
     reader, sessions, users,
 };
+use tauri::{AppHandle, Manager};
 
 use super::events;
 

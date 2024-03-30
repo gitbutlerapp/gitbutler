@@ -1,15 +1,14 @@
 pub mod commands {
     use std::path;
 
-    use tauri::Manager;
-    use tracing::instrument;
-
-    use crate::error::{Code, Error};
-
     use gitbutler_core::projects::{
         self,
         controller::{self, Controller},
     };
+    use tauri::Manager;
+    use tracing::instrument;
+
+    use crate::error::{Code, Error};
 
     impl From<controller::UpdateError> for Error {
         fn from(value: controller::UpdateError) -> Self {

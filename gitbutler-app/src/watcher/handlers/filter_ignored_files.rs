@@ -1,7 +1,10 @@
-use std::vec;
-use std::{sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration, vec};
 
 use anyhow::{Context, Result};
+use gitbutler_core::{
+    project_repository,
+    projects::{self, ProjectId},
+};
 use governor::{
     clock::QuantaClock,
     state::{InMemoryState, NotKeyed},
@@ -9,11 +12,6 @@ use governor::{
 };
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
-
-use gitbutler_core::{
-    project_repository,
-    projects::{self, ProjectId},
-};
 
 use super::events;
 

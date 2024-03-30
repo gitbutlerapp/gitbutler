@@ -7,11 +7,9 @@ use anyhow::Context;
 use gitbutler_core::virtual_branches::branch;
 use once_cell::sync::Lazy;
 
-use crate::shared::{Case, Suite};
-
 use self::branch::BranchId;
-
 use super::*;
+use crate::shared::{Case, Suite};
 
 static TEST_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 

@@ -1,13 +1,9 @@
 pub mod commands {
+    use gitbutler_core::sessions::{controller::ListError, Controller, Session};
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
     use crate::error::{Code, Error};
-
-    use gitbutler_core::sessions::{
-        Session,
-        {controller::ListError, Controller},
-    };
 
     impl From<ListError> for Error {
         fn from(value: ListError) -> Self {

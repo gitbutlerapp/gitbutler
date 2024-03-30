@@ -12,7 +12,8 @@
 		"lint": "pnpm --filter @gitbutler/ui run lint",
 		"format": "pnpm --filter @gitbutler/ui run format",
 		"tauri": "tauri",
-		"prepare": "pnpm --filter @gitbutler/ui run prepare"
+		"prepare": "pnpm --filter @gitbutler/ui run prepare",
+		"rustfmt": "cargo +nightly fmt -- --config-path rustfmt-nightly.toml"
 	},
 	"devDependencies": {
 		"@tauri-apps/cli": "^1.5.11"

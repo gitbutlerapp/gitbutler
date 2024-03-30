@@ -15,9 +15,8 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
-use crate::events as app_events;
-
 use super::events;
+use crate::events as app_events;
 
 #[derive(Clone)]
 pub struct Handler {

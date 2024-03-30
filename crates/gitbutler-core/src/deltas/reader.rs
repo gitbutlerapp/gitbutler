@@ -2,9 +2,8 @@ use std::{collections::HashMap, path};
 
 use anyhow::{Context, Result};
 
-use crate::{reader, sessions};
-
 use super::Delta;
+use crate::{reader, sessions};
 
 pub struct DeltasReader<'reader> {
     reader: &'reader reader::Reader<'reader>,

@@ -1,6 +1,11 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
+use gitbutler_core::{
+    assets,
+    projects::ProjectId,
+    virtual_branches::{self, controller::ControllerError, VirtualBranches},
+};
 use governor::{
     clock::QuantaClock,
     state::{InMemoryState, NotKeyed},
@@ -9,14 +14,8 @@ use governor::{
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
-use crate::events as app_events;
-use gitbutler_core::{
-    assets,
-    projects::ProjectId,
-    virtual_branches::{self, controller::ControllerError, VirtualBranches},
-};
-
 use super::events;
+use crate::events as app_events;
 
 #[derive(Clone)]
 pub struct Handler {

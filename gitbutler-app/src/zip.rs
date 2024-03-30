@@ -2,12 +2,11 @@ pub mod commands {
     #![allow(clippy::used_underscore_binding)]
     use std::path;
 
+    use gitbutler_core::zip::controller;
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
     use crate::error::{Code, Error};
-
-    use gitbutler_core::zip::controller;
 
     impl From<controller::ArchiveError> for Error {
         fn from(error: controller::ArchiveError) -> Self {

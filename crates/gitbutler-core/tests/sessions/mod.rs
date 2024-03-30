@@ -1,9 +1,9 @@
 mod database;
 
 use anyhow::Result;
+use gitbutler_core::sessions::{self, session::SessionId};
 
 use crate::shared::{Case, Suite};
-use gitbutler_core::sessions::{self, session::SessionId};
 
 #[test]
 fn should_not_write_session_with_hash() {

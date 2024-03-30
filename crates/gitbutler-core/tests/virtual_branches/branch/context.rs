@@ -1,5 +1,4 @@
-use gitbutler_core::git::diff;
-use gitbutler_core::virtual_branches::context::hunk_with_context;
+use gitbutler_core::{git::diff, virtual_branches::context::hunk_with_context};
 
 #[test]
 fn replace_line_mid_file() {

@@ -2,30 +2,33 @@ mod branch;
 mod iterator;
 mod target;
 
-use std::{collections::HashMap, io::Write};
-
-use anyhow::{Context, Result};
-use pretty_assertions::assert_eq;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    io::Write,
+    path::{Path, PathBuf},
+};
 #[cfg(target_family = "unix")]
 use std::{
     fs::Permissions,
     os::unix::{fs::symlink, prelude::*},
 };
 
-use crate::shared::{commit_all, Case, Suite};
+use anyhow::{Context, Result};
 use gitbutler_core::{
-    git, reader, sessions, virtual_branches, virtual_branches::errors::CommitError,
+    git, reader, sessions, virtual_branches,
+    virtual_branches::{
+        apply_branch,
+        branch::{BranchCreateRequest, BranchOwnershipClaims},
+        commit, create_virtual_branch,
+        errors::CommitError,
+        integration::verify_branch,
+        is_remote_branch_mergeable, is_virtual_branch_mergeable, list_remote_branches,
+        merge_virtual_branch_upstream, unapply_ownership, update_branch,
+    },
 };
+use pretty_assertions::assert_eq;
 
-use crate::shared::virtual_branches::set_test_target;
-use gitbutler_core::virtual_branches::branch::{BranchCreateRequest, BranchOwnershipClaims};
-use gitbutler_core::virtual_branches::integration::verify_branch;
-use gitbutler_core::virtual_branches::{
-    apply_branch, commit, create_virtual_branch, is_remote_branch_mergeable,
-    is_virtual_branch_mergeable, list_remote_branches, merge_virtual_branch_upstream,
-    unapply_ownership, update_branch,
-};
+use crate::shared::{commit_all, virtual_branches::set_test_target, Case, Suite};
 
 #[test]
 fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {

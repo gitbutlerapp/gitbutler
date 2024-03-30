@@ -1,10 +1,9 @@
 pub mod commands {
+    use gitbutler_core::keys::{controller, PublicKey};
     use tauri::Manager;
     use tracing::instrument;
 
     use crate::error::Error;
-
-    use gitbutler_core::keys::{controller, PublicKey};
 
     impl From<controller::GetOrCreateError> for Error {
         fn from(value: controller::GetOrCreateError) -> Self {

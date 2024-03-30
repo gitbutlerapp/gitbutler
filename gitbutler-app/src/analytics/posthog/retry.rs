@@ -40,11 +40,9 @@ impl<T: super::Client + Sync> super::Client for Client<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-    use super::super::Client;
+    use super::{super::Client, *};
 
     #[derive(Clone)]
     struct MockClient {

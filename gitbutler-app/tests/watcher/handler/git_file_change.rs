@@ -1,12 +1,11 @@
-use anyhow::Result;
 use std::fs;
 
+use anyhow::Result;
+use gitbutler_app::watcher::{handlers, handlers::git_file_change::Handler, Event};
 use gitbutler_core::projects;
 use pretty_assertions::assert_eq;
 
 use crate::shared::{Case, Suite};
-use gitbutler_app::watcher::handlers::git_file_change::Handler;
-use gitbutler_app::watcher::{handlers, Event};
 
 #[test]
 fn flush_session() -> Result<()> {

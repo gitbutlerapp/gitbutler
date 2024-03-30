@@ -1,6 +1,7 @@
-use gitbutler_core::deltas::operations::Operation;
-use gitbutler_core::deltas::{Delta, Document};
-use gitbutler_core::reader;
+use gitbutler_core::{
+    deltas::{operations::Operation, Delta, Document},
+    reader,
+};
 
 #[test]
 fn new() {

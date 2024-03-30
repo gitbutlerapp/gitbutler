@@ -1,8 +1,11 @@
-use crate::suite::virtual_branches::Test;
-use gitbutler_core::git;
-use gitbutler_core::virtual_branches::controller::ControllerError;
-use gitbutler_core::virtual_branches::{branch, errors, BranchId};
 use std::str::FromStr;
+
+use gitbutler_core::{
+    git,
+    virtual_branches::{branch, controller::ControllerError, errors, BranchId},
+};
+
+use crate::suite::virtual_branches::Test;
 
 #[tokio::test]
 async fn no_diffs() {

@@ -1,8 +1,7 @@
 use std::{fmt, str, sync::Arc};
 
-use tauri::AppHandle;
-
 use gitbutler_core::{projects::ProjectId, users::User};
+use tauri::AppHandle;
 
 mod posthog;
 

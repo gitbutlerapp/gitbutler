@@ -1,9 +1,13 @@
 mod database {
-    use crate::shared::test_database;
-    use gitbutler_core::deltas::{operations, Database, Delta};
-    use gitbutler_core::projects::ProjectId;
-    use gitbutler_core::sessions::SessionId;
     use std::path;
+
+    use gitbutler_core::{
+        deltas::{operations, Database, Delta},
+        projects::ProjectId,
+        sessions::SessionId,
+    };
+
+    use crate::shared::test_database;
 
     #[test]
     fn insert_query() -> anyhow::Result<()> {
@@ -107,9 +111,9 @@ mod document;
 mod operations;
 
 mod writer {
-    use gitbutler_core::deltas::operations::Operation;
-    use gitbutler_core::{deltas, sessions};
     use std::vec;
+
+    use gitbutler_core::{deltas, deltas::operations::Operation, sessions};
 
     use crate::shared::{Case, Suite};
 

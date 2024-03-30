@@ -3,15 +3,6 @@ use std::{collections::HashMap, path, sync::Arc};
 use anyhow::Context;
 use tokio::{sync::Semaphore, task::JoinHandle};
 
-use crate::{
-    askpass::AskpassBroker,
-    error::Error,
-    gb_repository, git, keys, project_repository,
-    projects::{self, ProjectId},
-    users,
-    virtual_branches::state::{VirtualBranches, VirtualBranchesHandle},
-};
-
 use super::{
     branch::{BranchId, BranchOwnershipClaims},
     errors::{
@@ -19,6 +10,14 @@ use super::{
         IsRemoteBranchMergableError, ListRemoteBranchesError,
     },
     target_to_base_branch, BaseBranch, RemoteBranchFile,
+};
+use crate::{
+    askpass::AskpassBroker,
+    error::Error,
+    gb_repository, git, keys, project_repository,
+    projects::{self, ProjectId},
+    users,
+    virtual_branches::state::{VirtualBranches, VirtualBranchesHandle},
 };
 
 #[derive(Clone)]
