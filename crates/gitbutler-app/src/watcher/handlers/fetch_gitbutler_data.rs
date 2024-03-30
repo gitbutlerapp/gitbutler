@@ -1,10 +1,9 @@
 use std::{path, sync::Arc, time};
 
 use anyhow::{Context, Result};
+use gitbutler::{gb_repository, project_repository, projects, projects::ProjectId, users};
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
-
-use gitbutler::{gb_repository, project_repository, projects, projects::ProjectId, users};
 
 use super::events;
 

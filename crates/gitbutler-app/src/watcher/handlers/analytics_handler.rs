@@ -1,10 +1,9 @@
 use anyhow::{Context, Result};
+use gitbutler::users;
 use tauri::{AppHandle, Manager};
 
-use crate::analytics;
-use gitbutler::users;
-
 use super::events;
+use crate::analytics;
 
 #[derive(Clone)]
 pub struct Handler {

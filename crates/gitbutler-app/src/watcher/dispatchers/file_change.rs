@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use futures::executor::block_on;
+use gitbutler::{git, projects::ProjectId};
 use notify::{RecommendedWatcher, Watcher};
 use notify_debouncer_full::{new_debouncer, Debouncer, FileIdMap};
 use tokio::{
@@ -14,7 +15,6 @@ use tokio::{
 };
 
 use crate::watcher::events;
-use gitbutler::{git, projects::ProjectId};
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {

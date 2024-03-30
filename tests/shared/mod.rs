@@ -7,8 +7,9 @@ mod suite;
 pub use suite::*;
 
 pub mod paths {
-    use super::temp_dir;
     use tempfile::TempDir;
+
+    use super::temp_dir;
 
     pub fn data_dir() -> TempDir {
         temp_dir()
@@ -16,8 +17,9 @@ pub mod paths {
 }
 
 pub mod virtual_branches {
-    use crate::shared::empty_bare_repository;
     use gitbutler::{gb_repository, project_repository, virtual_branches};
+
+    use crate::shared::empty_bare_repository;
 
     pub fn set_test_target(
         gb_repo: &gb_repository::Repository,

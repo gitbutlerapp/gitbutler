@@ -1,21 +1,21 @@
 pub mod commands {
     use anyhow::Context;
+    use gitbutler::{
+        askpass::AskpassBroker,
+        assets,
+        error::{Code, Error},
+        git, projects,
+        projects::ProjectId,
+        virtual_branches::{
+            branch::{self, BranchId, BranchOwnershipClaims},
+            controller::{Controller, ControllerError},
+            BaseBranch, RemoteBranch, RemoteBranchData, RemoteBranchFile, VirtualBranches,
+        },
+    };
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
-    use gitbutler::error::{Code, Error};
-
     use crate::watcher;
-    use gitbutler::askpass::AskpassBroker;
-    use gitbutler::virtual_branches::{RemoteBranch, RemoteBranchData};
-    use gitbutler::{
-        assets, git, projects,
-        projects::ProjectId,
-        virtual_branches::branch::{self, BranchId, BranchOwnershipClaims},
-        virtual_branches::controller::{Controller, ControllerError},
-        virtual_branches::BaseBranch,
-        virtual_branches::{RemoteBranchFile, VirtualBranches},
-    };
 
     fn into_error<E: Into<Error>>(value: ControllerError<E>) -> Error {
         match value {

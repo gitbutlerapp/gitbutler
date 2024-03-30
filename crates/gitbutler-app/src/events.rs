@@ -1,6 +1,4 @@
 use anyhow::{Context, Result};
-use tauri::{AppHandle, Manager};
-
 use gitbutler::{
     deltas,
     projects::ProjectId,
@@ -8,6 +6,7 @@ use gitbutler::{
     sessions::{self, SessionId},
     virtual_branches,
 };
+use tauri::{AppHandle, Manager};
 
 #[derive(Clone)]
 pub struct Sender {

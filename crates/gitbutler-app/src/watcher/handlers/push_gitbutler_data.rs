@@ -1,12 +1,14 @@
-use std::path;
-use std::sync::{Arc, Mutex, TryLockError};
+use std::{
+    path,
+    sync::{Arc, Mutex, TryLockError},
+};
 
 use anyhow::{Context, Result};
+use gitbutler::{
+    gb_repository, gb_repository::RemoteError, project_repository, projects, projects::ProjectId,
+    users,
+};
 use tauri::{AppHandle, Manager};
-
-use gitbutler::gb_repository::RemoteError;
-use gitbutler::projects::ProjectId;
-use gitbutler::{gb_repository, project_repository, projects, users};
 
 use super::events;
 

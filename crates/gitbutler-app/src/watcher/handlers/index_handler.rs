@@ -1,17 +1,16 @@
 use std::path;
 
 use anyhow::{Context, Result};
-use tauri::{AppHandle, Manager};
-
-use crate::events as app_events;
 use gitbutler::{
     deltas, gb_repository, project_repository,
     projects::{self, ProjectId},
     sessions::{self, SessionId},
     users,
 };
+use tauri::{AppHandle, Manager};
 
 use super::events;
+use crate::events as app_events;
 
 #[derive(Clone)]
 pub struct Handler {

@@ -2,9 +2,8 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 
-use crate::{gb_repository, writer};
-
 use super::Delta;
+use crate::{gb_repository, writer};
 
 pub struct DeltasWriter<'writer> {
     repository: &'writer gb_repository::Repository,

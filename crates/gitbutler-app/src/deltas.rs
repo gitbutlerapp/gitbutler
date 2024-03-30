@@ -1,12 +1,11 @@
 pub mod commands {
     use std::collections::HashMap;
 
+    use gitbutler::deltas::{controller::ListError, Controller, Delta};
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
     use crate::error::{Code, Error};
-
-    use gitbutler::deltas::{controller::ListError, Controller, Delta};
 
     impl From<ListError> for Error {
         fn from(value: ListError) -> Self {

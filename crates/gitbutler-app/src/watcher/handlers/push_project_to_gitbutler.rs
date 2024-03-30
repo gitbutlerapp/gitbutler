@@ -1,10 +1,6 @@
 use std::{path, sync::Arc, time};
 
 use anyhow::{Context, Result};
-use itertools::Itertools;
-use tauri::{AppHandle, Manager};
-use tokio::sync::Mutex;
-
 use gitbutler::{
     gb_repository,
     git::{self, Oid, Repository},
@@ -12,6 +8,9 @@ use gitbutler::{
     projects::{self, CodePushState, ProjectId},
     users,
 };
+use itertools::Itertools;
+use tauri::{AppHandle, Manager};
+use tokio::sync::Mutex;
 
 use super::events;
 

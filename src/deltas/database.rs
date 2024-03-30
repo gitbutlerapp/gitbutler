@@ -2,9 +2,8 @@ use std::{collections::HashMap, path};
 
 use anyhow::{Context, Result};
 
-use crate::{database, projects::ProjectId, sessions::SessionId};
-
 use super::{delta, operations};
+use crate::{database, projects::ProjectId, sessions::SessionId};
 
 #[derive(Clone)]
 pub struct Database {

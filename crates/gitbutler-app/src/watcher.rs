@@ -4,9 +4,9 @@ pub mod handlers;
 
 use std::{collections::HashMap, path, sync::Arc, time};
 
-pub use events::Event;
-
 use anyhow::{Context, Result};
+pub use events::Event;
+use gitbutler::projects::{self, Project, ProjectId};
 use tauri::AppHandle;
 use tokio::{
     sync::{
@@ -16,8 +16,6 @@ use tokio::{
     task,
 };
 use tokio_util::sync::CancellationToken;
-
-use gitbutler::projects::{self, Project, ProjectId};
 
 #[derive(Clone)]
 pub struct Watchers {

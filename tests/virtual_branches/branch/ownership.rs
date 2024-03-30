@@ -1,9 +1,9 @@
-use gitbutler::virtual_branches::branch::{
-    reconcile_claims, BranchOwnershipClaims, Hunk, OwnershipClaim,
-};
-use gitbutler::virtual_branches::Branch;
-
 use std::{path::PathBuf, vec};
+
+use gitbutler::virtual_branches::{
+    branch::{reconcile_claims, BranchOwnershipClaims, Hunk, OwnershipClaim},
+    Branch,
+};
 
 #[test]
 fn reconcile_ownership_simple() {

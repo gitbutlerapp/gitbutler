@@ -1,11 +1,12 @@
-use crate::reader;
-
-use super::{delta, operations};
-use anyhow::Result;
 use std::{
     fmt::{Display, Formatter},
     time::SystemTime,
 };
+
+use anyhow::Result;
+
+use super::{delta, operations};
+use crate::reader;
 
 #[derive(Debug, Clone, Default)]
 pub struct Document {

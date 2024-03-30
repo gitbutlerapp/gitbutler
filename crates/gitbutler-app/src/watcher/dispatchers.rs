@@ -3,14 +3,13 @@ mod file_change;
 use std::path;
 
 use anyhow::{Context, Result};
+use gitbutler::projects::ProjectId;
 use tokio::{
     select,
     sync::mpsc::{channel, Receiver},
     task,
 };
 use tokio_util::sync::CancellationToken;
-
-use gitbutler::projects::ProjectId;
 
 use super::events;
 

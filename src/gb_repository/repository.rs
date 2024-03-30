@@ -1,3 +1,5 @@
+#[cfg(target_family = "unix")]
+use std::os::unix::prelude::*;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
@@ -5,16 +7,13 @@ use std::{
     path, time,
 };
 
-#[cfg(target_os = "windows")]
-use crate::windows::MetadataShim;
-#[cfg(target_family = "unix")]
-use std::os::unix::prelude::*;
-
 use anyhow::{anyhow, Context, Result};
 use filetime::FileTime;
 use fslock::LockFile;
 use sha2::{Digest, Sha256};
 
+#[cfg(target_os = "windows")]
+use crate::windows::MetadataShim;
 use crate::{
     deltas, fs, git, project_repository,
     projects::{self, ProjectId},

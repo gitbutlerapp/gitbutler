@@ -1,6 +1,5 @@
-use crate::{reader, sessions};
-
 use super::{Branch, BranchId};
+use crate::{reader, sessions};
 
 pub struct BranchReader<'r> {
     reader: &'r reader::Reader<'r>,

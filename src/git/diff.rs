@@ -3,9 +3,8 @@ use std::{collections::HashMap, path, str};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::git;
-
 use super::Repository;
+use crate::git;
 
 /// The type of change
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use gitbutler::users;
 use governor::{
     clock::QuantaClock,
     state::{InMemoryState, NotKeyed},
@@ -11,8 +12,6 @@ use sentry::ClientInitGuard;
 use sentry_tracing::SentryLayer;
 use tracing::Subscriber;
 use tracing_subscriber::registry::LookupSpan;
-
-use gitbutler::users;
 
 static SENTRY_QUOTA: Quota = Quota::per_second(nonzero!(1_u32)); // 1 per second at most.
 static SENTRY_LIMIT: OnceCell<RateLimiter<NotKeyed, InMemoryState, QuantaClock>> = OnceCell::new();

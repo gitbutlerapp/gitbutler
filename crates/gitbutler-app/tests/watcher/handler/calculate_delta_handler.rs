@@ -1,21 +1,20 @@
-use anyhow::Result;
-use std::path::{Path, PathBuf};
 use std::{
     collections::HashMap,
+    path::{Path, PathBuf},
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use once_cell::sync::Lazy;
-
-use crate::shared::{commit_all, Case, Suite};
+use anyhow::Result;
 use gitbutler::{
     deltas::{self, operations::Operation},
     reader, sessions,
     virtual_branches::{self, branch},
 };
 use gitbutler_app::watcher::handlers::calculate_deltas_handler::Handler;
+use once_cell::sync::Lazy;
 
 use self::branch::BranchId;
+use crate::shared::{commit_all, Case, Suite};
 
 static TEST_TARGET_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 

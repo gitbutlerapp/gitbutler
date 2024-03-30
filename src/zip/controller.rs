@@ -1,8 +1,7 @@
 use std::path;
 
-use crate::projects::{self, ProjectId};
-
 use super::Zipper;
+use crate::projects::{self, ProjectId};
 
 #[derive(Clone)]
 pub struct Controller {

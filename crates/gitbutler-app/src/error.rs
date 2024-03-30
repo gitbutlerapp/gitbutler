@@ -9,9 +9,11 @@ pub(crate) mod gb {
 
     #[cfg(feature = "error-context")]
     mod error_context {
-        use super::{ErrorKind, Result, WithContext};
-        use backtrace::Backtrace;
         use std::collections::BTreeMap;
+
+        use backtrace::Backtrace;
+
+        use super::{ErrorKind, Result, WithContext};
 
         #[derive(Debug)]
         pub struct Context {

@@ -1,5 +1,6 @@
-use crate::shared::init_opts_bare;
 use tempfile::TempDir;
+
+use crate::shared::init_opts_bare;
 
 fn test_remote_repository() -> anyhow::Result<(git2::Repository, TempDir)> {
     let tmp = tempfile::tempdir()?;

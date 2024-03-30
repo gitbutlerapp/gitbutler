@@ -13,34 +13,17 @@
     clippy::too_many_lines
 )]
 
-use gitbutler::assets;
-use gitbutler::database;
-use gitbutler::git;
-use gitbutler::storage;
-#[cfg(target_os = "windows")]
-use gitbutler::windows;
-use gitbutler_app::analytics;
-use gitbutler_app::app;
-use gitbutler_app::askpass;
-use gitbutler_app::commands;
-use gitbutler_app::deltas;
-use gitbutler_app::github;
-use gitbutler_app::keys;
-use gitbutler_app::logs;
-use gitbutler_app::menu;
-use gitbutler_app::projects;
-use gitbutler_app::sentry;
-use gitbutler_app::sessions;
-use gitbutler_app::users;
-use gitbutler_app::virtual_branches;
-use gitbutler_app::watcher;
-use gitbutler_app::zip;
-
 use std::path::PathBuf;
 
 use anyhow::Context;
+#[cfg(target_os = "windows")]
+use gitbutler::windows;
+use gitbutler::{assets, database, git, storage};
+use gitbutler_app::{
+    analytics, app, askpass, commands, deltas, github, keys, logs, menu, projects, sentry,
+    sessions, users, virtual_branches, watcher, zip,
+};
 use tauri::{generate_context, Manager, Wry};
-
 use tauri_plugin_log::LogTarget;
 use tauri_plugin_store::{with_store, JsonValue, StoreCollection};
 
