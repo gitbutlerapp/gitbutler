@@ -9,11 +9,9 @@ pub mod gb {
 
     #[cfg(feature = "error-context")]
     mod error_context {
-        use std::collections::BTreeMap;
-
-        use backtrace::Backtrace;
-
         use super::{ErrorKind, Result, WithContext};
+        use backtrace::Backtrace;
+        use std::collections::BTreeMap;
 
         #[derive(Debug)]
         pub struct Context {
@@ -321,9 +319,8 @@ pub mod gb {
 mod legacy {
     use core::fmt;
 
-    use serde::{ser::SerializeMap, Serialize};
-
     use crate::{keys, projects, users};
+    use serde::{ser::SerializeMap, Serialize};
 
     #[derive(Debug)]
     pub enum Code {

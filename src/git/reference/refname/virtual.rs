@@ -2,8 +2,10 @@ use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
+use crate::virtual_branches::normalize_branch_name;
+use crate::virtual_branches::Branch;
+
 use super::error::Error;
-use crate::virtual_branches::{normalize_branch_name, Branch};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Refname {

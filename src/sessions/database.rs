@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 
-use super::session::{self, SessionId};
 use crate::{database, projects::ProjectId};
+
+use super::session::{self, SessionId};
 
 #[derive(Clone)]
 pub struct Database {

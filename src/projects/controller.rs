@@ -1,13 +1,9 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
-
-use anyhow::Context;
-use async_trait::async_trait;
-
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
 use crate::{gb_repository, project_repository, users};
+use anyhow::Context;
+use async_trait::async_trait;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 #[async_trait]
 pub trait Watchers {

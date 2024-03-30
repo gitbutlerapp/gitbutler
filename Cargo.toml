@@ -69,7 +69,7 @@ correctness = "deny"
 
 [workspace]
 members = [
-    "crates/gitbutler-app",
+    "gitbutler-app",
     "gitbutler-changeset",
     "gitbutler-git",
 ]

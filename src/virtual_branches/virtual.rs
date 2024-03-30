@@ -1,11 +1,12 @@
-#[cfg(target_family = "unix")]
-use std::os::unix::prelude::*;
 use std::{
     collections::HashMap,
     hash::Hash,
     path::{Path, PathBuf},
     time, vec,
 };
+
+#[cfg(target_family = "unix")]
+use std::os::unix::prelude::*;
 
 use anyhow::{bail, Context, Result};
 use bstr::ByteSlice;
@@ -14,12 +15,6 @@ use git2_hooks::HookResult;
 use regex::Regex;
 use serde::Serialize;
 
-use super::{
-    branch::{
-        self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
-    },
-    branch_to_remote_branch, context, errors, target, Iterator, RemoteBranch,
-};
 use crate::{
     askpass::AskpassBroker,
     dedup::{dedup, dedup_fmt},
@@ -32,6 +27,13 @@ use crate::{
     keys,
     project_repository::{self, conflicts, LogUntil},
     reader, sessions, users,
+};
+
+use super::{
+    branch::{
+        self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
+    },
+    branch_to_remote_branch, context, errors, target, Iterator, RemoteBranch,
 };
 
 type AppliedStatuses = Vec<(branch::Branch, HashMap<PathBuf, Vec<diff::GitHunk>>)>;

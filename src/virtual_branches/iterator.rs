@@ -2,8 +2,9 @@ use std::collections::HashSet;
 
 use anyhow::Result;
 
-use super::branch::{self, BranchId};
 use crate::sessions;
+
+use super::branch::{self, BranchId};
 
 pub struct BranchIterator<'i> {
     branch_reader: branch::Reader<'i>,

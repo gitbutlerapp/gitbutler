@@ -1,8 +1,9 @@
 use std::{fmt, str::FromStr};
 
+use ssh_key::{HashAlg, LineEnding, SshSig};
+
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
-use ssh_key::{HashAlg, LineEnding, SshSig};
 
 #[derive(Debug, Clone, Eq)]
 pub struct PrivateKey(ssh_key::PrivateKey);

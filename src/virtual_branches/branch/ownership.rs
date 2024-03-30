@@ -1,10 +1,10 @@
 use std::{collections::HashSet, fmt, str::FromStr};
 
-use anyhow::Result;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize, Serializer};
 
 use super::{Branch, OwnershipClaim};
+use anyhow::Result;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BranchOwnershipClaims {

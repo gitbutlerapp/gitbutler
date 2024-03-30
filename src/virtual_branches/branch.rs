@@ -4,13 +4,16 @@ mod ownership;
 mod reader;
 mod writer;
 
-use anyhow::Result;
 pub use file_ownership::OwnershipClaim;
 pub use hunk::Hunk;
-pub use ownership::{reconcile_claims, BranchOwnershipClaims};
+pub use ownership::reconcile_claims;
+pub use ownership::BranchOwnershipClaims;
 pub use reader::BranchReader as Reader;
-use serde::{Deserialize, Serialize};
 pub use writer::BranchWriter as Writer;
+
+use serde::{Deserialize, Serialize};
+
+use anyhow::Result;
 
 use crate::{git, id::Id};
 

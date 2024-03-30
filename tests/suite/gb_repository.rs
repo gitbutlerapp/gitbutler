@@ -1,8 +1,6 @@
-use std::path;
-
-use gitbutler::{gb_repository, git, project_repository, projects};
-
 use crate::shared::{paths, TestProject};
+use gitbutler::{gb_repository, git, project_repository, projects};
+use std::path;
 
 mod init {
     use super::*;

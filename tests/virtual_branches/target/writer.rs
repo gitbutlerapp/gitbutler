@@ -1,13 +1,14 @@
+use anyhow::Context;
 use std::{
     fs,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use anyhow::Context;
-use gitbutler::virtual_branches::{branch, target, target::Target, BranchId};
 use once_cell::sync::Lazy;
 
 use crate::shared::{Case, Suite};
+use gitbutler::virtual_branches::target::Target;
+use gitbutler::virtual_branches::{branch, target, BranchId};
 
 static TEST_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 

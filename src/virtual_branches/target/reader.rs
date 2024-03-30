@@ -1,5 +1,6 @@
-use super::Target;
 use crate::{reader, sessions, virtual_branches::BranchId};
+
+use super::Target;
 
 pub struct TargetReader<'r> {
     reader: &'r reader::Reader<'r>,

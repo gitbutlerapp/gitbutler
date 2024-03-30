@@ -6,7 +6,6 @@ use std::{
 
 use anyhow::{Context, Result};
 
-use super::conflicts;
 use crate::{
     askpass,
     askpass::AskpassBroker,
@@ -16,6 +15,8 @@ use crate::{
     ssh, users,
     virtual_branches::{Branch, BranchId},
 };
+
+use super::conflicts;
 
 pub struct Repository {
     pub git_repository: git::Repository,

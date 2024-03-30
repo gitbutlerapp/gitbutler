@@ -1,7 +1,8 @@
+use super::Repository;
+use crate::git;
 use std::{path, str};
 
-use super::{Repository, Result};
-use crate::git;
+use super::Result;
 
 pub fn show_file_at_tree<P: AsRef<path::Path>>(
     repository: &Repository,

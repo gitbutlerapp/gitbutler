@@ -2,8 +2,9 @@ use std::time;
 
 use anyhow::{anyhow, Context, Result};
 
-use super::Session;
 use crate::{gb_repository, reader, writer};
+
+use super::Session;
 
 pub struct SessionWriter<'writer> {
     repository: &'writer gb_repository::Repository,

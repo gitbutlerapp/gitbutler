@@ -2,8 +2,9 @@ use std::{collections::HashMap, path};
 
 use anyhow::{anyhow, Context, Result};
 
-use super::Session;
 use crate::{gb_repository, reader};
+
+use super::Session;
 
 pub struct SessionReader<'reader> {
     // reader for the current session. commit or wd

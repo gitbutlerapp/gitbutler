@@ -3,7 +3,6 @@ use std::io::{Read, Write};
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
 
-use super::errors;
 use crate::{
     gb_repository,
     git::{self},
@@ -11,6 +10,8 @@ use crate::{
     reader, sessions,
     virtual_branches::branch::BranchCreateRequest,
 };
+
+use super::errors;
 
 lazy_static! {
     pub static ref GITBUTLER_INTEGRATION_REFERENCE: git::LocalRefname =
