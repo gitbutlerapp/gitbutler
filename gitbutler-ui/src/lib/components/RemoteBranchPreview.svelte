@@ -58,15 +58,15 @@
 				<BranchPreviewHeader base={$baseBranch} {branch} {pr} />
 				{#if pr?.body}
 					<div class="card">
-						<div class="card__header">PR Description</div>
-						<div class="card__content">
+						<div class="card__header text-base-body-14 text-semibold">PR Description</div>
+						<div class="markdown card__content text-base-body-13">
 							{@html marked.parse(pr.body, { renderer })}
 						</div>
 					</div>
 				{/if}
 				{#await getRemoteBranchData(project.id, branch.name) then branchData}
 					{#if branchData.commits && branchData.commits.length > 0}
-						<div class="flex w-full flex-col gap-y-2">
+						<div class="branch-preview__commits-list">
 							{#each branchData.commits as commit (commit.id)}
 								<CommitCard
 									{commit}
@@ -133,6 +133,12 @@
 	}
 
 	.card__content {
-		user-select: text;
+		color: var(--clr-theme-scale-ntrl-30);
+	}
+
+	.branch-preview__commits-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-8);
 	}
 </style>

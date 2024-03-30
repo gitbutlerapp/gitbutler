@@ -22,9 +22,11 @@
 	export let noselect = false;
 	export let selectall = false;
 	export let spellcheck = false;
+	export let autocorrect = false;
+	export let autocomplete = false;
 	export let focus = false;
 
-	export let type: 'text' | 'password' | 'select' | 'number' = 'text';
+	export let type: 'text' | 'password' | 'select' | 'number' | 'email' = 'text';
 
 	const dispatch = createEventDispatcher<{
 		input: string;
@@ -73,6 +75,8 @@
 			{placeholder}
 			{spellcheck}
 			{disabled}
+			autocorrect={autocorrect ? 'on' : 'off'}
+			autocomplete={autocomplete ? 'on' : 'off'}
 			min={minVal}
 			max={maxVal}
 			{...type == 'password' && showPassword ? { type: 'text' } : { type }}

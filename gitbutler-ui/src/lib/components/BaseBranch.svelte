@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Checkbox from './Checkbox.svelte';
+	import Spacer from './Spacer.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import CommitCard from '$lib/components/CommitCard.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -24,50 +26,42 @@
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0 : false;
 </script>
 
-<div class="flex flex-col gap-y-4">
-	<div class="text-base-13 rounded-sm">
+<div class="wrapper">
+	<div class="info-text text-base-13">
 		There {multiple ? 'are' : 'is'}
 		{base.upstreamCommits.length} unmerged upstream
 		{multiple ? 'commits' : 'commit'}
 	</div>
+
 	{#if base.upstreamCommits?.length > 0}
-		<div>
-			<Button
-				color="primary"
-				help={'Merges the commits from ' +
-					base.branchName +
-					' into the base of all applied virtual branches'}
-				on:click={() => {
-					if ($mergeUpstreamWarningDismissed) {
-						branchController.updateBaseBranch();
-					} else {
-						updateTargetModal.show();
-					}
-				}}
-			>
-				Merge into common base
-			</Button>
+		<Button
+			color="primary"
+			help={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
+			on:click={() => {
+				if ($mergeUpstreamWarningDismissed) {
+					branchController.updateBaseBranch();
+				} else {
+					updateTargetModal.show();
+				}
+			}}
+		>
+			Merge into common base
+		</Button>
+		<div class="commits-list">
+			{#each base.upstreamCommits as commit}
+				<CommitCard {commit} {selectedFiles} commitUrl={base.commitUrl(commit.id)} />
+			{/each}
 		</div>
-		<div class="flex h-full">
-			<div class="z-20 flex w-full flex-col gap-2">
-				{#each base.upstreamCommits as commit}
-					<CommitCard {commit} {selectedFiles} commitUrl={base.commitUrl(commit.id)} />
-				{/each}
-			</div>
-		</div>
-		<div
-			class="h-px w-full border-none bg-gradient-to-r from-transparent via-light-500 to-transparent dark:via-dark-400"
-		/>
+		<Spacer margin={2} />
 	{/if}
-	<div>
+
+	<div class="commits-list">
 		<h1
-			class="inline-block font-bold text-light-700 dark:text-dark-100"
+			class="text-base-13 info-text text-bold"
 			use:tooltip={'This is the current base for your virtual branches.'}
 		>
 			Local
 		</h1>
-	</div>
-	<div class="flex flex-col gap-y-2">
 		{#each base.recentCommits as commit}
 			<CommitCard {commit} {selectedFiles} commitUrl={base.commitUrl(commit.id)} />
 		{/each}
@@ -75,25 +69,31 @@
 </div>
 
 <Modal width="small" bind:this={updateTargetModal} title="Merge Upstream Work">
-	<div class="flex flex-col space-y-4">
-		<p class="text-blue-600">You are about to merge upstream work from your base branch.</p>
-		<p class="font-bold">What will this do?</p>
-		<p>
+	<div class="modal-content">
+		<p class="text-base-body-14">You are about to merge upstream work from your base branch.</p>
+	</div>
+	<div class="modal-content">
+		<h4 class="text-base-body-14 text-semibold">What will this do?</h4>
+		<p class="modal__small-text text-base-body-12">
 			We will try to merge the work that is upstream into each of your virtual branches, so that
 			they are all up to date.
 		</p>
-		<p>
+		<p class="modal__small-text text-base-body-12">
 			Any virtual branches that we can't merge cleanly, we will unapply and mark with a blue dot.
 			You can merge these manually later.
 		</p>
-		<p>Any virtual branches that are fully integrated upstream will be automatically removed.</p>
-		<label>
-			<input type="checkbox" bind:checked={mergeUpstreamWarningDismissedCheckbox} />
-			Don't show this again
-		</label>
+		<p class="modal__small-text text-base-body-12">
+			Any virtual branches that are fully integrated upstream will be automatically removed.
+		</p>
 	</div>
+
+	<label class="modal__dont-show-again" for="dont-show-again">
+		<Checkbox name="dont-show-again" bind:checked={mergeUpstreamWarningDismissedCheckbox} />
+		<span class="text-base-12">Don't show this again</span>
+	</label>
+
 	<svelte:fragment slot="controls" let:close>
-		<Button kind="outlined" on:click={close}>Cancel</Button>
+		<Button kind="outlined" color="neutral" on:click={close}>Cancel</Button>
 		<Button
 			color="primary"
 			on:click={() => {
@@ -108,3 +108,47 @@
 		</Button>
 	</svelte:fragment>
 </Modal>
+
+<style>
+	.wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-16);
+	}
+
+	.info-text {
+		opacity: 0.5;
+	}
+
+	.commits-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-8);
+		width: 100%;
+	}
+
+	.modal-content {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-10);
+		margin-bottom: var(--size-20);
+
+		&:last-child {
+			margin-bottom: 0;
+		}
+	}
+
+	.modal__small-text {
+		opacity: 0.6;
+	}
+
+	.modal__dont-show-again {
+		display: flex;
+		align-items: center;
+		gap: var(--size-8);
+		padding: var(--size-14);
+		background-color: var(--clr-theme-container-pale);
+		border-radius: var(--radius-m);
+		margin-bottom: var(--size-6);
+	}
+</style>

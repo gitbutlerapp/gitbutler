@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Button from './Button.svelte';
 	import HunkContextMenu from './HunkContextMenu.svelte';
 	import HunkLine from './HunkLine.svelte';
+	import LargeDiffMessage from './LargeDiffMessage.svelte';
 	import Scrollbar from './Scrollbar.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { draggable } from '$lib/dragging/draggable';
@@ -76,12 +76,11 @@
 	>
 		<div bind:this={contents} class="hunk__bg-stretch">
 			{#if linesModified > 1000 && !alwaysShow}
-				<div class="flex flex-col p-1">
-					Change hidden as large diffs may slow down the UI
-					<Button kind="outlined" color="neutral" on:click={() => (alwaysShow = true)}
-						>show anyways</Button
-					>
-				</div>
+				<LargeDiffMessage
+					on:show={() => {
+						alwaysShow = true;
+					}}
+				/>
 			{:else}
 				{#each section.subSections as subsection}
 					{@const hunk = section.hunk}

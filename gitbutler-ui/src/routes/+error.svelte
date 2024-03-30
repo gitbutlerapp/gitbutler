@@ -14,8 +14,16 @@
 			: 'Something went wrong';
 </script>
 
-<div class="flex h-full flex-1">
-	<h1 class="m-auto text-2xl">
-		{message} :(
+<div class="wrapper">
+	<h1 class="text-base-18 text-semibold">
+		{message}
 	</h1>
 </div>
+
+<style>
+	.wrapper {
+		display: flex;
+		flex: 1 1 0%;
+		height: 100%;
+	}
+</style>

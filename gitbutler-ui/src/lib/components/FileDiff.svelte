@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Button from './Button.svelte';
 	import HunkViewer from './HunkViewer.svelte';
 	import Icon from './Icon.svelte';
+	import LargeDiffMessage from './LargeDiffMessage.svelte';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { getLocalCommits } from '$lib/vbranches/contexts';
@@ -38,12 +38,12 @@
 	{:else if isLarge}
 		Diff too large to be shown
 	{:else if sections.length > 50 && !alwaysShow}
-		<div class="flex flex-col p-1">
-			Change hidden as large numbers of diffs may slow down the UI
-			<Button kind="outlined" color="neutral" on:click={() => (alwaysShow = true)}
-				>show anyways</Button
-			>
-		</div>
+		<LargeDiffMessage
+			showFrame
+			on:show={() => {
+				alwaysShow = true;
+			}}
+		/>
 	{:else}
 		{#each sections as section}
 			{@const { added, removed } = computeAddedRemovedByHunk(section)}

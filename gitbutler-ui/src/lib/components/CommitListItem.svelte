@@ -108,13 +108,13 @@
 	}
 </script>
 
-<div class="commit-list-item flex w-full items-center gap-x-2 pb-2 pr-4">
+<div class="commit-list-item">
 	{#if isChained}
 		<div class="line" />
 	{/if}
 	<div class="connector" />
 	<div
-		class="relative h-full flex-grow overflow-hidden"
+		class="commit-card-wrapper"
 		use:dropzone={{
 			active: 'amend-dz-active',
 			hover: 'amend-dz-hover',
@@ -143,8 +143,9 @@
 	</div>
 </div>
 
-<style lang="postcss">
+<style>
 	.commit-list-item {
+		display: flex;
 		padding: 0 0 var(--size-6) var(--size-16);
 		position: relative;
 
@@ -169,5 +170,10 @@
 		border-bottom: 1px solid var(--clr-theme-container-outline-light);
 		border-left: 1px solid var(--clr-theme-container-outline-light);
 		border-radius: 0 0 0 0.5rem;
+	}
+
+	.commit-card-wrapper {
+		position: relative;
+		width: 100%;
 	}
 </style>

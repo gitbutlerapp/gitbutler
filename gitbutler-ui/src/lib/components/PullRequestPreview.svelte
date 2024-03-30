@@ -13,17 +13,17 @@
 </script>
 
 {#if pullrequest != undefined}
-	<div class="wrapper max-w-4xl">
-		<div class="pr card">
+	<div class="wrapper">
+		<div class="card">
 			<div class="card__header text-base-body-14 text-semibold">
-				<span class="card__title whitespace-pre-wrap">
+				<h2 class="text-base-14 text-semibold">
 					{pullrequest.title}
-					<span class="text-color-4">
-						<Link target="_blank" rel="noreferrer" href={pullrequest.htmlUrl} class="text-3">
+					<span class="card__title-pr">
+						<Link target="_blank" rel="noreferrer" href={pullrequest.htmlUrl}>
 							#{pullrequest.number}
 						</Link>
 					</span>
-				</span>
+				</h2>
 				{#if pullrequest.draft}
 					<Tag style="neutral" icon="draft-pr-small">Draft</Tag>
 				{:else}
@@ -33,20 +33,20 @@
 
 			<div class="card__content">
 				<div class="text-base-13">
-					<span class="font-semibold">
+					<span class="text-bold">
 						{pullrequest.author?.name}
 					</span>
 					wants to merge into
-					<span class="rounded bg-blue-500/10 px-1 py-0.5 text-blue-500">
+					<span class="code-line">
 						{pullrequest.sourceBranch}
 					</span>
 					from
-					<span class="rounded bg-blue-500/10 px-1 py-0.5 text-blue-500">
+					<span class="code-line">
 						{pullrequest.targetBranch}
 					</span>
 				</div>
 				{#if pullrequest.body}
-					<div class="body">
+					<div class="markdown">
 						{@html marked.parse(pullrequest.body)}
 					</div>
 				{/if}
@@ -71,11 +71,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-16);
+		max-width: 56rem;
 	}
 	.card__content {
 		gap: var(--size-12);
 	}
-	.body {
-		white-space: wrap;
+	.card__title-pr {
+		opacity: 0.4;
+		margin-left: var(--size-4);
 	}
 </style>

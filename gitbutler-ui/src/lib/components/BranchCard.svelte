@@ -4,6 +4,7 @@
 	import BranchHeader from './BranchHeader.svelte';
 	import CommitDialog from './CommitDialog.svelte';
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
+	import InfoMessage from './InfoMessage.svelte';
 	import PullRequestCard from './PullRequestCard.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
@@ -225,16 +226,6 @@
 
 						{#if branch.files?.length > 0}
 							<div class="card">
-								{#if branch.active && branch.conflicted}
-									<div class="mb-2 bg-red-500 p-2 font-bold text-white">
-										{#if branch.files.some((f) => f.conflicted)}
-											This virtual branch conflicts with upstream changes. Please resolve all
-											conflicts and commit before you can continue.
-										{:else}
-											Please commit your resolved conflicts to continue.
-										{/if}
-									</div>
-								{/if}
 								<BranchFiles
 									files={branch.files}
 									{isUnapplied}
@@ -242,6 +233,21 @@
 									showCheckboxes={$commitBoxOpen}
 									allowMultiple
 								/>
+								{#if branch.active && branch.conflicted}
+									<div class="card-notifications">
+										<InfoMessage noRadius filled outlined={false} style="error">
+											<svelte:fragment slot="title">
+												{#if branch.files.some((f) => f.conflicted)}
+													This virtual branch conflicts with upstream changes. Please resolve all
+													conflicts and commit before you can continue.
+												{:else}
+													Please commit your resolved conflicts to continue.
+												{/if}
+											</svelte:fragment>
+										</InfoMessage>
+									</div>
+								{/if}
+
 								{#if branch.active}
 									<CommitDialog
 										projectId={project.id}
@@ -349,6 +355,12 @@
 		flex: 1;
 	}
 
+	.card-notifications {
+		display: flex;
+		flex-direction: column;
+		padding: 0 var(--size-12) var(--size-12) var(--size-12);
+	}
+
 	.new-branch__content {
 		display: flex;
 		flex-direction: column;
@@ -397,23 +409,16 @@
 	}
 
 	/* hunks drop zone */
-	:global(.lane-dz-active .lane-dz-marker) {
-		display: flex;
-	}
-
 	/* cherry pick drop zone */
-	:global(.cherrypick-dz-active .cherrypick-dz-marker) {
-		@apply flex;
-	}
-
 	/* move commit drop zone */
-	:global(.move-commit-dz-active .move-commit-dz-marker) {
-		@apply flex;
-	}
-
 	/* squash drop zone */
-	:global(.squash-dz-active .squash-dz-marker) {
-		@apply flex;
+	:global(
+			.lane-dz-active .lane-dz-marke,
+			.cherrypick-dz-active .cherrypick-dz-marker,
+			.move-commit-dz-active .move-commit-dz-marker,
+			.squash-dz-active .squash-dz-marker
+		) {
+		display: flex;
 	}
 
 	.branch-card :global(.contents) {

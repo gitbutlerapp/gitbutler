@@ -130,7 +130,7 @@
 			<div class="line-wrapper">
 				<div class="line" />
 			</div>
-			<div class="flex w-full flex-col overflow-hidden">
+			<div class="files-list">
 				{#each node.children as childNode}
 					<svelte:self
 						node={childNode}
@@ -163,5 +163,11 @@
 		width: var(--size-2);
 		height: 100%;
 		border-left: 1px dashed var(--clr-theme-scale-ntrl-60);
+	}
+	.files-list {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		width: 100%;
 	}
 </style>

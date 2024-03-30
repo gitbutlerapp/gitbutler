@@ -31,7 +31,7 @@
 	{#if branch.icon}
 		<BranchIcon help={branch.tooltip} name={branch.icon} />
 	{/if}
-	<div class="branch__info flex flex-col gap-2">
+	<div class="branch__info">
 		<div class="branch__details">
 			<p class="text-base-13 branch__name">
 				{branch.displayName}

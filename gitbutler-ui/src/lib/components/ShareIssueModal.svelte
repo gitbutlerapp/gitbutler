@@ -1,5 +1,6 @@
 <script lang="ts">
 	import TextArea from './TextArea.svelte';
+	import TextBox from './TextBox.svelte';
 	import { CloudClient, User } from '$lib/backend/cloud';
 	import { invoke } from '$lib/backend/ipc';
 	import * as zip from '$lib/backend/zip';
@@ -106,73 +107,96 @@
 	on:submit={() => submit()}
 	title="Share debug data with GitButler team for review"
 >
-	<div class="flex flex-col gap-4">
-		<p class="text-color-3">
+	<div class="content-wrapper">
+		<p class="content-wrapper__help-text text-base-body-13">
 			If you are having trouble, please share your project and logs with the GitButler team. We will
 			review it for you and help identify how we can help resolve the issue.
 		</p>
 
 		{#if !$user}
-			<div class="flex flex-col gap-1">
-				<label for="email">Email</label>
-				<input
-					name="email"
-					placeholder="Provide an email so that we can get back to you"
-					type="email"
-					class="input"
-					bind:value={emailInputValue}
-					required
-					autocomplete="off"
-					autocorrect="off"
-					spellcheck="true"
-				/>
-			</div>
+			<TextBox
+				label="Email"
+				placeholder="Provide an email so that we can get back to you"
+				type="email"
+				bind:value={emailInputValue}
+				required
+				autocomplete={false}
+				autocorrect={false}
+				spellcheck
+			/>
 		{/if}
 
-		<div class="flex flex-col gap-1">
-			<label for="comments">Comments</label>
+		<TextArea
+			label="Comments"
+			placeholder="Provide any steps necessary to reproduce the problem."
+			autocomplete="off"
+			autocorrect="off"
+			spellcheck
+			id="comments"
+			rows={6}
+			bind:value={messageInputValue}
+		/>
 
-			<TextArea
-				placeholder="Provide any steps necessary to reproduce the problem."
-				autocomplete="off"
-				autocorrect="off"
-				spellcheck
-				id="comments"
-				rows={6}
-				bind:value={messageInputValue}
-			/>
-		</div>
-
-		<div class="flex flex-col gap-1">
-			<span class="text-xl font-semibold"> Share logs </span>
-			<span class="text-color-3 text-sm">
+		<div class="content-wrapper__section">
+			<span class="text-base-16 text-semibold"> Share logs </span>
+			<span class="content-wrapper__help-text text-base-body-13">
 				We personally ensure all information you share with us will be reviewed internally only and
 				discarded post-resolution
 			</span>
 		</div>
 
-		<div class="flex flex-col gap-3">
-			<div class="flex items-center gap-2">
+		<div class="content-wrapper__checkbox-group">
+			<div class="content-wrapper__checkbox">
 				<Checkbox name="logs" bind:checked={sendLogs} />
-				<label for="logs">Share logs</label>
+				<label class="text-base-13" for="logs">Share logs</label>
 			</div>
 
 			{#if projectId}
-				<div class="flex items-center gap-2">
+				<div class="content-wrapper__checkbox">
 					<Checkbox name="project-data" bind:checked={sendProjectData} />
-					<label for="project-data">Share project data</label>
+					<label class="text-base-13" for="project-data">Share project data</label>
 				</div>
 
-				<div class="flex items-center gap-2">
+				<div class="content-wrapper__checkbox">
 					<Checkbox name="project-repository" bind:checked={sendProjectRepository} />
-					<label for="project-data">Share project repository</label>
+					<label class="text-base-13" for="project-repository">Share project repository</label>
 				</div>
 			{/if}
 		</div>
 	</div>
 
 	<svelte:fragment slot="controls">
-		<Button kind="outlined" type="reset">Close</Button>
+		<Button kind="outlined" color="neutral" type="reset" on:click={close}>Close</Button>
 		<Button color="primary" type="submit">Share with GitButler</Button>
 	</svelte:fragment>
 </Modal>
+
+<style>
+	.content-wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.content-wrapper__section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-8);
+	}
+
+	.content-wrapper__help-text {
+		opacity: 0.6;
+	}
+
+	.content-wrapper__checkbox-group {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-10);
+	}
+
+	.content-wrapper__checkbox {
+		display: flex;
+		align-items: center;
+		gap: var(--size-10);
+	}
+</style>
