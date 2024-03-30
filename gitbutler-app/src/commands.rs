@@ -3,7 +3,9 @@ use std::{collections::HashMap, path};
 use anyhow::Context;
 use gitbutler_core::{
     error::{Code, Error},
-    gb_repository, git, project_repository, projects, reader,
+    gb_repository, git, project_repository,
+    projects::{self, ProjectId},
+    reader,
     sessions::SessionId,
     users,
 };
@@ -30,19 +32,11 @@ impl From<app::Error> for Error {
 #[instrument(skip(handle))]
 pub async fn list_session_files(
     handle: tauri::AppHandle,
-    project_id: &str,
-    session_id: &str,
+    project_id: ProjectId,
+    session_id: SessionId,
     paths: Option<Vec<&path::Path>>,
 ) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
     let app = handle.state::<app::App>();
-    let session_id: SessionId = session_id.parse().map_err(|_| Error::UserError {
-        message: "Malformed session id".to_string(),
-        code: Code::Validation,
-    })?;
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
     let files = app.list_session_files(&project_id, &session_id, paths.as_deref())?;
     Ok(files)
 }
@@ -51,13 +45,9 @@ pub async fn list_session_files(
 #[instrument(skip(handle))]
 pub async fn git_remote_branches(
     handle: tauri::AppHandle,
-    project_id: &str,
+    project_id: ProjectId,
 ) -> Result<Vec<git::RemoteRefname>, Error> {
     let app = handle.state::<app::App>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
     let branches = app.git_remote_branches(&project_id)?;
     Ok(branches)
 }
@@ -66,16 +56,12 @@ pub async fn git_remote_branches(
 #[instrument(skip(handle))]
 pub async fn git_test_push(
     handle: tauri::AppHandle,
-    project_id: &str,
+    project_id: ProjectId,
     remote_name: &str,
     branch_name: &str,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     let helper = handle.state::<gitbutler_core::git::credentials::Helper>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
     let askpass_broker = handle
         .state::<gitbutler_core::askpass::AskpassBroker>()
         .inner()
@@ -97,16 +83,12 @@ pub async fn git_test_push(
 #[instrument(skip(handle))]
 pub async fn git_test_fetch(
     handle: tauri::AppHandle,
-    project_id: &str,
+    project_id: ProjectId,
     remote_name: &str,
     action: Option<String>,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     let helper = handle.state::<gitbutler_core::git::credentials::Helper>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
     let askpass_broker = handle
         .state::<gitbutler_core::askpass::AskpassBroker>()
         .inner()
@@ -125,23 +107,18 @@ pub async fn git_test_fetch(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn git_index_size(handle: tauri::AppHandle, project_id: &str) -> Result<usize, Error> {
+pub async fn git_index_size(
+    handle: tauri::AppHandle,
+    project_id: ProjectId,
+) -> Result<usize, Error> {
     let app = handle.state::<app::App>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
     Ok(app.git_index_size(&project_id).expect("git index size"))
 }
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+pub async fn git_head(handle: tauri::AppHandle, project_id: ProjectId) -> Result<String, Error> {
     let app = handle.state::<app::App>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
     let head = app.git_head(&project_id)?;
     Ok(head)
 }
@@ -158,14 +135,10 @@ pub async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
 #[instrument(skip(handle))]
 pub async fn mark_resolved(
     handle: tauri::AppHandle,
-    project_id: &str,
+    project_id: ProjectId,
     path: &str,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    let project_id = project_id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".to_string(),
-    })?;
     app.mark_resolved(&project_id, path)?;
     Ok(())
 }
@@ -193,12 +166,7 @@ pub async fn git_get_global_config(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
-    let project_id = id.parse().map_err(|_| Error::UserError {
-        code: Code::Validation,
-        message: "Malformed project id".into(),
-    })?;
-
+pub async fn project_flush_and_push(handle: tauri::AppHandle, id: ProjectId) -> Result<(), Error> {
     let users = handle.state::<users::Controller>().inner().clone();
     let projects = handle.state::<projects::Controller>().inner().clone();
     let local_data_dir = handle
@@ -206,7 +174,7 @@ pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Resul
         .app_data_dir()
         .context("failed to get app data dir")?;
 
-    let project = projects.get(&project_id).context("failed to get project")?;
+    let project = projects.get(&id).context("failed to get project")?;
     let user = users.get_user()?;
     let project_repository = project_repository::Repository::open(&project)?;
     let gb_repo =
@@ -219,7 +187,7 @@ pub async fn project_flush_and_push(handle: tauri::AppHandle, id: &str) -> Resul
     {
         let watcher = handle.state::<watcher::Watchers>();
         watcher
-            .post(watcher::Event::Flush(project_id, current_session))
+            .post(watcher::Event::Flush(id, current_session))
             .await
             .context("failed to post flush event")?;
     }
