@@ -15,15 +15,15 @@ use std::{
 
 use anyhow::{Context, Result};
 use gitbutler_core::{
-    git, reader, sessions, virtual_branches,
+    git, reader, sessions,
     virtual_branches::{
-        apply_branch,
+        self, apply_branch,
         branch::{BranchCreateRequest, BranchOwnershipClaims},
         commit, create_virtual_branch,
         errors::CommitError,
         integration::verify_branch,
         is_remote_branch_mergeable, is_virtual_branch_mergeable, list_remote_branches,
-        merge_virtual_branch_upstream, unapply_ownership, update_branch,
+        merge_virtual_branch_upstream, unapply_ownership, update_branch, VirtualBranchesHandle,
     },
 };
 use pretty_assertions::assert_eq;
@@ -614,7 +614,10 @@ fn move_hunks_multiple_sources() -> Result<()> {
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
     let branch_reader = virtual_branches::branch::Reader::new(&current_session_reader);
-    let branch_writer = virtual_branches::branch::Writer::new(gb_repository, project.gb_dir())?;
+    let branch_writer = virtual_branches::branch::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+    )?;
     let mut branch2 = branch_reader.read(&branch2_id)?;
     branch2.ownership = BranchOwnershipClaims {
         claims: vec!["test.txt:1-5".parse()?],
@@ -893,19 +896,25 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     )?;
 
     set_test_target(gb_repository, project_repository)?;
-    virtual_branches::target::Writer::new(gb_repository, project_repository.project().gb_dir())?
-        .write_default(&virtual_branches::target::Target {
-            branch: "refs/remotes/origin/master".parse().unwrap(),
-            remote_url: "origin".to_string(),
-            sha: target_oid,
-        })?;
+    virtual_branches::target::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
+    )?
+    .write_default(&virtual_branches::target::Target {
+        branch: "refs/remotes/origin/master".parse().unwrap(),
+        remote_url: "origin".to_string(),
+        sha: target_oid,
+    })?;
 
     // add some uncommitted work
     let file_path2 = Path::new("test2.txt");
     std::fs::write(Path::new(&project.path).join(file_path2), "file2\n")?;
 
     let remote_branch: git::RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
-    let branch_writer = virtual_branches::branch::Writer::new(gb_repository, project.gb_dir())?;
+    let branch_writer = virtual_branches::branch::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+    )?;
     let mut branch = create_virtual_branch(
         gb_repository,
         project_repository,
@@ -1018,13 +1027,15 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     )?;
 
     set_test_target(gb_repository, project_repository)?;
-    virtual_branches::target::Writer::new(gb_repository, project.gb_dir())?.write_default(
-        &virtual_branches::target::Target {
-            branch: "refs/remotes/origin/master".parse().unwrap(),
-            remote_url: "origin".to_string(),
-            sha: target_oid,
-        },
-    )?;
+    virtual_branches::target::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+    )?
+    .write_default(&virtual_branches::target::Target {
+        branch: "refs/remotes/origin/master".parse().unwrap(),
+        remote_url: "origin".to_string(),
+        sha: target_oid,
+    })?;
 
     // add some uncommitted work
     std::fs::write(
@@ -1033,7 +1044,10 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     )?;
 
     let remote_branch: git::RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
-    let branch_writer = virtual_branches::branch::Writer::new(gb_repository, project.gb_dir())?;
+    let branch_writer = virtual_branches::branch::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+    )?;
     let mut branch = create_virtual_branch(
         gb_repository,
         project_repository,
@@ -1389,7 +1403,10 @@ fn detect_mergeable_branch() -> Result<()> {
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
     let branch_reader = virtual_branches::branch::Reader::new(&current_session_reader);
-    let branch_writer = virtual_branches::branch::Writer::new(gb_repository, project.gb_dir())?;
+    let branch_writer = virtual_branches::branch::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+    )?;
 
     update_branch(
         gb_repository,
@@ -1580,12 +1597,15 @@ fn upstream_integrated_vbranch() -> Result<()> {
         "update target",
     )?;
 
-    virtual_branches::target::Writer::new(gb_repository, project_repository.project().gb_dir())?
-        .write_default(&virtual_branches::target::Target {
-            branch: "refs/remotes/origin/master".parse().unwrap(),
-            remote_url: "http://origin.com/project".to_string(),
-            sha: base_commit,
-        })?;
+    virtual_branches::target::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
+    )?
+    .write_default(&virtual_branches::target::Target {
+        branch: "refs/remotes/origin/master".parse().unwrap(),
+        remote_url: "http://origin.com/project".to_string(),
+        sha: base_commit,
+    })?;
     project_repository
         .git_repository
         .remote("origin", &"http://origin.com/project".parse().unwrap())?;

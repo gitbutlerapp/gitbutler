@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Context;
-use gitbutler_core::virtual_branches::branch;
+use gitbutler_core::virtual_branches::{branch, VirtualBranchesHandle};
 use once_cell::sync::Lazy;
 
 use self::branch::BranchId;
@@ -66,7 +66,7 @@ fn write_branch() -> anyhow::Result<()> {
 
     let mut branch = new_test_branch();
 
-    let writer = branch::Writer::new(gb_repository, project.gb_dir())?;
+    let writer = branch::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
     writer.write(&mut branch)?;
 
     let root = gb_repository
@@ -132,7 +132,7 @@ fn should_create_session() -> anyhow::Result<()> {
 
     let mut branch = new_test_branch();
 
-    let writer = branch::Writer::new(gb_repository, project.gb_dir())?;
+    let writer = branch::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
     writer.write(&mut branch)?;
 
     assert!(gb_repository.get_current_session()?.is_some());
@@ -151,7 +151,7 @@ fn should_update() -> anyhow::Result<()> {
 
     let mut branch = new_test_branch();
 
-    let writer = branch::Writer::new(gb_repository, project.gb_dir())?;
+    let writer = branch::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
     writer.write(&mut branch)?;
 
     let mut updated_branch = Branch {

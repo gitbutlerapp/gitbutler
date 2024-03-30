@@ -17,7 +17,10 @@ pub mod paths {
 }
 
 pub mod virtual_branches {
-    use gitbutler_core::{gb_repository, project_repository, virtual_branches};
+    use gitbutler_core::{
+        gb_repository, project_repository,
+        virtual_branches::{self, VirtualBranchesHandle},
+    };
 
     use crate::shared::empty_bare_repository;
 
@@ -35,13 +38,16 @@ pub mod virtual_branches {
             .expect("failed to add remote");
         remote.push(&["refs/heads/master:refs/heads/master"], None)?;
 
-        virtual_branches::target::Writer::new(gb_repo, project_repository.project().gb_dir())?
-            .write_default(&virtual_branches::target::Target {
-                branch: "refs/remotes/origin/master".parse().unwrap(),
-                remote_url: remote_repo.path().to_str().unwrap().parse().unwrap(),
-                sha: remote_repo.head().unwrap().target().unwrap(),
-            })
-            .expect("failed to write target");
+        virtual_branches::target::Writer::new(
+            gb_repo,
+            VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
+        )?
+        .write_default(&virtual_branches::target::Target {
+            branch: "refs/remotes/origin/master".parse().unwrap(),
+            remote_url: remote_repo.path().to_str().unwrap().parse().unwrap(),
+            sha: remote_repo.head().unwrap().target().unwrap(),
+        })
+        .expect("failed to write target");
 
         virtual_branches::integration::update_gitbutler_integration(gb_repo, project_repository)
             .expect("failed to update integration");

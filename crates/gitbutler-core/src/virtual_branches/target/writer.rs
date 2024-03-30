@@ -1,5 +1,3 @@
-use std::path;
-
 use anyhow::{Context, Result};
 
 use super::Target;
@@ -17,13 +15,12 @@ pub struct TargetWriter<'writer> {
 }
 
 impl<'writer> TargetWriter<'writer> {
-    pub fn new<P: AsRef<path::Path>>(
+    pub fn new(
         repository: &'writer gb_repository::Repository,
-        path: P,
+        state_handle: VirtualBranchesHandle,
     ) -> Result<Self, std::io::Error> {
         let reader = reader::Reader::open(&repository.root())?;
         let writer = writer::DirWriter::open(repository.root())?;
-        let state_handle = VirtualBranchesHandle::new(path.as_ref());
         Ok(Self {
             repository,
             writer,

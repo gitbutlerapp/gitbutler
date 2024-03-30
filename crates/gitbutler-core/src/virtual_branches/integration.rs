@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
 
-use super::errors;
+use super::{errors, VirtualBranchesHandle};
 use crate::{
     gb_repository,
     git::{self},
@@ -262,8 +262,11 @@ fn verify_head_is_clean(
     .context("failed to create virtual branch")?;
 
     // rebasing the extra commits onto the new branch
-    let writer = super::branch::Writer::new(gb_repository, project_repository.project().gb_dir())
-        .context("failed to create writer")?;
+    let writer = super::branch::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
+    )
+    .context("failed to create writer")?;
     extra_commits.reverse();
     let mut head = new_branch.head;
     for commit in extra_commits {

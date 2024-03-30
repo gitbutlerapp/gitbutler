@@ -1,7 +1,10 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::Result;
-use gitbutler_core::virtual_branches::{target, target::Target, BranchId};
+use gitbutler_core::virtual_branches::{
+    target::{self, Target},
+    BranchId, VirtualBranchesHandle,
+};
 use once_cell::sync::Lazy;
 
 use crate::shared::{Case, Suite};
@@ -129,14 +132,17 @@ fn read_override_target() -> Result<()> {
         sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
     };
 
-    let branch_writer =
-        gitbutler_core::virtual_branches::branch::Writer::new(gb_repository, project.gb_dir())?;
+    let branch_writer = gitbutler_core::virtual_branches::branch::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+    )?;
     branch_writer.write(&mut branch)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
     let session_reader = gitbutler_core::sessions::Reader::open(gb_repository, &session)?;
 
-    let target_writer = target::Writer::new(gb_repository, project.gb_dir())?;
+    let target_writer =
+        target::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
     let reader = target::Reader::new(&session_reader);
 
     target_writer.write_default(&default_target)?;
