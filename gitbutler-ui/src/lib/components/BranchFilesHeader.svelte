@@ -68,8 +68,8 @@
 		</div>
 	</div>
 	<SegmentedControl bind:selected={selectedListMode} selectedIndex={0}>
-		<Segment id="list" icon="list-view" />
-		<Segment id="tree" icon="tree-view" />
+		<Segment id="list" icon="list-view" size="small" />
+		<Segment id="tree" icon="tree-view" size="small" />
 	</SegmentedControl>
 </div>
 
