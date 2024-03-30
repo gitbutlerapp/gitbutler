@@ -10,7 +10,7 @@ use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
 use crate::events as app_events;
-use gitbutler::{
+use gitbutler_core::{
     assets,
     projects::ProjectId,
     virtual_branches::{self, controller::ControllerError, VirtualBranches},

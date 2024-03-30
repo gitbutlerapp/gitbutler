@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
-use gitbutler::{
+use gitbutler_core::{
     deltas,
     projects::ProjectId,
     reader,

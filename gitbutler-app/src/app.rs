@@ -3,7 +3,7 @@ use std::{collections::HashMap, path};
 use anyhow::{Context, Result};
 
 use crate::watcher;
-use gitbutler::{
+use gitbutler_core::{
     askpass::AskpassBroker,
     gb_repository, git,
     project_repository::{self, conflicts},

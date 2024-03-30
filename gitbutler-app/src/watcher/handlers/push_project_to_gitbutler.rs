@@ -5,7 +5,7 @@ use itertools::Itertools;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
-use gitbutler::{
+use gitbutler_core::{
     gb_repository,
     git::{self, Oid, Repository},
     project_repository,
@@ -129,9 +129,9 @@ impl Handler {
     async fn push_target(
         state: &State,
         project_repository: &project_repository::Repository,
-        default_target: &gitbutler::virtual_branches::target::Target,
+        default_target: &gitbutler_core::virtual_branches::target::Target,
         gb_code_last_commit: Option<Oid>,
-        project_id: &gitbutler::id::Id<projects::Project>,
+        project_id: &gitbutler_core::id::Id<projects::Project>,
         user: &Option<users::User>,
     ) -> Result<(), project_repository::RemoteError> {
         let ids = batch_rev_walk(
@@ -181,7 +181,7 @@ impl Handler {
 
     async fn update_project(
         state: &State,
-        project_id: &gitbutler::id::Id<projects::Project>,
+        project_id: &gitbutler_core::id::Id<projects::Project>,
         id: &Oid,
     ) -> Result<(), project_repository::RemoteError> {
         state
@@ -211,7 +211,7 @@ struct State {
 fn push_all_refs(
     project_repository: &project_repository::Repository,
     user: &Option<users::User>,
-    project_id: &gitbutler::id::Id<projects::Project>,
+    project_id: &gitbutler_core::id::Id<projects::Project>,
 ) -> Result<(), project_repository::RemoteError> {
     let gb_references = collect_refs(project_repository)?;
 

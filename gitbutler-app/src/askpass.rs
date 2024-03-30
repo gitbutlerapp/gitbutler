@@ -1,5 +1,5 @@
 pub mod commands {
-    use gitbutler::{
+    use gitbutler_core::{
         askpass::{AskpassBroker, AskpassRequest},
         id::Id,
     };

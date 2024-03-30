@@ -319,7 +319,7 @@ pub(crate) mod gb {
 mod legacy {
     use core::fmt;
 
-    use gitbutler::project_repository;
+    use gitbutler_core::project_repository;
     use serde::{ser::SerializeMap, Serialize};
 
     #[derive(Debug)]

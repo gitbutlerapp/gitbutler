@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::analytics;
-use gitbutler::users;
+use gitbutler_core::users;
 
 use super::events;
 

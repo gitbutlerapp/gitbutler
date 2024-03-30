@@ -3,12 +3,12 @@ pub mod commands {
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
-    use gitbutler::error::{Code, Error};
+    use gitbutler_core::error::{Code, Error};
 
     use crate::watcher;
-    use gitbutler::askpass::AskpassBroker;
-    use gitbutler::virtual_branches::{RemoteBranch, RemoteBranchData};
-    use gitbutler::{
+    use gitbutler_core::askpass::AskpassBroker;
+    use gitbutler_core::virtual_branches::{RemoteBranch, RemoteBranchData};
+    use gitbutler_core::{
         assets, git, projects,
         projects::ProjectId,
         virtual_branches::branch::{self, BranchId, BranchOwnershipClaims},

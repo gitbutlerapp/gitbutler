@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use gitbutler::projects;
+use gitbutler_core::projects;
 use pretty_assertions::assert_eq;
 
 use crate::shared::{Case, Suite};

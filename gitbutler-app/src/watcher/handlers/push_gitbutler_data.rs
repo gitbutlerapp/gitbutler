@@ -4,9 +4,9 @@ use std::sync::{Arc, Mutex, TryLockError};
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
-use gitbutler::gb_repository::RemoteError;
-use gitbutler::projects::ProjectId;
-use gitbutler::{gb_repository, project_repository, projects, users};
+use gitbutler_core::gb_repository::RemoteError;
+use gitbutler_core::projects::ProjectId;
+use gitbutler_core::{gb_repository, project_repository, projects, users};
 
 use super::events;
 

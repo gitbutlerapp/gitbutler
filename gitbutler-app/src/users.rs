@@ -4,7 +4,7 @@ pub mod commands {
 
     use crate::{error::Error, sentry};
 
-    use gitbutler::{
+    use gitbutler_core::{
         assets,
         users::controller::{self, Controller, GetError},
         users::User,

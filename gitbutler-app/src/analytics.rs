@@ -2,7 +2,7 @@ use std::{fmt, str, sync::Arc};
 
 use tauri::AppHandle;
 
-use gitbutler::{projects::ProjectId, users::User};
+use gitbutler_core::{projects::ProjectId, users::User};
 
 mod posthog;
 

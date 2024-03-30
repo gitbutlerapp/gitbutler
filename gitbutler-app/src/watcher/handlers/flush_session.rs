@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
-use gitbutler::{
+use gitbutler_core::{
     gb_repository, project_repository, projects, projects::ProjectId, sessions, users,
 };
 

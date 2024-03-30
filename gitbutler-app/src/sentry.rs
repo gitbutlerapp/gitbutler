@@ -12,7 +12,7 @@ use sentry_tracing::SentryLayer;
 use tracing::Subscriber;
 use tracing_subscriber::registry::LookupSpan;
 
-use gitbutler::users;
+use gitbutler_core::users;
 
 static SENTRY_QUOTA: Quota = Quota::per_second(nonzero!(1_u32)); // 1 per second at most.
 static SENTRY_LIMIT: OnceCell<RateLimiter<NotKeyed, InMemoryState, QuantaClock>> = OnceCell::new();

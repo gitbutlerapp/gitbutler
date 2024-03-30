@@ -7,7 +7,7 @@ pub mod commands {
 
     use crate::error::{Code, Error};
 
-    use gitbutler::zip::controller;
+    use gitbutler_core::zip::controller;
 
     impl From<controller::ArchiveError> for Error {
         fn from(error: controller::ArchiveError) -> Self {

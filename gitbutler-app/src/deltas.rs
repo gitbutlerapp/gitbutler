@@ -6,7 +6,7 @@ pub mod commands {
 
     use crate::error::{Code, Error};
 
-    use gitbutler::deltas::{controller::ListError, Controller, Delta};
+    use gitbutler_core::deltas::{controller::ListError, Controller, Delta};
 
     impl From<ListError> for Error {
         fn from(value: ListError) -> Self {

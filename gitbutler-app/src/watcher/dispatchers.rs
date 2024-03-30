@@ -10,7 +10,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use gitbutler::projects::ProjectId;
+use gitbutler_core::projects::ProjectId;
 
 use super::events;
 

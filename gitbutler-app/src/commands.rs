@@ -5,7 +5,7 @@ use tauri::Manager;
 use tracing::instrument;
 
 use crate::{app, watcher};
-use gitbutler::{
+use gitbutler_core::{
     error::{Code, Error},
     gb_repository, git, project_repository, projects, reader,
     sessions::SessionId,
@@ -71,13 +71,13 @@ pub async fn git_test_push(
     branch_name: &str,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    let helper = handle.state::<gitbutler::git::credentials::Helper>();
+    let helper = handle.state::<gitbutler_core::git::credentials::Helper>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
     let askpass_broker = handle
-        .state::<gitbutler::askpass::AskpassBroker>()
+        .state::<gitbutler_core::askpass::AskpassBroker>()
         .inner()
         .clone();
     app.git_test_push(
@@ -102,13 +102,13 @@ pub async fn git_test_fetch(
     action: Option<String>,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    let helper = handle.state::<gitbutler::git::credentials::Helper>();
+    let helper = handle.state::<gitbutler_core::git::credentials::Helper>();
     let project_id = project_id.parse().map_err(|_| Error::UserError {
         code: Code::Validation,
         message: "Malformed project id".to_string(),
     })?;
     let askpass_broker = handle
-        .state::<gitbutler::askpass::AskpassBroker>()
+        .state::<gitbutler_core::askpass::AskpassBroker>()
         .inner()
         .clone();
     app.git_test_fetch(

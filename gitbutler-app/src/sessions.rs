@@ -4,7 +4,7 @@ pub mod commands {
 
     use crate::error::{Code, Error};
 
-    use gitbutler::sessions::{
+    use gitbutler_core::sessions::{
         Session,
         {controller::ListError, Controller},
     };

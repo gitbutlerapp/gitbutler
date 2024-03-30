@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::events as app_events;
-use gitbutler::{
+use gitbutler_core::{
     deltas, gb_repository, project_repository,
     projects::{self, ProjectId},
     sessions::{self, SessionId},

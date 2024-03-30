@@ -1,6 +1,6 @@
 use std::{fmt::Display, path};
 
-use gitbutler::{
+use gitbutler_core::{
     deltas,
     projects::ProjectId,
     reader,

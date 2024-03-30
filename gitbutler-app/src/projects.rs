@@ -6,7 +6,7 @@ pub mod commands {
 
     use crate::error::{Code, Error};
 
-    use gitbutler::projects::{
+    use gitbutler_core::projects::{
         self,
         controller::{self, Controller},
     };

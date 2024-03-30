@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::fs;
 
-use gitbutler::projects;
+use gitbutler_core::projects;
 use pretty_assertions::assert_eq;
 
 use crate::shared::{Case, Suite};

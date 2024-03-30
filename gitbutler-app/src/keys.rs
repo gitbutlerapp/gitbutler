@@ -4,7 +4,7 @@ pub mod commands {
 
     use crate::error::Error;
 
-    use gitbutler::keys::{controller, PublicKey};
+    use gitbutler_core::keys::{controller, PublicKey};
 
     impl From<controller::GetOrCreateError> for Error {
         fn from(value: controller::GetOrCreateError) -> Self {
