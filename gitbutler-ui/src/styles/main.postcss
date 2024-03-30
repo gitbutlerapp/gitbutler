@@ -8,6 +8,7 @@
 @import './card.css';
 @import './tooltip.css';
 @import './text-input.css';
+@import './markdown.css';
 
 @tailwind base;
 @tailwind components;
@@ -108,6 +109,14 @@ button {
 		outline-offset: 2px;
 		outline: 1px solid var(--focus-color);
 	}
+}
+
+/* CODE */
+.code-line {
+	font-family: 'Spline Sans Mono', monospace;
+	border-radius: var(--radius-s);
+	background: color-mix(in srgb, var(--clr-theme-scale-ntrl-50), transparent 80%);
+	padding: var(--size-2) var(--size-4);
 }
 
 /* DIALOG STYLES */

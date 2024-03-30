@@ -13,8 +13,8 @@
 	);
 </script>
 
-<div class="wrapper overflow-y-auto overscroll-none">
-	<div class="inner flex">
+<div class="wrapper">
+	<div class="inner">
 		{#if !$pr$}
 			<FullviewLoading />
 		{:else if pr$}
@@ -30,8 +30,10 @@
 		display: flex;
 		height: 100%;
 		overflow-y: auto;
+		overscroll-behavior: none;
 	}
 	.inner {
+		display: flex;
 		padding: var(--size-16);
 	}
 </style>

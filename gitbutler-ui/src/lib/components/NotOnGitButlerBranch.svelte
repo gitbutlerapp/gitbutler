@@ -47,7 +47,7 @@
 			<ProjectNameLabel projectName={project?.title} />
 		</div>
 		<p class="switchrepo__title text-base-body-18 text-bold">
-			Looks like you've switched away from <span class="repo-name"> gitbutler/integration </span>
+			Looks like you've switched away from <span class="code-line"> gitbutler/integration </span>
 		</p>
 
 		<p class="switchrepo__message text-base-body-13">
@@ -115,12 +115,5 @@
 	.switchrepo__project {
 		padding-top: var(--size-24);
 		border-top: 1px dashed var(--clr-theme-scale-ntrl-60);
-	}
-
-	.repo-name {
-		font-family: 'Spline Sans Mono', monospace;
-		border-radius: var(--radius-s);
-		background: var(--clr-theme-container-sub);
-		padding: var(--size-2) var(--size-4);
 	}
 </style>

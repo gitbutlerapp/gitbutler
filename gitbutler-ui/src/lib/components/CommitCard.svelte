@@ -174,10 +174,10 @@
 <style lang="postcss">
 	/* amend drop zone */
 	:global(.amend-dz-active .amend-dz-marker) {
-		@apply flex;
+		display: flex;
 	}
 	:global(.amend-dz-hover .hover-text) {
-		@apply visible;
+		visibility: visible;
 	}
 
 	.commit {

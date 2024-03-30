@@ -434,23 +434,16 @@
 	}
 
 	/* hunks drop zone */
-	:global(.lane-dz-active .lane-dz-marker) {
-		display: flex;
-	}
-
 	/* cherry pick drop zone */
-	:global(.cherrypick-dz-active .cherrypick-dz-marker) {
-		@apply flex;
-	}
-
 	/* move commit drop zone */
-	:global(.move-commit-dz-active .move-commit-dz-marker) {
-		@apply flex;
-	}
-
 	/* squash drop zone */
-	:global(.squash-dz-active .squash-dz-marker) {
-		@apply flex;
+	:global(
+			.lane-dz-active .lane-dz-marke,
+			.cherrypick-dz-active .cherrypick-dz-marker,
+			.move-commit-dz-active .move-commit-dz-marker,
+			.squash-dz-active .squash-dz-marker
+		) {
+		display: flex;
 	}
 
 	.branch-card :global(.contents) {
