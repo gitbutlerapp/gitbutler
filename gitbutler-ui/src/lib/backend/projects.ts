@@ -29,7 +29,7 @@ export class Project {
 export class ProjectService {
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
 	projects: Writable<Project[]> = writable([]);
-	error: Writable<undefined | any> = writable();
+	error: Writable<any> = writable();
 
 	constructor(private homeDir: string | undefined) {
 		this.loadProjects();

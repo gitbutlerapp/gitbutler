@@ -2,47 +2,43 @@ import { resetPostHog, setPostHogUser } from '$lib/analytics/posthog';
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { User, type CloudClient } from '$lib/backend/cloud';
 import { invoke } from '$lib/backend/ipc';
-import { observableToStore } from '$lib/rxjs/store';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
 import { plainToInstance } from 'class-transformer';
-import { BehaviorSubject, Observable, Subject, distinct, map, merge, shareReplay } from 'rxjs';
-import type { Readable } from 'svelte/motion';
+import { writable, type Readable, type Writable, derived } from 'svelte/store';
 
 export class UserService {
-	private reset$ = new Subject<User | undefined>();
-	private loading$ = new BehaviorSubject(false);
-
-	private user$ = merge(
-		new Observable<User | undefined>((subscriber) => {
-			invoke<User | undefined>('get_user').then((userData) => {
-				if (userData) {
-					const user = plainToInstance(User, userData);
-					subscriber.next(user);
-					setPostHogUser(user);
-					setSentryUser(user);
-				}
-			});
-		}),
-		this.reset$
-	).pipe(shareReplay(1));
-
-	readonly accessToken$ = this.user$.pipe(
-		map((user) => user?.github_access_token),
-		distinct()
-	);
-
-	readonly user: Readable<User | undefined>;
-	readonly error: Readable<string | undefined>;
+	readonly user: Writable<User | undefined> = writable();
+	readonly accessToken: Readable<string | undefined>;
+	readonly error: Writable<any> = writable();
 
 	constructor(private cloud: CloudClient) {
-		[this.user, this.error] = observableToStore(this.user$);
+		this.loadUser();
+
+		this.accessToken = derived(this.user, (user) => {
+			user?.access_token;
+		});
+	}
+
+	async loadUser() {
+		try {
+			const userData = await invoke<User | undefined>('get_user');
+			if (!userData) return;
+
+			const user = plainToInstance(User, userData);
+			this.user.set(user);
+			setPostHogUser(user);
+			setSentryUser(user);
+		} catch (e) {
+			this.error.set(e);
+		}
 	}
 
 	async setUser(user: User | undefined) {
 		if (user) await invoke('set_user', { user });
 		else await this.clearUser();
-		this.reset$.next(user);
+
+		this.user.set(user);
 	}
 
 	async clearUser() {
@@ -51,28 +47,26 @@ export class UserService {
 
 	async logout() {
 		await this.clearUser();
-		this.reset$.next(undefined);
+
+		this.user.set(undefined);
+
 		resetPostHog();
 		resetSentry();
 	}
 
 	async login(): Promise<User | undefined> {
 		this.logout();
-		this.loading$.next(true);
-		try {
-			const token = await this.cloud.createLoginToken();
-			openExternalUrl(token.url);
 
-			// Assumed min time for login flow
-			await sleep(4000);
+		const token = await this.cloud.createLoginToken();
+		openExternalUrl(token.url);
 
-			const user = await this.pollForUser(token.token);
-			this.setUser(user);
+		// Assumed min time for login flow
+		await sleep(4000);
 
-			return user;
-		} finally {
-			this.loading$.next(false);
-		}
+		const user = await this.pollForUser(token.token);
+		this.setUser(user);
+
+		return user;
 	}
 
 	private async pollForUser(token: string): Promise<User | undefined> {
