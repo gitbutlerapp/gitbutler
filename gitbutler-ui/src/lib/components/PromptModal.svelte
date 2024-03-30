@@ -3,10 +3,10 @@
 	import Modal from './Modal.svelte';
 	import TextBox from './TextBox.svelte';
 	import { PromptService } from '$lib/backend/prompt';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { TimeoutError } from 'rxjs';
 
-	const promptService = getContextByClass(PromptService);
+	const promptService = getContext(PromptService);
 	const [prompt, error] = promptService.filter({ action: 'modal', timeoutMs: 30000 });
 
 	let value = '';

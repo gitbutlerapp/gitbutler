@@ -6,17 +6,19 @@
 	import BranchLane from '$lib/components/BranchLane.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { cloneWithRotation } from '$lib/dragging/draggable';
-	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
+	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranch, type Branch } from '$lib/vbranches/types';
+	import { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
+	import { BaseBranch } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';
 
-	export let branches: Branch[] | undefined;
-	export let branchesError: any;
+	const vbranchService = getContext(VirtualBranchService);
+	const branchController = getContext(BranchController);
+	const baseBranch = getContextStore(BaseBranch);
+	const project = getContext(Project);
 
-	const branchController = getContextByClass(BranchController);
-	const baseBranch = getContextStoreByClass(BaseBranch);
-	const project = getContextByClass(Project);
+	const activeBranchesError = vbranchService.activeBranchesError;
+	const activeBranches = vbranchService.activeBranches;
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;
@@ -27,9 +29,9 @@
 	let clone: any;
 </script>
 
-{#if branchesError}
+{#if $activeBranchesError}
 	<div class="p-4" data-tauri-drag-region>Something went wrong...</div>
-{:else if !branches}
+{:else if !$activeBranches}
 	<FullviewLoading />
 {:else}
 	<div
@@ -61,12 +63,12 @@
 		}}
 		on:drop={(e) => {
 			if (!dragged) return;
-			if (!branches) return;
+			if (!$activeBranches) return;
 			e.preventDefault();
 			if (priorPosition != dropPosition) {
-				const el = branches.splice(priorPosition, 1);
-				branches.splice(dropPosition, 0, ...el);
-				branches.forEach((branch, i) => {
+				const el = $activeBranches.splice(priorPosition, 1);
+				$activeBranches.splice(dropPosition, 0, ...el);
+				$activeBranches.forEach((branch, i) => {
 					if (branch.order !== i) {
 						branchController.updateBranchOrder(branch.id, i);
 					}
@@ -74,7 +76,7 @@
 			}
 		}}
 	>
-		{#each branches.sort((a, b) => a.order - b.order) as branch (branch.id)}
+		{#each $activeBranches.sort((a, b) => a.order - b.order) as branch (branch.id)}
 			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<div
 				class="draggable-branch h-full"
@@ -101,15 +103,15 @@
 					clone?.remove();
 				}}
 			>
-				<BranchLane {branch} branchCount={branches.filter((c) => c.active).length} />
+				<BranchLane {branch} />
 			</div>
 		{/each}
 
-		{#if branches.length == 0}
+		{#if $activeBranches.length == 0}
 			<div
 				data-tauri-drag-region
 				class="empty-board__wrapper"
-				class:transition-fly={branches.length == 0}
+				class:transition-fly={$activeBranches.length == 0}
 			>
 				<div class="empty-board">
 					<div class="empty-board__content">

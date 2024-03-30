@@ -2,11 +2,11 @@
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
 	import { GitHubService } from '$lib/github/service';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { map } from 'rxjs';
 	import { page } from '$app/stores';
 
-	const githubService = getContextByClass(GitHubService);
+	const githubService = getContext(GitHubService);
 
 	$: pr$ = githubService.prs$?.pipe(
 		map((prs) => prs.find((b) => b.number.toString() == $page.params.number))

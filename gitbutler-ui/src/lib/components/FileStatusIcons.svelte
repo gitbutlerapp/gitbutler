@@ -2,16 +2,24 @@
 	import FileStatusCircle from './FileStatusCircle.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
-	import type { AnyFile } from '$lib/vbranches/types';
+	import { tooltip } from '$lib/utils/tooltip';
+	import { getLocalCommits } from '$lib/vbranches/contexts';
+	import { getLockText } from '$lib/vbranches/tooltip';
+	import { type AnyFile, LocalFile } from '$lib/vbranches/types';
 
 	export let file: AnyFile;
-	$: isLocked = file.hunks.some((h) => h.locked);
+
+	// TODO: Refactor this into something more meaningful.
+	const localCommits = file instanceof LocalFile ? getLocalCommits() : undefined;
+
+	$: lockedIds = file.lockedIds;
+	$: lockText = lockedIds.length > 0 && $localCommits ? getLockText(lockedIds, $localCommits) : '';
 </script>
 
 <div class="file-status">
 	<div class="file-status__icons">
-		{#if isLocked}
-			<div class="locked">
+		{#if lockText}
+			<div class="locked" use:tooltip={{ text: lockText, delay: 500 }}>
 				<Icon name="locked-small" color="warn" />
 			</div>
 		{/if}

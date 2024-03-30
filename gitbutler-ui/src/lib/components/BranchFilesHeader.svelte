@@ -3,27 +3,31 @@
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import Segment from '$lib/components/SegmentControl/Segment.svelte';
 	import SegmentedControl from '$lib/components/SegmentControl/SegmentedControl.svelte';
-	import type { Ownership } from '$lib/vbranches/ownership';
+	import { maybeGetContextStore } from '$lib/utils/context';
+	import { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let files: AnyFile[];
-	export let selectedOwnership: Writable<Ownership>;
 	export let showCheckboxes = false;
-
 	export let selectedListMode: string;
 
-	function selectAll(selectedOwnership: Writable<Ownership>, files: AnyFile[]) {
+	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
+
+	function selectAll(files: AnyFile[]) {
+		if (!selectedOwnership) return;
 		files.forEach((f) =>
 			selectedOwnership.update((ownership) => ownership.addHunk(f.id, ...f.hunks.map((h) => h.id)))
 		);
 	}
 
-	function isAllChecked(selectedOwnership: Ownership): boolean {
+	function isAllChecked(selectedOwnership: Ownership | undefined): boolean {
+		if (!selectedOwnership) return false;
 		return files.every((f) => f.hunks.every((h) => selectedOwnership.containsHunk(f.id, h.id)));
 	}
 
-	function isIndeterminate(selectedOwnership: Ownership): boolean {
+	function isIndeterminate(selectedOwnership: Ownership | undefined): boolean {
+		if (!selectedOwnership) return false;
 		if (files.length <= 1) return false;
 
 		let file = files[0];
@@ -38,7 +42,7 @@
 		return false;
 	}
 
-	$: indeterminate = isIndeterminate($selectedOwnership);
+	$: indeterminate = selectedOwnership ? isIndeterminate($selectedOwnership) : false;
 	$: checked = isAllChecked($selectedOwnership);
 </script>
 
@@ -51,9 +55,9 @@
 				{indeterminate}
 				on:change={(e) => {
 					if (e.detail) {
-						selectAll(selectedOwnership, files);
+						selectAll(files);
 					} else {
-						selectedOwnership.update((ownership) => ownership.clear());
+						selectedOwnership?.update((ownership) => ownership.clear());
 					}
 				}}
 			/>

@@ -5,14 +5,14 @@
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { goto } from '$app/navigation';
 
 	export let remoteBranches: { name: string }[];
 
-	const project = getContextByClass(Project);
-	const branchController = getContextByClass(BranchController);
+	const project = getContext(Project);
+	const branchController = getContext(BranchController);
 
 	let selectedBranch = '';
 	let loading = false;

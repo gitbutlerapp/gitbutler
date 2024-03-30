@@ -4,9 +4,9 @@
 	import newProjectSvg from '$lib/assets/no-projects/new-project.svg?raw';
 	import { ProjectService } from '$lib/backend/projects';
 	import IconLink from '$lib/components/IconLink.svelte';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 
-	const projectService = getContextByClass(ProjectService);
+	const projectService = getContext(ProjectService);
 
 	let newProjectLoading = false;
 

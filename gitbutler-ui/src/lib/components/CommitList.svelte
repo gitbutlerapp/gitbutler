@@ -2,24 +2,34 @@
 	import CommitListFooter from './CommitListFooter.svelte';
 	import CommitListHeader from './CommitListHeader.svelte';
 	import CommitListItem from './CommitListItem.svelte';
-	import type { AnyFile, Branch, Commit, CommitStatus, RemoteCommit } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '$lib/utils/context';
+	import { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
+	import {
+		Branch,
+		type AnyFile,
+		type Commit,
+		type CommitStatus,
+		type RemoteCommit
+	} from '$lib/vbranches/types';
+	import { map } from 'rxjs';
 	import type { Writable } from 'svelte/store';
 
-	export let branch: Branch;
 	export let type: CommitStatus;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let isUnapplied: boolean;
-	export let branchCount: number = 0;
 	export let commits: Commit[] | RemoteCommit[];
 
+	const branchService = getContext(VirtualBranchService);
+	const branch = getContextStore(Branch);
+
 	let headerHeight: number;
-
-	$: headCommit = branch.commits[0];
-
-	$: hasCommits = commits && commits.length > 0;
-	$: remoteRequiresForcePush = type === 'remote' && branch.requiresForce;
-
 	let expanded = true;
+
+	$: headCommit = $branch.commits[0];
+	$: hasCommits = commits && commits.length > 0;
+
+	$: remoteRequiresForcePush = type === 'remote' && $branch.requiresForce;
+	$: branchCount = branchService.activeBranches$.pipe(map((branches) => branches?.length || 0));
 </script>
 
 {#if hasCommits || remoteRequiresForcePush}
@@ -37,7 +47,6 @@
 					<div class="commits">
 						{#each commits as commit, idx (commit.id)}
 							<CommitListItem
-								{branch}
 								{commit}
 								{isUnapplied}
 								{selectedFiles}
@@ -47,12 +56,12 @@
 						{/each}
 					</div>
 				{/if}
-				{#if type == 'upstream' && branchCount > 1}
+				{#if type == 'upstream' && $branchCount > 1}
 					<div class="upstream-message text-base-body-11">
-						You have {branchCount} active branches. To merge upstream work, we will unapply all other
+						You have {$branchCount} active branches. To merge upstream work, we will unapply all other
 						branches.
 					</div>{/if}
-				<CommitListFooter {branch} {type} {isUnapplied} {hasCommits} />
+				<CommitListFooter {type} {isUnapplied} {hasCommits} />
 			</div>
 		{/if}
 	</div>

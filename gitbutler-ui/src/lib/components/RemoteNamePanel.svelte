@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import type { RemoteBranch } from '$lib/vbranches/types';
 
 	export let branch: RemoteBranch;
 	export let branchId: string;
 
-	const branchController = getContextByClass(BranchController);
+	const branchController = getContext(BranchController);
 
 	let remoteName = '';
 	let remoteBranchName = '';

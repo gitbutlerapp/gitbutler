@@ -3,10 +3,10 @@
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSetup from '$lib/components/ProjectSetup.svelte';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
 
-	const project = getContextByClass(Project);
+	const project = getContext(Project);
 </script>
 
 {#await getRemoteBranches(project.id)}

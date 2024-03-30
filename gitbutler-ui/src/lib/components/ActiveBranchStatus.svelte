@@ -1,20 +1,20 @@
 <script lang="ts">
 	import Tag from '$lib/components/Tag.svelte';
 	import { normalizeBranchName } from '$lib/utils/branch';
-	import { getContextStoreByClass } from '$lib/utils/context';
+	import { getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BaseBranch, type Branch } from '$lib/vbranches/types';
+	import { BaseBranch, Branch } from '$lib/vbranches/types';
 
-	export let branch: Branch;
 	export let isUnapplied = false;
 	export let hasIntegratedCommits = false;
 	export let isLaneCollapsed: boolean;
 
-	const baseBranch = getContextStoreByClass(BaseBranch);
+	const baseBranch = getContextStore(BaseBranch);
+	const branch = getContextStore(Branch);
 </script>
 
-{#if !branch.upstream}
-	{#if !branch.active}
+{#if !$branch.upstream}
+	{#if !$branch.active}
 		<Tag
 			icon="virtual-branch-small"
 			style="neutral"
@@ -48,7 +48,7 @@
 			help="Branch name that will be used when pushing. You can change it from the lane menu."
 			verticalOrientation={isLaneCollapsed}
 		>
-			origin/{branch.upstreamName ? branch.upstreamName : normalizeBranchName(branch.name)}</Tag
+			origin/{$branch.upstreamName ? $branch.upstreamName : normalizeBranchName($branch.name)}</Tag
 		>
 	{/if}
 {:else}
@@ -68,12 +68,12 @@
 		shrinkable
 		verticalOrientation={isLaneCollapsed}
 		on:click={(e) => {
-			const url = $baseBranch?.branchUrl(branch.upstream?.name);
+			const url = $baseBranch?.branchUrl($branch.upstream?.name);
 			if (url) openExternalUrl(url);
 			e.preventDefault();
 			e.stopPropagation();
 		}}
 	>
-		{isLaneCollapsed ? 'View branch' : `origin/${branch.upstream?.name}`}
+		{isLaneCollapsed ? 'View branch' : `origin/${$branch.upstreamName}`}
 	</Tag>
 {/if}

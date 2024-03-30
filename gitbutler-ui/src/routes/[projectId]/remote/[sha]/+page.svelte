@@ -2,13 +2,13 @@
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import RemoteBranchPreview from '$lib/components/RemoteBranchPreview.svelte';
 	import { GitHubService } from '$lib/github/service';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 
 	export let data: PageData;
 
-	const githubService = getContextByClass(GitHubService);
+	const githubService = getContext(GitHubService);
 
 	$: ({ error, branches } = data.remoteBranchService);
 

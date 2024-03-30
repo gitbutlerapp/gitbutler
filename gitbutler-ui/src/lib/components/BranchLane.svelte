@@ -5,24 +5,54 @@
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectLaneCollapsed } from '$lib/config/config';
 	import { persisted } from '$lib/persisted/persisted';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { getContextByClass } from '$lib/utils/context';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
+	import { getContext, getContextStoreBySymbol, createContextStore } from '$lib/utils/context';
+	import {
+		createIntegratedContextStore,
+		createLocalContextStore,
+		createRemoteContextStore,
+		createUnknownContextStore
+	} from '$lib/vbranches/contexts';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { RemoteFile, type Branch, type LocalFile, type AnyFile } from '$lib/vbranches/types';
+	import { RemoteFile, Branch, type LocalFile, type AnyFile } from '$lib/vbranches/types';
 	import lscache from 'lscache';
-	import { getContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
-	export let branchCount = 1;
 
-	$: selectedOwnership = writable(Ownership.fromBranch(branch));
+	createContextStore(Ownership, Ownership.fromBranch(branch));
 	$: selected = setSelected($selectedFiles, branch);
 
-	const project = getContextByClass(Project);
+	const branchStore = createContextStore(Branch, branch);
+	$: branchStore.set(branch);
+
+	const localCommits = createLocalContextStore(branch.localCommits);
+	$: localCommits.set(branch.localCommits);
+
+	const remoteCommits = createRemoteContextStore(branch.remoteCommits);
+	$: remoteCommits.set(branch.remoteCommits);
+
+	const integratedCommits = createIntegratedContextStore(branch.integratedCommits);
+	$: integratedCommits.set(branch.integratedCommits);
+
+	// Set the store immediately so it can be updated later.
+	const unknownCommits = createUnknownContextStore([]);
+	$: if (branch.upstream?.name) loadRemoteBranch(branch.upstream?.name);
+
+	async function loadRemoteBranch(name: string) {
+		const remoteBranchData = await getRemoteBranchData(project.id, name);
+		const commits = remoteBranchData?.commits.filter(
+			(remoteCommit) => !branch.commits.find((commit) => remoteCommit.id == commit.id)
+		);
+		unknownCommits.set(commits);
+	}
+
+	const project = getContext(Project);
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const selectedFiles = writable<LocalFile[]>([]);
 
 	let rsViewport: HTMLElement;
@@ -31,8 +61,6 @@
 	const defaultFileWidthRem = persisted<number | undefined>(30, 'defaulFileWidth' + project.id);
 	const fileWidthKey = 'fileWidth_';
 	let fileWidth: number;
-
-	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	fileWidth = lscache.get(fileWidthKey + branch.id);
 
@@ -58,15 +86,7 @@
 	class:target-branch={branch.active && branch.selectedForChanges}
 	class:file-selected={selected}
 >
-	<BranchCard
-		{branch}
-		{isUnapplied}
-		{selectedOwnership}
-		{commitBoxOpen}
-		bind:isLaneCollapsed
-		{branchCount}
-		{selectedFiles}
-	/>
+	<BranchCard {isUnapplied} {commitBoxOpen} bind:isLaneCollapsed {selectedFiles} />
 
 	{#if selected}
 		<div
@@ -77,11 +97,8 @@
 		>
 			<FileCard
 				conflicted={selected.conflicted}
-				branchId={branch.id}
 				file={selected}
-				{selectedOwnership}
 				{isUnapplied}
-				branchCommits={branch.commits}
 				readonly={selected instanceof RemoteFile}
 				selectable={$commitBoxOpen && !isUnapplied}
 				on:close={() => {

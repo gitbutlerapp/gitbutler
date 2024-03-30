@@ -31,6 +31,9 @@ export class VirtualBranchService {
 	private reload$ = new BehaviorSubject<void>(undefined);
 	private fresh$ = new Subject<void>();
 
+	activeBranches: Readable<Branch[] | undefined>;
+	activeBranchesError: Readable<any>;
+
 	constructor(
 		private projectId: string,
 		gbBranchActive$: Observable<boolean>
@@ -74,6 +77,8 @@ export class VirtualBranchService {
 		this.activeBranches$ = this.branches$.pipe(
 			map((branches) => branches?.filter((b) => b.active))
 		);
+
+		[this.activeBranches, this.activeBranchesError] = observableToStore(this.activeBranches$);
 	}
 
 	async reload() {

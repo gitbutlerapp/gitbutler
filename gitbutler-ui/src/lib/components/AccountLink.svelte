@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { User } from '$lib/backend/cloud';
 	import Icon from '$lib/components/Icon.svelte';
-	import { getContextStoreByClass } from '$lib/utils/context';
+	import { getContextStore } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
 
 	export let pop = false;
 	export let isNavCollapsed = false;
 
-	const user = getContextStoreByClass(User);
+	const user = getContextStore(User);
 </script>
 
 <button
