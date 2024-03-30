@@ -9,7 +9,7 @@
 	export let isNavCollapsed: boolean;
 
 	const projectService = getContext(ProjectService);
-	const projects$ = projectService.projects$;
+	const projects = projectService.projects;
 
 	let hidden = true;
 	let loading = false;
@@ -26,10 +26,10 @@
 
 {#if !hidden}
 	<div class="popup" class:collapsed={isNavCollapsed}>
-		{#if $projects$.length > 0}
+		{#if $projects.length > 0}
 			<ScrollableContainer maxHeight="20rem">
 				<div class="popup__projects">
-					{#each $projects$ as project}
+					{#each $projects as project}
 						{@const selected = project.id == $page.params.projectId}
 						<ListItem
 							{selected}

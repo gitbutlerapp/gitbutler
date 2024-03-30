@@ -35,7 +35,7 @@
 	$: branchesError = vbranchService.branchesError;
 	$: baseBranch = baseBranchService.base;
 	$: baseError = baseBranchService.error;
-	$: projectError = projectService.error$;
+	$: projectError = projectService.error;
 
 	$: setContext(VirtualBranchService, vbranchService);
 	$: setContext(BranchController, branchController);
