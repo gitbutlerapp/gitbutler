@@ -14,7 +14,7 @@ jobs:
     outputs:
       node: ${{ steps.filter.outputs.node }}
       rust: ${{ steps.filter.outputs.rust }}
-      gitbutler: ${{ steps.filter.outputs.gitbutler }}
+      gitbutler-core: ${{ steps.filter.outputs.gitbutler-core }}
       gitbutler-app: ${{ steps.filter.outputs.gitbutler-app }}
       gitbutler-changeset: ${{ steps.filter.outputs.gitbutler-changeset }}
       gitbutler-git: ${{ steps.filter.outputs.gitbutler-git }}
@@ -37,10 +37,9 @@ jobs:
               - 'gitbutler-!(ui)/**'
             gitbutler-app:
               - *any-rust
-            gitbutler:
+            gitbutler-core:
               - *rust
-              - 'src/**'
-              - 'tests/**'
+              - 'crates/gitbutler-core/**'
             gitbutler-changeset:
               - *rust
               - 'gitbutler-changeset/**'
@@ -104,7 +103,7 @@ jobs:
 
   check-gitbutler:
     needs: [changes, rust-init]
-    if: ${{ needs.changes.outputs.gitbutler == 'true' }}
+    if: ${{ needs.changes.outputs.gitbutler-core == 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
@@ -120,7 +119,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/check-crate
         with:
-          crate: gitbutler
+          crate: gitbutler-core
           features: ${{ toJson(matrix.features) }}
           action: ${{ matrix.action }}
 
