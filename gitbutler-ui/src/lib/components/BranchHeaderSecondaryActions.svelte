@@ -3,13 +3,11 @@
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import type { Persisted } from '$lib/persisted/persisted';
-	import type { Branch } from '$lib/vbranches/types';
 
 	export let isLaneCollapsed: Persisted<boolean>;
 	export let visible = false;
 
 	export let isUnapplied = false;
-	export let branch: Branch;
 	export let projectId: string;
 
 	export let meatballButton: HTMLDivElement;
@@ -40,7 +38,7 @@
 			handler: () => (visible = false)
 		}}
 	>
-		<BranchLanePopupMenu {branch} {projectId} {isUnapplied} bind:visible on:action />
+		<BranchLanePopupMenu {projectId} {isUnapplied} bind:visible on:action />
 	</div>
 </div>
 

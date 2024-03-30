@@ -2,13 +2,13 @@
 	import ListItem from './ListItem.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import { ProjectService } from '$lib/backend/projects';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
 	export let isNavCollapsed: boolean;
 
-	const projectService = getContextByClass(ProjectService);
+	const projectService = getContext(ProjectService);
 	const projects$ = projectService.projects$;
 
 	let hidden = true;

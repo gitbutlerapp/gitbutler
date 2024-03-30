@@ -8,14 +8,14 @@
 	import { GitHubService } from '$lib/github/service';
 	import { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 
 	export let minimal = false;
 	export let disabled = false;
 
-	const githubService = getContextByClass(GitHubService);
-	const userService = getContextByClass(UserService);
+	const githubService = getContext(GitHubService);
+	const userService = getContext(UserService);
 	const user = userService.user;
 
 	let loading = false;

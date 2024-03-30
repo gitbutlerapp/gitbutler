@@ -4,22 +4,24 @@
 	import Icon from './Icon.svelte';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { tooltip } from '$lib/utils/tooltip';
+	import { getLocalCommits } from '$lib/vbranches/contexts';
+	import { getLockText } from '$lib/vbranches/tooltip';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
-	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { Commit } from '$lib/vbranches/types';
-	import type { Writable } from 'svelte/store';
 
-	export let branchId: string | undefined;
 	export let filePath: string;
 	export let isBinary: boolean;
 	export let isLarge: boolean;
 	export let sections: (HunkSection | ContentSection)[];
 	export let isUnapplied: boolean;
 	export let selectable = false;
-	export let selectedOwnership: Writable<Ownership> | undefined = undefined;
 	export let isFileLocked = false;
 	export let readonly: boolean = false;
-	export let branchCommits: Commit[];
+
+	$: maxLineNumber = sections[sections.length - 1]?.maxLineNumber;
+	$: minWidth = getGutterMinWidth(maxLineNumber);
+
+	const localCommits = isFileLocked ? getLocalCommits() : undefined;
+	let alwaysShow = false;
 
 	function getGutterMinWidth(max: number) {
 		if (max >= 10000) return 2.5;
@@ -28,21 +30,6 @@
 		if (max >= 10) return 1.25;
 		return 1;
 	}
-
-	function getLockedTooltip(commitId: string | undefined): string {
-		if (!commitId) return 'Depends on a committed change';
-		const shortCommitId = commitId?.slice(0, 7);
-		const commit = branchCommits.find((commit) => commit.id === commitId);
-		if (!commit || !commit.descriptionTitle) return `Depends on commit ${shortCommitId}`;
-
-		const shortTitle = commit.descriptionTitle.slice(0, 35) + '...';
-		return `Depends on commit "${shortTitle}" (${shortCommitId})`;
-	}
-
-	$: maxLineNumber = sections[sections.length - 1]?.maxLineNumber;
-	$: minWidth = getGutterMinWidth(maxLineNumber);
-
-	let alwaysShow = false;
 </script>
 
 <div class="hunks">
@@ -65,10 +52,10 @@
 					<div class="indicators text-base-11">
 						<span class="added">+{added}</span>
 						<span class="removed">-{removed}</span>
-						{#if section.hunk.locked}
+						{#if section.hunk.lockedTo && $localCommits}
 							<div
 								use:tooltip={{
-									text: getLockedTooltip(section.hunk.lockedTo),
+									text: getLockText(section.hunk.lockedTo, $localCommits),
 									delay: 500
 								}}
 							>
@@ -79,10 +66,8 @@
 					<HunkViewer
 						{filePath}
 						{section}
-						{branchId}
 						{selectable}
 						{isUnapplied}
-						{selectedOwnership}
 						{isFileLocked}
 						{minWidth}
 						{readonly}

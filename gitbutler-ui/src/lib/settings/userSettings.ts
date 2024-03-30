@@ -1,7 +1,7 @@
 import { get, writable, type Writable } from 'svelte/store';
 
 const SETTINGS_KEY = 'settings-json';
-export const SETTINGS_CONTEXT = Symbol();
+export const SETTINGS = Symbol('Settings');
 
 export interface Settings {
 	aiSummariesEnabled?: boolean;
@@ -33,8 +33,6 @@ const defaults: Settings = {
 	scrollbarVisabilityOnHover: false,
 	tabSize: 4
 };
-
-export type SettingsStore = Writable<Settings>;
 
 export function loadUserSettings(): Writable<Settings> {
 	let obj: any;

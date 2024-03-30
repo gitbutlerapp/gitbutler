@@ -9,7 +9,11 @@
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranchService, NoDefaultTarget } from '$lib/vbranches/branchStoresCache';
+	import {
+		BaseBranchService,
+		NoDefaultTarget,
+		VirtualBranchService
+	} from '$lib/vbranches/branchStoresCache';
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { onDestroy, onMount, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
@@ -33,6 +37,7 @@
 	$: baseError = baseBranchService.error;
 	$: projectError = projectService.error$;
 
+	$: setContext(VirtualBranchService, vbranchService);
 	$: setContext(BranchController, branchController);
 	$: setContext(BranchService, branchService);
 	$: setContext(BaseBranchService, baseBranchService);

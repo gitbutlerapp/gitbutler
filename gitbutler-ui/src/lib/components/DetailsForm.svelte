@@ -4,10 +4,10 @@
 	import Spacer from '$lib/components/Spacer.svelte';
 	import TextArea from '$lib/components/TextArea.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { createEventDispatcher } from 'svelte';
 
-	const project = getContextByClass(Project);
+	const project = getContext(Project);
 
 	let title = project?.title;
 	let description = project?.description;

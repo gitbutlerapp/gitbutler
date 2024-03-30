@@ -12,14 +12,14 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { UserService } from '$lib/stores/user';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { createEventDispatcher } from 'svelte';
 
 	export let projectName: string;
 	export let remoteBranches: { name: string }[];
 
-	const project = getContextByClass(Project);
-	const userService = getContextByClass(UserService);
+	const project = getContext(Project);
+	const userService = getContext(UserService);
 	const user = userService.user;
 
 	const dispatch = createEventDispatcher<{

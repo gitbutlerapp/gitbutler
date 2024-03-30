@@ -5,9 +5,10 @@
 <script lang="ts">
 	import TreeListFile from './TreeListFile.svelte';
 	import TreeListFolder from './TreeListFolder.svelte';
+	import { maybeGetContextStore } from '$lib/utils/context';
 	import { maybeMoveSelection } from '$lib/utils/selection';
+	import { Ownership } from '$lib/vbranches/ownership';
 	import type { TreeNode } from '$lib/vbranches/filetree';
-	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile, LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
@@ -15,13 +16,13 @@
 	export let node: TreeNode;
 	export let isRoot = false;
 	export let showCheckboxes = false;
-	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<AnyFile[]>;
-	export let branchId: string;
 	export let isUnapplied: boolean;
 	export let allowMultiple = false;
 	export let readonly = false;
 	export let files: LocalFile[] | RemoteFile[];
+
+	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
@@ -32,7 +33,7 @@
 		}
 	}
 
-	$: isChecked = isNodeChecked($selectedOwnership, node);
+	$: isChecked = $selectedOwnership ? isNodeChecked($selectedOwnership, node) : false;
 
 	function isNodeIndeterminate(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
@@ -58,7 +59,7 @@
 		return false;
 	}
 
-	$: isIndeterminate = isNodeIndeterminate($selectedOwnership, node);
+	$: isIndeterminate = $selectedOwnership ? isNodeIndeterminate($selectedOwnership, node) : false;
 
 	function toggle() {
 		expanded = !expanded;
@@ -72,10 +73,8 @@
 			<li>
 				<svelte:self
 					node={childNode}
-					{selectedOwnership}
 					{showCheckboxes}
 					{selectedFiles}
-					{branchId}
 					{isUnapplied}
 					{readonly}
 					{allowMultiple}
@@ -91,10 +90,8 @@
 	<!-- Node is a file -->
 	<TreeListFile
 		file={node.file}
-		{branchId}
 		{isUnapplied}
 		selected={$selectedFiles.includes(file)}
-		{selectedOwnership}
 		{selectedFiles}
 		{readonly}
 		showCheckbox={showCheckboxes}
@@ -119,7 +116,6 @@
 {:else if node.children.length > 0}
 	<!-- Node is a folder -->
 	<TreeListFolder
-		{selectedOwnership}
 		showCheckbox={showCheckboxes}
 		{isIndeterminate}
 		{isChecked}
@@ -139,10 +135,8 @@
 					<svelte:self
 						node={childNode}
 						expanded={true}
-						{selectedOwnership}
 						{showCheckboxes}
 						{selectedFiles}
-						{branchId}
 						{isUnapplied}
 						{readonly}
 						{allowMultiple}

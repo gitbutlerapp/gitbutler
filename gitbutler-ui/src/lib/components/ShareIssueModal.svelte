@@ -1,20 +1,18 @@
 <script lang="ts">
 	import TextArea from './TextArea.svelte';
-	import { CloudClient } from '$lib/backend/cloud';
+	import { CloudClient, User } from '$lib/backend/cloud';
 	import { invoke } from '$lib/backend/ipc';
 	import * as zip from '$lib/backend/zip';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import { UserService } from '$lib/stores/user';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { page } from '$app/stores';
 
-	const cloud = getContextByClass(CloudClient);
-	const userService = getContextByClass(UserService);
-	const user = userService.user;
+	const cloud = getContext(CloudClient);
+	const user = getContextStore(User);
 
 	export function show() {
 		modal.show();

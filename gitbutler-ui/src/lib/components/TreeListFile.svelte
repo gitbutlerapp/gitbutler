@@ -5,18 +5,17 @@
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { maybeGetContextStore } from '$lib/utils/context';
 	import { updateFocus } from '$lib/utils/selection';
+	import { Ownership } from '$lib/vbranches/ownership';
+	import { Branch, type AnyFile } from '$lib/vbranches/types';
 	import { onDestroy } from 'svelte';
-	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	export let branchId: string;
 	export let file: AnyFile;
 	export let selected: boolean;
 	export let isUnapplied: boolean;
 	export let showCheckbox: boolean = false;
-	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let readonly = false;
 
@@ -24,9 +23,13 @@
 	let indeterminate = false;
 	let draggableElt: HTMLDivElement;
 
+	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
+	const branch = maybeGetContextStore(Branch);
+
 	$: updateOwnership($selectedOwnership);
 
-	function updateOwnership(ownership: Ownership) {
+	function updateOwnership(ownership: Ownership | undefined) {
+		if (!ownership) return;
 		const fileId = file.id;
 		checked = file.hunks.every((hunk) => ownership.containsHunk(fileId, hunk.id));
 		const selectedCount = file.hunks.filter((hunk) =>
@@ -63,7 +66,7 @@
 		}
 	}}
 	use:draggable={{
-		...draggableFile(branchId, file, selectedFiles),
+		...draggableFile($branch?.id || '', file, selectedFiles),
 		disabled: readonly || isUnapplied,
 		selector: '.selected-draggable'
 	}}
@@ -85,7 +88,7 @@
 					{checked}
 					{indeterminate}
 					on:change={(e) => {
-						selectedOwnership.update((ownership) => {
+						selectedOwnership?.update((ownership) => {
 							if (e.detail) file.hunks.forEach((h) => ownership.addHunk(file.id, h.id));
 							if (!e.detail) file.hunks.forEach((h) => ownership.removeHunk(file.id, h.id));
 							return ownership;

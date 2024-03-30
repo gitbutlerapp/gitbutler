@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { invoke, listen } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
-	const project = getContextByClass(Project);
+	const project = getContext(Project);
 
 	function setEnabled(enabled: boolean) {
 		return invoke('menu_item_set_enabled', {

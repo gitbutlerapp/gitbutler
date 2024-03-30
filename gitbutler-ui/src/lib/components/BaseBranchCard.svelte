@@ -3,7 +3,7 @@
 	import { Project } from '$lib/backend/projects';
 	import Badge from '$lib/components/Badge.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 	import { goto } from '$app/navigation';
@@ -11,8 +11,8 @@
 
 	export let isNavCollapsed: boolean;
 
-	const baseBranchService = getContextByClass(BaseBranchService);
-	const project = getContextByClass(Project);
+	const baseBranchService = getContext(BaseBranchService);
+	const project = getContext(Project);
 
 	$: base = baseBranchService.base;
 	$: selected = $page.url.href.endsWith('/base');

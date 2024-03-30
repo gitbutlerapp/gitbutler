@@ -1,28 +1,22 @@
 <script lang="ts">
+	import { Project } from '$lib/backend/projects';
 	import Board from '$lib/components/Board.svelte';
 	import IconLink from '$lib/components/IconLink.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import { GitHubService } from '$lib/github/service';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
-	import type { PageData } from './$types';
 
-	export let data: PageData;
-
-	const githubService = getContextByClass(GitHubService);
-	const baseBranchService = getContextByClass(BaseBranchService);
+	const project = getContext(Project);
+	const githubService = getContext(GitHubService);
+	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
-
-	$: ({ vbranchService, projectId } = data);
-
-	$: activeBranches$ = vbranchService.activeBranches$;
-	$: error$ = vbranchService.branchesError;
 
 	let viewport: HTMLDivElement;
 	let contents: HTMLDivElement;
 
-	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(projectId);
+	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(project.id);
 
 	function shouldShowHttpsWarning() {
 		if (httpsWarningBannerDismissed) return false;
@@ -48,7 +42,7 @@
 	<div class="board-wrapper">
 		<div class="scroll-viewport hide-native-scrollbar" bind:this={viewport}>
 			<div class="scroll-contents" bind:this={contents}>
-				<Board branches={$activeBranches$} branchesError={$error$} />
+				<Board />
 			</div>
 			<Scrollbar {viewport} {contents} horz zIndex={50} />
 		</div>

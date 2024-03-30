@@ -26,55 +26,44 @@
 	} from '$lib/dragging/draggables';
 	import { dropzone } from '$lib/dragging/dropzone';
 	import { persisted } from '$lib/persisted/persisted';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
-	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { filesToOwnership, type Ownership } from '$lib/vbranches/ownership';
+	import { filesToOwnership } from '$lib/vbranches/ownership';
+	import { Branch, type LocalFile } from '$lib/vbranches/types';
 	import lscache from 'lscache';
-	import { getContext, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { get, type Writable } from 'svelte/store';
 	import type { Persisted } from '$lib/persisted/persisted';
-	import type { Branch, LocalFile, RemoteBranchData } from '$lib/vbranches/types';
 
-	export let branch: Branch;
 	export let isUnapplied = false;
-	export let branchCount = 1;
 	export let selectedFiles: Writable<LocalFile[]>;
-	export let selectedOwnership: Writable<Ownership>;
 	export let isLaneCollapsed: Persisted<boolean>;
 	export let commitBoxOpen: Writable<boolean>;
 
-	const branchController = getContextByClass(BranchController);
-	const project = getContextByClass(Project);
-	const user = getContextStoreByClass(User);
+	const branchController = getContext(BranchController);
+	const branchStore = getContextStore(Branch);
+	const project = getContext(Project);
+	const user = getContextStore(User);
+
+	$: branch = $branchStore;
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
 
-	const aiService = getContextByClass(AIService);
+	const aiService = getContext(AIService);
 
-	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
 	const laneWidthKey = 'laneWidth_';
 	const newVbranchNameRegex = /^virtual\sbranch\s*[\d]*$/;
 
 	let laneWidth: number;
-	let remoteBranchData: RemoteBranchData | undefined;
 
 	let scrollViewport: HTMLElement;
 	let rsViewport: HTMLElement;
-
-	$: upstream = branch.upstream;
-	$: if (upstream) reloadRemoteBranch();
-
-	async function reloadRemoteBranch() {
-		if (upstream?.name) {
-			remoteBranchData = await getRemoteBranchData(project.id, upstream.name);
-		}
-	}
 
 	$: if ($commitBoxOpen && branch.files.length === 0) {
 		$commitBoxOpen = false;
@@ -164,7 +153,6 @@
 	<div class="collapsed-lane-wrapper">
 		<BranchHeader
 			{isUnapplied}
-			{branch}
 			bind:isLaneCollapsed
 			projectId={project.id}
 			on:action={(e) => {
@@ -195,7 +183,6 @@
 				>
 					<BranchHeader
 						{isUnapplied}
-						{branch}
 						bind:isLaneCollapsed
 						projectId={project.id}
 						on:action={(e) => {
@@ -206,7 +193,6 @@
 					/>
 					<PullRequestCard
 						projectId={project.id}
-						{branch}
 						{isUnapplied}
 						isLaneCollapsed={$isLaneCollapsed}
 					/>
@@ -256,20 +242,15 @@
 									</div>
 								{/if}
 								<BranchFiles
-									branchId={branch.id}
 									files={branch.files}
 									{isUnapplied}
-									{selectedOwnership}
 									{selectedFiles}
 									showCheckboxes={$commitBoxOpen}
-									allowMultiple={true}
-									readonly={false}
+									allowMultiple
 								/>
 								{#if branch.active}
 									<CommitDialog
 										projectId={project.id}
-										{branch}
-										{selectedOwnership}
 										expanded={commitBoxOpen}
 										on:action={(e) => {
 											if (e.detail == 'generate-branch-name') {
@@ -308,7 +289,7 @@
 						{/if}
 					</div>
 
-					<BranchCommits {branch} {branchCount} {isUnapplied} {selectedFiles} {remoteBranchData} />
+					<BranchCommits {isUnapplied} {selectedFiles} />
 				</div>
 			</ScrollableContainer>
 			<div class="divider-line">

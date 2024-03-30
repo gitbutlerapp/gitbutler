@@ -16,36 +16,36 @@
 		persistedCommitMessage
 	} from '$lib/config/config';
 	import { splitMessage } from '$lib/utils/commitMessage';
-	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
+	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { setAutoHeight } from '$lib/utils/useAutoHeight';
 	import { useResize } from '$lib/utils/useResize';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { Ownership } from '$lib/vbranches/ownership';
+	import { Branch, type LocalFile } from '$lib/vbranches/types';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { fly, slide } from 'svelte/transition';
-	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { Branch, LocalFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	const aiService = getContextByClass(AIService);
+	const aiService = getContext(AIService);
 
 	const dispatch = createEventDispatcher<{
 		action: 'generate-branch-name';
 	}>();
 
 	export let projectId: string;
-	export let branch: Branch;
-	export let selectedOwnership: Writable<Ownership>;
 	export let expanded: Writable<boolean>;
 
-	const branchController = getContextByClass(BranchController);
-	const user = getContextStoreByClass(User);
+	const branchController = getContext(BranchController);
+	const selectedOwnership = getContextStore(Ownership);
+	const branch = getContextStore(Branch);
+	const user = getContextStore(User);
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
 	const runCommitHooks = projectRunCommitHooks(projectId);
-	const commitMessage = persistedCommitMessage(projectId, branch.id);
+	const commitMessage = persistedCommitMessage(projectId, $branch.id);
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
 	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(projectId);
 
@@ -78,7 +78,7 @@
 		isCommitting = true;
 		try {
 			await branchController.commitBranch(
-				branch.id,
+				$branch.id,
 				message.trim(),
 				$selectedOwnership.toString(),
 				$runCommitHooks
@@ -97,7 +97,7 @@
 		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
 		// or the user has to manually trigger the name generation from the meatball menu
 		// This saves people this extra click
-		if (branch.name.toLowerCase().includes('virtual branch')) {
+		if ($branch.name.toLowerCase().includes('virtual branch')) {
 			dispatch('action', 'generate-branch-name');
 		}
 
@@ -217,7 +217,7 @@
 						color="neutral"
 						disabled={!($aiGenEnabled && aiConfigurationValid)}
 						loading={aiLoading}
-						on:click={() => generateCommitMessage(branch.files)}
+						on:click={() => generateCommitMessage($branch.files)}
 					>
 						Generate message
 						<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
