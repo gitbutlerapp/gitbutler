@@ -115,18 +115,18 @@
 			review it for you and help identify how we can help resolve the issue.
 		</p>
 
-		<!-- {#if !$user} -->
-		<TextBox
-			label="Email"
-			placeholder="Provide an email so that we can get back to you"
-			type="email"
-			bind:value={emailInputValue}
-			required
-			autocomplete={false}
-			autocorrect={false}
-			spellcheck
-		/>
-		<!-- {/if} -->
+		{#if !$user}
+			<TextBox
+				label="Email"
+				placeholder="Provide an email so that we can get back to you"
+				type="email"
+				bind:value={emailInputValue}
+				required
+				autocomplete={false}
+				autocorrect={false}
+				spellcheck
+			/>
+		{/if}
 
 		<TextArea
 			label="Comments"
