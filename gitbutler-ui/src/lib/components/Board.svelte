@@ -77,7 +77,7 @@
 		{#each branches.sort((a, b) => a.order - b.order) as branch (branch.id)}
 			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<div
-				class="draggable-branch h-full"
+				class="branch draggable-branch"
 				draggable="true"
 				on:mousedown={(e) => (dragHandle = e.target)}
 				on:dragstart={(e) => {
@@ -195,6 +195,10 @@
 		flex-grow: 1;
 		flex-shrink: 1;
 		align-items: flex-start;
+		height: 100%;
+	}
+
+	.branch {
 		height: 100%;
 	}
 
