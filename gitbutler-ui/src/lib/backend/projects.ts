@@ -1,11 +1,9 @@
 import { invoke } from '$lib/backend/ipc';
 import { persisted } from '$lib/persisted/persisted';
-import { observableToStore } from '$lib/rxjs/store';
 import * as toasts from '$lib/utils/toasts';
 import { open } from '@tauri-apps/api/dialog';
 import { plainToInstance } from 'class-transformer';
-import { BehaviorSubject, firstValueFrom, from, skip, switchMap } from 'rxjs';
-import { get, type Readable } from 'svelte/store';
+import { get, writable, type Writable } from 'svelte/store';
 import type { Project as CloudProject } from '$lib/backend/cloud';
 import { goto } from '$app/navigation';
 
@@ -29,24 +27,37 @@ export class Project {
 }
 
 export class ProjectService {
-	private reload$ = new BehaviorSubject<void>(undefined);
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
-
-	private projects$ = this.reload$.pipe(
-		switchMap(() =>
-			from(invoke<Project[]>('list_projects').then((p) => plainToInstance(Project, p)))
-		)
-	);
-
-	projects: Readable<Project[]>;
-	error: Readable<any>;
+	projects: Writable<Project[]> = writable([]);
+	error: Writable<undefined | any> = writable();
 
 	constructor(private homeDir: string | undefined) {
-		[this.projects, this.error] = observableToStore(this.projects$);
+		this.loadProjects();
 	}
 
 	async getProject(projectId: string) {
 		return await invoke<Project>('get_project', { id: projectId });
+	}
+
+	/**
+	 * Loads or reloads the list of projects
+	 * @returns List of newly requested projects
+	 */
+	async loadProjects() {
+		try {
+			const projectObjects = await invoke<object[]>('list_projects');
+			const projects = plainToInstance(Project, projectObjects);
+
+			this.projects.set(projects);
+
+			return projects;
+		} catch (e) {
+			this.projects.set([]);
+
+			this.error.set(e);
+
+			return [];
+		}
 	}
 
 	async updateProject(params: {
@@ -58,23 +69,18 @@ export class ProjectService {
 		omitCertificateCheck?: boolean;
 	}) {
 		await invoke<Project>('update_project', { project: params });
-		this.reload();
+
+		this.loadProjects();
 	}
 
 	async add(path: string) {
 		const project = await invoke<Project>('add_project', { path });
-		await this.reload();
+		await this.loadProjects();
 		return project;
 	}
 
 	async deleteProject(id: string) {
 		return await invoke('delete_project', { id });
-	}
-
-	async reload(): Promise<Project[]> {
-		const projects = firstValueFrom(this.projects$.pipe(skip(1)));
-		this.reload$.next();
-		return projects;
 	}
 
 	async promptForDirectory(): Promise<string | undefined> {

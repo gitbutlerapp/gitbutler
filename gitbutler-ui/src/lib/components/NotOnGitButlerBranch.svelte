@@ -35,7 +35,7 @@
 				toasts.error('Failed to delete project');
 			} finally {
 				isDeleting = false;
-				projectService.reload();
+				projectService.loadProjects();
 			}
 		}
 	}

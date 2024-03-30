@@ -32,7 +32,7 @@
 		isDeleting = true;
 		try {
 			await projectService.deleteProject(project.id);
-			await projectService.reload();
+			await projectService.loadProjects();
 			goto('/');
 			toasts.success('Project deleted');
 		} catch (err: any) {

@@ -29,7 +29,7 @@
 			toasts.error('Failed to delete project');
 		} finally {
 			loading = false;
-			projectService.reload();
+			projectService.loadProjects();
 		}
 	}
 </script>
