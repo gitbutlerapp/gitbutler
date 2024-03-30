@@ -1,25 +1,24 @@
 use std::{collections::HashMap, path, thread, time};
 
 use anyhow::Result;
-use pretty_assertions::assert_eq;
-use tempfile::TempDir;
-
-use crate::shared::init_opts_bare;
-use crate::shared::{Case, Suite};
-
 use gitbutler::{
     deltas::{self, operations::Operation},
     projects::{self, ApiProject, ProjectId},
     reader,
     sessions::{self, SessionId},
 };
+use pretty_assertions::assert_eq;
+use tempfile::TempDir;
+
+use crate::shared::{init_opts_bare, Case, Suite};
 
 mod repository {
     use std::path::PathBuf;
 
-    use crate::shared::{Case, Suite};
     use anyhow::Result;
     use pretty_assertions::assert_eq;
+
+    use crate::shared::{Case, Suite};
 
     #[test]
     fn alternates_file_being_set() -> Result<()> {

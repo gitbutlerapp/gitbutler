@@ -3,11 +3,11 @@ use gitbutler::keys::{PrivateKey, PublicKey};
 mod controller {
     #[cfg(not(target_os = "windows"))]
     mod not_windows {
-        use gitbutler::keys::storage::Storage;
-        use gitbutler::keys::Controller;
         use std::fs;
         #[cfg(target_family = "unix")]
         use std::os::unix::prelude::*;
+
+        use gitbutler::keys::{storage::Storage, Controller};
 
         use crate::shared::Suite;
 

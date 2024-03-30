@@ -3,12 +3,11 @@ use std::{io::Write, path::Path, str};
 use git2::Submodule;
 use git2_hooks::HookResult;
 
-use crate::{keys, path::Normalize};
-
 use super::{
     Blob, Branch, Commit, Config, Index, Oid, Reference, Refname, Remote, Result, Signature, Tree,
     TreeBuilder, Url,
 };
+use crate::{keys, path::Normalize};
 
 // wrapper around git2::Repository to get control over how it's used.
 pub struct Repository(git2::Repository);

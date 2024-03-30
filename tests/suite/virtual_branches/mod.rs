@@ -1,14 +1,14 @@
 use std::{fs, path, str::FromStr};
-use tempfile::TempDir;
 
-use crate::shared::VAR_NO_CLEANUP;
-use crate::shared::{paths, TestProject};
 use gitbutler::{
     git, keys,
     projects::{self, ProjectId},
     users,
     virtual_branches::{branch, controller::ControllerError, errors, Controller},
 };
+use tempfile::TempDir;
+
+use crate::shared::{paths, TestProject, VAR_NO_CLEANUP};
 
 struct Test {
     repository: TestProject,

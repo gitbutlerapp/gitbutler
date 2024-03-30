@@ -1,6 +1,9 @@
+use gitbutler::{
+    projects::ProjectId,
+    sessions::{session, Database, Session, SessionId},
+};
+
 use crate::shared::test_database;
-use gitbutler::projects::ProjectId;
-use gitbutler::sessions::{session, Database, Session, SessionId};
 
 #[test]
 fn insert_query() -> anyhow::Result<()> {

@@ -1,9 +1,11 @@
 #![allow(unused)]
 
-use crate::shared::{init_opts, VAR_NO_CLEANUP};
-use gitbutler::git;
 use std::{path, str::from_utf8};
+
+use gitbutler::git;
 use tempfile::TempDir;
+
+use crate::shared::{init_opts, VAR_NO_CLEANUP};
 
 pub fn temp_dir() -> TempDir {
     tempfile::tempdir().unwrap()

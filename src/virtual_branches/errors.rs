@@ -1,11 +1,10 @@
+use super::{branch::BranchOwnershipClaims, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
 use crate::{
     error::Error,
     git,
     project_repository::{self, RemoteError},
     projects::ProjectId,
 };
-
-use super::{branch::BranchOwnershipClaims, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
 
 #[derive(Debug, thiserror::Error)]
 pub enum VerifyError {

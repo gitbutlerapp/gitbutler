@@ -1,7 +1,6 @@
 use std::{path, sync::Arc};
 
 use anyhow::{Context, Result};
-
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use refinery::config::Config;

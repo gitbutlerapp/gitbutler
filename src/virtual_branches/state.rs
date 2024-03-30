@@ -8,9 +8,8 @@ use std::{
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::virtual_branches::BranchId;
-
 use super::{target::Target, Branch};
+use crate::virtual_branches::BranchId;
 
 /// The state of virtual branches data, as persisted in a TOML file.
 #[derive(Serialize, Deserialize, Debug, Default)]

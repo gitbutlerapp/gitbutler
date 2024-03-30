@@ -2,13 +2,12 @@ use std::path;
 
 use anyhow::{Context, Result};
 
+use super::Target;
 use crate::{
     gb_repository, reader,
     virtual_branches::{state::VirtualBranchesHandle, BranchId},
     writer,
 };
-
-use super::Target;
 
 pub struct TargetWriter<'writer> {
     repository: &'writer gb_repository::Repository,
