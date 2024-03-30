@@ -1,3 +1,72 @@
+[package]
+name = "gitbutler"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.57"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[lib]
+doctest = false
+
+[dev-dependencies]
+once_cell = "1.19"
+pretty_assertions = "1.4"
+
+[dependencies]
+toml = "0.8.12"
+anyhow = "1.0.81"
+async-trait = "0.1.79"
+backtrace = { version = "0.3.71", optional = true }
+bstr = "1.9.1"
+chrono = { version = "0.4.37", features = ["serde"] }
+diffy = "0.3.0"
+filetime = "0.2.23"
+fslock = "0.2.1"
+futures = "0.3"
+git2.workspace = true
+git2-hooks = "0.3"
+itertools = "0.12"
+lazy_static = "1.4.0"
+md5 = "0.7.0"
+r2d2 = "0.8.10"
+r2d2_sqlite = "0.22.0"
+rand = "0.8.5"
+refinery = { version = "0.8", features = [ "rusqlite" ] }
+regex = "1.10"
+reqwest = { version = "0.12.2", features = ["json"] }
+resolve-path = "0.1.0"
+rusqlite.workspace = true
+serde.workspace = true
+serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
+sha2 = "0.10.8"
+similar = { version = "2.4.0", features = ["unicode"] }
+slug = "0.1.5"
+ssh-key = { version = "0.6.5", features = [ "alloc", "ed25519" ] }
+ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
+log = "^0.4"
+thiserror.workspace = true
+tokio = { workspace = true, features = [ "full", "sync" ] }
+tracing = "0.1.40"
+url = { version = "2.5", features = ["serde"] }
+urlencoding = "2.1.3"
+uuid.workspace = true
+walkdir = "2.5.0"
+zip = "0.6.5"
+tempfile = "3.10"
+gitbutler-git = { path = "gitbutler-git" }
+
+[features]
+# by default Tauri runs in production mode
+# when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is a URL
+default = ["error-context"]
+error-context = ["dep:backtrace"]
+
+[lints.clippy]
+all = "deny"
+perf = "deny"
+correctness = "deny"
+
 [workspace]
 members = [
     "gitbutler-app",
@@ -8,7 +77,7 @@ resolver = "2"
 
 [workspace.dependencies]
 git2 = { version = "0.18.3", features = ["vendored-openssl", "vendored-libgit2"] }
-uuid = "1.8.0"
+uuid = { version = "1.8.0", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0.58"
 rusqlite = { version = "0.29.0", features = [ "bundled", "blob" ] }

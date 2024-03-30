@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
-use crate::{analytics, users};
+use crate::analytics;
+use gitbutler::users;
 
 use super::events;
 

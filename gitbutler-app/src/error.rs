@@ -1,9 +1,9 @@
 #[cfg(feature = "sentry")]
 mod sentry;
 
-pub use legacy::*;
+pub(crate) use legacy::*;
 
-pub mod gb {
+pub(crate) mod gb {
     #[cfg(feature = "error-context")]
     pub use error_context::*;
 
@@ -319,6 +319,7 @@ pub mod gb {
 mod legacy {
     use core::fmt;
 
+    use gitbutler::project_repository;
     use serde::{ser::SerializeMap, Serialize};
 
     #[derive(Debug)]
@@ -387,6 +388,21 @@ mod legacy {
         fn from(error: anyhow::Error) -> Self {
             tracing::error!(?error);
             Error::Unknown
+        }
+    }
+
+    impl From<project_repository::OpenError> for Error {
+        fn from(value: project_repository::OpenError) -> Self {
+            match value {
+                project_repository::OpenError::NotFound(path) => Error::UserError {
+                    code: Code::Projects,
+                    message: format!("{} not found", path.display()),
+                },
+                project_repository::OpenError::Other(error) => {
+                    tracing::error!(?error);
+                    Error::Unknown
+                }
+            }
         }
     }
 }

@@ -13,7 +13,8 @@ use tokio::{
     task,
 };
 
-use crate::{git, projects::ProjectId, watcher::events};
+use crate::watcher::events;
+use gitbutler::{git, projects::ProjectId};
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {

@@ -1,15 +1,42 @@
-mod controller;
-mod iterator;
-mod reader;
-pub mod session;
-mod writer;
+pub mod commands {
+    use tauri::{AppHandle, Manager};
+    use tracing::instrument;
 
-pub mod commands;
-pub mod database;
+    use crate::error::{Code, Error};
 
-pub use controller::Controller;
-pub use database::Database;
-pub use iterator::SessionsIterator;
-pub use reader::SessionReader as Reader;
-pub use session::{Meta, Session, SessionError, SessionId};
-pub use writer::SessionWriter as Writer;
+    use gitbutler::sessions::{
+        Session,
+        {controller::ListError, Controller},
+    };
+
+    impl From<ListError> for Error {
+        fn from(value: ListError) -> Self {
+            match value {
+                ListError::UsersError(error) => Error::from(error),
+                ListError::ProjectsError(error) => Error::from(error),
+                ListError::ProjectRepositoryError(error) => Error::from(error),
+                ListError::Other(error) => {
+                    tracing::error!(?error);
+                    Error::Unknown
+                }
+            }
+        }
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(handle))]
+    pub async fn list_sessions(
+        handle: AppHandle,
+        project_id: &str,
+        earliest_timestamp_ms: Option<u128>,
+    ) -> Result<Vec<Session>, Error> {
+        let project_id = project_id.parse().map_err(|_| Error::UserError {
+            code: Code::Validation,
+            message: "Malformed project id".to_string(),
+        })?;
+        handle
+            .state::<Controller>()
+            .list(&project_id, earliest_timestamp_ms)
+            .map_err(Into::into)
+    }
+}

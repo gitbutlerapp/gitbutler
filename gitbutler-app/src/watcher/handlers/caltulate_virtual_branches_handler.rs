@@ -9,8 +9,9 @@ use governor::{
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
-use crate::{
-    assets, events as app_events,
+use crate::events as app_events;
+use gitbutler::{
+    assets,
     projects::ProjectId,
     virtual_branches::{self, controller::ControllerError, VirtualBranches},
 };

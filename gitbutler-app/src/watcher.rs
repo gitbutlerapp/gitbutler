@@ -17,7 +17,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::projects::{self, ProjectId};
+use gitbutler::projects::{self, Project, ProjectId};
 
 #[derive(Clone)]
 pub struct Watchers {
@@ -77,6 +77,25 @@ impl Watchers {
             watcher.stop();
         };
         Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl gitbutler::projects::Watchers for Watchers {
+    fn watch(&self, project: &Project) -> Result<()> {
+        Watchers::watch(self, project)
+    }
+
+    async fn stop(&self, id: ProjectId) -> Result<()> {
+        Watchers::stop(self, &id).await
+    }
+
+    async fn fetch(&self, id: ProjectId) -> Result<()> {
+        self.post(Event::FetchGitbutlerData(id)).await
+    }
+
+    async fn push(&self, id: ProjectId) -> Result<()> {
+        self.post(Event::PushGitbutlerData(id)).await
     }
 }
 

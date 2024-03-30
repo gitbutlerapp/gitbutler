@@ -2,7 +2,8 @@ use std::{collections::HashMap, path};
 
 use anyhow::{Context, Result};
 
-use crate::{
+use crate::watcher;
+use gitbutler::{
     askpass::AskpassBroker,
     gb_repository, git,
     project_repository::{self, conflicts},
@@ -11,7 +12,6 @@ use crate::{
     sessions::{self, SessionId},
     users,
     virtual_branches::BranchId,
-    watcher,
 };
 
 #[derive(Clone)]

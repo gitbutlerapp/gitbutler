@@ -1,12 +1,12 @@
 use anyhow::Result;
-use gitbutler_app::{git, projects};
+use gitbutler::{git, projects};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::virtual_branches::set_test_target;
+use crate::shared::virtual_branches::set_test_target;
+use crate::shared::{Case, Suite};
 use crate::watcher::handler::test_remote_repository;
-use crate::{Case, Suite};
-use gitbutler_app::project_repository::LogUntil;
+use gitbutler::project_repository::LogUntil;
 use gitbutler_app::watcher::handlers::push_project_to_gitbutler::Handler;
 
 fn log_walk(repo: &git2::Repository, head: git::Oid) -> Vec<git::Oid> {

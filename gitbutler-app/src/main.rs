@@ -13,14 +13,17 @@
     clippy::too_many_lines
 )]
 
+use gitbutler::assets;
+use gitbutler::database;
+use gitbutler::git;
+use gitbutler::storage;
+#[cfg(target_os = "windows")]
+use gitbutler::windows;
 use gitbutler_app::analytics;
 use gitbutler_app::app;
 use gitbutler_app::askpass;
-use gitbutler_app::assets;
 use gitbutler_app::commands;
-use gitbutler_app::database;
 use gitbutler_app::deltas;
-use gitbutler_app::git;
 use gitbutler_app::github;
 use gitbutler_app::keys;
 use gitbutler_app::logs;
@@ -28,12 +31,9 @@ use gitbutler_app::menu;
 use gitbutler_app::projects;
 use gitbutler_app::sentry;
 use gitbutler_app::sessions;
-use gitbutler_app::storage;
 use gitbutler_app::users;
 use gitbutler_app::virtual_branches;
 use gitbutler_app::watcher;
-#[cfg(target_os = "windows")]
-use gitbutler_app::windows;
 use gitbutler_app::zip;
 
 use std::path::PathBuf;
@@ -101,7 +101,12 @@ fn main() {
 
                     tracing::info!(version = %app_handle.package_info().version, name = %app_handle.package_info().name, "starting app");
 
-                    let askpass_broker = askpass::AskpassBroker::init(app_handle.clone());
+                    let askpass_broker = gitbutler::askpass::AskpassBroker::init({
+                        let handle = app_handle.clone();
+                        move |event| {
+                            handle.emit_all("git_prompt", event).expect("tauri event emission doesn't fail in practice")
+                        }
+                    });
                     app_handle.manage(askpass_broker);
 
                     let storage_controller = storage::Storage::new(&app_data_dir);
@@ -110,16 +115,16 @@ fn main() {
                     let watcher_controller = watcher::Watchers::new(app_handle.clone());
                     app_handle.manage(watcher_controller.clone());
 
-                    let projects_storage_controller = projects::storage::Storage::new(storage_controller.clone());
+                    let projects_storage_controller = gitbutler::projects::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(projects_storage_controller.clone());
 
-                    let users_storage_controller = users::storage::Storage::new(storage_controller.clone());
+                    let users_storage_controller = gitbutler::users::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(users_storage_controller.clone());
 
-                    let users_controller = users::Controller::new(users_storage_controller.clone());
+                    let users_controller = gitbutler::users::Controller::new(users_storage_controller.clone());
                     app_handle.manage(users_controller.clone());
 
-                    let projects_controller = projects::Controller::new(
+                    let projects_controller = gitbutler::projects::Controller::new(
                         app_data_dir.clone(),
                         projects_storage_controller.clone(),
                         users_controller.clone(),
@@ -132,21 +137,21 @@ fn main() {
                     let database_controller = database::Database::open_in_directory(&app_data_dir).expect("failed to open database");
                     app_handle.manage(database_controller.clone());
 
-                    let zipper = zip::Zipper::new(&app_cache_dir);
+                    let zipper = gitbutler::zip::Zipper::new(&app_cache_dir);
                     app_handle.manage(zipper.clone());
 
-                    app_handle.manage(zip::Controller::new(app_data_dir.clone(), app_log_dir.clone(), zipper.clone(), projects_controller.clone()));
+                    app_handle.manage(gitbutler::zip::Controller::new(app_data_dir.clone(), app_log_dir.clone(), zipper.clone(), projects_controller.clone()));
 
-                    let deltas_database_controller = deltas::database::Database::new(database_controller.clone());
+                    let deltas_database_controller = gitbutler::deltas::database::Database::new(database_controller.clone());
                     app_handle.manage(deltas_database_controller.clone());
 
-                    let deltas_controller = deltas::Controller::new(deltas_database_controller.clone());
+                    let deltas_controller = gitbutler::deltas::Controller::new(deltas_database_controller.clone());
                     app_handle.manage(deltas_controller);
 
-                    let keys_storage_controller = keys::storage::Storage::new(storage_controller.clone());
+                    let keys_storage_controller = gitbutler::keys::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(keys_storage_controller.clone());
 
-                    let keys_controller = keys::Controller::new(keys_storage_controller.clone());
+                    let keys_controller = gitbutler::keys::Controller::new(keys_storage_controller.clone());
                     app_handle.manage(keys_controller.clone());
 
                     let git_credentials_controller = git::credentials::Helper::new(
@@ -156,7 +161,7 @@ fn main() {
                     );
                     app_handle.manage(git_credentials_controller.clone());
 
-                    app_handle.manage(virtual_branches::controller::Controller::new(
+                    app_handle.manage(gitbutler::virtual_branches::controller::Controller::new(
                         app_data_dir.clone(),
                         projects_controller.clone(),
                         users_controller.clone(),
@@ -196,10 +201,10 @@ fn main() {
                         };
                     }
 
-                    let sessions_database_controller = sessions::database::Database::new(database_controller.clone());
+                    let sessions_database_controller = gitbutler::sessions::database::Database::new(database_controller.clone());
                     app_handle.manage(sessions_database_controller.clone());
 
-                    app_handle.manage(sessions::Controller::new(
+                    app_handle.manage(gitbutler::sessions::Controller::new(
                         app_data_dir.clone(),
                         sessions_database_controller.clone(),
                         projects_controller.clone(),
