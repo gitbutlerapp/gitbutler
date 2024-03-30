@@ -1,8 +1,9 @@
 <script lang="ts">
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { maybeGetContextStore } from '$lib/utils/context';
+	import { Ownership } from '$lib/vbranches/ownership';
 	import type { TreeNode } from '$lib/vbranches/filetree';
-	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Writable } from 'svelte/store';
 
 	export let expanded: boolean;
@@ -10,7 +11,8 @@
 	export let isChecked = false;
 	export let showCheckbox = false;
 	export let isIndeterminate = false;
-	export let selectedOwnership: Writable<Ownership>;
+
+	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 
 	function idWithChildren(node: TreeNode): [string, string[]][] {
 		if (node.file) {
@@ -22,9 +24,9 @@
 	function onSelectionChanged() {
 		idWithChildren(node).forEach(([fileId, hunkIds]) => {
 			if (isChecked) {
-				selectedOwnership.update((ownership) => ownership.removeHunk(fileId, ...hunkIds));
+				selectedOwnership?.update((ownership) => ownership.removeHunk(fileId, ...hunkIds));
 			} else {
-				selectedOwnership.update((ownership) => ownership.addHunk(fileId, ...hunkIds));
+				selectedOwnership?.update((ownership) => ownership.addHunk(fileId, ...hunkIds));
 			}
 		});
 	}

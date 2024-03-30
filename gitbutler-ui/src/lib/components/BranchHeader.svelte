@@ -3,23 +3,26 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import Tag from './Tag.svelte';
+	import { Project } from '$lib/backend/projects';
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { Branch } from '$lib/vbranches/types';
 	import toast from 'svelte-french-toast';
 	import type { Persisted } from '$lib/persisted/persisted';
-	import type { Branch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied = false;
-	export let branch: Branch;
-	export let projectId: string;
 	export let isLaneCollapsed: Persisted<boolean>;
 
-	const branchController = getContextByClass(BranchController);
+	const branchController = getContext(BranchController);
+	const branchStore = getContextStore(Branch);
+	const project = getContext(Project);
+
+	$: branch = $branchStore;
 
 	let meatballButton: HTMLDivElement;
 	let visible = false;
@@ -69,7 +72,6 @@
 
 			<div class="collapsed-lane__info__details">
 				<ActiveBranchStatus
-					{branch}
 					{isUnapplied}
 					{hasIntegratedCommits}
 					isLaneCollapsed={$isLaneCollapsed}
@@ -93,7 +95,6 @@
 				</div>
 				<div class="header__remote-branch">
 					<ActiveBranchStatus
-						{branch}
 						{isUnapplied}
 						{hasIntegratedCommits}
 						isLaneCollapsed={$isLaneCollapsed}
@@ -154,7 +155,7 @@
 								isDeleting = true;
 								try {
 									await branchController.deleteBranch(branch.id);
-									goto(`/${projectId}/board`);
+									goto(`/${project.id}/board`);
 								} catch (e) {
 									const err = 'Failed to delete branch';
 									toasts.error(err);
@@ -176,7 +177,7 @@
 								isApplying = true;
 								try {
 									await branchController.applyBranch(branch.id);
-									goto(`/${projectId}/board`);
+									goto(`/${project.id}/board`);
 								} catch (e) {
 									const err = 'Failed to apply branch';
 									toast.error(err);
@@ -212,7 +213,7 @@
 									handler: () => (visible = false)
 								}}
 							>
-								<BranchLanePopupMenu {branch} {projectId} {isUnapplied} bind:visible on:action />
+								<BranchLanePopupMenu {isUnapplied} bind:visible on:action />
 							</div>
 						</div>
 					{/if}

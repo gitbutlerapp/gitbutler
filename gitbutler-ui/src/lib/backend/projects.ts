@@ -1,18 +1,11 @@
 import { invoke } from '$lib/backend/ipc';
 import { persisted } from '$lib/persisted/persisted';
+import { observableToStore } from '$lib/rxjs/store';
 import * as toasts from '$lib/utils/toasts';
 import { open } from '@tauri-apps/api/dialog';
 import { plainToInstance } from 'class-transformer';
-import {
-	BehaviorSubject,
-	catchError,
-	firstValueFrom,
-	from,
-	shareReplay,
-	skip,
-	switchMap
-} from 'rxjs';
-import { get } from 'svelte/store';
+import { BehaviorSubject, firstValueFrom, from, skip, switchMap } from 'rxjs';
+import { get, type Readable } from 'svelte/store';
 import type { Project as CloudProject } from '$lib/backend/cloud';
 import { goto } from '$app/navigation';
 
@@ -38,20 +31,19 @@ export class Project {
 export class ProjectService {
 	private reload$ = new BehaviorSubject<void>(undefined);
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
-	error$ = new BehaviorSubject<any>(undefined);
 
-	projects$ = this.reload$.pipe(
+	private projects$ = this.reload$.pipe(
 		switchMap(() =>
 			from(invoke<Project[]>('list_projects').then((p) => plainToInstance(Project, p)))
-		),
-		shareReplay(1),
-		catchError((e) => {
-			this.error$.next(e);
-			return [];
-		})
+		)
 	);
 
-	constructor(private homeDir: string | undefined) {}
+	projects: Readable<Project[]>;
+	error: Readable<any>;
+
+	constructor(private homeDir: string | undefined) {
+		[this.projects, this.error] = observableToStore(this.projects$);
+	}
 
 	async getProject(projectId: string) {
 		return await invoke<Project>('get_project', { id: projectId });

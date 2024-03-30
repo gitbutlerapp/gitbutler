@@ -14,7 +14,7 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { persisted, type Persisted } from '$lib/persisted/persisted';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { createEventDispatcher } from 'svelte';
 	import type { Branch } from '$lib/vbranches/types';
@@ -26,7 +26,7 @@
 	export let branch: Branch;
 	export let isPr = false;
 
-	const project = getContextByClass(Project);
+	const project = getContext(Project);
 
 	function defaultAction(): Persisted<BranchAction> {
 		const key = 'projectDefaultAction_';

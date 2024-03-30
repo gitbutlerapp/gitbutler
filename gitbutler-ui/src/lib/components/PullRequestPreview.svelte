@@ -2,13 +2,14 @@
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Tag from '$lib/components/Tag.svelte';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { marked } from 'marked';
 	import type { PullRequest } from '$lib/github/types';
 
 	export let pullrequest: PullRequest | undefined;
-	const branchController = getContextByClass(BranchController);
+
+	const branchController = getContext(BranchController);
 </script>
 
 {#if pullrequest != undefined}

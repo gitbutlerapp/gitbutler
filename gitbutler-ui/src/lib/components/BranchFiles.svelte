@@ -3,26 +3,23 @@
 	import BranchFilesList from './BranchFilesList.svelte';
 	import FileTree from './FileTree.svelte';
 	import { filesToFileTree } from '$lib/vbranches/filetree';
-	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	export let branchId: string;
 	export let files: LocalFile[] | RemoteFile[];
 	export let isUnapplied: boolean;
-	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
 	export let showCheckboxes = false;
 
-	export let allowMultiple: boolean;
-	export let readonly: boolean;
+	export let allowMultiple = false;
+	export let readonly = false;
 
 	let selectedListMode: string;
 </script>
 
 <div class="branch-files" class:isUnapplied>
 	<div class="branch-files__header">
-		<BranchFilesHeader {files} {selectedOwnership} {showCheckboxes} bind:selectedListMode />
+		<BranchFilesHeader {files} {showCheckboxes} bind:selectedListMode />
 	</div>
 	{#if files.length > 0}
 		<div class="files-padding">
@@ -30,9 +27,7 @@
 				<BranchFilesList
 					{allowMultiple}
 					{readonly}
-					{branchId}
 					{files}
-					{selectedOwnership}
 					{selectedFiles}
 					{showCheckboxes}
 					{isUnapplied}
@@ -43,9 +38,7 @@
 					{readonly}
 					node={filesToFileTree(files)}
 					{showCheckboxes}
-					{branchId}
 					isRoot={true}
-					{selectedOwnership}
 					{selectedFiles}
 					{isUnapplied}
 					{files}

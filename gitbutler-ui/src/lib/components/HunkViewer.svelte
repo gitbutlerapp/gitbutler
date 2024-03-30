@@ -6,29 +6,29 @@
 	import { Project } from '$lib/backend/projects';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableHunk } from '$lib/dragging/draggables';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { getContextByClass } from '$lib/utils/context';
-	import { getContext, onDestroy } from 'svelte';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { getContext, getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
+	import { Ownership } from '$lib/vbranches/ownership';
+	import { Branch, type Hunk } from '$lib/vbranches/types';
+	import { onDestroy } from 'svelte';
 	import type { HunkSection } from '$lib/utils/fileSections';
-	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { Hunk } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let viewport: HTMLDivElement | undefined = undefined;
 	export let contents: HTMLDivElement | undefined = undefined;
 	export let filePath: string;
 	export let section: HunkSection;
-	export let branchId: string | undefined;
 	export let minWidth: number;
 	export let selectable = false;
 	export let isUnapplied: boolean;
 	export let isFileLocked: boolean;
 	export let readonly: boolean = false;
-	export let selectedOwnership: Writable<Ownership> | undefined = undefined;
 	export let linesModified: number;
 
-	const userSettings = getContext(SETTINGS_CONTEXT) as SettingsStore;
-	const project = getContextByClass(Project);
+	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const branch = maybeGetContextStore(Branch);
+	const project = getContext(Project);
 
 	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
 		if (!selectedOwnership) return;
@@ -49,7 +49,7 @@
 
 	$: popupMenu = updateContextMenu(filePath);
 
-	$: draggingDisabled = readonly || isUnapplied || section.hunk.locked || !branchId;
+	$: draggingDisabled = readonly || isUnapplied || section.hunk.locked;
 
 	onDestroy(() => {
 		if (popupMenu) {
@@ -66,7 +66,7 @@
 		tabindex="0"
 		role="cell"
 		use:draggable={{
-			...draggableHunk(branchId, section.hunk),
+			...draggableHunk($branch?.id || '', section.hunk),
 			disabled: draggingDisabled
 		}}
 		on:contextmenu|preventDefault

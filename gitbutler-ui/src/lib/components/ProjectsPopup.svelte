@@ -2,14 +2,14 @@
 	import ListItem from './ListItem.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import { ProjectService } from '$lib/backend/projects';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
 	export let isNavCollapsed: boolean;
 
-	const projectService = getContextByClass(ProjectService);
-	const projects$ = projectService.projects$;
+	const projectService = getContext(ProjectService);
+	const projects = projectService.projects;
 
 	let hidden = true;
 	let loading = false;
@@ -26,10 +26,10 @@
 
 {#if !hidden}
 	<div class="popup" class:collapsed={isNavCollapsed}>
-		{#if $projects$.length > 0}
+		{#if $projects.length > 0}
 			<ScrollableContainer maxHeight="20rem">
 				<div class="popup__projects">
-					{#each $projects$ as project}
+					{#each $projects as project}
 						{@const selected = project.id == $page.params.projectId}
 						<ListItem
 							{selected}

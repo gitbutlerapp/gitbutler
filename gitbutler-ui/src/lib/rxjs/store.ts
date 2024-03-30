@@ -21,9 +21,9 @@ export function storeToObservable<T>(svelteStore: Writable<T> | Readable<T>): Ob
  */
 export function observableToStore<T>(
 	observable: Observable<T>
-): [Readable<T | undefined>, Readable<any | undefined>] {
+): [Readable<T>, Readable<any | undefined>] {
 	const error = writable<any>();
-	const store = writable<T | undefined>(undefined, () => {
+	const store = writable<T>(undefined, () => {
 		// This runs when the store is first subscribed to
 		const subscription = observable.subscribe({
 			next: (item) => {
@@ -31,7 +31,6 @@ export function observableToStore<T>(
 				store.set(item);
 			},
 			error: (err) => {
-				store.set(undefined);
 				error.set(err);
 			}
 		});

@@ -6,10 +6,9 @@
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableCommit, nonDraggable } from '$lib/dragging/draggables';
-	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
+	import { getContext, getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { Ownership } from '$lib/vbranches/ownership';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import {
 		LocalFile,
@@ -19,8 +18,8 @@
 		Branch,
 		BaseBranch
 	} from '$lib/vbranches/types';
-	import { writable, type Writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
+	import type { Writable } from 'svelte/store';
 
 	export let branch: Branch | undefined = undefined;
 	export let commit: Commit | RemoteCommit;
@@ -28,15 +27,12 @@
 	export let isHeadCommit: boolean = false;
 	export let isUnapplied = false;
 	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
-	export let branchId: string | undefined = undefined;
 
-	const branchController = getContextByClass(BranchController);
-	const baseBranch = getContextStoreByClass(BaseBranch);
+	const branchController = getContext(BranchController);
+	const baseBranch = getContextStore(BaseBranch);
+	const project = getContext(Project);
 
-	const selectedOwnership = writable(Ownership.default());
-	const project = getContextByClass(Project);
-
-	const currentCommitMessage = persistedCommitMessage(project.id, branchId || '');
+	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
 	let showFiles = false;
 
@@ -129,15 +125,7 @@
 
 	{#if showFiles}
 		<div class="files-container" transition:slide={{ duration: 100 }}>
-			<BranchFiles
-				branchId="blah"
-				{files}
-				{isUnapplied}
-				{selectedOwnership}
-				{selectedFiles}
-				allowMultiple={true}
-				readonly={true}
-			/>
+			<BranchFiles {files} {isUnapplied} {selectedFiles} readonly />
 
 			{#if hasCommitUrl || isUndoable}
 				<div class="files__footer">

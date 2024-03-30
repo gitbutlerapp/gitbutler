@@ -7,7 +7,7 @@
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import { ProjectService, Project } from '$lib/backend/projects';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch } from '$lib/vbranches/types';
@@ -15,9 +15,9 @@
 
 	export let baseBranch: BaseBranch;
 
-	const branchController = getContextByClass(BranchController);
-	const projectService = getContextByClass(ProjectService);
-	const project = getContextByClass(Project);
+	const branchController = getContext(BranchController);
+	const projectService = getContext(ProjectService);
+	const project = getContext(Project);
 
 	let isDeleting = false;
 	let deleteConfirmationModal: RemoveProjectButton;

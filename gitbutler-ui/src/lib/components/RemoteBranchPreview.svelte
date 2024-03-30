@@ -5,32 +5,30 @@
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import { Project } from '$lib/backend/projects';
 	import CommitCard from '$lib/components/CommitCard.svelte';
-	import { type SettingsStore, SETTINGS_CONTEXT } from '$lib/settings/userSettings';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
-	import { getContextByClass, getContextStoreByClass } from '$lib/utils/context';
-	import { Ownership } from '$lib/vbranches/ownership';
+	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BaseBranch, type AnyFile, type RemoteBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
-	import { getContext, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 	import type { PullRequest } from '$lib/github/types';
 
 	export let branch: RemoteBranch;
 	export let pr: PullRequest | undefined;
 
-	const project = getContextByClass(Project);
-	const baseBranch = getContextStoreByClass(BaseBranch);
+	const project = getContext(Project);
+	const baseBranch = getContextStore(BaseBranch);
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'branchPreviewLaneWidth';
 	const selectedFiles = writable<AnyFile[]>([]);
-	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
 
-	$: selectedOwnership = writable(Ownership.default());
 	$: selected = setSelected($selectedFiles);
 
 	function setSelected(files: AnyFile[]) {
@@ -95,9 +93,7 @@
 		{#if selected}
 			<FileCard
 				conflicted={selected.conflicted}
-				branchId={'blah'}
 				file={selected}
-				{selectedOwnership}
 				isUnapplied={false}
 				readonly={true}
 				on:close={() => {

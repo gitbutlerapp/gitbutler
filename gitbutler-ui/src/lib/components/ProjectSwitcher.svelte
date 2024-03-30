@@ -3,13 +3,13 @@
 	import Select from './Select.svelte';
 	import SelectItem from './SelectItem.svelte';
 	import { ProjectService, Project } from '$lib/backend/projects';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
 
-	const projectService = getContextByClass(ProjectService);
-	const project = getContextByClass(Project);
+	const projectService = getContext(ProjectService);
+	const project = getContext(Project);
 
-	$: projects$ = projectService.projects$;
+	const projects = projectService.projects;
 
 	let loading = false;
 	let select: Select;
@@ -22,7 +22,7 @@
 		label="Switch to another project"
 		itemId="id"
 		labelId="title"
-		items={$projects$}
+		items={$projects}
 		placeholder="Select a project..."
 		wide
 		bind:value={selectValue}

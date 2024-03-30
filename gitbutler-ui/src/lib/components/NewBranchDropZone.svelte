@@ -13,12 +13,12 @@
 		type DraggableHunk
 	} from '$lib/dragging/draggables';
 	import { dropzone } from '$lib/dragging/dropzone';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
 	import { get } from 'svelte/store';
 
-	const branchController = getContextByClass(BranchController);
+	const branchController = getContext(BranchController);
 
 	function accepts(data: any) {
 		return isDraggableFile(data) || isDraggableHunk(data);

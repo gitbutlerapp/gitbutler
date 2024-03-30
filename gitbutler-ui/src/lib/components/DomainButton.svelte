@@ -1,6 +1,6 @@
 <script lang="ts">
 	import UpdateBaseButton from './UpdateBaseButton.svelte';
-	import { getContextStoreByClass } from '$lib/utils/context';
+	import { getContextStore } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
@@ -12,7 +12,7 @@
 	export let iconSrc: string;
 	export let isNavCollapsed: boolean;
 
-	const baseBranch = getContextStoreByClass(BaseBranch);
+	const baseBranch = getContextStore(BaseBranch);
 
 	$: selected = $page.url.href.includes(href);
 </script>

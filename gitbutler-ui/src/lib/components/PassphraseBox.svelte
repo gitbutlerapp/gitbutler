@@ -2,7 +2,7 @@
 	import Button from './Button.svelte';
 	import TextBox from './TextBox.svelte';
 	import { PromptService, type SystemPrompt } from '$lib/backend/prompt';
-	import { getContextByClass } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 
 	export let prompt: SystemPrompt | undefined;
@@ -12,7 +12,7 @@
 	let submitDisabled: boolean = false;
 	let isSubmitting = false;
 
-	const promptService = getContextByClass(PromptService);
+	const promptService = getContext(PromptService);
 
 	async function submit() {
 		if (!prompt) return;

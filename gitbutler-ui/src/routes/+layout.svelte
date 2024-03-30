@@ -13,7 +13,7 @@
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import ToastController from '$lib/notifications/ToastController.svelte';
-	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/settings/userSettings';
+	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
 	import * as hotkeys from '$lib/utils/hotkeys';
@@ -28,18 +28,19 @@
 
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
-	setContext(SETTINGS_CONTEXT, userSettings);
+	setContext(SETTINGS, userSettings);
 
-	$: setContext(UserService, data.userService);
-	$: setContext(ProjectService, data.projectService);
-	$: setContext(UpdaterService, data.updaterService);
-	$: setContext(GitHubService, data.githubService);
-	$: setContext(GitConfigService, data.gitConfig);
-	$: setContext(AIService, data.aiService);
-	$: setContext(PromptService, data.promptService);
-	$: setContext(AuthService, data.authService);
-	$: setContext(CloudClient, data.cloud);
-	$: setContext(User, data.userService.user);
+	// Setters do not need to be reactive since `data` never updates
+	setContext(UserService, data.userService);
+	setContext(ProjectService, data.projectService);
+	setContext(UpdaterService, data.updaterService);
+	setContext(GitHubService, data.githubService);
+	setContext(GitConfigService, data.gitConfig);
+	setContext(AIService, data.aiService);
+	setContext(PromptService, data.promptService);
+	setContext(AuthService, data.authService);
+	setContext(CloudClient, data.cloud);
+	setContext(User, data.userService.user);
 
 	let shareIssueModal: ShareIssueModal;
 

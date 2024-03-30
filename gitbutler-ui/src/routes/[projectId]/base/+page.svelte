@@ -4,29 +4,26 @@
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/settings/userSettings';
-	import { getContextByClass } from '$lib/utils/context';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
-	import { Ownership } from '$lib/vbranches/ownership';
 	import lscache from 'lscache';
-	import { getContext, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 	import type { AnyFile } from '$lib/vbranches/types';
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'historyLaneWidth';
 	const selectedFiles = writable<AnyFile[]>([]);
-	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
-	const baseBranchService = getContextByClass(BaseBranchService);
+	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
 
 	$: error$ = baseBranchService.error$;
-
-	$: selectedOwnership = writable(Ownership.default());
 	$: selected = setSelected($selectedFiles);
 
 	function setSelected(files: AnyFile[]) {
@@ -69,9 +66,7 @@
 			{#if selected}
 				<FileCard
 					conflicted={selected.conflicted}
-					branchId={'blah'}
 					file={selected}
-					{selectedOwnership}
 					isUnapplied={false}
 					readonly={true}
 					on:close={() => {

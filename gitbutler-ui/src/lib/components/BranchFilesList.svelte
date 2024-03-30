@@ -2,13 +2,10 @@
 	import FileListItem from './FileListItem.svelte';
 	import { maybeMoveSelection } from '$lib/utils/selection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
-	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	export let branchId: string;
 	export let files: AnyFile[];
-	export let selectedOwnership: Writable<Ownership>;
 	export let isUnapplied = false;
 	export let showCheckboxes = false;
 	export let selectedFiles: Writable<AnyFile[]>;
@@ -22,10 +19,8 @@
 	<FileListItem
 		{file}
 		{readonly}
-		{branchId}
 		{isUnapplied}
 		{selectedFiles}
-		{selectedOwnership}
 		showCheckbox={showCheckboxes}
 		selected={$selectedFiles.includes(file)}
 		on:click={(e) => {

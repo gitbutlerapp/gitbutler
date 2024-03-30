@@ -5,30 +5,32 @@
 	import { draggable } from '$lib/dragging/draggable';
 	import { draggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { maybeGetContextStore } from '$lib/utils/context';
 	import { updateFocus } from '$lib/utils/selection';
+	import { Ownership } from '$lib/vbranches/ownership';
+	import { Branch, type AnyFile } from '$lib/vbranches/types';
 	import { onDestroy } from 'svelte';
-	import type { Ownership } from '$lib/vbranches/ownership';
-	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	export let branchId: string;
 	export let file: AnyFile;
 	export let isUnapplied: boolean;
 	export let selected: boolean;
 	export let showCheckbox: boolean = false;
-	export let selectedOwnership: Writable<Ownership>;
 	export let selectedFiles: Writable<AnyFile[]>;
 	export let readonly = false;
+
+	const branch = maybeGetContextStore(Branch);
+	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 
 	let checked = false;
 	let indeterminate = false;
 	let draggableElt: HTMLDivElement;
 
-	$: if (file) {
+	$: if (file && $selectedOwnership) {
 		const fileId = file.id;
-		checked = file.hunks.every((hunk) => $selectedOwnership.containsHunk(fileId, hunk.id));
+		checked = file.hunks.every((hunk) => $selectedOwnership?.containsHunk(fileId, hunk.id));
 		const selectedCount = file.hunks.filter((hunk) =>
-			$selectedOwnership.containsHunk(fileId, hunk.id)
+			$selectedOwnership?.containsHunk(fileId, hunk.id)
 		).length;
 		indeterminate = selectedCount > 0 && file.hunks.length - selectedCount > 0;
 	}
@@ -58,7 +60,7 @@
 			{checked}
 			{indeterminate}
 			on:change={(e) => {
-				selectedOwnership.update((ownership) => {
+				selectedOwnership?.update((ownership) => {
 					if (e.detail) file.hunks.forEach((h) => ownership.addHunk(file.id, h.id));
 					if (!e.detail) file.hunks.forEach((h) => ownership.removeHunk(file.id, h.id));
 					return ownership;
@@ -80,7 +82,7 @@
 			}
 		}}
 		use:draggable={{
-			...draggableFile(branchId, file, selectedFiles),
+			...draggableFile($branch?.id || '', file, selectedFiles),
 			disabled: readonly || isUnapplied,
 			selector: '.selected-draggable'
 		}}
