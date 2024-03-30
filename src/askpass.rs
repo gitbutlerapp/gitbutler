@@ -3,7 +3,8 @@ use std::{collections::HashMap, sync::Arc};
 use serde::Serialize;
 use tokio::sync::{oneshot, Mutex};
 
-use crate::{id::Id, virtual_branches::BranchId};
+use crate::id::Id;
+use crate::virtual_branches::BranchId;
 
 pub struct AskpassRequest {
     sender: oneshot::Sender<Option<String>>,

@@ -2,8 +2,9 @@ use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
-use super::{error::Error, remote};
 use crate::git;
+
+use super::{error::Error, remote};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Refname {

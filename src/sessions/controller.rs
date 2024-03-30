@@ -2,12 +2,13 @@ use std::path;
 
 use anyhow::Context;
 
-use super::{Database, Session};
 use crate::{
     gb_repository, project_repository,
     projects::{self, ProjectId},
     users,
 };
+
+use super::{Database, Session};
 
 #[derive(Clone)]
 pub struct Controller {

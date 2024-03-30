@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use super::{database, Delta};
 use crate::{projects::ProjectId, sessions::SessionId};
+
+use super::{database, Delta};
 
 #[derive(Clone)]
 pub struct Controller {

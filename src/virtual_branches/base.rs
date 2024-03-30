@@ -3,11 +3,6 @@ use std::time;
 use anyhow::{Context, Result};
 use serde::Serialize;
 
-use super::{
-    branch, errors,
-    integration::{update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE},
-    target, BranchId, RemoteCommit,
-};
 use crate::{
     gb_repository,
     git::{self, diff},
@@ -16,6 +11,12 @@ use crate::{
     projects::FetchResult,
     reader, sessions, users,
     virtual_branches::branch::BranchOwnershipClaims,
+};
+
+use super::{
+    branch, errors,
+    integration::{update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE},
+    target, BranchId, RemoteCommit,
 };
 
 #[derive(Debug, Serialize, PartialEq, Clone)]

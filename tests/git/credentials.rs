@@ -1,9 +1,6 @@
+use gitbutler::git::credentials::{Credential, Helper, HttpsCredential, SshCredential};
+use gitbutler::{keys, project_repository, projects, users};
 use std::path::PathBuf;
-
-use gitbutler::{
-    git::credentials::{Credential, Helper, HttpsCredential, SshCredential},
-    keys, project_repository, projects, users,
-};
 
 use crate::shared::{temp_dir, test_repository};
 

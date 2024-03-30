@@ -1,8 +1,9 @@
-use std::{fs::File, io::Write};
-
 use gitbutler::zip::Zipper;
-use tempfile::tempdir;
 use walkdir::WalkDir;
+
+use std::fs::File;
+use std::io::Write;
+use tempfile::tempdir;
 
 #[test]
 fn zip_dir() {

@@ -3,11 +3,10 @@ use std::path;
 use anyhow::{Context, Result};
 use serde::Serialize;
 
+use crate::git::{self, diff, show};
+
 use super::errors;
-use crate::{
-    git::{self, diff, show},
-    virtual_branches::context,
-};
+use crate::virtual_branches::context;
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

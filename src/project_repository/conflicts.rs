@@ -13,8 +13,9 @@ use std::{
 use anyhow::Result;
 use itertools::Itertools;
 
-use super::Repository;
 use crate::git;
+
+use super::Repository;
 
 pub fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
     repository: &Repository,

@@ -1,7 +1,8 @@
+use gitbutler::virtual_branches::target::Target;
+use gitbutler::virtual_branches::{target, BranchId};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::Result;
-use gitbutler::virtual_branches::{target, target::Target, BranchId};
 use once_cell::sync::Lazy;
 
 use crate::shared::{Case, Suite};

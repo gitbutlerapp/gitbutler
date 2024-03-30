@@ -1,11 +1,12 @@
 use anyhow::{Context, Result};
 use serde::Serialize;
 
-use super::{errors, Author};
 use crate::{
     gb_repository, git,
     project_repository::{self, LogUntil},
 };
+
+use super::{errors, Author};
 
 // this struct is a mapping to the view `RemoteBranch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts

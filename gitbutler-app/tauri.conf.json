@@ -1,0 +1,72 @@
+{
+	"build": {
+		"beforeDevCommand": "pnpm dev",
+		"beforeBuildCommand": "pnpm build:development",
+		"devPath": "http://localhost:1420",
+		"distDir": "../gitbutler-ui/build",
+		"withGlobalTauri": false
+	},
+	"package": {
+		"productName": "GitButler Dev"
+	},
+	"tauri": {
+		"allowlist": {
+			"fs": {
+				"readFile": true,
+				"scope": ["$APPCACHE/archives/*", "$RESOURCE/_up_/scripts/*"]
+			},
+			"shell": {
+				"open": "^((https://)|(http://)|(mailto:)|(vscode://)).+"
+			},
+			"dialog": {
+				"open": true
+			},
+			"os": {
+				"all": true
+			},
+			"protocol": {
+				"asset": true,
+				"assetScope": ["$APPCACHE/images/*"]
+			},
+			"process": {
+				"relaunch": true
+			},
+			"window": {
+				"startDragging": true,
+				"maximize": true,
+				"unmaximize": true
+			},
+			"path": {
+				"all": true
+			},
+			"http": {
+				"all": true,
+				"request": true,
+				"scope": [" https://api.anthropic.com/v1/messages"]
+			}
+		},
+		"bundle": {
+			"active": true,
+			"identifier": "com.gitbutler.app.dev",
+			"category": "DeveloperTool",
+			"copyright": "Copyright © 2023 GitButler. All rights reserved.",
+			"icon": [
+				"icons/dev/32x32.png",
+				"icons/dev/128x128.png",
+				"icons/dev/128x128@2x.png",
+				"icons/dev/icon.icns",
+				"icons/dev/icon.ico"
+			],
+			"targets": ["app", "dmg", "appimage", "deb", "updater", "msi"]
+		},
+		"security": {
+			"csp": {
+				"default-src": "'self'",
+				"img-src": "'self' asset: https://asset.localhost data: tauri://localhost https://avatars.githubusercontent.com https://*.gitbutler.com  https://gitbutler-public.s3.amazonaws.com https://*.gravatar.com",
+				"connect-src": "'self' https://eu.posthog.com https://eu.i.posthog.com https://app.gitbutler.com https://o4504644069687296.ingest.sentry.io ws://localhost:7703 https://github.com https://api.github.com",
+				"script-src": "'self' https://eu.posthog.com https://eu.i.posthog.com",
+				"style-src": "'self' 'unsafe-inline'"
+			}
+		}
+	}
+}

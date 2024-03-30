@@ -1,8 +1,6 @@
-use std::fs;
-
-use gitbutler::virtual_branches::{branch, controller::ControllerError, errors::ResetBranchError};
-
 use crate::suite::virtual_branches::Test;
+use gitbutler::virtual_branches::{branch, controller::ControllerError, errors::ResetBranchError};
+use std::fs;
 
 #[tokio::test]
 async fn to_head() {

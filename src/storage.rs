@@ -1,10 +1,11 @@
-#[cfg(target_family = "unix")]
-use std::os::unix::prelude::*;
 use std::{
     fs,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
 };
+
+#[cfg(target_family = "unix")]
+use std::os::unix::prelude::*;
 
 #[derive(Debug, Default, Clone)]
 pub struct Storage {

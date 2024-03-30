@@ -2,8 +2,9 @@ use std::path;
 
 use anyhow::Result;
 
-use super::Branch;
 use crate::{gb_repository, reader, virtual_branches::state::VirtualBranchesHandle, writer};
+
+use super::Branch;
 
 pub struct BranchWriter<'writer> {
     repository: &'writer gb_repository::Repository,
