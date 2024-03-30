@@ -5,7 +5,12 @@ fn main() {
     // it before building.
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     assert_eq!(manifest_dir.file_name().unwrap(), "gitbutler-app");
-    let build_dir = manifest_dir.parent().unwrap().join("gitbutler-ui/build");
+    let build_dir = manifest_dir
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("gitbutler-ui/build");
     if !build_dir.exists() {
         // NOTE(qix-): Do not use `create_dir_all` here - the parent directory
         // NOTE(qix-): already exists, and we want to fail if not (for some reason).
