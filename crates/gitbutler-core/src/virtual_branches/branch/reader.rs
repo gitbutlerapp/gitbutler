@@ -1,3 +1,5 @@
+use anyhow::anyhow;
+
 use super::{Branch, BranchId};
 use crate::{reader, sessions, virtual_branches::VirtualBranchesHandle};
 
@@ -21,6 +23,13 @@ impl<'r> BranchReader<'r> {
     }
 
     pub fn read(&self, id: &BranchId) -> Result<Branch, reader::Error> {
-        Branch::from_reader(&self.reader.sub(format!("branches/{}", id)))
+        if self.use_state_handle && self.state_handle.file_exists() {
+            self.state_handle
+                .get_branch(id)
+                .and_then(|op| op.ok_or(anyhow!("Branch not found")))
+                .map_err(|_| reader::Error::NotFound)
+        } else {
+            Branch::from_reader(&self.reader.sub(format!("branches/{}", id)))
+        }
     }
 }
