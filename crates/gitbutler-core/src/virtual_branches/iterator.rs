@@ -2,7 +2,10 @@ use std::collections::HashSet;
 
 use anyhow::Result;
 
-use super::branch::{self, BranchId};
+use super::{
+    branch::{self, BranchId},
+    VirtualBranchesHandle,
+};
 use crate::sessions;
 
 pub struct BranchIterator<'i> {
@@ -11,8 +14,13 @@ pub struct BranchIterator<'i> {
 }
 
 impl<'i> BranchIterator<'i> {
-    pub fn new(session_reader: &'i sessions::Reader<'i>) -> Result<Self> {
+    pub fn new(
+        session_reader: &'i sessions::Reader<'i>,
+        state_handle: VirtualBranchesHandle,
+        use_state_handle: bool,
+    ) -> Result<Self> {
         let reader = session_reader.reader();
+        // TODO: If use_state_handle is true, we should read the branch ids from the state file
         let ids_itarator = reader
             .list_files("branches")?
             .into_iter()
@@ -34,7 +42,7 @@ impl<'i> BranchIterator<'i> {
             .collect();
         ids.sort();
         Ok(Self {
-            branch_reader: branch::Reader::new(session_reader),
+            branch_reader: branch::Reader::new(session_reader, state_handle, use_state_handle),
             ids,
         })
     }

@@ -78,10 +78,14 @@ pub fn update_gitbutler_integration(
         .context("failed to open current session")?;
 
     // get all virtual branches, we need to try to update them all
-    let all_virtual_branches = super::iterator::BranchIterator::new(&session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<super::branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?;
+    let all_virtual_branches = super::iterator::BranchIterator::new(
+        &session_reader,
+        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
+        project_repository.project().use_toml_vbranches_state(),
+    )
+    .context("failed to create branch iterator")?
+    .collect::<Result<Vec<super::branch::Branch>, reader::Error>>()
+    .context("failed to read virtual branches")?;
 
     let applied_virtual_branches = all_virtual_branches
         .iter()

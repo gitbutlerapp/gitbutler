@@ -56,12 +56,20 @@ fn test_branch() -> gitbutler_core::virtual_branches::branch::Branch {
 #[test]
 fn read_not_found() -> Result<()> {
     let suite = Suite::default();
-    let Case { gb_repository, .. } = &suite.new_case();
+    let Case {
+        gb_repository,
+        project,
+        ..
+    } = &suite.new_case();
 
     let session = gb_repository.get_or_create_current_session()?;
     let session_reader = gitbutler_core::sessions::Reader::open(gb_repository, &session)?;
 
-    let reader = target::Reader::new(&session_reader);
+    let reader = target::Reader::new(
+        &session_reader,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+        project.use_toml_vbranches_state(),
+    );
     let result = reader.read(&BranchId::generate());
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().to_string(), "file not found");
@@ -72,7 +80,11 @@ fn read_not_found() -> Result<()> {
 #[test]
 fn read_deprecated_format() -> Result<()> {
     let suite = Suite::default();
-    let Case { gb_repository, .. } = &suite.new_case();
+    let Case {
+        gb_repository,
+        project,
+        ..
+    } = &suite.new_case();
 
     let writer = gitbutler_core::writer::DirWriter::open(gb_repository.root())?;
     writer
@@ -93,7 +105,11 @@ fn read_deprecated_format() -> Result<()> {
 
     let session = gb_repository.get_or_create_current_session()?;
     let session_reader = gitbutler_core::sessions::Reader::open(gb_repository, &session)?;
-    let reader = target::Reader::new(&session_reader);
+    let reader = target::Reader::new(
+        &session_reader,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+        project.use_toml_vbranches_state(),
+    );
 
     let read = reader.read_default().unwrap();
     assert_eq!(read.branch.branch(), "master");
@@ -143,7 +159,11 @@ fn read_override_target() -> Result<()> {
 
     let target_writer =
         target::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
-    let reader = target::Reader::new(&session_reader);
+    let reader = target::Reader::new(
+        &session_reader,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+        project.use_toml_vbranches_state(),
+    );
 
     target_writer.write_default(&default_target)?;
     assert_eq!(default_target, reader.read(&branch.id)?);

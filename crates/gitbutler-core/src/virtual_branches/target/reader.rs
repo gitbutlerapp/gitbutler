@@ -1,14 +1,25 @@
 use super::Target;
-use crate::{reader, sessions, virtual_branches::BranchId};
+use crate::{
+    reader, sessions,
+    virtual_branches::{BranchId, VirtualBranchesHandle},
+};
 
 pub struct TargetReader<'r> {
     reader: &'r reader::Reader<'r>,
+    state_handle: VirtualBranchesHandle,
+    use_state_handle: bool,
 }
 
 impl<'r> TargetReader<'r> {
-    pub fn new(reader: &'r sessions::Reader<'r>) -> Self {
+    pub fn new(
+        reader: &'r sessions::Reader<'r>,
+        state_handle: VirtualBranchesHandle,
+        use_state_handle: bool,
+    ) -> Self {
         Self {
             reader: reader.reader(),
+            state_handle,
+            use_state_handle,
         }
     }
 

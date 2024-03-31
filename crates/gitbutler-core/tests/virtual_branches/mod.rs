@@ -310,7 +310,11 @@ fn create_branch_with_ownership() -> Result<()> {
 
     let current_session = gb_repository.get_or_create_current_session().unwrap();
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session).unwrap();
-    let branch_reader = virtual_branches::branch::Reader::new(&current_session_reader);
+    let branch_reader = virtual_branches::branch::Reader::new(
+        &current_session_reader,
+        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
+        project_repository.project().use_toml_vbranches_state(),
+    );
     let branch0 = branch_reader.read(&branch0.id).unwrap();
 
     let branch1 = create_virtual_branch(
@@ -375,9 +379,13 @@ fn create_branch_in_the_middle() -> Result<()> {
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
 
-    let mut branches = virtual_branches::Iterator::new(&current_session_reader)?
-        .collect::<Result<Vec<virtual_branches::Branch>, reader::Error>>()
-        .expect("failed to read branches");
+    let mut branches = virtual_branches::Iterator::new(
+        &current_session_reader,
+        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
+        project_repository.project().use_toml_vbranches_state(),
+    )?
+    .collect::<Result<Vec<virtual_branches::Branch>, reader::Error>>()
+    .expect("failed to read branches");
     branches.sort_by_key(|b| b.order);
     assert_eq!(branches.len(), 3);
     assert_eq!(branches[0].name, "Virtual branch");
@@ -408,9 +416,13 @@ fn create_branch_no_arguments() -> Result<()> {
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
 
-    let branches = virtual_branches::Iterator::new(&current_session_reader)?
-        .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
-        .expect("failed to read branches");
+    let branches = virtual_branches::Iterator::new(
+        &current_session_reader,
+        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
+        project_repository.project().use_toml_vbranches_state(),
+    )?
+    .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
+    .expect("failed to read branches");
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].name, "Virtual branch");
     assert!(branches[0].applied);
@@ -613,7 +625,11 @@ fn move_hunks_multiple_sources() -> Result<()> {
 
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
-    let branch_reader = virtual_branches::branch::Reader::new(&current_session_reader);
+    let branch_reader = virtual_branches::branch::Reader::new(
+        &current_session_reader,
+        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
+        project_repository.project().use_toml_vbranches_state(),
+    );
     let branch_writer = virtual_branches::branch::Writer::new(
         gb_repository,
         VirtualBranchesHandle::new(&project.gb_dir()),
@@ -1402,7 +1418,11 @@ fn detect_mergeable_branch() -> Result<()> {
 
     let current_session = gb_repository.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
-    let branch_reader = virtual_branches::branch::Reader::new(&current_session_reader);
+    let branch_reader = virtual_branches::branch::Reader::new(
+        &current_session_reader,
+        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
+        project_repository.project().use_toml_vbranches_state(),
+    );
     let branch_writer = virtual_branches::branch::Writer::new(
         gb_repository,
         VirtualBranchesHandle::new(&project.gb_dir()),
