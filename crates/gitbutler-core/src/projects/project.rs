@@ -83,6 +83,8 @@ pub struct Project {
     pub omit_certificate_check: Option<bool>,
     #[serde(default)]
     pub use_diff_context: Option<bool>,
+    #[serde(default)]
+    pub use_toml_vbranches_state: Option<bool>,
 }
 
 impl AsRef<Project> for Project {
@@ -108,5 +110,9 @@ impl Project {
     /// Normally this is `.git/gitbutler` in the project's repository.
     pub fn gb_dir(&self) -> PathBuf {
         self.path.join(".git").join("gitbutler")
+    }
+
+    pub fn use_toml_vbranches_state(&self) -> bool {
+        self.use_toml_vbranches_state.unwrap_or(false)
     }
 }
