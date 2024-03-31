@@ -8,6 +8,7 @@ mod suite {
 
 mod database;
 mod deltas;
+mod error;
 mod gb_repository;
 mod git;
 mod keys;
