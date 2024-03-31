@@ -233,7 +233,7 @@ export class RemoteFile {
 	}
 
 	get filename(): string {
-		return this.path.replace(/^.*[\\/]/, '');
+		return this.path.replace(/^.*[/]/, '');
 	}
 
 	get justpath() {
