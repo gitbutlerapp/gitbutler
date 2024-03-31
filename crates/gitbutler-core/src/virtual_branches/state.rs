@@ -49,7 +49,6 @@ impl VirtualBranchesHandle {
     /// Gets the default target for the given repository.
     ///
     /// Errors if the file cannot be read or written.
-    #[allow(dead_code)]
     pub fn get_default_target(&self) -> Result<Option<Target>> {
         let virtual_branches = self.read_file()?;
         Ok(virtual_branches.default_target)
@@ -68,10 +67,9 @@ impl VirtualBranchesHandle {
     /// Gets the target for the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    #[allow(dead_code)]
-    pub fn get_branch_target(&self, id: BranchId) -> Result<Option<Target>> {
+    pub fn get_branch_target(&self, id: &BranchId) -> Result<Option<Target>> {
         let virtual_branches = self.read_file()?;
-        Ok(virtual_branches.branch_targets.get(&id).cloned())
+        Ok(virtual_branches.branch_targets.get(id).cloned())
     }
 
     /// Sets the state of the given virtual branch.
@@ -87,7 +85,6 @@ impl VirtualBranchesHandle {
     /// Removes the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    #[allow(dead_code)]
     pub fn remove_branch(&self, id: BranchId) -> Result<()> {
         let mut virtual_branches = self.read_file()?;
         virtual_branches.branches.remove(&id);
@@ -98,10 +95,21 @@ impl VirtualBranchesHandle {
     /// Gets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    #[allow(dead_code)]
-    pub fn get_branch(&self, id: BranchId) -> Result<Option<Branch>> {
+    pub fn get_branch(&self, id: &BranchId) -> Result<Option<Branch>> {
         let virtual_branches = self.read_file()?;
-        Ok(virtual_branches.branches.get(&id).cloned())
+        Ok(virtual_branches.branches.get(id).cloned())
+    }
+
+    pub fn list_branches(&self) -> Result<HashMap<BranchId, Branch>> {
+        let virtual_branches = self.read_file()?;
+        Ok(virtual_branches.branches)
+    }
+
+    /// Checks if the state file exists.
+    ///
+    /// This would only be false if the application just updated from a very old verion.
+    pub fn file_exists(&self) -> bool {
+        self.file_path.exists()
     }
 
     /// Reads and parses the state file.
