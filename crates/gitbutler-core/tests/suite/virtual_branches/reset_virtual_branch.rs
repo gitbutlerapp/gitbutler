@@ -1,8 +1,6 @@
 use std::fs;
 
-use gitbutler_core::virtual_branches::{
-    branch, controller::ControllerError, errors::ResetBranchError,
-};
+use gitbutler_core::virtual_branches::{branch, errors::ResetBranchError};
 
 use crate::suite::virtual_branches::Test;
 
@@ -261,9 +259,9 @@ async fn to_non_existing() {
                 &branch1_id,
                 "fe14df8c66b73c6276f7bb26102ad91da680afcb".parse().unwrap()
             )
-            .await,
-        Err(ControllerError::Action(
-            ResetBranchError::CommitNotFoundInBranch(_)
-        ))
+            .await
+            .unwrap_err()
+            .downcast_ref(),
+        Some(ResetBranchError::CommitNotFoundInBranch(_))
     ));
 }

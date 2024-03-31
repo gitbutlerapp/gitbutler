@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use gitbutler_core::{
     git,
-    virtual_branches::{branch, controller::ControllerError, errors, BranchId},
+    virtual_branches::{branch, errors, BranchId},
 };
 
 use crate::suite::virtual_branches::Test;
@@ -242,8 +242,9 @@ async fn locked_hunks_on_source_branch() {
         controller
             .move_commit(project_id, &target_branch_id, commit_oid)
             .await
-            .unwrap_err(),
-        ControllerError::Action(errors::MoveCommitError::SourceLocked)
+            .unwrap_err()
+            .downcast_ref(),
+        Some(errors::MoveCommitError::SourceLocked)
     ));
 }
 
@@ -286,8 +287,9 @@ async fn no_commit() {
                 git::Oid::from_str("a99c95cca7a60f1a2180c2f86fb18af97333c192").unwrap()
             )
             .await
-            .unwrap_err(),
-        ControllerError::Action(errors::MoveCommitError::CommitNotFound(_))
+            .unwrap_err()
+            .downcast_ref(),
+        Some(errors::MoveCommitError::CommitNotFound(_))
     ));
 }
 
@@ -321,7 +323,8 @@ async fn no_branch() {
         controller
             .move_commit(project_id, &BranchId::generate(), commit_oid)
             .await
-            .unwrap_err(),
-        ControllerError::Action(errors::MoveCommitError::BranchNotFound(_))
+            .unwrap_err()
+            .downcast_ref(),
+        Some(errors::MoveCommitError::BranchNotFound(_))
     ));
 }

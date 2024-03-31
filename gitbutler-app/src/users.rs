@@ -1,30 +1,17 @@
 pub mod commands {
     use gitbutler_core::{
         assets,
-        users::{
-            controller::{self, Controller, GetError},
-            User,
-        },
+        users::{controller::Controller, User},
     };
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
-    use crate::{error::Error, sentry};
-
-    impl From<GetError> for Error {
-        fn from(value: GetError) -> Self {
-            match value {
-                GetError::Other(error) => {
-                    tracing::error!(?error, "failed to get user");
-                    Error::Unknown
-                }
-            }
-        }
-    }
+    use crate::error::Error2;
+    use crate::sentry;
 
     #[tauri::command(async)]
     #[instrument(skip(handle))]
-    pub async fn get_user(handle: AppHandle) -> Result<Option<User>, Error> {
+    pub async fn get_user(handle: AppHandle) -> Result<Option<User>, Error2> {
         let app = handle.state::<Controller>();
         let proxy = handle.state::<assets::Proxy>();
 
@@ -34,20 +21,9 @@ pub mod commands {
         }
     }
 
-    impl From<controller::SetError> for Error {
-        fn from(value: controller::SetError) -> Self {
-            match value {
-                controller::SetError::Other(error) => {
-                    tracing::error!(?error, "failed to set user");
-                    Error::Unknown
-                }
-            }
-        }
-    }
-
     #[tauri::command(async)]
     #[instrument(skip(handle))]
-    pub async fn set_user(handle: AppHandle, user: User) -> Result<User, Error> {
+    pub async fn set_user(handle: AppHandle, user: User) -> Result<User, Error2> {
         let app = handle.state::<Controller>();
         let proxy = handle.state::<assets::Proxy>();
 
@@ -58,20 +34,9 @@ pub mod commands {
         Ok(proxy.proxy_user(user).await)
     }
 
-    impl From<controller::DeleteError> for Error {
-        fn from(value: controller::DeleteError) -> Self {
-            match value {
-                controller::DeleteError::Other(error) => {
-                    tracing::error!(?error, "failed to delete user");
-                    Error::Unknown
-                }
-            }
-        }
-    }
-
     #[tauri::command(async)]
     #[instrument(skip(handle))]
-    pub async fn delete_user(handle: AppHandle) -> Result<(), Error> {
+    pub async fn delete_user(handle: AppHandle) -> Result<(), Error2> {
         let app = handle.state::<Controller>();
 
         app.delete_user()?;

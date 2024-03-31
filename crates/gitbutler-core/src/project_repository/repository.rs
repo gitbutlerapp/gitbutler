@@ -7,9 +7,11 @@ use std::{
 use anyhow::{Context, Result};
 
 use super::conflicts;
+use crate::error::{AnyhowContextExt, Code, ErrorWithContext};
 use crate::{
     askpass,
     askpass::AskpassBroker,
+    error,
     git::{self, credentials::HelpError, Url},
     keys,
     projects::{self, AuthKey},
@@ -41,6 +43,17 @@ impl From<OpenError> for crate::error::Error {
                 tracing::error!(?error);
                 crate::error::Error::Unknown
             }
+        }
+    }
+}
+
+impl ErrorWithContext for OpenError {
+    fn context(&self) -> Option<crate::error::Context> {
+        match self {
+            OpenError::NotFound(path) => {
+                error::Context::new(Code::Projects, format!("{} not found", path.display())).into()
+            }
+            OpenError::Other(error) => error.custom_context(),
         }
     }
 }
@@ -644,6 +657,22 @@ impl From<RemoteError> for crate::error::Error {
                 crate::error::Error::Unknown
             }
         }
+    }
+}
+
+impl ErrorWithContext for RemoteError {
+    fn context(&self) -> Option<error::Context> {
+        Some(match self {
+            RemoteError::Help(error) => return error.context(),
+            RemoteError::Network => {
+                error::Context::new_static(Code::ProjectGitRemote, "Network erorr occured")
+            }
+            RemoteError::Auth => error::Context::new_static(
+                Code::ProjectGitAuth,
+                "Project remote authentication error",
+            ),
+            RemoteError::Other(error) => return error.custom_context(),
+        })
     }
 }
 

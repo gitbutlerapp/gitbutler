@@ -3,11 +3,12 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::Context;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
-use crate::{gb_repository, project_repository, users};
+use crate::error::{AnyhowContextExt, Code, Error2, ErrorWithContext};
+use crate::{error, gb_repository, project_repository, users};
 
 #[async_trait]
 pub trait Watchers {
@@ -194,17 +195,15 @@ impl Controller {
         project
     }
 
-    pub fn list(&self) -> Result<Vec<Project>, ListError> {
-        self.projects_storage
-            .list()
-            .map_err(|error| ListError::Other(error.into()))
+    pub fn list(&self) -> Result<Vec<Project>> {
+        self.projects_storage.list().map_err(Into::into)
     }
 
-    pub async fn delete(&self, id: &ProjectId) -> Result<(), DeleteError> {
+    pub async fn delete(&self, id: &ProjectId) -> Result<(), Error2> {
         let project = match self.projects_storage.get(id) {
             Ok(project) => Ok(project),
             Err(super::storage::Error::NotFound) => return Ok(()),
-            Err(error) => Err(DeleteError::Other(error.into())),
+            Err(error) => Err(Error2::from_err(error)),
         }?;
 
         if let Some(watchers) = &self.watchers {
@@ -219,7 +218,7 @@ impl Controller {
 
         self.projects_storage
             .purge(&project.id)
-            .map_err(|error| DeleteError::Other(error.into()))?;
+            .map_err(anyhow::Error::from)?;
 
         if let Err(error) = std::fs::remove_dir_all(
             self.local_data_dir
@@ -290,23 +289,22 @@ pub enum ConfigError {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum DeleteError {
-    #[error(transparent)]
-    Other(anyhow::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ListError {
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
 pub enum GetError {
     #[error("project not found")]
     NotFound,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+impl error::ErrorWithContext for GetError {
+    fn context(&self) -> Option<error::Context> {
+        match self {
+            GetError::NotFound => {
+                error::Context::new_static(Code::Projects, "Project not found").into()
+            }
+            GetError::Other(error) => error.custom_context(),
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -317,6 +315,26 @@ pub enum UpdateError {
     Validation(UpdateValidationError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+impl ErrorWithContext for UpdateError {
+    fn context(&self) -> Option<error::Context> {
+        Some(match self {
+            UpdateError::Validation(UpdateValidationError::KeyNotFound(path)) => {
+                error::Context::new(Code::Projects, format!("'{}' not found", path.display()))
+            }
+            UpdateError::Validation(UpdateValidationError::KeyNotFile(path)) => {
+                error::Context::new(
+                    Code::Projects,
+                    format!("'{}' is not a file", path.display()),
+                )
+            }
+            UpdateError::NotFound => {
+                error::Context::new_static(Code::Projects, "Project not found")
+            }
+            UpdateError::Other(error) => return error.custom_context(),
+        })
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -340,9 +358,28 @@ pub enum AddError {
     #[error("submodules not supported")]
     SubmodulesNotSupported,
     #[error(transparent)]
-    User(#[from] users::GetError),
-    #[error(transparent)]
     OpenProjectRepository(#[from] project_repository::OpenError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+impl ErrorWithContext for AddError {
+    fn context(&self) -> Option<error::Context> {
+        Some(match self {
+            AddError::NotAGitRepository => {
+                error::Context::new_static(Code::Projects, "Must be a git directory")
+            }
+            AddError::AlreadyExists => {
+                error::Context::new_static(Code::Projects, "Project already exists")
+            }
+            AddError::OpenProjectRepository(error) => return error.context(),
+            AddError::NotADirectory => error::Context::new(Code::Projects, "Not a directory"),
+            AddError::PathNotFound => error::Context::new(Code::Projects, "Path not found"),
+            AddError::SubmodulesNotSupported => error::Context::new_static(
+                Code::Projects,
+                "Repositories with git submodules are not supported",
+            ),
+            AddError::Other(error) => return error.custom_context(),
+        })
+    }
 }

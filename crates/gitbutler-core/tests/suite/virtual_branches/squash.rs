@@ -314,8 +314,9 @@ async fn forcepush_forbidden() {
         controller
             .squash(project_id, &branch_id, commit_two_oid)
             .await
-            .unwrap_err(),
-        ControllerError::Action(errors::SquashError::ForcePushNotAllowed(_))
+            .unwrap_err()
+            .downcast_ref(),
+        Some(errors::SquashError::ForcePushNotAllowed(_))
     ));
 }
 
@@ -350,7 +351,8 @@ async fn root() {
         controller
             .squash(project_id, &branch_id, commit_one_oid)
             .await
-            .unwrap_err(),
-        ControllerError::Action(errors::SquashError::CantSquashRootCommit)
+            .unwrap_err()
+            .downcast_ref(),
+        Some(errors::SquashError::CantSquashRootCommit)
     ));
 }

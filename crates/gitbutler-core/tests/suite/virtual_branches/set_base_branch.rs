@@ -32,8 +32,9 @@ mod error {
                     &git::RemoteRefname::from_str("refs/remotes/origin/missing").unwrap(),
                 )
                 .await
-                .unwrap_err(),
-            ControllerError::Action(errors::SetBaseBranchError::BranchNotFound(_))
+                .unwrap_err()
+                .downcast_ref(),
+            Some(errors::SetBaseBranchError::BranchNotFound(_))
         ));
     }
 }
@@ -120,8 +121,9 @@ mod go_back_to_integration {
             controller
                 .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
-                .unwrap_err(),
-            ControllerError::Action(errors::SetBaseBranchError::DirtyWorkingDirectory)
+                .unwrap_err()
+                .downcast_ref(),
+            Some(errors::SetBaseBranchError::DirtyWorkingDirectory)
         ));
     }
 
@@ -156,8 +158,9 @@ mod go_back_to_integration {
                 .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
                 .map_err(|error| dbg!(error))
-                .unwrap_err(),
-            ControllerError::Action(errors::SetBaseBranchError::DirtyWorkingDirectory)
+                .unwrap_err()
+                .downcast_ref(),
+            Some(errors::SetBaseBranchError::DirtyWorkingDirectory)
         ));
     }
 

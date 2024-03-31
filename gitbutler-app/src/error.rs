@@ -1,3 +1,4 @@
+pub(crate) use frontend::Error2;
 pub use gitbutler_core::error::Code;
 pub(crate) use legacy::Error;
 

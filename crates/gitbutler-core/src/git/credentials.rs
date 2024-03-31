@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-use crate::{keys, project_repository, projects, users};
+use crate::error::{AnyhowContextExt, Code, Context, ErrorWithContext};
+use crate::{error, keys, project_repository, projects, users};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SshCredential {
@@ -81,11 +82,9 @@ pub enum HelpError {
     #[error("failed to convert url: {0}")]
     UrlConvertError(#[from] super::ConvertError),
     #[error(transparent)]
-    Users(#[from] users::GetError),
-    #[error(transparent)]
-    Key(#[from] keys::GetOrCreateError),
-    #[error(transparent)]
     Git(#[from] super::Error),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
 }
 
 impl From<HelpError> for crate::error::Error {
@@ -99,13 +98,25 @@ impl From<HelpError> for crate::error::Error {
                 code: crate::error::Code::ProjectGitRemote,
                 message: error.to_string(),
             },
-            HelpError::Users(error) => error.into(),
-            HelpError::Key(error) => error.into(),
             HelpError::Git(error) => {
                 tracing::error!(?error, "failed to create auth credentials");
                 Self::Unknown
             }
+            HelpError::Other(error) => error.into(),
         }
+    }
+}
+
+impl ErrorWithContext for HelpError {
+    fn context(&self) -> Option<Context> {
+        Some(match self {
+            HelpError::NoUrlSet => {
+                error::Context::new_static(Code::ProjectGitRemote, "no url set for remote")
+            }
+            HelpError::UrlConvertError(_) => Code::ProjectGitRemote.into(),
+            HelpError::Git(_) => return None,
+            HelpError::Other(error) => return error.custom_context(),
+        })
     }
 }
 

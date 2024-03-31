@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path};
 
 use anyhow::{Context, Result};
+use gitbutler_core::error::Error2 as CoreError;
 use gitbutler_core::{
     askpass::AskpassBroker,
     gb_repository, git,
@@ -12,6 +13,7 @@ use gitbutler_core::{
     virtual_branches::BranchId,
 };
 
+use crate::error::Error2;
 use crate::watcher;
 
 #[derive(Clone)]
@@ -21,18 +23,6 @@ pub struct App {
     users: users::Controller,
     watchers: watcher::Watchers,
     sessions_database: sessions::Database,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)]
-    GetProject(#[from] projects::GetError),
-    #[error(transparent)]
-    ProjectRemote(#[from] project_repository::RemoteError),
-    #[error(transparent)]
-    OpenProjectRepository(#[from] project_repository::OpenError),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
 }
 
 impl App {
@@ -79,15 +69,19 @@ impl App {
         project_id: &ProjectId,
         session_id: &SessionId,
         paths: Option<&[&path::Path]>,
-    ) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
+    ) -> Result<HashMap<path::PathBuf, reader::Content>, Error2> {
         let session = self
             .sessions_database
             .get_by_project_id_id(project_id, session_id)
             .context("failed to get session")?
             .context("session not found")?;
         let user = self.users.get_user().context("failed to get user")?;
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project = self
+            .projects
+            .get(project_id)
+            .map_err(Error2::from_error_with_context)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .map_err(Error2::from_error_with_context)?;
         let gb_repo = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -96,13 +90,12 @@ impl App {
         .context("failed to open gb repository")?;
         let session_reader =
             sessions::Reader::open(&gb_repo, &session).context("failed to open session reader")?;
-        session_reader
+        Ok(session_reader
             .files(paths)
-            .context("failed to read session files")
-            .map_err(Error::Other)
+            .context("failed to read session files")?)
     }
 
-    pub fn mark_resolved(&self, project_id: &ProjectId, path: &str) -> Result<(), Error> {
+    pub fn mark_resolved(&self, project_id: &ProjectId, path: &str) -> Result<(), CoreError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         // mark file as resolved
@@ -113,12 +106,10 @@ impl App {
     pub fn git_remote_branches(
         &self,
         project_id: &ProjectId,
-    ) -> Result<Vec<git::RemoteRefname>, Error> {
+    ) -> Result<Vec<git::RemoteRefname>, CoreError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        project_repository
-            .git_remote_branches()
-            .map_err(Error::Other)
+        Ok(project_repository.git_remote_branches()?)
     }
 
     pub fn git_test_push(
@@ -128,12 +119,10 @@ impl App {
         branch_name: &str,
         credentials: &git::credentials::Helper,
         askpass: Option<(AskpassBroker, Option<BranchId>)>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), CoreError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        project_repository
-            .git_test_push(credentials, remote_name, branch_name, askpass)
-            .map_err(Error::Other)
+        Ok(project_repository.git_test_push(credentials, remote_name, branch_name, askpass)?)
     }
 
     pub fn git_test_fetch(
@@ -142,15 +131,13 @@ impl App {
         remote_name: &str,
         credentials: &git::credentials::Helper,
         askpass: Option<(AskpassBroker, String)>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), CoreError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        project_repository
-            .fetch(remote_name, credentials, askpass)
-            .map_err(|e| Error::Other(anyhow::anyhow!(e.to_string())))
+        Ok(project_repository.fetch(remote_name, credentials, askpass)?)
     }
 
-    pub fn git_index_size(&self, project_id: &ProjectId) -> Result<usize, Error> {
+    pub fn git_index_size(&self, project_id: &ProjectId) -> Result<usize, CoreError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         let size = project_repository
@@ -159,7 +146,7 @@ impl App {
         Ok(size)
     }
 
-    pub fn git_head(&self, project_id: &ProjectId) -> Result<String, Error> {
+    pub fn git_head(&self, project_id: &ProjectId) -> Result<String, CoreError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         let head = project_repository
@@ -189,12 +176,12 @@ impl App {
         }
     }
 
-    pub async fn delete_all_data(&self) -> Result<(), Error> {
+    pub async fn delete_all_data(&self) -> Result<(), CoreError> {
         for project in self.projects.list().context("failed to list projects")? {
             self.projects
                 .delete(&project.id)
                 .await
-                .context("failed to delete project")?;
+                .map_err(|err| err.context("failed to delete project"))?;
         }
         Ok(())
     }

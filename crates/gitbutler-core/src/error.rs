@@ -187,16 +187,12 @@ impl Error2 {
     }
 }
 
-pub use legacy::Error;
-
-//#[deprecated(
-//    note = "the types in the error::legacy::* module are deprecated; use error::gb::Error and error::gb::Result instead"
-//)]
+pub(crate) use legacy::Error;
 mod legacy {
     use serde::{ser::SerializeMap, Serialize};
 
     use crate::error::Code;
-    use crate::{keys, projects, users};
+    use crate::projects;
 
     #[derive(Debug, thiserror::Error)]
     pub enum Error {
@@ -228,20 +224,6 @@ mod legacy {
 
     impl From<anyhow::Error> for Error {
         fn from(error: anyhow::Error) -> Self {
-            tracing::error!(?error);
-            Error::Unknown
-        }
-    }
-
-    impl From<keys::GetOrCreateError> for Error {
-        fn from(error: keys::GetOrCreateError) -> Self {
-            tracing::error!(?error);
-            Error::Unknown
-        }
-    }
-
-    impl From<users::GetError> for Error {
-        fn from(error: users::GetError) -> Self {
             tracing::error!(?error);
             Error::Unknown
         }

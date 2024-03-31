@@ -16,42 +16,15 @@ impl Controller {
         Controller::new(Storage::from_path(path))
     }
 
-    pub fn get_user(&self) -> Result<Option<User>, GetError> {
-        self.storage
-            .get()
-            .context("failed to get user")
-            .map_err(Into::into)
+    pub fn get_user(&self) -> anyhow::Result<Option<User>> {
+        self.storage.get().context("failed to get user")
     }
 
-    pub fn set_user(&self, user: &User) -> Result<(), SetError> {
-        self.storage
-            .set(user)
-            .context("failed to set user")
-            .map_err(Into::into)
+    pub fn set_user(&self, user: &User) -> anyhow::Result<()> {
+        self.storage.set(user).context("failed to set user")
     }
 
-    pub fn delete_user(&self) -> Result<(), DeleteError> {
-        self.storage
-            .delete()
-            .context("failed to delete user")
-            .map_err(Into::into)
+    pub fn delete_user(&self) -> anyhow::Result<()> {
+        self.storage.delete().context("failed to delete user")
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum GetError {
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum SetError {
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum DeleteError {
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
 }

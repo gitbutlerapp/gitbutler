@@ -53,7 +53,7 @@ pub fn list_remote_branches(
         .default_target()
         .context("failed to get default target")?
         .ok_or_else(|| {
-            errors::ListRemoteBranchesError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+            errors::ListRemoteBranchesError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
             })
         })?;
@@ -84,11 +84,9 @@ pub fn get_branch_data(
         .default_target()
         .context("failed to get default target")?
         .ok_or_else(|| {
-            errors::GetRemoteBranchDataError::DefaultTargetNotSet(
-                errors::DefaultTargetNotSetError {
-                    project_id: project_repository.project().id,
-                },
-            )
+            errors::GetRemoteBranchDataError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+                project_id: project_repository.project().id,
+            })
         })?;
 
     let branch = project_repository
