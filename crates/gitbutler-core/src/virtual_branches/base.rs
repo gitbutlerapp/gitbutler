@@ -11,6 +11,7 @@ use super::{
 use crate::{
     git::{self, diff},
     keys,
+    path_serialization::wrap_path,
     project_repository::{self, LogUntil},
     projects::FetchResult,
     users,
@@ -203,7 +204,7 @@ pub fn set_base_branch(
                 BranchOwnershipClaims::default(),
                 |mut ownership, hunk| {
                     ownership.put(
-                        &format!("{}:{}", hunk.file_path.display(), hunk.id)
+                        &format!("{}:{}", wrap_path(&hunk.file_path), hunk.id)
                             .parse()
                             .unwrap(),
                     );

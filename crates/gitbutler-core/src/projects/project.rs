@@ -66,6 +66,7 @@ pub struct Project {
     pub title: String,
     pub description: Option<String>,
     /// The worktree directory of the project's repository.
+    #[serde(with = "crate::path_serialization")]
     pub path: path::PathBuf,
     #[serde(default)]
     pub preferred_key: AuthKey,

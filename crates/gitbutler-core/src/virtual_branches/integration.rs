@@ -6,7 +6,8 @@ use lazy_static::lazy_static;
 
 use super::{errors, VirtualBranchesHandle};
 use crate::{
-    git::{self},
+    git,
+    path_serialization::wrap_path,
     project_repository::{self, LogUntil},
     virtual_branches::branch::BranchCreateRequest,
 };
@@ -216,7 +217,7 @@ pub fn update_gitbutler_integration_with_commit(
         }
         for file in &branch.ownership.claims {
             message.push_str("   - ");
-            message.push_str(&file.file_path.display().to_string());
+            message.push_str(&wrap_path(&file.file_path));
             message.push('\n');
         }
     }

@@ -26,6 +26,7 @@ pub mod id;
 pub mod keys;
 pub mod lock;
 pub mod path;
+pub mod path_serialization;
 pub mod project_repository;
 pub mod projects;
 pub mod reader;
