@@ -4,7 +4,11 @@ use std::{
 };
 
 use anyhow::Context;
-use gitbutler_core::virtual_branches::{branch, target, target::Target, BranchId};
+use gitbutler_core::virtual_branches::{
+    branch,
+    target::{self, Target},
+    BranchId, VirtualBranchesHandle,
+};
 use once_cell::sync::Lazy;
 
 use crate::shared::{Case, Suite};
@@ -69,10 +73,12 @@ fn write() -> anyhow::Result<()> {
         sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
     };
 
-    let branch_writer = branch::Writer::new(gb_repository, project.gb_dir())?;
+    let branch_writer =
+        branch::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
     branch_writer.write(&mut branch)?;
 
-    let target_writer = target::Writer::new(gb_repository, project.gb_dir())?;
+    let target_writer =
+        target::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
     target_writer.write(&branch.id, &target)?;
 
     let root = gb_repository
@@ -161,9 +167,11 @@ fn should_update() -> anyhow::Result<()> {
         sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
     };
 
-    let branch_writer = branch::Writer::new(gb_repository, project.gb_dir())?;
+    let branch_writer =
+        branch::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
     branch_writer.write(&mut branch)?;
-    let target_writer = target::Writer::new(gb_repository, project.gb_dir())?;
+    let target_writer =
+        target::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
     target_writer.write(&branch.id, &target)?;
 
     let updated_target = Target {

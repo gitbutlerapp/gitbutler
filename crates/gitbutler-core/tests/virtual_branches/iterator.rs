@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::Result;
-use gitbutler_core::virtual_branches;
+use gitbutler_core::virtual_branches::{self, VirtualBranchesHandle};
 use once_cell::sync::Lazy;
 
 use crate::shared::{Case, Suite};
@@ -90,12 +90,16 @@ fn iterate_all() -> Result<()> {
         ..
     } = &suite.new_case();
 
-    let target_writer =
-        gitbutler_core::virtual_branches::target::Writer::new(gb_repository, project.gb_dir())?;
+    let target_writer = gitbutler_core::virtual_branches::target::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+    )?;
     target_writer.write_default(&new_test_target())?;
 
-    let branch_writer =
-        gitbutler_core::virtual_branches::branch::Writer::new(gb_repository, project.gb_dir())?;
+    let branch_writer = gitbutler_core::virtual_branches::branch::Writer::new(
+        gb_repository,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+    )?;
     let mut branch_1 = new_test_branch();
     branch_writer.write(&mut branch_1)?;
     let mut branch_2 = new_test_branch();

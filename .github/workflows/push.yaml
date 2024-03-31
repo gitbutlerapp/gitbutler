@@ -35,6 +35,7 @@ jobs:
             rust: &any-rust
               - *rust
               - 'gitbutler-!(ui)/**'
+              - 'crates/**'
             gitbutler-app:
               - *any-rust
             gitbutler-core:
@@ -197,6 +198,7 @@ jobs:
     if: always()
     needs:
       - changes
+      - check-gitbutler
       - check-gitbutler-app
       - check-gitbutler-changeset
       - check-gitbutler-git
