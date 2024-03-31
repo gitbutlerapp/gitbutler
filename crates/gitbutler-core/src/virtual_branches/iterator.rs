@@ -2,7 +2,10 @@ use std::collections::HashSet;
 
 use anyhow::Result;
 
-use super::branch::{self, BranchId};
+use super::{
+    branch::{self, BranchId},
+    VirtualBranchesHandle,
+};
 use crate::sessions;
 
 pub struct BranchIterator<'i> {
@@ -11,22 +14,34 @@ pub struct BranchIterator<'i> {
 }
 
 impl<'i> BranchIterator<'i> {
-    pub fn new(session_reader: &'i sessions::Reader<'i>) -> Result<Self> {
-        let reader = session_reader.reader();
-        let ids_itarator = reader
-            .list_files("branches")?
-            .into_iter()
-            .map(|file_path| {
-                file_path
-                    .iter()
-                    .next()
-                    .unwrap()
-                    .to_string_lossy()
-                    .to_string()
-            })
-            .filter(|file_path| file_path != "selected")
-            .filter(|file_path| file_path != "target");
-        let unique_ids: HashSet<String> = ids_itarator.collect();
+    pub fn new(
+        session_reader: &'i sessions::Reader<'i>,
+        state_handle: VirtualBranchesHandle,
+        use_state_handle: bool,
+    ) -> Result<Self> {
+        let unique_ids: HashSet<String> = if use_state_handle && state_handle.file_exists() {
+            state_handle
+                .list_branches()?
+                .into_keys()
+                .map(|id| id.to_string())
+                .collect()
+        } else {
+            session_reader
+                .reader()
+                .list_files("branches")?
+                .into_iter()
+                .map(|file_path| {
+                    file_path
+                        .iter()
+                        .next()
+                        .unwrap()
+                        .to_string_lossy()
+                        .to_string()
+                })
+                .filter(|file_path| file_path != "selected")
+                .filter(|file_path| file_path != "target")
+                .collect()
+        };
         let mut ids: Vec<BranchId> = unique_ids
             .into_iter()
             .map(|id| id.parse())
@@ -34,7 +49,7 @@ impl<'i> BranchIterator<'i> {
             .collect();
         ids.sort();
         Ok(Self {
-            branch_reader: branch::Reader::new(session_reader),
+            branch_reader: branch::Reader::new(session_reader, state_handle, use_state_handle),
             ids,
         })
     }

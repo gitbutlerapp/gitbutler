@@ -62,12 +62,20 @@ fn test_branch() -> Branch {
 #[test]
 fn read_not_found() -> Result<()> {
     let suite = Suite::default();
-    let Case { gb_repository, .. } = &suite.new_case();
+    let Case {
+        gb_repository,
+        project,
+        ..
+    } = &suite.new_case();
 
     let session = gb_repository.get_or_create_current_session()?;
     let session_reader = gitbutler_core::sessions::Reader::open(gb_repository, &session)?;
 
-    let reader = branch::Reader::new(&session_reader);
+    let reader = branch::Reader::new(
+        &session_reader,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+        project.use_toml_vbranches_state(),
+    );
     let result = reader.read(&BranchId::generate());
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().to_string(), "file not found");
@@ -92,7 +100,11 @@ fn read_override() -> Result<()> {
     let session = gb_repository.get_current_session()?.unwrap();
     let session_reader = gitbutler_core::sessions::Reader::open(gb_repository, &session)?;
 
-    let reader = branch::Reader::new(&session_reader);
+    let reader = branch::Reader::new(
+        &session_reader,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+        project.use_toml_vbranches_state(),
+    );
 
     assert_eq!(branch, reader.read(&branch.id).unwrap());
 

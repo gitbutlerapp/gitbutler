@@ -256,14 +256,22 @@ impl Repository {
         let last_session_reader = sessions::Reader::open(self, &last_session)
             .context("failed to open last session reader")?;
 
-        let branches = virtual_branches::Iterator::new(&last_session_reader)
-            .context("failed to read virtual branches")?
-            .collect::<Result<Vec<_>, reader::Error>>()
-            .context("failed to read virtual branches")?
-            .into_iter()
-            .collect::<Vec<_>>();
+        let branches = virtual_branches::Iterator::new(
+            &last_session_reader,
+            VirtualBranchesHandle::new(&self.project.gb_dir()),
+            self.project.use_toml_vbranches_state(),
+        )
+        .context("failed to read virtual branches")?
+        .collect::<Result<Vec<_>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .collect::<Vec<_>>();
 
-        let src_target_reader = virtual_branches::target::Reader::new(&last_session_reader);
+        let src_target_reader = virtual_branches::target::Reader::new(
+            &last_session_reader,
+            VirtualBranchesHandle::new(&self.project.gb_dir()),
+            self.project.use_toml_vbranches_state(),
+        );
         let dst_target_writer = virtual_branches::target::Writer::new(
             self,
             VirtualBranchesHandle::new(&self.project.gb_dir()),
@@ -537,7 +545,11 @@ impl Repository {
         if let Some(latest_session) = self.get_latest_session()? {
             let latest_session_reader = sessions::Reader::open(self, &latest_session)
                 .context("failed to open current session")?;
-            let target_reader = target::Reader::new(&latest_session_reader);
+            let target_reader = target::Reader::new(
+                &latest_session_reader,
+                VirtualBranchesHandle::new(&self.project.gb_dir()),
+                self.project.use_toml_vbranches_state(),
+            );
             match target_reader.read_default() {
                 Result::Ok(target) => Ok(Some(target)),
                 Err(reader::Error::NotFound) => Ok(None),

@@ -664,18 +664,26 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
     // ensure that the virtual branch is still there and selected
     let session_reader = sessions::Reader::open(gb_repository, &session).unwrap();
 
-    let branches = virtual_branches::Iterator::new(&session_reader)
-        .unwrap()
-        .collect::<Result<Vec<virtual_branches::Branch>, gitbutler_core::reader::Error>>()
-        .unwrap()
-        .into_iter()
-        .collect::<Vec<virtual_branches::Branch>>();
+    let branches = virtual_branches::Iterator::new(
+        &session_reader,
+        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
+        project_repository.project().use_toml_vbranches_state(),
+    )
+    .unwrap()
+    .collect::<Result<Vec<virtual_branches::Branch>, gitbutler_core::reader::Error>>()
+    .unwrap()
+    .into_iter()
+    .collect::<Vec<virtual_branches::Branch>>();
     assert_eq!(branches.len(), 2);
     let branch_ids = branches.iter().map(|b| b.id).collect::<Vec<_>>();
     assert!(branch_ids.contains(&vbranch0.id));
     assert!(branch_ids.contains(&vbranch1.id));
 
-    let target_reader = virtual_branches::target::Reader::new(&session_reader);
+    let target_reader = virtual_branches::target::Reader::new(
+        &session_reader,
+        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
+        project_repository.project().use_toml_vbranches_state(),
+    );
     assert_eq!(target_reader.read_default().unwrap(), default_target);
     assert_eq!(target_reader.read(&vbranch0.id).unwrap(), default_target);
     assert_eq!(target_reader.read(&vbranch1.id).unwrap(), vbranch1_target);
@@ -724,18 +732,26 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
     // ensure that the virtual branch is still there and selected
     let session_reader = sessions::Reader::open(gb_repository, &session).unwrap();
 
-    let branches = virtual_branches::Iterator::new(&session_reader)
-        .unwrap()
-        .collect::<Result<Vec<virtual_branches::Branch>, gitbutler_core::reader::Error>>()
-        .unwrap()
-        .into_iter()
-        .collect::<Vec<virtual_branches::Branch>>();
+    let branches = virtual_branches::Iterator::new(
+        &session_reader,
+        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
+        project_repository.project().use_toml_vbranches_state(),
+    )
+    .unwrap()
+    .collect::<Result<Vec<virtual_branches::Branch>, gitbutler_core::reader::Error>>()
+    .unwrap()
+    .into_iter()
+    .collect::<Vec<virtual_branches::Branch>>();
     assert_eq!(branches.len(), 2);
     let branch_ids = branches.iter().map(|b| b.id).collect::<Vec<_>>();
     assert!(branch_ids.contains(&vbranch0.id));
     assert!(branch_ids.contains(&vbranch1.id));
 
-    let target_reader = virtual_branches::target::Reader::new(&session_reader);
+    let target_reader = virtual_branches::target::Reader::new(
+        &session_reader,
+        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
+        project_repository.project().use_toml_vbranches_state(),
+    );
     assert_eq!(target_reader.read_default().unwrap(), default_target);
     assert_eq!(target_reader.read(&vbranch0.id).unwrap(), default_target);
     assert_eq!(target_reader.read(&vbranch1.id).unwrap(), vbranch1_target);

@@ -530,8 +530,16 @@ impl ControllerInner {
             .context("failed to get or create current session")?;
         let session_reader = crate::sessions::Reader::open(&gb_repository, &current_session)
             .context("failed to open current session")?;
-        let target_reader = super::target::Reader::new(&session_reader);
-        let branch_reader = super::branch::Reader::new(&session_reader);
+        let target_reader = super::target::Reader::new(
+            &session_reader,
+            VirtualBranchesHandle::new(&project.gb_dir()),
+            project.use_toml_vbranches_state(),
+        );
+        let branch_reader = super::branch::Reader::new(
+            &session_reader,
+            VirtualBranchesHandle::new(&project.gb_dir()),
+            project.use_toml_vbranches_state(),
+        );
 
         let default_target = target_reader
             .read_default()

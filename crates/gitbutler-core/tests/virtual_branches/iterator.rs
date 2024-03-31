@@ -69,12 +69,20 @@ fn new_test_target() -> virtual_branches::target::Target {
 #[test]
 fn empty_iterator() -> Result<()> {
     let suite = Suite::default();
-    let Case { gb_repository, .. } = &suite.new_case();
+    let Case {
+        gb_repository,
+        project,
+        ..
+    } = &suite.new_case();
 
     let session = gb_repository.get_or_create_current_session()?;
     let session_reader = gitbutler_core::sessions::Reader::open(gb_repository, &session)?;
 
-    let iter = virtual_branches::Iterator::new(&session_reader)?;
+    let iter = virtual_branches::Iterator::new(
+        &session_reader,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+        project.use_toml_vbranches_state(),
+    )?;
 
     assert_eq!(iter.count(), 0);
 
@@ -110,8 +118,12 @@ fn iterate_all() -> Result<()> {
     let session = gb_repository.get_current_session()?.unwrap();
     let session_reader = gitbutler_core::sessions::Reader::open(gb_repository, &session)?;
 
-    let iter = virtual_branches::Iterator::new(&session_reader)?
-        .collect::<Result<Vec<_>, gitbutler_core::reader::Error>>()?;
+    let iter = virtual_branches::Iterator::new(
+        &session_reader,
+        VirtualBranchesHandle::new(&project.gb_dir()),
+        project.use_toml_vbranches_state(),
+    )?
+    .collect::<Result<Vec<_>, gitbutler_core::reader::Error>>()?;
     assert_eq!(iter.len(), 3);
     assert!(iter.contains(&branch_1));
     assert!(iter.contains(&branch_2));
