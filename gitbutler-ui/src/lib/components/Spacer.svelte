@@ -16,7 +16,7 @@
 	.divider {
 		height: 1px;
 		width: 100%;
-		border-bottom: 1px solid var(--clr-theme-scale-ntrl-0);
+		border-bottom: 1px solid var(--clr-scale-ntrl-0);
 		opacity: 0.15;
 	}
 </style>

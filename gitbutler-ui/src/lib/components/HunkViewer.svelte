@@ -126,9 +126,9 @@
 		overflow-x: auto;
 		user-select: text;
 
-		background: var(--clr-theme-container-light);
+		background: var(--clr-container-light);
 		border-radius: var(--radius-s);
-		border: 1px solid var(--clr-theme-container-outline-light);
+		border: 1px solid var(--clr-container-outline-light);
 		transition: border-color var(--transition-fast);
 	}
 

@@ -44,8 +44,8 @@
 		width: 100%;
 		max-height: calc(100vh - 5rem);
 		border-radius: var(--radius-l);
-		background-color: var(--clr-theme-container-light);
-		border: 1px solid var(--clr-theme-container-outline-light);
+		background-color: var(--clr-container-light);
+		border: 1px solid var(--clr-container-outline-light);
 		box-shadow: var(--fx-shadow-l);
 	}
 

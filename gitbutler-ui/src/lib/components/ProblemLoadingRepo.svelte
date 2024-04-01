@@ -67,12 +67,12 @@
 		gap: var(--size-8);
 		align-items: center;
 		line-height: 120%;
-		color: var(--clr-theme-scale-ntrl-30);
+		color: var(--clr-scale-ntrl-30);
 		margin-bottom: var(--size-20);
 	}
 
 	.problem__title {
-		color: var(--clr-theme-scale-ntrl-30);
+		color: var(--clr-scale-ntrl-30);
 		margin-bottom: var(--size-12);
 	}
 
@@ -83,7 +83,7 @@
 
 	.problem__error {
 		display: flex;
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		gap: var(--size-12);
 		padding: var(--size-20);
 		background-color: var(--clr-theme-err-container);
@@ -95,6 +95,6 @@
 		display: flex;
 		justify-content: flex-end;
 		padding-bottom: var(--size-24);
-		border-bottom: 1px dashed var(--clr-theme-scale-ntrl-60);
+		border-bottom: 1px dashed var(--clr-scale-ntrl-60);
 	}
 </style>

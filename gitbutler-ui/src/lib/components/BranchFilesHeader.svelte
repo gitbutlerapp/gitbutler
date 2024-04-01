@@ -81,7 +81,7 @@
 		display: flex;
 		align-items: center;
 		gap: var(--size-4);
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 	}
 	.header__left {
 		display: flex;

@@ -173,17 +173,17 @@
 		flex-direction: column;
 
 		border-radius: var(--size-6);
-		background-color: var(--clr-theme-container-light);
-		border: 1px solid var(--clr-theme-container-outline-light);
+		background-color: var(--clr-container-light);
+		border: 1px solid var(--clr-container-outline-light);
 		overflow: hidden;
 		transition: background-color var(--transition-fast);
 
 		&:not(.is-commit-open):hover {
 			border: 1px solid
-				color-mix(in srgb, var(--clr-theme-container-outline-light), var(--darken-tint-mid));
+				color-mix(in srgb, var(--clr-container-outline-light), var(--darken-tint-mid));
 			background-color: color-mix(
 				in srgb,
-				var(--clr-theme-container-light),
+				var(--clr-container-light),
 				var(--darken-tint-extralight)
 			);
 		}
@@ -198,22 +198,14 @@
 	}
 
 	.is-commit-open {
-		background-color: color-mix(
-			in srgb,
-			var(--clr-theme-container-light),
-			var(--darken-tint-extralight)
-		);
+		background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-extralight));
 
 		& .commit__header {
 			padding-bottom: var(--size-16);
-			border-bottom: 1px solid var(--clr-theme-container-outline-light);
+			border-bottom: 1px solid var(--clr-container-outline-light);
 
 			&:hover {
-				background-color: color-mix(
-					in srgb,
-					var(--clr-theme-container-light),
-					var(--darken-tint-light)
-				);
+				background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
 			}
 		}
 
@@ -231,7 +223,7 @@
 	.commit__title {
 		flex: 1;
 		display: block;
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		width: 100%;
 	}
 
@@ -239,7 +231,7 @@
 		flex: 1;
 		display: block;
 		width: 100%;
-		color: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-scale-ntrl-40);
 		white-space: pre-line;
 		word-wrap: anywhere;
 	}
@@ -270,11 +262,11 @@
 
 	.commit__time,
 	.commit__author-name {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 	}
 
 	.files-container {
-		background-color: var(--clr-theme-container-light);
+		background-color: var(--clr-container-light);
 	}
 
 	.files__footer {
@@ -282,6 +274,6 @@
 		justify-content: flex-end;
 		gap: var(--size-8);
 		padding: var(--size-14);
-		border-top: 1px solid var(--clr-theme-container-outline-light);
+		border-top: 1px solid var(--clr-container-outline-light);
 	}
 </style>

@@ -280,8 +280,8 @@
 		display: flex;
 		flex-direction: column;
 		padding: var(--size-14);
-		background: var(--clr-theme-container-light);
-		border-top: 1px solid var(--clr-theme-container-outline-light);
+		background: var(--clr-container-light);
+		border-top: 1px solid var(--clr-container-outline-light);
 		transition: background-color var(--transition-medium);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 	}
@@ -320,8 +320,8 @@
 		left: var(--size-12);
 		padding: var(--size-2);
 		border-radius: 100%;
-		background: var(--clr-theme-container-pale);
-		color: var(--clr-theme-scale-ntrl-40);
+		background: var(--clr-container-pale);
+		color: var(--clr-scale-ntrl-40);
 	}
 
 	.commit-box__textarea__title {
@@ -346,6 +346,6 @@
 	}
 
 	.commit-box__expanded {
-		background-color: var(--clr-theme-container-pale);
+		background-color: var(--clr-container-pale);
 	}
 </style>

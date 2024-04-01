@@ -133,7 +133,7 @@
 	}
 
 	.card__content {
-		color: var(--clr-theme-scale-ntrl-30);
+		color: var(--clr-scale-ntrl-30);
 	}
 
 	.branch-preview__commits-list {

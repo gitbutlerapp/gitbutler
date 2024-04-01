@@ -68,23 +68,23 @@
 		border-radius: var(--radius-s);
 
 		& path {
-			fill: var(--clr-theme-container-light);
+			fill: var(--clr-container-light);
 		}
 	}
 
 	.virtual {
-		background-color: var(--clr-theme-scale-ntrl-60);
+		background-color: var(--clr-scale-ntrl-60);
 	}
 
 	.neutral {
-		background-color: var(--clr-theme-scale-ntrl-50);
+		background-color: var(--clr-scale-ntrl-50);
 	}
 
 	.success {
-		background-color: var(--clr-theme-scale-succ-50);
+		background-color: var(--clr-scale-succ-50);
 	}
 
 	.purple {
-		background-color: var(--clr-theme-scale-purple-50);
+		background-color: var(--clr-scale-purple-50);
 	}
 </style>

@@ -45,7 +45,7 @@
 <style lang="postcss">
 	.header {
 		display: flex;
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;

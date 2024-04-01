@@ -300,7 +300,7 @@
 					sticky
 					defaultLineColor={$selectedFiles.length > 0
 						? 'transparent'
-						: 'color-mix(in srgb,var(--clr-theme-container-outline-light) 60%, transparent)'}
+						: 'color-mix(in srgb,var(--clr-container-outline-light) 60%, transparent)'}
 					on:width={(e) => {
 						laneWidth = e.detail / (16 * $userSettings.zoom);
 						lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
@@ -376,8 +376,8 @@
 		flex-grow: 1;
 		flex-direction: column;
 		align-items: center;
-		color: var(--clr-theme-scale-ntrl-60);
-		background: var(--clr-theme-container-light);
+		color: var(--clr-scale-ntrl-60);
+		background: var(--clr-container-light);
 		justify-content: center;
 		padding: var(--size-48) 0;
 		border-radius: var(--radius-m);
@@ -385,16 +385,16 @@
 	}
 
 	.no-changes {
-		color: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-scale-ntrl-40);
 		text-align: center;
 	}
 
 	.new-branch__title {
-		color: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-scale-ntrl-40);
 	}
 
 	.new-branch__caption {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 		opacity: 0.6;
 	}
 
@@ -433,6 +433,6 @@
 		flex-direction: column;
 		padding: var(--size-12);
 		height: 100%;
-		border-right: 1px solid var(--clr-theme-container-outline-light);
+		border-right: 1px solid var(--clr-container-outline-light);
 	}
 </style>

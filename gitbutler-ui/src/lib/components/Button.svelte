@@ -110,8 +110,8 @@
 			&.error.solid,
 			&.warning.solid,
 			&.purple.solid {
-				color: color-mix(in srgb, var(--clr-theme-scale-ntrl-0), transparent 40%);
-				background: color-mix(in srgb, var(--clr-theme-scale-ntrl-40), transparent 80%);
+				color: color-mix(in srgb, var(--clr-scale-ntrl-0), transparent 40%);
+				background: color-mix(in srgb, var(--clr-scale-ntrl-40), transparent 80%);
 			}
 
 			&.neutral.soft,
@@ -120,8 +120,8 @@
 			&.error.soft,
 			&.warning.soft,
 			&.purple.soft {
-				color: var(--clr-theme-scale-ntrl-40);
-				background: color-mix(in srgb, var(--clr-theme-scale-ntrl-50), transparent 80%);
+				color: var(--clr-scale-ntrl-40);
+				background: color-mix(in srgb, var(--clr-scale-ntrl-50), transparent 80%);
 			}
 		}
 		&.wide {
@@ -148,20 +148,20 @@
 	.neutral {
 		/* kind */
 		&.soft {
-			color: var(--clr-theme-scale-ntrl-30);
+			color: var(--clr-scale-ntrl-30);
 			background: color-mix(in srgb, var(--clr-core-ntrl-50), var(--soft-bg-ratio));
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
-				color: var(--clr-theme-scale-ntrl-30);
+				color: var(--clr-scale-ntrl-30);
 				background: color-mix(in srgb, var(--clr-core-ntrl-50), var(--soft-hover-ratio));
 			}
 		}
 		&.solid {
-			color: var(--clr-theme-scale-ntrl-100);
-			background: var(--clr-theme-scale-ntrl-30);
+			color: var(--clr-scale-ntrl-100);
+			background: var(--clr-scale-ntrl-30);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
-				background: var(--clr-theme-scale-ntrl-30);
+				background: var(--clr-scale-ntrl-30);
 			}
 		}
 	}
@@ -169,19 +169,19 @@
 	.ghost {
 		&.soft,
 		&.solid {
-			color: var(--clr-theme-scale-ntrl-30);
+			color: var(--clr-scale-ntrl-30);
 			background: transparent;
 			&:not(.not-button, &:disabled):hover {
-				color: var(--clr-theme-scale-ntrl-30);
+				color: var(--clr-scale-ntrl-30);
 				background: color-mix(in srgb, transparent, var(--darken-tint-light));
 			}
 		}
 
 		&.solid {
-			border: 1px solid var(--clr-theme-scale-ntrl-60);
+			border: 1px solid var(--clr-scale-ntrl-60);
 
 			&:not(.not-button, &:disabled):hover {
-				color: var(--clr-theme-scale-ntrl-30);
+				color: var(--clr-scale-ntrl-30);
 				background: color-mix(in srgb, transparent, var(--darken-tint-light));
 			}
 		}
@@ -189,11 +189,11 @@
 
 	.pop {
 		&.soft {
-			color: var(--clr-theme-scale-pop-20);
+			color: var(--clr-scale-pop-20);
 			background: color-mix(in srgb, var(--clr-core-pop-50), var(--soft-bg-ratio));
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
-				color: var(--clr-theme-scale-pop-10);
+				color: var(--clr-scale-pop-10);
 				background: color-mix(in srgb, var(--clr-core-pop-50), var(--soft-hover-ratio));
 			}
 		}
@@ -209,11 +209,11 @@
 
 	.success {
 		&.soft {
-			color: var(--clr-theme-scale-succ-20);
+			color: var(--clr-scale-succ-20);
 			background: color-mix(in srgb, var(--clr-core-succ-50), var(--soft-bg-ratio));
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
-				color: var(--clr-theme-scale-succ-10);
+				color: var(--clr-scale-succ-10);
 				background: color-mix(in srgb, var(--clr-core-succ-50), var(--soft-hover-ratio));
 			}
 		}
@@ -229,11 +229,11 @@
 
 	.error {
 		&.soft {
-			color: var(--clr-theme-scale-err-20);
+			color: var(--clr-scale-err-20);
 			background: color-mix(in srgb, var(--clr-core-err-50), var(--soft-bg-ratio));
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
-				color: var(--clr-theme-scale-err-10);
+				color: var(--clr-scale-err-10);
 				background: color-mix(in srgb, var(--clr-core-err-50), var(--soft-hover-ratio));
 			}
 		}
@@ -249,11 +249,11 @@
 
 	.warning {
 		&.soft {
-			color: var(--clr-theme-scale-warn-20);
+			color: var(--clr-scale-warn-20);
 			background: color-mix(in srgb, var(--clr-core-warn-50), var(--soft-bg-ratio));
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
-				color: var(--clr-theme-scale-warn-10);
+				color: var(--clr-scale-warn-10);
 				background: color-mix(in srgb, var(--clr-core-warn-50), var(--soft-hover-ratio));
 			}
 		}
@@ -269,11 +269,11 @@
 
 	.purple {
 		&.soft {
-			color: var(--clr-theme-scale-purple-20);
+			color: var(--clr-scale-purple-20);
 			background: color-mix(in srgb, var(--clr-core-purple-50), var(--soft-bg-ratio));
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
-				color: var(--clr-theme-scale-purple-10);
+				color: var(--clr-scale-purple-10);
 				background: color-mix(in srgb, var(--clr-core-purple-50), var(--soft-hover-ratio));
 			}
 		}

@@ -98,19 +98,19 @@
 		gap: var(--size-8);
 	}
 	.trunk-label {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 	}
 	.row_1 {
 		display: flex;
 		gap: var(--size-6);
 		align-items: center;
-		color: var(--clr-theme-scale-ntrl-10);
+		color: var(--clr-scale-ntrl-10);
 	}
 	.row_2 {
 		display: flex;
 		align-items: center;
 		gap: var(--size-4);
-		color: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-scale-ntrl-40);
 	}
 	.small-count-badge {
 		position: absolute;
@@ -123,7 +123,7 @@
 		padding: var(--size-2);
 		min-width: var(--size-14);
 		background-color: var(--clr-theme-err-element);
-		color: var(--clr-theme-scale-ntrl-100);
+		color: var(--clr-scale-ntrl-100);
 		border-radius: var(--radius-m);
 	}
 </style>

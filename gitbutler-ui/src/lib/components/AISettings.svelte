@@ -293,7 +293,7 @@
 	}
 
 	.ai-settings__text {
-		color: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-scale-ntrl-40);
 	}
 
 	.inputs-group {

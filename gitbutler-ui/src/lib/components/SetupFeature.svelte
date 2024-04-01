@@ -40,7 +40,7 @@
 		padding: var(--size-20);
 	}
 	.disabled.setup-feature {
-		background: var(--clr-theme-container-pale);
+		background: var(--clr-container-pale);
 		opacity: 0.5;
 	}
 	.success.setup-feature {
@@ -87,6 +87,6 @@
 	}
 
 	.top-border {
-		border-top: 1px solid var(--clr-theme-container-outline-light);
+		border-top: 1px solid var(--clr-container-outline-light);
 	}
 </style>

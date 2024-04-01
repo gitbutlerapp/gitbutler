@@ -45,7 +45,7 @@
 		padding: var(--size-6) var(--size-8);
 		border-radius: var(--radius-m);
 
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 		transition:
 			background-color var(--transition-fast),
 			color var(--transition-fast),
@@ -54,26 +54,18 @@
 		cursor: pointer;
 
 		&.pop {
-			color: var(--clr-theme-scale-pop-10);
-			background: color-mix(
-				in srgb,
-				var(--clr-theme-scale-pop-80) 70%,
-				var(--clr-theme-scale-ntrl-100)
-			);
+			color: var(--clr-scale-pop-10);
+			background: color-mix(in srgb, var(--clr-scale-pop-80) 70%, var(--clr-scale-ntrl-100));
 
 			&:hover {
-				color: var(--clr-theme-scale-pop-10);
-				background: color-mix(
-					in srgb,
-					var(--clr-theme-scale-pop-80) 40%,
-					var(--clr-theme-scale-ntrl-100)
-				);
+				color: var(--clr-scale-pop-10);
+				background: color-mix(in srgb, var(--clr-scale-pop-80) 40%, var(--clr-scale-ntrl-100));
 			}
 		}
 
 		&:hover {
 			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
-			color: var(--clr-theme-scale-ntrl-40);
+			color: var(--clr-scale-ntrl-40);
 		}
 	}
 	.name {

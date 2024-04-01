@@ -24,16 +24,16 @@
 		gap: var(--size-4);
 	}
 	.title {
-		color: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-scale-ntrl-40);
 	}
 	.description {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 		padding: var(--size-4) 0;
 	}
 	.content {
 		display: flex;
 		align-items: center;
-		color: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-scale-ntrl-40);
 		border-radius: var(--radius-m);
 		padding: 0 var(--size-16);
 		gap: var(--size-8);

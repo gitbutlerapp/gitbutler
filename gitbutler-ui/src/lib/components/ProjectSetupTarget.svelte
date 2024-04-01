@@ -135,7 +135,7 @@
 					height="20"
 					viewBox="0 0 20 20"
 					xmlns="http://www.w3.org/2000/svg"
-					fill="var(--clr-theme-scale-ntrl-0)"
+					fill="var(--clr-scale-ntrl-0)"
 				>
 					<path
 						fill-rule="evenodd"

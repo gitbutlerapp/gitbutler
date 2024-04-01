@@ -149,7 +149,7 @@
 		align-items: center;
 		gap: var(--size-8);
 		padding: var(--size-14);
-		background-color: var(--clr-theme-container-pale);
+		background-color: var(--clr-container-pale);
 		border-radius: var(--radius-m);
 		margin-bottom: var(--size-6);
 	}

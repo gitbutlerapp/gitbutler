@@ -320,7 +320,7 @@
 		/* other props */
 		position: absolute;
 		z-index: 30;
-		background-color: var(--clr-theme-scale-ntrl-0);
+		background-color: var(--clr-scale-ntrl-0);
 		opacity: 0;
 		transition:
 			opacity 0.2s,

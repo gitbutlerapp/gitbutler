@@ -74,7 +74,7 @@
 		display: flex;
 		padding: var(--size-16);
 		gap: var(--size-12);
-		border-bottom: 1px solid var(--clr-theme-container-outline-light);
+		border-bottom: 1px solid var(--clr-container-outline-light);
 	}
 	.header__inner {
 		display: flex;
@@ -101,11 +101,11 @@
 		user-select: text;
 	}
 	.header__filename {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		line-height: 120%;
 	}
 	.header__filepath {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 	}
 	.icon {
 		flex-shrink: 0;

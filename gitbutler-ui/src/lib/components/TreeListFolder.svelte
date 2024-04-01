@@ -93,7 +93,7 @@
 		border-radius: var(--radius-s);
 		margin-bottom: var(--size-2);
 		&:hover {
-			background: color-mix(in srgb, var(--clr-theme-container-light), var(--darken-tint-light));
+			background: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
 
 			& .chevron-icon {
 				opacity: 0.7;
@@ -111,7 +111,7 @@
 		gap: var(--size-6);
 	}
 	.name {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 	}
 	.chevron-icon {
 		opacity: 0.5;

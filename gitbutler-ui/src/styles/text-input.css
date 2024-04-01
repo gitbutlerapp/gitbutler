@@ -1,33 +1,25 @@
 .text-input {
 	padding: var(--size-4) var(--size-10);
-	color: var(--clr-theme-scale-ntrl-0);
-	background-color: var(--clr-theme-container-light);
-	border: 1px solid var(--clr-theme-container-outline-light);
+	color: var(--clr-scale-ntrl-0);
+	background-color: var(--clr-container-light);
+	border: 1px solid var(--clr-container-outline-light);
 	border-radius: var(--radius-s);
 	transition: border-color var(--transition-fast);
 
 	&::placeholder {
-		color: color-mix(in srgb, var(--clr-theme-scale-ntrl-30), transparent 50%);
+		color: color-mix(in srgb, var(--clr-scale-ntrl-30), transparent 50%);
 	}
 
 	&:hover {
-		border-color: color-mix(
-			in srgb,
-			var(--clr-theme-container-outline-light),
-			var(--darken-tint-dark)
-		);
+		border-color: color-mix(in srgb, var(--clr-container-outline-light), var(--darken-tint-dark));
 	}
 
 	&:focus,
 	&:focus-within {
-		background: color-mix(
-			in srgb,
-			var(--clr-theme-container-light),
-			var(--clr-theme-container-pale) 20%
-		);
+		background: color-mix(in srgb, var(--clr-container-light), var(--clr-container-pale) 20%);
 		border-color: color-mix(
 			in srgb,
-			var(--clr-theme-container-outline-light),
+			var(--clr-container-outline-light),
 			var(--darken-tint-extradark)
 		);
 		outline: none;
@@ -38,8 +30,8 @@
 	}
 
 	&:disabled {
-		color: var(--clr-theme-scale-ntrl-60);
-		border-color: var(--clr-theme-scale-ntrl-70);
-		background-color: var(--clr-theme-container-pale);
+		color: var(--clr-scale-ntrl-60);
+		border-color: var(--clr-scale-ntrl-70);
+		background-color: var(--clr-container-pale);
 	}
 }

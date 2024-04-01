@@ -78,7 +78,7 @@
 	.branch-name-input {
 		height: var(--size-20);
 		pointer-events: auto;
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		padding: var(--size-2) var(--size-4);
 		border-radius: var(--radius-s);
 		border: 1px solid transparent;
@@ -89,11 +89,7 @@
 		transition: background-color var(--transition-fast);
 		&:hover,
 		&:focus {
-			background-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-light),
-				var(--darken-tint-mid)
-			);
+			background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-mid));
 			outline: none;
 		}
 	}
@@ -107,15 +103,11 @@
 	.branch-name-input {
 		min-width: 1rem;
 		max-width: 100%;
-		background-color: var(--clr-theme-container-light);
+		background-color: var(--clr-container-light);
 		outline: none;
 		&:focus {
 			outline: none;
-			background-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-light),
-				var(--darken-tint-mid)
-			);
+			background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-mid));
 		}
 	}
 </style>

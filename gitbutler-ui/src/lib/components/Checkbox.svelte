@@ -39,8 +39,8 @@
 		height: var(--size-16);
 		flex-shrink: 0;
 		border-radius: var(--radius-s);
-		background-color: var(--clr-theme-container-light);
-		box-shadow: inset 0 0 0 1px var(--clr-theme-container-outline-light);
+		background-color: var(--clr-container-light);
+		box-shadow: inset 0 0 0 1px var(--clr-container-outline-light);
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),
@@ -52,7 +52,7 @@
 		&:hover,
 		&:focus {
 			box-shadow: inset 0 0 0 1px
-				color-mix(in srgb, var(--clr-theme-container-outline-pale), var(--darken-mid));
+				color-mix(in srgb, var(--clr-container-outline-pale), var(--darken-mid));
 			outline: none;
 
 			&::after {
@@ -65,19 +65,19 @@
 			pointer-events: none;
 			opacity: 0.3;
 			cursor: not-allowed;
-			background-color: var(--clr-theme-scale-ntrl-60);
+			background-color: var(--clr-scale-ntrl-60);
 			border-color: none;
 		}
 
 		&:indeterminate {
-			background-color: var(--clr-theme-container-pale);
+			background-color: var(--clr-container-pale);
 
 			&::before {
 				content: '';
 				position: absolute;
 				width: 50%;
 				height: 2px;
-				background-color: var(--clr-theme-scale-ntrl-30);
+				background-color: var(--clr-scale-ntrl-30);
 				top: 50%;
 				left: 50%;
 				transform: translate(-50%, -50%);

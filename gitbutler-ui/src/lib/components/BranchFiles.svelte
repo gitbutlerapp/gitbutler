@@ -51,7 +51,7 @@
 <style lang="postcss">
 	.branch-files {
 		flex: 1;
-		background: var(--clr-theme-container-light);
+		background: var(--clr-container-light);
 		border-radius: var(--radius-m) var(--radius-m) 0 0;
 
 		&.isUnapplied {
