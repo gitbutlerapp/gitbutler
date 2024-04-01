@@ -91,8 +91,9 @@
 		gap: var(--size-2);
 		border: 1px solid transparent;
 		transition:
-			background-color var(--transition-fast),
-			opacity var(--transition-medium);
+			background var(--transition-fast),
+			opacity var(--transition-fast),
+			color var(--transition-fast);
 		cursor: pointer;
 
 		/* component variables */
@@ -102,7 +103,7 @@
 		&:disabled {
 			cursor: default;
 			pointer-events: none;
-			opacity: 0.6;
+			opacity: 0.5;
 		}
 		&.wide {
 			display: flex;
@@ -303,7 +304,7 @@
 					right: 0;
 					width: 1px;
 					height: 100%;
-					opacity: 0.25;
+					opacity: 0.2;
 				}
 			}
 		}
