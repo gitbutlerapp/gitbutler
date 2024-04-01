@@ -2,7 +2,6 @@ use std::{collections::HashMap, path};
 
 use anyhow::Context;
 use gitbutler_core::{
-    error::{Code, Error},
     gb_repository, git, project_repository,
     projects::{self, ProjectId},
     reader,
@@ -12,21 +11,8 @@ use gitbutler_core::{
 use tauri::Manager;
 use tracing::instrument;
 
+use crate::error::Error;
 use crate::{app, watcher};
-
-impl From<app::Error> for Error {
-    fn from(value: app::Error) -> Self {
-        match value {
-            app::Error::GetProject(error) => Error::from(error),
-            app::Error::ProjectRemote(error) => Error::from(error),
-            app::Error::OpenProjectRepository(error) => Error::from(error),
-            app::Error::Other(error) => {
-                tracing::error!(?error);
-                Error::Unknown
-            }
-        }
-    }
-}
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
@@ -66,17 +52,13 @@ pub async fn git_test_push(
         .state::<gitbutler_core::askpass::AskpassBroker>()
         .inner()
         .clone();
-    app.git_test_push(
+    Ok(app.git_test_push(
         &project_id,
         remote_name,
         branch_name,
         &helper,
         Some((askpass_broker, None)),
-    )
-    .map_err(|e| Error::UserError {
-        code: Code::Unknown,
-        message: e.to_string(),
-    })
+    )?)
 }
 
 #[tauri::command(async)]
@@ -93,16 +75,12 @@ pub async fn git_test_fetch(
         .state::<gitbutler_core::askpass::AskpassBroker>()
         .inner()
         .clone();
-    app.git_test_fetch(
+    Ok(app.git_test_fetch(
         &project_id,
         remote_name,
         &helper,
         Some((askpass_broker, action.unwrap_or_else(|| "test".to_string()))),
-    )
-    .map_err(|e| Error::UserError {
-        code: Code::Unknown,
-        message: e.to_string(),
-    })
+    )?)
 }
 
 #[tauri::command(async)]
@@ -176,7 +154,8 @@ pub async fn project_flush_and_push(handle: tauri::AppHandle, id: ProjectId) -> 
 
     let project = projects.get(&id).context("failed to get project")?;
     let user = users.get_user()?;
-    let project_repository = project_repository::Repository::open(&project)?;
+    let project_repository =
+        project_repository::Repository::open(&project).map_err(Error::from_error_with_context)?;
     let gb_repo =
         gb_repository::Repository::open(&local_data_dir, &project_repository, user.as_ref())
             .context("failed to open repository")?;

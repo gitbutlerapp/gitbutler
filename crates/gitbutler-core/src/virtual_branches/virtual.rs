@@ -7,7 +7,7 @@ use std::{
     time, vec,
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 use diffy::{apply, Patch};
 use git2_hooks::HookResult;
@@ -21,6 +21,7 @@ use super::{
     branch_to_remote_branch, context, errors, target, Iterator, RemoteBranch,
     VirtualBranchesHandle,
 };
+use crate::error::Error;
 use crate::{
     askpass::AskpassBroker,
     dedup::{dedup, dedup_fmt},
@@ -36,12 +37,6 @@ use crate::{
 };
 
 type AppliedStatuses = Vec<(branch::Branch, HashMap<PathBuf, Vec<diff::GitHunk>>)>;
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("path contains invalid utf-8 characters: {0}")]
-    InvalidUnicodePath(PathBuf),
-}
 
 // this struct is a mapping to the view `Branch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
@@ -203,7 +198,7 @@ pub fn apply_branch(
 ) -> Result<(), errors::ApplyBranchError> {
     if project_repository.is_resolving() {
         return Err(errors::ApplyBranchError::Conflict(
-            errors::ProjectConflictError {
+            errors::ProjectConflict {
                 project_id: project_repository.project().id,
             },
         ));
@@ -219,7 +214,7 @@ pub fn apply_branch(
     let default_target = get_default_target(&current_session_reader, project_repository.project())
         .context("failed to get default target")?
         .ok_or_else(|| {
-            errors::ApplyBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+            errors::ApplyBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
             })
         })?;
@@ -239,7 +234,7 @@ pub fn apply_branch(
     {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::ApplyBranchError::BranchNotFound(
-            errors::BranchNotFoundError {
+            errors::BranchNotFound {
                 project_id: project_repository.project().id,
                 branch_id: *branch_id,
             },
@@ -478,7 +473,7 @@ pub fn unapply_ownership(
 ) -> Result<(), errors::UnapplyOwnershipError> {
     if conflicts::is_resolving(project_repository) {
         return Err(errors::UnapplyOwnershipError::Conflict(
-            errors::ProjectConflictError {
+            errors::ProjectConflict {
                 project_id: project_repository.project().id,
             },
         ));
@@ -488,7 +483,7 @@ pub fn unapply_ownership(
         .get_latest_session()
         .context("failed to get or create current session")?
         .ok_or_else(|| {
-            errors::UnapplyOwnershipError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+            errors::UnapplyOwnershipError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
             })
         })?;
@@ -499,7 +494,7 @@ pub fn unapply_ownership(
     let default_target = get_default_target(&latest_session_reader, project_repository.project())
         .context("failed to get default target")?
         .ok_or_else(|| {
-            errors::UnapplyOwnershipError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+            errors::UnapplyOwnershipError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
             })
         })?;
@@ -614,7 +609,7 @@ pub fn reset_files(
 ) -> Result<(), errors::UnapplyOwnershipError> {
     if conflicts::is_resolving(project_repository) {
         return Err(errors::UnapplyOwnershipError::Conflict(
-            errors::ProjectConflictError {
+            errors::ProjectConflict {
                 project_id: project_repository.project().id,
             },
         ));
@@ -663,7 +658,7 @@ pub fn unapply_branch(
 
     let mut target_branch = branch_reader.read(branch_id).map_err(|error| match error {
         reader::Error::NotFound => {
-            errors::UnapplyBranchError::BranchNotFound(errors::BranchNotFoundError {
+            errors::UnapplyBranchError::BranchNotFound(errors::BranchNotFound {
                 project_id: project_repository.project().id,
                 branch_id: *branch_id,
             })
@@ -678,7 +673,7 @@ pub fn unapply_branch(
     let default_target = get_default_target(&current_session_reader, project_repository.project())
         .context("failed to get default target")?
         .ok_or_else(|| {
-            errors::UnapplyBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+            errors::UnapplyBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
             })
         })?;
@@ -833,11 +828,9 @@ pub fn list_virtual_branches(
         .default_target()
         .context("failed to get default target")?
         .ok_or_else(|| {
-            errors::ListVirtualBranchesError::DefaultTargetNotSet(
-                errors::DefaultTargetNotSetError {
-                    project_id: project_repository.project().id,
-                },
-            )
+            errors::ListVirtualBranchesError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+                project_id: project_repository.project().id,
+            })
         })?;
 
     let (statuses, skipped_files) = get_status_by_branch(gb_repository, project_repository)?;
@@ -1349,11 +1342,9 @@ pub fn create_virtual_branch(
     let default_target = get_default_target(&current_session_reader, project_repository.project())
         .context("failed to get default target")?
         .ok_or_else(|| {
-            errors::CreateVirtualBranchError::DefaultTargetNotSet(
-                errors::DefaultTargetNotSetError {
-                    project_id: project_repository.project().id,
-                },
-            )
+            errors::CreateVirtualBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+                project_id: project_repository.project().id,
+            })
         })?;
 
     let commit = project_repository
@@ -1484,7 +1475,7 @@ pub fn merge_virtual_branch_upstream(
 ) -> Result<(), errors::MergeVirtualBranchUpstreamError> {
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
         return Err(errors::MergeVirtualBranchUpstreamError::Conflict(
-            errors::ProjectConflictError {
+            errors::ProjectConflict {
                 project_id: project_repository.project().id,
             },
         ));
@@ -1505,7 +1496,7 @@ pub fn merge_virtual_branch_upstream(
     let mut branch = match branch_reader.read(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(
-            errors::MergeVirtualBranchUpstreamError::BranchNotFound(errors::BranchNotFoundError {
+            errors::MergeVirtualBranchUpstreamError::BranchNotFound(errors::BranchNotFound {
                 project_id: project_repository.project().id,
                 branch_id: *branch_id,
             }),
@@ -1741,7 +1732,7 @@ pub fn update_branch(
         .read(&branch_update.id)
         .map_err(|error| match error {
             reader::Error::NotFound => {
-                errors::UpdateBranchError::BranchNotFound(errors::BranchNotFoundError {
+                errors::UpdateBranchError::BranchNotFound(errors::BranchNotFound {
                     project_id: project_repository.project().id,
                     branch_id: branch_update.id,
                 })
@@ -1788,11 +1779,9 @@ pub fn update_branch(
             get_default_target(&current_session_reader, project_repository.project())
                 .context("failed to get default target")?
                 .ok_or_else(|| {
-                    errors::UpdateBranchError::DefaultTargetNotSet(
-                        errors::DefaultTargetNotSetError {
-                            project_id: project_repository.project().id,
-                        },
-                    )
+                    errors::UpdateBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+                        project_id: project_repository.project().id,
+                    })
                 })?;
         let remote_branch = format!(
             "refs/remotes/{}/{}",
@@ -1845,7 +1834,7 @@ pub fn delete_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
-) -> Result<(), errors::DeleteBranchError> {
+) -> Result<(), Error> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
@@ -2363,7 +2352,7 @@ pub fn reset_branch(
     let default_target = get_default_target(&current_session_reader, project_repository.project())
         .context("failed to read default target")?
         .ok_or_else(|| {
-            errors::ResetBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+            errors::ResetBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
             })
         })?;
@@ -2376,7 +2365,7 @@ pub fn reset_branch(
     let mut branch = match branch_reader.read(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::ResetBranchError::BranchNotFound(
-            errors::BranchNotFoundError {
+            errors::BranchNotFound {
                 branch_id: *branch_id,
                 project_id: project_repository.project().id,
             },
@@ -2509,7 +2498,9 @@ pub fn write_tree_onto_tree(
                 let blob_oid = git_repository.blob(
                     link_target
                         .to_str()
-                        .ok_or_else(|| Error::InvalidUnicodePath(link_target.into()))?
+                        .ok_or_else(|| {
+                            anyhow!("path contains invalid utf-8 characters: {link_target:?}")
+                        })?
                         .as_bytes(),
                 )?;
                 builder.upsert(rel_path, blob_oid, filemode);
@@ -2642,7 +2633,7 @@ pub fn commit(
         .default_target()
         .context("failed to get default target")?
         .ok_or_else(|| {
-            errors::CommitError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+            errors::CommitError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
             })
         })?;
@@ -2655,7 +2646,7 @@ pub fn commit(
         .iter_mut()
         .find(|(branch, _)| branch.id == *branch_id)
         .ok_or_else(|| {
-            errors::CommitError::BranchNotFound(errors::BranchNotFoundError {
+            errors::CommitError::BranchNotFound(errors::BranchNotFound {
                 project_id: project_repository.project().id,
                 branch_id: *branch_id,
             })
@@ -2663,11 +2654,9 @@ pub fn commit(
 
     let files = calculate_non_commited_diffs(project_repository, branch, &default_target, files)?;
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
-        return Err(errors::CommitError::Conflicted(
-            errors::ProjectConflictError {
-                project_id: project_repository.project().id,
-            },
-        ));
+        return Err(errors::CommitError::Conflicted(errors::ProjectConflict {
+            project_id: project_repository.project().id,
+        }));
     }
 
     let tree_oid = if let Some(ownership) = ownership {
@@ -2783,7 +2772,7 @@ pub fn push(
     .context("failed to create writer")?;
 
     let mut vbranch = branch_reader.read(branch_id).map_err(|error| match error {
-        reader::Error::NotFound => errors::PushError::BranchNotFound(errors::BranchNotFoundError {
+        reader::Error::NotFound => errors::PushError::BranchNotFound(errors::BranchNotFound {
             project_id: project_repository.project().id,
             branch_id: *branch_id,
         }),
@@ -2797,7 +2786,7 @@ pub fn push(
             get_default_target(&current_session_reader, project_repository.project())
                 .context("failed to get default target")?
                 .ok_or_else(|| {
-                    errors::PushError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+                    errors::PushError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
                         project_id: project_repository.project().id,
                     })
                 })?;
@@ -2927,7 +2916,7 @@ pub fn is_remote_branch_mergeable(
 ) -> Result<bool, errors::IsRemoteBranchMergableError> {
     // get the current target
     let latest_session = gb_repository.get_latest_session()?.ok_or_else(|| {
-        errors::IsRemoteBranchMergableError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+        errors::IsRemoteBranchMergableError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
             project_id: project_repository.project().id,
         })
     })?;
@@ -2937,11 +2926,9 @@ pub fn is_remote_branch_mergeable(
     let default_target = get_default_target(&session_reader, project_repository.project())
         .context("failed to get default target")?
         .ok_or_else(|| {
-            errors::IsRemoteBranchMergableError::DefaultTargetNotSet(
-                errors::DefaultTargetNotSetError {
-                    project_id: project_repository.project().id,
-                },
-            )
+            errors::IsRemoteBranchMergableError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+                project_id: project_repository.project().id,
+            })
         })?;
 
     let target_commit = project_repository
@@ -2989,7 +2976,7 @@ pub fn is_virtual_branch_mergeable(
     branch_id: &BranchId,
 ) -> Result<bool, errors::IsVirtualBranchMergeable> {
     let latest_session = gb_repository.get_latest_session()?.ok_or_else(|| {
-        errors::IsVirtualBranchMergeable::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+        errors::IsVirtualBranchMergeable::DefaultTargetNotSet(errors::DefaultTargetNotSet {
             project_id: project_repository.project().id,
         })
     })?;
@@ -3003,7 +2990,7 @@ pub fn is_virtual_branch_mergeable(
     let branch = match branch_reader.read(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::IsVirtualBranchMergeable::BranchNotFound(
-            errors::BranchNotFoundError {
+            errors::BranchNotFound {
                 project_id: project_repository.project().id,
                 branch_id: *branch_id,
             },
@@ -3018,11 +3005,9 @@ pub fn is_virtual_branch_mergeable(
     let default_target = get_default_target(&session_reader, project_repository.project())
         .context("failed to read default target")?
         .ok_or_else(|| {
-            errors::IsVirtualBranchMergeable::DefaultTargetNotSet(
-                errors::DefaultTargetNotSetError {
-                    project_id: project_repository.project().id,
-                },
-            )
+            errors::IsVirtualBranchMergeable::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+                project_id: project_repository.project().id,
+            })
         })?;
 
     // determine if this branch is up to date with the target/base
@@ -3075,7 +3060,7 @@ pub fn amend(
     target_ownership: &BranchOwnershipClaims,
 ) -> Result<git::Oid, errors::AmendError> {
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
-        return Err(errors::AmendError::Conflict(errors::ProjectConflictError {
+        return Err(errors::AmendError::Conflict(errors::ProjectConflict {
             project_id: project_repository.project().id,
         }));
     }
@@ -3098,12 +3083,10 @@ pub fn amend(
     .collect::<Vec<_>>();
 
     if !all_branches.iter().any(|b| b.id == *branch_id) {
-        return Err(errors::AmendError::BranchNotFound(
-            errors::BranchNotFoundError {
-                project_id: project_repository.project().id,
-                branch_id: *branch_id,
-            },
-        ));
+        return Err(errors::AmendError::BranchNotFound(errors::BranchNotFound {
+            project_id: project_repository.project().id,
+            branch_id: *branch_id,
+        }));
     }
 
     let applied_branches = all_branches
@@ -3112,18 +3095,16 @@ pub fn amend(
         .collect::<Vec<_>>();
 
     if !applied_branches.iter().any(|b| b.id == *branch_id) {
-        return Err(errors::AmendError::BranchNotFound(
-            errors::BranchNotFoundError {
-                project_id: project_repository.project().id,
-                branch_id: *branch_id,
-            },
-        ));
+        return Err(errors::AmendError::BranchNotFound(errors::BranchNotFound {
+            project_id: project_repository.project().id,
+            branch_id: *branch_id,
+        }));
     }
 
     let default_target = get_default_target(&current_session_reader, project_repository.project())
         .context("failed to read default target")?
         .ok_or_else(|| {
-            errors::AmendError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+            errors::AmendError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
             })
         })?;
@@ -3139,7 +3120,7 @@ pub fn amend(
         .iter_mut()
         .find(|(b, _)| b.id == *branch_id)
         .ok_or_else(|| {
-            errors::AmendError::BranchNotFound(errors::BranchNotFoundError {
+            errors::AmendError::BranchNotFound(errors::BranchNotFound {
                 project_id: project_repository.project().id,
                 branch_id: *branch_id,
             })
@@ -3148,7 +3129,7 @@ pub fn amend(
     if target_branch.upstream.is_some() && !project_repository.project().ok_with_force_push {
         // amending to a pushed head commit will cause a force push that is not allowed
         return Err(errors::AmendError::ForcePushNotAllowed(
-            errors::ForcePushNotAllowedError {
+            errors::ForcePushNotAllowed {
                 project_id: project_repository.project().id,
             },
         ));
@@ -3252,11 +3233,9 @@ pub fn cherry_pick(
     target_commit_oid: git::Oid,
 ) -> Result<Option<git::Oid>, errors::CherryPickError> {
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
-        return Err(errors::CherryPickError::Conflict(
-            errors::ProjectConflictError {
-                project_id: project_repository.project().id,
-            },
-        ));
+        return Err(errors::CherryPickError::Conflict(errors::ProjectConflict {
+            project_id: project_repository.project().id,
+        }));
     }
 
     let current_session = gb_repository
@@ -3453,11 +3432,9 @@ pub fn squash(
     commit_oid: git::Oid,
 ) -> Result<(), errors::SquashError> {
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
-        return Err(errors::SquashError::Conflict(
-            errors::ProjectConflictError {
-                project_id: project_repository.project().id,
-            },
-        ));
+        return Err(errors::SquashError::Conflict(errors::ProjectConflict {
+            project_id: project_repository.project().id,
+        }));
     }
 
     let current_session = gb_repository
@@ -3474,18 +3451,16 @@ pub fn squash(
     let default_target = get_default_target(&current_session_reader, project_repository.project())
         .context("failed to read default target")?
         .ok_or_else(|| {
-            errors::SquashError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+            errors::SquashError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
             })
         })?;
 
     let mut branch = branch_reader.read(branch_id).map_err(|error| match error {
-        reader::Error::NotFound => {
-            errors::SquashError::BranchNotFound(errors::BranchNotFoundError {
-                project_id: project_repository.project().id,
-                branch_id: *branch_id,
-            })
-        }
+        reader::Error::NotFound => errors::SquashError::BranchNotFound(errors::BranchNotFound {
+            project_id: project_repository.project().id,
+            branch_id: *branch_id,
+        }),
         error => errors::SquashError::Other(error.into()),
     })?;
 
@@ -3522,7 +3497,7 @@ pub fn squash(
     {
         // squashing into a pushed commit will cause a force push that is not allowed
         return Err(errors::SquashError::ForcePushNotAllowed(
-            errors::ForcePushNotAllowedError {
+            errors::ForcePushNotAllowed {
                 project_id: project_repository.project().id,
             },
         ));
@@ -3654,7 +3629,7 @@ pub fn update_commit_message(
 
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
         return Err(errors::UpdateCommitMessageError::Conflict(
-            errors::ProjectConflictError {
+            errors::ProjectConflict {
                 project_id: project_repository.project().id,
             },
         ));
@@ -3674,16 +3649,14 @@ pub fn update_commit_message(
     let default_target = get_default_target(&current_session_reader, project_repository.project())
         .context("failed to read default target")?
         .ok_or_else(|| {
-            errors::UpdateCommitMessageError::DefaultTargetNotSet(
-                errors::DefaultTargetNotSetError {
-                    project_id: project_repository.project().id,
-                },
-            )
+            errors::UpdateCommitMessageError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+                project_id: project_repository.project().id,
+            })
         })?;
 
     let mut branch = branch_reader.read(branch_id).map_err(|error| match error {
         reader::Error::NotFound => {
-            errors::UpdateCommitMessageError::BranchNotFound(errors::BranchNotFoundError {
+            errors::UpdateCommitMessageError::BranchNotFound(errors::BranchNotFound {
                 project_id: project_repository.project().id,
                 branch_id: *branch_id,
             })
@@ -3714,7 +3687,7 @@ pub fn update_commit_message(
     {
         // updating the message of a pushed commit will cause a force push that is not allowed
         return Err(errors::UpdateCommitMessageError::ForcePushNotAllowed(
-            errors::ForcePushNotAllowedError {
+            errors::ForcePushNotAllowed {
                 project_id: project_repository.project().id,
             },
         ));
@@ -3836,7 +3809,7 @@ pub fn move_commit(
 ) -> Result<(), errors::MoveCommitError> {
     if project_repository.is_resolving() {
         return Err(errors::MoveCommitError::Conflicted(
-            errors::ProjectConflictError {
+            errors::ProjectConflict {
                 project_id: project_repository.project().id,
             },
         ));
@@ -3846,7 +3819,7 @@ pub fn move_commit(
         .get_latest_session()
         .context("failed to get or create current session")?
         .ok_or_else(|| {
-            errors::MoveCommitError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+            errors::MoveCommitError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
             })
         })?;
@@ -3867,7 +3840,7 @@ pub fn move_commit(
 
     if !applied_branches.iter().any(|b| b.id == *target_branch_id) {
         return Err(errors::MoveCommitError::BranchNotFound(
-            errors::BranchNotFoundError {
+            errors::BranchNotFound {
                 project_id: project_repository.project().id,
                 branch_id: *target_branch_id,
             },
@@ -3877,7 +3850,7 @@ pub fn move_commit(
     let default_target = get_default_target(&latest_session_reader, project_repository.project())
         .context("failed to get default target")?
         .ok_or_else(|| {
-            errors::MoveCommitError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+            errors::MoveCommitError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
             })
         })?;
@@ -3981,7 +3954,7 @@ pub fn move_commit(
                 .read(target_branch_id)
                 .map_err(|error| match error {
                     reader::Error::NotFound => {
-                        errors::MoveCommitError::BranchNotFound(errors::BranchNotFoundError {
+                        errors::MoveCommitError::BranchNotFound(errors::BranchNotFound {
                             project_id: project_repository.project().id,
                             branch_id: *target_branch_id,
                         })
@@ -4050,7 +4023,7 @@ pub fn create_virtual_branch_from_branch(
         .context("failed to get default target")?
         .ok_or_else(|| {
             errors::CreateVirtualBranchFromBranchError::DefaultTargetNotSet(
-                errors::DefaultTargetNotSetError {
+                errors::DefaultTargetNotSet {
                     project_id: project_repository.project().id,
                 },
             )

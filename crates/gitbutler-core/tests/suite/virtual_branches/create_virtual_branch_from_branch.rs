@@ -300,10 +300,9 @@ async fn from_default_target() {
                 &"refs/remotes/origin/master".parse().unwrap(),
             )
             .await
-            .unwrap_err(),
-        ControllerError::Action(
-            errors::CreateVirtualBranchFromBranchError::CantMakeBranchFromDefaultTarget
-        )
+            .unwrap_err()
+            .downcast_ref(),
+        Some(errors::CreateVirtualBranchFromBranchError::CantMakeBranchFromDefaultTarget)
     ));
 }
 
@@ -329,8 +328,9 @@ async fn from_non_existent_branch() {
                 &"refs/remotes/origin/branch".parse().unwrap(),
             )
             .await
-            .unwrap_err(),
-        ControllerError::Action(errors::CreateVirtualBranchFromBranchError::BranchNotFound(
+            .unwrap_err()
+            .downcast_ref(),
+        Some(errors::CreateVirtualBranchFromBranchError::BranchNotFound(
             _
         ))
     ));

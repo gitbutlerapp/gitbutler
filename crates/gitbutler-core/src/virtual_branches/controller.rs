@@ -1,3 +1,4 @@
+use crate::error::Error;
 use std::{collections::HashMap, path, sync::Arc};
 
 use anyhow::Context;
@@ -5,15 +6,11 @@ use tokio::{sync::Semaphore, task::JoinHandle};
 
 use super::{
     branch::{BranchId, BranchOwnershipClaims},
-    errors::{
-        self, FetchFromTargetError, GetBaseBranchDataError, GetRemoteBranchDataError,
-        IsRemoteBranchMergableError, ListRemoteBranchesError,
-    },
+    errors::{self, FetchFromTargetError},
     target_to_base_branch, BaseBranch, RemoteBranchFile,
 };
 use crate::{
     askpass::AskpassBroker,
-    error::Error,
     gb_repository, git, keys, project_repository,
     projects::{self, ProjectId},
     users,
@@ -74,7 +71,7 @@ impl Controller {
         message: &str,
         ownership: Option<&BranchOwnershipClaims>,
         run_hooks: bool,
-    ) -> Result<git::Oid, ControllerError<errors::CommitError>> {
+    ) -> Result<git::Oid, Error> {
         self.inner(project_id)
             .await
             .create_commit(project_id, branch_id, message, ownership, run_hooks)
@@ -85,7 +82,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_name: &git::RemoteRefname,
-    ) -> Result<bool, ControllerError<IsRemoteBranchMergableError>> {
+    ) -> Result<bool, Error> {
         self.inner(project_id)
             .await
             .can_apply_remote_branch(project_id, branch_name)
@@ -111,7 +108,7 @@ impl Controller {
             .inner(project_id)
             .await
             .get_vbranches_state(project_id, branch_ids)?;
-        let project = self.projects.get(project_id).map_err(Error::from)?;
+        let project = self.projects.get(project_id)?;
         // TODO: this should be constructed somewhere else
         let state_handle = VirtualBranchesHandle::new(project.path.join(".git").as_path());
         if let Some(default_target) = vbranches_state.default_target {
@@ -129,10 +126,7 @@ impl Controller {
     pub async fn list_virtual_branches(
         &self,
         project_id: &ProjectId,
-    ) -> Result<
-        (Vec<super::VirtualBranch>, bool, Vec<git::diff::FileDiff>),
-        ControllerError<errors::ListVirtualBranchesError>,
-    > {
+    ) -> Result<(Vec<super::VirtualBranch>, bool, Vec<git::diff::FileDiff>), Error> {
         self.inner(project_id)
             .await
             .list_virtual_branches(project_id)
@@ -143,7 +137,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         create: &super::branch::BranchCreateRequest,
-    ) -> Result<BranchId, ControllerError<errors::CreateVirtualBranchError>> {
+    ) -> Result<BranchId, Error> {
         self.inner(project_id)
             .await
             .create_virtual_branch(project_id, create)
@@ -154,7 +148,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch: &git::Refname,
-    ) -> Result<BranchId, ControllerError<errors::CreateVirtualBranchFromBranchError>> {
+    ) -> Result<BranchId, Error> {
         self.inner(project_id)
             .await
             .create_virtual_branch_from_branch(project_id, branch)
@@ -164,7 +158,7 @@ impl Controller {
     pub async fn get_base_branch_data(
         &self,
         project_id: &ProjectId,
-    ) -> Result<Option<super::BaseBranch>, ControllerError<GetBaseBranchDataError>> {
+    ) -> Result<Option<BaseBranch>, Error> {
         self.inner(project_id)
             .await
             .get_base_branch_data(project_id)
@@ -184,7 +178,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         target_branch: &git::RemoteRefname,
-    ) -> Result<super::BaseBranch, ControllerError<errors::SetBaseBranchError>> {
+    ) -> Result<super::BaseBranch, Error> {
         self.inner(project_id)
             .await
             .set_base_branch(project_id, target_branch)
@@ -194,17 +188,14 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-    ) -> Result<(), ControllerError<errors::MergeVirtualBranchUpstreamError>> {
+    ) -> Result<(), Error> {
         self.inner(project_id)
             .await
             .merge_virtual_branch_upstream(project_id, branch_id)
             .await
     }
 
-    pub async fn update_base_branch(
-        &self,
-        project_id: &ProjectId,
-    ) -> Result<(), ControllerError<errors::UpdateBaseBranchError>> {
+    pub async fn update_base_branch(&self, project_id: &ProjectId) -> Result<(), Error> {
         self.inner(project_id)
             .await
             .update_base_branch(project_id)
@@ -215,7 +206,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_update: super::branch::BranchUpdateRequest,
-    ) -> Result<(), ControllerError<errors::UpdateBranchError>> {
+    ) -> Result<(), Error> {
         self.inner(project_id)
             .await
             .update_virtual_branch(project_id, branch_update)
@@ -225,7 +216,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-    ) -> Result<(), ControllerError<errors::DeleteBranchError>> {
+    ) -> Result<(), Error> {
         self.inner(project_id)
             .await
             .delete_virtual_branch(project_id, branch_id)
@@ -236,7 +227,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-    ) -> Result<(), ControllerError<errors::ApplyBranchError>> {
+    ) -> Result<(), Error> {
         self.inner(project_id)
             .await
             .apply_virtual_branch(project_id, branch_id)
@@ -247,7 +238,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         ownership: &BranchOwnershipClaims,
-    ) -> Result<(), ControllerError<errors::UnapplyOwnershipError>> {
+    ) -> Result<(), Error> {
         self.inner(project_id)
             .await
             .unapply_ownership(project_id, ownership)
@@ -258,7 +249,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         files: &Vec<String>,
-    ) -> Result<(), ControllerError<errors::UnapplyOwnershipError>> {
+    ) -> Result<(), Error> {
         self.inner(project_id)
             .await
             .reset_files(project_id, files)
@@ -270,7 +261,7 @@ impl Controller {
         project_id: &ProjectId,
         branch_id: &BranchId,
         ownership: &BranchOwnershipClaims,
-    ) -> Result<git::Oid, ControllerError<errors::AmendError>> {
+    ) -> Result<git::Oid, Error> {
         self.inner(project_id)
             .await
             .amend(project_id, branch_id, ownership)
@@ -282,7 +273,7 @@ impl Controller {
         project_id: &ProjectId,
         branch_id: &BranchId,
         target_commit_oid: git::Oid,
-    ) -> Result<(), ControllerError<errors::ResetBranchError>> {
+    ) -> Result<(), Error> {
         self.inner(project_id)
             .await
             .reset_virtual_branch(project_id, branch_id, target_commit_oid)
@@ -293,7 +284,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-    ) -> Result<(), ControllerError<errors::UnapplyBranchError>> {
+    ) -> Result<(), Error> {
         self.inner(project_id)
             .await
             .unapply_virtual_branch(project_id, branch_id)
@@ -306,7 +297,7 @@ impl Controller {
         branch_id: &BranchId,
         with_force: bool,
         askpass: Option<(AskpassBroker, Option<BranchId>)>,
-    ) -> Result<(), ControllerError<errors::PushError>> {
+    ) -> Result<(), Error> {
         self.inner(project_id)
             .await
             .push_virtual_branch(project_id, branch_id, with_force, askpass)
@@ -318,7 +309,7 @@ impl Controller {
         project_id: &ProjectId,
         branch_id: &BranchId,
         commit_oid: git::Oid,
-    ) -> Result<Option<git::Oid>, ControllerError<errors::CherryPickError>> {
+    ) -> Result<Option<git::Oid>, Error> {
         self.inner(project_id)
             .await
             .cherry_pick(project_id, branch_id, commit_oid)
@@ -328,7 +319,7 @@ impl Controller {
     pub async fn list_remote_branches(
         &self,
         project_id: &ProjectId,
-    ) -> Result<Vec<super::RemoteBranch>, ControllerError<ListRemoteBranchesError>> {
+    ) -> Result<Vec<super::RemoteBranch>, Error> {
         self.inner(project_id)
             .await
             .list_remote_branches(project_id)
@@ -338,7 +329,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         refname: &git::Refname,
-    ) -> Result<super::RemoteBranchData, ControllerError<GetRemoteBranchDataError>> {
+    ) -> Result<super::RemoteBranchData, Error> {
         self.inner(project_id)
             .await
             .get_remote_branch_data(project_id, refname)
@@ -349,7 +340,7 @@ impl Controller {
         project_id: &ProjectId,
         branch_id: &BranchId,
         commit_oid: git::Oid,
-    ) -> Result<(), ControllerError<errors::SquashError>> {
+    ) -> Result<(), Error> {
         self.inner(project_id)
             .await
             .squash(project_id, branch_id, commit_oid)
@@ -362,7 +353,7 @@ impl Controller {
         branch_id: &BranchId,
         commit_oid: git::Oid,
         message: &str,
-    ) -> Result<(), ControllerError<errors::UpdateCommitMessageError>> {
+    ) -> Result<(), Error> {
         self.inner(project_id)
             .await
             .update_commit_message(project_id, branch_id, commit_oid, message)
@@ -373,7 +364,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         askpass: Option<(AskpassBroker, String)>,
-    ) -> Result<BaseBranch, ControllerError<errors::FetchFromTargetError>> {
+    ) -> Result<BaseBranch, Error> {
         self.inner(project_id)
             .await
             .fetch_from_target(project_id, askpass)
@@ -385,7 +376,7 @@ impl Controller {
         project_id: &ProjectId,
         target_branch_id: &BranchId,
         commit_oid: git::Oid,
-    ) -> Result<(), ControllerError<errors::MoveCommitError>> {
+    ) -> Result<(), Error> {
         self.inner(project_id)
             .await
             .move_commit(project_id, target_branch_id, commit_oid)
@@ -402,21 +393,6 @@ struct ControllerInner {
     users: users::Controller,
     keys: keys::Controller,
     helper: git::credentials::Helper,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ControllerError<E>
-where
-    E: Into<Error>,
-{
-    #[error(transparent)]
-    VerifyError(#[from] errors::VerifyError),
-    #[error(transparent)]
-    Action(E),
-    #[error(transparent)]
-    User(#[from] Error),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
 }
 
 impl ControllerInner {
@@ -444,7 +420,7 @@ impl ControllerInner {
         message: &str,
         ownership: Option<&BranchOwnershipClaims>,
         run_hooks: bool,
-    ) -> Result<git::Oid, ControllerError<errors::CommitError>> {
+    ) -> Result<git::Oid, Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
@@ -477,19 +453,21 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         branch_name: &git::RemoteRefname,
-    ) -> Result<bool, ControllerError<IsRemoteBranchMergableError>> {
-        let project = self.projects.get(project_id).map_err(Error::from)?;
-        let project_repository =
-            project_repository::Repository::open(&project).map_err(Error::from)?;
-        let user = self.users.get_user().map_err(Error::from)?;
+    ) -> Result<bool, Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let user = self.users.get_user()?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
             user.as_ref(),
         )
         .context("failed to open gitbutler repository")?;
-        super::is_remote_branch_mergeable(&gb_repository, &project_repository, branch_name)
-            .map_err(ControllerError::Action)
+        Ok(super::is_remote_branch_mergeable(
+            &gb_repository,
+            &project_repository,
+            branch_name,
+        )?)
     }
 
     pub fn can_apply_virtual_branch(
@@ -569,10 +547,7 @@ impl ControllerInner {
     pub async fn list_virtual_branches(
         &self,
         project_id: &ProjectId,
-    ) -> Result<
-        (Vec<super::VirtualBranch>, bool, Vec<git::diff::FileDiff>),
-        ControllerError<errors::ListVirtualBranchesError>,
-    > {
+    ) -> Result<(Vec<super::VirtualBranch>, bool, Vec<git::diff::FileDiff>), Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
@@ -584,7 +559,7 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         create: &super::branch::BranchCreateRequest,
-    ) -> Result<BranchId, ControllerError<errors::CreateVirtualBranchError>> {
+    ) -> Result<BranchId, Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
@@ -598,7 +573,7 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         branch: &git::Refname,
-    ) -> Result<BranchId, ControllerError<errors::CreateVirtualBranchFromBranchError>> {
+    ) -> Result<BranchId, Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
@@ -613,33 +588,33 @@ impl ControllerInner {
                 })
                 .transpose()?;
 
-            super::create_virtual_branch_from_branch(
+            Ok(super::create_virtual_branch_from_branch(
                 gb_repository,
                 project_repository,
                 branch,
                 signing_key.as_ref(),
                 user,
-            )
+            )?)
         })
     }
 
     pub fn get_base_branch_data(
         &self,
         project_id: &ProjectId,
-    ) -> Result<Option<super::BaseBranch>, ControllerError<GetBaseBranchDataError>> {
-        let project = self.projects.get(project_id).map_err(Error::from)?;
-        let project_repository =
-            project_repository::Repository::open(&project).map_err(Error::from)?;
-        let user = self.users.get_user().map_err(Error::from)?;
+    ) -> Result<Option<BaseBranch>, Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let user = self.users.get_user()?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
             user.as_ref(),
         )
         .context("failed to open gitbutler repository")?;
-        let base_branch = super::get_base_branch_data(&gb_repository, &project_repository)
-            .map_err(ControllerError::Action)?;
-        Ok(base_branch)
+        Ok(super::get_base_branch_data(
+            &gb_repository,
+            &project_repository,
+        )?)
     }
 
     pub fn list_remote_commit_files(
@@ -666,11 +641,10 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         target_branch: &git::RemoteRefname,
-    ) -> Result<super::BaseBranch, ControllerError<errors::SetBaseBranchError>> {
-        let project = self.projects.get(project_id).map_err(Error::from)?;
-        let user = self.users.get_user().map_err(Error::from)?;
-        let project_repository =
-            project_repository::Repository::open(&project).map_err(Error::from)?;
+    ) -> Result<super::BaseBranch, Error> {
+        let project = self.projects.get(project_id)?;
+        let user = self.users.get_user()?;
+        let project_repository = project_repository::Repository::open(&project)?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -678,15 +652,18 @@ impl ControllerInner {
         )
         .context("failed to open gitbutler repository")?;
 
-        super::set_base_branch(&gb_repository, &project_repository, target_branch)
-            .map_err(ControllerError::Action)
+        Ok(super::set_base_branch(
+            &gb_repository,
+            &project_repository,
+            target_branch,
+        )?)
     }
 
     pub async fn merge_virtual_branch_upstream(
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-    ) -> Result<(), ControllerError<errors::MergeVirtualBranchUpstreamError>> {
+    ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
@@ -712,10 +689,7 @@ impl ControllerInner {
         })
     }
 
-    pub async fn update_base_branch(
-        &self,
-        project_id: &ProjectId,
-    ) -> Result<(), ControllerError<errors::UpdateBaseBranchError>> {
+    pub async fn update_base_branch(&self, project_id: &ProjectId) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
@@ -744,7 +718,7 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         branch_update: super::branch::BranchUpdateRequest,
-    ) -> Result<(), ControllerError<errors::UpdateBranchError>> {
+    ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
@@ -757,7 +731,7 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-    ) -> Result<(), ControllerError<errors::DeleteBranchError>> {
+    ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
@@ -770,7 +744,7 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-    ) -> Result<(), ControllerError<errors::ApplyBranchError>> {
+    ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
@@ -800,7 +774,7 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         ownership: &BranchOwnershipClaims,
-    ) -> Result<(), ControllerError<errors::UnapplyOwnershipError>> {
+    ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
@@ -813,7 +787,7 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         ownership: &Vec<String>,
-    ) -> Result<(), ControllerError<errors::UnapplyOwnershipError>> {
+    ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |_, project_repository, _| {
@@ -826,7 +800,7 @@ impl ControllerInner {
         project_id: &ProjectId,
         branch_id: &BranchId,
         ownership: &BranchOwnershipClaims,
-    ) -> Result<git::Oid, ControllerError<errors::AmendError>> {
+    ) -> Result<git::Oid, Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
@@ -840,7 +814,7 @@ impl ControllerInner {
         project_id: &ProjectId,
         branch_id: &BranchId,
         target_commit_oid: git::Oid,
-    ) -> Result<(), ControllerError<errors::ResetBranchError>> {
+    ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
@@ -858,7 +832,7 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
-    ) -> Result<(), ControllerError<errors::UnapplyBranchError>> {
+    ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
@@ -874,24 +848,23 @@ impl ControllerInner {
         branch_id: &BranchId,
         with_force: bool,
         askpass: Option<(AskpassBroker, Option<BranchId>)>,
-    ) -> Result<(), ControllerError<errors::PushError>> {
+    ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
         let helper = self.helper.clone();
         let project_id = *project_id;
         let branch_id = *branch_id;
         self.with_verify_branch_async(&project_id, move |gb_repository, project_repository, _| {
-            super::push(
+            Ok(super::push(
                 project_repository,
                 gb_repository,
                 &branch_id,
                 with_force,
                 &helper,
                 askpass,
-            )
+            )?)
         })?
         .await
-        .map_err(|e| ControllerError::Other(e.into()))?
-        .map_err(ControllerError::Action)
+        .map_err(Error::from_err)?
     }
 
     pub async fn cherry_pick(
@@ -899,7 +872,7 @@ impl ControllerInner {
         project_id: &ProjectId,
         branch_id: &BranchId,
         commit_oid: git::Oid,
-    ) -> Result<Option<git::Oid>, ControllerError<errors::CherryPickError>> {
+    ) -> Result<Option<git::Oid>, Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
@@ -911,38 +884,41 @@ impl ControllerInner {
     pub fn list_remote_branches(
         &self,
         project_id: &ProjectId,
-    ) -> Result<Vec<super::RemoteBranch>, ControllerError<ListRemoteBranchesError>> {
-        let project = self.projects.get(project_id).map_err(Error::from)?;
-        let project_repository =
-            project_repository::Repository::open(&project).map_err(Error::from)?;
-        let user = self.users.get_user().map_err(Error::from)?;
+    ) -> Result<Vec<super::RemoteBranch>, Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let user = self.users.get_user()?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
             user.as_ref(),
         )
         .context("failed to open gitbutler repository")?;
-        super::list_remote_branches(&gb_repository, &project_repository)
-            .map_err(ControllerError::Action)
+        Ok(super::list_remote_branches(
+            &gb_repository,
+            &project_repository,
+        )?)
     }
 
     pub fn get_remote_branch_data(
         &self,
         project_id: &ProjectId,
         refname: &git::Refname,
-    ) -> Result<super::RemoteBranchData, ControllerError<GetRemoteBranchDataError>> {
-        let project = self.projects.get(project_id).map_err(Error::from)?;
-        let project_repository =
-            project_repository::Repository::open(&project).map_err(Error::from)?;
-        let user = self.users.get_user().map_err(Error::from)?;
+    ) -> Result<super::RemoteBranchData, Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let user = self.users.get_user()?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
             user.as_ref(),
         )
         .context("failed to open gitbutler repository")?;
-        super::get_branch_data(&gb_repository, &project_repository, refname)
-            .map_err(ControllerError::Action)
+        Ok(super::get_branch_data(
+            &gb_repository,
+            &project_repository,
+            refname,
+        )?)
     }
 
     pub async fn squash(
@@ -950,7 +926,7 @@ impl ControllerInner {
         project_id: &ProjectId,
         branch_id: &BranchId,
         commit_oid: git::Oid,
-    ) -> Result<(), ControllerError<errors::SquashError>> {
+    ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
@@ -965,7 +941,7 @@ impl ControllerInner {
         branch_id: &BranchId,
         commit_oid: git::Oid,
         message: &str,
-    ) -> Result<(), ControllerError<errors::UpdateCommitMessageError>> {
+    ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
             super::update_commit_message(
@@ -983,11 +959,10 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         askpass: Option<(AskpassBroker, String)>,
-    ) -> Result<BaseBranch, ControllerError<errors::FetchFromTargetError>> {
-        let project = self.projects.get(project_id).map_err(Error::from)?;
-        let mut project_repository =
-            project_repository::Repository::open(&project).map_err(Error::from)?;
-        let user = self.users.get_user().map_err(Error::from)?;
+    ) -> Result<BaseBranch, Error> {
+        let project = self.projects.get(project_id)?;
+        let mut project_repository = project_repository::Repository::open(&project)?;
+        let user = self.users.get_user()?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -999,11 +974,10 @@ impl ControllerInner {
             .default_target()
             .context("failed to get default target")?
             .ok_or(FetchFromTargetError::DefaultTargetNotSet(
-                errors::DefaultTargetNotSetError {
+                errors::DefaultTargetNotSet {
                     project_id: *project_id,
                 },
-            ))
-            .map_err(ControllerError::Action)?;
+            ))?;
 
         let project_data_last_fetched = match project_repository
             .fetch(default_target.branch.remote(), &self.helper, askpass)
@@ -1041,7 +1015,7 @@ impl ControllerInner {
         project_id: &ProjectId,
         target_branch_id: &BranchId,
         commit_oid: git::Oid,
-    ) -> Result<(), ControllerError<errors::MoveCommitError>> {
+    ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
@@ -1069,19 +1043,18 @@ impl ControllerInner {
 }
 
 impl ControllerInner {
-    fn with_verify_branch<T, E: Into<Error>>(
+    fn with_verify_branch<T>(
         &self,
         project_id: &ProjectId,
         action: impl FnOnce(
             &gb_repository::Repository,
             &project_repository::Repository,
             Option<&users::User>,
-        ) -> Result<T, E>,
-    ) -> Result<T, ControllerError<E>> {
-        let project = self.projects.get(project_id).map_err(Error::from)?;
-        let project_repository =
-            project_repository::Repository::open(&project).map_err(Error::from)?;
-        let user = self.users.get_user().map_err(Error::from)?;
+        ) -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let user = self.users.get_user()?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -1089,25 +1062,24 @@ impl ControllerInner {
         )
         .context("failed to open gitbutler repository")?;
         super::integration::verify_branch(&gb_repository, &project_repository)?;
-        action(&gb_repository, &project_repository, user.as_ref()).map_err(ControllerError::Action)
+        action(&gb_repository, &project_repository, user.as_ref())
     }
 
-    fn with_verify_branch_async<T: Send + 'static, E: Into<Error> + Send + 'static>(
+    fn with_verify_branch_async<T: Send + 'static>(
         &self,
         project_id: &ProjectId,
         action: impl FnOnce(
                 &gb_repository::Repository,
                 &project_repository::Repository,
                 Option<&users::User>,
-            ) -> Result<T, E>
+            ) -> Result<T, Error>
             + Send
             + 'static,
-    ) -> Result<JoinHandle<Result<T, E>>, ControllerError<E>> {
+    ) -> Result<JoinHandle<Result<T, Error>>, Error> {
         let local_data_dir = self.local_data_dir.clone();
-        let project = self.projects.get(project_id).map_err(Error::from)?;
-        let project_repository =
-            project_repository::Repository::open(&project).map_err(Error::from)?;
-        let user = self.users.get_user().map_err(Error::from)?;
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let user = self.users.get_user()?;
         let gb_repository =
             gb_repository::Repository::open(&local_data_dir, &project_repository, user.as_ref())
                 .context("failed to open gitbutler repository")?;

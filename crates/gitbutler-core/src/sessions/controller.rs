@@ -3,6 +3,7 @@ use std::path;
 use anyhow::Context;
 
 use super::{Database, Session};
+use crate::error::Error;
 use crate::{
     gb_repository, project_repository,
     projects::{self, ProjectId},
@@ -16,18 +17,6 @@ pub struct Controller {
 
     projects: projects::Controller,
     users: users::Controller,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ListError {
-    #[error(transparent)]
-    ProjectsError(#[from] projects::GetError),
-    #[error(transparent)]
-    ProjectRepositoryError(#[from] project_repository::OpenError),
-    #[error(transparent)]
-    UsersError(#[from] users::GetError),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
 }
 
 impl Controller {
@@ -49,7 +38,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         earliest_timestamp_ms: Option<u128>,
-    ) -> Result<Vec<Session>, ListError> {
+    ) -> Result<Vec<Session>, Error> {
         let sessions = self
             .sessions_database
             .list_by_project_id(project_id, earliest_timestamp_ms)?;

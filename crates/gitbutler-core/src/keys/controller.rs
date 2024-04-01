@@ -16,7 +16,7 @@ impl Controller {
         Self::new(Storage::from_path(path))
     }
 
-    pub fn get_or_create(&self) -> Result<PrivateKey, GetOrCreateError> {
+    pub fn get_or_create(&self) -> anyhow::Result<PrivateKey> {
         if let Some(key) = self.storage.get().context("failed to get key")? {
             Ok(key)
         } else {
@@ -25,10 +25,4 @@ impl Controller {
             Ok(key)
         }
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum GetOrCreateError {
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
 }

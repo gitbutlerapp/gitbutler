@@ -6,9 +6,6 @@ rust-version = "1.57"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
-[lib]
-doctest = false
-
 [dev-dependencies]
 once_cell = "1.19"
 pretty_assertions = "1.4"

@@ -4,7 +4,7 @@ use gitbutler_core::{
     git, keys,
     projects::{self, ProjectId},
     users,
-    virtual_branches::{branch, controller::ControllerError, errors, Controller},
+    virtual_branches::{branch, errors, Controller},
 };
 use tempfile::TempDir;
 
@@ -151,8 +151,10 @@ async fn resolve_conflict_flow() {
         assert!(matches!(
             controller
                 .create_commit(project_id, &branch1_id, "commit conflicts", None, false)
-                .await,
-            Err(ControllerError::Action(errors::CommitError::Conflicted(_)))
+                .await
+                .unwrap_err()
+                .downcast_ref(),
+            Some(errors::CommitError::Conflicted(_))
         ));
     }
 

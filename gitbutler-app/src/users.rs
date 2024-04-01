@@ -1,26 +1,13 @@
 pub mod commands {
     use gitbutler_core::{
         assets,
-        users::{
-            controller::{self, Controller, GetError},
-            User,
-        },
+        users::{controller::Controller, User},
     };
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
-    use crate::{error::Error, sentry};
-
-    impl From<GetError> for Error {
-        fn from(value: GetError) -> Self {
-            match value {
-                GetError::Other(error) => {
-                    tracing::error!(?error, "failed to get user");
-                    Error::Unknown
-                }
-            }
-        }
-    }
+    use crate::error::Error;
+    use crate::sentry;
 
     #[tauri::command(async)]
     #[instrument(skip(handle))]
@@ -31,17 +18,6 @@ pub mod commands {
         match app.get_user()? {
             Some(user) => Ok(Some(proxy.proxy_user(user).await)),
             None => Ok(None),
-        }
-    }
-
-    impl From<controller::SetError> for Error {
-        fn from(value: controller::SetError) -> Self {
-            match value {
-                controller::SetError::Other(error) => {
-                    tracing::error!(?error, "failed to set user");
-                    Error::Unknown
-                }
-            }
         }
     }
 
@@ -56,17 +32,6 @@ pub mod commands {
         sentry::configure_scope(Some(&user));
 
         Ok(proxy.proxy_user(user).await)
-    }
-
-    impl From<controller::DeleteError> for Error {
-        fn from(value: controller::DeleteError) -> Self {
-            match value {
-                controller::DeleteError::Other(error) => {
-                    tracing::error!(?error, "failed to delete user");
-                    Error::Unknown
-                }
-            }
-        }
     }
 
     #[tauri::command(async)]

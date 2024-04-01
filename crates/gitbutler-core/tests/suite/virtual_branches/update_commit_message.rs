@@ -253,8 +253,9 @@ async fn forcepush_forbidden() {
         controller
             .update_commit_message(project_id, &branch_id, commit_one_oid, "commit one updated",)
             .await
-            .unwrap_err(),
-        ControllerError::Action(errors::UpdateCommitMessageError::ForcePushNotAllowed(_))
+            .unwrap_err()
+            .downcast_ref(),
+        Some(errors::UpdateCommitMessageError::ForcePushNotAllowed(_))
     ));
 }
 
@@ -356,9 +357,9 @@ async fn empty() {
     assert!(matches!(
         controller
             .update_commit_message(project_id, &branch_id, commit_one_oid, "",)
-            .await,
-        Err(ControllerError::Action(
-            errors::UpdateCommitMessageError::EmptyMessage
-        ))
+            .await
+            .unwrap_err()
+            .downcast_ref(),
+        Some(errors::UpdateCommitMessageError::EmptyMessage)
     ));
 }

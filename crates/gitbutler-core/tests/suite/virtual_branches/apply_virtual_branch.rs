@@ -49,10 +49,10 @@ async fn deltect_conflict() {
         assert!(matches!(
             controller
                 .apply_virtual_branch(project_id, &branch1_id)
-                .await,
-            Err(ControllerError::Action(
-                errors::ApplyBranchError::BranchConflicts(_)
-            ))
+                .await
+                .unwrap_err()
+                .downcast_ref(),
+            Some(errors::ApplyBranchError::BranchConflicts(_))
         ));
     }
 }

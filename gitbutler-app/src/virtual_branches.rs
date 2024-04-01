@@ -1,14 +1,15 @@
 pub mod commands {
+    use crate::error::Error;
     use anyhow::Context;
     use gitbutler_core::{
         askpass::AskpassBroker,
         assets,
-        error::{Code, Error},
+        error::Code,
         git, projects,
         projects::ProjectId,
         virtual_branches::{
             branch::{self, BranchId, BranchOwnershipClaims},
-            controller::{Controller, ControllerError},
+            controller::Controller,
             BaseBranch, RemoteBranch, RemoteBranchData, RemoteBranchFile, VirtualBranches,
         },
     };
@@ -16,18 +17,6 @@ pub mod commands {
     use tracing::instrument;
 
     use crate::watcher;
-
-    fn into_error<E: Into<Error>>(value: ControllerError<E>) -> Error {
-        match value {
-            ControllerError::User(error) => error,
-            ControllerError::Action(error) => error.into(),
-            ControllerError::VerifyError(error) => error.into(),
-            ControllerError::Other(error) => {
-                tracing::error!(?error, "failed to verify branch");
-                Error::Unknown
-            }
-        }
-    }
 
     #[tauri::command(async)]
     #[instrument(skip(handle))]
@@ -42,8 +31,7 @@ pub mod commands {
         let oid = handle
             .state::<Controller>()
             .create_commit(&project_id, &branch, message, ownership.as_ref(), run_hooks)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(oid)
     }
@@ -72,8 +60,7 @@ pub mod commands {
         let (branches, uses_diff_context, skipped_files) = handle
             .state::<Controller>()
             .list_virtual_branches(&project_id)
-            .await
-            .map_err(into_error)?;
+            .await?;
 
         // Migration: If use_diff_context is not already set and if there are no vbranches, set use_diff_context to true
         let has_active_branches = branches.iter().any(|branch| branch.active);
@@ -106,8 +93,7 @@ pub mod commands {
         let branch_id = handle
             .state::<Controller>()
             .create_virtual_branch(&project_id, &branch)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(branch_id)
     }
@@ -122,8 +108,7 @@ pub mod commands {
         let branch_id = handle
             .state::<Controller>()
             .create_virtual_branch_from_branch(&project_id, &branch)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(branch_id)
     }
@@ -138,8 +123,7 @@ pub mod commands {
         handle
             .state::<Controller>()
             .merge_virtual_branch_upstream(&project_id, &branch)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(())
     }
@@ -153,8 +137,7 @@ pub mod commands {
         if let Some(base_branch) = handle
             .state::<Controller>()
             .get_base_branch_data(&project_id)
-            .await
-            .map_err(into_error)?
+            .await?
         {
             let proxy = handle.state::<assets::Proxy>();
             let base_branch = proxy.proxy_base_branch(base_branch).await;
@@ -177,8 +160,7 @@ pub mod commands {
         let base_branch = handle
             .state::<Controller>()
             .set_base_branch(&project_id, &branch_name)
-            .await
-            .map_err(into_error)?;
+            .await?;
         let base_branch = handle
             .state::<assets::Proxy>()
             .proxy_base_branch(base_branch)
@@ -193,8 +175,7 @@ pub mod commands {
         handle
             .state::<Controller>()
             .update_base_branch(&project_id)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(())
     }
@@ -209,8 +190,7 @@ pub mod commands {
         handle
             .state::<Controller>()
             .update_virtual_branch(&project_id, branch)
-            .await
-            .map_err(into_error)?;
+            .await?;
 
         emit_vbranches(&handle, &project_id).await;
         Ok(())
@@ -226,8 +206,7 @@ pub mod commands {
         handle
             .state::<Controller>()
             .delete_virtual_branch(&project_id, &branch_id)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(())
     }
@@ -242,8 +221,7 @@ pub mod commands {
         handle
             .state::<Controller>()
             .apply_virtual_branch(&project_id, &branch)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(())
     }
@@ -258,8 +236,7 @@ pub mod commands {
         handle
             .state::<Controller>()
             .unapply_virtual_branch(&project_id, &branch)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(())
     }
@@ -274,8 +251,7 @@ pub mod commands {
         handle
             .state::<Controller>()
             .unapply_ownership(&project_id, &ownership)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(())
     }
@@ -295,8 +271,7 @@ pub mod commands {
         handle
             .state::<Controller>()
             .reset_files(&project_id, &files)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(())
     }
@@ -319,10 +294,7 @@ pub mod commands {
                 Some((askpass_broker.inner().clone(), Some(branch_id))),
             )
             .await
-            .map_err(|e| Error::UserError {
-                code: Code::Unknown,
-                message: e.to_string(),
-            })?;
+            .map_err(|err| err.context(Code::Unknown))?;
         emit_vbranches(&handle, &project_id).await;
         Ok(())
     }
@@ -348,11 +320,10 @@ pub mod commands {
         project_id: ProjectId,
         branch: git::RemoteRefname,
     ) -> Result<bool, Error> {
-        handle
+        Ok(handle
             .state::<Controller>()
             .can_apply_remote_branch(&project_id, &branch)
-            .await
-            .map_err(into_error)
+            .await?)
     }
 
     #[tauri::command(async)]
@@ -380,8 +351,7 @@ pub mod commands {
         handle
             .state::<Controller>()
             .reset_virtual_branch(&project_id, &branch_id, target_commit_oid)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(())
     }
@@ -397,8 +367,7 @@ pub mod commands {
         let oid = handle
             .state::<Controller>()
             .cherry_pick(&project_id, &branch_id, target_commit_oid)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(oid)
     }
@@ -414,8 +383,7 @@ pub mod commands {
         let oid = handle
             .state::<Controller>()
             .amend(&project_id, &branch_id, &ownership)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(oid)
     }
@@ -429,8 +397,7 @@ pub mod commands {
         let branches = handle
             .state::<Controller>()
             .list_remote_branches(&project_id)
-            .await
-            .map_err(into_error)?;
+            .await?;
         Ok(branches)
     }
 
@@ -444,8 +411,7 @@ pub mod commands {
         let branch_data = handle
             .state::<Controller>()
             .get_remote_branch_data(&project_id, &refname)
-            .await
-            .map_err(into_error)?;
+            .await?;
         let branch_data = handle
             .state::<assets::Proxy>()
             .proxy_remote_branch_data(branch_data)
@@ -464,8 +430,7 @@ pub mod commands {
         handle
             .state::<Controller>()
             .squash(&project_id, &branch_id, target_commit_oid)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(())
     }
@@ -487,8 +452,7 @@ pub mod commands {
                     action.unwrap_or_else(|| "unknown".to_string()),
                 )),
             )
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(base_branch)
     }
@@ -504,8 +468,7 @@ pub mod commands {
         handle
             .state::<Controller>()
             .move_commit(&project_id, &target_branch_id, commit_oid)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(())
     }
@@ -522,8 +485,7 @@ pub mod commands {
         handle
             .state::<Controller>()
             .update_commit_message(&project_id, &branch_id, commit_oid, message)
-            .await
-            .map_err(into_error)?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(())
     }

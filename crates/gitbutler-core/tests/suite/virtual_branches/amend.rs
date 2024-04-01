@@ -26,8 +26,9 @@ async fn to_default_target() {
         controller
             .amend(project_id, &branch_id, &to_amend)
             .await
-            .unwrap_err(),
-        ControllerError::Action(errors::AmendError::BranchHasNoCommits)
+            .unwrap_err()
+            .downcast_ref(),
+        Some(&errors::AmendError::BranchHasNoCommits)
     ));
 }
 
@@ -157,8 +158,9 @@ async fn forcepush_forbidden() {
             controller
                 .amend(project_id, &branch_id, &to_amend)
                 .await
-                .unwrap_err(),
-            ControllerError::Action(errors::AmendError::ForcePushNotAllowed(_))
+                .unwrap_err()
+                .downcast_ref(),
+            Some(errors::AmendError::ForcePushNotAllowed(_))
         ));
     }
 }
@@ -345,8 +347,9 @@ async fn non_existing_ownership() {
             controller
                 .amend(project_id, &branch_id, &to_amend)
                 .await
-                .unwrap_err(),
-            ControllerError::Action(errors::AmendError::TargetOwnerhshipNotFound(_))
+                .unwrap_err()
+                .downcast_ref(),
+            Some(errors::AmendError::TargetOwnerhshipNotFound(_))
         ));
     }
 }

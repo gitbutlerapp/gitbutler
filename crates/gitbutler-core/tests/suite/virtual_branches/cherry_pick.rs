@@ -215,8 +215,10 @@ mod cleanly {
         assert!(matches!(
             controller
                 .cherry_pick(project_id, &branch_id, commit_three_oid)
-                .await,
-            Err(ControllerError::Action(errors::CherryPickError::NotApplied))
+                .await
+                .unwrap_err()
+                .downcast_ref(),
+            Some(errors::CherryPickError::NotApplied)
         ));
     }
 }
@@ -375,8 +377,10 @@ mod with_conflicts {
         assert!(matches!(
             controller
                 .cherry_pick(project_id, &branch_id, commit_oid)
-                .await,
-            Err(ControllerError::Action(errors::CherryPickError::NotApplied))
+                .await
+                .unwrap_err()
+                .downcast_ref(),
+            Some(errors::CherryPickError::NotApplied)
         ));
     }
 }

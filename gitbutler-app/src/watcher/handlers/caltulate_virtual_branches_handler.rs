@@ -1,10 +1,10 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use gitbutler_core::{
     assets,
     projects::ProjectId,
-    virtual_branches::{self, controller::ControllerError, VirtualBranches},
+    virtual_branches::{self, VirtualBranches},
 };
 use governor::{
     clock::QuantaClock,
@@ -94,8 +94,13 @@ impl InnerHandler {
                     ),
                 )])
             }
-            Err(ControllerError::VerifyError(_)) => Ok(vec![]),
-            Err(error) => Err(error).context("failed to list virtual branches"),
+            Err(error) => {
+                if error.is::<virtual_branches::errors::VerifyError>() {
+                    Ok(vec![])
+                } else {
+                    Err(error.context("failed to list virtual branches").into())
+                }
+            }
         }
     }
 }

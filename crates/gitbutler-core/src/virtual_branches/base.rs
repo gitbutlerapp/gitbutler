@@ -35,7 +35,7 @@ pub struct BaseBranch {
 pub fn get_base_branch_data(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<Option<super::BaseBranch>, errors::GetBaseBranchDataError> {
+) -> Result<Option<BaseBranch>> {
     match gb_repository
         .default_target()
         .context("failed to get default target")?
@@ -343,7 +343,7 @@ pub fn update_base_branch(
 ) -> Result<(), errors::UpdateBaseBranchError> {
     if project_repository.is_resolving() {
         return Err(errors::UpdateBaseBranchError::Conflict(
-            errors::ProjectConflictError {
+            errors::ProjectConflict {
                 project_id: project_repository.project().id,
             },
         ));
@@ -354,7 +354,7 @@ pub fn update_base_branch(
         .default_target()
         .context("failed to get default target")?
         .ok_or_else(|| {
-            errors::UpdateBaseBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSetError {
+            errors::UpdateBaseBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
             })
         })?;

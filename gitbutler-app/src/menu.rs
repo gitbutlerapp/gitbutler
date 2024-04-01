@@ -1,3 +1,6 @@
+use anyhow::Context;
+use gitbutler_core::error;
+use gitbutler_core::error::Code;
 use serde_json::json;
 use tauri::{
     AppHandle, CustomMenuItem, Manager, Menu, MenuEntry, PackageInfo, Runtime, Submenu,
@@ -5,7 +8,7 @@ use tauri::{
 };
 use tracing::instrument;
 
-use crate::error::{Code, Error};
+use crate::error::Error;
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
@@ -20,14 +23,10 @@ pub async fn menu_item_set_enabled(
     let menu_item = window
         .menu_handle()
         .try_get_item(menu_item_id)
-        .ok_or_else(|| Error::UserError {
-            message: format!("menu item not found: {}", menu_item_id),
-            code: Code::Menu,
+        .with_context(|| {
+            error::Context::new(Code::Menu, format!("menu item not found: {}", menu_item_id))
         })?;
-    menu_item.set_enabled(enabled).map_err(|error| {
-        tracing::error!(error = ?error, "failed to set menu item enabled state");
-        Error::Unknown
-    })?;
+    menu_item.set_enabled(enabled).context(Code::Unknown)?;
     Ok(())
 }
 

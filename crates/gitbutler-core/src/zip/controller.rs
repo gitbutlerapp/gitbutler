@@ -1,3 +1,4 @@
+use crate::error::Error;
 use std::path;
 
 use super::Zipper;
@@ -27,12 +28,12 @@ impl Controller {
         }
     }
 
-    pub fn archive(&self, project_id: &ProjectId) -> Result<path::PathBuf, ArchiveError> {
+    pub fn archive(&self, project_id: &ProjectId) -> Result<path::PathBuf, Error> {
         let project = self.projects_controller.get(project_id)?;
         self.zipper.zip(project.path).map_err(Into::into)
     }
 
-    pub fn data_archive(&self, project_id: &ProjectId) -> Result<path::PathBuf, DataArchiveError> {
+    pub fn data_archive(&self, project_id: &ProjectId) -> Result<path::PathBuf, Error> {
         let project = self.projects_controller.get(project_id)?;
         self.zipper
             .zip(
@@ -43,29 +44,7 @@ impl Controller {
             .map_err(Into::into)
     }
 
-    pub fn logs_archive(&self) -> Result<path::PathBuf, LogsArchiveError> {
+    pub fn logs_archive(&self) -> anyhow::Result<path::PathBuf> {
         self.zipper.zip(&self.logs_dir).map_err(Into::into)
     }
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum ArchiveError {
-    #[error(transparent)]
-    GetProject(#[from] projects::GetError),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum DataArchiveError {
-    #[error(transparent)]
-    GetProject(#[from] projects::GetError),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum LogsArchiveError {
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
 }
