@@ -4,6 +4,7 @@
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import type { TreeNode } from '$lib/vbranches/filetree';
+	import type { Hunk, RemoteHunk } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let expanded: boolean;
@@ -14,19 +15,21 @@
 
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 
-	function idWithChildren(node: TreeNode): [string, string[]][] {
+	function idWithChildren(node: TreeNode): [string, (Hunk | RemoteHunk)[]][] {
 		if (node.file) {
-			return [[node.file.id, node.file.hunks.map((h) => h.id)]];
+			return [[node.file.id, node.file.hunks]];
 		}
 		return node.children.flatMap(idWithChildren);
 	}
 
 	function onSelectionChanged() {
-		idWithChildren(node).forEach(([fileId, hunkIds]) => {
+		idWithChildren(node).forEach(([fileId, hunks]) => {
 			if (isChecked) {
-				selectedOwnership?.update((ownership) => ownership.removeHunk(fileId, ...hunkIds));
+				selectedOwnership?.update((ownership) =>
+					ownership.remove(fileId, ...hunks.map((h) => h.id))
+				);
 			} else {
-				selectedOwnership?.update((ownership) => ownership.addHunk(fileId, ...hunkIds));
+				selectedOwnership?.update((ownership) => ownership.add(fileId, ...hunks));
 			}
 		});
 	}

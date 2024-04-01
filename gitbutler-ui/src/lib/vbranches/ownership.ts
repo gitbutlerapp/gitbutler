@@ -1,4 +1,4 @@
-import type { Branch, AnyFile } from './types';
+import type { Branch, AnyFile, Hunk, RemoteHunk } from './types';
 
 export function filesToOwnership(files: AnyFile[]) {
 	return files
@@ -6,71 +6,90 @@ export function filesToOwnership(files: AnyFile[]) {
 		.join('\n');
 }
 
-export class Ownership {
-	files: Map<string, Set<string>>;
+// These types help keep track of what maps to what.
+// TODO: refactor code for clarity, these types should not be needed
+export type AnyHunk = Hunk | RemoteHunk;
+export type HunkId = string;
+export type FilePath = string;
+export type HunkClaims = Map<HunkId, AnyHunk>;
+export type FileClaims = Map<FilePath, HunkClaims>;
 
-	static default() {
-		return new Ownership(new Map());
-	}
+export class Ownership {
+	private claims: FileClaims;
 
 	static fromBranch(branch: Branch) {
 		const files = branch.files.reduce((acc, file) => {
-			if (acc.has(file.id)) {
-				const existing = acc.get(file.id);
-				file.hunks.forEach((hunk) => existing.add(hunk.id));
+			const existing = acc.get(file.id);
+			if (existing) {
+				file.hunks.forEach((hunk) => existing.set(hunk.id, hunk));
 			} else {
 				acc.set(
 					file.id,
-					file.hunks.reduce((acc, hunk) => {
-						acc.add(hunk.id);
-						return acc;
-					}, new Set())
+					file.hunks.reduce((acc2, hunk) => {
+						return acc2.set(hunk.id, hunk);
+					}, new Map<string, AnyHunk>())
 				);
 			}
 			return acc;
-		}, new Map());
-		return new Ownership(files);
+		}, new Map<FilePath, Map<HunkId, AnyHunk>>());
+		const ownership = new Ownership(files);
+		return ownership;
 	}
 
-	constructor(files: Map<string, Set<string>>) {
-		this.files = files;
+	constructor(files: FileClaims) {
+		this.claims = files;
 	}
 
-	removeHunk(fileId: string, ...hunkIds: string[]) {
-		const hunks = this.files.get(fileId);
-		if (hunks) {
-			hunkIds.forEach((hunkId) => hunks.delete(hunkId));
-			if (hunks.size === 0) this.files.delete(fileId);
-		}
+	remove(fileId: string, ...hunkIds: string[]) {
+		const claims = this.claims;
+		if (!claims) return this;
+		hunkIds.forEach((hunkId) => {
+			claims.get(fileId)?.delete(hunkId);
+			if (claims.get(fileId)?.size == 0) claims.delete(fileId);
+		});
 		return this;
 	}
 
-	addHunk(fileId: string, ...hunkIds: string[]) {
-		const hunks = this.files.get(fileId);
-		if (hunks) {
-			hunkIds.forEach((hunkId) => hunks.add(hunkId));
+	add(fileId: string, ...items: AnyHunk[]) {
+		const claim = this.claims.get(fileId);
+		if (claim) {
+			items.forEach((hunk) => claim.set(hunk.id, hunk));
 		} else {
-			this.files.set(fileId, new Set(hunkIds));
+			this.claims.set(
+				fileId,
+				items.reduce((acc, hunk) => {
+					return acc.set(hunk.id, hunk);
+				}, new Map<string, AnyHunk>())
+			);
 		}
 		return this;
 	}
 
-	containsHunk(fileId: string, ...hunkIds: string[]): boolean {
-		return hunkIds.every((hunkId) => !!this.files.get(fileId)?.has(hunkId));
+	contains(fileId: string, ...hunkIds: string[]): boolean {
+		return hunkIds.every((hunkId) => !!this.claims.get(fileId)?.has(hunkId));
 	}
 
 	clear() {
-		this.files.clear();
+		this.claims.clear();
 		return this;
 	}
 
 	toString() {
-		return Array.from(this.files.entries())
-			.map(([fileId, hunks]) => fileId + ':' + Array.from(hunks.values()).join(','))
+		return Array.from(this.claims.entries())
+			.map(
+				([fileId, hunkMap]) =>
+					fileId +
+					':' +
+					Array.from(hunkMap.values())
+						.map((hunk) => {
+							return `${hunk.id}-${hunk.hash}`;
+						})
+						.join(',')
+			)
 			.join('\n');
 	}
 
 	isEmpty() {
-		return this.files.size == 0;
+		return this.claims.size == 0;
 	}
 }

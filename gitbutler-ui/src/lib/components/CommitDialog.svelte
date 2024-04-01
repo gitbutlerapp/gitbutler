@@ -91,7 +91,7 @@
 
 	async function generateCommitMessage(files: LocalFile[]) {
 		const hunks = files.flatMap((f) =>
-			f.hunks.filter((h) => $selectedOwnership.containsHunk(f.id, h.id))
+			f.hunks.filter((h) => $selectedOwnership.contains(f.id, h.id))
 		);
 		// Branches get their names generated only if there are at least 4 lines of code
 		// If the change is a 'one-liner', the branch name is either left as "virtual branch"

@@ -28,9 +28,9 @@
 
 	$: if (file && $selectedOwnership) {
 		const fileId = file.id;
-		checked = file.hunks.every((hunk) => $selectedOwnership?.containsHunk(fileId, hunk.id));
+		checked = file.hunks.every((hunk) => $selectedOwnership?.contains(fileId, hunk.id));
 		const selectedCount = file.hunks.filter((hunk) =>
-			$selectedOwnership?.containsHunk(fileId, hunk.id)
+			$selectedOwnership?.contains(fileId, hunk.id)
 		).length;
 		indeterminate = selectedCount > 0 && file.hunks.length - selectedCount > 0;
 	}
@@ -61,8 +61,8 @@
 			{indeterminate}
 			on:change={(e) => {
 				selectedOwnership?.update((ownership) => {
-					if (e.detail) file.hunks.forEach((h) => ownership.addHunk(file.id, h.id));
-					if (!e.detail) file.hunks.forEach((h) => ownership.removeHunk(file.id, h.id));
+					if (e.detail) file.hunks.forEach((h) => ownership.add(file.id, h));
+					if (!e.detail) file.hunks.forEach((h) => ownership.remove(file.id, h.id));
 					return ownership;
 				});
 			}}

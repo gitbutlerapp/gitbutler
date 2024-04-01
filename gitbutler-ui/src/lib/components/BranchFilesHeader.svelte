@@ -16,14 +16,12 @@
 
 	function selectAll(files: AnyFile[]) {
 		if (!selectedOwnership) return;
-		files.forEach((f) =>
-			selectedOwnership.update((ownership) => ownership.addHunk(f.id, ...f.hunks.map((h) => h.id)))
-		);
+		files.forEach((f) => selectedOwnership.update((ownership) => ownership.add(f.id, ...f.hunks)));
 	}
 
 	function isAllChecked(selectedOwnership: Ownership | undefined): boolean {
 		if (!selectedOwnership) return false;
-		return files.every((f) => f.hunks.every((h) => selectedOwnership.containsHunk(f.id, h.id)));
+		return files.every((f) => f.hunks.every((h) => selectedOwnership.contains(f.id, h.id)));
 	}
 
 	function isIndeterminate(selectedOwnership: Ownership | undefined): boolean {
@@ -31,10 +29,10 @@
 		if (files.length <= 1) return false;
 
 		let file = files[0];
-		let prev = selectedOwnership.containsHunk(file.id, ...file.hunkIds);
+		let prev = selectedOwnership.contains(file.id, ...file.hunkIds);
 		for (let i = 1; i < files.length; i++) {
 			file = files[i];
-			const contained = selectedOwnership.containsHunk(file.id, ...file.hunkIds);
+			const contained = selectedOwnership.contains(file.id, ...file.hunkIds);
 			if (contained != prev) {
 				return true;
 			}
