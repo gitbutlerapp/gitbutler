@@ -17,8 +17,8 @@
 </script>
 
 <Button
-	color="error"
-	kind="outlined"
+	style="error"
+	kind="solid"
 	icon="bin-small"
 	iconAlign="left"
 	on:click={() => {
@@ -36,21 +36,21 @@
 		</p>
 
 		<p class="text-base-body-12 details-text">
-			When you delete your project from GitButler, your repository doesn't get deleted. It just
-			removes the project from the list, keeping your repository safe and easy to access.
+			When you delete your project from GitButler, your repository doesn't get deleted. It
+			just removes the project from the list, keeping your repository safe and easy to access.
 		</p>
 	</div>
 
 	<svelte:fragment slot="controls" let:close>
 		<Button
-			color="error"
-			kind="outlined"
+			style="error"
+			kind="soft"
 			iconAlign="left"
 			loading={isDeleting}
 			icon="bin-small"
 			on:click={onDeleteClicked}>Remove</Button
 		>
-		<Button on:click={close}>Cancel</Button>
+		<Button style="pop" kind="solid" on:click={close}>Cancel</Button>
 	</svelte:fragment>
 </Modal>
 

@@ -52,8 +52,8 @@
 
 {#if $user}
 	<Button
-		kind="filled"
-		color="error"
+		style="error"
+		kind="solid"
 		{wide}
 		icon="signout"
 		on:click={async () => {
@@ -78,8 +78,9 @@
 {:else}
 	<div>
 		<Button
+			style="pop"
+			kind="solid"
 			loading={signUpOrLoginLoading}
-			color="primary"
 			icon="signin"
 			on:mousedown={onSignUpOrLoginClick}
 			{wide}

@@ -34,10 +34,10 @@
 		{@const [remoteName, branchName] = selectedBranch.split(/\/(.*)/s)}
 		<KeysForm {remoteName} {branchName} />
 		<div class="actions">
-			<Button kind="outlined" color="neutral" on:mousedown={() => (selectedBranch = '')}
+			<Button style="ghost" kind="solid" on:mousedown={() => (selectedBranch = '')}
 				>Back</Button
 			>
-			<Button color="primary" {loading} on:click={setTarget}>Let's go!</Button>
+			<Button style="pop" kind="solid" {loading} on:click={setTarget}>Let's go!</Button>
 		</div>
 	{:else}
 		<ProjectSetupTarget

@@ -183,7 +183,11 @@
 								e.preventDefault();
 								titleTextArea.focus();
 								setAutoHeight(e.currentTarget);
-							} else if (e.key == 'a' && (e.metaKey || e.ctrlKey) && value.length == 0) {
+							} else if (
+								e.key == 'a' &&
+								(e.metaKey || e.ctrlKey) &&
+								value.length == 0
+							) {
 								// select previous textarea on cmd+a if this textarea is empty
 								e.preventDefault();
 								titleTextArea.select();
@@ -212,9 +216,9 @@
 						: 'You must be logged in or have provided your own API key and have summary generation enabled to use this feature'}
 				>
 					<DropDownButton
-						kind="outlined"
+						style="ghost"
+						kind="solid"
 						icon="ai-small"
-						color="neutral"
 						disabled={!($aiGenEnabled && aiConfigurationValid)}
 						loading={aiLoading}
 						on:click={() => generateCommitMessage($branch.files)}
@@ -224,16 +228,27 @@
 							<ContextMenuSection>
 								<ContextMenuItem
 									label="Extra concise"
-									on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+									on:click={() =>
+										($commitGenerationExtraConcise =
+											!$commitGenerationExtraConcise)}
 								>
-									<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
+									<Checkbox
+										small
+										slot="control"
+										bind:checked={$commitGenerationExtraConcise}
+									/>
 								</ContextMenuItem>
 
 								<ContextMenuItem
 									label="Use emojis 😎"
-									on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+									on:click={() =>
+										($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
 								>
-									<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
+									<Checkbox
+										small
+										slot="control"
+										bind:checked={$commitGenerationUseEmojis}
+									/>
 								</ContextMenuItem>
 							</ContextMenuSection>
 						</ContextMenu>
@@ -245,8 +260,8 @@
 	<div class="actions">
 		{#if $expanded && !isCommitting}
 			<Button
-				color="neutral"
-				kind="outlined"
+				style="ghost"
+				kind="solid"
 				id="commit-to-branch"
 				on:click={() => {
 					$expanded = false;
@@ -256,9 +271,9 @@
 			</Button>
 		{/if}
 		<Button
+			style="pop"
+			kind="solid"
 			grow
-			color="primary"
-			kind="filled"
 			loading={isCommitting}
 			disabled={(isCommitting || !title || $selectedOwnership.isEmpty()) && $expanded}
 			id="commit-to-branch"

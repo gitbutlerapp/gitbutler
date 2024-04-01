@@ -12,6 +12,8 @@
 
 	<div class="analytics-confirmation__actions">
 		<Button
+			style="pop"
+			kind="solid"
 			icon="chevron-right-small"
 			on:click={() => {
 				$analyticsConfirmed = true;

@@ -93,10 +93,10 @@
 			<div class="header__buttons"></div>
 			<div class="relative" bind:this={meatballButton}>
 				<Button
+					style="ghost"
+					kind="solid"
 					help="Restores these changes into your working directory"
 					icon="plus-small"
-					color="primary"
-					kind="outlined"
 					loading={isApplying}
 					on:click={async () => {
 						isApplying = true;

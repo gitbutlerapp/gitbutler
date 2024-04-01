@@ -34,7 +34,9 @@
 		typeof project.preferred_key == 'string' ? project.preferred_key : 'local';
 
 	let privateKeyPath =
-		typeof project.preferred_key == 'string' ? '' : project.preferred_key.local.private_key_path;
+		typeof project.preferred_key == 'string'
+			? ''
+			: project.preferred_key.local.private_key_path;
 
 	function setLocalKey() {
 		if (privateKeyPath.trim().length == 0) return;
@@ -157,16 +159,16 @@
 				<TextBox id="sshKey" readonly selectall bind:value={sshKey} wide />
 				<div class="row-buttons">
 					<Button
-						kind="filled"
-						color="primary"
+						style="pop"
+						kind="solid"
 						icon="copy"
 						on:mousedown={() => copyToClipboard(sshKey)}
 					>
 						Copy to Clipboard
 					</Button>
 					<Button
-						kind="outlined"
-						color="neutral"
+						style="ghost"
+						kind="solid"
 						icon="open-link"
 						on:mousedown={() => {
 							openExternalUrl('https://github.com/settings/ssh/new');
@@ -186,7 +188,9 @@
 		>
 			<svelte:fragment slot="title">Use a Git executable</svelte:fragment>
 
-			<svelte:fragment slot="caption">Git executable must be present on your PATH</svelte:fragment>
+			<svelte:fragment slot="caption"
+				>Git executable must be present on your PATH</svelte:fragment
+			>
 
 			<svelte:fragment slot="actions">
 				<RadioButton name="credentialType" value="systemExecutable" id="git-executable" />
@@ -203,13 +207,21 @@
 
 			<svelte:fragment slot="caption">
 				GitButler will use the system's git credentials helper.
-				<Link target="_blank" rel="noreferrer" href="https://git-scm.com/doc/credential-helpers">
+				<Link
+					target="_blank"
+					rel="noreferrer"
+					href="https://git-scm.com/doc/credential-helpers"
+				>
 					Learn more
 				</Link>
 			</svelte:fragment>
 
 			<svelte:fragment slot="actions">
-				<RadioButton name="credentialType" value="gitCredentialsHelper" id="credential-helper" />
+				<RadioButton
+					name="credentialType"
+					value="gitCredentialsHelper"
+					id="credential-helper"
+				/>
 			</svelte:fragment>
 		</SectionCard>
 
