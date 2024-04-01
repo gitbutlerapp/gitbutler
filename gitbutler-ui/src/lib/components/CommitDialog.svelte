@@ -270,7 +270,7 @@
 				}
 			}}
 		>
-			{$expanded ? 'Commit' : 'Commit changes'}
+			{$expanded ? 'Commit' : 'Start commit'}
 		</Button>
 	</div>
 </div>
