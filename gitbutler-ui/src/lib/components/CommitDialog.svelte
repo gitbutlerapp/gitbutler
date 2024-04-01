@@ -183,11 +183,7 @@
 								e.preventDefault();
 								titleTextArea.focus();
 								setAutoHeight(e.currentTarget);
-							} else if (
-								e.key == 'a' &&
-								(e.metaKey || e.ctrlKey) &&
-								value.length == 0
-							) {
+							} else if (e.key == 'a' && (e.metaKey || e.ctrlKey) && value.length == 0) {
 								// select previous textarea on cmd+a if this textarea is empty
 								e.preventDefault();
 								titleTextArea.select();
@@ -228,27 +224,16 @@
 							<ContextMenuSection>
 								<ContextMenuItem
 									label="Extra concise"
-									on:click={() =>
-										($commitGenerationExtraConcise =
-											!$commitGenerationExtraConcise)}
+									on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
 								>
-									<Checkbox
-										small
-										slot="control"
-										bind:checked={$commitGenerationExtraConcise}
-									/>
+									<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
 								</ContextMenuItem>
 
 								<ContextMenuItem
 									label="Use emojis 😎"
-									on:click={() =>
-										($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+									on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
 								>
-									<Checkbox
-										small
-										slot="control"
-										bind:checked={$commitGenerationUseEmojis}
-									/>
+									<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
 								</ContextMenuItem>
 							</ContextMenuSection>
 						</ContextMenu>
