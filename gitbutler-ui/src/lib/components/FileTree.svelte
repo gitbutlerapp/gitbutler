@@ -27,7 +27,7 @@
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
 			const fileId = node.file.id;
-			return node.file.hunks.some((hunk) => selectedOwnership.containsHunk(fileId, hunk.id));
+			return node.file.hunks.some((hunk) => selectedOwnership.contains(fileId, hunk.id));
 		} else {
 			return node.children.every((child) => isNodeChecked(selectedOwnership, child));
 		}
@@ -39,7 +39,7 @@
 		if (node.file) {
 			const fileId = node.file.id;
 			const numSelected = node.file.hunks.filter(
-				(hunk) => !selectedOwnership.containsHunk(fileId, hunk.id)
+				(hunk) => !selectedOwnership.contains(fileId, hunk.id)
 			).length;
 			return numSelected !== node.file.hunks.length && numSelected !== 0;
 		}

@@ -33,9 +33,9 @@
 	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
 		if (!selectedOwnership) return;
 		if (isSelected) {
-			selectedOwnership.update((ownership) => ownership.addHunk(hunk.filePath, hunk.id));
+			selectedOwnership.update((ownership) => ownership.add(hunk.filePath, hunk));
 		} else {
-			selectedOwnership.update((ownership) => ownership.removeHunk(hunk.filePath, hunk.id));
+			selectedOwnership.update((ownership) => ownership.remove(hunk.filePath, hunk.id));
 		}
 	}
 
@@ -93,7 +93,7 @@
 							{selectable}
 							{draggingDisabled}
 							tabSize={$userSettings.tabSize}
-							selected={$selectedOwnership?.containsHunk(hunk.filePath, hunk.id)}
+							selected={$selectedOwnership?.contains(hunk.filePath, hunk.id)}
 							on:selected={(e) => onHunkSelected(hunk, e.detail)}
 							sectionType={subsection.sectionType}
 							on:contextmenu={(e) =>
