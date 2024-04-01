@@ -290,14 +290,14 @@
 	/* SIZE MODIFIERS */
 
 	.btn.medium {
-		height: var(--size-control-m);
-		min-width: var(--size-control-m);
+		height: var(--size-control-button);
+		min-width: var(--size-control-button);
 		padding: var(--size-4) var(--size-6);
 	}
 
 	.btn.large {
-		height: var(--size-control-l);
-		min-width: var(--size-control-l);
+		height: var(--size-control-cta);
+		min-width: var(--size-control-cta);
 		padding: var(--size-6) var(--size-8);
 	}
 

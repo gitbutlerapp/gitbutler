@@ -41,7 +41,7 @@
 		overflow-x: hidden;
 		gap: var(--size-8);
 
-		height: var(--size-control-l);
+		height: var(--size-control-cta);
 		padding: var(--size-6) var(--size-8);
 		border-radius: var(--radius-m);
 
