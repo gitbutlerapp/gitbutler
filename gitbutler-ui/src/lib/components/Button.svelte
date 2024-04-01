@@ -34,8 +34,7 @@
 	export let reversedDirection: boolean = false;
 	export let wide = false;
 	export let grow = false;
-	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' =
-		'auto';
+	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' = 'auto';
 	// Style props
 	export let style: ButtonStyle = 'neutral';
 	export let kind: ButtonKind = 'soft';
@@ -104,6 +103,26 @@
 			cursor: default;
 			pointer-events: none;
 			opacity: 0.5;
+
+			&.neutral.solid,
+			&.pop.solid,
+			&.success.solid,
+			&.error.solid,
+			&.warning.solid,
+			&.purple.solid {
+				color: color-mix(in srgb, var(--clr-theme-scale-ntrl-0), transparent 40%);
+				background: color-mix(in srgb, var(--clr-theme-scale-ntrl-40), transparent 80%);
+			}
+
+			&.neutral.soft,
+			&.pop.soft,
+			&.success.soft,
+			&.error.soft,
+			&.warning.soft,
+			&.purple.soft {
+				color: var(--clr-theme-scale-ntrl-40);
+				background: color-mix(in srgb, var(--clr-theme-scale-ntrl-50), transparent 80%);
+			}
 		}
 		&.wide {
 			display: flex;
@@ -132,7 +151,7 @@
 			color: var(--clr-theme-scale-ntrl-30);
 			background: color-mix(in srgb, var(--clr-core-ntrl-50), var(--soft-bg-ratio));
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-theme-scale-ntrl-30);
 				background: color-mix(in srgb, var(--clr-core-ntrl-50), var(--soft-hover-ratio));
 			}
@@ -141,7 +160,7 @@
 			color: var(--clr-theme-scale-ntrl-100);
 			background: var(--clr-theme-scale-ntrl-30);
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				background: var(--clr-theme-scale-ntrl-30);
 			}
 		}
@@ -152,7 +171,7 @@
 		&.solid {
 			color: var(--clr-theme-scale-ntrl-30);
 			background: transparent;
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-theme-scale-ntrl-30);
 				background: color-mix(in srgb, transparent, var(--darken-tint-light));
 			}
@@ -161,7 +180,7 @@
 		&.solid {
 			border: 1px solid var(--clr-theme-scale-ntrl-60);
 
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-theme-scale-ntrl-30);
 				background: color-mix(in srgb, transparent, var(--darken-tint-light));
 			}
@@ -173,7 +192,7 @@
 			color: var(--clr-theme-scale-pop-20);
 			background: color-mix(in srgb, var(--clr-core-pop-50), var(--soft-bg-ratio));
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-theme-scale-pop-10);
 				background: color-mix(in srgb, var(--clr-core-pop-50), var(--soft-hover-ratio));
 			}
@@ -182,7 +201,7 @@
 			color: var(--clr-theme-pop-on-element);
 			background: var(--clr-theme-pop-element);
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				background: color-mix(in srgb, var(--clr-theme-pop-element), var(--darken-mid));
 			}
 		}
@@ -193,7 +212,7 @@
 			color: var(--clr-theme-scale-succ-20);
 			background: color-mix(in srgb, var(--clr-core-succ-50), var(--soft-bg-ratio));
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-theme-scale-succ-10);
 				background: color-mix(in srgb, var(--clr-core-succ-50), var(--soft-hover-ratio));
 			}
@@ -202,7 +221,7 @@
 			color: var(--clr-theme-succ-on-element);
 			background: var(--clr-theme-succ-element);
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				background: color-mix(in srgb, var(--clr-theme-succ-element), var(--darken-mid));
 			}
 		}
@@ -213,7 +232,7 @@
 			color: var(--clr-theme-scale-err-20);
 			background: color-mix(in srgb, var(--clr-core-err-50), var(--soft-bg-ratio));
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-theme-scale-err-10);
 				background: color-mix(in srgb, var(--clr-core-err-50), var(--soft-hover-ratio));
 			}
@@ -222,7 +241,7 @@
 			color: var(--clr-theme-err-on-element);
 			background: var(--clr-theme-err-element);
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				background: color-mix(in srgb, var(--clr-theme-err-element), var(--darken-mid));
 			}
 		}
@@ -233,7 +252,7 @@
 			color: var(--clr-theme-scale-warn-20);
 			background: color-mix(in srgb, var(--clr-core-warn-50), var(--soft-bg-ratio));
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-theme-scale-warn-10);
 				background: color-mix(in srgb, var(--clr-core-warn-50), var(--soft-hover-ratio));
 			}
@@ -242,7 +261,7 @@
 			color: var(--clr-theme-warn-on-element);
 			background: var(--clr-theme-warn-element);
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				background: color-mix(in srgb, var(--clr-theme-warn-element), var(--darken-mid));
 			}
 		}
@@ -253,7 +272,7 @@
 			color: var(--clr-theme-scale-purple-20);
 			background: color-mix(in srgb, var(--clr-core-purple-50), var(--soft-bg-ratio));
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-theme-scale-purple-10);
 				background: color-mix(in srgb, var(--clr-core-purple-50), var(--soft-hover-ratio));
 			}
@@ -262,7 +281,7 @@
 			color: var(--clr-theme-purple-on-element);
 			background: var(--clr-theme-purple-element);
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				background: color-mix(in srgb, var(--clr-theme-purple-element), var(--darken-mid));
 			}
 		}
