@@ -6,12 +6,12 @@ pub mod commands {
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
-    use crate::error::Error2;
+    use crate::error::Error;
     use crate::sentry;
 
     #[tauri::command(async)]
     #[instrument(skip(handle))]
-    pub async fn get_user(handle: AppHandle) -> Result<Option<User>, Error2> {
+    pub async fn get_user(handle: AppHandle) -> Result<Option<User>, Error> {
         let app = handle.state::<Controller>();
         let proxy = handle.state::<assets::Proxy>();
 
@@ -23,7 +23,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle))]
-    pub async fn set_user(handle: AppHandle, user: User) -> Result<User, Error2> {
+    pub async fn set_user(handle: AppHandle, user: User) -> Result<User, Error> {
         let app = handle.state::<Controller>();
         let proxy = handle.state::<assets::Proxy>();
 
@@ -36,7 +36,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle))]
-    pub async fn delete_user(handle: AppHandle) -> Result<(), Error2> {
+    pub async fn delete_user(handle: AppHandle) -> Result<(), Error> {
         let app = handle.state::<Controller>();
 
         app.delete_user()?;

@@ -5,7 +5,7 @@ pub mod commands {
     use serde::{Deserialize, Serialize};
     use tracing::instrument;
 
-    use crate::error::Error2;
+    use crate::error::Error;
 
     const GITHUB_CLIENT_ID: &str = "cd51880daa675d9e6452";
 
@@ -17,7 +17,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument]
-    pub async fn init_device_oauth() -> Result<Verification, Error2> {
+    pub async fn init_device_oauth() -> Result<Verification, Error> {
         let mut req_body = HashMap::new();
         req_body.insert("client_id", GITHUB_CLIENT_ID);
         req_body.insert("scope", "repo");
@@ -46,7 +46,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument]
-    pub async fn check_auth_status(device_code: &str) -> Result<String, Error2> {
+    pub async fn check_auth_status(device_code: &str) -> Result<String, Error> {
         #[derive(Debug, Deserialize, Serialize, Clone, Default)]
         struct AccessTokenContainer {
             access_token: String,

@@ -3,7 +3,7 @@ use std::path;
 use anyhow::Context;
 
 use super::{Database, Session};
-use crate::error::Error2;
+use crate::error::Error;
 use crate::{
     gb_repository, project_repository,
     projects::{self, ProjectId},
@@ -38,7 +38,7 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         earliest_timestamp_ms: Option<u128>,
-    ) -> Result<Vec<Session>, Error2> {
+    ) -> Result<Vec<Session>, Error> {
         let sessions = self
             .sessions_database
             .list_by_project_id(project_id, earliest_timestamp_ms)?;

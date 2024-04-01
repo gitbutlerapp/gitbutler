@@ -1,5 +1,5 @@
 pub mod commands {
-    use crate::error::Error2;
+    use crate::error::Error;
     use anyhow::Context;
     use gitbutler_core::{
         askpass::AskpassBroker,
@@ -27,7 +27,7 @@ pub mod commands {
         message: &str,
         ownership: Option<BranchOwnershipClaims>,
         run_hooks: bool,
-    ) -> Result<git::Oid, Error2> {
+    ) -> Result<git::Oid, Error> {
         let oid = handle
             .state::<Controller>()
             .create_commit(&project_id, &branch, message, ownership.as_ref(), run_hooks)
@@ -43,7 +43,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch_ids: Vec<BranchId>,
-    ) -> Result<(), Error2> {
+    ) -> Result<(), Error> {
         handle
             .state::<Controller>()
             .save_vbranches_state(&project_id, branch_ids)
@@ -56,7 +56,7 @@ pub mod commands {
     pub async fn list_virtual_branches(
         handle: AppHandle,
         project_id: ProjectId,
-    ) -> Result<VirtualBranches, Error2> {
+    ) -> Result<VirtualBranches, Error> {
         let (branches, uses_diff_context, skipped_files) = handle
             .state::<Controller>()
             .list_virtual_branches(&project_id)
@@ -89,7 +89,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch: branch::BranchCreateRequest,
-    ) -> Result<BranchId, Error2> {
+    ) -> Result<BranchId, Error> {
         let branch_id = handle
             .state::<Controller>()
             .create_virtual_branch(&project_id, &branch)
@@ -104,7 +104,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch: git::Refname,
-    ) -> Result<BranchId, Error2> {
+    ) -> Result<BranchId, Error> {
         let branch_id = handle
             .state::<Controller>()
             .create_virtual_branch_from_branch(&project_id, &branch)
@@ -119,7 +119,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch: BranchId,
-    ) -> Result<(), Error2> {
+    ) -> Result<(), Error> {
         handle
             .state::<Controller>()
             .merge_virtual_branch_upstream(&project_id, &branch)
@@ -133,7 +133,7 @@ pub mod commands {
     pub async fn get_base_branch_data(
         handle: AppHandle,
         project_id: ProjectId,
-    ) -> Result<Option<BaseBranch>, Error2> {
+    ) -> Result<Option<BaseBranch>, Error> {
         if let Some(base_branch) = handle
             .state::<Controller>()
             .get_base_branch_data(&project_id)
@@ -153,7 +153,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch: &str,
-    ) -> Result<BaseBranch, Error2> {
+    ) -> Result<BaseBranch, Error> {
         let branch_name = format!("refs/remotes/{}", branch)
             .parse()
             .context("Invalid branch name")?;
@@ -171,10 +171,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle))]
-    pub async fn update_base_branch(
-        handle: AppHandle,
-        project_id: ProjectId,
-    ) -> Result<(), Error2> {
+    pub async fn update_base_branch(handle: AppHandle, project_id: ProjectId) -> Result<(), Error> {
         handle
             .state::<Controller>()
             .update_base_branch(&project_id)
@@ -189,7 +186,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch: branch::BranchUpdateRequest,
-    ) -> Result<(), Error2> {
+    ) -> Result<(), Error> {
         handle
             .state::<Controller>()
             .update_virtual_branch(&project_id, branch)
@@ -205,7 +202,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch_id: BranchId,
-    ) -> Result<(), Error2> {
+    ) -> Result<(), Error> {
         handle
             .state::<Controller>()
             .delete_virtual_branch(&project_id, &branch_id)
@@ -220,7 +217,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch: BranchId,
-    ) -> Result<(), Error2> {
+    ) -> Result<(), Error> {
         handle
             .state::<Controller>()
             .apply_virtual_branch(&project_id, &branch)
@@ -235,7 +232,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch: BranchId,
-    ) -> Result<(), Error2> {
+    ) -> Result<(), Error> {
         handle
             .state::<Controller>()
             .unapply_virtual_branch(&project_id, &branch)
@@ -250,7 +247,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         ownership: BranchOwnershipClaims,
-    ) -> Result<(), Error2> {
+    ) -> Result<(), Error> {
         handle
             .state::<Controller>()
             .unapply_ownership(&project_id, &ownership)
@@ -265,7 +262,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         files: &str,
-    ) -> Result<(), Error2> {
+    ) -> Result<(), Error> {
         // convert files to Vec<String>
         let files = files
             .split('\n')
@@ -286,7 +283,7 @@ pub mod commands {
         project_id: ProjectId,
         branch_id: BranchId,
         with_force: bool,
-    ) -> Result<(), Error2> {
+    ) -> Result<(), Error> {
         let askpass_broker = handle.state::<AskpassBroker>();
         handle
             .state::<Controller>()
@@ -308,7 +305,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch_id: BranchId,
-    ) -> Result<bool, Error2> {
+    ) -> Result<bool, Error> {
         handle
             .state::<Controller>()
             .can_apply_virtual_branch(&project_id, &branch_id)
@@ -322,7 +319,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch: git::RemoteRefname,
-    ) -> Result<bool, Error2> {
+    ) -> Result<bool, Error> {
         Ok(handle
             .state::<Controller>()
             .can_apply_remote_branch(&project_id, &branch)
@@ -335,7 +332,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         commit_oid: git::Oid,
-    ) -> Result<Vec<RemoteBranchFile>, Error2> {
+    ) -> Result<Vec<RemoteBranchFile>, Error> {
         handle
             .state::<Controller>()
             .list_remote_commit_files(&project_id, commit_oid)
@@ -350,7 +347,7 @@ pub mod commands {
         project_id: ProjectId,
         branch_id: BranchId,
         target_commit_oid: git::Oid,
-    ) -> Result<(), Error2> {
+    ) -> Result<(), Error> {
         handle
             .state::<Controller>()
             .reset_virtual_branch(&project_id, &branch_id, target_commit_oid)
@@ -366,7 +363,7 @@ pub mod commands {
         project_id: ProjectId,
         branch_id: BranchId,
         target_commit_oid: git::Oid,
-    ) -> Result<Option<git::Oid>, Error2> {
+    ) -> Result<Option<git::Oid>, Error> {
         let oid = handle
             .state::<Controller>()
             .cherry_pick(&project_id, &branch_id, target_commit_oid)
@@ -382,7 +379,7 @@ pub mod commands {
         project_id: ProjectId,
         branch_id: BranchId,
         ownership: BranchOwnershipClaims,
-    ) -> Result<git::Oid, Error2> {
+    ) -> Result<git::Oid, Error> {
         let oid = handle
             .state::<Controller>()
             .amend(&project_id, &branch_id, &ownership)
@@ -396,7 +393,7 @@ pub mod commands {
     pub async fn list_remote_branches(
         handle: tauri::AppHandle,
         project_id: ProjectId,
-    ) -> Result<Vec<RemoteBranch>, Error2> {
+    ) -> Result<Vec<RemoteBranch>, Error> {
         let branches = handle
             .state::<Controller>()
             .list_remote_branches(&project_id)
@@ -410,7 +407,7 @@ pub mod commands {
         handle: tauri::AppHandle,
         project_id: ProjectId,
         refname: git::Refname,
-    ) -> Result<RemoteBranchData, Error2> {
+    ) -> Result<RemoteBranchData, Error> {
         let branch_data = handle
             .state::<Controller>()
             .get_remote_branch_data(&project_id, &refname)
@@ -429,7 +426,7 @@ pub mod commands {
         project_id: ProjectId,
         branch_id: BranchId,
         target_commit_oid: git::Oid,
-    ) -> Result<(), Error2> {
+    ) -> Result<(), Error> {
         handle
             .state::<Controller>()
             .squash(&project_id, &branch_id, target_commit_oid)
@@ -444,7 +441,7 @@ pub mod commands {
         handle: tauri::AppHandle,
         project_id: ProjectId,
         action: Option<String>,
-    ) -> Result<BaseBranch, Error2> {
+    ) -> Result<BaseBranch, Error> {
         let askpass_broker = handle.state::<AskpassBroker>().inner().clone();
         let base_branch = handle
             .state::<Controller>()
@@ -467,7 +464,7 @@ pub mod commands {
         project_id: ProjectId,
         commit_oid: git::Oid,
         target_branch_id: BranchId,
-    ) -> Result<(), Error2> {
+    ) -> Result<(), Error> {
         handle
             .state::<Controller>()
             .move_commit(&project_id, &target_branch_id, commit_oid)
@@ -484,7 +481,7 @@ pub mod commands {
         branch_id: BranchId,
         commit_oid: git::Oid,
         message: &str,
-    ) -> Result<(), Error2> {
+    ) -> Result<(), Error> {
         handle
             .state::<Controller>()
             .update_commit_message(&project_id, &branch_id, commit_oid, message)

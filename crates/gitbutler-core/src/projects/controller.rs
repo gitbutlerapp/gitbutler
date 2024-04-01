@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
-use crate::error::{AnyhowContextExt, Code, Error2, ErrorWithContext};
+use crate::error::{AnyhowContextExt, Code, Error, ErrorWithContext};
 use crate::{error, gb_repository, project_repository, users};
 
 #[async_trait]
@@ -199,11 +199,11 @@ impl Controller {
         self.projects_storage.list().map_err(Into::into)
     }
 
-    pub async fn delete(&self, id: &ProjectId) -> Result<(), Error2> {
+    pub async fn delete(&self, id: &ProjectId) -> Result<(), Error> {
         let project = match self.projects_storage.get(id) {
             Ok(project) => Ok(project),
             Err(super::storage::Error::NotFound) => return Ok(()),
-            Err(error) => Err(Error2::from_err(error)),
+            Err(error) => Err(Error::from_err(error)),
         }?;
 
         if let Some(watchers) = &self.watchers {

@@ -3,11 +3,11 @@ pub mod commands {
     use tauri::Manager;
     use tracing::instrument;
 
-    use crate::error::Error2;
+    use crate::error::Error;
 
     #[tauri::command(async)]
     #[instrument(skip(handle))]
-    pub async fn get_public_key(handle: tauri::AppHandle) -> Result<PublicKey, Error2> {
+    pub async fn get_public_key(handle: tauri::AppHandle) -> Result<PublicKey, Error> {
         handle
             .state::<controller::Controller>()
             .get_or_create()

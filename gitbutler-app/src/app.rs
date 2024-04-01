@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path};
 
 use anyhow::{Context, Result};
-use gitbutler_core::error::Error2 as CoreError;
+use gitbutler_core::error::Error as CoreError;
 use gitbutler_core::{
     askpass::AskpassBroker,
     gb_repository, git,
@@ -13,7 +13,7 @@ use gitbutler_core::{
     virtual_branches::BranchId,
 };
 
-use crate::error::Error2;
+use crate::error::Error;
 use crate::watcher;
 
 #[derive(Clone)]
@@ -69,7 +69,7 @@ impl App {
         project_id: &ProjectId,
         session_id: &SessionId,
         paths: Option<&[&path::Path]>,
-    ) -> Result<HashMap<path::PathBuf, reader::Content>, Error2> {
+    ) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
         let session = self
             .sessions_database
             .get_by_project_id_id(project_id, session_id)
@@ -79,9 +79,9 @@ impl App {
         let project = self
             .projects
             .get(project_id)
-            .map_err(Error2::from_error_with_context)?;
+            .map_err(Error::from_error_with_context)?;
         let project_repository = project_repository::Repository::open(&project)
-            .map_err(Error2::from_error_with_context)?;
+            .map_err(Error::from_error_with_context)?;
         let gb_repo = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,

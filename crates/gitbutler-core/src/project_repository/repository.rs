@@ -32,21 +32,6 @@ pub enum OpenError {
     Other(anyhow::Error),
 }
 
-impl From<OpenError> for crate::error::Error {
-    fn from(value: OpenError) -> Self {
-        match value {
-            OpenError::NotFound(path) => crate::error::Error::UserError {
-                code: crate::error::Code::Projects,
-                message: format!("{} not found", path.display()),
-            },
-            OpenError::Other(error) => {
-                tracing::error!(?error);
-                crate::error::Error::Unknown
-            }
-        }
-    }
-}
-
 impl ErrorWithContext for OpenError {
     fn context(&self) -> Option<crate::error::Context> {
         match self {
@@ -638,26 +623,6 @@ pub enum RemoteError {
     Auth,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<RemoteError> for crate::error::Error {
-    fn from(value: RemoteError) -> Self {
-        match value {
-            RemoteError::Help(error) => error.into(),
-            RemoteError::Network => crate::error::Error::UserError {
-                code: crate::error::Code::ProjectGitRemote,
-                message: "Network erorr occured".to_string(),
-            },
-            RemoteError::Auth => crate::error::Error::UserError {
-                code: crate::error::Code::ProjectGitAuth,
-                message: "Project remote authentication error".to_string(),
-            },
-            RemoteError::Other(error) => {
-                tracing::error!(?error);
-                crate::error::Error::Unknown
-            }
-        }
-    }
 }
 
 impl ErrorWithContext for RemoteError {

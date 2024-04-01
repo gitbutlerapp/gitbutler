@@ -7,7 +7,7 @@ use std::{
     time, vec,
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 use diffy::{apply, Patch};
 use git2_hooks::HookResult;
@@ -21,6 +21,7 @@ use super::{
     branch_to_remote_branch, context, errors, target, Iterator, RemoteBranch,
     VirtualBranchesHandle,
 };
+use crate::error::Error;
 use crate::{
     askpass::AskpassBroker,
     dedup::{dedup, dedup_fmt},
@@ -36,12 +37,6 @@ use crate::{
 };
 
 type AppliedStatuses = Vec<(branch::Branch, HashMap<PathBuf, Vec<diff::GitHunk>>)>;
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("path contains invalid utf-8 characters: {0}")]
-    InvalidUnicodePath(PathBuf),
-}
 
 // this struct is a mapping to the view `Branch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
@@ -1839,7 +1834,7 @@ pub fn delete_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
-) -> Result<(), errors::DeleteBranchError> {
+) -> Result<(), Error> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
@@ -2503,7 +2498,9 @@ pub fn write_tree_onto_tree(
                 let blob_oid = git_repository.blob(
                     link_target
                         .to_str()
-                        .ok_or_else(|| Error::InvalidUnicodePath(link_target.into()))?
+                        .ok_or_else(|| {
+                            anyhow!("path contains invalid utf-8 characters: {link_target:?}")
+                        })?
                         .as_bytes(),
                 )?;
                 builder.upsert(rel_path, blob_oid, filemode);

@@ -87,26 +87,6 @@ pub enum HelpError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<HelpError> for crate::error::Error {
-    fn from(value: HelpError) -> Self {
-        match value {
-            HelpError::NoUrlSet => Self::UserError {
-                code: crate::error::Code::ProjectGitRemote,
-                message: "no url set for remote".to_string(),
-            },
-            HelpError::UrlConvertError(error) => Self::UserError {
-                code: crate::error::Code::ProjectGitRemote,
-                message: error.to_string(),
-            },
-            HelpError::Git(error) => {
-                tracing::error!(?error, "failed to create auth credentials");
-                Self::Unknown
-            }
-            HelpError::Other(error) => error.into(),
-        }
-    }
-}
-
 impl ErrorWithContext for HelpError {
     fn context(&self) -> Option<Context> {
         Some(match self {

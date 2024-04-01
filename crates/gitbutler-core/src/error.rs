@@ -132,21 +132,21 @@ pub fn into_anyhow(err: impl ErrorWithContext + Send + Sync + 'static) -> anyhow
 /// Whenever `thiserror` is involved, this error type should be used if the alternative would be to write
 /// a `thiserror` which just forwards its context (like `app::Error` previously).
 #[derive(Debug)]
-pub struct Error2(anyhow::Error);
+pub struct Error(anyhow::Error);
 
-impl From<anyhow::Error> for Error2 {
+impl From<anyhow::Error> for Error {
     fn from(value: anyhow::Error) -> Self {
         Self(value)
     }
 }
 
-impl From<Error2> for anyhow::Error {
-    fn from(value: Error2) -> Self {
+impl From<Error> for anyhow::Error {
+    fn from(value: Error) -> Self {
         value.0
     }
 }
 
-impl<E> From<E> for Error2
+impl<E> From<E> for Error
 where
     E: ErrorWithContext + Send + Sync + 'static,
 {
@@ -155,7 +155,7 @@ where
     }
 }
 
-impl Error2 {
+impl Error {
     /// A manual, none-overlapping implementation of `From` (or else there are conflicts).
     pub fn from_err(err: impl std::error::Error + Send + Sync + 'static) -> Self {
         Self(err.into())
@@ -184,55 +184,5 @@ impl Error2 {
         E: Display + Debug + Send + Sync + 'static,
     {
         self.0.downcast_ref::<E>()
-    }
-}
-
-pub(crate) use legacy::Error;
-mod legacy {
-    use serde::{ser::SerializeMap, Serialize};
-
-    use crate::error::Code;
-    use crate::projects;
-
-    #[derive(Debug, thiserror::Error)]
-    pub enum Error {
-        #[error("[{code}]: {message}")]
-        UserError { code: Code, message: String },
-        #[error("[errors.unknown]: Something went wrong")]
-        Unknown,
-    }
-
-    impl Serialize for Error {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            let (code, message) = match self {
-                Error::UserError { code, message } => (code.to_string(), message.to_string()),
-                Error::Unknown => (
-                    Code::Unknown.to_string(),
-                    "Something went wrong".to_string(),
-                ),
-            };
-
-            let mut map = serializer.serialize_map(Some(2))?;
-            map.serialize_entry("code", &code)?;
-            map.serialize_entry("message", &message)?;
-            map.end()
-        }
-    }
-
-    impl From<anyhow::Error> for Error {
-        fn from(error: anyhow::Error) -> Self {
-            tracing::error!(?error);
-            Error::Unknown
-        }
-    }
-
-    impl From<projects::controller::GetError> for Error {
-        fn from(error: projects::controller::GetError) -> Self {
-            tracing::error!(?error);
-            Error::Unknown
-        }
     }
 }

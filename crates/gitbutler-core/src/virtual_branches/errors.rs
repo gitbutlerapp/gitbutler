@@ -1,9 +1,7 @@
 use super::{branch::BranchOwnershipClaims, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
 use crate::error::{AnyhowContextExt, Code, Context, ErrorWithContext};
 use crate::{
-    error,
-    error::Error,
-    git,
+    error, git,
     project_repository::{self, RemoteError},
     projects::ProjectId,
 };
@@ -18,36 +16,6 @@ pub enum VerifyError {
     NoIntegrationCommit,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<VerifyError> for crate::error::Error {
-    fn from(value: VerifyError) -> Self {
-        match value {
-            VerifyError::DetachedHead => crate::error::Error::UserError {
-                code: crate::error::Code::ProjectHead,
-                message: format!(
-                    "Project in detached head state. Please checkout {0} to continue.",
-                    GITBUTLER_INTEGRATION_REFERENCE.branch()
-                ),
-            },
-            VerifyError::InvalidHead(head) => crate::error::Error::UserError {
-                code: crate::error::Code::ProjectHead,
-                message: format!(
-                    "Project is on {}. Please checkout {} to continue.",
-                    head,
-                    GITBUTLER_INTEGRATION_REFERENCE.branch()
-                ),
-            },
-            VerifyError::NoIntegrationCommit => crate::error::Error::UserError {
-                code: crate::error::Code::ProjectHead,
-                message: "GibButler's integration commit not found on head.".to_string(),
-            },
-            VerifyError::Other(error) => {
-                tracing::error!(?error);
-                crate::error::Error::Unknown
-            }
-        }
-    }
 }
 
 impl ErrorWithContext for VerifyError {
@@ -78,35 +46,6 @@ impl ErrorWithContext for VerifyError {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum DeleteBranchError {
-    #[error(transparent)]
-    UnapplyBranch(#[from] UnapplyBranchError),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-impl From<DeleteBranchError> for Error {
-    fn from(value: DeleteBranchError) -> Self {
-        match value {
-            DeleteBranchError::UnapplyBranch(error) => error.into(),
-            DeleteBranchError::Other(error) => {
-                tracing::error!(?error, "delete branch error");
-                Error::Unknown
-            }
-        }
-    }
-}
-
-impl ErrorWithContext for DeleteBranchError {
-    fn context(&self) -> Option<Context> {
-        match self {
-            DeleteBranchError::UnapplyBranch(error) => error.context(),
-            DeleteBranchError::Other(error) => error.custom_context(),
-        }
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
 pub enum ResetBranchError {
     #[error("commit {0} not in the branch")]
     CommitNotFoundInBranch(git::Oid),
@@ -116,23 +55,6 @@ pub enum ResetBranchError {
     DefaultTargetNotSet(DefaultTargetNotSet),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<ResetBranchError> for Error {
-    fn from(value: ResetBranchError) -> Self {
-        match value {
-            ResetBranchError::BranchNotFound(error) => error.into(),
-            ResetBranchError::DefaultTargetNotSet(error) => error.into(),
-            ResetBranchError::CommitNotFoundInBranch(oid) => Error::UserError {
-                code: crate::error::Code::Branches,
-                message: format!("commit {} not found", oid),
-            },
-            ResetBranchError::Other(error) => {
-                tracing::error!(?error, "reset branch error");
-                Error::Unknown
-            }
-        }
-    }
 }
 
 impl ErrorWithContext for ResetBranchError {
@@ -162,24 +84,6 @@ pub enum ApplyBranchError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<ApplyBranchError> for Error {
-    fn from(value: ApplyBranchError) -> Self {
-        match value {
-            ApplyBranchError::DefaultTargetNotSet(error) => error.into(),
-            ApplyBranchError::Conflict(error) => error.into(),
-            ApplyBranchError::BranchNotFound(error) => error.into(),
-            ApplyBranchError::BranchConflicts(id) => Error::UserError {
-                message: format!("Branch {} is in a conflicing state", id),
-                code: crate::error::Code::Branches,
-            },
-            ApplyBranchError::Other(error) => {
-                tracing::error!(?error, "apply branch error");
-                Error::Unknown
-            }
-        }
-    }
-}
-
 impl ErrorWithContext for ApplyBranchError {
     fn context(&self) -> Option<Context> {
         Some(match self {
@@ -205,19 +109,6 @@ pub enum UnapplyOwnershipError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<UnapplyOwnershipError> for Error {
-    fn from(value: UnapplyOwnershipError) -> Self {
-        match value {
-            UnapplyOwnershipError::DefaultTargetNotSet(error) => error.into(),
-            UnapplyOwnershipError::Conflict(error) => error.into(),
-            UnapplyOwnershipError::Other(error) => {
-                tracing::error!(?error, "unapply ownership error");
-                Error::Unknown
-            }
-        }
-    }
-}
-
 impl ErrorWithContext for UnapplyOwnershipError {
     fn context(&self) -> Option<Context> {
         Some(match self {
@@ -238,19 +129,6 @@ pub enum UnapplyBranchError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<UnapplyBranchError> for Error {
-    fn from(value: UnapplyBranchError) -> Self {
-        match value {
-            UnapplyBranchError::DefaultTargetNotSet(error) => error.into(),
-            UnapplyBranchError::BranchNotFound(error) => error.into(),
-            UnapplyBranchError::Other(error) => {
-                tracing::error!(?error, "unapply branch error");
-                Error::Unknown
-            }
-        }
-    }
-}
-
 impl ErrorWithContext for UnapplyBranchError {
     fn context(&self) -> Option<Context> {
         Some(match self {
@@ -267,18 +145,6 @@ pub enum ListVirtualBranchesError {
     DefaultTargetNotSet(DefaultTargetNotSet),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<ListVirtualBranchesError> for Error {
-    fn from(value: ListVirtualBranchesError) -> Self {
-        match value {
-            ListVirtualBranchesError::DefaultTargetNotSet(error) => error.into(),
-            ListVirtualBranchesError::Other(error) => {
-                tracing::error!(?error, "list virtual branches error");
-                Error::Unknown
-            }
-        }
-    }
 }
 
 impl ErrorWithContext for ListVirtualBranchesError {
@@ -298,18 +164,6 @@ pub enum CreateVirtualBranchError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<CreateVirtualBranchError> for Error {
-    fn from(value: CreateVirtualBranchError) -> Self {
-        match value {
-            CreateVirtualBranchError::DefaultTargetNotSet(error) => error.into(),
-            CreateVirtualBranchError::Other(error) => {
-                tracing::error!(?error, "create virtual branch error");
-                Error::Unknown
-            }
-        }
-    }
-}
-
 impl ErrorWithContext for CreateVirtualBranchError {
     fn context(&self) -> Option<Context> {
         match self {
@@ -327,19 +181,6 @@ pub enum MergeVirtualBranchUpstreamError {
     BranchNotFound(BranchNotFound),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<MergeVirtualBranchUpstreamError> for Error {
-    fn from(value: MergeVirtualBranchUpstreamError) -> Self {
-        match value {
-            MergeVirtualBranchUpstreamError::BranchNotFound(error) => error.into(),
-            MergeVirtualBranchUpstreamError::Conflict(error) => error.into(),
-            MergeVirtualBranchUpstreamError::Other(error) => {
-                tracing::error!(?error, "merge virtual branch upstream error");
-                Error::Unknown
-            }
-        }
-    }
 }
 
 impl ErrorWithContext for MergeVirtualBranchUpstreamError {
@@ -366,28 +207,6 @@ pub enum CommitError {
     CommitMsgHookRejected(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<CommitError> for Error {
-    fn from(value: CommitError) -> Self {
-        match value {
-            CommitError::BranchNotFound(error) => error.into(),
-            CommitError::DefaultTargetNotSet(error) => error.into(),
-            CommitError::Conflicted(error) => error.into(),
-            CommitError::CommitHookRejected(error) => Error::UserError {
-                code: crate::error::Code::PreCommitHook,
-                message: error,
-            },
-            CommitError::CommitMsgHookRejected(error) => Error::UserError {
-                code: crate::error::Code::CommitMsgHook,
-                message: error,
-            },
-            CommitError::Other(error) => {
-                tracing::error!(?error, "commit error");
-                Error::Unknown
-            }
-        }
-    }
 }
 
 impl ErrorWithContext for CommitError {
@@ -419,20 +238,6 @@ pub enum PushError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<PushError> for Error {
-    fn from(value: PushError) -> Self {
-        match value {
-            PushError::Remote(error) => error.into(),
-            PushError::BranchNotFound(error) => error.into(),
-            PushError::DefaultTargetNotSet(error) => error.into(),
-            PushError::Other(error) => {
-                tracing::error!(?error, "push error");
-                Error::Unknown
-            }
-        }
-    }
-}
-
 impl ErrorWithContext for PushError {
     fn context(&self) -> Option<Context> {
         Some(match self {
@@ -452,22 +257,6 @@ pub enum IsRemoteBranchMergableError {
     BranchNotFound(git::RemoteRefname),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<IsRemoteBranchMergableError> for Error {
-    fn from(value: IsRemoteBranchMergableError) -> Self {
-        match value {
-            IsRemoteBranchMergableError::BranchNotFound(name) => Error::UserError {
-                message: format!("Remote branch {} not found", name),
-                code: crate::error::Code::Branches,
-            },
-            IsRemoteBranchMergableError::DefaultTargetNotSet(error) => error.into(),
-            IsRemoteBranchMergableError::Other(error) => {
-                tracing::error!(?error, "is remote branch mergable error");
-                Error::Unknown
-            }
-        }
-    }
 }
 
 impl ErrorWithContext for IsRemoteBranchMergableError {
@@ -492,19 +281,6 @@ pub enum IsVirtualBranchMergeable {
     Other(#[from] anyhow::Error),
 }
 
-impl From<IsVirtualBranchMergeable> for Error {
-    fn from(value: IsVirtualBranchMergeable) -> Self {
-        match value {
-            IsVirtualBranchMergeable::BranchNotFound(error) => error.into(),
-            IsVirtualBranchMergeable::DefaultTargetNotSet(error) => error.into(),
-            IsVirtualBranchMergeable::Other(error) => {
-                tracing::error!(?error, "is remote branch mergable error");
-                Error::Unknown
-            }
-        }
-    }
-}
-
 impl ErrorWithContext for IsVirtualBranchMergeable {
     fn context(&self) -> Option<Context> {
         Some(match self {
@@ -518,15 +294,6 @@ impl ErrorWithContext for IsVirtualBranchMergeable {
 #[derive(Debug)]
 pub struct ForcePushNotAllowed {
     pub project_id: ProjectId,
-}
-
-impl From<ForcePushNotAllowed> for Error {
-    fn from(_value: ForcePushNotAllowed) -> Self {
-        Error::UserError {
-            code: crate::error::Code::Branches,
-            message: "Action will lead to force pushing, which is not allowed for this".to_string(),
-        }
-    }
 }
 
 impl ForcePushNotAllowed {
@@ -554,29 +321,6 @@ pub enum AmendError {
     Conflict(ProjectConflict),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<AmendError> for Error {
-    fn from(value: AmendError) -> Self {
-        match value {
-            AmendError::ForcePushNotAllowed(error) => error.into(),
-            AmendError::Conflict(error) => error.into(),
-            AmendError::BranchNotFound(error) => error.into(),
-            AmendError::BranchHasNoCommits => Error::UserError {
-                message: "Branch has no commits - there is nothing to amend to".to_string(),
-                code: crate::error::Code::Branches,
-            },
-            AmendError::DefaultTargetNotSet(error) => error.into(),
-            AmendError::TargetOwnerhshipNotFound(_) => Error::UserError {
-                message: "target ownership not found".to_string(),
-                code: crate::error::Code::Branches,
-            },
-            AmendError::Other(error) => {
-                tracing::error!(?error, "amend error");
-                Error::Unknown
-            }
-        }
-    }
 }
 
 impl ErrorWithContext for AmendError {
@@ -608,26 +352,6 @@ pub enum CherryPickError {
     Conflict(ProjectConflict),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<CherryPickError> for Error {
-    fn from(value: CherryPickError) -> Self {
-        match value {
-            CherryPickError::NotApplied => Error::UserError {
-                message: "can not cherry pick non applied branch".to_string(),
-                code: crate::error::Code::Branches,
-            },
-            CherryPickError::Conflict(error) => error.into(),
-            CherryPickError::CommitNotFound(oid) => Error::UserError {
-                message: format!("commit {oid} not found"),
-                code: crate::error::Code::Branches,
-            },
-            CherryPickError::Other(error) => {
-                tracing::error!(?error, "cherry pick error");
-                Error::Unknown
-            }
-        }
-    }
 }
 
 impl ErrorWithContext for CherryPickError {
@@ -663,29 +387,6 @@ pub enum SquashError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<SquashError> for Error {
-    fn from(value: SquashError) -> Self {
-        match value {
-            SquashError::ForcePushNotAllowed(error) => error.into(),
-            SquashError::DefaultTargetNotSet(error) => error.into(),
-            SquashError::BranchNotFound(error) => error.into(),
-            SquashError::Conflict(error) => error.into(),
-            SquashError::CantSquashRootCommit => Error::UserError {
-                message: "can not squash root branch commit".to_string(),
-                code: crate::error::Code::Branches,
-            },
-            SquashError::CommitNotFound(oid) => Error::UserError {
-                message: format!("commit {oid} not found"),
-                code: crate::error::Code::Branches,
-            },
-            SquashError::Other(error) => {
-                tracing::error!(?error, "squash error");
-                Error::Unknown
-            }
-        }
-    }
-}
-
 impl ErrorWithContext for SquashError {
     fn context(&self) -> Option<Context> {
         Some(match self {
@@ -713,19 +414,6 @@ pub enum FetchFromTargetError {
     Remote(RemoteError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<FetchFromTargetError> for Error {
-    fn from(value: FetchFromTargetError) -> Self {
-        match value {
-            FetchFromTargetError::DefaultTargetNotSet(error) => error.into(),
-            FetchFromTargetError::Remote(error) => error.into(),
-            FetchFromTargetError::Other(error) => {
-                tracing::error!(?error, "fetch from target error");
-                Error::Unknown
-            }
-        }
-    }
 }
 
 impl ErrorWithContext for FetchFromTargetError {
@@ -756,29 +444,6 @@ pub enum UpdateCommitMessageError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<UpdateCommitMessageError> for Error {
-    fn from(value: UpdateCommitMessageError) -> Self {
-        match value {
-            UpdateCommitMessageError::ForcePushNotAllowed(error) => error.into(),
-            UpdateCommitMessageError::EmptyMessage => Error::UserError {
-                message: "Commit message can not be empty".to_string(),
-                code: crate::error::Code::Branches,
-            },
-            UpdateCommitMessageError::DefaultTargetNotSet(error) => error.into(),
-            UpdateCommitMessageError::CommitNotFound(oid) => Error::UserError {
-                message: format!("Commit {} not found", oid),
-                code: crate::error::Code::Branches,
-            },
-            UpdateCommitMessageError::BranchNotFound(error) => error.into(),
-            UpdateCommitMessageError::Conflict(error) => error.into(),
-            UpdateCommitMessageError::Other(error) => {
-                tracing::error!(?error, "update commit message error");
-                Error::Unknown
-            }
-        }
-    }
-}
-
 impl ErrorWithContext for UpdateCommitMessageError {
     fn context(&self) -> Option<Context> {
         Some(match self {
@@ -807,25 +472,6 @@ pub enum SetBaseBranchError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<SetBaseBranchError> for Error {
-    fn from(value: SetBaseBranchError) -> Self {
-        match value {
-            SetBaseBranchError::DirtyWorkingDirectory => Error::UserError {
-                message: "Current HEAD is dirty.".to_string(),
-                code: crate::error::Code::ProjectConflict,
-            },
-            SetBaseBranchError::BranchNotFound(name) => Error::UserError {
-                message: format!("remote branch '{}' not found", name),
-                code: crate::error::Code::Branches,
-            },
-            SetBaseBranchError::Other(error) => {
-                tracing::error!(?error, "set base branch error");
-                Error::Unknown
-            }
-        }
-    }
-}
-
 impl ErrorWithContext for SetBaseBranchError {
     fn context(&self) -> Option<Context> {
         Some(match self {
@@ -849,19 +495,6 @@ pub enum UpdateBaseBranchError {
     DefaultTargetNotSet(DefaultTargetNotSet),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<UpdateBaseBranchError> for Error {
-    fn from(value: UpdateBaseBranchError) -> Self {
-        match value {
-            UpdateBaseBranchError::Conflict(error) => error.into(),
-            UpdateBaseBranchError::DefaultTargetNotSet(error) => error.into(),
-            UpdateBaseBranchError::Other(error) => {
-                tracing::error!(?error, "update base branch error");
-                Error::Unknown
-            }
-        }
-    }
 }
 
 impl ErrorWithContext for UpdateBaseBranchError {
@@ -888,28 +521,6 @@ pub enum MoveCommitError {
     CommitNotFound(git::Oid),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<MoveCommitError> for crate::error::Error {
-    fn from(value: MoveCommitError) -> Self {
-        match value {
-            MoveCommitError::SourceLocked => Error::UserError {
-                message: "Source branch contains hunks locked to the target commit".to_string(),
-                code: crate::error::Code::Branches,
-            },
-            MoveCommitError::Conflicted(error) => error.into(),
-            MoveCommitError::DefaultTargetNotSet(error) => error.into(),
-            MoveCommitError::BranchNotFound(error) => error.into(),
-            MoveCommitError::CommitNotFound(oid) => Error::UserError {
-                message: format!("Commit {} not found", oid),
-                code: crate::error::Code::Branches,
-            },
-            MoveCommitError::Other(error) => {
-                tracing::error!(?error, "move commit to vbranch error");
-                Error::Unknown
-            }
-        }
-    }
 }
 
 impl ErrorWithContext for MoveCommitError {
@@ -944,29 +555,6 @@ pub enum CreateVirtualBranchFromBranchError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<CreateVirtualBranchFromBranchError> for Error {
-    fn from(value: CreateVirtualBranchFromBranchError) -> Self {
-        match value {
-            CreateVirtualBranchFromBranchError::ApplyBranch(error) => error.into(),
-            CreateVirtualBranchFromBranchError::CantMakeBranchFromDefaultTarget => {
-                Error::UserError {
-                    message: "Can not create a branch from default target".to_string(),
-                    code: crate::error::Code::Branches,
-                }
-            }
-            CreateVirtualBranchFromBranchError::DefaultTargetNotSet(error) => error.into(),
-            CreateVirtualBranchFromBranchError::BranchNotFound(name) => Error::UserError {
-                message: format!("Branch {} not found", name),
-                code: crate::error::Code::Branches,
-            },
-            CreateVirtualBranchFromBranchError::Other(error) => {
-                tracing::error!(?error, "create virtual branch from branch error");
-                Error::Unknown
-            }
-        }
-    }
-}
-
 impl ErrorWithContext for CreateVirtualBranchFromBranchError {
     fn context(&self) -> Option<Context> {
         Some(match self {
@@ -991,15 +579,6 @@ pub struct ProjectConflict {
     pub project_id: ProjectId,
 }
 
-impl From<ProjectConflict> for Error {
-    fn from(value: ProjectConflict) -> Self {
-        Error::UserError {
-            code: crate::error::Code::ProjectConflict,
-            message: format!("project {} is in a conflicted state", value.project_id),
-        }
-    }
-}
-
 impl ProjectConflict {
     fn to_context(&self) -> error::Context {
         error::Context::new(
@@ -1012,18 +591,6 @@ impl ProjectConflict {
 #[derive(Debug)]
 pub struct DefaultTargetNotSet {
     pub project_id: ProjectId,
-}
-
-impl From<DefaultTargetNotSet> for Error {
-    fn from(value: DefaultTargetNotSet) -> Self {
-        Error::UserError {
-            code: crate::error::Code::ProjectConflict,
-            message: format!(
-                "project {} does not have a default target set",
-                value.project_id
-            ),
-        }
-    }
 }
 
 impl DefaultTargetNotSet {
@@ -1042,15 +609,6 @@ impl DefaultTargetNotSet {
 pub struct BranchNotFound {
     pub project_id: ProjectId,
     pub branch_id: BranchId,
-}
-
-impl From<BranchNotFound> for Error {
-    fn from(value: BranchNotFound) -> Self {
-        Error::UserError {
-            code: crate::error::Code::Branches,
-            message: format!("branch {} not found", value.branch_id),
-        }
-    }
 }
 
 impl BranchNotFound {
@@ -1072,19 +630,6 @@ pub enum UpdateBranchError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<UpdateBranchError> for Error {
-    fn from(value: UpdateBranchError) -> Self {
-        match value {
-            UpdateBranchError::DefaultTargetNotSet(error) => error.into(),
-            UpdateBranchError::BranchNotFound(error) => error.into(),
-            UpdateBranchError::Other(error) => {
-                tracing::error!(?error, "update branch error");
-                Error::Unknown
-            }
-        }
-    }
-}
-
 impl ErrorWithContext for UpdateBranchError {
     fn context(&self) -> Option<Context> {
         Some(match self {
@@ -1101,21 +646,6 @@ pub enum ListRemoteCommitFilesError {
     CommitNotFound(git::Oid),
     #[error("failed to find commit")]
     Other(#[from] anyhow::Error),
-}
-
-impl From<ListRemoteCommitFilesError> for Error {
-    fn from(value: ListRemoteCommitFilesError) -> Self {
-        match value {
-            ListRemoteCommitFilesError::CommitNotFound(oid) => Error::UserError {
-                message: format!("Commit {} not found", oid),
-                code: crate::error::Code::Branches,
-            },
-            ListRemoteCommitFilesError::Other(error) => {
-                tracing::error!(?error, "list remote commit files error");
-                Error::Unknown
-            }
-        }
-    }
 }
 
 impl ErrorWithContext for ListRemoteCommitFilesError {
@@ -1137,18 +667,6 @@ pub enum ListRemoteBranchesError {
     Other(#[from] anyhow::Error),
 }
 
-impl From<ListRemoteBranchesError> for Error {
-    fn from(value: ListRemoteBranchesError) -> Self {
-        match value {
-            ListRemoteBranchesError::DefaultTargetNotSet(error) => error.into(),
-            ListRemoteBranchesError::Other(error) => {
-                tracing::error!(?error, "list remote branches error");
-                Error::Unknown
-            }
-        }
-    }
-}
-
 impl ErrorWithContext for ListRemoteBranchesError {
     fn context(&self) -> Option<Context> {
         match self {
@@ -1164,18 +682,6 @@ pub enum GetRemoteBranchDataError {
     DefaultTargetNotSet(DefaultTargetNotSet),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<GetRemoteBranchDataError> for Error {
-    fn from(value: GetRemoteBranchDataError) -> Self {
-        match value {
-            GetRemoteBranchDataError::DefaultTargetNotSet(error) => error.into(),
-            GetRemoteBranchDataError::Other(error) => {
-                tracing::error!(?error, "get remote branch data error");
-                Error::Unknown
-            }
-        }
-    }
 }
 
 impl ErrorWithContext for GetRemoteBranchDataError {

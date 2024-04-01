@@ -1,5 +1,6 @@
 use anyhow::Context;
 use gitbutler_core::error;
+use gitbutler_core::error::Code;
 use serde_json::json;
 use tauri::{
     AppHandle, CustomMenuItem, Manager, Menu, MenuEntry, PackageInfo, Runtime, Submenu,
@@ -7,7 +8,7 @@ use tauri::{
 };
 use tracing::instrument;
 
-use crate::error::{Code, Error2};
+use crate::error::Error;
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
@@ -15,7 +16,7 @@ pub async fn menu_item_set_enabled(
     handle: AppHandle,
     menu_item_id: &str,
     enabled: bool,
-) -> Result<(), Error2> {
+) -> Result<(), Error> {
     let window = handle
         .get_window("main")
         .expect("main window always present");
