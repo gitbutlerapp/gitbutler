@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
-	import Button from '$lib/components/Button.svelte';
+	import Button, { type ButtonKind, type ButtonStyle } from '$lib/components/Button.svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let color: 'primary' | 'neutral' | 'error' = 'primary';
-	export let kind: 'filled' | 'outlined' = 'filled';
+	export let style: ButtonStyle = 'neutral';
+	export let kind: ButtonKind = 'soft';
 	export let disabled = false;
 	export let loading = false;
 	export let wide = false;
@@ -28,7 +28,7 @@
 <div class="dropdown-wrapper" class:wide>
 	<div class="dropdown" bind:this={container}>
 		<Button
-			{color}
+			{style}
 			{icon}
 			{kind}
 			{help}
@@ -40,7 +40,7 @@
 		<Button
 			class="dropdown__icon-btn"
 			bind:element={iconElt}
-			{color}
+			{style}
 			{kind}
 			{help}
 			icon={visible ? 'chevron-top' : 'chevron-down'}

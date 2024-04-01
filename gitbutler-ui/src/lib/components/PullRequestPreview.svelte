@@ -53,8 +53,9 @@
 			</div>
 			<div class="card__footer">
 				<Button
+					style="pop"
+					kind="solid"
 					help="Does not create a commit. Can be toggled."
-					color="primary"
 					on:click={() =>
 						pullrequest &&
 						branchController.createvBranchFromBranch(

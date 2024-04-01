@@ -61,7 +61,7 @@
 </script>
 
 {#if minimal}
-	<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}>Authorize</Button>
+	<Button style="pop" kind="solid" {disabled} on:click={gitHubStartOauth}>Authorize</Button>
 {:else}
 	<SectionCard orientation="row">
 		<svelte:fragment slot="iconSide">
@@ -91,11 +91,12 @@
 			Allows you to view and create Pull Requests from GitButler.
 		</svelte:fragment>
 		{#if $user?.github_access_token}
-			<Button {disabled} kind="outlined" color="neutral" icon="bin-small" on:click={forgetGitHub}
+			<Button style="ghost" kind="solid" {disabled} icon="bin-small" on:click={forgetGitHub}
 				>Forget</Button
 			>
 		{:else}
-			<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}>Authorize</Button
+			<Button style="pop" kind="solid" {disabled} on:click={gitHubStartOauth}
+				>Authorize</Button
 			>
 		{/if}
 	</SectionCard>
@@ -112,7 +113,13 @@
 					<span class="text-head-20">
 						{userCode}
 					</span>
-					<Button {disabled} icon="copy" on:click={() => copyToClipboard(userCode)}>
+					<Button
+						style="pop"
+						kind="solid"
+						{disabled}
+						icon="copy"
+						on:click={() => copyToClipboard(userCode)}
+					>
 						Copy to Clipboard
 					</Button>
 				</div>
@@ -143,8 +150,8 @@
 			<div class="step-last" />
 			<div class="step-section__content">
 				<Button
-					kind="filled"
-					color="primary"
+					style="pop"
+					kind="solid"
 					{loading}
 					on:click={async () => {
 						await gitHubOauthCheckStatus(deviceCode);

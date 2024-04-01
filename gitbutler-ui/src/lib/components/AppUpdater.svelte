@@ -106,8 +106,8 @@
 
 		<div class="buttons">
 			<Button
-				wide
-				kind="outlined"
+				style="ghost"
+				kind="solid"
 				on:mousedown={() => {
 					const notes = $update$?.body?.trim() || 'no release notes available';
 					showToast({
@@ -128,6 +128,8 @@
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
 						<Button
 							wide
+							style="pop"
+							kind="solid"
 							on:mousedown={async () => {
 								await updaterService.installUpdate();
 							}}
@@ -137,7 +139,12 @@
 					</div>
 				{:else if $update$.status == 'DONE'}
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
-						<Button wide on:click={() => updaterService.relaunchApp()}>Restart</Button>
+						<Button
+							style="pop"
+							kind="solid"
+							wide
+							on:click={() => updaterService.relaunchApp()}>Restart</Button
+						>
 					</div>
 				{/if}
 			</div>
@@ -145,7 +152,7 @@
 	</div>
 {/if}
 
-<style lang="postcss">
+<style>
 	.update-banner {
 		cursor: default;
 		user-select: none;
@@ -189,7 +196,6 @@
 
 		height: var(--size-control-m);
 		width: 100%;
-		background-color: var(--clr-theme-pop-element);
 		border-radius: var(--radius-m);
 
 		transition:
@@ -198,6 +204,7 @@
 	}
 
 	.sliding-gradient {
+		z-index: 2;
 		pointer-events: none;
 		position: absolute;
 		top: 0;

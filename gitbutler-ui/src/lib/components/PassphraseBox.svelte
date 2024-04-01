@@ -39,9 +39,9 @@
 		/>
 		<div class="passbox__actions">
 			<Button
-				color="neutral"
+				style="ghost"
+				kind="solid"
 				disabled={isSubmitting}
-				kind="outlined"
 				on:click={async () => {
 					if (!prompt) return;
 					await promptService.cancel(prompt.id);
@@ -50,6 +50,8 @@
 				Cancel
 			</Button>
 			<Button
+				style="pop"
+				kind="solid"
 				grow
 				on:click={async () => await submit()}
 				disabled={submitDisabled || isSubmitting}

@@ -29,8 +29,8 @@
 </script>
 
 <DropDownButton
-	color="neutral"
-	kind="outlined"
+	style="ghost"
+	kind="solid"
 	{loading}
 	bind:this={dropDown}
 	{wide}

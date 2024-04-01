@@ -57,9 +57,9 @@
 				<Icon name="draggable-narrow" />
 			</div>
 			<Button
+				style="ghost"
+				kind="solid"
 				icon="unfold-lane"
-				kind="outlined"
-				color="neutral"
 				help="Expand lane"
 				on:mousedown={expandLane}
 			/>
@@ -77,7 +77,9 @@
 					isLaneCollapsed={$isLaneCollapsed}
 				/>
 				{#if branch.selectedForChanges}
-					<Tag style="pop" kind="solid" icon="target" verticalOrientation>Default branch</Tag>
+					<Tag style="pop" kind="solid" icon="target" verticalOrientation
+						>Default branch</Tag
+					>
 				{/if}
 			</div>
 		</div>
@@ -121,17 +123,19 @@
 					{#if branch.active}
 						{#if branch.selectedForChanges}
 							<Button
+								style="pop"
+								kind="solid"
 								help="New changes will land here"
 								icon="target"
-								notClickable
+								clickable={false}
 								disabled={isUnapplied}>Default branch</Button
 							>
 						{:else}
 							<Button
+								style="ghost"
+								kind="solid"
 								help="When selected, new changes will land here"
 								icon="target"
-								kind="outlined"
-								color="neutral"
 								disabled={isUnapplied}
 								on:mousedown={async () => {
 									await branchController.setSelectedForChanges(branch.id);
@@ -146,10 +150,10 @@
 				<div class="relative" bind:this={meatballButton}>
 					{#if isUnapplied}
 						<Button
+							style="ghost"
+							kind="solid"
 							help="Deletes the local virtual branch (only)"
 							icon="bin-small"
-							color="neutral"
-							kind="outlined"
 							loading={isDeleting}
 							on:click={async () => {
 								isDeleting = true;
@@ -168,10 +172,10 @@
 							Delete
 						</Button>
 						<Button
+							style="ghost"
+							kind="solid"
 							help="Restores these changes into your working directory"
 							icon="plus-small"
-							color="primary"
-							kind="outlined"
 							loading={isApplying}
 							on:click={async () => {
 								isApplying = true;
@@ -192,16 +196,16 @@
 					{:else}
 						<div class="header__buttons">
 							<Button
+								style="ghost"
+								kind="solid"
 								icon="fold-lane"
-								kind="outlined"
-								color="neutral"
 								help="Collapse lane"
 								on:mousedown={collapseLane}
 							/>
 							<Button
+								style="ghost"
+								kind="solid"
 								icon="kebab"
-								kind="outlined"
-								color="neutral"
 								on:mousedown={() => {
 									visible = !visible;
 								}}

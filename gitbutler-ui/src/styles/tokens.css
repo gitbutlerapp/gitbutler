@@ -208,7 +208,7 @@
 	--size-control-s: 1.25rem;
 	--size-control-xl: 2.25rem;
 	--size-control-xs: 1rem;
-	--size-control-xss: 0.875rem;
+	--size-control-xxs: 0.875rem;
 }
 
 :root.dark {

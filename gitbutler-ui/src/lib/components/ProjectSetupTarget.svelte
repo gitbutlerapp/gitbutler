@@ -46,8 +46,8 @@
 		<ProjectNameLabel {projectName} />
 		<h3 class="text-base-body-14 text-bold">Target branch</h3>
 		<p class="text-base-body-12">
-			This is the branch that you consider "production", normally something like "origin/master" or
-			"origin/main".
+			This is the branch that you consider "production", normally something like
+			"origin/master" or "origin/main".
 		</p>
 	</div>
 	<Select items={remoteBranches} bind:value={selectedBranch} itemId="name" labelId="name">
@@ -177,7 +177,14 @@
 	</div>
 	<div class="floating-buttons">
 		<BackButton>Back</BackButton>
-		<Button {loading} on:click={onSetTargetClick} icon="chevron-right-small" id="set-base-branch">
+		<Button
+			style="pop"
+			kind="solid"
+			{loading}
+			on:click={onSetTargetClick}
+			icon="chevron-right-small"
+			id="set-base-branch"
+		>
 			Continue
 		</Button>
 	</div>

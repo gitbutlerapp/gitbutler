@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-	import Button, { type ButtonColor } from './Button.svelte';
+	import Button, { type ButtonStyle } from './Button.svelte';
 	import Icon, { type IconColor } from '$lib/components/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '../icons/icons.json';
@@ -36,12 +36,12 @@
 		success: 'success'
 	};
 
-	const primaryButtonMap: { [Key in MessageStyle]: ButtonColor } = {
-		neutral: 'primary',
-		pop: 'primary',
-		warn: 'warn',
+	const primaryButtonMap: { [Key in MessageStyle]: ButtonStyle } = {
+		neutral: 'pop',
+		pop: 'pop',
+		warn: 'warning',
 		error: 'error',
-		success: 'primary'
+		success: 'pop'
 	};
 </script>
 
@@ -77,12 +77,16 @@
 		{#if primary || secondary}
 			<div class="info-message__actions">
 				{#if secondary}
-					<Button color="neutral" kind="outlined" on:click={() => dispatch('secondary')}>
+					<Button style="ghost" kind="solid" on:click={() => dispatch('secondary')}>
 						{secondary}
 					</Button>
 				{/if}
 				{#if primary}
-					<Button color={primaryButtonMap[style]} on:click={() => dispatch('primary')}>
+					<Button
+						style={primaryButtonMap[style]}
+						kind="solid"
+						on:click={() => dispatch('primary')}
+					>
 						{primary}
 					</Button>
 				{/if}

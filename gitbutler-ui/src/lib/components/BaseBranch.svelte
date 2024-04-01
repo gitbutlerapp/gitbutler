@@ -23,7 +23,9 @@
 	let updateTargetModal: Modal;
 	let mergeUpstreamWarningDismissedCheckbox = false;
 
-	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0 : false;
+	$: multiple = base
+		? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0
+		: false;
 </script>
 
 <div class="wrapper">
@@ -35,7 +37,8 @@
 
 	{#if base.upstreamCommits?.length > 0}
 		<Button
-			color="primary"
+			style="pop"
+			kind="solid"
 			help={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
 			on:click={() => {
 				if ($mergeUpstreamWarningDismissed) {
@@ -75,12 +78,12 @@
 	<div class="modal-content">
 		<h4 class="text-base-body-14 text-semibold">What will this do?</h4>
 		<p class="modal__small-text text-base-body-12">
-			We will try to merge the work that is upstream into each of your virtual branches, so that
-			they are all up to date.
+			We will try to merge the work that is upstream into each of your virtual branches, so
+			that they are all up to date.
 		</p>
 		<p class="modal__small-text text-base-body-12">
-			Any virtual branches that we can't merge cleanly, we will unapply and mark with a blue dot.
-			You can merge these manually later.
+			Any virtual branches that we can't merge cleanly, we will unapply and mark with a blue
+			dot. You can merge these manually later.
 		</p>
 		<p class="modal__small-text text-base-body-12">
 			Any virtual branches that are fully integrated upstream will be automatically removed.
@@ -93,9 +96,10 @@
 	</label>
 
 	<svelte:fragment slot="controls" let:close>
-		<Button kind="outlined" color="neutral" on:click={close}>Cancel</Button>
+		<Button style="ghost" kind="solid" on:click={close}>Cancel</Button>
 		<Button
-			color="primary"
+			style="pop"
+			kind="solid"
 			on:click={() => {
 				branchController.updateBaseBranch();
 				if (mergeUpstreamWarningDismissedCheckbox) {

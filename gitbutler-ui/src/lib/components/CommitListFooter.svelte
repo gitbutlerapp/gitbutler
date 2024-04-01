@@ -96,9 +96,9 @@
 			/>
 		{:else if type == 'local'}
 			<Button
+				style="pop"
+				kind="soft"
 				wide
-				kind="outlined"
-				color="primary"
 				loading={isPushing}
 				on:click={async () => {
 					try {
@@ -116,8 +116,9 @@
 			</Button>
 		{:else if type == 'upstream'}
 			<Button
+				style="warning"
+				kind="solid"
 				wide
-				color="warn"
 				loading={isMerging}
 				on:click={async () => {
 					isMerging = true;

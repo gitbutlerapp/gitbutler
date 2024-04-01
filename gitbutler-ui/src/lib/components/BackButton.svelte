@@ -4,8 +4,8 @@
 </script>
 
 <Button
-	kind="outlined"
-	color="neutral"
+	style="ghost"
+	kind="solid"
 	on:mousedown={() => {
 		if (history.length > 0) {
 			history.back();
