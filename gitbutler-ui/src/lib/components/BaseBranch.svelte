@@ -35,7 +35,8 @@
 
 	{#if base.upstreamCommits?.length > 0}
 		<Button
-			color="primary"
+			style="pop"
+			kind="solid"
 			help={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
 			on:click={() => {
 				if ($mergeUpstreamWarningDismissed) {
@@ -93,9 +94,10 @@
 	</label>
 
 	<svelte:fragment slot="controls" let:close>
-		<Button kind="outlined" color="neutral" on:click={close}>Cancel</Button>
+		<Button style="ghost" kind="solid" on:click={close}>Cancel</Button>
 		<Button
-			color="primary"
+			style="pop"
+			kind="solid"
 			on:click={() => {
 				branchController.updateBaseBranch();
 				if (mergeUpstreamWarningDismissedCheckbox) {
@@ -147,7 +149,7 @@
 		align-items: center;
 		gap: var(--size-8);
 		padding: var(--size-14);
-		background-color: var(--clr-theme-container-pale);
+		background-color: var(--clr-container-pale);
 		border-radius: var(--radius-m);
 		margin-bottom: var(--size-6);
 	}

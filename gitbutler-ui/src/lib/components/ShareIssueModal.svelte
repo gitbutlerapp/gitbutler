@@ -166,8 +166,8 @@
 	</div>
 
 	<svelte:fragment slot="controls">
-		<Button kind="outlined" color="neutral" type="reset" on:click={close}>Close</Button>
-		<Button color="primary" type="submit">Share with GitButler</Button>
+		<Button style="ghost" kind="solid" type="reset" on:click={close}>Close</Button>
+		<Button style="pop" kind="solid" type="submit">Share with GitButler</Button>
 	</svelte:fragment>
 </Modal>
 

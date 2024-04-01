@@ -93,10 +93,10 @@
 			<div class="header__buttons"></div>
 			<div class="relative" bind:this={meatballButton}>
 				<Button
+					style="ghost"
+					kind="solid"
 					help="Restores these changes into your working directory"
 					icon="plus-small"
-					color="primary"
-					kind="outlined"
 					loading={isApplying}
 					on:click={async () => {
 						isApplying = true;
@@ -151,7 +151,7 @@
 	.header__actions {
 		display: flex;
 		gap: var(--size-4);
-		background: var(--clr-theme-container-pale);
+		background: var(--clr-container-pale);
 		padding: var(--size-14);
 		justify-content: space-between;
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
@@ -170,7 +170,7 @@
 	}
 
 	.header__remote-branch {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 		padding-left: var(--size-2);
 		padding-right: var(--size-2);
 		display: flex;
@@ -191,7 +191,7 @@
 	}
 
 	.remote {
-		color: var(--clr-theme-scale-ntrl-100);
-		background: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-scale-ntrl-100);
+		background: var(--clr-scale-ntrl-40);
 	}
 </style>

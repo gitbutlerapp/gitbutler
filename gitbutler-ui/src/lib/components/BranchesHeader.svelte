@@ -26,8 +26,8 @@
 	</div>
 	<div class="header__filter-btn" bind:this={filterButton}>
 		<Button
-			kind="outlined"
-			color="neutral"
+			style="ghost"
+			kind="solid"
 			icon={filtersActive ? 'filter-applied-small' : 'filter-small'}
 			on:mousedown={onFilterClick}
 		>
@@ -45,7 +45,7 @@
 <style lang="postcss">
 	.header {
 		display: flex;
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
@@ -60,7 +60,7 @@
 	}
 	.filter-popup-menu {
 		position: absolute;
-		top: calc(var(--size-control-m) + var(--size-4));
+		top: calc(var(--size-control-button) + var(--size-4));
 		right: 0;
 		z-index: 10;
 		min-width: 10rem;

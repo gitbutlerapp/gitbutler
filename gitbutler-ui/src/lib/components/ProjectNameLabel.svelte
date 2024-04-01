@@ -18,7 +18,7 @@
 		gap: var(--size-4);
 		padding: var(--size-2) var(--size-4) var(--size-2) var(--size-2);
 		border-radius: var(--radius-s);
-		background: color-mix(in srgb, var(--clr-theme-scale-ntrl-30) 8%, transparent);
-		color: var(--clr-theme-scale-ntrl-50);
+		background: color-mix(in srgb, var(--clr-scale-ntrl-30) 8%, transparent);
+		color: var(--clr-scale-ntrl-50);
 	}
 </style>

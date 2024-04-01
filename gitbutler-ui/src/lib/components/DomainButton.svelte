@@ -44,7 +44,7 @@
 		gap: var(--size-10);
 		border-radius: var(--radius-m);
 		padding: var(--size-10);
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		transition: background-color var(--transition-fast);
 	}
 

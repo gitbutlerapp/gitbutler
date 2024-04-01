@@ -34,9 +34,9 @@
 			align-items: center;
 			justify-content: center;
 
-			background-color: color-mix(in srgb, var(--clr-theme-scale-pop-70) 10%, transparent);
+			background-color: color-mix(in srgb, var(--clr-scale-pop-70) 10%, transparent);
 
-			outline-color: var(--clr-theme-scale-pop-40);
+			outline-color: var(--clr-scale-pop-40);
 			outline-style: dashed;
 			outline-width: 1px;
 			outline-offset: -10px;
@@ -56,7 +56,7 @@
 			display: flex;
 			align-items: center;
 			gap: var(--size-6);
-			color: var(--clr-theme-scale-pop-40);
+			color: var(--clr-scale-pop-40);
 		}
 
 		.small {

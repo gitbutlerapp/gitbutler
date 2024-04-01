@@ -32,9 +32,10 @@
 <Modal width="small" title="Merge conflicts" bind:this={applyConflictedModal}>
 	<p>Applying this branch will introduce merge conflicts.</p>
 	<svelte:fragment slot="controls" let:item let:close>
-		<Button kind="outlined" color="neutral" on:click={close}>Cancel</Button>
+		<Button style="ghost" kind="solid" on:click={close}>Cancel</Button>
 		<Button
-			color="primary"
+			style="pop"
+			kind="solid"
 			on:click={() => {
 				branchController.applyBranch(item.id);
 				close();
@@ -51,9 +52,10 @@
 		Deleting <code>{item.name}</code> cannot be undone.
 	</div>
 	<svelte:fragment slot="controls" let:close let:item>
-		<Button kind="outlined" color="neutral" on:mousedown={close}>Cancel</Button>
+		<Button style="ghost" kind="solid" on:mousedown={close}>Cancel</Button>
 		<Button
-			color="error"
+			style="error"
+			kind="solid"
 			on:click={() => {
 				branchController.deleteBranch(item.id);
 				close();

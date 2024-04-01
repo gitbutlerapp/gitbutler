@@ -42,14 +42,14 @@
 	pre {
 		margin: 1em 0;
 		padding: 1em;
-		background-color: var(--clr-theme-scale-ntrl-90);
-		border: 1px solid var(--clr-theme-scale-ntrl-70);
+		background-color: var(--clr-scale-ntrl-90);
+		border: 1px solid var(--clr-scale-ntrl-70);
 	}
 
 	code {
 		font-family: monospace;
-		background-color: var(--clr-theme-scale-ntrl-90);
-		border: 1px solid var(--clr-theme-scale-ntrl-70);
+		background-color: var(--clr-scale-ntrl-90);
+		border: 1px solid var(--clr-scale-ntrl-70);
 		padding: 0 0.5em;
 	}
 

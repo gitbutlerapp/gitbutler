@@ -70,9 +70,9 @@
 <style lang="postcss">
 	.commit-list {
 		&.upstream {
-			background-color: var(--clr-theme-container-pale);
+			background-color: var(--clr-container-pale);
 		}
-		background-color: var(--clr-theme-container-light);
+		background-color: var(--clr-container-light);
 		display: flex;
 		flex-direction: column;
 		position: relative;
@@ -85,9 +85,9 @@
 		gap: var(--size-8);
 	}
 	.upstream-message {
-		color: var(--clr-theme-scale-warn-30);
+		color: var(--clr-scale-warn-30);
 		border-radius: var(--radius-m);
-		background: var(--clr-theme-scale-warn-80);
+		background: var(--clr-scale-warn-80);
 		padding: var(--size-12);
 		margin-left: var(--size-16);
 	}

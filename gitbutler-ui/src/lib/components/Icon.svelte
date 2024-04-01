@@ -53,16 +53,16 @@
 	}
 
 	.success {
-		color: var(--clr-theme-scale-succ-50);
+		color: var(--clr-scale-succ-50);
 	}
 	.error {
-		color: var(--clr-theme-scale-err-50);
+		color: var(--clr-scale-err-50);
 	}
 	.pop {
-		color: var(--clr-theme-scale-pop-50);
+		color: var(--clr-scale-pop-50);
 	}
 	.warn {
-		color: var(--clr-theme-scale-warn-50);
+		color: var(--clr-scale-warn-50);
 	}
 
 	.spinner {

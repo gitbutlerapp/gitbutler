@@ -82,7 +82,7 @@
 		min-width: 100%;
 	}
 	.scrolled {
-		border-top: 1px solid var(--clr-theme-container-outline-light);
+		border-top: 1px solid var(--clr-container-outline-light);
 	}
 
 	/* MODIFIERS */

@@ -44,7 +44,7 @@
 		display: flex;
 		text-align: left;
 		align-items: center;
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		height: var(--size-24);
 		padding: var(--size-4) var(--size-6);
 		border-radius: var(--radius-s);
@@ -61,6 +61,6 @@
 		white-space: nowrap;
 	}
 	.disabled {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 	}
 </style>

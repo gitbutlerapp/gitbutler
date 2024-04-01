@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-	import Button, { type ButtonColor } from './Button.svelte';
+	import Button, { type ButtonStyle } from './Button.svelte';
 	import Icon, { type IconColor } from '$lib/components/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '../icons/icons.json';
@@ -36,12 +36,12 @@
 		success: 'success'
 	};
 
-	const primaryButtonMap: { [Key in MessageStyle]: ButtonColor } = {
-		neutral: 'primary',
-		pop: 'primary',
-		warn: 'warn',
+	const primaryButtonMap: { [Key in MessageStyle]: ButtonStyle } = {
+		neutral: 'pop',
+		pop: 'pop',
+		warn: 'warning',
 		error: 'error',
-		success: 'primary'
+		success: 'pop'
 	};
 </script>
 
@@ -77,12 +77,12 @@
 		{#if primary || secondary}
 			<div class="info-message__actions">
 				{#if secondary}
-					<Button color="neutral" kind="outlined" on:click={() => dispatch('secondary')}>
+					<Button style="ghost" kind="solid" on:click={() => dispatch('secondary')}>
 						{secondary}
 					</Button>
 				{/if}
 				{#if primary}
-					<Button color={primaryButtonMap[style]} on:click={() => dispatch('primary')}>
+					<Button style={primaryButtonMap[style]} kind="solid" on:click={() => dispatch('primary')}>
 						{primary}
 					</Button>
 				{/if}
@@ -93,12 +93,12 @@
 
 <style lang="postcss">
 	.info-message {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		display: flex;
 		padding: var(--size-16);
 		border-radius: var(--radius-m);
 		gap: var(--size-12);
-		background-color: var(--clr-theme-container-light);
+		background-color: var(--clr-container-light);
 		transition:
 			background-color var(--transition-slow),
 			border-color var(--transition-slow);
@@ -129,19 +129,19 @@
 
 	/* MODIFIERS */
 	.neutral {
-		border: 0 solid var(--clr-theme-container-outline-light);
+		border: 0 solid var(--clr-container-outline-light);
 	}
 	.error {
-		border: 0 solid var(--clr-theme-scale-err-60);
+		border: 0 solid var(--clr-scale-err-60);
 	}
 	.pop {
-		border: 0 solid var(--clr-theme-scale-pop-50);
+		border: 0 solid var(--clr-scale-pop-50);
 	}
 	.warn {
-		border: 0 solid var(--clr-theme-scale-warn-60);
+		border: 0 solid var(--clr-scale-warn-60);
 	}
 	.success {
-		border: 0 solid var(--clr-theme-scale-succ-60);
+		border: 0 solid var(--clr-scale-succ-60);
 	}
 	.shadow {
 		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
@@ -155,7 +155,7 @@
 
 	.has-background {
 		&.neutral {
-			background-color: var(--clr-theme-container-pale);
+			background-color: var(--clr-container-pale);
 		}
 
 		&.error {

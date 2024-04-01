@@ -39,8 +39,8 @@
 		width: calc(var(--size-24) + var(--size-2));
 		height: var(--size-16);
 		border-radius: var(--size-16);
-		background-color: var(--clr-theme-container-sub);
-		box-shadow: inset 0 0 0 1px var(--clr-theme-container-outline-light);
+		background-color: var(--clr-container-sub);
+		box-shadow: inset 0 0 0 1px var(--clr-container-outline-light);
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),
@@ -51,20 +51,20 @@
 		/* not checked */
 		&:hover,
 		&:focus {
-			background-color: color-mix(in srgb, var(--clr-theme-container-sub), var(--darken-mid));
+			background-color: color-mix(in srgb, var(--clr-container-sub), var(--darken-mid));
 			box-shadow: inset 0 0 0 1px
-				color-mix(in srgb, var(--clr-theme-container-outline-light), var(--darken-mid));
+				color-mix(in srgb, var(--clr-container-outline-light), var(--darken-mid));
 		}
 
 		&:focus {
-			box-shadow: inset 0 0 0 1px var(--clr-theme-container-outline-sub);
+			box-shadow: inset 0 0 0 1px var(--clr-container-outline-sub);
 		}
 
 		&:disabled {
 			pointer-events: none;
 			opacity: 0.3;
 			cursor: not-allowed;
-			background-color: var(--clr-theme-scale-ntrl-60);
+			background-color: var(--clr-scale-ntrl-60);
 			border-color: none;
 		}
 

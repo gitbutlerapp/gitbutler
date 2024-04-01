@@ -48,6 +48,8 @@
 		</SelectItem>
 	</Select>
 	<Button
+		style="pop"
+		kind="solid"
 		icon="chevron-right-small"
 		disabled={selectValue == project}
 		on:mousedown={() => {

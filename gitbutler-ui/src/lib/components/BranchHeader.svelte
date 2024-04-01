@@ -57,9 +57,9 @@
 				<Icon name="draggable-narrow" />
 			</div>
 			<Button
+				style="ghost"
+				kind="solid"
 				icon="unfold-lane"
-				kind="outlined"
-				color="neutral"
 				help="Expand lane"
 				on:mousedown={expandLane}
 			/>
@@ -121,17 +121,19 @@
 					{#if branch.active}
 						{#if branch.selectedForChanges}
 							<Button
+								style="pop"
+								kind="solid"
 								help="New changes will land here"
 								icon="target"
-								notClickable
+								clickable={false}
 								disabled={isUnapplied}>Default branch</Button
 							>
 						{:else}
 							<Button
+								style="ghost"
+								kind="solid"
 								help="When selected, new changes will land here"
 								icon="target"
-								kind="outlined"
-								color="neutral"
 								disabled={isUnapplied}
 								on:mousedown={async () => {
 									await branchController.setSelectedForChanges(branch.id);
@@ -146,10 +148,10 @@
 				<div class="relative" bind:this={meatballButton}>
 					{#if isUnapplied}
 						<Button
+							style="ghost"
+							kind="solid"
 							help="Deletes the local virtual branch (only)"
 							icon="bin-small"
-							color="neutral"
-							kind="outlined"
 							loading={isDeleting}
 							on:click={async () => {
 								isDeleting = true;
@@ -168,10 +170,10 @@
 							Delete
 						</Button>
 						<Button
+							style="ghost"
+							kind="solid"
 							help="Restores these changes into your working directory"
 							icon="plus-small"
-							color="primary"
-							kind="outlined"
 							loading={isApplying}
 							on:click={async () => {
 								isApplying = true;
@@ -192,16 +194,16 @@
 					{:else}
 						<div class="header__buttons">
 							<Button
+								style="ghost"
+								kind="solid"
 								icon="fold-lane"
-								kind="outlined"
-								color="neutral"
 								help="Collapse lane"
 								on:mousedown={collapseLane}
 							/>
 							<Button
+								style="ghost"
+								kind="solid"
 								icon="kebab"
-								kind="outlined"
-								color="neutral"
 								on:mousedown={() => {
 									visible = !visible;
 								}}
@@ -242,7 +244,7 @@
 			}
 		}
 		&.isUnapplied {
-			background: var(--clr-theme-container-pale);
+			background: var(--clr-container-pale);
 		}
 	}
 	.header__top-overlay {
@@ -265,14 +267,14 @@
 	.header__actions {
 		display: flex;
 		gap: var(--size-4);
-		background: var(--clr-theme-container-pale);
+		background: var(--clr-container-pale);
 		padding: var(--size-14);
 		justify-content: space-between;
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 		user-select: none;
 	}
 	.isUnapplied .header__actions {
-		background: var(--clr-theme-container-sub);
+		background: var(--clr-container-sub);
 	}
 	.header__buttons {
 		display: flex;
@@ -292,13 +294,13 @@
 		right: var(--size-4);
 		top: var(--size-6);
 		opacity: 0;
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 		transition:
 			opacity var(--transition-slow),
 			color var(--transition-slow);
 
 		&:hover {
-			color: var(--clr-theme-scale-ntrl-40);
+			color: var(--clr-scale-ntrl-40);
 		}
 	}
 
@@ -310,7 +312,7 @@
 	}
 
 	.header__remote-branch {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 		padding-left: var(--size-2);
 		padding-right: var(--size-2);
 		display: flex;
@@ -349,7 +351,7 @@
 		margin-bottom: var(--size-4);
 		opacity: 0.4;
 		transition: opacity var(--transition-fast);
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 
 		&:hover {
 			opacity: 1;
@@ -376,7 +378,7 @@
 	}
 
 	.collapsed-lane__label {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		transform: rotate(180deg);
 		white-space: nowrap;
 		overflow: hidden;

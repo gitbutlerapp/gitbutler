@@ -75,8 +75,8 @@
 		</div>
 		<div class="new-branch-button">
 			<Button
-				color="neutral"
-				kind="outlined"
+				style="ghost"
+				kind="solid"
 				icon="plus-small"
 				on:mousedown={() => branchController.createBranch({})}>New branch</Button
 			>
@@ -99,12 +99,12 @@
 		justify-content: center;
 		width: 22rem;
 		border-radius: var(--radius-m);
-		border: 1px dashed color-mix(in srgb, var(--clr-theme-container-outline-pale) 50%, transparent);
+		border: 1px dashed color-mix(in srgb, var(--clr-container-outline-pale) 50%, transparent);
 		background-color: transparent;
 		padding: var(--size-20);
 		gap: var(--size-8);
 
-		outline-color: color-mix(in srgb, var(--clr-theme-scale-pop-40) 0%, transparent);
+		outline-color: color-mix(in srgb, var(--clr-scale-pop-40) 0%, transparent);
 		outline-style: dashed;
 		outline-width: 1px;
 		outline-offset: -1px;
@@ -178,7 +178,7 @@
 		left: 35px;
 		width: 77px;
 		height: 83px;
-		background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-60) 26%, transparent);
+		background-color: color-mix(in srgb, var(--clr-scale-ntrl-60) 26%, transparent);
 		border-radius: 12px;
 	}
 
@@ -200,7 +200,7 @@
 			transform: translate(-50%, -50%);
 			width: 100%;
 			height: 2px;
-			background-color: var(--clr-theme-scale-ntrl-20);
+			background-color: var(--clr-scale-ntrl-20);
 		}
 
 		&::after {
@@ -211,7 +211,7 @@
 	/* OTHER */
 
 	.new-branch-caption {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		text-align: center;
 		opacity: 0.25;
 		transition: opacity var(--transition-medium);
@@ -225,9 +225,9 @@
 	.canvas-dropzone {
 		&:global(.new-dz-active) {
 			& .new-virtual-branch {
-				background-color: color-mix(in srgb, var(--clr-theme-scale-pop-70) 10%, transparent);
-				border: 1px dashed color-mix(in srgb, var(--clr-theme-scale-pop-40) 80%, transparent);
-				color: var(--clr-theme-scale-pop-50);
+				background-color: color-mix(in srgb, var(--clr-scale-pop-70) 10%, transparent);
+				border: 1px dashed color-mix(in srgb, var(--clr-scale-pop-40) 80%, transparent);
+				color: var(--clr-scale-pop-50);
 			}
 
 			& .new-virtual-branch__content {

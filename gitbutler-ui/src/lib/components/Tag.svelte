@@ -55,7 +55,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: var(--size-control-s);
+		height: var(--size-control-tag);
 		padding: var(--size-2) var(--size-4);
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
@@ -77,20 +77,20 @@
 	.neutral {
 		/* kind */
 		&.soft {
-			color: var(--clr-theme-scale-ntrl-30);
+			color: var(--clr-scale-ntrl-30);
 			background: color-mix(in srgb, var(--clr-core-ntrl-50), var(--soft-bg-ratio));
 			/* if button */
 			&:not(.not-button):hover {
-				color: var(--clr-theme-scale-ntrl-30);
+				color: var(--clr-scale-ntrl-30);
 				background: color-mix(in srgb, var(--clr-core-ntrl-50), var(--soft-hover-ratio));
 			}
 		}
 		&.solid {
-			color: var(--clr-theme-scale-ntrl-100);
-			background: var(--clr-theme-scale-ntrl-30);
+			color: var(--clr-scale-ntrl-100);
+			background: var(--clr-scale-ntrl-30);
 			/* if button */
 			&:not(.not-button):hover {
-				background: var(--clr-theme-scale-ntrl-30);
+				background: var(--clr-scale-ntrl-30);
 			}
 		}
 	}
@@ -98,19 +98,19 @@
 	.ghost {
 		&.soft,
 		&.solid {
-			color: var(--clr-theme-scale-ntrl-30);
+			color: var(--clr-scale-ntrl-30);
 			background: transparent;
 			&:not(.not-button):hover {
-				color: var(--clr-theme-scale-ntrl-30);
+				color: var(--clr-scale-ntrl-30);
 				background: color-mix(in srgb, transparent, var(--darken-tint-light));
 			}
 		}
 
 		&.solid {
-			box-shadow: inset 0 0 0 1px var(--clr-theme-scale-ntrl-60);
+			box-shadow: inset 0 0 0 1px var(--clr-scale-ntrl-60);
 
 			&:not(.not-button):hover {
-				color: var(--clr-theme-scale-ntrl-30);
+				color: var(--clr-scale-ntrl-30);
 				background: color-mix(in srgb, transparent, var(--darken-tint-light));
 			}
 		}
@@ -118,11 +118,11 @@
 
 	.pop {
 		&.soft {
-			color: var(--clr-theme-scale-pop-20);
+			color: var(--clr-scale-pop-20);
 			background: color-mix(in srgb, var(--clr-core-pop-50), var(--soft-bg-ratio));
 			/* if button */
 			&:not(.not-button):hover {
-				color: var(--clr-theme-scale-pop-10);
+				color: var(--clr-scale-pop-10);
 				background: color-mix(in srgb, var(--clr-core-pop-50), var(--soft-hover-ratio));
 			}
 		}
@@ -138,11 +138,11 @@
 
 	.success {
 		&.soft {
-			color: var(--clr-theme-scale-succ-20);
+			color: var(--clr-scale-succ-20);
 			background: color-mix(in srgb, var(--clr-core-succ-50), var(--soft-bg-ratio));
 			/* if button */
 			&:not(.not-button):hover {
-				color: var(--clr-theme-scale-succ-10);
+				color: var(--clr-scale-succ-10);
 				background: color-mix(in srgb, var(--clr-core-succ-50), var(--soft-hover-ratio));
 			}
 		}
@@ -158,11 +158,11 @@
 
 	.error {
 		&.soft {
-			color: var(--clr-theme-scale-err-20);
+			color: var(--clr-scale-err-20);
 			background: color-mix(in srgb, var(--clr-core-err-50), var(--soft-bg-ratio));
 			/* if button */
 			&:not(.not-button):hover {
-				color: var(--clr-theme-scale-err-10);
+				color: var(--clr-scale-err-10);
 				background: color-mix(in srgb, var(--clr-core-err-50), var(--soft-hover-ratio));
 			}
 		}
@@ -178,11 +178,11 @@
 
 	.warning {
 		&.soft {
-			color: var(--clr-theme-scale-warn-20);
+			color: var(--clr-scale-warn-20);
 			background: color-mix(in srgb, var(--clr-core-warn-50), var(--soft-bg-ratio));
 			/* if button */
 			&:not(.not-button):hover {
-				color: var(--clr-theme-scale-warn-10);
+				color: var(--clr-scale-warn-10);
 				background: color-mix(in srgb, var(--clr-core-warn-50), var(--soft-hover-ratio));
 			}
 		}
@@ -198,11 +198,11 @@
 
 	.purple {
 		&.soft {
-			color: var(--clr-theme-scale-purple-20);
+			color: var(--clr-scale-purple-20);
 			background: color-mix(in srgb, var(--clr-core-purple-50), var(--soft-bg-ratio));
 			/* if button */
 			&:not(.not-button):hover {
-				color: var(--clr-theme-scale-purple-10);
+				color: var(--clr-scale-purple-10);
 				background: color-mix(in srgb, var(--clr-core-purple-50), var(--soft-hover-ratio));
 			}
 		}
@@ -244,7 +244,7 @@
 	.verticalOrientation {
 		writing-mode: vertical-rl;
 		height: max-content;
-		width: var(--size-control-s);
+		width: var(--size-control-tag);
 		padding: var(--size-4) var(--size-2);
 		transform: rotate(180deg);
 	}

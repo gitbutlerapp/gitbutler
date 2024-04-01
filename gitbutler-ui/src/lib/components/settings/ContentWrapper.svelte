@@ -25,7 +25,7 @@
 		width: 100%;
 		height: 100%;
 		flex: 1;
-		background-color: var(--clr-theme-container-pale);
+		background-color: var(--clr-container-pale);
 	}
 
 	.drag-region {
@@ -44,7 +44,7 @@
 	}
 
 	.title {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		align-self: flex-start;
 	}
 </style>

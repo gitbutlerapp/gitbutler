@@ -53,6 +53,6 @@
 	}
 
 	.textbox__label {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 	}
 </style>

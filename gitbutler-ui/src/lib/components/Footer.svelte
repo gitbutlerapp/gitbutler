@@ -13,14 +13,14 @@
 		<IconButton
 			icon="mail"
 			help="Send feedback"
-			size={isNavCollapsed ? 'xl' : 'l'}
+			size="l"
 			width={isNavCollapsed ? '100%' : undefined}
 			on:mousedown={() => events.emit('openSendIssueModal')}
 		/>
 		<IconButton
 			icon="settings"
 			help="Project settings"
-			size={isNavCollapsed ? 'xl' : 'l'}
+			size="l"
 			width={isNavCollapsed ? '100%' : undefined}
 			on:mousedown={() => goto(`/${projectId}/settings`)}
 		/>
@@ -33,8 +33,8 @@
 		display: flex;
 		justify-content: space-between;
 		padding: var(--size-12);
-		border-top: 1px solid var(--clr-theme-container-outline-light);
-		border-color: var(--clr-theme-container-outline-light);
+		border-top: 1px solid var(--clr-container-outline-light);
+		border-color: var(--clr-container-outline-light);
 	}
 
 	.left-btns {
@@ -51,6 +51,7 @@
 
 		& .left-btns {
 			flex-direction: column;
+			width: 100%;
 		}
 	}
 </style>

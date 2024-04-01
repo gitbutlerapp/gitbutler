@@ -61,7 +61,7 @@
 </script>
 
 {#if minimal}
-	<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}>Authorize</Button>
+	<Button style="pop" kind="solid" {disabled} on:click={gitHubStartOauth}>Authorize</Button>
 {:else}
 	<SectionCard orientation="row">
 		<svelte:fragment slot="iconSide">
@@ -75,7 +75,7 @@
 					width="28"
 					height="28"
 					viewBox="0 0 28 28"
-					fill="var(--clr-theme-scale-ntrl-0)"
+					fill="var(--clr-scale-ntrl-0)"
 					xmlns="http://www.w3.org/2000/svg"
 				>
 					<path
@@ -91,12 +91,11 @@
 			Allows you to view and create Pull Requests from GitButler.
 		</svelte:fragment>
 		{#if $user?.github_access_token}
-			<Button {disabled} kind="outlined" color="neutral" icon="bin-small" on:click={forgetGitHub}
+			<Button style="ghost" kind="solid" {disabled} icon="bin-small" on:click={forgetGitHub}
 				>Forget</Button
 			>
 		{:else}
-			<Button {disabled} kind="filled" color="primary" on:click={gitHubStartOauth}>Authorize</Button
-			>
+			<Button style="pop" kind="solid" {disabled} on:click={gitHubStartOauth}>Authorize</Button>
 		{/if}
 	</SectionCard>
 {/if}
@@ -112,7 +111,13 @@
 					<span class="text-head-20">
 						{userCode}
 					</span>
-					<Button {disabled} icon="copy" on:click={() => copyToClipboard(userCode)}>
+					<Button
+						style="pop"
+						kind="solid"
+						{disabled}
+						icon="copy"
+						on:click={() => copyToClipboard(userCode)}
+					>
 						Copy to Clipboard
 					</Button>
 				</div>
@@ -143,8 +148,8 @@
 			<div class="step-last" />
 			<div class="step-section__content">
 				<Button
-					kind="filled"
-					color="primary"
+					style="pop"
+					kind="solid"
 					{loading}
 					on:click={async () => {
 						await gitHubOauthCheckStatus(deviceCode);
@@ -185,13 +190,13 @@
 		margin-left: var(--size-8);
 		padding-bottom: var(--size-20);
 		margin-bottom: var(--size-20);
-		border-bottom: 1px solid var(--clr-theme-container-outline-light);
+		border-bottom: 1px solid var(--clr-container-outline-light);
 	}
 
 	.step-default {
 		position: relative;
 		width: 1px;
-		border-right: 1px dashed var(--clr-theme-scale-ntrl-60);
+		border-right: 1px dashed var(--clr-scale-ntrl-60);
 		margin-top: var(--size-4);
 
 		&::before {
@@ -201,7 +206,7 @@
 			transform: translateX(-50%);
 			width: var(--size-10);
 			height: var(--size-10);
-			background-color: var(--clr-theme-scale-ntrl-60);
+			background-color: var(--clr-scale-ntrl-60);
 			border-radius: 100%;
 		}
 	}
@@ -218,7 +223,7 @@
 			transform: translateX(-50%);
 			width: var(--size-10);
 			height: var(--size-10);
-			background-color: var(--clr-theme-scale-ntrl-60);
+			background-color: var(--clr-scale-ntrl-60);
 			border-radius: 100%;
 		}
 	}
@@ -234,7 +239,7 @@
 		justify-content: center;
 		bottom: calc(var(--size-4) * -1);
 		right: calc(var(--size-4) * -1);
-		background-color: var(--clr-theme-scale-ntrl-100);
+		background-color: var(--clr-scale-ntrl-100);
 		border-radius: 50px;
 	}
 
@@ -245,7 +250,7 @@
 		align-self: flex-start;
 		padding: var(--size-6) var(--size-6) var(--size-6) var(--size-8);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-container-pale);
+		background-color: var(--clr-container-pale);
 		user-select: text;
 	}
 </style>

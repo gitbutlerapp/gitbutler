@@ -235,8 +235,8 @@
 
 	.empty-board {
 		display: flex;
-		background-color: var(--clr-theme-container-light);
-		border: 1px solid var(--clr-theme-container-outline-light);
+		background-color: var(--clr-container-light);
+		border: 1px solid var(--clr-container-outline-light);
 		border-radius: var(--radius-l);
 		width: 100%;
 		gap: var(--size-48);
@@ -322,11 +322,11 @@
 	}
 
 	.empty-board__about h3 {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 	}
 
 	.empty-board__about p {
-		color: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-scale-ntrl-40);
 	}
 
 	.empty-board__suggestions {
@@ -343,7 +343,7 @@
 	}
 
 	.empty-board__suggestions__block h3 {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 	}
 
 	.empty-board__suggestions__links {
@@ -365,11 +365,11 @@
 		overflow: hidden;
 
 		&:hover {
-			background-color: var(--clr-theme-container-pale);
+			background-color: var(--clr-container-pale);
 		}
 
 		& span {
-			color: var(--clr-theme-scale-ntrl-40);
+			color: var(--clr-scale-ntrl-40);
 			margin-top: calc(var(--size-6) / 2);
 			white-space: nowrap;
 			text-overflow: ellipsis;
@@ -378,6 +378,6 @@
 	}
 
 	.empty-board__suggestions__link__icon {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 	}
 </style>

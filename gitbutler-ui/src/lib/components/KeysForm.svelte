@@ -156,17 +156,12 @@
 			<SectionCard topDivider roundedTop={false} roundedBottom={false}>
 				<TextBox id="sshKey" readonly selectall bind:value={sshKey} wide />
 				<div class="row-buttons">
-					<Button
-						kind="filled"
-						color="primary"
-						icon="copy"
-						on:mousedown={() => copyToClipboard(sshKey)}
-					>
+					<Button style="pop" kind="solid" icon="copy" on:mousedown={() => copyToClipboard(sshKey)}>
 						Copy to Clipboard
 					</Button>
 					<Button
-						kind="outlined"
-						color="neutral"
+						style="ghost"
+						kind="solid"
 						icon="open-link"
 						on:mousedown={() => {
 							openExternalUrl('https://github.com/settings/ssh/new');

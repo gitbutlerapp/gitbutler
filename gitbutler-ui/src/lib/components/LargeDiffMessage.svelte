@@ -14,7 +14,7 @@
 <div class="large-diff-message" class:frame-box={showFrame}>
 	<p class="text-base-13">Change hidden as large diffs may slow down the UI</p>
 
-	<Button kind="outlined" color="neutral" on:click={show}>Show anyways</Button>
+	<Button style="ghost" kind="solid" color="neutral" on:click={show}>Show anyways</Button>
 </div>
 
 <style>
@@ -23,11 +23,11 @@
 		padding: var(--size-12);
 		gap: var(--size-8);
 		flex-direction: column;
-		background-color: var(--clr-theme-container-light);
+		background-color: var(--clr-container-light);
 	}
 
 	.frame-box {
-		border: 1px solid var(--clr-theme-container-outline-light);
+		border: 1px solid var(--clr-container-outline-light);
 		border-radius: var(--radius-m);
 	}
 </style>

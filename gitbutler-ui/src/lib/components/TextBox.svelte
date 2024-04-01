@@ -151,7 +151,7 @@
 	.textbox__input-wrap {
 		position: relative;
 		&.disabled .textbox__icon {
-			color: var(--clr-theme-scale-ntrl-60);
+			color: var(--clr-scale-ntrl-60);
 		}
 	}
 
@@ -159,12 +159,12 @@
 		z-index: 1;
 		position: relative;
 		flex-grow: 1;
-		height: var(--size-control-l);
+		height: var(--size-control-cta);
 		width: 100%;
 	}
 
 	.textbox__label {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 	}
 
 	.textbox__icon {
@@ -172,7 +172,7 @@
 		pointer-events: none;
 		position: absolute;
 		top: 50%;
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 		transform: translateY(-50%);
 	}
 
@@ -181,7 +181,7 @@
 		position: absolute;
 		top: 50%;
 		right: var(--size-6);
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 		transform: translateY(-50%);
 		display: flex;
 		padding: var(--size-2) var(--size-4);
@@ -190,7 +190,7 @@
 
 		&:hover,
 		&:focus {
-			color: var(--clr-theme-scale-ntrl-40);
+			color: var(--clr-scale-ntrl-40);
 			outline: none;
 			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 		}
@@ -231,7 +231,7 @@
 		transform: translateY(-50%);
 		width: 1px;
 		height: 100%;
-		background-color: var(--clr-theme-container-outline-light);
+		background-color: var(--clr-container-outline-light);
 	}
 
 	.textbox__count-btn {
@@ -240,14 +240,14 @@
 		justify-content: center;
 		padding: var(--size-2) var(--size-4);
 		border-radius: var(--radius-s);
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 		transition: background-color var(--transition-fast);
 
 		&:hover,
 		&:focus {
 			outline: none;
 			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
-			color: var(--clr-theme-scale-ntrl-40);
+			color: var(--clr-scale-ntrl-40);
 		}
 	}
 
@@ -272,8 +272,8 @@
 	}
 
 	.textbox__readonly {
-		background-color: var(--clr-theme-container-pale);
-		border-color: var(--clr-theme-container-outline-light);
+		background-color: var(--clr-container-pale);
+		border-color: var(--clr-container-outline-light);
 	}
 
 	.wide {

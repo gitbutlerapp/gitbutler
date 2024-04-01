@@ -135,7 +135,7 @@
 					height="20"
 					viewBox="0 0 20 20"
 					xmlns="http://www.w3.org/2000/svg"
-					fill="var(--clr-theme-scale-ntrl-0)"
+					fill="var(--clr-scale-ntrl-0)"
 				>
 					<path
 						fill-rule="evenodd"
@@ -177,7 +177,14 @@
 	</div>
 	<div class="floating-buttons">
 		<BackButton>Back</BackButton>
-		<Button {loading} on:click={onSetTargetClick} icon="chevron-right-small" id="set-base-branch">
+		<Button
+			style="pop"
+			kind="solid"
+			{loading}
+			on:click={onSetTargetClick}
+			icon="chevron-right-small"
+			id="set-base-branch"
+		>
 			Continue
 		</Button>
 	</div>

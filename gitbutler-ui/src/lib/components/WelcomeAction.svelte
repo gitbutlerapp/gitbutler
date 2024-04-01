@@ -27,7 +27,7 @@
 		position: relative;
 		overflow: hidden;
 		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-theme-container-outline-light);
+		border: 1px solid var(--clr-container-outline-light);
 		display: flex;
 		position: relative;
 		padding: var(--size-16);
@@ -38,14 +38,14 @@
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast);
-		background-color: var(--clr-theme-container-light);
+		background-color: var(--clr-container-light);
 
 		&:hover,
 		&:focus {
 			outline: none;
 			background-color: color-mix(
 				in srgb,
-				var(--clr-theme-container-light),
+				var(--clr-container-light),
 				var(--darken-tint-extralight)
 			);
 		}
@@ -53,7 +53,7 @@
 
 	.loading {
 		pointer-events: none;
-		background-color: color-mix(in srgb, var(--clr-theme-scale-ntrl-50) 8%, transparent);
+		background-color: color-mix(in srgb, var(--clr-scale-ntrl-50) 8%, transparent);
 		border: 1px solid transparent;
 
 		& .action__content {
@@ -79,11 +79,11 @@
 	}
 
 	.action__title {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 	}
 
 	.action__message {
-		color: var(--clr-theme-scale-ntrl-30);
+		color: var(--clr-scale-ntrl-30);
 		max-width: 80%;
 	}
 

@@ -17,8 +17,8 @@
 </script>
 
 <Button
-	color="error"
-	kind="outlined"
+	style="error"
+	kind="solid"
 	icon="bin-small"
 	iconAlign="left"
 	on:click={() => {
@@ -43,14 +43,14 @@
 
 	<svelte:fragment slot="controls" let:close>
 		<Button
-			color="error"
-			kind="outlined"
+			style="error"
+			kind="soft"
 			iconAlign="left"
 			loading={isDeleting}
 			icon="bin-small"
 			on:click={onDeleteClicked}>Remove</Button
 		>
-		<Button on:click={close}>Cancel</Button>
+		<Button style="pop" kind="solid" on:click={close}>Cancel</Button>
 	</svelte:fragment>
 </Modal>
 

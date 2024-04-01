@@ -12,6 +12,8 @@
 
 	<div class="analytics-confirmation__actions">
 		<Button
+			style="pop"
+			kind="solid"
 			icon="chevron-right-small"
 			on:click={() => {
 				$analyticsConfirmed = true;
@@ -31,7 +33,7 @@
 	}
 
 	.title {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 	}
 
 	.analytics-confirmation__actions {

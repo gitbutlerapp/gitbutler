@@ -35,12 +35,12 @@
 					>
 						<path
 							d="M6 21V32.5M6 32.5L1 27.5M6 32.5L11 27.5"
-							stroke="var(--clr-theme-scale-ntrl-100)"
+							stroke="var(--clr-scale-ntrl-100)"
 							stroke-width="1.5"
 						/>
 						<path
 							d="M6 0V11.5M6 11.5L1 6.5M6 11.5L11 6.5"
-							stroke="var(--clr-theme-scale-ntrl-100)"
+							stroke="var(--clr-scale-ntrl-100)"
 							stroke-width="1.5"
 						/>
 					</svg>
@@ -55,7 +55,7 @@
 					>
 						<path
 							d="M1 4.07692L5.57143 9L13 1"
-							stroke="var(--clr-theme-scale-ntrl-100)"
+							stroke="var(--clr-scale-ntrl-100)"
 							stroke-width="1.5"
 						/>
 					</svg>
@@ -71,20 +71,20 @@
 			>
 				<path
 					d="M31.5605 35.5069C31.4488 35.5097 31.3368 35.5112 31.2245 35.5112H12.8571C5.75633 35.5112 0 29.7548 0 22.654C0 15.5532 5.75634 9.79688 12.8571 9.79688H16.123C18.7012 4.02354 24.493 0 31.2245 0C39.7331 0 46.7402 6.42839 47.6541 14.6934H49.5918C55.3401 14.6934 60 19.3533 60 25.1015C60 30.8498 55.3401 35.5097 49.5918 35.5097H32.4489C32.2692 35.5097 32.0906 35.5051 31.913 35.4961C31.7958 35.5009 31.6783 35.5045 31.5605 35.5069Z"
-					fill="var(--clr-theme-scale-pop-70)"
+					fill="var(--clr-scale-pop-70)"
 				/>
 				<g opacity="0.4">
 					<path
 						d="M39 35.5102V29.2505H29.25V9.75049H39V19.5005H48.75V29.2505H58.5V30.4877C56.676 33.4983 53.3688 35.5102 49.5918 35.5102H39Z"
-						fill="var(--clr-theme-scale-pop-50)"
+						fill="var(--clr-scale-pop-50)"
 					/>
 					<path
 						d="M46.3049 9.75049H39V1.93967C42.2175 3.65783 44.8002 6.4091 46.3049 9.75049Z"
-						fill="var(--clr-theme-scale-pop-50)"
+						fill="var(--clr-scale-pop-50)"
 					/>
 					<path
 						d="M9.75 35.1337C10.745 35.3806 11.7858 35.5117 12.8571 35.5117H29.25V29.2505H9.75V19.5005H19.5V9.75049H29.25V0.117188C25.4568 0.568673 22.0577 2.30464 19.5 4.87786V9.75049H16.144C16.137 9.7661 16.13 9.78173 16.123 9.79737H12.8571C11.7858 9.79737 10.745 9.92841 9.75 10.1753V19.5005H0.389701C0.135193 20.5097 0 21.5663 0 22.6545C0 25.0658 0.663785 27.322 1.81859 29.2505H9.75V35.1337Z"
-						fill="var(--clr-theme-scale-pop-50)"
+						fill="var(--clr-scale-pop-50)"
 					/>
 				</g>
 			</svg>
@@ -106,8 +106,8 @@
 
 		<div class="buttons">
 			<Button
-				wide
-				kind="outlined"
+				style="ghost"
+				kind="solid"
 				on:mousedown={() => {
 					const notes = $update$?.body?.trim() || 'no release notes available';
 					showToast({
@@ -128,6 +128,8 @@
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
 						<Button
 							wide
+							style="pop"
+							kind="solid"
 							on:mousedown={async () => {
 								await updaterService.installUpdate();
 							}}
@@ -137,7 +139,9 @@
 					</div>
 				{:else if $update$.status == 'DONE'}
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
-						<Button wide on:click={() => updaterService.relaunchApp()}>Restart</Button>
+						<Button style="pop" kind="solid" wide on:click={() => updaterService.relaunchApp()}
+							>Restart</Button
+						>
 					</div>
 				{/if}
 			</div>
@@ -145,7 +149,7 @@
 	</div>
 {/if}
 
-<style lang="postcss">
+<style>
 	.update-banner {
 		cursor: default;
 		user-select: none;
@@ -161,13 +165,13 @@
 		bottom: var(--size-12);
 		left: var(--size-12);
 		padding: var(--size-24);
-		background-color: var(--clr-theme-container-light);
-		border: 1px solid var(--clr-theme-container-outline-light);
+		background-color: var(--clr-container-light);
+		border: 1px solid var(--clr-container-outline-light);
 		border-radius: var(--radius-m);
 	}
 
 	.label {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 	}
 
 	.buttons {
@@ -187,9 +191,8 @@
 		flex-direction: column;
 		align-items: center;
 
-		height: var(--size-control-m);
+		height: var(--size-control-button);
 		width: 100%;
-		background-color: var(--clr-theme-pop-element);
 		border-radius: var(--radius-m);
 
 		transition:
@@ -198,6 +201,7 @@
 	}
 
 	.sliding-gradient {
+		z-index: 2;
 		pointer-events: none;
 		position: absolute;
 		top: 0;
@@ -270,7 +274,7 @@
 		width: 26px;
 		height: 26px;
 		border-radius: 50%;
-		background-color: var(--clr-theme-scale-pop-40);
+		background-color: var(--clr-scale-pop-40);
 		transition: transform 0.2s ease-in-out;
 
 		&:after {
@@ -281,7 +285,7 @@
 			width: 100%;
 			height: 100%;
 			background-color: transparent;
-			box-shadow: inset 0 0 4px 4px var(--clr-theme-scale-pop-40);
+			box-shadow: inset 0 0 4px 4px var(--clr-scale-pop-40);
 			border-radius: 50%;
 		}
 	}

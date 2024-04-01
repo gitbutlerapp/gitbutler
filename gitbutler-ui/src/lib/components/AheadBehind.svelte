@@ -30,8 +30,8 @@
 		flex-shrink: 0;
 		line-height: 120%;
 		border-radius: var(--radius-s);
-		color: var(--clr-theme-scale-ntrl-40);
-		background: color-mix(in srgb, var(--clr-theme-scale-ntrl-60) 30%, transparent);
+		color: var(--clr-scale-ntrl-40);
+		background: color-mix(in srgb, var(--clr-scale-ntrl-60) 30%, transparent);
 	}
 	.ahead,
 	.behind {
@@ -39,9 +39,9 @@
 		min-width: var(--size-12);
 	}
 	.behind {
-		border-right: 1px solid var(--clr-theme-container-outline-light);
+		border-right: 1px solid var(--clr-container-outline-light);
 	}
 	.neutral {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 	}
 </style>

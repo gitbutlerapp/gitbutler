@@ -67,7 +67,7 @@
 	}
 
 	.welcome-title {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		line-height: 1;
 	}
 
@@ -82,7 +82,7 @@
 		display: flex;
 		gap: var(--size-56);
 		padding: var(--size-28);
-		background: var(--clr-theme-container-pale);
+		background: var(--clr-container-pale);
 		border-radius: var(--radius-m);
 		margin-top: var(--size-20);
 	}

@@ -81,7 +81,7 @@
 	}
 
 	.analytics-settings__text {
-		color: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-scale-ntrl-40);
 	}
 
 	.analytics-settings__actions {

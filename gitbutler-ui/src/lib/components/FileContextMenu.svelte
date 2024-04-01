@@ -109,9 +109,10 @@
 		</ul>
 	</div>
 	<svelte:fragment slot="controls" let:close let:item>
-		<Button kind="outlined" color="neutral" on:click={close}>Cancel</Button>
+		<Button style="ghost" kind="solid" on:click={close}>Cancel</Button>
 		<Button
-			color="error"
+			style="error"
+			kind="solid"
 			on:click={() => {
 				branchController.unapplyFiles(item.files);
 				confirmationModal.close();

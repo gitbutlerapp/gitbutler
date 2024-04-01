@@ -117,20 +117,16 @@
 	.tree-list-file {
 		display: inline-flex;
 		align-items: center;
-		height: var(--size-control-m);
+		height: var(--size-control-button);
 		padding: var(--size-6) var(--size-8) var(--size-6) var(--size-6);
 		gap: var(--size-6);
 		border-radius: var(--radius-s);
 		width: 100%;
 		max-width: 100%;
 		outline: none;
-		background: var(--clr-theme-container-light);
+		background: var(--clr-container-light);
 		&:not(.selected):hover {
-			background-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-light),
-				var(--darken-tint-light)
-			);
+			background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
 		}
 		overflow: hidden;
 	}
@@ -147,16 +143,16 @@
 		overflow: hidden;
 	}
 	.name {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		text-overflow: ellipsis;
 		overflow: hidden;
 		white-space: nowrap;
 	}
 	.selected {
-		background-color: var(--clr-theme-scale-pop-80);
+		background-color: var(--clr-scale-pop-80);
 
 		&:hover {
-			background-color: color-mix(in srgb, var(--clr-theme-scale-pop-80), var(--darken-extralight));
+			background-color: color-mix(in srgb, var(--clr-scale-pop-80), var(--darken-extralight));
 		}
 	}
 </style>

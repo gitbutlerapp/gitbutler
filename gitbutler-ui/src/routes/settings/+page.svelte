@@ -164,7 +164,7 @@
 								<TextBox label="Email" bind:value={$user.email} readonly />
 							</div>
 
-							<Button loading={saving} color="primary">Update profile</Button>
+							<Button style="pop" kind="solid" loading={saving}>Update profile</Button>
 						</div>
 					</form>
 				</SectionCard>
@@ -244,7 +244,12 @@
 					Your code remains safe. it only clears the configuration.
 				</svelte:fragment>
 
-				<Button color="error" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
+				<Button
+					style="error"
+					kind="soft"
+					color="error"
+					on:click={() => deleteConfirmationModal.show()}
+				>
 					Remove projects…
 				</Button>
 
@@ -252,10 +257,10 @@
 					<p>Are you sure you want to remove all GitButler projects?</p>
 
 					<svelte:fragment slot="controls" let:close>
-						<Button kind="outlined" color="error" loading={isDeleting} on:click={onDeleteClicked}
+						<Button style="error" kind="soft" loading={isDeleting} on:click={onDeleteClicked}
 							>Remove</Button
 						>
-						<Button on:click={close}>Cancel</Button>
+						<Button style="pop" kind="solid" on:click={close}>Cancel</Button>
 					</svelte:fragment>
 				</Modal>
 			</SectionCard>
@@ -295,17 +300,12 @@
 
 				<TextBox readonly selectall bind:value={sshKey} />
 				<div class="row-buttons">
-					<Button
-						kind="filled"
-						color="primary"
-						icon="copy"
-						on:click={() => copyToClipboard(sshKey)}
-					>
+					<Button style="pop" kind="solid" icon="copy" on:click={() => copyToClipboard(sshKey)}>
 						Copy to clipboard
 					</Button>
 					<Button
-						kind="outlined"
-						color="neutral"
+						style="ghost"
+						kind="solid"
 						icon="open-link"
 						on:mousedown={() => {
 							openExternalUrl('https://github.com/settings/ssh/new');
@@ -377,7 +377,7 @@
 		height: 100px;
 		border-radius: var(--radius-m);
 		overflow: hidden;
-		background-color: var(--clr-theme-scale-pop-70);
+		background-color: var(--clr-scale-pop-70);
 		transition: opacity var(--transition-medium);
 
 		&:hover,
@@ -397,7 +397,7 @@
 		height: 100%;
 
 		object-fit: cover;
-		background-color: var(--clr-theme-scale-pop-70);
+		background-color: var(--clr-scale-pop-70);
 	}
 
 	.profile-pic__edit-label {

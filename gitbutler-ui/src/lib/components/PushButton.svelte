@@ -69,8 +69,8 @@
 
 {#if (isPr || commits.length === 0) && !isPushed}
 	<Button
-		color="primary"
-		kind="outlined"
+		style="ghost"
+		kind="solid"
 		{wide}
 		disabled={isPushed}
 		loading={isLoading}
@@ -80,8 +80,8 @@
 	>
 {:else if !isPr}
 	<DropDownButton
-		color="primary"
-		kind="outlined"
+		style="ghost"
+		kind="solid"
 		loading={isLoading}
 		bind:this={dropDown}
 		{wide}

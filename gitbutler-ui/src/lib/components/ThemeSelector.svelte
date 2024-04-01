@@ -67,11 +67,7 @@
 
 	.theme-card:hover {
 		& .theme-card__label {
-			background-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-light),
-				var(--darken-tint-light)
-			);
+			background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
 		}
 	}
 
@@ -80,7 +76,7 @@
 		width: 100%;
 		height: auto;
 		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-theme-container-outline-light);
+		border: 1px solid var(--clr-container-outline-light);
 		overflow: hidden;
 
 		& img {
@@ -118,7 +114,7 @@
 	}
 
 	.theme-card.selected .theme-card__label {
-		background-color: color-mix(in srgb, var(--clr-theme-scale-pop-50), transparent 80%);
+		background-color: color-mix(in srgb, var(--clr-scale-pop-50), transparent 80%);
 	}
 
 	.theme-card.selected .theme-card__icon {

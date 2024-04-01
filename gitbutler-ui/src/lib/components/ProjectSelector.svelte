@@ -59,7 +59,7 @@
 		padding: var(--size-10);
 		border-radius: var(--radius-m);
 
-		background-color: var(--clr-theme-container-pale);
+		background-color: var(--clr-container-pale);
 
 		align-items: center;
 		justify-content: space-between;
@@ -68,11 +68,7 @@
 
 		&:focus,
 		&:hover {
-			background-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-light),
-				var(--clr-core-ntrl-50) 20%
-			);
+			background-color: color-mix(in srgb, var(--clr-container-light), var(--clr-core-ntrl-50) 20%);
 
 			& .button__icon {
 				opacity: 0.4;
@@ -82,7 +78,7 @@
 
 	.button__label {
 		flex-grow: 1;
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		text-align: left;
 		white-space: nowrap;
 		overflow: hidden;
@@ -90,7 +86,7 @@
 	}
 
 	.button__icon {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		opacity: 0.3;
 	}
 </style>

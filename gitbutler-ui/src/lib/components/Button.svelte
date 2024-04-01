@@ -1,5 +1,13 @@
 <script lang="ts" context="module">
-	export type ButtonColor = 'primary' | 'neutral' | 'error' | 'warn';
+	export type ButtonStyle =
+		| 'neutral'
+		| 'ghost'
+		| 'pop'
+		| 'success'
+		| 'error'
+		| 'warning'
+		| 'purple';
+	export type ButtonKind = 'soft' | 'solid';
 </script>
 
 <script lang="ts">
@@ -9,25 +17,27 @@
 	import { onMount } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 
-	export let size: 'medium' | 'large' = 'medium';
+	// Interaction props
+	export let element: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
 	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let iconAlign: 'left' | 'right' = 'right';
-	export let color: ButtonColor = 'primary';
-	export let kind: 'filled' | 'outlined' = 'filled';
 	export let isDropdownChild = false;
 	export let disabled = false;
-	export let notClickable = false;
+	export let clickable = false;
 	export let id: string | undefined = undefined;
 	export let loading = false;
 	export let tabindex = 0;
+	export let help = '';
+	export let type: 'submit' | 'reset' | undefined = undefined;
+	// Layout props
+	export let width: number | undefined = undefined;
+	export let size: 'medium' | 'large' = 'medium';
+	export let reversedDirection: boolean = false;
 	export let wide = false;
 	export let grow = false;
 	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' = 'auto';
-	export let help = '';
-	export let width: number | undefined = undefined;
-	export let type: 'submit' | 'reset' | undefined = undefined;
-
-	export let element: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
+	// Style props
+	export let style: ButtonStyle = 'neutral';
+	export let kind: ButtonKind = 'soft';
 
 	const SLOTS = $$props.$$slots;
 
@@ -38,22 +48,11 @@
 </script>
 
 <button
-	class="btn"
-	class:medium={size == 'medium'}
-	class:large={size == 'large'}
-	class:error-outline={color == 'error' && kind == 'outlined'}
-	class:primary-outline={color == 'primary' && kind == 'outlined'}
-	class:warn-outline={color == 'warn' && kind == 'outlined'}
-	class:error-filled={color == 'error' && kind == 'filled'}
-	class:primary-filled={color == 'primary' && kind == 'filled'}
-	class:warn-filled={color == 'warn' && kind == 'filled'}
-	class:neutral-filled={color == 'neutral' && kind == 'filled'}
-	class:neutral-outline={color == 'neutral' && kind == 'outlined'}
-	class:pointer-events-none={loading}
-	class:icon-left={iconAlign == 'left'}
+	class="btn {style} {kind} {size}"
+	class:reversed-direction={reversedDirection}
 	class:wide
 	class:grow
-	class:not-clickable={notClickable}
+	class:not-button={clickable}
 	class:is-dropdown={isDropdownChild}
 	style:align-self={align}
 	style:width={width ? pxToRem(width) : undefined}
@@ -64,7 +63,7 @@
 	on:mousedown
 	{type}
 	{id}
-	tabindex={notClickable ? -1 : tabindex}
+	tabindex={clickable ? -1 : tabindex}
 >
 	{#if SLOTS}
 		<span class="label text-base-12 text-semibold">
@@ -80,7 +79,6 @@
 
 <style lang="postcss">
 	.btn {
-		--btn-outline-fill-hover-transparency: transparent 95%;
 		z-index: 1;
 		position: relative;
 		display: inline-flex;
@@ -90,15 +88,41 @@
 		border-radius: var(--radius-m);
 		flex-shrink: 0;
 		gap: var(--size-2);
-		height: var(--size-control-m);
-		min-width: var(--size-control-m);
-		background: transparent;
-		transition: background-color var(--transition-fast);
+		border: 1px solid transparent;
+		transition:
+			background var(--transition-fast),
+			opacity var(--transition-fast),
+			color var(--transition-fast);
 		cursor: pointer;
+
+		/* component variables */
+		--soft-bg-ratio: transparent 80%;
+		--soft-hover-ratio: transparent 75%;
+
 		&:disabled {
 			cursor: default;
 			pointer-events: none;
-			opacity: 0.6;
+			opacity: 0.5;
+
+			&.neutral.solid,
+			&.pop.solid,
+			&.success.solid,
+			&.error.solid,
+			&.warning.solid,
+			&.purple.solid {
+				color: color-mix(in srgb, var(--clr-scale-ntrl-0), transparent 40%);
+				background: color-mix(in srgb, var(--clr-scale-ntrl-40), transparent 80%);
+			}
+
+			&.neutral.soft,
+			&.pop.soft,
+			&.success.soft,
+			&.error.soft,
+			&.warning.soft,
+			&.purple.soft {
+				color: var(--clr-scale-ntrl-40);
+				background: color-mix(in srgb, var(--clr-scale-ntrl-50), transparent 80%);
+			}
 		}
 		&.wide {
 			display: flex;
@@ -107,10 +131,10 @@
 		&.grow {
 			flex-grow: 1;
 		}
-		&.icon-left {
+		&.reversed-direction {
 			flex-direction: row-reverse;
 		}
-		&.not-clickable {
+		&.not-button {
 			cursor: default;
 			pointer-events: none;
 		}
@@ -120,102 +144,160 @@
 		padding: 0 var(--size-2);
 	}
 
-	.neutral-filled {
-		color: var(--clr-theme-scale-ntrl-30);
-		&:hover,
-		&:focus {
-			background: color-mix(in srgb, transparent, var(--darken-tint-light));
+	/* STYLES */
+	.neutral {
+		/* kind */
+		&.soft {
+			color: var(--clr-scale-ntrl-30);
+			background: color-mix(in srgb, var(--clr-core-ntrl-50), var(--soft-bg-ratio));
+			/* if button */
+			&:not(.not-button, &:disabled):hover {
+				color: var(--clr-scale-ntrl-30);
+				background: color-mix(in srgb, var(--clr-core-ntrl-50), var(--soft-hover-ratio));
+			}
 		}
-	}
-	.neutral-outline {
-		color: var(--clr-theme-scale-ntrl-30);
-		border: 1px solid var(--clr-theme-container-outline-light);
-		&:hover,
-		&:focus {
-			background: color-mix(in srgb, transparent, var(--darken-tint-extralight));
-			border: 1px solid
-				color-mix(in srgb, var(--clr-theme-container-outline-light), var(--darken-tint-mid));
-		}
-	}
-
-	.primary-filled {
-		background: var(--clr-theme-pop-element);
-		color: var(--clr-theme-pop-on-element);
-		&:hover,
-		&:focus {
-			background: color-mix(in srgb, var(--clr-theme-pop-element), var(--darken-mid));
-		}
-	}
-	.primary-outline {
-		color: var(--clr-theme-pop-outline);
-		border: 1px solid var(--clr-theme-pop-outline);
-
-		&:hover,
-		&:focus {
-			color: color-mix(in srgb, var(--clr-theme-pop-outline), var(--darken-mid));
-			border: 1px solid color-mix(in srgb, var(--clr-theme-pop-outline), var(--darken-mid));
-			background: color-mix(
-				in srgb,
-				var(--btn-outline-fill-hover-transparency),
-				var(--clr-theme-pop-element)
-			);
+		&.solid {
+			color: var(--clr-scale-ntrl-100);
+			background: var(--clr-scale-ntrl-30);
+			/* if button */
+			&:not(.not-button, &:disabled):hover {
+				background: var(--clr-scale-ntrl-30);
+			}
 		}
 	}
 
-	.warn-filled {
-		color: var(--clr-theme-warn-on-element);
-		background: var(--clr-theme-warn-element);
-		&:hover,
-		&:focus {
-			background: color-mix(in srgb, var(--clr-theme-warn-element), var(--darken-mid));
+	.ghost {
+		&.soft,
+		&.solid {
+			color: var(--clr-scale-ntrl-30);
+			background: transparent;
+			&:not(.not-button, &:disabled):hover {
+				color: var(--clr-scale-ntrl-30);
+				background: color-mix(in srgb, transparent, var(--darken-tint-light));
+			}
+		}
+
+		&.solid {
+			border: 1px solid var(--clr-scale-ntrl-60);
+
+			&:not(.not-button, &:disabled):hover {
+				color: var(--clr-scale-ntrl-30);
+				background: color-mix(in srgb, transparent, var(--darken-tint-light));
+			}
 		}
 	}
-	.warn-outline {
-		color: var(--clr-theme-warn-outline);
-		border: 1px solid var(--clr-theme-warn-outline);
-		&:hover,
-		&:focus {
-			color: color-mix(in srgb, var(--clr-theme-warn-outline), var(--darken-mid));
-			border: 1px solid color-mix(in srgb, var(--clr-theme-warn-outline), var(--darken-mid));
-			background: color-mix(
-				in srgb,
-				var(--btn-outline-fill-hover-transparency),
-				var(--clr-theme-warn-element)
-			);
+
+	.pop {
+		&.soft {
+			color: var(--clr-scale-pop-20);
+			background: color-mix(in srgb, var(--clr-core-pop-50), var(--soft-bg-ratio));
+			/* if button */
+			&:not(.not-button, &:disabled):hover {
+				color: var(--clr-scale-pop-10);
+				background: color-mix(in srgb, var(--clr-core-pop-50), var(--soft-hover-ratio));
+			}
+		}
+		&.solid {
+			color: var(--clr-theme-pop-on-element);
+			background: var(--clr-theme-pop-element);
+			/* if button */
+			&:not(.not-button, &:disabled):hover {
+				background: color-mix(in srgb, var(--clr-theme-pop-element), var(--darken-mid));
+			}
 		}
 	}
-	.error-filled {
-		color: var(--clr-theme-err-on-element);
-		background: var(--clr-theme-err-element);
-		&:hover,
-		&:focus {
-			background: color-mix(in srgb, var(--clr-theme-err-element), var(--darken-mid));
+
+	.success {
+		&.soft {
+			color: var(--clr-scale-succ-20);
+			background: color-mix(in srgb, var(--clr-core-succ-50), var(--soft-bg-ratio));
+			/* if button */
+			&:not(.not-button, &:disabled):hover {
+				color: var(--clr-scale-succ-10);
+				background: color-mix(in srgb, var(--clr-core-succ-50), var(--soft-hover-ratio));
+			}
+		}
+		&.solid {
+			color: var(--clr-theme-succ-on-element);
+			background: var(--clr-theme-succ-element);
+			/* if button */
+			&:not(.not-button, &:disabled):hover {
+				background: color-mix(in srgb, var(--clr-theme-succ-element), var(--darken-mid));
+			}
 		}
 	}
-	.error-outline {
-		color: var(--clr-theme-err-outline);
-		border: 1px solid var(--clr-theme-err-outline);
-		&:hover,
-		&:focus {
-			color: color-mix(in srgb, var(--clr-theme-err-outline), var(--darken-mid));
-			border: 1px solid color-mix(in srgb, var(--clr-theme-err-outline), var(--darken-mid));
-			background: color-mix(
-				in srgb,
-				var(--btn-outline-fill-hover-transparency),
-				var(--clr-theme-err-element)
-			);
+
+	.error {
+		&.soft {
+			color: var(--clr-scale-err-20);
+			background: color-mix(in srgb, var(--clr-core-err-50), var(--soft-bg-ratio));
+			/* if button */
+			&:not(.not-button, &:disabled):hover {
+				color: var(--clr-scale-err-10);
+				background: color-mix(in srgb, var(--clr-core-err-50), var(--soft-hover-ratio));
+			}
+		}
+		&.solid {
+			color: var(--clr-theme-err-on-element);
+			background: var(--clr-theme-err-element);
+			/* if button */
+			&:not(.not-button, &:disabled):hover {
+				background: color-mix(in srgb, var(--clr-theme-err-element), var(--darken-mid));
+			}
+		}
+	}
+
+	.warning {
+		&.soft {
+			color: var(--clr-scale-warn-20);
+			background: color-mix(in srgb, var(--clr-core-warn-50), var(--soft-bg-ratio));
+			/* if button */
+			&:not(.not-button, &:disabled):hover {
+				color: var(--clr-scale-warn-10);
+				background: color-mix(in srgb, var(--clr-core-warn-50), var(--soft-hover-ratio));
+			}
+		}
+		&.solid {
+			color: var(--clr-theme-warn-on-element);
+			background: var(--clr-theme-warn-element);
+			/* if button */
+			&:not(.not-button, &:disabled):hover {
+				background: color-mix(in srgb, var(--clr-theme-warn-element), var(--darken-mid));
+			}
+		}
+	}
+
+	.purple {
+		&.soft {
+			color: var(--clr-scale-purple-20);
+			background: color-mix(in srgb, var(--clr-core-purple-50), var(--soft-bg-ratio));
+			/* if button */
+			&:not(.not-button, &:disabled):hover {
+				color: var(--clr-scale-purple-10);
+				background: color-mix(in srgb, var(--clr-core-purple-50), var(--soft-hover-ratio));
+			}
+		}
+		&.solid {
+			color: var(--clr-theme-purple-on-element);
+			background: var(--clr-theme-purple-element);
+			/* if button */
+			&:not(.not-button, &:disabled):hover {
+				background: color-mix(in srgb, var(--clr-theme-purple-element), var(--darken-mid));
+			}
 		}
 	}
 
 	/* SIZE MODIFIERS */
 
 	.btn.medium {
-		height: var(--size-control-m);
+		height: var(--size-control-button);
+		min-width: var(--size-control-button);
 		padding: var(--size-4) var(--size-6);
 	}
 
 	.btn.large {
-		height: var(--size-control-l);
+		height: var(--size-control-cta);
+		min-width: var(--size-control-cta);
 		padding: var(--size-6) var(--size-8);
 	}
 
@@ -227,17 +309,21 @@
 			border-bottom-right-radius: 0;
 			border-right: none;
 
-			&.primary-filled {
+			&.pop,
+			&.success,
+			&.error,
+			&.warning,
+			&.purple {
 				&:after {
 					content: '';
+					background-color: currentColor;
 					z-index: 2;
 					position: absolute;
 					top: 0;
 					right: 0;
 					width: 1px;
 					height: 100%;
-					background: var(--clr-theme-scale-ntrl-100);
-					opacity: 0.4;
+					opacity: 0.2;
 				}
 			}
 		}

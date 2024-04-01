@@ -68,7 +68,7 @@
 		height: 100%;
 
 		/* background-color: red; */
-		/* background-color: var(--clr-theme-container-outline-light); */
+		/* background-color: var(--clr-container-outline-light); */
 
 		&:after {
 			pointer-events: none;
@@ -83,7 +83,7 @@
 	}
 
 	.file-card {
-		background: var(--clr-theme-container-light);
+		background: var(--clr-container-light);
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;

@@ -39,9 +39,9 @@
 		/>
 		<div class="passbox__actions">
 			<Button
-				color="neutral"
+				style="ghost"
+				kind="solid"
 				disabled={isSubmitting}
-				kind="outlined"
 				on:click={async () => {
 					if (!prompt) return;
 					await promptService.cancel(prompt.id);
@@ -50,6 +50,8 @@
 				Cancel
 			</Button>
 			<Button
+				style="pop"
+				kind="solid"
 				grow
 				on:click={async () => await submit()}
 				disabled={submitDisabled || isSubmitting}
@@ -68,11 +70,11 @@
 		gap: var(--size-8);
 		padding: var(--size-14);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-container-pale);
+		background-color: var(--clr-container-pale);
 	}
 
 	.passbox__helper-text {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 	}
 
 	.passbox__actions {
