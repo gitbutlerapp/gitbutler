@@ -1,3 +1,22 @@
+//! ## How-To
+//!
+//! This is a primer on how to use the [`Error`] provided here.
+//!
+//! ### Interfacing with `tauri` using [`Error`]
+//!
+//! `tauri` serializes backend errors and makes these available as JSON objects to the frontend. The format
+//! is an implementation detail, but here it's implemented to turn each [`Error`] into a dict with `code`
+//! and `messsage` fields.
+//!
+//! The values in these fields are controlled by attaching context, please [see the `core` docs](gitbutler_core::error))
+//! on how to do this.
+//!
+//! To assure context is picked up correctly to be made available to the UI if present, use
+//! [`Error`] in the `tauri` commands. Due to technical limitations, it will only auto-convert
+//! from `anyhow::Error`, or [core::Error](gitbutler_core::error::Error).
+//! Errors that are known to have context can be converted using [`Error::from_error_with_context`].
+//! If there is an error without context, one would have to convert to `anyhow::Error` as intermediate step,
+//! typically by adding `.context()`.
 pub(crate) use frontend::Error;
 
 mod frontend {
