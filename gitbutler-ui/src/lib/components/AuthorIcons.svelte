@@ -33,13 +33,13 @@
 		justify-content: center;
 		height: var(--size-16);
 		padding: 0 var(--size-4);
-		background-color: var(--clr-theme-container-light);
+		background-color: var(--clr-container-light);
 		border-radius: var(--size-16);
 		margin-left: calc(var(--size-4) * -1);
-		border: 1px solid var(--clr-theme-container-outline-light);
+		border: 1px solid var(--clr-container-outline-light);
 
 		& span {
-			color: var(--clr-theme-scale-ntrl-0);
+			color: var(--clr-scale-ntrl-0);
 			line-height: 1;
 		}
 	}

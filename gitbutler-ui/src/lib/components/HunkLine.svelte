@@ -84,7 +84,7 @@
 		width: 100%;
 		min-width: max-content;
 		font-family: monospace;
-		background-color: var(--clr-theme-container-light);
+		background-color: var(--clr-container-light);
 		white-space: pre;
 		tab-size: var(--tab-size);
 	}

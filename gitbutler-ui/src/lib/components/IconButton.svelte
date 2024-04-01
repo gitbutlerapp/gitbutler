@@ -33,14 +33,14 @@
 		align-items: center;
 		justify-content: center;
 		border-radius: var(--radius-m);
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 		cursor: pointer;
 		transition:
 			background-color var(--transition-fast),
 			color var(--transition-fast);
 		&:not(.selected):hover {
 			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
-			color: var(--clr-theme-scale-ntrl-40);
+			color: var(--clr-scale-ntrl-40);
 		}
 	}
 	.selected {

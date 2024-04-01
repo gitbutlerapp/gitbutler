@@ -22,32 +22,32 @@
 
 	/* For all light neutral elements — ghost buttons, light background
     use tint palatte it will tint the pallate properly if it's nut gray */
-	--darken-tint-extralight: var(--clr-theme-scale-ntrl-50) 5%;
-	--darken-tint-light: var(--clr-theme-scale-ntrl-50) 9%;
-	--darken-tint-mid: var(--clr-theme-scale-ntrl-50) 14%;
-	--darken-tint-dark: var(--clr-theme-scale-ntrl-50) 20%;
-	--darken-tint-extradark: var(--clr-theme-scale-ntrl-50) 35%;
+	--darken-tint-extralight: var(--clr-scale-ntrl-50) 5%;
+	--darken-tint-light: var(--clr-scale-ntrl-50) 9%;
+	--darken-tint-mid: var(--clr-scale-ntrl-50) 14%;
+	--darken-tint-dark: var(--clr-scale-ntrl-50) 20%;
+	--darken-tint-extradark: var(--clr-scale-ntrl-50) 35%;
 
 	/* For all color and dark elements */
-	--darken-extralight: var(--clr-theme-scale-ntrl-0) 3%;
-	--darken-light: var(--clr-theme-scale-ntrl-0) 6%;
-	--darken-mid: var(--clr-theme-scale-ntrl-0) 9%;
-	--darken-dark: var(--clr-theme-scale-ntrl-0) 12%;
-	--darken-extradark: var(--clr-theme-scale-ntrl-0) 15%;
+	--darken-extralight: var(--clr-scale-ntrl-0) 3%;
+	--darken-light: var(--clr-scale-ntrl-0) 6%;
+	--darken-mid: var(--clr-scale-ntrl-0) 9%;
+	--darken-dark: var(--clr-scale-ntrl-0) 12%;
+	--darken-extradark: var(--clr-scale-ntrl-0) 15%;
 
 	/* TODO: add focus color */
-	--focus-color: var(--clr-theme-scale-pop-50);
-	--resizer-color: var(--clr-theme-scale-pop-50);
+	--focus-color: var(--clr-scale-pop-50);
+	--resizer-color: var(--clr-scale-pop-50);
 }
 
 :root.dark {
 	/* Additional correction here for dark mode, due tue
     tint colors look less contrast  */
-	--darken-tint-extralight: var(--clr-theme-scale-ntrl-50) 7%;
-	--darken-tint-light: var(--clr-theme-scale-ntrl-50) 14%;
-	--darken-tint-mid: var(--clr-theme-scale-ntrl-50) 21%;
-	--darken-tint-dark: var(--clr-theme-scale-ntrl-50) 28%;
-	--darken-tint-extradark: var(--clr-theme-scale-ntrl-50) 35%;
+	--darken-tint-extralight: var(--clr-scale-ntrl-50) 7%;
+	--darken-tint-light: var(--clr-scale-ntrl-50) 14%;
+	--darken-tint-mid: var(--clr-scale-ntrl-50) 21%;
+	--darken-tint-dark: var(--clr-scale-ntrl-50) 28%;
+	--darken-tint-extradark: var(--clr-scale-ntrl-50) 35%;
 }
 
 /* BOILERPLATE CSS */
@@ -58,8 +58,8 @@ body {
 	width: 100vw;
 	overflow-y: hidden;
 	padding: 0;
-	color: var(--clr-theme-scale-ntrl-0);
-	background-color: var(--clr-theme-container-pale);
+	color: var(--clr-scale-ntrl-0);
+	background-color: var(--clr-container-pale);
 
 	/* optimise font rendering */
 	-webkit-font-smoothing: antialiased;
@@ -115,7 +115,7 @@ button {
 .code-string {
 	font-family: 'Spline Sans Mono', monospace;
 	border-radius: var(--radius-s);
-	background: color-mix(in srgb, var(--clr-theme-scale-ntrl-50), transparent 80%);
+	background: color-mix(in srgb, var(--clr-scale-ntrl-50), transparent 80%);
 	padding: var(--size-2) var(--size-4);
 }
 

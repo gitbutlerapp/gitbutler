@@ -46,6 +46,6 @@
 	}
 
 	.description p {
-		color: var(--clr-theme-scale-ntrl-30);
+		color: var(--clr-scale-ntrl-30);
 	}
 </style>

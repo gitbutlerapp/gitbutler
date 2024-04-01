@@ -70,11 +70,11 @@
 		gap: var(--size-8);
 		padding: var(--size-14);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-container-pale);
+		background-color: var(--clr-container-pale);
 	}
 
 	.passbox__helper-text {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 	}
 
 	.passbox__actions {

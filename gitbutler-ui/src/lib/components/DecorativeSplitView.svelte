@@ -70,7 +70,7 @@
 		user-select: none;
 		display: flex;
 		flex-grow: 1;
-		background-color: var(--clr-theme-container-light);
+		background-color: var(--clr-container-light);
 	}
 
 	.right-side {
@@ -84,7 +84,7 @@
 		align-items: center;
 		padding: var(--size-40) calc(var(--size-40) * 2);
 		flex: 1.3;
-		background-color: var(--clr-theme-container-light);
+		background-color: var(--clr-container-light);
 		overflow-y: auto;
 	}
 
@@ -101,7 +101,7 @@
 	.right-side {
 		flex: 1;
 		min-width: 28rem;
-		background-color: var(--clr-theme-container-light);
+		background-color: var(--clr-container-light);
 		padding: var(--size-20) var(--size-20) var(--size-20) 0;
 	}
 
@@ -139,7 +139,7 @@
 
 	.wordmark {
 		position: absolute;
-		color: var(--clr-theme-scale-pop-30);
+		color: var(--clr-scale-pop-30);
 		right: var(--size-32);
 		bottom: var(--size-32);
 	}
@@ -152,7 +152,7 @@
 	/* links */
 
 	.right-side__links {
-		color: var(--clr-theme-scale-pop-20);
+		color: var(--clr-scale-pop-20);
 		display: flex;
 		align-items: flex-start;
 		flex-direction: column;
@@ -168,7 +168,7 @@
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: color-mix(in srgb, var(--clr-theme-scale-pop-50), transparent 85%);
+			background-color: color-mix(in srgb, var(--clr-scale-pop-50), transparent 85%);
 		}
 	}
 

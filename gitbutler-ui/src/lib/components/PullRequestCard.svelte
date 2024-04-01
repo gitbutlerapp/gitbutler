@@ -211,7 +211,7 @@
 			/>
 		</div>
 		<div class="pr-title text-base-13 font-semibold">
-			<span style="color: var(--clr-theme-scale-ntrl-50)">PR #{pr.number}:</span>
+			<span style="color: var(--clr-scale-ntrl-50)">PR #{pr.number}:</span>
 			{pr.title}
 		</div>
 		<div class="pr-tags">
@@ -303,7 +303,7 @@
 	}
 
 	.pr-title {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		margin-bottom: var(--size-12);
 		margin-right: var(--size-28);
 		user-select: text;

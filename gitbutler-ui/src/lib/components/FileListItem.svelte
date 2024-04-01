@@ -130,14 +130,10 @@
 		outline: none;
 		margin-bottom: var(--size-2);
 		transition: background-color var(--transition-fast);
-		background: var(--clr-theme-container-light);
+		background: var(--clr-container-light);
 		&:not(.selected-draggable):hover {
 			transition: none;
-			background-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-light),
-				var(--darken-tint-light)
-			);
+			background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
 		}
 	}
 
@@ -162,7 +158,7 @@
 		width: var(--size-12);
 	}
 	.name {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		white-space: nowrap;
 		flex-shrink: 0;
 		text-overflow: ellipsis;
@@ -170,7 +166,7 @@
 		line-height: 120%;
 	}
 	.path {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		line-height: 120%;
 		flex-shrink: 1;
 		white-space: nowrap;
@@ -179,10 +175,10 @@
 		opacity: 0.3;
 	}
 	.selected-draggable {
-		background-color: var(--clr-theme-scale-pop-80);
+		background-color: var(--clr-scale-pop-80);
 
 		&:hover {
-			background-color: color-mix(in srgb, var(--clr-theme-scale-pop-80), var(--darken-extralight));
+			background-color: color-mix(in srgb, var(--clr-scale-pop-80), var(--darken-extralight));
 		}
 	}
 </style>

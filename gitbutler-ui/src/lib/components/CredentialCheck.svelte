@@ -141,10 +141,10 @@
 	}
 
 	.disclaimer {
-		color: var(--clr-theme-scale-ntrl-50);
-		background: var(--clr-theme-container-pale);
+		color: var(--clr-scale-ntrl-50);
+		background: var(--clr-container-pale);
 		border-radius: var(--radius-m);
-		background: var(--clr-theme-container-pale);
+		background: var(--clr-container-pale);
 		padding: var(--size-10) var(--size-12);
 	}
 </style>

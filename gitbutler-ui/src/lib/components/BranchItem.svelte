@@ -86,7 +86,7 @@
 	}
 
 	.branch__author {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 	}
 
 	.branch:not(.selected):hover,

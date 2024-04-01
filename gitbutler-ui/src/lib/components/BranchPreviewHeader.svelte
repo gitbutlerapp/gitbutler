@@ -151,7 +151,7 @@
 	.header__actions {
 		display: flex;
 		gap: var(--size-4);
-		background: var(--clr-theme-container-pale);
+		background: var(--clr-container-pale);
 		padding: var(--size-14);
 		justify-content: space-between;
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
@@ -170,7 +170,7 @@
 	}
 
 	.header__remote-branch {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 		padding-left: var(--size-2);
 		padding-right: var(--size-2);
 		display: flex;
@@ -191,7 +191,7 @@
 	}
 
 	.remote {
-		color: var(--clr-theme-scale-ntrl-100);
-		background: var(--clr-theme-scale-ntrl-40);
+		color: var(--clr-scale-ntrl-100);
+		background: var(--clr-scale-ntrl-40);
 	}
 </style>

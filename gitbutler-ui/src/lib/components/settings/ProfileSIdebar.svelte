@@ -122,8 +122,8 @@
 		flex-direction: column;
 		justify-content: space-between;
 		padding: calc(var(--size-36) + var(--size-4)) var(--size-14) var(--size-14) var(--size-14);
-		border-right: 1px solid var(--clr-theme-container-outline-light);
-		background-color: var(--clr-theme-container-light);
+		border-right: 1px solid var(--clr-container-outline-light);
+		background-color: var(--clr-container-light);
 		height: 100%;
 		width: 16rem;
 	}
@@ -143,7 +143,7 @@
 	}
 
 	.profile-sidebar__title {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 	}
 
 	/* MENU */
@@ -167,32 +167,24 @@
 		padding: var(--size-10) var(--size-8);
 		border-radius: var(--radius-m);
 		width: 100%;
-		color: var(--clr-theme-scale-ntrl-30);
+		color: var(--clr-scale-ntrl-30);
 		transition:
 			background-color var(--transition-fast),
 			color var(--transition-fast);
 
 		&:not(.item_selected):hover {
 			transition: none;
-			background-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-light),
-				var(--darken-tint-light)
-			);
+			background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
 		}
 
 		& span {
-			color: var(--clr-theme-scale-ntrl-0);
+			color: var(--clr-scale-ntrl-0);
 		}
 	}
 
 	.item_selected {
-		background-color: color-mix(
-			in srgb,
-			var(--clr-theme-container-light),
-			var(--darken-tint-light)
-		);
-		color: var(--clr-theme-scale-ntrl-0);
+		background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
+		color: var(--clr-scale-ntrl-0);
 	}
 
 	/* BOTTOM */
@@ -216,15 +208,15 @@
 		justify-content: space-between;
 		padding: var(--size-16);
 		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-theme-container-outline-light);
-		background-color: var(--clr-theme-container-light);
-		color: var(--clr-theme-scale-ntrl-30);
+		border: 1px solid var(--clr-container-outline-light);
+		background-color: var(--clr-container-light);
+		color: var(--clr-scale-ntrl-30);
 		transition: background-color var(--transition-fast);
 
 		&:hover {
 			background-color: color-mix(
 				in srgb,
-				var(--clr-theme-container-light),
+				var(--clr-container-light),
 				var(--darken-tint-extralight)
 			);
 		}

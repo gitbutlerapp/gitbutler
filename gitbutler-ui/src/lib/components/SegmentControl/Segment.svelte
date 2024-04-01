@@ -83,7 +83,7 @@
 		border-bottom-width: 1px;
 		border-left-width: 1px;
 
-		border-color: var(--clr-theme-container-outline-light);
+		border-color: var(--clr-container-outline-light);
 
 		transition: background var(--transition-fast);
 
@@ -91,19 +91,19 @@
 		&:focus {
 			background-color: color-mix(
 				in srgb,
-				var(--clr-theme-container-light),
+				var(--clr-container-light),
 				var(--darken-tint-extralight)
 			);
 		}
 
 		&[aria-selected='true'] {
-			background-color: var(--clr-theme-container-pale);
+			background-color: var(--clr-container-pale);
 
 			cursor: default;
 
 			& > .label,
 			& > .icon {
-				color: var(--clr-theme-scale-ntrl-50);
+				color: var(--clr-scale-ntrl-50);
 				cursor: default;
 			}
 
@@ -127,11 +127,11 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		color: var(--clr-theme-scale-ntrl-30);
+		color: var(--clr-scale-ntrl-30);
 	}
 
 	.label {
-		color: var(--clr-theme-scale-ntrl-30);
+		color: var(--clr-scale-ntrl-30);
 	}
 
 	/* MODIFIERS */

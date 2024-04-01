@@ -58,7 +58,7 @@
 		display: flex;
 		padding: var(--size-16);
 		gap: var(--size-8);
-		border-bottom: 1px solid var(--clr-theme-container-outline-light);
+		border-bottom: 1px solid var(--clr-container-outline-light);
 	}
 
 	.modal__header__content {
@@ -83,8 +83,8 @@
 		justify-content: flex-end;
 		gap: var(--size-8);
 		padding: var(--size-16);
-		border-top: 1px solid var(--clr-theme-container-outline-light);
-		background-color: var(--clr-theme-container-light);
+		border-top: 1px solid var(--clr-container-outline-light);
+		background-color: var(--clr-container-light);
 	}
 
 	.adjust-header {

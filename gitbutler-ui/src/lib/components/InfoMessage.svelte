@@ -93,12 +93,12 @@
 
 <style lang="postcss">
 	.info-message {
-		color: var(--clr-theme-scale-ntrl-0);
+		color: var(--clr-scale-ntrl-0);
 		display: flex;
 		padding: var(--size-16);
 		border-radius: var(--radius-m);
 		gap: var(--size-12);
-		background-color: var(--clr-theme-container-light);
+		background-color: var(--clr-container-light);
 		transition:
 			background-color var(--transition-slow),
 			border-color var(--transition-slow);
@@ -129,19 +129,19 @@
 
 	/* MODIFIERS */
 	.neutral {
-		border: 0 solid var(--clr-theme-container-outline-light);
+		border: 0 solid var(--clr-container-outline-light);
 	}
 	.error {
-		border: 0 solid var(--clr-theme-scale-err-60);
+		border: 0 solid var(--clr-scale-err-60);
 	}
 	.pop {
-		border: 0 solid var(--clr-theme-scale-pop-50);
+		border: 0 solid var(--clr-scale-pop-50);
 	}
 	.warn {
-		border: 0 solid var(--clr-theme-scale-warn-60);
+		border: 0 solid var(--clr-scale-warn-60);
 	}
 	.success {
-		border: 0 solid var(--clr-theme-scale-succ-60);
+		border: 0 solid var(--clr-scale-succ-60);
 	}
 	.shadow {
 		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
@@ -155,7 +155,7 @@
 
 	.has-background {
 		&.neutral {
-			background-color: var(--clr-theme-container-pale);
+			background-color: var(--clr-container-pale);
 		}
 
 		&.error {

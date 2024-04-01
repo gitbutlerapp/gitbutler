@@ -27,8 +27,8 @@
 		width: var(--size-16);
 		height: var(--size-16);
 		border-radius: var(--size-16);
-		background-color: var(--clr-theme-container-light);
-		box-shadow: inset 0 0 0 1px var(--clr-theme-container-outline-light);
+		background-color: var(--clr-container-light);
+		box-shadow: inset 0 0 0 1px var(--clr-container-outline-light);
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),
@@ -40,7 +40,7 @@
 		&:hover,
 		&:focus {
 			box-shadow: inset 0 0 0 1px
-				color-mix(in srgb, var(--clr-theme-container-outline-pale), var(--darken-mid));
+				color-mix(in srgb, var(--clr-container-outline-pale), var(--darken-mid));
 			outline: none;
 
 			&::after {
@@ -53,7 +53,7 @@
 			pointer-events: none;
 			opacity: 0.3;
 			cursor: not-allowed;
-			background-color: var(--clr-theme-scale-ntrl-60);
+			background-color: var(--clr-scale-ntrl-60);
 			border-color: none;
 		}
 
@@ -88,7 +88,7 @@
 			width: calc(100% - var(--size-8));
 			height: calc(100% - var(--size-8));
 			border-radius: var(--size-16);
-			background-color: var(--clr-theme-scale-ntrl-0);
+			background-color: var(--clr-scale-ntrl-0);
 			transition: background-color var(--transition-fast);
 			transform: scale(0.5);
 			opacity: 0;

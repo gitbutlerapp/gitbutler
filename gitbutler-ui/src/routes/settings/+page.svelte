@@ -377,7 +377,7 @@
 		height: 100px;
 		border-radius: var(--radius-m);
 		overflow: hidden;
-		background-color: var(--clr-theme-scale-pop-70);
+		background-color: var(--clr-scale-pop-70);
 		transition: opacity var(--transition-medium);
 
 		&:hover,
@@ -397,7 +397,7 @@
 		height: 100%;
 
 		object-fit: cover;
-		background-color: var(--clr-theme-scale-pop-70);
+		background-color: var(--clr-scale-pop-70);
 	}
 
 	.profile-pic__edit-label {

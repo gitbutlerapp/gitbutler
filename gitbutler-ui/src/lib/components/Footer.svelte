@@ -33,8 +33,8 @@
 		display: flex;
 		justify-content: space-between;
 		padding: var(--size-12);
-		border-top: 1px solid var(--clr-theme-container-outline-light);
-		border-color: var(--clr-theme-container-outline-light);
+		border-top: 1px solid var(--clr-container-outline-light);
+		border-color: var(--clr-container-outline-light);
 	}
 
 	.left-btns {

@@ -162,7 +162,7 @@
 	.line {
 		width: var(--size-2);
 		height: 100%;
-		border-left: 1px dashed var(--clr-theme-scale-ntrl-60);
+		border-left: 1px dashed var(--clr-scale-ntrl-60);
 	}
 	.files-list {
 		display: flex;

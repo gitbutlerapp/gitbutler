@@ -180,7 +180,7 @@
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-		border-top: 1px solid var(--clr-theme-container-outline-light);
+		border-top: 1px solid var(--clr-container-outline-light);
 	}
 	.content {
 		display: flex;
@@ -205,7 +205,7 @@
 	}
 
 	.branch-list__empty-state__caption {
-		color: var(--clr-theme-scale-ntrl-60);
+		color: var(--clr-scale-ntrl-60);
 		text-align: center;
 		max-width: 10rem;
 	}

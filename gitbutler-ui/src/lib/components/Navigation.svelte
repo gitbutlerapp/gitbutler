@@ -70,7 +70,7 @@
 			{viewport}
 			direction="right"
 			minWidth={minResizerWidth}
-			defaultLineColor="var(--clr-theme-container-outline-light)"
+			defaultLineColor="var(--clr-container-outline-light)"
 			on:click={() => $isNavCollapsed && toggleNavCollapse()}
 			on:dblclick={() => !$isNavCollapsed && toggleNavCollapse()}
 			on:width={(e) => {
@@ -152,7 +152,7 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
-		background: var(--clr-theme-container-light);
+		background: var(--clr-container-light);
 		max-height: 100%;
 		user-select: none;
 	}
@@ -194,9 +194,9 @@
 		top: 50%;
 		width: 0.875rem;
 		height: var(--size-36);
-		background: var(--clr-theme-container-light);
+		background: var(--clr-container-light);
 		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-theme-container-outline-light);
+		border: 1px solid var(--clr-container-outline-light);
 		pointer-events: none;
 		opacity: 0;
 		transition:
@@ -206,20 +206,16 @@
 			right var(--transition-fast);
 
 		& svg {
-			stroke: var(--clr-theme-scale-ntrl-60);
+			stroke: var(--clr-scale-ntrl-60);
 			transition: stroke var(--transition-fast);
 			width: 45%;
 		}
 
 		&:hover {
-			border-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-outline-light),
-				var(--darken-tint-dark)
-			);
+			border-color: color-mix(in srgb, var(--clr-container-outline-light), var(--darken-tint-dark));
 
 			& svg {
-				stroke: var(--clr-theme-scale-ntrl-50);
+				stroke: var(--clr-scale-ntrl-50);
 			}
 		}
 	}
@@ -244,7 +240,7 @@
 		transition-delay: 0.1s;
 
 		& svg {
-			stroke: var(--clr-theme-scale-ntrl-100);
+			stroke: var(--clr-scale-ntrl-100);
 			transition-delay: 0.1s;
 		}
 	}

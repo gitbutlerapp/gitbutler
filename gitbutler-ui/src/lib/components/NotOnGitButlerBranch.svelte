@@ -93,17 +93,17 @@
 		gap: var(--size-8);
 		align-items: center;
 		line-height: 120%;
-		color: var(--clr-theme-scale-ntrl-30);
+		color: var(--clr-scale-ntrl-30);
 		margin-bottom: var(--size-20);
 	}
 
 	.switchrepo__title {
-		color: var(--clr-theme-scale-ntrl-30);
+		color: var(--clr-scale-ntrl-30);
 		margin-bottom: var(--size-12);
 	}
 
 	.switchrepo__message {
-		color: var(--clr-theme-scale-ntrl-50);
+		color: var(--clr-scale-ntrl-50);
 		margin-bottom: var(--size-20);
 	}
 	.switchrepo__actions {
@@ -115,6 +115,6 @@
 
 	.switchrepo__project {
 		padding-top: var(--size-24);
-		border-top: 1px dashed var(--clr-theme-scale-ntrl-60);
+		border-top: 1px dashed var(--clr-scale-ntrl-60);
 	}
 </style>
