@@ -141,11 +141,7 @@
 			{#if $user}
 				<SectionCard>
 					<form on:submit={onSubmit} class="profile-form">
-						<label
-							id="profile-picture"
-							class="focus-state profile-pic-wrapper"
-							for="picture"
-						>
+						<label id="profile-picture" class="focus-state profile-pic-wrapper" for="picture">
 							<input
 								on:change={onPictureChange}
 								type="file"
@@ -159,9 +155,7 @@
 								<img class="profile-pic" src={userPicture} alt="" />
 							{/if}
 
-							<span class="profile-pic__edit-label text-base-11 text-semibold"
-								>Edit</span
-							>
+							<span class="profile-pic__edit-label text-base-11 text-semibold">Edit</span>
 						</label>
 
 						<div id="contact-info" class="contact-info">
@@ -170,8 +164,7 @@
 								<TextBox label="Email" bind:value={$user.email} readonly />
 							</div>
 
-							<Button style="pop" kind="solid" loading={saving}>Update profile</Button
-							>
+							<Button style="pop" kind="solid" loading={saving}>Update profile</Button>
 						</div>
 					</form>
 				</SectionCard>
@@ -211,12 +204,11 @@
 			</SectionCard>
 
 			<SectionCard labelFor="hoverScrollbarVisability" orientation="row">
-				<svelte:fragment slot="title">Dynamic scrollbar visibility on hover</svelte:fragment
-				>
+				<svelte:fragment slot="title">Dynamic scrollbar visibility on hover</svelte:fragment>
 				<svelte:fragment slot="caption">
-					When turned on, this feature shows the scrollbar automatically when you hover
-					over the scroll area, even if you're not actively scrolling. By default, the
-					scrollbar stays hidden until you start scrolling.
+					When turned on, this feature shows the scrollbar automatically when you hover over the
+					scroll area, even if you're not actively scrolling. By default, the scrollbar stays hidden
+					until you start scrolling.
 				</svelte:fragment>
 				<svelte:fragment slot="actions">
 					<Toggle
@@ -261,19 +253,12 @@
 					Remove projects…
 				</Button>
 
-				<Modal
-					bind:this={deleteConfirmationModal}
-					width="small"
-					title="Remove all projects"
-				>
+				<Modal bind:this={deleteConfirmationModal} width="small" title="Remove all projects">
 					<p>Are you sure you want to remove all GitButler projects?</p>
 
 					<svelte:fragment slot="controls" let:close>
-						<Button
-							style="error"
-							kind="soft"
-							loading={isDeleting}
-							on:click={onDeleteClicked}>Remove</Button
+						<Button style="error" kind="soft" loading={isDeleting} on:click={onDeleteClicked}
+							>Remove</Button
 						>
 						<Button style="pop" kind="solid" on:click={close}>Cancel</Button>
 					</svelte:fragment>
@@ -285,9 +270,8 @@
 			<SectionCard labelFor="committerSigning" orientation="row">
 				<svelte:fragment slot="title">Credit GitButler as the committer</svelte:fragment>
 				<svelte:fragment slot="caption">
-					By default, everything in the GitButler client is free to use. You can opt in to
-					crediting us as the committer in your virtual branch commits to help spread the
-					word.
+					By default, everything in the GitButler client is free to use. You can opt in to crediting
+					us as the committer in your virtual branch commits to help spread the word.
 					<Link
 						target="_blank"
 						rel="noreferrer"
@@ -310,18 +294,13 @@
 			<SectionCard>
 				<svelte:fragment slot="title">SSH key</svelte:fragment>
 				<svelte:fragment slot="caption">
-					GitButler uses SSH keys to authenticate with your Git provider. Add the
-					following public key to your Git provider to enable GitButler to push code.
+					GitButler uses SSH keys to authenticate with your Git provider. Add the following public
+					key to your Git provider to enable GitButler to push code.
 				</svelte:fragment>
 
 				<TextBox readonly selectall bind:value={sshKey} />
 				<div class="row-buttons">
-					<Button
-						style="pop"
-						kind="solid"
-						icon="copy"
-						on:click={() => copyToClipboard(sshKey)}
-					>
+					<Button style="pop" kind="solid" icon="copy" on:click={() => copyToClipboard(sshKey)}>
 						Copy to clipboard
 					</Button>
 					<Button
@@ -340,8 +319,8 @@
 			<SectionCard labelFor="signingSetting" orientation="row">
 				<svelte:fragment slot="title">Sign commits with the above SSH key</svelte:fragment>
 				<svelte:fragment slot="caption">
-					If you want GitButler to sign your commits with the SSH key we generated, then
-					you can add that key to GitHub as a signing key to have those commits verified.
+					If you want GitButler to sign your commits with the SSH key we generated, then you can add
+					that key to GitHub as a signing key to have those commits verified.
 					<Link
 						target="_blank"
 						rel="noreferrer"
@@ -351,11 +330,7 @@
 					</Link>
 				</svelte:fragment>
 				<svelte:fragment slot="actions">
-					<Toggle
-						id="signingSetting"
-						checked={signCommits}
-						on:change={toggleSigningSetting}
-					/>
+					<Toggle id="signingSetting" checked={signCommits} on:change={toggleSigningSetting} />
 				</svelte:fragment>
 			</SectionCard>
 		</ContentWrapper>

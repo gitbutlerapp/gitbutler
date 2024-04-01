@@ -38,10 +38,7 @@
 		<ContextMenuSection>
 			{#if item.files !== undefined}
 				{#if containsBinaryFiles(item)}
-					<ContextMenuItem
-						label="Discard changes (Binary files not yet supported)"
-						disabled
-					/>
+					<ContextMenuItem label="Discard changes (Binary files not yet supported)" disabled />
 				{:else}
 					<ContextMenuItem
 						label="Discard changes"
