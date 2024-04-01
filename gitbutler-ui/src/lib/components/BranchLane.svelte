@@ -24,8 +24,11 @@
 	export let branch: Branch;
 	export let isUnapplied = false;
 
-	createContextStore(Ownership, Ownership.fromBranch(branch));
 	$: selected = setSelected($selectedFiles, branch);
+
+	const ownershipStore = createContextStore(Ownership, Ownership.fromBranch(branch));
+	// TODO: Update store here rather than reset it
+	$: ownershipStore.set(Ownership.fromBranch(branch));
 
 	const branchStore = createContextStore(Branch, branch);
 	$: branchStore.set(branch);
