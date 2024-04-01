@@ -4295,9 +4295,9 @@ dependencies = [
 
 [[package]]
 name = "refinery"
-version = "0.8.12"
+version = "0.8.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2783724569d96af53464d0711dff635cab7a4934df5e22e9fbc9e181523b83e"
+checksum = "425d0fb45561a45e274d318bfbd1bdfbb7a88045860c7b51a2b812ded1a5efc7"
 dependencies = [
  "refinery-core",
  "refinery-macros",
@@ -4305,9 +4305,9 @@ dependencies = [
 
 [[package]]
 name = "refinery-core"
-version = "0.8.12"
+version = "0.8.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08d6c80329c0455510a8d42fce286ecb4b6bcd8c57e1816d9f2d6bd7379c2cc8"
+checksum = "3d0f5d1af6a2e8d5972ca187b2acf7ecb8d6a1a6ece52bceeae8f57880eaf62f"
 dependencies = [
  "async-trait",
  "cfg-if",
@@ -4325,9 +4325,9 @@ dependencies = [
 
 [[package]]
 name = "refinery-macros"
-version = "0.8.12"
+version = "0.8.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ab6e31e166a49d55cb09b62639e5ab9ba2e73f2f124336b06f6c321dc602779"
+checksum = "7ba59636ac45d953f2225dc4ca3a55cfda1b015d0e6ff51ea16329918b436d51"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5104,9 +5104,9 @@ checksum = "f27f6278552951f1f2b8cf9da965d10969b2efdea95a6ec47987ab46edfe263a"
 
 [[package]]
 name = "similar"
-version = "2.4.0"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32fea41aca09ee824cc9724996433064c89f7777e60762749a4170a14abbfa21"
+checksum = "fa42c91313f1d05da9b26f267f931cf178d4aba455b4c4622dd7355eb80c6640"
 dependencies = [
  "bstr 0.2.17",
  "unicode-segmentation",
@@ -5926,9 +5926,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.36.0"
+version = "1.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61285f6515fa018fb2d1e46eb21223fff441ee8db5d0f1435e8ab4f5cdb80931"
+checksum = "1adbebffeca75fcfd058afa480fb6c0b81e165a0323f9c9d39c9697e37c46787"
 dependencies = [
  "backtrace",
  "bytes",
