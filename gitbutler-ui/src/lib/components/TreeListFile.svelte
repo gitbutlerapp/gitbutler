@@ -117,7 +117,7 @@
 	.tree-list-file {
 		display: inline-flex;
 		align-items: center;
-		height: var(--size-control-m);
+		height: var(--size-control-button);
 		padding: var(--size-6) var(--size-8) var(--size-6) var(--size-6);
 		gap: var(--size-6);
 		border-radius: var(--radius-s);

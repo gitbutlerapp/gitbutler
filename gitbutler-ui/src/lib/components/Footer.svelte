@@ -13,14 +13,14 @@
 		<IconButton
 			icon="mail"
 			help="Send feedback"
-			size={isNavCollapsed ? 'xl' : 'l'}
+			size="l"
 			width={isNavCollapsed ? '100%' : undefined}
 			on:mousedown={() => events.emit('openSendIssueModal')}
 		/>
 		<IconButton
 			icon="settings"
 			help="Project settings"
-			size={isNavCollapsed ? 'xl' : 'l'}
+			size="l"
 			width={isNavCollapsed ? '100%' : undefined}
 			on:mousedown={() => goto(`/${projectId}/settings`)}
 		/>
@@ -51,6 +51,7 @@
 
 		& .left-btns {
 			flex-direction: column;
+			width: 100%;
 		}
 	}
 </style>

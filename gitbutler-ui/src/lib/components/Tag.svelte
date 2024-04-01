@@ -55,7 +55,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: var(--size-control-s);
+		height: var(--size-control-tag);
 		padding: var(--size-2) var(--size-4);
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
@@ -244,7 +244,7 @@
 	.verticalOrientation {
 		writing-mode: vertical-rl;
 		height: max-content;
-		width: var(--size-control-s);
+		width: var(--size-control-tag);
 		padding: var(--size-4) var(--size-2);
 		transform: rotate(180deg);
 	}

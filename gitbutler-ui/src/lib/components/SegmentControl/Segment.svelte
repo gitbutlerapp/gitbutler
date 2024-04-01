@@ -77,7 +77,7 @@
 		justify-content: center;
 		gap: var(--size-4);
 
-		height: var(--size-control-m);
+		height: var(--size-control-button);
 
 		border-top-width: 1px;
 		border-bottom-width: 1px;
@@ -136,12 +136,12 @@
 
 	/* MODIFIERS */
 	.segment-small {
-		height: var(--size-control-s);
+		height: var(--size-control-tag);
 		padding: var(--size-2) var(--size-4);
 	}
 
 	.segment-medium {
-		height: var(--size-control-m);
+		height: var(--size-control-button);
 		padding: var(--size-4) var(--size-8);
 	}
 </style>

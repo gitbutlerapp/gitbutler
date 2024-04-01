@@ -203,12 +203,10 @@
 	--size-80: 5rem;
 	--size-96: 6rem;
 	--size-card-padding: 0.875rem;
-	--size-control-l: 2rem;
-	--size-control-m: 1.75rem;
-	--size-control-s: 1.25rem;
-	--size-control-xl: 2.25rem;
-	--size-control-xs: 1rem;
-	--size-control-xxs: 0.875rem;
+	--size-control-cta: 2rem;
+	--size-control-button: 1.75rem;
+	--size-control-tag: 1.25rem;
+	--size-control-icon: 1rem;
 }
 
 :root.dark {

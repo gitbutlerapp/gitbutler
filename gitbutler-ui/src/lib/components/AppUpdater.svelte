@@ -191,7 +191,7 @@
 		flex-direction: column;
 		align-items: center;
 
-		height: var(--size-control-m);
+		height: var(--size-control-button);
 		width: 100%;
 		border-radius: var(--radius-m);
 

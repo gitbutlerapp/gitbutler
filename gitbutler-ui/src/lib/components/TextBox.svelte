@@ -159,7 +159,7 @@
 		z-index: 1;
 		position: relative;
 		flex-grow: 1;
-		height: var(--size-control-l);
+		height: var(--size-control-cta);
 		width: 100%;
 	}
 

@@ -4,7 +4,7 @@
 	import type iconsJson from '$lib/icons/icons.json';
 
 	export let icon: keyof typeof iconsJson;
-	export let size: 's' | 'm' | 'l' | 'xl' = 'l';
+	export let size: 's' | 'm' | 'l' = 'l';
 	export let loading = false;
 	export let help = '';
 	export let width: string | undefined = undefined;
@@ -16,12 +16,8 @@
 </script>
 
 <button
-	class="icon-btn {className}"
+	class="icon-btn {className} size-{size}"
 	class:selected
-	class:small={size == 's'}
-	class:medium={size == 'm'}
-	class:large={size == 'l'}
-	class:x-large={size == 'xl'}
 	use:tooltip={help}
 	{title}
 	on:click
@@ -51,24 +47,19 @@
 		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
 		cursor: default;
 	}
-	.x-large {
-		height: var(--size-control-xl);
-		width: var(--size-control-xl);
-		padding: var(--size-12);
-	}
-	.large {
-		height: var(--size-control-l);
-		width: var(--size-control-l);
+	.size-l {
+		height: var(--size-control-cta);
+		width: var(--size-control-cta);
 		padding: var(--size-8);
 	}
-	.medium {
-		height: var(--size-control-m);
-		width: var(--size-control-m);
+	.size-m {
+		height: var(--size-control-button);
+		width: var(--size-control-button);
 		padding: var(--size-4);
 	}
-	.small {
-		height: var(--size-control-s);
-		width: var(--size-control-s);
+	.size-s {
+		height: var(--size-control-tag);
+		width: var(--size-control-tag);
 		padding: var(--size-2);
 	}
 </style>
