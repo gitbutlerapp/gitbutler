@@ -5,6 +5,7 @@
 	import TextBox from './TextBox.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
 	import {
+		AIService,
 		AnthropicModelName,
 		GitAIConfigKey,
 		KeyOption,
@@ -19,6 +20,7 @@
 	import { onMount, tick } from 'svelte';
 
 	const gitConfigService = getContext(GitConfigService);
+	const aiService = getContext(AIService);
 	const userService = getContext(UserService);
 	const user = userService.user;
 
@@ -49,30 +51,15 @@
 	$: setConfiguration(GitAIConfigKey.AnthropicKey, anthropicKey);
 
 	onMount(async () => {
-		modelKind = await gitConfigService.getWithDefault<ModelKind>(
-			GitAIConfigKey.ModelProvider,
-			ModelKind.OpenAI
-		);
+		modelKind = await aiService.getModelKind();
 
-		openAIKeyOption = await gitConfigService.getWithDefault<KeyOption>(
-			GitAIConfigKey.OpenAIKeyOption,
-			KeyOption.ButlerAPI
-		);
-		openAIModelName = await gitConfigService.getWithDefault<OpenAIModelName>(
-			GitAIConfigKey.OpenAIModelName,
-			OpenAIModelName.GPT35Turbo
-		);
-		openAIKey = await gitConfigService.get(GitAIConfigKey.OpenAIKey);
+		openAIKeyOption = await aiService.getOpenAIKeyOption();
+		openAIModelName = await aiService.getOpenAIModleName();
+		openAIKey = await aiService.getOpenAIKey();
 
-		anthropicKeyOption = await gitConfigService.getWithDefault<KeyOption>(
-			GitAIConfigKey.AnthropicKeyOption,
-			KeyOption.ButlerAPI
-		);
-		anthropicModelName = await gitConfigService.getWithDefault<AnthropicModelName>(
-			GitAIConfigKey.AnthropicModelName,
-			AnthropicModelName.Haiku
-		);
-		anthropicKey = await gitConfigService.get(GitAIConfigKey.AnthropicKey);
+		anthropicKeyOption = await aiService.getAnthropicKeyOption();
+		anthropicModelName = await aiService.getAnthropicModelName();
+		anthropicKey = await aiService.getAnthropicKey();
 
 		// Ensure reactive declarations have finished running before we set initialized to true
 		await tick();
