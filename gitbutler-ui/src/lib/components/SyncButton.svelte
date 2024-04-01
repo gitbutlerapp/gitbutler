@@ -8,15 +8,12 @@
 	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
 
 	const project = getContext(Project);
-
-	let cloudEnabled: boolean;
-
 	const githubService = getContext(GitHubService);
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
 	$: baseServiceBusy$ = baseBranchService.busy$;
-	$: cloudEnabled = project?.api?.sync || false;
+	$: cloudEnabled = project.api?.sync || false;
 </script>
 
 <Tag
