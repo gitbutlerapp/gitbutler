@@ -96,6 +96,6 @@
 		width: 5rem;
 		height: 5rem;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-illustration-bg);
+		background-color: var(--clr-illustration-bg);
 	}
 </style>
