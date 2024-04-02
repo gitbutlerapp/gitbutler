@@ -2,6 +2,7 @@
 	import InfoMessage from './InfoMessage.svelte';
 	import Select from './Select.svelte';
 	import SelectItem from './SelectItem.svelte';
+	import Spacer from './Spacer.svelte';
 	import TextBox from './TextBox.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
 	import {
@@ -122,190 +123,185 @@
 	}
 </script>
 
-<div class="ai-settings-wrap">
-	<p class="text-base-body-13 ai-settings__text">
-		GitButler supports multiple providers for its AI powered features. We currently support models
-		from OpenAI and Anthropic either proxied through the GitButler API, or in a bring your own key
-		configuration.
-	</p>
+<!-- <div class="ai-settings-wrap"> -->
+<p class="text-base-body-13 ai-settings__text">
+	GitButler supports multiple providers for its AI powered features. We currently support models
+	from OpenAI and Anthropic either proxied through the GitButler API, or in a bring your own key
+	configuration.
+</p>
 
-	{#if !$user}
-		<InfoMessage>
-			<svelte:fragment slot="title">You must be logged in to use the GitButler API</svelte:fragment>
-		</InfoMessage>
-	{/if}
+{#if !$user}
+	<InfoMessage>
+		<svelte:fragment slot="title">You must be logged in to use the GitButler API</svelte:fragment>
+	</InfoMessage>
+{/if}
 
-	<form class="git-radio" bind:this={form} on:change={(e) => onFormChange(e.currentTarget)}>
+<form class="git-radio" bind:this={form} on:change={(e) => onFormChange(e.currentTarget)}>
+	<SectionCard
+		roundedBottom={false}
+		orientation="row"
+		labelFor="open-ai"
+		bottomBorder={modelKind != ModelKind.OpenAI}
+	>
+		<svelte:fragment slot="title">Open AI</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<RadioButton name="modelKind" id="open-ai" value={ModelKind.OpenAI} />
+		</svelte:fragment>
+	</SectionCard>
+	{#if modelKind == ModelKind.OpenAI}
 		<SectionCard
-			roundedBottom={false}
-			orientation="row"
-			labelFor="open-ai"
-			bottomBorder={modelKind != ModelKind.OpenAI}
-		>
-			<svelte:fragment slot="title">Open AI</svelte:fragment>
-			<svelte:fragment slot="actions">
-				<RadioButton name="modelKind" id="open-ai" value={ModelKind.OpenAI} />
-			</svelte:fragment>
-		</SectionCard>
-		{#if modelKind == ModelKind.OpenAI}
-			<SectionCard
-				hasTopRadius={false}
-				roundedTop={false}
-				roundedBottom={false}
-				orientation="row"
-				topDivider
-			>
-				<div class="inputs-group">
-					<Select
-						items={keyOptions}
-						bind:selectedItemId={openAIKeyOption}
-						itemId="value"
-						labelId="name"
-						label="Do you want to provide your own key?"
-					>
-						<SelectItem slot="template" let:item>
-							{item.name}
-						</SelectItem>
-					</Select>
-
-					{#if openAIKeyOption == KeyOption.ButlerAPI}
-						<InfoMessage filled outlined={false} style="pop" icon="ai">
-							<svelte:fragment slot="title">
-								GitButler uses OpenAI API for commit messages and branch names
-							</svelte:fragment>
-						</InfoMessage>
-					{/if}
-
-					{#if openAIKeyOption == KeyOption.BringYourOwn}
-						<TextBox label="API Key" bind:value={openAIKey} required placeholder="sk-..." />
-
-						<Select
-							items={openAIModelOptions}
-							bind:selectedItemId={openAIModelName}
-							itemId="value"
-							labelId="name"
-							label="Model Version"
-						>
-							<SelectItem slot="template" let:item>
-								{item.name}
-							</SelectItem>
-						</Select>
-					{:else if !$user}
-						<WelcomeSigninAction prompt="A user is required to make use of the GitButler API" />
-					{/if}
-				</div>
-			</SectionCard>
-		{/if}
-
-		<SectionCard
+			hasTopRadius={false}
 			roundedTop={false}
 			roundedBottom={false}
 			orientation="row"
-			labelFor="anthropic"
-			bottomBorder={modelKind != ModelKind.Anthropic}
+			topDivider
 		>
-			<svelte:fragment slot="title">Anthropic</svelte:fragment>
-			<svelte:fragment slot="actions">
-				<RadioButton name="modelKind" id="anthropic" value={ModelKind.Anthropic} />
-			</svelte:fragment>
-		</SectionCard>
-		{#if modelKind == ModelKind.Anthropic}
-			<SectionCard
-				hasTopRadius={false}
-				roundedTop={false}
-				roundedBottom={false}
-				orientation="row"
-				topDivider
-			>
-				<div class="inputs-group">
+			<div class="inputs-group">
+				<Select
+					items={keyOptions}
+					bind:selectedItemId={openAIKeyOption}
+					itemId="value"
+					labelId="name"
+					label="Do you want to provide your own key?"
+				>
+					<SelectItem slot="template" let:item>
+						{item.name}
+					</SelectItem>
+				</Select>
+
+				{#if openAIKeyOption == KeyOption.ButlerAPI}
+					<InfoMessage filled outlined={false} style="pop" icon="ai">
+						<svelte:fragment slot="title">
+							GitButler uses OpenAI API for commit messages and branch names
+						</svelte:fragment>
+					</InfoMessage>
+				{/if}
+
+				{#if openAIKeyOption == KeyOption.BringYourOwn}
+					<TextBox label="API Key" bind:value={openAIKey} required placeholder="sk-..." />
+
 					<Select
-						items={keyOptions}
-						bind:selectedItemId={anthropicKeyOption}
+						items={openAIModelOptions}
+						bind:selectedItemId={openAIModelName}
 						itemId="value"
 						labelId="name"
-						label="Do you want to provide your own key?"
+						label="Model Version"
 					>
 						<SelectItem slot="template" let:item>
 							{item.name}
 						</SelectItem>
 					</Select>
-
-					{#if anthropicKeyOption == KeyOption.ButlerAPI}
-						<InfoMessage filled outlined={false} style="pop" icon="ai">
-							<svelte:fragment slot="title">
-								GitButler uses OpenAI API for commit messages and branch names
-							</svelte:fragment>
-						</InfoMessage>
-					{/if}
-
-					{#if anthropicKeyOption == KeyOption.BringYourOwn}
-						<TextBox
-							label="API Key"
-							bind:value={anthropicKey}
-							required
-							placeholder="sk-ant-api03-..."
-						/>
-
-						<Select
-							items={anthropicModelOptions}
-							bind:selectedItemId={anthropicModelName}
-							itemId="value"
-							labelId="name"
-							label="Model Version"
-						>
-							<SelectItem slot="template" let:item>
-								{item.name}
-							</SelectItem>
-						</Select>
-					{:else if !$user}
-						<WelcomeSigninAction prompt="A user is required to make use of the GitButler API" />
-					{/if}
-				</div>
-			</SectionCard>
-		{/if}
-
-		<SectionCard roundedTop={false} orientation="row" disabled={true}>
-			<svelte:fragment slot="title">Custom Endpoint</svelte:fragment>
-			<svelte:fragment slot="actions">
-				<RadioButton disabled={true} name="modelKind" />
-			</svelte:fragment>
-			<svelte:fragment slot="caption"
-				>Support for custom AI endpoints is coming soon!</svelte:fragment
-			>
+				{:else if !$user}
+					<WelcomeSigninAction prompt="A user is required to make use of the GitButler API" />
+				{/if}
+			</div>
 		</SectionCard>
-	</form>
+	{/if}
 
-	<SectionCard orientation="row">
-		<svelte:fragment slot="title">Amount of provided context</svelte:fragment>
-		<svelte:fragment slot="caption">
-			How many characters of your git diff should be provided to AI
-		</svelte:fragment>
+	<SectionCard
+		roundedTop={false}
+		roundedBottom={false}
+		orientation="row"
+		labelFor="anthropic"
+		bottomBorder={modelKind != ModelKind.Anthropic}
+	>
+		<svelte:fragment slot="title">Anthropic</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<TextBox
-				type="number"
-				width={100}
-				textAlign="center"
-				value={diffLengthLimit?.toString()}
-				minVal={100}
-				on:input={(e) => {
-					console.log('hi');
-					diffLengthLimit = parseInt(e.detail);
-				}}
-				placeholder="5000"
-			/>
+			<RadioButton name="modelKind" id="anthropic" value={ModelKind.Anthropic} />
 		</svelte:fragment>
 	</SectionCard>
-</div>
+	{#if modelKind == ModelKind.Anthropic}
+		<SectionCard
+			hasTopRadius={false}
+			roundedTop={false}
+			roundedBottom={false}
+			orientation="row"
+			topDivider
+		>
+			<div class="inputs-group">
+				<Select
+					items={keyOptions}
+					bind:selectedItemId={anthropicKeyOption}
+					itemId="value"
+					labelId="name"
+					label="Do you want to provide your own key?"
+				>
+					<SelectItem slot="template" let:item>
+						{item.name}
+					</SelectItem>
+				</Select>
+
+				{#if anthropicKeyOption == KeyOption.ButlerAPI}
+					<InfoMessage filled outlined={false} style="pop" icon="ai">
+						<svelte:fragment slot="title">
+							GitButler uses OpenAI API for commit messages and branch names
+						</svelte:fragment>
+					</InfoMessage>
+				{/if}
+
+				{#if anthropicKeyOption == KeyOption.BringYourOwn}
+					<TextBox
+						label="API Key"
+						bind:value={anthropicKey}
+						required
+						placeholder="sk-ant-api03-..."
+					/>
+
+					<Select
+						items={anthropicModelOptions}
+						bind:selectedItemId={anthropicModelName}
+						itemId="value"
+						labelId="name"
+						label="Model Version"
+					>
+						<SelectItem slot="template" let:item>
+							{item.name}
+						</SelectItem>
+					</Select>
+				{:else if !$user}
+					<WelcomeSigninAction prompt="A user is required to make use of the GitButler API" />
+				{/if}
+			</div>
+		</SectionCard>
+	{/if}
+
+	<SectionCard roundedTop={false} orientation="row" disabled={true}>
+		<svelte:fragment slot="title">Custom Endpoint</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<RadioButton disabled={true} name="modelKind" />
+		</svelte:fragment>
+		<svelte:fragment slot="caption">Support for custom AI endpoints is coming soon!</svelte:fragment
+		>
+	</SectionCard>
+</form>
+
+<Spacer />
+
+<SectionCard orientation="row">
+	<svelte:fragment slot="title">Amount of provided context</svelte:fragment>
+	<svelte:fragment slot="caption">
+		How many characters of your git diff should be provided to AI
+	</svelte:fragment>
+	<svelte:fragment slot="actions">
+		<TextBox
+			type="number"
+			width={80}
+			textAlign="center"
+			value={diffLengthLimit?.toString()}
+			minVal={100}
+			on:input={(e) => {
+				console.log('hi');
+				diffLengthLimit = parseInt(e.detail);
+			}}
+			placeholder="5000"
+		/>
+	</svelte:fragment>
+</SectionCard>
 
 <style>
-	.ai-settings-wrap {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-28);
-	}
-
 	.ai-settings__text {
 		color: var(--clr-scale-ntrl-40);
+		margin-bottom: var(--size-12);
 	}
 
 	.inputs-group {
