@@ -413,7 +413,7 @@
 	/* move commit drop zone */
 	/* squash drop zone */
 	:global(
-			.lane-dz-active .lane-dz-marke,
+			.lane-dz-active .lane-dz-marker,
 			.cherrypick-dz-active .cherrypick-dz-marker,
 			.move-commit-dz-active .move-commit-dz-marker,
 			.squash-dz-active .squash-dz-marker
