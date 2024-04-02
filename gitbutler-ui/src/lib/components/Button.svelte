@@ -19,14 +19,11 @@
 
 	// Interaction props
 	export let element: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
-	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let isDropdownChild = false;
 	export let disabled = false;
 	export let clickable = false;
 	export let id: string | undefined = undefined;
 	export let loading = false;
 	export let tabindex = 0;
-	export let help = '';
 	export let type: 'submit' | 'reset' | undefined = undefined;
 	// Layout props
 	export let width: number | undefined = undefined;
@@ -35,9 +32,15 @@
 	export let wide = false;
 	export let grow = false;
 	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' = 'auto';
+	export let isDropdownChild = false;
 	// Style props
 	export let style: ButtonStyle = 'neutral';
 	export let kind: ButtonKind = 'soft';
+	// Additional elements
+	export let icon: keyof typeof iconsJson | undefined = undefined;
+	export let help = '';
+	export let badgeLabel: string | number | undefined = undefined;
+	export let badgeIcon: keyof typeof iconsJson | undefined = undefined;
 
 	const SLOTS = $$props.$$slots;
 
@@ -70,6 +73,18 @@
 			<slot />
 		</span>
 	{/if}
+
+	{#if badgeLabel}
+		<div class="badge">
+			<span class="text-base-11 text-semibold badge-label">
+				{badgeLabel}
+			</span>{#if badgeIcon}
+				<div class="badge-icon">
+					<Icon name={badgeIcon} />
+				</div>{/if}
+		</div>
+	{/if}
+
 	{#if icon && !loading}
 		<Icon name={icon} />
 	{:else if loading}
@@ -87,7 +102,7 @@
 		padding: var(--size-4) var(--size-6);
 		border-radius: var(--radius-m);
 		flex-shrink: 0;
-		gap: var(--size-2);
+		gap: var(--size-4);
 		border: 1px solid transparent;
 		transition:
 			background var(--transition-fast),
@@ -96,6 +111,7 @@
 		cursor: pointer;
 
 		/* component variables */
+		--label-color: var(--clr-scale-ntrl-100);
 		--soft-bg-ratio: transparent 80%;
 		--soft-hover-ratio: transparent 75%;
 
@@ -144,6 +160,32 @@
 		padding: 0 var(--size-2);
 	}
 
+	/* BADGE */
+	.badge {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: var(--size-control-icon);
+		min-width: var(--size-control-icon);
+		padding: 0 var(--size-4);
+		border-radius: var(--radius-s);
+	}
+
+	.badge-label {
+		transform: translateY(0.031rem);
+		color: var(--label-color);
+	}
+
+	.badge-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--size-control-icon);
+		height: var(--size-control-icon);
+		margin-right: -0.125rem;
+		color: var(--label-color);
+	}
+
 	/* STYLES */
 	.neutral {
 		/* kind */
@@ -155,6 +197,11 @@
 				color: var(--clr-scale-ntrl-30);
 				background: color-mix(in srgb, var(--clr-core-ntrl-50), var(--soft-hover-ratio));
 			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-100);
+				background: var(--clr-scale-ntrl-30);
+			}
 		}
 		&.solid {
 			color: var(--clr-scale-ntrl-100);
@@ -162,6 +209,11 @@
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
 				background: var(--clr-scale-ntrl-30);
+			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-30);
+				background: var(--clr-scale-ntrl-100);
 			}
 		}
 	}
@@ -174,6 +226,11 @@
 			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-scale-ntrl-30);
 				background: color-mix(in srgb, transparent, var(--darken-tint-light));
+			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-100);
+				background: var(--clr-scale-ntrl-30);
 			}
 		}
 
@@ -196,6 +253,11 @@
 				color: var(--clr-scale-pop-10);
 				background: color-mix(in srgb, var(--clr-core-pop-50), var(--soft-hover-ratio));
 			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-100);
+				background: var(--clr-scale-pop-20);
+			}
 		}
 		&.solid {
 			color: var(--clr-theme-pop-on-element);
@@ -203,6 +265,11 @@
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
 				background: color-mix(in srgb, var(--clr-theme-pop-element), var(--darken-mid));
+			}
+
+			& .badge {
+				--label-color: var(--clr-theme-pop-element);
+				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}
@@ -216,6 +283,11 @@
 				color: var(--clr-scale-succ-10);
 				background: color-mix(in srgb, var(--clr-core-succ-50), var(--soft-hover-ratio));
 			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-100);
+				background: var(--clr-scale-succ-20);
+			}
 		}
 		&.solid {
 			color: var(--clr-theme-succ-on-element);
@@ -223,6 +295,11 @@
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
 				background: color-mix(in srgb, var(--clr-theme-succ-element), var(--darken-mid));
+			}
+
+			& .badge {
+				--label-color: var(--clr-theme-succ-element);
+				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}
@@ -236,6 +313,11 @@
 				color: var(--clr-scale-err-10);
 				background: color-mix(in srgb, var(--clr-core-err-50), var(--soft-hover-ratio));
 			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-100);
+				background: var(--clr-scale-err-20);
+			}
 		}
 		&.solid {
 			color: var(--clr-theme-err-on-element);
@@ -243,6 +325,11 @@
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
 				background: color-mix(in srgb, var(--clr-theme-err-element), var(--darken-mid));
+			}
+
+			& .badge {
+				--label-color: var(--clr-theme-err-element);
+				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}
@@ -256,6 +343,11 @@
 				color: var(--clr-scale-warn-10);
 				background: color-mix(in srgb, var(--clr-core-warn-50), var(--soft-hover-ratio));
 			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-100);
+				background: var(--clr-scale-warn-20);
+			}
 		}
 		&.solid {
 			color: var(--clr-theme-warn-on-element);
@@ -263,6 +355,11 @@
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
 				background: color-mix(in srgb, var(--clr-theme-warn-element), var(--darken-mid));
+			}
+
+			& .badge {
+				--label-color: var(--clr-theme-warn-element);
+				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}
@@ -276,6 +373,11 @@
 				color: var(--clr-scale-purple-10);
 				background: color-mix(in srgb, var(--clr-core-purple-50), var(--soft-hover-ratio));
 			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-100);
+				background: var(--clr-scale-purple-20);
+			}
 		}
 		&.solid {
 			color: var(--clr-theme-purple-on-element);
@@ -283,6 +385,11 @@
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
 				background: color-mix(in srgb, var(--clr-theme-purple-element), var(--darken-mid));
+			}
+
+			& .badge {
+				--label-color: var(--clr-theme-purple-element);
+				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}

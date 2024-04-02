@@ -10,6 +10,8 @@
 	export let loading = false;
 	export let wide = false;
 	export let help = '';
+	export let badgeLabel: string | number | undefined = undefined;
+	export let badgeIcon: keyof typeof iconsJson | undefined = undefined;
 	let visible = false;
 
 	export function show() {
@@ -32,13 +34,14 @@
 			{icon}
 			{kind}
 			{help}
+			{badgeLabel}
+			{badgeIcon}
 			iconAlign="left"
 			disabled={disabled || loading}
 			isDropdownChild
 			on:click><slot /></Button
 		>
 		<Button
-			class="dropdown__icon-btn"
 			bind:element={iconElt}
 			{style}
 			{kind}
@@ -68,26 +71,6 @@
 	.dropdown-wrapper {
 		/* display set directly on element */
 		position: relative;
-	}
-
-	.dropdown-wrapper :global(.dropdown__text-btn) {
-		z-index: 1;
-		border-top-right-radius: 0;
-		border-bottom-right-radius: 0;
-
-		&:hover {
-			z-index: 2;
-		}
-	}
-
-	.dropdown-wrapper :global(.dropdown__icon-btn) {
-		z-index: 1;
-		border-top-left-radius: 0;
-		border-bottom-left-radius: 0;
-
-		&:hover {
-			z-index: 2;
-		}
 	}
 
 	.dropdown {

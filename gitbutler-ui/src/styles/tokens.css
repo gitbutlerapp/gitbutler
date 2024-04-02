@@ -77,7 +77,7 @@
 	--clr-core-warn-20: #4e3513;
 	--clr-core-warn-30: #7e551b;
 	--clr-core-warn-40: #b5751c;
-	--clr-core-warn-50: #d99b45;
+	--clr-core-warn-50: #eaa516;
 	--clr-core-warn-60: #e5ba7c;
 	--clr-core-warn-70: #fadbaf;
 	--clr-core-warn-80: #ffeed6;
@@ -173,7 +173,7 @@
 	--clr-theme-succ-container: var(--clr-core-succ-90);
 	--clr-theme-succ-element: var(--clr-core-succ-50);
 	--clr-theme-succ-on-container: var(--clr-core-succ-40);
-	--clr-theme-succ-on-element: var(--clr-core-succ-90);
+	--clr-theme-succ-on-element: var(--clr-core-succ-95);
 	--clr-theme-succ-outline: var(--clr-core-succ-40);
 	--clr-theme-warn-container: var(--clr-core-warn-90);
 	--clr-theme-warn-element: var(--clr-core-warn-50);
