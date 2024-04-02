@@ -4,10 +4,11 @@ import * as toasts from '$lib/utils/toasts';
 import { RemoteBranch, RemoteBranchData } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import {
-	BehaviorSubject,
 	Observable,
+	Subject,
 	catchError,
 	combineLatest,
+	mergeWith,
 	shareReplay,
 	switchMap
 } from 'rxjs';
@@ -17,7 +18,7 @@ export class RemoteBranchService {
 	branches: Readable<RemoteBranch[] | undefined>;
 	branches$: Observable<RemoteBranch[]>;
 	error: Readable<string | undefined>;
-	private reload$ = new BehaviorSubject<void>(undefined);
+	private reload$ = new Subject<void>();
 
 	constructor(
 		projectId: string,
@@ -25,7 +26,8 @@ export class RemoteBranchService {
 		head$: Observable<any>,
 		baseBranch$: Observable<any>
 	) {
-		this.branches$ = combineLatest([baseBranch$, this.reload$, head$, fetches$]).pipe(
+		this.branches$ = combineLatest([baseBranch$, head$, fetches$]).pipe(
+			mergeWith(this.reload$),
 			switchMap(() => listRemoteBranches(projectId)),
 			shareReplay(1),
 			catchError((e) => {
@@ -34,7 +36,7 @@ export class RemoteBranchService {
 				throw e;
 			})
 		);
-		[this.branches, this.error] = observableToStore(this.branches$);
+		[this.branches, this.error] = observableToStore(this.branches$, this.reload$);
 	}
 
 	reload() {

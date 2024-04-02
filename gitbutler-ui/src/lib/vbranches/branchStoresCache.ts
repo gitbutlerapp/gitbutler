@@ -19,7 +19,8 @@ import {
 	combineLatest,
 	of,
 	startWith,
-	Subject
+	Subject,
+	mergeWith
 } from 'rxjs';
 import { writable, type Readable } from 'svelte/store';
 
@@ -63,11 +64,7 @@ export class VirtualBranchService {
 				this.fresh$.next(); // Notification for fresh reload
 			}),
 			startWith(undefined),
-			shareReplay(1),
-			catchError((err) => {
-				this.branchesError.set(err);
-				return [];
-			})
+			shareReplay(1)
 		);
 
 		this.stashedBranches$ = this.branches$.pipe(
@@ -121,7 +118,7 @@ export class BaseBranchService {
 	readonly base$: Observable<BaseBranch | null | undefined>;
 	readonly busy$ = new BehaviorSubject(false);
 	readonly error$ = new BehaviorSubject<any>(undefined);
-	private readonly reload$ = new BehaviorSubject<void>(undefined);
+	private readonly reload$ = new Subject<void>();
 
 	readonly base: Readable<BaseBranch | null | undefined>;
 	readonly error: Readable<any>;
@@ -132,7 +129,8 @@ export class BaseBranchService {
 		fetches$: Observable<unknown>,
 		readonly head$: Observable<string>
 	) {
-		this.base$ = combineLatest([fetches$, head$, this.reload$]).pipe(
+		this.base$ = combineLatest([fetches$, head$]).pipe(
+			mergeWith(this.reload$),
 			debounceTime(100),
 			switchMap(async () => {
 				this.busy$.next(true);
@@ -156,7 +154,7 @@ export class BaseBranchService {
 			startWith(undefined),
 			shareReplay(1)
 		);
-		[this.base, this.error] = observableToStore(this.base$);
+		[this.base, this.error] = observableToStore(this.base$, this.reload$);
 	}
 
 	async fetchFromTarget(action: string | undefined = undefined) {
