@@ -32,7 +32,7 @@ export class ProjectService {
 	private reload$ = new Subject<void>();
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
 
-	private projects$ = of().pipe(
+	private projects$ = of(true).pipe(
 		mergeWith(this.reload$),
 		switchMap(() =>
 			from(invoke<Project[]>('list_projects').then((p) => plainToInstance(Project, p)))
