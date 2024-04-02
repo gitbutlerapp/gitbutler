@@ -4,7 +4,7 @@ import { observableToStore } from '$lib/rxjs/store';
 import * as toasts from '$lib/utils/toasts';
 import { open } from '@tauri-apps/api/dialog';
 import { plainToInstance } from 'class-transformer';
-import { BehaviorSubject, firstValueFrom, from, skip, switchMap } from 'rxjs';
+import { Subject, firstValueFrom, from, mergeWith, of, switchMap } from 'rxjs';
 import { get, type Readable } from 'svelte/store';
 import type { Project as CloudProject } from '$lib/backend/cloud';
 import { goto } from '$app/navigation';
@@ -29,10 +29,11 @@ export class Project {
 }
 
 export class ProjectService {
-	private reload$ = new BehaviorSubject<void>(undefined);
+	private reload$ = new Subject<void>();
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
 
-	private projects$ = this.reload$.pipe(
+	private projects$ = of().pipe(
+		mergeWith(this.reload$),
 		switchMap(() =>
 			from(invoke<Project[]>('list_projects').then((p) => plainToInstance(Project, p)))
 		)
@@ -42,7 +43,7 @@ export class ProjectService {
 	error: Readable<any>;
 
 	constructor(private homeDir: string | undefined) {
-		[this.projects, this.error] = observableToStore(this.projects$);
+		[this.projects, this.error] = observableToStore(this.projects$, this.reload$);
 	}
 
 	async getProject(projectId: string) {
@@ -72,7 +73,7 @@ export class ProjectService {
 	}
 
 	async reload(): Promise<Project[]> {
-		const projects = firstValueFrom(this.projects$.pipe(skip(1)));
+		const projects = firstValueFrom(this.projects$);
 		this.reload$.next();
 		return projects;
 	}

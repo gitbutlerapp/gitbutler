@@ -1,4 +1,4 @@
-import { Observable } from 'rxjs';
+import { Observable, catchError, switchMap, tap } from 'rxjs';
 import { writable, type Readable, type Writable } from 'svelte/store';
 
 export function storeToObservable<T>(svelteStore: Writable<T> | Readable<T>): Observable<T> {
@@ -20,20 +20,27 @@ export function storeToObservable<T>(svelteStore: Writable<T> | Readable<T>): Ob
  * to, and unsubscribed with the last unsubscribe to the store.
  */
 export function observableToStore<T>(
-	observable: Observable<T>
+	observable: Observable<T>,
+	reload$: Observable<unknown> | undefined = undefined
 ): [Readable<T>, Readable<any | undefined>] {
 	const error = writable<any>();
 	const store = writable<T>(undefined, () => {
 		// This runs when the store is first subscribed to
-		const subscription = observable.subscribe({
-			next: (item) => {
+		const subscription = observable
+			.pipe(
+				tap(() => error.set(undefined)),
+				catchError((err, caught) => {
+					error.set(err);
+					// Resubscribe to stream on reload if observable provided
+					if (reload$) return reload$.pipe(switchMap(() => caught));
+					// Ohterwise we don't know when to try again we have to kill the stream
+					throw err;
+				})
+			)
+			.subscribe((item) => {
 				error.set(undefined);
 				store.set(item);
-			},
-			error: (err) => {
-				error.set(err);
-			}
-		});
+			});
 
 		// This runs when the last subscriber unsubscribes
 		return () => {
