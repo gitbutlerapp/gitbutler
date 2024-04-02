@@ -9,7 +9,7 @@ import type { CloudClient } from '$lib/backend/cloud';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
 import type { Hunk } from '$lib/vbranches/types';
 
-const diffLengthLimit = 5000;
+const maxDiffLengthLimitForAPI = 5000;
 
 const defaultCommitTemplate = `
 Please could you write a commit message for my changes.
@@ -68,7 +68,8 @@ export enum GitAIConfigKey {
 	OpenAIKey = 'gitbutler.aiOpenAIKey',
 	AnthropicKeyOption = 'gitbutler.aiAnthropicKeyOption',
 	AnthropicModelName = 'gitbutler.aiAnthropicModelName',
-	AnthropicKey = 'gitbutler.aiAnthropicKey'
+	AnthropicKey = 'gitbutler.aiAnthropicKey',
+	DiffLengthLimit = 'gitbutler.diffLengthLimit'
 }
 
 type SummarizeCommitOpts = {
@@ -145,19 +146,47 @@ export class AIService {
 		);
 	}
 
-	async validateConfiguration(userToken?: string): Promise<boolean> {
+	async getDiffLengthLimit() {
+		const limitString = await this.gitConfig.getWithDefault<string>(
+			GitAIConfigKey.DiffLengthLimit,
+			'5000'
+		);
+
+		return parseInt(limitString, 10);
+	}
+
+	/**
+	 * Returns the diff length limit with a specificed upper bound of characers in order to not inundate the API.
+	 */
+	async getDiffLengthLimitConsideringAPI() {
+		const diffLengthLimit = await this.getDiffLengthLimit();
+
+		if (await this.usingGitButlerAPI()) {
+			return Math.max(maxDiffLengthLimitForAPI, diffLengthLimit);
+		} else {
+			return diffLengthLimit;
+		}
+	}
+
+	async usingGitButlerAPI() {
 		const modelKind = await this.getModelKind();
 		const openAIKeyOption = await this.getOpenAIKeyOption();
-		const openAIKey = await this.getOpenAIKey();
 		const anthropicKeyOption = await this.getAnthropicKeyOption();
-		const anthropicKey = await this.getAnthropicKey();
 
 		const openAIActiveAndUsingButlerAPI =
 			modelKind == ModelKind.OpenAI && openAIKeyOption == KeyOption.ButlerAPI;
-		const anthrpicActiveAndUsingButlerAPI =
+		const anthropicActiveAndUsingButlerAPI =
 			modelKind == ModelKind.Anthropic && anthropicKeyOption == KeyOption.ButlerAPI;
 
-		if (openAIActiveAndUsingButlerAPI || anthrpicActiveAndUsingButlerAPI) return !!userToken;
+		return openAIActiveAndUsingButlerAPI || anthropicActiveAndUsingButlerAPI;
+	}
+
+	async validateConfiguration(userToken?: string): Promise<boolean> {
+		const modelKind = await this.getModelKind();
+		const openAIKey = await this.getOpenAIKey();
+		const anthropicKey = await this.getAnthropicKey();
+
+		if (await this.usingGitButlerAPI()) return !!userToken;
 
 		const openAIActiveAndKeyProvided = modelKind == ModelKind.OpenAI && !!openAIKey;
 		const anthropicActiveAndKeyProvided = modelKind == ModelKind.Anthropic && !!anthropicKey;
@@ -170,15 +199,8 @@ export class AIService {
 	// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
 	async buildClient(userToken?: string): Promise<undefined | AIClient> {
 		const modelKind = await this.getModelKind();
-		const openAIKeyOption = await this.getOpenAIKeyOption();
-		const anthropicKeyOption = await this.getAnthropicKeyOption();
 
-		const openAIActiveAndUsingButlerAPI =
-			modelKind == ModelKind.OpenAI && openAIKeyOption == KeyOption.ButlerAPI;
-		const anthrpicActiveAndUsingButlerAPI =
-			modelKind == ModelKind.Anthropic && anthropicKeyOption == KeyOption.ButlerAPI;
-
-		if (openAIActiveAndUsingButlerAPI || anthrpicActiveAndUsingButlerAPI) {
+		if (await this.usingGitButlerAPI()) {
 			if (!userToken) {
 				toasts.error("When using GitButler's API to summarize code, you must be logged in");
 				return;
@@ -226,6 +248,7 @@ export class AIService {
 		const aiClient = await this.buildClient(userToken);
 		if (!aiClient) return;
 
+		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
 		let prompt = commitTemplate.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit));
 
 		const briefPart = useBriefStyle
@@ -256,6 +279,7 @@ export class AIService {
 		const aiClient = await this.buildClient(userToken);
 		if (!aiClient) return;
 
+		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
 		const prompt = branchTemplate.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit));
 		const message = await aiClient.evaluate(prompt);
 		return message.replaceAll(' ', '-').replaceAll('\n', '-');

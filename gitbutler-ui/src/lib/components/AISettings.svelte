@@ -33,6 +33,7 @@
 	let openAIModelName: OpenAIModelName | undefined;
 	let anthropicKey: string | undefined;
 	let anthropicModelName: AnthropicModelName | undefined;
+	let diffLengthLimit: number | undefined;
 
 	function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
 		if (!initialized) return;
@@ -49,6 +50,7 @@
 	$: setConfiguration(GitAIConfigKey.AnthropicKeyOption, anthropicKeyOption);
 	$: setConfiguration(GitAIConfigKey.AnthropicModelName, anthropicModelName);
 	$: setConfiguration(GitAIConfigKey.AnthropicKey, anthropicKey);
+	$: setConfiguration(GitAIConfigKey.DiffLengthLimit, diffLengthLimit?.toString());
 
 	onMount(async () => {
 		modelKind = await aiService.getModelKind();
@@ -60,6 +62,8 @@
 		anthropicKeyOption = await aiService.getAnthropicKeyOption();
 		anthropicModelName = await aiService.getAnthropicModelName();
 		anthropicKey = await aiService.getAnthropicKey();
+
+		diffLengthLimit = await aiService.getDiffLengthLimit();
 
 		// Ensure reactive declarations have finished running before we set initialized to true
 		await tick();
@@ -270,6 +274,27 @@
 			>
 		</SectionCard>
 	</form>
+
+	<SectionCard orientation="row">
+		<svelte:fragment slot="title">Amount of provided context</svelte:fragment>
+		<svelte:fragment slot="caption">
+			How many characters of your git diff should be provided to AI
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<TextBox
+				type="number"
+				width={100}
+				textAlign="center"
+				value={diffLengthLimit?.toString()}
+				minVal={100}
+				on:input={(e) => {
+					console.log('hi');
+					diffLengthLimit = parseInt(e.detail);
+				}}
+				placeholder="5000"
+			/>
+		</svelte:fragment>
+	</SectionCard>
 </div>
 
 <style>
