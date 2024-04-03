@@ -4,7 +4,9 @@ import { getHeads } from '$lib/stores/head';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { BranchController } from '$lib/vbranches/branchController';
 import { BaseBranchService, VirtualBranchService } from '$lib/vbranches/branchStoresCache';
+import { error } from '@sveltejs/kit';
 import { map } from 'rxjs';
+import type { Project } from '$lib/backend/projects';
 
 export const prerender = false;
 
@@ -21,7 +23,14 @@ export async function load({ params, parent }) {
 	// Getting the project should be one of few, if not the only await expression in
 	// this function. It delays drawing the page, but currently the benefit from having this
 	// synchronously available are much greater than the cost.
-	const project = await projectService.getProject(projectId);
+	let project: Project | undefined = undefined;
+	try {
+		project = await projectService.getProject(projectId);
+	} catch (err: any) {
+		throw error(400, {
+			message: err.message
+		});
+	}
 
 	const fetches$ = getFetchNotifications(projectId);
 	const heads$ = getHeads(projectId);
