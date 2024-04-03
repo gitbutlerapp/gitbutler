@@ -290,7 +290,6 @@
 			value={diffLengthLimit?.toString()}
 			minVal={100}
 			on:input={(e) => {
-				console.log('hi');
 				diffLengthLimit = parseInt(e.detail);
 			}}
 			placeholder="5000"
