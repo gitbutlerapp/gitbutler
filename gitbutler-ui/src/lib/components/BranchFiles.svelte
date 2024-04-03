@@ -18,21 +18,19 @@
 	}
 </script>
 
-<div class="branch-files" class:isUnapplied>
+<div
+	class="branch-files"
+	role="listbox"
+	tabindex="-1"
+	on:keydown={(e) => {
+		if (e.key === 'Escape') {
+			unselectAllFiles();
+		}
+	}}
+	on:click={unselectAllFiles}
+>
 	{#if files.length > 0}
-		<div
-			role="listbox"
-			tabindex="-1"
-			class="files-container"
-			on:keydown={(e) => {
-				if (e.key === 'Escape') {
-					unselectAllFiles();
-				}
-			}}
-			on:click={unselectAllFiles}
-		>
-			<BranchFilesList {allowMultiple} {readonly} {files} {showCheckboxes} {isUnapplied} />
-		</div>
+		<BranchFilesList {allowMultiple} {readonly} {files} {showCheckboxes} {isUnapplied} />
 	{/if}
 </div>
 
@@ -43,16 +41,6 @@
 		flex-direction: column;
 		background: var(--clr-theme-container-light);
 		border-radius: var(--radius-m) var(--radius-m) 0 0;
-
-		&.isUnapplied {
-			border-radius: var(--radius-m);
-		}
-	}
-	.files-container {
-		flex: 1;
-		padding-top: 0;
-		padding-bottom: var(--size-12);
-		padding-left: var(--size-14);
-		padding-right: var(--size-14);
+		padding: 0 var(--size-14) var(--size-14);
 	}
 </style>

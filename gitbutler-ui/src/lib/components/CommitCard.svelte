@@ -133,36 +133,36 @@
 	{#if showFiles}
 		<div class="files-container" transition:slide={{ duration: 100 }}>
 			<BranchFilesList {files} {isUnapplied} readonly />
-
-			{#if hasCommitUrl || isUndoable}
-				<div class="files__footer">
-					{#if isUndoable}
-						<Tag
-							style="ghost"
-							kind="solid"
-							icon="undo-small"
-							clickable
-							on:click={(e) => {
-								currentCommitMessage.set(commit.description);
-								e.stopPropagation();
-								resetHeadCommit();
-							}}>Undo</Tag
-						>
-					{/if}
-					{#if hasCommitUrl}
-						<Tag
-							style="ghost"
-							kind="solid"
-							icon="open-link"
-							clickable
-							on:click={() => {
-								if (commitUrl) openExternalUrl(commitUrl);
-							}}>Open commit</Tag
-						>
-					{/if}
-				</div>
-			{/if}
 		</div>
+
+		{#if hasCommitUrl || isUndoable}
+			<div class="files__footer">
+				{#if isUndoable}
+					<Tag
+						style="ghost"
+						kind="solid"
+						icon="undo-small"
+						clickable
+						on:click={(e) => {
+							currentCommitMessage.set(commit.description);
+							e.stopPropagation();
+							resetHeadCommit();
+						}}>Undo</Tag
+					>
+				{/if}
+				{#if hasCommitUrl}
+					<Tag
+						style="ghost"
+						kind="solid"
+						icon="open-link"
+						clickable
+						on:click={() => {
+							if (commitUrl) openExternalUrl(commitUrl);
+						}}>Open commit</Tag
+					>
+				{/if}
+			</div>
+		{/if}
 	{/if}
 </div>
 
@@ -274,6 +274,7 @@
 
 	.files-container {
 		background-color: var(--clr-container-light);
+		padding: 0 var(--size-14) var(--size-14);
 	}
 
 	.files__footer {
@@ -281,6 +282,7 @@
 		justify-content: flex-end;
 		gap: var(--size-8);
 		padding: var(--size-14);
+		background-color: var(--clr-container-light);
 		border-top: 1px solid var(--clr-container-outline-light);
 	}
 </style>

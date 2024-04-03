@@ -20,9 +20,7 @@
 	$: sortedFiles = sortLikeFileTree(files);
 </script>
 
-<div class="branch-files__header">
-	<BranchFilesHeader {files} {showCheckboxes} />
-</div>
+<BranchFilesHeader {files} {showCheckboxes} />
 {#each sortedFiles as file (file.id)}
 	<FileListItem
 		{file}
@@ -39,12 +37,3 @@
 		}}
 	/>
 {/each}
-
-<style lang="postcss">
-	.branch-files__header {
-		padding-top: var(--size-14);
-		padding-bottom: var(--size-12);
-		padding-left: var(--size-14);
-		padding-right: var(--size-14);
-	}
-</style>
