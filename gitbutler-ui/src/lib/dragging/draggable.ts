@@ -94,9 +94,10 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 		// If the draggable specifies a selector then we check if we're dragging selected
 		// elements, falling back to the single node executing the drag.
 		if (opts.selector) {
-			selectedElements = Array.from(
-				document.querySelectorAll(opts.selector).values() as Iterable<HTMLElement>
-			);
+			const parentNode = node.parentNode;
+			selectedElements = parentNode
+				? Array.from(parentNode.querySelectorAll(opts.selector).values() as Iterable<HTMLElement>)
+				: [];
 
 			if (selectedElements.length > 0) {
 				clone = createContainerForMultiDrag(selectedElements);
