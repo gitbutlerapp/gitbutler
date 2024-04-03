@@ -16,6 +16,7 @@
 	export let wide: boolean = false;
 	export let minVal: number | undefined = undefined;
 	export let maxVal: number | undefined = undefined;
+	export let showCountActions = false;
 	export let disabled = false;
 	export let readonly = false;
 	export let required = false;
@@ -80,6 +81,7 @@
 			min={minVal}
 			max={maxVal}
 			{...type == 'password' && showPassword ? { type: 'text' } : { type }}
+			class:show-count-actions={showCountActions}
 			class="text-input textbox__input text-base-13"
 			class:textbox__readonly={type != 'select' && readonly}
 			class:select-none={noselect}
@@ -97,7 +99,7 @@
 			on:keydown={(e) => dispatch('keydown', e)}
 		/>
 
-		{#if type == 'number'}
+		{#if type == 'number' && showCountActions}
 			<div class="textbox__count-actions">
 				<button
 					class="textbox__count-btn"
@@ -205,7 +207,10 @@
 	.textbox__input[type='number'] {
 		appearance: textfield;
 		-moz-appearance: textfield;
-		padding-right: 4.25rem;
+
+		&.show-count-actions {
+			padding-right: 4.25rem;
+		}
 	}
 
 	.textbox__input[type='number']::-webkit-inner-spin-button,

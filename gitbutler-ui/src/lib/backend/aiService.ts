@@ -9,7 +9,7 @@ import type { CloudClient } from '$lib/backend/cloud';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
 import type { Hunk } from '$lib/vbranches/types';
 
-const diffLengthLimit = 5000;
+const maxDiffLengthLimitForAPI = 5000;
 
 const defaultCommitTemplate = `
 Please could you write a commit message for my changes.
@@ -68,7 +68,8 @@ export enum GitAIConfigKey {
 	OpenAIKey = 'gitbutler.aiOpenAIKey',
 	AnthropicKeyOption = 'gitbutler.aiAnthropicKeyOption',
 	AnthropicModelName = 'gitbutler.aiAnthropicModelName',
-	AnthropicKey = 'gitbutler.aiAnthropicKey'
+	AnthropicKey = 'gitbutler.aiAnthropicKey',
+	DiffLengthLimit = 'gitbutler.diffLengthLimit'
 }
 
 type SummarizeCommitOpts = {
@@ -105,56 +106,101 @@ export class AIService {
 		private cloud: CloudClient
 	) {}
 
-	async validateConfiguration(userToken?: string): Promise<boolean> {
-		const modelKind = await this.gitConfig.getWithDefault<ModelKind>(
-			GitAIConfigKey.ModelProvider,
-			ModelKind.OpenAI
-		);
-		const openAIKeyOption = await this.gitConfig.getWithDefault<KeyOption>(
+	getModelKind() {
+		return this.gitConfig.getWithDefault<ModelKind>(GitAIConfigKey.ModelProvider, ModelKind.OpenAI);
+	}
+
+	getOpenAIKeyOption() {
+		return this.gitConfig.getWithDefault<KeyOption>(
 			GitAIConfigKey.OpenAIKeyOption,
 			KeyOption.ButlerAPI
 		);
-		const openAIKey = await this.gitConfig.get(GitAIConfigKey.OpenAIKey);
-		const anthropicKeyOption = await this.gitConfig.getWithDefault<KeyOption>(
+	}
+
+	getOpenAIKey() {
+		return this.gitConfig.get(GitAIConfigKey.OpenAIKey);
+	}
+
+	getOpenAIModleName() {
+		return this.gitConfig.getWithDefault<OpenAIModelName>(
+			GitAIConfigKey.OpenAIModelName,
+			OpenAIModelName.GPT35Turbo
+		);
+	}
+
+	getAnthropicKeyOption() {
+		return this.gitConfig.getWithDefault<KeyOption>(
 			GitAIConfigKey.AnthropicKeyOption,
 			KeyOption.ButlerAPI
 		);
-		const anthropicKey = await this.gitConfig.get(GitAIConfigKey.AnthropicKey);
+	}
 
-		if (
-			(modelKind == ModelKind.OpenAI && openAIKeyOption == KeyOption.ButlerAPI) ||
-			(modelKind == ModelKind.Anthropic && anthropicKeyOption == KeyOption.ButlerAPI)
-		) {
-			return !!userToken;
-		}
+	getAnthropicKey() {
+		return this.gitConfig.get(GitAIConfigKey.AnthropicKey);
+	}
 
-		return (
-			(modelKind == ModelKind.OpenAI && !!openAIKey) ||
-			(modelKind == ModelKind.Anthropic && !!anthropicKey)
+	getAnthropicModelName() {
+		return this.gitConfig.getWithDefault<AnthropicModelName>(
+			GitAIConfigKey.AnthropicModelName,
+			AnthropicModelName.Haiku
 		);
+	}
+
+	async getDiffLengthLimit() {
+		const limitString = await this.gitConfig.getWithDefault<string>(
+			GitAIConfigKey.DiffLengthLimit,
+			'5000'
+		);
+
+		return parseInt(limitString, 10);
+	}
+
+	/**
+	 * Returns the diff length limit with a specificed upper bound of characers in order to not inundate the API.
+	 */
+	async getDiffLengthLimitConsideringAPI() {
+		const diffLengthLimit = await this.getDiffLengthLimit();
+
+		if (await this.usingGitButlerAPI()) {
+			return Math.max(maxDiffLengthLimitForAPI, diffLengthLimit);
+		} else {
+			return diffLengthLimit;
+		}
+	}
+
+	async usingGitButlerAPI() {
+		const modelKind = await this.getModelKind();
+		const openAIKeyOption = await this.getOpenAIKeyOption();
+		const anthropicKeyOption = await this.getAnthropicKeyOption();
+
+		const openAIActiveAndUsingButlerAPI =
+			modelKind == ModelKind.OpenAI && openAIKeyOption == KeyOption.ButlerAPI;
+		const anthropicActiveAndUsingButlerAPI =
+			modelKind == ModelKind.Anthropic && anthropicKeyOption == KeyOption.ButlerAPI;
+
+		return openAIActiveAndUsingButlerAPI || anthropicActiveAndUsingButlerAPI;
+	}
+
+	async validateConfiguration(userToken?: string): Promise<boolean> {
+		const modelKind = await this.getModelKind();
+		const openAIKey = await this.getOpenAIKey();
+		const anthropicKey = await this.getAnthropicKey();
+
+		if (await this.usingGitButlerAPI()) return !!userToken;
+
+		const openAIActiveAndKeyProvided = modelKind == ModelKind.OpenAI && !!openAIKey;
+		const anthropicActiveAndKeyProvided = modelKind == ModelKind.Anthropic && !!anthropicKey;
+
+		return openAIActiveAndKeyProvided || anthropicActiveAndKeyProvided;
 	}
 
 	// This optionally returns a summarizer. There are a few conditions for how this may occur
 	// Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
 	// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
 	async buildClient(userToken?: string): Promise<undefined | AIClient> {
-		const modelKind = await this.gitConfig.getWithDefault<ModelKind>(
-			GitAIConfigKey.ModelProvider,
-			ModelKind.OpenAI
-		);
-		const openAIKeyOption = await this.gitConfig.getWithDefault<KeyOption>(
-			GitAIConfigKey.OpenAIKeyOption,
-			KeyOption.ButlerAPI
-		);
-		const anthropicKeyOption = await this.gitConfig.getWithDefault<KeyOption>(
-			GitAIConfigKey.AnthropicKeyOption,
-			KeyOption.ButlerAPI
-		);
+		const modelKind = await this.getModelKind();
 
-		if (
-			(modelKind == ModelKind.OpenAI && openAIKeyOption == KeyOption.ButlerAPI) ||
-			(modelKind == ModelKind.Anthropic && anthropicKeyOption == KeyOption.ButlerAPI)
-		) {
+		if (await this.usingGitButlerAPI()) {
 			if (!userToken) {
 				toasts.error("When using GitButler's API to summarize code, you must be logged in");
 				return;
@@ -163,11 +209,8 @@ export class AIService {
 		}
 
 		if (modelKind == ModelKind.OpenAI) {
-			const openAIModelName = await this.gitConfig.getWithDefault<OpenAIModelName>(
-				GitAIConfigKey.OpenAIModelName,
-				OpenAIModelName.GPT35Turbo
-			);
-			const openAIKey = await this.gitConfig.get(GitAIConfigKey.OpenAIKey);
+			const openAIModelName = await this.getOpenAIModleName();
+			const openAIKey = await this.getOpenAIKey();
 
 			if (!openAIKey) {
 				toasts.error(
@@ -179,12 +222,10 @@ export class AIService {
 			const openAI = new OpenAI({ apiKey: openAIKey, dangerouslyAllowBrowser: true });
 			return new OpenAIClient(openAIModelName, openAI);
 		}
+
 		if (modelKind == ModelKind.Anthropic) {
-			const anthropicModelName = await this.gitConfig.getWithDefault<AnthropicModelName>(
-				GitAIConfigKey.AnthropicModelName,
-				AnthropicModelName.Haiku
-			);
-			const anthropicKey = await this.gitConfig.get(GitAIConfigKey.AnthropicKey);
+			const anthropicModelName = await this.getAnthropicModelName();
+			const anthropicKey = await this.getAnthropicKey();
 
 			if (!anthropicKey) {
 				toasts.error(
@@ -207,6 +248,7 @@ export class AIService {
 		const aiClient = await this.buildClient(userToken);
 		if (!aiClient) return;
 
+		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
 		let prompt = commitTemplate.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit));
 
 		const briefPart = useBriefStyle
@@ -237,6 +279,7 @@ export class AIService {
 		const aiClient = await this.buildClient(userToken);
 		if (!aiClient) return;
 
+		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
 		const prompt = branchTemplate.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit));
 		const message = await aiClient.evaluate(prompt);
 		return message.replaceAll(' ', '-').replaceAll('\n', '-');

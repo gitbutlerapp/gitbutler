@@ -192,6 +192,7 @@
 						value={$userSettings.tabSize.toString()}
 						minVal={1}
 						maxVal={8}
+						showCountActions
 						on:change={(e) => {
 							userSettings.update((s) => ({
 								...s,
