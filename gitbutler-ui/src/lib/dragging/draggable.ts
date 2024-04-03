@@ -15,18 +15,11 @@ export function applyContainerStyle(element: HTMLElement) {
 	element.style.padding = '30px'; // To prevent clipping of rotated element
 }
 
-export function createContainerForMultiDrag(
-	children: Element[],
-	containerWidth: number
-): HTMLDivElement {
+export function createContainerForMultiDrag(children: Element[]): HTMLDivElement {
 	const inner = document.createElement('div');
 	inner.style.display = 'flex';
 	inner.style.flexDirection = 'column';
 	inner.style.gap = 'var(--size-2)';
-
-	// need to set the width in order to make all the children have the same width
-	// this is necessary for the tree view where the children are nested and have different widths
-	inner.style.width = containerWidth + 'px';
 
 	children.forEach((child) => {
 		inner.appendChild(cloneWithPreservedDimensions(child));
@@ -43,6 +36,7 @@ export function createContainerForMultiDrag(
 export function cloneWithPreservedDimensions(node: any) {
 	const clone = node.cloneNode(true) as HTMLElement;
 	clone.style.height = node.clientHeight + 'px';
+	clone.style.width = node.clientWidth + 'px';
 	clone.classList.remove('selected-draggable');
 	return clone;
 }
@@ -105,9 +99,7 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 			);
 
 			if (selectedElements.length > 0) {
-				const firstChildWidth = selectedElements[0].clientWidth;
-				clone = createContainerForMultiDrag(selectedElements, firstChildWidth);
-
+				clone = createContainerForMultiDrag(selectedElements);
 				// Dim the original element while dragging
 				selectedElements.forEach((element) => {
 					element.style.opacity = '0.5';
