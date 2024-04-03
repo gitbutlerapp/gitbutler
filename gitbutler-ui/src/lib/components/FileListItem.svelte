@@ -51,8 +51,6 @@
 
 	$: popupMenu = updateContextMenu();
 
-	$: isLocked = file.hunks.some((h) => h.locked);
-
 	onDestroy(() => {
 		if (popupMenu) {
 			popupMenu.$destroy();
@@ -91,7 +89,7 @@
 		}}
 		use:draggable={{
 			data: new DraggableFile($branch?.id || '', file, selectedFiles),
-			disabled: readonly || isUnapplied || isLocked,
+			disabled: readonly || isUnapplied,
 			viewportId: 'board-viewport',
 			selector: '.selected-draggable'
 		}}
