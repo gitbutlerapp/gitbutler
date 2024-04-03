@@ -1,16 +1,11 @@
 import { dzRegistry } from './dropzone';
+import type { DraggableCommit, DraggableFile, DraggableHunk } from './draggables';
 
-export interface DraggableOptions {
-	data: any;
-	disabled: boolean;
-	selector?: string;
-	fileId?: string;
+export interface DraggableConfig {
+	readonly selector?: string;
+	readonly disabled?: boolean;
+	readonly data?: DraggableFile | DraggableHunk | DraggableCommit;
 }
-
-const defaultDraggableOptions: DraggableOptions = {
-	data: 'default',
-	disabled: false
-};
 
 export function applyContainerStyle(element: HTMLElement) {
 	element.style.position = 'absolute';
@@ -67,9 +62,8 @@ function rotateElement(element: HTMLElement) {
 	element.style.rotate = `${Math.floor(Math.random() * 3)}deg`;
 }
 
-export function draggable(node: HTMLElement, opts: Partial<DraggableOptions> | undefined) {
+export function draggable(node: HTMLElement, opts: DraggableConfig) {
 	let dragHandle: HTMLElement | null;
-	let currentOptions: DraggableOptions = { ...defaultDraggableOptions, ...opts };
 	let clone: HTMLElement | undefined;
 
 	const onDropListeners = new Map<HTMLElement, Array<(e: DragEvent) => void>>();
@@ -94,10 +88,8 @@ export function draggable(node: HTMLElement, opts: Partial<DraggableOptions> | u
 
 		// If the draggable specifies a selector then we check if we're dragging selected
 		// elements, falling back to the single node executing the drag.
-		if (currentOptions.selector) {
-			const selectedElements = Array.from(
-				document.querySelectorAll(currentOptions.selector).values()
-			);
+		if (opts.selector) {
+			const selectedElements = Array.from(document.querySelectorAll(opts.selector).values());
 			if (selectedElements.length > 0) {
 				clone = createContainerForMultiDrag(selectedElements);
 			}
@@ -113,11 +105,11 @@ export function draggable(node: HTMLElement, opts: Partial<DraggableOptions> | u
 
 		// activate destination zones
 		dzRegistry
-			.filter(([_node, dz]) => dz.accepts(currentOptions.data))
+			.filter(([_node, dz]) => dz.accepts(opts.data))
 			.forEach(([target, dz]) => {
 				function onDrop(e: DragEvent) {
 					e.preventDefault();
-					dz.onDrop(currentOptions.data);
+					dz.onDrop(opts.data);
 				}
 
 				function onDragEnter(e: DragEvent) {
@@ -186,7 +178,7 @@ export function draggable(node: HTMLElement, opts: Partial<DraggableOptions> | u
 
 		// deactivate destination zones
 		dzRegistry
-			.filter(([_node, dz]) => dz.accepts(currentOptions.data))
+			.filter(([_node, dz]) => dz.accepts(opts.data))
 			.forEach(([node, dz]) => {
 				// remove all listeners
 				onDropListeners.get(node)?.forEach((listener) => {
@@ -209,13 +201,9 @@ export function draggable(node: HTMLElement, opts: Partial<DraggableOptions> | u
 		e.stopPropagation();
 	}
 
-	function setup(opts: Partial<DraggableOptions> | undefined) {
-		currentOptions = { ...defaultDraggableOptions, ...opts };
-
-		if (currentOptions.disabled) return;
-
+	function setup(opts: DraggableConfig) {
+		if (opts.disabled) return;
 		node.draggable = true;
-
 		node.addEventListener('dragstart', handleDragStart);
 		node.addEventListener('dragend', handleDragEnd);
 		node.addEventListener('mousedown', handleMouseDown, { capture: false });
@@ -230,7 +218,7 @@ export function draggable(node: HTMLElement, opts: Partial<DraggableOptions> | u
 	setup(opts);
 
 	return {
-		update(opts: Partial<DraggableOptions> | undefined) {
+		update(opts: DraggableConfig) {
 			clean();
 			setup(opts);
 		},

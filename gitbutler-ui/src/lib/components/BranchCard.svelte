@@ -16,14 +16,10 @@
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import {
-		isDraggableCommit,
-		isDraggableFile,
-		isDraggableHunk,
-		isDraggableRemoteCommit,
-		type DraggableCommit,
-		type DraggableFile,
-		type DraggableHunk,
-		type DraggableRemoteCommit
+		DraggableCommit,
+		DraggableFile,
+		DraggableHunk,
+		DraggableRemoteCommit
 	} from '$lib/dragging/draggables';
 	import { dropzone } from '$lib/dragging/dropzone';
 	import { persisted } from '$lib/persisted/persisted';
@@ -32,19 +28,20 @@
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { getSelectedFileIds } from '$lib/vbranches/contexts';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
-	import { Branch, type LocalFile } from '$lib/vbranches/types';
+	import { Branch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
-	import { get, type Writable } from 'svelte/store';
 	import type { Persisted } from '$lib/persisted/persisted';
+	import type { Writable } from 'svelte/store';
 
 	export let isUnapplied = false;
-	export let selectedFiles: Writable<LocalFile[]>;
 	export let isLaneCollapsed: Persisted<boolean>;
 	export let commitBoxOpen: Writable<boolean>;
 
 	const branchController = getContext(BranchController);
+	const selectedFileIds = getSelectedFileIds();
 	const branchStore = getContextStore(Branch);
 	const project = getContext(Project);
 	const user = getContextStore(User);
@@ -105,14 +102,14 @@
 	});
 
 	function acceptMoveCommit(data: any) {
-		return isDraggableCommit(data) && data.branchId != branch.id && data.isHeadCommit;
+		return data instanceof DraggableCommit && data.branchId != branch.id && data.isHeadCommit;
 	}
 	function onCommitDrop(data: DraggableCommit) {
 		branchController.moveCommit(branch.id, data.commit.id);
 	}
 
 	function acceptCherrypick(data: any) {
-		return isDraggableRemoteCommit(data) && data.branchId == branch.id;
+		return data instanceof DraggableRemoteCommit && data.branchId == branch.id;
 	}
 
 	function onCherrypicked(data: DraggableRemoteCommit) {
@@ -120,9 +117,9 @@
 	}
 
 	function acceptBranchDrop(data: any) {
-		if (isDraggableHunk(data) && data.branchId != branch.id) {
+		if (data instanceof DraggableHunk && data.branchId != branch.id) {
 			return true;
-		} else if (isDraggableFile(data) && data.branchId != branch.id) {
+		} else if (data instanceof DraggableFile && data.branchId != branch.id) {
 			return true;
 		} else {
 			return false;
@@ -130,18 +127,14 @@
 	}
 
 	function onBranchDrop(data: DraggableHunk | DraggableFile) {
-		if (isDraggableHunk(data)) {
+		if (data instanceof DraggableHunk) {
 			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
 			branchController.updateBranchOwnership(
 				branch.id,
 				(newOwnership + '\n' + branch.ownership).trim()
 			);
-		} else if (isDraggableFile(data)) {
-			let files = get(data.files);
-			if (files.length == 0) {
-				files = [data.current];
-			}
-			const newOwnership = filesToOwnership(files);
+		} else if (data instanceof DraggableFile) {
+			const newOwnership = filesToOwnership(data.files);
 			branchController.updateBranchOwnership(
 				branch.id,
 				(newOwnership + '\n' + branch.ownership).trim()
@@ -229,7 +222,6 @@
 								<BranchFiles
 									files={branch.files}
 									{isUnapplied}
-									{selectedFiles}
 									showCheckboxes={$commitBoxOpen}
 									allowMultiple
 								/>
@@ -289,7 +281,7 @@
 						{/if}
 					</div>
 
-					<BranchCommits {isUnapplied} {selectedFiles} />
+					<BranchCommits {isUnapplied} />
 				</div>
 			</ScrollableContainer>
 			<div class="divider-line">
@@ -298,7 +290,7 @@
 					direction="right"
 					minWidth={320}
 					sticky
-					defaultLineColor={$selectedFiles.length > 0
+					defaultLineColor={$selectedFileIds.length > 0
 						? 'transparent'
 						: 'color-mix(in srgb,var(--clr-container-outline-light) 60%, transparent)'}
 					on:width={(e) => {

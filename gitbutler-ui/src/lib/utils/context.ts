@@ -69,11 +69,13 @@ export function createContextStore<T extends Class>(
  *   export const [getSpecialCommits, setSpecialCommits] = buildContextStore<Commit[]>();`
  * ```
  */
-export function buildContextStore<T>(): [() => Readable<T>, (value: T) => Writable<T>] {
-	const identifier = Symbol();
+export function buildContextStore<T, S extends Readable<T> = Readable<T>>(
+	name: string
+): [() => S, (value: T) => Writable<T>] {
+	const identifier = Symbol(name);
 	return [
 		() => {
-			return getContextStoreBySymbol<T>(identifier);
+			return getContextStoreBySymbol<T, S>(identifier);
 		},
 		(value: T) => {
 			return createContextStore(identifier, value);
@@ -88,6 +90,6 @@ export function buildContextStore<T>(): [() => Readable<T>, (value: T) => Writab
  */
 export function getContextStoreBySymbol<T, S extends Readable<T> = Readable<T>>(key: symbol): S {
 	const instance = svelteGetContext<S | undefined>(key);
-	if (!instance) throw new Error(`no instance of \`Readable<${key.toString}[]>\` in context`);
+	if (!instance) throw new Error(`no instance of \`Readable<${key.toString()}[]>\` in context`);
 	return instance;
 }

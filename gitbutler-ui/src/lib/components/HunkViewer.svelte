@@ -5,7 +5,7 @@
 	import Scrollbar from './Scrollbar.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { draggable } from '$lib/dragging/draggable';
-	import { draggableHunk } from '$lib/dragging/draggables';
+	import { DraggableHunk } from '$lib/dragging/draggables';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
 	import { Ownership } from '$lib/vbranches/ownership';
@@ -66,7 +66,7 @@
 		tabindex="0"
 		role="cell"
 		use:draggable={{
-			...draggableHunk($branch?.id || '', section.hunk),
+			data: new DraggableHunk($branch?.id || '', section.hunk),
 			disabled: draggingDisabled
 		}}
 		on:contextmenu|preventDefault

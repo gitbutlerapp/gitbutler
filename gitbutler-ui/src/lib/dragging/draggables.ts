@@ -1,63 +1,45 @@
-import type { AnyFile, Commit, LocalFile, Hunk, RemoteCommit } from '../vbranches/types';
-import type { Writable } from 'svelte/store';
+import { get, type Readable } from 'svelte/store';
+import type { AnyFile, Commit, Hunk, RemoteCommit } from '../vbranches/types';
 
 export function nonDraggable() {
 	return {
 		disabled: true,
-		data: {}
+		data: undefined
 	};
 }
 
-export type DraggableHunk = {
-	branchId: string;
-	hunk: Hunk;
-};
-
-export function draggableHunk(branchId: string | undefined, hunk: Hunk) {
-	return { data: { branchId, hunk } };
+export class DraggableHunk {
+	constructor(
+		public readonly branchId: string,
+		public readonly hunk: Hunk
+	) {}
 }
 
-export function isDraggableHunk(obj: any): obj is DraggableHunk {
-	return obj && obj.branchId && obj.hunk;
+export class DraggableFile {
+	constructor(
+		public readonly branchId: string,
+		private file: AnyFile,
+		private selection: Readable<AnyFile[]> | undefined
+	) {}
+
+	get files(): AnyFile[] {
+		const selection = this.selection ? get(this.selection) : undefined;
+		if (selection && selection.length > 0) return selection;
+		return [this.file];
+	}
 }
 
-export type DraggableFile = {
-	branchId: string;
-	files: Writable<AnyFile[]>;
-	current: LocalFile;
-};
-
-export function draggableFile(branchId: string, current: AnyFile, files: Writable<AnyFile[]>) {
-	return { data: { branchId, current, files } };
+export class DraggableCommit {
+	constructor(
+		public readonly branchId: string,
+		public readonly commit: Commit,
+		public readonly isHeadCommit: boolean
+	) {}
 }
 
-export function isDraggableFile(obj: any): obj is DraggableFile {
-	return obj && obj.branchId && obj.files && obj.current;
-}
-
-export type DraggableCommit = {
-	branchId: string;
-	commit: Commit;
-	isHeadCommit: boolean;
-};
-
-export function draggableCommit(branchId: string, commit: Commit, isHeadCommit: boolean) {
-	return { data: { branchId, commit, isHeadCommit } };
-}
-
-export function isDraggableCommit(obj: any): obj is DraggableCommit {
-	return obj && obj.branchId && obj.commit && obj.isHeadCommit;
-}
-
-export type DraggableRemoteCommit = {
-	branchId: string;
-	remoteCommit: RemoteCommit;
-};
-
-export function draggableRemoteCommit(branchId: string, remoteCommit: RemoteCommit) {
-	return { data: { branchId, remoteCommit } };
-}
-
-export function isDraggableRemoteCommit(obj: any): obj is DraggableRemoteCommit {
-	return obj && obj.branchId && obj.remoteCommit;
+export class DraggableRemoteCommit {
+	constructor(
+		public readonly branchId: string,
+		public readonly remoteCommit: RemoteCommit
+	) {}
 }

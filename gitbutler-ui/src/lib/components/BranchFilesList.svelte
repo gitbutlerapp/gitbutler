@@ -1,16 +1,19 @@
 <script lang="ts">
 	import FileListItem from './FileListItem.svelte';
 	import { maybeMoveSelection } from '$lib/utils/selection';
+	import { getCommitStore, getSelectedFileIds } from '$lib/vbranches/contexts';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import type { AnyFile } from '$lib/vbranches/types';
-	import type { Writable } from 'svelte/store';
 
 	export let files: AnyFile[];
 	export let isUnapplied = false;
 	export let showCheckboxes = false;
-	export let selectedFiles: Writable<AnyFile[]>;
 	export let allowMultiple = false;
 	export let readonly = false;
+
+	const fileSelection = getSelectedFileIds();
+	const selectedFileIds = $fileSelection.fileIds;
+	const commit = getCommitStore();
 
 	$: sortedFiles = sortLikeFileTree(files);
 </script>
@@ -20,24 +23,24 @@
 		{file}
 		{readonly}
 		{isUnapplied}
-		{selectedFiles}
 		showCheckbox={showCheckboxes}
-		selected={$selectedFiles.includes(file)}
+		selected={$selectedFileIds && $fileSelection.has(file.id, $commit?.id)}
 		on:click={(e) => {
-			const isAlreadySelected = $selectedFiles.includes(file);
+			const isAlreadySelected = $selectedFileIds && $fileSelection.has(file.id, $commit?.id);
 			if (isAlreadySelected && e.shiftKey) {
-				selectedFiles.update((fileIds) => fileIds.filter((f) => f.id != file.id));
+				$fileSelection.remove(file.id, $commit?.id);
 			} else if (isAlreadySelected) {
-				$selectedFiles = [];
+				$fileSelection.clear();
 			} else if (e.shiftKey && allowMultiple) {
-				selectedFiles.update((files) => [file, ...files]);
+				$fileSelection.add(file.id, $commit?.id);
 			} else {
-				$selectedFiles = [file];
+				$fileSelection.clear();
+				$fileSelection.add(file.id, $commit?.id);
 			}
 		}}
 		on:keydown={(e) => {
 			e.preventDefault();
-			maybeMoveSelection(e.key, sortedFiles, selectedFiles);
+			maybeMoveSelection(e.key, sortedFiles, fileSelection);
 		}}
 	/>
 {/each}

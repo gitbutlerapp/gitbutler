@@ -8,23 +8,24 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStoreBySymbol, createContextStore } from '$lib/utils/context';
+	import { isDefined } from '$lib/utils/typeguards';
 	import {
 		createIntegratedContextStore,
 		createLocalContextStore,
 		createRemoteContextStore,
+		createSelectedFileIds,
+		createSelectedFiles,
 		createUnknownContextStore
 	} from '$lib/vbranches/contexts';
+	import { FileSelection } from '$lib/vbranches/fileSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { RemoteFile, Branch, type LocalFile, type AnyFile } from '$lib/vbranches/types';
+	import { RemoteFile, Branch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { quintOut } from 'svelte/easing';
-	import { writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
-
-	$: selected = setSelected($selectedFiles, branch);
 
 	const ownershipStore = createContextStore(Ownership, Ownership.fromBranch(branch));
 	// TODO: Update store here rather than reset it
@@ -46,6 +47,17 @@
 	const unknownCommits = createUnknownContextStore([]);
 	$: if (branch.upstream?.name) loadRemoteBranch(branch.upstream?.name);
 
+	const fileSelection = createSelectedFileIds(new FileSelection());
+	const selectedFileIds = $fileSelection.fileIds;
+
+	const selectedFiles = createSelectedFiles([]);
+	$: if ($selectedFileIds.length > 0 && $fileSelection.toOnly().context === undefined)
+		selectedFiles.set(
+			$selectedFileIds.map((fileId) => branch.files.find((f) => f.id == fileId)).filter(isDefined)
+		);
+
+	$: displayedFile = $selectedFiles.length == 1 ? $selectedFiles[0] : undefined;
+
 	async function loadRemoteBranch(name: string) {
 		const remoteBranchData = await getRemoteBranchData(project.id, name);
 		const commits = remoteBranchData?.commits.filter(
@@ -56,7 +68,6 @@
 
 	const project = getContext(Project);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-	const selectedFiles = writable<LocalFile[]>([]);
 
 	let rsViewport: HTMLElement;
 
@@ -67,19 +78,9 @@
 
 	fileWidth = lscache.get(fileWidthKey + branch.id);
 
-	function setSelected(files: AnyFile[], branch: Branch) {
-		if (files.length == 0) return undefined;
-		if (files.length == 1 && files[0] instanceof RemoteFile) return files[0];
-
-		// If regular file selected but not found in branch files then clear selection.
-		const match = branch.files?.find((f) => files[0].id == f.id);
-		if (!match) $selectedFiles = [];
-		return match;
-	}
-
 	$: isLaneCollapsed = projectLaneCollapsed(project.id, branch.id);
 	$: if ($isLaneCollapsed) {
-		$selectedFiles = [];
+		$fileSelection.clear();
 	}
 </script>
 
@@ -87,11 +88,11 @@
 	class="wrapper"
 	data-tauri-drag-region
 	class:target-branch={branch.active && branch.selectedForChanges}
-	class:file-selected={selected}
+	class:file-selected={displayedFile}
 >
-	<BranchCard {isUnapplied} {commitBoxOpen} bind:isLaneCollapsed {selectedFiles} />
+	<BranchCard {isUnapplied} {commitBoxOpen} bind:isLaneCollapsed />
 
-	{#if selected}
+	{#if displayedFile}
 		<div
 			class="file-preview resize-viewport"
 			bind:this={rsViewport}
@@ -99,14 +100,14 @@
 			style:width={`${fileWidth || $defaultFileWidthRem}rem`}
 		>
 			<FileCard
-				conflicted={selected.conflicted}
-				file={selected}
+				conflicted={displayedFile.conflicted}
+				file={displayedFile}
 				{isUnapplied}
-				readonly={selected instanceof RemoteFile}
+				readonly={displayedFile instanceof RemoteFile}
 				selectable={$commitBoxOpen && !isUnapplied}
 				on:close={() => {
-					const selectedId = selected?.id;
-					selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
+					const selectedId = displayedFile?.id;
+					selectedId && $fileSelection.remove(selectedId);
 				}}
 			/>
 			<Resizer
