@@ -1,9 +1,9 @@
 <script lang="ts">
-	import ProfileSIdebar from '$lib/components/settings/ProfileSIdebar.svelte';
+	import Sidebar from '$lib/components/settings/Sidebar.svelte';
 </script>
 
 <section class="profile-page">
-	<ProfileSIdebar />
+	<Sidebar />
 	<slot />
 </section>
 
