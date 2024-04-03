@@ -8,12 +8,12 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
-	import { createSelectedFileIds, createSelectedFiles } from '$lib/vbranches/contexts';
+	import { createSelectedFiles } from '$lib/vbranches/contexts';
 	import { FileSelection } from '$lib/vbranches/fileSelection';
 	import { BaseBranch, type RemoteBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
-	import { onMount } from 'svelte';
+	import { onMount, setContext } from 'svelte';
 	import type { PullRequest } from '$lib/github/types';
 
 	export let branch: RemoteBranch;
@@ -22,7 +22,7 @@
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
 
-	createSelectedFileIds(new FileSelection());
+	setContext(FileSelection, new FileSelection());
 	const selectedFiles = createSelectedFiles([]);
 
 	const defaultBranchWidthRem = 30;

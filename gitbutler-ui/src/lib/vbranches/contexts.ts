@@ -1,5 +1,4 @@
 import { buildContextStore } from '$lib/utils/context';
-import type { FileSelection } from './fileSelection';
 import type { AnyCommit, AnyFile, Commit, RemoteCommit } from './types';
 import type { Writable } from 'svelte/store';
 
@@ -13,16 +12,10 @@ export const [getIntegratedCommits, createIntegratedContextStore] =
 	buildContextStore<Commit[]>('integratedCommits');
 export const [getUnknownCommits, createUnknownContextStore] =
 	buildContextStore<RemoteCommit[]>('unknownCommits');
-export const [getSelectedFileIds, createSelectedFileIds] = buildContextStore<
-	FileSelection,
-	Writable<FileSelection>
->('selectedFileIds');
-
 export const [getSelectedFiles, createSelectedFiles] = buildContextStore<
 	AnyFile[],
 	Writable<AnyFile[]>
 >('selectedFiles');
-
 export const [getCommitStore, createCommitStore] = buildContextStore<AnyCommit | undefined>(
 	'commit'
 );

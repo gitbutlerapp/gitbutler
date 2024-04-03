@@ -7,10 +7,10 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
-	import { createSelectedFileIds, createSelectedFiles } from '$lib/vbranches/contexts';
+	import { createSelectedFiles } from '$lib/vbranches/contexts';
 	import { FileSelection } from '$lib/vbranches/fileSelection';
 	import lscache from 'lscache';
-	import { onMount } from 'svelte';
+	import { onMount, setContext } from 'svelte';
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'historyLaneWidth';
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
@@ -18,7 +18,7 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
-	createSelectedFileIds(new FileSelection());
+	setContext(FileSelection, new FileSelection());
 	const selectedFiles = createSelectedFiles([]);
 
 	let rsViewport: HTMLDivElement;

@@ -9,7 +9,8 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { createCommitStore, getSelectedFileIds, getSelectedFiles } from '$lib/vbranches/contexts';
+	import { createCommitStore, getSelectedFiles } from '$lib/vbranches/contexts';
+	import { FileSelection } from '$lib/vbranches/fileSelection';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { RemoteCommit, Commit, RemoteFile, Branch, BaseBranch } from '$lib/vbranches/types';
 	import { slide } from 'svelte/transition';
@@ -24,24 +25,21 @@
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 	const selectedFiles = getSelectedFiles();
-	const fileSelection = getSelectedFileIds();
-	const selectedFileIds = $fileSelection.fileIds;
+	const fileSelection = getContext(FileSelection);
 
 	const commitStore = createCommitStore(commit);
 	$: commitStore.set(commit);
 
-	$: selectedFile =
-		$selectedFileIds &&
-		$fileSelection.length == 1 &&
-		$fileSelection.toOnly().context == commit.id &&
-		files.find((f) => f.id == $fileSelection.toOnly().fileId);
-	$: if (selectedFile) selectedFiles.set([selectedFile]);
-
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
 	let showFiles = false;
-
 	let files: RemoteFile[] = [];
+
+	$: selectedFile =
+		$fileSelection.length == 1 &&
+		fileSelection.only().commitId == commit.id &&
+		files.find((f) => f.id == fileSelection.only().fileId);
+	$: if (selectedFile) selectedFiles.set([selectedFile]);
 
 	async function loadFiles() {
 		files = await listRemoteCommitFiles(project.id, commit.id);

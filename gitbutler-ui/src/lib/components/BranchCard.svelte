@@ -28,7 +28,7 @@
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { getSelectedFileIds } from '$lib/vbranches/contexts';
+	import { FileSelection } from '$lib/vbranches/fileSelection';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
 	import { Branch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
@@ -41,7 +41,7 @@
 	export let commitBoxOpen: Writable<boolean>;
 
 	const branchController = getContext(BranchController);
-	const selectedFileIds = getSelectedFileIds();
+	const fileSelection = getContext(FileSelection);
 	const branchStore = getContextStore(Branch);
 	const project = getContext(Project);
 	const user = getContextStore(User);
@@ -290,7 +290,7 @@
 					direction="right"
 					minWidth={320}
 					sticky
-					defaultLineColor={$selectedFileIds.length == 1
+					defaultLineColor={$fileSelection.length == 1
 						? 'transparent'
 						: 'color-mix(in srgb,var(--clr-container-outline-light) 60%, transparent)'}
 					on:width={(e) => {

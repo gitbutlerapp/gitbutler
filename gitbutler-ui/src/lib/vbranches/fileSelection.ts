@@ -1,50 +1,73 @@
-import { writable } from 'svelte/store';
+export function fileKey(fileId: string, commitId?: string) {
+	return fileId + '|' + commitId;
+}
 
 export type SelectedFile = {
 	context?: string;
 	fileId: string;
 };
+
+type CallBack = (value: string[]) => void;
+
 export class FileSelection {
-	private _fileIds = new Set<string>();
-	readonly fileIds = writable<string[]>([]);
+	private value: string[];
+	private callbacks: CallBack[];
 
-	constructor() {}
-
-	add(fileId: string, context?: string) {
-		this._fileIds.add(fileId + '|' + context);
-		this.fileIds.set([...this._fileIds.values()]);
+	constructor() {
+		this.callbacks = [];
+		this.value = [];
 	}
 
-	has(fileId: string, context?: string) {
-		return this._fileIds.has(fileId + '|' + context);
+	subscribe(callback: (value: string[]) => void) {
+		callback(this.value);
+		this.callbacks.push(callback);
+		return () => this.unsubscribe(callback);
 	}
 
-	remove(fileId: string, context?: string) {
-		this._fileIds.delete(fileId + '|' + context);
-		this.fileIds.set([...this._fileIds.values()]);
+	unsubscribe(callback: CallBack) {
+		this.callbacks = this.callbacks.filter((cb) => cb !== callback);
+	}
+
+	add(fileId: string, commitId?: string) {
+		this.value.push(fileKey(fileId, commitId));
+		this.emit();
+	}
+
+	has(fileId: string, commitId?: string) {
+		return this.value.includes(fileKey(fileId, commitId));
+	}
+
+	remove(fileId: string, commitId?: string) {
+		this.value = this.value.filter((key) => key != fileKey(fileId, commitId));
+		this.emit();
 	}
 
 	map<T>(callback: (fileId: string) => T) {
-		return [...this._fileIds.values()].map((fileId) => callback(fileId));
+		return this.value.map((fileKey) => callback(fileKey));
 	}
 
 	set(values: string[]) {
-		this._fileIds.clear();
-		values.forEach((value) => this._fileIds.add(value));
-		this.fileIds.set([...this._fileIds.values()]);
+		this.value = values;
+		this.emit();
 	}
 
 	clear() {
-		this._fileIds.clear();
-		this.fileIds.set([]);
+		this.value = [];
+		this.emit();
+	}
+
+	emit() {
+		for (const callback of this.callbacks) {
+			callback(this.value);
+		}
+	}
+
+	only() {
+		const [fileId, commitId] = this.value[0].split('|');
+		return { fileId, commitId };
 	}
 
 	get length() {
-		return this._fileIds.size;
-	}
-
-	toOnly() {
-		const [fileId, context] = [...this._fileIds.values()][0].split('|');
-		return { fileId, context };
+		return this.value.length;
 	}
 }
