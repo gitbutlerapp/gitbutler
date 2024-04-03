@@ -3,13 +3,20 @@
 	import IconButton from '../IconButton.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { goto } from '$app/navigation';
+	import { UserService } from '$lib/stores/user';
+	import { getContext } from '$lib/utils/context';
+	import { page } from '$app/stores';
 
-	export let currentSection: 'profile' | 'git-stuff' | 'telemetry' | 'integrations' | 'ai' =
-		'profile';
-	export let showIntegrations = false;
+	const userService = getContext(UserService);
+	const user = userService.user;
 
-	function onMenuClick(section: 'profile' | 'git-stuff' | 'telemetry' | 'integrations' | 'ai') {
-		currentSection = section;
+	type PageNames = 'profile' | 'git' | 'telemetry' | 'integrations' | 'ai'
+
+	let currentSection: PageNames
+	$: currentSection = $page.url.pathname.slice(0, -1).split('/').pop() as PageNames
+
+	function onMenuClick(section: PageNames) {
+		goto(`/settings/${section}`)
 	}
 </script>
 
@@ -22,11 +29,7 @@
 						icon="chevron-left"
 						size="m"
 						on:mousedown={() => {
-							if (history.length > 0) {
-								history.back();
-							} else {
-								goto('/');
-							}
+							goto('/');
 						}}
 					/>
 				</div>
@@ -47,8 +50,8 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection === 'git-stuff'}
-						on:mousedown={() => onMenuClick('git-stuff')}
+						class:item_selected={currentSection === 'git'}
+						on:mousedown={() => onMenuClick('git')}
 					>
 						<Icon name="git" />
 						<span class="text-base-14 text-semibold">Git stuff</span>
@@ -64,7 +67,7 @@
 						<span class="text-base-14 text-semibold">Telemetry</span>
 					</button>
 				</li>
-				{#if showIntegrations}
+				{#if $user}
 					<li>
 						<button
 							class="profile-sidebar__menu-item"
