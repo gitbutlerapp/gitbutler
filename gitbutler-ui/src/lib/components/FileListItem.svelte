@@ -84,7 +84,7 @@
 		on:keydown
 		on:dragstart={() => {
 			// Reset selection if the file being dragged is not in the selected list
-			if ($selectedFileIds.length > 0 && !$selectedFileIds.includes(file.id)) {
+			if ($selectedFileIds.length > 0 && !$fileSelection.has(file.id, $commit?.id)) {
 				$fileSelection.clear();
 				$fileSelection.add(file.id, $commit?.id);
 			}
@@ -139,15 +139,11 @@
 		text-align: left;
 		user-select: none;
 		outline: none;
-		background: var(--clr-theme-container-light);
+		background: var(--clr-container-light);
 		border: 1px solid transparent;
 
 		&:not(.selected-draggable):hover {
-			background-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-light),
-				var(--darken-tint-light)
-			);
+			background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
 		}
 	}
 
@@ -190,15 +186,11 @@
 	}
 
 	.selected-draggable {
-		background-color: var(--clr-theme-scale-pop-80);
-		border: 1px solid var(--clr-theme-container-light);
+		background-color: var(--clr-scale-pop-80);
+		border: 1px solid var(--clr-container-light);
 
 		&:hover {
-			background-color: color-mix(
-				in srgb,
-				var(--clr-theme-scale-pop-80),
-				var(--darken-tint-extralight)
-			);
+			background-color: color-mix(in srgb, var(--clr-scale-pop-80), var(--darken-tint-extralight));
 		}
 	}
 </style>

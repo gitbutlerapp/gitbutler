@@ -14,22 +14,22 @@ export function selectFilesInList(
 	e.stopPropagation();
 	const isAlreadySelected = selectedFileIds && fileSelection.has(file.id, commit?.id);
 
-	// Ctrl + Click or Cmd + Click to select multiple files
 	if (e.ctrlKey || e.metaKey) {
-		// if file is already selected, unselect it
 		if (isAlreadySelected) {
 			fileSelection.remove(file.id, commit?.id);
 		} else {
 			fileSelection.add(file.id, commit?.id);
 		}
-	}
-	// Shift + Click to select range
-	else if (e.shiftKey && allowMultiple) {
-		const initiallySelectedIndex = sortedFiles.findIndex((f) => f.id == selectedFileIds[0]);
+	} else if (e.shiftKey && allowMultiple) {
+		const initiallySelectedIndex = sortedFiles.findIndex(
+			(f) => f.id + '|' + undefined == selectedFileIds[0]
+		);
 
 		// detect the direction of the selection
 		const selectionDirection =
-			initiallySelectedIndex < sortedFiles.findIndex((f) => f.id == file.id) ? 'down' : 'up';
+			initiallySelectedIndex < sortedFiles.findIndex((f) => f.id == file.id + '|' + commit?.id)
+				? 'down'
+				: 'up';
 
 		const updatedSelection = sortedFiles.slice(
 			Math.min(
@@ -42,20 +42,18 @@ export function selectFilesInList(
 			) + 1
 		);
 
-		selectedFileIds = updatedSelection.map((f) => f.id);
+		selectedFileIds = updatedSelection.map((f) => f.id + '|' + commit?.id);
 
 		if (selectionDirection === 'down') {
 			selectedFileIds = selectedFileIds.reverse();
 		}
-	}
-	// select only one file
-	else {
+		fileSelection.set(selectedFileIds);
+	} else {
 		// if only one file is selected and it is already selected, unselect it
 		if (selectedFileIds.length == 1 && isAlreadySelected) {
-			selectedFileIds = [];
+			fileSelection.clear();
 		} else {
-			selectedFileIds = [file.id];
+			fileSelection.set([file.id + '|' + commit?.id]);
 		}
 	}
-	fileSelection.set(selectedFileIds);
 }

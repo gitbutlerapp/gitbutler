@@ -29,7 +29,7 @@
 		{readonly}
 		{isUnapplied}
 		showCheckbox={showCheckboxes}
-		selected={$selectedFileIds && $fileSelection.has(file.id, $commit?.id)}
+		selected={$selectedFileIds && $selectedFileIds.includes(file.id + '|' + $commit?.id)}
 		on:click={(e) => {
 			selectFilesInList(e, file, $fileSelection, sortedFiles, allowMultiple, $commit);
 		}}

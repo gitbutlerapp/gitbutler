@@ -223,11 +223,14 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 	}
 
 	const viewport = opts.viewportId ? document.getElementById(opts.viewportId) : null;
-	const triggerRange = 100;
-	const scrollSpeed = 5;
+	const triggerRange = (viewport?.clientWidth || 500) / 4;
+	const scrollSpeed = (viewport?.clientWidth || 500) / 2;
+	let lastDrag = new Date().getTime();
 
 	function handleDrag(e: DragEvent) {
 		if (!viewport) return;
+		if (new Date().getTime() - lastDrag < 500) return;
+		lastDrag = new Date().getTime();
 
 		const viewportWidth = viewport.clientWidth;
 		const relativeX = e.clientX - viewport.getBoundingClientRect().left;
