@@ -1,6 +1,8 @@
 <script lang="ts">
 	import BranchFilesList from './BranchFilesList.svelte';
-	import { createCommitStore, getSelectedFileIds } from '$lib/vbranches/contexts';
+	import { getContext } from '$lib/utils/context';
+	import { createCommitStore } from '$lib/vbranches/contexts';
+	import { FileSelection } from '$lib/vbranches/fileSelection';
 	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
 
 	export let files: LocalFile[] | RemoteFile[];
@@ -11,10 +13,10 @@
 	export let readonly = false;
 
 	createCommitStore(undefined);
-	const selectedFileIds = getSelectedFileIds();
+	const fileSelection = getContext(FileSelection);
 
 	function unselectAllFiles() {
-		$selectedFileIds.clear();
+		fileSelection.clear();
 	}
 </script>
 

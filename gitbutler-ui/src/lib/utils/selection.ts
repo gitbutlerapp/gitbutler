@@ -1,7 +1,6 @@
 /**
  * Shared helper functions for manipulating selected files with keyboard.
  */
-import { get, type Writable } from 'svelte/store';
 import type { FileSelection } from '$lib/vbranches/fileSelection';
 import type { AnyFile } from '$lib/vbranches/types';
 
@@ -33,29 +32,21 @@ export function getFileByKey(key: string, current: string, files: AnyFile[]): An
 export function updateFocus(
 	elt: HTMLElement,
 	file: AnyFile,
-	selectedFiles: Writable<FileSelection>,
+	fileSelection: FileSelection,
 	commitId?: string
 ) {
-	const selection = get(selectedFiles);
-
-	if (selection.length != 1) return;
-	const selected = selection.toOnly();
-	if (selected.fileId == file.id && selected.context == commitId) elt.focus();
+	if (fileSelection.length != 1) return;
+	const selected = fileSelection.only();
+	if (selected.fileId == file.id && selected.commitId == commitId) elt.focus();
 }
 
-export function maybeMoveSelection(
-	key: string,
-	files: AnyFile[],
-	selectedFileIds: Writable<FileSelection>
-) {
+export function maybeMoveSelection(key: string, files: AnyFile[], selectedFileIds: FileSelection) {
 	if (key != 'ArrowUp' && key != 'ArrowDown') return;
+	if (selectedFileIds.length == 0) return;
 
-	const currentSelection = get(selectedFileIds);
-	if (currentSelection.length == 0) return;
-
-	const newSelection = getFileByKey(key, currentSelection.toOnly().fileId, files);
+	const newSelection = getFileByKey(key, selectedFileIds.only().fileId, files);
 	if (newSelection) {
-		currentSelection.clear();
-		currentSelection.add(newSelection.id);
+		selectedFileIds.clear();
+		selectedFileIds.add(newSelection.id);
 	}
 }

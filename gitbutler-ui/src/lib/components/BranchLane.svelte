@@ -13,7 +13,6 @@
 		createIntegratedContextStore,
 		createLocalContextStore,
 		createRemoteContextStore,
-		createSelectedFileIds,
 		createSelectedFiles,
 		createUnknownContextStore
 	} from '$lib/vbranches/contexts';
@@ -21,6 +20,7 @@
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { RemoteFile, Branch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
+	import { setContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 
@@ -47,14 +47,14 @@
 	const unknownCommits = createUnknownContextStore([]);
 	$: if (branch.upstream?.name) loadRemoteBranch(branch.upstream?.name);
 
-	const fileSelection = createSelectedFileIds(new FileSelection());
-	const selectedFileIds = $fileSelection.fileIds;
+	const fileSelection = new FileSelection();
+	setContext(FileSelection, fileSelection);
 
 	const selectedFiles = createSelectedFiles([]);
-	$: if ($selectedFileIds.length == 0) selectedFiles.set([]);
-	$: if ($selectedFileIds.length > 0 && $fileSelection.toOnly().context == 'undefined') {
+	$: if ($fileSelection.length == 0) selectedFiles.set([]);
+	$: if ($fileSelection.length > 0 && fileSelection.only().commitId == 'undefined') {
 		selectedFiles.set(
-			$selectedFileIds
+			$fileSelection
 				.map((fileId) => branch.files.find((f) => f.id + '|' + undefined == fileId))
 				.filter(isDefined)
 		);
@@ -84,7 +84,7 @@
 
 	$: isLaneCollapsed = projectLaneCollapsed(project.id, branch.id);
 	$: if ($isLaneCollapsed) {
-		$fileSelection.clear();
+		fileSelection.clear();
 	}
 </script>
 
@@ -111,7 +111,7 @@
 				selectable={$commitBoxOpen && !isUnapplied}
 				on:close={() => {
 					const selectedId = displayedFile?.id;
-					selectedId && $fileSelection.remove(selectedId);
+					selectedId && fileSelection.remove(selectedId);
 				}}
 			/>
 			<Resizer

@@ -1,5 +1,5 @@
+import { fileKey, type FileSelection } from '$lib/vbranches/fileSelection';
 import { get } from 'svelte/store';
-import type { FileSelection } from '$lib/vbranches/fileSelection';
 import type { AnyCommit, AnyFile } from '$lib/vbranches/types';
 
 export function selectFilesInList(
@@ -10,7 +10,7 @@ export function selectFilesInList(
 	allowMultiple: boolean,
 	commit: AnyCommit | undefined
 ) {
-	let selectedFileIds = get(fileSelection.fileIds);
+	let selectedFileIds = get(fileSelection);
 	e.stopPropagation();
 	const isAlreadySelected = selectedFileIds && fileSelection.has(file.id, commit?.id);
 
@@ -22,14 +22,12 @@ export function selectFilesInList(
 		}
 	} else if (e.shiftKey && allowMultiple) {
 		const initiallySelectedIndex = sortedFiles.findIndex(
-			(f) => f.id + '|' + undefined == selectedFileIds[0]
+			(file) => fileKey(file.id, undefined) == selectedFileIds[0]
 		);
 
 		// detect the direction of the selection
 		const selectionDirection =
-			initiallySelectedIndex < sortedFiles.findIndex((f) => f.id == file.id + '|' + commit?.id)
-				? 'down'
-				: 'up';
+			initiallySelectedIndex < sortedFiles.findIndex((f) => f.id == file.id) ? 'down' : 'up';
 
 		const updatedSelection = sortedFiles.slice(
 			Math.min(
@@ -42,7 +40,7 @@ export function selectFilesInList(
 			) + 1
 		);
 
-		selectedFileIds = updatedSelection.map((f) => f.id + '|' + commit?.id);
+		selectedFileIds = updatedSelection.map((f) => fileKey(f.id, commit?.id));
 
 		if (selectionDirection === 'down') {
 			selectedFileIds = selectedFileIds.reverse();
@@ -53,7 +51,7 @@ export function selectFilesInList(
 		if (selectedFileIds.length == 1 && isAlreadySelected) {
 			fileSelection.clear();
 		} else {
-			fileSelection.set([file.id + '|' + commit?.id]);
+			fileSelection.set([fileKey(file.id, commit?.id)]);
 		}
 	}
 }
