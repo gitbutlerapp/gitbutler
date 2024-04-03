@@ -3,11 +3,11 @@
 	import Select from './Select.svelte';
 	import SelectItem from './SelectItem.svelte';
 	import { ProjectService, Project } from '$lib/backend/projects';
-	import { getContext } from '$lib/utils/context';
+	import { getContext, maybeGetContext } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
 
 	const projectService = getContext(ProjectService);
-	const project = getContext(Project);
+	const project = maybeGetContext(Project);
 
 	const projects = projectService.projects;
 

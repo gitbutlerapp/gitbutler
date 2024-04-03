@@ -20,6 +20,13 @@ export function getContext<T extends Class>(key: T): InstanceType<T> {
 }
 
 /**
+ * Optional getter that returns an instance of the parameter type
+ */
+export function maybeGetContext<T extends Class>(key: T): InstanceType<T> | undefined {
+	return svelteGetContext<InstanceType<T> | undefined>(key);
+}
+
+/**
  * Getter that returns an readable store of the parameter type
  */
 export function getContextStore<
