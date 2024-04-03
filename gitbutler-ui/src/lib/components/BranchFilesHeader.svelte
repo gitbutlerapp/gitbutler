@@ -1,8 +1,6 @@
 <script lang="ts">
 	import Badge from '$lib/components/Badge.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
-	import Segment from '$lib/components/SegmentControl/Segment.svelte';
-	import SegmentedControl from '$lib/components/SegmentControl/SegmentedControl.svelte';
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import type { AnyFile } from '$lib/vbranches/types';
@@ -10,7 +8,6 @@
 
 	export let files: AnyFile[];
 	export let showCheckboxes = false;
-	export let selectedListMode: string;
 
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 
@@ -46,7 +43,7 @@
 
 <div class="header">
 	<div class="header__left">
-		{#if showCheckboxes && selectedListMode == 'list' && files.length > 1}
+		{#if showCheckboxes && files.length > 1}
 			<Checkbox
 				small
 				{checked}
@@ -65,10 +62,6 @@
 			<Badge count={files.length} />
 		</div>
 	</div>
-	<SegmentedControl bind:selected={selectedListMode} selectedIndex={0}>
-		<Segment id="list" icon="list-view" size="small" />
-		<Segment id="tree" icon="tree-view" size="small" />
-	</SegmentedControl>
 </div>
 
 <style lang="postcss">
