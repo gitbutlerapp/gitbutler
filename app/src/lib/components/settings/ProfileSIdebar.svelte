@@ -10,13 +10,13 @@
 	const userService = getContext(UserService);
 	const user = userService.user;
 
-	type PageNames = 'profile' | 'git' | 'telemetry' | 'integrations' | 'ai'
+	type PageNames = 'profile' | 'git' | 'telemetry' | 'integrations' | 'ai';
 
-	let currentSection: PageNames
-	$: currentSection = $page.url.pathname.slice(0, -1).split('/').pop() as PageNames
+	let currentSection: PageNames;
+	$: currentSection = $page.url.pathname.slice(0, -1).split('/').pop() as PageNames;
 
 	function onMenuClick(section: PageNames) {
-		goto(`/settings/${section}`)
+		goto(`/settings/${section}`);
 	}
 </script>
 
