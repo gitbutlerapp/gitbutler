@@ -51,6 +51,7 @@
 	const selectedFileIds = $fileSelection.fileIds;
 
 	const selectedFiles = createSelectedFiles([]);
+	$: if ($selectedFileIds.length == 0) selectedFiles.set([]);
 	$: if ($selectedFileIds.length > 0 && $fileSelection.toOnly().context == 'undefined') {
 		selectedFiles.set(
 			$selectedFileIds
