@@ -8,11 +8,9 @@
 	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, AnyFile } from '$lib/vbranches/types';
-	import type { Writable } from 'svelte/store';
+	import type { BaseBranch } from '$lib/vbranches/types';
 
 	export let base: BaseBranch;
-	export let selectedFiles: Writable<AnyFile[]>;
 
 	const branchController = getContext(BranchController);
 
@@ -50,7 +48,7 @@
 		</Button>
 		<div class="commits-list">
 			{#each base.upstreamCommits as commit}
-				<CommitCard {commit} {selectedFiles} commitUrl={base.commitUrl(commit.id)} />
+				<CommitCard {commit} commitUrl={base.commitUrl(commit.id)} />
 			{/each}
 		</div>
 		<Spacer margin={2} />
@@ -64,7 +62,7 @@
 			Local
 		</h1>
 		{#each base.recentCommits as commit}
-			<CommitCard {commit} {selectedFiles} commitUrl={base.commitUrl(commit.id)} />
+			<CommitCard {commit} commitUrl={base.commitUrl(commit.id)} />
 		{/each}
 	</div>
 </div>

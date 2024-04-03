@@ -186,6 +186,8 @@ export class RemoteCommit {
 	}
 }
 
+export type AnyCommit = Commit | RemoteCommit;
+
 export const LOCAL_COMMITS = Symbol('LocalCommtis');
 export const REMOTE_COMMITS = Symbol('RemoteCommits');
 export const INTEGRATED_COMMITS = Symbol('IntegratedCommits');

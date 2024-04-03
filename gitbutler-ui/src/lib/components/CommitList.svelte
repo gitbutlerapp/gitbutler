@@ -4,18 +4,10 @@
 	import CommitListItem from './CommitListItem.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
-	import {
-		Branch,
-		type AnyFile,
-		type Commit,
-		type CommitStatus,
-		type RemoteCommit
-	} from '$lib/vbranches/types';
+	import { Branch, type Commit, type CommitStatus, type RemoteCommit } from '$lib/vbranches/types';
 	import { map } from 'rxjs';
-	import type { Writable } from 'svelte/store';
 
 	export let type: CommitStatus;
-	export let selectedFiles: Writable<AnyFile[]>;
 	export let isUnapplied: boolean;
 	export let commits: Commit[] | RemoteCommit[];
 
@@ -49,7 +41,6 @@
 							<CommitListItem
 								{commit}
 								{isUnapplied}
-								{selectedFiles}
 								isChained={idx != commits.length - 1}
 								isHeadCommit={commit.id === headCommit?.id}
 							/>

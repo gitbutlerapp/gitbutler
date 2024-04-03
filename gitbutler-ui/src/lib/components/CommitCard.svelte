@@ -1,36 +1,41 @@
 <script lang="ts">
-	import BranchFiles from './BranchFiles.svelte';
+	import BranchFilesList from './BranchFilesList.svelte';
 	import { Project } from '$lib/backend/projects';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggable } from '$lib/dragging/draggable';
-	import { draggableCommit, nonDraggable } from '$lib/dragging/draggables';
+	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { createCommitStore, getSelectedFileIds, getSelectedFiles } from '$lib/vbranches/contexts';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
-	import {
-		LocalFile,
-		RemoteCommit,
-		Commit,
-		RemoteFile,
-		Branch,
-		BaseBranch
-	} from '$lib/vbranches/types';
+	import { RemoteCommit, Commit, RemoteFile, Branch, BaseBranch } from '$lib/vbranches/types';
 	import { slide } from 'svelte/transition';
-	import type { Writable } from 'svelte/store';
 
 	export let branch: Branch | undefined = undefined;
 	export let commit: Commit | RemoteCommit;
 	export let commitUrl: string | undefined = undefined;
 	export let isHeadCommit: boolean = false;
 	export let isUnapplied = false;
-	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
 
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
+	const selectedFiles = getSelectedFiles();
+	const fileSelection = getSelectedFileIds();
+	const selectedFileIds = $fileSelection.fileIds;
+
+	const commitStore = createCommitStore(commit);
+	$: commitStore.set(commit);
+
+	$: selectedFile =
+		$selectedFileIds &&
+		$fileSelection.length == 1 &&
+		$fileSelection.toOnly().context == commit.id &&
+		files.find((f) => f.id == $fileSelection.toOnly().fileId);
+	$: if (selectedFile) selectedFiles.set([selectedFile]);
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
@@ -71,7 +76,9 @@
 
 <div
 	use:draggable={commit instanceof Commit
-		? draggableCommit(commit.branchId, commit, isHeadCommit)
+		? {
+				data: new DraggableCommit(commit.branchId, commit, isHeadCommit)
+			}
 		: nonDraggable()}
 	class="commit"
 	class:is-commit-open={showFiles}
@@ -125,7 +132,7 @@
 
 	{#if showFiles}
 		<div class="files-container" transition:slide={{ duration: 100 }}>
-			<BranchFiles {files} {isUnapplied} {selectedFiles} readonly />
+			<BranchFilesList {files} {isUnapplied} readonly />
 
 			{#if hasCommitUrl || isUndoable}
 				<div class="files__footer">

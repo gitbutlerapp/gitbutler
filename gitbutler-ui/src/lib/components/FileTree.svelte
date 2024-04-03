@@ -7,22 +7,24 @@
 	import TreeListFolder from './TreeListFolder.svelte';
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { maybeMoveSelection } from '$lib/utils/selection';
+	import { getSelectedFileIds } from '$lib/vbranches/contexts';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import type { TreeNode } from '$lib/vbranches/filetree';
-	import type { AnyFile, LocalFile, RemoteFile } from '$lib/vbranches/types';
+	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let expanded = true;
 	export let node: TreeNode;
 	export let isRoot = false;
 	export let showCheckboxes = false;
-	export let selectedFiles: Writable<AnyFile[]>;
 	export let isUnapplied: boolean;
 	export let allowMultiple = false;
 	export let readonly = false;
 	export let files: LocalFile[] | RemoteFile[];
 
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
+	const fileSelection = getSelectedFileIds();
+	const selectedFileIds = $fileSelection.fileIds;
 
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
@@ -74,7 +76,6 @@
 				<svelte:self
 					node={childNode}
 					{showCheckboxes}
-					{selectedFiles}
 					{isUnapplied}
 					{readonly}
 					{allowMultiple}
@@ -91,26 +92,26 @@
 	<TreeListFile
 		file={node.file}
 		{isUnapplied}
-		selected={$selectedFiles.includes(file)}
-		{selectedFiles}
+		selected={$selectedFileIds.includes(file.id)}
 		{readonly}
 		showCheckbox={showCheckboxes}
 		on:click={(e) => {
 			e.stopPropagation();
-			const isAlreadySelected = $selectedFiles.includes(file);
+			const isAlreadySelected = $fileSelection.has(file.id);
 			if (isAlreadySelected && e.shiftKey) {
-				selectedFiles.update((fileIds) => fileIds.filter((f) => f.id != file.id));
+				$fileSelection.remove(file.id);
 			} else if (isAlreadySelected) {
-				$selectedFiles = [];
+				$fileSelection.clear();
 			} else if (e.shiftKey && allowMultiple) {
-				selectedFiles.update((files) => [file, ...files]);
+				$fileSelection.add(file.id);
 			} else {
-				$selectedFiles = [file];
+				$fileSelection.clear();
+				$fileSelection.add(file.id);
 			}
 		}}
 		on:keydown={(e) => {
 			e.preventDefault();
-			maybeMoveSelection(e.key, files, selectedFiles);
+			maybeMoveSelection(e.key, files, fileSelection);
 		}}
 	/>
 {:else if node.children.length > 0}
@@ -136,7 +137,6 @@
 						node={childNode}
 						expanded={true}
 						{showCheckboxes}
-						{selectedFiles}
 						{isUnapplied}
 						{readonly}
 						{allowMultiple}

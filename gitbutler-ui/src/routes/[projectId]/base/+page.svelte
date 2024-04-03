@@ -7,29 +7,25 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { createSelectedFileIds, createSelectedFiles } from '$lib/vbranches/contexts';
+	import { FileSelection } from '$lib/vbranches/fileSelection';
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
-	import { writable } from 'svelte/store';
-	import type { AnyFile } from '$lib/vbranches/types';
-
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'historyLaneWidth';
-	const selectedFiles = writable<AnyFile[]>([]);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
+	createSelectedFileIds(new FileSelection());
+	const selectedFiles = createSelectedFiles([]);
+
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
 
 	$: error$ = baseBranchService.error$;
-	$: selected = setSelected($selectedFiles);
-
-	function setSelected(files: AnyFile[]) {
-		if (files.length == 0) return undefined;
-		return files[0];
-	}
+	$: selected = $selectedFiles.length == 1 ? $selectedFiles[0] : undefined;
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
@@ -49,7 +45,7 @@
 		>
 			<ScrollableContainer>
 				<div class="card">
-					<BaseBranch base={$baseBranch} {selectedFiles} />
+					<BaseBranch base={$baseBranch} />
 				</div>
 			</ScrollableContainer>
 			<Resizer

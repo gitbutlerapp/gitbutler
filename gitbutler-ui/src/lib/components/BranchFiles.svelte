@@ -2,19 +2,20 @@
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
 	import BranchFilesList from './BranchFilesList.svelte';
 	import FileTree from './FileTree.svelte';
+	import { createCommitStore } from '$lib/vbranches/contexts';
 	import { filesToFileTree } from '$lib/vbranches/filetree';
 	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
-	import type { Writable } from 'svelte/store';
 
 	export let files: LocalFile[] | RemoteFile[];
 	export let isUnapplied: boolean;
-	export let selectedFiles: Writable<(LocalFile | RemoteFile)[]>;
 	export let showCheckboxes = false;
 
 	export let allowMultiple = false;
 	export let readonly = false;
 
 	let selectedListMode: string;
+
+	createCommitStore(undefined);
 </script>
 
 <div class="branch-files" class:isUnapplied>
@@ -24,14 +25,7 @@
 	{#if files.length > 0}
 		<div class="files-padding">
 			{#if selectedListMode == 'list'}
-				<BranchFilesList
-					{allowMultiple}
-					{readonly}
-					{files}
-					{selectedFiles}
-					{showCheckboxes}
-					{isUnapplied}
-				/>
+				<BranchFilesList {allowMultiple} {readonly} {files} {showCheckboxes} {isUnapplied} />
 			{:else}
 				<FileTree
 					{allowMultiple}
@@ -39,7 +33,6 @@
 					node={filesToFileTree(files)}
 					{showCheckboxes}
 					isRoot={true}
-					{selectedFiles}
 					{isUnapplied}
 					{files}
 				/>

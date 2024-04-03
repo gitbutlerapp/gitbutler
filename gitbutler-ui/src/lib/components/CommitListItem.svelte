@@ -2,32 +2,17 @@
 	import CommitCard from './CommitCard.svelte';
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
 	import { Project } from '$lib/backend/projects';
-	import {
-		isDraggableHunk,
-		type DraggableCommit,
-		type DraggableFile,
-		type DraggableHunk,
-		isDraggableFile,
-		isDraggableCommit
-	} from '$lib/dragging/draggables';
+	import { DraggableCommit, DraggableFile, DraggableHunk } from '$lib/dragging/draggables';
 	import { dropzone } from '$lib/dragging/dropzone';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
-	import {
-		RemoteCommit,
-		Branch,
-		type Commit,
-		type AnyFile,
-		BaseBranch
-	} from '$lib/vbranches/types';
-	import { get, type Writable } from 'svelte/store';
+	import { RemoteCommit, Branch, type Commit, BaseBranch } from '$lib/vbranches/types';
 
 	export let commit: Commit | RemoteCommit;
 	export let isHeadCommit: boolean;
 	export let isChained: boolean;
 	export let isUnapplied = false;
-	export let selectedFiles: Writable<AnyFile[]>;
 
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
@@ -52,9 +37,9 @@
 				return false;
 			}
 
-			if (isDraggableHunk(data) && data.branchId == $branch.id) {
+			if (data instanceof DraggableHunk && data.branchId == $branch.id) {
 				return true;
-			} else if (isDraggableFile(data) && data.branchId == $branch.id) {
+			} else if (data instanceof DraggableFile && data.branchId == $branch.id) {
 				return true;
 			} else {
 				return false;
@@ -63,11 +48,11 @@
 	}
 
 	function onAmend(data: DraggableFile | DraggableHunk) {
-		if (isDraggableHunk(data)) {
+		if (data instanceof DraggableHunk) {
 			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
 			branchController.amendBranch($branch.id, newOwnership);
-		} else if (isDraggableFile(data)) {
-			const newOwnership = filesToOwnership([data.current, ...get(data.files)]);
+		} else if (data instanceof DraggableFile) {
+			const newOwnership = filesToOwnership(data.files);
 			branchController.amendBranch($branch.id, newOwnership);
 		}
 	}
@@ -77,7 +62,7 @@
 			return () => false;
 		}
 		return (data: any) => {
-			if (!isDraggableCommit(data)) return false;
+			if (!(data instanceof DraggableCommit)) return false;
 			if (data.branchId != $branch.id) return false;
 
 			if (data.commit.isParentOf(commit)) {
@@ -138,7 +123,6 @@
 			commitUrl={$baseBranch?.commitUrl(commit.id)}
 			{isHeadCommit}
 			{isUnapplied}
-			{selectedFiles}
 		/>
 	</div>
 </div>

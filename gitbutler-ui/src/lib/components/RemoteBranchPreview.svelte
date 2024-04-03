@@ -8,11 +8,12 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
-	import { BaseBranch, type AnyFile, type RemoteBranch } from '$lib/vbranches/types';
+	import { createSelectedFileIds, createSelectedFiles } from '$lib/vbranches/contexts';
+	import { FileSelection } from '$lib/vbranches/fileSelection';
+	import { BaseBranch, type RemoteBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
 	import { onMount } from 'svelte';
-	import { writable } from 'svelte/store';
 	import type { PullRequest } from '$lib/github/types';
 
 	export let branch: RemoteBranch;
@@ -21,20 +22,17 @@
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
 
+	createSelectedFileIds(new FileSelection());
+	const selectedFiles = createSelectedFiles([]);
+
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'branchPreviewLaneWidth';
-	const selectedFiles = writable<AnyFile[]>([]);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
 
-	$: selected = setSelected($selectedFiles);
-
-	function setSelected(files: AnyFile[]) {
-		if (files.length == 0) return undefined;
-		return files[0];
-	}
+	$: selected = $selectedFiles.length == 1 ? $selectedFiles[0] : undefined;
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
@@ -68,11 +66,7 @@
 					{#if branchData.commits && branchData.commits.length > 0}
 						<div class="branch-preview__commits-list">
 							{#each branchData.commits as commit (commit.id)}
-								<CommitCard
-									{commit}
-									{selectedFiles}
-									commitUrl={$baseBranch?.commitUrl(commit.id)}
-								/>
+								<CommitCard {commit} commitUrl={$baseBranch?.commitUrl(commit.id)} />
 							{/each}
 						</div>
 					{/if}

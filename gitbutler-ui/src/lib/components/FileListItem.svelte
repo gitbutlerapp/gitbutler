@@ -3,10 +3,11 @@
 	import FileStatusIcons from './FileStatusIcons.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { draggable } from '$lib/dragging/draggable';
-	import { draggableFile } from '$lib/dragging/draggables';
+	import { DraggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { updateFocus } from '$lib/utils/selection';
+	import { getCommitStore, getSelectedFileIds, getSelectedFiles } from '$lib/vbranches/contexts';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type AnyFile } from '$lib/vbranches/types';
 	import { onDestroy } from 'svelte';
@@ -16,11 +17,14 @@
 	export let isUnapplied: boolean;
 	export let selected: boolean;
 	export let showCheckbox: boolean = false;
-	export let selectedFiles: Writable<AnyFile[]>;
 	export let readonly = false;
 
 	const branch = maybeGetContextStore(Branch);
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
+	const fileSelection = getSelectedFileIds();
+	const selectedFileIds = $fileSelection.fileIds;
+	const selectedFiles = getSelectedFiles();
+	const commit = getCommitStore();
 
 	let checked = false;
 	let indeterminate = false;
@@ -42,7 +46,8 @@
 		});
 	}
 
-	$: if ($selectedFiles && draggableElt) updateFocus(draggableElt, file, selectedFiles);
+	$: if ($selectedFileIds && draggableElt)
+		updateFocus(draggableElt, file, fileSelection, $commit?.id);
 
 	$: popupMenu = updateContextMenu();
 
@@ -77,12 +82,13 @@
 		on:keydown
 		on:dragstart={() => {
 			// Reset selection if the file being dragged is not in the selected list
-			if ($selectedFiles.length > 0 && !$selectedFiles.find((f) => f.id == file.id)) {
-				$selectedFiles = [file];
+			if ($selectedFileIds.length > 0 && !$selectedFileIds.includes(file.id)) {
+				$fileSelection.clear();
+				$fileSelection.add(file.id, $commit?.id);
 			}
 		}}
 		use:draggable={{
-			...draggableFile($branch?.id || '', file, selectedFiles),
+			data: new DraggableFile($branch?.id || '', file, selectedFiles),
 			disabled: readonly || isUnapplied,
 			selector: '.selected-draggable'
 		}}
@@ -90,7 +96,9 @@
 		tabindex="0"
 		on:contextmenu|preventDefault={(e) =>
 			popupMenu.openByMouse(e, {
-				files: $selectedFiles.includes(file) ? $selectedFiles : [file]
+				files: $selectedFileIds.includes(file.id)
+					? $selectedFileIds.map((fileId) => $branch?.files.find((f) => f.id == fileId))
+					: [file]
 			})}
 	>
 		<div class="info-wrap">

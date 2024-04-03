@@ -6,34 +6,24 @@
 	import topSheetSvg from '$lib/assets/new-branch/top-sheet.svg?raw';
 	// import components
 	import Button from '$lib/components/Button.svelte';
-	import {
-		isDraggableHunk,
-		isDraggableFile,
-		type DraggableFile,
-		type DraggableHunk
-	} from '$lib/dragging/draggables';
+	import { DraggableFile, DraggableHunk } from '$lib/dragging/draggables';
 	import { dropzone } from '$lib/dragging/dropzone';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
-	import { get } from 'svelte/store';
 
 	const branchController = getContext(BranchController);
 
 	function accepts(data: any) {
-		return isDraggableFile(data) || isDraggableHunk(data);
+		return data instanceof DraggableFile || data instanceof DraggableHunk;
 	}
 
 	function onDrop(data: DraggableFile | DraggableHunk) {
-		if (isDraggableHunk(data)) {
+		if (data instanceof DraggableHunk) {
 			const ownership = `${data.hunk.filePath}:${data.hunk.id}`;
 			branchController.createBranch({ ownership });
-		} else if (isDraggableFile(data)) {
-			let files = get(data.files);
-			if (files.length == 0) {
-				files = [data.current];
-			}
-			const ownership = filesToOwnership(files);
+		} else if (data instanceof DraggableFile) {
+			const ownership = filesToOwnership(data.files);
 			branchController.createBranch({ ownership });
 		}
 	}
