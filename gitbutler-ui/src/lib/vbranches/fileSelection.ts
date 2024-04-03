@@ -11,16 +11,16 @@ export class FileSelection {
 	constructor() {}
 
 	add(fileId: string, context?: string) {
-		this._fileIds.add(context ? fileId + '|' + context : fileId);
+		this._fileIds.add(fileId + '|' + context);
 		this.fileIds.set([...this._fileIds.values()]);
 	}
 
 	has(fileId: string, context?: string) {
-		return this._fileIds.has(context ? fileId + '|' + context : fileId);
+		return this._fileIds.has(fileId + '|' + context);
 	}
 
 	remove(fileId: string, context?: string) {
-		this._fileIds.delete(context ? fileId + '|' + context : fileId);
+		this._fileIds.delete(fileId + '|' + context);
 		this.fileIds.set([...this._fileIds.values()]);
 	}
 

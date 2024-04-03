@@ -35,13 +35,12 @@
 </script>
 
 <div class="board-wrapper">
-	<div class="scroll-viewport hide-native-scrollbar" bind:this={viewport}>
+	<div class="scroll-viewport hide-native-scrollbar" id="board-viewport" bind:this={viewport}>
 		<div class="scroll-contents" bind:this={contents}>
 			<Board />
 		</div>
 		<Scrollbar {viewport} {contents} horz zIndex={50} />
 	</div>
-	<Scrollbar {viewport} {contents} horz zIndex={50} />
 </div>
 
 <style lang="postcss">
@@ -58,6 +57,7 @@
 		overflow-x: scroll;
 		height: 100%;
 		width: 100%;
+		scroll-behavior: smooth !important;
 	}
 	.scroll-contents {
 		display: flex;

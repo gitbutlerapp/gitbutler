@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BranchCard from './BranchCard.svelte';
 	import FileCard from './FileCard.svelte';
 	import { Project } from '$lib/backend/projects';
 	import Resizer from '$lib/components/Resizer.svelte';
@@ -50,10 +51,13 @@
 	const selectedFileIds = $fileSelection.fileIds;
 
 	const selectedFiles = createSelectedFiles([]);
-	$: if ($selectedFileIds.length > 0 && $fileSelection.toOnly().context === undefined)
+	$: if ($selectedFileIds.length > 0 && $fileSelection.toOnly().context == 'undefined') {
 		selectedFiles.set(
-			$selectedFileIds.map((fileId) => branch.files.find((f) => f.id == fileId)).filter(isDefined)
+			$selectedFileIds
+				.map((fileId) => branch.files.find((f) => f.id + '|' + undefined == fileId))
+				.filter(isDefined)
 		);
+	}
 
 	$: displayedFile = $selectedFiles.length == 1 ? $selectedFiles[0] : undefined;
 
