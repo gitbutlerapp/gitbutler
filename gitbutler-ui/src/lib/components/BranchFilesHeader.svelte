@@ -69,6 +69,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		padding-top: var(--size-14);
+		padding-bottom: var(--size-14);
 	}
 	.header__title {
 		display: flex;

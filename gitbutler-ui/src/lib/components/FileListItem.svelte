@@ -132,7 +132,6 @@
 		padding: var(--size-4) var(--size-8);
 		gap: var(--size-16);
 		border-radius: var(--radius-s);
-		max-width: 100%;
 		overflow: hidden;
 		text-align: left;
 		user-select: none;
