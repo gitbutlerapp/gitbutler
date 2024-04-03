@@ -67,9 +67,6 @@
 		width: 1px;
 		height: 100%;
 
-		/* background-color: red; */
-		/* background-color: var(--clr-container-outline-light); */
-
 		&:after {
 			pointer-events: none;
 			content: '';
@@ -89,26 +86,5 @@
 		flex-direction: column;
 		max-height: 100%;
 		flex-grow: 1;
-	}
-
-	@keyframes wiggle {
-		0% {
-			transform: rotate(0deg);
-		}
-		40% {
-			transform: rotate(0deg);
-		}
-		60% {
-			transform: rotate(2deg);
-		}
-		80% {
-			transform: rotate(-2deg);
-		}
-		100% {
-			transform: rotate(0deg);
-		}
-	}
-	:global(.wiggle) {
-		animation: wiggle 0.5s infinite;
 	}
 </style>
