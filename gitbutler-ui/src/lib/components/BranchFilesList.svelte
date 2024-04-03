@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BranchFilesHeader from './BranchFilesHeader.svelte';
 	import FileListItem from './FileListItem.svelte';
 	import { maybeMoveSelection } from '$lib/utils/selection';
 	import { getCommitStore, getSelectedFileIds } from '$lib/vbranches/contexts';
@@ -18,6 +19,9 @@
 	$: sortedFiles = sortLikeFileTree(files);
 </script>
 
+<div class="branch-files__header">
+	<BranchFilesHeader {files} {showCheckboxes} />
+</div>
 {#each sortedFiles as file (file.id)}
 	<FileListItem
 		{file}
@@ -44,3 +48,12 @@
 		}}
 	/>
 {/each}
+
+<style lang="postcss">
+	.branch-files__header {
+		padding-top: var(--size-14);
+		padding-bottom: var(--size-12);
+		padding-left: var(--size-14);
+		padding-right: var(--size-14);
+	}
+</style>
