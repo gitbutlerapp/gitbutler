@@ -50,7 +50,7 @@
 	bind:this={element}
 	class:wide
 	style:width={pxToRem(width)}
-	class:shaky={!isInputValid}
+	class:wiggle={!isInputValid}
 >
 	{#if label}
 		<label class="textbox__label text-base-13 text-semibold" for={id}>

@@ -216,7 +216,7 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 	}
 
 	const viewport = opts.viewportId ? document.getElementById(opts.viewportId) : null;
-	const triggerRange = (viewport?.clientWidth || 500) / 4;
+	const triggerRange = 150;
 	const scrollSpeed = (viewport?.clientWidth || 500) / 2;
 	let lastDrag = new Date().getTime();
 
