@@ -21,6 +21,7 @@
 
 <style lang="post-css">
 	.content-wrapper {
+		z-index: 9999;
 		user-select: none;
 		width: 100%;
 		height: 100%;
