@@ -15,10 +15,10 @@
 	--clr-container-outline-sub: var(--clr-core-ntrl-40);
 	--clr-container-pale: var(--clr-core-ntrl-90);
 	--clr-container-sub: var(--clr-core-ntrl-80);
-	--clr-core-err-5: #240f11;
-	--clr-core-err-10: #2b1215;
-	--clr-core-err-20: #481e23;
-	--clr-core-err-30: #6f2f35;
+	--clr-core-err-5: #260d0f;
+	--clr-core-err-10: #361216;
+	--clr-core-err-20: #4d1a1f;
+	--clr-core-err-30: #77282f;
 	--clr-core-err-40: #a83d47;
 	--clr-core-err-50: #de6671;
 	--clr-core-err-60: #eba4ab;
@@ -39,8 +39,8 @@
 	--clr-core-ntrl-90: #f5f5f3;
 	--clr-core-ntrl-95: #fafaf7;
 	--clr-core-ntrl-100: #ffffff;
-	--clr-core-pop-5: #0b1918;
-	--clr-core-pop-10: #0b2221;
+	--clr-core-pop-5: #0d2625;
+	--clr-core-pop-10: #0f2e2c;
 	--clr-core-pop-20: #174543;
 	--clr-core-pop-30: #29605e;
 	--clr-core-pop-40: #288a85;
@@ -50,8 +50,8 @@
 	--clr-core-pop-80: #d6f0ee;
 	--clr-core-pop-90: #edf8f7;
 	--clr-core-pop-95: #f4fbfa;
-	--clr-core-purple-5: #0b0911;
-	--clr-core-purple-10: #1f1339;
+	--clr-core-purple-5: #140d26;
+	--clr-core-purple-10: #22143d;
 	--clr-core-purple-20: #301d58;
 	--clr-core-purple-30: #43297a;
 	--clr-core-purple-40: #6748a8;
@@ -61,8 +61,8 @@
 	--clr-core-purple-80: #dccff7;
 	--clr-core-purple-90: #e9e0fa;
 	--clr-core-purple-95: #f2eefc;
-	--clr-core-succ-5: #0b1912;
-	--clr-core-succ-10: #11271d;
+	--clr-core-succ-5: #0d261a;
+	--clr-core-succ-10: #153225;
 	--clr-core-succ-20: #1d4934;
 	--clr-core-succ-30: #256f4d;
 	--clr-core-succ-40: #3d8765;
@@ -72,8 +72,8 @@
 	--clr-core-succ-80: #d6f0e4;
 	--clr-core-succ-90: #e8f7f0;
 	--clr-core-succ-95: #f6fcfb;
-	--clr-core-warn-5: #231706;
-	--clr-core-warn-10: #2e1f0a;
+	--clr-core-warn-5: #261c0d;
+	--clr-core-warn-10: #3b280d;
 	--clr-core-warn-20: #533813;
 	--clr-core-warn-30: #865613;
 	--clr-core-warn-40: #b97618;
