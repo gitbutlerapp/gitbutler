@@ -183,7 +183,7 @@
 							}
 						}}
 					/>
-					<PullRequestCard {isUnapplied} isLaneCollapsed={$isLaneCollapsed} />
+					<PullRequestCard isLaneCollapsed={$isLaneCollapsed} />
 					<!-- DROPZONES -->
 					<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
 					<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
