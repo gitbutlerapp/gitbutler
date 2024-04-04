@@ -10,13 +10,19 @@
 	const userService = getContext(UserService);
 	const user = userService.user;
 
-	type PageNames = 'profile' | 'git' | 'telemetry' | 'integrations' | 'ai';
+	let currentSection: string | undefined;
+	$: currentSection = getPageName($page.url.pathname);
 
-	let currentSection: PageNames;
-	$: currentSection = $page.url.pathname.slice(0, -1).split('/').pop() as PageNames;
+	const settingsPageRegExp = /\/settings\/(.*?)(?:$|\/)/;
 
-	function onMenuClick(section: PageNames) {
-		goto(`/settings/${section}`);
+	function getPageName(pathname: string) {
+		const matches = pathname.match(settingsPageRegExp);
+
+		return matches?.[1];
+	}
+
+	function onMenuClick(section: string) {
+		goto(`/settings/${section}`, { replaceState: true });
 	}
 </script>
 
@@ -29,7 +35,11 @@
 						icon="chevron-left"
 						size="m"
 						on:mousedown={() => {
-							goto('/');
+							if (history.length > 0) {
+								history.back();
+							} else {
+								goto('/');
+							}
 						}}
 					/>
 				</div>
@@ -40,7 +50,7 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection === 'profile'}
+						class:item_selected={currentSection == 'profile'}
 						on:mousedown={() => onMenuClick('profile')}
 					>
 						<Icon name="profile" />
@@ -50,7 +60,7 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection === 'git'}
+						class:item_selected={currentSection == 'git'}
 						on:mousedown={() => onMenuClick('git')}
 					>
 						<Icon name="git" />
@@ -60,7 +70,7 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection === 'telemetry'}
+						class:item_selected={currentSection == 'telemetry'}
 						on:mousedown={() => onMenuClick('telemetry')}
 					>
 						<Icon name="stat" />
@@ -71,7 +81,7 @@
 					<li>
 						<button
 							class="profile-sidebar__menu-item"
-							class:item_selected={currentSection === 'integrations'}
+							class:item_selected={currentSection == 'integrations'}
 							on:mousedown={() => onMenuClick('integrations')}
 						>
 							<Icon name="integrations" />
@@ -82,7 +92,7 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection === 'ai'}
+						class:item_selected={currentSection == 'ai'}
 						on:mousedown={() => onMenuClick('ai')}
 					>
 						<Icon name="ai" />

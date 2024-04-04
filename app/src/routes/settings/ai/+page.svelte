@@ -1,13 +1,7 @@
 <script lang="ts">
-	import {
-		AIService,
-		AnthropicModelName,
-		GitAIConfigKey,
-		KeyOption,
-		ModelKind,
-		OpenAIModelName
-	} from '$lib/backend/aiService';
+	import { AIService, GitAIConfigKey, KeyOption, ModelKind } from '$lib/backend/aiService';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
+	import { OpenAIModelName, AnthropicModelName } from '$lib/backend/types';
 	import InfoMessage from '$lib/components/InfoMessage.svelte';
 	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
