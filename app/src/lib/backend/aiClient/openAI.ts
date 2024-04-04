@@ -1,5 +1,5 @@
 import { type AIClient, type PromptMessage, MessageRole } from '$lib/backend/aiClient';
-import type { OpenAIModelName } from './types';
+import type { OpenAIModelName } from '../types';
 import type OpenAI from 'openai';
 
 export class OpenAIClient implements AIClient {
