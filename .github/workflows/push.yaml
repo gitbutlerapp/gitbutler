@@ -15,7 +15,7 @@ jobs:
       node: ${{ steps.filter.outputs.node }}
       rust: ${{ steps.filter.outputs.rust }}
       gitbutler-core: ${{ steps.filter.outputs.gitbutler-core }}
-      gitbutler-app: ${{ steps.filter.outputs.gitbutler-app }}
+      gitbutler-tauri: ${{ steps.filter.outputs.gitbutler-tauri }}
       gitbutler-changeset: ${{ steps.filter.outputs.gitbutler-changeset }}
       gitbutler-git: ${{ steps.filter.outputs.gitbutler-git }}
     steps:
@@ -25,7 +25,7 @@ jobs:
         with:
           filters: |
             node:
-              - 'gitbutler-ui/**'
+              - 'app/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
             common-rust: &rust
@@ -34,19 +34,18 @@ jobs:
               - 'rust-toolchain.toml'
             rust: &any-rust
               - *rust
-              - 'gitbutler-!(ui)/**'
               - 'crates/**'
-            gitbutler-app:
+            gitbutler-tauri:
               - *any-rust
             gitbutler-core:
               - *rust
               - 'crates/gitbutler-core/**'
             gitbutler-changeset:
               - *rust
-              - 'gitbutler-changeset/**'
+              - 'crates/gitbutler-changeset/**'
             gitbutler-git:
               - *rust
-              - 'gitbutler-git/**'
+              - 'crates/gitbutler-git/**'
 
   lint-node:
     needs: changes
@@ -102,9 +101,9 @@ jobs:
         env:
           RUSTDOCFLAGS: -Dwarnings
 
-  check-gitbutler:
+  check-gitbutler-tauri:
     needs: [changes, rust-init]
-    if: ${{ needs.changes.outputs.gitbutler-core == 'true' }}
+    if: ${{ needs.changes.outputs.gitbutler-tauri == 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
@@ -120,29 +119,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/check-crate
         with:
-          crate: gitbutler-core
-          features: ${{ toJson(matrix.features) }}
-          action: ${{ matrix.action }}
-
-  check-gitbutler-app:
-    needs: [changes, rust-init]
-    if: ${{ needs.changes.outputs.gitbutler-app == 'true' }}
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
-    strategy:
-      matrix:
-        action:
-          - test
-          - check
-          - check-tests
-        features:
-          - ''
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/check-crate
-        with:
-          crate: gitbutler-app
+          crate: gitbutler-tauri
           features: ${{ toJson(matrix.features) }}
           action: ${{ matrix.action }}
 
@@ -194,12 +171,35 @@ jobs:
           features: ${{ toJson(matrix.features) }}
           action: ${{ matrix.action }}
 
+  check-gitbutler-core:
+    needs: [changes, rust-init]
+    if: ${{ needs.changes.outputs.gitbutler-core == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    strategy:
+      matrix:
+        action:
+          - test
+          - check
+        features:
+          - ''
+          - '*'
+          - []
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/check-crate
+        with:
+          crate: gitbutler-git
+          features: ${{ toJson(matrix.features) }}
+          action: ${{ matrix.action }}
+
   check-rust:
     if: always()
     needs:
       - changes
-      - check-gitbutler
-      - check-gitbutler-app
+      - check-gitbutler-tauri
+      - check-gitbutler-core
       - check-gitbutler-changeset
       - check-gitbutler-git
     runs-on: ubuntu-latest

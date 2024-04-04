@@ -4,7 +4,6 @@ use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use reqwest::{header::CONTENT_TYPE, Client as HttpClient};
 use serde::Serialize;
-use serde_json;
 use tracing::instrument;
 
 const API_ENDPOINT: &str = "https://eu.posthog.com/batch/";

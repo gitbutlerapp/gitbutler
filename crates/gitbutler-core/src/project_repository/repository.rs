@@ -650,16 +650,6 @@ pub enum LogUntil {
     End,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
-struct AskpassPromptPushContext {
-    branch_id: Option<BranchId>,
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
-struct AskpassPromptFetchContext {
-    action: String,
-}
-
 async fn handle_git_prompt_push(
     prompt: String,
     askpass: Option<(AskpassBroker, Option<BranchId>)>,

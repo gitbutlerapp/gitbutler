@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
-use gitbutler_app::watcher::handlers::fetch_gitbutler_data::Handler;
 use gitbutler_core::projects;
+use gitbutler_tauri::watcher::handlers::fetch_gitbutler_data::Handler;
 use pretty_assertions::assert_eq;
 
 use crate::{

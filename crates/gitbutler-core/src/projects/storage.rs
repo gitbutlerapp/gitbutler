@@ -91,7 +91,7 @@ impl Storage {
             .ok_or(Error::NotFound)?;
 
         if let Some(title) = &update_request.title {
-            project.title = title.clone();
+            project.title.clone_from(title);
         }
 
         if let Some(description) = &update_request.description {

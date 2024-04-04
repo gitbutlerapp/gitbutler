@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 
-pub use bstr;
 use bstr::{BStr, BString, ByteSlice};
 
 use super::{Scheme, Url};

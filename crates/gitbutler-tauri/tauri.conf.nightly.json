@@ -1,13 +1,13 @@
 {
 	"build": {
-		"beforeBuildCommand": "pnpm build && cargo build --release -p gitbutler-git && bash ./gitbutler-app/inject-git-binaries.sh"
+		"beforeBuildCommand": "pnpm build:nightly && cargo build --release -p gitbutler-git && bash ./gitbutler-tauri/inject-git-binaries.sh"
 	},
 	"package": {
-		"productName": "GitButler"
+		"productName": "GitButler Nightly"
 	},
 	"tauri": {
 		"bundle": {
-			"identifier": "com.gitbutler.app",
+			"identifier": "com.gitbutler.app.nightly",
 			"icon": [
 				"icons/32x32.png",
 				"icons/128x128.png",
@@ -18,7 +18,10 @@
 			"externalBin": [
 				"gitbutler-git-setsid",
 				"gitbutler-git-askpass"
-			]
+			],
+			"windows": {
+				"certificateThumbprint": null
+			}
 		},
 		"security": {
 			"csp": {
@@ -33,7 +36,7 @@
 			"active": true,
 			"dialog": false,
 			"endpoints": [
-				"https://app.gitbutler.com/releases/release/{{target}}-{{arch}}/{{current_version}}"
+				"https://app.gitbutler.com/releases/nightly/{{target}}-{{arch}}/{{current_version}}"
 			],
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYwNTc2RDhBM0U0MjM4RUIKUldUck9FSStpbTFYWUE5UkJ3eXhuekZOL2V2RnpKaFUxbGJRNzBMVmF5V0gzV1JvN3hRblJMRDIK"
 		}
