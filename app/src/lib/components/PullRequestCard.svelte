@@ -18,7 +18,6 @@
 	import type { Readable } from 'svelte/store';
 
 	export let isLaneCollapsed: boolean;
-	export let isUnapplied = false;
 
 	const branch = getContextStore(Branch);
 	const branchService = getContext(BranchService);
@@ -271,7 +270,7 @@
 				<MergeButton
 					wide
 					projectId={project.id}
-					disabled={isFetchingChecks || isUnapplied || pr?.draft || mergeableState != 'clean'}
+					disabled={isFetchingChecks || pr?.draft || mergeableState != 'clean'}
 					loading={isMerging}
 					help="Merge pull request and refresh"
 					on:click={async (e) => {
