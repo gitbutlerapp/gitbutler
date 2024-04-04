@@ -153,7 +153,7 @@ We are also collecting tokio's runtime tracing information that could be viewed 
 To build the app in production mode, run:
 
 ```bash
-$ pnpm tauri build --features devtools --config gitbutler-app/tauri.conf.nightly.json
+$ pnpm tauri build --features devtools --config crates/gitbutler-tauri/tauri.conf.nightly.json
 ```
 
 This will make an asset similar to our nightly build.
