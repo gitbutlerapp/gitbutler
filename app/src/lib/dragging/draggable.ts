@@ -92,10 +92,11 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 			elt = elt.parentElement;
 		}
 
-		// If the draggable specifies a selector then we check
-		// if we're dragging selected elements
+		// If the draggable specifies a selector then we check if we're dragging selected elements
 		if (opts.selector) {
-			const parentNode = node.parentNode?.parentNode; // the parent has a container, so we need to go up one more level
+			// Checking for selected siblings in the parent of the parent container likely works
+			// for most use-cases but it was done here primarily for dragging multiple files.
+			const parentNode = node.parentNode?.parentNode;
 			selectedElements = parentNode
 				? Array.from(parentNode.querySelectorAll(opts.selector).values() as Iterable<HTMLElement>)
 				: [];
