@@ -1,16 +1,9 @@
+import { AnthropicModelName, ModelKind, OpenAIModelName } from './aiClients/types';
 import { CloudClient } from './cloud';
 import { AnthropicAIClient } from '$lib/backend/aiClients/anthropic';
 import { ButlerAIClient } from '$lib/backend/aiClients/butler';
 import { OpenAIClient } from '$lib/backend/aiClients/openAI';
-import {
-	AIService,
-	AnthropicModelName,
-	GitAIConfigKey,
-	KeyOption,
-	ModelKind,
-	OpenAIModelName,
-	buildDiff
-} from '$lib/backend/aiService';
+import { AIService, GitAIConfigKey, KeyOption, buildDiff } from '$lib/backend/aiService';
 import * as toasts from '$lib/utils/toasts';
 import { Hunk } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
