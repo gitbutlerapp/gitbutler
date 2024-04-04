@@ -1,6 +1,6 @@
 use std::{env, fs, path::Path};
 
-use ssh2::{self, CheckResult, KnownHostFileKind};
+use ssh2::{CheckResult, KnownHostFileKind};
 
 use crate::git;
 

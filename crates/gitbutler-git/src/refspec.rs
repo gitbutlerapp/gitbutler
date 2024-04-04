@@ -78,7 +78,7 @@ impl RefSpec {
                 refspec.destination = Some(second.to_owned());
             }
         } else {
-            refspec.destination = refspec.source.clone();
+            refspec.destination.clone_from(&refspec.source);
         }
 
         if split.next().is_some() {
