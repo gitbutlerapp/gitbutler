@@ -47,7 +47,6 @@
 {#if $isLaneCollapsed}
 	<div
 		class="card collapsed-lane"
-		on:mousedown={expandLane}
 		on:keydown={(e) => e.key === 'Enter' && expandLane()}
 		tabindex="0"
 		role="button"
