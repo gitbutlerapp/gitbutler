@@ -1,6 +1,6 @@
 import { type AIClient, type PromptMessage, MessageRole } from '$lib/backend/aiClient';
 import { fetch, Body } from '@tauri-apps/api/http';
-import type { AnthropicModelName } from '../types';
+import type { AnthropicModelName } from './types';
 
 type AnthropicAPIResponse = { content: { text: string }[] };
 

@@ -1,5 +1,5 @@
+import { AnthropicModelName, ModelKind, OpenAIModelName } from './aiClient/types';
 import { CloudClient } from './cloud';
-import { AnthropicModelName, ModelKind, OpenAIModelName } from './types';
 import { AnthropicAIClient } from '$lib/backend/aiClient/anthropic';
 import { ButlerAIClient } from '$lib/backend/aiClient/butler';
 import { OpenAIClient } from '$lib/backend/aiClient/openAI';
