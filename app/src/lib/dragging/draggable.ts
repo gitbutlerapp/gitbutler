@@ -82,6 +82,7 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 
 	function handleDragStart(e: DragEvent) {
 		let elt: HTMLElement | null = dragHandle;
+
 		while (elt) {
 			if (elt.dataset.noDrag !== undefined) {
 				e.stopPropagation();
@@ -91,13 +92,26 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 			elt = elt.parentElement;
 		}
 
-		// If the draggable specifies a selector then we check if we're dragging selected
-		// elements, falling back to the single node executing the drag.
+		// If the draggable specifies a selector then we check if we're dragging selected elements
 		if (opts.selector) {
-			const parentNode = node.parentNode;
+			// Checking for selected siblings in the parent of the parent container likely works
+			// for most use-cases but it was done here primarily for dragging multiple files.
+			const parentNode = node.parentNode?.parentNode;
 			selectedElements = parentNode
 				? Array.from(parentNode.querySelectorAll(opts.selector).values() as Iterable<HTMLElement>)
 				: [];
+
+			// Check if any of the selected elements are locked
+			const isDraggableLocked = selectedElements.some(
+				(element) => element.dataset.locked == 'true'
+			);
+
+			// If any of the selected elements are locked, prevent dragging
+			if (isDraggableLocked) {
+				e.stopPropagation();
+				e.preventDefault();
+				return false;
+			}
 
 			if (selectedElements.length > 0) {
 				clone = createContainerForMultiDrag(selectedElements);
@@ -107,6 +121,7 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 				});
 			}
 		}
+
 		if (!clone) {
 			clone = cloneWithRotation(node);
 		}

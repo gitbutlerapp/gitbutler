@@ -78,6 +78,7 @@
 		class="file-list-item"
 		class:selected-draggable={selected}
 		id={`file-${file.id}`}
+		data-locked={file.lockedIds.length > 0}
 		on:click
 		on:keydown
 		on:dragstart={() => {
@@ -85,6 +86,27 @@
 			if ($fileSelection.length > 0 && !fileSelection.has(file.id, $commit?.id)) {
 				fileSelection.clear();
 				fileSelection.add(file.id, $commit?.id);
+			}
+
+			if ($selectedFiles.length > 0) {
+				$selectedFiles.forEach((f) => {
+					if (f.lockedIds.length > 0) {
+						const lockedElement = document.getElementById(`file-${f.id}`);
+
+						if (lockedElement) {
+							// add a class to the locked file
+							lockedElement.classList.add('locked-file-animation');
+						}
+					}
+				});
+			} else if (file.lockedIds.length > 0) {
+				draggableElt.classList.add('locked-file-animation');
+			}
+		}}
+		on:animationend={() => {
+			// remove the class after the animation ends
+			if (file.lockedIds.length > 0) {
+				draggableElt.classList.remove('locked-file-animation');
 			}
 		}}
 		use:draggable={{
