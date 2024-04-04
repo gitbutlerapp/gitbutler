@@ -153,10 +153,10 @@ dialog::backdrop {
 /* STATES */
 
 .wiggle {
-	animation: wiggle 0.35s forwards;
+	animation: wiggle-animation 0.35s forwards;
 }
 
-@keyframes wiggle {
+@keyframes wiggle-animation {
 	0% {
 		transform: translateX(-3px);
 	}
@@ -171,5 +171,39 @@ dialog::backdrop {
 	}
 	100% {
 		transform: translateX(0);
+	}
+}
+
+.locked-file-animation {
+	--locked-color: color-mix(in srgb, var(--clr-container-light), var(--clr-scale-warn-50) 20%);
+
+	border: 1px solid var(--clr-container-light);
+	animation: locked-file-animation 1.4s ease-out forwards;
+}
+
+@keyframes locked-file-animation {
+	0% {
+		transform: translateX(-3px);
+		background-color: var(--clr-container-light);
+	}
+	10% {
+		transform: translateX(3px);
+		background-color: var(--locked-color);
+	}
+	15% {
+		transform: translateX(-3px);
+		background-color: var(--locked-color);
+	}
+	25% {
+		transform: translateX(3px);
+		background-color: var(--locked-color);
+	}
+	30%,
+	70% {
+		transform: translateX(0);
+		background-color: var(--locked-color);
+	}
+	100% {
+		background-color: var(--clr-container-light);
 	}
 }
