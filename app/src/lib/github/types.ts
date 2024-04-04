@@ -122,13 +122,14 @@ export type CheckSuites =
 
 export type CheckSuite = {
 	name?: string;
-	count?: number;
+	count: number;
+	status: 'queued' | 'in_progress' | 'completed' | null;
 };
 
 export function parseGitHubCheckSuites(data: GitHubListCheckSuitesResp): CheckSuite[] {
-	console.log(data);
 	const result = data.check_suites.map((checkSuite) => ({
 		name: checkSuite.app?.name,
+		status: checkSuite.status,
 		count: checkSuite.latest_check_runs_count
 	}));
 	return result;

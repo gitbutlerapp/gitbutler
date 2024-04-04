@@ -220,11 +220,13 @@ export class GitHubService {
 		return pr;
 	}
 
-	async getPreviousChecksCount(ref: string) {
-		const checkSuites = await this.getCheckSuites(ref);
-		const items = checkSuites?.items;
-		if (!items) return 0;
-		return items.map((suite) => suite.count || 0).reduce((a, b) => a + b, 0);
+	async shouldWaitForChecks(ref: string) {
+		const resp = await this.getCheckSuites(ref);
+		const checkSuites = resp?.items;
+		if (!checkSuites) return true;
+
+		// Continue waiting if some check suites are in progress
+		if (checkSuites.some((suite) => suite.status != 'completed')) return true;
 	}
 
 	getListedPr(branch: string | undefined): PullRequest | undefined {
@@ -404,13 +406,12 @@ export class GitHubService {
 	async fetchChecksWithRetries(ref: string, retries: number, delayMs: number) {
 		let resp = await this.fetchChecks(ref);
 		let retried = 0;
-		let previousCount: number | undefined;
+		let shouldWait: boolean | undefined = undefined;
 
 		while (resp.data.total_count == 0 && retried < retries) {
-			if (previousCount === undefined && retried > 0) {
-				previousCount = await this.getPreviousChecksCount(ref);
-				if (previousCount == 0) {
-					console.log('Skipping retries because no checks');
+			if (shouldWait === undefined && retried > 0) {
+				shouldWait = await this.shouldWaitForChecks(ref);
+				if (!shouldWait) {
 					return resp;
 				}
 			}
