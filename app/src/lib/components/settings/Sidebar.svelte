@@ -2,9 +2,9 @@
 	import SupportersBanner from './SupportersBanner.svelte';
 	import IconButton from '../IconButton.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import { goto } from '$app/navigation';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
 	const userService = getContext(UserService);
