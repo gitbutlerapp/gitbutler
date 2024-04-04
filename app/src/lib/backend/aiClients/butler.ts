@@ -1,6 +1,6 @@
 import { MessageRole, type AIClient, type PromptMessage } from '$lib/backend/aiClient';
-import type { ModelKind } from '$lib/backend/aiService';
 import type { CloudClient } from '$lib/backend/cloud';
+import type { ModelKind } from './types';
 
 export class ButlerAIClient implements AIClient {
 	constructor(
