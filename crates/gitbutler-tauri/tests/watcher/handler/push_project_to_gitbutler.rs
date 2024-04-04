@@ -1,8 +1,8 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Result;
-use gitbutler_app::watcher::handlers::push_project_to_gitbutler::Handler;
 use gitbutler_core::{git, project_repository::LogUntil, projects};
+use gitbutler_tauri::watcher::handlers::push_project_to_gitbutler::Handler;
 
 use crate::{
     shared::{virtual_branches::set_test_target, Case, Suite},

@@ -1,8 +1,8 @@
 use std::fs;
 
 use anyhow::Result;
-use gitbutler_app::watcher::{handlers, handlers::git_file_change::Handler, Event};
 use gitbutler_core::projects;
+use gitbutler_tauri::watcher::{handlers, handlers::git_file_change::Handler, Event};
 use pretty_assertions::assert_eq;
 
 use crate::shared::{Case, Suite};

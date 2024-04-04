@@ -6,17 +6,20 @@ function log {
     printf "[%s] %s\n\n" "$THIS" "$*"
 }
 
+ROOT="$(dirname "$THIS")/../.."
+TARGET_ROOT="$ROOT/target/release"
+CRATE_ROOT="$ROOT/crates/gitbutler-tauri"
 
-if [ -f "target/release/gitbutler-git-askpass" ] && [ -f "target/release/gitbutler-git-setsid" ]; then
+if [ -f "$TARGET_ROOT/gitbutler-git-askpass" ] && [ -f "$TARGET_ROOT/gitbutler-git-setsid" ]; then
     TRIPLE="$(rustc -vV | sed -n 's|host: ||p')"
-    log injecting gitbutler-git binaries into gitbutler-app "(TRIPLE=${TRIPLE})"
-    cp -v target/release/gitbutler-git-askpass "gitbutler-app/gitbutler-git-askpass-${TRIPLE}"
-    cp -v target/release/gitbutler-git-setsid "gitbutler-app/gitbutler-git-setsid-${TRIPLE}"
-elif [ -f "target/release/gitbutler-git-askpass.exe" ] && [ -f "target/release/gitbutler-git-setsid.exe" ]; then
+    log injecting gitbutler-git binaries into crates/gitbutler-tauri "(TRIPLE=${TRIPLE})"
+    cp -v "$TARGET_ROOT/gitbutler-git-askpass" "$CRATE_ROOT/gitbutler-git-askpass-${TRIPLE}"
+    cp -v "$TARGET_ROOT/gitbutler-git-setsid" "$CRATE_ROOT/gitbutler-git-setsid-${TRIPLE}"
+elif [ -f "$TARGET_ROOT/gitbutler-git-askpass.exe" ] && [ -f "$TARGET_ROOT/gitbutler-git-setsid.exe" ]; then
     TRIPLE="$(rustc.exe -vV | sed -n 's|host: ||p')"
-    log injecting gitbutler-git binaries into gitbutler-app "(TRIPLE=${TRIPLE})"
-    cp -v target/release/gitbutler-git-askpass.exe "gitbutler-app/gitbutler-git-askpass-${TRIPLE}.exe"
-    cp -v target/release/gitbutler-git-setsid.exe "gitbutler-app/gitbutler-git-setsid-${TRIPLE}.exe"
+    log injecting gitbutler-git binaries into crates/gitbutler-tauri "(TRIPLE=${TRIPLE})"
+    cp -v "$TARGET_ROOT/gitbutler-git-askpass.exe" "$CRATE_ROOT/gitbutler-git-askpass-${TRIPLE}.exe"
+    cp -v "$TARGET_ROOT/gitbutler-git-setsid.exe" "$CRATE_ROOT/gitbutler-git-setsid-${TRIPLE}.exe"
 else
     log gitbutler-git binaries are not built
     exit 1

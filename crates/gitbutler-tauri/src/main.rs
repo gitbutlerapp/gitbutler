@@ -16,13 +16,13 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use gitbutler_app::{
-    analytics, app, askpass, commands, deltas, github, keys, logs, menu, projects, sentry,
-    sessions, users, virtual_branches, watcher, zip,
-};
 #[cfg(target_os = "windows")]
 use gitbutler_core::windows;
 use gitbutler_core::{assets, database, git, storage};
+use gitbutler_tauri::{
+    analytics, app, askpass, commands, deltas, github, keys, logs, menu, projects, sentry,
+    sessions, users, virtual_branches, watcher, zip,
+};
 use tauri::{generate_context, Manager, Wry};
 use tauri_plugin_log::LogTarget;
 use tauri_plugin_store::{with_store, JsonValue, StoreCollection};

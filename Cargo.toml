@@ -1,14 +1,9 @@
-[lints.clippy]
-all = "deny"
-perf = "deny"
-correctness = "deny"
-
 [workspace]
 members = [
     "crates/gitbutler-core",
-    "gitbutler-app",
-    "gitbutler-changeset",
-    "gitbutler-git",
+    "crates/gitbutler-tauri",
+    "crates/gitbutler-changeset",
+    "crates/gitbutler-git",
 ]
 resolver = "2"
 
@@ -19,6 +14,9 @@ serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0.58"
 rusqlite = { version = "0.29.0", features = [ "bundled", "blob" ] }
 tokio = { version = "1.37.0" }
+
+gitbutler-git = { path = "crates/gitbutler-git" }
+gitbutler-core = { path = "crates/gitbutler-core" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better

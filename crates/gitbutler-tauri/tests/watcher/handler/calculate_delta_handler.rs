@@ -5,12 +5,12 @@ use std::{
 };
 
 use anyhow::Result;
-use gitbutler_app::watcher::handlers::calculate_deltas_handler::Handler;
 use gitbutler_core::{
     deltas::{self, operations::Operation},
     reader, sessions,
     virtual_branches::{self, branch, VirtualBranchesHandle},
 };
+use gitbutler_tauri::watcher::handlers::calculate_deltas_handler::Handler;
 use once_cell::sync::Lazy;
 
 use self::branch::BranchId;
