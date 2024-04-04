@@ -49,7 +49,7 @@
 
 	$: popupMenu = updateContextMenu(filePath);
 
-	$: draggingDisabled = readonly || isUnapplied || section.hunk.locked;
+	$: draggingDisabled = readonly || isUnapplied;
 
 	onDestroy(() => {
 		if (popupMenu) {
