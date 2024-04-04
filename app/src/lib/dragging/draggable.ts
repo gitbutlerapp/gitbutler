@@ -65,7 +65,8 @@ function rotateElement(element: HTMLElement) {
 	element.style.rotate = `${Math.floor(Math.random() * 3)}deg`;
 }
 
-export function draggable(node: HTMLElement, opts: DraggableConfig) {
+export function draggable(node: HTMLElement, initialOpts: DraggableConfig) {
+	let opts = initialOpts;
 	let dragHandle: HTMLElement | null;
 	let clone: HTMLElement | undefined;
 
@@ -100,18 +101,6 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 			selectedElements = parentNode
 				? Array.from(parentNode.querySelectorAll(opts.selector).values() as Iterable<HTMLElement>)
 				: [];
-
-			// Check if any of the selected elements are locked
-			const isDraggableLocked = selectedElements.some(
-				(element) => element.dataset.locked == 'true'
-			);
-
-			// If any of the selected elements are locked, prevent dragging
-			if (isDraggableLocked) {
-				e.stopPropagation();
-				e.preventDefault();
-				return false;
-			}
 
 			if (selectedElements.length > 0) {
 				clone = createContainerForMultiDrag(selectedElements);
@@ -251,8 +240,9 @@ export function draggable(node: HTMLElement, opts: DraggableConfig) {
 		}
 	}
 
-	function setup(opts: DraggableConfig) {
-		if (opts.disabled) return;
+	function setup(newOpts: DraggableConfig) {
+		if (newOpts.disabled) return;
+		opts = newOpts;
 		node.draggable = true;
 		node.addEventListener('dragstart', handleDragStart);
 		node.addEventListener('drag', handleDrag);

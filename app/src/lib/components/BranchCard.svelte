@@ -118,9 +118,9 @@
 
 	function acceptBranchDrop(data: any) {
 		if (data instanceof DraggableHunk && data.branchId != branch.id) {
-			return true;
-		} else if (data instanceof DraggableFile && data.branchId != branch.id) {
-			return true;
+			return !data.hunk.locked;
+		} else if (data instanceof DraggableFile && data.branchId && data.branchId != branch.id) {
+			return !data.files.some((f) => !!f.lockedIds);
 		} else {
 			return false;
 		}

@@ -15,7 +15,9 @@
 	const branchController = getContext(BranchController);
 
 	function accepts(data: any) {
-		return data instanceof DraggableFile || data instanceof DraggableHunk;
+		if (data instanceof DraggableFile) return !data.files.some((f) => !!f.lockedIds);
+		if (data instanceof DraggableHunk) return !data.hunk.locked;
+		return false;
 	}
 
 	function onDrop(data: DraggableFile | DraggableHunk) {
