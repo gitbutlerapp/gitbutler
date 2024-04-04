@@ -1,7 +1,7 @@
-import { AnthropicModelName, OpenAIModelName } from './aiClients/types';
-import { AnthropicAIClient } from '$lib/backend/aiClients/anthropic';
-import { ButlerAIClient } from '$lib/backend/aiClients/butler';
-import { OpenAIClient } from '$lib/backend/aiClients/openAI';
+import { AnthropicModelName, OpenAIModelName } from './types';
+import { AnthropicAIClient } from '$lib/backend/anthropic';
+import { ButlerAIClient } from '$lib/backend/butler';
+import { OpenAIClient } from '$lib/backend/openAI';
 import { splitMessage } from '$lib/utils/commitMessage';
 import * as toasts from '$lib/utils/toasts';
 import OpenAI from 'openai';
