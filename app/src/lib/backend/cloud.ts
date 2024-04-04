@@ -1,6 +1,6 @@
 import { invoke } from './ipc';
 import type { PromptMessage } from '$lib/backend/aiClient';
-import type { ModelKind } from './types';
+import type { ModelKind } from './aiClient/types';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 const apiUrl = new URL('/api/', new URL(PUBLIC_API_BASE_URL));

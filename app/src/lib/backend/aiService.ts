@@ -1,4 +1,4 @@
-import { AnthropicModelName, OpenAIModelName } from './types';
+import { AnthropicModelName, OpenAIModelName } from './aiClient/types';
 import { AnthropicAIClient } from '$lib/backend/aiClient/anthropic';
 import { ButlerAIClient } from '$lib/backend/aiClient/butler';
 import { OpenAIClient } from '$lib/backend/aiClient/openAI';
