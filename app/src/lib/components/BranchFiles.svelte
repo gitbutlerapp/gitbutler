@@ -1,9 +1,9 @@
 <script lang="ts">
 	import BranchFilesList from './BranchFilesList.svelte';
-	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import { getContext } from '$lib/utils/context';
 	import { createCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
+	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
 
 	export let files: LocalFile[] | RemoteFile[];
 	export let isUnapplied: boolean;
