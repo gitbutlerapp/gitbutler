@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AIService } from '$lib/backend/aiService';
+	import { AIService } from '$lib/ai/service';
 	import { User } from '$lib/backend/cloud';
 	import { Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';

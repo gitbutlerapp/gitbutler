@@ -7,9 +7,9 @@
 	import InfoMessage from './InfoMessage.svelte';
 	import PullRequestCard from './PullRequestCard.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
+	import { AIService } from '$lib/ai/service';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
-	import { AIService } from '$lib/backend/aiService';
 	import { User } from '$lib/backend/cloud';
 	import { Project } from '$lib/backend/projects';
 	import Resizer from '$lib/components/Resizer.svelte';

@@ -1,6 +1,6 @@
+import { AIService } from '$lib/ai/service';
 import { initPostHog } from '$lib/analytics/posthog';
 import { initSentry } from '$lib/analytics/sentry';
-import { AIService } from '$lib/backend/aiService';
 import { AuthService } from '$lib/backend/auth';
 import { CloudClient } from '$lib/backend/cloud';
 import { GitConfigService } from '$lib/backend/gitConfigService';
