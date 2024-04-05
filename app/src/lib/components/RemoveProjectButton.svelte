@@ -44,7 +44,7 @@
 	<svelte:fragment slot="controls" let:close>
 		<Button
 			style="error"
-			kind="soft"
+			kind="solid"
 			iconAlign="left"
 			loading={isDeleting}
 			icon="bin-small"
