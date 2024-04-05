@@ -56,6 +56,12 @@ export class LocalFile {
 		return this.hunks.map((h) => h.id);
 	}
 
+	get locked(): boolean {
+		return this.hunks
+			? this.hunks.map((hunk) => hunk.lockedTo).reduce((a, b) => !!(a || b), false)
+			: false;
+	}
+
 	get lockedIds(): string[] {
 		return this.hunks
 			.map((hunk) => hunk.lockedTo)
@@ -238,6 +244,10 @@ export class RemoteFile {
 
 	get lockedIds(): string[] {
 		return [];
+	}
+
+	get locked(): boolean {
+		return false;
 	}
 }
 
