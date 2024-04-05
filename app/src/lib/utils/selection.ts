@@ -1,7 +1,7 @@
 /**
  * Shared helper functions for manipulating selected files with keyboard.
  */
-import type { FileSelection } from '$lib/vbranches/fileSelection';
+import type { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 import type { AnyFile } from '$lib/vbranches/types';
 
 export function getNextFile(files: AnyFile[], current: string) {
@@ -32,15 +32,19 @@ export function getFileByKey(key: string, current: string, files: AnyFile[]): An
 export function updateFocus(
 	elt: HTMLElement,
 	file: AnyFile,
-	fileSelection: FileSelection,
+	fileIdSelection: FileIdSelection,
 	commitId?: string
 ) {
-	if (fileSelection.length != 1) return;
-	const selected = fileSelection.only();
+	if (fileIdSelection.length != 1) return;
+	const selected = fileIdSelection.only();
 	if (selected.fileId == file.id && selected.commitId == commitId) elt.focus();
 }
 
-export function maybeMoveSelection(key: string, files: AnyFile[], selectedFileIds: FileSelection) {
+export function maybeMoveSelection(
+	key: string,
+	files: AnyFile[],
+	selectedFileIds: FileIdSelection
+) {
 	if (key != 'ArrowUp' && key != 'ArrowDown') return;
 	if (selectedFileIds.length == 0) return;
 

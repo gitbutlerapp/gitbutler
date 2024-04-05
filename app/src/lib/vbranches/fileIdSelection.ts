@@ -9,7 +9,7 @@ export type SelectedFile = {
 
 type CallBack = (value: string[]) => void;
 
-export class FileSelection {
+export class FileIdSelection {
 	private value: string[];
 	private callbacks: CallBack[];
 

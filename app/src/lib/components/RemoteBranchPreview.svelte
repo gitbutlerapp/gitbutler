@@ -3,18 +3,18 @@
 	import FileCard from './FileCard.svelte';
 	import Resizer from './Resizer.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
+	import lscache from 'lscache';
+	import { marked } from 'marked';
+	import { onMount, setContext } from 'svelte';
+	import type { PullRequest } from '$lib/github/types';
 	import { Project } from '$lib/backend/projects';
 	import CommitCard from '$lib/components/CommitCard.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { createSelectedFiles } from '$lib/vbranches/contexts';
-	import { FileSelection } from '$lib/vbranches/fileSelection';
+	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { BaseBranch, type RemoteBranch } from '$lib/vbranches/types';
-	import lscache from 'lscache';
-	import { marked } from 'marked';
-	import { onMount, setContext } from 'svelte';
-	import type { PullRequest } from '$lib/github/types';
 
 	export let branch: RemoteBranch;
 	export let pr: PullRequest | undefined;
@@ -22,9 +22,9 @@
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
 
-    const fileSelection = new FileSelection();
-	setContext(FileSelection, fileSelection);
-    
+	const fileIdSelection = new FileIdSelection();
+	setContext(FileIdSelection, fileIdSelection);
+
 	const selectedFiles = createSelectedFiles([]);
 
 	const defaultBranchWidthRem = 30;
@@ -58,7 +58,9 @@
 				<BranchPreviewHeader base={$baseBranch} {branch} {pr} />
 				{#if pr?.body}
 					<div class="card">
-						<div class="card__header text-base-body-14 text-semibold">PR Description</div>
+						<div class="card__header text-base-body-14 text-semibold">
+							PR Description
+						</div>
 						<div class="markdown card__content text-base-body-13">
 							{@html marked.parse(pr.body, { renderer })}
 						</div>
@@ -68,7 +70,10 @@
 					{#if branchData.commits && branchData.commits.length > 0}
 						<div class="branch-preview__commits-list">
 							{#each branchData.commits as commit (commit.id)}
-								<CommitCard {commit} commitUrl={$baseBranch?.commitUrl(commit.id)} />
+								<CommitCard
+									{commit}
+									commitUrl={$baseBranch?.commitUrl(commit.id)}
+								/>
 							{/each}
 						</div>
 					{/if}
@@ -93,7 +98,7 @@
 				isUnapplied={false}
 				readonly={true}
 				on:close={() => {
-					fileSelection.clear()
+					fileIdSelection.clear();
 				}}
 			/>
 		{/if}

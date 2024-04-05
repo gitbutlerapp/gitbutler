@@ -1,6 +1,8 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
 	import FileStatusIcons from './FileStatusIcons.svelte';
+	import { onDestroy } from 'svelte';
+	import type { Writable } from 'svelte/store';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableFile } from '$lib/dragging/draggables';
@@ -8,11 +10,9 @@
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
 	import { updateFocus } from '$lib/utils/selection';
 	import { getCommitStore, getSelectedFiles } from '$lib/vbranches/contexts';
-	import { FileSelection, fileKey } from '$lib/vbranches/fileSelection';
+	import { FileIdSelection, fileKey } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type AnyFile } from '$lib/vbranches/types';
-	import { onDestroy } from 'svelte';
-	import type { Writable } from 'svelte/store';
 
 	export let file: AnyFile;
 	export let isUnapplied: boolean;
@@ -22,7 +22,7 @@
 
 	const branch = maybeGetContextStore(Branch);
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
-	const fileSelection = getContext(FileSelection);
+	const fileIdSelection = getContext(FileIdSelection);
 	const selectedFiles = getSelectedFiles();
 	const commit = getCommitStore();
 
@@ -46,8 +46,8 @@
 		});
 	}
 
-	$: if ($fileSelection && draggableElt)
-		updateFocus(draggableElt, file, fileSelection, $commit?.id);
+	$: if ($fileIdSelection && draggableElt)
+		updateFocus(draggableElt, file, fileIdSelection, $commit?.id);
 
 	$: popupMenu = updateContextMenu();
 
@@ -83,9 +83,9 @@
 		on:keydown
 		on:dragstart={() => {
 			// Reset selection if the file being dragged is not in the selected list
-			if ($fileSelection.length > 0 && !fileSelection.has(file.id, $commit?.id)) {
-				fileSelection.clear();
-				fileSelection.add(file.id, $commit?.id);
+			if ($fileIdSelection.length > 0 && !fileIdSelection.has(file.id, $commit?.id)) {
+				fileIdSelection.clear();
+				fileIdSelection.add(file.id, $commit?.id);
 			}
 
 			if ($selectedFiles.length > 0) {
@@ -119,8 +119,8 @@
 		tabindex="0"
 		on:contextmenu|preventDefault={(e) =>
 			popupMenu.openByMouse(e, {
-				files: fileSelection.has(file.id, $commit?.id)
-					? $fileSelection.map((key) =>
+				files: fileIdSelection.has(file.id, $commit?.id)
+					? $fileIdSelection.map((key) =>
 							$branch?.files.find((f) => fileKey(f.id, $commit?.id) == key)
 						)
 					: [file]
@@ -164,7 +164,11 @@
 		border: 1px solid transparent;
 
 		&:not(.selected-draggable):hover {
-			background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
+			background-color: color-mix(
+				in srgb,
+				var(--clr-container-light),
+				var(--darken-tint-light)
+			);
 		}
 	}
 
@@ -211,7 +215,11 @@
 		border: 1px solid var(--clr-container-light);
 
 		&:hover {
-			background-color: color-mix(in srgb, var(--clr-scale-pop-80), var(--darken-tint-extralight));
+			background-color: color-mix(
+				in srgb,
+				var(--clr-scale-pop-80),
+				var(--darken-tint-extralight)
+			);
 		}
 	}
 </style>

@@ -1,6 +1,10 @@
 <script lang="ts">
 	import BranchCard from './BranchCard.svelte';
 	import FileCard from './FileCard.svelte';
+	import lscache from 'lscache';
+	import { setContext } from 'svelte';
+	import { quintOut } from 'svelte/easing';
+	import { slide } from 'svelte/transition';
 	import { Project } from '$lib/backend/projects';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectLaneCollapsed } from '$lib/config/config';
@@ -16,13 +20,9 @@
 		createSelectedFiles,
 		createUnknownContextStore
 	} from '$lib/vbranches/contexts';
-	import { FileSelection } from '$lib/vbranches/fileSelection';
+	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { RemoteFile, Branch } from '$lib/vbranches/types';
-	import lscache from 'lscache';
-	import { setContext } from 'svelte';
-	import { quintOut } from 'svelte/easing';
-	import { slide } from 'svelte/transition';
 
 	export let branch: Branch;
 	export let isUnapplied = false;
@@ -47,14 +47,14 @@
 	const unknownCommits = createUnknownContextStore([]);
 	$: if (branch.upstream?.name) loadRemoteBranch(branch.upstream?.name);
 
-	const fileSelection = new FileSelection();
-	setContext(FileSelection, fileSelection);
+	const fileIdSelection = new FileIdSelection();
+	setContext(FileIdSelection, fileIdSelection);
 
 	const selectedFiles = createSelectedFiles([]);
-	$: if ($fileSelection.length == 0) selectedFiles.set([]);
-	$: if ($fileSelection.length > 0 && fileSelection.only().commitId == 'undefined') {
+	$: if ($fileIdSelection.length == 0) selectedFiles.set([]);
+	$: if ($fileIdSelection.length > 0 && fileIdSelection.only().commitId == 'undefined') {
 		selectedFiles.set(
-			$fileSelection
+			$fileIdSelection
 				.map((fileId) => branch.files.find((f) => f.id + '|' + undefined == fileId))
 				.filter(isDefined)
 		);
@@ -84,7 +84,7 @@
 
 	$: isLaneCollapsed = projectLaneCollapsed(project.id, branch.id);
 	$: if ($isLaneCollapsed) {
-		fileSelection.clear();
+		fileIdSelection.clear();
 	}
 </script>
 
@@ -110,7 +110,7 @@
 				readonly={displayedFile instanceof RemoteFile}
 				selectable={$commitBoxOpen && !isUnapplied}
 				on:close={() => {
-                    fileSelection.clear()
+					fileIdSelection.clear();
 				}}
 			/>
 			<Resizer

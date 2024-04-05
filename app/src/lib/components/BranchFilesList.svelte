@@ -1,13 +1,13 @@
 <script lang="ts">
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
 	import FileListItem from './FileListItem.svelte';
+	import type { AnyFile } from '$lib/vbranches/types';
 	import { getContext } from '$lib/utils/context';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { maybeMoveSelection } from '$lib/utils/selection';
 	import { getCommitStore } from '$lib/vbranches/contexts';
-	import { FileSelection, fileKey } from '$lib/vbranches/fileSelection';
+	import { FileIdSelection, fileKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
-	import type { AnyFile } from '$lib/vbranches/types';
 
 	export let files: AnyFile[];
 	export let isUnapplied = false;
@@ -15,7 +15,7 @@
 	export let allowMultiple = false;
 	export let readonly = false;
 
-	const fileSelection = getContext(FileSelection);
+	const fileIdSelection = getContext(FileIdSelection);
 	const commit = getCommitStore();
 
 	$: sortedFiles = sortLikeFileTree(files);
@@ -28,13 +28,13 @@
 		{readonly}
 		{isUnapplied}
 		showCheckbox={showCheckboxes}
-		selected={$fileSelection.includes(fileKey(file.id, $commit?.id))}
+		selected={$fileIdSelection.includes(fileKey(file.id, $commit?.id))}
 		on:click={(e) => {
-			selectFilesInList(e, file, fileSelection, sortedFiles, allowMultiple, $commit);
+			selectFilesInList(e, file, fileIdSelection, sortedFiles, allowMultiple, $commit);
 		}}
 		on:keydown={(e) => {
 			e.preventDefault();
-			maybeMoveSelection(e.key, sortedFiles, fileSelection);
+			maybeMoveSelection(e.key, sortedFiles, fileIdSelection);
 		}}
 	/>
 {/each}
