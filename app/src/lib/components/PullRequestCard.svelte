@@ -10,7 +10,7 @@
 	import { createTimeAgoStore } from '$lib/utils/timeAgo';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { Branch } from '$lib/vbranches/types';
 	import { onDestroy } from 'svelte';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';

@@ -4,7 +4,7 @@
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSetup from '$lib/components/ProjectSetup.svelte';
 	import { getContext } from '$lib/utils/context';
-	import { getRemoteBranches } from '$lib/vbranches/branchStoresCache';
+	import { getRemoteBranches } from '$lib/vbranches/baseBranch';
 
 	const project = getContext(Project);
 </script>

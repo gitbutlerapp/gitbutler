@@ -8,8 +8,8 @@
 	import { cloneWithRotation } from '$lib/dragging/draggable';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 	import { BaseBranch } from '$lib/vbranches/types';
+	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { open } from '@tauri-apps/api/shell';
 
 	const vbranchService = getContext(VirtualBranchService);

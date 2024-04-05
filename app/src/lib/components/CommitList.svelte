@@ -3,8 +3,8 @@
 	import CommitListHeader from './CommitListHeader.svelte';
 	import CommitListItem from './CommitListItem.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 	import { Branch, type Commit, type CommitStatus, type RemoteCommit } from '$lib/vbranches/types';
+	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { map } from 'rxjs';
 
 	export let type: CommitStatus;
