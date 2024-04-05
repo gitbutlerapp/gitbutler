@@ -5,7 +5,7 @@
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { getContext } from '$lib/utils/context';
-	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 
 	const project = getContext(Project);
 	const githubService = getContext(GitHubService);

@@ -5,7 +5,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 

@@ -44,11 +44,4 @@
 		border-radius: var(--radius-m);
 		margin-bottom: var(--size-12);
 	}
-
-	.remove-project-btn {
-		display: flex;
-		justify-content: flex-end;
-		padding-bottom: var(--size-24);
-		border-bottom: 1px dashed var(--clr-scale-ntrl-60);
-	}
 </style>

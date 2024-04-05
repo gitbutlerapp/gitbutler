@@ -6,7 +6,7 @@
 	import { GitHubService } from '$lib/github/service';
 	import { showToast } from '$lib/notifications/toasts';
 	import { getContext } from '$lib/utils/context';
-	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 
 	const project = getContext(Project);
 	const githubService = getContext(GitHubService);

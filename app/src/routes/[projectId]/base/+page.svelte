@@ -6,7 +6,7 @@
 	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
-	import { BaseBranchService } from '$lib/vbranches/branchStoresCache';
+	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { createSelectedFiles } from '$lib/vbranches/contexts';
 	import { FileSelection } from '$lib/vbranches/fileSelection';
 	import lscache from 'lscache';

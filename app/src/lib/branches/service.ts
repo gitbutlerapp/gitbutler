@@ -6,8 +6,8 @@ import type { GitHubService } from '$lib/github/service';
 import type { PullRequest } from '$lib/github/types';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { BranchController } from '$lib/vbranches/branchController';
-import type { VirtualBranchService } from '$lib/vbranches/branchStoresCache';
 import type { Branch, RemoteBranch } from '$lib/vbranches/types';
+import type { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 
 export class BranchService {
 	public branches$: Observable<CombinedBranch[]>;
