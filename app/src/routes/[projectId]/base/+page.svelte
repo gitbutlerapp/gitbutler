@@ -18,7 +18,9 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
-	setContext(FileSelection, new FileSelection());
+    const fileSelection = new FileSelection();
+	setContext(FileSelection, fileSelection);
+
 	const selectedFiles = createSelectedFiles([]);
 
 	let rsViewport: HTMLDivElement;
@@ -66,8 +68,7 @@
 					isUnapplied={false}
 					readonly={true}
 					on:close={() => {
-						const selectedId = selected?.id;
-						selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
+						fileSelection.clear();
 					}}
 				/>
 			{/if}

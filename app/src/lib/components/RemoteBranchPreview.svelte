@@ -22,7 +22,9 @@
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
 
-	setContext(FileSelection, new FileSelection());
+    const fileSelection = new FileSelection();
+	setContext(FileSelection, fileSelection);
+    
 	const selectedFiles = createSelectedFiles([]);
 
 	const defaultBranchWidthRem = 30;
@@ -91,8 +93,7 @@
 				isUnapplied={false}
 				readonly={true}
 				on:close={() => {
-					const selectedId = selected?.id;
-					selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
+					fileSelection.clear()
 				}}
 			/>
 		{/if}
