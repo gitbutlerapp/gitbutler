@@ -110,8 +110,7 @@
 				readonly={displayedFile instanceof RemoteFile}
 				selectable={$commitBoxOpen && !isUnapplied}
 				on:close={() => {
-					const selectedId = displayedFile?.id;
-					selectedId && fileSelection.remove(selectedId);
+                    fileSelection.clear()
 				}}
 			/>
 			<Resizer
