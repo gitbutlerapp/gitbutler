@@ -7,10 +7,6 @@
 	import InfoMessage from './InfoMessage.svelte';
 	import PullRequestCard from './PullRequestCard.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
-	import lscache from 'lscache';
-	import { onMount } from 'svelte';
-	import type { Persisted } from '$lib/persisted/persisted';
-	import type { Writable } from 'svelte/store';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { AIService } from '$lib/backend/aiService';
@@ -35,6 +31,10 @@
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
 	import { Branch } from '$lib/vbranches/types';
+	import lscache from 'lscache';
+	import { onMount } from 'svelte';
+	import type { Persisted } from '$lib/persisted/persisted';
+	import type { Writable } from 'svelte/store';
 
 	export let isUnapplied = false;
 	export let isLaneCollapsed: Persisted<boolean>;

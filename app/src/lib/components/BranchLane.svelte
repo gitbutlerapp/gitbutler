@@ -1,10 +1,6 @@
 <script lang="ts">
 	import BranchCard from './BranchCard.svelte';
 	import FileCard from './FileCard.svelte';
-	import lscache from 'lscache';
-	import { setContext } from 'svelte';
-	import { quintOut } from 'svelte/easing';
-	import { slide } from 'svelte/transition';
 	import { Project } from '$lib/backend/projects';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectLaneCollapsed } from '$lib/config/config';
@@ -23,6 +19,10 @@
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { RemoteFile, Branch } from '$lib/vbranches/types';
+	import lscache from 'lscache';
+	import { setContext } from 'svelte';
+	import { quintOut } from 'svelte/easing';
+	import { slide } from 'svelte/transition';
 
 	export let branch: Branch;
 	export let isUnapplied = false;

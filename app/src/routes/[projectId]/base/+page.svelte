@@ -1,6 +1,4 @@
 <script lang="ts">
-	import lscache from 'lscache';
-	import { onMount, setContext } from 'svelte';
 	import BaseBranch from '$lib/components/BaseBranch.svelte';
 	import FileCard from '$lib/components/FileCard.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
@@ -11,6 +9,8 @@
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { createSelectedFiles } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
+	import lscache from 'lscache';
+	import { onMount, setContext } from 'svelte';
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'historyLaneWidth';
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);

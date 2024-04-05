@@ -3,10 +3,6 @@
 	import FileCard from './FileCard.svelte';
 	import Resizer from './Resizer.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
-	import lscache from 'lscache';
-	import { marked } from 'marked';
-	import { onMount, setContext } from 'svelte';
-	import type { PullRequest } from '$lib/github/types';
 	import { Project } from '$lib/backend/projects';
 	import CommitCard from '$lib/components/CommitCard.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -15,6 +11,10 @@
 	import { createSelectedFiles } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { BaseBranch, type RemoteBranch } from '$lib/vbranches/types';
+	import lscache from 'lscache';
+	import { marked } from 'marked';
+	import { onMount, setContext } from 'svelte';
+	import type { PullRequest } from '$lib/github/types';
 
 	export let branch: RemoteBranch;
 	export let pr: PullRequest | undefined;

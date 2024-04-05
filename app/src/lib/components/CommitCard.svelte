@@ -1,6 +1,5 @@
 <script lang="ts">
 	import BranchFilesList from './BranchFilesList.svelte';
-	import { slide } from 'svelte/transition';
 	import { Project } from '$lib/backend/projects';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
@@ -14,6 +13,7 @@
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { RemoteCommit, Commit, RemoteFile, Branch, BaseBranch } from '$lib/vbranches/types';
+	import { slide } from 'svelte/transition';
 
 	export let branch: Branch | undefined = undefined;
 	export let commit: Commit | RemoteCommit;

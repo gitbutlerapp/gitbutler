@@ -1,8 +1,6 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
 	import FileStatusIcons from './FileStatusIcons.svelte';
-	import { onDestroy } from 'svelte';
-	import type { Writable } from 'svelte/store';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableFile } from '$lib/dragging/draggables';
@@ -13,6 +11,8 @@
 	import { FileIdSelection, fileKey } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type AnyFile } from '$lib/vbranches/types';
+	import { onDestroy } from 'svelte';
+	import type { Writable } from 'svelte/store';
 
 	export let file: AnyFile;
 	export let isUnapplied: boolean;

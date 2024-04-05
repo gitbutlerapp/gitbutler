@@ -1,6 +1,6 @@
+import { fileKey, type FileIdSelection } from '$lib/vbranches/fileIdSelection';
 import { get } from 'svelte/store';
 import type { AnyCommit, AnyFile } from '$lib/vbranches/types';
-import { fileKey, type FileIdSelection } from '$lib/vbranches/fileIdSelection';
 
 export function selectFilesInList(
 	e: MouseEvent,
