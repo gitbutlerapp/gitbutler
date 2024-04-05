@@ -7,6 +7,10 @@
 	import InfoMessage from './InfoMessage.svelte';
 	import PullRequestCard from './PullRequestCard.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
+	import lscache from 'lscache';
+	import { onMount } from 'svelte';
+	import type { Persisted } from '$lib/persisted/persisted';
+	import type { Writable } from 'svelte/store';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { AIService } from '$lib/backend/aiService';
@@ -28,20 +32,16 @@
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { FileSelection } from '$lib/vbranches/fileSelection';
+	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
 	import { Branch } from '$lib/vbranches/types';
-	import lscache from 'lscache';
-	import { onMount } from 'svelte';
-	import type { Persisted } from '$lib/persisted/persisted';
-	import type { Writable } from 'svelte/store';
 
 	export let isUnapplied = false;
 	export let isLaneCollapsed: Persisted<boolean>;
 	export let commitBoxOpen: Writable<boolean>;
 
 	const branchController = getContext(BranchController);
-	const fileSelection = getContext(FileSelection);
+	const fileIdSelection = getContext(FileIdSelection);
 	const branchStore = getContextStore(Branch);
 	const project = getContext(Project);
 	const user = getContextStore(User);
@@ -230,10 +230,12 @@
 										<InfoMessage noRadius filled outlined={false} style="error">
 											<svelte:fragment slot="title">
 												{#if branch.files.some((f) => f.conflicted)}
-													This virtual branch conflicts with upstream changes. Please resolve all
-													conflicts and commit before you can continue.
+													This virtual branch conflicts with upstream
+													changes. Please resolve all conflicts and commit
+													before you can continue.
 												{:else}
-													Please commit your resolved conflicts to continue.
+													Please commit your resolved conflicts to
+													continue.
 												{/if}
 											</svelte:fragment>
 										</InfoMessage>
@@ -290,7 +292,7 @@
 					direction="right"
 					minWidth={320}
 					sticky
-					defaultLineColor={$fileSelection.length == 1
+					defaultLineColor={$fileIdSelection.length == 1
 						? 'transparent'
 						: 'color-mix(in srgb,var(--clr-container-outline-light) 60%, transparent)'}
 					on:width={(e) => {

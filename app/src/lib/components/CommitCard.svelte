@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BranchFilesList from './BranchFilesList.svelte';
+	import { slide } from 'svelte/transition';
 	import { Project } from '$lib/backend/projects';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
@@ -10,10 +11,9 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore, getSelectedFiles } from '$lib/vbranches/contexts';
-	import { FileSelection } from '$lib/vbranches/fileSelection';
+	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { RemoteCommit, Commit, RemoteFile, Branch, BaseBranch } from '$lib/vbranches/types';
-	import { slide } from 'svelte/transition';
 
 	export let branch: Branch | undefined = undefined;
 	export let commit: Commit | RemoteCommit;
@@ -25,7 +25,7 @@
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 	const selectedFiles = getSelectedFiles();
-	const fileSelection = getContext(FileSelection);
+	const fileIdSelection = getContext(FileIdSelection);
 
 	const commitStore = createCommitStore(commit);
 	$: commitStore.set(commit);
@@ -36,9 +36,9 @@
 	let files: RemoteFile[] = [];
 
 	$: selectedFile =
-		$fileSelection.length == 1 &&
-		fileSelection.only().commitId == commit.id &&
-		files.find((f) => f.id == fileSelection.only().fileId);
+		$fileIdSelection.length == 1 &&
+		fileIdSelection.only().commitId == commit.id &&
+		files.find((f) => f.id == fileIdSelection.only().fileId);
 	$: if (selectedFile) selectedFiles.set([selectedFile]);
 
 	async function loadFiles() {
@@ -81,7 +81,13 @@
 	class="commit"
 	class:is-commit-open={showFiles}
 >
-	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
+	<div
+		class="commit__header"
+		on:click={toggleFiles}
+		on:keyup={onKeyup}
+		role="button"
+		tabindex="0"
+	>
 		<div class="commit__message">
 			<div class="commit__row">
 				<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
@@ -203,14 +209,22 @@
 	}
 
 	.is-commit-open {
-		background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-extralight));
+		background-color: color-mix(
+			in srgb,
+			var(--clr-container-light),
+			var(--darken-tint-extralight)
+		);
 
 		& .commit__header {
 			padding-bottom: var(--size-16);
 			border-bottom: 1px solid var(--clr-container-outline-light);
 
 			&:hover {
-				background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
+				background-color: color-mix(
+					in srgb,
+					var(--clr-container-light),
+					var(--darken-tint-light)
+				);
 			}
 		}
 

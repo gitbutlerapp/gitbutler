@@ -1,4 +1,6 @@
 <script lang="ts">
+	import lscache from 'lscache';
+	import { onMount, setContext } from 'svelte';
 	import BaseBranch from '$lib/components/BaseBranch.svelte';
 	import FileCard from '$lib/components/FileCard.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
@@ -8,9 +10,7 @@
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { createSelectedFiles } from '$lib/vbranches/contexts';
-	import { FileSelection } from '$lib/vbranches/fileSelection';
-	import lscache from 'lscache';
-	import { onMount, setContext } from 'svelte';
+	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'historyLaneWidth';
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
@@ -18,8 +18,8 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
-    const fileSelection = new FileSelection();
-	setContext(FileSelection, fileSelection);
+	const fileIdSelection = new FileIdSelection();
+	setContext(FileIdSelection, fileIdSelection);
 
 	const selectedFiles = createSelectedFiles([]);
 
@@ -68,7 +68,7 @@
 					isUnapplied={false}
 					readonly={true}
 					on:close={() => {
-						fileSelection.clear();
+						fileIdSelection.clear();
 					}}
 				/>
 			{/if}
