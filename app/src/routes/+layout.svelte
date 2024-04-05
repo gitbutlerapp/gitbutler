@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../styles/main.postcss';
 
-	import { AIService } from '$lib/backend/aiService';
+	import { AIService } from '$lib/ai/service';
 	import { AuthService } from '$lib/backend/auth';
 	import { CloudClient, User } from '$lib/backend/cloud';
 	import { GitConfigService } from '$lib/backend/gitConfigService';

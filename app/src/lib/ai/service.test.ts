@@ -1,14 +1,13 @@
-import { AnthropicModelName, ModelKind, OpenAIModelName } from './aiClient/types';
-import { CloudClient } from './cloud';
-import { AnthropicAIClient } from '$lib/backend/aiClient/anthropic';
-import { ButlerAIClient } from '$lib/backend/aiClient/butler';
-import { OpenAIClient } from '$lib/backend/aiClient/openAI';
-import { AIService, GitAIConfigKey, KeyOption, buildDiff } from '$lib/backend/aiService';
+import { CloudClient } from '../backend/cloud';
+import { AnthropicAIClient } from '$lib/ai/anthropicClient';
+import { ButlerAIClient } from '$lib/ai/butlerClient';
+import { OpenAIClient } from '$lib/ai/openAIClient';
+import { AIService, GitAIConfigKey, KeyOption, buildDiff } from '$lib/ai/service';
+import { AnthropicModelName, ModelKind, OpenAIModelName, type AIClient } from '$lib/aiTypes';
 import * as toasts from '$lib/utils/toasts';
 import { Hunk } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { expect, test, describe, vi } from 'vitest';
-import type { AIClient } from '$lib/backend/aiClient';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
 
 const defaultGitConfig = Object.freeze({

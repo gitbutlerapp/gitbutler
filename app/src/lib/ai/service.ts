@@ -1,11 +1,10 @@
-import { AnthropicModelName, OpenAIModelName } from './aiClient/types';
-import { AnthropicAIClient } from '$lib/backend/aiClient/anthropic';
-import { ButlerAIClient } from '$lib/backend/aiClient/butler';
-import { OpenAIClient } from '$lib/backend/aiClient/openAI';
+import { AnthropicAIClient } from '$lib/ai/anthropicClient';
+import { ButlerAIClient } from '$lib/ai/butlerClient';
+import { OpenAIClient } from '$lib/ai/openAIClient';
+import { OpenAIModelName, type AIClient, AnthropicModelName } from '$lib/aiTypes';
 import { splitMessage } from '$lib/utils/commitMessage';
 import * as toasts from '$lib/utils/toasts';
 import OpenAI from 'openai';
-import type { AIClient } from '$lib/backend/aiClient';
 import type { CloudClient } from '$lib/backend/cloud';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
 import type { Hunk } from '$lib/vbranches/types';

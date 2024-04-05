@@ -5,8 +5,8 @@
 	import Spacer from './Spacer.svelte';
 	import TextBox from './TextBox.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
-	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/backend/aiClient/types';
-	import { AIService, GitAIConfigKey, KeyOption } from '$lib/backend/aiService';
+	import { AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
+	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/aiTypes';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';

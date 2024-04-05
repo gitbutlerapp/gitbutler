@@ -14,3 +14,17 @@ export enum AnthropicModelName {
 	Sonnet = 'claude-3-sonnet-20240229',
 	Haiku = 'claude-3-haiku-20240307'
 }
+
+export enum MessageRole {
+	User = 'user',
+	Assistant = 'assisstant'
+}
+
+export interface PromptMessage {
+	content: string;
+	role: MessageRole;
+}
+
+export interface AIClient {
+	evaluate(prompt: string): Promise<string>;
+}
