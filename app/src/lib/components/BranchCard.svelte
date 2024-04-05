@@ -230,12 +230,10 @@
 										<InfoMessage noRadius filled outlined={false} style="error">
 											<svelte:fragment slot="title">
 												{#if branch.files.some((f) => f.conflicted)}
-													This virtual branch conflicts with upstream
-													changes. Please resolve all conflicts and commit
-													before you can continue.
+													This virtual branch conflicts with upstream changes. Please resolve all
+													conflicts and commit before you can continue.
 												{:else}
-													Please commit your resolved conflicts to
-													continue.
+													Please commit your resolved conflicts to continue.
 												{/if}
 											</svelte:fragment>
 										</InfoMessage>

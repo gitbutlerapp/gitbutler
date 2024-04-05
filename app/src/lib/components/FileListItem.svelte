@@ -164,11 +164,7 @@
 		border: 1px solid transparent;
 
 		&:not(.selected-draggable):hover {
-			background-color: color-mix(
-				in srgb,
-				var(--clr-container-light),
-				var(--darken-tint-light)
-			);
+			background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
 		}
 	}
 
@@ -215,11 +211,7 @@
 		border: 1px solid var(--clr-container-light);
 
 		&:hover {
-			background-color: color-mix(
-				in srgb,
-				var(--clr-scale-pop-80),
-				var(--darken-tint-extralight)
-			);
+			background-color: color-mix(in srgb, var(--clr-scale-pop-80), var(--darken-tint-extralight));
 		}
 	}
 </style>
