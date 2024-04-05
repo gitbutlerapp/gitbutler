@@ -120,7 +120,7 @@
 		if (data instanceof DraggableHunk && data.branchId != branch.id) {
 			return !data.hunk.locked;
 		} else if (data instanceof DraggableFile && data.branchId && data.branchId != branch.id) {
-			return !data.files.some((f) => !!f.lockedIds);
+			return !data.files.some((f) => f.locked);
 		} else {
 			return false;
 		}
