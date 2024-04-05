@@ -16,8 +16,6 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-#[cfg(target_os = "windows")]
-use gitbutler_core::windows;
 use gitbutler_core::{assets, database, git, storage};
 use gitbutler_tauri::{
     analytics, app, askpass, commands, deltas, github, keys, logs, menu, projects, sentry,
