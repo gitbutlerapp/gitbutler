@@ -3,7 +3,7 @@ use gitbutler_core::{
     sessions::{session, Database, Session, SessionId},
 };
 
-use crate::shared::test_database;
+use gitbutler_testsupport::test_database;
 
 #[test]
 fn insert_query() -> anyhow::Result<()> {

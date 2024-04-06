@@ -10,7 +10,7 @@ use gitbutler_core::{
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
-use crate::shared::{init_opts_bare, Case, Suite};
+use gitbutler_testsupport::{init_opts_bare, Case, Suite};
 
 mod repository {
     use std::path::PathBuf;
@@ -18,7 +18,7 @@ mod repository {
     use anyhow::Result;
     use pretty_assertions::assert_eq;
 
-    use crate::shared::{Case, Suite};
+    use gitbutler_testsupport::{Case, Suite};
 
     #[test]
     fn alternates_file_being_set() -> Result<()> {

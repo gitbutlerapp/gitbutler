@@ -3,7 +3,7 @@ use std::{fs, path::Path};
 use anyhow::Result;
 use gitbutler_core::reader::{CommitReader, Content, Reader};
 
-use crate::shared::{commit_all, temp_dir, test_repository};
+use gitbutler_testsupport::{commit_all, temp_dir, test_repository};
 
 #[test]
 fn directory_reader_read_file() -> Result<()> {

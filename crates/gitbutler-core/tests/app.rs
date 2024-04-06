@@ -1,5 +1,3 @@
-pub mod shared;
-
 mod suite {
     mod gb_repository;
     mod projects;

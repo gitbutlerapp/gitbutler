@@ -4,10 +4,8 @@ use gitbutler_core::projects;
 use gitbutler_tauri::watcher::handlers::fetch_gitbutler_data::Handler;
 use pretty_assertions::assert_eq;
 
-use crate::{
-    shared::{Case, Suite},
-    watcher::handler::test_remote_repository,
-};
+use crate::watcher::handler::test_remote_repository;
+use gitbutler_testsupport::{Case, Suite};
 
 #[tokio::test]
 async fn fetch_success() -> anyhow::Result<()> {
