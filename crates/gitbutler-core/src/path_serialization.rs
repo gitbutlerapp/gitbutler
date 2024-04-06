@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use anyhow::anyhow;
 use serde::{Deserialize, Deserializer, Serializer};
 
 pub fn wrap_path(path: &PathBuf) -> String {
@@ -8,11 +9,11 @@ pub fn wrap_path(path: &PathBuf) -> String {
     path.to_string()
 }
 
-pub fn unwrap_path_str(path_str: &str) -> Result<String, String> {
+pub fn unwrap_path_str(path_str: &str) -> Result<String, anyhow::Error> {
     let path = format!("\"{}\"", path_str);
     match serde_json::from_str(&path) {
         Ok(serde_json::Value::String(path)) => Ok(path),
-        _ => Err("failed to unwarp path string".into()),
+        _ => Err(anyhow!("failed to convert to path: {}", path_str)),
     }
 }
 

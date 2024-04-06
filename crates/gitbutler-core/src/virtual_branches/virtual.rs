@@ -591,7 +591,7 @@ pub fn unapply_ownership(
 // reset a file in the project to the index state
 pub fn reset_files(
     project_repository: &project_repository::Repository,
-    files: &Vec<String>,
+    files: &Vec<PathBuf>,
 ) -> Result<(), errors::UnapplyOwnershipError> {
     if conflicts::is_resolving(project_repository) {
         return Err(errors::UnapplyOwnershipError::Conflict(
@@ -606,7 +606,8 @@ pub fn reset_files(
     let repo = &project_repository.git_repository;
     let index = repo.index().context("failed to get index")?;
     for file in files {
-        let entry = index.get_path(Path::new(file), 0);
+        // let entry = index.get_path(Path::new(file), 0);
+        let entry = index.get_path(file, 0);
         if entry.is_some() {
             repo.checkout_index_path(Path::new(file))
                 .context("failed to checkout index")?;
