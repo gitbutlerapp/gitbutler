@@ -241,7 +241,7 @@ pub mod commands {
         // convert files to Vec<PathBuf>
         let files = files
             .split('\n')
-            .map(|path| unwrap_path_str(path))
+            .map(unwrap_path_str)
             .map_ok(|p| p.into())
             .collect::<Result<Vec<PathBuf>, _>>()?;
         handle
