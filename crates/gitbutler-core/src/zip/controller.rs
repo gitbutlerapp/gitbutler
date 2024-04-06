@@ -9,7 +9,6 @@ pub struct Controller {
     local_data_dir: path::PathBuf,
     logs_dir: path::PathBuf,
     zipper: Zipper,
-    #[allow(clippy::struct_field_names)]
     projects_controller: projects::Controller,
 }
 
