@@ -4,6 +4,7 @@ members = [
     "crates/gitbutler-tauri",
     "crates/gitbutler-changeset",
     "crates/gitbutler-git",
+    "crates/gitbutler-testsupport",
 ]
 resolver = "2"
 

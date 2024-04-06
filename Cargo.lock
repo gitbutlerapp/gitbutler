@@ -2130,6 +2130,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-testsupport"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "gitbutler-core",
+ "once_cell",
+ "pretty_assertions",
+ "tempfile",
+]
+
+[[package]]
 name = "glib"
 version = "0.15.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"

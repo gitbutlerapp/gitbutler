@@ -1,0 +1,18 @@
+[package]
+name = "gitbutler-testsupport"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+doctest = false
+test = false
+
+[dependencies]
+anyhow = "1.0.81"
+once_cell = "1.19"
+git2.workspace = true
+pretty_assertions = "1.4"
+tempfile = "3.10.1"
+gitbutler-core = { path = "../gitbutler-core" }
