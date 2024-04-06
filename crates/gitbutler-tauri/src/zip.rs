@@ -1,5 +1,4 @@
 pub mod commands {
-    #![allow(clippy::used_underscore_binding)]
     use anyhow::Context;
     use std::path;
 
