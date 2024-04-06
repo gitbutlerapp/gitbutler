@@ -9,7 +9,7 @@ mod controller {
 
         use gitbutler_core::keys::{storage::Storage, Controller};
 
-        use crate::shared::Suite;
+        use gitbutler_testsupport::Suite;
 
         #[test]
         fn get_or_create() {

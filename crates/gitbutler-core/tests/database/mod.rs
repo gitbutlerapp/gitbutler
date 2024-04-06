@@ -1,6 +1,6 @@
 use gitbutler_core::database::Database;
 
-use crate::shared::temp_dir;
+use gitbutler_testsupport::temp_dir;
 
 #[test]
 fn smoke() {

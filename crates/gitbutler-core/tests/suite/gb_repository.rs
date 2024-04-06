@@ -2,7 +2,7 @@ use std::path;
 
 use gitbutler_core::{gb_repository, git, project_repository, projects};
 
-use crate::shared::{paths, TestProject};
+use gitbutler_testsupport::{paths, TestProject};
 
 mod init {
     use super::*;

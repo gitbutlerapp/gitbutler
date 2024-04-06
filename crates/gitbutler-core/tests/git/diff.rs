@@ -10,7 +10,7 @@ use gitbutler_core::{
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
-use crate::shared::{init_opts_bare, Case, Suite};
+use gitbutler_testsupport::{init_opts_bare, Case, Suite};
 
 fn new_test_remote_repository() -> Result<(git2::Repository, TempDir)> {
     let tmp = tempfile::tempdir()?;

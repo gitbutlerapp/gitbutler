@@ -14,7 +14,7 @@ use gitbutler_tauri::watcher::handlers::calculate_deltas_handler::Handler;
 use once_cell::sync::Lazy;
 
 use self::branch::BranchId;
-use crate::shared::{commit_all, Case, Suite};
+use gitbutler_testsupport::{commit_all, Case, Suite};
 
 static TEST_TARGET_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 

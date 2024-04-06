@@ -28,7 +28,7 @@ use gitbutler_core::{
 };
 use pretty_assertions::assert_eq;
 
-use crate::shared::{commit_all, virtual_branches::set_test_target, Case, Suite};
+use gitbutler_testsupport::{commit_all, virtual_branches::set_test_target, Case, Suite};
 
 #[test]
 fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {

@@ -5,7 +5,7 @@ use gitbutler_core::{
     keys, project_repository, projects, users,
 };
 
-use crate::shared::{temp_dir, test_repository};
+use gitbutler_testsupport::{temp_dir, test_repository};
 
 #[derive(Default)]
 struct TestCase<'a> {
