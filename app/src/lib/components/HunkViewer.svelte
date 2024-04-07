@@ -100,7 +100,9 @@
 								popupMenu.openByMouse(e, {
 									hunk,
 									section: subsection,
-									lineNumber: line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber
+									lineNumber: line.afterLineNumber
+										? line.afterLineNumber
+										: line.beforeLineNumber
 								})}
 						/>
 					{/each}
@@ -126,9 +128,9 @@
 		overflow-x: auto;
 		user-select: text;
 
-		background: var(--clr-container-light);
+		background: var(--clr-bg-main);
 		border-radius: var(--radius-s);
-		border: 1px solid var(--clr-container-outline-light);
+		border: 1px solid var(--clr-border-main);
 		transition: border-color var(--transition-fast);
 	}
 

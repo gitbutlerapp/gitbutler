@@ -63,7 +63,7 @@ body {
 	overflow-y: hidden;
 	padding: 0;
 	color: var(--clr-scale-ntrl-0);
-	background-color: var(--clr-container-pale);
+	background-color: var(--clr-bg-alt);
 
 	/* optimise font rendering */
 	-webkit-font-smoothing: antialiased;
@@ -175,16 +175,16 @@ dialog::backdrop {
 }
 
 .locked-file-animation {
-	--locked-color: color-mix(in srgb, var(--clr-container-light), var(--clr-scale-warn-50) 20%);
+	--locked-color: color-mix(in srgb, var(--clr-bg-main), var(--clr-scale-warn-50) 20%);
 
-	border: 1px solid var(--clr-container-light);
+	border: 1px solid var(--clr-bg-main);
 	animation: locked-file-animation 1.4s ease-out forwards;
 }
 
 @keyframes locked-file-animation {
 	0% {
 		transform: translateX(-3px);
-		background-color: var(--clr-container-light);
+		background-color: var(--clr-bg-main);
 	}
 	10% {
 		transform: translateX(3px);
@@ -204,6 +204,6 @@ dialog::backdrop {
 		background-color: var(--locked-color);
 	}
 	100% {
-		background-color: var(--clr-container-light);
+		background-color: var(--clr-bg-main);
 	}
 }

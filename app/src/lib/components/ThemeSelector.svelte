@@ -67,7 +67,7 @@
 
 	.theme-card:hover {
 		& .theme-card__label {
-			background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
+			background-color: color-mix(in srgb, var(--clr-bg-main), var(--darken-tint-light));
 		}
 	}
 
@@ -76,7 +76,7 @@
 		width: 100%;
 		height: auto;
 		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-container-outline-light);
+		border: 1px solid var(--clr-border-main);
 		overflow: hidden;
 
 		& img {

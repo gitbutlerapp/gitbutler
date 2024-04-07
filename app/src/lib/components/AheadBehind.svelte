@@ -17,7 +17,11 @@
 		>
 			{behind}
 		</div>
-		<div use:tooltip={{ text: aheadMessage, delay: 1000 }} class="ahead" class:neutral={ahead == 0}>
+		<div
+			use:tooltip={{ text: aheadMessage, delay: 1000 }}
+			class="ahead"
+			class:neutral={ahead == 0}
+		>
 			{ahead}
 		</div>
 	</div>
@@ -39,7 +43,7 @@
 		min-width: var(--size-12);
 	}
 	.behind {
-		border-right: 1px solid var(--clr-container-outline-light);
+		border-right: 1px solid var(--clr-border-main);
 	}
 	.neutral {
 		color: var(--clr-scale-ntrl-50);

@@ -98,7 +98,14 @@
 			</InfoMessage>
 		</div>
 	{/if}
-	<Button style="pop" kind="solid" wide icon="test" disabled={loading} on:click={checkCredentials}>
+	<Button
+		style="pop"
+		kind="solid"
+		wide
+		icon="test"
+		disabled={loading}
+		on:click={checkCredentials}
+	>
 		{#if loading || checks.length == 0}
 			Test credentials
 		{:else}
@@ -142,9 +149,9 @@
 
 	.disclaimer {
 		color: var(--clr-scale-ntrl-50);
-		background: var(--clr-container-pale);
+		background: var(--clr-bg-alt);
 		border-radius: var(--radius-m);
-		background: var(--clr-container-pale);
+		background: var(--clr-bg-alt);
 		padding: var(--size-10) var(--size-12);
 	}
 </style>

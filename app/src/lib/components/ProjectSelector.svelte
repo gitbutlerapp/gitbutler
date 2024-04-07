@@ -59,7 +59,7 @@
 		padding: var(--size-10);
 		border-radius: var(--radius-m);
 
-		background-color: var(--clr-container-pale);
+		background-color: var(--clr-bg-alt);
 
 		align-items: center;
 		justify-content: space-between;
@@ -68,7 +68,7 @@
 
 		&:focus,
 		&:hover {
-			background-color: color-mix(in srgb, var(--clr-container-light), var(--clr-core-ntrl-50) 20%);
+			background-color: color-mix(in srgb, var(--clr-bg-main), var(--clr-core-ntrl-50) 20%);
 
 			& .button__icon {
 				opacity: 0.4;

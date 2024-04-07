@@ -144,8 +144,10 @@
 										class="empty-board__suggestions__link"
 										role="button"
 										tabindex="0"
-										on:keypress={() => open(`vscode://file${project.path}/?windowId=_blank`)}
-										on:click={() => open(`vscode://file${project.path}/?windowId=_blank`)}
+										on:keypress={() =>
+											open(`vscode://file${project.path}/?windowId=_blank`)}
+										on:click={() =>
+											open(`vscode://file${project.path}/?windowId=_blank`)}
 									>
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="vscode" />
@@ -235,8 +237,8 @@
 
 	.empty-board {
 		display: flex;
-		background-color: var(--clr-container-light);
-		border: 1px solid var(--clr-container-outline-light);
+		background-color: var(--clr-bg-main);
+		border: 1px solid var(--clr-border-main);
 		border-radius: var(--radius-l);
 		width: 100%;
 		gap: var(--size-48);
@@ -365,7 +367,7 @@
 		overflow: hidden;
 
 		&:hover {
-			background-color: var(--clr-container-pale);
+			background-color: var(--clr-bg-alt);
 		}
 
 		& span {

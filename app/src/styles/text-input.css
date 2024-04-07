@@ -1,8 +1,8 @@
 .text-input {
 	padding: var(--size-4) var(--size-10);
 	color: var(--clr-scale-ntrl-0);
-	background-color: var(--clr-container-light);
-	border: 1px solid var(--clr-container-outline-light);
+	background-color: var(--clr-bg-main);
+	border: 1px solid var(--clr-border-main);
 	border-radius: var(--radius-s);
 	transition: border-color var(--transition-fast);
 
@@ -11,17 +11,13 @@
 	}
 
 	&:hover {
-		border-color: color-mix(in srgb, var(--clr-container-outline-light), var(--darken-tint-dark));
+		border-color: color-mix(in srgb, var(--clr-border-main), var(--darken-tint-dark));
 	}
 
 	&:focus,
 	&:focus-within {
-		background: color-mix(in srgb, var(--clr-container-light), var(--clr-container-pale) 20%);
-		border-color: color-mix(
-			in srgb,
-			var(--clr-container-outline-light),
-			var(--darken-tint-extradark)
-		);
+		background: color-mix(in srgb, var(--clr-bg-main), var(--clr-bg-alt) 20%);
+		border-color: color-mix(in srgb, var(--clr-border-main), var(--darken-tint-extradark));
 		outline: none;
 	}
 
@@ -32,6 +28,6 @@
 	&:disabled {
 		color: var(--clr-scale-ntrl-60);
 		border-color: var(--clr-scale-ntrl-70);
-		background-color: var(--clr-container-pale);
+		background-color: var(--clr-bg-alt);
 	}
 }

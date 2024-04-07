@@ -81,7 +81,13 @@
 	class="commit"
 	class:is-commit-open={showFiles}
 >
-	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
+	<div
+		class="commit__header"
+		on:click={toggleFiles}
+		on:keyup={onKeyup}
+		role="button"
+		tabindex="0"
+	>
 		<div class="commit__message">
 			<div class="commit__row">
 				<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
@@ -178,19 +184,14 @@
 		flex-direction: column;
 
 		border-radius: var(--size-6);
-		background-color: var(--clr-container-light);
-		border: 1px solid var(--clr-container-outline-light);
+		background-color: var(--clr-bg-main);
+		border: 1px solid var(--clr-border-main);
 		overflow: hidden;
 		transition: background-color var(--transition-fast);
 
 		&:not(.is-commit-open):hover {
-			border: 1px solid
-				color-mix(in srgb, var(--clr-container-outline-light), var(--darken-tint-mid));
-			background-color: color-mix(
-				in srgb,
-				var(--clr-container-light),
-				var(--darken-tint-extralight)
-			);
+			border: 1px solid color-mix(in srgb, var(--clr-border-main), var(--darken-tint-mid));
+			background-color: color-mix(in srgb, var(--clr-bg-main), var(--darken-tint-extralight));
 		}
 	}
 
@@ -203,14 +204,14 @@
 	}
 
 	.is-commit-open {
-		background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-extralight));
+		background-color: color-mix(in srgb, var(--clr-bg-main), var(--darken-tint-extralight));
 
 		& .commit__header {
 			padding-bottom: var(--size-16);
-			border-bottom: 1px solid var(--clr-container-outline-light);
+			border-bottom: 1px solid var(--clr-border-main);
 
 			&:hover {
-				background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
+				background-color: color-mix(in srgb, var(--clr-bg-main), var(--darken-tint-light));
 			}
 		}
 
@@ -271,7 +272,7 @@
 	}
 
 	.files-container {
-		background-color: var(--clr-container-light);
+		background-color: var(--clr-bg-main);
 		padding: 0 var(--size-14) var(--size-14);
 	}
 
@@ -280,7 +281,7 @@
 		justify-content: flex-end;
 		gap: var(--size-8);
 		padding: var(--size-14);
-		background-color: var(--clr-container-light);
-		border-top: 1px solid var(--clr-container-outline-light);
+		background-color: var(--clr-bg-main);
+		border-top: 1px solid var(--clr-border-main);
 	}
 </style>

@@ -107,7 +107,7 @@
 	.branch-name-input {
 		min-width: 1rem;
 		max-width: 100%;
-		background-color: var(--clr-container-light);
+		background-color: var(--clr-bg-main);
 		outline: none;
 		&:focus {
 			outline: none;

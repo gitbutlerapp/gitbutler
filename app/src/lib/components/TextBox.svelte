@@ -236,7 +236,7 @@
 		transform: translateY(-50%);
 		width: 1px;
 		height: 100%;
-		background-color: var(--clr-container-outline-light);
+		background-color: var(--clr-border-main);
 	}
 
 	.textbox__count-btn {
@@ -277,8 +277,8 @@
 	}
 
 	.textbox__readonly {
-		background-color: var(--clr-container-pale);
-		border-color: var(--clr-container-outline-light);
+		background-color: var(--clr-bg-alt);
+		border-color: var(--clr-border-main);
 	}
 
 	.wide {

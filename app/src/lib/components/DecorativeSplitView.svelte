@@ -70,7 +70,7 @@
 		user-select: none;
 		display: flex;
 		flex-grow: 1;
-		background-color: var(--clr-container-light);
+		background-color: var(--clr-bg-main);
 	}
 
 	.right-side {
@@ -84,7 +84,7 @@
 		align-items: center;
 		padding: var(--size-40) calc(var(--size-40) * 2);
 		flex: 1.3;
-		background-color: var(--clr-container-light);
+		background-color: var(--clr-bg-main);
 		overflow-y: auto;
 	}
 
@@ -101,7 +101,7 @@
 	.right-side {
 		flex: 1;
 		min-width: 28rem;
-		background-color: var(--clr-container-light);
+		background-color: var(--clr-bg-main);
 		padding: var(--size-20) var(--size-20) var(--size-20) 0;
 	}
 

@@ -131,7 +131,11 @@
 			fillViewport={$filteredBranches$.length == 0}
 		>
 			<div class="scroll-container">
-				<TextBox icon="search" placeholder="Search" on:input={(e) => textFilter$.next(e.detail)} />
+				<TextBox
+					icon="search"
+					placeholder="Search"
+					on:input={(e) => textFilter$.next(e.detail)}
+				/>
 
 				{#if $filteredBranches$.length > 0}
 					<div bind:this={contents} class="content">
@@ -144,7 +148,8 @@
 						<div class="branch-list__empty-state__image">
 							{@html noBranchesSvg}
 						</div>
-						<span class="branch-list__empty-state__caption text-base-body-14 text-semibold"
+						<span
+							class="branch-list__empty-state__caption text-base-body-14 text-semibold"
 							>No branches match your filter</span
 						>
 					</div>
@@ -180,7 +185,7 @@
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-		border-top: 1px solid var(--clr-container-outline-light);
+		border-top: 1px solid var(--clr-border-main);
 	}
 	.content {
 		display: flex;

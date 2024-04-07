@@ -183,7 +183,11 @@
 								e.preventDefault();
 								titleTextArea.focus();
 								setAutoHeight(e.currentTarget);
-							} else if (e.key == 'a' && (e.metaKey || e.ctrlKey) && value.length == 0) {
+							} else if (
+								e.key == 'a' &&
+								(e.metaKey || e.ctrlKey) &&
+								value.length == 0
+							) {
 								// select previous textarea on cmd+a if this textarea is empty
 								e.preventDefault();
 								titleTextArea.select();
@@ -224,16 +228,27 @@
 							<ContextMenuSection>
 								<ContextMenuItem
 									label="Extra concise"
-									on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+									on:click={() =>
+										($commitGenerationExtraConcise =
+											!$commitGenerationExtraConcise)}
 								>
-									<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
+									<Checkbox
+										small
+										slot="control"
+										bind:checked={$commitGenerationExtraConcise}
+									/>
 								</ContextMenuItem>
 
 								<ContextMenuItem
 									label="Use emojis 😎"
-									on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+									on:click={() =>
+										($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
 								>
-									<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
+									<Checkbox
+										small
+										slot="control"
+										bind:checked={$commitGenerationUseEmojis}
+									/>
 								</ContextMenuItem>
 							</ContextMenuSection>
 						</ContextMenu>
@@ -280,8 +295,8 @@
 		display: flex;
 		flex-direction: column;
 		padding: var(--size-14);
-		background: var(--clr-container-light);
-		border-top: 1px solid var(--clr-container-outline-light);
+		background: var(--clr-bg-main);
+		border-top: 1px solid var(--clr-border-main);
 		transition: background-color var(--transition-medium);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 	}
@@ -320,7 +335,7 @@
 		left: var(--size-12);
 		padding: var(--size-2);
 		border-radius: 100%;
-		background: var(--clr-container-pale);
+		background: var(--clr-bg-alt);
 		color: var(--clr-scale-ntrl-40);
 	}
 
@@ -346,6 +361,6 @@
 	}
 
 	.commit-box__expanded {
-		background-color: var(--clr-container-pale);
+		background-color: var(--clr-bg-alt);
 	}
 </style>

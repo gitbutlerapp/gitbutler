@@ -139,8 +139,11 @@
 					</div>
 				{:else if $update$.status == 'DONE'}
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
-						<Button style="pop" kind="solid" wide on:click={() => updaterService.relaunchApp()}
-							>Restart</Button
+						<Button
+							style="pop"
+							kind="solid"
+							wide
+							on:click={() => updaterService.relaunchApp()}>Restart</Button
 						>
 					</div>
 				{/if}
@@ -165,8 +168,8 @@
 		bottom: var(--size-12);
 		left: var(--size-12);
 		padding: var(--size-24);
-		background-color: var(--clr-container-light);
-		border: 1px solid var(--clr-container-outline-light);
+		background-color: var(--clr-bg-main);
+		border: 1px solid var(--clr-border-main);
 		border-radius: var(--radius-m);
 	}
 

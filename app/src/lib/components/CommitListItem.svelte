@@ -143,7 +143,7 @@
 		left: 0;
 		height: 100%;
 		width: 1px;
-		background-color: var(--clr-container-outline-light);
+		background-color: var(--clr-border-main);
 	}
 	.connector {
 		width: 1rem;
@@ -151,8 +151,8 @@
 		position: absolute;
 		top: 0;
 		left: 0;
-		border-bottom: 1px solid var(--clr-container-outline-light);
-		border-left: 1px solid var(--clr-container-outline-light);
+		border-bottom: 1px solid var(--clr-border-main);
+		border-left: 1px solid var(--clr-border-main);
 		border-radius: 0 0 0 0.5rem;
 	}
 

@@ -91,7 +91,7 @@
 		justify-content: center;
 		width: 22rem;
 		border-radius: var(--radius-m);
-		border: 1px dashed color-mix(in srgb, var(--clr-container-outline-pale) 50%, transparent);
+		border: 1px dashed color-mix(in srgb, var(--clr-border-main) 70%, transparent);
 		background-color: transparent;
 		padding: var(--size-20);
 		gap: var(--size-8);
@@ -170,7 +170,7 @@
 		left: 35px;
 		width: 77px;
 		height: 83px;
-		background-color: color-mix(in srgb, var(--clr-scale-ntrl-60) 26%, transparent);
+		background-color: color-mix(in srgb, var(--clr-scale-ntrl-60) 20%, transparent);
 		border-radius: 12px;
 	}
 
