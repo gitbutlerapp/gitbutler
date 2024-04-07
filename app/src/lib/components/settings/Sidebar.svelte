@@ -2,14 +2,27 @@
 	import SupportersBanner from './SupportersBanner.svelte';
 	import IconButton from '../IconButton.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { UserService } from '$lib/stores/user';
+	import { getContext } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 
-	export let currentSection: 'profile' | 'git-stuff' | 'telemetry' | 'integrations' | 'ai' =
-		'profile';
-	export let showIntegrations = false;
+	const userService = getContext(UserService);
+	const user = userService.user;
 
-	function onMenuClick(section: 'profile' | 'git-stuff' | 'telemetry' | 'integrations' | 'ai') {
-		currentSection = section;
+	let currentSection: string | undefined;
+	$: currentSection = getPageName($page.url.pathname);
+
+	const settingsPageRegExp = /\/settings\/(.*?)(?:$|\/)/;
+
+	function getPageName(pathname: string) {
+		const matches = pathname.match(settingsPageRegExp);
+
+		return matches?.[1];
+	}
+
+	function onMenuClick(section: string) {
+		goto(`/settings/${section}`, { replaceState: true });
 	}
 </script>
 
@@ -37,7 +50,7 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection === 'profile'}
+						class:item_selected={currentSection == 'profile'}
 						on:mousedown={() => onMenuClick('profile')}
 					>
 						<Icon name="profile" />
@@ -47,8 +60,8 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection === 'git-stuff'}
-						on:mousedown={() => onMenuClick('git-stuff')}
+						class:item_selected={currentSection == 'git'}
+						on:mousedown={() => onMenuClick('git')}
 					>
 						<Icon name="git" />
 						<span class="text-base-14 text-semibold">Git stuff</span>
@@ -57,18 +70,18 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection === 'telemetry'}
+						class:item_selected={currentSection == 'telemetry'}
 						on:mousedown={() => onMenuClick('telemetry')}
 					>
 						<Icon name="stat" />
 						<span class="text-base-14 text-semibold">Telemetry</span>
 					</button>
 				</li>
-				{#if showIntegrations}
+				{#if $user}
 					<li>
 						<button
 							class="profile-sidebar__menu-item"
-							class:item_selected={currentSection === 'integrations'}
+							class:item_selected={currentSection == 'integrations'}
 							on:mousedown={() => onMenuClick('integrations')}
 						>
 							<Icon name="integrations" />
@@ -79,7 +92,7 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection === 'ai'}
+						class:item_selected={currentSection == 'ai'}
 						on:mousedown={() => onMenuClick('ai')}
 					>
 						<Icon name="ai" />
