@@ -118,7 +118,7 @@
 				viewport={rsViewport}
 				direction="right"
 				minWidth={240}
-				defaultLineColor="var(--clr-container-border-main)"
+				defaultLineColor="var(--clr-border-main)"
 				on:width={(e) => {
 					fileWidth = e.detail / (16 * $userSettings.zoom);
 					lscache.set(fileWidthKey + branch.id, fileWidth, 7 * 1440); // 7 day ttl
