@@ -10,7 +10,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore, getSelectedFiles } from '$lib/vbranches/contexts';
-	import { FileSelection } from '$lib/vbranches/fileSelection';
+	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { RemoteCommit, Commit, RemoteFile, Branch, BaseBranch } from '$lib/vbranches/types';
 	import { slide } from 'svelte/transition';
@@ -25,7 +25,7 @@
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 	const selectedFiles = getSelectedFiles();
-	const fileSelection = getContext(FileSelection);
+	const fileIdSelection = getContext(FileIdSelection);
 
 	const commitStore = createCommitStore(commit);
 	$: commitStore.set(commit);
@@ -36,9 +36,9 @@
 	let files: RemoteFile[] = [];
 
 	$: selectedFile =
-		$fileSelection.length == 1 &&
-		fileSelection.only().commitId == commit.id &&
-		files.find((f) => f.id == fileSelection.only().fileId);
+		$fileIdSelection.length == 1 &&
+		fileIdSelection.only().commitId == commit.id &&
+		files.find((f) => f.id == fileIdSelection.only().fileId);
 	$: if (selectedFile) selectedFiles.set([selectedFile]);
 
 	async function loadFiles() {

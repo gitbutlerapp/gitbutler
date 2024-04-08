@@ -1,24 +1,24 @@
-import { fileKey, type FileSelection } from '$lib/vbranches/fileSelection';
+import { fileKey, type FileIdSelection } from '$lib/vbranches/fileIdSelection';
 import { get } from 'svelte/store';
 import type { AnyCommit, AnyFile } from '$lib/vbranches/types';
 
 export function selectFilesInList(
 	e: MouseEvent,
 	file: AnyFile,
-	fileSelection: FileSelection,
+	fileIdSelection: FileIdSelection,
 	sortedFiles: AnyFile[],
 	allowMultiple: boolean,
 	commit: AnyCommit | undefined
 ) {
-	let selectedFileIds = get(fileSelection);
+	let selectedFileIds = get(fileIdSelection);
 	e.stopPropagation();
-	const isAlreadySelected = selectedFileIds && fileSelection.has(file.id, commit?.id);
+	const isAlreadySelected = selectedFileIds && fileIdSelection.has(file.id, commit?.id);
 
 	if (e.ctrlKey || e.metaKey) {
 		if (isAlreadySelected) {
-			fileSelection.remove(file.id, commit?.id);
+			fileIdSelection.remove(file.id, commit?.id);
 		} else {
-			fileSelection.add(file.id, commit?.id);
+			fileIdSelection.add(file.id, commit?.id);
 		}
 	} else if (e.shiftKey && allowMultiple) {
 		const initiallySelectedIndex = sortedFiles.findIndex(
@@ -45,13 +45,13 @@ export function selectFilesInList(
 		if (selectionDirection === 'down') {
 			selectedFileIds = selectedFileIds.reverse();
 		}
-		fileSelection.set(selectedFileIds);
+		fileIdSelection.set(selectedFileIds);
 	} else {
 		// if only one file is selected and it is already selected, unselect it
 		if (selectedFileIds.length == 1 && isAlreadySelected) {
-			fileSelection.clear();
+			fileIdSelection.clear();
 		} else {
-			fileSelection.set([fileKey(file.id, commit?.id)]);
+			fileIdSelection.set([fileKey(file.id, commit?.id)]);
 		}
 	}
 }

@@ -8,7 +8,7 @@
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
 	import { updateFocus } from '$lib/utils/selection';
 	import { getCommitStore, getSelectedFiles } from '$lib/vbranches/contexts';
-	import { FileSelection, fileKey } from '$lib/vbranches/fileSelection';
+	import { FileIdSelection, fileKey } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type AnyFile } from '$lib/vbranches/types';
 	import { onDestroy } from 'svelte';
@@ -22,7 +22,7 @@
 
 	const branch = maybeGetContextStore(Branch);
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
-	const fileSelection = getContext(FileSelection);
+	const fileIdSelection = getContext(FileIdSelection);
 	const selectedFiles = getSelectedFiles();
 	const commit = getCommitStore();
 
@@ -46,8 +46,8 @@
 		});
 	}
 
-	$: if ($fileSelection && draggableElt)
-		updateFocus(draggableElt, file, fileSelection, $commit?.id);
+	$: if ($fileIdSelection && draggableElt)
+		updateFocus(draggableElt, file, fileIdSelection, $commit?.id);
 
 	$: popupMenu = updateContextMenu();
 
@@ -83,9 +83,9 @@
 		on:keydown
 		on:dragstart={() => {
 			// Reset selection if the file being dragged is not in the selected list
-			if ($fileSelection.length > 0 && !fileSelection.has(file.id, $commit?.id)) {
-				fileSelection.clear();
-				fileSelection.add(file.id, $commit?.id);
+			if ($fileIdSelection.length > 0 && !fileIdSelection.has(file.id, $commit?.id)) {
+				fileIdSelection.clear();
+				fileIdSelection.add(file.id, $commit?.id);
 			}
 
 			if ($selectedFiles.length > 0) {
@@ -119,8 +119,8 @@
 		tabindex="0"
 		on:contextmenu|preventDefault={(e) =>
 			popupMenu.openByMouse(e, {
-				files: fileSelection.has(file.id, $commit?.id)
-					? $fileSelection.map((key) =>
+				files: fileIdSelection.has(file.id, $commit?.id)
+					? $fileIdSelection.map((key) =>
 							$branch?.files.find((f) => fileKey(f.id, $commit?.id) == key)
 						)
 					: [file]

@@ -9,7 +9,7 @@
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { createSelectedFiles } from '$lib/vbranches/contexts';
-	import { FileSelection } from '$lib/vbranches/fileSelection';
+	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { BaseBranch, type RemoteBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
@@ -22,7 +22,9 @@
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
 
-	setContext(FileSelection, new FileSelection());
+	const fileIdSelection = new FileIdSelection();
+	setContext(FileIdSelection, fileIdSelection);
+
 	const selectedFiles = createSelectedFiles([]);
 
 	const defaultBranchWidthRem = 30;
@@ -91,8 +93,7 @@
 				isUnapplied={false}
 				readonly={true}
 				on:close={() => {
-					const selectedId = selected?.id;
-					selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
+					fileIdSelection.clear();
 				}}
 			/>
 		{/if}

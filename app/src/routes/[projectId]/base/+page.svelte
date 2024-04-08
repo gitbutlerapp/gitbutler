@@ -8,7 +8,7 @@
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { createSelectedFiles } from '$lib/vbranches/contexts';
-	import { FileSelection } from '$lib/vbranches/fileSelection';
+	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';
 	const defaultBranchWidthRem = 30;
@@ -18,7 +18,9 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
-	setContext(FileSelection, new FileSelection());
+	const fileIdSelection = new FileIdSelection();
+	setContext(FileIdSelection, fileIdSelection);
+
 	const selectedFiles = createSelectedFiles([]);
 
 	let rsViewport: HTMLDivElement;
@@ -66,8 +68,7 @@
 					isUnapplied={false}
 					readonly={true}
 					on:close={() => {
-						const selectedId = selected?.id;
-						selectedFiles.update((fileIds) => fileIds.filter((file) => file.id != selectedId));
+						fileIdSelection.clear();
 					}}
 				/>
 			{/if}

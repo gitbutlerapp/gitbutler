@@ -28,7 +28,7 @@
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { FileSelection } from '$lib/vbranches/fileSelection';
+	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
 	import { Branch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
@@ -41,7 +41,7 @@
 	export let commitBoxOpen: Writable<boolean>;
 
 	const branchController = getContext(BranchController);
-	const fileSelection = getContext(FileSelection);
+	const fileIdSelection = getContext(FileIdSelection);
 	const branchStore = getContextStore(Branch);
 	const project = getContext(Project);
 	const user = getContextStore(User);
@@ -290,7 +290,7 @@
 					direction="right"
 					minWidth={320}
 					sticky
-					defaultLineColor={$fileSelection.length == 1 ? 'transparent' : 'var(--clr-border-main)'}
+					defaultLineColor={$fileIdSelection.length == 1 ? 'transparent' : 'var(--clr-border-main)'}
 					on:width={(e) => {
 						laneWidth = e.detail / (16 * $userSettings.zoom);
 						lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
