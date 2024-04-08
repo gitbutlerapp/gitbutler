@@ -7,17 +7,16 @@
 	transition: border-color var(--transition-fast);
 
 	&::placeholder {
-		color: color-mix(in srgb, var(--clr-scale-ntrl-30), transparent 50%);
+		color: oklch(from var(--clr-scale-ntrl-30) l c h / 0.5);
 	}
 
 	&:hover {
-		border-color: color-mix(in srgb, var(--clr-border-main), var(--darken-tint-dark));
+		border-color: oklch(from var(--clr-border-main) var(--hover-state-ratio) c h);
 	}
 
 	&:focus,
 	&:focus-within {
-		background: color-mix(in srgb, var(--clr-bg-main), var(--clr-bg-alt) 20%);
-		border-color: color-mix(in srgb, var(--clr-border-main), var(--darken-tint-extradark));
+		border-color: oklch(from var(--clr-border-main) var(--active-state-ratio) c h);
 		outline: none;
 	}
 

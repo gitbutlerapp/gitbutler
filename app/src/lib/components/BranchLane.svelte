@@ -118,7 +118,7 @@
 				viewport={rsViewport}
 				direction="right"
 				minWidth={240}
-				defaultLineColor="var(--clr-border-main)"
+				defaultLineColor="var(--clr-container-border-main)"
 				on:width={(e) => {
 					fileWidth = e.detail / (16 * $userSettings.zoom);
 					lscache.set(fileWidthKey + branch.id, fileWidth, 7 * 1440); // 7 day ttl
@@ -142,11 +142,7 @@
 	}
 
 	.target-branch {
-		--target-branch-background: color-mix(
-			in srgb,
-			var(--clr-scale-pop-60) 20%,
-			var(--clr-bg-alt)
-		);
+		--target-branch-background: color-mix(in srgb, var(--clr-scale-pop-60) 20%, var(--clr-bg-alt));
 	}
 
 	.file-preview {

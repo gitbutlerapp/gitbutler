@@ -81,13 +81,7 @@
 	class="commit"
 	class:is-commit-open={showFiles}
 >
-	<div
-		class="commit__header"
-		on:click={toggleFiles}
-		on:keyup={onKeyup}
-		role="button"
-		tabindex="0"
-	>
+	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
 		<div class="commit__message">
 			<div class="commit__row">
 				<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
@@ -190,8 +184,7 @@
 		transition: background-color var(--transition-fast);
 
 		&:not(.is-commit-open):hover {
-			border: 1px solid color-mix(in srgb, var(--clr-border-main), var(--darken-tint-mid));
-			background-color: color-mix(in srgb, var(--clr-bg-main), var(--darken-tint-extralight));
+			background-color: var(--clr-bg-muted);
 		}
 	}
 
@@ -204,15 +197,11 @@
 	}
 
 	.is-commit-open {
-		background-color: color-mix(in srgb, var(--clr-bg-main), var(--darken-tint-extralight));
+		background-color: var(--clr-bg-muted);
 
 		& .commit__header {
 			padding-bottom: var(--size-16);
 			border-bottom: 1px solid var(--clr-border-main);
-
-			&:hover {
-				background-color: color-mix(in srgb, var(--clr-bg-main), var(--darken-tint-light));
-			}
 		}
 
 		& .commit__message {

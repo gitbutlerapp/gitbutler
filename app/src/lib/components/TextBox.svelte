@@ -194,7 +194,7 @@
 		&:focus {
 			color: var(--clr-scale-ntrl-40);
 			outline: none;
-			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
+			background-color: var(--clr-bg-muted);
 		}
 	}
 
@@ -251,7 +251,7 @@
 		&:hover,
 		&:focus {
 			outline: none;
-			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
+			background-color: var(--clr-bg-muted);
 			color: var(--clr-scale-ntrl-40);
 		}
 	}

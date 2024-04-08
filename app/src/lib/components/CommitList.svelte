@@ -3,12 +3,7 @@
 	import CommitListHeader from './CommitListHeader.svelte';
 	import CommitListItem from './CommitListItem.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import {
-		Branch,
-		type Commit,
-		type CommitStatus,
-		type RemoteCommit
-	} from '$lib/vbranches/types';
+	import { Branch, type Commit, type CommitStatus, type RemoteCommit } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { map } from 'rxjs';
 
@@ -54,8 +49,8 @@
 				{/if}
 				{#if type == 'upstream' && $branchCount > 1}
 					<div class="upstream-message text-base-body-11">
-						You have {$branchCount} active branches. To merge upstream work, we will unapply
-						all other branches.
+						You have {$branchCount} active branches. To merge upstream work, we will unapply all other
+						branches.
 					</div>{/if}
 				<CommitListFooter {type} {isUnapplied} {hasCommits} />
 			</div>

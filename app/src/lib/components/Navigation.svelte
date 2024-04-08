@@ -122,6 +122,7 @@
 					/>
 				</div>
 			</div>
+
 			{#if !$isNavCollapsed}
 				<Branches
 					projectId={project.id}
@@ -212,8 +213,6 @@
 		}
 
 		&:hover {
-			border-color: color-mix(in srgb, var(--clr-border-main), var(--darken-tint-dark));
-
 			& svg {
 				stroke: var(--clr-scale-ntrl-50);
 			}

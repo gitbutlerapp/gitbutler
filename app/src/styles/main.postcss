@@ -35,6 +35,10 @@
 	--darken-dark: var(--clr-scale-ntrl-0) 12%;
 	--darken-extradark: var(--clr-scale-ntrl-0) 15%;
 
+	/* Hover ratio for oklch */
+	--hover-state-ratio: calc(l - 0.03);
+	--active-state-ratio: calc(l - 0.1);
+
 	/* TODO: add focus color */
 	--focus-color: var(--clr-scale-pop-50);
 	--resizer-color: var(--clr-scale-pop-50);
@@ -48,6 +52,9 @@
 	--darken-tint-mid: var(--clr-scale-ntrl-50) 21%;
 	--darken-tint-dark: var(--clr-scale-ntrl-50) 28%;
 	--darken-tint-extradark: var(--clr-scale-ntrl-50) 35%;
+
+	--hover-state-ratio: calc(l + 0.03);
+	--active-state-ratio: calc(l + 0.1);
 }
 
 /* BOILERPLATE CSS */
@@ -119,7 +126,7 @@ button {
 .code-string {
 	font-family: 'Spline Sans Mono', monospace;
 	border-radius: var(--radius-s);
-	background: color-mix(in srgb, var(--clr-scale-ntrl-50), transparent 80%);
+	background: oklch(from var(--clr-scale-ntrl-50) l c h / 0.2);
 	padding: var(--size-2) var(--size-4);
 }
 
@@ -175,8 +182,7 @@ dialog::backdrop {
 }
 
 .locked-file-animation {
-	--locked-color: color-mix(in srgb, var(--clr-bg-main), var(--clr-scale-warn-50) 20%);
-
+	--locked-color: oklch(from var(--clr-scale-warn-50) l c h / 0.2);
 	border: 1px solid var(--clr-bg-main);
 	animation: locked-file-animation 1.4s ease-out forwards;
 }
@@ -192,7 +198,6 @@ dialog::backdrop {
 	}
 	15% {
 		transform: translateX(-3px);
-		background-color: var(--locked-color);
 	}
 	25% {
 		transform: translateX(3px);
@@ -201,7 +206,6 @@ dialog::backdrop {
 	30%,
 	70% {
 		transform: translateX(0);
-		background-color: var(--locked-color);
 	}
 	100% {
 		background-color: var(--clr-bg-main);

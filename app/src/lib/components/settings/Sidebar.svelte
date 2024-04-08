@@ -187,7 +187,7 @@
 
 		&:not(.item_selected):hover {
 			transition: none;
-			background-color: color-mix(in srgb, var(--clr-bg-main), var(--darken-tint-light));
+			background-color: var(--clr-bg-muted);
 		}
 
 		& span {
@@ -196,7 +196,7 @@
 	}
 
 	.item_selected {
-		background-color: color-mix(in srgb, var(--clr-bg-main), var(--darken-tint-light));
+		background-color: var(--clr-bg-muted);
 		color: var(--clr-scale-ntrl-0);
 	}
 
@@ -227,7 +227,7 @@
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: color-mix(in srgb, var(--clr-bg-main), var(--darken-tint-extralight));
+			background-color: var(--clr-bg-muted);
 		}
 	}
 </style>

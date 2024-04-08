@@ -67,7 +67,7 @@
 
 	.theme-card:hover {
 		& .theme-card__label {
-			background-color: color-mix(in srgb, var(--clr-bg-main), var(--darken-tint-light));
+			background-color: var(--clr-bg-muted);
 		}
 	}
 
@@ -114,7 +114,7 @@
 	}
 
 	.theme-card.selected .theme-card__label {
-		background-color: color-mix(in srgb, var(--clr-scale-pop-50), transparent 80%);
+		background-color: var(--clr-scale-pop-80);
 	}
 
 	.theme-card.selected .theme-card__icon {

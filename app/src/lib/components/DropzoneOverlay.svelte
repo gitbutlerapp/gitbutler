@@ -34,7 +34,7 @@
 			align-items: center;
 			justify-content: center;
 
-			background-color: color-mix(in srgb, var(--clr-scale-pop-70) 10%, transparent);
+			background-color: oklch(from var(--clr-scale-pop-70) l c h / 0.1);
 
 			outline-color: var(--clr-scale-pop-40);
 			outline-style: dashed;

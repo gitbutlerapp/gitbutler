@@ -168,7 +168,7 @@
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: color-mix(in srgb, var(--clr-scale-pop-50), transparent 85%);
+			background-color: oklch(from var(--clr-scale-pop-50) l c h / 0.15);
 		}
 	}
 

@@ -51,8 +51,6 @@
 		/* not checked */
 		&:hover,
 		&:focus {
-			box-shadow: inset 0 0 0 1px
-				color-mix(in srgb, var(--clr-border-main), var(--darken-mid));
 			outline: none;
 
 			&::after {
@@ -90,11 +88,7 @@
 			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
 
 			&:hover {
-				background-color: color-mix(
-					in srgb,
-					var(--clr-theme-pop-element),
-					var(--darken-mid)
-				);
+				background-color: oklch(from var(--clr-theme-pop-element) var(--hover-state-ratio) c h);
 			}
 
 			&:disabled {

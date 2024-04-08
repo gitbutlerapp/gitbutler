@@ -155,10 +155,6 @@
 
 	.clickable {
 		cursor: pointer;
-
-		&:hover {
-			background-color: color-mix(in srgb, var(--clr-bg-main), var(--darken-tint-extralight));
-		}
 	}
 
 	.disabled {

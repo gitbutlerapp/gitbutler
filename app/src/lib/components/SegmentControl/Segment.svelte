@@ -87,13 +87,8 @@
 
 		transition: background var(--transition-fast);
 
-		&:hover,
-		&:focus {
-			background-color: color-mix(in srgb, var(--clr-bg-main), var(--darken-tint-extralight));
-		}
-
 		&[aria-selected='true'] {
-			background-color: var(--clr-bg-alt);
+			background-color: var(--clr-bg-muted);
 
 			cursor: default;
 

@@ -76,9 +76,7 @@
 					isLaneCollapsed={$isLaneCollapsed}
 				/>
 				{#if branch.selectedForChanges}
-					<Tag style="pop" kind="solid" icon="target" verticalOrientation
-						>Default branch</Tag
-					>
+					<Tag style="pop" kind="solid" icon="target" verticalOrientation>Default branch</Tag>
 				{/if}
 			</div>
 		</div>

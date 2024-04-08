@@ -2,7 +2,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 
 	export let title: string;
-	export let loading = false;
+	export let loading = true;
 </script>
 
 <button class="action" class:loading on:click on:mousedown disabled={loading}>
@@ -43,18 +43,15 @@
 		&:hover,
 		&:focus {
 			outline: none;
-			background-color: color-mix(in srgb, var(--clr-bg-main), var(--darken-tint-extralight));
+			background-color: oklch(from var(--clr-bg-muted) l c h / 0.5);
 		}
 	}
 
 	.loading {
 		pointer-events: none;
-		background-color: color-mix(in srgb, var(--clr-scale-ntrl-50) 8%, transparent);
+		background-color: var(--clr-bg-muted);
 		border: 1px solid transparent;
-
-		& .action__content {
-			opacity: 0.3;
-		}
+		opacity: 0.5;
 	}
 
 	.action__content {
