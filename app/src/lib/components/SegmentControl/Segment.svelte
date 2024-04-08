@@ -83,21 +83,12 @@
 		border-bottom-width: 1px;
 		border-left-width: 1px;
 
-		border-color: var(--clr-container-outline-light);
+		border-color: var(--clr-border-main);
 
 		transition: background var(--transition-fast);
 
-		&:hover,
-		&:focus {
-			background-color: color-mix(
-				in srgb,
-				var(--clr-container-light),
-				var(--darken-tint-extralight)
-			);
-		}
-
 		&[aria-selected='true'] {
-			background-color: var(--clr-container-pale);
+			background-color: var(--clr-bg-muted);
 
 			cursor: default;
 

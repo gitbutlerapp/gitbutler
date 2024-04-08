@@ -18,7 +18,7 @@
 		gap: var(--size-4);
 		padding: var(--size-2) var(--size-4) var(--size-2) var(--size-2);
 		border-radius: var(--radius-s);
-		background: color-mix(in srgb, var(--clr-scale-ntrl-30) 8%, transparent);
+		background: oklch(from var(--clr-scale-ntrl-30) l c h / 0.08);
 		color: var(--clr-scale-ntrl-50);
 	}
 </style>

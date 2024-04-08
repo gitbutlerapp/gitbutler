@@ -89,11 +89,7 @@
 		transition: background-color var(--transition-fast);
 		&:hover,
 		&:focus {
-			background-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-light),
-				var(--darken-tint-light)
-			);
+			background-color: var(--clr-bg-muted);
 			outline: none;
 		}
 	}
@@ -107,15 +103,11 @@
 	.branch-name-input {
 		min-width: 1rem;
 		max-width: 100%;
-		background-color: var(--clr-container-light);
+		background-color: var(--clr-bg-main);
 		outline: none;
 		&:focus {
 			outline: none;
-			background-color: color-mix(
-				in srgb,
-				var(--clr-theme-container-light),
-				var(--darken-tint-light)
-			);
+			background-color: var(--clr-bg-muted);
 		}
 	}
 </style>

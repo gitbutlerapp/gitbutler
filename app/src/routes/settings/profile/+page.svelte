@@ -271,7 +271,7 @@
 		bottom: var(--size-8);
 		left: var(--size-8);
 		color: var(--clr-core-ntrl-100);
-		background-color: color-mix(in srgb, var(--clr-core-ntrl-0), transparent 30%);
+		background-color: var(--clr-scale-ntrl-20);
 		padding: var(--size-4) var(--size-6);
 		border-radius: var(--radius-m);
 		opacity: 0;

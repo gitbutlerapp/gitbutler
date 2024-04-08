@@ -160,11 +160,11 @@
 		text-align: left;
 		user-select: none;
 		outline: none;
-		background: var(--clr-container-light);
+		background: var(--clr-bg-main);
 		border: 1px solid transparent;
 
 		&:not(.selected-draggable):hover {
-			background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
+			background-color: var(--clr-bg-muted);
 		}
 	}
 
@@ -208,10 +208,10 @@
 
 	.selected-draggable {
 		background-color: var(--clr-scale-pop-80);
-		border: 1px solid var(--clr-container-light);
+		border: 1px solid var(--clr-bg-main);
 
 		&:hover {
-			background-color: color-mix(in srgb, var(--clr-scale-pop-80), var(--darken-tint-extralight));
+			background-color: var(--clr-scale-pop-80);
 		}
 	}
 </style>

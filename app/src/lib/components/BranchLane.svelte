@@ -118,7 +118,7 @@
 				viewport={rsViewport}
 				direction="right"
 				minWidth={240}
-				defaultLineColor="var(--clr-container-outline-light)"
+				defaultLineColor="var(--clr-border-main)"
 				on:width={(e) => {
 					fileWidth = e.detail / (16 * $userSettings.zoom);
 					lscache.set(fileWidthKey + branch.id, fileWidth, 7 * 1440); // 7 day ttl
@@ -137,16 +137,12 @@
 		flex-shrink: 0;
 		user-select: none; /* here because of user-select draggable interference in board */
 		position: relative;
-		--target-branch-background: var(--clr-container-pale);
+		--target-branch-background: var(--clr-bg-alt);
 		background-color: var(--target-branch-background);
 	}
 
 	.target-branch {
-		--target-branch-background: color-mix(
-			in srgb,
-			var(--clr-scale-pop-60) 20%,
-			var(--clr-container-pale)
-		);
+		--target-branch-background: color-mix(in srgb, var(--clr-scale-pop-60) 20%, var(--clr-bg-alt));
 	}
 
 	.file-preview {

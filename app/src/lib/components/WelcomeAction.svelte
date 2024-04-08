@@ -27,7 +27,7 @@
 		position: relative;
 		overflow: hidden;
 		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-container-outline-light);
+		border: 1px solid var(--clr-border-main);
 		display: flex;
 		position: relative;
 		padding: var(--size-16);
@@ -38,27 +38,20 @@
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast);
-		background-color: var(--clr-container-light);
+		background-color: var(--clr-bg-main);
 
 		&:hover,
 		&:focus {
 			outline: none;
-			background-color: color-mix(
-				in srgb,
-				var(--clr-container-light),
-				var(--darken-tint-extralight)
-			);
+			background-color: oklch(from var(--clr-bg-muted) l c h / 0.5);
 		}
 	}
 
 	.loading {
 		pointer-events: none;
-		background-color: color-mix(in srgb, var(--clr-scale-ntrl-50) 8%, transparent);
+		background-color: var(--clr-bg-muted);
 		border: 1px solid transparent;
-
-		& .action__content {
-			opacity: 0.3;
-		}
+		opacity: 0.5;
 	}
 
 	.action__content {

@@ -142,9 +142,9 @@
 
 	.disclaimer {
 		color: var(--clr-scale-ntrl-50);
-		background: var(--clr-container-pale);
+		background: var(--clr-bg-alt);
 		border-radius: var(--radius-m);
-		background: var(--clr-container-pale);
+		background: var(--clr-bg-alt);
 		padding: var(--size-10) var(--size-12);
 	}
 </style>

@@ -82,7 +82,7 @@
 		display: flex;
 		gap: var(--size-56);
 		padding: var(--size-28);
-		background: var(--clr-container-pale);
+		background: var(--clr-bg-alt);
 		border-radius: var(--radius-m);
 		margin-top: var(--size-20);
 	}

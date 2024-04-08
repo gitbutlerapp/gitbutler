@@ -78,19 +78,29 @@
 		/* kind */
 		&.soft {
 			color: var(--clr-scale-ntrl-30);
-			background: color-mix(in srgb, var(--clr-core-ntrl-50), var(--soft-bg-ratio));
+			background: oklch(from var(--clr-core-ntrl-60) l c h / 0.15);
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-scale-ntrl-30);
-				background: color-mix(in srgb, var(--clr-core-ntrl-50), var(--soft-hover-ratio));
+				background: oklch(from var(--clr-core-ntrl-50) l c h / 0.18);
+			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-100);
+				background: var(--clr-scale-ntrl-30);
 			}
 		}
 		&.solid {
 			color: var(--clr-scale-ntrl-100);
 			background: var(--clr-scale-ntrl-30);
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				background: var(--clr-scale-ntrl-30);
+			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-30);
+				background: var(--clr-scale-ntrl-100);
 			}
 		}
 	}
@@ -98,120 +108,175 @@
 	.ghost {
 		&.soft,
 		&.solid {
-			color: var(--clr-scale-ntrl-30);
+			color: var(--clr-scale-ntrl-40);
 			background: transparent;
-			&:not(.not-button):hover {
-				color: var(--clr-scale-ntrl-30);
-				background: color-mix(in srgb, transparent, var(--darken-tint-light));
+			&:not(.not-button, &:disabled):hover {
+				color: var(--clr-scale-ntrl-20);
+				background: oklch(from var(--clr-core-ntrl-60) l c h / 0.15);
+			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-100);
+				background: var(--clr-scale-ntrl-30);
 			}
 		}
 
 		&.solid {
-			box-shadow: inset 0 0 0 1px var(--clr-scale-ntrl-60);
+			border: 1px solid oklch(from var(--clr-scale-ntrl-0) l c h / 0.2);
 
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-scale-ntrl-30);
-				background: color-mix(in srgb, transparent, var(--darken-tint-light));
+				background: oklch(from var(--clr-core-ntrl-60) l c h / 0.1);
 			}
 		}
 	}
 
 	.pop {
 		&.soft {
-			color: var(--clr-scale-pop-20);
-			background: color-mix(in srgb, var(--clr-core-pop-50), var(--soft-bg-ratio));
+			color: var(--clr-theme-pop-on-container);
+			background: var(--clr-scale-pop-80);
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-scale-pop-10);
-				background: color-mix(in srgb, var(--clr-core-pop-50), var(--soft-hover-ratio));
+				background: oklch(from var(--clr-scale-pop-80) var(--hover-state-ratio) c h);
+			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-100);
+				background: var(--clr-scale-pop-20);
 			}
 		}
 		&.solid {
 			color: var(--clr-theme-pop-on-element);
 			background: var(--clr-theme-pop-element);
 			/* if button */
-			&:not(.not-button):hover {
-				background: color-mix(in srgb, var(--clr-theme-pop-element), var(--darken-mid));
+			&:not(.not-button, &:disabled):hover {
+				background: oklch(from var(--clr-theme-pop-element) var(--hover-state-ratio) c h);
+			}
+
+			& .badge {
+				--label-color: var(--clr-theme-pop-element);
+				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}
 
 	.success {
 		&.soft {
-			color: var(--clr-scale-succ-20);
-			background: color-mix(in srgb, var(--clr-core-succ-50), var(--soft-bg-ratio));
+			color: var(--clr-theme-succ-on-container);
+			background: var(--clr-scale-succ-80);
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-scale-succ-10);
-				background: color-mix(in srgb, var(--clr-core-succ-50), var(--soft-hover-ratio));
+				background: oklch(from var(--clr-scale-succ-80) var(--hover-state-ratio) c h);
+			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-100);
+				background: var(--clr-scale-succ-20);
 			}
 		}
 		&.solid {
 			color: var(--clr-theme-succ-on-element);
 			background: var(--clr-theme-succ-element);
 			/* if button */
-			&:not(.not-button):hover {
-				background: color-mix(in srgb, var(--clr-theme-succ-element), var(--darken-mid));
+			&:not(.not-button, &:disabled):hover {
+				background: oklch(from var(--clr-theme-succ-element) var(--hover-state-ratio) c h);
+			}
+
+			& .badge {
+				--label-color: var(--clr-theme-succ-element);
+				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}
 
 	.error {
 		&.soft {
-			color: var(--clr-scale-err-20);
-			background: color-mix(in srgb, var(--clr-core-err-50), var(--soft-bg-ratio));
+			color: var(--clr-theme-err-on-container);
+			background: var(--clr-scale-err-80);
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-scale-err-10);
-				background: color-mix(in srgb, var(--clr-core-err-50), var(--soft-hover-ratio));
+				background: oklch(from var(--clr-scale-err-80) var(--hover-state-ratio) c h);
+			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-100);
+				background: var(--clr-scale-err-20);
 			}
 		}
 		&.solid {
 			color: var(--clr-theme-err-on-element);
 			background: var(--clr-theme-err-element);
 			/* if button */
-			&:not(.not-button):hover {
-				background: color-mix(in srgb, var(--clr-theme-err-element), var(--darken-mid));
+			&:not(.not-button, &:disabled):hover {
+				background: oklch(from var(--clr-theme-err-element) var(--hover-state-ratio) c h);
+			}
+
+			& .badge {
+				--label-color: var(--clr-theme-err-element);
+				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}
 
 	.warning {
 		&.soft {
-			color: var(--clr-scale-warn-20);
-			background: color-mix(in srgb, var(--clr-core-warn-50), var(--soft-bg-ratio));
+			color: var(--clr-theme-warn-on-container);
+			background: var(--clr-scale-warn-80);
 			/* if button */
-			&:not(.not-button):hover {
+			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-scale-warn-10);
-				background: color-mix(in srgb, var(--clr-core-warn-50), var(--soft-hover-ratio));
+				background: oklch(from var(--clr-scale-warn-80) var(--hover-state-ratio) c h);
+			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-100);
+				background: var(--clr-scale-warn-20);
 			}
 		}
 		&.solid {
 			color: var(--clr-theme-warn-on-element);
 			background: var(--clr-theme-warn-element);
 			/* if button */
-			&:not(.not-button):hover {
-				background: color-mix(in srgb, var(--clr-theme-warn-element), var(--darken-mid));
+			&:not(.not-button, &:disabled):hover {
+				background: oklch(from var(--clr-theme-warn-element) var(--hover-state-ratio) c h);
+			}
+
+			& .badge {
+				--label-color: var(--clr-theme-warn-element);
+				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}
 
 	.purple {
 		&.soft {
-			color: var(--clr-scale-purple-20);
-			background: color-mix(in srgb, var(--clr-core-purple-50), var(--soft-bg-ratio));
+			color: var(--clr-theme-purp-on-container);
+			background: var(--clr-scale-purp-80);
 			/* if button */
-			&:not(.not-button):hover {
-				color: var(--clr-scale-purple-10);
-				background: color-mix(in srgb, var(--clr-core-purple-50), var(--soft-hover-ratio));
+			&:not(.not-button, &:disabled):hover {
+				color: var(--clr-scale-purp-10);
+				background: oklch(from var(--clr-scale-purp-80) var(--hover-state-ratio) c h);
+			}
+
+			& .badge {
+				--label-color: var(--clr-scale-ntrl-100);
+				background: var(--clr-scale-purp-20);
 			}
 		}
 		&.solid {
-			color: var(--clr-theme-purple-on-element);
-			background: var(--clr-theme-purple-element);
+			color: var(--clr-theme-purp-on-element);
+			background: var(--clr-theme-purp-element);
 			/* if button */
-			&:not(.not-button):hover {
-				background: color-mix(in srgb, var(--clr-theme-purple-element), var(--darken-mid));
+			&:not(.not-button, &:disabled):hover {
+				background: oklch(from var(--clr-theme-purp-element) var(--hover-state-ratio) c h);
+			}
+
+			& .badge {
+				--label-color: var(--clr-theme-purp-element);
+				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}
@@ -224,8 +289,37 @@
 	}
 
 	.disabled {
+		cursor: default;
 		pointer-events: none;
-		opacity: 0.6;
+		/* opacity: 0.5; */
+
+		&.neutral.solid,
+		&.pop.solid,
+		&.success.solid,
+		&.error.solid,
+		&.warning.solid,
+		&.purple.solid {
+			color: var(--clr-bg-on-muted);
+			background: oklch(from var(--clr-scale-ntrl-60) l c h / 0.15);
+		}
+
+		&.neutral.soft,
+		&.pop.soft,
+		&.success.soft,
+		&.error.soft,
+		&.warning.soft,
+		&.purple.soft {
+			color: var(--clr-bg-on-muted);
+			background: oklch(from var(--clr-scale-ntrl-60) l c h / 0.15);
+		}
+
+		&.ghost {
+			color: var(--clr-bg-on-muted);
+		}
+
+		&.ghost.solid {
+			border: 1px solid oklch(from var(--clr-scale-ntrl-0) l c h / 0.1);
+		}
 	}
 
 	.reversedDirection {

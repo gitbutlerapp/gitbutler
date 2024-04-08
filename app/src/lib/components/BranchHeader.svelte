@@ -243,7 +243,7 @@
 			}
 		}
 		&.isUnapplied {
-			background: var(--clr-container-pale);
+			background: var(--clr-bg-alt);
 		}
 	}
 	.header__top-overlay {
@@ -266,14 +266,14 @@
 	.header__actions {
 		display: flex;
 		gap: var(--size-4);
-		background: var(--clr-container-pale);
+		background: var(--clr-bg-alt);
 		padding: var(--size-14);
 		justify-content: space-between;
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 		user-select: none;
 	}
 	.isUnapplied .header__actions {
-		background: var(--clr-container-sub);
+		border-top: 1px solid var(--clr-border-main);
 	}
 	.header__buttons {
 		display: flex;

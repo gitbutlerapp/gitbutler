@@ -36,7 +36,6 @@
 			<p class="text-base-13 branch__name">
 				{branch.displayName}
 			</p>
-			<!-- <AheadBehind ahead={branch.remoteBranch?.ahead} behind={branch.remoteBranch?.behind} /> -->
 		</div>
 		{#if branch.remoteBranch || branch.pr}
 			<div class="branch__details">
@@ -92,7 +91,7 @@
 	.branch:not(.selected):hover,
 	.branch:not(.selected):focus,
 	.selected {
-		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
+		background-color: var(--clr-bg-muted);
 		transition: none;
 	}
 </style>

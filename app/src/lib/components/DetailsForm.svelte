@@ -25,6 +25,7 @@
 				<TextBox
 					label="Project Name"
 					id="name"
+					type="password"
 					placeholder="Project name can't be empty"
 					bind:value={title}
 					required

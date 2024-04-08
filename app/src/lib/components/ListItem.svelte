@@ -39,14 +39,14 @@
 
 		&:hover:enabled,
 		&:focus:enabled {
-			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
+			background-color: var(--clr-bg-muted);
 			& .icon {
 				color: var(--clr-scale-ntrl-40);
 			}
 		}
 		&:disabled {
-			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
-			color: var(--clr-scale-ntrl-50);
+			background-color: var(--clr-bg-muted);
+			color: var(--clr-bg-on-muted);
 		}
 		& .icon {
 			display: flex;

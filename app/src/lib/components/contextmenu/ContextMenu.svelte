@@ -25,8 +25,8 @@
 	.context-menu {
 		display: flex;
 		flex-direction: column;
-		background: var(--clr-container-pale);
-		border: 1px solid var(--clr-container-outline-light);
+		background: var(--clr-bg-alt);
+		border: 1px solid var(--clr-border-main);
 		border-radius: var(--radius-m);
 		box-shadow: var(--fx-shadow-s);
 	}

@@ -58,6 +58,6 @@
 	.domain-button:not(.selected):hover,
 	.domain-button:not(.selected):focus,
 	.selected {
-		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
+		background-color: var(--clr-bg-muted);
 	}
 </style>

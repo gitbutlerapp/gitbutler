@@ -40,13 +40,13 @@
 		white-space: nowrap;
 		&:hover:enabled,
 		&:focus:enabled {
-			background-color: var(--clr-container-pale);
+			background-color: var(--clr-bg-alt);
 			& .icon {
 				color: var(--clr-scale-ntrl-40);
 			}
 		}
 		&:disabled {
-			background-color: var(--clr-container-pale);
+			background-color: var(--clr-bg-alt);
 			color: var(--clr-scale-ntrl-50);
 		}
 		& .icon {

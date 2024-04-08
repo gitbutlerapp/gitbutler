@@ -39,12 +39,12 @@
 			background-color var(--transition-fast),
 			color var(--transition-fast);
 		&:not(.selected):hover {
-			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
+			background-color: var(--clr-bg-muted);
 			color: var(--clr-scale-ntrl-40);
 		}
 	}
 	.selected {
-		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
+		background-color: var(--clr-bg-muted);
 		cursor: default;
 	}
 	.size-l {

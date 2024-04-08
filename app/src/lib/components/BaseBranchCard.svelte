@@ -83,7 +83,7 @@
 	.base-branch-card:not(.selected):hover,
 	.base-branch-card:not(.selected):focus,
 	.selected {
-		background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
+		background-color: var(--clr-bg-muted);
 	}
 
 	.icon {
