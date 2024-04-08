@@ -71,8 +71,8 @@ export class CloudClient {
 	fetch: ((input: RequestInfo | URL, init?: RequestInit | undefined) => Promise<Response>) &
 		((input: RequestInfo | URL, init?: RequestInit | undefined) => Promise<Response>);
 
-	constructor(realFetch: typeof window.fetch = window.fetch) {
-		this.fetch = realFetch;
+	constructor(fetch: typeof window.fetch = window.fetch) {
+		this.fetch = fetch;
 	}
 
 	async createLoginToken(): Promise<LoginToken> {
