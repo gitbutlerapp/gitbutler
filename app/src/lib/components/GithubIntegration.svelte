@@ -190,7 +190,7 @@
 		margin-left: var(--size-8);
 		padding-bottom: var(--size-20);
 		margin-bottom: var(--size-20);
-		border-bottom: 1px solid var(--clr-container-outline-light);
+		border-bottom: 1px solid var(--clr-border-main);
 	}
 
 	.step-default {
@@ -250,7 +250,7 @@
 		align-self: flex-start;
 		padding: var(--size-6) var(--size-6) var(--size-6) var(--size-8);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-container-pale);
+		background-color: var(--clr-bg-alt);
 		user-select: text;
 	}
 </style>

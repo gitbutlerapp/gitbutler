@@ -135,8 +135,8 @@
 		flex-direction: column;
 		justify-content: space-between;
 		padding: calc(var(--size-36) + var(--size-4)) var(--size-14) var(--size-14) var(--size-14);
-		border-right: 1px solid var(--clr-container-outline-light);
-		background-color: var(--clr-container-light);
+		border-right: 1px solid var(--clr-border-main);
+		background-color: var(--clr-bg-main);
 		height: 100%;
 		width: 16rem;
 	}
@@ -187,7 +187,7 @@
 
 		&:not(.item_selected):hover {
 			transition: none;
-			background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
+			background-color: var(--clr-bg-muted);
 		}
 
 		& span {
@@ -196,7 +196,7 @@
 	}
 
 	.item_selected {
-		background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
+		background-color: var(--clr-bg-muted);
 		color: var(--clr-scale-ntrl-0);
 	}
 
@@ -221,17 +221,13 @@
 		justify-content: space-between;
 		padding: var(--size-16);
 		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-container-outline-light);
-		background-color: var(--clr-container-light);
+		border: 1px solid var(--clr-border-main);
+		background-color: var(--clr-bg-main);
 		color: var(--clr-scale-ntrl-30);
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: color-mix(
-				in srgb,
-				var(--clr-container-light),
-				var(--darken-tint-extralight)
-			);
+			background-color: var(--clr-bg-muted);
 		}
 	}
 </style>

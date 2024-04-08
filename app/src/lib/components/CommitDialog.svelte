@@ -280,8 +280,8 @@
 		display: flex;
 		flex-direction: column;
 		padding: var(--size-14);
-		background: var(--clr-container-light);
-		border-top: 1px solid var(--clr-container-outline-light);
+		background: var(--clr-bg-main);
+		border-top: 1px solid var(--clr-border-main);
 		transition: background-color var(--transition-medium);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 	}
@@ -311,6 +311,10 @@
 		&:focus {
 			outline: none;
 		}
+
+		&::placeholder {
+			color: oklch(from var(--clr-scale-ntrl-30) l c h / 0.4);
+		}
 	}
 
 	.commit-box__textarea-tooltip {
@@ -320,7 +324,7 @@
 		left: var(--size-12);
 		padding: var(--size-2);
 		border-radius: 100%;
-		background: var(--clr-container-pale);
+		background: var(--clr-bg-alt);
 		color: var(--clr-scale-ntrl-40);
 	}
 
@@ -346,6 +350,6 @@
 	}
 
 	.commit-box__expanded {
-		background-color: var(--clr-container-pale);
+		background-color: var(--clr-bg-alt);
 	}
 </style>

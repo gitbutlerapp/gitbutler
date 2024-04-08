@@ -55,16 +55,16 @@
 
 		&.pop {
 			color: var(--clr-scale-pop-10);
-			background: color-mix(in srgb, var(--clr-scale-pop-80) 70%, var(--clr-scale-ntrl-100));
+			background: var(--clr-scale-pop-70);
 
 			&:hover {
 				color: var(--clr-scale-pop-10);
-				background: color-mix(in srgb, var(--clr-scale-pop-80) 40%, var(--clr-scale-ntrl-100));
+				background: oklch(from var(--clr-scale-pop-70) var(--hover-state-ratio) c h);
 			}
 		}
 
 		&:hover {
-			background-color: color-mix(in srgb, transparent, var(--darken-tint-light));
+			background-color: var(--clr-bg-muted);
 			color: var(--clr-scale-ntrl-40);
 		}
 	}

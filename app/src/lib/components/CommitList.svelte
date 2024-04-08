@@ -61,9 +61,9 @@
 <style lang="postcss">
 	.commit-list {
 		&.upstream {
-			background-color: var(--clr-container-pale);
+			background-color: var(--clr-bg-alt);
 		}
-		background-color: var(--clr-container-light);
+		background-color: var(--clr-bg-main);
 		display: flex;
 		flex-direction: column;
 		position: relative;

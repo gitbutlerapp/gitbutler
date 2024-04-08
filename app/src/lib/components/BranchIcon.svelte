@@ -68,7 +68,7 @@
 		border-radius: var(--radius-s);
 
 		& path {
-			fill: var(--clr-container-light);
+			fill: var(--clr-bg-main);
 		}
 	}
 
@@ -85,6 +85,6 @@
 	}
 
 	.purple {
-		background-color: var(--clr-scale-purple-50);
+		background-color: var(--clr-scale-purp-50);
 	}
 </style>

@@ -71,8 +71,8 @@
 		width: 100%;
 		margin-top: var(--size-6);
 		border-radius: var(--m, 6px);
-		border: 1px solid var(--clr-container-outline-light);
-		background: var(--clr-container-light);
+		border: 1px solid var(--clr-border-main);
+		background: var(--clr-bg-main);
 		/* shadow/s */
 		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
 	}

@@ -20,20 +20,9 @@
 	--transition-medium: 0.1s ease-in-out;
 	--transition-slow: 0.2s ease-in-out;
 
-	/* For all light neutral elements — ghost buttons, light background
-    use tint palatte it will tint the pallate properly if it's nut gray */
-	--darken-tint-extralight: var(--clr-scale-ntrl-50) 5%;
-	--darken-tint-light: var(--clr-scale-ntrl-50) 9%;
-	--darken-tint-mid: var(--clr-scale-ntrl-50) 14%;
-	--darken-tint-dark: var(--clr-scale-ntrl-50) 20%;
-	--darken-tint-extradark: var(--clr-scale-ntrl-50) 35%;
-
-	/* For all color and dark elements */
-	--darken-extralight: var(--clr-scale-ntrl-0) 3%;
-	--darken-light: var(--clr-scale-ntrl-0) 6%;
-	--darken-mid: var(--clr-scale-ntrl-0) 9%;
-	--darken-dark: var(--clr-scale-ntrl-0) 12%;
-	--darken-extradark: var(--clr-scale-ntrl-0) 15%;
+	/* Hover ratio for oklch */
+	--hover-state-ratio: calc(l - 0.03);
+	--active-state-ratio: calc(l - 0.1);
 
 	/* TODO: add focus color */
 	--focus-color: var(--clr-scale-pop-50);
@@ -41,13 +30,8 @@
 }
 
 :root.dark {
-	/* Additional correction here for dark mode, due tue
-    tint colors look less contrast  */
-	--darken-tint-extralight: var(--clr-scale-ntrl-50) 7%;
-	--darken-tint-light: var(--clr-scale-ntrl-50) 14%;
-	--darken-tint-mid: var(--clr-scale-ntrl-50) 21%;
-	--darken-tint-dark: var(--clr-scale-ntrl-50) 28%;
-	--darken-tint-extradark: var(--clr-scale-ntrl-50) 35%;
+	--hover-state-ratio: calc(l + 0.03);
+	--active-state-ratio: calc(l + 0.1);
 }
 
 /* BOILERPLATE CSS */
@@ -63,7 +47,7 @@ body {
 	overflow-y: hidden;
 	padding: 0;
 	color: var(--clr-scale-ntrl-0);
-	background-color: var(--clr-container-pale);
+	background-color: var(--clr-bg-alt);
 
 	/* optimise font rendering */
 	-webkit-font-smoothing: antialiased;
@@ -119,7 +103,7 @@ button {
 .code-string {
 	font-family: 'Spline Sans Mono', monospace;
 	border-radius: var(--radius-s);
-	background: color-mix(in srgb, var(--clr-scale-ntrl-50), transparent 80%);
+	background: oklch(from var(--clr-scale-ntrl-50) l c h / 0.2);
 	padding: var(--size-2) var(--size-4);
 }
 
@@ -175,16 +159,15 @@ dialog::backdrop {
 }
 
 .locked-file-animation {
-	--locked-color: color-mix(in srgb, var(--clr-container-light), var(--clr-scale-warn-50) 20%);
-
-	border: 1px solid var(--clr-container-light);
+	--locked-color: oklch(from var(--clr-scale-warn-50) l c h / 0.2);
+	border: 1px solid var(--clr-bg-main);
 	animation: locked-file-animation 1.4s ease-out forwards;
 }
 
 @keyframes locked-file-animation {
 	0% {
 		transform: translateX(-3px);
-		background-color: var(--clr-container-light);
+		background-color: var(--clr-bg-main);
 	}
 	10% {
 		transform: translateX(3px);
@@ -192,7 +175,6 @@ dialog::backdrop {
 	}
 	15% {
 		transform: translateX(-3px);
-		background-color: var(--locked-color);
 	}
 	25% {
 		transform: translateX(3px);
@@ -201,9 +183,8 @@ dialog::backdrop {
 	30%,
 	70% {
 		transform: translateX(0);
-		background-color: var(--locked-color);
 	}
 	100% {
-		background-color: var(--clr-container-light);
+		background-color: var(--clr-bg-main);
 	}
 }

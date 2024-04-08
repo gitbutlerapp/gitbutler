@@ -70,7 +70,7 @@
 			{viewport}
 			direction="right"
 			minWidth={minResizerWidth}
-			defaultLineColor="var(--clr-container-outline-light)"
+			defaultLineColor="var(--clr-border-main)"
 			on:click={() => $isNavCollapsed && toggleNavCollapse()}
 			on:dblclick={() => !$isNavCollapsed && toggleNavCollapse()}
 			on:width={(e) => {
@@ -122,6 +122,7 @@
 					/>
 				</div>
 			</div>
+
 			{#if !$isNavCollapsed}
 				<Branches
 					projectId={project.id}
@@ -152,7 +153,7 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
-		background: var(--clr-container-light);
+		background: var(--clr-bg-main);
 		max-height: 100%;
 		user-select: none;
 	}
@@ -194,9 +195,9 @@
 		top: 50%;
 		width: 0.875rem;
 		height: var(--size-36);
-		background: var(--clr-container-light);
+		background: var(--clr-bg-main);
 		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-container-outline-light);
+		border: 1px solid var(--clr-border-main);
 		pointer-events: none;
 		opacity: 0;
 		transition:
@@ -212,8 +213,6 @@
 		}
 
 		&:hover {
-			border-color: color-mix(in srgb, var(--clr-container-outline-light), var(--darken-tint-dark));
-
 			& svg {
 				stroke: var(--clr-scale-ntrl-50);
 			}

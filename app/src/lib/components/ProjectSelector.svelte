@@ -26,7 +26,7 @@
 	}}
 >
 	<button
-		class="button"
+		class="text-input button"
 		use:tooltip={isNavCollapsed ? project?.title : ''}
 		on:mousedown={(e) => {
 			visible = popup.toggle();
@@ -56,24 +56,12 @@
 		display: flex;
 		gap: var(--size-10);
 		width: 100%;
-		padding: var(--size-10);
-		border-radius: var(--radius-m);
-
-		background-color: var(--clr-container-pale);
+		padding: var(--size-8);
 
 		align-items: center;
 		justify-content: space-between;
 
 		transition: background-color var(--transition-fast);
-
-		&:focus,
-		&:hover {
-			background-color: color-mix(in srgb, var(--clr-container-light), var(--clr-core-ntrl-50) 20%);
-
-			& .button__icon {
-				opacity: 0.4;
-			}
-		}
 	}
 
 	.button__label {

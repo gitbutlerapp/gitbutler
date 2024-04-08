@@ -178,19 +178,13 @@
 		flex-direction: column;
 
 		border-radius: var(--size-6);
-		background-color: var(--clr-container-light);
-		border: 1px solid var(--clr-container-outline-light);
+		background-color: var(--clr-bg-main);
+		border: 1px solid var(--clr-border-main);
 		overflow: hidden;
 		transition: background-color var(--transition-fast);
 
 		&:not(.is-commit-open):hover {
-			border: 1px solid
-				color-mix(in srgb, var(--clr-container-outline-light), var(--darken-tint-mid));
-			background-color: color-mix(
-				in srgb,
-				var(--clr-container-light),
-				var(--darken-tint-extralight)
-			);
+			background-color: var(--clr-bg-muted);
 		}
 	}
 
@@ -203,15 +197,11 @@
 	}
 
 	.is-commit-open {
-		background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-extralight));
+		background-color: var(--clr-bg-muted);
 
 		& .commit__header {
 			padding-bottom: var(--size-16);
-			border-bottom: 1px solid var(--clr-container-outline-light);
-
-			&:hover {
-				background-color: color-mix(in srgb, var(--clr-container-light), var(--darken-tint-light));
-			}
+			border-bottom: 1px solid var(--clr-border-main);
 		}
 
 		& .commit__message {
@@ -271,7 +261,7 @@
 	}
 
 	.files-container {
-		background-color: var(--clr-container-light);
+		background-color: var(--clr-bg-main);
 		padding: 0 var(--size-14) var(--size-14);
 	}
 
@@ -280,7 +270,7 @@
 		justify-content: flex-end;
 		gap: var(--size-8);
 		padding: var(--size-14);
-		background-color: var(--clr-container-light);
-		border-top: 1px solid var(--clr-container-outline-light);
+		background-color: var(--clr-bg-main);
+		border-top: 1px solid var(--clr-border-main);
 	}
 </style>

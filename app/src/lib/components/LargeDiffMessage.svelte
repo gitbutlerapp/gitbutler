@@ -23,11 +23,11 @@
 		padding: var(--size-12);
 		gap: var(--size-8);
 		flex-direction: column;
-		background-color: var(--clr-container-light);
+		background-color: var(--clr-bg-main);
 	}
 
 	.frame-box {
-		border: 1px solid var(--clr-container-outline-light);
+		border: 1px solid var(--clr-border-main);
 		border-radius: var(--radius-m);
 	}
 </style>

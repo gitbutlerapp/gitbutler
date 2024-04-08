@@ -39,8 +39,8 @@
 		height: var(--size-16);
 		flex-shrink: 0;
 		border-radius: var(--radius-s);
-		background-color: var(--clr-container-light);
-		box-shadow: inset 0 0 0 1px var(--clr-container-outline-light);
+		background-color: var(--clr-bg-main);
+		box-shadow: inset 0 0 0 1px var(--clr-border-main);
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),
@@ -51,8 +51,6 @@
 		/* not checked */
 		&:hover,
 		&:focus {
-			box-shadow: inset 0 0 0 1px
-				color-mix(in srgb, var(--clr-container-outline-pale), var(--darken-mid));
 			outline: none;
 
 			&::after {
@@ -70,7 +68,7 @@
 		}
 
 		&:indeterminate {
-			background-color: var(--clr-container-pale);
+			background-color: var(--clr-bg-alt);
 
 			&::before {
 				content: '';
@@ -90,7 +88,7 @@
 			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
 
 			&:hover {
-				background-color: color-mix(in srgb, var(--clr-theme-pop-element), var(--darken-mid));
+				background-color: oklch(from var(--clr-theme-pop-element) var(--hover-state-ratio) c h);
 			}
 
 			&:disabled {

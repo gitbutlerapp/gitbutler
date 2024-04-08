@@ -91,12 +91,12 @@
 		justify-content: center;
 		width: 22rem;
 		border-radius: var(--radius-m);
-		border: 1px dashed color-mix(in srgb, var(--clr-container-outline-pale) 50%, transparent);
+		border: 1px dashed var(--clr-border-main);
 		background-color: transparent;
 		padding: var(--size-20);
 		gap: var(--size-8);
 
-		outline-color: color-mix(in srgb, var(--clr-scale-pop-40) 0%, transparent);
+		outline-color: transparent;
 		outline-style: dashed;
 		outline-width: 1px;
 		outline-offset: -1px;
@@ -170,7 +170,7 @@
 		left: 35px;
 		width: 77px;
 		height: 83px;
-		background-color: color-mix(in srgb, var(--clr-scale-ntrl-60) 26%, transparent);
+		background-color: oklch(from var(--clr-scale-ntrl-60) l c h / 0.2);
 		border-radius: 12px;
 	}
 
@@ -217,8 +217,8 @@
 	.canvas-dropzone {
 		&:global(.new-dz-active) {
 			& .new-virtual-branch {
-				background-color: color-mix(in srgb, var(--clr-scale-pop-70) 10%, transparent);
-				border: 1px dashed color-mix(in srgb, var(--clr-scale-pop-40) 80%, transparent);
+				background-color: oklch(from var(--clr-scale-pop-70) l c h / 0.1);
+				border: 1px dashed oklch(from var(--clr-scale-pop-40) l c h / 0.8);
 				color: var(--clr-scale-pop-50);
 			}
 

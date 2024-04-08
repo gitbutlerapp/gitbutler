@@ -27,8 +27,8 @@
 		width: var(--size-16);
 		height: var(--size-16);
 		border-radius: var(--size-16);
-		background-color: var(--clr-container-light);
-		box-shadow: inset 0 0 0 1px var(--clr-container-outline-light);
+		background-color: var(--clr-bg-main);
+		box-shadow: inset 0 0 0 1px var(--clr-border-main);
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),
@@ -39,8 +39,6 @@
 		/* not checked */
 		&:hover,
 		&:focus {
-			box-shadow: inset 0 0 0 1px
-				color-mix(in srgb, var(--clr-container-outline-pale), var(--darken-mid));
 			outline: none;
 
 			&::after {
@@ -61,10 +59,6 @@
 		&:checked {
 			background-color: var(--clr-theme-pop-element);
 			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
-
-			&:hover {
-				background-color: color-mix(in srgb, var(--clr-theme-pop-element), var(--darken-mid));
-			}
 
 			&:disabled {
 				pointer-events: none;

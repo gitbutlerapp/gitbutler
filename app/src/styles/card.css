@@ -1,9 +1,9 @@
 .card {
 	display: flex;
 	flex-direction: column;
-	border: 1px solid var(--clr-container-outline-light);
+	border: 1px solid var(--clr-border-main);
 	border-radius: var(--radius-m);
-	background: var(--clr-container-light);
+	background: var(--clr-bg-main);
 }
 
 .card__header {
@@ -11,7 +11,7 @@
 	justify-content: space-between;
 	padding: var(--size-16);
 	gap: var(--size-8);
-	border-bottom: 1px solid var(--clr-container-outline-light);
+	border-bottom: 1px solid var(--clr-border-main);
 }
 
 .card__title {
@@ -29,5 +29,5 @@
 	gap: var(--size-6);
 	padding: var(--size-16);
 	justify-content: space-between;
-	border-top: 1px solid var(--clr-container-outline-light);
+	border-top: 1px solid var(--clr-border-main);
 }
