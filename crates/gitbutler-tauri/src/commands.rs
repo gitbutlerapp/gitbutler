@@ -15,7 +15,7 @@ use crate::error::Error;
 use crate::{app, watcher};
 
 #[tauri::command(async)]
-#[instrument(skip(handle))]
+#[instrument(skip(handle), err(Debug))]
 pub async fn list_session_files(
     handle: tauri::AppHandle,
     project_id: ProjectId,
@@ -28,7 +28,7 @@ pub async fn list_session_files(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(handle))]
+#[instrument(skip(handle), err(Debug))]
 pub async fn git_remote_branches(
     handle: tauri::AppHandle,
     project_id: ProjectId,
@@ -39,7 +39,7 @@ pub async fn git_remote_branches(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(handle))]
+#[instrument(skip(handle), err(Debug))]
 pub async fn git_test_push(
     handle: tauri::AppHandle,
     project_id: ProjectId,
@@ -62,7 +62,7 @@ pub async fn git_test_push(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(handle))]
+#[instrument(skip(handle), err(Debug))]
 pub async fn git_test_fetch(
     handle: tauri::AppHandle,
     project_id: ProjectId,
@@ -84,7 +84,7 @@ pub async fn git_test_fetch(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(handle))]
+#[instrument(skip(handle), err(Debug))]
 pub async fn git_index_size(
     handle: tauri::AppHandle,
     project_id: ProjectId,
@@ -94,7 +94,7 @@ pub async fn git_index_size(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(handle))]
+#[instrument(skip(handle), err(Debug))]
 pub async fn git_head(handle: tauri::AppHandle, project_id: ProjectId) -> Result<String, Error> {
     let app = handle.state::<app::App>();
     let head = app.git_head(&project_id)?;
@@ -102,7 +102,7 @@ pub async fn git_head(handle: tauri::AppHandle, project_id: ProjectId) -> Result
 }
 
 #[tauri::command(async)]
-#[instrument(skip(handle))]
+#[instrument(skip(handle), err(Debug))]
 pub async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     app.delete_all_data().await?;
@@ -110,7 +110,7 @@ pub async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
 }
 
 #[tauri::command(async)]
-#[instrument(skip(handle))]
+#[instrument(skip(handle), err(Debug))]
 pub async fn mark_resolved(
     handle: tauri::AppHandle,
     project_id: ProjectId,
@@ -122,7 +122,7 @@ pub async fn mark_resolved(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(_handle))]
+#[instrument(skip(_handle), err(Debug))]
 pub async fn git_set_global_config(
     _handle: tauri::AppHandle,
     key: &str,
@@ -133,7 +133,7 @@ pub async fn git_set_global_config(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(_handle))]
+#[instrument(skip(_handle), err(Debug))]
 pub async fn git_get_global_config(
     _handle: tauri::AppHandle,
     key: &str,
@@ -143,7 +143,7 @@ pub async fn git_get_global_config(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(handle))]
+#[instrument(skip(handle), err(Debug))]
 pub async fn project_flush_and_push(handle: tauri::AppHandle, id: ProjectId) -> Result<(), Error> {
     let users = handle.state::<users::Controller>().inner().clone();
     let projects = handle.state::<projects::Controller>().inner().clone();

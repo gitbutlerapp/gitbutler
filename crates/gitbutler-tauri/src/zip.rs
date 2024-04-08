@@ -11,7 +11,7 @@ pub mod commands {
     use crate::error::Error;
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn get_project_archive_path(
         handle: AppHandle,
         project_id: &str,
@@ -27,7 +27,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn get_project_data_archive_path(
         handle: AppHandle,
         project_id: &str,
@@ -43,7 +43,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn get_logs_archive_path(handle: AppHandle) -> Result<path::PathBuf, Error> {
         handle
             .state::<controller::Controller>()

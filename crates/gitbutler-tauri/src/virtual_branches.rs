@@ -19,7 +19,7 @@ pub mod commands {
     use crate::watcher;
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn commit_virtual_branch(
         handle: AppHandle,
         project_id: ProjectId,
@@ -38,7 +38,7 @@ pub mod commands {
 
     /// This is a test command. It retrieves the virtual branches state from the gitbutler repository (legacy state) and persists it into a flat TOML file
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn save_vbranches_state(
         handle: AppHandle,
         project_id: ProjectId,
@@ -52,7 +52,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn list_virtual_branches(
         handle: AppHandle,
         project_id: ProjectId,
@@ -84,7 +84,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn create_virtual_branch(
         handle: AppHandle,
         project_id: ProjectId,
@@ -99,7 +99,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn create_virtual_branch_from_branch(
         handle: AppHandle,
         project_id: ProjectId,
@@ -114,7 +114,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn merge_virtual_branch_upstream(
         handle: AppHandle,
         project_id: ProjectId,
@@ -129,7 +129,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn get_base_branch_data(
         handle: AppHandle,
         project_id: ProjectId,
@@ -148,7 +148,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn set_base_branch(
         handle: AppHandle,
         project_id: ProjectId,
@@ -170,7 +170,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn update_base_branch(handle: AppHandle, project_id: ProjectId) -> Result<(), Error> {
         handle
             .state::<Controller>()
@@ -181,7 +181,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn update_virtual_branch(
         handle: AppHandle,
         project_id: ProjectId,
@@ -197,7 +197,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn delete_virtual_branch(
         handle: AppHandle,
         project_id: ProjectId,
@@ -212,7 +212,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn apply_branch(
         handle: AppHandle,
         project_id: ProjectId,
@@ -227,7 +227,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn unapply_branch(
         handle: AppHandle,
         project_id: ProjectId,
@@ -242,7 +242,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn unapply_ownership(
         handle: AppHandle,
         project_id: ProjectId,
@@ -257,7 +257,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn reset_files(
         handle: AppHandle,
         project_id: ProjectId,
@@ -277,7 +277,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn push_virtual_branch(
         handle: AppHandle,
         project_id: ProjectId,
@@ -300,7 +300,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn can_apply_virtual_branch(
         handle: AppHandle,
         project_id: ProjectId,
@@ -314,7 +314,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn can_apply_remote_branch(
         handle: AppHandle,
         project_id: ProjectId,
@@ -327,7 +327,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn list_remote_commit_files(
         handle: AppHandle,
         project_id: ProjectId,
@@ -341,7 +341,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn reset_virtual_branch(
         handle: AppHandle,
         project_id: ProjectId,
@@ -357,7 +357,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn cherry_pick_onto_virtual_branch(
         handle: AppHandle,
         project_id: ProjectId,
@@ -373,7 +373,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn amend_virtual_branch(
         handle: AppHandle,
         project_id: ProjectId,
@@ -389,7 +389,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn list_remote_branches(
         handle: tauri::AppHandle,
         project_id: ProjectId,
@@ -402,7 +402,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn get_remote_branch_data(
         handle: tauri::AppHandle,
         project_id: ProjectId,
@@ -420,7 +420,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn squash_branch_commit(
         handle: tauri::AppHandle,
         project_id: ProjectId,
@@ -436,7 +436,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn fetch_from_target(
         handle: tauri::AppHandle,
         project_id: ProjectId,
@@ -458,7 +458,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn move_commit(
         handle: tauri::AppHandle,
         project_id: ProjectId,

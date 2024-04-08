@@ -11,7 +11,7 @@ use tracing::instrument;
 use crate::error::Error;
 
 #[tauri::command(async)]
-#[instrument(skip(handle))]
+#[instrument(skip(handle), err(Debug))]
 pub async fn menu_item_set_enabled(
     handle: AppHandle,
     menu_item_id: &str,
