@@ -23,7 +23,7 @@ export const ssr = false;
 export const prerender = false;
 export const csr = true;
 
-export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
+export async function load() {
 	appErrorReportingEnabled()
 		.onDisk()
 		.then((enabled) => {
@@ -39,7 +39,7 @@ export async function load({ fetch: realFetch }: { fetch: typeof fetch }) {
 	// https://github.com/sveltejs/kit/issues/905
 	const defaultPath = await (await import('@tauri-apps/api/path')).homeDir();
 
-	const cloud = new CloudClient(realFetch);
+	const cloud = new CloudClient();
 	const authService = new AuthService();
 	const projectService = new ProjectService(defaultPath);
 	const updaterService = new UpdaterService();
