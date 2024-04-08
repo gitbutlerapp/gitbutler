@@ -2,7 +2,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 
 	export let title: string;
-	export let loading = true;
+	export let loading = false;
 </script>
 
 <button class="action" class:loading on:click on:mousedown disabled={loading}>
