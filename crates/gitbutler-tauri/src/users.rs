@@ -10,7 +10,7 @@ pub mod commands {
     use crate::sentry;
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn get_user(handle: AppHandle) -> Result<Option<User>, Error> {
         let app = handle.state::<Controller>();
         let proxy = handle.state::<assets::Proxy>();
@@ -22,7 +22,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn set_user(handle: AppHandle, user: User) -> Result<User, Error> {
         let app = handle.state::<Controller>();
         let proxy = handle.state::<assets::Proxy>();
@@ -35,7 +35,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn delete_user(handle: AppHandle) -> Result<(), Error> {
         let app = handle.state::<Controller>();
 

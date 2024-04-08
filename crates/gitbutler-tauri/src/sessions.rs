@@ -9,7 +9,7 @@ pub mod commands {
     use crate::error::Error;
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn list_sessions(
         handle: AppHandle,
         project_id: &str,

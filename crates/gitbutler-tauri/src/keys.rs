@@ -6,7 +6,7 @@ pub mod commands {
     use crate::error::Error;
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn get_public_key(handle: tauri::AppHandle) -> Result<PublicKey, Error> {
         handle
             .state::<controller::Controller>()

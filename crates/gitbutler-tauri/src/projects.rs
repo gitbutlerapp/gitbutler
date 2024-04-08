@@ -11,7 +11,7 @@ pub mod commands {
     use crate::error::Error;
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn update_project(
         handle: tauri::AppHandle,
         project: projects::UpdateRequest,
@@ -24,7 +24,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn add_project(
         handle: tauri::AppHandle,
         path: &path::Path,
@@ -36,7 +36,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn get_project(
         handle: tauri::AppHandle,
         id: &str,
@@ -52,13 +52,13 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
         handle.state::<Controller>().list().map_err(Into::into)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
         let id = id.parse().context(error::Context::new_static(
             Code::Validation,
@@ -72,7 +72,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn git_get_local_config(
         handle: tauri::AppHandle,
         id: &str,
@@ -89,7 +89,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn git_set_local_config(
         handle: tauri::AppHandle,
         id: &str,
