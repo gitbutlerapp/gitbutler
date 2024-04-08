@@ -127,7 +127,7 @@
 			&.warning.solid,
 			&.purple.solid {
 				color: var(--clr-bg-on-muted);
-				background: oklch(from var(--clr-scale-ntrl-60) l c h / 0.15);
+				background: oklch(from var(--clr-scale-ntrl-60) l c h / 0.2);
 			}
 
 			&.neutral.soft,
@@ -137,7 +137,7 @@
 			&.warning.soft,
 			&.purple.soft {
 				color: var(--clr-bg-on-muted);
-				background: oklch(from var(--clr-scale-ntrl-60) l c h / 0.15);
+				background: oklch(from var(--clr-scale-ntrl-60) l c h / 0.2);
 			}
 
 			&.ghost {
@@ -145,7 +145,7 @@
 			}
 
 			&.ghost.solid {
-				border: 1px solid oklch(from var(--clr-scale-ntrl-0) l c h / 0.1);
+				border-color: oklch(from var(--clr-scale-ntrl-0) l c h / 0.1);
 			}
 		}
 		&.wide {
