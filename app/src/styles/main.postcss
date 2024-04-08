@@ -20,21 +20,6 @@
 	--transition-medium: 0.1s ease-in-out;
 	--transition-slow: 0.2s ease-in-out;
 
-	/* For all light neutral elements — ghost buttons, light background
-    use tint palatte it will tint the pallate properly if it's nut gray */
-	--darken-tint-extralight: var(--clr-scale-ntrl-50) 5%;
-	--darken-tint-light: var(--clr-scale-ntrl-50) 9%;
-	--darken-tint-mid: var(--clr-scale-ntrl-50) 14%;
-	--darken-tint-dark: var(--clr-scale-ntrl-50) 20%;
-	--darken-tint-extradark: var(--clr-scale-ntrl-50) 35%;
-
-	/* For all color and dark elements */
-	--darken-extralight: var(--clr-scale-ntrl-0) 3%;
-	--darken-light: var(--clr-scale-ntrl-0) 6%;
-	--darken-mid: var(--clr-scale-ntrl-0) 9%;
-	--darken-dark: var(--clr-scale-ntrl-0) 12%;
-	--darken-extradark: var(--clr-scale-ntrl-0) 15%;
-
 	/* Hover ratio for oklch */
 	--hover-state-ratio: calc(l - 0.03);
 	--active-state-ratio: calc(l - 0.1);
@@ -45,14 +30,6 @@
 }
 
 :root.dark {
-	/* Additional correction here for dark mode, due tue
-    tint colors look less contrast  */
-	--darken-tint-extralight: var(--clr-scale-ntrl-50) 7%;
-	--darken-tint-light: var(--clr-scale-ntrl-50) 14%;
-	--darken-tint-mid: var(--clr-scale-ntrl-50) 21%;
-	--darken-tint-dark: var(--clr-scale-ntrl-50) 28%;
-	--darken-tint-extradark: var(--clr-scale-ntrl-50) 35%;
-
 	--hover-state-ratio: calc(l + 0.03);
 	--active-state-ratio: calc(l + 0.1);
 }
