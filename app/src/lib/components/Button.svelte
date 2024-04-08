@@ -127,7 +127,7 @@
 			&.warning.solid,
 			&.purple.solid {
 				color: var(--clr-bg-on-muted);
-				background: oklch(from var(--clr-scale-ntrl-70) l c h / 0.3);
+				background: oklch(from var(--clr-scale-ntrl-60) l c h / 0.15);
 			}
 
 			&.neutral.soft,
@@ -137,7 +137,7 @@
 			&.warning.soft,
 			&.purple.soft {
 				color: var(--clr-bg-on-muted);
-				background: oklch(from var(--clr-scale-ntrl-70) l c h / 0.3);
+				background: oklch(from var(--clr-scale-ntrl-60) l c h / 0.15);
 			}
 
 			&.ghost {
