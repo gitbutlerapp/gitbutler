@@ -141,7 +141,6 @@ jobs:
   sign-tauri:
     needs: build-tauri
     runs-on: [self-hosted, evcodesignd]
-    if: ${{ needs.build-tauri.outputs.channel == 'release' }} && ${{ needs.build-tauri.outputs.platform == 'windows-latest' }}
     strategy:
       matrix:
         platform:
