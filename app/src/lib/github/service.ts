@@ -374,7 +374,7 @@ export class GitHubService {
 		const succeeded = checks.filter((c) => c.conclusion == 'success').length;
 
 		const firstStart = new Date(Math.min(...startTimes.map((date) => date.getTime())));
-		const completed = checks.every((check) => !!check.completed_at);
+		const completed = checks.every((check) => check.completed_at !== null);
 		const totalCount = resp?.data.total_count;
 
 		console.log('checks', checks);
