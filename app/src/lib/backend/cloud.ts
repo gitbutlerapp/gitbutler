@@ -1,5 +1,4 @@
 import { invoke } from './ipc';
-import type { PromptMessage, ModelKind } from '$lib/ai/types';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 const apiUrl = new URL('/api/', new URL(PUBLIC_API_BASE_URL));
@@ -57,13 +56,6 @@ async function parseResponseJSON(response: Response) {
 	} else {
 		return await response.json();
 	}
-}
-
-interface EvaluatePromptParams {
-	messages: PromptMessage[];
-	temperature?: number;
-	max_tokens?: number;
-	model_kind?: ModelKind;
 }
 
 export enum RequestMethod {
@@ -171,15 +163,6 @@ export class CloudClient {
 			path: 'user.json',
 			method: RequestMethod.PUT,
 			body: formData,
-			token
-		});
-	}
-
-	evaluateAIPrompt(token: string, params: EvaluatePromptParams): Promise<{ message: string }> {
-		return this.makeRequest({
-			path: 'evaluate_prompt/predict.json',
-			method: RequestMethod.POST,
-			body: params,
 			token
 		});
 	}
