@@ -146,7 +146,14 @@
 			return { color, icon, text };
 		}
 
-		return { color: 'warning', icon: 'spinner', text: 'Checks are running' };
+		return {
+			color: 'warning',
+			icon: 'spinner',
+			text:
+				status.queued && status.totalCount
+					? `Running checks (${status.totalCount - status.queued} / ${status.totalCount})`
+					: 'Running checks'
+		};
 	}
 
 	function getPrStatusInfo(pr: DetailedPullRequest | undefined): {
@@ -271,7 +278,9 @@
 			<Tag
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.color}
-				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status' ? 'solid' : 'soft'}
+				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status'
+					? 'solid'
+					: 'soft'}
 				verticalOrientation={isLaneCollapsed}
 			>
 				{prStatusInfo.label}
