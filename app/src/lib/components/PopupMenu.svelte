@@ -48,7 +48,6 @@
 
 {#if showMenu}
 	<div
-		class="popup-overlay"
 		role="menu"
 		tabindex="0"
 		use:recordDimensions
@@ -58,9 +57,3 @@
 		<slot {item} dismiss={onDismiss} />
 	</div>
 {/if}
-
-<style>
-	.popup-overlay {
-		z-index: 50; /* Must be higher than scrollbar hover */
-	}
-</style>

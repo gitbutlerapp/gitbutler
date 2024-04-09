@@ -227,12 +227,12 @@
 
 <style lang="postcss">
 	.header__wrapper {
-		z-index: 10;
+		z-index: var(--z-lifted);
 		position: sticky;
 		top: var(--size-12);
 	}
 	.header {
-		z-index: 2;
+		z-index: var(--z-lifted);
 		position: relative;
 		flex-direction: column;
 		gap: var(--size-2);
@@ -247,7 +247,7 @@
 		}
 	}
 	.header__top-overlay {
-		z-index: 1;
+		z-index: var(--z-ground);
 		position: absolute;
 		top: calc(var(--size-16) * -1);
 		left: 0;
@@ -307,7 +307,7 @@
 		position: absolute;
 		top: calc(100% + var(--size-4));
 		right: 0;
-		z-index: 10;
+		z-index: var(--z-floating);
 	}
 
 	.header__remote-branch {

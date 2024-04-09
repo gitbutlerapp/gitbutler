@@ -230,7 +230,7 @@
 
 	.hidden-input {
 		cursor: pointer;
-		z-index: 1;
+		z-index: var(--z-ground);
 		position: absolute;
 		width: 100%;
 		height: 100%;

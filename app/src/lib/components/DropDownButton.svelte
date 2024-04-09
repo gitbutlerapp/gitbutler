@@ -84,7 +84,7 @@
 		right: 0;
 		bottom: 100%;
 		padding-bottom: var(--size-4);
-		z-index: 50;
+		z-index: var(--z-floating);
 	}
 
 	.wide {

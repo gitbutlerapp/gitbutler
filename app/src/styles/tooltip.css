@@ -6,7 +6,7 @@
 	color: var(--clr-core-ntrl-60);
 	display: inline-block;
 	padding: var(--size-6);
-	z-index: 50;
+	z-index: var(--z-floating);
 
 	max-width: 11.25rem;
 	position: absolute;

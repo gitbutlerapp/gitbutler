@@ -17,7 +17,7 @@
 	export let sticky = false;
 
 	// Custom z-index in case of overlapping with other elements
-	export let zIndex = 40;
+	export let zIndex = 'var(--z-lifted)';
 
 	//
 	export let minWidth = 0;

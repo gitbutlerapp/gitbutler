@@ -94,7 +94,6 @@
 
 <style lang="postcss">
 	.btn {
-		z-index: 1;
 		position: relative;
 		display: inline-flex;
 		align-items: center;
@@ -395,7 +394,7 @@
 				&:after {
 					content: '';
 					background-color: currentColor;
-					z-index: 2;
+					z-index: var(--z-lifted);
 					position: absolute;
 					top: 0;
 					right: 0;

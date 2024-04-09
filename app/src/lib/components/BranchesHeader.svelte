@@ -62,7 +62,7 @@
 		position: absolute;
 		top: calc(var(--size-control-button) + var(--size-4));
 		right: 0;
-		z-index: 10;
+		z-index: var(--z-floating);
 		min-width: 10rem;
 	}
 	.branches-title {
