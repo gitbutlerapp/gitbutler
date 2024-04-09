@@ -379,9 +379,6 @@ export class GitHubService {
 
 		const success = queued == 0 && failed == 0 && skipped + succeeded == totalCount;
 
-		console.log('queued', queued);
-		console.log('totalCount', totalCount);
-
 		return {
 			startedAt: firstStart,
 			hasChecks: !!totalCount,
