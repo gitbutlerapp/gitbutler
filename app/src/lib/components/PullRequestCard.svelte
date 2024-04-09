@@ -120,7 +120,6 @@
 	}
 
 	function getChecksCount(status: ChecksStatus): string {
-		console.log(status);
 		const total = status?.totalCount || 0;
 		const quieed = status?.queued || 0;
 		return `Running checks ${total - quieed}/${total}`;
