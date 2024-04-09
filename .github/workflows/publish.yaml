@@ -168,6 +168,7 @@ jobs:
 
   publish-tauri:
     needs: [sign-tauri, build-tauri]
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -177,6 +178,9 @@ jobs:
           - ubuntu-20.04 # [linux, x64]
           - windows-latest # [windows, x64]
     steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_NGALAIKO }} # custom token here so that we can push tags later
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
