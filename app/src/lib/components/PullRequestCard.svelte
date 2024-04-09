@@ -40,7 +40,13 @@
 	$: if ($branch && $pr$) updateDetailsAndChecks();
 
 	$: checksTagInfo = getChecksTagInfo(checksStatus, isFetchingChecks);
-	$: infoMessageInfo = getInfoMessageInfo(detailedPr, mergeableState);
+	$: infoMessageInfo = getInfoMessageInfo(
+		detailedPr,
+		mergeableState,
+		checksStatus,
+		isFetchingChecks,
+		isFetchingDetails
+	);
 	$: prStatusInfo = getPrStatusInfo(detailedPr);
 
 	async function updateDetailsAndChecks() {
@@ -81,7 +87,6 @@
 		} catch (e: any) {
 			console.error(e);
 			checksError = e.message;
-			checksStatus = { error: 'could not load checks' };
 			if (!e.message.includes('No commit found')) {
 				toasts.error('Failed to fetch checks');
 			}
@@ -93,7 +98,6 @@
 	}
 
 	function scheduleNextUpdate() {
-		if (checksStatus?.error) return;
 		if (!checksStatus || checksStatus.completed) return;
 
 		const startedAt = checksStatus.startedAt;
@@ -136,10 +140,6 @@
 			return { color: 'neutral', icon: 'spinner', text: 'Checks' };
 		}
 
-		if (status.error) {
-			return { color: 'error', icon: 'error-small', text: 'error' };
-		}
-
 		if (status.completed) {
 			const color = status.success ? 'success' : 'error';
 			const icon = status.success ? 'success-small' : 'error-small';
@@ -177,7 +177,9 @@
 	function getInfoMessageInfo(
 		pr: DetailedPullRequest | undefined,
 		mergeableState: string | undefined,
-		checksStatus: ChecksStatus | null | undefined
+		checksStatus: ChecksStatus | null | undefined,
+		isFetchingChecks: boolean,
+		isFetchingDetails: boolean
 	):
 		| {
 				icon: keyof typeof iconsJson;
@@ -185,6 +187,12 @@
 				text: string;
 		  }
 		| undefined {
+		console.log('pr:', pr);
+		console.log('mergeableState:', mergeableState);
+		console.log('checksStatus:', checksStatus);
+
+		if (isFetchingChecks || isFetchingDetails) return;
+
 		if (pr?.draft) {
 			return {
 				icon: 'warning',
@@ -201,11 +209,27 @@
 			};
 		}
 
-		if (mergeableState == 'blocked' && checksStatus) {
+		if (mergeableState == 'blocked' && !checksStatus) {
 			return {
 				icon: 'error',
 				style: 'error',
 				text: 'Merge is blocked due to pending reviews or missing dependencies. Resolve the issues before merging.'
+			};
+		}
+
+		if (mergeableState == 'blocked' && checksStatus) {
+			return {
+				icon: 'error',
+				style: 'error',
+				text: 'Merge is blocked due to failing checks. Resolve the issues before merging.'
+			};
+		}
+
+		if (mergeableState == 'dirty') {
+			return {
+				icon: 'warning',
+				style: 'warn',
+				text: 'Your PR has conflicts that must be resolved before merging.'
 			};
 		}
 	}
@@ -249,9 +273,7 @@
 			<Tag
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.color}
-				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status'
-					? 'solid'
-					: 'soft'}
+				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status' ? 'solid' : 'soft'}
 				verticalOrientation={isLaneCollapsed}
 			>
 				{prStatusInfo.label}
