@@ -191,22 +191,32 @@
 		console.log('mergeableState:', mergeableState);
 		console.log('checksStatus:', checksStatus);
 
-		if (isFetchingChecks || isFetchingDetails || !checksStatus?.completed) return;
+		if (isFetchingChecks || isFetchingDetails) return;
 
-		if (pr?.draft) {
-			return {
-				icon: 'warning',
-				style: 'neutral',
-				text: 'This pull request is still a work in progress. Draft pull requests cannot be merged.'
-			};
-		}
+		if (checksStatus?.completed) {
+			if (pr?.draft) {
+				return {
+					icon: 'warning',
+					style: 'neutral',
+					text: 'This pull request is still a work in progress. Draft pull requests cannot be merged.'
+				};
+			}
 
-		if (mergeableState == 'unstable') {
-			return {
-				icon: 'warning',
-				style: 'warn',
-				text: 'Your PR is causing instability or errors in the build or tests. Review the checks and fix the issues before merging.'
-			};
+			if (mergeableState == 'unstable') {
+				return {
+					icon: 'warning',
+					style: 'warn',
+					text: 'Your PR is causing instability or errors in the build or tests. Review the checks and fix the issues before merging.'
+				};
+			}
+
+			if (mergeableState == 'dirty') {
+				return {
+					icon: 'warning',
+					style: 'warn',
+					text: 'Your PR has conflicts that must be resolved before merging.'
+				};
+			}
 		}
 
 		if (mergeableState == 'blocked' && !checksStatus) {
@@ -214,22 +224,6 @@
 				icon: 'error',
 				style: 'error',
 				text: 'Merge is blocked due to pending reviews or missing dependencies. Resolve the issues before merging.'
-			};
-		}
-
-		if (mergeableState == 'blocked' && !checksStatus?.success) {
-			return {
-				icon: 'error',
-				style: 'error',
-				text: 'Merge is blocked due to failing checks. Resolve the issues before merging.'
-			};
-		}
-
-		if (mergeableState == 'dirty') {
-			return {
-				icon: 'warning',
-				style: 'warn',
-				text: 'Your PR has conflicts that must be resolved before merging.'
 			};
 		}
 	}
@@ -273,7 +267,9 @@
 			<Tag
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.color}
-				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status' ? 'solid' : 'soft'}
+				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status'
+					? 'solid'
+					: 'soft'}
 				verticalOrientation={isLaneCollapsed}
 			>
 				{prStatusInfo.label}
