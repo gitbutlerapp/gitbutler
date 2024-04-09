@@ -136,6 +136,7 @@ jobs:
         with:
           name: release
           path: release/
+          if-no-files-found: error
 
   sign-tauri:
     needs: build-tauri
@@ -158,6 +159,8 @@ jobs:
         with:
           name: release
           path: release/
+          if-no-files-found: error
+          overwrite: true
 
 #  publish-tauri:
 #    needs: sign-tauri
