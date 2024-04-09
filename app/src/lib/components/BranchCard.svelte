@@ -317,7 +317,7 @@
 	}
 
 	.divider-line {
-		z-index: 30;
+		z-index: var(--z-lifted);
 		position: absolute;
 		top: 0;
 		right: 0;

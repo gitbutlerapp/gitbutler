@@ -158,7 +158,6 @@
 	}
 
 	.textbox__input {
-		z-index: 1;
 		position: relative;
 		flex-grow: 1;
 		height: var(--size-control-cta);
@@ -170,7 +169,7 @@
 	}
 
 	.textbox__icon {
-		z-index: 2;
+		z-index: var(--z-ground);
 		pointer-events: none;
 		position: absolute;
 		top: 50%;
@@ -179,7 +178,7 @@
 	}
 
 	.textbox__show-hide-icon {
-		z-index: 2;
+		z-index: var(--z-ground);
 		position: absolute;
 		top: 50%;
 		right: var(--size-6);
@@ -220,7 +219,7 @@
 	}
 
 	.textbox__count-actions {
-		z-index: 2;
+		z-index: var(--z-ground);
 		position: absolute;
 		top: 50%;
 		right: var(--size-6);

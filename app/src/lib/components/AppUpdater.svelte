@@ -162,6 +162,7 @@
 		max-width: 220px;
 
 		position: fixed;
+		z-index: var(--z-blocker);
 		bottom: var(--size-12);
 		left: var(--size-12);
 		padding: var(--size-24);

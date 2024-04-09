@@ -37,6 +37,6 @@
 		right: var(--size-20);
 		gap: var(--size-8);
 		max-width: 30rem;
-		z-index: 50;
+		z-index: var(--z-blocker);
 	}
 </style>

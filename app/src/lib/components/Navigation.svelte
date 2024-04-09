@@ -52,25 +52,12 @@
 		role="button"
 		class:folding-button_folded={$isNavCollapsed}
 	>
-		<button
-			class="folding-button"
-			class:resizer-hovered={isResizerHovered || isResizerDragging}
-			on:mousedown={toggleNavCollapse}
-		>
-			<svg viewBox="0 0 7 23" fill="none" xmlns="http://www.w3.org/2000/svg">
-				<path
-					d="M6 1L1.81892 9.78026C1.30084 10.8682 1.30084 12.1318 1.81892 13.2197L6 22"
-					stroke-width="1.5"
-					vector-effect="non-scaling-stroke"
-				/>
-			</svg>
-		</button>
-
 		<Resizer
 			{viewport}
 			direction="right"
 			minWidth={minResizerWidth}
 			defaultLineColor="var(--clr-border-main)"
+			zIndex="var(--z-floating)"
 			on:click={() => $isNavCollapsed && toggleNavCollapse()}
 			on:dblclick={() => !$isNavCollapsed && toggleNavCollapse()}
 			on:width={(e) => {
@@ -94,6 +81,20 @@
 				}
 			}}
 		/>
+
+		<button
+			class="folding-button"
+			class:resizer-hovered={isResizerHovered || isResizerDragging}
+			on:mousedown={toggleNavCollapse}
+		>
+			<svg viewBox="0 0 7 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<path
+					d="M6 1L1.81892 9.78026C1.30084 10.8682 1.30084 12.1318 1.81892 13.2197L6 22"
+					stroke-width="1.5"
+					vector-effect="non-scaling-stroke"
+				/>
+			</svg>
+		</button>
 	</div>
 
 	<div
@@ -186,7 +187,7 @@
 	/* FOLDING BUTTON */
 
 	.folding-button {
-		z-index: 42;
+		z-index: var(--z-floating);
 		display: flex;
 		align-items: center;
 		justify-content: center;

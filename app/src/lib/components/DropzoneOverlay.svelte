@@ -26,7 +26,7 @@
 		.dropzone {
 			user-select: none;
 			display: none;
-			z-index: 10;
+			z-index: var(--z-lifted);
 			position: absolute;
 			width: 100%;
 			height: 100%;

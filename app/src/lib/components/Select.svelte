@@ -132,7 +132,7 @@
 		right: 0;
 		top: 100%;
 		width: 100%;
-		z-index: 50;
+		z-index: var(--z-floating);
 		margin-top: var(--size-4);
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-main);

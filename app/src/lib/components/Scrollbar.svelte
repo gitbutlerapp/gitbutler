@@ -20,7 +20,7 @@
 	export let horz = false;
 
 	// Custom z-index in case of overlapping with other elements
-	export let zIndex = 20;
+	export let zIndex = 'var(--z-lifted)';
 
 	$: vert = !horz;
 
@@ -319,7 +319,6 @@
 		left: var(--thumb-left);
 		/* other props */
 		position: absolute;
-		z-index: 30;
 		background-color: var(--clr-scale-ntrl-0);
 		opacity: 0;
 		transition:
