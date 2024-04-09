@@ -14,6 +14,8 @@
        <a href="https://app.gitbutler.com/downloads/release/linux/x86_64/deb">deb</a>)
     <br />
     <i>~ Link for Windows will be added once a release is available. ~</i>
+    <br />
+    Nightly releases can be found <a href="https://app.gitbutler.com/downloads">here</a>
   </p>
 </div>
 
