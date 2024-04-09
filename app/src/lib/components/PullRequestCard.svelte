@@ -77,6 +77,8 @@
 	async function fetchChecks() {
 		checksError = undefined;
 		isFetchingChecks = true;
+		checksStatus = undefined;
+
 		try {
 			checksStatus = await githubService.checks($pr$?.targetBranch);
 		} catch (e: any) {
