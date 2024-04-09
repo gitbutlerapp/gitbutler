@@ -67,12 +67,7 @@ interface EvaluatePromptParams {
 }
 
 export class CloudClient {
-	fetch: ((input: RequestInfo | URL, init?: RequestInit | undefined) => Promise<Response>) &
-		((input: RequestInfo | URL, init?: RequestInit | undefined) => Promise<Response>);
-
-	constructor(fetch: typeof window.fetch = window.fetch) {
-		this.fetch = fetch;
-	}
+	constructor(public fetch = window.fetch) {}
 
 	async createLoginToken(): Promise<LoginToken> {
 		const response = await this.fetch(getUrl('login/token.json'), {
