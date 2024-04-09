@@ -77,16 +77,9 @@
 	async function fetchChecks() {
 		checksError = undefined;
 		isFetchingChecks = true;
-		// checksStatus = undefined;
-
-		console.log('checksStatus', checksStatus);
 
 		try {
-			const newChecksStatus = await githubService.checks($pr$?.targetBranch);
-
-			if (newChecksStatus !== checksStatus) {
-				checksStatus = newChecksStatus;
-			}
+			checksStatus = await githubService.checks($pr$?.targetBranch);
 		} catch (e: any) {
 			console.error(e);
 			checksError = e.message;
@@ -232,7 +225,8 @@
 				};
 			}
 
-			if (mergeableState == 'blocked') {
+			if (mergeableState == 'blocked' && !isFetchingChecks) {
+				console.log('blocked and checksStatus', checksStatus);
 				return {
 					icon: 'error',
 					style: 'error',
