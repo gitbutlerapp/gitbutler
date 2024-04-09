@@ -191,7 +191,13 @@
 		console.log('mergeableState:', mergeableState);
 		console.log('checksStatus:', checksStatus);
 
-		if (isFetchingChecks || isFetchingDetails) return;
+		if (mergeableState == 'blocked' && !checksStatus && !isFetchingChecks) {
+			return {
+				icon: 'error',
+				style: 'error',
+				text: 'Merge is blocked due to pending reviews or missing dependencies. Resolve the issues before merging.'
+			};
+		}
 
 		if (checksStatus?.completed) {
 			if (pr?.draft) {
@@ -217,14 +223,14 @@
 					text: 'Your PR has conflicts that must be resolved before merging.'
 				};
 			}
-		}
 
-		if (mergeableState == 'blocked' && !checksStatus) {
-			return {
-				icon: 'error',
-				style: 'error',
-				text: 'Merge is blocked due to pending reviews or missing dependencies. Resolve the issues before merging.'
-			};
+			if (mergeableState == 'blocked') {
+				return {
+					icon: 'error',
+					style: 'error',
+					text: 'Merge is blocked due to failing checks. Resolve the issues before merging.'
+				};
+			}
 		}
 	}
 
