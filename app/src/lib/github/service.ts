@@ -382,15 +382,6 @@ export class GitHubService {
 
 		console.log('checks', checks);
 		console.log('is complited?', completed);
-		console.log('checks obj', {
-			startedAt: firstStart,
-			hasChecks: !!totalCount,
-			success,
-			completed,
-			queued,
-			totalCount
-		});
-		console.log('+++++++++++++++++++++++++');
 
 		return {
 			startedAt: firstStart,
