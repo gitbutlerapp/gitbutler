@@ -377,7 +377,6 @@ export class GitHubService {
 		const completed = checks.every((check) => !!check.completed_at);
 		const totalCount = resp?.data.total_count;
 
-		console.log('*************************');
 		console.log('checks', checks);
 		console.log('is complited?', completed);
 		console.log('+++++++++++++++++++++++++');
