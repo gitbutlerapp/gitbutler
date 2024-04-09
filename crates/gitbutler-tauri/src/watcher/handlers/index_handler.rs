@@ -21,25 +21,23 @@ pub struct Handler {
     deltas_database: deltas::Database,
 }
 
-impl TryFrom<&AppHandle> for Handler {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(handler) = value.try_state::<Handler>() {
+impl Handler {
+    pub fn from_app(app: &AppHandle) -> Result<Self, anyhow::Error> {
+        if let Some(handler) = app.try_state::<Handler>() {
             Ok(handler.inner().clone())
-        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            let projects = value.state::<projects::Controller>().inner().clone();
-            let users = value.state::<users::Controller>().inner().clone();
-            let sessions_database = value.state::<sessions::Database>().inner().clone();
-            let deltas_database = value.state::<deltas::Database>().inner().clone();
-            let handler = Handler::new(
-                app_data_dir,
+        } else if let Some(app_data_dir) = app.path_resolver().app_data_dir() {
+            let projects = app.state::<projects::Controller>().inner().clone();
+            let users = app.state::<users::Controller>().inner().clone();
+            let sessions_database = app.state::<sessions::Database>().inner().clone();
+            let deltas_database = app.state::<deltas::Database>().inner().clone();
+            let handler = Handler {
+                local_data_dir: app_data_dir,
                 projects,
                 users,
                 sessions_database,
                 deltas_database,
-            );
-            value.manage(handler.clone());
+            };
+            app.manage(handler.clone());
             Ok(handler)
         } else {
             Err(anyhow::anyhow!("failed to get app data dir"))
@@ -48,22 +46,6 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    fn new(
-        local_data_dir: path::PathBuf,
-        projects: projects::Controller,
-        users: users::Controller,
-        sessions_database: sessions::Database,
-        deltas_database: deltas::Database,
-    ) -> Handler {
-        Handler {
-            local_data_dir,
-            projects,
-            users,
-            sessions_database,
-            deltas_database,
-        }
-    }
-
     pub fn index_deltas(
         &self,
         project_id: &ProjectId,

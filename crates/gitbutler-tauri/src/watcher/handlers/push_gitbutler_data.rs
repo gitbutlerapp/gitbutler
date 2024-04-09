@@ -17,17 +17,21 @@ pub struct Handler {
     inner: Arc<Mutex<HandlerInner>>,
 }
 
-impl TryFrom<&AppHandle> for Handler {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+impl Handler {
+    pub fn from_app(value: &AppHandle) -> std::result::Result<Self, anyhow::Error> {
         if let Some(handler) = value.try_state::<Handler>() {
             Ok(handler.inner().clone())
         } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
             let projects = value.state::<projects::Controller>().inner().clone();
             let users = value.state::<users::Controller>().inner().clone();
-            let inner = HandlerInner::new(app_data_dir, projects, users);
-            let handler = Handler::new(inner);
+            let inner = HandlerInner {
+                local_data_dir: app_data_dir,
+                projects,
+                users,
+            };
+            let handler = Handler {
+                inner: Arc::new(inner.into()),
+            };
             value.manage(handler.clone());
             Ok(handler)
         } else {
@@ -37,12 +41,6 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    fn new(inner: HandlerInner) -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(inner)),
-        }
-    }
-
     pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         match self.inner.try_lock() {
             Ok(inner) => inner.handle(project_id),
@@ -59,18 +57,6 @@ struct HandlerInner {
 }
 
 impl HandlerInner {
-    fn new(
-        local_data_dir: path::PathBuf,
-        projects: projects::Controller,
-        users: users::Controller,
-    ) -> Self {
-        Self {
-            local_data_dir,
-            projects,
-            users,
-        }
-    }
-
     pub fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         let user = self.users.get_user()?;
         let project = self.projects.get(project_id)?;

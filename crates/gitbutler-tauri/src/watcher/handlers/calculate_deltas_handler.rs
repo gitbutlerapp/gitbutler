@@ -17,19 +17,17 @@ pub struct Handler {
     users: users::Controller,
 }
 
-impl TryFrom<&AppHandle> for Handler {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(handler) = value.try_state::<Handler>() {
+impl Handler {
+    pub fn from_app(app: &AppHandle) -> Result<Self, anyhow::Error> {
+        if let Some(handler) = app.try_state::<Handler>() {
             Ok(handler.inner().clone())
-        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            let handler = Self::new(
-                app_data_dir,
-                value.state::<projects::Controller>().inner().clone(),
-                value.state::<users::Controller>().inner().clone(),
-            );
-            value.manage(handler.clone());
+        } else if let Some(app_data_dir) = app.path_resolver().app_data_dir() {
+            let handler = Self {
+                local_data_dir: app_data_dir,
+                projects: app.state::<projects::Controller>().inner().clone(),
+                users: app.state::<users::Controller>().inner().clone(),
+            };
+            app.manage(handler.clone());
             Ok(handler)
         } else {
             Err(anyhow::anyhow!("failed to get app data dir"))
@@ -38,24 +36,12 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    fn new(
-        local_data_dir: path::PathBuf,
-        projects: projects::Controller,
-        users: users::Controller,
-    ) -> Self {
-        Self {
-            local_data_dir,
-            projects,
-            users,
-        }
-    }
-
     pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Self {
-        Self::new(
-            path.as_ref().to_path_buf(),
-            projects::Controller::from_path(&path),
-            users::Controller::from_path(path),
-        )
+        Self {
+            local_data_dir: path.as_ref().to_path_buf(),
+            projects: projects::Controller::from_path(&path),
+            users: users::Controller::from_path(path),
+        }
     }
 
     // Returns Some(file_content) or None if the file is ignored.

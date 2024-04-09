@@ -13,25 +13,21 @@ pub struct Sender {
     app_handle: tauri::AppHandle,
 }
 
-impl TryFrom<&AppHandle> for Sender {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(sender) = value.try_state::<Sender>() {
+impl Sender {
+    pub fn from_app(app: &AppHandle) -> Result<Self, anyhow::Error> {
+        if let Some(sender) = app.try_state::<Sender>() {
             Ok(sender.inner().clone())
         } else {
-            let sender = Sender::new(value.clone());
-            value.manage(sender.clone());
+            let sender = Sender {
+                app_handle: app.clone(),
+            };
+            app.manage(sender.clone());
             Ok(sender)
         }
     }
 }
 
 impl Sender {
-    fn new(app_handle: AppHandle) -> Sender {
-        Sender { app_handle }
-    }
-
     pub fn send(&self, event: &Event) -> Result<()> {
         self.app_handle
             .emit_all(&event.name, Some(&event.payload))

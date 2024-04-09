@@ -32,14 +32,13 @@ impl Watchers {
     }
 
     pub fn watch(&self, project: &projects::Project) -> Result<()> {
-        let watcher = Watcher::try_from(&self.app_handle)?;
+        let watcher = Watcher::from_app(&self.app_handle)?;
 
         let project_id = project.id;
         let project_path = project.path.clone();
 
         task::spawn({
             let watchers = Arc::clone(&self.watchers);
-            let watcher = watcher.clone();
             async move {
                 watchers.lock().await.insert(project_id, watcher.clone());
                 match watcher.run(&project_path, &project_id).await {
@@ -102,12 +101,11 @@ struct Watcher {
     inner: Arc<WatcherInner>,
 }
 
-impl TryFrom<&AppHandle> for Watcher {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+/// Lifecycle
+impl Watcher {
+    pub fn from_app(app: &AppHandle) -> std::result::Result<Self, anyhow::Error> {
         Ok(Self {
-            inner: Arc::new(WatcherInner::try_from(value)?),
+            inner: Arc::new(WatcherInner::from_app(app)?),
         })
     }
 }
@@ -146,12 +144,10 @@ struct WatcherInner {
     proxy_tx: Arc<tokio::sync::Mutex<Option<UnboundedSender<Event>>>>,
 }
 
-impl TryFrom<&AppHandle> for WatcherInner {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+impl WatcherInner {
+    pub fn from_app(app: &AppHandle) -> std::result::Result<Self, anyhow::Error> {
         Ok(Self {
-            handler: handlers::Handler::try_from(value)?,
+            handler: handlers::Handler::from_app(app)?,
             dispatcher: dispatchers::Dispatcher::new(),
             cancellation_token: CancellationToken::new(),
             proxy_tx: Arc::new(tokio::sync::Mutex::new(None)),

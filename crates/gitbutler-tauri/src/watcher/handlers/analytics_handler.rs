@@ -11,10 +11,8 @@ pub struct Handler {
     client: analytics::Client,
 }
 
-impl TryFrom<&AppHandle> for Handler {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+impl Handler {
+    pub fn from_app(value: &AppHandle) -> Result<Self, anyhow::Error> {
         if let Some(handler) = value.try_state::<Handler>() {
             Ok(handler.inner().clone())
         } else {
@@ -24,7 +22,7 @@ impl TryFrom<&AppHandle> for Handler {
                     client.inner().clone()
                 });
             let users = value.state::<users::Controller>().inner().clone();
-            let handler = Handler::new(users, client);
+            let handler = Handler { users, client };
             value.manage(handler.clone());
             Ok(handler)
         }
@@ -32,10 +30,6 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    fn new(users: users::Controller, client: analytics::Client) -> Handler {
-        Handler { users, client }
-    }
-
     pub async fn handle(&self, event: &analytics::Event) -> Result<Vec<events::Event>> {
         if let Some(user) = self.users.get_user().context("failed to get user")? {
             self.client.send(&user, event).await;

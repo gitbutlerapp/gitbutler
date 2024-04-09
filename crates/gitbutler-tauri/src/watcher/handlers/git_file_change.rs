@@ -18,10 +18,8 @@ pub struct Handler {
     users: users::Controller,
 }
 
-impl TryFrom<&AppHandle> for Handler {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+impl Handler {
+    pub fn from_app(value: &AppHandle) -> Result<Self, anyhow::Error> {
         if let Some(handler) = value.try_state::<Handler>() {
             Ok(handler.inner().clone())
         } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {

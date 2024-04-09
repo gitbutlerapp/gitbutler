@@ -19,17 +19,15 @@ pub struct Handler {
     inner: Arc<Mutex<State>>,
 }
 
-impl TryFrom<&AppHandle> for Handler {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        if let Some(handler) = value.try_state::<Handler>() {
+impl Handler {
+    pub fn from_app(app: &AppHandle) -> std::result::Result<Self, anyhow::Error> {
+        if let Some(handler) = app.try_state::<Handler>() {
             Ok(handler.inner().clone())
-        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            let projects = value.state::<projects::Controller>().inner().clone();
-            let users = value.state::<users::Controller>().inner().clone();
+        } else if let Some(app_data_dir) = app.path_resolver().app_data_dir() {
+            let projects = app.state::<projects::Controller>().inner().clone();
+            let users = app.state::<users::Controller>().inner().clone();
             let handler = Handler::new(app_data_dir, projects, users, 1000);
-            value.manage(handler.clone());
+            app.manage(handler.clone());
             Ok(handler)
         } else {
             Err(anyhow::anyhow!("failed to get app data dir"))

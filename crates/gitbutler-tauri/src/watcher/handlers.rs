@@ -34,62 +34,37 @@ pub struct Handler {
     events_sender: app_events::Sender,
 }
 
-impl TryFrom<&AppHandle> for Handler {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
-        if let Some(handler) = value.try_state::<Handler>() {
+impl Handler {
+    pub fn from_app(app: &AppHandle) -> Result<Self, anyhow::Error> {
+        if let Some(handler) = app.try_state::<Handler>() {
+            // TODO(ST): figure out of this protections are necessary - is this happening?
+            //           `.manage()` can deal with duplication, but maybe there is side-effects?
             Ok(handler.inner().clone())
         } else {
-            let handler = Handler::new(
-                git_file_change::Handler::try_from(value)?,
-                flush_session::Handler::try_from(value)?,
-                fetch_gitbutler_data::Handler::try_from(value)?,
-                push_gitbutler_data::Handler::try_from(value)?,
-                analytics_handler::Handler::try_from(value)?,
-                index_handler::Handler::try_from(value)?,
-                push_project_to_gitbutler::Handler::try_from(value)?,
-                caltulate_virtual_branches_handler::Handler::try_from(value)?,
-                calculate_deltas_handler::Handler::try_from(value)?,
-                filter_ignored_files::Handler::try_from(value)?,
-                app_events::Sender::try_from(value)?,
-            );
-            value.manage(handler.clone());
+            let handler = Handler {
+                git_file_change_handler: git_file_change::Handler::from_app(app)?,
+                flush_session_handler: flush_session::Handler::from_app(app)?,
+                fetch_gitbutler_handler: fetch_gitbutler_data::Handler::from_app(app)?,
+                push_gitbutler_handler: push_gitbutler_data::Handler::from_app(app)?,
+                analytics_handler: analytics_handler::Handler::from_app(app)?,
+                index_handler: index_handler::Handler::from_app(app)?,
+
+                push_project_to_gitbutler: push_project_to_gitbutler::Handler::from_app(app)?,
+                calculate_vbranches_handler: caltulate_virtual_branches_handler::Handler::from_app(
+                    app,
+                )?,
+                calculate_deltas_handler: calculate_deltas_handler::Handler::from_app(app)?,
+                filter_ignored_files_handler: filter_ignored_files::Handler::from_app(app)?,
+                events_sender: app_events::Sender::from_app(app)?,
+            };
+
+            app.manage(handler.clone());
             Ok(handler)
         }
     }
 }
 
 impl Handler {
-    #[allow(clippy::too_many_arguments)]
-    fn new(
-        git_file_change_handler: git_file_change::Handler,
-        flush_session_handler: flush_session::Handler,
-        fetch_gitbutler_handler: fetch_gitbutler_data::Handler,
-        push_gitbutler_handler: push_gitbutler_data::Handler,
-        analytics_handler: analytics_handler::Handler,
-        index_handler: index_handler::Handler,
-        push_project_to_gitbutler: push_project_to_gitbutler::Handler,
-        calculate_vbranches_handler: caltulate_virtual_branches_handler::Handler,
-        calculate_deltas_handler: calculate_deltas_handler::Handler,
-        filter_ignored_files_handler: filter_ignored_files::Handler,
-        events_sender: app_events::Sender,
-    ) -> Self {
-        Self {
-            git_file_change_handler,
-            flush_session_handler,
-            fetch_gitbutler_handler,
-            push_gitbutler_handler,
-            analytics_handler,
-            index_handler,
-            push_project_to_gitbutler,
-            calculate_vbranches_handler,
-            calculate_deltas_handler,
-            filter_ignored_files_handler,
-            events_sender,
-        }
-    }
-
     #[instrument(skip(self), fields(event = %event), level = "debug")]
     pub async fn handle(
         &self,

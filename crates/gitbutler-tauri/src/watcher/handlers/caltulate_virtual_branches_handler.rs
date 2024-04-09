@@ -23,21 +23,19 @@ pub struct Handler {
     limit: Arc<RateLimiter<NotKeyed, InMemoryState, QuantaClock>>,
 }
 
-impl TryFrom<&AppHandle> for Handler {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        if let Some(handler) = value.try_state::<Handler>() {
+impl Handler {
+    pub fn from_app(app: &AppHandle) -> std::result::Result<Self, anyhow::Error> {
+        if let Some(handler) = app.try_state::<Handler>() {
             Ok(handler.inner().clone())
         } else {
-            let vbranches = value
-                .state::<virtual_branches::Controller>()
-                .inner()
-                .clone();
-            let proxy = value.state::<assets::Proxy>().inner().clone();
-            let inner = InnerHandler::new(vbranches, proxy);
+            let vbranches = app.state::<virtual_branches::Controller>().inner().clone();
+            let proxy = app.state::<assets::Proxy>().inner().clone();
+            let inner = InnerHandler {
+                vbranch_controller: vbranches,
+                assets_proxy: proxy,
+            };
             let handler = Handler::new(inner);
-            value.manage(handler.clone());
+            app.manage(handler.clone());
             Ok(handler)
         }
     }
@@ -69,13 +67,6 @@ struct InnerHandler {
 }
 
 impl InnerHandler {
-    fn new(vbranch_controller: virtual_branches::Controller, assets_proxy: assets::Proxy) -> Self {
-        Self {
-            vbranch_controller,
-            assets_proxy,
-        }
-    }
-
     pub async fn handle(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
         match self
             .vbranch_controller

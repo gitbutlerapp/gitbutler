@@ -21,17 +21,15 @@ pub struct Handler {
     limit: Arc<RateLimiter<NotKeyed, InMemoryState, QuantaClock>>,
 }
 
-impl TryFrom<&AppHandle> for Handler {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        if let Some(handler) = value.try_state::<Handler>() {
+impl Handler {
+    pub fn from_app(app: &AppHandle) -> std::result::Result<Self, anyhow::Error> {
+        if let Some(handler) = app.try_state::<Handler>() {
             Ok(handler.inner().clone())
         } else {
-            let projects = value.state::<projects::Controller>().inner().clone();
-            let inner = InnerHandler::new(projects);
+            let projects = app.state::<projects::Controller>().inner().clone();
+            let inner = InnerHandler { projects };
             let handler = Handler::new(inner);
-            value.manage(handler.clone());
+            app.manage(handler.clone());
             Ok(handler)
         }
     }
@@ -66,9 +64,6 @@ struct InnerHandler {
     projects: projects::Controller,
 }
 impl InnerHandler {
-    fn new(projects: projects::Controller) -> Self {
-        Self { projects }
-    }
     pub fn handle<P: AsRef<std::path::Path>>(
         &self,
         path: P,
