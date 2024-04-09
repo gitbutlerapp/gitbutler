@@ -39,6 +39,7 @@ jobs:
 
     outputs:
       platform: ${{ matrix.platform }}
+      channel: ${{ env.channel }}
 
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -139,7 +140,7 @@ jobs:
   sign-tauri:
     needs: build-tauri
     runs-on: [self-hosted, evcodesignd]
-    if: ${{ env.channel == 'release' }} && ${{ needs.build-tauri.outputs.platform == 'windows-latest' }}
+    if: ${{ needs.build-tauri.outputs.channel == 'release' }} && ${{ needs.build-tauri.outputs.platform == 'windows-latest' }}
     steps:
       - name: Download unsigned artifacts
         uses: actions/download-artifact@v2
