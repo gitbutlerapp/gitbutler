@@ -84,7 +84,7 @@ pub fn spawn(
                     let file_paths = events
                         .into_iter()
                         .filter(|event| is_interesting_kind(event.kind))
-                        .flat_map(|event| event.paths.clone())
+                        .flat_map(|event| event.event.paths)
                         .filter(|file| is_interesting_file(&repo, file));
                     for file_path in file_paths {
                         match file_path.strip_prefix(&path) {
