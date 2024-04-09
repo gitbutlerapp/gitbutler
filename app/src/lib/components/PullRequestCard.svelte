@@ -191,6 +191,10 @@
 				text: string;
 		  }
 		| undefined {
+		console.log('mergeableState:', mergeableState);
+		console.log('checksStatus:', checksStatus);
+		console.log('isFetchingChecks:', isFetchingChecks);
+
 		if (mergeableState == 'blocked' && !checksStatus && !isFetchingChecks) {
 			return {
 				icon: 'error',
@@ -273,7 +277,9 @@
 			<Tag
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.color}
-				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status' ? 'solid' : 'soft'}
+				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status'
+					? 'solid'
+					: 'soft'}
 				verticalOrientation={isLaneCollapsed}
 			>
 				{prStatusInfo.label}
