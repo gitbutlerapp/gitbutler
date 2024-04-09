@@ -25,7 +25,7 @@ on:
           - major
 
 jobs:
-  publish-tauri:
+  build-tauri:
     strategy:
       fail-fast: false
       matrix:
@@ -36,6 +36,9 @@ jobs:
           - windows-latest # [windows, x64]
 
     runs-on: ${{ matrix.platform }}
+
+    outputs:
+      platform: ${{ matrix.platform }}
 
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -127,6 +130,42 @@ jobs:
           APPIMAGE_KEY_ID: ${{ secrets.APPIMAGE_KEY_ID }}
           APPIMAGE_KEY_PASSPHRASE: ${{ secrets.APPIMAGE_KEY_PASSPHRASE }}
 
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: release
+          path: release/
+
+  sign-tauri:
+    needs: build-tauri
+    runs-on: [self-hosted, evcodesignd]
+    if: ${{ env.channel == 'release' }} && ${{ needs.build-tauri.outputs.platform == 'windows-latest' }}
+    steps:
+      - name: Download unsigned artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: release
+          path: release
+      - name: Sign Windows binary
+        shell: bash
+        run: |
+          python3 /sign-with-evcodesignd.py release/*.msi
+        env:
+          EVCODESIGND_PSK: ${{ secrets.EVCODESIGND_PSK }}
+      - name: Upload signed artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: release
+          path: release/
+
+  publish-tauri:
+    needs: sign-tauri
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: release
+          path: release
       - uses: shallwefootball/s3-upload-action@master
         name: Upload To S3
         id: S3
