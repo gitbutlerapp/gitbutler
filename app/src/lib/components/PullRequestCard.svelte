@@ -196,7 +196,7 @@
 		console.log('checksStatus:', checksStatus);
 		console.log('isFetchingChecks:', isFetchingChecks);
 
-		if (mergeableState == 'blocked' && checksStatus?.completed && !isFetchingChecks) {
+		if (mergeableState == 'blocked' && !checksStatus && !isFetchingChecks) {
 			return {
 				icon: 'error',
 				style: 'error',

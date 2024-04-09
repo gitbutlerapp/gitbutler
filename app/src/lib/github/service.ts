@@ -377,12 +377,20 @@ export class GitHubService {
 		const completed = checks.every((check) => !!check.completed_at);
 		const totalCount = resp?.data.total_count;
 
-		console.log('checks', checks);
-		console.log('is complited?', completed);
-		console.log('+++++++++++++++++++++++++');
-
 		const success =
 			totalCount > 0 && queued == 0 && failed == 0 && skipped + succeeded == totalCount;
+
+		console.log('checks', checks);
+		console.log('is complited?', completed);
+		console.log('checks obj', {
+			startedAt: firstStart,
+			hasChecks: !!totalCount,
+			success,
+			completed,
+			queued,
+			totalCount
+		});
+		console.log('+++++++++++++++++++++++++');
 
 		return {
 			startedAt: firstStart,
