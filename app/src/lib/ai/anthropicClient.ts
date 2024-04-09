@@ -3,7 +3,7 @@ import {
 	type AIClient,
 	type AnthropicModelName,
 	type PromptMessage
-} from '$lib/aiTypes';
+} from '$lib/ai/types';
 import { fetch, Body } from '@tauri-apps/api/http';
 
 type AnthropicAPIResponse = { content: { text: string }[] };

@@ -1,4 +1,9 @@
-import { MessageRole, type OpenAIModelName, type PromptMessage, type AIClient } from '$lib/aiTypes';
+import {
+	MessageRole,
+	type OpenAIModelName,
+	type PromptMessage,
+	type AIClient
+} from '$lib/ai/types';
 import type OpenAI from 'openai';
 
 export class OpenAIClient implements AIClient {
