@@ -131,7 +131,7 @@
 
 	<svelte:fragment slot="controls" let:close>
 		<Button style="ghost" kind="solid" type="reset" on:click={close}>Cancel</Button>
-		<Button color="primary" type="submit">Rename</Button>
+		<Button style="pop" kind="solid" type="submit">Rename</Button>
 	</svelte:fragment>
 </Modal>
 
@@ -153,6 +153,3 @@
 		</Button>
 	</svelte:fragment>
 </Modal>
-
-<style lang="postcss">
-</style>

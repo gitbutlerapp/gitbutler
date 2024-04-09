@@ -95,7 +95,7 @@
 	.info-message {
 		color: var(--clr-scale-ntrl-0);
 		display: flex;
-		padding: var(--size-16);
+		padding: var(--size-14);
 		border-radius: var(--radius-m);
 		gap: var(--size-12);
 		background-color: var(--clr-bg-main);

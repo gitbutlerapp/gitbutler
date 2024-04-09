@@ -205,7 +205,7 @@
 			Your code remains safe. it only clears the configuration.
 		</svelte:fragment>
 
-		<Button style="error" kind="soft" color="error" on:click={() => deleteConfirmationModal.show()}>
+		<Button style="error" kind="soft" on:click={() => deleteConfirmationModal.show()}>
 			Remove projects…
 		</Button>
 
