@@ -98,7 +98,7 @@ jobs:
           CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r '.version')"
           NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
           echo "version=$NEXT_VERSION" >> $GITHUB_ENV
-          echo "::set-output name=version::$NEXT_VERSION"
+          mkdir -p release && echo "$NEXT_VERSION" > release/version
 
       - name: import gpg key
         if: runner.os == 'Linux'
@@ -186,6 +186,11 @@ jobs:
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}"
           path: release
+      - name: Extract version
+        shell: bash
+        run: |
+          VERSION="$(cat release/version)"
+          echo "version=$VERSION" >> $GITHUB_ENV
       - uses: shallwefootball/s3-upload-action@master
         name: Upload To S3
         id: S3
@@ -194,7 +199,7 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_bucket: "releases.gitbutler.com"
           source_dir: "release/"
-          destination_dir: "releases/${{ needs.build-tauri.outputs.channel }}/${{ needs.build-tauri.outputs.version }}-${{ github.run_number }}"
+          destination_dir: "releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}"
 
       # tell our server to update with the version number
       - name: Tell our server to update
@@ -205,12 +210,12 @@ jobs:
             --request POST \
             --header 'Content-Type: application/json' \
             --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
-            --data '{"channel":"${{ needs.build-tauri.outputs.channel }}","version":"${{ needs.build-tauri.outputs.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'
+            --data '{"channel":"${{ needs.build-tauri.outputs.channel }}","version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'
 
       - name: Tag release
         shell: bash
         env:
-          TAG_NAME: "${{ needs.build-tauri.outputs.channel }}/${{ needs.build-tauri.outputs.version }}"
+          TAG_NAME: "${{ needs.build-tauri.outputs.channel }}/${{ env.version }}"
         run: |
           function tag_exists() {
             git tag --list | grep -q "^$1$"
