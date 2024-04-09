@@ -132,7 +132,7 @@ jobs:
           APPIMAGE_KEY_PASSPHRASE: ${{ secrets.APPIMAGE_KEY_PASSPHRASE }}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: release
           path: release/
@@ -143,7 +143,7 @@ jobs:
     if: ${{ needs.build-tauri.outputs.channel == 'release' }} && ${{ needs.build-tauri.outputs.platform == 'windows-latest' }}
     steps:
       - name: Download unsigned artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: release
           path: release
@@ -154,7 +154,7 @@ jobs:
         env:
           EVCODESIGND_PSK: ${{ secrets.EVCODESIGND_PSK }}
       - name: Upload signed artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: release
           path: release/
@@ -163,7 +163,7 @@ jobs:
 #    needs: sign-tauri
 #    steps:
 #      - name: Download artifacts
-#        uses: actions/download-artifact@v2
+#        uses: actions/download-artifact@v4
 #        with:
 #          name: release
 #          path: release
