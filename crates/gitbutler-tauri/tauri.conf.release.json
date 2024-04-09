@@ -18,7 +18,10 @@
 			"externalBin": [
 				"gitbutler-git-setsid",
 				"gitbutler-git-askpass"
-			]
+			],
+			"windows": {
+				"certificateThumbprint": null
+			}
 		},
 		"security": {
 			"csp": {

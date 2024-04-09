@@ -140,7 +140,7 @@ if [ "$DO_SIGN" = "true" ]; then
 		export SIGN_KEY="$APPIMAGE_KEY_ID"
 		export APPIMAGETOOL_SIGN_PASSPHRASE="$APPIMAGE_KEY_PASSPHRASE"
 	elif [ "$OS" == "windows" ]; then
-		info "$OS: signing is not (yet) supported; skipping"
+		info "$OS: signing is not done via the release script on Windows; skipping"
 		DO_SIGN="false"
 	else
 		error "signing is not supported on $(uname -s)"
@@ -164,11 +164,6 @@ CONFIG_PATH=$(readlink -f "$PWD/../crates/gitbutler-tauri/tauri.conf.$CHANNEL.js
 jq '.package.version="'"$VERSION"'"' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
 
 FEATURES=""
-
-# Remove when we we have signing working on windows
-if [ "$CHANNEL" == "release" ] && [ "$OS" = "windows" ]; then
-	exit 0
-fi
 
 if [ "$CHANNEL" == "nightly" ]; then
 	FEATURES="$FEATURES devtools"
