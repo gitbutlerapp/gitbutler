@@ -61,7 +61,8 @@ export type ChecksStatus =
 			completed?: boolean;
 			success?: boolean;
 			hasChecks?: boolean;
-			error?: any;
+			queued?: number;
+			totalCount?: number;
 	  }
 	| null
 	| undefined;
