@@ -63,8 +63,6 @@
 		isFetchingDetails = true;
 		try {
 			detailedPr = await githubService.getDetailedPr(targetBranch, skipCache);
-
-			console.log(detailedPr);
 			mergeableState = detailedPr?.mergeableState;
 			lastDetailsFetch = createTimeAgoStore(new Date(), true);
 		} catch (err: any) {
@@ -81,8 +79,6 @@
 		isFetchingChecks = true;
 		try {
 			checksStatus = await githubService.checks($pr$?.targetBranch);
-
-			console.log(checksStatus);
 		} catch (e: any) {
 			console.error(e);
 			checksError = e.message;
@@ -123,6 +119,12 @@
 		setTimeout(() => updateDetailsAndChecks(), timeUntilUdate * 1000);
 	}
 
+	function getChecksCount(status: ChecksStatus): string {
+		const total = status?.totalCount || 0;
+		const quieed = status?.queued || 0;
+		return `Running checks ${total - quieed}/${total}`;
+	}
+
 	function getChecksTagInfo(
 		status: ChecksStatus | null | undefined,
 		fetching: boolean
@@ -149,10 +151,7 @@
 		return {
 			color: 'warning',
 			icon: 'spinner',
-			text:
-				status.queued && status.totalCount
-					? `Running checks (${status.totalCount - status.queued} / ${status.totalCount})`
-					: 'Running checks'
+			text: getChecksCount(status)
 		};
 	}
 
@@ -192,10 +191,6 @@
 				text: string;
 		  }
 		| undefined {
-		console.log('pr:', pr);
-		console.log('mergeableState:', mergeableState);
-		console.log('checksStatus:', checksStatus);
-
 		if (mergeableState == 'blocked' && !checksStatus && !isFetchingChecks) {
 			return {
 				icon: 'error',
@@ -278,9 +273,7 @@
 			<Tag
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.color}
-				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status'
-					? 'solid'
-					: 'soft'}
+				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status' ? 'solid' : 'soft'}
 				verticalOrientation={isLaneCollapsed}
 			>
 				{prStatusInfo.label}
