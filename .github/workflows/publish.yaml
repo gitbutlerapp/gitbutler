@@ -134,7 +134,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release
+          name: "${{ env.channel }}-${{ matrix.platform }}"
           path: release/
           if-no-files-found: error
 
@@ -146,7 +146,7 @@ jobs:
       - name: Download unsigned artifacts
         uses: actions/download-artifact@v4
         with:
-          name: release
+          name: "${{ needs.build-tauri.outputs.channel }}-${{ needs.build-tauri.outputs.platform }}"
           path: release
       - name: Sign Windows binary
         shell: bash
@@ -157,18 +157,18 @@ jobs:
       - name: Upload signed artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release
+          name: "${{ needs.build-tauri.outputs.channel }}-${{ needs.build-tauri.outputs.platform }}"
           path: release/
           if-no-files-found: error
           overwrite: true
 
 #  publish-tauri:
-#    needs: sign-tauri
+#    needs: [sign-tauri, build-tauri]
 #    steps:
 #      - name: Download artifacts
 #        uses: actions/download-artifact@v4
 #        with:
-#          name: release
+#          name: "${{ needs.build-tauri.outputs.channel }}-${{ needs.build-tauri.outputs.platform }}"
 #          path: release
 #      - uses: shallwefootball/s3-upload-action@master
 #        name: Upload To S3
