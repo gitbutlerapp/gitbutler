@@ -176,7 +176,8 @@
 
 	function getInfoMessageInfo(
 		pr: DetailedPullRequest | undefined,
-		mergeableState: string | undefined
+		mergeableState: string | undefined,
+		checksStatus: ChecksStatus | null | undefined
 	):
 		| {
 				icon: keyof typeof iconsJson;
@@ -200,7 +201,7 @@
 			};
 		}
 
-		if (mergeableState == 'blocked') {
+		if (mergeableState == 'blocked' && checksStatus) {
 			return {
 				icon: 'error',
 				style: 'error',
@@ -248,7 +249,9 @@
 			<Tag
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.color}
-				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status' ? 'solid' : 'soft'}
+				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status'
+					? 'solid'
+					: 'soft'}
 				verticalOrientation={isLaneCollapsed}
 			>
 				{prStatusInfo.label}
