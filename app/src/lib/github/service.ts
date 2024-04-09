@@ -370,14 +370,13 @@ export class GitHubService {
 
 		const queued = checks.filter((c) => c.status == 'queued').length;
 		const failed = checks.filter((c) => c.conclusion == 'failure').length;
-		const skipped = checks.filter((c) => c.conclusion == 'skipped').length;
 		const succeeded = checks.filter((c) => c.conclusion == 'success').length;
 
 		const firstStart = new Date(Math.min(...startTimes.map((date) => date.getTime())));
 		const completed = checks.every((check) => !!check.completed_at);
 		const totalCount = resp?.data.total_count;
 
-		const success = queued == 0 && failed == 0 && skipped + succeeded == totalCount;
+		const success = queued == 0 && failed == 0 && succeeded == totalCount;
 
 		return {
 			startedAt: firstStart,
@@ -385,7 +384,7 @@ export class GitHubService {
 			success,
 			completed,
 			queued,
-			totalCount: checks.length
+			totalCount
 		};
 	}
 
