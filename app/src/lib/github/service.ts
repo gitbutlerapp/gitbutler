@@ -377,7 +377,8 @@ export class GitHubService {
 		const completed = checks.every((check) => !!check.completed_at);
 		const totalCount = resp?.data.total_count;
 
-		const success = queued == 0 && failed == 0 && skipped + succeeded == totalCount;
+		const success =
+			totalCount > 0 && queued == 0 && failed == 0 && skipped + succeeded == totalCount;
 
 		return {
 			startedAt: firstStart,
