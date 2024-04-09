@@ -230,7 +230,7 @@
 					{#if anthropicKeyOption == KeyOption.ButlerAPI}
 						<InfoMessage filled outlined={false} style="pop" icon="ai">
 							<svelte:fragment slot="title">
-								GitButler uses OpenAI API for commit messages and branch names
+								GitButler uses Anthropic API for commit messages and branch names
 							</svelte:fragment>
 						</InfoMessage>
 					{/if}
