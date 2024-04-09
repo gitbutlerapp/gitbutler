@@ -40,7 +40,7 @@ impl Dispatcher {
     }
 
     pub fn run<P: AsRef<path::Path>>(
-        self,
+        &self,
         project_id: &ProjectId,
         path: P,
     ) -> Result<Receiver<events::Event>, RunError> {
@@ -54,10 +54,11 @@ impl Dispatcher {
 
         let (tx, rx) = channel(1);
         let project_id = *project_id;
+        let cancellation_token = self.cancellation_token.clone();
         task::spawn(async move {
             loop {
                 select! {
-                    () = self.cancellation_token.cancelled() => {
+                    () = cancellation_token.cancelled() => {
                         break;
                     }
                     Some(event) = file_change_rx.recv() => {

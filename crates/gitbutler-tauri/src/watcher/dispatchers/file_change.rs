@@ -45,7 +45,7 @@ impl Dispatcher {
     }
 
     pub fn run(
-        self,
+        &self,
         project_id: &ProjectId,
         path: &path::Path,
     ) -> Result<Receiver<events::Event>, RunError> {
