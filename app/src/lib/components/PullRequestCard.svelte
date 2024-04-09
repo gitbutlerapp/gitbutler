@@ -226,7 +226,6 @@
 			}
 
 			if (mergeableState == 'blocked' && !isFetchingChecks) {
-				console.log('blocked and checksStatus', checksStatus);
 				return {
 					icon: 'error',
 					style: 'error',
