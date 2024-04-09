@@ -44,8 +44,7 @@
 		detailedPr,
 		mergeableState,
 		checksStatus,
-		isFetchingChecks,
-		isFetchingDetails
+		isFetchingChecks
 	);
 	$: prStatusInfo = getPrStatusInfo(detailedPr);
 
@@ -178,8 +177,7 @@
 		pr: DetailedPullRequest | undefined,
 		mergeableState: string | undefined,
 		checksStatus: ChecksStatus | null | undefined,
-		isFetchingChecks: boolean,
-		isFetchingDetails: boolean
+		isFetchingChecks: boolean
 	):
 		| {
 				icon: keyof typeof iconsJson;
