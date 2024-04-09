@@ -3,7 +3,7 @@ import { AnthropicAIClient } from '$lib/ai/anthropicClient';
 import { ButlerAIClient } from '$lib/ai/butlerClient';
 import { OpenAIClient } from '$lib/ai/openAIClient';
 import { AIService, GitAIConfigKey, KeyOption, buildDiff } from '$lib/ai/service';
-import { AnthropicModelName, ModelKind, OpenAIModelName, type AIClient } from '$lib/aiTypes';
+import { AnthropicModelName, ModelKind, OpenAIModelName, type AIClient } from '$lib/ai/types';
 import * as toasts from '$lib/utils/toasts';
 import { Hunk } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';

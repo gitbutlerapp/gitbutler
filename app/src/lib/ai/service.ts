@@ -1,7 +1,7 @@
 import { AnthropicAIClient } from '$lib/ai/anthropicClient';
 import { ButlerAIClient } from '$lib/ai/butlerClient';
 import { OpenAIClient } from '$lib/ai/openAIClient';
-import { OpenAIModelName, type AIClient, AnthropicModelName } from '$lib/aiTypes';
+import { OpenAIModelName, type AIClient, AnthropicModelName } from '$lib/ai/types';
 import { splitMessage } from '$lib/utils/commitMessage';
 import * as toasts from '$lib/utils/toasts';
 import OpenAI from 'openai';
