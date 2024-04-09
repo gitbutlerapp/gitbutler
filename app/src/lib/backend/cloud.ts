@@ -87,11 +87,21 @@ export class CloudClient {
 		method?: RequestMethod;
 		token?: string;
 		body?: FormData | object;
-		headers?: Record<string, string>;
+		headers?: Record<string, string | undefined>;
 	}): Promise<T> {
-		const butlerHeaders: Record<string, string> = { ...defaultHeaders, ...params.headers };
+		const butlerHeaders = new Headers(defaultHeaders);
 
-		if (params.token) butlerHeaders['X-Auth-Token'] = params.token;
+		if (params.headers) {
+			Object.entries(params.headers).forEach(([key, value]) => {
+				if (value) {
+					butlerHeaders.set(key, value);
+				} else {
+					butlerHeaders.delete(key);
+				}
+			});
+		}
+
+		if (params.token) butlerHeaders.set('X-Auth-Token', params.token);
 
 		const response = await this.fetch(getUrl(params.path), {
 			method: params.method || RequestMethod.GET,
@@ -139,10 +149,12 @@ export class CloudClient {
 		if (params.repo) formData.append('repo', params.repo);
 		if (params.data) formData.append('data', params.data);
 
+		// Content Type must be unset for the right form-data border to be set automatically
 		return this.makeRequest({
 			path: 'feedback',
 			method: RequestMethod.PUT,
 			body: formData,
+			headers: { 'Content-Type': undefined },
 			token
 		});
 	}
@@ -159,10 +171,12 @@ export class CloudClient {
 		if (params.name) formData.append('name', params.name);
 		if (params.picture) formData.append('avatar', params.picture);
 
+		// Content Type must be unset for the right form-data border to be set automatically
 		return this.makeRequest({
 			path: 'user.json',
 			method: RequestMethod.PUT,
 			body: formData,
+			headers: { 'Content-Type': undefined },
 			token
 		});
 	}
