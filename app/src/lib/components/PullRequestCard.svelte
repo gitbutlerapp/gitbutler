@@ -191,7 +191,7 @@
 		console.log('mergeableState:', mergeableState);
 		console.log('checksStatus:', checksStatus);
 
-		if (isFetchingChecks || isFetchingDetails) return;
+		if (isFetchingChecks || isFetchingDetails || !checksStatus?.completed) return;
 
 		if (pr?.draft) {
 			return {
@@ -217,7 +217,7 @@
 			};
 		}
 
-		if (mergeableState == 'blocked' && checksStatus) {
+		if (mergeableState == 'blocked' && !checksStatus?.success) {
 			return {
 				icon: 'error',
 				style: 'error',
@@ -273,7 +273,9 @@
 			<Tag
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.color}
-				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status' ? 'solid' : 'soft'}
+				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status'
+					? 'solid'
+					: 'soft'}
 				verticalOrientation={isLaneCollapsed}
 			>
 				{prStatusInfo.label}
