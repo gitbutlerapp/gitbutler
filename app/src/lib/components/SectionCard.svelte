@@ -77,8 +77,9 @@
 		display: flex;
 		gap: var(--size-16);
 		padding: var(--size-16);
-		border-left: 1px solid var(--clr-border-main);
-		border-right: 1px solid var(--clr-border-main);
+		border-left-width: 1px;
+		border-right-width: 1px;
+		border-color: var(--clr-border-main);
 		background-color: var(--clr-bg-main);
 		cursor: default;
 		transition:
@@ -121,7 +122,7 @@
 	/* MODIFIERS */
 
 	.rounded-top {
-		border-top: 1px solid var(--clr-border-main);
+		border-top-width: 1px;
 		border-top-left-radius: var(--radius-m);
 		border-top-right-radius: var(--radius-m);
 	}
@@ -146,11 +147,11 @@
 	}
 
 	.bottom-border {
-		border-bottom: 1px solid var(--clr-border-main);
+		border-bottom-width: 1px;
 	}
 
 	.no-border {
-		border: none;
+		border-width: none;
 	}
 
 	.clickable {
