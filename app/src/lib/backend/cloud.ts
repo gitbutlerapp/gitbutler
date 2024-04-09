@@ -66,8 +66,58 @@ interface EvaluatePromptParams {
 	model_kind?: ModelKind;
 }
 
+export enum RequestMethod {
+	GET = 'GET',
+	POST = 'POST',
+	PUT = 'PUT',
+	PATCH = 'PATCH',
+	DELETE = 'DELETE'
+}
+
+const defaultHeaders = {
+	'Content-Type': 'application/json'
+};
+
 export class CloudClient {
 	constructor(public fetch = window.fetch) {}
+
+	private formatBody(body?: FormData | object) {
+		if (body instanceof FormData) {
+			return body;
+		} else if (body) {
+			return JSON.stringify(body);
+		}
+	}
+
+	// TODO: consider renaming
+	async makeRequest<T>(
+		path: string,
+		method: RequestMethod,
+		body?: FormData | object,
+		headers?: HeadersInit
+	): Promise<T> {
+		const response = await this.fetch(getUrl(path), {
+			method,
+			headers: { ...defaultHeaders, ...headers },
+			body: this.formatBody(body)
+		});
+
+		return parseResponseJSON(response);
+	}
+
+	makeAuthenticatedRequest<T>(
+		path: string,
+		method: RequestMethod,
+		token: string,
+		body?: FormData | object,
+		headers?: HeadersInit
+	): Promise<T> {
+		const authenticatedHeaders = {
+			...headers,
+			'X-Auth-Token': token
+		};
+		return this.makeRequest(path, method, body, authenticatedHeaders);
+	}
 
 	async createLoginToken(): Promise<LoginToken> {
 		const response = await this.fetch(getUrl('login/token.json'), {
