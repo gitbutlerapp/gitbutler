@@ -11,6 +11,8 @@
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import { platform } from '@tauri-apps/api/os';
+	import { from } from 'rxjs';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 
@@ -24,6 +26,7 @@
 	const project = getContext(Project);
 	const userService = getContext(UserService);
 	const user = userService.user;
+	const platformName = from(platform());
 
 	let deleteConfirmationModal: RemoveProjectButton;
 	let isDeleting = false;
@@ -71,8 +74,10 @@
 <ContentWrapper title="Project settings">
 	<CloudForm on:updated={onCloudUpdated} />
 	<DetailsForm on:updated={onDetailsUpdated} />
-	<KeysForm showProjectName={false} />
-	<Spacer />
+	{#if $platformName != 'win32'}
+		<KeysForm showProjectName={false} />
+		<Spacer />
+	{/if}
 	<PreferencesForm on:updated={onPreferencesUpdated} />
 	<SectionCard>
 		<svelte:fragment slot="title">Remove project</svelte:fragment>
