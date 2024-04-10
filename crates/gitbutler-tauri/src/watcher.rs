@@ -1,4 +1,4 @@
-mod dispatchers;
+mod dispatcher;
 mod events;
 pub mod handlers;
 
@@ -44,10 +44,6 @@ impl Watchers {
                 match watcher.run(&project_path, &project_id).await {
                     Ok(()) => {
                         tracing::debug!(%project_id, "watcher stopped");
-                    }
-                    Err(RunError::PathNotFound(path)) => {
-                        tracing::warn!(%project_id, path = %path.display(), "watcher stopped: project path not found");
-                        watchers.lock().await.remove(&project_id);
                     }
                     Err(error) => {
                         tracing::error!(?error, %project_id, "watcher error");
@@ -131,14 +127,14 @@ impl Watcher {
         &self,
         path: P,
         project_id: &ProjectId,
-    ) -> Result<(), RunError> {
+    ) -> Result<(), anyhow::Error> {
         self.inner.run(path, project_id).await
     }
 }
 
 struct WatcherInner {
     handler: handlers::Handler,
-    dispatcher: dispatchers::Dispatcher,
+    dispatcher: dispatcher::Dispatcher,
     cancellation_token: CancellationToken,
 
     proxy_tx: Arc<tokio::sync::Mutex<Option<UnboundedSender<Event>>>>,
@@ -148,7 +144,7 @@ impl WatcherInner {
     pub fn from_app(app: &AppHandle) -> std::result::Result<Self, anyhow::Error> {
         Ok(Self {
             handler: handlers::Handler::from_app(app)?,
-            dispatcher: dispatchers::Dispatcher::new(),
+            dispatcher: dispatcher::Dispatcher::new(),
             cancellation_token: CancellationToken::new(),
             proxy_tx: Arc::new(tokio::sync::Mutex::new(None)),
         })
@@ -177,16 +173,12 @@ impl WatcherInner {
         &self,
         path: P,
         project_id: &ProjectId,
-    ) -> Result<(), RunError> {
+    ) -> Result<(), anyhow::Error> {
         let (proxy_tx, mut proxy_rx) = unbounded_channel();
         self.proxy_tx.lock().await.replace(proxy_tx.clone());
 
         let dispatcher = self.dispatcher.clone();
-        let mut dispatcher_rx = match dispatcher.run(project_id, path.as_ref()) {
-            Ok(dispatcher_rx) => Ok(dispatcher_rx),
-            Err(dispatchers::RunError::PathNotFound(path)) => Err(RunError::PathNotFound(path)),
-            Err(error) => Err(error).context("failed to run dispatcher")?,
-        }?;
+        let mut dispatcher_rx = dispatcher.run(project_id, path.as_ref())?;
 
         proxy_tx
             .send(Event::IndexAll(*project_id))
