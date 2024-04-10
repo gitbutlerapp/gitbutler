@@ -12,8 +12,9 @@
       <a href="https://app.gitbutler.com/downloads/release/darwin/x86_64/dmg">Intel</a>) ·
 		Linux (<a href="https://app.gitbutler.com/downloads/release/linux/x86_64/gz">AppImage</a> |
        <a href="https://app.gitbutler.com/downloads/release/linux/x86_64/deb">deb</a>)
+      ·
+		Windows (<a href="https://app.gitbutler.com/downloads/release/windows/x86_64/msi">msi</a>)
     <br />
-    <i>~ Link for Windows will be added once a release is available. ~</i>
   </p>
 </div>
 
