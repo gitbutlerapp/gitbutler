@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    path,
     path::{Path, PathBuf},
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -9,30 +8,27 @@ use anyhow::Result;
 use gitbutler_core::projects::ProjectId;
 use gitbutler_core::{
     deltas::{self, operations::Operation},
-    projects, reader, sessions, users,
+    reader, sessions,
     virtual_branches::{self, branch, VirtualBranchesHandle},
 };
 use gitbutler_tauri::watcher;
 use once_cell::sync::Lazy;
 
 use self::branch::BranchId;
-use gitbutler_testsupport::{commit_all, Case, Suite};
+use crate::watcher::handler::support::Fixture;
+use gitbutler_testsupport::{commit_all, Case};
 
 static TEST_TARGET_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 
 #[derive(Clone)]
 pub struct State {
-    local_data_dir: path::PathBuf,
-    projects: projects::Controller,
-    users: users::Controller,
+    inner: watcher::Handler,
 }
 
 impl State {
-    pub(super) fn from_path<P: AsRef<Path>>(path: P) -> Self {
+    pub(super) fn from_fixture(fixture: &mut Fixture) -> Self {
         Self {
-            local_data_dir: path.as_ref().to_path_buf(),
-            projects: projects::Controller::from_path(&path),
-            users: users::Controller::from_path(path),
+            inner: fixture.new_handler(),
         }
     }
 
@@ -40,14 +36,9 @@ impl State {
         &self,
         path: impl AsRef<Path>,
         project_id: ProjectId,
-    ) -> Result<Vec<watcher::PrivateEvent>> {
-        watcher::Handler::calculate_deltas_pure(
-            &self.local_data_dir,
-            &self.projects,
-            &self.users,
-            path,
-            project_id,
-        )
+    ) -> Result<()> {
+        self.inner.calculate_deltas(path, project_id)?;
+        Ok(())
     }
 }
 
@@ -111,13 +102,13 @@ fn new_test_branch() -> branch::Branch {
 
 #[test]
 fn register_existing_commited_file() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
-    let listener = State::from_path(suite.local_app_data());
+    } = &fixture.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
 
     std::fs::write(project.path.join("test.txt"), "test2")?;
     listener.calculate_delta("test.txt", project.id)?;
@@ -142,13 +133,13 @@ fn register_existing_commited_file() -> Result<()> {
 
 #[test]
 fn register_must_init_current_session() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = State::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     std::fs::write(project.path.join("test.txt"), "test")?;
     listener.calculate_delta("test.txt", project.id)?;
@@ -160,13 +151,13 @@ fn register_must_init_current_session() -> Result<()> {
 
 #[test]
 fn register_must_not_override_current_session() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = State::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     std::fs::write(project.path.join("test.txt"), "test")?;
     listener.calculate_delta("test.txt", project.id)?;
@@ -183,13 +174,13 @@ fn register_must_not_override_current_session() -> Result<()> {
 
 #[test]
 fn register_binfile() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = State::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     std::fs::write(
         project.path.join("test.bin"),
@@ -215,13 +206,13 @@ fn register_binfile() -> Result<()> {
 
 #[test]
 fn register_empty_new_file() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = State::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     std::fs::write(project.path.join("test.txt"), "")?;
 
@@ -243,13 +234,13 @@ fn register_empty_new_file() -> Result<()> {
 
 #[test]
 fn register_new_file() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = State::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     std::fs::write(project.path.join("test.txt"), "test")?;
 
@@ -275,14 +266,14 @@ fn register_new_file() -> Result<()> {
 
 #[test]
 fn register_no_changes_saved_thgoughout_flushes() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = State::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     // file change, wd and deltas are written
     std::fs::write(project.path.join("test.txt"), "test")?;
@@ -304,13 +295,13 @@ fn register_no_changes_saved_thgoughout_flushes() -> Result<()> {
 
 #[test]
 fn register_new_file_twice() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = State::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     std::fs::write(project.path.join("test.txt"), "test")?;
     listener.calculate_delta("test.txt", project.id)?;
@@ -355,14 +346,14 @@ fn register_new_file_twice() -> Result<()> {
 
 #[test]
 fn register_file_deleted() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = State::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     {
         // write file
@@ -434,14 +425,14 @@ fn register_file_deleted() -> Result<()> {
 
 #[test]
 fn flow_with_commits() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         project_repository,
         ..
-    } = &suite.new_case();
-    let listener = State::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     let size = 10;
     let relative_file_path = Path::new("one/two/test.txt");
@@ -521,14 +512,14 @@ fn flow_with_commits() -> Result<()> {
 
 #[test]
 fn flow_no_commits() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         project_repository,
         ..
-    } = &suite.new_case();
-    let listener = State::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     let size = 10;
     let relative_file_path = Path::new("one/two/test.txt");
@@ -607,13 +598,13 @@ fn flow_no_commits() -> Result<()> {
 
 #[test]
 fn flow_signle_session() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = State::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     let size = 10_i32;
     let relative_file_path = Path::new("one/two/test.txt");
@@ -661,14 +652,14 @@ fn flow_signle_session() -> Result<()> {
 
 #[test]
 fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         project_repository,
         ..
-    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
-    let listener = State::from_path(suite.local_app_data());
+    } = &fixture.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
 
     let branch_writer =
         branch::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
@@ -726,14 +717,14 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
 
 #[test]
 fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         project_repository,
         ..
-    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
-    let listener = State::from_path(suite.local_app_data());
+    } = &fixture.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
 
     let branch_writer =
         branch::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
@@ -797,14 +788,14 @@ mod flush_wd {
 
     #[test]
     fn should_add_new_files_to_session_wd() {
-        let suite = Suite::default();
+        let mut fixture = Fixture::default();
+        let listener = State::from_fixture(&mut fixture);
         let Case {
             gb_repository,
             project,
             project_repository,
             ..
-        } = &suite.new_case();
-        let listener = State::from_path(suite.local_app_data());
+        } = &fixture.new_case();
 
         // write a file into session
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
@@ -872,14 +863,14 @@ mod flush_wd {
 
     #[test]
     fn should_remove_deleted_files_from_session_wd() {
-        let suite = Suite::default();
+        let mut fixture = Fixture::default();
+        let listener = State::from_fixture(&mut fixture);
         let Case {
             gb_repository,
             project,
             project_repository,
             ..
-        } = &suite.new_case();
-        let listener = State::from_path(suite.local_app_data());
+        } = &fixture.new_case();
 
         // write a file into session
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
@@ -949,14 +940,14 @@ mod flush_wd {
 
     #[test]
     fn should_update_updated_files_in_session_wd() {
-        let suite = Suite::default();
+        let mut fixture = Fixture::default();
+        let listener = State::from_fixture(&mut fixture);
         let Case {
             gb_repository,
             project,
             project_repository,
             ..
-        } = &suite.new_case();
-        let listener = State::from_path(suite.local_app_data());
+        } = &fixture.new_case();
 
         // write a file into session
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();

@@ -89,8 +89,7 @@ impl Suite {
     }
 }
 
-pub struct Case<'a> {
-    suite: &'a Suite,
+pub struct Case {
     pub project: gitbutler_core::projects::Project,
     pub project_repository: gitbutler_core::project_repository::Repository,
     pub gb_repository: gitbutler_core::gb_repository::Repository,
@@ -99,7 +98,7 @@ pub struct Case<'a> {
     project_tmp: Option<TempDir>,
 }
 
-impl Drop for Case<'_> {
+impl Drop for Case {
     fn drop(&mut self) {
         if let Some(tmp) = self
             .project_tmp
@@ -111,12 +110,12 @@ impl Drop for Case<'_> {
     }
 }
 
-impl<'a> Case<'a> {
+impl Case {
     fn new(
-        suite: &'a Suite,
+        suite: &Suite,
         project: gitbutler_core::projects::Project,
         project_tmp: TempDir,
-    ) -> Case<'a> {
+    ) -> Case {
         let project_repository = gitbutler_core::project_repository::Repository::open(&project)
             .expect("failed to create project repository");
         let gb_repository = gitbutler_core::gb_repository::Repository::open(
@@ -128,7 +127,6 @@ impl<'a> Case<'a> {
         let credentials =
             gitbutler_core::git::credentials::Helper::from_path(suite.local_app_data());
         Case {
-            suite,
             project,
             gb_repository,
             project_repository,
@@ -137,21 +135,19 @@ impl<'a> Case<'a> {
         }
     }
 
-    pub fn refresh(mut self) -> Self {
-        let project = self
-            .suite
+    pub fn refresh(mut self, suite: &Suite) -> Self {
+        let project = suite
             .projects
             .get(&self.project.id)
             .expect("failed to get project");
         let project_repository = gitbutler_core::project_repository::Repository::open(&project)
             .expect("failed to create project repository");
-        let user = self.suite.users.get_user().expect("failed to get user");
+        let user = suite.users.get_user().expect("failed to get user");
         let credentials =
-            gitbutler_core::git::credentials::Helper::from_path(self.suite.local_app_data());
+            gitbutler_core::git::credentials::Helper::from_path(suite.local_app_data());
         Self {
-            suite: self.suite,
             gb_repository: gitbutler_core::gb_repository::Repository::open(
-                self.suite.local_app_data(),
+                suite.local_app_data(),
                 &project_repository,
                 user.as_ref(),
             )

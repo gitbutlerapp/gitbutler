@@ -7,7 +7,6 @@ use gitbutler_core::{
     sessions::{self, SessionId},
 };
 
-use super::events;
 use crate::events as app_events;
 
 impl super::Handler {
@@ -18,12 +17,12 @@ impl super::Handler {
         file_path: &Path,
         deltas: &[deltas::Delta],
     ) -> Result<()> {
-        self.deltas_database
+        self.deltas_db
             .insert(&project_id, &session_id, file_path, deltas)
             .context("failed to insert deltas into database")
     }
 
-    pub(super) fn reindex(&self, project_id: ProjectId) -> Result<Vec<events::PrivateEvent>> {
+    pub fn reindex(&self, project_id: ProjectId) -> Result<()> {
         let user = self.users.get_user()?;
         let project = self.projects.get(&project_id)?;
         let project_repository =
@@ -36,22 +35,21 @@ impl super::Handler {
         .context("failed to open repository")?;
 
         let sessions_iter = gb_repository.get_sessions_iterator()?;
-        let mut events = vec![];
         for session in sessions_iter {
-            events.extend(self.process_session(&gb_repository, &session?)?);
+            self.process_session(&gb_repository, &session?)?;
         }
-        Ok(events)
+        Ok(())
     }
 
     pub(super) fn index_session(
         &self,
         project_id: ProjectId,
         session: &sessions::Session,
-    ) -> Result<Vec<events::PrivateEvent>> {
-        let user = self.users.get_user()?;
+    ) -> Result<()> {
         let project = self.projects.get(&project_id)?;
         let project_repository =
             project_repository::Repository::open(&project).context("failed to open repository")?;
+        let user = self.users.get_user()?;
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             &project_repository,
@@ -66,16 +64,16 @@ impl super::Handler {
         &self,
         gb_repository: &gb_repository::Repository,
         session: &sessions::Session,
-    ) -> Result<Vec<events::PrivateEvent>> {
+    ) -> Result<()> {
         let project_id = gb_repository.get_project_id();
 
         // now, index session if it has changed to the database.
-        let from_db = self.sessions_database.get_by_id(&session.id)?;
+        let from_db = self.sessions_db.get_by_id(&session.id)?;
         if from_db.map_or(false, |from_db| from_db == *session) {
-            return Ok(vec![]);
+            return Ok(());
         }
 
-        self.sessions_database
+        self.sessions_db
             .insert(project_id, &[session])
             .context("failed to insert session into database")?;
 
@@ -88,8 +86,7 @@ impl super::Handler {
             self.index_deltas(*project_id, session.id, &file_path, &deltas)?;
         }
 
-        Ok(vec![events::PrivateEvent::Emit(
-            app_events::Event::session(*project_id, session),
-        )])
+        (self.send_event)(&app_events::Event::session(*project_id, session))?;
+        Ok(())
     }
 }

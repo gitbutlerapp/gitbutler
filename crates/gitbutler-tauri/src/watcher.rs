@@ -1,13 +1,13 @@
 mod events;
 pub use events::Event;
-// TODO(ST): Needed for integration tests, but we don't want it at all. Observer other effects instead.
-pub use events::PrivateEvent;
+use events::InternalEvent;
 
 mod file_monitor;
 mod handler;
 pub use handler::Handler;
 
-use std::{collections::HashMap, path, sync::Arc, time};
+use std::path::Path;
+use std::{collections::HashMap, sync::Arc, time};
 
 use anyhow::{Context, Result};
 use futures::executor::block_on;
@@ -44,7 +44,7 @@ impl Watchers {
         let project_id = project.id;
         let project_path = project.path.clone();
 
-        match spawn(handler, project_path, project_id) {
+        match watch_in_background(handler, project_path, project_id) {
             Ok(handle) => {
                 block_on(self.watchers.lock()).insert(project_id, handle);
             }
@@ -52,7 +52,6 @@ impl Watchers {
                 tracing::error!(?err, %project_id, "watcher error");
             }
         }
-
         Ok(())
     }
 
@@ -65,11 +64,8 @@ impl Watchers {
         }
     }
 
-    pub async fn stop(&self, project_id: &ProjectId) -> Result<()> {
-        if let Some(token) = self.watchers.lock().await.remove(project_id) {
-            token.stop();
-        };
-        Ok(())
+    pub async fn stop(&self, project_id: &ProjectId) {
+        self.watchers.lock().await.remove(project_id);
     }
 }
 
@@ -79,86 +75,71 @@ impl gitbutler_core::projects::Watchers for Watchers {
         Watchers::watch(self, project)
     }
 
-    async fn stop(&self, id: ProjectId) -> Result<()> {
+    async fn stop(&self, id: ProjectId) {
         Watchers::stop(self, &id).await
     }
 
-    async fn fetch(&self, id: ProjectId) -> Result<()> {
+    async fn fetch_gb_data(&self, id: ProjectId) -> Result<()> {
         self.post(Event::FetchGitbutlerData(id)).await
     }
 
-    async fn push(&self, id: ProjectId) -> Result<()> {
+    async fn push_gb_data(&self, id: ProjectId) -> Result<()> {
         self.post(Event::PushGitbutlerData(id)).await
     }
 }
 
 /// An abstraction over a link to the spawned watcher, which runs in the background.
 struct WatcherHandle {
-    tx: UnboundedSender<PrivateEvent>,
+    tx: UnboundedSender<InternalEvent>,
     cancellation_token: CancellationToken,
 }
 
-impl WatcherHandle {
-    pub fn stop(&self) {
+impl Drop for WatcherHandle {
+    fn drop(&mut self) {
         self.cancellation_token.cancel();
     }
+}
 
+impl WatcherHandle {
     pub async fn post(&self, event: Event) -> Result<()> {
         self.tx.send(event.into()).context("failed to send event")?;
         Ok(())
     }
 }
 
-/// Run our file watcher processing loop in the background.
+/// Run our file watcher processing loop in the background and let `handler` deal with them.
+/// Return a handle to the watcher to allow interactions while it's running in the background.
+/// Drop the handle to stop the watcher.
 ///
-/// It runs in such a way that each filesystem event is processed in a new thread, and a handler
-/// may return additional events that are then processed in their own threads as well. Effectively,
-/// everything is auto-parallelized in the tokio thread pool.
-fn spawn<P: AsRef<path::Path>>(
+/// ### Important
+///
+/// It runs in such a way that each filesystem event is processed concurrently with others, which is why
+/// spamming massive amounts of events should be avoided!
+fn watch_in_background(
     handler: handler::Handler,
-    path: P,
+    path: impl AsRef<Path>,
     project_id: ProjectId,
 ) -> Result<WatcherHandle, anyhow::Error> {
-    let (proxy_tx, mut proxy_rx) = unbounded_channel();
+    let (events_out, mut events_in) = unbounded_channel();
 
-    let mut dispatcher_rx = file_monitor::spawn(project_id, path.as_ref())?;
-    proxy_tx
-        .send(PrivateEvent::IndexAll(project_id))
-        .context("failed to send event")?;
+    file_monitor::spawn(project_id, path.as_ref(), events_out.clone())?;
+    handler.reindex(project_id)?;
 
     let cancellation_token = CancellationToken::new();
     let handle = WatcherHandle {
-        tx: proxy_tx.clone(),
+        tx: events_out,
         cancellation_token: cancellation_token.clone(),
     };
-    let handle_event = move |event: &PrivateEvent| -> Result<()> {
+    let handle_event = move |event: InternalEvent| -> Result<()> {
         let handler = handler.clone();
-        let project_id = project_id.to_string();
-        let tx = proxy_tx.clone();
-        task::spawn_blocking({
-            let event = event.clone();
-            move || {
-                futures::executor::block_on(async move {
-                    if let Ok(events) = handler.handle(&event, time::SystemTime::now()).await {
-                        for e in events {
-                            if let Err(err) = tx.send(e.clone()) {
-                                tracing::error!(
-                                    project_id,
-                                    %event,
-                                    ?err,
-                                    "failed to post event",
-                                );
-                            } else {
-                                tracing::debug!(
-                                    project_id,
-                                    %event,
-                                    "posted response event",
-                                );
-                            }
-                        }
-                    }
-                });
-            }
+        // NOTE: Traditional parallelization (blocking) is required as `tokio::spawn()` on
+        //       the `handler.handle()` future isn't `Send` as it keeps non-Send things
+        //       across await points. Further, there is a fair share of `sync` IO happening
+        //       as well, so nothing can really be done here.
+        task::spawn_blocking(move || {
+            futures::executor::block_on(async move {
+                handler.handle(event, time::SystemTime::now()).await.ok();
+            });
         });
         Ok(())
     };
@@ -166,8 +147,7 @@ fn spawn<P: AsRef<path::Path>>(
     tokio::spawn(async move {
         loop {
             tokio::select! {
-                Some(event) = dispatcher_rx.recv() => handle_event(&event)?,
-                Some(event) = proxy_rx.recv() => handle_event(&event)?,
+                Some(event) = events_in.recv() => handle_event(event)?,
                 () = cancellation_token.cancelled() => {
                     break;
                 }

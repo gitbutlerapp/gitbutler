@@ -95,7 +95,7 @@ async fn push_simple() -> Result<()> {
     cloud_code.find_commit(target_id.into()).unwrap_err();
 
     {
-        let res = Handler::push_project_to_gitbutler_pure(
+        Handler::push_project_to_gitbutler_pure(
             suite.local_app_data(),
             &suite.projects,
             &suite.users,
@@ -104,7 +104,6 @@ async fn push_simple() -> Result<()> {
         )
         .await
         .unwrap();
-        assert!(res.is_empty());
     }
 
     cloud_code.find_commit(target_id.into()).unwrap();
@@ -386,7 +385,7 @@ async fn push_again_no_change() -> Result<()> {
     cloud_code.find_commit(target_id.into()).unwrap_err();
 
     {
-        let res = Handler::push_project_to_gitbutler_pure(
+        Handler::push_project_to_gitbutler_pure(
             suite.local_app_data(),
             &suite.projects,
             &suite.users,
@@ -395,7 +394,6 @@ async fn push_again_no_change() -> Result<()> {
         )
         .await
         .unwrap();
-        assert!(res.is_empty());
     }
 
     cloud_code.find_commit(target_id.into()).unwrap();

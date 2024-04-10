@@ -15,10 +15,12 @@ use crate::{
 
 #[async_trait]
 pub trait Watchers {
+    /// Watch for filesystem changes on the given project.
     fn watch(&self, project: &Project) -> anyhow::Result<()>;
-    async fn stop(&self, id: ProjectId) -> anyhow::Result<()>;
-    async fn fetch(&self, id: ProjectId) -> anyhow::Result<()>;
-    async fn push(&self, id: ProjectId) -> anyhow::Result<()>;
+    /// Stop watching filesystem changes.
+    async fn stop(&self, id: ProjectId);
+    async fn fetch_gb_data(&self, id: ProjectId) -> anyhow::Result<()>;
+    async fn push_gb_data(&self, id: ProjectId) -> anyhow::Result<()>;
 }
 
 #[derive(Clone)]
@@ -161,7 +163,7 @@ impl Controller {
         if let Some(watchers) = &self.watchers {
             if let Some(api) = &project.api {
                 if api.sync {
-                    if let Err(error) = watchers.fetch(project.id).await {
+                    if let Err(error) = watchers.fetch_gb_data(project.id).await {
                         tracing::error!(
                             project_id = %project.id,
                             ?error,
@@ -170,7 +172,7 @@ impl Controller {
                     }
                 }
 
-                if let Err(error) = watchers.push(project.id).await {
+                if let Err(error) = watchers.push_gb_data(project.id).await {
                     tracing::error!(
                         project_id = %project.id,
                         ?error,
@@ -231,13 +233,7 @@ impl Controller {
         }?;
 
         if let Some(watchers) = &self.watchers {
-            if let Err(error) = watchers.stop(*id).await {
-                tracing::error!(
-                    project_id = %id,
-                    ?error,
-                    "failed to stop watcher for project",
-                );
-            }
+            watchers.stop(*id).await;
         }
 
         self.projects_storage

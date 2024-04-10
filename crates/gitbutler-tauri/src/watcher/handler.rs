@@ -2,16 +2,17 @@ mod calculate_deltas;
 mod index;
 mod push_project_to_gitbutler;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use std::{path, time};
 
 use anyhow::{bail, Context, Result};
 use gitbutler_core::projects::ProjectId;
+use gitbutler_core::sessions::SessionId;
 use gitbutler_core::virtual_branches::VirtualBranches;
 use gitbutler_core::{
-    assets, deltas, gb_repository, git, project_repository, projects, sessions, users,
+    assets, deltas, gb_repository, git, project_repository, projects, reader, sessions, users,
     virtual_branches,
 };
 use governor::clock::QuantaClock;
@@ -23,29 +24,31 @@ use tracing::instrument;
 use super::events;
 use crate::{analytics, events as app_events};
 
-// TODO(ST): remove `Clone` once the event-loop is gone.
+// NOTE: This is `Clone` as each incoming event is spawned onto a thread for processing.
 #[derive(Clone)]
 pub struct Handler {
-    // TODO(ST): Review this comment as `core` is refactored, the state here should be affected.
     // The following fields our currently required state as we are running in the background
     // and access it as filesystem events are processed. It's still to be decided how granular it
     // should be, and I can imagine having a top-level `app` handle that keeps the application state of
-    // the tauri app.
+    // the tauri app, assuming that such application would not be `Send + Sync` everywhere and thus would
+    // need extra protection.
     users: users::Controller,
-    client: analytics::Client,
+    analytics: analytics::Client,
     local_data_dir: path::PathBuf,
     projects: projects::Controller,
     vbranch_controller: virtual_branches::Controller,
     assets_proxy: assets::Proxy,
     /// A rate-limiter for the vbranch calculation.
     calc_vbranch_limit: Arc<RateLimiter<NotKeyed, InMemoryState, QuantaClock>>,
-    sessions_database: sessions::Database,
-    deltas_database: deltas::Database,
+    sessions_db: sessions::Database,
+    deltas_db: deltas::Database,
 
     /// A rate-limiter for the `is-ignored` computation
     is_ignored_limit: Arc<RateLimiter<NotKeyed, InMemoryState, QuantaClock>>,
 
-    app_handle: tauri::AppHandle,
+    /// A function to send events - decoupled from app-handle for testing purposes.
+    #[allow(clippy::type_complexity)]
+    send_event: Arc<dyn Fn(&crate::events::Event) -> Result<()> + Send + Sync + 'static>,
 }
 
 impl Handler {
@@ -54,7 +57,7 @@ impl Handler {
             .path_resolver()
             .app_data_dir()
             .context("failed to get app data dir")?;
-        let client = app
+        let analytics = app
             .try_state::<analytics::Client>()
             .map_or(analytics::Client::default(), |client| {
                 client.inner().clone()
@@ -62,7 +65,41 @@ impl Handler {
         let users = app.state::<users::Controller>().inner().clone();
         let projects = app.state::<projects::Controller>().inner().clone();
         let vbranches = app.state::<virtual_branches::Controller>().inner().clone();
-        let proxy = app.state::<assets::Proxy>().inner().clone();
+        let assets_proxy = app.state::<assets::Proxy>().inner().clone();
+        let sessions_db = app.state::<sessions::Database>().inner().clone();
+        let deltas_db = app.state::<deltas::Database>().inner().clone();
+
+        Ok(Handler::new(
+            app_data_dir.clone(),
+            analytics,
+            users,
+            projects,
+            vbranches,
+            assets_proxy,
+            sessions_db,
+            deltas_db,
+            {
+                let app = app.clone();
+                move |event: &crate::events::Event| event.send(&app)
+            },
+        ))
+    }
+}
+
+impl Handler {
+    /// A constructor whose primary use is the test-suite.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        local_data_dir: PathBuf,
+        analytics: analytics::Client,
+        users: users::Controller,
+        projects: projects::Controller,
+        vbranch_controller: virtual_branches::Controller,
+        assets_proxy: assets::Proxy,
+        sessions_db: sessions::Database,
+        deltas_db: deltas::Database,
+        send_event: impl Fn(&crate::events::Event) -> Result<()> + Send + Sync + 'static,
+    ) -> Self {
         let calc_vbranch_limit = {
             let quota = Quota::with_period(Duration::from_millis(100)).expect("valid quota");
             Arc::new(RateLimiter::direct(quota))
@@ -72,141 +109,114 @@ impl Handler {
             let quota = Quota::with_period(Duration::from_millis(5)).expect("valid quota");
             Arc::new(RateLimiter::direct(quota))
         };
-
-        let sessions_database = app.state::<sessions::Database>().inner().clone();
-        let deltas_database = app.state::<deltas::Database>().inner().clone();
-
-        Ok(Handler {
-            local_data_dir: app_data_dir.clone(),
-            client,
+        Handler {
+            local_data_dir,
+            analytics,
             users,
             projects,
-            vbranch_controller: vbranches,
-            assets_proxy: proxy,
+            vbranch_controller,
+            assets_proxy,
             calc_vbranch_limit,
-            sessions_database,
-            deltas_database,
+            sessions_db,
+            deltas_db,
             is_ignored_limit,
-            app_handle: app.clone(),
-        })
+            send_event: Arc::new(send_event),
+        }
     }
-}
 
-impl Handler {
-    #[instrument(skip(self), fields(event = %event), level = "debug", err)]
-    pub async fn handle(
+    /// Handle the events that come in from the filesystem, or the public API.
+    #[instrument(skip(self, now), fields(event = %event), level = "debug", err(Debug))]
+    pub(super) async fn handle(
         &self,
-        event: &events::PrivateEvent,
+        event: events::InternalEvent,
         now: time::SystemTime,
-    ) -> Result<Vec<events::PrivateEvent>> {
+    ) -> Result<()> {
         match event {
-            events::PrivateEvent::ProjectFileChange(project_id, path) => {
-                Ok(vec![events::PrivateEvent::FilterIgnoredFiles(
-                    *project_id,
-                    path.clone(),
-                )])
+            events::InternalEvent::ProjectFileChange(project_id, path) => {
+                self.recalculate_everything_unless_ignored(path, project_id)
+                    .await
             }
 
-            events::PrivateEvent::FilterIgnoredFiles(project_id, path) => self
-                .is_ignored(path, project_id)
-                .context("failed to handle filter ignored files event"),
-
-            events::PrivateEvent::GitFileChange(project_id, path) => self
-                .git_file_change(path, *project_id)
+            events::InternalEvent::GitFileChange(project_id, path) => self
+                .git_file_change(path, project_id)
+                .await
                 .context("failed to handle git file change event"),
 
-            events::PrivateEvent::PushGitbutlerData(project_id) => {
-                self.push_gb_data(*project_id)
-                    .context("failed to push gitbutler data")?;
-                Ok(vec![])
-            }
+            events::InternalEvent::PushGitbutlerData(project_id) => self
+                .push_gb_data(project_id)
+                .context("failed to push gitbutler data"),
 
-            events::PrivateEvent::PushProjectToGitbutler(project_id) => self
-                .push_project_to_gitbutler(*project_id)
-                .await
-                .context("failed to push project to gitbutler"),
-
-            events::PrivateEvent::FetchGitbutlerData(project_id) => self
-                .fetch_gb_data(*project_id, now)
+            events::InternalEvent::FetchGitbutlerData(project_id) => self
+                .fetch_gb_data(project_id, now)
                 .await
                 .context("failed to fetch gitbutler data"),
 
-            events::PrivateEvent::Flush(project_id, session) => self
-                .flush_session(project_id, session)
+            events::InternalEvent::Flush(project_id, session) => self
+                .flush_session(project_id, &session)
+                .await
                 .context("failed to handle flush session event"),
 
-            events::PrivateEvent::SessionFile((project_id, session_id, file_path, contents)) => {
-                Ok(vec![events::PrivateEvent::Emit(app_events::Event::file(
-                    *project_id,
-                    *session_id,
-                    &file_path.display().to_string(),
-                    contents.as_ref(),
-                ))])
-            }
-
-            events::PrivateEvent::SessionDelta((project_id, session_id, path, delta)) => {
-                self.index_deltas(*project_id, *session_id, path, std::slice::from_ref(delta))
-                    .context("failed to index deltas")?;
-
-                Ok(vec![events::PrivateEvent::Emit(app_events::Event::deltas(
-                    *project_id,
-                    *session_id,
-                    std::slice::from_ref(delta),
-                    path,
-                ))])
-            }
-
-            events::PrivateEvent::CalculateVirtualBranches(project_id) => self
-                .calculate_virtual_branches(*project_id)
+            events::InternalEvent::CalculateVirtualBranches(project_id) => self
+                .calculate_virtual_branches(project_id)
                 .await
                 .context("failed to handle virtual branch event"),
-
-            events::PrivateEvent::CalculateDeltas(project_id, path) => {
-                self.calculate_deltas(path, *project_id).context(format!(
-                    "failed to handle session processing event: {:?}",
-                    path.display()
-                ))
-            }
-
-            events::PrivateEvent::Emit(event) => {
-                event
-                    .send(&self.app_handle)
-                    .context("failed to send event")?;
-                Ok(vec![])
-            }
-
-            events::PrivateEvent::Analytics(event) => {
-                self.send_analytics_event_none_blocking(event)
-                    .context("failed to handle analytics event")?;
-                Ok(vec![])
-            }
-
-            events::PrivateEvent::Session(project_id, session) => self
-                .index_session(*project_id, session)
-                .context("failed to index session"),
-
-            events::PrivateEvent::IndexAll(project_id) => self.reindex(*project_id),
         }
     }
 }
 
 impl Handler {
+    fn session_delta(
+        &self,
+        project_id: ProjectId,
+        session_id: SessionId,
+        path: &Path,
+        delta: &deltas::Delta,
+    ) -> Result<()> {
+        self.index_deltas(project_id, session_id, path, std::slice::from_ref(delta))
+            .context("failed to index deltas")?;
+
+        self.emit_app_event(&app_events::Event::deltas(
+            project_id,
+            session_id,
+            std::slice::from_ref(delta),
+            path,
+        ))
+    }
+
+    fn emit_app_event(&self, event: &crate::events::Event) -> Result<()> {
+        (self.send_event)(event).context("failed to send event")
+    }
+
+    fn emit_session_file(
+        &self,
+        project_id: ProjectId,
+        session_id: SessionId,
+        file_path: &Path,
+        contents: Option<&reader::Content>,
+    ) -> Result<()> {
+        (self.send_event)(&app_events::Event::file(
+            project_id,
+            session_id,
+            &file_path.display().to_string(),
+            contents,
+        ))
+    }
     fn send_analytics_event_none_blocking(&self, event: &analytics::Event) -> Result<()> {
         if let Some(user) = self.users.get_user().context("failed to get user")? {
-            self.client
+            self.analytics
                 .send_non_anonymous_event_nonblocking(&user, event);
         }
         Ok(())
     }
 
-    fn flush_session(
+    async fn flush_session(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         session: &sessions::Session,
-    ) -> Result<Vec<events::PrivateEvent>> {
+    ) -> Result<()> {
         let project = self
             .projects
-            .get(project_id)
+            .get(&project_id)
             .context("failed to get project")?;
         let user = self.users.get_user()?;
         let project_repository =
@@ -222,19 +232,20 @@ impl Handler {
             .flush_session(&project_repository, session, user.as_ref())
             .context(format!("failed to flush session {}", session.id))?;
 
-        Ok(vec![
-            events::PrivateEvent::Session(*project_id, session),
-            events::PrivateEvent::PushGitbutlerData(*project_id),
-            events::PrivateEvent::PushProjectToGitbutler(*project_id),
-        ])
+        self.index_session(project_id, &session)?;
+
+        let push_gb_data = tokio::task::spawn_blocking({
+            let this = self.clone();
+            move || this.push_gb_data(project_id)
+        });
+        self.push_project_to_gitbutler(project_id).await?;
+        push_gb_data.await??;
+        Ok(())
     }
 
-    async fn calculate_virtual_branches(
-        &self,
-        project_id: ProjectId,
-    ) -> Result<Vec<events::PrivateEvent>> {
+    async fn calculate_virtual_branches(&self, project_id: ProjectId) -> Result<()> {
         if self.calc_vbranch_limit.check().is_err() {
-            return Ok(vec![]);
+            return Ok(());
         }
         match self
             .vbranch_controller
@@ -243,21 +254,21 @@ impl Handler {
         {
             Ok((branches, _, skipped_files)) => {
                 let branches = self.assets_proxy.proxy_virtual_branches(branches).await;
-                Ok(vec![events::PrivateEvent::Emit(
-                    app_events::Event::virtual_branches(
-                        project_id,
-                        &VirtualBranches {
-                            branches,
-                            skipped_files,
-                        },
-                    ),
-                )])
+                self.emit_app_event(&app_events::Event::virtual_branches(
+                    project_id,
+                    &VirtualBranches {
+                        branches,
+                        skipped_files,
+                    },
+                ))
             }
-            Err(err) if err.is::<virtual_branches::errors::VerifyError>() => Ok(vec![]),
+            Err(err) if err.is::<virtual_branches::errors::VerifyError>() => Ok(()),
             Err(err) => Err(err.context("failed to list virtual branches").into()),
         }
     }
 
+    /// NOTE: this is an honest non-async function, and it should stay that way to avoid
+    ///       dealing with git2 repositories across await points, which aren't `Send`.
     fn push_gb_data(&self, project_id: ProjectId) -> Result<()> {
         let user = self.users.get_user()?;
         let project = self.projects.get(&project_id)?;
@@ -275,79 +286,12 @@ impl Handler {
             .context("failed to push gb repo")
     }
 
-    async fn fetch_gb_data(
-        &self,
-        project_id: ProjectId,
-        now: time::SystemTime,
-    ) -> Result<Vec<events::PrivateEvent>> {
-        Self::fetch_gb_data_pure(
-            &self.local_data_dir,
-            &self.projects,
-            &self.users,
-            project_id,
-            now,
-        )
-        .await
-    }
-
-    // TODO(ST): figure out if this is needed, it's going to be very slow. The file monitor already filters,
-    //           however, it uses a cached project which might not see changes to the .gitignore files.
-    //           so opening a fresh repo (or doing the minimal work to get there) seems to be required at first,
-    //           but one should handle all paths at once.
-    fn is_ignored<P: AsRef<std::path::Path>>(
-        &self,
-        path: P,
-        project_id: &ProjectId,
-    ) -> Result<Vec<events::PrivateEvent>> {
-        if self.is_ignored_limit.check().is_err() {
-            return Ok(vec![]);
-        }
+    pub async fn fetch_gb_data(&self, project_id: ProjectId, now: time::SystemTime) -> Result<()> {
+        let user = self.users.get_user()?;
         let project = self
             .projects
-            .get(project_id)
+            .get(&project_id)
             .context("failed to get project")?;
-        let project_repository = project_repository::Repository::open(&project)
-            .with_context(|| "failed to open project repository for project")?;
-
-        if project_repository
-            .is_path_ignored(path.as_ref())
-            .unwrap_or(false)
-        {
-            Ok(vec![])
-        } else {
-            Ok(vec![
-                events::PrivateEvent::CalculateDeltas(*project_id, path.as_ref().to_path_buf()),
-                events::PrivateEvent::CalculateVirtualBranches(*project_id),
-            ])
-        }
-    }
-
-    fn git_file_change<P: AsRef<std::path::Path>>(
-        &self,
-        path: P,
-        project_id: ProjectId,
-    ) -> Result<Vec<events::PrivateEvent>> {
-        Self::git_file_change_pure(
-            &self.local_data_dir,
-            &self.projects,
-            &self.users,
-            path,
-            project_id,
-        )
-    }
-}
-
-/// Functions are used for unbundling to facilitate tests.
-impl Handler {
-    pub async fn fetch_gb_data_pure(
-        local_data_dir: &Path,
-        projects: &projects::Controller,
-        users: &users::Controller,
-        project_id: ProjectId,
-        now: time::SystemTime,
-    ) -> Result<Vec<events::PrivateEvent>> {
-        let user = users.get_user()?;
-        let project = projects.get(&project_id).context("failed to get project")?;
 
         if !project.api.as_ref().map(|api| api.sync).unwrap_or_default() {
             bail!("sync disabled");
@@ -355,9 +299,12 @@ impl Handler {
 
         let project_repository =
             project_repository::Repository::open(&project).context("failed to open repository")?;
-        let gb_repo =
-            gb_repository::Repository::open(local_data_dir, &project_repository, user.as_ref())
-                .context("failed to open repository")?;
+        let gb_repo = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )
+        .context("failed to open repository")?;
 
         let sessions_before_fetch = gb_repo
             .get_sessions_iterator()?
@@ -396,7 +343,7 @@ impl Handler {
             }
         };
 
-        projects
+        self.projects
             .update(&projects::UpdateRequest {
                 id: project_id,
                 gitbutler_data_last_fetched: Some(fetch_result),
@@ -407,39 +354,77 @@ impl Handler {
 
         let sessions_after_fetch = gb_repo.get_sessions_iterator()?.filter_map(Result::ok);
         let new_sessions = sessions_after_fetch.filter(|s| !sessions_before_fetch.contains(s));
-        let events = new_sessions
-            .map(|session| events::PrivateEvent::Session(project_id, session))
-            .collect::<Vec<_>>();
-
-        Ok(events)
+        for session in new_sessions {
+            self.index_session(project_id, &session)?;
+        }
+        Ok(())
     }
 
-    pub fn git_file_change_pure<P: AsRef<std::path::Path>>(
-        local_data_dir: &Path,
-        projects: &projects::Controller,
-        users: &users::Controller,
-        path: P,
+    // TODO(ST): figure out if this is needed, it's going to be very slow. The file monitor already filters,
+    //           however, it uses a cached project which might not see changes to the .gitignore files.
+    //           so opening a fresh repo (or doing the minimal work to get there) seems to be required at first,
+    //           but one should handle all paths at once.
+    async fn recalculate_everything_unless_ignored(
+        &self,
+        path: PathBuf,
         project_id: ProjectId,
-    ) -> Result<Vec<events::PrivateEvent>> {
-        let project = projects.get(&project_id).context("failed to get project")?;
+    ) -> Result<()> {
+        if self.is_ignored_limit.check().is_err() {
+            return Ok(());
+        }
+        let project = self
+            .projects
+            .get(&project_id)
+            .context("failed to get project")?;
         let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository for project")?;
+            .with_context(|| "failed to open project repository for project")?;
 
-        let Some(file_name) = path.as_ref().to_str() else {
-            return Ok(vec![]);
+        if project_repository.is_path_ignored(&path).unwrap_or(false) {
+            return Ok(());
+        }
+
+        let calc_deltas = tokio::task::spawn_blocking({
+            let this = self.clone();
+            move || this.calculate_deltas(path, project_id)
+        });
+        self.calculate_virtual_branches(project_id).await?;
+        calc_deltas.await??;
+        Ok(())
+    }
+
+    pub async fn git_file_change(
+        &self,
+        path: impl AsRef<Path>,
+        project_id: ProjectId,
+    ) -> Result<()> {
+        let path = path.as_ref();
+        let project = self
+            .projects
+            .get(&project_id)
+            .context("failed to get project")?;
+        let open_projects_repository = || {
+            project_repository::Repository::open(&project)
+                .context("failed to open project repository for project")
+        };
+
+        let Some(file_name) = path.to_str() else {
+            return Ok(());
         };
         match file_name {
-            "FETCH_HEAD" => Ok(vec![
-                events::PrivateEvent::Emit(app_events::Event::git_fetch(project_id)),
-                events::PrivateEvent::CalculateVirtualBranches(project_id),
-            ]),
-            "logs/HEAD" => Ok(vec![events::PrivateEvent::Emit(
-                app_events::Event::git_activity(project.id),
-            )]),
+            "FETCH_HEAD" => {
+                self.emit_app_event(&app_events::Event::git_fetch(project_id))?;
+                self.calculate_virtual_branches(project_id).await?;
+                Ok(())
+            }
+            "logs/HEAD" => {
+                self.emit_app_event(&app_events::Event::git_activity(project.id))?;
+                Ok(())
+            }
             "GB_FLUSH" => {
-                let user = users.get_user()?;
+                let user = self.users.get_user()?;
+                let project_repository = open_projects_repository()?;
                 let gb_repo = gb_repository::Repository::open(
-                    local_data_dir,
+                    &self.local_data_dir,
                     &project_repository,
                     user.as_ref(),
                 )
@@ -455,15 +440,13 @@ impl Handler {
                         .get_current_session()
                         .context("failed to get current session")?
                     {
-                        return Ok(vec![events::PrivateEvent::Flush(
-                            project.id,
-                            current_session,
-                        )]);
+                        return self.flush_session(project.id, &current_session).await;
                     }
                 }
-                Ok(vec![])
+                Ok(())
             }
             "HEAD" => {
+                let project_repository = open_projects_repository()?;
                 let head_ref = project_repository
                     .get_head()
                     .context("failed to get head")?;
@@ -478,24 +461,22 @@ impl Handler {
                     integration_reference.delete()?;
                 }
                 if let Some(head) = head_ref.name() {
-                    Ok(vec![
-                        events::PrivateEvent::Analytics(analytics::Event::HeadChange {
-                            project_id,
-                            reference_name: head_ref_name.to_string(),
-                        }),
-                        events::PrivateEvent::Emit(app_events::Event::git_head(
-                            project_id,
-                            &head.to_string(),
-                        )),
-                    ])
-                } else {
-                    Ok(vec![])
+                    self.send_analytics_event_none_blocking(&analytics::Event::HeadChange {
+                        project_id,
+                        reference_name: head_ref_name.to_string(),
+                    })?;
+                    self.emit_app_event(&app_events::Event::git_head(
+                        project_id,
+                        &head.to_string(),
+                    ))?;
                 }
+                Ok(())
             }
-            "index" => Ok(vec![events::PrivateEvent::Emit(
-                app_events::Event::git_index(project.id),
-            )]),
-            _ => Ok(vec![]),
+            "index" => {
+                self.emit_app_event(&app_events::Event::git_index(project.id))?;
+                Ok(())
+            }
+            _ => Ok(()),
         }
     }
 }

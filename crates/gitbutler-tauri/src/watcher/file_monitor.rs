@@ -1,14 +1,12 @@
 use std::path::Path;
 use std::{path, time::Duration};
 
+use crate::watcher::events::InternalEvent;
 use anyhow::{anyhow, Context, Result};
-use futures::executor::block_on;
 use gitbutler_core::{git, projects::ProjectId};
 use notify::Watcher;
 use notify_debouncer_full::new_debouncer;
 use tokio::task;
-
-use crate::watcher::events::PrivateEvent;
 
 /// The timeout for debouncing file change events.
 /// This is used to prevent multiple events from being sent for a single file change.
@@ -23,8 +21,10 @@ struct RunError {
     source: anyhow::Error,
 }
 
-/// Listen to interesting filesystem events of files in `path` that are not `.gitignore`d, turn them into [`Events`](PrivateEvent)
-/// which classifies it and associates it with `project_id`. These are observable in the returned receiver.
+/// Listen to interesting filesystem events of files in `path` that are not `.gitignore`d,
+/// turn them into [`Events`](Event) which classifies it, and associates it with `project_id`.
+/// These are sent through the passed `out` channel, to indicate either **Git** repository changes
+/// or **ProjectWorktree** changes
 ///
 /// ### Why is this not an iterator?
 ///
@@ -34,10 +34,13 @@ struct RunError {
 /// Even though `gix::Repository` is `Clone`, an efficient implementation of `is_path_ignored()` requires more state
 /// that ideally is kept between invocations. For that reason, the current channel-based 'worker' architecture
 /// is chosen to allow all this state to live on the stack.
+///
+/// Additionally, a channel plays better with how events are handled downstream.
 pub fn spawn(
     project_id: ProjectId,
-    path: &std::path::Path,
-) -> Result<tokio::sync::mpsc::Receiver<PrivateEvent>, anyhow::Error> {
+    worktree_path: &std::path::Path,
+    out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
+) -> Result<()> {
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
     let mut debouncer =
         new_debouncer(DEBOUNCE_TIMEOUT, None, notify_tx).context("failed to create debouncer")?;
@@ -50,10 +53,10 @@ pub fn spawn(
     backoff::retry(policy, || {
         debouncer
             .watcher()
-            .watch(path, notify::RecursiveMode::Recursive)
+            .watch(worktree_path, notify::RecursiveMode::Recursive)
             .map_err(|err| match err.kind {
                 notify::ErrorKind::PathNotFound => backoff::Error::permanent(RunError::from(
-                    anyhow!("{} not found", path.display()),
+                    anyhow!("{} not found", worktree_path.display()),
                 )),
                 notify::ErrorKind::Io(_) | notify::ErrorKind::InvalidConfig(_) => {
                     backoff::Error::permanent(RunError::from(anyhow::Error::from(err)))
@@ -63,17 +66,14 @@ pub fn spawn(
     })
     .context("failed to start watcher")?;
 
-    let repo = git::Repository::open(path).context(format!(
+    let repo = git::Repository::open(worktree_path).context(format!(
         "failed to open project repository: {}",
-        path.display()
+        worktree_path.display()
     ))?;
 
     tracing::debug!(%project_id, "file watcher started");
 
-    // TODO(ST): is the size of 1 really required? It's unbounded internally, and could be just as unbounded here.
-    //           If so, people can call `spawn` directly.
-    let (tx, rx) = tokio::sync::mpsc::channel(1);
-    let path = path.to_owned();
+    let path = worktree_path.to_owned();
     task::spawn_blocking(move || {
         let _debouncer = debouncer;
         'outer: for result in notify_rx {
@@ -93,26 +93,17 @@ pub fn spawn(
                                 if relative_file_path.as_os_str().is_empty() {
                                     continue;
                                 }
-                                let event =
-                                    if let Ok(stripped) = relative_file_path.strip_prefix(".git") {
-                                        tracing::info!(
-                                            %project_id,
-                                            file_path = %relative_file_path.display(),
-                                            "git file change",
-                                        );
-                                        PrivateEvent::GitFileChange(project_id, stripped.to_owned())
-                                    } else {
-                                        tracing::info!(
-                                            %project_id,
-                                            file_path = %relative_file_path.display(),
-                                            "project file change",
-                                        );
-                                        PrivateEvent::ProjectFileChange(
-                                            project_id,
-                                            relative_file_path.to_path_buf(),
-                                        )
-                                    };
-                                if block_on(tx.send(event)).is_err() {
+                                let event = if let Ok(stripped) =
+                                    relative_file_path.strip_prefix(".git")
+                                {
+                                    InternalEvent::GitFileChange(project_id, stripped.to_owned())
+                                } else {
+                                    InternalEvent::ProjectFileChange(
+                                        project_id,
+                                        relative_file_path.to_path_buf(),
+                                    )
+                                };
+                                if out.send(event).is_err() {
                                     tracing::info!("channel closed - stopping file watcher");
                                     break 'outer;
                                 }
@@ -127,7 +118,7 @@ pub fn spawn(
         }
         tracing::debug!(%project_id, "file watcher stopped");
     });
-    Ok(rx)
+    Ok(())
 }
 
 #[cfg(target_family = "unix")]

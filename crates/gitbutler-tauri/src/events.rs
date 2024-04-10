@@ -20,7 +20,7 @@ impl Event {
         app_handle
             .emit_all(&self.name, Some(&self.payload))
             .context("emit event")?;
-        tracing::debug!(event_name = self.name, "sent event");
+        tracing::debug!(event_name = self.name);
         Ok(())
     }
 

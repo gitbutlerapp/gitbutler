@@ -12,13 +12,8 @@ use gitbutler_core::{
 };
 use itertools::Itertools;
 
-use super::events;
-
 impl super::Handler {
-    pub(super) async fn push_project_to_gitbutler(
-        &self,
-        project_id: ProjectId,
-    ) -> Result<Vec<events::PrivateEvent>> {
+    pub(super) async fn push_project_to_gitbutler(&self, project_id: ProjectId) -> Result<()> {
         Self::push_project_to_gitbutler_pure(
             &self.local_data_dir,
             &self.projects,
@@ -38,11 +33,11 @@ impl super::Handler {
         users: &users::Controller,
         project_id: ProjectId,
         batch_size: usize,
-    ) -> Result<Vec<events::PrivateEvent>> {
+    ) -> Result<()> {
         let project = projects.get(&project_id).context("failed to get project")?;
 
         if !project.is_sync_enabled() || !project.has_code_url() {
-            return Ok(vec![]);
+            return Ok(());
         }
 
         let user = users.get_user()?;
@@ -74,20 +69,23 @@ impl super::Handler {
             .await
             {
                 Ok(()) => {}
-                Err(project_repository::RemoteError::Network) => return Ok(vec![]),
+                Err(project_repository::RemoteError::Network) => return Ok(()),
                 Err(err) => return Err(err).context("failed to push"),
             };
         }
 
-        match push_all_refs(&project_repository, user.as_ref(), project_id) {
-            Ok(()) => {}
-            Err(project_repository::RemoteError::Network) => return Ok(vec![]),
-            Err(err) => return Err(err).context("failed to push"),
-        };
+        tokio::task::spawn_blocking(move || -> Result<()> {
+            match push_all_refs(&project_repository, user.as_ref(), project_id) {
+                Ok(()) => Ok(()),
+                Err(project_repository::RemoteError::Network) => Ok(()),
+                Err(err) => Err(err).context("failed to push"),
+            }
+        })
+        .await??;
 
         // make sure last push time is updated
         Self::update_project(projects, project_id, default_target.sha).await?;
-        Ok(vec![])
+        Ok(())
     }
 
     async fn update_project(
