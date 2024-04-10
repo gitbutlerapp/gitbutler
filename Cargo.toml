@@ -18,6 +18,7 @@ tokio = { version = "1.37.0" }
 
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-core = { path = "crates/gitbutler-core" }
+gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
