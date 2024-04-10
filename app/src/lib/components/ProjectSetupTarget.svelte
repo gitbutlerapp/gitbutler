@@ -13,6 +13,8 @@
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
+	import { platform } from '@tauri-apps/api/os';
+	import { from } from 'rxjs';
 	import { createEventDispatcher } from 'svelte';
 
 	export let projectName: string;
@@ -21,6 +23,7 @@
 	const project = getContext(Project);
 	const userService = getContext(UserService);
 	const user = userService.user;
+	const platformName = from(platform());
 
 	const dispatch = createEventDispatcher<{
 		branchSelected: string;
@@ -185,7 +188,11 @@
 			icon="chevron-right-small"
 			id="set-base-branch"
 		>
-			Continue
+			{#if $platformName == 'win32'}
+				Let's go
+			{:else}
+				Continue
+			{/if}
 		</Button>
 	</div>
 </div>
