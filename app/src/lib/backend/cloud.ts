@@ -152,7 +152,7 @@ export class CloudClient {
 	}
 
 	async createLoginToken(): Promise<LoginToken> {
-		const token = await this.post<LoginToken>({ path: 'login/token.json', body: {} });
+		const token = await this.post<LoginToken>({ path: 'login/token.json' });
 		const url = new URL(token.url);
 		url.host = apiUrl.host;
 		return {
