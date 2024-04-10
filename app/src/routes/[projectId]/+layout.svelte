@@ -3,6 +3,7 @@
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import Navigation from '$lib/components/Navigation.svelte';
+	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
@@ -14,7 +15,6 @@
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { onDestroy, onMount, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
-	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
 
@@ -46,11 +46,6 @@
 	// Once on load and every time the project id changes
 	$: if (projectId) setupFetchInterval();
 
-	// We need to setup the project if default target not set
-	$: if ($baseError instanceof NoDefaultTarget) {
-		goto(`/${projectId}/setup`, { replaceState: true });
-	}
-
 	function setupFetchInterval() {
 		baseBranchService.fetchFromTarget();
 		clearFetchInterval();
@@ -79,7 +74,7 @@
 		<p>Project not found!</p>
 	{:else if $baseError instanceof NoDefaultTarget}
 		<!-- Note that this requires the redirect above to work -->
-		<slot />
+		<NoBaseBranch />
 	{:else if $baseError}
 		<ProblemLoadingRepo error={$baseError} />
 	{:else if $branchesError}
