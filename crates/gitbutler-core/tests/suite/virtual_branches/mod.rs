@@ -8,7 +8,7 @@ use gitbutler_core::{
 };
 use tempfile::TempDir;
 
-use crate::shared::{paths, TestProject, VAR_NO_CLEANUP};
+use gitbutler_testsupport::{paths, TestProject, VAR_NO_CLEANUP};
 
 struct Test {
     repository: TestProject,

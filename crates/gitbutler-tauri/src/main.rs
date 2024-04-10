@@ -17,7 +17,6 @@ use tauri::{generate_context, Manager, Wry};
 use tauri_plugin_log::LogTarget;
 use tauri_plugin_store::{with_store, JsonValue, StoreCollection};
 
-#[allow(clippy::too_many_lines)]
 fn main() {
     let tauri_context = generate_context!();
 

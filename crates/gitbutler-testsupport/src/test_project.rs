@@ -1,11 +1,9 @@
-#![allow(unused)]
-
-use std::{path, str::from_utf8};
+use std::path;
 
 use gitbutler_core::git;
 use tempfile::TempDir;
 
-use crate::shared::{init_opts, VAR_NO_CLEANUP};
+use crate::{init_opts, VAR_NO_CLEANUP};
 
 pub fn temp_dir() -> TempDir {
     tempfile::tempdir().unwrap()
@@ -115,7 +113,7 @@ impl TestProject {
         });
 
         let head_ref = head.name().unwrap();
-        let head_ref = self.local_repository.find_reference(&head_ref).unwrap();
+        self.local_repository.find_reference(&head_ref).unwrap();
 
         self.local_repository
             .reset(&commit, git2::ResetType::Hard, None)
@@ -342,7 +340,7 @@ impl TestProject {
 
         // be sure that `HEAD` points to the actual head - `git2` seems to initialize it
         // with `init.defaultBranch`, causing failure otherwise.
-        repo.set_head("refs/heads/master");
+        repo.set_head("refs/heads/master").unwrap();
         submodule.add_finalize().unwrap();
     }
 }

@@ -7,7 +7,7 @@ mod database {
         sessions::SessionId,
     };
 
-    use crate::shared::test_database;
+    use gitbutler_testsupport::test_database;
 
     #[test]
     fn insert_query() -> anyhow::Result<()> {
@@ -115,7 +115,7 @@ mod writer {
 
     use gitbutler_core::{deltas, deltas::operations::Operation, sessions};
 
-    use crate::shared::{Case, Suite};
+    use gitbutler_testsupport::{Case, Suite};
 
     #[test]
     fn write_no_vbranches() -> anyhow::Result<()> {

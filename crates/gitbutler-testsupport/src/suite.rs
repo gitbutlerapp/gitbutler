@@ -6,7 +6,7 @@ use std::{
 
 use tempfile::{tempdir, TempDir};
 
-use crate::shared::{init_opts, init_opts_bare, VAR_NO_CLEANUP};
+use crate::{init_opts, init_opts_bare, VAR_NO_CLEANUP};
 
 pub struct Suite {
     pub local_app_data: Option<TempDir>,

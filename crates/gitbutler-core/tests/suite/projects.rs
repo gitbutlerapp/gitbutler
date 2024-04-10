@@ -1,7 +1,7 @@
 use gitbutler_core::projects::Controller;
 use tempfile::TempDir;
 
-use crate::shared::{self, paths};
+use gitbutler_testsupport::{self, paths};
 
 pub fn new() -> (Controller, TempDir) {
     let data_dir = paths::data_dir();
@@ -15,7 +15,7 @@ mod add {
     #[test]
     fn success() {
         let (controller, _tmp) = new();
-        let repository = shared::TestProject::default();
+        let repository = gitbutler_testsupport::TestProject::default();
         let path = repository.path();
         let project = controller.add(path).unwrap();
         assert_eq!(project.path, path);
@@ -62,7 +62,7 @@ mod add {
         #[test]
         fn twice() {
             let (controller, _tmp) = new();
-            let repository = shared::TestProject::default();
+            let repository = gitbutler_testsupport::TestProject::default();
             let path = repository.path();
             controller.add(path).unwrap();
             assert!(matches!(controller.add(path), Err(AddError::AlreadyExists)));

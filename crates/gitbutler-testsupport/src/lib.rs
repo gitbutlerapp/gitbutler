@@ -22,7 +22,7 @@ pub mod virtual_branches {
         virtual_branches::{self, VirtualBranchesHandle},
     };
 
-    use crate::shared::empty_bare_repository;
+    use crate::empty_bare_repository;
 
     pub fn set_test_target(
         gb_repo: &gb_repository::Repository,

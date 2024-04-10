@@ -20,6 +20,7 @@ tauri-build = { version = "1.5", features = [] }
 #once_cell = "1.19"
 pretty_assertions = "1.4"
 tempfile = "3.10"
+gitbutler-testsupport.workspace = true
 
 [dependencies]
 anyhow = "1.0.81"

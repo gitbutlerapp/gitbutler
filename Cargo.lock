@@ -2038,6 +2038,7 @@ dependencies = [
  "git2",
  "git2-hooks",
  "gitbutler-git",
+ "gitbutler-testsupport",
  "itertools 0.12.1",
  "lazy_static",
  "log",
@@ -2099,6 +2100,7 @@ dependencies = [
  "futures",
  "git2",
  "gitbutler-core",
+ "gitbutler-testsupport",
  "governor",
  "itertools 0.12.1",
  "log",
@@ -2127,6 +2129,18 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "gitbutler-testsupport"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "gitbutler-core",
+ "once_cell",
+ "pretty_assertions",
+ "tempfile",
 ]
 
 [[package]]

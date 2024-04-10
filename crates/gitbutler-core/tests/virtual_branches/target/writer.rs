@@ -11,7 +11,7 @@ use gitbutler_core::virtual_branches::{
 };
 use once_cell::sync::Lazy;
 
-use crate::shared::{Case, Suite};
+use gitbutler_testsupport::{Case, Suite};
 
 static TEST_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 

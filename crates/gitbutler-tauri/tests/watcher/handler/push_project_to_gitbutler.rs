@@ -4,10 +4,8 @@ use anyhow::Result;
 use gitbutler_core::{git, project_repository::LogUntil, projects};
 use gitbutler_tauri::watcher::handlers::push_project_to_gitbutler::Handler;
 
-use crate::{
-    shared::{virtual_branches::set_test_target, Case, Suite},
-    watcher::handler::test_remote_repository,
-};
+use crate::watcher::handler::test_remote_repository;
+use gitbutler_testsupport::{virtual_branches::set_test_target, Case, Suite};
 
 fn log_walk(repo: &git2::Repository, head: git::Oid) -> Vec<git::Oid> {
     let mut walker = repo.revwalk().unwrap();

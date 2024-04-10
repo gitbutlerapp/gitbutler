@@ -5,7 +5,7 @@ use gitbutler_core::projects;
 use gitbutler_tauri::watcher::{handlers, handlers::git_file_change::Handler, Event};
 use pretty_assertions::assert_eq;
 
-use crate::shared::{Case, Suite};
+use gitbutler_testsupport::{Case, Suite};
 
 #[test]
 fn flush_session() -> Result<()> {
