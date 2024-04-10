@@ -1,5 +1,5 @@
-mod dispatcher;
 mod events;
+mod file_monitor;
 pub mod handlers;
 
 use std::{collections::HashMap, path, sync::Arc, time};
@@ -41,7 +41,7 @@ impl Watchers {
             let watchers = Arc::clone(&self.watchers);
             async move {
                 watchers.lock().await.insert(project_id, watcher.clone());
-                match watcher.run(&project_path, &project_id).await {
+                match watcher.run(&project_path, project_id).await {
                     Ok(()) => {
                         tracing::debug!(%project_id, "watcher stopped");
                     }
@@ -126,7 +126,7 @@ impl Watcher {
     pub async fn run<P: AsRef<path::Path>>(
         &self,
         path: P,
-        project_id: &ProjectId,
+        project_id: ProjectId,
     ) -> Result<(), anyhow::Error> {
         self.inner.run(path, project_id).await
     }
@@ -134,7 +134,6 @@ impl Watcher {
 
 struct WatcherInner {
     handler: handlers::Handler,
-    dispatcher: dispatcher::Dispatcher,
     cancellation_token: CancellationToken,
 
     proxy_tx: Arc<tokio::sync::Mutex<Option<UnboundedSender<Event>>>>,
@@ -144,7 +143,6 @@ impl WatcherInner {
     pub fn from_app(app: &AppHandle) -> std::result::Result<Self, anyhow::Error> {
         Ok(Self {
             handler: handlers::Handler::from_app(app)?,
-            dispatcher: dispatcher::Dispatcher::new(),
             cancellation_token: CancellationToken::new(),
             proxy_tx: Arc::new(tokio::sync::Mutex::new(None)),
         })
@@ -172,16 +170,14 @@ impl WatcherInner {
     pub async fn run<P: AsRef<path::Path>>(
         &self,
         path: P,
-        project_id: &ProjectId,
+        project_id: ProjectId,
     ) -> Result<(), anyhow::Error> {
         let (proxy_tx, mut proxy_rx) = unbounded_channel();
         self.proxy_tx.lock().await.replace(proxy_tx.clone());
 
-        let dispatcher = self.dispatcher.clone();
-        let mut dispatcher_rx = dispatcher.run(project_id, path.as_ref())?;
-
+        let mut dispatcher_rx = file_monitor::spawn(project_id, path.as_ref())?;
         proxy_tx
-            .send(Event::IndexAll(*project_id))
+            .send(Event::IndexAll(project_id))
             .context("failed to send event")?;
 
         let handle_event = |event: &Event| -> Result<()> {
@@ -229,7 +225,6 @@ impl WatcherInner {
                 Some(event) = dispatcher_rx.recv() => handle_event(&event)?,
                 Some(event) = proxy_rx.recv() => handle_event(&event)?,
                 () = self.cancellation_token.cancelled() => {
-                    self.dispatcher.stop();
                     break;
                 }
             }
