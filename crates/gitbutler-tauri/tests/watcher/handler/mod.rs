@@ -8,7 +8,7 @@ fn test_remote_repository() -> anyhow::Result<(git2::Repository, TempDir)> {
     Ok((repo_a, tmp))
 }
 
-mod calculate_delta_handler;
+mod calculate_delta;
 mod fetch_gitbutler_data;
 mod git_file_change;
 mod push_project_to_gitbutler;

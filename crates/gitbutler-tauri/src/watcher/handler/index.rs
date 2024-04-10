@@ -1,60 +1,31 @@
-use std::path;
-use std::path::PathBuf;
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use gitbutler_core::{
     deltas, gb_repository, project_repository,
-    projects::{self, ProjectId},
+    projects::ProjectId,
     sessions::{self, SessionId},
-    users,
 };
-use tauri::{AppHandle, Manager};
 
 use super::events;
 use crate::events as app_events;
 
-#[derive(Clone)]
-pub struct Handler {
-    local_data_dir: path::PathBuf,
-    projects: projects::Controller,
-    users: users::Controller,
-    sessions_database: sessions::Database,
-    deltas_database: deltas::Database,
-}
-
-impl Handler {
-    pub fn from_app(app: &AppHandle, app_data_dir: impl Into<PathBuf>) -> Self {
-        let projects = app.state::<projects::Controller>().inner().clone();
-        let users = app.state::<users::Controller>().inner().clone();
-        let sessions_database = app.state::<sessions::Database>().inner().clone();
-        let deltas_database = app.state::<deltas::Database>().inner().clone();
-        Handler {
-            local_data_dir: app_data_dir.into(),
-            projects,
-            users,
-            sessions_database,
-            deltas_database,
-        }
-    }
-}
-
-impl Handler {
-    pub fn index_deltas(
+impl super::Handler {
+    pub(super) fn index_deltas(
         &self,
-        project_id: &ProjectId,
-        session_id: &SessionId,
-        file_path: &path::Path,
-        deltas: &Vec<deltas::Delta>,
+        project_id: ProjectId,
+        session_id: SessionId,
+        file_path: &Path,
+        deltas: &[deltas::Delta],
     ) -> Result<()> {
         self.deltas_database
-            .insert(project_id, session_id, file_path, deltas)
-            .context("failed to insert deltas into database")?;
-        Ok(())
+            .insert(&project_id, &session_id, file_path, deltas)
+            .context("failed to insert deltas into database")
     }
 
-    pub fn reindex(&self, project_id: &ProjectId) -> Result<Vec<events::Event>> {
+    pub(super) fn reindex(&self, project_id: ProjectId) -> Result<Vec<events::PrivateEvent>> {
         let user = self.users.get_user()?;
-        let project = self.projects.get(project_id)?;
+        let project = self.projects.get(&project_id)?;
         let project_repository =
             project_repository::Repository::open(&project).context("failed to open repository")?;
         let gb_repository = gb_repository::Repository::open(
@@ -72,13 +43,13 @@ impl Handler {
         Ok(events)
     }
 
-    pub fn index_session(
+    pub(super) fn index_session(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         session: &sessions::Session,
-    ) -> Result<Vec<events::Event>> {
+    ) -> Result<Vec<events::PrivateEvent>> {
         let user = self.users.get_user()?;
-        let project = self.projects.get(project_id)?;
+        let project = self.projects.get(&project_id)?;
         let project_repository =
             project_repository::Repository::open(&project).context("failed to open repository")?;
         let gb_repository = gb_repository::Repository::open(
@@ -95,12 +66,12 @@ impl Handler {
         &self,
         gb_repository: &gb_repository::Repository,
         session: &sessions::Session,
-    ) -> Result<Vec<events::Event>> {
+    ) -> Result<Vec<events::PrivateEvent>> {
         let project_id = gb_repository.get_project_id();
 
         // now, index session if it has changed to the database.
         let from_db = self.sessions_database.get_by_id(&session.id)?;
-        if from_db.is_some() && from_db.unwrap() == *session {
+        if from_db.map_or(false, |from_db| from_db == *session) {
             return Ok(vec![]);
         }
 
@@ -114,11 +85,11 @@ impl Handler {
             .read(None)
             .context("could not list deltas for session")?
         {
-            self.index_deltas(project_id, &session.id, &file_path, &deltas)?;
+            self.index_deltas(*project_id, session.id, &file_path, &deltas)?;
         }
 
-        Ok(vec![events::Event::Emit(app_events::Event::session(
-            project_id, session,
-        ))])
+        Ok(vec![events::PrivateEvent::Emit(
+            app_events::Event::session(*project_id, session),
+        )])
     }
 }

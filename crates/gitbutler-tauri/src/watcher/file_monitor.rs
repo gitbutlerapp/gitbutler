@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::{path, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
@@ -7,7 +8,7 @@ use notify::Watcher;
 use notify_debouncer_full::new_debouncer;
 use tokio::task;
 
-use crate::watcher::events::Event;
+use crate::watcher::events::PrivateEvent;
 
 /// The timeout for debouncing file change events.
 /// This is used to prevent multiple events from being sent for a single file change.
@@ -22,7 +23,7 @@ struct RunError {
     source: anyhow::Error,
 }
 
-/// Listen to interesting filesystem events of files in `path` that are not `.gitignore`d, turn them into [`Events`](Event)
+/// Listen to interesting filesystem events of files in `path` that are not `.gitignore`d, turn them into [`Events`](PrivateEvent)
 /// which classifies it and associates it with `project_id`. These are observable in the returned receiver.
 ///
 /// ### Why is this not an iterator?
@@ -36,7 +37,7 @@ struct RunError {
 pub fn spawn(
     project_id: ProjectId,
     path: &std::path::Path,
-) -> Result<tokio::sync::mpsc::Receiver<Event>, anyhow::Error> {
+) -> Result<tokio::sync::mpsc::Receiver<PrivateEvent>, anyhow::Error> {
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
     let mut debouncer =
         new_debouncer(DEBOUNCE_TIMEOUT, None, notify_tx).context("failed to create debouncer")?;
@@ -99,14 +100,14 @@ pub fn spawn(
                                             file_path = %relative_file_path.display(),
                                             "git file change",
                                         );
-                                        Event::GitFileChange(project_id, stripped.to_owned())
+                                        PrivateEvent::GitFileChange(project_id, stripped.to_owned())
                                     } else {
                                         tracing::info!(
                                             %project_id,
                                             file_path = %relative_file_path.display(),
                                             "project file change",
                                         );
-                                        Event::ProjectFileChange(
+                                        PrivateEvent::ProjectFileChange(
                                             project_id,
                                             relative_file_path.to_path_buf(),
                                         )
@@ -148,7 +149,7 @@ fn is_interesting_kind(kind: notify::EventKind) -> bool {
     )
 }
 
-fn is_interesting_file(git_repo: &git::Repository, file_path: &path::Path) -> bool {
+fn is_interesting_file(git_repo: &git::Repository, file_path: &Path) -> bool {
     if file_path.starts_with(git_repo.path()) {
         let check_file_path = file_path.strip_prefix(git_repo.path()).unwrap();
         check_file_path.ends_with("FETCH_HEAD")

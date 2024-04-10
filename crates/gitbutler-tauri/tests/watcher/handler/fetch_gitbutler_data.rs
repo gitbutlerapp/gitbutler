@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use gitbutler_core::projects;
-use gitbutler_tauri::watcher::handlers::fetch_gitbutler_data::Handler;
+use gitbutler_tauri::watcher::Handler;
 use pretty_assertions::assert_eq;
 
 use crate::watcher::handler::test_remote_repository;
@@ -13,7 +13,6 @@ async fn fetch_success() -> anyhow::Result<()> {
     let Case { project, .. } = &suite.new_case();
 
     let (cloud, _tmp) = test_remote_repository()?;
-
     let api_project = projects::ApiProject {
         name: "test-sync".to_string(),
         description: None,
@@ -34,15 +33,15 @@ async fn fetch_success() -> anyhow::Result<()> {
         })
         .await?;
 
-    let listener = Handler::new(
-        suite.local_app_data().into(),
-        suite.projects.clone(),
-        suite.users.clone(),
-    );
-    listener
-        .handle(&project.id, &SystemTime::now())
-        .await
-        .unwrap();
+    Handler::fetch_gb_data_pure(
+        suite.local_app_data(),
+        &suite.projects,
+        &suite.users,
+        project.id,
+        SystemTime::now(),
+    )
+    .await
+    .unwrap();
 
     Ok(())
 }
@@ -52,12 +51,14 @@ async fn fetch_fail_no_sync() {
     let suite = Suite::default();
     let Case { project, .. } = &suite.new_case();
 
-    let listener = Handler::new(
-        suite.local_app_data().into(),
-        suite.projects.clone(),
-        suite.users.clone(),
-    );
-    let res = listener.handle(&project.id, &SystemTime::now()).await;
+    let res = Handler::fetch_gb_data_pure(
+        suite.local_app_data(),
+        &suite.projects,
+        &suite.users,
+        project.id,
+        SystemTime::now(),
+    )
+    .await;
 
     assert_eq!(&res.unwrap_err().to_string(), "sync disabled");
 }

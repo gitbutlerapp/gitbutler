@@ -1,11 +1,15 @@
 mod events;
+pub use events::Event;
+// TODO(ST): Needed for integration tests, but we don't want it at all. Observer other effects instead.
+pub use events::PrivateEvent;
+
 mod file_monitor;
-pub mod handlers;
+mod handler;
+pub use handler::Handler;
 
 use std::{collections::HashMap, path, sync::Arc, time};
 
 use anyhow::{Context, Result};
-pub use events::Event;
 use futures::executor::block_on;
 use gitbutler_core::projects::{self, Project, ProjectId};
 use tauri::AppHandle;
@@ -35,7 +39,7 @@ impl Watchers {
 
     #[instrument(skip(self, project), err)]
     pub fn watch(&self, project: &projects::Project) -> Result<()> {
-        let handler = handlers::Handler::from_app(&self.app_handle)?;
+        let handler = handler::Handler::from_app(&self.app_handle)?;
 
         let project_id = project.id;
         let project_path = project.path.clone();
@@ -90,7 +94,7 @@ impl gitbutler_core::projects::Watchers for Watchers {
 
 /// An abstraction over a link to the spawned watcher, which runs in the background.
 struct WatcherHandle {
-    tx: UnboundedSender<Event>,
+    tx: UnboundedSender<PrivateEvent>,
     cancellation_token: CancellationToken,
 }
 
@@ -100,7 +104,7 @@ impl WatcherHandle {
     }
 
     pub async fn post(&self, event: Event) -> Result<()> {
-        self.tx.send(event).context("failed to send event")?;
+        self.tx.send(event.into()).context("failed to send event")?;
         Ok(())
     }
 }
@@ -111,7 +115,7 @@ impl WatcherHandle {
 /// may return additional events that are then processed in their own threads as well. Effectively,
 /// everything is auto-parallelized in the tokio thread pool.
 fn spawn<P: AsRef<path::Path>>(
-    handler: handlers::Handler,
+    handler: handler::Handler,
     path: P,
     project_id: ProjectId,
 ) -> Result<WatcherHandle, anyhow::Error> {
@@ -119,7 +123,7 @@ fn spawn<P: AsRef<path::Path>>(
 
     let mut dispatcher_rx = file_monitor::spawn(project_id, path.as_ref())?;
     proxy_tx
-        .send(Event::IndexAll(project_id))
+        .send(PrivateEvent::IndexAll(project_id))
         .context("failed to send event")?;
 
     let cancellation_token = CancellationToken::new();
@@ -127,7 +131,7 @@ fn spawn<P: AsRef<path::Path>>(
         tx: proxy_tx.clone(),
         cancellation_token: cancellation_token.clone(),
     };
-    let handle_event = move |event: &Event| -> Result<()> {
+    let handle_event = move |event: &PrivateEvent| -> Result<()> {
         let handler = handler.clone();
         let project_id = project_id.to_string();
         let tx = proxy_tx.clone();
@@ -135,29 +139,21 @@ fn spawn<P: AsRef<path::Path>>(
             let event = event.clone();
             move || {
                 futures::executor::block_on(async move {
-                    match handler.handle(&event, time::SystemTime::now()).await {
-                        Err(error) => tracing::error!(
-                            project_id,
-                            %event,
-                            ?error,
-                            "failed to handle event",
-                        ),
-                        Ok(events) => {
-                            for e in events {
-                                if let Err(error) = tx.send(e.clone()) {
-                                    tracing::error!(
-                                        project_id,
-                                        %event,
-                                        ?error,
-                                        "failed to post event",
-                                    );
-                                } else {
-                                    tracing::debug!(
-                                        project_id,
-                                        %event,
-                                        "sent response event",
-                                    );
-                                }
+                    if let Ok(events) = handler.handle(&event, time::SystemTime::now()).await {
+                        for e in events {
+                            if let Err(err) = tx.send(e.clone()) {
+                                tracing::error!(
+                                    project_id,
+                                    %event,
+                                    ?err,
+                                    "failed to post event",
+                                );
+                            } else {
+                                tracing::debug!(
+                                    project_id,
+                                    %event,
+                                    "posted response event",
+                                );
                             }
                         }
                     }

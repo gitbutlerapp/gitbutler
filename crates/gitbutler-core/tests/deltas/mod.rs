@@ -55,8 +55,8 @@ mod database {
             ))],
         };
 
-        database.insert(&project_id, &session_id, &file_path, &vec![delta1])?;
-        database.insert(&project_id, &session_id, &file_path, &vec![delta2.clone()])?;
+        database.insert(&project_id, &session_id, &file_path, &[delta1])?;
+        database.insert(&project_id, &session_id, &file_path, &[delta2.clone()])?;
 
         assert_eq!(
             database.list_by_project_id_session_id(&project_id, &session_id, &None)?,
@@ -89,9 +89,9 @@ mod database {
             ))],
         };
 
-        database.insert(&project_id, &session_id, &file_path1, &vec![delta1.clone()])?;
-        database.insert(&project_id, &session_id, &file_path2, &vec![delta1.clone()])?;
-        database.insert(&project_id, &session_id, &file_path2, &vec![delta2.clone()])?;
+        database.insert(&project_id, &session_id, &file_path1, &[delta1.clone()])?;
+        database.insert(&project_id, &session_id, &file_path2, &[delta1.clone()])?;
+        database.insert(&project_id, &session_id, &file_path2, &[delta2.clone()])?;
 
         assert_eq!(
             database.list_by_project_id_session_id(&project_id, &session_id, &None)?,

@@ -1,22 +1,55 @@
 use std::{
     collections::HashMap,
+    path,
     path::{Path, PathBuf},
     sync::atomic::{AtomicUsize, Ordering},
 };
 
 use anyhow::Result;
+use gitbutler_core::projects::ProjectId;
 use gitbutler_core::{
     deltas::{self, operations::Operation},
-    reader, sessions,
+    projects, reader, sessions, users,
     virtual_branches::{self, branch, VirtualBranchesHandle},
 };
-use gitbutler_tauri::watcher::handlers::calculate_deltas_handler::Handler;
+use gitbutler_tauri::watcher;
 use once_cell::sync::Lazy;
 
 use self::branch::BranchId;
 use gitbutler_testsupport::{commit_all, Case, Suite};
 
 static TEST_TARGET_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
+
+#[derive(Clone)]
+pub struct State {
+    local_data_dir: path::PathBuf,
+    projects: projects::Controller,
+    users: users::Controller,
+}
+
+impl State {
+    pub(super) fn from_path<P: AsRef<Path>>(path: P) -> Self {
+        Self {
+            local_data_dir: path.as_ref().to_path_buf(),
+            projects: projects::Controller::from_path(&path),
+            users: users::Controller::from_path(path),
+        }
+    }
+
+    pub(super) fn calculate_delta(
+        &self,
+        path: impl AsRef<Path>,
+        project_id: ProjectId,
+    ) -> Result<Vec<watcher::PrivateEvent>> {
+        watcher::Handler::calculate_deltas_pure(
+            &self.local_data_dir,
+            &self.projects,
+            &self.users,
+            path,
+            project_id,
+        )
+    }
+}
 
 fn new_test_target() -> virtual_branches::target::Target {
     virtual_branches::target::Target {
@@ -84,10 +117,10 @@ fn register_existing_commited_file() -> Result<()> {
         project,
         ..
     } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
-    let listener = Handler::from_path(suite.local_app_data());
+    let listener = State::from_path(suite.local_app_data());
 
     std::fs::write(project.path.join("test.txt"), "test2")?;
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
     let session_reader = sessions::Reader::open(gb_repository, &session)?;
@@ -115,10 +148,10 @@ fn register_must_init_current_session() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    let listener = State::from_path(suite.local_app_data());
 
     std::fs::write(project.path.join("test.txt"), "test")?;
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     assert!(gb_repository.get_current_session()?.is_some());
 
@@ -133,14 +166,14 @@ fn register_must_not_override_current_session() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    let listener = State::from_path(suite.local_app_data());
 
     std::fs::write(project.path.join("test.txt"), "test")?;
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
     let session1 = gb_repository.get_current_session()?.unwrap();
 
     std::fs::write(project.path.join("test.txt"), "test2")?;
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
     let session2 = gb_repository.get_current_session()?.unwrap();
 
     assert_eq!(session1.id, session2.id);
@@ -156,14 +189,14 @@ fn register_binfile() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    let listener = State::from_path(suite.local_app_data());
 
     std::fs::write(
         project.path.join("test.bin"),
         [0, 159, 146, 150, 159, 146, 150],
     )?;
 
-    listener.handle("test.bin", &project.id)?;
+    listener.calculate_delta("test.bin", project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
     let session_reader = sessions::Reader::open(gb_repository, &session)?;
@@ -188,11 +221,11 @@ fn register_empty_new_file() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    let listener = State::from_path(suite.local_app_data());
 
     std::fs::write(project.path.join("test.txt"), "")?;
 
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
     let session_reader = sessions::Reader::open(gb_repository, &session)?;
@@ -216,11 +249,11 @@ fn register_new_file() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    let listener = State::from_path(suite.local_app_data());
 
     std::fs::write(project.path.join("test.txt"), "test")?;
 
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
     let session_reader = sessions::Reader::open(gb_repository, &session)?;
@@ -249,11 +282,11 @@ fn register_no_changes_saved_thgoughout_flushes() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    let listener = State::from_path(suite.local_app_data());
 
     // file change, wd and deltas are written
     std::fs::write(project.path.join("test.txt"), "test")?;
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     // make two more sessions.
     gb_repository.flush(project_repository, None)?;
@@ -277,10 +310,10 @@ fn register_new_file_twice() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    let listener = State::from_path(suite.local_app_data());
 
     std::fs::write(project.path.join("test.txt"), "test")?;
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
     let session_reader = sessions::Reader::open(gb_repository, &session)?;
@@ -298,7 +331,7 @@ fn register_new_file_twice() -> Result<()> {
     );
 
     std::fs::write(project.path.join("test.txt"), "test2")?;
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     let deltas = deltas_reader.read_file("test.txt")?.unwrap();
     assert_eq!(deltas.len(), 2);
@@ -329,12 +362,12 @@ fn register_file_deleted() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    let listener = State::from_path(suite.local_app_data());
 
     {
         // write file
         std::fs::write(project.path.join("test.txt"), "test")?;
-        listener.handle("test.txt", &project.id)?;
+        listener.calculate_delta("test.txt", project.id)?;
     }
 
     {
@@ -377,7 +410,7 @@ fn register_file_deleted() -> Result<()> {
 
         // removing the file
         std::fs::remove_file(project.path.join("test.txt"))?;
-        listener.handle("test.txt", &project.id)?;
+        listener.calculate_delta("test.txt", project.id)?;
 
         // deltas are recorded
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
@@ -408,7 +441,7 @@ fn flow_with_commits() -> Result<()> {
         project_repository,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    let listener = State::from_path(suite.local_app_data());
 
     let size = 10;
     let relative_file_path = Path::new("one/two/test.txt");
@@ -421,7 +454,7 @@ fn flow_with_commits() -> Result<()> {
         )?;
 
         commit_all(&project_repository.git_repository);
-        listener.handle(relative_file_path, &project.id)?;
+        listener.calculate_delta(relative_file_path, project.id)?;
         assert!(gb_repository.flush(project_repository, None)?.is_some());
     }
 
@@ -495,7 +528,7 @@ fn flow_no_commits() -> Result<()> {
         project_repository,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    let listener = State::from_path(suite.local_app_data());
 
     let size = 10;
     let relative_file_path = Path::new("one/two/test.txt");
@@ -507,7 +540,7 @@ fn flow_no_commits() -> Result<()> {
             i.to_string(),
         )?;
 
-        listener.handle(relative_file_path, &project.id)?;
+        listener.calculate_delta(relative_file_path, project.id)?;
         assert!(gb_repository.flush(project_repository, None)?.is_some());
     }
 
@@ -580,7 +613,7 @@ fn flow_signle_session() -> Result<()> {
         project,
         ..
     } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    let listener = State::from_path(suite.local_app_data());
 
     let size = 10_i32;
     let relative_file_path = Path::new("one/two/test.txt");
@@ -592,7 +625,7 @@ fn flow_signle_session() -> Result<()> {
             i.to_string(),
         )?;
 
-        listener.handle(relative_file_path, &project.id)?;
+        listener.calculate_delta(relative_file_path, project.id)?;
     }
 
     // collect all operations from sessions in the reverse order
@@ -635,7 +668,7 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
         project_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
-    let listener = Handler::from_path(suite.local_app_data());
+    let listener = State::from_path(suite.local_app_data());
 
     let branch_writer =
         branch::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
@@ -653,7 +686,7 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
     target_writer.write(&vbranch1.id, &vbranch1_target)?;
 
     std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     let flushed_session = gb_repository.flush(project_repository, None).unwrap();
 
@@ -700,7 +733,7 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
         project_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
-    let listener = Handler::from_path(suite.local_app_data());
+    let listener = State::from_path(suite.local_app_data());
 
     let branch_writer =
         branch::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
@@ -718,7 +751,7 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
     target_writer.write(&vbranch1.id, &vbranch1_target)?;
 
     std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
-    listener.handle("test.txt", &project.id).unwrap();
+    listener.calculate_delta("test.txt", project.id).unwrap();
 
     let flushed_session = gb_repository.flush(project_repository, None).unwrap();
 
@@ -771,11 +804,11 @@ mod flush_wd {
             project_repository,
             ..
         } = &suite.new_case();
-        let listener = Handler::from_path(suite.local_app_data());
+        let listener = State::from_path(suite.local_app_data());
 
         // write a file into session
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
-        listener.handle("test.txt", &project.id).unwrap();
+        listener.calculate_delta("test.txt", project.id).unwrap();
 
         let flushed_session = gb_repository
             .flush(project_repository, None)
@@ -803,7 +836,9 @@ mod flush_wd {
         // write another file into session
         std::fs::create_dir_all(project.path.join("one/two")).unwrap();
         std::fs::write(project.path.join("one/two/test2.txt"), "hello world!").unwrap();
-        listener.handle("one/two/test2.txt", &project.id).unwrap();
+        listener
+            .calculate_delta("one/two/test2.txt", project.id)
+            .unwrap();
 
         let flushed_session = gb_repository
             .flush(project_repository, None)
@@ -844,14 +879,16 @@ mod flush_wd {
             project_repository,
             ..
         } = &suite.new_case();
-        let listener = Handler::from_path(suite.local_app_data());
+        let listener = State::from_path(suite.local_app_data());
 
         // write a file into session
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
-        listener.handle("test.txt", &project.id).unwrap();
+        listener.calculate_delta("test.txt", project.id).unwrap();
         std::fs::create_dir_all(project.path.join("one/two")).unwrap();
         std::fs::write(project.path.join("one/two/test2.txt"), "hello world!").unwrap();
-        listener.handle("one/two/test2.txt", &project.id).unwrap();
+        listener
+            .calculate_delta("one/two/test2.txt", project.id)
+            .unwrap();
 
         let flushed_session = gb_repository
             .flush(project_repository, None)
@@ -884,9 +921,11 @@ mod flush_wd {
 
         // rm the files
         std::fs::remove_file(project.path.join("test.txt")).unwrap();
-        listener.handle("test.txt", &project.id).unwrap();
+        listener.calculate_delta("test.txt", project.id).unwrap();
         std::fs::remove_file(project.path.join("one/two/test2.txt")).unwrap();
-        listener.handle("one/two/test2.txt", &project.id).unwrap();
+        listener
+            .calculate_delta("one/two/test2.txt", project.id)
+            .unwrap();
 
         let flushed_session = gb_repository
             .flush(project_repository, None)
@@ -917,14 +956,16 @@ mod flush_wd {
             project_repository,
             ..
         } = &suite.new_case();
-        let listener = Handler::from_path(suite.local_app_data());
+        let listener = State::from_path(suite.local_app_data());
 
         // write a file into session
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
-        listener.handle("test.txt", &project.id).unwrap();
+        listener.calculate_delta("test.txt", project.id).unwrap();
         std::fs::create_dir_all(project.path.join("one/two")).unwrap();
         std::fs::write(project.path.join("one/two/test2.txt"), "hello world!").unwrap();
-        listener.handle("one/two/test2.txt", &project.id).unwrap();
+        listener
+            .calculate_delta("one/two/test2.txt", project.id)
+            .unwrap();
 
         let flushed_session = gb_repository
             .flush(project_repository, None)
@@ -957,10 +998,12 @@ mod flush_wd {
 
         // update the file
         std::fs::write(project.path.join("test.txt"), "hello world!2").unwrap();
-        listener.handle("test.txt", &project.id).unwrap();
+        listener.calculate_delta("test.txt", project.id).unwrap();
 
         std::fs::write(project.path.join("one/two/test2.txt"), "hello world!2").unwrap();
-        listener.handle("one/two/test2.txt", &project.id).unwrap();
+        listener
+            .calculate_delta("one/two/test2.txt", project.id)
+            .unwrap();
 
         let flushed_session = gb_repository
             .flush(project_repository, None)

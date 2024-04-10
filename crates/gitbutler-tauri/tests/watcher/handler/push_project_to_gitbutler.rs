@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Result;
 use gitbutler_core::{git, project_repository::LogUntil, projects};
-use gitbutler_tauri::watcher::handlers::push_project_to_gitbutler::Handler;
+use gitbutler_tauri::watcher::Handler;
 
 use crate::watcher::handler::test_remote_repository;
 use gitbutler_testsupport::{virtual_branches::set_test_target, Case, Suite};
@@ -38,13 +38,14 @@ async fn push_error() -> Result<()> {
         })
         .await?;
 
-    let listener = Handler::new(
-        suite.local_app_data().into(),
-        suite.projects.clone(),
-        suite.users.clone(),
+    let res = Handler::push_project_to_gitbutler_pure(
+        suite.local_app_data(),
+        &suite.projects,
+        &suite.users,
+        project.id,
         100,
-    );
-    let res = listener.handle(&project.id).await;
+    )
+    .await;
 
     res.unwrap_err();
 
@@ -94,13 +95,15 @@ async fn push_simple() -> Result<()> {
     cloud_code.find_commit(target_id.into()).unwrap_err();
 
     {
-        let listener = Handler::new(
-            suite.local_app_data().into(),
-            suite.projects.clone(),
-            suite.users.clone(),
+        let res = Handler::push_project_to_gitbutler_pure(
+            suite.local_app_data(),
+            &suite.projects,
+            &suite.users,
+            project.id,
             10,
-        );
-        let res = listener.handle(&project.id).await.unwrap();
+        )
+        .await
+        .unwrap();
         assert!(res.is_empty());
     }
 
@@ -190,13 +193,15 @@ async fn push_remote_ref() -> Result<()> {
         .await?;
 
     {
-        let listener = Handler::new(
-            suite.local_app_data().into(),
-            suite.projects.clone(),
-            suite.users.clone(),
+        Handler::push_project_to_gitbutler_pure(
+            suite.local_app_data(),
+            &suite.projects,
+            &suite.users,
+            project.id,
             10,
-        );
-        listener.handle(&project.id).await.unwrap();
+        )
+        .await
+        .unwrap();
     }
 
     cloud_code.find_commit(last_commit).unwrap();
@@ -307,13 +312,15 @@ async fn push_batches() -> Result<()> {
         .await?;
 
     {
-        let listener = Handler::new(
-            suite.local_app_data().into(),
-            suite.projects.clone(),
-            suite.users.clone(),
+        Handler::push_project_to_gitbutler_pure(
+            suite.local_app_data(),
+            &suite.projects,
+            &suite.users,
+            project.id,
             2,
-        );
-        listener.handle(&project.id).await.unwrap();
+        )
+        .await
+        .unwrap();
     }
 
     cloud_code.find_commit(target_id.into()).unwrap();
@@ -379,13 +386,15 @@ async fn push_again_no_change() -> Result<()> {
     cloud_code.find_commit(target_id.into()).unwrap_err();
 
     {
-        let listener = Handler::new(
-            suite.local_app_data().into(),
-            suite.projects.clone(),
-            suite.users.clone(),
+        let res = Handler::push_project_to_gitbutler_pure(
+            suite.local_app_data(),
+            &suite.projects,
+            &suite.users,
+            project.id,
             10,
-        );
-        let res = listener.handle(&project.id).await.unwrap();
+        )
+        .await
+        .unwrap();
         assert!(res.is_empty());
     }
 
