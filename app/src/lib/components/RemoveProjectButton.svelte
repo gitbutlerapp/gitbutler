@@ -20,7 +20,7 @@
 	style="error"
 	kind="solid"
 	icon="bin-small"
-	iconAlign="left"
+	reversedDirection
 	on:click={() => {
 		modal.show();
 	}}
@@ -45,7 +45,7 @@
 		<Button
 			style="error"
 			kind="solid"
-			iconAlign="left"
+			reversedDirection
 			loading={isDeleting}
 			icon="bin-small"
 			on:click={onDeleteClicked}>Remove</Button

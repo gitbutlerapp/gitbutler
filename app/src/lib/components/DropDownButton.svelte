@@ -36,7 +36,7 @@
 			{help}
 			{badgeLabel}
 			{badgeIcon}
-			iconAlign="left"
+			reversedDirection
 			disabled={disabled || loading}
 			isDropdownChild
 			on:click><slot /></Button
