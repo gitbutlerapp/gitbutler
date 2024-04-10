@@ -94,52 +94,13 @@ impl gitbutler_core::projects::Watchers for Watchers {
 
 #[derive(Clone)]
 struct Watcher {
-    inner: Arc<WatcherInner>,
-}
-
-/// Lifecycle
-impl Watcher {
-    pub fn from_app(app: &AppHandle) -> std::result::Result<Self, anyhow::Error> {
-        Ok(Self {
-            inner: Arc::new(WatcherInner::from_app(app)?),
-        })
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum RunError {
-    #[error("{0} not found")]
-    PathNotFound(path::PathBuf),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-impl Watcher {
-    pub fn stop(&self) {
-        self.inner.stop();
-    }
-
-    pub async fn post(&self, event: Event) -> Result<()> {
-        self.inner.post(event).await
-    }
-
-    pub async fn run<P: AsRef<path::Path>>(
-        &self,
-        path: P,
-        project_id: ProjectId,
-    ) -> Result<(), anyhow::Error> {
-        self.inner.run(path, project_id).await
-    }
-}
-
-struct WatcherInner {
     handler: handlers::Handler,
     cancellation_token: CancellationToken,
 
     proxy_tx: Arc<tokio::sync::Mutex<Option<UnboundedSender<Event>>>>,
 }
 
-impl WatcherInner {
+impl Watcher {
     pub fn from_app(app: &AppHandle) -> std::result::Result<Self, anyhow::Error> {
         Ok(Self {
             handler: handlers::Handler::from_app(app)?,
@@ -149,7 +110,7 @@ impl WatcherInner {
     }
 }
 
-impl WatcherInner {
+impl Watcher {
     pub fn stop(&self) {
         self.cancellation_token.cancel();
     }
