@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::{path, sync::Arc, time};
 
 use anyhow::{Context, Result};
@@ -20,18 +21,10 @@ pub struct Handler {
 }
 
 impl Handler {
-    pub fn from_app(app: &AppHandle) -> std::result::Result<Self, anyhow::Error> {
-        if let Some(handler) = app.try_state::<Handler>() {
-            Ok(handler.inner().clone())
-        } else if let Some(app_data_dir) = app.path_resolver().app_data_dir() {
-            let projects = app.state::<projects::Controller>().inner().clone();
-            let users = app.state::<users::Controller>().inner().clone();
-            let handler = Handler::new(app_data_dir, projects, users, 1000);
-            app.manage(handler.clone());
-            Ok(handler)
-        } else {
-            Err(anyhow::anyhow!("failed to get app data dir"))
-        }
+    pub fn from_app(app: &AppHandle, app_data_dir: impl Into<PathBuf>) -> Self {
+        let projects = app.state::<projects::Controller>().inner().clone();
+        let users = app.state::<users::Controller>().inner().clone();
+        Handler::new(app_data_dir.into(), projects, users, 1000)
     }
 }
 

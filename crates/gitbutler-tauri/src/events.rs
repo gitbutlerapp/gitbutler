@@ -14,15 +14,9 @@ pub struct Sender {
 }
 
 impl Sender {
-    pub fn from_app(app: &AppHandle) -> Result<Self, anyhow::Error> {
-        if let Some(sender) = app.try_state::<Sender>() {
-            Ok(sender.inner().clone())
-        } else {
-            let sender = Sender {
-                app_handle: app.clone(),
-            };
-            app.manage(sender.clone());
-            Ok(sender)
+    pub fn from_app(app: &AppHandle) -> Self {
+        Sender {
+            app_handle: app.clone(),
         }
     }
 }

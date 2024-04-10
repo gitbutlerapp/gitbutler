@@ -22,16 +22,10 @@ pub struct Handler {
 }
 
 impl Handler {
-    pub fn from_app(app: &AppHandle) -> std::result::Result<Self, anyhow::Error> {
-        if let Some(handler) = app.try_state::<Handler>() {
-            Ok(handler.inner().clone())
-        } else {
-            let projects = app.state::<projects::Controller>().inner().clone();
-            let inner = InnerHandler { projects };
-            let handler = Handler::new(inner);
-            app.manage(handler.clone());
-            Ok(handler)
-        }
+    pub fn from_app(app: &AppHandle) -> Self {
+        let projects = app.state::<projects::Controller>().inner().clone();
+        let inner = InnerHandler { projects };
+        Handler::new(inner)
     }
 }
 

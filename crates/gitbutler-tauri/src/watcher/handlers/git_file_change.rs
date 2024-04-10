@@ -1,4 +1,5 @@
 use std::path;
+use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use gitbutler_core::{
@@ -19,18 +20,10 @@ pub struct Handler {
 }
 
 impl Handler {
-    pub fn from_app(value: &AppHandle) -> Result<Self, anyhow::Error> {
-        if let Some(handler) = value.try_state::<Handler>() {
-            Ok(handler.inner().clone())
-        } else if let Some(app_data_dir) = value.path_resolver().app_data_dir() {
-            let projects = value.state::<projects::Controller>().inner().clone();
-            let users = value.state::<users::Controller>().inner().clone();
-            let handler = Handler::new(app_data_dir, projects, users);
-            value.manage(handler.clone());
-            Ok(handler)
-        } else {
-            Err(anyhow::anyhow!("failed to get app data dir"))
-        }
+    pub fn from_app(app: &AppHandle, app_data_dir: impl Into<PathBuf>) -> Self {
+        let projects = app.state::<projects::Controller>().inner().clone();
+        let users = app.state::<users::Controller>().inner().clone();
+        Handler::new(app_data_dir.into(), projects, users)
     }
 }
 

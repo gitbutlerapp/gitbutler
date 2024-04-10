@@ -1,4 +1,5 @@
 use std::path;
+use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use gitbutler_core::{
@@ -22,25 +23,17 @@ pub struct Handler {
 }
 
 impl Handler {
-    pub fn from_app(app: &AppHandle) -> Result<Self, anyhow::Error> {
-        if let Some(handler) = app.try_state::<Handler>() {
-            Ok(handler.inner().clone())
-        } else if let Some(app_data_dir) = app.path_resolver().app_data_dir() {
-            let projects = app.state::<projects::Controller>().inner().clone();
-            let users = app.state::<users::Controller>().inner().clone();
-            let sessions_database = app.state::<sessions::Database>().inner().clone();
-            let deltas_database = app.state::<deltas::Database>().inner().clone();
-            let handler = Handler {
-                local_data_dir: app_data_dir,
-                projects,
-                users,
-                sessions_database,
-                deltas_database,
-            };
-            app.manage(handler.clone());
-            Ok(handler)
-        } else {
-            Err(anyhow::anyhow!("failed to get app data dir"))
+    pub fn from_app(app: &AppHandle, app_data_dir: impl Into<PathBuf>) -> Self {
+        let projects = app.state::<projects::Controller>().inner().clone();
+        let users = app.state::<users::Controller>().inner().clone();
+        let sessions_database = app.state::<sessions::Database>().inner().clone();
+        let deltas_database = app.state::<deltas::Database>().inner().clone();
+        Handler {
+            local_data_dir: app_data_dir.into(),
+            projects,
+            users,
+            sessions_database,
+            deltas_database,
         }
     }
 }

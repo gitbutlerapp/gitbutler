@@ -24,20 +24,13 @@ pub struct Handler {
 }
 
 impl Handler {
-    pub fn from_app(app: &AppHandle) -> std::result::Result<Self, anyhow::Error> {
-        if let Some(handler) = app.try_state::<Handler>() {
-            Ok(handler.inner().clone())
-        } else {
-            let vbranches = app.state::<virtual_branches::Controller>().inner().clone();
-            let proxy = app.state::<assets::Proxy>().inner().clone();
-            let inner = InnerHandler {
-                vbranch_controller: vbranches,
-                assets_proxy: proxy,
-            };
-            let handler = Handler::new(inner);
-            app.manage(handler.clone());
-            Ok(handler)
-        }
+    pub fn from_app(app: &AppHandle) -> Self {
+        let vbranches = app.state::<virtual_branches::Controller>().inner().clone();
+        let proxy = app.state::<assets::Proxy>().inner().clone();
+        Handler::new(InnerHandler {
+            vbranch_controller: vbranches,
+            assets_proxy: proxy,
+        })
     }
 }
 

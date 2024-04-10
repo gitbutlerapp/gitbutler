@@ -12,20 +12,14 @@ pub struct Handler {
 }
 
 impl Handler {
-    pub fn from_app(value: &AppHandle) -> Result<Self, anyhow::Error> {
-        if let Some(handler) = value.try_state::<Handler>() {
-            Ok(handler.inner().clone())
-        } else {
-            let client = value
-                .try_state::<analytics::Client>()
-                .map_or(analytics::Client::default(), |client| {
-                    client.inner().clone()
-                });
-            let users = value.state::<users::Controller>().inner().clone();
-            let handler = Handler { users, client };
-            value.manage(handler.clone());
-            Ok(handler)
-        }
+    pub fn from_app(app: &AppHandle) -> Self {
+        let client = app
+            .try_state::<analytics::Client>()
+            .map_or(analytics::Client::default(), |client| {
+                client.inner().clone()
+            });
+        let users = app.state::<users::Controller>().inner().clone();
+        Handler { users, client }
     }
 }
 
