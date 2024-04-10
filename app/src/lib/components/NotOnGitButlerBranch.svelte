@@ -62,8 +62,8 @@
 			<Button
 				style="pop"
 				kind="solid"
-				icon="chevron-left-small"
-				iconAlign="left"
+				icon="undo-small"
+				reversedDirection
 				on:click={() => {
 					if (baseBranch) branchController.setTarget(baseBranch.branchName);
 				}}
