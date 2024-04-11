@@ -134,8 +134,7 @@ export class ProjectService {
 			uid?: string;
 		}
 	): Promise<CloudProject> {
-		return this.httpClient.post({
-			path: 'projects.json',
+		return this.httpClient.post('projects.json', {
 			body: params,
 			token
 		});
@@ -149,16 +148,14 @@ export class ProjectService {
 			description?: string;
 		}
 	): Promise<CloudProject> {
-		return this.httpClient.put({
-			path: `projects/${repositoryId}.json`,
+		return this.httpClient.put(`projects/${repositoryId}.json`, {
 			body: params,
 			token
 		});
 	}
 
 	getCloudProject(token: string, repositoryId: string): Promise<CloudProject> {
-		return this.httpClient.get({
-			path: `projects/${repositoryId}.json`,
+		return this.httpClient.get(`projects/${repositoryId}.json`, {
 			token
 		});
 	}

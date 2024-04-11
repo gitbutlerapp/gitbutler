@@ -125,8 +125,7 @@
 		if (params.data) formData.append('data', params.data);
 
 		// Content Type must be unset for the right form-data border to be set automatically
-		return httpClient.put({
-			path: 'feedback',
+		return httpClient.put('feedback', {
 			body: formData,
 			headers: { 'Content-Type': undefined },
 			token

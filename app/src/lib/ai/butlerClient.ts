@@ -11,8 +11,7 @@ export class ButlerAIClient implements AIClient {
 	async evaluate(prompt: string) {
 		const messages: PromptMessage[] = [{ role: MessageRole.User, content: prompt }];
 
-		const response = await this.cloud.post<{ message: string }>({
-			path: 'evaluate_prompt/predict.json',
+		const response = await this.cloud.post<{ message: string }>('evaluate_prompt/predict.json', {
 			body: {
 				messages,
 				max_tokens: 400,
