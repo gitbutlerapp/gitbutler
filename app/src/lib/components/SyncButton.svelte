@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { syncToCloud } from '$lib/backend/httpClient';
 	import { Project } from '$lib/backend/projects';
+	import { syncToCloud } from '$lib/backend/sync';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { GitHubService } from '$lib/github/service';
