@@ -17,15 +17,6 @@ export type LoginToken = {
 	url: string;
 };
 
-export type CloudProject = {
-	name: string;
-	description: string | null;
-	repository_id: string;
-	git_url: string;
-	created_at: string;
-	updated_at: string;
-};
-
 const API_URL = new URL('/api/', PUBLIC_API_BASE_URL);
 const DEFAULT_HEADERS = {
 	'Content-Type': 'application/json'
@@ -176,40 +167,6 @@ export class HttpClient {
 			headers: { 'Content-Type': undefined },
 			token
 		});
-	}
-
-	createProject(
-		token: string,
-		params: {
-			name: string;
-			description?: string;
-			uid?: string;
-		}
-	): Promise<CloudProject> {
-		return this.post({ path: 'projects.json', body: params, token });
-	}
-
-	updateProject(
-		token: string,
-		repositoryId: string,
-		params: {
-			name: string;
-			description?: string;
-		}
-	): Promise<CloudProject> {
-		return this.put({ path: `projects/${repositoryId}.json`, body: params, token });
-	}
-
-	listProjects(token: string): Promise<CloudProject[]> {
-		return this.get({ path: 'projects.json', token });
-	}
-
-	getProject(token: string, repositoryId: string): Promise<CloudProject> {
-		return this.get({ path: `projects/${repositoryId}.json`, token });
-	}
-
-	deleteProject(token: string, repositoryId: string): Promise<void> {
-		return this.delete({ path: `projects/${repositoryId}.json`, token });
 	}
 }
 

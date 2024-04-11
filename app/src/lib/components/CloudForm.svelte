@@ -1,8 +1,7 @@
 <script lang="ts">
 	import SectionCard from './SectionCard.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
-	import { HttpClient } from '$lib/backend/httpClient';
-	import { Project } from '$lib/backend/projects';
+	import { Project, ProjectService } from '$lib/backend/projects';
 	import Link from '$lib/components/Link.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
@@ -16,7 +15,7 @@
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const userService = getContext(UserService);
-	const cloud = getContext(HttpClient);
+	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
 	const user = userService.user;
 
@@ -30,7 +29,10 @@
 	onMount(async () => {
 		if (!project?.api) return;
 		if (!$user) return;
-		const cloudProject = await cloud.getProject($user.access_token, project.api.repository_id);
+		const cloudProject = await projectService.getCloudProject(
+			$user.access_token,
+			project.api.repository_id
+		);
 		if (cloudProject === project.api) return;
 		dispatch('updated', { ...project, api: { ...cloudProject, sync: project.api.sync } });
 	});
@@ -40,7 +42,7 @@
 		try {
 			const cloudProject =
 				project.api ??
-				(await cloud.createProject($user.access_token, {
+				(await projectService.createCloudProject($user.access_token, {
 					name: project.title,
 					description: project.description,
 					uid: project.id

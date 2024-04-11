@@ -6,7 +6,7 @@ import { open } from '@tauri-apps/api/dialog';
 import { plainToInstance } from 'class-transformer';
 import { Subject, firstValueFrom, from, mergeWith, of, switchMap } from 'rxjs';
 import { get, type Readable } from 'svelte/store';
-import type { CloudProject as CloudProject } from '$lib/backend/httpClient';
+import type { HttpClient } from './httpClient';
 import { goto } from '$app/navigation';
 
 export type KeyType =
@@ -33,6 +33,15 @@ export class Project {
 	use_diff_context: boolean | undefined;
 }
 
+export type CloudProject = {
+	name: string;
+	description: string | null;
+	repository_id: string;
+	git_url: string;
+	created_at: string;
+	updated_at: string;
+};
+
 export class ProjectService {
 	private reload$ = new Subject<void>();
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
@@ -47,7 +56,10 @@ export class ProjectService {
 	projects: Readable<Project[]>;
 	error: Readable<any>;
 
-	constructor(private homeDir: string | undefined) {
+	constructor(
+		private homeDir: string | undefined,
+		private httpClient: HttpClient
+	) {
 		[this.projects, this.error] = observableToStore(this.projects$, this.reload$);
 	}
 
@@ -112,5 +124,42 @@ export class ProjectService {
 
 	setLastOpenedProject(projectId: string) {
 		this.persistedId.set(projectId);
+	}
+
+	createCloudProject(
+		token: string,
+		params: {
+			name: string;
+			description?: string;
+			uid?: string;
+		}
+	): Promise<CloudProject> {
+		return this.httpClient.post({
+			path: 'projects.json',
+			body: params,
+			token
+		});
+	}
+
+	updateCloudProject(
+		token: string,
+		repositoryId: string,
+		params: {
+			name: string;
+			description?: string;
+		}
+	): Promise<CloudProject> {
+		return this.httpClient.put({
+			path: `projects/${repositoryId}.json`,
+			body: params,
+			token
+		});
+	}
+
+	getCloudProject(token: string, repositoryId: string): Promise<CloudProject> {
+		return this.httpClient.get({
+			path: `projects/${repositoryId}.json`,
+			token
+		});
 	}
 }
