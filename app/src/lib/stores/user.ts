@@ -81,7 +81,7 @@ export class UserService {
 	}
 
 	async createLoginToken(): Promise<LoginToken> {
-		const token = await this.httpClient.post<LoginToken>({ path: 'login/token.json' });
+		const token = await this.httpClient.post<LoginToken>('login/token.json');
 		const url = new URL(token.url);
 		url.host = API_URL.host;
 		return {
@@ -104,11 +104,11 @@ export class UserService {
 
 	// TODO: Remove token from URL, we don't want that leaking into logs.
 	getLoginUser(token: string): Promise<User> {
-		return this.httpClient.get({ path: `login/user/${token}.json` });
+		return this.httpClient.get(`login/user/${token}.json`);
 	}
 
 	getUser(token: string): Promise<User> {
-		return this.httpClient.get({ path: 'user.json', token });
+		return this.httpClient.get('user.json', { token });
 	}
 
 	updateUser(token: string, params: { name?: string; picture?: File }): Promise<any> {
@@ -117,8 +117,7 @@ export class UserService {
 		if (params.picture) formData.append('avatar', params.picture);
 
 		// Content Type must be unset for the right form-data border to be set automatically
-		return this.httpClient.put({
-			path: 'user.json',
+		return this.httpClient.put('user.json', {
 			body: formData,
 			headers: { 'Content-Type': undefined },
 			token

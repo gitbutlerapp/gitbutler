@@ -7,32 +7,23 @@ export const DEFAULT_HEADERS = {
 
 export type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-function getApiUrl(path: string) {
-	return new URL(path, API_URL);
-}
+type RequestOptions = {
+	headers?: Record<string, string | undefined>;
+	body?: FormData | object;
+	token?: string;
+};
 
 export class HttpClient {
 	constructor(public fetch = window.fetch) {}
 
-	private formatBody(body?: FormData | object) {
-		if (body instanceof FormData) {
-			return body;
-		} else if (body) {
-			return JSON.stringify(body);
-		}
-	}
-
-	async request<T>(params: {
-		path: string;
-		method: RequestMethod;
-		token?: string;
-		body?: FormData | object;
-		headers?: Record<string, string | undefined>;
-	}): Promise<T> {
+	private async request<T>(
+		path: string,
+		opts: RequestOptions & { method: RequestMethod }
+	): Promise<T> {
 		const butlerHeaders = new Headers(DEFAULT_HEADERS);
 
-		if (params.headers) {
-			Object.entries(params.headers).forEach(([key, value]) => {
+		if (opts.headers) {
+			Object.entries(opts.headers).forEach(([key, value]) => {
 				if (value) {
 					butlerHeaders.set(key, value);
 				} else {
@@ -41,56 +32,40 @@ export class HttpClient {
 			});
 		}
 
-		if (params.token) butlerHeaders.set('X-Auth-Token', params.token);
+		if (opts.token) butlerHeaders.set('X-Auth-Token', opts.token);
 
-		const response = await this.fetch(getApiUrl(params.path), {
-			method: params.method || 'GET',
+		const response = await this.fetch(getApiUrl(path), {
+			method: opts.method,
 			headers: butlerHeaders,
-			body: this.formatBody(params.body)
+			body: formatBody(opts.body)
 		});
 
 		return parseResponseJSON(response);
 	}
 
-	get<T>(params: { path: string; token?: string; headers?: Record<string, string | undefined> }) {
-		return this.request<T>({ ...params, method: 'GET' });
+	async get<T>(path: string, opts?: Omit<RequestOptions, 'body'>) {
+		return await this.request<T>(path, { ...opts, method: 'GET' });
 	}
 
-	post<T>(params: {
-		path: string;
-		token?: string;
-		body?: FormData | object;
-		headers?: Record<string, string | undefined>;
-	}) {
-		return this.request<T>({ ...params, method: 'POST' });
+	async post<T>(path: string, opts?: RequestOptions) {
+		return await this.request<T>(path, { ...opts, method: 'POST' });
 	}
 
-	put<T>(params: {
-		path: string;
-		token?: string;
-		body?: FormData | object;
-		headers?: Record<string, string | undefined>;
-	}) {
-		return this.request<T>({ ...params, method: 'PUT' });
+	async put<T>(path: string, opts?: RequestOptions) {
+		return this.request<T>(path, { ...opts, method: 'PUT' });
 	}
 
-	patch<T>(params: {
-		path: string;
-		token?: string;
-		body?: FormData | object;
-		headers?: Record<string, string | undefined>;
-	}) {
-		return this.request<T>({ ...params, method: 'PATCH' });
+	async patch<T>(path: string, opts?: RequestOptions) {
+		return this.request<T>(path, { ...opts, method: 'PATCH' });
 	}
 
-	delete<T>(params: {
-		path: string;
-		token?: string;
-		body?: FormData | object;
-		headers?: Record<string, string | undefined>;
-	}) {
-		return this.request<T>({ ...params, method: 'DELETE' });
+	async delete<T>(path: string, opts?: RequestOptions) {
+		return await this.request<T>(path, { ...opts, method: 'DELETE' });
 	}
+}
+
+function getApiUrl(path: string) {
+	return new URL(path, API_URL);
 }
 
 async function parseResponseJSON(response: Response) {
@@ -101,4 +76,9 @@ async function parseResponseJSON(response: Response) {
 	} else {
 		return await response.json();
 	}
+}
+
+function formatBody(body?: FormData | object) {
+	if (!body) return;
+	return body instanceof FormData ? body : JSON.stringify(body);
 }
