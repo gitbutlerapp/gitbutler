@@ -58,13 +58,7 @@ async function parseResponseJSON(response: Response) {
 	}
 }
 
-export enum RequestMethod {
-	GET = 'GET',
-	POST = 'POST',
-	PUT = 'PUT',
-	PATCH = 'PATCH',
-	DELETE = 'DELETE'
-}
+export type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 const defaultHeaders = {
 	'Content-Type': 'application/json'
@@ -112,7 +106,7 @@ export class HttpClient {
 	}
 
 	get<T>(params: { path: string; token?: string; headers?: Record<string, string | undefined> }) {
-		return this.request<T>({ ...params, method: RequestMethod.GET });
+		return this.request<T>({ ...params, method: 'GET' });
 	}
 
 	post<T>(params: {
@@ -121,7 +115,7 @@ export class HttpClient {
 		body?: FormData | object;
 		headers?: Record<string, string | undefined>;
 	}) {
-		return this.request<T>({ ...params, method: RequestMethod.POST });
+		return this.request<T>({ ...params, method: 'POST' });
 	}
 
 	put<T>(params: {
@@ -130,7 +124,7 @@ export class HttpClient {
 		body?: FormData | object;
 		headers?: Record<string, string | undefined>;
 	}) {
-		return this.request<T>({ ...params, method: RequestMethod.PUT });
+		return this.request<T>({ ...params, method: 'PUT' });
 	}
 
 	patch<T>(params: {
@@ -139,7 +133,7 @@ export class HttpClient {
 		body?: FormData | object;
 		headers?: Record<string, string | undefined>;
 	}) {
-		return this.request<T>({ ...params, method: RequestMethod.PATCH });
+		return this.request<T>({ ...params, method: 'PATCH' });
 	}
 
 	delete<T>(params: {
@@ -148,7 +142,7 @@ export class HttpClient {
 		body?: FormData | object;
 		headers?: Record<string, string | undefined>;
 	}) {
-		return this.request<T>({ ...params, method: RequestMethod.DELETE });
+		return this.request<T>({ ...params, method: 'DELETE' });
 	}
 
 	async createLoginToken(): Promise<LoginToken> {
