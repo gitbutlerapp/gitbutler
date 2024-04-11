@@ -1,15 +1,6 @@
 import { invoke } from './ipc';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
-export type Feedback = {
-	id: number;
-	user_id: number;
-	feedback: string;
-	context: string;
-	created_at: string;
-	updated_at: string;
-};
-
 export const API_URL = new URL('/api/', PUBLIC_API_BASE_URL);
 export const DEFAULT_HEADERS = {
 	'Content-Type': 'application/json'
@@ -100,34 +91,6 @@ export class HttpClient {
 		headers?: Record<string, string | undefined>;
 	}) {
 		return this.request<T>({ ...params, method: 'DELETE' });
-	}
-
-	createFeedback(
-		token: string | undefined,
-		params: {
-			email?: string;
-			message: string;
-			context?: string;
-			logs?: Blob | File;
-			data?: Blob | File;
-			repo?: Blob | File;
-		}
-	): Promise<Feedback> {
-		const formData = new FormData();
-		formData.append('message', params.message);
-		if (params.email) formData.append('email', params.email);
-		if (params.context) formData.append('context', params.context);
-		if (params.logs) formData.append('logs', params.logs);
-		if (params.repo) formData.append('repo', params.repo);
-		if (params.data) formData.append('data', params.data);
-
-		// Content Type must be unset for the right form-data border to be set automatically
-		return this.put({
-			path: 'feedback',
-			body: formData,
-			headers: { 'Content-Type': undefined },
-			token
-		});
 	}
 }
 
