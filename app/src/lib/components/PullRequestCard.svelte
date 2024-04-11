@@ -121,9 +121,13 @@
 	}
 
 	function getChecksCount(status: ChecksStatus): string {
-		const total = status?.totalCount || 0;
-		const quieed = status?.queued || 0;
-		return `Running checks ${total - quieed}/${total}`;
+		if (!status) return 'Running checks';
+
+		const skipped = status.skipped || 0;
+		const total = status.totalCount || 0 - skipped;
+		const quieed = total - (status.queued || 0);
+
+		return `Running checks ${quieed}/${total}`;
 	}
 
 	function getChecksTagInfo(

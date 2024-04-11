@@ -385,7 +385,8 @@ export class GitHubService {
 			success,
 			completed,
 			queued,
-			totalCount
+			totalCount,
+			skipped
 		};
 	}
 
