@@ -1,5 +1,6 @@
 <script lang="ts">
-HttpClientt { deleteAllData } from '$lib/backend/data';
+	import { deleteAllData } from '$lib/backend/data';
+	import { HttpClient } from '$lib/backend/httpClient';
 	import Button from '$lib/components/Button.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -18,7 +19,7 @@ HttpClientt { deleteAllData } from '$lib/backend/data';
 	import { goto } from '$app/navigation';
 
 	const userService = getContext(UserService);
-	const cloud = getContext(CloudClient);
+	const httpClient = getContext(HttpClient);
 	const user = userService.user;
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
@@ -36,9 +37,9 @@ HttpClientt { deleteAllData } from '$lib/backend/data';
 
 	$: if ($user && !loaded) {
 		loaded = true;
-		cloud.getUser($user?.access_token).then((cloudUser) => {
+		httpClient.getUser($user?.access_token).then((cloudUser) => {
 			cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
-			userService.setUser(HttpClient
+			userService.setUser(cloudUser);
 		});
 		newName = $user?.name || '';
 	}
@@ -52,7 +53,7 @@ HttpClientt { deleteAllData } from '$lib/backend/data';
 		const picture = formData.get('picture') as File | undefined;
 
 		try {
-			const updatedUser = await cloud.updateUser($user.access_token, {
+			const updatedUser = await httpClient.updateUser($user.access_token, {
 				name: newName,
 				picture: picture
 			});
