@@ -13,7 +13,16 @@
 	import { getVersion } from '@tauri-apps/api/app';
 	import { page } from '$app/stores';
 
-	const cloud = getContext(HttpClient);
+	type Feedback = {
+		id: number;
+		user_id: number;
+		feedback: string;
+		context: string;
+		created_at: string;
+		updated_at: string;
+	};
+
+	const httpClient = getContext(HttpClient);
 	const user = getContextStore(User);
 
 	export function show() {
@@ -75,7 +84,7 @@
 					? zip.projectData({ projectId }).then((path) => readZipFile(path, 'project.zip'))
 					: undefined
 			]).then(async ([logs, data, repo]) =>
-				cloud.createFeedback($user?.access_token, {
+				createFeedback($user?.access_token, {
 					email,
 					message,
 					context,
@@ -94,6 +103,34 @@
 			}
 		);
 		close();
+	}
+
+	function createFeedback(
+		token: string | undefined,
+		params: {
+			email?: string;
+			message: string;
+			context?: string;
+			logs?: Blob | File;
+			data?: Blob | File;
+			repo?: Blob | File;
+		}
+	): Promise<Feedback> {
+		const formData = new FormData();
+		formData.append('message', params.message);
+		if (params.email) formData.append('email', params.email);
+		if (params.context) formData.append('context', params.context);
+		if (params.logs) formData.append('logs', params.logs);
+		if (params.repo) formData.append('repo', params.repo);
+		if (params.data) formData.append('data', params.data);
+
+		// Content Type must be unset for the right form-data border to be set automatically
+		return httpClient.put({
+			path: 'feedback',
+			body: formData,
+			headers: { 'Content-Type': undefined },
+			token
+		});
 	}
 
 	function close() {
