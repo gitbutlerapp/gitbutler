@@ -6,7 +6,7 @@ import { open } from '@tauri-apps/api/dialog';
 import { plainToInstance } from 'class-transformer';
 import { Subject, firstValueFrom, from, mergeWith, of, switchMap } from 'rxjs';
 import { get, type Readable } from 'svelte/store';
-import type { Project as CloudProject } from '$lib/backend/httpClient';
+import type { CloudProject as CloudProject } from '$lib/backend/httpClient';
 import { goto } from '$app/navigation';
 
 export type KeyType =

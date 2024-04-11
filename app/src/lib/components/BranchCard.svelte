@@ -10,6 +10,7 @@
 	import { AIService } from '$lib/ai/service';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
+	import { Project } from '$lib/backend/projects';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -22,6 +23,7 @@
 	import { dropzone } from '$lib/dragging/dropzone';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import * as toasts from '$lib/utils/toasts';
@@ -33,8 +35,6 @@
 	import { onMount } from 'svelte';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import type { Writable } from 'svelte/store';
-	import { Project } from '$lib/backend/projects';
-	import { User } from '$lib/stores/user';
 
 	export let isUnapplied = false;
 	export let isLaneCollapsed: Persisted<boolean>;
