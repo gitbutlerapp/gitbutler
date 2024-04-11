@@ -11,7 +11,7 @@
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const userService = getContext(UserService);
@@ -22,10 +22,6 @@
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
 
-	const dispatch = createEventDispatcher<{
-		updated: Project;
-	}>();
-
 	onMount(async () => {
 		if (!project?.api) return;
 		if (!$user) return;
@@ -34,7 +30,10 @@
 			project.api.repository_id
 		);
 		if (cloudProject === project.api) return;
-		dispatch('updated', { ...project, api: { ...cloudProject, sync: project.api.sync } });
+		projectService.updateProject({
+			...project,
+			...{ api: { ...cloudProject, sync: project.api.sync } }
+		});
 	});
 
 	async function onSyncChange(sync: boolean) {
@@ -47,7 +46,10 @@
 					description: project.description,
 					uid: project.id
 				}));
-			dispatch('updated', { ...project, api: { ...cloudProject, sync } });
+			projectService.updateProject({
+				...project,
+				...{ api: { ...cloudProject, sync } }
+			});
 		} catch (error) {
 			console.error(`Failed to update project sync status: ${error}`);
 			toasts.error('Failed to update project sync status');

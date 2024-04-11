@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Project } from '$lib/backend/projects';
+	import { Project, ProjectService } from '$lib/backend/projects';
 	import CloudForm from '$lib/components/CloudForm.svelte';
 	import DetailsForm from '$lib/components/DetailsForm.svelte';
 	import KeysForm from '$lib/components/KeysForm.svelte';
@@ -9,23 +9,14 @@
 	import Spacer from '$lib/components/Spacer.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import { showError } from '$lib/notifications/toasts';
-	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { platform } from '@tauri-apps/api/os';
 	import { from } from 'rxjs';
-	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 
-	// TODO: Too much functionality here for a +page.svelte file
-
-	export let data: PageData;
-
-	$: projectService = data.projectService;
-
+	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
-	const userService = getContext(UserService);
-	const user = userService.user;
 	const platformName = from(platform());
 
 	let deleteConfirmationModal: RemoveProjectButton;
@@ -45,40 +36,16 @@
 			isDeleting = false;
 		}
 	}
-
-	async function onCloudUpdated(e: { detail: Project }) {
-		projectService.updateProject({ ...project, ...e.detail });
-	}
-
-	async function onPreferencesUpdated(e: {
-		detail: { ok_with_force_push?: boolean; omit_certificate_check?: boolean };
-	}) {
-		await projectService.updateProject({ ...project, ...e.detail });
-	}
-
-	async function onDetailsUpdated(e: { detail: Project }) {
-		const api =
-			$user && e.detail.api
-				? await projectService.updateCloudProject($user?.access_token, e.detail.api.repository_id, {
-						name: e.detail.title,
-						description: e.detail.description
-					})
-				: undefined;
-		projectService.updateProject({
-			...e.detail,
-			api: api ? { ...api, sync: e.detail.api?.sync || false } : undefined
-		});
-	}
 </script>
 
 <ContentWrapper title="Project settings">
-	<CloudForm on:updated={onCloudUpdated} />
-	<DetailsForm on:updated={onDetailsUpdated} />
+	<CloudForm />
+	<DetailsForm />
 	{#if $platformName != 'win32'}
 		<KeysForm showProjectName={false} />
 		<Spacer />
 	{/if}
-	<PreferencesForm on:updated={onPreferencesUpdated} />
+	<PreferencesForm />
 	<SectionCard>
 		<svelte:fragment slot="title">Remove project</svelte:fragment>
 		<svelte:fragment slot="caption">
