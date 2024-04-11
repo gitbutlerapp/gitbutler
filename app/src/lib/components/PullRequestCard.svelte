@@ -49,12 +49,7 @@
 	$: if ($branch && $pr$) updateDetailsAndChecks();
 
 	$: checksTagInfo = getChecksTagInfo(checksStatus, isFetchingChecks);
-	$: infoMessageInfo = getInfoMessageInfo(
-		detailedPr,
-		mergeableState,
-		checksStatus,
-		isFetchingChecks
-	);
+	$: infoProps = getInfoMessageInfo(detailedPr, mergeableState, checksStatus, isFetchingChecks);
 	$: prStatusInfo = getPrStatusInfo(detailedPr);
 
 	async function updateDetailsAndChecks() {
@@ -129,9 +124,9 @@
 
 		const skipped = status.skipped || 0;
 		const total = (status.totalCount || 0) - skipped;
-		const quieed = total - (status.queued || 0);
+		const queued = total - (status.queued || 0);
 
-		return `Running checks ${quieed}/${total}`;
+		return `Running checks ${queued}/${total}`;
 	}
 
 	function getChecksTagInfo(
@@ -315,12 +310,9 @@
         -->
 		{#if pr}
 			<div class="pr-actions">
-				{#if infoMessageInfo}
-					<InfoMessage
-						icon={infoMessageInfo.icon}
-						filled
-						outlined={false}
-						style={infoMessageInfo.messageStyle}>{infoMessageInfo.text}</InfoMessage
+				{#if infoProps}
+					<InfoMessage icon={infoProps.icon} filled outlined={false} style={infoProps.messageStyle}
+						>{infoProps.text}</InfoMessage
 					>
 				{/if}
 
