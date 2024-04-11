@@ -10,6 +10,7 @@
 	import Toggle from '$lib/components/Toggle.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
+	import { showError } from '$lib/notifications/toasts';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UserService } from '$lib/stores/user';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
@@ -58,9 +59,9 @@
 			updatedUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
 			userService.setUser(updatedUser);
 			toasts.success('Profile updated');
-		} catch (e) {
-			console.error(e);
-			toasts.error('Failed to update user');
+		} catch (err: any) {
+			console.error(err);
+			showError('Failed to update user', err);
 		}
 		saving = false;
 	}
@@ -87,7 +88,7 @@
 			goto('/', { replaceState: true, invalidateAll: true });
 		} catch (err: any) {
 			console.error(err);
-			toasts.error('Failed to delete project');
+			showError('Failed to delete project', err);
 		} finally {
 			deleteConfirmationModal.close();
 			isDeleting = false;

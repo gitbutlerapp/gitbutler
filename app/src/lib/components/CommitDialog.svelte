@@ -14,10 +14,10 @@
 		projectRunCommitHooks,
 		persistedCommitMessage
 	} from '$lib/config/config';
+	import { showError } from '$lib/notifications/toasts';
 	import { User } from '$lib/stores/user';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import * as toasts from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { setAutoHeight } from '$lib/utils/useAutoHeight';
 	import { useResize } from '$lib/utils/useResize';
@@ -113,10 +113,10 @@
 			if (generatedMessage) {
 				$commitMessage = generatedMessage;
 			} else {
-				toasts.error('Failed to generate commit message');
+				throw new Error('Prompt generated no response');
 			}
-		} catch {
-			toasts.error('Failed to generate commit message');
+		} catch (e: any) {
+			showError('Failed to generate commit message', e);
 		} finally {
 			aiLoading = false;
 		}

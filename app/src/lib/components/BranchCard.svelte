@@ -21,12 +21,12 @@
 		DraggableRemoteCommit
 	} from '$lib/dragging/draggables';
 	import { dropzone } from '$lib/dragging/dropzone';
+	import { showError } from '$lib/notifications/toasts';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
-	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
@@ -84,7 +84,7 @@
 			}
 		} catch (e) {
 			console.error(e);
-			toasts.error('Failed to generate branch name');
+			showError('Failed to generate branch name', e);
 		}
 	}
 

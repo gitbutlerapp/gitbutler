@@ -7,11 +7,10 @@
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { showError } from '$lib/notifications/toasts';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Branch } from '$lib/vbranches/types';
-	import toast from 'svelte-french-toast';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import { goto } from '$app/navigation';
 
@@ -157,10 +156,9 @@
 								try {
 									await branchController.deleteBranch(branch.id);
 									goto(`/${project.id}/board`);
-								} catch (e) {
-									const err = 'Failed to delete branch';
-									toasts.error(err);
-									console.error(err, e);
+								} catch (err) {
+									showError('Failed to delete branch', err);
+									console.error(err);
 								} finally {
 									isDeleting = false;
 								}
@@ -179,10 +177,9 @@
 								try {
 									await branchController.applyBranch(branch.id);
 									goto(`/${project.id}/board`);
-								} catch (e) {
-									const err = 'Failed to apply branch';
-									toast.error(err);
-									console.error(err, e);
+								} catch (err) {
+									showError('Failed to apply branch', err);
+									console.error(err);
 								} finally {
 									isApplying = false;
 								}

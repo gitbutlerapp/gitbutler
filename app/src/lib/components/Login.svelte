@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Button from './Button.svelte';
+	import { showError } from '$lib/notifications/toasts';
 	import { UserService, type LoginToken } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
-	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 
 	const userService = getContext(UserService);
@@ -54,7 +54,7 @@
 					await userService.login(token);
 				} catch (err) {
 					console.error(err);
-					toasts.error('Could not create login token');
+					showError('Could not create login token', err);
 				} finally {
 					signUpOrLoginLoading = false;
 				}

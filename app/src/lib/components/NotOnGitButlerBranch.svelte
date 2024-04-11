@@ -7,6 +7,7 @@
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import { ProjectService, Project } from '$lib/backend/projects';
+	import { showError } from '$lib/notifications/toasts';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -30,9 +31,9 @@
 				await projectService.deleteProject(project.id);
 				toasts.success('Project deleted');
 				goto('/', { invalidateAll: true });
-			} catch (e) {
-				console.error(e);
-				toasts.error('Failed to delete project');
+			} catch (err: any) {
+				console.error(err);
+				showError('Failed to delete project', err);
 			} finally {
 				isDeleting = false;
 				projectService.reload();

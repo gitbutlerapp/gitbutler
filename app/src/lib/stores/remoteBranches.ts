@@ -1,6 +1,6 @@
 import { invoke } from '$lib/backend/ipc';
+import { showError } from '$lib/notifications/toasts';
 import { observableToStore } from '$lib/rxjs/store';
-import * as toasts from '$lib/utils/toasts';
 import { RemoteBranch, RemoteBranchData } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import {
@@ -32,7 +32,7 @@ export class RemoteBranchService {
 			shareReplay(1),
 			catchError((e) => {
 				console.error(e);
-				toasts.error(`Failed load remote branches`);
+				showError('Failed load remote branches', e);
 				throw e;
 			})
 		);
