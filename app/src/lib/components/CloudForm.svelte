@@ -1,7 +1,7 @@
 <script lang="ts">
 	import SectionCard from './SectionCard.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
-	import { CloudClient } from '$lib/backend/httpClient';
+	import { HttpClient } from '$lib/backend/httpClient';
 	import { Project } from '$lib/backend/projects';
 	import Link from '$lib/components/Link.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
@@ -16,7 +16,7 @@
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const userService = getContext(UserService);
-	const cloud = getContext(CloudClient);
+	const cloud = getContext(HttpClient);
 	const project = getContext(Project);
 	const user = userService.user;
 

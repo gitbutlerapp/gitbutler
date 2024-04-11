@@ -1,6 +1,6 @@
 import { resetPostHog, setPostHogUser } from '$lib/analytics/posthog';
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
-import { User, type CloudClient } from '$lib/backend/httpClient';
+import { User, type HttpClient } from '$lib/backend/httpClient';
 import { invoke } from '$lib/backend/ipc';
 import { observableToStore } from '$lib/rxjs/store';
 import { sleep } from '$lib/utils/sleep';
@@ -35,7 +35,7 @@ export class UserService {
 	readonly user: Readable<User | undefined>;
 	readonly error: Readable<string | undefined>;
 
-	constructor(private cloud: CloudClient) {
+	constructor(private cloud: HttpClient) {
 		[this.user, this.error] = observableToStore(this.user$);
 	}
 

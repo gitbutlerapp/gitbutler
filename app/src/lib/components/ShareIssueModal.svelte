@@ -1,7 +1,7 @@
 <script lang="ts">
 	import TextArea from './TextArea.svelte';
 	import TextBox from './TextBox.svelte';
-	import { CloudClient, User } from '$lib/backend/httpClient';
+	import { HttpClient, User } from '$lib/backend/httpClient';
 	import { invoke } from '$lib/backend/ipc';
 	import * as zip from '$lib/backend/zip';
 	import Button from '$lib/components/Button.svelte';
@@ -12,7 +12,7 @@
 	import { getVersion } from '@tauri-apps/api/app';
 	import { page } from '$app/stores';
 
-	const cloud = getContext(CloudClient);
+	const cloud = getContext(HttpClient);
 	const user = getContextStore(User);
 
 	export function show() {

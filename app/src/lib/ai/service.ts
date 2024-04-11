@@ -5,7 +5,7 @@ import { OpenAIModelName, type AIClient, AnthropicModelName } from '$lib/ai/type
 import { splitMessage } from '$lib/utils/commitMessage';
 import * as toasts from '$lib/utils/toasts';
 import OpenAI from 'openai';
-import type { CloudClient } from '$lib/backend/httpClient';
+import type { HttpClient } from '$lib/backend/httpClient';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
 import type { Hunk } from '$lib/vbranches/types';
 
@@ -91,7 +91,7 @@ function shuffle<T>(items: T[]): T[] {
 export class AIService {
 	constructor(
 		private gitConfig: GitConfigService,
-		private cloud: CloudClient
+		private cloud: HttpClient
 	) {}
 
 	getModelKind() {
