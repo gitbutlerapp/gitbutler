@@ -191,6 +191,12 @@ jobs:
         run: |
           VERSION="$(cat release/version)"
           echo "version=$VERSION" >> $GITHUB_ENV
+      - name: Prepare S3 payload
+        shell: bash
+        run: |
+          rm -rf release-s3
+          mkdir -p release-s3
+          rsync -avE --prune-empty-dirs --include-from='.github/workflows/publish.include.txt' --exclude='*' release/ release-s3/
       - uses: shallwefootball/s3-upload-action@master
         name: Upload To S3
         id: S3
@@ -198,7 +204,7 @@ jobs:
           aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_bucket: "releases.gitbutler.com"
-          source_dir: "release/"
+          source_dir: "release-s3/"
           destination_dir: "releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}"
 
       # tell our server to update with the version number
