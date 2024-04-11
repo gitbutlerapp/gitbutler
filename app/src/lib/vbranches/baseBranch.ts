@@ -1,7 +1,7 @@
 import { BaseBranch } from './types';
 import { Code, invoke } from '$lib/backend/ipc';
+import { showError } from '$lib/notifications/toasts';
 import { observableToStore } from '$lib/rxjs/store';
-import * as toasts from '$lib/utils/toasts';
 import { plainToInstance } from 'class-transformer';
 import {
 	switchMap,
@@ -77,9 +77,9 @@ export class BaseBranchService {
 				// Swallow this error since user should be taken to project setup page
 				return;
 			} else if (err.code === Code.ProjectsGitAuth) {
-				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
+				showError('Failed to authenticate', err);
 			} else {
-				toasts.error(`${err.message}`);
+				showError('Failed to fetch', err);
 			}
 			console.error(err);
 		} finally {

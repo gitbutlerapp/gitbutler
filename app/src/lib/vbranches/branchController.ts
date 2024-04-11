@@ -1,5 +1,5 @@
 import { invoke } from '$lib/backend/ipc';
-import { showToast } from '$lib/notifications/toasts';
+import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
@@ -19,8 +19,8 @@ export class BranchController {
 		try {
 			await this.targetBranchService.setTarget(branch);
 			// TODO: Reloading seems to trigger 4 invocations of `list_virtual_branches`
-		} catch (err) {
-			toasts.error('Failed to set base branch');
+		} catch (err: any) {
+			showError('Failed to set base branch', err);
 		} finally {
 			this.targetBranchService.reload();
 			this.vbranchService.reload();
@@ -35,7 +35,7 @@ export class BranchController {
 				targetCommitOid
 			});
 		} catch (err) {
-			toasts.error('Failed to reset branch');
+			showError('Failed to reset branch', err);
 		}
 	}
 
@@ -43,7 +43,7 @@ export class BranchController {
 		try {
 			await invoke<void>('create_virtual_branch', { projectId: this.projectId, branch });
 		} catch (err) {
-			toasts.error('Failed to create branch');
+			showError('Failed to create branch', err);
 		}
 	}
 
@@ -63,7 +63,7 @@ export class BranchController {
 			});
 			posthog.capture('Commit Successful');
 		} catch (err: any) {
-			toasts.error('Failed to commit changes');
+			showError('Failed to commit changes', err);
 			posthog.capture('Commit Failed', err);
 			throw err;
 		}
@@ -76,7 +76,7 @@ export class BranchController {
 				branch
 			});
 		} catch (err) {
-			toasts.error('Failed to merge upstream branch');
+			showError('Failed to merge upstream branch', err);
 		}
 	}
 
@@ -87,7 +87,7 @@ export class BranchController {
 				branch: { id: branchId, name }
 			});
 		} catch (err) {
-			toasts.error('Failed to update branch name');
+			showError('Failed to update branch name', err);
 		}
 	}
 
@@ -98,7 +98,7 @@ export class BranchController {
 				branch: { id: branchId, upstream }
 			});
 		} catch (err) {
-			toasts.error('Failed to update branch remote name');
+			showError('Failed to update remote name', err);
 		}
 	}
 
@@ -109,7 +109,7 @@ export class BranchController {
 				branch: { id: branchId, notes }
 			});
 		} catch (err) {
-			toasts.error('Failed to update branch notes');
+			showError('Failed to update branch notes', err);
 		}
 	}
 
@@ -120,7 +120,7 @@ export class BranchController {
 				branch: { id: branchId, selected_for_changes: true }
 			});
 		} catch (err) {
-			toasts.error('Failed to set as target');
+			showError('Failed make default target', err);
 		}
 	}
 
@@ -131,7 +131,7 @@ export class BranchController {
 				branch: { id: branchId, order }
 			});
 		} catch (err) {
-			toasts.error('Failed to update branch order');
+			showError('Failed to update branch order', err);
 		}
 	}
 
@@ -140,7 +140,7 @@ export class BranchController {
 			// TODO: make this optimistic again.
 			await invoke<void>('apply_branch', { projectId: this.projectId, branch: branchId });
 		} catch (err) {
-			toasts.error('Failed to apply branch');
+			showError('Failed to apply branch', err);
 		}
 	}
 
@@ -149,7 +149,7 @@ export class BranchController {
 		try {
 			await invoke<void>('unapply_ownership', { projectId: this.projectId, ownership });
 		} catch (err) {
-			toasts.error('Failed to unapply hunk');
+			showError('Failed to unapply hunk', err);
 		}
 	}
 
@@ -160,7 +160,7 @@ export class BranchController {
 				files: files.flatMap((f) => f.path).join('\n')
 			});
 		} catch (err) {
-			toasts.error('Failed to unapply file changes');
+			showError('Failed to unapply file changes', err);
 		}
 	}
 
@@ -169,7 +169,7 @@ export class BranchController {
 			// TODO: make this optimistic again.
 			await invoke<void>('unapply_branch', { projectId: this.projectId, branch: branchId });
 		} catch (err) {
-			toasts.error('Failed to unapply branch');
+			showError('Failed to unapply branch', err);
 		}
 	}
 
@@ -180,7 +180,7 @@ export class BranchController {
 				branch: { id: branchId, ownership }
 			});
 		} catch (err) {
-			toasts.error('Failed to update branch ownership');
+			showError('Failed to update hunk ownership', err);
 		}
 	}
 
@@ -233,7 +233,7 @@ export class BranchController {
 			await invoke<void>('delete_virtual_branch', { projectId: this.projectId, branchId });
 			toasts.success('Branch deleted successfully');
 		} catch (err) {
-			toasts.error('Failed to delete branch');
+			showError('Failed to delete branch', err);
 		} finally {
 			this.remoteBranchService.reload();
 		}
@@ -254,7 +254,7 @@ export class BranchController {
 				branch
 			});
 		} catch (err) {
-			toasts.error('Failed to create virtual branch from branch');
+			showError('Failed to create virtual branch', err);
 		} finally {
 			this.remoteBranchService.reload();
 			this.targetBranchService.reload();
@@ -269,7 +269,7 @@ export class BranchController {
 				targetCommitOid
 			});
 		} catch (err: any) {
-			toasts.error(`Failed to cherry-pick commit: ${err.message}`);
+			showError('Failed to cherry-pick commit', err);
 		} finally {
 			this.targetBranchService.reload();
 		}
@@ -279,7 +279,7 @@ export class BranchController {
 		try {
 			await invoke<void>('mark_resolved', { projectId: this.projectId, path });
 		} catch (err) {
-			toasts.error(`Failed to mark file resolved`);
+			showError('Failed to mark file resolved', err);
 		}
 	}
 
@@ -291,7 +291,7 @@ export class BranchController {
 				targetCommitOid
 			});
 		} catch (err: any) {
-			toasts.error(`Failed to squash commit: ${err.message}`);
+			showError('Failed to squash commit', err);
 		}
 	}
 
@@ -303,7 +303,7 @@ export class BranchController {
 				ownership
 			});
 		} catch (err: any) {
-			toasts.error(`Failed to amend commit: ${err.message}`);
+			showError('Failed to amend commit', err);
 		}
 	}
 
@@ -315,7 +315,7 @@ export class BranchController {
 				commitOid
 			});
 		} catch (err: any) {
-			toasts.error(`Failed to move commit: ${err.message}`);
+			showError('Failed to move commit', err);
 		}
 	}
 }

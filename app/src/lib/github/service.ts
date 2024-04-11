@@ -8,7 +8,7 @@ import {
 	parseGitHubCheckSuites,
 	type CheckSuites
 } from '$lib/github/types';
-import { showToast, type Toast } from '$lib/notifications/toasts';
+import { showError, showToast, type Toast } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import * as toasts from '$lib/utils/toasts';
 import { Octokit } from '@octokit/rest';
@@ -97,7 +97,7 @@ export class GitHubService {
 				shareReplay(1),
 				catchError((err) => {
 					console.error(err);
-					toasts.error('Failed to load pull requests');
+					showError('Failed to load pull requests', err);
 					this.error$.next(err);
 					return of([]);
 				}),

@@ -8,6 +8,7 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
+	import { showError } from '$lib/notifications/toasts';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
@@ -39,7 +40,7 @@
 			toasts.success('Project deleted');
 		} catch (err: any) {
 			console.error(err);
-			toasts.error('Failed to delete project');
+			showError('Failed to delete project', err);
 		} finally {
 			isDeleting = false;
 		}

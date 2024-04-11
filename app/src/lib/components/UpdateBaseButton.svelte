@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Tag from './Tag.svelte';
+	import { showError } from '$lib/notifications/toasts';
 	import { getContext } from '$lib/utils/context';
-	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 
 	const branchController = getContext(BranchController);
@@ -18,8 +18,8 @@
 		loading = true;
 		try {
 			await branchController.updateBaseBranch();
-		} catch {
-			toasts.error('Failed update workspace');
+		} catch (err) {
+			showError('Failed update workspace', err);
 		} finally {
 			loading = false;
 		}

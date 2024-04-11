@@ -9,9 +9,9 @@
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Section from '$lib/components/settings/Section.svelte';
+	import { showError } from '$lib/notifications/toasts';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { onMount } from 'svelte';
@@ -51,7 +51,7 @@
 		try {
 			projectService.updateProject({ ...project, ...detail });
 		} catch (err: any) {
-			toasts.error(err.message);
+			showError('Failed to update key', err);
 		}
 	}
 

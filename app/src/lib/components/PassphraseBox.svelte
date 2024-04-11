@@ -2,8 +2,8 @@
 	import Button from './Button.svelte';
 	import TextBox from './TextBox.svelte';
 	import { PromptService, type SystemPrompt } from '$lib/backend/prompt';
+	import { showError } from '$lib/notifications/toasts';
 	import { getContext } from '$lib/utils/context';
-	import * as toasts from '$lib/utils/toasts';
 
 	export let prompt: SystemPrompt | undefined;
 	export let error: any;
@@ -21,7 +21,7 @@
 		isSubmitting = false;
 	}
 
-	if (error) toasts.error(error);
+	if (error) showError('Something went wrong', error);
 </script>
 
 {#if prompt}

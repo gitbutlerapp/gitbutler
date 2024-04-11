@@ -1,4 +1,5 @@
 import { invoke } from '$lib/backend/ipc';
+import { showError } from '$lib/notifications/toasts';
 import { persisted } from '$lib/persisted/persisted';
 import { observableToStore } from '$lib/rxjs/store';
 import * as toasts from '$lib/utils/toasts';
@@ -115,7 +116,7 @@ export class ProjectService {
 				// linkProjectModal?.show(project.id);
 				goto(`/${project.id}/board`);
 			})
-			.catch((e: any) => toasts.error(e.message));
+			.catch((e: any) => showError('There was a problem', e.message));
 	}
 
 	getLastOpenedProject() {
