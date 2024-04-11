@@ -1,4 +1,3 @@
-import { invoke } from './ipc';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 export const API_URL = new URL('/api/', PUBLIC_API_BASE_URL);
@@ -101,13 +100,5 @@ async function parseResponseJSON(response: Response) {
 		throw new Error(`HTTP Error ${response.statusText}: ${await response.text()}`);
 	} else {
 		return await response.json();
-	}
-}
-
-export async function syncToCloud(projectId: string | undefined) {
-	try {
-		if (projectId) await invoke<void>('project_flush_and_push', { id: projectId });
-	} catch (err: any) {
-		console.error(err);
 	}
 }
