@@ -1,12 +1,11 @@
 import { writable, type Writable } from 'svelte/store';
-
-export type ToastStyle = 'neutral' | 'error' | 'pop' | 'warn';
+import type { MessageStyle } from '$lib/components/InfoMessage.svelte';
 
 export interface Toast {
 	id?: string;
 	message: string;
 	title?: string;
-	style?: ToastStyle;
+	style?: MessageStyle;
 }
 
 export const toastStore: Writable<Toast[]> = writable([]);

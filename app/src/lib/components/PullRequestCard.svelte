@@ -1,8 +1,8 @@
 <script lang="ts">
 	import IconButton from './IconButton.svelte';
-	import InfoMessage, { type MessageStyle } from './InfoMessage.svelte';
+	import InfoMessage from './InfoMessage.svelte';
 	import MergeButton from './MergeButton.svelte';
-	import Tag, { type TagStyle } from './Tag.svelte';
+	import Tag from './Tag.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
@@ -15,10 +15,19 @@
 	import { Branch } from '$lib/vbranches/types';
 	import { onDestroy } from 'svelte';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
+	import type { ColorStyle } from '$lib/vbranches/types';
+	import type { MessageStyle } from './InfoMessage.svelte';
 	import type iconsJson from '../icons/icons.json';
 	import type { Readable } from 'svelte/store';
 
 	export let isLaneCollapsed: boolean;
+
+	type StatusInfo = {
+		text: string;
+		icon: keyof typeof iconsJson | undefined;
+		style?: ColorStyle;
+		messageStyle?: MessageStyle;
+	};
 
 	const branch = getContextStore(Branch);
 	const branchService = getContext(BranchService);
@@ -49,13 +58,8 @@
 	$: prStatusInfo = getPrStatusInfo(detailedPr);
 
 	async function updateDetailsAndChecks() {
-		if (!isFetchingDetails) {
-			await updateDetailedPullRequest($pr$?.targetBranch, true);
-		}
-
-		if (!isFetchingChecks) {
-			await fetchChecks();
-		}
+		if (!isFetchingDetails) await updateDetailedPullRequest($pr$?.targetBranch, true);
+		if (!isFetchingChecks) await fetchChecks();
 	}
 
 	async function updateDetailedPullRequest(targetBranch: string | undefined, skipCache: boolean) {
@@ -133,55 +137,47 @@
 	function getChecksTagInfo(
 		status: ChecksStatus | null | undefined,
 		fetching: boolean
-	): {
-		color: TagStyle;
-		icon: keyof typeof iconsJson;
-		text: string;
-	} {
+	): StatusInfo {
 		if (checksError || detailsError) {
-			return { color: 'error', icon: 'warning-small', text: 'Failed to load' };
+			return { style: 'error', icon: 'warning-small', text: 'Failed to load' };
 		}
 
 		if (fetching || !status) {
-			return { color: 'neutral', icon: 'spinner', text: 'Checks' };
+			return { style: 'neutral', icon: 'spinner', text: 'Checks' };
 		}
 
 		if (status.completed) {
-			const color = status.success ? 'success' : 'error';
+			const style = status.success ? 'success' : 'error';
 			const icon = status.success ? 'success-small' : 'error-small';
 			const text = status.success ? 'Checks passed' : 'Checks failed';
-			return { color, icon, text };
+			return { style, icon, text };
 		}
 
 		return {
-			color: 'warning',
+			style: 'warning',
 			icon: 'spinner',
 			text: getChecksCount(status)
 		};
 	}
 
-	function getPrStatusInfo(pr: DetailedPullRequest | undefined): {
-		label: string;
-		icon: keyof typeof iconsJson | undefined;
-		color: TagStyle;
-	} {
+	function getPrStatusInfo(pr: DetailedPullRequest | undefined): StatusInfo {
 		if (!pr) {
-			return { label: 'Status', icon: 'spinner', color: 'neutral' };
+			return { text: 'Status', icon: 'spinner', style: 'neutral' };
 		}
 
 		if (pr?.mergedAt) {
-			return { label: 'Merged', icon: 'merged-pr-small', color: 'purple' };
+			return { text: 'Merged', icon: 'merged-pr-small', style: 'purple' };
 		}
 
 		if (pr?.closedAt) {
-			return { label: 'Closed', icon: 'closed-pr-small', color: 'error' };
+			return { text: 'Closed', icon: 'closed-pr-small', style: 'error' };
 		}
 
 		if (pr?.draft) {
-			return { label: 'Draft', icon: 'draft-pr-small', color: 'neutral' };
+			return { text: 'Draft', icon: 'draft-pr-small', style: 'neutral' };
 		}
 
-		return { label: 'Open', icon: 'pr-small', color: 'success' };
+		return { text: 'Open', icon: 'pr-small', style: 'success' };
 	}
 
 	function getInfoMessageInfo(
@@ -189,17 +185,11 @@
 		mergeableState: string | undefined,
 		checksStatus: ChecksStatus | null | undefined,
 		isFetchingChecks: boolean
-	):
-		| {
-				icon: keyof typeof iconsJson;
-				style: MessageStyle;
-				text: string;
-		  }
-		| undefined {
+	): StatusInfo | undefined {
 		if (mergeableState == 'blocked' && !checksStatus && !isFetchingChecks) {
 			return {
 				icon: 'error',
-				style: 'error',
+				messageStyle: 'error',
 				text: 'Merge is blocked due to pending reviews or missing dependencies. Resolve the issues before merging.'
 			};
 		}
@@ -208,7 +198,7 @@
 			if (pr?.draft) {
 				return {
 					icon: 'warning',
-					style: 'neutral',
+					messageStyle: 'neutral',
 					text: 'This pull request is still a work in progress. Draft pull requests cannot be merged.'
 				};
 			}
@@ -216,7 +206,7 @@
 			if (mergeableState == 'unstable') {
 				return {
 					icon: 'warning',
-					style: 'warn',
+					messageStyle: 'warning',
 					text: 'Your PR is causing instability or errors in the build or tests. Review the checks and fix the issues before merging.'
 				};
 			}
@@ -224,7 +214,7 @@
 			if (mergeableState == 'dirty') {
 				return {
 					icon: 'warning',
-					style: 'warn',
+					messageStyle: 'warning',
 					text: 'Your PR has conflicts that must be resolved before merging.'
 				};
 			}
@@ -232,7 +222,7 @@
 			if (mergeableState == 'blocked' && !isFetchingChecks) {
 				return {
 					icon: 'error',
-					style: 'error',
+					messageStyle: 'error',
 					text: 'Merge is blocked due to failing checks. Resolve the issues before merging.'
 				};
 			}
@@ -277,16 +267,16 @@
 		<div class="pr-tags">
 			<Tag
 				icon={prStatusInfo.icon}
-				style={prStatusInfo.color}
-				kind={prStatusInfo.label !== 'Open' && prStatusInfo.label !== 'Status' ? 'solid' : 'soft'}
+				style={prStatusInfo.style}
+				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
 				verticalOrientation={isLaneCollapsed}
 			>
-				{prStatusInfo.label}
+				{prStatusInfo.text}
 			</Tag>
 			{#if !detailedPr?.closedAt && checksStatus !== null}
 				<Tag
 					icon={checksTagInfo.icon}
-					style={checksTagInfo.color}
+					style={checksTagInfo.style}
 					kind={checksTagInfo.icon == 'success-small' ? 'solid' : 'soft'}
 					verticalOrientation={isLaneCollapsed}
 				>
@@ -330,7 +320,7 @@
 						icon={infoMessageInfo.icon}
 						filled
 						outlined={false}
-						style={infoMessageInfo.style}>{infoMessageInfo.text}</InfoMessage
+						style={infoMessageInfo.messageStyle}>{infoMessageInfo.text}</InfoMessage
 					>
 				{/if}
 

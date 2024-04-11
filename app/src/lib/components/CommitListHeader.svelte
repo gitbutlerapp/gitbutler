@@ -24,7 +24,7 @@
 			Integrated
 		{:else if type == 'upstream'}
 			{commitCount} upstream {commitCount == 1 ? 'commit' : 'commits'}
-			<Icon name="warning" color="warn" />
+			<Icon name="warning" color="warning" />
 		{/if}
 	</div>
 	{#if isExpandable}
