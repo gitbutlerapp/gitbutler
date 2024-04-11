@@ -1,13 +1,19 @@
 import { resetPostHog, setPostHogUser } from '$lib/analytics/posthog';
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
+import { API_URL, type HttpClient } from '$lib/backend/httpClient';
 import { invoke } from '$lib/backend/ipc';
 import { observableToStore } from '$lib/rxjs/store';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
 import { plainToInstance } from 'class-transformer';
 import { BehaviorSubject, Observable, Subject, distinct, map, merge, shareReplay } from 'rxjs';
-import type { HttpClient } from '$lib/backend/httpClient';
 import type { Readable } from 'svelte/motion';
+
+export type LoginToken = {
+	token: string;
+	expires: string;
+	url: string;
+};
 
 export class UserService {
 	private reset$ = new Subject<User | undefined>();
@@ -35,7 +41,7 @@ export class UserService {
 	readonly user: Readable<User | undefined>;
 	readonly error: Readable<string | undefined>;
 
-	constructor(private cloud: HttpClient) {
+	constructor(private httpClient: HttpClient) {
 		[this.user, this.error] = observableToStore(this.user$);
 	}
 
@@ -56,11 +62,10 @@ export class UserService {
 		resetSentry();
 	}
 
-	async login(): Promise<User | undefined> {
+	async login(token: LoginToken): Promise<User | undefined> {
 		this.logout();
 		this.loading$.next(true);
 		try {
-			const token = await this.cloud.createLoginToken();
 			openExternalUrl(token.url);
 
 			// Assumed min time for login flow
@@ -75,16 +80,49 @@ export class UserService {
 		}
 	}
 
-	private async pollForUser(token: string): Promise<User | undefined> {
+	async createLoginToken(): Promise<LoginToken> {
+		const token = await this.httpClient.post<LoginToken>({ path: 'login/token.json' });
+		const url = new URL(token.url);
+		url.host = API_URL.host;
+		return {
+			...token,
+			url: url.toString()
+		};
+	}
+
+	async pollForUser(token: string): Promise<User | undefined> {
 		let apiUser: User | null;
 		for (let i = 0; i < 120; i++) {
-			apiUser = await this.cloud.getLoginUser(token).catch(() => null);
+			apiUser = await this.getLoginUser(token).catch(() => null);
 			if (apiUser) {
 				this.setUser(apiUser);
 				return apiUser;
 			}
 			await sleep(1000);
 		}
+	}
+
+	// TODO: Remove token from URL, we don't want that leaking into logs.
+	getLoginUser(token: string): Promise<User> {
+		return this.httpClient.get({ path: `login/user/${token}.json` });
+	}
+
+	getUser(token: string): Promise<User> {
+		return this.httpClient.get({ path: 'user.json', token });
+	}
+
+	updateUser(token: string, params: { name?: string; picture?: File }): Promise<any> {
+		const formData = new FormData();
+		if (params.name) formData.append('name', params.name);
+		if (params.picture) formData.append('avatar', params.picture);
+
+		// Content Type must be unset for the right form-data border to be set automatically
+		return this.httpClient.put({
+			path: 'user.json',
+			body: formData,
+			headers: { 'Content-Type': undefined },
+			token
+		});
 	}
 }
 

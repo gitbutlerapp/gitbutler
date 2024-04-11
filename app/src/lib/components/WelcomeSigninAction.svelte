@@ -15,7 +15,8 @@
 	async function onLoginOrSignup() {
 		loginSignupLoading = true;
 		try {
-			await userService.login();
+			const token = await userService.createLoginToken();
+			await userService.login(token);
 		} catch {
 			loginSignupLoading = false;
 		}
