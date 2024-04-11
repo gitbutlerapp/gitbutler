@@ -32,6 +32,10 @@ export class Project {
 	ok_with_force_push!: boolean;
 	omit_certificate_check: boolean | undefined;
 	use_diff_context: boolean | undefined;
+
+	get vscodePath() {
+		return this.path.includes('\\') ? '/' + this.path.replace('\\', '/') : this.path;
+	}
 }
 
 export type CloudProject = {
@@ -65,7 +69,7 @@ export class ProjectService {
 	}
 
 	async getProject(projectId: string) {
-		return await invoke<Project>('get_project', { id: projectId });
+		return plainToInstance(Project, await invoke('get_project', { id: projectId }));
 	}
 
 	async updateProject(params: {
@@ -76,12 +80,12 @@ export class ProjectService {
 		okWithForcePush?: boolean;
 		omitCertificateCheck?: boolean;
 	}) {
-		await invoke<Project>('update_project', { project: params });
+		plainToInstance(Project, await invoke<Project>('update_project', { project: params }));
 		this.reload();
 	}
 
 	async add(path: string) {
-		const project = await invoke<Project>('add_project', { path });
+		const project = plainToInstance(Project, await invoke<Project>('add_project', { path }));
 		await this.reload();
 		return project;
 	}
