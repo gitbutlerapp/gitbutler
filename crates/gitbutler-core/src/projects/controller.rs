@@ -7,8 +7,11 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
-use crate::error::{AnyhowContextExt, Code, Error, ErrorWithContext};
 use crate::{error, gb_repository, project_repository, users};
+use crate::{
+    error::{AnyhowContextExt, Code, Error, ErrorWithContext},
+    projects::AuthKey,
+};
 
 #[async_trait]
 pub trait Watchers {
@@ -114,7 +117,8 @@ impl Controller {
     }
 
     pub async fn update(&self, project: &UpdateRequest) -> Result<Project, UpdateError> {
-        if let Some(super::AuthKey::Local {
+        #[cfg(not(windows))]
+        if let Some(AuthKey::Local {
             private_key_path, ..
         }) = &project.preferred_key
         {
@@ -133,6 +137,18 @@ impl Controller {
                 )));
             }
         }
+
+        // FIXME(qix-): On windows, we have to force to system executable.
+        // FIXME(qix-): This is a hack for now, and will be smoothed over in the future.
+        #[cfg(windows)]
+        let project_owned = {
+            let mut project = project.clone();
+            project.preferred_key = Some(AuthKey::SystemExecutable);
+            project
+        };
+
+        #[cfg(windows)]
+        let project = &project_owned;
 
         let updated = self
             .projects_storage
@@ -192,6 +208,14 @@ impl Controller {
                 }
             }
         }
+
+        // FIXME(qix-): On windows, we have to force to system executable
+        #[cfg(windows)]
+        let project = project.map(|mut p| {
+            p.preferred_key = AuthKey::SystemExecutable;
+            p
+        });
+
         project
     }
 
