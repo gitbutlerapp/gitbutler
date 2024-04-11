@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Button from './Button.svelte';
-	import { CloudClient, type LoginToken } from '$lib/backend/httpClient';
+	import { HttpClient, type LoginToken } from '$lib/backend/httpClient';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
@@ -8,7 +8,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { derived, writable } from 'svelte/store';
 
-	const cloud = getContext(CloudClient);
+	const cloud = getContext(HttpClient);
 	const userService = getContext(UserService);
 	const user = userService.user;
 

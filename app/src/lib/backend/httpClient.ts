@@ -70,7 +70,7 @@ const defaultHeaders = {
 	'Content-Type': 'application/json'
 };
 
-export class CloudClient {
+export class HttpClient {
 	constructor(public fetch = window.fetch) {}
 
 	private formatBody(body?: FormData | object) {

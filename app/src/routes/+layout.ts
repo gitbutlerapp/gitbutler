@@ -2,7 +2,7 @@ import { AIService } from '$lib/ai/service';
 import { initPostHog } from '$lib/analytics/posthog';
 import { initSentry } from '$lib/analytics/sentry';
 import { AuthService } from '$lib/backend/auth';
-import { CloudClient } from '$lib/backend/httpClient';
+import { HttpClient } from '$lib/backend/httpClient';
 import { GitConfigService } from '$lib/backend/gitConfigService';
 import { ProjectService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
@@ -39,7 +39,7 @@ export async function load() {
 	// https://github.com/sveltejs/kit/issues/905
 	const defaultPath = await (await import('@tauri-apps/api/path')).homeDir();
 
-	const cloud = new CloudClient();
+	const cloud = new HttpClient();
 	const authService = new AuthService();
 	const projectService = new ProjectService(defaultPath);
 	const updaterService = new UpdaterService();

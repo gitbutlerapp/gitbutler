@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { CloudClient } from '$lib/backend/httpClient';
-	import { deleteAllData } from '$lib/backend/data';
+HttpClientt { deleteAllData } from '$lib/backend/data';
 	import Button from '$lib/components/Button.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -39,7 +38,7 @@
 		loaded = true;
 		cloud.getUser($user?.access_token).then((cloudUser) => {
 			cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
-			userService.setUser(cloudUser);
+			userService.setUser(HttpClient
 		});
 		newName = $user?.name || '';
 	}
