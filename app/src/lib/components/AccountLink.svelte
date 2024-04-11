@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { User } from '$lib/backend/httpClient';
-	import Icon from '$lib/components/Icon.svelte';
+	import Icon from './Icon.svelte';
+	import { User } from '$lib/stores/user';
 	import { getContextStore } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
 

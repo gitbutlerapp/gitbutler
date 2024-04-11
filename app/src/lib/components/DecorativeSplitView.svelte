@@ -2,7 +2,7 @@
 	import AccountLink from './AccountLink.svelte';
 	import Icon from './Icon.svelte';
 	import gbLogoSvg from '$lib/assets/gb-logo.svg?raw';
-	import { User } from '$lib/backend/httpClient';
+	import { User } from '$lib/stores/user';
 	import { getContextStore } from '$lib/utils/context';
 
 	export let showLinks: boolean = true;

@@ -1,12 +1,13 @@
 <script lang="ts">
 	import TextArea from './TextArea.svelte';
 	import TextBox from './TextBox.svelte';
-	import { HttpClient, User } from '$lib/backend/httpClient';
+	import { HttpClient } from '$lib/backend/httpClient';
 	import { invoke } from '$lib/backend/ipc';
 	import * as zip from '$lib/backend/zip';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { getVersion } from '@tauri-apps/api/app';

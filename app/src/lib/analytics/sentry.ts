@@ -1,5 +1,5 @@
 import { startSpan, setUser, type Span, init } from '@sentry/sveltekit';
-import type { User } from '../backend/cloud';
+import type { User } from '$lib/stores/user';
 import { dev } from '$app/environment';
 import { PUBLIC_SENTRY_ENVIRONMENT } from '$env/static/public';
 

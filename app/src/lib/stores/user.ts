@@ -1,12 +1,12 @@
 import { resetPostHog, setPostHogUser } from '$lib/analytics/posthog';
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
-import { User, type HttpClient } from '$lib/backend/httpClient';
 import { invoke } from '$lib/backend/ipc';
 import { observableToStore } from '$lib/rxjs/store';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
 import { plainToInstance } from 'class-transformer';
 import { BehaviorSubject, Observable, Subject, distinct, map, merge, shareReplay } from 'rxjs';
+import type { HttpClient } from '$lib/backend/httpClient';
 import type { Readable } from 'svelte/motion';
 
 export class UserService {
@@ -86,4 +86,21 @@ export class UserService {
 			await sleep(1000);
 		}
 	}
+}
+
+export class User {
+	id!: number;
+	name: string | undefined;
+	given_name: string | undefined;
+	family_name: string | undefined;
+	email!: string;
+	picture!: string;
+	locale!: string;
+	created_at!: string;
+	updated_at!: string;
+	access_token!: string;
+	role: string | undefined;
+	supporter!: boolean;
+	github_access_token: string | undefined;
+	github_username: string | undefined;
 }
