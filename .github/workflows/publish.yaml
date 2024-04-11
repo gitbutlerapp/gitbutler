@@ -155,7 +155,7 @@ jobs:
       - name: Sign Windows binary
         shell: bash
         run: |
-          find release -name "*.msi" -type f | xargs -n1 python3 /sign-with-evcodesignd.py
+          find release -name "*.msi" -type f -print0 | xargs -0 -n1 -I{} python3 /sign-with-evcodesignd.py "{}"
         env:
           EVCODESIGND_PSK: ${{ secrets.EVCODESIGND_PSK }}
       - name: Upload signed artifacts
