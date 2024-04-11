@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CloudClient } from '$lib/backend/cloud';
+	import { CloudClient } from '$lib/backend/httpClient';
 	import { deleteAllData } from '$lib/backend/data';
 	import Button from '$lib/components/Button.svelte';
 	import Login from '$lib/components/Login.svelte';

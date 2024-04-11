@@ -2,7 +2,7 @@ import { AIService } from '$lib/ai/service';
 import { initPostHog } from '$lib/analytics/posthog';
 import { initSentry } from '$lib/analytics/sentry';
 import { AuthService } from '$lib/backend/auth';
-import { CloudClient } from '$lib/backend/cloud';
+import { CloudClient } from '$lib/backend/httpClient';
 import { GitConfigService } from '$lib/backend/gitConfigService';
 import { ProjectService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { syncToCloud } from '$lib/backend/cloud';
+	import { syncToCloud } from '$lib/backend/httpClient';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import Navigation from '$lib/components/Navigation.svelte';

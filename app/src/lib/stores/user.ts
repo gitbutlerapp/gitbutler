@@ -1,6 +1,6 @@
 import { resetPostHog, setPostHogUser } from '$lib/analytics/posthog';
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
-import { User, type CloudClient } from '$lib/backend/cloud';
+import { User, type CloudClient } from '$lib/backend/httpClient';
 import { invoke } from '$lib/backend/ipc';
 import { observableToStore } from '$lib/rxjs/store';
 import { sleep } from '$lib/utils/sleep';

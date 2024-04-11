@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Button from './Button.svelte';
-	import { CloudClient, type LoginToken } from '$lib/backend/cloud';
+	import { CloudClient, type LoginToken } from '$lib/backend/httpClient';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';

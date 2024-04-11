@@ -1,7 +1,7 @@
 <script lang="ts">
 	import TextArea from './TextArea.svelte';
 	import TextBox from './TextBox.svelte';
-	import { CloudClient, User } from '$lib/backend/cloud';
+	import { CloudClient, User } from '$lib/backend/httpClient';
 	import { invoke } from '$lib/backend/ipc';
 	import * as zip from '$lib/backend/zip';
 	import Button from '$lib/components/Button.svelte';

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import SectionCard from './SectionCard.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
-	import { CloudClient } from '$lib/backend/cloud';
+	import { CloudClient } from '$lib/backend/httpClient';
 	import { Project } from '$lib/backend/projects';
 	import Link from '$lib/components/Link.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';

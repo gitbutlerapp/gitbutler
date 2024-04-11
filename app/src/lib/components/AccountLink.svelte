@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { User } from '$lib/backend/cloud';
+	import { User } from '$lib/backend/httpClient';
 	import Icon from '$lib/components/Icon.svelte';
 	import { getContextStore } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
