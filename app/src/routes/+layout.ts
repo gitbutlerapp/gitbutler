@@ -39,12 +39,12 @@ export async function load() {
 	// https://github.com/sveltejs/kit/issues/905
 	const defaultPath = await (await import('@tauri-apps/api/path')).homeDir();
 
-	const cloud = new HttpClient();
+	const httpClient = new HttpClient();
 	const authService = new AuthService();
-	const projectService = new ProjectService(defaultPath);
+	const projectService = new ProjectService(defaultPath, httpClient);
 	const updaterService = new UpdaterService();
 	const promptService = new PromptService();
-	const userService = new UserService(cloud);
+	const userService = new UserService(httpClient);
 
 	// We're declaring a remoteUrl$ observable here that is written to by `BaseBranchService`. This
 	// is a bit awkard, but `GitHubService` needs to be available at the root scoped layout.ts, such
@@ -56,11 +56,11 @@ export async function load() {
 	const githubService = new GitHubService(userService.accessToken$, remoteUrl$);
 
 	const gitConfig = new GitConfigService();
-	const aiService = new AIService(gitConfig, cloud);
+	const aiService = new AIService(gitConfig, httpClient);
 
 	return {
 		authService,
-		cloud,
+		cloud: httpClient,
 		githubService,
 		projectService,
 		updaterService,

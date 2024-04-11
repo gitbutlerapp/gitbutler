@@ -21,7 +21,6 @@
 	export let data: PageData;
 
 	$: projectService = data.projectService;
-	$: cloud = data.cloud;
 
 	const project = getContext(Project);
 	const userService = getContext(UserService);
@@ -59,7 +58,7 @@
 	async function onDetailsUpdated(e: { detail: Project }) {
 		const api =
 			$user && e.detail.api
-				? await cloud.updateProject($user?.access_token, e.detail.api.repository_id, {
+				? await projectService.updateCloudProject($user?.access_token, e.detail.api.repository_id, {
 						name: e.detail.title,
 						description: e.detail.description
 					})

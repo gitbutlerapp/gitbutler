@@ -5,8 +5,8 @@ import { OpenAIModelName, type AIClient, AnthropicModelName } from '$lib/ai/type
 import { splitMessage } from '$lib/utils/commitMessage';
 import * as toasts from '$lib/utils/toasts';
 import OpenAI from 'openai';
-import type { HttpClient } from '$lib/backend/httpClient';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
+import type { HttpClient } from '$lib/backend/httpClient';
 import type { Hunk } from '$lib/vbranches/types';
 
 const maxDiffLengthLimitForAPI = 5000;
