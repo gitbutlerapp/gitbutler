@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { AIService } from '$lib/ai/service';
-	import { User } from '$lib/backend/httpClient';
 	import { Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -9,6 +8,7 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { User } from '$lib/stores/user';
 	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';

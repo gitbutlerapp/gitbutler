@@ -1,6 +1,6 @@
 import { getVersion, getName } from '@tauri-apps/api/app';
 import { posthog } from 'posthog-js';
-import type { User } from '../backend/cloud';
+import type { User } from '$lib/stores/user';
 import { PUBLIC_POSTHOG_API_KEY } from '$env/static/public';
 
 export async function initPostHog() {

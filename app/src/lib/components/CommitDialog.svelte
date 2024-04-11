@@ -1,7 +1,6 @@
 <script lang="ts">
+	import Button from './Button.svelte';
 	import { AIService } from '$lib/ai/service';
-	import { User } from '$lib/backend/httpClient';
-	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
 	import Icon from '$lib/components/Icon.svelte';
@@ -15,6 +14,7 @@
 		projectRunCommitHooks,
 		persistedCommitMessage
 	} from '$lib/config/config';
+	import { User } from '$lib/stores/user';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';

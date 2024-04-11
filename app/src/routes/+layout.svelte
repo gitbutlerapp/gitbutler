@@ -3,8 +3,8 @@
 
 	import { AIService } from '$lib/ai/service';
 	import { AuthService } from '$lib/backend/auth';
-	import { HttpClient, User } from '$lib/backend/httpClient';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
+	import { HttpClient } from '$lib/backend/httpClient';
 	import { ProjectService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
@@ -14,7 +14,7 @@
 	import { GitHubService } from '$lib/github/service';
 	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
-	import { UserService } from '$lib/stores/user';
+	import { User, UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { initTheme } from '$lib/utils/theme';
