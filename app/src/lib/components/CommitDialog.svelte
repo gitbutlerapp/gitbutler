@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { AIService } from '$lib/ai/service';
-	import { User } from '$lib/backend/cloud';
+	import { User } from '$lib/backend/httpClient';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { AIService } from '$lib/ai/service';
-	import { User } from '$lib/backend/cloud';
+	import { User } from '$lib/backend/httpClient';
 	import { Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';

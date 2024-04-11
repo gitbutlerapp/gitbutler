@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { syncToCloud } from '$lib/backend/cloud';
+	import { syncToCloud } from '$lib/backend/httpClient';
 	import { Project } from '$lib/backend/projects';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
