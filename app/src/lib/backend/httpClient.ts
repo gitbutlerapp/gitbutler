@@ -1,5 +1,4 @@
 import { invoke } from './ipc';
-import type { User } from '$lib/stores/user';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 export type Feedback = {
@@ -11,18 +10,12 @@ export type Feedback = {
 	updated_at: string;
 };
 
-export type LoginToken = {
-	token: string;
-	expires: string;
-	url: string;
-};
-
-const API_URL = new URL('/api/', PUBLIC_API_BASE_URL);
-const DEFAULT_HEADERS = {
+export const API_URL = new URL('/api/', PUBLIC_API_BASE_URL);
+export const DEFAULT_HEADERS = {
 	'Content-Type': 'application/json'
 };
 
-type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+export type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 function getApiUrl(path: string) {
 	return new URL(path, API_URL);
@@ -109,20 +102,6 @@ export class HttpClient {
 		return this.request<T>({ ...params, method: 'DELETE' });
 	}
 
-	async createLoginToken(): Promise<LoginToken> {
-		const token = await this.post<LoginToken>({ path: 'login/token.json' });
-		const url = new URL(token.url);
-		url.host = API_URL.host;
-		return {
-			...token,
-			url: url.toString()
-		};
-	}
-
-	getLoginUser(token: string): Promise<User> {
-		return this.get({ path: `login/user/${token}.json` });
-	}
-
 	createFeedback(
 		token: string | undefined,
 		params: {
@@ -145,24 +124,6 @@ export class HttpClient {
 		// Content Type must be unset for the right form-data border to be set automatically
 		return this.put({
 			path: 'feedback',
-			body: formData,
-			headers: { 'Content-Type': undefined },
-			token
-		});
-	}
-
-	getUser(token: string): Promise<User> {
-		return this.get({ path: 'user.json', token });
-	}
-
-	updateUser(token: string, params: { name?: string; picture?: File }): Promise<any> {
-		const formData = new FormData();
-		if (params.name) formData.append('name', params.name);
-		if (params.picture) formData.append('avatar', params.picture);
-
-		// Content Type must be unset for the right form-data border to be set automatically
-		return this.put({
-			path: 'user.json',
 			body: formData,
 			headers: { 'Content-Type': undefined },
 			token

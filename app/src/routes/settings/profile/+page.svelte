@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { deleteAllData } from '$lib/backend/data';
-	import { HttpClient } from '$lib/backend/httpClient';
 	import Button from '$lib/components/Button.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -19,7 +18,6 @@
 	import { goto } from '$app/navigation';
 
 	const userService = getContext(UserService);
-	const httpClient = getContext(HttpClient);
 	const user = userService.user;
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
@@ -37,7 +35,7 @@
 
 	$: if ($user && !loaded) {
 		loaded = true;
-		httpClient.getUser($user?.access_token).then((cloudUser) => {
+		userService.getUser($user?.access_token).then((cloudUser) => {
 			cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
 			userService.setUser(cloudUser);
 		});
@@ -53,7 +51,7 @@
 		const picture = formData.get('picture') as File | undefined;
 
 		try {
-			const updatedUser = await httpClient.updateUser($user.access_token, {
+			const updatedUser = await userService.updateUser($user.access_token, {
 				name: newName,
 				picture: picture
 			});
