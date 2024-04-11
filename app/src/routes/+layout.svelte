@@ -62,6 +62,10 @@
 					...s,
 					theme: $userSettings.theme == 'light' ? 'dark' : 'light'
 				}));
+			}),
+			hotkeys.on('Backspace', (e) => {
+				// This prevent backspace from navigating back
+				e.preventDefault();
 			})
 		);
 	});
