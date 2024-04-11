@@ -1,0 +1,5 @@
+*/
+*.msi
+*.dmg
+*.AppImage.tar.gz
+*.deb
