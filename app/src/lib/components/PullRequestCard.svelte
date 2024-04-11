@@ -123,8 +123,10 @@
 	function getChecksCount(status: ChecksStatus): string {
 		if (!status) return 'Running checks';
 
+		console.log(status);
+
 		const skipped = status.skipped || 0;
-		const total = status.totalCount || 0 - skipped;
+		const total = (status.totalCount || 0) - skipped;
 		const quieed = total - (status.queued || 0);
 
 		return `Running checks ${quieed}/${total}`;
