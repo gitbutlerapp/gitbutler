@@ -135,7 +135,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ env.channel }}-${{ matrix.platform }}"
+          name: "${{ env.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release/
           if-no-files-found: error
 
@@ -150,18 +150,18 @@ jobs:
       - name: Download unsigned artifacts
         uses: actions/download-artifact@v4
         with:
-          name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}"
+          name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release
       - name: Sign Windows binary
         shell: bash
         run: |
-          find release -name "*.msi" -type f | xargs -n1 python3 /sign-with-evcodesignd.py
+          find release -name "*.msi" -type f -print0 | xargs -0 -n1 -I{} python3 /sign-with-evcodesignd.py "{}"
         env:
           EVCODESIGND_PSK: ${{ secrets.EVCODESIGND_PSK }}
       - name: Upload signed artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}"
+          name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release/
           if-no-files-found: error
           overwrite: true
@@ -184,7 +184,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}"
+          name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release
       - name: Extract version
         shell: bash
