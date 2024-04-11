@@ -30,10 +30,8 @@
 			project.api.repository_id
 		);
 		if (cloudProject === project.api) return;
-		projectService.updateProject({
-			...project,
-			...{ api: { ...cloudProject, sync: project.api.sync } }
-		});
+		project.api = { ...cloudProject, sync: project.api.sync };
+		projectService.updateProject(project);
 	});
 
 	async function onSyncChange(sync: boolean) {
@@ -46,10 +44,8 @@
 					description: project.description,
 					uid: project.id
 				}));
-			projectService.updateProject({
-				...project,
-				...{ api: { ...cloudProject, sync } }
-			});
+			project.api = { ...cloudProject, sync };
+			projectService.updateProject(project);
 		} catch (error) {
 			console.error(`Failed to update project sync status: ${error}`);
 			toasts.error('Failed to update project sync status');
