@@ -1,20 +1,32 @@
 <script lang="ts">
-	import { Project } from '$lib/backend/projects';
+	import { Project, ProjectService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import TextArea from '$lib/components/TextArea.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
-	import { getContext } from '$lib/utils/context';
-	import { createEventDispatcher } from 'svelte';
+	import { User } from '$lib/stores/user';
+	import { getContext, getContextStore } from '$lib/utils/context';
 
 	const project = getContext(Project);
+	const user = getContextStore(User);
+	const projectService = getContext(ProjectService);
 
 	let title = project?.title;
 	let description = project?.description;
 
-	const dispatch = createEventDispatcher<{
-		updated: Project;
-	}>();
+	async function saveProject() {
+		const api =
+			$user && project.api
+				? await projectService.updateCloudProject($user?.access_token, project.api.repository_id, {
+						name: project.title,
+						description: project.description
+					})
+				: undefined;
+		projectService.updateProject({
+			...project,
+			api: api ? { ...api, sync: project.api?.sync || false } : undefined
+		});
+	}
 </script>
 
 <SectionCard>
@@ -30,7 +42,7 @@
 					required
 					on:change={(e) => {
 						project.title = e.detail;
-						dispatch('updated', project);
+						saveProject();
 					}}
 				/>
 				<TextArea
@@ -40,7 +52,7 @@
 					bind:value={description}
 					on:change={() => {
 						project.description = description;
-						dispatch('updated', project);
+						saveProject();
 					}}
 				/>
 			</section>

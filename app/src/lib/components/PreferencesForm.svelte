@@ -1,24 +1,25 @@
 <script lang="ts">
 	import SectionCard from './SectionCard.svelte';
 	import Spacer from './Spacer.svelte';
-	import { Project } from '$lib/backend/projects';
+	import { Project, ProjectService } from '$lib/backend/projects';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { getContext } from '$lib/utils/context';
-	import { createEventDispatcher } from 'svelte';
 
+	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
 
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;
 
 	const runCommitHooks = projectRunCommitHooks(project.id);
-	const dispatch = createEventDispatcher<{
-		updated: {
-			ok_with_force_push?: boolean;
-			omit_certificate_check?: boolean;
-		};
-	}>();
+
+	async function updateProject(param: {
+		ok_with_force_push?: boolean;
+		omit_certificate_check?: boolean;
+	}) {
+		await projectService.updateProject({ ...project, ...param });
+	}
 </script>
 
 <section class="wrapper">
@@ -32,7 +33,7 @@
 			<Toggle
 				id="allowForcePush"
 				bind:checked={allowForcePushing}
-				on:change={() => dispatch('updated', { ok_with_force_push: allowForcePushing })}
+				on:change={() => updateProject({ ok_with_force_push: allowForcePushing })}
 			/>
 		</svelte:fragment>
 	</SectionCard>
@@ -46,7 +47,7 @@
 			<Toggle
 				id="omitCertificateCheck"
 				bind:checked={omitCertificateCheck}
-				on:change={() => dispatch('updated', { omit_certificate_check: omitCertificateCheck })}
+				on:change={() => updateProject({ omit_certificate_check: omitCertificateCheck })}
 			/>
 		</svelte:fragment>
 	</SectionCard>
