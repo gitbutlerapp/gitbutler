@@ -17,7 +17,7 @@ export type LoginToken = {
 	url: string;
 };
 
-export type Project = {
+export type CloudProject = {
 	name: string;
 	description: string | null;
 	repository_id: string;
@@ -185,7 +185,7 @@ export class HttpClient {
 			description?: string;
 			uid?: string;
 		}
-	): Promise<Project> {
+	): Promise<CloudProject> {
 		return this.post({ path: 'projects.json', body: params, token });
 	}
 
@@ -196,15 +196,15 @@ export class HttpClient {
 			name: string;
 			description?: string;
 		}
-	): Promise<Project> {
+	): Promise<CloudProject> {
 		return this.put({ path: `projects/${repositoryId}.json`, body: params, token });
 	}
 
-	listProjects(token: string): Promise<Project[]> {
+	listProjects(token: string): Promise<CloudProject[]> {
 		return this.get({ path: 'projects.json', token });
 	}
 
-	getProject(token: string, repositoryId: string): Promise<Project> {
+	getProject(token: string, repositoryId: string): Promise<CloudProject> {
 		return this.get({ path: `projects/${repositoryId}.json`, token });
 	}
 
