@@ -12,7 +12,7 @@ pub struct Storage {
     storage: storage::Storage,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct UpdateRequest {
     pub id: ProjectId,
     pub title: Option<String>,
