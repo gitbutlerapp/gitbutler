@@ -27,7 +27,8 @@
 		try {
 			// TODO: Refactor temporary solution to forcing Windows to use system executable
 			if ($platformName == 'win32') {
-				projectService.updateProject({ ...project, ...{ preferred_key: 'systemExecutable' } });
+				project.preferred_key = 'systemExecutable';
+				projectService.updateProject(project);
 			}
 			await branchController.setTarget(selectedBranch);
 			goto(`/${project.id}/`);

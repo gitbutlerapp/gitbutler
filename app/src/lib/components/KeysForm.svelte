@@ -49,7 +49,8 @@
 
 	async function updateKey(detail: { preferred_key: Key }) {
 		try {
-			projectService.updateProject({ ...project, ...detail });
+			project.preferred_key = detail.preferred_key;
+			projectService.updateProject(project);
 		} catch (err: any) {
 			showError('Failed to update key', err);
 		}

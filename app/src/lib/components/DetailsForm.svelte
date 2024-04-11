@@ -22,10 +22,8 @@
 						description: project.description
 					})
 				: undefined;
-		projectService.updateProject({
-			...project,
-			api: api ? { ...api, sync: project.api?.sync || false } : undefined
-		});
+		project.api = api ? { ...api, sync: true } : undefined;
+		projectService.updateProject(project);
 	}
 </script>
 

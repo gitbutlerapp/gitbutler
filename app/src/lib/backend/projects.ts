@@ -1,12 +1,10 @@
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { persisted } from '$lib/persisted/persisted';
-import { observableToStore } from '$lib/rxjs/store';
 import * as toasts from '$lib/utils/toasts';
 import { open } from '@tauri-apps/api/dialog';
 import { plainToInstance } from 'class-transformer';
-import { Subject, firstValueFrom, from, mergeWith, of, switchMap } from 'rxjs';
-import { get, type Readable } from 'svelte/store';
+import { derived, get, writable } from 'svelte/store';
 import type { HttpClient } from './httpClient';
 import { goto } from '$app/navigation';
 
@@ -48,39 +46,40 @@ export type CloudProject = {
 };
 
 export class ProjectService {
-	private reload$ = new Subject<void>();
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
-
-	private projects$ = of(true).pipe(
-		mergeWith(this.reload$),
-		switchMap(() =>
-			from(invoke<Project[]>('list_projects').then((p) => plainToInstance(Project, p)))
-		)
-	);
-
-	projects: Readable<Project[]>;
-	error: Readable<any>;
+	private _projects = writable<Project[]>(undefined, (set) => {
+		this.loadAll()
+			.then((projects) => {
+				this.error.set(undefined);
+				set(projects);
+			})
+			.catch((err) => {
+				this.error.set(err);
+				showError('Failed to load projects', err);
+			});
+	});
+	readonly projects = derived(this._projects, (value) => value); // public & readonly
+	readonly error = writable();
 
 	constructor(
 		private homeDir: string | undefined,
 		private httpClient: HttpClient
-	) {
-		[this.projects, this.error] = observableToStore(this.projects$, this.reload$);
+	) {}
+
+	private async loadAll() {
+		return await invoke<Project[]>('list_projects').then((p) => plainToInstance(Project, p));
+	}
+
+	async reload(): Promise<void> {
+		this._projects.set(await this.loadAll());
 	}
 
 	async getProject(projectId: string) {
 		return plainToInstance(Project, await invoke('get_project', { id: projectId }));
 	}
 
-	async updateProject(params: {
-		id: string;
-		title?: string;
-		api?: CloudProject & { sync: boolean };
-		preferred_key?: Key;
-		okWithForcePush?: boolean;
-		omitCertificateCheck?: boolean;
-	}) {
-		plainToInstance(Project, await invoke<Project>('update_project', { project: params }));
+	async updateProject(project: Project) {
+		plainToInstance(Project, await invoke<Project>('update_project', { project: project }));
 		this.reload();
 	}
 
@@ -94,20 +93,13 @@ export class ProjectService {
 		return await invoke('delete_project', { id });
 	}
 
-	async reload(): Promise<Project[]> {
-		const projects = firstValueFrom(this.projects$);
-		this.reload$.next();
-		return projects;
-	}
-
 	async promptForDirectory(): Promise<string | undefined> {
-		return open({ directory: true, recursive: true, defaultPath: this.homeDir }).then(
-			(selectedPath) => {
-				if (selectedPath === null) return;
-				if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
-				return Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
-			}
-		);
+		const selectedPath = open({ directory: true, recursive: true, defaultPath: this.homeDir });
+		if (selectedPath) {
+			if (selectedPath === null) return;
+			if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
+			return Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
+		}
 	}
 
 	async addProject() {
@@ -131,7 +123,7 @@ export class ProjectService {
 		this.persistedId.set(projectId);
 	}
 
-	createCloudProject(
+	async createCloudProject(
 		token: string,
 		params: {
 			name: string;
@@ -139,13 +131,13 @@ export class ProjectService {
 			uid?: string;
 		}
 	): Promise<CloudProject> {
-		return this.httpClient.post('projects.json', {
+		return await this.httpClient.post('projects.json', {
 			body: params,
 			token
 		});
 	}
 
-	updateCloudProject(
+	async updateCloudProject(
 		token: string,
 		repositoryId: string,
 		params: {
@@ -159,7 +151,7 @@ export class ProjectService {
 		});
 	}
 
-	getCloudProject(token: string, repositoryId: string): Promise<CloudProject> {
+	async getCloudProject(token: string, repositoryId: string): Promise<CloudProject> {
 		return this.httpClient.get(`projects/${repositoryId}.json`, {
 			token
 		});

@@ -14,11 +14,14 @@
 
 	const runCommitHooks = projectRunCommitHooks(project.id);
 
-	async function updateProject(param: {
-		ok_with_force_push?: boolean;
-		omit_certificate_check?: boolean;
-	}) {
-		await projectService.updateProject({ ...project, ...param });
+	async function setWithForcePush(value: boolean) {
+		project.ok_with_force_push = value;
+		await projectService.updateProject(project);
+	}
+
+	async function setOmitCertificateCheck(value: boolean | undefined) {
+		project.omit_certificate_check = !!value;
+		await projectService.updateProject(project);
 	}
 </script>
 
@@ -33,7 +36,7 @@
 			<Toggle
 				id="allowForcePush"
 				bind:checked={allowForcePushing}
-				on:change={() => updateProject({ ok_with_force_push: allowForcePushing })}
+				on:change={() => setWithForcePush(allowForcePushing)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
@@ -47,7 +50,7 @@
 			<Toggle
 				id="omitCertificateCheck"
 				bind:checked={omitCertificateCheck}
-				on:change={() => updateProject({ omit_certificate_check: omitCertificateCheck })}
+				on:change={() => setOmitCertificateCheck(omitCertificateCheck)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
