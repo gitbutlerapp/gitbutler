@@ -1,12 +1,6 @@
 import { invoke } from './ipc';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
-const apiUrl = new URL('/api/', new URL(PUBLIC_API_BASE_URL));
-
-function getUrl(path: string) {
-	return new URL(path, apiUrl).toString();
-}
-
 export type Feedback = {
 	id: number;
 	user_id: number;
@@ -48,21 +42,16 @@ export type Project = {
 	updated_at: string;
 };
 
-async function parseResponseJSON(response: Response) {
-	if (response.status === 204 || response.status === 205) {
-		return null;
-	} else if (response.status >= 400) {
-		throw new Error(`HTTP Error ${response.statusText}: ${await response.text()}`);
-	} else {
-		return await response.json();
-	}
-}
-
-export type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-
-const defaultHeaders = {
+const API_URL = new URL('/api/', PUBLIC_API_BASE_URL);
+const DEFAULT_HEADERS = {
 	'Content-Type': 'application/json'
 };
+
+type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+function getApiUrl(path: string) {
+	return new URL(path, API_URL);
+}
 
 export class HttpClient {
 	constructor(public fetch = window.fetch) {}
@@ -82,7 +71,7 @@ export class HttpClient {
 		body?: FormData | object;
 		headers?: Record<string, string | undefined>;
 	}): Promise<T> {
-		const butlerHeaders = new Headers(defaultHeaders);
+		const butlerHeaders = new Headers(DEFAULT_HEADERS);
 
 		if (params.headers) {
 			Object.entries(params.headers).forEach(([key, value]) => {
@@ -96,8 +85,8 @@ export class HttpClient {
 
 		if (params.token) butlerHeaders.set('X-Auth-Token', params.token);
 
-		const response = await this.fetch(getUrl(params.path), {
-			method: params.method,
+		const response = await this.fetch(getApiUrl(params.path), {
+			method: params.method || 'GET',
 			headers: butlerHeaders,
 			body: this.formatBody(params.body)
 		});
@@ -148,7 +137,7 @@ export class HttpClient {
 	async createLoginToken(): Promise<LoginToken> {
 		const token = await this.post<LoginToken>({ path: 'login/token.json' });
 		const url = new URL(token.url);
-		url.host = apiUrl.host;
+		url.host = API_URL.host;
 		return {
 			...token,
 			url: url.toString()
@@ -237,6 +226,16 @@ export class HttpClient {
 
 	deleteProject(token: string, repositoryId: string): Promise<void> {
 		return this.delete({ path: `projects/${repositoryId}.json`, token });
+	}
+}
+
+async function parseResponseJSON(response: Response) {
+	if (response.status === 204 || response.status === 205) {
+		return null;
+	} else if (response.status >= 400) {
+		throw new Error(`HTTP Error ${response.statusText}: ${await response.text()}`);
+	} else {
+		return await response.json();
 	}
 }
 
