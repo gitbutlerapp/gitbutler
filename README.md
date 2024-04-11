@@ -15,6 +15,8 @@
       ·
 		Windows (<a href="https://app.gitbutler.com/downloads/release/windows/x86_64/msi">msi</a>)
     <br />
+    <br />
+    (Unstable Nightly releases can be found <a href="https://app.gitbutler.com/downloads">here</a>)
   </p>
 </div>
 
