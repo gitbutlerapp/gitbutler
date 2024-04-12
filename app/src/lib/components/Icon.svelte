@@ -1,7 +1,7 @@
 <script lang="ts" context="module">
 	import { pxToRem } from '$lib/utils/pxToRem';
-	import type { ColorStyle } from '$lib/vbranches/types';
-	export type IconColor = ColorStyle | undefined;
+	import type { ComponentColor } from '$lib/vbranches/types';
+	export type IconColor = ComponentColor | undefined;
 </script>
 
 <script lang="ts">

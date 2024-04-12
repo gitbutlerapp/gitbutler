@@ -15,7 +15,7 @@
 	import { Branch } from '$lib/vbranches/types';
 	import { onDestroy } from 'svelte';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
-	import type { ColorStyle } from '$lib/vbranches/types';
+	import type { ComponentColor } from '$lib/vbranches/types';
 	import type { MessageStyle } from './InfoMessage.svelte';
 	import type iconsJson from '../icons/icons.json';
 	import type { Readable } from 'svelte/store';
@@ -25,7 +25,7 @@
 	type StatusInfo = {
 		text: string;
 		icon: keyof typeof iconsJson | undefined;
-		style?: ColorStyle;
+		style?: ComponentColor;
 		messageStyle?: MessageStyle;
 	};
 

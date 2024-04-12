@@ -2,11 +2,11 @@
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import type iconsJson from '$lib/icons/icons.json';
-	import type { ColorStyle, KindStyle } from '$lib/vbranches/types';
+	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let style: ColorStyle = 'neutral';
-	export let kind: KindStyle = 'soft';
+	export let style: ComponentColor = 'neutral';
+	export let kind: ComponentStyleKind = 'soft';
 	export let disabled = false;
 	export let loading = false;
 	export let wide = false;

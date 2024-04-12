@@ -2,7 +2,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { tooltip } from '$lib/utils/tooltip';
 	import type iconsJson from '$lib/icons/icons.json';
-	import type { ColorStyle, KindStyle } from '$lib/vbranches/types';
+	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
 
 	// Interaction props
 	export let help = '';
@@ -15,8 +15,8 @@
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let reversedDirection = false;
 	// Style props
-	export let style: ColorStyle = 'neutral';
-	export let kind: KindStyle = 'soft';
+	export let style: ComponentColor = 'neutral';
+	export let kind: ComponentStyleKind = 'soft';
 </script>
 
 <div

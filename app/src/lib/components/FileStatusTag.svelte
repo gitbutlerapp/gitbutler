@@ -1,11 +1,11 @@
 <script lang="ts">
 	import Tag from './Tag.svelte';
 	import type { FileStatus } from '$lib/utils/fileStatus';
-	import type { ColorStyle } from '$lib/vbranches/types';
+	import type { ComponentColor } from '$lib/vbranches/types';
 
 	export let status: FileStatus;
 
-	function statusToColor(status: FileStatus): ColorStyle {
+	function statusToColor(status: FileStatus): ComponentColor {
 		switch (status) {
 			case 'A':
 				return 'success';

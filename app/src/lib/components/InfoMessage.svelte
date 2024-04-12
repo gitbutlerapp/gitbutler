@@ -1,6 +1,6 @@
 <script lang="ts" context="module">
-	import type { ColorStyle } from '$lib/vbranches/types';
-	export type MessageStyle = Exclude<ColorStyle, 'ghost' | 'purple'>;
+	import type { ComponentColor } from '$lib/vbranches/types';
+	export type MessageStyle = Exclude<ComponentColor, 'ghost' | 'purple'>;
 </script>
 
 <script lang="ts">
@@ -37,7 +37,7 @@
 		success: 'success'
 	};
 
-	const primaryButtonMap: { [Key in MessageStyle]: ColorStyle } = {
+	const primaryButtonMap: { [Key in MessageStyle]: ComponentColor } = {
 		neutral: 'pop',
 		pop: 'pop',
 		warning: 'warning',
