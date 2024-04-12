@@ -10,9 +10,9 @@
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { LocalFile, type AnyFile } from '$lib/vbranches/types';
 	import { join } from '@tauri-apps/api/path';
 	import { open } from '@tauri-apps/api/shell';
-	import type { AnyFile } from '$lib/vbranches/types';
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
@@ -36,19 +36,23 @@
 <PopupMenu bind:this={popupMenu} let:item let:dismiss>
 	<ContextMenu>
 		<ContextMenuSection>
-			{#if item.files !== undefined}
-				{#if containsBinaryFiles(item)}
-					<ContextMenuItem label="Discard changes (Binary files not yet supported)" disabled />
-				{:else}
-					<ContextMenuItem
-						label="Discard changes"
-						on:click={() => {
-							confirmationModal.show(item);
-							dismiss();
-						}}
-					/>
+			{#if item.files && item.files.length > 0}
+				{@const files = item.files}
+				<!-- TODO: Refactor so we can have types -->
+				{#if files[0] instanceof LocalFile}
+					{#if containsBinaryFiles(item)}
+						<ContextMenuItem label="Discard changes (Binary files not yet supported)" disabled />
+					{:else}
+						<ContextMenuItem
+							label="Discard changes"
+							on:click={() => {
+								confirmationModal.show(item);
+								dismiss();
+							}}
+						/>
+					{/if}
 				{/if}
-				{#if item.files.length === 1}
+				{#if files.length === 1}
 					<ContextMenuItem
 						label="Copy Path"
 						on:click={async () => {

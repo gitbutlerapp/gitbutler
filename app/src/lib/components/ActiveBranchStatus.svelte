@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Tag from '$lib/components/Tag.svelte';
-	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
@@ -8,12 +7,14 @@
 	export let isUnapplied = false;
 	export let hasIntegratedCommits = false;
 	export let isLaneCollapsed: boolean;
+	export let branchName: string;
+	export let remoteExists: boolean;
 
 	const baseBranch = getContextStore(BaseBranch);
 	const branch = getContextStore(Branch);
 </script>
 
-{#if !$branch.upstream}
+{#if !remoteExists}
 	{#if !$branch.active}
 		<Tag
 			icon="virtual-branch-small"
@@ -48,7 +49,7 @@
 			help="Branch name that will be used when pushing. You can change it from the lane menu."
 			verticalOrientation={isLaneCollapsed}
 		>
-			origin/{$branch.upstreamName ? $branch.upstreamName : normalizeBranchName($branch.name)}</Tag
+			origin/{branchName}</Tag
 		>
 	{/if}
 {:else}
