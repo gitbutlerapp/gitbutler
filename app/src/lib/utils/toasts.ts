@@ -13,7 +13,7 @@ export function success(msg: string, options: ToastOptions = {}) {
 	return toast.success(msg, { ...defaultOptions, ...options });
 }
 
-export function promise(
+export async function promise(
 	promise: Promise<any>,
 	opts: { loading: string; success: string; error: string } = {
 		loading: 'Loading...',
@@ -21,5 +21,5 @@ export function promise(
 		error: 'Error!'
 	}
 ) {
-	return toast.promise(promise, opts, defaultOptions);
+	return await toast.promise(promise, opts, defaultOptions);
 }

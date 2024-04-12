@@ -268,7 +268,7 @@ export class GitHubService {
 		draft: boolean
 	): Promise<{ pr: PullRequest } | { err: string | { message: string; help: string } }> {
 		this.setBusy('creating_pr', branchId);
-		return firstValueFrom(
+		return await firstValueFrom(
 			// We have to wrap with defer becasue using `async` functions with operators
 			// create a promise that will stay rejected when rejected.
 			defer(async () => {

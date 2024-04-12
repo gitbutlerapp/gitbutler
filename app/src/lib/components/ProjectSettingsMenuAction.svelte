@@ -7,8 +7,8 @@
 
 	const project = getContext(Project);
 
-	function setEnabled(enabled: boolean) {
-		return invoke('menu_item_set_enabled', {
+	async function setEnabled(enabled: boolean) {
+		return await invoke('menu_item_set_enabled', {
 			menuItemId: 'project/settings',
 			enabled
 		});

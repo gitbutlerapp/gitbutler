@@ -58,7 +58,10 @@ module.exports = {
 				varsIgnorePattern: '^_',
 				caughtErrorsIgnorePattern: '^_'
 			}
-		]
+		],
+		'no-return-await': 'off', // Required to be off for @typescript-eslint/return-await
+		'@typescript-eslint/return-await': ['error', 'always'],
+		'@typescript-eslint/promise-function-async': 'error'
 	},
 	settings: {
 		'import/extensions': ['.ts'],

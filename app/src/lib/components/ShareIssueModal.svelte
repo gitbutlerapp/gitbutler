@@ -29,8 +29,8 @@
 		modal.show();
 	}
 
-	function gitIndexLength() {
-		return invoke<void>('git_index_size', {
+	async function gitIndexLength() {
+		return await invoke<void>('git_index_size', {
 			projectId: projectId
 		});
 	}
@@ -76,22 +76,27 @@
 
 		toasts.promise(
 			Promise.all([
-				sendLogs ? zip.logs().then((path) => readZipFile(path, 'logs.zip')) : undefined,
+				sendLogs ? zip.logs().then(async (path) => await readZipFile(path, 'logs.zip')) : undefined,
 				sendProjectData
-					? zip.gitbutlerData({ projectId }).then((path) => readZipFile(path, 'data.zip'))
+					? zip
+							.gitbutlerData({ projectId })
+							.then(async (path) => await readZipFile(path, 'data.zip'))
 					: undefined,
 				sendProjectRepository
-					? zip.projectData({ projectId }).then((path) => readZipFile(path, 'project.zip'))
+					? zip
+							.projectData({ projectId })
+							.then(async (path) => await readZipFile(path, 'project.zip'))
 					: undefined
-			]).then(async ([logs, data, repo]) =>
-				createFeedback($user?.access_token, {
-					email,
-					message,
-					context,
-					logs,
-					data,
-					repo
-				})
+			]).then(
+				async ([logs, data, repo]) =>
+					await createFeedback($user?.access_token, {
+						email,
+						message,
+						context,
+						logs,
+						data,
+						repo
+					})
 			),
 			{
 				loading:
@@ -105,7 +110,7 @@
 		close();
 	}
 
-	function createFeedback(
+	async function createFeedback(
 		token: string | undefined,
 		params: {
 			email?: string;
@@ -125,7 +130,7 @@
 		if (params.data) formData.append('data', params.data);
 
 		// Content Type must be unset for the right form-data border to be set automatically
-		return httpClient.put('feedback', {
+		return await httpClient.put('feedback', {
 			body: formData,
 			headers: { 'Content-Type': undefined },
 			token
@@ -141,7 +146,7 @@
 <Modal
 	bind:this={modal}
 	on:close={() => close()}
-	on:submit={() => submit()}
+	on:submit={async () => await submit()}
 	title="Share debug data with GitButler team for review"
 >
 	<div class="content-wrapper">
