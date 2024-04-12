@@ -1,21 +1,10 @@
-<script lang="ts" context="module">
-	export type ButtonStyle =
-		| 'neutral'
-		| 'ghost'
-		| 'pop'
-		| 'success'
-		| 'error'
-		| 'warning'
-		| 'purple';
-	export type ButtonKind = 'soft' | 'solid';
-</script>
-
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { onMount } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
+	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
 
 	// Interaction props
 	export let element: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
@@ -34,8 +23,8 @@
 	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' = 'auto';
 	export let isDropdownChild = false;
 	// Style props
-	export let style: ButtonStyle = 'neutral';
-	export let kind: ButtonKind = 'soft';
+	export let style: ComponentColor = 'neutral';
+	export let kind: ComponentStyleKind = 'soft';
 	// Additional elements
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let help = '';

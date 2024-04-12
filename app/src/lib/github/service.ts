@@ -383,7 +383,10 @@ export class GitHubService {
 			startedAt: firstStart,
 			hasChecks: !!totalCount,
 			success,
-			completed
+			completed,
+			queued,
+			totalCount,
+			skipped
 		};
 	}
 

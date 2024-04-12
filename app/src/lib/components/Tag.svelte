@@ -1,12 +1,8 @@
-<script lang="ts" context="module">
-	export type TagStyle = 'neutral' | 'ghost' | 'pop' | 'success' | 'error' | 'warning' | 'purple';
-	export type TagKind = 'soft' | 'solid';
-</script>
-
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
 	import { tooltip } from '$lib/utils/tooltip';
 	import type iconsJson from '$lib/icons/icons.json';
+	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
 
 	// Interaction props
 	export let help = '';
@@ -19,8 +15,8 @@
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let reversedDirection = false;
 	// Style props
-	export let style: TagStyle = 'neutral';
-	export let kind: TagKind = 'soft';
+	export let style: ComponentColor = 'neutral';
+	export let kind: ComponentStyleKind = 'soft';
 </script>
 
 <div

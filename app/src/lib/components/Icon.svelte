@@ -1,6 +1,7 @@
 <script lang="ts" context="module">
 	import { pxToRem } from '$lib/utils/pxToRem';
-	export type IconColor = 'success' | 'error' | 'pop' | 'warn' | 'neutral' | undefined;
+	import type { ComponentColor } from '$lib/vbranches/types';
+	export type IconColor = ComponentColor | undefined;
 </script>
 
 <script lang="ts">
@@ -14,13 +15,9 @@
 </script>
 
 <svg
-	class="icon-wrapper"
+	class="icon-wrapper {color}"
 	viewBox="0 0 16 16"
 	fill-rule="evenodd"
-	class:success={color == 'success'}
-	class:error={color == 'error'}
-	class:pop={color == 'pop'}
-	class:warn={color == 'warn'}
 	class:default={!color}
 	style:fill-opacity={opacity}
 	style:width={pxToRem(size)}
@@ -61,7 +58,7 @@
 	.pop {
 		color: var(--clr-scale-pop-50);
 	}
-	.warn {
+	.warning {
 		color: var(--clr-scale-warn-50);
 	}
 

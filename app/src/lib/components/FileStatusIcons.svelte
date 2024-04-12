@@ -20,7 +20,7 @@
 	<div class="file-status__icons">
 		{#if lockText}
 			<div class="locked" use:tooltip={{ text: lockText, delay: 500 }}>
-				<Icon name="locked-small" color="warn" />
+				<Icon name="locked-small" color="warning" />
 			</div>
 		{/if}
 		{#if file.conflicted}

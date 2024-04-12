@@ -1,7 +1,8 @@
 <script lang="ts">
 	import IconButton from './IconButton.svelte';
+	import InfoMessage from './InfoMessage.svelte';
 	import MergeButton from './MergeButton.svelte';
-	import Tag, { type TagStyle } from './Tag.svelte';
+	import Tag from './Tag.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
@@ -14,10 +15,19 @@
 	import { Branch } from '$lib/vbranches/types';
 	import { onDestroy } from 'svelte';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
+	import type { ComponentColor } from '$lib/vbranches/types';
+	import type { MessageStyle } from './InfoMessage.svelte';
 	import type iconsJson from '../icons/icons.json';
 	import type { Readable } from 'svelte/store';
 
 	export let isLaneCollapsed: boolean;
+
+	type StatusInfo = {
+		text: string;
+		icon: keyof typeof iconsJson | undefined;
+		style?: ComponentColor;
+		messageStyle?: MessageStyle;
+	};
 
 	const branch = getContextStore(Branch);
 	const branchService = getContext(BranchService);
@@ -34,21 +44,17 @@
 	let mergeableState: string | undefined;
 	let checksStatus: ChecksStatus | null | undefined = undefined;
 	let lastDetailsFetch: Readable<string> | undefined;
-	let lastChecksFetch: Readable<string> | undefined;
 
 	$: pr$ = githubService.getPr$($branch.upstreamName);
 	$: if ($branch && $pr$) updateDetailsAndChecks();
 
-	$: checksIcon = getChecksIcon(checksStatus, isFetchingChecks);
-	$: checksColor = getChecksColor(checksStatus);
-	$: checksText = getChecksText(checksStatus);
-	$: statusIcon = getStatusIcon(detailedPr);
-	$: statusColor = getStatusColor(detailedPr);
-	$: statusLabel = getPrStatusLabel(detailedPr);
+	$: checksTagInfo = getChecksTagInfo(checksStatus, isFetchingChecks);
+	$: infoProps = getInfoMessageInfo(detailedPr, mergeableState, checksStatus, isFetchingChecks);
+	$: prStatusInfo = getPrStatusInfo(detailedPr);
 
 	async function updateDetailsAndChecks() {
-		if (!isFetchingChecks) fetchChecks();
-		if (!isFetchingDetails) updateDetailedPullRequest($pr$?.targetBranch, false);
+		if (!isFetchingDetails) await updateDetailedPullRequest($pr$?.targetBranch, true);
+		if (!isFetchingChecks) await fetchChecks();
 	}
 
 	async function updateDetailedPullRequest(targetBranch: string | undefined, skipCache: boolean) {
@@ -70,13 +76,12 @@
 	async function fetchChecks() {
 		checksError = undefined;
 		isFetchingChecks = true;
+
 		try {
 			checksStatus = await githubService.checks($pr$?.targetBranch);
-			lastChecksFetch = createTimeAgoStore(new Date(), true);
 		} catch (e: any) {
 			console.error(e);
 			checksError = e.message;
-			checksStatus = { error: 'could not load checks' };
 			if (!e.message.includes('No commit found')) {
 				toasts.error('Failed to fetch checks');
 			}
@@ -88,7 +93,6 @@
 	}
 
 	function scheduleNextUpdate() {
-		if (checksStatus?.error) return;
 		if (!checksStatus || checksStatus.completed) return;
 
 		const startedAt = checksStatus.startedAt;
@@ -115,67 +119,109 @@
 		setTimeout(() => updateDetailsAndChecks(), timeUntilUdate * 1000);
 	}
 
-	// TODO: Refactor away the code duplication in the following functions
-	function getChecksColor(status: ChecksStatus): TagStyle | undefined {
-		if (checksError || detailsError) return 'error';
-		if (!status) return 'neutral';
-		if (!status.hasChecks) return 'neutral';
-		if (status.error) return 'error';
-		if (status.completed) {
-			return status.success ? 'success' : 'error';
-		}
-		return 'warning';
+	function getChecksCount(status: ChecksStatus): string {
+		if (!status) return 'Running checks';
+
+		const skipped = status.skipped || 0;
+		const total = (status.totalCount || 0) - skipped;
+		const queued = total - (status.queued || 0);
+
+		return `Running checks ${queued}/${total}`;
 	}
 
-	function getChecksIcon(
-		status: ChecksStatus,
+	function getChecksTagInfo(
+		status: ChecksStatus | null | undefined,
 		fetching: boolean
-	): keyof typeof iconsJson | undefined {
-		if (checksError || detailsError) return 'warning-small';
-		if (status === null) return;
-		if (fetching || !status) return 'spinner';
-		if (!status.hasChecks) return;
-		if (status.error) return 'error-small';
-		if (status.completed) {
-			return status.success ? 'success-small' : 'error-small';
+	): StatusInfo {
+		if (checksError || detailsError) {
+			return { style: 'error', icon: 'warning-small', text: 'Failed to load' };
 		}
 
-		return 'spinner';
-	}
-
-	function getChecksText(status: ChecksStatus | undefined | null): string | undefined {
-		if (checksError || detailsError) return 'Failed to load';
-		if (!status) return 'Checks';
-		if (!status.hasChecks) return 'No checks';
-		if (status.error) return 'error';
-		if (status.completed) {
-			return status.success ? 'Checks passed' : 'Checks failed';
+		if (fetching || !status) {
+			return { style: 'neutral', icon: 'spinner', text: 'Checks' };
 		}
-		// Checking this second to last let's us keep the previous tag color unless
-		// checks are currently running.
-		if (isFetchingChecks) return 'Checks';
-		return 'Checks are running';
+
+		if (status.completed) {
+			const style = status.success ? 'success' : 'error';
+			const icon = status.success ? 'success-small' : 'error-small';
+			const text = status.success ? 'Checks passed' : 'Checks failed';
+			return { style, icon, text };
+		}
+
+		return {
+			style: 'warning',
+			icon: 'spinner',
+			text: getChecksCount(status)
+		};
 	}
 
-	function getPrStatusLabel(pr: DetailedPullRequest | undefined): string {
-		if (pr?.mergedAt) return 'Merged';
-		if (pr?.closedAt) return 'Closed';
-		if (pr?.draft) return 'Draft';
-		return 'Open';
+	function getPrStatusInfo(pr: DetailedPullRequest | undefined): StatusInfo {
+		if (!pr) {
+			return { text: 'Status', icon: 'spinner', style: 'neutral' };
+		}
+
+		if (pr?.mergedAt) {
+			return { text: 'Merged', icon: 'merged-pr-small', style: 'purple' };
+		}
+
+		if (pr?.closedAt) {
+			return { text: 'Closed', icon: 'closed-pr-small', style: 'error' };
+		}
+
+		if (pr?.draft) {
+			return { text: 'Draft', icon: 'draft-pr-small', style: 'neutral' };
+		}
+
+		return { text: 'Open', icon: 'pr-small', style: 'success' };
 	}
 
-	function getStatusIcon(pr: DetailedPullRequest | undefined): keyof typeof iconsJson | undefined {
-		if (pr?.mergedAt) return 'merged-pr-small';
-		if (pr?.closedAt) return 'closed-pr-small';
-		if (pr?.closedAt) return 'draft-pr-small';
-		return 'pr-small';
-	}
+	function getInfoMessageInfo(
+		pr: DetailedPullRequest | undefined,
+		mergeableState: string | undefined,
+		checksStatus: ChecksStatus | null | undefined,
+		isFetchingChecks: boolean
+	): StatusInfo | undefined {
+		if (mergeableState == 'blocked' && !checksStatus && !isFetchingChecks) {
+			return {
+				icon: 'error',
+				messageStyle: 'error',
+				text: 'Merge is blocked due to pending reviews or missing dependencies. Resolve the issues before merging.'
+			};
+		}
 
-	function getStatusColor(pr: DetailedPullRequest | undefined): TagStyle {
-		if (pr?.mergedAt) return 'purple';
-		if (pr?.closedAt) return 'error';
-		if (pr?.draft) return 'neutral';
-		return 'success';
+		if (checksStatus?.completed) {
+			if (pr?.draft) {
+				return {
+					icon: 'warning',
+					messageStyle: 'neutral',
+					text: 'This pull request is still a work in progress. Draft pull requests cannot be merged.'
+				};
+			}
+
+			if (mergeableState == 'unstable') {
+				return {
+					icon: 'warning',
+					messageStyle: 'warning',
+					text: 'Your PR is causing instability or errors in the build or tests. Review the checks and fix the issues before merging.'
+				};
+			}
+
+			if (mergeableState == 'dirty') {
+				return {
+					icon: 'warning',
+					messageStyle: 'warning',
+					text: 'Your PR has conflicts that must be resolved before merging.'
+				};
+			}
+
+			if (mergeableState == 'blocked' && !isFetchingChecks) {
+				return {
+					icon: 'error',
+					messageStyle: 'error',
+					text: 'Merge is blocked due to failing checks. Resolve the issues before merging.'
+				};
+			}
+		}
 	}
 
 	function updateContextMenu(copyablePrUrl: string) {
@@ -195,14 +241,14 @@
 	});
 </script>
 
-{#if $pr$?.htmlUrl}
+{#if $pr$}
 	{@const pr = $pr$}
 	<div class="card pr-card">
 		<div class="floating-button">
 			<IconButton
 				icon="update-small"
 				size="m"
-				loading={isFetchingDetails}
+				loading={isFetchingDetails || isFetchingChecks}
 				help={$lastDetailsFetch ? 'Updated ' + $lastDetailsFetch : ''}
 				on:click={async () => {
 					await updateDetailsAndChecks();
@@ -215,24 +261,21 @@
 		</div>
 		<div class="pr-tags">
 			<Tag
-				icon={statusIcon}
-				style={statusColor}
-				kind={statusLabel !== 'Open' ? 'solid' : 'soft'}
+				icon={prStatusInfo.icon}
+				style={prStatusInfo.style}
+				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
 				verticalOrientation={isLaneCollapsed}
 			>
-				{statusLabel}
+				{prStatusInfo.text}
 			</Tag>
 			{#if !detailedPr?.closedAt && checksStatus !== null}
 				<Tag
-					icon={checksIcon}
-					style={checksColor}
-					kind={checksIcon == 'success-small' ? 'solid' : 'soft'}
-					clickable
+					icon={checksTagInfo.icon}
+					style={checksTagInfo.style}
+					kind={checksTagInfo.icon == 'success-small' ? 'solid' : 'soft'}
 					verticalOrientation={isLaneCollapsed}
-					on:mousedown={fetchChecks}
-					help={`Updated ${$lastChecksFetch}`}
 				>
-					{checksText}
+					{checksTagInfo.text}
 				</Tag>
 			{/if}
 			<Tag
@@ -242,7 +285,7 @@
 				clickable
 				shrinkable
 				verticalOrientation={isLaneCollapsed}
-				on:mousedown={(e) => {
+				on:click={(e) => {
 					const url = pr?.htmlUrl;
 					if (url) openExternalUrl(url);
 					e.preventDefault();
@@ -267,10 +310,19 @@
         -->
 		{#if pr}
 			<div class="pr-actions">
+				{#if infoProps}
+					<InfoMessage icon={infoProps.icon} filled outlined={false} style={infoProps.messageStyle}
+						>{infoProps.text}</InfoMessage
+					>
+				{/if}
+
 				<MergeButton
 					wide
 					projectId={project.id}
-					disabled={isFetchingChecks || pr?.draft || mergeableState != 'clean'}
+					disabled={isFetchingChecks ||
+						isFetchingDetails ||
+						pr?.draft ||
+						(mergeableState != 'clean' && mergeableState != 'unstable')}
 					loading={isMerging}
 					help="Merge pull request and refresh"
 					on:click={async (e) => {
@@ -317,6 +369,8 @@
 	.pr-actions {
 		margin-top: var(--size-14);
 		display: flex;
+		flex-direction: column;
+		gap: var(--size-8);
 	}
 
 	.floating-button {

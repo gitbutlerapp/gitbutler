@@ -48,7 +48,7 @@
 	{#if checks.length > 0}
 		<div transition:slide={{ duration: 250 }}>
 			<InfoMessage
-				style={errors > 0 ? 'warn' : loading ? 'neutral' : 'success'}
+				style={errors > 0 ? 'warning' : loading ? 'neutral' : 'success'}
 				filled
 				outlined={false}
 			>

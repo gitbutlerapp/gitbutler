@@ -1,6 +1,3 @@
-<script lang="ts" context="module">
-</script>
-
 <script lang="ts">
 	import InfoMessage from '$lib/components/InfoMessage.svelte';
 	import { dismissToast, toastStore } from '$lib/notifications/toasts';

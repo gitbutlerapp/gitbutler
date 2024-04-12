@@ -1,9 +1,10 @@
 <script lang="ts" context="module">
-	export type MessageStyle = 'neutral' | 'error' | 'pop' | 'warn' | 'success';
+	import type { ComponentColor } from '$lib/vbranches/types';
+	export type MessageStyle = Exclude<ComponentColor, 'ghost' | 'purple'>;
 </script>
 
 <script lang="ts">
-	import Button, { type ButtonStyle } from './Button.svelte';
+	import Button from './Button.svelte';
 	import Icon, { type IconColor } from '$lib/components/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '../icons/icons.json';
@@ -23,7 +24,7 @@
 	const iconMap: { [Key in MessageStyle]: keyof typeof iconsJson } = {
 		neutral: 'info',
 		pop: 'info',
-		warn: 'warning',
+		warning: 'warning',
 		error: 'error',
 		success: 'success'
 	};
@@ -31,27 +32,22 @@
 	const iconColorMap: { [Key in MessageStyle]: IconColor } = {
 		neutral: 'pop',
 		pop: 'pop',
-		warn: 'warn',
+		warning: 'warning',
 		error: 'error',
 		success: 'success'
 	};
 
-	const primaryButtonMap: { [Key in MessageStyle]: ButtonStyle } = {
+	const primaryButtonMap: { [Key in MessageStyle]: ComponentColor } = {
 		neutral: 'pop',
 		pop: 'pop',
-		warn: 'warning',
+		warning: 'warning',
 		error: 'error',
 		success: 'pop'
 	};
 </script>
 
 <div
-	class="info-message"
-	class:neutral={style == 'neutral'}
-	class:error={style == 'error'}
-	class:pop={style == 'pop'}
-	class:warn={style == 'warn'}
-	class:success={style == 'success'}
+	class="info-message {style}"
 	class:has-border={outlined}
 	class:has-background={filled}
 	class:shadow
@@ -137,7 +133,7 @@
 	.pop {
 		border: 0 solid var(--clr-scale-pop-50);
 	}
-	.warn {
+	.warning {
 		border: 0 solid var(--clr-scale-warn-60);
 	}
 	.success {
@@ -166,7 +162,7 @@
 			background-color: var(--clr-theme-pop-container);
 		}
 
-		&.warn {
+		&.warning {
 			background-color: var(--clr-theme-warn-container);
 		}
 

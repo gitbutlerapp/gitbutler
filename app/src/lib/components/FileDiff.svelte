@@ -59,7 +59,7 @@
 									delay: 500
 								}}
 							>
-								<Icon name="locked-small" color="warn" />
+								<Icon name="locked-small" color="warning" />
 							</div>
 						{/if}
 					</div>
