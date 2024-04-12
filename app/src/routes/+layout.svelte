@@ -22,6 +22,7 @@
 	import { onMount, setContext } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
+	import { dev } from '$app/environment';
 	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
@@ -71,7 +72,12 @@
 	});
 </script>
 
-<div data-tauri-drag-region class="app-root">
+<div
+	data-tauri-drag-region
+	class="app-root"
+	role="application"
+	on:contextmenu={(e) => !dev && e.preventDefault()}
+>
 	<slot />
 </div>
 <Toaster />
