@@ -8,6 +8,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { showError } from '$lib/notifications/toasts';
+	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Branch } from '$lib/vbranches/types';
@@ -27,9 +28,11 @@
 	let visible = false;
 	let isApplying = false;
 	let isDeleting = false;
+	let branchName = branch?.upstreamName || normalizeBranchName($branchStore.name);
 
-	function handleBranchNameChange() {
-		branchController.updateBranchName(branch.id, branch.name);
+	function handleBranchNameChange(title: string) {
+		branchName = normalizeBranchName(title);
+		branchController.updateBranchName(branch.id, title);
 	}
 
 	function collapseLane() {
@@ -70,8 +73,10 @@
 
 			<div class="collapsed-lane__info__details">
 				<ActiveBranchStatus
+					branchName={branch.upstreamName ?? branchName}
 					{isUnapplied}
 					{hasIntegratedCommits}
+					remoteExists={!!branch.upstreamName}
 					isLaneCollapsed={$isLaneCollapsed}
 				/>
 				{#if branch.selectedForChanges}
@@ -86,15 +91,17 @@
 			<div class="header__info">
 				<div class="header__label">
 					<BranchLabel
-						bind:name={branch.name}
-						on:change={handleBranchNameChange}
+						name={branch.name || 'hello'}
+						on:change={(e) => handleBranchNameChange(e.detail.name)}
 						disabled={isUnapplied}
 					/>
 				</div>
 				<div class="header__remote-branch">
 					<ActiveBranchStatus
+						branchName={branch.upstreamName ?? branchName}
 						{isUnapplied}
 						{hasIntegratedCommits}
+						remoteExists={!!branch.upstreamName}
 						isLaneCollapsed={$isLaneCollapsed}
 					/>
 

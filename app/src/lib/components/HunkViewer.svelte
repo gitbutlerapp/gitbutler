@@ -41,7 +41,6 @@
 
 	function updateContextMenu(filePath: string) {
 		if (popupMenu) popupMenu.$destroy();
-		console.log('hello', project.vscodePath);
 		return new HunkContextMenu({
 			target: document.body,
 			props: { projectPath: project.vscodePath, filePath }

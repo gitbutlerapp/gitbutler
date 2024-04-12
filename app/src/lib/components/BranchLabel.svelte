@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { createEventDispatcher } from 'svelte';
+
 	export let name: string;
 	export let disabled = false;
 	let inputActive = false;
@@ -16,6 +18,10 @@
 	let mesureEl: HTMLSpanElement;
 	let inputWidth = 0;
 
+	const dispatch = createEventDispatcher<{
+		change: { name: string };
+	}>();
+
 	$: {
 		if (mesureEl) {
 			inputWidth = mesureEl.getBoundingClientRect().width;
@@ -30,7 +36,7 @@
 		{disabled}
 		bind:this={input}
 		bind:value={name}
-		on:change
+		on:change={(e) => dispatch('change', { name: e.currentTarget.value })}
 		on:input={() => {
 			if (input.value.length > 0) {
 				inputWidth = mesureEl.getBoundingClientRect().width;

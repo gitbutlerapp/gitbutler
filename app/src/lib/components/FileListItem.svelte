@@ -7,6 +7,7 @@
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
 	import { updateFocus } from '$lib/utils/selection';
+	import { isDefined } from '$lib/utils/typeguards';
 	import { getCommitStore, getSelectedFiles } from '$lib/vbranches/contexts';
 	import { FileIdSelection, fileKey } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
@@ -117,14 +118,15 @@
 		}}
 		role="button"
 		tabindex="0"
-		on:contextmenu|preventDefault={(e) =>
-			popupMenu.openByMouse(e, {
-				files: fileIdSelection.has(file.id, $commit?.id)
-					? $fileIdSelection.map((key) =>
-							$branch?.files.find((f) => fileKey(f.id, $commit?.id) == key)
-						)
-					: [file]
-			})}
+		on:contextmenu|preventDefault={(e) => {
+			const files = fileIdSelection.has(file.id, $commit?.id)
+				? $fileIdSelection
+						.map((key) => $selectedFiles?.find((f) => fileKey(f.id, $commit?.id) == key))
+						.filter(isDefined)
+				: [file];
+			if (files.length > 0) popupMenu.openByMouse(e, { files });
+			else console.error('No files selected');
+		}}
 	>
 		<div class="info-wrap">
 			<div class="info">

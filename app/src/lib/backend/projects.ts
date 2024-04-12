@@ -79,12 +79,12 @@ export class ProjectService {
 	}
 
 	async updateProject(project: Project) {
-		plainToInstance(Project, await invoke<Project>('update_project', { project: project }));
+		plainToInstance(Project, await invoke('update_project', { project: project }));
 		this.reload();
 	}
 
 	async add(path: string) {
-		const project = plainToInstance(Project, await invoke<Project>('add_project', { path }));
+		const project = plainToInstance(Project, await invoke('add_project', { path }));
 		await this.reload();
 		return project;
 	}
