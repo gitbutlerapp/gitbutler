@@ -109,6 +109,7 @@ impl Signature {
             }
         }
 
+        #[allow(clippy::cast_precision_loss)]
         {
             (2 * matching_bigrams) as f64 / (original_length as usize + other.len() - 2) as f64
         }
