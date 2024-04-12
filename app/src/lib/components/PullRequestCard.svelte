@@ -79,6 +79,7 @@
 
 		try {
 			checksStatus = await githubService.checks($pr$?.targetBranch);
+			console.log(checksStatus);
 		} catch (e: any) {
 			console.error(e);
 			checksError = e.message;
@@ -263,7 +264,9 @@
 			<Tag
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.style}
-				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
+				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status'
+					? 'solid'
+					: 'soft'}
 				verticalOrientation={isLaneCollapsed}
 			>
 				{prStatusInfo.text}
@@ -311,8 +314,11 @@
 		{#if pr}
 			<div class="pr-actions">
 				{#if infoProps}
-					<InfoMessage icon={infoProps.icon} filled outlined={false} style={infoProps.messageStyle}
-						>{infoProps.text}</InfoMessage
+					<InfoMessage
+						icon={infoProps.icon}
+						filled
+						outlined={false}
+						style={infoProps.messageStyle}>{infoProps.text}</InfoMessage
 					>
 				{/if}
 
