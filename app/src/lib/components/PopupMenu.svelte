@@ -52,7 +52,7 @@
 		tabindex="0"
 		use:recordDimensions
 		use:clickOutside={{ handler: () => onDismiss() }}
-		style="position: absolute; top:{pos.y}px; left:{pos.x}px"
+		style="z-index: var(--z-floating); position: absolute; top:{pos.y}px; left:{pos.x}px"
 	>
 		<slot {item} dismiss={onDismiss} />
 	</div>
