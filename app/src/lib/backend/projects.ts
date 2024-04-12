@@ -105,14 +105,16 @@ export class ProjectService {
 	async addProject() {
 		const path = await this.promptForDirectory();
 		if (!path) return;
-		return await this.add(path)
-			.then(async (project) => {
-				if (!project) return;
-				toasts.success(`Project ${project.title} created`);
-				// linkProjectModal?.show(project.id);
-				goto(`/${project.id}/board`);
-			})
-			.catch((e: any) => showError('There was a problem', e.message));
+
+		try {
+			const project = await this.add(path);
+			if (!project) return;
+			toasts.success(`Project ${project.title} created`);
+			// linkProjectModal?.show(project.id);
+			goto(`/${project.id}/board`);
+		} catch (e: any) {
+			showError('There was a problem', e.message);
+		}
 	}
 
 	getLastOpenedProject() {
