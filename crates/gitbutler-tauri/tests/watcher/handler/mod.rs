@@ -14,7 +14,7 @@ mod support {
         pub assets_proxy: assets::Proxy,
 
         /// Keeps events emitted from the last created handler.
-        events: Option<std::sync::mpsc::Receiver<gitbutler_tauri::events::Event>>,
+        events: Option<std::sync::mpsc::Receiver<gitbutler_tauri::Event>>,
         /// Storage for the databases, to be dropped last.
         _tmp: TempDir,
     }
@@ -76,7 +76,7 @@ mod support {
         }
 
         /// Returns the events that were emitted to the tauri app.
-        pub fn events(&mut self) -> Vec<gitbutler_tauri::events::Event> {
+        pub fn events(&mut self) -> Vec<gitbutler_tauri::Event> {
             let Some(rx) = self.events.as_ref() else {
                 return Vec::new();
             };

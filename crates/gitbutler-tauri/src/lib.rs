@@ -16,7 +16,10 @@
 pub mod analytics;
 pub mod app;
 pub mod commands;
-pub mod events;
+
+mod events;
+pub use events::Event;
+
 pub mod logs;
 pub mod menu;
 pub mod watcher;
