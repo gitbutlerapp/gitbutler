@@ -28,7 +28,7 @@
 	{disabled}
 	bind:this={inputEl}
 	bind:value={name}
-	on:change={(e) => dispatch('change', { name: e.currentTarget.value })}
+	on:change={(e) => dispatch('change', { name: e.currentTarget.value.trim() })}
 	title={name}
 	class="branch-name-input text-base-14 text-bold"
 	on:dblclick|stopPropagation
