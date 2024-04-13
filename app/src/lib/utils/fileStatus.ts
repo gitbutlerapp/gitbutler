@@ -13,6 +13,7 @@ export function computeFileStatus(file: AnyFile): FileStatus {
 		}
 		return 'M';
 	}
+
 	if (file.hunks.length == 1) {
 		const changeType = file.hunks[0].changeType;
 		if (changeType == 'added') {
