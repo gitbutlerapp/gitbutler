@@ -19,7 +19,7 @@
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { setAutoHeight } from '$lib/utils/useAutoHeight';
+	import { useAutoHeight } from '$lib/utils/useAutoHeight';
 	import { useResize } from '$lib/utils/useResize';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Ownership } from '$lib/vbranches/ownership';
@@ -69,8 +69,8 @@
 	}
 
 	function updateHeights() {
-		setAutoHeight(titleTextArea);
-		setAutoHeight(descriptionTextArea);
+		useAutoHeight(titleTextArea);
+		useAutoHeight(descriptionTextArea);
 	}
 
 	async function commit() {
@@ -148,9 +148,9 @@
 					bind:this={titleTextArea}
 					use:focusTextareaOnMount
 					use:useResize={() => {
-						setAutoHeight(titleTextArea);
+						useAutoHeight(titleTextArea);
 					}}
-					on:focus={(e) => setAutoHeight(e.currentTarget)}
+					on:focus={(e) => useAutoHeight(e.currentTarget)}
 					on:input={(e) => {
 						$commitMessage = concatMessage(e.currentTarget.value, description);
 					}}
@@ -172,8 +172,8 @@
 						spellcheck="false"
 						rows="1"
 						bind:this={descriptionTextArea}
-						use:useResize={() => setAutoHeight(descriptionTextArea)}
-						on:focus={(e) => setAutoHeight(e.currentTarget)}
+						use:useResize={() => useAutoHeight(descriptionTextArea)}
+						on:focus={(e) => useAutoHeight(e.currentTarget)}
 						on:input={(e) => {
 							$commitMessage = concatMessage(title, e.currentTarget.value);
 						}}
@@ -182,7 +182,7 @@
 							if (e.key == 'Backspace' && value.length == 0) {
 								e.preventDefault();
 								titleTextArea.focus();
-								setAutoHeight(e.currentTarget);
+								useAutoHeight(e.currentTarget);
 							} else if (e.key == 'a' && (e.metaKey || e.ctrlKey) && value.length == 0) {
 								// select previous textarea on cmd+a if this textarea is empty
 								e.preventDefault();
