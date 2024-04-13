@@ -23,7 +23,7 @@ const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com
 pub fn update_gitbutler_integration(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<()> {
+) -> Result<git::Oid> {
     let target = gb_repository
         .default_target()
         .context("failed to get target")?
@@ -151,7 +151,7 @@ pub fn update_gitbutler_integration(
         GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
     )?;
 
-    repo.commit(
+    let final_commit = repo.commit(
         Some(&"refs/heads/gitbutler/integration".parse().unwrap()),
         &committer,
         &committer,
@@ -200,7 +200,7 @@ pub fn update_gitbutler_integration(
         )?;
     }
 
-    Ok(())
+    Ok(final_commit)
 }
 
 pub fn verify_branch(
