@@ -1,119 +1,97 @@
 <script lang="ts">
+	import { useResize } from '$lib/utils/useResize';
 	import { createEventDispatcher } from 'svelte';
 
 	export let name: string;
 	export let disabled = false;
-	let inputActive = false;
-	let label: HTMLDivElement;
-	let input: HTMLInputElement;
 
-	function activateInput() {
-		if (disabled) return;
-		inputActive = true;
-		setTimeout(() => input.select(), 0);
-	}
-
+	let inputEl: HTMLInputElement;
 	let initialName = name;
 
 	let mesureEl: HTMLSpanElement;
-	let inputWidth = 0;
+	let inputWidth: string | undefined;
 
 	const dispatch = createEventDispatcher<{
 		change: { name: string };
 	}>();
-
-	$: {
-		if (mesureEl) {
-			inputWidth = mesureEl.getBoundingClientRect().width;
-		}
-	}
 </script>
 
-{#if inputActive}
-	<span class="branch-name-mesure-el text-base-13 text-bold" bind:this={mesureEl}>{name}</span>
-	<input
-		type="text"
-		{disabled}
-		bind:this={input}
-		bind:value={name}
-		on:change={(e) => dispatch('change', { name: e.currentTarget.value })}
-		on:input={() => {
-			if (input.value.length > 0) {
-				inputWidth = mesureEl.getBoundingClientRect().width;
-			} else {
-				inputWidth = 0;
-			}
-		}}
-		title={name}
-		class="branch-name-input text-base-13 text-bold"
-		on:dblclick|stopPropagation
-		on:blur={() => (inputActive = false)}
-		on:keydown={(e) => {
-			if (e.key == 'Enter') {
-				// Unmount input field asynchronously to ensure on:change gets executed.
-				setTimeout(() => (inputActive = false), 0);
-				setTimeout(() => label.focus(), 0);
-			}
-
-			if (e.key == 'Escape') {
-				inputActive = false;
-				name = initialName;
-				setTimeout(() => label.focus(), 0);
-			}
-		}}
-		autocomplete="off"
-		autocorrect="off"
-		spellcheck="false"
-		style={`width: calc(${inputWidth}px + var(--size-12))`}
-	/>
-{:else}
-	<div
-		bind:this={label}
-		role="textbox"
-		tabindex="0"
-		class="branch-name text-base-13 text-bold truncate"
-		on:keydown={(e) => e.key == 'Enter' && activateInput()}
-		on:mousedown={activateInput}
-	>
-		{name}
-	</div>
-{/if}
+<span
+	use:useResize={(frame) => {
+		inputWidth = `${Math.round(frame.width)}px`;
+	}}
+	class="branch-name-mesure-el text-base-14 text-bold"
+	bind:this={mesureEl}>{name}</span
+>
+<input
+	type="text"
+	{disabled}
+	bind:this={inputEl}
+	bind:value={name}
+	on:change={(e) => dispatch('change', { name: e.currentTarget.value.trim() })}
+	title={name}
+	class="branch-name-input text-base-14 text-bold"
+	on:dblclick|stopPropagation
+	on:click|stopPropagation={() => {
+		inputEl.focus();
+	}}
+	on:blur={() => {
+		if (name == '') name = initialName;
+	}}
+	on:focus={() => {
+		initialName = name;
+	}}
+	on:keydown={(e) => {
+		if (e.key == 'Enter' || e.key == 'Escape') {
+			inputEl.blur();
+		}
+	}}
+	autocomplete="off"
+	autocorrect="off"
+	spellcheck="false"
+	style:width={inputWidth}
+/>
 
 <style lang="postcss">
-	.branch-name,
+	.branch-name-mesure-el,
 	.branch-name-input {
+		min-width: 2.8rem;
 		height: var(--size-20);
-		pointer-events: auto;
-		color: var(--clr-scale-ntrl-0);
 		padding: var(--size-2) var(--size-4);
-		border-radius: var(--radius-s);
 		border: 1px solid transparent;
 	}
-	.branch-name {
-		cursor: text;
-		display: inline-block;
-		transition: background-color var(--transition-fast);
-		&:hover,
-		&:focus {
-			background-color: var(--clr-bg-muted);
-			outline: none;
-		}
-	}
 	.branch-name-mesure-el {
+		pointer-events: auto;
 		visibility: hidden;
+		border: 2px solid transparent;
+		top: 30px;
+		color: black;
 		position: absolute;
 		display: inline-block;
 		visibility: hidden;
 		white-space: pre;
 	}
 	.branch-name-input {
-		min-width: 1rem;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		overflow: hidden;
+
 		max-width: 100%;
+		width: 100%;
+		border-radius: var(--radius-s);
+		color: var(--clr-scale-ntrl-0);
 		background-color: var(--clr-bg-main);
 		outline: none;
-		&:focus {
+
+		/* not readonly */
+		&:not([disabled]):hover {
+			background-color: var(--clr-bg-muted);
+		}
+
+		&:not([disabled]):focus {
 			outline: none;
 			background-color: var(--clr-bg-muted);
+			border-color: var(--clr-border-main);
 		}
 	}
 </style>

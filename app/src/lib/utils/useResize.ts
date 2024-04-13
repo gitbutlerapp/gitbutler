@@ -1,9 +1,15 @@
-export function useResize(element: HTMLElement, callback: (width: number, height: number) => void) {
+export function useResize(
+	element: HTMLElement,
+	callback: (frame: { width: number; height: number }) => void
+) {
 	const resizeObserver = new ResizeObserver((entries) => {
 		for (const entry of entries) {
-			const { width, height } = entry.contentRect;
+			const { inlineSize, blockSize } = entry.borderBoxSize[0];
 
-			callback(width, height);
+			callback({
+				width: Math.round(inlineSize),
+				height: Math.round(blockSize)
+			});
 		}
 	});
 
