@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SupportersBanner from './SupportersBanner.svelte';
-	import IconButton from '../IconButton.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
@@ -31,9 +31,10 @@
 		<div class="profile-sidebar__menu-wrapper">
 			<div class="profile-sidebar__header">
 				<div class="back-btn__icon">
-					<IconButton
+					<Button
 						icon="chevron-left"
-						size="m"
+						style="ghost"
+						kind="soft"
 						on:mousedown={() => {
 							if (history.length > 0) {
 								history.back();

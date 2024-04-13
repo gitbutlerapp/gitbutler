@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Button from './Button.svelte';
-	import IconButton from './IconButton.svelte';
 	import { UpdaterService } from '$lib/backend/updater';
 	import { showToast } from '$lib/notifications/toasts';
 	import { getContext } from '$lib/utils/context';
@@ -20,7 +19,7 @@
 {#if $update$?.version && $update$.status != 'UPTODATE' && !dismissed}
 	<div class="update-banner" class:busy={$update$?.status == 'PENDING'}>
 		<div class="floating-button">
-			<IconButton icon="cross-small" on:click={() => (dismissed = true)} />
+			<Button icon="cross-small" style="ghost" on:click={() => (dismissed = true)} />
 		</div>
 		<div class="img">
 			<div class="circle-img">

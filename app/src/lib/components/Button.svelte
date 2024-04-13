@@ -2,7 +2,6 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { onMount } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
 
@@ -15,9 +14,9 @@
 	export let tabindex = 0;
 	export let type: 'submit' | 'reset' | undefined = undefined;
 	// Layout props
-	export let width: number | undefined = undefined;
-	export let size: 'medium' | 'large' = 'medium';
 	export let reversedDirection: boolean = false;
+	export let width: number | undefined = undefined;
+	export let size: 'tag' | 'button' | 'cta' = 'button';
 	export let wide = false;
 	export let grow = false;
 	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' = 'auto';
@@ -32,11 +31,6 @@
 	export let badgeIcon: keyof typeof iconsJson | undefined = undefined;
 
 	const SLOTS = $$props.$$slots;
-
-	onMount(() => {
-		if (!element) return;
-		element.ariaLabel = element.innerText?.trim();
-	});
 </script>
 
 <button
@@ -45,6 +39,7 @@
 	class:wide
 	class:grow
 	class:not-button={clickable}
+	class:fixed-width={!SLOTS}
 	class:is-dropdown={isDropdownChild}
 	style:align-self={align}
 	style:width={width ? pxToRem(width) : undefined}
@@ -153,9 +148,9 @@
 			pointer-events: none;
 		}
 	}
+
 	.label {
 		display: inline-flex;
-		padding: 0 var(--size-2);
 	}
 
 	/* BADGE */
@@ -221,7 +216,7 @@
 
 			&:not(.not-button, &:disabled):hover {
 				--btn-clr: var(--clr-scale-ntrl-20);
-				--btn-bg: oklch(from var(--clr-core-ntrl-60) l c h / 0.15);
+				--btn-bg: var(--clr-bg-muted);
 			}
 
 			& .badge {
@@ -355,16 +350,41 @@
 
 	/* SIZE MODIFIERS */
 
-	.btn.medium {
-		height: var(--size-control-button);
-		min-width: var(--size-control-button);
-		padding: var(--size-4) var(--size-6);
+	.btn.tag {
+		height: var(--size-control-tag);
+		min-width: var(--size-control-tag);
+		padding: var(--size-2) var(--size-4);
 	}
 
-	.btn.large {
+	.btn.button {
+		height: var(--size-control-button);
+		min-width: var(--size-control-button);
+		padding: var(--size-4) var(--size-8);
+	}
+
+	.btn.cta {
 		height: var(--size-control-cta);
 		min-width: var(--size-control-cta);
 		padding: var(--size-6) var(--size-8);
+	}
+
+	/* FIXED WIDTH */
+
+	.btn.fixed-width {
+		&.tag {
+			width: var(--size-control-tag);
+			padding: var(--size-2);
+		}
+
+		&.button {
+			width: var(--size-control-button);
+			padding: var(--size-4);
+		}
+
+		&.cta {
+			width: var(--size-control-cta);
+			padding: var(--size-6);
+		}
 	}
 
 	/* DROPDOWN */
