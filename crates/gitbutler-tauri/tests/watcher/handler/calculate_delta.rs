@@ -34,10 +34,10 @@ impl State {
 
     pub(super) fn calculate_delta(
         &self,
-        path: impl AsRef<Path>,
+        path: impl Into<PathBuf>,
         project_id: ProjectId,
     ) -> Result<()> {
-        self.inner.calculate_deltas(path, project_id)?;
+        self.inner.calculate_deltas(vec![path.into()], project_id)?;
         Ok(())
     }
 }

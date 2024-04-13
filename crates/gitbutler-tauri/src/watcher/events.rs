@@ -1,4 +1,5 @@
-use std::{fmt::Display, path};
+use std::fmt::Display;
+use std::path::PathBuf;
 
 use gitbutler_core::{projects::ProjectId, sessions};
 
@@ -12,8 +13,8 @@ pub(super) enum InternalEvent {
     PushGitbutlerData(ProjectId),
 
     // From file monitor
-    GitFileChange(ProjectId, path::PathBuf),
-    ProjectFileChange(ProjectId, path::PathBuf),
+    GitFilesChange(ProjectId, Vec<PathBuf>),
+    ProjectFilesChange(ProjectId, Vec<PathBuf>),
 }
 
 /// This type captures all operations that can be fed into a watcher that runs in the background.
@@ -58,14 +59,40 @@ impl Display for InternalEvent {
             InternalEvent::Flush(project_id, session) => {
                 write!(f, "Flush({}, {})", project_id, session.id)
             }
-            InternalEvent::GitFileChange(project_id, path) => {
-                write!(f, "GitFileChange({}, {})", project_id, path.display())
+            InternalEvent::GitFilesChange(project_id, paths) => {
+                write!(
+                    f,
+                    "GitFileChange({}, {})",
+                    project_id,
+                    comma_separated_paths(paths)
+                )
             }
-            InternalEvent::ProjectFileChange(project_id, path) => {
-                write!(f, "ProjectFileChange({}, {})", project_id, path.display())
+            InternalEvent::ProjectFilesChange(project_id, paths) => {
+                write!(
+                    f,
+                    "ProjectFileChange({}, {})",
+                    project_id,
+                    comma_separated_paths(paths)
+                )
             }
             InternalEvent::CalculateVirtualBranches(pid) => write!(f, "VirtualBranch({})", pid),
             InternalEvent::PushGitbutlerData(pid) => write!(f, "PushGitbutlerData({})", pid),
         }
+    }
+}
+
+fn comma_separated_paths(paths: &[PathBuf]) -> String {
+    const MAX_LISTING: usize = 5;
+    let listing = paths
+        .iter()
+        .take(MAX_LISTING)
+        .filter_map(|path| path.to_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let remaining = paths.len().saturating_sub(MAX_LISTING);
+    if remaining > 0 {
+        format!("{listing} […{remaining} more]")
+    } else {
+        listing
     }
 }

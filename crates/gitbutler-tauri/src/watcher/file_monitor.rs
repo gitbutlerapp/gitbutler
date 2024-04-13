@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::Path;
 use std::{path, time::Duration};
 
@@ -7,6 +8,7 @@ use gitbutler_core::{git, projects::ProjectId};
 use notify::Watcher;
 use notify_debouncer_full::new_debouncer;
 use tokio::task;
+use tracing::Level;
 
 /// The timeout for debouncing file change events.
 /// This is used to prevent multiple events from being sent for a single file change.
@@ -66,57 +68,109 @@ pub fn spawn(
     })
     .context("failed to start watcher")?;
 
-    let repo = git::Repository::open(worktree_path).context(format!(
-        "failed to open project repository: {}",
-        worktree_path.display()
-    ))?;
-
-    tracing::debug!(%project_id, "file watcher started");
-
-    let path = worktree_path.to_owned();
+    let worktree_path = worktree_path.to_owned();
     task::spawn_blocking(move || {
+        tracing::debug!(%project_id, "file watcher started");
         let _debouncer = debouncer;
+        let _runtime = tracing::span!(Level::INFO, "file monitor", %project_id ).entered();
         'outer: for result in notify_rx {
+            let stats = tracing::span!(
+                Level::INFO,
+                "handle debounced events",
+                ignored = tracing::field::Empty,
+                project = tracing::field::Empty,
+                project_dedup = tracing::field::Empty,
+                git = tracing::field::Empty,
+                git_dedup = tracing::field::Empty,
+                git_noop = tracing::field::Empty,
+                fs_events = tracing::field::Empty,
+            )
+            .entered();
+            let (mut ignored, mut git_noop) = (0, 0);
             match result {
                 Err(err) => {
-                    tracing::error!(?err, "file watcher error");
+                    tracing::error!(?err, "ignored file watcher error");
                 }
                 Ok(events) => {
-                    let file_paths = events
+                    let maybe_repo = git::Repository::open(&worktree_path).with_context(
+                        || {
+                            format!(
+                                "failed to open project repository: {}",
+                                worktree_path.display()
+                            )
+                        },
+                    ).map(Some).unwrap_or_else(|err| {
+                        tracing::error!(?err, "will consider changes to all files as repository couldn't be opened");
+                        None
+                    });
+
+                    let num_events = events.len();
+                    let classified_file_paths = events
                         .into_iter()
                         .filter(|event| is_interesting_kind(event.kind))
                         .flat_map(|event| event.event.paths)
-                        .filter(|file| is_interesting_file(&repo, file));
-                    for file_path in file_paths {
-                        match file_path.strip_prefix(&path) {
-                            Ok(relative_file_path) => {
-                                if relative_file_path.as_os_str().is_empty() {
-                                    continue;
-                                }
-                                let event = if let Ok(stripped) =
-                                    relative_file_path.strip_prefix(".git")
-                                {
-                                    InternalEvent::GitFileChange(project_id, stripped.to_owned())
-                                } else {
-                                    InternalEvent::ProjectFileChange(
-                                        project_id,
-                                        relative_file_path.to_path_buf(),
-                                    )
-                                };
-                                if out.send(event).is_err() {
-                                    tracing::info!("channel closed - stopping file watcher");
-                                    break 'outer;
+                        .map(|file| {
+                            let kind = maybe_repo
+                                .as_ref()
+                                .map_or(FileKind::Project, |repo| classify_file(repo, &file));
+                            (file, kind)
+                        });
+                    let (mut stripped_git_paths, mut worktree_relative_paths) =
+                        (HashSet::new(), HashSet::new());
+                    for (file_path, kind) in classified_file_paths {
+                        match kind {
+                            FileKind::ProjectIgnored => ignored += 1,
+                            FileKind::GitUninteresting => git_noop += 1,
+                            FileKind::Project | FileKind::Git => {
+                                match file_path.strip_prefix(&worktree_path) {
+                                    Ok(relative_file_path) => {
+                                        if relative_file_path.as_os_str().is_empty() {
+                                            continue;
+                                        }
+                                        if let Ok(stripped) =
+                                            relative_file_path.strip_prefix(".git")
+                                        {
+                                            stripped_git_paths.insert(stripped.to_owned());
+                                        } else {
+                                            worktree_relative_paths
+                                                .insert(relative_file_path.to_owned());
+                                        };
+                                    }
+                                    Err(err) => {
+                                        tracing::error!(%project_id, ?err, "failed to strip prefix");
+                                    }
                                 }
                             }
-                            Err(err) => {
-                                tracing::error!(%project_id, ?err, "failed to strip prefix");
-                            }
+                        }
+                    }
+
+                    stats.record("fs_events", num_events);
+                    stats.record("ignored", ignored);
+                    stats.record("git_noop", git_noop);
+                    stats.record("git", stripped_git_paths.len());
+                    stats.record("project", worktree_relative_paths.len());
+
+                    if !stripped_git_paths.is_empty() {
+                        let paths_dedup: Vec<_> = stripped_git_paths.into_iter().collect();
+                        stats.record("git_dedup", paths_dedup.len());
+                        let event = InternalEvent::GitFilesChange(project_id, paths_dedup);
+                        if out.send(event).is_err() {
+                            tracing::info!("channel closed - stopping file watcher");
+                            break 'outer;
+                        }
+                    }
+                    if !worktree_relative_paths.is_empty() {
+                        let paths_dedup: Vec<_> = worktree_relative_paths.into_iter().collect();
+                        stats.record("project_dedup", paths_dedup.len());
+                        let event = InternalEvent::ProjectFilesChange(project_id, paths_dedup);
+                        if out.send(event).is_err() {
+                            tracing::info!("channel closed - stopping file watcher");
+                            break 'outer;
                         }
                     }
                 }
             }
         }
-        tracing::debug!(%project_id, "file watcher stopped");
     });
     Ok(())
 }
@@ -140,15 +194,33 @@ fn is_interesting_kind(kind: notify::EventKind) -> bool {
     )
 }
 
-fn is_interesting_file(git_repo: &git::Repository, file_path: &Path) -> bool {
-    if file_path.starts_with(git_repo.path()) {
-        let check_file_path = file_path.strip_prefix(git_repo.path()).unwrap();
-        check_file_path.ends_with("FETCH_HEAD")
+/// A classification for a changed file.
+enum FileKind {
+    /// A file in the `.git` repository of the current project itself.
+    Git,
+    /// Like `Git`, but shouldn't have any effect.
+    GitUninteresting,
+    /// A file in the worktree of the current project.
+    Project,
+    /// A file that was ignored in the project, and thus shouldn't trigger a computation.
+    ProjectIgnored,
+}
+
+fn classify_file(git_repo: &git::Repository, file_path: &Path) -> FileKind {
+    if let Ok(check_file_path) = file_path.strip_prefix(git_repo.path()) {
+        if check_file_path.ends_with("FETCH_HEAD")
             || check_file_path.eq(path::Path::new("logs/HEAD"))
             || check_file_path.eq(path::Path::new("HEAD"))
             || check_file_path.eq(path::Path::new("GB_FLUSH"))
             || check_file_path.eq(path::Path::new("index"))
+        {
+            FileKind::Git
+        } else {
+            FileKind::GitUninteresting
+        }
+    } else if git_repo.is_path_ignored(file_path).unwrap_or(false) {
+        FileKind::ProjectIgnored
     } else {
-        !git_repo.is_path_ignored(file_path).unwrap_or(false)
+        FileKind::Project
     }
 }

@@ -33,8 +33,8 @@ async fn flush_session() -> Result<()> {
     let events = fixture.events();
     assert_eq!(events.len(), 4);
     assert!(events[0].name().ends_with("/files"));
-    assert!(events[1].name().ends_with("/sessions"));
-    assert!(events[2].name().ends_with("/deltas"));
+    assert!(events[1].name().ends_with("/deltas"));
+    assert!(events[2].name().ends_with("/sessions"));
     assert!(events[3].name().ends_with("/sessions"));
     Ok(())
 }
@@ -58,8 +58,8 @@ async fn do_not_flush_session_if_file_is_missing() -> Result<()> {
     let events = fixture.events();
     assert_eq!(events.len(), 3);
     assert!(events[0].name().ends_with("/files"));
-    assert!(events[1].name().ends_with("/sessions"));
-    assert!(events[2].name().ends_with("/deltas"));
+    assert!(events[1].name().ends_with("/deltas"));
+    assert!(events[2].name().ends_with("/sessions"));
     Ok(())
 }
 
@@ -87,6 +87,8 @@ fn create_new_session_via_new_file(
     fs::write(project.path.join("test.txt"), "test").unwrap();
 
     let handler = fixture.new_handler();
-    handler.calculate_deltas("test.txt", project.id).unwrap();
+    handler
+        .calculate_deltas(vec!["test.txt".into()], project.id)
+        .unwrap();
     handler
 }

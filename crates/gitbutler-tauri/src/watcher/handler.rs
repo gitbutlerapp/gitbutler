@@ -44,7 +44,7 @@ pub struct Handler {
     deltas_db: deltas::Database,
 
     /// A rate-limiter for the `is-ignored` computation
-    is_ignored_limit: Arc<RateLimiter<NotKeyed, InMemoryState, QuantaClock>>,
+    recalc_all_limit: Arc<RateLimiter<NotKeyed, InMemoryState, QuantaClock>>,
 
     /// A function to send events - decoupled from app-handle for testing purposes.
     #[allow(clippy::type_complexity)]
@@ -105,7 +105,7 @@ impl Handler {
             Arc::new(RateLimiter::direct(quota))
         };
         // There could be an application (e.g an IDE) which is constantly writing, so the threshold cant be too high
-        let is_ignored_limit = {
+        let recalc_all_limit = {
             let quota = Quota::with_period(Duration::from_millis(5)).expect("valid quota");
             Arc::new(RateLimiter::direct(quota))
         };
@@ -119,26 +119,25 @@ impl Handler {
             calc_vbranch_limit,
             sessions_db,
             deltas_db,
-            is_ignored_limit,
+            recalc_all_limit,
             send_event: Arc::new(send_event),
         }
     }
 
     /// Handle the events that come in from the filesystem, or the public API.
-    #[instrument(skip(self, now), fields(event = %event), level = "debug", err(Debug))]
+    #[instrument(skip(self, now), fields(event = %event), err(Debug))]
     pub(super) async fn handle(
         &self,
         event: events::InternalEvent,
         now: time::SystemTime,
     ) -> Result<()> {
         match event {
-            events::InternalEvent::ProjectFileChange(project_id, path) => {
-                self.recalculate_everything_unless_ignored(path, project_id)
-                    .await
+            events::InternalEvent::ProjectFilesChange(project_id, path) => {
+                self.recalculate_everything(path, project_id).await
             }
 
-            events::InternalEvent::GitFileChange(project_id, path) => self
-                .git_file_change(path, project_id)
+            events::InternalEvent::GitFilesChange(project_id, paths) => self
+                .git_files_change(paths, project_id)
                 .await
                 .context("failed to handle git file change event"),
 
@@ -165,24 +164,6 @@ impl Handler {
 }
 
 impl Handler {
-    fn session_delta(
-        &self,
-        project_id: ProjectId,
-        session_id: SessionId,
-        path: &Path,
-        delta: &deltas::Delta,
-    ) -> Result<()> {
-        self.index_deltas(project_id, session_id, path, std::slice::from_ref(delta))
-            .context("failed to index deltas")?;
-
-        self.emit_app_event(&app_events::Event::deltas(
-            project_id,
-            session_id,
-            std::slice::from_ref(delta),
-            path,
-        ))
-    }
-
     fn emit_app_event(&self, event: &crate::events::Event) -> Result<()> {
         (self.send_event)(event).context("failed to send event")
     }
@@ -194,7 +175,7 @@ impl Handler {
         file_path: &Path,
         contents: Option<&reader::Content>,
     ) -> Result<()> {
-        (self.send_event)(&app_events::Event::file(
+        self.emit_app_event(&app_events::Event::file(
             project_id,
             session_id,
             &file_path.display().to_string(),
@@ -243,8 +224,10 @@ impl Handler {
         Ok(())
     }
 
+    #[instrument(skip(self, project_id))]
     async fn calculate_virtual_branches(&self, project_id: ProjectId) -> Result<()> {
         if self.calc_vbranch_limit.check().is_err() {
+            tracing::warn!("rate limited");
             return Ok(());
         }
         match self
@@ -360,32 +343,19 @@ impl Handler {
         Ok(())
     }
 
-    // TODO(ST): figure out if this is needed, it's going to be very slow. The file monitor already filters,
-    //           however, it uses a cached project which might not see changes to the .gitignore files.
-    //           so opening a fresh repo (or doing the minimal work to get there) seems to be required at first,
-    //           but one should handle all paths at once.
-    async fn recalculate_everything_unless_ignored(
+    #[instrument(skip(self, paths, project_id), fields(paths = paths.len()))]
+    async fn recalculate_everything(
         &self,
-        path: PathBuf,
+        paths: Vec<PathBuf>,
         project_id: ProjectId,
     ) -> Result<()> {
-        if self.is_ignored_limit.check().is_err() {
+        if self.recalc_all_limit.check().is_err() {
+            tracing::warn!("rate limited");
             return Ok(());
         }
-        let project = self
-            .projects
-            .get(&project_id)
-            .context("failed to get project")?;
-        let project_repository = project_repository::Repository::open(&project)
-            .with_context(|| "failed to open project repository for project")?;
-
-        if project_repository.is_path_ignored(&path).unwrap_or(false) {
-            return Ok(());
-        }
-
         let calc_deltas = tokio::task::spawn_blocking({
             let this = self.clone();
-            move || this.calculate_deltas(path, project_id)
+            move || this.calculate_deltas(paths, project_id)
         });
         self.calculate_virtual_branches(project_id).await?;
         calc_deltas.await??;
@@ -394,10 +364,13 @@ impl Handler {
 
     pub async fn git_file_change(
         &self,
-        path: impl AsRef<Path>,
+        path: impl Into<PathBuf>,
         project_id: ProjectId,
     ) -> Result<()> {
-        let path = path.as_ref();
+        self.git_files_change(vec![path.into()], project_id).await
+    }
+
+    pub async fn git_files_change(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
         let project = self
             .projects
             .get(&project_id)
@@ -407,76 +380,74 @@ impl Handler {
                 .context("failed to open project repository for project")
         };
 
-        let Some(file_name) = path.to_str() else {
-            return Ok(());
-        };
-        match file_name {
-            "FETCH_HEAD" => {
-                self.emit_app_event(&app_events::Event::git_fetch(project_id))?;
-                self.calculate_virtual_branches(project_id).await?;
-                Ok(())
-            }
-            "logs/HEAD" => {
-                self.emit_app_event(&app_events::Event::git_activity(project.id))?;
-                Ok(())
-            }
-            "GB_FLUSH" => {
-                let user = self.users.get_user()?;
-                let project_repository = open_projects_repository()?;
-                let gb_repo = gb_repository::Repository::open(
-                    &self.local_data_dir,
-                    &project_repository,
-                    user.as_ref(),
-                )
-                .context("failed to open repository")?;
+        for path in paths {
+            let Some(file_name) = path.to_str() else {
+                continue;
+            };
+            match file_name {
+                "FETCH_HEAD" => {
+                    self.emit_app_event(&app_events::Event::git_fetch(project_id))?;
+                    self.calculate_virtual_branches(project_id).await?;
+                }
+                "logs/HEAD" => {
+                    self.emit_app_event(&app_events::Event::git_activity(project.id))?;
+                }
+                "GB_FLUSH" => {
+                    let user = self.users.get_user()?;
+                    let project_repository = open_projects_repository()?;
+                    let gb_repo = gb_repository::Repository::open(
+                        &self.local_data_dir,
+                        &project_repository,
+                        user.as_ref(),
+                    )
+                    .context("failed to open repository")?;
 
-                let gb_flush_path = project.path.join(".git/GB_FLUSH");
-                if gb_flush_path.exists() {
-                    if let Err(err) = std::fs::remove_file(&gb_flush_path) {
-                        tracing::error!(%project_id, path = %gb_flush_path.display(), "GB_FLUSH file delete error: {err}");
-                    }
+                    let gb_flush_path = project.path.join(".git/GB_FLUSH");
+                    if gb_flush_path.exists() {
+                        if let Err(err) = std::fs::remove_file(&gb_flush_path) {
+                            tracing::error!(%project_id, path = %gb_flush_path.display(), "GB_FLUSH file delete error: {err}");
+                        }
 
-                    if let Some(current_session) = gb_repo
-                        .get_current_session()
-                        .context("failed to get current session")?
-                    {
-                        return self.flush_session(project.id, &current_session).await;
+                        if let Some(current_session) = gb_repo
+                            .get_current_session()
+                            .context("failed to get current session")?
+                        {
+                            self.flush_session(project.id, &current_session).await?;
+                        }
                     }
                 }
-                Ok(())
-            }
-            "HEAD" => {
-                let project_repository = open_projects_repository()?;
-                let head_ref = project_repository
-                    .get_head()
-                    .context("failed to get head")?;
-                let head_ref_name = head_ref.name().context("failed to get head name")?;
-                if head_ref_name.to_string() != "refs/heads/gitbutler/integration" {
-                    let mut integration_reference = project_repository
-                        .git_repository
-                        .find_reference(&git::Refname::from(git::LocalRefname::new(
-                            "gitbutler/integration",
-                            None,
-                        )))?;
-                    integration_reference.delete()?;
+                "HEAD" => {
+                    let project_repository = open_projects_repository()?;
+                    let head_ref = project_repository
+                        .get_head()
+                        .context("failed to get head")?;
+                    let head_ref_name = head_ref.name().context("failed to get head name")?;
+                    if head_ref_name.to_string() != "refs/heads/gitbutler/integration" {
+                        let mut integration_reference = project_repository
+                            .git_repository
+                            .find_reference(&git::Refname::from(git::LocalRefname::new(
+                                "gitbutler/integration",
+                                None,
+                            )))?;
+                        integration_reference.delete()?;
+                    }
+                    if let Some(head) = head_ref.name() {
+                        self.send_analytics_event_none_blocking(&analytics::Event::HeadChange {
+                            project_id,
+                            reference_name: head_ref_name.to_string(),
+                        })?;
+                        self.emit_app_event(&app_events::Event::git_head(
+                            project_id,
+                            &head.to_string(),
+                        ))?;
+                    }
                 }
-                if let Some(head) = head_ref.name() {
-                    self.send_analytics_event_none_blocking(&analytics::Event::HeadChange {
-                        project_id,
-                        reference_name: head_ref_name.to_string(),
-                    })?;
-                    self.emit_app_event(&app_events::Event::git_head(
-                        project_id,
-                        &head.to_string(),
-                    ))?;
+                "index" => {
+                    self.emit_app_event(&app_events::Event::git_index(project.id))?;
                 }
-                Ok(())
+                _ => {}
             }
-            "index" => {
-                self.emit_app_event(&app_events::Event::git_index(project.id))?;
-                Ok(())
-            }
-            _ => Ok(()),
         }
+        Ok(())
     }
 }
