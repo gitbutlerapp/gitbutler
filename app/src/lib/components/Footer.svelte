@@ -1,6 +1,6 @@
 <script lang="ts">
+	import Button from './Button.svelte';
 	import AccountLink from '$lib/components/AccountLink.svelte';
-	import IconButton from '$lib/components/IconButton.svelte';
 	import * as events from '$lib/utils/events';
 	import { goto } from '$app/navigation';
 
@@ -10,19 +10,19 @@
 
 <div class="footer" class:collapsed={isNavCollapsed}>
 	<div class="left-btns">
-		<IconButton
+		<Button
 			icon="mail"
-			help="Send feedback"
-			size="l"
-			width={isNavCollapsed ? '100%' : undefined}
+			style="ghost"
+			size="cta"
 			on:mousedown={() => events.emit('openSendIssueModal')}
+			wide={isNavCollapsed}
 		/>
-		<IconButton
+		<Button
 			icon="settings"
-			help="Project settings"
-			size="l"
-			width={isNavCollapsed ? '100%' : undefined}
+			style="ghost"
+			size="cta"
 			on:mousedown={() => goto(`/${projectId}/settings`)}
+			wide={isNavCollapsed}
 		/>
 	</div>
 	<AccountLink {isNavCollapsed} />
