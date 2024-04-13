@@ -44,7 +44,7 @@
 			toasts.success('GitHub authenticated');
 		} catch (err: any) {
 			console.error(err);
-			toasts.success('GitHub authentication failed');
+			toasts.error('GitHub authentication failed');
 		} finally {
 			loading = false;
 			gitHubOauthModal.close();
