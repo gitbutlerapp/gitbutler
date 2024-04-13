@@ -31,6 +31,8 @@
 	let branchName = branch?.upstreamName || normalizeBranchName($branchStore.name);
 
 	function handleBranchNameChange(title: string) {
+		if (title == '') return;
+
 		branchName = normalizeBranchName(title);
 		branchController.updateBranchName(branch.id, title);
 	}
@@ -87,40 +89,44 @@
 	</div>
 {:else}
 	<div class="header__wrapper">
-		<div class="header card" class:isUnapplied>
-			<div class="header__info">
-				<div class="header__label">
+		<div class="header card">
+			<div class="header__info-wrapper">
+				{#if !isUnapplied}
+					<div class="draggable" data-drag-handle>
+						<Icon name="draggable" />
+					</div>
+				{/if}
+
+				<div class="header__info">
 					<BranchLabel
-						name={branch.name || 'hello'}
+						name={branch.name}
 						on:change={(e) => handleBranchNameChange(e.detail.name)}
 						disabled={isUnapplied}
 					/>
-				</div>
-				<div class="header__remote-branch">
-					<ActiveBranchStatus
-						branchName={branch.upstreamName ?? branchName}
-						{isUnapplied}
-						{hasIntegratedCommits}
-						remoteExists={!!branch.upstreamName}
-						isLaneCollapsed={$isLaneCollapsed}
-					/>
+					<div class="header__remote-branch">
+						<ActiveBranchStatus
+							branchName={branch.upstreamName ?? branchName}
+							{isUnapplied}
+							{hasIntegratedCommits}
+							remoteExists={!!branch.upstreamName}
+							isLaneCollapsed={$isLaneCollapsed}
+						/>
 
-					{#await branch.isMergeable then isMergeable}
-						{#if !isMergeable}
-							<Tag
-								icon="locked-small"
-								style="warning"
-								help="Applying this branch will add merge conflict markers that you will have to resolve"
-							>
-								Conflict
-							</Tag>
-						{/if}
-					{/await}
-				</div>
-				<div class="draggable" data-drag-handle>
-					<Icon name="draggable" />
+						{#await branch.isMergeable then isMergeable}
+							{#if !isMergeable}
+								<Tag
+									icon="locked-small"
+									style="warning"
+									help="Applying this branch will add merge conflict markers that you will have to resolve"
+								>
+									Conflict
+								</Tag>
+							{/if}
+						{/await}
+					</div>
 				</div>
 			</div>
+
 			<div class="header__actions">
 				<div class="header__buttons">
 					{#if branch.active}
@@ -229,7 +235,7 @@
 	</div>
 {/if}
 
-<style lang="postcss">
+<style>
 	.header__wrapper {
 		z-index: var(--z-lifted);
 		position: sticky;
@@ -240,15 +246,6 @@
 		position: relative;
 		flex-direction: column;
 		gap: var(--size-2);
-
-		&:hover {
-			& .draggable {
-				opacity: 1;
-			}
-		}
-		&.isUnapplied {
-			background: var(--clr-bg-alt);
-		}
 	}
 	.header__top-overlay {
 		z-index: var(--z-ground);
@@ -258,13 +255,17 @@
 		width: 100%;
 		height: var(--size-20);
 		background: var(--target-branch-background);
-		/* background-color: red; */
+	}
+	.header__info-wrapper {
+		display: flex;
+		gap: var(--size-2);
+		padding: var(--size-10);
 	}
 	.header__info {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
-		transition: margin var(--transition-slow);
-		padding: var(--size-12);
+		overflow: hidden;
 		gap: var(--size-10);
 	}
 	.header__actions {
@@ -276,31 +277,19 @@
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 		user-select: none;
 	}
-	.isUnapplied .header__actions {
-		border-top: 1px solid var(--clr-border-main);
-	}
+
 	.header__buttons {
 		display: flex;
 		position: relative;
 		gap: var(--size-4);
 	}
-	.header__label {
-		display: flex;
-		flex-grow: 1;
-		align-items: center;
-		gap: var(--size-4);
-	}
 	.draggable {
 		display: flex;
+		height: fit-content;
 		cursor: grab;
-		position: absolute;
-		right: var(--size-4);
-		top: var(--size-6);
-		opacity: 0;
+		padding: var(--size-2) var(--size-2) 0 0;
 		color: var(--clr-scale-ntrl-50);
-		transition:
-			opacity var(--transition-slow),
-			color var(--transition-slow);
+		transition: color var(--transition-slow);
 
 		&:hover {
 			color: var(--clr-scale-ntrl-40);
@@ -326,7 +315,7 @@
 		align-items: center;
 	}
 
-	/*  COLLAPSABLE LANE */
+	/*  COLLAPSIBLE LANE */
 
 	.collapsed-lane {
 		cursor: default;
