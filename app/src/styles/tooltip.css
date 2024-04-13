@@ -6,10 +6,24 @@
 	color: var(--clr-core-ntrl-60);
 	display: inline-block;
 	padding: var(--size-6);
-	z-index: var(--z-floating);
+	z-index: var(--z-tooltip);
 
 	max-width: 11.25rem;
 	position: absolute;
 	left: -9999px;
 	top: -9999px;
+
+	opacity: 0;
+	animation: showup-tooltip-animation 0.1s ease-out forwards;
+}
+
+@keyframes showup-tooltip-animation {
+	from {
+		opacity: 0;
+		transform: translateY(-0.2rem) scale(0.9);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
 }
