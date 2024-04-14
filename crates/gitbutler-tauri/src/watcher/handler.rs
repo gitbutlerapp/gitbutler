@@ -4,7 +4,6 @@ mod push_project_to_gitbutler;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
 use std::{path, time};
 
 use anyhow::{bail, Context, Result};
@@ -15,9 +14,6 @@ use gitbutler_core::{
     assets, deltas, gb_repository, git, project_repository, projects, reader, sessions, users,
     virtual_branches,
 };
-use governor::clock::QuantaClock;
-use governor::state::{InMemoryState, NotKeyed};
-use governor::{Quota, RateLimiter};
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
@@ -38,13 +34,8 @@ pub struct Handler {
     projects: projects::Controller,
     vbranch_controller: virtual_branches::Controller,
     assets_proxy: assets::Proxy,
-    /// A rate-limiter for the vbranch calculation.
-    calc_vbranch_limit: Arc<RateLimiter<NotKeyed, InMemoryState, QuantaClock>>,
     sessions_db: sessions::Database,
     deltas_db: deltas::Database,
-
-    /// A rate-limiter for the `is-ignored` computation
-    recalc_all_limit: Arc<RateLimiter<NotKeyed, InMemoryState, QuantaClock>>,
 
     /// A function to send events - decoupled from app-handle for testing purposes.
     #[allow(clippy::type_complexity)]
@@ -100,15 +91,6 @@ impl Handler {
         deltas_db: deltas::Database,
         send_event: impl Fn(&crate::events::Event) -> Result<()> + Send + Sync + 'static,
     ) -> Self {
-        let calc_vbranch_limit = {
-            let quota = Quota::with_period(Duration::from_millis(100)).expect("valid quota");
-            Arc::new(RateLimiter::direct(quota))
-        };
-        // There could be an application (e.g an IDE) which is constantly writing, so the threshold cant be too high
-        let recalc_all_limit = {
-            let quota = Quota::with_period(Duration::from_millis(5)).expect("valid quota");
-            Arc::new(RateLimiter::direct(quota))
-        };
         Handler {
             local_data_dir,
             analytics,
@@ -116,10 +98,8 @@ impl Handler {
             projects,
             vbranch_controller,
             assets_proxy,
-            calc_vbranch_limit,
             sessions_db,
             deltas_db,
-            recalc_all_limit,
             send_event: Arc::new(send_event),
         }
     }
@@ -226,10 +206,6 @@ impl Handler {
 
     #[instrument(skip(self, project_id))]
     async fn calculate_virtual_branches(&self, project_id: ProjectId) -> Result<()> {
-        if self.calc_vbranch_limit.check().is_err() {
-            tracing::warn!("rate limited");
-            return Ok(());
-        }
         match self
             .vbranch_controller
             .list_virtual_branches(&project_id)
@@ -349,10 +325,6 @@ impl Handler {
         paths: Vec<PathBuf>,
         project_id: ProjectId,
     ) -> Result<()> {
-        if self.recalc_all_limit.check().is_err() {
-            tracing::warn!("rate limited");
-            return Ok(());
-        }
         let calc_deltas = tokio::task::spawn_blocking({
             let this = self.clone();
             move || this.calculate_deltas(paths, project_id)
