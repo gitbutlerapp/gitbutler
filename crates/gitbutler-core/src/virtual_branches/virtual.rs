@@ -2717,9 +2717,11 @@ pub fn commit(
             })
         })?;
 
+    let uncommitted_base =
+        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
     // get the files to commit
     let (mut statuses, _) =
-        get_status_by_branch(gb_repository, project_repository, Some(&default_target.sha))
+        get_status_by_branch(gb_repository, project_repository, Some(&uncommitted_base))
             .context("failed to get status by branch")?;
 
     let (ref mut branch, files) = statuses
