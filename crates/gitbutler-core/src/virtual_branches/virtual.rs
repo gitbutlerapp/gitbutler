@@ -15,7 +15,6 @@ use regex::Regex;
 use serde::Serialize;
 
 use super::{
-    base,
     branch::{
         self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
     },
@@ -531,24 +530,17 @@ pub fn unapply_ownership(
     let hunks_to_unapply = applied_statuses
         .iter()
         .map(
-            |(branch, branch_files)| -> Result<Vec<(PathBuf, diff::GitHunk)>> {
-                let branch_files = calculate_non_commited_diffs(
-                    project_repository,
-                    branch,
-                    &default_target.sha,
-                    branch_files,
-                )?;
-
+            |(_branch, branch_files)| -> Result<Vec<(PathBuf, &diff::GitHunk)>> {
                 let mut hunks_to_unapply = Vec::new();
                 for (path, hunks) in branch_files {
                     let ownership_hunks: Vec<&Hunk> = ownership
                         .claims
                         .iter()
-                        .filter(|o| o.file_path == path)
+                        .filter(|o| o.file_path == *path)
                         .flat_map(|f| &f.hunks)
                         .collect();
                     for hunk in hunks {
-                        if ownership_hunks.contains(&&Hunk::from(&hunk)) {
+                        if ownership_hunks.contains(&&Hunk::from(hunk)) {
                             hunks_to_unapply.push((path.clone(), hunk));
                         }
                     }
@@ -566,7 +558,7 @@ pub fn unapply_ownership(
 
     let mut diff = HashMap::new();
     for h in hunks_to_unapply {
-        if let Some(reversed_hunk) = diff::reverse_hunk(&h.1) {
+        if let Some(reversed_hunk) = diff::reverse_hunk(h.1) {
             diff.entry(h.0).or_insert_with(Vec::new).push(reversed_hunk);
         } else {
             return Err(errors::UnapplyOwnershipError::Other(anyhow::anyhow!(
@@ -578,7 +570,7 @@ pub fn unapply_ownership(
     let repo = &project_repository.git_repository;
 
     let target_commit = repo
-        .find_commit(default_target.sha)
+        .find_commit(uncommitted_base)
         .context("failed to find target commit")?;
 
     let base_tree = target_commit.tree().context("failed to get target tree")?;
@@ -586,7 +578,7 @@ pub fn unapply_ownership(
         target_commit.tree().context("failed to get target tree"),
         |final_tree, status| {
             let final_tree = final_tree?;
-            let tree_oid = write_tree(project_repository, &default_target.sha, &status.1)?;
+            let tree_oid = write_tree(project_repository, &uncommitted_base, &status.1)?;
             let branch_tree = repo.find_tree(tree_oid)?;
             let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
             let final_tree_oid = result.write_tree_to(repo)?;
