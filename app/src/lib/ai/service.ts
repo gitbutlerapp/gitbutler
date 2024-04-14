@@ -95,43 +95,40 @@ export class AIService {
 	) {}
 
 	async getModelKind() {
-		return await this.gitConfig.getWithDefault<ModelKind>(
-			GitAIConfigKey.ModelProvider,
-			ModelKind.OpenAI
-		);
+		return this.gitConfig.getWithDefault<ModelKind>(GitAIConfigKey.ModelProvider, ModelKind.OpenAI);
 	}
 
 	async getOpenAIKeyOption() {
-		return await this.gitConfig.getWithDefault<KeyOption>(
+		return this.gitConfig.getWithDefault<KeyOption>(
 			GitAIConfigKey.OpenAIKeyOption,
 			KeyOption.ButlerAPI
 		);
 	}
 
 	async getOpenAIKey() {
-		return await this.gitConfig.get(GitAIConfigKey.OpenAIKey);
+		return this.gitConfig.get(GitAIConfigKey.OpenAIKey);
 	}
 
 	async getOpenAIModleName() {
-		return await this.gitConfig.getWithDefault<OpenAIModelName>(
+		return this.gitConfig.getWithDefault<OpenAIModelName>(
 			GitAIConfigKey.OpenAIModelName,
 			OpenAIModelName.GPT35Turbo
 		);
 	}
 
 	async getAnthropicKeyOption() {
-		return await this.gitConfig.getWithDefault<KeyOption>(
+		return this.gitConfig.getWithDefault<KeyOption>(
 			GitAIConfigKey.AnthropicKeyOption,
 			KeyOption.ButlerAPI
 		);
 	}
 
 	async getAnthropicKey() {
-		return await this.gitConfig.get(GitAIConfigKey.AnthropicKey);
+		return this.gitConfig.get(GitAIConfigKey.AnthropicKey);
 	}
 
 	async getAnthropicModelName() {
-		return await this.gitConfig.getWithDefault<AnthropicModelName>(
+		return this.gitConfig.getWithDefault<AnthropicModelName>(
 			GitAIConfigKey.AnthropicModelName,
 			AnthropicModelName.Haiku
 		);

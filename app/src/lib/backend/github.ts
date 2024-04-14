@@ -6,9 +6,9 @@ export type Verification = {
 };
 
 export async function initDeviceOauth() {
-	return await invoke<Verification>('init_device_oauth');
+	return invoke<Verification>('init_device_oauth');
 }
 
 export async function checkAuthStatus(params: { deviceCode: string }) {
-	return await invoke<string>('check_auth_status', params);
+	return invoke<string>('check_auth_status', params);
 }

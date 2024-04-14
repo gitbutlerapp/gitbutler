@@ -105,7 +105,7 @@ async function getBaseBranch(params: { projectId: string }): Promise<BaseBranch 
 
 export async function getRemoteBranches(projectId: string | undefined) {
 	if (!projectId) return [];
-	return await invoke<Array<string>>('git_remote_branches', { projectId }).then((branches) =>
+	return invoke<Array<string>>('git_remote_branches', { projectId }).then((branches) =>
 		branches
 			.map((name) => name.substring(13))
 			.sort((a, b) => a.localeCompare(b))

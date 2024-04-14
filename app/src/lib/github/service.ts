@@ -142,7 +142,7 @@ export class GitHubService {
 			)
 		);
 		this.reload$.next({ skipCache: true });
-		return await fresh;
+		return fresh;
 	}
 
 	fetchPrs(skipCache: boolean): Observable<PullRequest[]> {
@@ -268,7 +268,7 @@ export class GitHubService {
 		draft: boolean
 	): Promise<{ pr: PullRequest } | { err: string | { message: string; help: string } }> {
 		this.setBusy('creating_pr', branchId);
-		return await firstValueFrom(
+		return firstValueFrom(
 			// We have to wrap with defer becasue using `async` functions with operators
 			// create a promise that will stay rejected when rejected.
 			defer(async () => {
@@ -345,7 +345,7 @@ export class GitHubService {
 				// Wait for GitHub to become eventually consistent. If we refresh too quickly then
 				// then it'll show as mergeable and no checks even if checks are present.
 				delay(1000),
-				finalize(async () => await this.reload())
+				finalize(async () => this.reload())
 			)
 		);
 	}
@@ -402,7 +402,7 @@ export class GitHubService {
 	}
 
 	async fetchChecks(ref: string) {
-		return await this.octokit.checks.listForRef({
+		return this.octokit.checks.listForRef({
 			headers: DEFAULT_HEADERS,
 			owner: this.owner,
 			repo: this.repo,

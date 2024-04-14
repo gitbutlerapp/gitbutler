@@ -22,7 +22,7 @@
 
 <button
 	use:tooltip={isNavCollapsed ? 'Trunk' : ''}
-	on:mousedown={async () => await goto(`/${project.id}/base`)}
+	on:mousedown={async () => goto(`/${project.id}/base`)}
 	class="base-branch-card"
 	class:selected
 	bind:this={baseContents}

@@ -22,7 +22,7 @@
 			help="Project settings"
 			size="l"
 			width={isNavCollapsed ? '100%' : undefined}
-			on:mousedown={async () => await goto(`/${projectId}/settings`)}
+			on:mousedown={async () => goto(`/${projectId}/settings`)}
 		/>
 	</div>
 	<AccountLink {isNavCollapsed} />

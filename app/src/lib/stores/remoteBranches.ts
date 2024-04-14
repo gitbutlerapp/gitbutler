@@ -28,7 +28,7 @@ export class RemoteBranchService {
 	) {
 		this.branches$ = combineLatest([baseBranch$, head$, fetches$]).pipe(
 			mergeWith(this.reload$),
-			switchMap(async () => await listRemoteBranches(projectId)),
+			switchMap(async () => listRemoteBranches(projectId)),
 			shareReplay(1),
 			catchError((e) => {
 				console.error(e);

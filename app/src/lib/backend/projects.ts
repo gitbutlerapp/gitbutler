@@ -67,7 +67,7 @@ export class ProjectService {
 	) {}
 
 	private async loadAll() {
-		return await invoke<Project[]>('list_projects').then((p) => plainToInstance(Project, p));
+		return invoke<Project[]>('list_projects').then((p) => plainToInstance(Project, p));
 	}
 
 	async reload(): Promise<void> {
@@ -90,7 +90,7 @@ export class ProjectService {
 	}
 
 	async deleteProject(id: string) {
-		return await invoke('delete_project', { id });
+		return invoke('delete_project', { id });
 	}
 
 	async promptForDirectory(): Promise<string | undefined> {
@@ -98,7 +98,7 @@ export class ProjectService {
 		if (selectedPath) {
 			if (selectedPath === null) return;
 			if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
-			return Array.isArray(selectedPath) ? selectedPath[0] : await selectedPath;
+			return Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
 		}
 	}
 
@@ -133,7 +133,7 @@ export class ProjectService {
 			uid?: string;
 		}
 	): Promise<CloudProject> {
-		return await this.httpClient.post('projects.json', {
+		return this.httpClient.post('projects.json', {
 			body: params,
 			token
 		});
@@ -147,14 +147,14 @@ export class ProjectService {
 			description?: string;
 		}
 	): Promise<CloudProject> {
-		return await this.httpClient.put(`projects/${repositoryId}.json`, {
+		return this.httpClient.put(`projects/${repositoryId}.json`, {
 			body: params,
 			token
 		});
 	}
 
 	async getCloudProject(token: string, repositoryId: string): Promise<CloudProject> {
-		return await this.httpClient.get(`projects/${repositoryId}.json`, {
+		return this.httpClient.get(`projects/${repositoryId}.json`, {
 			token
 		});
 	}

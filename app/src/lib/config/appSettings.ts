@@ -61,7 +61,7 @@ function persisted<T>(initial: T, key: string): Writable<T> & { onDisk: () => Pr
 	}
 
 	async function onDisk() {
-		return await storeValueWithDefault(initial, key);
+		return storeValueWithDefault(initial, key);
 	}
 
 	const subscribe = thisStore.subscribe;

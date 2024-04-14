@@ -11,6 +11,6 @@ export class GitConfigService {
 	}
 
 	async set<T extends string>(key: string, value: T) {
-		return await invoke<T | undefined>('git_set_global_config', { key, value });
+		return invoke<T | undefined>('git_set_global_config', { key, value });
 	}
 }

@@ -21,5 +21,5 @@ export async function promise(
 		error: 'Error!'
 	}
 ) {
-	return await toast.promise(promise, opts, defaultOptions);
+	return toast.promise(promise, opts, defaultOptions);
 }

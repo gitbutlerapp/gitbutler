@@ -145,9 +145,9 @@
 										role="button"
 										tabindex="0"
 										on:keypress={async () =>
-											await open(`vscode://file${project.vscodePath}/?windowId=_blank`)}
+											open(`vscode://file${project.vscodePath}/?windowId=_blank`)}
 										on:click={async () =>
-											await open(`vscode://file${project.vscodePath}/?windowId=_blank`)}
+											open(`vscode://file${project.vscodePath}/?windowId=_blank`)}
 									>
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="vscode" />

@@ -82,5 +82,5 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 
 export function listen<T>(event: EventName, handle: EventCallback<T>) {
 	const unlisten = listenTauri(event, handle);
-	return async () => await unlisten.then((unlistenFn) => unlistenFn());
+	return async () => unlisten.then((unlistenFn) => unlistenFn());
 }

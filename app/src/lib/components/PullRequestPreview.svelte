@@ -57,10 +57,10 @@
 					kind="solid"
 					help="Does not create a commit. Can be toggled."
 					on:click={async () =>
-						await (pullrequest &&
-							branchController.createvBranchFromBranch(
-								'refs/remotes/origin/' + pullrequest.targetBranch
-							))}>Apply</Button
+						pullrequest &&
+						branchController.createvBranchFromBranch(
+							'refs/remotes/origin/' + pullrequest.targetBranch
+						)}>Apply</Button
 				>
 			</div>
 		</div>
