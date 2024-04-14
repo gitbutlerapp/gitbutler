@@ -515,10 +515,13 @@ pub fn unapply_ownership(
     .filter(|b| b.applied)
     .collect::<Vec<_>>();
 
+    let uncommitted_base =
+        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
     let (applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
-        &default_target.sha,
+        &uncommitted_base,
         &default_target.sha,
         applied_branches,
     )
@@ -720,10 +723,13 @@ pub fn unapply_branch(
         .filter(|b| b.applied)
         .collect::<Vec<_>>();
 
+        let uncommitted_base =
+            super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
         let (applied_statuses, _) = get_applied_status(
             gb_repository,
             project_repository,
-            &default_target.sha,
+            &uncommitted_base,
             &default_target.sha,
             applied_branches,
         )
@@ -2062,7 +2068,7 @@ pub fn get_status_by_branch(
         project_repository,
         // TODO: Keep this optional or update lots of tests?
         uncommitted_base.unwrap_or(&default_target.sha),
-        uncommitted_base.unwrap_or(&default_target.sha),
+        &default_target.sha,
         applied_virtual_branches,
     )?;
 
@@ -3192,10 +3198,13 @@ pub fn amend(
             })
         })?;
 
+    let uncommitted_base =
+        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
     let (mut applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
-        &default_target.sha,
+        &uncommitted_base,
         &default_target.sha,
         applied_branches,
     )?;
@@ -3371,10 +3380,13 @@ pub fn cherry_pick(
     .filter(|b| b.applied)
     .collect::<Vec<_>>();
 
+    let uncommitted_base =
+        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
     let (applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
-        &default_target.sha,
+        &uncommitted_base,
         &default_target.sha,
         applied_branches,
     )?;
@@ -3940,10 +3952,13 @@ pub fn move_commit(
             })
         })?;
 
+    let uncommitted_base =
+        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
     let (mut applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
-        &default_target.sha,
+        &uncommitted_base,
         &default_target.sha,
         applied_branches,
     )?;
