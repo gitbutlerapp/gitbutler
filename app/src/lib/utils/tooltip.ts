@@ -39,7 +39,7 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 
 	function onMouseLeave() {
 		// If tooltip shown when mouse out then we hide after delay
-		if (tooltip) hideAfterDelay();
+		if (tooltip) hide();
 		// But if we mouse out before tooltip is shown, we cancel the show timer
 		else if (timeoutId) {
 			clearTimeout(timeoutId);
@@ -61,13 +61,6 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 		if (tooltip) tooltip.remove();
 		tooltip = undefined;
 		timeoutId = undefined;
-	}
-
-	function hideAfterDelay() {
-		if (timeoutId) {
-			clearTimeout(timeoutId);
-		}
-		timeoutId = setTimeout(() => hide(), 250);
 	}
 
 	function adjustPosition() {

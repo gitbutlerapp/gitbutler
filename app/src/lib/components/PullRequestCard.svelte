@@ -1,5 +1,5 @@
 <script lang="ts">
-	import IconButton from './IconButton.svelte';
+	import Button from './Button.svelte';
 	import InfoMessage from './InfoMessage.svelte';
 	import MergeButton from './MergeButton.svelte';
 	import Tag from './Tag.svelte';
@@ -245,9 +245,11 @@
 	{@const pr = $pr$}
 	<div class="card pr-card">
 		<div class="floating-button">
-			<IconButton
+			<Button
 				icon="update-small"
-				size="m"
+				size="tag"
+				style="ghost"
+				kind="soft"
 				loading={isFetchingDetails || isFetchingChecks}
 				help={$lastDetailsFetch ? 'Updated ' + $lastDetailsFetch : ''}
 				on:click={async () => {

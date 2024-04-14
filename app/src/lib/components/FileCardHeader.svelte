@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FileStatusTag from './FileStatusTag.svelte';
 	import Tag from './Tag.svelte';
-	import IconButton from '$lib/components/IconButton.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
@@ -66,7 +66,7 @@
 			</div>
 		</div>
 	</div>
-	<IconButton icon="cross" size="m" on:click={() => dispatch('close')} />
+	<Button icon="cross" style="ghost" on:click={() => dispatch('close')} />
 </div>
 
 <style lang="postcss">

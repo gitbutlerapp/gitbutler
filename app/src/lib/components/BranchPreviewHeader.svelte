@@ -22,8 +22,6 @@
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 
-	let meatballButton: HTMLDivElement;
-	let container: HTMLDivElement;
 	let isApplying = false;
 
 	function updateContextMenu(copyablePrUrl: string) {
@@ -44,11 +42,9 @@
 </script>
 
 <div class="header__wrapper">
-	<div class="header card" bind:this={container}>
+	<div class="header card">
 		<div class="header__info">
-			<div class="header__label">
-				<BranchLabel bind:name={branch.name} />
-			</div>
+			<BranchLabel disabled bind:name={branch.name} />
 			<div class="header__remote-branch">
 				<div
 					class="status-tag text-base-11 text-semibold remote"
@@ -90,8 +86,7 @@
 			</div>
 		</div>
 		<div class="header__actions">
-			<div class="header__buttons"></div>
-			<div class="relative" bind:this={meatballButton}>
+			<div class="header__buttons">
 				<Button
 					style="ghost"
 					kind="solid"
@@ -145,27 +140,22 @@
 		display: flex;
 		flex-direction: column;
 		transition: margin var(--transition-slow);
-		padding: var(--size-12);
+		padding: var(--size-10);
 		gap: var(--size-10);
+		overflow: hidden;
 	}
 	.header__actions {
 		display: flex;
 		gap: var(--size-4);
 		background: var(--clr-bg-alt);
 		padding: var(--size-14);
-		justify-content: space-between;
+		justify-content: flex-end;
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 		user-select: none;
 	}
 	.header__buttons {
 		display: flex;
 		position: relative;
-		gap: var(--size-4);
-	}
-	.header__label {
-		display: flex;
-		flex-grow: 1;
-		align-items: center;
 		gap: var(--size-4);
 	}
 
