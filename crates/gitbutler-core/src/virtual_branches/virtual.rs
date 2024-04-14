@@ -15,6 +15,7 @@ use regex::Regex;
 use serde::Serialize;
 
 use super::{
+    base,
     branch::{
         self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
     },
@@ -28,7 +29,7 @@ use crate::{
     gb_repository,
     git::{
         self,
-        diff::{self, diff_files_to_hunks, GitHunk},
+        diff::{self, diff_files_to_hunks},
         show, Commit, Refname, RemoteRefname,
     },
     keys,
@@ -857,15 +858,6 @@ pub fn list_virtual_branches(
         .unwrap_or(-1);
 
     for (branch, files) in &statuses {
-        // check if head tree does not match target tree
-        // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
-        let head_commit = gb_repository
-            .git_repository()
-            .find_commit(branch.head)
-            .unwrap();
-        let files =
-            calculate_non_commited_diffs(project_repository, branch, &head_commit.id(), files)?;
-
         let repo = &project_repository.git_repository;
 
         let upstream_branch = match branch
@@ -956,7 +948,7 @@ pub fn list_virtual_branches(
             .transpose()?
             .flatten();
 
-        let mut files = diffs_to_virtual_files(project_repository, &files);
+        let mut files = diffs_to_virtual_files(project_repository, files);
         files.sort_by(|a, b| {
             branch
                 .ownership
@@ -1176,115 +1168,6 @@ fn is_requires_force(
         .merge_base(upstream_commit.id(), branch.head)?;
 
     Ok(merge_base != upstream_commit.id())
-}
-
-// given a virtual branch and it's files that are calculated off of a default target,
-// return files adjusted to the branch's head commit
-pub fn calculate_non_commited_diffs(
-    project_repository: &project_repository::Repository,
-    branch: &branch::Branch,
-    base: &git::Oid,
-    files: &HashMap<PathBuf, Vec<diff::GitHunk>>,
-) -> Result<HashMap<PathBuf, Vec<diff::GitHunk>>> {
-    if *base == branch.head && !branch.applied {
-        return Ok(files.clone());
-    };
-
-    let branch_tree = if branch.applied {
-        let target_plus_wd_oid = write_tree_onto_commit(project_repository, *base, files)?;
-        project_repository
-            .git_repository
-            .find_tree(target_plus_wd_oid)
-    } else {
-        project_repository.git_repository.find_tree(branch.tree)
-    }?;
-
-    let branch_head = project_repository
-        .git_repository
-        .find_commit(branch.head)?
-        .tree()?;
-
-    // do a diff between branch.head and the tree we _would_ commit
-    let non_commited_diff = diff::trees(
-        &project_repository.git_repository,
-        &branch_head,
-        &branch_tree,
-        context_lines(project_repository),
-    )
-    .context("failed to diff trees")?;
-    let mut non_commited_diff = diff::diff_files_to_hunks(&non_commited_diff);
-
-    let workspace_diff = diff::workdir(
-        &project_repository.git_repository,
-        &branch.head,
-        context_lines(project_repository),
-    )?;
-    let workspace_diff = diff::diff_files_to_hunks(&workspace_diff);
-
-    // record conflicts resolution
-    // TODO: this feels out of place. move it somewhere else?
-    let conflicting_files = conflicts::conflicting_files(project_repository)?;
-    for (file_path, non_commited_hunks) in &non_commited_diff {
-        let mut conflicted = false;
-        if conflicting_files.contains(&file_path.display().to_string()) {
-            // check file for conflict markers, resolve the file if there are none in any hunk
-            for hunk in non_commited_hunks {
-                if hunk.diff.contains("<<<<<<< ours") {
-                    conflicted = true;
-                }
-                if hunk.diff.contains(">>>>>>> theirs") {
-                    conflicted = true;
-                }
-            }
-            if !conflicted {
-                conflicts::resolve(project_repository, &file_path.display().to_string()).unwrap();
-            }
-        }
-    }
-
-    // Revert back to the original line numbers from all hunks in the workspace
-    // This is done because the hunks in non_commited_diff have line numbers relative to the vbranch, which would be incorrect for the workspace
-    // Applies only to branches that are applied (in the workspace)
-    if branch.applied {
-        non_commited_diff = non_commited_diff
-            .into_iter()
-            .map(|(path, uncommitted_hunks)| {
-                let all_hunks = workspace_diff.get(&path);
-                if let Some(all_hunks) = all_hunks {
-                    let hunks = line_agnostic_hunk_intersection(uncommitted_hunks, all_hunks);
-                    (path, hunks)
-                } else {
-                    (path, uncommitted_hunks)
-                }
-            })
-            .collect();
-    }
-
-    Ok(non_commited_diff)
-}
-
-/// Given two lists of hunks, returns the intersection based on the diff content and disregarding line numbers
-///
-/// Since the hunks are not identical, the retuned hunks are the ones from the second argument
-/// # Arguments
-/// * `left` - A list of hunks
-/// * `right` - A list of hunks to return from
-/// # Returns
-/// * A list of hunks that are present in both `left` and `right`, copied from `right`
-fn line_agnostic_hunk_intersection(left: Vec<GitHunk>, right: &Vec<GitHunk>) -> Vec<GitHunk> {
-    let mut result = Vec::new();
-    for l in left {
-        // Skip the header containing line numbers
-        let l_diff = l.diff.split("@@").collect::<Vec<&str>>().pop();
-        for r in right {
-            let r_diff = r.diff.split("@@").collect::<Vec<&str>>().pop();
-            if l_diff == r_diff {
-                result.push(r.clone());
-                break;
-            }
-        }
-    }
-    result
 }
 
 fn list_virtual_commit_files(
@@ -2613,8 +2496,10 @@ pub fn write_tree_onto_tree(
                     }
 
                     let patch = Patch::from_str(&all_diffs)?;
-                    blob_contents = apply(&blob_contents, &patch)
-                        .context(format!("failed to apply {}", &all_diffs))?;
+                    blob_contents = apply(&blob_contents, &patch).context(format!(
+                        "failed to apply\n{}\nonto:\n{}",
+                        &all_diffs, &blob_contents
+                    ))?;
 
                     // create a blob
                     let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
@@ -2714,15 +2599,6 @@ pub fn commit(
 
     let message = &message_buffer;
 
-    let default_target = gb_repository
-        .default_target()
-        .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::CommitError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
-                project_id: project_repository.project().id,
-            })
-        })?;
-
     let uncommitted_base =
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
     // get the files to commit
@@ -2740,8 +2616,6 @@ pub fn commit(
             })
         })?;
 
-    let files =
-        calculate_non_commited_diffs(project_repository, branch, &default_target.sha, files)?;
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
         return Err(errors::CommitError::Conflicted(errors::ProjectConflict {
             project_id: project_repository.project().id,
@@ -2777,7 +2651,7 @@ pub fn commit(
             .collect::<HashMap<_, _>>();
         write_tree_onto_commit(project_repository, branch.head, &files)?
     } else {
-        write_tree_onto_commit(project_repository, branch.head, &files)?
+        write_tree_onto_commit(project_repository, branch.head, files)?
     };
 
     let git_repository = &project_repository.git_repository;
@@ -3238,13 +3112,6 @@ pub fn amend(
         return Err(errors::AmendError::BranchHasNoCommits);
     }
 
-    let diffs_to_consider = calculate_non_commited_diffs(
-        project_repository,
-        target_branch,
-        &default_target.sha,
-        target_status,
-    )?;
-
     let head_commit = project_repository
         .git_repository
         .find_commit(target_branch.head)
@@ -3254,7 +3121,7 @@ pub fn amend(
         .claims
         .iter()
         .filter_map(|file_ownership| {
-            let hunks = diffs_to_consider
+            let hunks = target_status
                 .get(&file_ownership.file_path)
                 .map(|hunks| {
                     hunks
@@ -3968,12 +3835,7 @@ pub fn move_commit(
         .find(|(b, _)| b.head == commit_oid)
         .ok_or_else(|| errors::MoveCommitError::CommitNotFound(commit_oid))?;
 
-    let source_branch_non_comitted_files = calculate_non_commited_diffs(
-        project_repository,
-        source_branch,
-        &default_target.sha,
-        source_status,
-    )?;
+    let source_branch_non_comitted_files = source_status;
 
     let source_branch_head = project_repository
         .git_repository
