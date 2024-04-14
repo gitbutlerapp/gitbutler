@@ -29,12 +29,12 @@ pub enum Event {
 }
 
 impl Event {
-    pub fn project_id(&self) -> &ProjectId {
+    pub fn project_id(&self) -> ProjectId {
         match self {
             Event::FetchGitbutlerData(project_id)
             | Event::Flush(project_id, _)
             | Event::CalculateVirtualBranches(project_id)
-            | Event::PushGitbutlerData(project_id) => project_id,
+            | Event::PushGitbutlerData(project_id) => *project_id,
         }
     }
 }

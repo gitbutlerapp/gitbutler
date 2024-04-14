@@ -111,8 +111,8 @@ impl Controller {
             tracing::error!(project_id = %project.id, ?error, "failed to create {:?} on project add", project.gb_dir());
         }
 
-        if let Some(watchers) = &self.watchers {
-            watchers.watch(&project)?;
+        if let Some(watcher) = &self.watchers {
+            watcher.watch(&project)?;
         }
 
         Ok(project)

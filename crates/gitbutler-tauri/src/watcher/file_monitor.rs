@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::path::Path;
-use std::{path, time::Duration};
+use std::time::Duration;
 
 use crate::watcher::events::InternalEvent;
 use anyhow::{anyhow, Context, Result};
@@ -208,11 +208,11 @@ enum FileKind {
 
 fn classify_file(git_repo: &git::Repository, file_path: &Path) -> FileKind {
     if let Ok(check_file_path) = file_path.strip_prefix(git_repo.path()) {
-        if check_file_path.ends_with("FETCH_HEAD")
-            || check_file_path.eq(path::Path::new("logs/HEAD"))
-            || check_file_path.eq(path::Path::new("HEAD"))
-            || check_file_path.eq(path::Path::new("GB_FLUSH"))
-            || check_file_path.eq(path::Path::new("index"))
+        if check_file_path == Path::new("FETCH_HEAD")
+            || check_file_path == Path::new("logs/HEAD")
+            || check_file_path == Path::new("HEAD")
+            || check_file_path == Path::new("GB_FLUSH")
+            || check_file_path == Path::new("index")
         {
             FileKind::Git
         } else {

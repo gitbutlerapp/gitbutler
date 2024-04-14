@@ -7,7 +7,7 @@ mod handler;
 pub use handler::Handler;
 
 use std::path::Path;
-use std::{collections::HashMap, sync::Arc, time};
+use std::{sync::Arc, time};
 
 use anyhow::{Context, Result};
 use futures::executor::block_on;
@@ -25,47 +25,51 @@ use tracing::instrument;
 pub struct Watchers {
     /// NOTE: This handle is required for this type to be self-contained as it's used by `core` through a trait.
     app_handle: AppHandle,
-    // NOTE: This is a `tokio` mutex as this needs to lock a hashmap currently from within async.
-    watchers: Arc<tokio::sync::Mutex<HashMap<ProjectId, WatcherHandle>>>,
+    /// The watcher of the currently active project.
+    /// NOTE: This is a `tokio` mutex as this needs to lock the inner option from within async.
+    watcher: Arc<tokio::sync::Mutex<Option<WatcherHandle>>>,
 }
 
 impl Watchers {
     pub fn new(app_handle: AppHandle) -> Self {
         Self {
             app_handle,
-            watchers: Default::default(),
+            watcher: Default::default(),
         }
     }
 
-    #[instrument(skip(self, project), err)]
+    #[instrument(skip(self, project), err(Debug))]
     pub fn watch(&self, project: &projects::Project) -> Result<()> {
         let handler = handler::Handler::from_app(&self.app_handle)?;
 
         let project_id = project.id;
         let project_path = project.path.clone();
 
-        match watch_in_background(handler, project_path, project_id) {
-            Ok(handle) => {
-                block_on(self.watchers.lock()).insert(project_id, handle);
-            }
-            Err(err) => {
-                tracing::error!(?err, %project_id, "watcher error");
-            }
-        }
+        let handle = watch_in_background(handler, project_path, project_id)?;
+        block_on(self.watcher.lock()).replace(handle);
         Ok(())
     }
 
     pub async fn post(&self, event: Event) -> Result<()> {
-        let watchers = self.watchers.lock().await;
-        if let Some(handle) = watchers.get(event.project_id()) {
+        let watcher = self.watcher.lock().await;
+        if let Some(handle) = watcher
+            .as_ref()
+            .filter(|watcher| watcher.project_id == event.project_id())
+        {
             handle.post(event).await.context("failed to post event")
         } else {
             Err(anyhow::anyhow!("watcher not found",))
         }
     }
 
-    pub async fn stop(&self, project_id: &ProjectId) {
-        self.watchers.lock().await.remove(project_id);
+    pub async fn stop(&self, project_id: ProjectId) {
+        let mut handle = self.watcher.lock().await;
+        if handle
+            .as_ref()
+            .map_or(false, |handle| handle.project_id == project_id)
+        {
+            handle.take();
+        }
     }
 }
 
@@ -76,7 +80,7 @@ impl gitbutler_core::projects::Watchers for Watchers {
     }
 
     async fn stop(&self, id: ProjectId) {
-        Watchers::stop(self, &id).await
+        Watchers::stop(self, id).await
     }
 
     async fn fetch_gb_data(&self, id: ProjectId) -> Result<()> {
@@ -90,7 +94,11 @@ impl gitbutler_core::projects::Watchers for Watchers {
 
 /// An abstraction over a link to the spawned watcher, which runs in the background.
 struct WatcherHandle {
+    /// A way to post events and interact with the actual handler in the background.
     tx: UnboundedSender<InternalEvent>,
+    /// The id of the project we are watching.
+    project_id: ProjectId,
+    /// A way to tell the background process to stop handling events.
     cancellation_token: CancellationToken,
 }
 
@@ -128,6 +136,7 @@ fn watch_in_background(
     let cancellation_token = CancellationToken::new();
     let handle = WatcherHandle {
         tx: events_out,
+        project_id,
         cancellation_token: cancellation_token.clone(),
     };
     let handle_event = move |event: InternalEvent| -> Result<()> {

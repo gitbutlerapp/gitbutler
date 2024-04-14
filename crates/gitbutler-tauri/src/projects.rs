@@ -4,11 +4,12 @@ pub mod commands {
 
     use gitbutler_core::error;
     use gitbutler_core::error::Code;
-    use gitbutler_core::projects::{self, controller::Controller};
+    use gitbutler_core::projects::{self, controller::Controller, ProjectId};
     use tauri::Manager;
     use tracing::instrument;
 
     use crate::error::Error;
+    use crate::watcher::Watchers;
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
@@ -55,6 +56,23 @@ pub mod commands {
     #[instrument(skip(handle), err(Debug))]
     pub async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
         handle.state::<Controller>().list().map_err(Into::into)
+    }
+
+    /// This trigger is the GUI telling us that the project with `id` is now displayed.
+    ///
+    /// We use it to start watching for filesystem events.
+    #[tauri::command(async)]
+    #[instrument(skip(handle), err(Debug))]
+    pub async fn set_project_active(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
+        let id: ProjectId = id.parse().context(error::Context::new_static(
+            Code::Validation,
+            "Malformed project id",
+        ))?;
+        let project = handle
+            .state::<Controller>()
+            .get(&id)
+            .context("project not found")?;
+        Ok(handle.state::<Watchers>().watch(&project)?)
     }
 
     #[tauri::command(async)]
