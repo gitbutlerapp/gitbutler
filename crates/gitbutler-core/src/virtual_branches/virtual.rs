@@ -515,13 +515,13 @@ pub fn unapply_ownership(
     .filter(|b| b.applied)
     .collect::<Vec<_>>();
 
-    let uncommitted_base =
+    let integration_commit =
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     let (applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
-        &uncommitted_base,
+        &integration_commit,
         &default_target.sha,
         applied_branches,
     )
@@ -570,7 +570,7 @@ pub fn unapply_ownership(
     let repo = &project_repository.git_repository;
 
     let target_commit = repo
-        .find_commit(uncommitted_base)
+        .find_commit(integration_commit)
         .context("failed to find target commit")?;
 
     let base_tree = target_commit.tree().context("failed to get target tree")?;
@@ -578,7 +578,7 @@ pub fn unapply_ownership(
         target_commit.tree().context("failed to get target tree"),
         |final_tree, status| {
             let final_tree = final_tree?;
-            let tree_oid = write_tree(project_repository, &uncommitted_base, &status.1)?;
+            let tree_oid = write_tree(project_repository, &integration_commit, &status.1)?;
             let branch_tree = repo.find_tree(tree_oid)?;
             let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
             let final_tree_oid = result.write_tree_to(repo)?;
@@ -716,13 +716,13 @@ pub fn unapply_branch(
         .filter(|b| b.applied)
         .collect::<Vec<_>>();
 
-        let uncommitted_base =
+        let integration_commit =
             super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
         let (applied_statuses, _) = get_applied_status(
             gb_repository,
             project_repository,
-            &uncommitted_base,
+            &integration_commit,
             &default_target.sha,
             applied_branches,
         )
@@ -838,11 +838,11 @@ pub fn list_virtual_branches(
             })
         })?;
 
-    let uncommitted_base =
+    let integration_commit =
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     let (statuses, skipped_files) =
-        get_status_by_branch(gb_repository, project_repository, Some(&uncommitted_base))?;
+        get_status_by_branch(gb_repository, project_repository, Some(&integration_commit))?;
     let max_selected_for_changes = statuses
         .iter()
         .filter_map(|(branch, _)| branch.selected_for_changes)
@@ -1905,7 +1905,7 @@ pub type BranchStatus = HashMap<PathBuf, Vec<diff::GitHunk>>;
 pub fn get_status_by_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    uncommitted_base: Option<&git::Oid>,
+    integration_commit: Option<&git::Oid>,
 ) -> Result<(Vec<(branch::Branch, BranchStatus)>, Vec<diff::FileDiff>)> {
     let latest_session = gb_repository
         .get_latest_session()
@@ -1942,7 +1942,7 @@ pub fn get_status_by_branch(
         gb_repository,
         project_repository,
         // TODO: Keep this optional or update lots of tests?
-        uncommitted_base.unwrap_or(&default_target.sha),
+        integration_commit.unwrap_or(&default_target.sha),
         &default_target.sha,
         applied_virtual_branches,
     )?;
@@ -2015,13 +2015,13 @@ fn get_non_applied_status(
 fn get_applied_status(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    uncommitted_base: &git::Oid,
+    integration_commit: &git::Oid,
     target_sha: &git::Oid,
     mut virtual_branches: Vec<branch::Branch>,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
     let base_file_diffs = diff::workdir(
         &project_repository.git_repository,
-        uncommitted_base,
+        integration_commit,
         context_lines(project_repository),
     )
     .context("failed to diff workdir")?;
@@ -2260,7 +2260,7 @@ fn get_applied_status(
         )
         .context("failed to create writer")?;
         for (vbranch, files) in &mut hunks_by_branch {
-            vbranch.tree = write_tree(project_repository, uncommitted_base, files)?;
+            vbranch.tree = write_tree(project_repository, integration_commit, files)?;
             branch_writer
                 .write(vbranch)
                 .context(format!("failed to write virtual branch {}", vbranch.name))?;
@@ -2591,11 +2591,11 @@ pub fn commit(
 
     let message = &message_buffer;
 
-    let uncommitted_base =
+    let integration_commit =
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
     // get the files to commit
     let (mut statuses, _) =
-        get_status_by_branch(gb_repository, project_repository, Some(&uncommitted_base))
+        get_status_by_branch(gb_repository, project_repository, Some(&integration_commit))
             .context("failed to get status by branch")?;
 
     let (ref mut branch, files) = statuses
@@ -3064,13 +3064,13 @@ pub fn amend(
             })
         })?;
 
-    let uncommitted_base =
+    let integration_commit =
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     let (mut applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
-        &uncommitted_base,
+        &integration_commit,
         &default_target.sha,
         applied_branches,
     )?;
@@ -3239,13 +3239,13 @@ pub fn cherry_pick(
     .filter(|b| b.applied)
     .collect::<Vec<_>>();
 
-    let uncommitted_base =
+    let integration_commit =
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     let (applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
-        &uncommitted_base,
+        &integration_commit,
         &default_target.sha,
         applied_branches,
     )?;
@@ -3811,13 +3811,13 @@ pub fn move_commit(
             })
         })?;
 
-    let uncommitted_base =
+    let integration_commit =
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     let (mut applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
-        &uncommitted_base,
+        &integration_commit,
         &default_target.sha,
         applied_branches,
     )?;
