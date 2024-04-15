@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
-use diffy::{apply, Patch};
+use diffy::{apply as diffy_apply, Line, Patch};
 use git2_hooks::HookResult;
 use regex::Regex;
 use serde::Serialize;
@@ -4128,6 +4128,68 @@ pub fn context_lines(project_repository: &project_repository::Repository) -> u32
     } else {
         0_u32
     }
+}
+
+/// Just like [`diffy::apply()`], but on error it will attach hashes of the input `base_image` and `patch`.
+pub fn apply(base_image: &str, patch: &Patch<'_, str>) -> Result<String> {
+    fn md5_hash_hex(b: impl AsRef<[u8]>) -> String {
+        format!("{:x}", md5::compute(b))
+    }
+
+    #[derive(Debug)]
+    #[allow(dead_code)] // Read by Debug auto-impl, which doesn't count
+    pub enum DebugLine {
+        // Note that each of these strings is a hash only
+        Context(String),
+        Delete(String),
+        Insert(String),
+    }
+
+    impl<'a> From<&diffy::Line<'a, str>> for DebugLine {
+        fn from(line: &Line<'a, str>) -> Self {
+            match line {
+                Line::Context(s) => DebugLine::Context(md5_hash_hex(s)),
+                Line::Delete(s) => DebugLine::Delete(md5_hash_hex(s)),
+                Line::Insert(s) => DebugLine::Insert(md5_hash_hex(s)),
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    #[allow(dead_code)] // Read by Debug auto-impl, which doesn't count
+    struct DebugHunk {
+        old_range: diffy::HunkRange,
+        new_range: diffy::HunkRange,
+        lines: Vec<DebugLine>,
+    }
+
+    impl<'a> From<&diffy::Hunk<'a, str>> for DebugHunk {
+        fn from(hunk: &diffy::Hunk<'a, str>) -> Self {
+            Self {
+                old_range: hunk.old_range(),
+                new_range: hunk.new_range(),
+                lines: hunk.lines().iter().map(Into::into).collect(),
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    #[allow(dead_code)] // Read by Debug auto-impl, which doesn't count
+    struct DebugContext {
+        base_image_hash: String,
+        hunks: Vec<DebugHunk>,
+    }
+
+    impl std::fmt::Display for DebugContext {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            std::fmt::Debug::fmt(self, f)
+        }
+    }
+
+    diffy_apply(base_image, patch).with_context(|| DebugContext {
+        base_image_hash: md5_hash_hex(base_image),
+        hunks: patch.hunks().iter().map(Into::into).collect(),
+    })
 }
 
 #[cfg(test)]
