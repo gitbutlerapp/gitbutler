@@ -22,7 +22,7 @@ impl super::Handler {
             .context("failed to insert deltas into database")
     }
 
-    pub fn reindex(&self, project_id: ProjectId) -> Result<()> {
+    pub(in crate::watcher) fn reindex(&self, project_id: ProjectId) -> Result<()> {
         let user = self.users.get_user()?;
         let project = self.projects.get(&project_id)?;
         let project_repository =

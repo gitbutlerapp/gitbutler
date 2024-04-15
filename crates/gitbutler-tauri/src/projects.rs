@@ -2,7 +2,6 @@ pub mod commands {
     use anyhow::Context;
     use std::path;
 
-    use gitbutler_core::error;
     use gitbutler_core::error::Code;
     use gitbutler_core::projects::{self, controller::Controller, ProjectId};
     use tauri::Manager;
@@ -40,12 +39,8 @@ pub mod commands {
     #[instrument(skip(handle), err(Debug))]
     pub async fn get_project(
         handle: tauri::AppHandle,
-        id: &str,
+        id: ProjectId,
     ) -> Result<projects::Project, Error> {
-        let id = id.parse().context(error::Context::new_static(
-            Code::Validation,
-            "Malformed project id",
-        ))?;
         handle
             .state::<Controller>()
             .get(&id)
@@ -63,11 +58,7 @@ pub mod commands {
     /// We use it to start watching for filesystem events.
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
-    pub async fn set_project_active(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
-        let id: ProjectId = id.parse().context(error::Context::new_static(
-            Code::Validation,
-            "Malformed project id",
-        ))?;
+    pub async fn set_project_active(handle: tauri::AppHandle, id: ProjectId) -> Result<(), Error> {
         let project = handle
             .state::<Controller>()
             .get(&id)
@@ -77,11 +68,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
-    pub async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
-        let id = id.parse().context(error::Context::new_static(
-            Code::Validation,
-            "Malformed project id",
-        ))?;
+    pub async fn delete_project(handle: tauri::AppHandle, id: ProjectId) -> Result<(), Error> {
         handle
             .state::<Controller>()
             .delete(&id)
@@ -93,13 +80,9 @@ pub mod commands {
     #[instrument(skip(handle), err(Debug))]
     pub async fn git_get_local_config(
         handle: tauri::AppHandle,
-        id: &str,
+        id: ProjectId,
         key: &str,
     ) -> Result<Option<String>, Error> {
-        let id = id.parse().context(error::Context::new_static(
-            Code::Validation,
-            "Malformed project id",
-        ))?;
         Ok(handle
             .state::<Controller>()
             .get_local_config(&id, key)
@@ -110,14 +93,10 @@ pub mod commands {
     #[instrument(skip(handle), err(Debug))]
     pub async fn git_set_local_config(
         handle: tauri::AppHandle,
-        id: &str,
+        id: ProjectId,
         key: &str,
         value: &str,
     ) -> Result<(), Error> {
-        let id = id.parse().context(error::Context::new_static(
-            Code::Validation,
-            "Malformed project id",
-        ))?;
         Ok(handle
             .state::<Controller>()
             .set_local_config(&id, key, value)
