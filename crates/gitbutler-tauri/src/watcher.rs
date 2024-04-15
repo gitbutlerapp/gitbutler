@@ -1,80 +1,75 @@
-mod dispatchers;
 mod events;
-pub mod handlers;
+pub use events::Event;
+use events::InternalEvent;
 
-use std::{collections::HashMap, path, sync::Arc, time};
+mod file_monitor;
+mod handler;
+pub use handler::Handler;
+
+use std::path::Path;
+use std::{sync::Arc, time};
 
 use anyhow::{Context, Result};
-pub use events::Event;
+use futures::executor::block_on;
 use gitbutler_core::projects::{self, Project, ProjectId};
 use tauri::AppHandle;
 use tokio::{
-    sync::{
-        mpsc::{unbounded_channel, UnboundedSender},
-        Mutex,
-    },
+    sync::mpsc::{unbounded_channel, UnboundedSender},
     task,
 };
 use tokio_util::sync::CancellationToken;
+use tracing::instrument;
 
+/// Note that this type is managed in Tauri and thus needs to be send and sync.
 #[derive(Clone)]
 pub struct Watchers {
+    /// NOTE: This handle is required for this type to be self-contained as it's used by `core` through a trait.
     app_handle: AppHandle,
-    watchers: Arc<Mutex<HashMap<ProjectId, Watcher>>>,
+    /// The watcher of the currently active project.
+    /// NOTE: This is a `tokio` mutex as this needs to lock the inner option from within async.
+    watcher: Arc<tokio::sync::Mutex<Option<WatcherHandle>>>,
 }
 
 impl Watchers {
     pub fn new(app_handle: AppHandle) -> Self {
         Self {
             app_handle,
-            watchers: Arc::new(Mutex::new(HashMap::new())),
+            watcher: Default::default(),
         }
     }
 
+    #[instrument(skip(self, project), err(Debug))]
     pub fn watch(&self, project: &projects::Project) -> Result<()> {
-        let watcher = Watcher::try_from(&self.app_handle)?;
+        let handler = handler::Handler::from_app(&self.app_handle)?;
 
         let project_id = project.id;
         let project_path = project.path.clone();
 
-        task::spawn({
-            let watchers = Arc::clone(&self.watchers);
-            let watcher = watcher.clone();
-            async move {
-                watchers.lock().await.insert(project_id, watcher.clone());
-                match watcher.run(&project_path, &project_id).await {
-                    Ok(()) => {
-                        tracing::debug!(%project_id, "watcher stopped");
-                    }
-                    Err(RunError::PathNotFound(path)) => {
-                        tracing::warn!(%project_id, path = %path.display(), "watcher stopped: project path not found");
-                        watchers.lock().await.remove(&project_id);
-                    }
-                    Err(error) => {
-                        tracing::error!(?error, %project_id, "watcher error");
-                        watchers.lock().await.remove(&project_id);
-                    }
-                }
-            }
-        });
-
+        let handle = watch_in_background(handler, project_path, project_id)?;
+        block_on(self.watcher.lock()).replace(handle);
         Ok(())
     }
 
     pub async fn post(&self, event: Event) -> Result<()> {
-        let watchers = self.watchers.lock().await;
-        if let Some(watcher) = watchers.get(event.project_id()) {
-            watcher.post(event).await.context("failed to post event")
+        let watcher = self.watcher.lock().await;
+        if let Some(handle) = watcher
+            .as_ref()
+            .filter(|watcher| watcher.project_id == event.project_id())
+        {
+            handle.post(event).await.context("failed to post event")
         } else {
             Err(anyhow::anyhow!("watcher not found",))
         }
     }
 
-    pub async fn stop(&self, project_id: &ProjectId) -> Result<()> {
-        if let Some((_, watcher)) = self.watchers.lock().await.remove_entry(project_id) {
-            watcher.stop();
-        };
-        Ok(())
+    pub async fn stop(&self, project_id: ProjectId) {
+        let mut handle = self.watcher.lock().await;
+        if handle
+            .as_ref()
+            .map_or(false, |handle| handle.project_id == project_id)
+        {
+            handle.take();
+        }
     }
 }
 
@@ -84,169 +79,91 @@ impl gitbutler_core::projects::Watchers for Watchers {
         Watchers::watch(self, project)
     }
 
-    async fn stop(&self, id: ProjectId) -> Result<()> {
-        Watchers::stop(self, &id).await
+    async fn stop(&self, id: ProjectId) {
+        Watchers::stop(self, id).await
     }
 
-    async fn fetch(&self, id: ProjectId) -> Result<()> {
+    async fn fetch_gb_data(&self, id: ProjectId) -> Result<()> {
         self.post(Event::FetchGitbutlerData(id)).await
     }
 
-    async fn push(&self, id: ProjectId) -> Result<()> {
+    async fn push_gb_data(&self, id: ProjectId) -> Result<()> {
         self.post(Event::PushGitbutlerData(id)).await
     }
 }
 
-#[derive(Clone)]
-struct Watcher {
-    inner: Arc<WatcherInner>,
-}
-
-impl TryFrom<&AppHandle> for Watcher {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        Ok(Self {
-            inner: Arc::new(WatcherInner::try_from(value)?),
-        })
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum RunError {
-    #[error("{0} not found")]
-    PathNotFound(path::PathBuf),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-impl Watcher {
-    pub fn stop(&self) {
-        self.inner.stop();
-    }
-
-    pub async fn post(&self, event: Event) -> Result<()> {
-        self.inner.post(event).await
-    }
-
-    pub async fn run<P: AsRef<path::Path>>(
-        &self,
-        path: P,
-        project_id: &ProjectId,
-    ) -> Result<(), RunError> {
-        self.inner.run(path, project_id).await
-    }
-}
-
-struct WatcherInner {
-    handler: handlers::Handler,
-    dispatcher: dispatchers::Dispatcher,
+/// An abstraction over a link to the spawned watcher, which runs in the background.
+struct WatcherHandle {
+    /// A way to post events and interact with the actual handler in the background.
+    tx: UnboundedSender<InternalEvent>,
+    /// The id of the project we are watching.
+    project_id: ProjectId,
+    /// A way to tell the background process to stop handling events.
     cancellation_token: CancellationToken,
-
-    proxy_tx: Arc<tokio::sync::Mutex<Option<UnboundedSender<Event>>>>,
 }
 
-impl TryFrom<&AppHandle> for WatcherInner {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        Ok(Self {
-            handler: handlers::Handler::try_from(value)?,
-            dispatcher: dispatchers::Dispatcher::new(),
-            cancellation_token: CancellationToken::new(),
-            proxy_tx: Arc::new(tokio::sync::Mutex::new(None)),
-        })
-    }
-}
-
-impl WatcherInner {
-    pub fn stop(&self) {
+impl Drop for WatcherHandle {
+    fn drop(&mut self) {
         self.cancellation_token.cancel();
     }
+}
 
+impl WatcherHandle {
     pub async fn post(&self, event: Event) -> Result<()> {
-        let tx = self.proxy_tx.lock().await;
-        if tx.is_some() {
-            tx.as_ref()
-                .unwrap()
-                .send(event)
-                .context("failed to send event")?;
-            Ok(())
-        } else {
-            Err(anyhow::anyhow!("watcher is not started"))
-        }
+        self.tx.send(event.into()).context("failed to send event")?;
+        Ok(())
     }
+}
 
-    pub async fn run<P: AsRef<path::Path>>(
-        &self,
-        path: P,
-        project_id: &ProjectId,
-    ) -> Result<(), RunError> {
-        let (proxy_tx, mut proxy_rx) = unbounded_channel();
-        self.proxy_tx.lock().await.replace(proxy_tx.clone());
+/// Run our file watcher processing loop in the background and let `handler` deal with them.
+/// Return a handle to the watcher to allow interactions while it's running in the background.
+/// Drop the handle to stop the watcher.
+///
+/// ### Important
+///
+/// It runs in such a way that each filesystem event is processed concurrently with others, which is why
+/// spamming massive amounts of events should be avoided!
+fn watch_in_background(
+    handler: handler::Handler,
+    path: impl AsRef<Path>,
+    project_id: ProjectId,
+) -> Result<WatcherHandle, anyhow::Error> {
+    let (events_out, mut events_in) = unbounded_channel();
 
-        let dispatcher = self.dispatcher.clone();
-        let mut dispatcher_rx = match dispatcher.run(project_id, path.as_ref()) {
-            Ok(dispatcher_rx) => Ok(dispatcher_rx),
-            Err(dispatchers::RunError::PathNotFound(path)) => Err(RunError::PathNotFound(path)),
-            Err(error) => Err(error).context("failed to run dispatcher")?,
-        }?;
+    file_monitor::spawn(project_id, path.as_ref(), events_out.clone())?;
+    handler.reindex(project_id)?;
 
-        proxy_tx
-            .send(Event::IndexAll(*project_id))
-            .context("failed to send event")?;
-
-        let handle_event = |event: &Event| -> Result<()> {
-            task::spawn_blocking({
-                let project_id = project_id.to_string();
-                let handler = self.handler.clone();
-                let tx = proxy_tx.clone();
-                let event = event.clone();
-                move || {
-                    futures::executor::block_on(async move {
-                        match handler.handle(&event, time::SystemTime::now()).await {
-                            Err(error) => tracing::error!(
-                                project_id,
-                                %event,
-                                ?error,
-                                "failed to handle event",
-                            ),
-                            Ok(events) => {
-                                for e in events {
-                                    if let Err(error) = tx.send(e.clone()) {
-                                        tracing::error!(
-                                            project_id,
-                                            %event,
-                                            ?error,
-                                            "failed to post event",
-                                        );
-                                    } else {
-                                        tracing::debug!(
-                                            project_id,
-                                            %event,
-                                            "sent response event",
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
+    let cancellation_token = CancellationToken::new();
+    let handle = WatcherHandle {
+        tx: events_out,
+        project_id,
+        cancellation_token: cancellation_token.clone(),
+    };
+    let handle_event = move |event: InternalEvent| -> Result<()> {
+        let handler = handler.clone();
+        // NOTE: Traditional parallelization (blocking) is required as `tokio::spawn()` on
+        //       the `handler.handle()` future isn't `Send` as it keeps non-Send things
+        //       across await points. Further, there is a fair share of `sync` IO happening
+        //       as well, so nothing can really be done here.
+        task::spawn_blocking(move || {
+            futures::executor::block_on(async move {
+                handler.handle(event, time::SystemTime::now()).await.ok();
             });
-            Ok(())
-        };
+        });
+        Ok(())
+    };
 
+    tokio::spawn(async move {
         loop {
             tokio::select! {
-                Some(event) = dispatcher_rx.recv() => handle_event(&event)?,
-                Some(event) = proxy_rx.recv() => handle_event(&event)?,
-                () = self.cancellation_token.cancelled() => {
-                    self.dispatcher.stop();
+                Some(event) = events_in.recv() => handle_event(event)?,
+                () = cancellation_token.cancelled() => {
                     break;
                 }
             }
         }
+        Ok::<_, anyhow::Error>(())
+    });
 
-        Ok(())
-    }
+    Ok(handle)
 }

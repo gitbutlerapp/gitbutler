@@ -66,6 +66,8 @@ pub struct Project {
     pub id: ProjectId,
     pub title: String,
     pub description: Option<String>,
+    // TODO(ST): Keep track of the `git_dir` separately and use it, particularly in `file_monitor.rs` (#3062)
+    /// The worktree path of the projects repository.
     pub path: path::PathBuf,
     #[serde(default)]
     pub preferred_key: AuthKey,

@@ -1,102 +1,98 @@
-use std::{fmt::Display, path};
+use std::fmt::Display;
+use std::path::PathBuf;
 
-use gitbutler_core::{
-    deltas,
-    projects::ProjectId,
-    reader,
-    sessions::{self, SessionId},
-};
+use gitbutler_core::{projects::ProjectId, sessions};
 
-use crate::{analytics, events};
+/// An event for internal use, as merge between [super::file_monitor::Event] and [Event].
+#[derive(Debug)]
+pub(super) enum InternalEvent {
+    // From public API
+    Flush(ProjectId, sessions::Session),
+    CalculateVirtualBranches(ProjectId),
+    FetchGitbutlerData(ProjectId),
+    PushGitbutlerData(ProjectId),
 
+    // From file monitor
+    GitFilesChange(ProjectId, Vec<PathBuf>),
+    ProjectFilesChange(ProjectId, Vec<PathBuf>),
+}
+
+/// This type captures all operations that can be fed into a watcher that runs in the background.
+// TODO(ST): This should not have to be implemented in the Watcher, figure out how this can be moved
+//           to application logic at least. However, it's called through a trait in `core`.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Event {
     Flush(ProjectId, sessions::Session),
-
+    CalculateVirtualBranches(ProjectId),
     FetchGitbutlerData(ProjectId),
     PushGitbutlerData(ProjectId),
-    PushProjectToGitbutler(ProjectId),
-
-    GitFileChange(ProjectId, path::PathBuf),
-
-    ProjectFileChange(ProjectId, path::PathBuf),
-
-    Session(ProjectId, sessions::Session),
-    SessionFile((ProjectId, SessionId, path::PathBuf, Option<reader::Content>)),
-    SessionDelta((ProjectId, SessionId, path::PathBuf, deltas::Delta)),
-
-    IndexAll(ProjectId),
-
-    Emit(events::Event),
-    Analytics(analytics::Event),
-
-    CalculateVirtualBranches(ProjectId),
-    CalculateDeltas(ProjectId, path::PathBuf),
-
-    FilterIgnoredFiles(ProjectId, path::PathBuf),
 }
 
 impl Event {
-    pub fn project_id(&self) -> &ProjectId {
+    pub fn project_id(&self) -> ProjectId {
         match self {
-            Event::Analytics(event) => event.project_id(),
-            Event::Emit(event) => event.project_id(),
-            Event::IndexAll(project_id)
-            | Event::FetchGitbutlerData(project_id)
+            Event::FetchGitbutlerData(project_id)
             | Event::Flush(project_id, _)
-            | Event::GitFileChange(project_id, _)
-            | Event::ProjectFileChange(project_id, _)
-            | Event::Session(project_id, _)
-            | Event::SessionFile((project_id, _, _, _))
-            | Event::SessionDelta((project_id, _, _, _))
             | Event::CalculateVirtualBranches(project_id)
-            | Event::CalculateDeltas(project_id, _)
-            | Event::FilterIgnoredFiles(project_id, _)
-            | Event::PushGitbutlerData(project_id)
-            | Event::PushProjectToGitbutler(project_id) => project_id,
+            | Event::PushGitbutlerData(project_id) => *project_id,
         }
     }
 }
 
-impl Display for Event {
+impl From<Event> for InternalEvent {
+    fn from(value: Event) -> Self {
+        match value {
+            Event::Flush(a, b) => InternalEvent::Flush(a, b),
+            Event::CalculateVirtualBranches(v) => InternalEvent::CalculateVirtualBranches(v),
+            Event::FetchGitbutlerData(v) => InternalEvent::FetchGitbutlerData(v),
+            Event::PushGitbutlerData(v) => InternalEvent::PushGitbutlerData(v),
+        }
+    }
+}
+
+impl Display for InternalEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Event::Analytics(event) => write!(f, "Analytics({})", event),
-            Event::Emit(event) => write!(f, "Emit({})", event.name()),
-            Event::FetchGitbutlerData(pid) => {
+            InternalEvent::FetchGitbutlerData(pid) => {
                 write!(f, "FetchGitbutlerData({})", pid,)
             }
-            Event::Flush(project_id, session) => write!(f, "Flush({}, {})", project_id, session.id),
-            Event::GitFileChange(project_id, path) => {
-                write!(f, "GitFileChange({}, {})", project_id, path.display())
+            InternalEvent::Flush(project_id, session) => {
+                write!(f, "Flush({}, {})", project_id, session.id)
             }
-            Event::ProjectFileChange(project_id, path) => {
-                write!(f, "ProjectFileChange({}, {})", project_id, path.display())
-            }
-            Event::Session(pid, session) => write!(f, "Session({}, {})", pid, session.id),
-            Event::SessionFile((pid, session_id, path, _)) => {
-                write!(f, "File({}, {}, {})", pid, session_id, path.display())
-            }
-            Event::SessionDelta((pid, session_id, path, delta)) => {
+            InternalEvent::GitFilesChange(project_id, paths) => {
                 write!(
                     f,
-                    "Deltas({}, {}, {}, {})",
-                    pid,
-                    session_id,
-                    path.display(),
-                    delta.timestamp_ms
+                    "GitFileChange({}, {})",
+                    project_id,
+                    comma_separated_paths(paths)
                 )
             }
-            Event::CalculateVirtualBranches(pid) => write!(f, "VirtualBranch({})", pid),
-            Event::CalculateDeltas(project_id, path) => {
-                write!(f, "SessionProcessing({}, {})", project_id, path.display())
+            InternalEvent::ProjectFilesChange(project_id, paths) => {
+                write!(
+                    f,
+                    "ProjectFileChange({}, {})",
+                    project_id,
+                    comma_separated_paths(paths)
+                )
             }
-            Event::FilterIgnoredFiles(project_id, path) => {
-                write!(f, "FilterIgnoredFiles({}, {})", project_id, path.display())
-            }
-            Event::PushGitbutlerData(pid) => write!(f, "PushGitbutlerData({})", pid),
-            Event::PushProjectToGitbutler(pid) => write!(f, "PushProjectToGitbutler({})", pid),
-            Event::IndexAll(pid) => write!(f, "IndexAll({})", pid),
+            InternalEvent::CalculateVirtualBranches(pid) => write!(f, "VirtualBranch({})", pid),
+            InternalEvent::PushGitbutlerData(pid) => write!(f, "PushGitbutlerData({})", pid),
         }
+    }
+}
+
+fn comma_separated_paths(paths: &[PathBuf]) -> String {
+    const MAX_LISTING: usize = 5;
+    let listing = paths
+        .iter()
+        .take(MAX_LISTING)
+        .filter_map(|path| path.to_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let remaining = paths.len().saturating_sub(MAX_LISTING);
+    if remaining > 0 {
+        format!("{listing} […{remaining} more]")
+    } else {
+        listing
     }
 }

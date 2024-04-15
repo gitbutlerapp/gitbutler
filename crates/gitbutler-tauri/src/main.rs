@@ -195,11 +195,8 @@ fn main() {
                         app_data_dir,
                         projects_controller,
                         users_controller,
-                        watcher_controller,
                         sessions_database_controller,
                     );
-
-                    app.init().context("failed to init app")?;
 
                     app_handle.manage(app);
 
@@ -233,6 +230,7 @@ fn main() {
                     projects::commands::update_project,
                     projects::commands::delete_project,
                     projects::commands::list_projects,
+                    projects::commands::set_project_active,
                     projects::commands::git_get_local_config,
                     projects::commands::git_set_local_config,
                     sessions::commands::list_sessions,

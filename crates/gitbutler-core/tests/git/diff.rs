@@ -242,7 +242,7 @@ async fn remote_syncronization() {
         })
         .await
         .unwrap();
-    let case_one = case_one.refresh();
+    let case_one = case_one.refresh(&suite);
 
     let writer = deltas::Writer::new(&case_one.gb_repository).unwrap();
     writer
@@ -272,7 +272,7 @@ async fn remote_syncronization() {
         })
         .await
         .unwrap();
-    let case_two = case_two.refresh();
+    let case_two = case_two.refresh(&suite);
 
     case_two.gb_repository.fetch(Some(&user)).unwrap();
 
@@ -332,7 +332,7 @@ async fn remote_sync_order() {
         })
         .await
         .unwrap();
-    let case_one = case_one.refresh();
+    let case_one = case_one.refresh(&suite);
 
     let case_two = suite.new_case();
     suite
@@ -344,7 +344,7 @@ async fn remote_sync_order() {
         })
         .await
         .unwrap();
-    let case_two = case_two.refresh();
+    let case_two = case_two.refresh(&suite);
 
     let user = suite.sign_in();
 

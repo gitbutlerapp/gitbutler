@@ -5,18 +5,42 @@ use std::{
 };
 
 use anyhow::Result;
+use gitbutler_core::projects::ProjectId;
 use gitbutler_core::{
     deltas::{self, operations::Operation},
     reader, sessions,
     virtual_branches::{self, branch, VirtualBranchesHandle},
 };
-use gitbutler_tauri::watcher::handlers::calculate_deltas_handler::Handler;
+use gitbutler_tauri::watcher;
 use once_cell::sync::Lazy;
 
 use self::branch::BranchId;
-use gitbutler_testsupport::{commit_all, Case, Suite};
+use crate::watcher::handler::support::Fixture;
+use gitbutler_testsupport::{commit_all, Case};
 
 static TEST_TARGET_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
+
+#[derive(Clone)]
+pub struct State {
+    inner: watcher::Handler,
+}
+
+impl State {
+    pub(super) fn from_fixture(fixture: &mut Fixture) -> Self {
+        Self {
+            inner: fixture.new_handler(),
+        }
+    }
+
+    pub(super) fn calculate_delta(
+        &self,
+        path: impl Into<PathBuf>,
+        project_id: ProjectId,
+    ) -> Result<()> {
+        self.inner.calculate_deltas(vec![path.into()], project_id)?;
+        Ok(())
+    }
+}
 
 fn new_test_target() -> virtual_branches::target::Target {
     virtual_branches::target::Target {
@@ -78,16 +102,16 @@ fn new_test_branch() -> branch::Branch {
 
 #[test]
 fn register_existing_commited_file() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
-    let listener = Handler::from_path(suite.local_app_data());
+    } = &fixture.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
 
     std::fs::write(project.path.join("test.txt"), "test2")?;
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
     let session_reader = sessions::Reader::open(gb_repository, &session)?;
@@ -109,16 +133,16 @@ fn register_existing_commited_file() -> Result<()> {
 
 #[test]
 fn register_must_init_current_session() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     std::fs::write(project.path.join("test.txt"), "test")?;
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     assert!(gb_repository.get_current_session()?.is_some());
 
@@ -127,20 +151,20 @@ fn register_must_init_current_session() -> Result<()> {
 
 #[test]
 fn register_must_not_override_current_session() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     std::fs::write(project.path.join("test.txt"), "test")?;
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
     let session1 = gb_repository.get_current_session()?.unwrap();
 
     std::fs::write(project.path.join("test.txt"), "test2")?;
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
     let session2 = gb_repository.get_current_session()?.unwrap();
 
     assert_eq!(session1.id, session2.id);
@@ -150,20 +174,20 @@ fn register_must_not_override_current_session() -> Result<()> {
 
 #[test]
 fn register_binfile() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     std::fs::write(
         project.path.join("test.bin"),
         [0, 159, 146, 150, 159, 146, 150],
     )?;
 
-    listener.handle("test.bin", &project.id)?;
+    listener.calculate_delta("test.bin", project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
     let session_reader = sessions::Reader::open(gb_repository, &session)?;
@@ -182,17 +206,17 @@ fn register_binfile() -> Result<()> {
 
 #[test]
 fn register_empty_new_file() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     std::fs::write(project.path.join("test.txt"), "")?;
 
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
     let session_reader = sessions::Reader::open(gb_repository, &session)?;
@@ -210,17 +234,17 @@ fn register_empty_new_file() -> Result<()> {
 
 #[test]
 fn register_new_file() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     std::fs::write(project.path.join("test.txt"), "test")?;
 
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
     let session_reader = sessions::Reader::open(gb_repository, &session)?;
@@ -242,18 +266,18 @@ fn register_new_file() -> Result<()> {
 
 #[test]
 fn register_no_changes_saved_thgoughout_flushes() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     // file change, wd and deltas are written
     std::fs::write(project.path.join("test.txt"), "test")?;
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     // make two more sessions.
     gb_repository.flush(project_repository, None)?;
@@ -271,16 +295,16 @@ fn register_no_changes_saved_thgoughout_flushes() -> Result<()> {
 
 #[test]
 fn register_new_file_twice() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     std::fs::write(project.path.join("test.txt"), "test")?;
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     let session = gb_repository.get_current_session()?.unwrap();
     let session_reader = sessions::Reader::open(gb_repository, &session)?;
@@ -298,7 +322,7 @@ fn register_new_file_twice() -> Result<()> {
     );
 
     std::fs::write(project.path.join("test.txt"), "test2")?;
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     let deltas = deltas_reader.read_file("test.txt")?.unwrap();
     assert_eq!(deltas.len(), 2);
@@ -322,19 +346,19 @@ fn register_new_file_twice() -> Result<()> {
 
 #[test]
 fn register_file_deleted() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     {
         // write file
         std::fs::write(project.path.join("test.txt"), "test")?;
-        listener.handle("test.txt", &project.id)?;
+        listener.calculate_delta("test.txt", project.id)?;
     }
 
     {
@@ -377,7 +401,7 @@ fn register_file_deleted() -> Result<()> {
 
         // removing the file
         std::fs::remove_file(project.path.join("test.txt"))?;
-        listener.handle("test.txt", &project.id)?;
+        listener.calculate_delta("test.txt", project.id)?;
 
         // deltas are recorded
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
@@ -401,14 +425,14 @@ fn register_file_deleted() -> Result<()> {
 
 #[test]
 fn flow_with_commits() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         project_repository,
         ..
-    } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     let size = 10;
     let relative_file_path = Path::new("one/two/test.txt");
@@ -421,7 +445,7 @@ fn flow_with_commits() -> Result<()> {
         )?;
 
         commit_all(&project_repository.git_repository);
-        listener.handle(relative_file_path, &project.id)?;
+        listener.calculate_delta(relative_file_path, project.id)?;
         assert!(gb_repository.flush(project_repository, None)?.is_some());
     }
 
@@ -488,14 +512,14 @@ fn flow_with_commits() -> Result<()> {
 
 #[test]
 fn flow_no_commits() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         project_repository,
         ..
-    } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     let size = 10;
     let relative_file_path = Path::new("one/two/test.txt");
@@ -507,7 +531,7 @@ fn flow_no_commits() -> Result<()> {
             i.to_string(),
         )?;
 
-        listener.handle(relative_file_path, &project.id)?;
+        listener.calculate_delta(relative_file_path, project.id)?;
         assert!(gb_repository.flush(project_repository, None)?.is_some());
     }
 
@@ -574,13 +598,13 @@ fn flow_no_commits() -> Result<()> {
 
 #[test]
 fn flow_signle_session() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         ..
-    } = &suite.new_case();
-    let listener = Handler::from_path(suite.local_app_data());
+    } = &fixture.new_case();
 
     let size = 10_i32;
     let relative_file_path = Path::new("one/two/test.txt");
@@ -592,7 +616,7 @@ fn flow_signle_session() -> Result<()> {
             i.to_string(),
         )?;
 
-        listener.handle(relative_file_path, &project.id)?;
+        listener.calculate_delta(relative_file_path, project.id)?;
     }
 
     // collect all operations from sessions in the reverse order
@@ -628,14 +652,14 @@ fn flow_signle_session() -> Result<()> {
 
 #[test]
 fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         project_repository,
         ..
-    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
-    let listener = Handler::from_path(suite.local_app_data());
+    } = &fixture.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
 
     let branch_writer =
         branch::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
@@ -653,7 +677,7 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
     target_writer.write(&vbranch1.id, &vbranch1_target)?;
 
     std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
-    listener.handle("test.txt", &project.id)?;
+    listener.calculate_delta("test.txt", project.id)?;
 
     let flushed_session = gb_repository.flush(project_repository, None).unwrap();
 
@@ -693,14 +717,14 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
 
 #[test]
 fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let listener = State::from_fixture(&mut fixture);
     let Case {
         gb_repository,
         project,
         project_repository,
         ..
-    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
-    let listener = Handler::from_path(suite.local_app_data());
+    } = &fixture.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
 
     let branch_writer =
         branch::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
@@ -718,7 +742,7 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
     target_writer.write(&vbranch1.id, &vbranch1_target)?;
 
     std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
-    listener.handle("test.txt", &project.id).unwrap();
+    listener.calculate_delta("test.txt", project.id).unwrap();
 
     let flushed_session = gb_repository.flush(project_repository, None).unwrap();
 
@@ -764,18 +788,18 @@ mod flush_wd {
 
     #[test]
     fn should_add_new_files_to_session_wd() {
-        let suite = Suite::default();
+        let mut fixture = Fixture::default();
+        let listener = State::from_fixture(&mut fixture);
         let Case {
             gb_repository,
             project,
             project_repository,
             ..
-        } = &suite.new_case();
-        let listener = Handler::from_path(suite.local_app_data());
+        } = &fixture.new_case();
 
         // write a file into session
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
-        listener.handle("test.txt", &project.id).unwrap();
+        listener.calculate_delta("test.txt", project.id).unwrap();
 
         let flushed_session = gb_repository
             .flush(project_repository, None)
@@ -803,7 +827,9 @@ mod flush_wd {
         // write another file into session
         std::fs::create_dir_all(project.path.join("one/two")).unwrap();
         std::fs::write(project.path.join("one/two/test2.txt"), "hello world!").unwrap();
-        listener.handle("one/two/test2.txt", &project.id).unwrap();
+        listener
+            .calculate_delta("one/two/test2.txt", project.id)
+            .unwrap();
 
         let flushed_session = gb_repository
             .flush(project_repository, None)
@@ -837,21 +863,23 @@ mod flush_wd {
 
     #[test]
     fn should_remove_deleted_files_from_session_wd() {
-        let suite = Suite::default();
+        let mut fixture = Fixture::default();
+        let listener = State::from_fixture(&mut fixture);
         let Case {
             gb_repository,
             project,
             project_repository,
             ..
-        } = &suite.new_case();
-        let listener = Handler::from_path(suite.local_app_data());
+        } = &fixture.new_case();
 
         // write a file into session
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
-        listener.handle("test.txt", &project.id).unwrap();
+        listener.calculate_delta("test.txt", project.id).unwrap();
         std::fs::create_dir_all(project.path.join("one/two")).unwrap();
         std::fs::write(project.path.join("one/two/test2.txt"), "hello world!").unwrap();
-        listener.handle("one/two/test2.txt", &project.id).unwrap();
+        listener
+            .calculate_delta("one/two/test2.txt", project.id)
+            .unwrap();
 
         let flushed_session = gb_repository
             .flush(project_repository, None)
@@ -884,9 +912,11 @@ mod flush_wd {
 
         // rm the files
         std::fs::remove_file(project.path.join("test.txt")).unwrap();
-        listener.handle("test.txt", &project.id).unwrap();
+        listener.calculate_delta("test.txt", project.id).unwrap();
         std::fs::remove_file(project.path.join("one/two/test2.txt")).unwrap();
-        listener.handle("one/two/test2.txt", &project.id).unwrap();
+        listener
+            .calculate_delta("one/two/test2.txt", project.id)
+            .unwrap();
 
         let flushed_session = gb_repository
             .flush(project_repository, None)
@@ -910,21 +940,23 @@ mod flush_wd {
 
     #[test]
     fn should_update_updated_files_in_session_wd() {
-        let suite = Suite::default();
+        let mut fixture = Fixture::default();
+        let listener = State::from_fixture(&mut fixture);
         let Case {
             gb_repository,
             project,
             project_repository,
             ..
-        } = &suite.new_case();
-        let listener = Handler::from_path(suite.local_app_data());
+        } = &fixture.new_case();
 
         // write a file into session
         std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
-        listener.handle("test.txt", &project.id).unwrap();
+        listener.calculate_delta("test.txt", project.id).unwrap();
         std::fs::create_dir_all(project.path.join("one/two")).unwrap();
         std::fs::write(project.path.join("one/two/test2.txt"), "hello world!").unwrap();
-        listener.handle("one/two/test2.txt", &project.id).unwrap();
+        listener
+            .calculate_delta("one/two/test2.txt", project.id)
+            .unwrap();
 
         let flushed_session = gb_repository
             .flush(project_repository, None)
@@ -957,10 +989,12 @@ mod flush_wd {
 
         // update the file
         std::fs::write(project.path.join("test.txt"), "hello world!2").unwrap();
-        listener.handle("test.txt", &project.id).unwrap();
+        listener.calculate_delta("test.txt", project.id).unwrap();
 
         std::fs::write(project.path.join("one/two/test2.txt"), "hello world!2").unwrap();
-        listener.handle("one/two/test2.txt", &project.id).unwrap();
+        listener
+            .calculate_delta("one/two/test2.txt", project.id)
+            .unwrap();
 
         let flushed_session = gb_repository
             .flush(project_repository, None)

@@ -1,3 +1,4 @@
+import { invoke } from '$lib/backend/ipc';
 import { BranchService } from '$lib/branches/service';
 import { getFetchNotifications } from '$lib/stores/fetches';
 import { getHeads } from '$lib/stores/head';
@@ -27,6 +28,7 @@ export async function load({ params, parent }) {
 	let project: Project | undefined = undefined;
 	try {
 		project = await projectService.getProject(projectId);
+		invoke('set_project_active', { id: projectId }).then((_r) => {});
 	} catch (err: any) {
 		throw error(400, {
 			message: err.message
