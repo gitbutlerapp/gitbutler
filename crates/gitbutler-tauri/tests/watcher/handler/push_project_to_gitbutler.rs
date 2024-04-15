@@ -2,10 +2,10 @@ use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Result;
 use gitbutler_core::{git, project_repository::LogUntil, projects};
-use gitbutler_tauri::watcher::Handler;
 
+use crate::watcher::handler::support::Fixture;
 use crate::watcher::handler::test_remote_repository;
-use gitbutler_testsupport::{virtual_branches::set_test_target, Case, Suite};
+use gitbutler_testsupport::{virtual_branches::set_test_target, Case};
 
 fn log_walk(repo: &git2::Repository, head: git::Oid) -> Vec<git::Oid> {
     let mut walker = repo.revwalk().unwrap();
@@ -15,8 +15,9 @@ fn log_walk(repo: &git2::Repository, head: git::Oid) -> Vec<git::Oid> {
 
 #[tokio::test]
 async fn push_error() -> Result<()> {
-    let suite = Suite::default();
-    let Case { project, .. } = &suite.new_case();
+    let mut fixture = Fixture::default();
+    let handler = fixture.new_handler();
+    let Case { project, .. } = &fixture.new_case();
 
     let api_project = projects::ApiProject {
         name: "test-sync".to_string(),
@@ -29,7 +30,7 @@ async fn push_error() -> Result<()> {
         sync: true,
     };
 
-    suite
+    fixture
         .projects
         .update(&projects::UpdateRequest {
             id: project.id,
@@ -38,40 +39,30 @@ async fn push_error() -> Result<()> {
         })
         .await?;
 
-    let res = Handler::push_project_to_gitbutler_pure(
-        suite.local_app_data(),
-        &suite.projects,
-        &suite.users,
-        project.id,
-        100,
-    )
-    .await;
-
-    res.unwrap_err();
+    let res = handler.push_project_to_gitbutler(project.id, 100).await;
+    let err = res.unwrap_err();
+    assert_eq!(err.to_string(), "failed to get default target");
 
     Ok(())
 }
 
 #[tokio::test]
 async fn push_simple() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let handler = fixture.new_handler();
     let Case {
         project,
         gb_repository,
         project_repository,
         ..
-    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
+    } = &fixture.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
 
-    suite.sign_in();
-
+    fixture.sign_in();
     set_test_target(gb_repository, project_repository).unwrap();
 
     let target_id = gb_repository.default_target().unwrap().unwrap().sha;
-
     let reference = project_repository.l(target_id, LogUntil::End).unwrap();
-
     let (cloud_code, _tmp) = test_remote_repository()?;
-
     let api_project = projects::ApiProject {
         name: "test-sync".to_string(),
         description: None,
@@ -83,7 +74,7 @@ async fn push_simple() -> Result<()> {
         sync: true,
     };
 
-    suite
+    fixture
         .projects
         .update(&projects::UpdateRequest {
             id: project.id,
@@ -95,15 +86,10 @@ async fn push_simple() -> Result<()> {
     cloud_code.find_commit(target_id.into()).unwrap_err();
 
     {
-        Handler::push_project_to_gitbutler_pure(
-            suite.local_app_data(),
-            &suite.projects,
-            &suite.users,
-            project.id,
-            10,
-        )
-        .await
-        .unwrap();
+        handler
+            .push_project_to_gitbutler(project.id, 10)
+            .await
+            .unwrap();
     }
 
     cloud_code.find_commit(target_id.into()).unwrap();
@@ -113,7 +99,7 @@ async fn push_simple() -> Result<()> {
     assert_eq!(reference, pushed);
 
     assert_eq!(
-        suite
+        fixture
             .projects
             .get(&project.id)
             .unwrap()
@@ -128,16 +114,16 @@ async fn push_simple() -> Result<()> {
 
 #[tokio::test]
 async fn push_remote_ref() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let handler = fixture.new_handler();
     let Case {
         project,
         gb_repository,
         project_repository,
         ..
-    } = &suite.new_case();
+    } = &fixture.new_case();
 
-    suite.sign_in();
-
+    fixture.sign_in();
     set_test_target(gb_repository, project_repository).unwrap();
 
     let (cloud_code, _tmp) = test_remote_repository()?;
@@ -182,7 +168,7 @@ async fn push_remote_ref() -> Result<()> {
         sync: true,
     };
 
-    suite
+    fixture
         .projects
         .update(&projects::UpdateRequest {
             id: project.id,
@@ -192,19 +178,13 @@ async fn push_remote_ref() -> Result<()> {
         .await?;
 
     {
-        Handler::push_project_to_gitbutler_pure(
-            suite.local_app_data(),
-            &suite.projects,
-            &suite.users,
-            project.id,
-            10,
-        )
-        .await
-        .unwrap();
+        handler
+            .push_project_to_gitbutler(project.id, 10)
+            .await
+            .unwrap();
     }
 
     cloud_code.find_commit(last_commit).unwrap();
-
     Ok(())
 }
 
@@ -255,15 +235,16 @@ fn create_test_commits(repo: &git::Repository, commits: usize) -> git::Oid {
 
 #[tokio::test]
 async fn push_batches() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let handler = fixture.new_handler();
     let Case {
         project,
         gb_repository,
         project_repository,
         ..
-    } = &suite.new_case();
+    } = &fixture.new_case();
 
-    suite.sign_in();
+    fixture.sign_in();
 
     {
         let head: git::Oid = project_repository
@@ -285,9 +266,7 @@ async fn push_batches() -> Result<()> {
     set_test_target(gb_repository, project_repository).unwrap();
 
     let target_id = gb_repository.default_target().unwrap().unwrap().sha;
-
     let reference = project_repository.l(target_id, LogUntil::End).unwrap();
-
     let (cloud_code, _tmp) = test_remote_repository()?;
 
     let api_project = projects::ApiProject {
@@ -301,7 +280,7 @@ async fn push_batches() -> Result<()> {
         sync: true,
     };
 
-    suite
+    fixture
         .projects
         .update(&projects::UpdateRequest {
             id: project.id,
@@ -311,15 +290,10 @@ async fn push_batches() -> Result<()> {
         .await?;
 
     {
-        Handler::push_project_to_gitbutler_pure(
-            suite.local_app_data(),
-            &suite.projects,
-            &suite.users,
-            project.id,
-            2,
-        )
-        .await
-        .unwrap();
+        handler
+            .push_project_to_gitbutler(project.id, 2)
+            .await
+            .unwrap();
     }
 
     cloud_code.find_commit(target_id.into()).unwrap();
@@ -329,7 +303,7 @@ async fn push_batches() -> Result<()> {
     assert_eq!(reference, pushed);
 
     assert_eq!(
-        suite
+        fixture
             .projects
             .get(&project.id)
             .unwrap()
@@ -344,22 +318,20 @@ async fn push_batches() -> Result<()> {
 
 #[tokio::test]
 async fn push_again_no_change() -> Result<()> {
-    let suite = Suite::default();
+    let mut fixture = Fixture::default();
+    let handler = fixture.new_handler();
     let Case {
         project,
         gb_repository,
         project_repository,
         ..
-    } = &suite.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
+    } = &fixture.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
 
-    suite.sign_in();
+    fixture.sign_in();
 
     set_test_target(gb_repository, project_repository).unwrap();
-
     let target_id = gb_repository.default_target().unwrap().unwrap().sha;
-
     let reference = project_repository.l(target_id, LogUntil::End).unwrap();
-
     let (cloud_code, _tmp) = test_remote_repository()?;
 
     let api_project = projects::ApiProject {
@@ -373,7 +345,7 @@ async fn push_again_no_change() -> Result<()> {
         sync: true,
     };
 
-    suite
+    fixture
         .projects
         .update(&projects::UpdateRequest {
             id: project.id,
@@ -385,15 +357,10 @@ async fn push_again_no_change() -> Result<()> {
     cloud_code.find_commit(target_id.into()).unwrap_err();
 
     {
-        Handler::push_project_to_gitbutler_pure(
-            suite.local_app_data(),
-            &suite.projects,
-            &suite.users,
-            project.id,
-            10,
-        )
-        .await
-        .unwrap();
+        handler
+            .push_project_to_gitbutler(project.id, 10)
+            .await
+            .unwrap();
     }
 
     cloud_code.find_commit(target_id.into()).unwrap();
@@ -403,7 +370,7 @@ async fn push_again_no_change() -> Result<()> {
     assert_eq!(reference, pushed);
 
     assert_eq!(
-        suite
+        fixture
             .projects
             .get(&project.id)
             .unwrap()

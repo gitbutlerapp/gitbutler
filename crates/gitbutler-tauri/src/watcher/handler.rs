@@ -199,7 +199,7 @@ impl Handler {
             let this = self.clone();
             move || this.push_gb_data(project_id)
         });
-        self.push_project_to_gitbutler(project_id).await?;
+        self.push_project_to_gitbutler(project_id, 1000).await?;
         push_gb_data.await??;
         Ok(())
     }

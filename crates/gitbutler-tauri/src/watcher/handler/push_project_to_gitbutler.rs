@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::time;
 
 use anyhow::{Context, Result};
@@ -13,34 +12,21 @@ use gitbutler_core::{
 use itertools::Itertools;
 
 impl super::Handler {
-    pub(super) async fn push_project_to_gitbutler(&self, project_id: ProjectId) -> Result<()> {
-        Self::push_project_to_gitbutler_pure(
-            &self.local_data_dir,
-            &self.projects,
-            &self.users,
-            project_id,
-            1000,
-        )
-        .await
-    }
-}
-
-/// Currently required to make functionality testable without requiring a `Handler` with all of its state.
-impl super::Handler {
-    pub async fn push_project_to_gitbutler_pure(
-        local_data_dir: &Path,
-        projects: &projects::Controller,
-        users: &users::Controller,
+    pub async fn push_project_to_gitbutler(
+        &self,
         project_id: ProjectId,
         batch_size: usize,
     ) -> Result<()> {
-        let project = projects.get(&project_id).context("failed to get project")?;
+        let project = self
+            .projects
+            .get(&project_id)
+            .context("failed to get project")?;
 
         if !project.is_sync_enabled() || !project.has_code_url() {
             return Ok(());
         }
 
-        let user = users.get_user()?;
+        let user = self.users.get_user()?;
         let project_repository =
             project_repository::Repository::open(&project).context("failed to open repository")?;
         let gb_code_last_commit = project
@@ -48,8 +34,11 @@ impl super::Handler {
             .as_ref()
             .map(|state| &state.id)
             .copied();
-        let gb_repository =
-            gb_repository::Repository::open(local_data_dir, &project_repository, user.as_ref())?;
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            &project_repository,
+            user.as_ref(),
+        )?;
         let default_target = gb_repository
             .default_target()
             .context("failed to open gb repo")?
@@ -57,16 +46,16 @@ impl super::Handler {
 
         let target_changed = gb_code_last_commit.map_or(true, |id| id != default_target.sha);
         if target_changed {
-            match Self::push_target(
-                projects,
-                &project_repository,
-                &default_target,
-                gb_code_last_commit,
-                project_id,
-                user.as_ref(),
-                batch_size,
-            )
-            .await
+            match self
+                .push_target(
+                    &project_repository,
+                    &default_target,
+                    gb_code_last_commit,
+                    project_id,
+                    user.as_ref(),
+                    batch_size,
+                )
+                .await
             {
                 Ok(()) => {}
                 Err(project_repository::RemoteError::Network) => return Ok(()),
@@ -84,16 +73,19 @@ impl super::Handler {
         .await??;
 
         // make sure last push time is updated
-        Self::update_project(projects, project_id, default_target.sha).await?;
+        self.update_project(project_id, default_target.sha).await?;
         Ok(())
     }
+}
 
+/// Currently required to make functionality testable without requiring a `Handler` with all of its state.
+impl super::Handler {
     async fn update_project(
-        projects: &projects::Controller,
+        &self,
         project_id: Id<projects::Project>,
         id: Oid,
     ) -> Result<(), project_repository::RemoteError> {
-        projects
+        self.projects
             .update(&projects::UpdateRequest {
                 id: project_id,
                 gitbutler_code_push_state: Some(CodePushState {
@@ -108,7 +100,7 @@ impl super::Handler {
     }
 
     async fn push_target(
-        projects: &projects::Controller,
+        &self,
         project_repository: &project_repository::Repository,
         default_target: &gitbutler_core::virtual_branches::target::Target,
         gb_code_last_commit: Option<Oid>,
@@ -134,7 +126,7 @@ impl super::Handler {
             let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
 
             project_repository.push_to_gitbutler_server(user, &[&refspec])?;
-            Self::update_project(projects, project_id, *id).await?;
+            self.update_project(project_id, *id).await?;
 
             tracing::info!(
                 %project_id,
