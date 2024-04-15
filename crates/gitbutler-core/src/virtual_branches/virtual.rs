@@ -21,7 +21,6 @@ use super::{
     branch_to_remote_branch, context, errors, target, Iterator, RemoteBranch,
     VirtualBranchesHandle,
 };
-use crate::error::Error;
 use crate::{
     askpass::AskpassBroker,
     dedup::{dedup, dedup_fmt},
@@ -35,6 +34,7 @@ use crate::{
     project_repository::{self, conflicts, LogUntil},
     projects, reader, sessions, users,
 };
+use crate::{error::Error, git::diff::GitHunk};
 
 type AppliedStatuses = Vec<(branch::Branch, HashMap<PathBuf, Vec<diff::GitHunk>>)>;
 
@@ -691,16 +691,12 @@ pub fn unapply_branch(
     .context("failed to create writer")?;
 
     let final_tree = if conflicts::is_resolving(project_repository) {
-        // when applying branch leads to a conflict, all other branches are unapplied.
-        // this means we can just reset to the default target tree.
         {
             target_branch.applied = false;
             target_branch.selected_for_changes = None;
             branch_writer.write(&mut target_branch)?;
         }
-
         conflicts::clear(project_repository).context("failed to clear conflicts")?;
-
         target_commit.tree().context("failed to get target tree")?
     } else {
         // if we are not resolving, we need to merge the rest of the applied branches
@@ -733,8 +729,9 @@ pub fn unapply_branch(
             .find(|(s, _)| s.id == target_branch.id)
             .context("failed to find status for branch");
 
-        if let Ok((_, files)) = status {
-            if files.is_empty() {
+        if let Ok((branch, files)) = status {
+            update_conflict_markers(project_repository, files)?;
+            if files.is_empty() && branch.head == default_target.sha {
                 // if there is nothing to unapply, remove the branch straight away
                 branch_writer
                     .delete(&target_branch)
@@ -751,7 +748,7 @@ pub fn unapply_branch(
                 return Ok(None);
             }
 
-            target_branch.tree = write_tree(project_repository, &default_target.sha, files)?;
+            target_branch.tree = write_tree(project_repository, &target_branch.head, files)?;
             target_branch.applied = false;
             target_branch.selected_for_changes = None;
             branch_writer.write(&mut target_branch)?;
@@ -773,7 +770,8 @@ pub fn unapply_branch(
                 target_commit.tree().context("failed to get target tree"),
                 |final_tree, status| {
                     let final_tree = final_tree?;
-                    let tree_oid = write_tree(project_repository, &default_target.sha, &status.1)?;
+                    let branch = status.0;
+                    let tree_oid = write_tree(project_repository, &branch.head, &status.1)?;
                     let branch_tree = repo.find_tree(tree_oid)?;
                     let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
                     let final_tree_oid = result.write_tree_to(repo)?;
@@ -851,6 +849,7 @@ pub fn list_virtual_branches(
 
     for (branch, files) in &statuses {
         let repo = &project_repository.git_repository;
+        update_conflict_markers(project_repository, files)?;
 
         let upstream_branch = match branch
             .upstream
@@ -1952,11 +1951,8 @@ pub fn get_status_by_branch(
         .filter(|branch| !branch.applied)
         .collect::<Vec<_>>();
 
-    let non_applied_status = get_non_applied_status(
-        project_repository,
-        &default_target,
-        non_applied_virtual_branches,
-    )?;
+    let non_applied_status =
+        get_non_applied_status(project_repository, non_applied_virtual_branches)?;
 
     Ok((
         applied_status
@@ -1973,7 +1969,6 @@ pub fn get_status_by_branch(
 // ownerships are not taken into account here, as they are not relevant for non applied branches
 fn get_non_applied_status(
     project_repository: &project_repository::Repository,
-    default_target: &target::Target,
     virtual_branches: Vec<branch::Branch>,
 ) -> Result<Vec<(branch::Branch, BranchStatus)>> {
     virtual_branches
@@ -1988,16 +1983,16 @@ fn get_non_applied_status(
                     .find_tree(branch.tree)
                     .context(format!("failed to find tree {}", branch.tree))?;
 
-                let target_tree = project_repository
+                let head_tree = project_repository
                     .git_repository
-                    .find_commit(default_target.sha)
+                    .find_commit(branch.head)
                     .context("failed to find target commit")?
                     .tree()
                     .context("failed to find target tree")?;
 
                 let diff = diff::trees(
                     &project_repository.git_repository,
-                    &target_tree,
+                    &head_tree,
                     &branch_tree,
                     context_lines(project_repository),
                 )?;
@@ -2607,6 +2602,8 @@ pub fn commit(
                 branch_id: *branch_id,
             })
         })?;
+
+    update_conflict_markers(project_repository, files)?;
 
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
         return Err(errors::CommitError::Conflicted(errors::ProjectConflict {
@@ -3258,7 +3255,7 @@ pub fn cherry_pick(
 
     // create a wip commit. we'll use it to offload cherrypick conflicts calculation to libgit.
     let wip_commit = {
-        let wip_tree_oid = write_tree(project_repository, &default_target.sha, branch_files)?;
+        let wip_tree_oid = write_tree(project_repository, &branch.head, branch_files)?;
         let wip_tree = project_repository
             .git_repository
             .find_tree(wip_tree_oid)
@@ -4164,4 +4161,32 @@ mod tests {
         assert_eq!(normalize_branch_name("foo#branch"), "foo#branch");
         assert_eq!(normalize_branch_name("foo!branch"), "foo-branch");
     }
+}
+
+// Goes through a set of changes and checks if conflicts are present. If no conflicts
+// are present in a file it will be resolved, meaning it will be removed from the
+// conflicts file.
+fn update_conflict_markers(
+    project_repository: &project_repository::Repository,
+    files: &HashMap<PathBuf, Vec<GitHunk>>,
+) -> Result<()> {
+    let conflicting_files = conflicts::conflicting_files(project_repository)?;
+    for (file_path, non_commited_hunks) in files {
+        let mut conflicted = false;
+        if conflicting_files.contains(&file_path.display().to_string()) {
+            // check file for conflict markers, resolve the file if there are none in any hunk
+            for hunk in non_commited_hunks {
+                if hunk.diff.contains("<<<<<<< ours") {
+                    conflicted = true;
+                }
+                if hunk.diff.contains(">>>>>>> theirs") {
+                    conflicted = true;
+                }
+            }
+            if !conflicted {
+                conflicts::resolve(project_repository, &file_path.display().to_string()).unwrap();
+            }
+        }
+    }
+    Ok(())
 }
