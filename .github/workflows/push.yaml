@@ -115,6 +115,7 @@ jobs:
           - check-tests
         features:
           - ''
+          - [devtools]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/check-crate
