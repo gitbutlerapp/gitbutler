@@ -92,7 +92,7 @@ impl ErrorWithContext for ApplyBranchError {
             ApplyBranchError::BranchNotFound(ctx) => ctx.to_context(),
             ApplyBranchError::BranchConflicts(id) => error::Context::new(
                 Code::Branches,
-                format!("Branch {} is in a conflicing state", id),
+                format!("Branch {} is in a conflicting state", id),
             ),
             ApplyBranchError::Other(error) => return error.custom_context(),
         })

@@ -89,7 +89,7 @@ const multiChangeHunk = `@@ -1,12 +1,11 @@
                 <div style="display: contents">%sveltekit.body%</div>
         </body>
  </html>`;
-const conflitMarkersHunk = `@@ -3,7 +3,11 @@
+const conflictMarkersHunk = `@@ -3,7 +3,11 @@
  	<head>
  		<meta charset="utf-8" />
  		<meta name="viewport" content="width=device-width" />
@@ -198,7 +198,7 @@ test('parses a balanced hunk section', () => {
 test('parses a hunk with conflict markers', () => {
 	const balancedHunk = plainToInstance(Hunk, {
 		id: '1',
-		diff: conflitMarkersHunk,
+		diff: conflictMarkersHunk,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py',
 		locked: false
