@@ -147,6 +147,9 @@ jobs:
         platform:
           - windows-latest # [windows, x64]
     steps:
+      - name: Clear out old artifacts
+        shell: bash
+        run: rm -rf release
       - name: Download unsigned artifacts
         uses: actions/download-artifact@v4
         with:
