@@ -26,7 +26,7 @@ impl<'writer> DeltasWriter<'writer> {
         self.writer
             .write_string(PathBuf::from("session/deltas").join(path), &raw_deltas)?;
 
-        tracing::debug!(
+        tracing::trace!(
             project_id = %self.repository.get_project_id(),
             path = %path.display(),
             "wrote deltas"
@@ -43,7 +43,7 @@ impl<'writer> DeltasWriter<'writer> {
         let path = path.as_ref();
         self.writer.remove(PathBuf::from("session/wd").join(path))?;
 
-        tracing::debug!(
+        tracing::trace!(
             project_id = %self.repository.get_project_id(),
             path = %path.display(),
             "deleted session wd file"
@@ -61,7 +61,7 @@ impl<'writer> DeltasWriter<'writer> {
         self.writer
             .write_string(PathBuf::from("session/wd").join(path), contents)?;
 
-        tracing::debug!(
+        tracing::trace!(
             project_id = %self.repository.get_project_id(),
             path = %path.display(),
             "wrote session wd file"

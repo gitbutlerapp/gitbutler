@@ -145,7 +145,7 @@ export class BranchController {
 	}
 
 	async unapplyHunk(hunk: Hunk) {
-		const ownership = `${hunk.filePath}:${hunk.id}`;
+		const ownership = `${hunk.filePath}:${hunk.id}-${hunk.hash}`;
 		try {
 			await invoke<void>('unapply_ownership', { projectId: this.projectId, ownership });
 		} catch (err) {

@@ -14,14 +14,12 @@ use gitbutler_core::{
 };
 
 use crate::error::Error;
-use crate::watcher;
 
 #[derive(Clone)]
 pub struct App {
     local_data_dir: path::PathBuf,
     projects: projects::Controller,
     users: users::Controller,
-    watchers: watcher::Watchers,
     sessions_database: sessions::Database,
 }
 
@@ -30,38 +28,14 @@ impl App {
         local_data_dir: path::PathBuf,
         projects: projects::Controller,
         users: users::Controller,
-        watchers: watcher::Watchers,
         sessions_database: sessions::Database,
     ) -> Self {
         Self {
             local_data_dir,
             projects,
             users,
-            watchers,
             sessions_database,
         }
-    }
-
-    pub fn init_project(&self, project: &projects::Project) -> Result<()> {
-        self.watchers.watch(project).context(format!(
-            "failed to start watcher for project {}",
-            &project.id
-        ))?;
-
-        Ok(())
-    }
-
-    pub fn init(&self) -> Result<()> {
-        for project in self
-            .projects
-            .list()
-            .with_context(|| "failed to list projects")?
-        {
-            if let Err(error) = self.init_project(&project) {
-                tracing::error!(%project.id, ?error, "failed to init project");
-            }
-        }
-        Ok(())
     }
 
     pub fn list_session_files(

@@ -2,98 +2,93 @@ use std::fs;
 
 use anyhow::Result;
 use gitbutler_core::projects;
-use gitbutler_tauri::watcher::{handlers, handlers::git_file_change::Handler, Event};
+use gitbutler_tauri::watcher;
 use pretty_assertions::assert_eq;
 
-use gitbutler_testsupport::{Case, Suite};
+use crate::watcher::handler::support::Fixture;
+use gitbutler_testsupport::Case;
 
-#[test]
-fn flush_session() -> Result<()> {
-    let suite = Suite::default();
-    let Case {
-        project,
-        gb_repository,
-        ..
-    } = &suite.new_case();
+#[tokio::test]
+async fn flush_session() -> Result<()> {
+    let mut fixture = Fixture::default();
+    {
+        let case = fixture.new_case();
+        let Case {
+            project,
+            gb_repository,
+            ..
+        } = &case;
 
-    assert!(gb_repository.get_current_session()?.is_none());
-    create_new_session_via_new_file(project, &suite);
-    assert!(gb_repository.get_current_session()?.is_some());
+        assert!(gb_repository.get_current_session()?.is_none());
+        let handler = create_new_session_via_new_file(project, &mut fixture);
+        assert!(gb_repository.get_current_session()?.is_some());
 
-    let listener = Handler::new(
-        suite.local_app_data().into(),
-        suite.projects.clone(),
-        suite.users.clone(),
-    );
+        let flush_file_path = project.path.join(".git/GB_FLUSH");
+        fs::write(flush_file_path.as_path(), "")?;
 
-    let flush_file_path = project.path.join(".git/GB_FLUSH");
-    fs::write(flush_file_path.as_path(), "")?;
+        handler.git_file_change("GB_FLUSH", project.id).await?;
+        assert!(!flush_file_path.exists(), "flush file deleted");
+    }
 
-    let result = listener.handle("GB_FLUSH", &project.id)?;
-
-    assert_eq!(result.len(), 1);
-    assert!(matches!(result[0], Event::Flush(_, _)));
-
-    assert!(!flush_file_path.exists(), "flush file deleted");
-
+    let events = fixture.events();
+    assert_eq!(events.len(), 4);
+    assert!(events[0].name().ends_with("/files"));
+    assert!(events[1].name().ends_with("/deltas"));
+    assert!(events[2].name().ends_with("/sessions"));
+    assert!(events[3].name().ends_with("/sessions"));
     Ok(())
 }
 
-#[test]
-fn do_not_flush_session_if_file_is_missing() -> Result<()> {
-    let suite = Suite::default();
-    let Case {
-        project,
-        gb_repository,
-        ..
-    } = &suite.new_case();
+#[tokio::test]
+async fn do_not_flush_session_if_file_is_missing() -> Result<()> {
+    let mut fixture = Fixture::default();
+    {
+        let Case {
+            project,
+            gb_repository,
+            ..
+        } = &fixture.new_case();
 
-    assert!(gb_repository.get_current_session()?.is_none());
-    create_new_session_via_new_file(project, &suite);
-    assert!(gb_repository.get_current_session()?.is_some());
+        assert!(gb_repository.get_current_session()?.is_none());
+        let handler = create_new_session_via_new_file(project, &mut fixture);
+        assert!(gb_repository.get_current_session()?.is_some());
 
-    let listener = Handler::new(
-        suite.local_app_data().into(),
-        suite.projects.clone(),
-        suite.users.clone(),
-    );
-
-    let result = listener.handle("GB_FLUSH", &project.id)?;
-
-    assert_eq!(result.len(), 0);
-
+        handler.git_file_change("GB_FLUSH", project.id).await?;
+    }
+    let events = fixture.events();
+    assert_eq!(events.len(), 3);
+    assert!(events[0].name().ends_with("/files"));
+    assert!(events[1].name().ends_with("/deltas"));
+    assert!(events[2].name().ends_with("/sessions"));
     Ok(())
 }
 
-fn create_new_session_via_new_file(project: &projects::Project, suite: &Suite) {
+#[tokio::test]
+async fn flush_deletes_flush_file_without_session_to_flush() -> Result<()> {
+    let mut fixture = Fixture::default();
+    {
+        let handler = fixture.new_handler();
+        let Case { project, .. } = &fixture.new_case();
+
+        let flush_file_path = project.path.join(".git/GB_FLUSH");
+        fs::write(flush_file_path.as_path(), "")?;
+
+        handler.git_file_change("GB_FLUSH", project.id).await?;
+        assert!(!flush_file_path.exists(), "flush file deleted");
+    }
+    assert_eq!(fixture.events().len(), 0);
+    Ok(())
+}
+
+fn create_new_session_via_new_file(
+    project: &projects::Project,
+    fixture: &mut Fixture,
+) -> watcher::Handler {
     fs::write(project.path.join("test.txt"), "test").unwrap();
 
-    let file_change_listener =
-        handlers::calculate_deltas_handler::Handler::from_path(suite.local_app_data());
-    file_change_listener
-        .handle("test.txt", &project.id)
+    let handler = fixture.new_handler();
+    handler
+        .calculate_deltas(vec!["test.txt".into()], project.id)
         .unwrap();
-}
-
-#[test]
-fn flush_deletes_flush_file_without_session_to_flush() -> Result<()> {
-    let suite = Suite::default();
-    let Case { project, .. } = &suite.new_case();
-
-    let listener = Handler::new(
-        suite.local_app_data().into(),
-        suite.projects.clone(),
-        suite.users.clone(),
-    );
-
-    let flush_file_path = project.path.join(".git/GB_FLUSH");
-    fs::write(flush_file_path.as_path(), "")?;
-
-    let result = listener.handle("GB_FLUSH", &project.id)?;
-
-    assert_eq!(result.len(), 0);
-
-    assert!(!flush_file_path.exists(), "flush file deleted");
-
-    Ok(())
+    handler
 }

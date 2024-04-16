@@ -49,7 +49,7 @@
 			"active": true,
 			"identifier": "com.gitbutler.app.dev",
 			"category": "DeveloperTool",
-			"copyright": "Copyright © 2023 GitButler. All rights reserved.",
+			"copyright": "Copyright © 2023-2024 GitButler. All rights reserved.",
 			"icon": [
 				"icons/dev/32x32.png",
 				"icons/dev/128x128.png",

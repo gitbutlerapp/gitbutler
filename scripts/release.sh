@@ -140,8 +140,8 @@ if [ "$DO_SIGN" = "true" ]; then
 		export SIGN_KEY="$APPIMAGE_KEY_ID"
 		export APPIMAGETOOL_SIGN_PASSPHRASE="$APPIMAGE_KEY_PASSPHRASE"
 	elif [ "$OS" == "windows" ]; then
-		info "$OS: signing is not done via the release script on Windows; skipping"
-		DO_SIGN="false"
+        # Nothing to do on windows
+        :;
 	else
 		error "signing is not supported on $(uname -s)"
 	fi

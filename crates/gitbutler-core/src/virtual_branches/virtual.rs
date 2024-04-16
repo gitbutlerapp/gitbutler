@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
-use diffy::{apply, Patch};
+use diffy::{apply as diffy_apply, Line, Patch};
 use git2_hooks::HookResult;
 use regex::Regex;
 use serde::Serialize;
@@ -21,20 +21,20 @@ use super::{
     branch_to_remote_branch, context, errors, target, Iterator, RemoteBranch,
     VirtualBranchesHandle,
 };
-use crate::error::Error;
 use crate::{
     askpass::AskpassBroker,
     dedup::{dedup, dedup_fmt},
     gb_repository,
     git::{
         self,
-        diff::{self, diff_files_to_hunks, GitHunk},
+        diff::{self, diff_files_to_hunks},
         show, Commit, Refname, RemoteRefname,
     },
     keys,
     project_repository::{self, conflicts, LogUntil},
     projects, reader, sessions, users,
 };
+use crate::{error::Error, git::diff::GitHunk};
 
 type AppliedStatuses = Vec<(branch::Branch, HashMap<PathBuf, Vec<diff::GitHunk>>)>;
 
@@ -278,11 +278,15 @@ pub fn apply_branch(
 
         if merge_index.has_conflicts() {
             // currently we can only deal with the merge problem branch
-            for mut branch in super::get_status_by_branch(gb_repository, project_repository)?
-                .0
-                .into_iter()
-                .map(|(branch, _)| branch)
-                .filter(|branch| branch.applied)
+            for mut branch in super::get_status_by_branch(
+                gb_repository,
+                project_repository,
+                Some(&target_commit.id()),
+            )?
+            .0
+            .into_iter()
+            .map(|(branch, _)| branch)
+            .filter(|branch| branch.applied)
             {
                 branch.applied = false;
                 writer.write(&mut branch)?;
@@ -511,10 +515,14 @@ pub fn unapply_ownership(
     .filter(|b| b.applied)
     .collect::<Vec<_>>();
 
+    let integration_commit =
+        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
     let (applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
-        &default_target,
+        &integration_commit,
+        &default_target.sha,
         applied_branches,
     )
     .context("failed to get status by branch")?;
@@ -522,24 +530,17 @@ pub fn unapply_ownership(
     let hunks_to_unapply = applied_statuses
         .iter()
         .map(
-            |(branch, branch_files)| -> Result<Vec<(PathBuf, diff::GitHunk)>> {
-                let branch_files = calculate_non_commited_diffs(
-                    project_repository,
-                    branch,
-                    &default_target,
-                    branch_files,
-                )?;
-
+            |(_branch, branch_files)| -> Result<Vec<(PathBuf, &diff::GitHunk)>> {
                 let mut hunks_to_unapply = Vec::new();
                 for (path, hunks) in branch_files {
                     let ownership_hunks: Vec<&Hunk> = ownership
                         .claims
                         .iter()
-                        .filter(|o| o.file_path == path)
+                        .filter(|o| o.file_path == *path)
                         .flat_map(|f| &f.hunks)
                         .collect();
                     for hunk in hunks {
-                        if ownership_hunks.contains(&&Hunk::from(&hunk)) {
+                        if ownership_hunks.contains(&&Hunk::from(hunk)) {
                             hunks_to_unapply.push((path.clone(), hunk));
                         }
                     }
@@ -557,7 +558,7 @@ pub fn unapply_ownership(
 
     let mut diff = HashMap::new();
     for h in hunks_to_unapply {
-        if let Some(reversed_hunk) = diff::reverse_hunk(&h.1) {
+        if let Some(reversed_hunk) = diff::reverse_hunk(h.1) {
             diff.entry(h.0).or_insert_with(Vec::new).push(reversed_hunk);
         } else {
             return Err(errors::UnapplyOwnershipError::Other(anyhow::anyhow!(
@@ -569,7 +570,7 @@ pub fn unapply_ownership(
     let repo = &project_repository.git_repository;
 
     let target_commit = repo
-        .find_commit(default_target.sha)
+        .find_commit(integration_commit)
         .context("failed to find target commit")?;
 
     let base_tree = target_commit.tree().context("failed to get target tree")?;
@@ -577,7 +578,7 @@ pub fn unapply_ownership(
         target_commit.tree().context("failed to get target tree"),
         |final_tree, status| {
             let final_tree = final_tree?;
-            let tree_oid = write_tree(project_repository, &default_target, &status.1)?;
+            let tree_oid = write_tree(project_repository, &integration_commit, &status.1)?;
             let branch_tree = repo.find_tree(tree_oid)?;
             let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
             let final_tree_oid = result.write_tree_to(repo)?;
@@ -690,16 +691,12 @@ pub fn unapply_branch(
     .context("failed to create writer")?;
 
     let final_tree = if conflicts::is_resolving(project_repository) {
-        // when applying branch leads to a conflict, all other branches are unapplied.
-        // this means we can just reset to the default target tree.
         {
             target_branch.applied = false;
             target_branch.selected_for_changes = None;
             branch_writer.write(&mut target_branch)?;
         }
-
         conflicts::clear(project_repository).context("failed to clear conflicts")?;
-
         target_commit.tree().context("failed to get target tree")?
     } else {
         // if we are not resolving, we need to merge the rest of the applied branches
@@ -715,10 +712,14 @@ pub fn unapply_branch(
         .filter(|b| b.applied)
         .collect::<Vec<_>>();
 
+        let integration_commit =
+            super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
         let (applied_statuses, _) = get_applied_status(
             gb_repository,
             project_repository,
-            &default_target,
+            &integration_commit,
+            &default_target.sha,
             applied_branches,
         )
         .context("failed to get status by branch")?;
@@ -728,8 +729,9 @@ pub fn unapply_branch(
             .find(|(s, _)| s.id == target_branch.id)
             .context("failed to find status for branch");
 
-        if let Ok((_, files)) = status {
-            if files.is_empty() {
+        if let Ok((branch, files)) = status {
+            update_conflict_markers(project_repository, files)?;
+            if files.is_empty() && branch.head == default_target.sha {
                 // if there is nothing to unapply, remove the branch straight away
                 branch_writer
                     .delete(&target_branch)
@@ -746,7 +748,7 @@ pub fn unapply_branch(
                 return Ok(None);
             }
 
-            target_branch.tree = write_tree(project_repository, &default_target, files)?;
+            target_branch.tree = write_tree(project_repository, &target_branch.head, files)?;
             target_branch.applied = false;
             target_branch.selected_for_changes = None;
             branch_writer.write(&mut target_branch)?;
@@ -768,7 +770,8 @@ pub fn unapply_branch(
                 target_commit.tree().context("failed to get target tree"),
                 |final_tree, status| {
                     let final_tree = final_tree?;
-                    let tree_oid = write_tree(project_repository, &default_target, &status.1)?;
+                    let branch = status.0;
+                    let tree_oid = write_tree(project_repository, &branch.head, &status.1)?;
                     let branch_tree = repo.find_tree(tree_oid)?;
                     let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
                     let final_tree_oid = result.write_tree_to(repo)?;
@@ -833,7 +836,11 @@ pub fn list_virtual_branches(
             })
         })?;
 
-    let (statuses, skipped_files) = get_status_by_branch(gb_repository, project_repository)?;
+    let integration_commit =
+        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
+    let (statuses, skipped_files) =
+        get_status_by_branch(gb_repository, project_repository, Some(&integration_commit))?;
     let max_selected_for_changes = statuses
         .iter()
         .filter_map(|(branch, _)| branch.selected_for_changes)
@@ -841,12 +848,8 @@ pub fn list_virtual_branches(
         .unwrap_or(-1);
 
     for (branch, files) in &statuses {
-        // check if head tree does not match target tree
-        // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
-        let files =
-            calculate_non_commited_diffs(project_repository, branch, &default_target, files)?;
-
         let repo = &project_repository.git_repository;
+        update_conflict_markers(project_repository, files)?;
 
         let upstream_branch = match branch
             .upstream
@@ -936,7 +939,7 @@ pub fn list_virtual_branches(
             .transpose()?
             .flatten();
 
-        let mut files = diffs_to_virtual_files(project_repository, &files);
+        let mut files = diffs_to_virtual_files(project_repository, files);
         files.sort_by(|a, b| {
             branch
                 .ownership
@@ -997,8 +1000,6 @@ pub fn list_virtual_branches(
 
     branches.sort_by(|a, b| a.order.cmp(&b.order));
 
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
-
     let uses_diff_context = project_repository
         .project()
         .use_diff_context
@@ -1053,8 +1054,8 @@ fn branches_with_hunk_locks(
                             .map_or(false, |committed_hunks| {
                                 committed_hunks.iter().any(|committed_hunk| {
                                     joined(
-                                        committed_hunk.old_start,
-                                        committed_hunk.old_start + committed_hunk.new_lines,
+                                        committed_hunk.new_start,
+                                        committed_hunk.new_start + committed_hunk.new_lines,
                                         hunk.start,
                                         hunk.end,
                                     )
@@ -1072,7 +1073,8 @@ fn branches_with_hunk_locks(
 }
 
 fn joined(start_a: u32, end_a: u32, start_b: u32, end_b: u32) -> bool {
-    (start_a <= start_b && end_a >= start_b) || (start_a <= end_b && end_a >= end_b)
+    ((start_a >= start_b && start_a <= end_b) || (end_a >= start_b && end_a <= end_b))
+        || ((start_b >= start_a && start_b <= end_a) || (end_b >= start_a && end_b <= end_a))
 }
 
 fn files_with_hunk_context(
@@ -1158,115 +1160,6 @@ fn is_requires_force(
         .merge_base(upstream_commit.id(), branch.head)?;
 
     Ok(merge_base != upstream_commit.id())
-}
-
-// given a virtual branch and it's files that are calculated off of a default target,
-// return files adjusted to the branch's head commit
-pub fn calculate_non_commited_diffs(
-    project_repository: &project_repository::Repository,
-    branch: &branch::Branch,
-    default_target: &target::Target,
-    files: &HashMap<PathBuf, Vec<diff::GitHunk>>,
-) -> Result<HashMap<PathBuf, Vec<diff::GitHunk>>> {
-    if default_target.sha == branch.head && !branch.applied {
-        return Ok(files.clone());
-    };
-
-    let branch_tree = if branch.applied {
-        let target_plus_wd_oid = write_tree(project_repository, default_target, files)?;
-        project_repository
-            .git_repository
-            .find_tree(target_plus_wd_oid)
-    } else {
-        project_repository.git_repository.find_tree(branch.tree)
-    }?;
-
-    let branch_head = project_repository
-        .git_repository
-        .find_commit(branch.head)?
-        .tree()?;
-
-    // do a diff between branch.head and the tree we _would_ commit
-    let non_commited_diff = diff::trees(
-        &project_repository.git_repository,
-        &branch_head,
-        &branch_tree,
-        context_lines(project_repository),
-    )
-    .context("failed to diff trees")?;
-    let mut non_commited_diff = diff::diff_files_to_hunks(&non_commited_diff);
-
-    let workspace_diff = diff::workdir(
-        &project_repository.git_repository,
-        &branch.head,
-        context_lines(project_repository),
-    )?;
-    let workspace_diff = diff::diff_files_to_hunks(&workspace_diff);
-
-    // record conflicts resolution
-    // TODO: this feels out of place. move it somewhere else?
-    let conflicting_files = conflicts::conflicting_files(project_repository)?;
-    for (file_path, non_commited_hunks) in &non_commited_diff {
-        let mut conflicted = false;
-        if conflicting_files.contains(&file_path.display().to_string()) {
-            // check file for conflict markers, resolve the file if there are none in any hunk
-            for hunk in non_commited_hunks {
-                if hunk.diff.contains("<<<<<<< ours") {
-                    conflicted = true;
-                }
-                if hunk.diff.contains(">>>>>>> theirs") {
-                    conflicted = true;
-                }
-            }
-            if !conflicted {
-                conflicts::resolve(project_repository, &file_path.display().to_string()).unwrap();
-            }
-        }
-    }
-
-    // Revert back to the original line numbers from all hunks in the workspace
-    // This is done because the hunks in non_commited_diff have line numbers relative to the vbranch, which would be incorrect for the workspace
-    // Applies only to branches that are applied (in the workspace)
-    if branch.applied {
-        non_commited_diff = non_commited_diff
-            .into_iter()
-            .map(|(path, uncommitted_hunks)| {
-                let all_hunks = workspace_diff.get(&path);
-                if let Some(all_hunks) = all_hunks {
-                    let hunks = line_agnostic_hunk_intersection(uncommitted_hunks, all_hunks);
-                    (path, hunks)
-                } else {
-                    (path, uncommitted_hunks)
-                }
-            })
-            .collect();
-    }
-
-    Ok(non_commited_diff)
-}
-
-/// Given two lists of hunks, returns the intersection based on the diff content and disregarding line numbers
-///
-/// Since the hunks are not identical, the retuned hunks are the ones from the second argument
-/// # Arguments
-/// * `left` - A list of hunks
-/// * `right` - A list of hunks to return from
-/// # Returns
-/// * A list of hunks that are present in both `left` and `right`, copied from `right`
-fn line_agnostic_hunk_intersection(left: Vec<GitHunk>, right: &Vec<GitHunk>) -> Vec<GitHunk> {
-    let mut result = Vec::new();
-    for l in left {
-        // Skip the header containing line numbers
-        let l_diff = l.diff.split("@@").collect::<Vec<&str>>().pop();
-        for r in right {
-            let r_diff = r.diff.split("@@").collect::<Vec<&str>>().pop();
-            if l_diff == r_diff {
-                result.push(r.clone());
-                break;
-            }
-        }
-    }
-    result
 }
 
 fn list_virtual_commit_files(
@@ -2012,6 +1905,7 @@ pub type BranchStatus = HashMap<PathBuf, Vec<diff::GitHunk>>;
 pub fn get_status_by_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
+    integration_commit: Option<&git::Oid>,
 ) -> Result<(Vec<(branch::Branch, BranchStatus)>, Vec<diff::FileDiff>)> {
     let latest_session = gb_repository
         .get_latest_session()
@@ -2047,7 +1941,9 @@ pub fn get_status_by_branch(
     let (applied_status, skipped_files) = get_applied_status(
         gb_repository,
         project_repository,
-        &default_target,
+        // TODO: Keep this optional or update lots of tests?
+        integration_commit.unwrap_or(&default_target.sha),
+        &default_target.sha,
         applied_virtual_branches,
     )?;
 
@@ -2056,11 +1952,8 @@ pub fn get_status_by_branch(
         .filter(|branch| !branch.applied)
         .collect::<Vec<_>>();
 
-    let non_applied_status = get_non_applied_status(
-        project_repository,
-        &default_target,
-        non_applied_virtual_branches,
-    )?;
+    let non_applied_status =
+        get_non_applied_status(project_repository, non_applied_virtual_branches)?;
 
     Ok((
         applied_status
@@ -2077,7 +1970,6 @@ pub fn get_status_by_branch(
 // ownerships are not taken into account here, as they are not relevant for non applied branches
 fn get_non_applied_status(
     project_repository: &project_repository::Repository,
-    default_target: &target::Target,
     virtual_branches: Vec<branch::Branch>,
 ) -> Result<Vec<(branch::Branch, BranchStatus)>> {
     virtual_branches
@@ -2092,16 +1984,16 @@ fn get_non_applied_status(
                     .find_tree(branch.tree)
                     .context(format!("failed to find tree {}", branch.tree))?;
 
-                let target_tree = project_repository
+                let head_tree = project_repository
                     .git_repository
-                    .find_commit(default_target.sha)
+                    .find_commit(branch.head)
                     .context("failed to find target commit")?
                     .tree()
                     .context("failed to find target tree")?;
 
                 let diff = diff::trees(
                     &project_repository.git_repository,
-                    &target_tree,
+                    &head_tree,
                     &branch_tree,
                     context_lines(project_repository),
                 )?;
@@ -2119,12 +2011,13 @@ fn get_non_applied_status(
 fn get_applied_status(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    default_target: &target::Target,
+    integration_commit: &git::Oid,
+    target_sha: &git::Oid,
     mut virtual_branches: Vec<branch::Branch>,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
     let base_file_diffs = diff::workdir(
         &project_repository.git_repository,
-        &default_target.sha,
+        integration_commit,
         context_lines(project_repository),
     )
     .context("failed to diff workdir")?;
@@ -2163,6 +2056,53 @@ fn get_applied_status(
 
     let mut mtimes = HashMap::new();
 
+    let mut git_hunk_map = HashMap::new();
+
+    for branch in &virtual_branches {
+        if !branch.applied {
+            bail!("branch {} is not applied", branch.name);
+        }
+        let commits = project_repository.log(branch.head, LogUntil::Commit(*target_sha));
+        if let Ok(commits) = commits {
+            for commit in commits {
+                let commit = project_repository
+                    .git_repository
+                    .find_commit(commit.id())
+                    .unwrap();
+                let parent = commit
+                    .parent(0)
+                    .context("failed to get parent commit")
+                    .unwrap();
+                let commit_tree = commit.tree().context("failed to get commit tree").unwrap();
+                let parent_tree = parent.tree().context("failed to get parent tree").unwrap();
+                let commited_file_diffs = diff::trees(
+                    &project_repository.git_repository,
+                    &parent_tree,
+                    &commit_tree,
+                    context_lines(project_repository),
+                );
+                let commited_file_diffs = diff::diff_files_to_hunks(&commited_file_diffs.unwrap());
+                for (path, committed_git_hunks) in commited_file_diffs.iter() {
+                    if let Some(uncommitted_git_hunks) = base_diffs.get_mut(path) {
+                        for uncommitted_git_hunk in uncommitted_git_hunks {
+                            for committed_git_hunk in committed_git_hunks {
+                                if joined(
+                                    uncommitted_git_hunk.new_start,
+                                    uncommitted_git_hunk.new_start + uncommitted_git_hunk.new_lines,
+                                    committed_git_hunk.new_start,
+                                    committed_git_hunk.new_start + committed_git_hunk.new_lines,
+                                ) {
+                                    let hash = Hunk::hash(&uncommitted_git_hunk.diff);
+                                    git_hunk_map.insert(hash, branch.id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     for branch in &mut virtual_branches {
         if !branch.applied {
             bail!("branch {} is not applied", branch.name);
@@ -2186,11 +2126,14 @@ fn get_applied_status(
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
                             let hash = Hunk::hash(&git_diff_hunk.diff);
-                            // Eq compares hashes first, and if one of the hunks lacks a hash, it compares line numbers
+                            if let Some(locked_to) = git_hunk_map.get(&hash) {
+                                if locked_to != &branch.id {
+                                    return None;
+                                }
+                            }
                             if claimed_hunk.eq(&Hunk::from(git_diff_hunk)) {
                                 // try to re-use old timestamp
                                 let timestamp = claimed_hunk.timestam_ms().unwrap_or(mtime);
-                                // push hunk to the end of the list, preserving the order
                                 diffs_by_branch
                                     .entry(branch.id)
                                     .or_default()
@@ -2205,27 +2148,19 @@ fn get_applied_status(
                                         .with_hash(hash.as_str()),
                                 );
                             } else if claimed_hunk.intersects(git_diff_hunk) {
-                                // if it's an intersection, push the hunk to the beginning,
-                                // indicating the the hunk has been updated
                                 diffs_by_branch
                                     .entry(branch.id)
                                     .or_default()
                                     .entry(claim.file_path.clone())
                                     .or_default()
                                     .insert(0, git_diff_hunk.clone());
-
                                 let updated_hunk = Hunk {
                                     start: git_diff_hunk.new_start,
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
                                     timestamp_ms: Some(mtime),
                                     hash: Some(hash.clone()),
                                 };
-
-                                // remove the hunk from the current hunks because each hunk can
-                                // only be owned once
                                 git_diff_hunks.remove(i);
-
-                                // return updated version, with new hash and/or timestamp
                                 return Some(updated_hunk);
                             }
                         }
@@ -2258,10 +2193,20 @@ fn get_applied_status(
         .position(|b| b.selected_for_changes == Some(max_selected_for_changes))
         .unwrap_or(0);
 
-    // put the remaining hunks into the default (first) branch
     for (filepath, hunks) in base_diffs {
         for hunk in hunks {
-            virtual_branches[default_vbranch_pos]
+            let hash = Hunk::hash(&hunk.diff);
+            let vbranch_pos = if let Some(locked_to) = git_hunk_map.get(&hash) {
+                let p = virtual_branches.iter().position(|vb| vb.id == *locked_to);
+                match p {
+                    Some(p) => p,
+                    _ => default_vbranch_pos,
+                }
+            } else {
+                default_vbranch_pos
+            };
+
+            virtual_branches[vbranch_pos]
                 .ownership
                 .put(&OwnershipClaim {
                     file_path: filepath.clone(),
@@ -2269,8 +2214,9 @@ fn get_applied_status(
                         .with_timestamp(get_mtime(&mut mtimes, &filepath))
                         .with_hash(Hunk::hash(hunk.diff.as_str()).as_str())],
                 });
+
             diffs_by_branch
-                .entry(virtual_branches[default_vbranch_pos].id)
+                .entry(virtual_branches[vbranch_pos].id)
                 .or_default()
                 .entry(filepath.clone())
                 .or_default()
@@ -2300,7 +2246,7 @@ fn get_applied_status(
         )
         .context("failed to create writer")?;
         for (vbranch, files) in &mut hunks_by_branch {
-            vbranch.tree = write_tree(project_repository, default_target, files)?;
+            vbranch.tree = write_tree(project_repository, integration_commit, files)?;
             branch_writer
                 .write(vbranch)
                 .context(format!("failed to write virtual branch {}", vbranch.name))?;
@@ -2424,10 +2370,10 @@ fn diffs_to_virtual_files(
 // and writes it as a new tree for storage
 pub fn write_tree(
     project_repository: &project_repository::Repository,
-    target: &target::Target,
+    target: &git::Oid,
     files: &HashMap<PathBuf, Vec<diff::GitHunk>>,
 ) -> Result<git::Oid> {
-    write_tree_onto_commit(project_repository, target.sha, files)
+    write_tree_onto_commit(project_repository, *target, files)
 }
 
 pub fn write_tree_onto_commit(
@@ -2528,8 +2474,10 @@ pub fn write_tree_onto_tree(
                     }
 
                     let patch = Patch::from_str(&all_diffs)?;
-                    blob_contents = apply(&blob_contents, &patch)
-                        .context(format!("failed to apply {}", &all_diffs))?;
+                    blob_contents = apply(&blob_contents, &patch).context(format!(
+                        "failed to apply\n{}\nonto:\n{}",
+                        &all_diffs, &blob_contents
+                    ))?;
 
                     // create a blob
                     let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
@@ -2629,18 +2577,12 @@ pub fn commit(
 
     let message = &message_buffer;
 
-    let default_target = gb_repository
-        .default_target()
-        .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::CommitError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
-                project_id: project_repository.project().id,
-            })
-        })?;
-
+    let integration_commit =
+        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
     // get the files to commit
-    let (mut statuses, _) = get_status_by_branch(gb_repository, project_repository)
-        .context("failed to get status by branch")?;
+    let (mut statuses, _) =
+        get_status_by_branch(gb_repository, project_repository, Some(&integration_commit))
+            .context("failed to get status by branch")?;
 
     let (ref mut branch, files) = statuses
         .iter_mut()
@@ -2652,7 +2594,8 @@ pub fn commit(
             })
         })?;
 
-    let files = calculate_non_commited_diffs(project_repository, branch, &default_target, files)?;
+    update_conflict_markers(project_repository, files)?;
+
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
         return Err(errors::CommitError::Conflicted(errors::ProjectConflict {
             project_id: project_repository.project().id,
@@ -2688,7 +2631,7 @@ pub fn commit(
             .collect::<HashMap<_, _>>();
         write_tree_onto_commit(project_repository, branch.head, &files)?
     } else {
-        write_tree_onto_commit(project_repository, branch.head, &files)?
+        write_tree_onto_commit(project_repository, branch.head, files)?
     };
 
     let git_repository = &project_repository.git_repository;
@@ -3109,10 +3052,14 @@ pub fn amend(
             })
         })?;
 
+    let integration_commit =
+        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
     let (mut applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
-        &default_target,
+        &integration_commit,
+        &default_target.sha,
         applied_branches,
     )?;
 
@@ -3145,13 +3092,6 @@ pub fn amend(
         return Err(errors::AmendError::BranchHasNoCommits);
     }
 
-    let diffs_to_consider = calculate_non_commited_diffs(
-        project_repository,
-        target_branch,
-        &default_target,
-        target_status,
-    )?;
-
     let head_commit = project_repository
         .git_repository
         .find_commit(target_branch.head)
@@ -3161,7 +3101,7 @@ pub fn amend(
         .claims
         .iter()
         .filter_map(|file_ownership| {
-            let hunks = diffs_to_consider
+            let hunks = target_status
                 .get(&file_ownership.file_path)
                 .map(|hunks| {
                     hunks
@@ -3287,10 +3227,14 @@ pub fn cherry_pick(
     .filter(|b| b.applied)
     .collect::<Vec<_>>();
 
+    let integration_commit =
+        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
     let (applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
-        &default_target,
+        &integration_commit,
+        &default_target.sha,
         applied_branches,
     )?;
 
@@ -3302,7 +3246,7 @@ pub fn cherry_pick(
 
     // create a wip commit. we'll use it to offload cherrypick conflicts calculation to libgit.
     let wip_commit = {
-        let wip_tree_oid = write_tree(project_repository, &default_target, branch_files)?;
+        let wip_tree_oid = write_tree(project_repository, &branch.head, branch_files)?;
         let wip_tree = project_repository
             .git_repository
             .find_tree(wip_tree_oid)
@@ -3855,10 +3799,14 @@ pub fn move_commit(
             })
         })?;
 
+    let integration_commit =
+        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
     let (mut applied_statuses, _) = get_applied_status(
         gb_repository,
         project_repository,
-        &default_target,
+        &integration_commit,
+        &default_target.sha,
         applied_branches,
     )?;
 
@@ -3867,12 +3815,7 @@ pub fn move_commit(
         .find(|(b, _)| b.head == commit_oid)
         .ok_or_else(|| errors::MoveCommitError::CommitNotFound(commit_oid))?;
 
-    let source_branch_non_comitted_files = calculate_non_commited_diffs(
-        project_repository,
-        source_branch,
-        &default_target,
-        source_status,
-    )?;
+    let source_branch_non_comitted_files = source_status;
 
     let source_branch_head = project_repository
         .git_repository
@@ -4187,20 +4130,114 @@ pub fn context_lines(project_repository: &project_repository::Repository) -> u32
     }
 }
 
+/// Just like [`diffy::apply()`], but on error it will attach hashes of the input `base_image` and `patch`.
+pub fn apply(base_image: &str, patch: &Patch<'_, str>) -> Result<String> {
+    fn md5_hash_hex(b: impl AsRef<[u8]>) -> String {
+        format!("{:x}", md5::compute(b))
+    }
+
+    #[derive(Debug)]
+    #[allow(dead_code)] // Read by Debug auto-impl, which doesn't count
+    pub enum DebugLine {
+        // Note that each of these strings is a hash only
+        Context(String),
+        Delete(String),
+        Insert(String),
+    }
+
+    impl<'a> From<&diffy::Line<'a, str>> for DebugLine {
+        fn from(line: &Line<'a, str>) -> Self {
+            match line {
+                Line::Context(s) => DebugLine::Context(md5_hash_hex(s)),
+                Line::Delete(s) => DebugLine::Delete(md5_hash_hex(s)),
+                Line::Insert(s) => DebugLine::Insert(md5_hash_hex(s)),
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    #[allow(dead_code)] // Read by Debug auto-impl, which doesn't count
+    struct DebugHunk {
+        old_range: diffy::HunkRange,
+        new_range: diffy::HunkRange,
+        lines: Vec<DebugLine>,
+    }
+
+    impl<'a> From<&diffy::Hunk<'a, str>> for DebugHunk {
+        fn from(hunk: &diffy::Hunk<'a, str>) -> Self {
+            Self {
+                old_range: hunk.old_range(),
+                new_range: hunk.new_range(),
+                lines: hunk.lines().iter().map(Into::into).collect(),
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    #[allow(dead_code)] // Read by Debug auto-impl, which doesn't count
+    struct DebugContext {
+        base_image_hash: String,
+        hunks: Vec<DebugHunk>,
+    }
+
+    impl std::fmt::Display for DebugContext {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            std::fmt::Debug::fmt(self, f)
+        }
+    }
+
+    diffy_apply(base_image, patch).with_context(|| DebugContext {
+        base_image_hash: md5_hash_hex(base_image),
+        hunks: patch.hunks().iter().map(Into::into).collect(),
+    })
+}
+
+// Goes through a set of changes and checks if conflicts are present. If no conflicts
+// are present in a file it will be resolved, meaning it will be removed from the
+// conflicts file.
+fn update_conflict_markers(
+    project_repository: &project_repository::Repository,
+    files: &HashMap<PathBuf, Vec<GitHunk>>,
+) -> Result<()> {
+    let conflicting_files = conflicts::conflicting_files(project_repository)?;
+    for (file_path, non_commited_hunks) in files {
+        let mut conflicted = false;
+        if conflicting_files.contains(&file_path.display().to_string()) {
+            // check file for conflict markers, resolve the file if there are none in any hunk
+            for hunk in non_commited_hunks {
+                if hunk.diff.contains("<<<<<<< ours") {
+                    conflicted = true;
+                }
+                if hunk.diff.contains(">>>>>>> theirs") {
+                    conflicted = true;
+                }
+            }
+            if !conflicted {
+                conflicts::resolve(project_repository, &file_path.display().to_string()).unwrap();
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn joined_test() {
-        assert!(!joined(10, 13, 6, 9));
-        assert!(joined(10, 13, 7, 10));
-        assert!(joined(10, 13, 8, 11));
-        assert!(joined(10, 13, 9, 12));
-        assert!(joined(10, 13, 10, 13));
-        assert!(joined(10, 13, 11, 14));
-        assert!(joined(10, 13, 12, 15));
-        assert!(joined(10, 13, 13, 16));
-        assert!(!joined(10, 13, 14, 17));
+        assert!(!joined(1, 2, 3, 4));
+        assert!(joined(1, 4, 2, 3));
+        assert!(joined(2, 3, 1, 4));
+        assert!(!joined(3, 4, 1, 2));
+
+        assert!(joined(1, 2, 2, 3));
+        assert!(joined(1, 3, 2, 3));
+        assert!(joined(2, 3, 1, 2));
+
+        assert!(!joined(1, 1, 2, 2));
+        assert!(joined(1, 1, 1, 1));
+        assert!(joined(1, 1, 1, 2));
+        assert!(joined(1, 2, 2, 2));
     }
 
     #[test]

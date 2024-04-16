@@ -33,9 +33,9 @@ impl fmt::Display for Event {
 }
 
 impl Event {
-    pub fn project_id(&self) -> &ProjectId {
+    pub fn project_id(&self) -> ProjectId {
         match self {
-            Event::HeadChange { project_id, .. } => project_id,
+            Event::HeadChange { project_id, .. } => *project_id,
         }
     }
 
@@ -55,14 +55,16 @@ impl Event {
     }
 }
 
+/// NOTE: Needs to be `Clone` only because the watcher wants to obtain it from `tauri`.
+/// It's just for dependency injection.
 #[derive(Clone)]
 pub struct Client {
-    client: Arc<Box<dyn posthog::Client + Sync + Send>>,
+    client: Arc<dyn posthog::Client + Sync + Send>,
 }
 
 impl Client {
     pub fn new(app_handle: &AppHandle, config: &Config) -> Self {
-        let client: Box<dyn posthog::Client + Sync + Send> =
+        let client: Arc<dyn posthog::Client + Sync + Send> =
             if let Some(posthog_token) = config.posthog_token {
                 let real = posthog::real::Client::new(posthog::real::ClientOptions {
                     api_key: posthog_token.to_string(),
@@ -70,30 +72,29 @@ impl Client {
                     app_version: app_handle.package_info().version.to_string(),
                 });
                 let real_with_retry = posthog::retry::Client::new(real);
-                Box::new(real_with_retry)
+                Arc::new(real_with_retry)
             } else {
-                Box::<posthog::mock::Client>::default()
+                Arc::<posthog::mock::Client>::default()
             };
-        Client {
-            client: Arc::new(client),
-        }
+        Client { client }
     }
 
-    pub async fn send(&self, user: &User, event: &Event) {
-        if let Err(error) = self
-            .client
-            .capture(&[event.clone().into_posthog_event(user)])
-            .await
-        {
-            tracing::warn!(?error, "failed to send analytics");
-        }
+    /// Send `event` to analytics and associate it with `user` without blocking.
+    pub fn send_non_anonymous_event_nonblocking(&self, user: &User, event: &Event) {
+        let client = self.client.clone();
+        let event = event.clone().into_posthog_event(user);
+        tokio::spawn(async move {
+            if let Err(error) = client.capture(&[event]).await {
+                tracing::warn!(?error, "failed to send analytics");
+            }
+        });
     }
 }
 
 impl Default for Client {
     fn default() -> Self {
         Self {
-            client: Arc::new(Box::<posthog::mock::Client>::default()),
+            client: Arc::new(posthog::mock::Client),
         }
     }
 }

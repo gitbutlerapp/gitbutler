@@ -2097,6 +2097,7 @@ dependencies = [
  "backtrace",
  "chrono",
  "console-subscriber",
+ "crossbeam-channel",
  "futures",
  "git2",
  "gitbutler-core",

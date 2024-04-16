@@ -809,7 +809,7 @@ mod applied_branch {
             // fetch remote
             controller.update_base_branch(project_id).await.unwrap();
 
-            // should stash conflicing branch
+            // should stash conflicting branch
 
             let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
@@ -1589,7 +1589,7 @@ mod applied_branch {
             .await
             .unwrap();
 
-        // another locked conflicing hunk
+        // another locked conflicting hunk
         fs::write(
             repository.path().join("file.txt"),
             "1\n2\n3\n4\n5\n6\n77\n8\n19\n10\n11\n12\n",

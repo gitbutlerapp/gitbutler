@@ -241,7 +241,7 @@ impl TestProject {
             .unwrap();
     }
 
-    pub fn find_commit(&self, oid: git::Oid) -> Result<git::Commit, git::Error> {
+    pub fn find_commit(&self, oid: git::Oid) -> Result<git::Commit<'_>, git::Error> {
         self.local_repository.find_commit(oid)
     }
 
@@ -316,7 +316,7 @@ impl TestProject {
             .expect("failed to commit")
     }
 
-    pub fn references(&self) -> Vec<git::Reference> {
+    pub fn references(&self) -> Vec<git::Reference<'_>> {
         self.local_repository
             .references()
             .expect("failed to get references")

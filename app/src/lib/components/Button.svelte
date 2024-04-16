@@ -8,10 +8,10 @@
 	// Interaction props
 	export let element: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
 	export let disabled = false;
-	export let clickable = false;
+	export let clickable = true;
 	export let id: string | undefined = undefined;
 	export let loading = false;
-	export let tabindex = 0;
+	export let tabindex: number | undefined = undefined;
 	export let type: 'submit' | 'reset' | undefined = undefined;
 	// Layout props
 	export let reversedDirection: boolean = false;
@@ -34,11 +34,11 @@
 </script>
 
 <button
-	class="btn {style} {kind} {size}"
+	class="btn focus-state {style} {kind} {size}"
 	class:reversed-direction={reversedDirection}
 	class:wide
 	class:grow
-	class:not-button={clickable}
+	class:not-clickable={!clickable}
 	class:fixed-width={!SLOTS}
 	class:is-dropdown={isDropdownChild}
 	style:align-self={align}
@@ -50,10 +50,14 @@
 	on:mousedown
 	{type}
 	{id}
-	tabindex={clickable ? -1 : tabindex}
+	tabindex={clickable ? tabindex : -1}
 >
 	{#if SLOTS}
-		<span class="label text-base-12 text-semibold">
+		<span
+			class="label text-semibold"
+			class:text-base-12={size == 'button' || size == 'cta'}
+			class:text-base-11={size == 'tag'}
+		>
 			<slot />
 		</span>
 	{/if}
@@ -143,7 +147,7 @@
 		&.reversed-direction {
 			flex-direction: row-reverse;
 		}
-		&.not-button {
+		&.not-clickable {
 			cursor: default;
 			pointer-events: none;
 		}
@@ -188,7 +192,7 @@
 			--btn-bg: oklch(from var(--clr-core-ntrl-60) l c h / 0.15);
 
 			/* if button */
-			&:not(.not-button, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover {
 				--btn-clr: var(--clr-scale-ntrl-20);
 				--btn-bg: oklch(from var(--clr-core-ntrl-50) l c h / 0.18);
 			}
@@ -202,7 +206,7 @@
 			--btn-bg: var(--clr-scale-ntrl-30);
 
 			/* if button */
-			&:not(.not-button, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover {
 				--btn-bg: var(--clr-scale-ntrl-30);
 			}
 		}
@@ -214,7 +218,7 @@
 			--btn-clr: var(--clr-scale-ntrl-40);
 			--btn-bg: transparent;
 
-			&:not(.not-button, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover {
 				--btn-clr: var(--clr-scale-ntrl-20);
 				--btn-bg: var(--clr-bg-muted);
 			}
@@ -227,7 +231,7 @@
 		&.solid {
 			border: 1px solid oklch(from var(--clr-scale-ntrl-0) l c h / 0.2);
 
-			&:not(.not-button, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover {
 				--btn-bg: oklch(from var(--clr-core-ntrl-60) l c h / 0.1);
 			}
 		}
@@ -238,7 +242,7 @@
 			--btn-clr: var(--clr-theme-pop-on-container);
 			--btn-bg: var(--clr-scale-pop-80);
 			/* if button */
-			&:not(.not-button, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover {
 				--btn-bg: oklch(from var(--clr-scale-pop-80) var(--hover-state-ratio) c h);
 			}
 
@@ -250,7 +254,7 @@
 			--btn-clr: var(--clr-theme-pop-on-element);
 			--btn-bg: var(--clr-theme-pop-element);
 			/* if button */
-			&:not(.not-button, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover {
 				--btn-bg: oklch(from var(--clr-theme-pop-element) var(--hover-state-ratio) c h);
 			}
 		}
@@ -261,7 +265,7 @@
 			--btn-clr: var(--clr-theme-succ-on-container);
 			--btn-bg: var(--clr-scale-succ-80);
 			/* if button */
-			&:not(.not-button, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover {
 				--btn-bg: oklch(from var(--clr-scale-succ-80) var(--hover-state-ratio) c h);
 			}
 
@@ -273,7 +277,7 @@
 			--btn-clr: var(--clr-theme-succ-on-element);
 			--btn-bg: var(--clr-theme-succ-element);
 			/* if button */
-			&:not(.not-button, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover {
 				--btn-bg: oklch(from var(--clr-theme-succ-element) var(--hover-state-ratio) c h);
 			}
 		}
@@ -284,7 +288,7 @@
 			--btn-clr: var(--clr-theme-err-on-container);
 			--btn-bg: var(--clr-scale-err-80);
 			/* if button */
-			&:not(.not-button, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover {
 				--btn-bg: oklch(from var(--clr-scale-err-80) var(--hover-state-ratio) c h);
 			}
 
@@ -296,7 +300,7 @@
 			--btn-clr: var(--clr-theme-err-on-element);
 			--btn-bg: var(--clr-theme-err-element);
 			/* if button */
-			&:not(.not-button, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover {
 				--btn-bg: oklch(from var(--clr-theme-err-element) var(--hover-state-ratio) c h);
 			}
 		}
@@ -307,7 +311,7 @@
 			--btn-clr: var(--clr-theme-warn-on-container);
 			--btn-bg: var(--clr-scale-warn-80);
 			/* if button */
-			&:not(.not-button, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover {
 				--btn-bg: oklch(from var(--clr-scale-warn-80) var(--hover-state-ratio) c h);
 			}
 
@@ -319,7 +323,7 @@
 			--btn-clr: var(--clr-theme-warn-on-element);
 			--btn-bg: var(--clr-theme-warn-element);
 			/* if button */
-			&:not(.not-button, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover {
 				--btn-bg: oklch(from var(--clr-theme-warn-element) var(--hover-state-ratio) c h);
 			}
 		}
@@ -330,7 +334,7 @@
 			--btn-clr: var(--clr-theme-purp-on-container);
 			--btn-bg: var(--clr-scale-purp-80);
 			/* if button */
-			&:not(.not-button, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover {
 				--btn-bg: oklch(from var(--clr-scale-purp-80) var(--hover-state-ratio) c h);
 			}
 
@@ -342,7 +346,7 @@
 			--btn-clr: var(--clr-theme-purp-on-element);
 			--btn-bg: var(--clr-theme-purp-element);
 			/* if button */
-			&:not(.not-button, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover {
 				--btn-bg: oklch(from var(--clr-theme-purp-element) var(--hover-state-ratio) c h);
 			}
 		}

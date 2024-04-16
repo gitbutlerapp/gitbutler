@@ -20,7 +20,7 @@ impl Database {
         project_id: &ProjectId,
         session_id: &SessionId,
         file_path: &path::Path,
-        deltas: &Vec<delta::Delta>,
+        deltas: &[delta::Delta],
     ) -> Result<()> {
         self.database.transaction(|tx| -> Result<()> {
             let mut stmt = insert_stmt(tx).context("Failed to prepare insert statement")?;
