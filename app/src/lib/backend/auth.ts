@@ -43,6 +43,6 @@ export class AuthService {
 	}
 
 	async getPublicKey() {
-		return invoke<string>('get_public_key');
+		return await invoke<string>('get_public_key');
 	}
 }

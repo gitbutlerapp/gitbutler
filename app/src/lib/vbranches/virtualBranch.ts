@@ -87,11 +87,11 @@ export class VirtualBranchService {
 			)
 		);
 		this.reload$.next();
-		return fresh;
+		return await fresh;
 	}
 
 	async getById(branchId: string) {
-		return firstValueFrom(
+		return await firstValueFrom(
 			this.branches$.pipe(
 				timeout(10000),
 				map((branches) => branches?.find((b) => b.id == branchId && b.upstream))

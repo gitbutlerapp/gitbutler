@@ -36,7 +36,7 @@
 		<div class="mb-2 bg-red-500 px-2 py-0 font-bold text-white">
 			<button
 				class="font-bold text-white"
-				on:click={async () => branchController.markResolved(file.path)}
+				on:click={async () => await branchController.markResolved(file.path)}
 			>
 				Mark resolved
 			</button>

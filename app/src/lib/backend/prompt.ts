@@ -68,13 +68,13 @@ export class PromptService {
 	// Feeds user supplied string as input to askpass
 	async respond(payload: PromptResponse) {
 		this.reset.next(undefined);
-		return invoke('submit_prompt_response', payload);
+		return await invoke('submit_prompt_response', payload);
 	}
 
 	// Cancels the executable input prompt
 	async cancel(id: string) {
 		this.reset.next(undefined);
-		return invoke('submit_prompt_response', { id: id, response: null });
+		return await invoke('submit_prompt_response', { id: id, response: null });
 	}
 
 	/**

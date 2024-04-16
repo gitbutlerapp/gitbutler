@@ -217,7 +217,7 @@
 						icon="ai-small"
 						disabled={!($aiGenEnabled && aiConfigurationValid)}
 						loading={aiLoading}
-						on:click={async () => generateCommitMessage($branch.files)}
+						on:click={async () => await generateCommitMessage($branch.files)}
 					>
 						Generate message
 						<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>

@@ -6,6 +6,6 @@ export function unsubscribe(...unsubscribers: MaybePromise<() => any>[]) {
 
 		const promises = awaitedUnsubscribers.map((unsubscriber) => unsubscriber?.());
 
-		return Promise.all(promises);
+		return await Promise.all(promises);
 	};
 }

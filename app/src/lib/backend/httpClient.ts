@@ -40,27 +40,27 @@ export class HttpClient {
 			body: formatBody(opts.body)
 		});
 
-		return parseResponseJSON(response);
+		return await parseResponseJSON(response);
 	}
 
 	async get<T>(path: string, opts?: Omit<RequestOptions, 'body'>) {
-		return this.request<T>(path, { ...opts, method: 'GET' });
+		return await this.request<T>(path, { ...opts, method: 'GET' });
 	}
 
 	async post<T>(path: string, opts?: RequestOptions) {
-		return this.request<T>(path, { ...opts, method: 'POST' });
+		return await this.request<T>(path, { ...opts, method: 'POST' });
 	}
 
 	async put<T>(path: string, opts?: RequestOptions) {
-		return this.request<T>(path, { ...opts, method: 'PUT' });
+		return await this.request<T>(path, { ...opts, method: 'PUT' });
 	}
 
 	async patch<T>(path: string, opts?: RequestOptions) {
-		return this.request<T>(path, { ...opts, method: 'PATCH' });
+		return await this.request<T>(path, { ...opts, method: 'PATCH' });
 	}
 
 	async delete<T>(path: string, opts?: RequestOptions) {
-		return this.request<T>(path, { ...opts, method: 'DELETE' });
+		return await this.request<T>(path, { ...opts, method: 'DELETE' });
 	}
 }
 
@@ -74,7 +74,7 @@ async function parseResponseJSON(response: Response) {
 	} else if (response.status >= 400) {
 		throw new Error(`HTTP Error ${response.statusText}: ${await response.text()}`);
 	} else {
-		return response.json();
+		return await response.json();
 	}
 }
 

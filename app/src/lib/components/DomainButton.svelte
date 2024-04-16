@@ -19,7 +19,7 @@
 
 <button
 	use:tooltip={isNavCollapsed ? label : ''}
-	on:mousedown={async () => goto(href)}
+	on:mousedown={async () => await goto(href)}
 	class="domain-button text-base-14 text-semibold"
 	class:selected
 >

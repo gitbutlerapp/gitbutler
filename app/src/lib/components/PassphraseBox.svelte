@@ -53,7 +53,7 @@
 				style="pop"
 				kind="solid"
 				grow
-				on:click={async () => submit()}
+				on:click={async () => await submit()}
 				disabled={submitDisabled || isSubmitting}
 				loading={isSubmitting}
 			>

@@ -13,7 +13,7 @@
 <button
 	class="btn"
 	class:pop
-	on:mousedown={async () => goto('/settings/')}
+	on:mousedown={async () => await goto('/settings/')}
 	class:collapsed={isNavCollapsed}
 >
 	{#if !isNavCollapsed}

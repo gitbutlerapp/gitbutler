@@ -112,7 +112,7 @@
 
 		<SectionCard
 			labelFor="historySync"
-			on:change={async (e) => onSyncChange(e.detail)}
+			on:change={async (e) => await onSyncChange(e.detail)}
 			orientation="row"
 		>
 			<svelte:fragment slot="caption">
@@ -122,7 +122,7 @@
 				<Toggle
 					id="historySync"
 					checked={project.api?.sync || false}
-					on:change={async (e) => onSyncChange(e.detail)}
+					on:change={async (e) => await onSyncChange(e.detail)}
 				/>
 			</svelte:fragment>
 		</SectionCard>
