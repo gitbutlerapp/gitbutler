@@ -133,6 +133,7 @@ pub struct VirtualBranchHunk {
     pub file_path: PathBuf,
     pub hash: String,
     pub old_start: u32,
+    pub old_end: u32,
     pub start: u32,
     pub end: u32,
     pub binary: bool,
@@ -1056,8 +1057,8 @@ fn branches_with_hunk_locks(
                                     joined(
                                         committed_hunk.new_start,
                                         committed_hunk.new_start + committed_hunk.new_lines,
-                                        hunk.start,
-                                        hunk.end,
+                                        hunk.old_start,
+                                        hunk.old_end,
                                     )
                                 })
                             });
@@ -1884,6 +1885,7 @@ pub fn virtual_hunks_by_filepath(
                     file_path: file_path.clone(),
                     diff: hunk.diff.clone(),
                     old_start: hunk.old_start,
+                    old_end: hunk.old_start + hunk.old_lines,
                     start: hunk.new_start,
                     end: hunk.new_start + hunk.new_lines,
                     binary: hunk.binary,
@@ -2087,8 +2089,8 @@ fn get_applied_status(
                         for uncommitted_git_hunk in uncommitted_git_hunks {
                             for committed_git_hunk in committed_git_hunks {
                                 if joined(
-                                    uncommitted_git_hunk.new_start,
-                                    uncommitted_git_hunk.new_start + uncommitted_git_hunk.new_lines,
+                                    uncommitted_git_hunk.old_start,
+                                    uncommitted_git_hunk.old_start + uncommitted_git_hunk.old_lines,
                                     committed_git_hunk.new_start,
                                     committed_git_hunk.new_start + committed_git_hunk.new_lines,
                                 ) {
