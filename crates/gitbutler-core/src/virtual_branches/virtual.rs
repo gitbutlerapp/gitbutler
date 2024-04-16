@@ -4192,34 +4192,6 @@ pub fn apply(base_image: &str, patch: &Patch<'_, str>) -> Result<String> {
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn joined_test() {
-        assert!(!joined(1, 2, 3, 4));
-        assert!(joined(1, 4, 2, 3));
-        assert!(joined(2, 3, 1, 4));
-        assert!(!joined(3, 4, 1, 2));
-
-        assert!(joined(1, 2, 2, 3));
-        assert!(joined(1, 3, 2, 3));
-        assert!(joined(2, 3, 1, 2));
-
-        assert!(!joined(1, 1, 2, 2));
-        assert!(joined(1, 1, 1, 1));
-        assert!(joined(1, 1, 1, 2));
-        assert!(joined(1, 2, 2, 2));
-    }
-
-    #[test]
-    fn normalize_branch_name_test() {
-        assert_eq!(normalize_branch_name("feature/branch"), "feature/branch");
-        assert_eq!(normalize_branch_name("foo#branch"), "foo#branch");
-        assert_eq!(normalize_branch_name("foo!branch"), "foo-branch");
-    }
-}
-
 // Goes through a set of changes and checks if conflicts are present. If no conflicts
 // are present in a file it will be resolved, meaning it will be removed from the
 // conflicts file.
@@ -4246,4 +4218,32 @@ fn update_conflict_markers(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn joined_test() {
+        assert!(!joined(1, 2, 3, 4));
+        assert!(joined(1, 4, 2, 3));
+        assert!(joined(2, 3, 1, 4));
+        assert!(!joined(3, 4, 1, 2));
+
+        assert!(joined(1, 2, 2, 3));
+        assert!(joined(1, 3, 2, 3));
+        assert!(joined(2, 3, 1, 2));
+
+        assert!(!joined(1, 1, 2, 2));
+        assert!(joined(1, 1, 1, 1));
+        assert!(joined(1, 1, 1, 2));
+        assert!(joined(1, 2, 2, 2));
+    }
+
+    #[test]
+    fn normalize_branch_name_test() {
+        assert_eq!(normalize_branch_name("feature/branch"), "feature/branch");
+        assert_eq!(normalize_branch_name("foo#branch"), "foo#branch");
+        assert_eq!(normalize_branch_name("foo!branch"), "foo-branch");
+    }
 }
