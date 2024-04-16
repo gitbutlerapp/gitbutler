@@ -4135,15 +4135,19 @@ mod tests {
     use super::*;
     #[test]
     fn joined_test() {
-        assert!(!joined(10, 13, 6, 9));
-        assert!(joined(10, 13, 7, 10));
-        assert!(joined(10, 13, 8, 11));
-        assert!(joined(10, 13, 9, 12));
-        assert!(joined(10, 13, 10, 13));
-        assert!(joined(10, 13, 11, 14));
-        assert!(joined(10, 13, 12, 15));
-        assert!(joined(10, 13, 13, 16));
-        assert!(!joined(10, 13, 14, 17));
+        assert!(!joined(1, 2, 3, 4));
+        assert!(joined(1, 4, 2, 3));
+        assert!(joined(2, 3, 1, 4));
+        assert!(!joined(3, 4, 1, 2));
+
+        assert!(joined(1, 2, 2, 3));
+        assert!(joined(1, 3, 2, 3));
+        assert!(joined(2, 3, 1, 2));
+
+        assert!(!joined(1, 1, 2, 2));
+        assert!(joined(1, 1, 1, 1));
+        assert!(joined(1, 1, 1, 2));
+        assert!(joined(1, 2, 2, 2));
     }
 
     #[test]
