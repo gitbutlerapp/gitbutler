@@ -3,7 +3,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { getLocalCommits } from '$lib/vbranches/contexts';
+	import { getLocalCommits, getRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import { type AnyFile, LocalFile } from '$lib/vbranches/types';
 
@@ -11,9 +11,13 @@
 
 	// TODO: Refactor this into something more meaningful.
 	const localCommits = file instanceof LocalFile ? getLocalCommits() : undefined;
+	const remoteCommits = file instanceof LocalFile ? getRemoteCommits() : undefined;
 
 	$: lockedIds = file.lockedIds;
-	$: lockText = lockedIds.length > 0 && $localCommits ? getLockText(lockedIds, $localCommits) : '';
+	$: lockText =
+		lockedIds.length > 0 && $localCommits
+			? getLockText(lockedIds, ($localCommits || []).concat($remoteCommits || []))
+			: '';
 </script>
 
 <div class="file-status">
