@@ -3,3 +3,4 @@
 *.dmg
 *.AppImage.tar.gz
 *.deb
+*.sig
