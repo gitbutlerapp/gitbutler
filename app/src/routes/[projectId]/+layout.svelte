@@ -58,7 +58,10 @@
 	}
 
 	onMount(() => {
-		const cloudSyncSubscription = hotkeys.on('Meta+Shift+S', async () => syncToCloud(projectId));
+		const cloudSyncSubscription = hotkeys.on(
+			'Meta+Shift+S',
+			async () => await syncToCloud(projectId)
+		);
 
 		return unsubscribe(cloudSyncSubscription);
 	});
