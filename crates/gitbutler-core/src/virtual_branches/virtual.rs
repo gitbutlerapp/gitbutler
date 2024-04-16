@@ -1073,7 +1073,8 @@ fn branches_with_hunk_locks(
 }
 
 fn joined(start_a: u32, end_a: u32, start_b: u32, end_b: u32) -> bool {
-    (start_a <= start_b && end_a >= start_b) || (start_a <= end_b && end_a >= end_b)
+    ((start_a >= start_b && start_a <= end_b) || (end_a >= start_b && end_a <= end_b))
+        || ((start_b >= start_a && start_b <= end_a) || (end_b >= start_a && end_b <= end_a))
 }
 
 fn files_with_hunk_context(
@@ -2125,18 +2126,16 @@ fn get_applied_status(
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
                             let hash = Hunk::hash(&git_diff_hunk.diff);
-                            // Eq compares hashes first, and if one of the hunks lacks a hash, it compares line numbers
+                            if let Some(locked_to) = git_hunk_map.get(&hash) {
+                                if locked_to != &branch.id {
+                                    return None;
+                                }
+                            }
                             if claimed_hunk.eq(&Hunk::from(git_diff_hunk)) {
                                 // try to re-use old timestamp
                                 let timestamp = claimed_hunk.timestam_ms().unwrap_or(mtime);
-                                // push hunk to the end of the list, preserving the order
-                                let locked_to = git_hunk_map.get(&hash);
-                                let branch_id = match locked_to {
-                                    Some(id) => id,
-                                    _ => &branch.id,
-                                };
                                 diffs_by_branch
-                                    .entry(*branch_id)
+                                    .entry(branch.id)
                                     .or_default()
                                     .entry(claim.file_path.clone())
                                     .or_default()
@@ -2149,32 +2148,19 @@ fn get_applied_status(
                                         .with_hash(hash.as_str()),
                                 );
                             } else if claimed_hunk.intersects(git_diff_hunk) {
-                                // if it's an intersection, push the hunk to the beginning,
-                                // indicating the the hunk has been updated
-                                let locked_to = git_hunk_map.get(&hash);
-                                let branch_id = match locked_to {
-                                    Some(id) => id,
-                                    _ => &branch.id,
-                                };
                                 diffs_by_branch
-                                    .entry(*branch_id)
+                                    .entry(branch.id)
                                     .or_default()
                                     .entry(claim.file_path.clone())
                                     .or_default()
                                     .insert(0, git_diff_hunk.clone());
-
                                 let updated_hunk = Hunk {
                                     start: git_diff_hunk.new_start,
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
                                     timestamp_ms: Some(mtime),
                                     hash: Some(hash.clone()),
                                 };
-
-                                // remove the hunk from the current hunks because each hunk can
-                                // only be owned once
                                 git_diff_hunks.remove(i);
-
-                                // return updated version, with new hash and/or timestamp
                                 return Some(updated_hunk);
                             }
                         }
@@ -2207,10 +2193,20 @@ fn get_applied_status(
         .position(|b| b.selected_for_changes == Some(max_selected_for_changes))
         .unwrap_or(0);
 
-    // put the remaining hunks into the default (first) branch
     for (filepath, hunks) in base_diffs {
         for hunk in hunks {
-            virtual_branches[default_vbranch_pos]
+            let hash = Hunk::hash(&hunk.diff);
+            let vbranch_pos = if let Some(locked_to) = git_hunk_map.get(&hash) {
+                let p = virtual_branches.iter().position(|vb| vb.id == *locked_to);
+                match p {
+                    Some(p) => p,
+                    _ => default_vbranch_pos,
+                }
+            } else {
+                default_vbranch_pos
+            };
+
+            virtual_branches[vbranch_pos]
                 .ownership
                 .put(&OwnershipClaim {
                     file_path: filepath.clone(),
@@ -2218,14 +2214,9 @@ fn get_applied_status(
                         .with_timestamp(get_mtime(&mut mtimes, &filepath))
                         .with_hash(Hunk::hash(hunk.diff.as_str()).as_str())],
                 });
-            let hash = Hunk::hash(&hunk.diff);
-            let locked_to = git_hunk_map.get(&hash);
-            let branch_id = match locked_to {
-                Some(id) => id,
-                _ => &virtual_branches[default_vbranch_pos].id,
-            };
+
             diffs_by_branch
-                .entry(*branch_id)
+                .entry(virtual_branches[vbranch_pos].id)
                 .or_default()
                 .entry(filepath.clone())
                 .or_default()
