@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Finds all files in a directory and renames all spaces to '+'.
+# Finds all files in a directory and renames all spaces to '_'.
 
 set -euo pipefail
 
@@ -12,7 +12,7 @@ if [ -z "$ROOT_DIR" ]; then
 fi
 
 find "$ROOT_DIR" -type f -name '*' -print0 | while IFS= read -r -d '' file; do
-    new_file="$(echo "$file" | tr ' ' '+')"
+    new_file="$(echo "$file" | tr ' ' '_')"
     if [[ "$file" != "$new_file" ]]; then
         mv -v "$file" "$new_file"
     fi
