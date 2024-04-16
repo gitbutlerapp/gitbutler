@@ -1,6 +1,10 @@
 */
 *.msi
 *.dmg
-*.AppImage.tar.gz
+*.tar.gz
 *.deb
 *.sig
+*.exe
+*.app
+*.nsis
+*.zip

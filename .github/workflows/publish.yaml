@@ -197,6 +197,7 @@ jobs:
           rm -rf release-s3
           mkdir -p release-s3
           rsync -avE --prune-empty-dirs --include-from='.github/workflows/publish.include.txt' --exclude='*' release/ release-s3/
+          bash scripts/normalize-spaces.sh ./release-s3
       - uses: shallwefootball/s3-upload-action@master
         name: Upload To S3
         id: S3
